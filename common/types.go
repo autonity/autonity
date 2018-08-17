@@ -76,7 +76,24 @@ func (h Hash) Hex() string { return hexutil.Encode(h[:]) }
 func (h Hash) TerminalString() string {
 	return fmt.Sprintf("%x…%x", h[:3], h[29:])
 }
-
+// returns the value and the std denom of the hash
+func (h Hash) GetDenomId() (uint64, *big.Int){
+	tokenValue := new(big.Int).SetBytes(h.Bytes()[:1]).Uint64()
+	tokenId := new(big.Int).SetBytes(h.Bytes()[1:32])
+	return tokenValue, tokenId
+}
+// returns the value and the std denom of the hash
+func (h Hash) SetDenomId(denom uint64, id *big.Int) Hash {
+	tokenValue := new(big.Int).SetUint64(denom)
+	copy(h[0:1], tokenValue.Bytes()[0:1])
+	tokenIdArray := id.Bytes()
+	if len(tokenIdArray) <= 31 {
+		copy(h[1:len(tokenIdArray) + 1], tokenIdArray [0:])
+	} else {
+		copy(h[1:32], tokenIdArray [0:31])
+	}
+	return h
+}
 // String implements the stringer interface and is used also by the logger when
 // doing full logging into a file.
 func (h Hash) String() string {
