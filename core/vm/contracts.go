@@ -34,7 +34,7 @@ import (
 // contract.
 type PrecompiledContract interface {
 	RequiredGas(input []byte) uint64  // RequiredPrice calculates the contract gas use
-	Run(input []byte, evm *EVM) ([]byte, error) // Run runs the precompiled contract
+	Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) // Run runs the precompiled contract
 }
 
 // PrecompiledContractsHomestead contains the default set of pre-compiled Ethereum
@@ -44,7 +44,7 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{2}): &sha256hash{},
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
-	common.HexToAddress("0x1000"): &USC_Data{},
+	DataContract: &USC_Data{},
 	common.HexToAddress("0x1001"): &USC_Fund{},
 }
 
@@ -58,7 +58,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{5}): &bigModExp{},
 	common.BytesToAddress([]byte{6}): &bn256Add{},
 	common.BytesToAddress([]byte{7}): &bn256ScalarMul{},
-	common.HexToAddress("0x1000"): &USC_Data{},
+	DataContract: &USC_Data{},
 	common.HexToAddress("0x1001"): &USC_Fund{},
 }
 
@@ -66,7 +66,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 func RunPrecompiledContract(p PrecompiledContract, input []byte, contract *Contract, evm *EVM) (ret []byte, err error) {
 	gas := p.RequiredGas(input)
 	if contract.UseGas(gas) {
-		return p.Run(input, evm)
+		return p.Run(input, evm, contract)
 	}
 	return nil, ErrOutOfGas
 }
@@ -80,7 +80,7 @@ func (c *ecrecover) RequiredGas(input []byte) uint64 {
 	return params.EcrecoverGas
 }
 
-func (c *ecrecover) Run(input []byte, evm *EVM) ([]byte, error) {
+func (c *ecrecover) Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) {
 	const ecRecoverInputLength = 128
 
 	input = common.RightPadBytes(input, ecRecoverInputLength)
@@ -116,7 +116,7 @@ type sha256hash struct{}
 func (c *sha256hash) RequiredGas(input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.Sha256PerWordGas + params.Sha256BaseGas
 }
-func (c *sha256hash) Run(input []byte, evm *EVM) ([]byte, error) {
+func (c *sha256hash) Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) {
 	h := sha256.Sum256(input)
 	return h[:], nil
 }
@@ -131,7 +131,7 @@ type ripemd160hash struct{}
 func (c *ripemd160hash) RequiredGas(input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.Ripemd160PerWordGas + params.Ripemd160BaseGas
 }
-func (c *ripemd160hash) Run(input []byte, evm *EVM) ([]byte, error) {
+func (c *ripemd160hash) Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) {
 	ripemd := ripemd160.New()
 	ripemd.Write(input)
 	return common.LeftPadBytes(ripemd.Sum(nil), 32), nil
@@ -147,7 +147,7 @@ type dataCopy struct{}
 func (c *dataCopy) RequiredGas(input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.IdentityPerWordGas + params.IdentityBaseGas
 }
-func (c *dataCopy) Run(in []byte, evm *EVM) ([]byte, error) {
+func (c *dataCopy) Run(in []byte, evm *EVM, contract *Contract) ([]byte, error) {
 	return in, nil
 }
 
@@ -228,7 +228,7 @@ func (c *bigModExp) RequiredGas(input []byte) uint64 {
 	return gas.Uint64()
 }
 
-func (c *bigModExp) Run(input []byte, evm *EVM) ([]byte, error) {
+func (c *bigModExp) Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) {
 	var (
 		baseLen = new(big.Int).SetBytes(getData(input, 0, 32)).Uint64()
 		expLen  = new(big.Int).SetBytes(getData(input, 32, 32)).Uint64()
@@ -284,7 +284,7 @@ func (c *bn256Add) RequiredGas(input []byte) uint64 {
 	return params.Bn256AddGas
 }
 
-func (c *bn256Add) Run(input []byte, evm *EVM) ([]byte, error) {
+func (c *bn256Add) Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) {
 	x, err := newCurvePoint(getData(input, 0, 64))
 	if err != nil {
 		return nil, err
@@ -306,7 +306,7 @@ func (c *bn256ScalarMul) RequiredGas(input []byte) uint64 {
 	return params.Bn256ScalarMulGas
 }
 
-func (c *bn256ScalarMul) Run(input []byte, evm *EVM) ([]byte, error) {
+func (c *bn256ScalarMul) Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) {
 	p, err := newCurvePoint(getData(input, 0, 64))
 	if err != nil {
 		return nil, err
@@ -335,7 +335,7 @@ func (c *bn256Pairing) RequiredGas(input []byte) uint64 {
 	return params.Bn256PairingBaseGas + uint64(len(input)/192)*params.Bn256PairingPerPointGas
 }
 
-func (c *bn256Pairing) Run(input []byte, evm *EVM) ([]byte, error) {
+func (c *bn256Pairing) Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) {
 	// Handle some corner cases cheaply
 	if len(input)%192 > 0 {
 		return nil, errBadPairingInput

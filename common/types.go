@@ -88,9 +88,9 @@ func (h Hash) SetDenomId(denom uint64, id *big.Int) Hash {
 	copy(h[0:1], tokenValue.Bytes()[0:1])
 	tokenIdArray := id.Bytes()
 	if len(tokenIdArray) <= 31 {
-		copy(h[1:len(tokenIdArray) + 1], tokenIdArray [0:])
+		copy(h[32 - len(tokenIdArray) : 32], tokenIdArray[:])
 	} else {
-		copy(h[1:32], tokenIdArray [0:31])
+		copy(h[1:32], tokenIdArray[len(tokenIdArray)-31:])
 	}
 	return h
 }

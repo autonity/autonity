@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 var emptyCodeHash = crypto.Keccak256(nil)
@@ -90,7 +91,14 @@ type stateObject struct {
 
 // empty returns whether the account is considered empty.
 func (s *stateObject) empty() bool {
-	return s.data.Nonce == 0 && s.data.Balance.Sign() == 0 && bytes.Equal(s.data.CodeHash, emptyCodeHash)
+	precompiles := vm.PrecompiledContractsByzantium
+	if p := precompiles[s.address]; p != nil {
+		return false
+	}
+
+	return s.data.Nonce == 0 &&
+		s.data.Balance.Sign() == 0 &&
+		bytes.Equal(s.data.CodeHash, emptyCodeHash)
 }
 
 // Account is the Ethereum consensus representation of accounts.

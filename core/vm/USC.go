@@ -5,6 +5,8 @@
 	 "github.com/ethereum/go-ethereum/common/math"
 	 "math/big"
 	 "errors"
+	 "encoding/hex"
+	 "fmt"
  )
  /* This contract has no utility except saving all datas in its storage */
  var (
@@ -19,7 +21,7 @@
 	 SlastTokenId = new(big.Int).SetInt64(2)
 
 	 //SbaseClientAddress is the base slot of an array containing Client addresses
-	 SbaseClientAddress = common.BigToHash(new(big.Int).SetInt64(100))
+	 SbaseClientAddress = new(big.Int).SetInt64(100)
 
 	 /*
 	 SbaseClientBalance is the base slot of an array containg the Client's tokens
@@ -36,6 +38,7 @@
 
  var (
 	 InvalidInputSize = errors.New("Invalid Input Size")
+	 NotEnoughFunds = errors.New("Not Enough Funds")
  )
 
  var (
@@ -47,21 +50,23 @@
  	totalClients := evm.StateDB.GetState(DataContract, StotalClients).Big().Uint64()
  	found := false
  	i := uint64(0)
- 	currentSlot := StotalClients.Big()
+ 	currentSlot := new(big.Int).Set(SbaseClientAddress)
  	for ; i < totalClients && !found; i+=1 {
 		currentClient := common.BigToAddress(evm.StateDB.GetState(DataContract, common.BigToHash(currentSlot)).Big())
 		found = currentClient == participant
 		currentSlot.Add(currentSlot, bigOne)
+		fmt.Println("current slot:")
+		fmt.Println(hex.Dump(currentSlot.Bytes()))
 	}
 	if found {
-		return i
+		return i - 1
 	}
 
 	evm.StateDB.SetState(DataContract, common.BigToHash(currentSlot), participant.Hash())
  	newTotalClients := new(big.Int).Add(new(big.Int).SetUint64(totalClients), bigOne)
 	evm.StateDB.SetState(DataContract, StotalClients, common.BigToHash(newTotalClients))
 
- 	return i + 1
+ 	return i
  }
 
  type USC_Data struct{}
@@ -109,14 +114,18 @@
  }
 
 
- func (c *USC_Fund) Run(input []byte, evm *EVM) ([]byte, error) {
-	/*totalSupply := evm.StateDB.GetState(DataContract, StotalSupply).
-	fmt.Println(totalSupply)*/
+ func (c *USC_Fund) Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) {
 
+	fmt.Println("[DEBUG]USC FUND INVOKED")
+	fmt.Println(hex.Dump(input))
 	valid, args := c.ValidateInput(input)
 	if !valid {
+		fmt.Println("[DEBUG]Invalid Input Size")
 		return nil,InvalidInputSize
 	}
+
+	fmt.Println("Participant:")
+	fmt.Println(hex.Dump(args.recipent.Bytes()))
 
 	clientId := ReturnOrCreateParticipant(args.recipent, evm)
 
@@ -145,11 +154,93 @@
 
 	setBigIntState(evm, SlastTokenId, lastTokenId)
 
-
-	//numberOfClientToken = evm.StateDB.GetState(DataContract, Hash(ClientAddress))
-
-	//value, := evm.StateDB.GetState(DataContract, StotalSupply).GetValueDenom()
-
 	return nil, nil
  }
 
+ /*
+ 		USC Transfer Function
+ */
+ type USC_Transfer struct{}
+ type USC_Transfer_args struct{
+	 recipent common.Address
+	 amount big.Int
+ }
+ func (c *USC_Transfer) ValidateInput(input []byte) (bool, USC_Transfer_args){
+	 inputSize := 20 + 32
+	 args := USC_Transfer_args{}
+	 if len(input) != inputSize{
+		 return false, args
+	 }
+	 args.recipent.SetBytes(input[0:20])
+	 args.amount.SetBytes(input[20:52])
+	 return true, args
+ }
+ func (c *USC_Transfer) Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) {
+
+	 fmt.Println("[DEBUG]USC TRANSFER INVOKED")
+	 fmt.Println(hex.Dump(input))
+	 valid, args := c.ValidateInput(input)
+	 if !valid {
+		 fmt.Println("[DEBUG]Invalid Input Size")
+		 return nil,InvalidInputSize
+	 }
+
+	 fmt.Println("Recipient:")
+	 fmt.Println(hex.Dump(args.recipent.Bytes()))
+	 fmt.Println("Sender:")
+	 fmt.Println(hex.Dump(contract.caller.Address().Bytes()))
+
+	 sender := contract.caller.Address()
+	 senderId := ReturnOrCreateParticipant(sender, evm)
+
+	 senderSlot := new(big.Int).Mul(ClientsOffset, new(big.Int).SetUint64(senderId))
+	 senderSlot.Add(senderSlot, SbaseClientBalance)
+	 senderTotalMoney := getBigIntState(evm, senderSlot)
+
+	 if args.amount.Cmp(senderTotalMoney) == 1 {
+		 fmt.Println("[DEBUG] Not Enough Funds")
+		 return nil,NotEnoughFunds
+	 }
+
+	 receiverId := ReturnOrCreateParticipant(args.recipent, evm)
+	 receiverSlot := new(big.Int).Mul(ClientsOffset, new(big.Int).SetUint64(receiverId))
+	 receiverSlot.Add(receiverSlot, SbaseClientBalance)
+
+	 senderTotalTokensSlot := new(big.Int).Add(senderSlot,bigOne)
+	 senderTotalTokens := getBigIntState(evm, senderTotalTokensSlot)
+	 senderLastTokenSlot := new(big.Int).Add(senderSlot,senderTotalTokens)
+	 senderLastTokenSlot.Add(senderLastTokenSlot,bigOne)
+
+	 receiverTotalTokensSlot := new(big.Int).Add(receiverSlot,bigOne)
+	 receiverTotalTokens := getBigIntState(evm, receiverTotalTokensSlot)
+	 receiverTokenFreeSlot := new(big.Int).Add(senderSlot,receiverTotalTokens)
+	 receiverTokenFreeSlot.Add(receiverTokenFreeSlot,bigTwo)
+
+	 tokenCounter := new(big.Int).SetUint64(0)
+	 /*
+	 for ; tokenCounter.Cmp(&args.amount) != 0; tokenCounter.Add(tokenCounter, bigOne){
+		 lastTokenId.Add(lastTokenId, bigOne)
+		 newToken := common.Hash{}.SetDenomId(8, lastTokenId)
+		 evm.StateDB.SetState(DataContract, common.BigToHash(currentSlot), newToken)
+		 currentSlot.Add(currentSlot, bigOne)
+	 }
+
+	 comment
+	 clientTokens := getBigIntState(evm, new(big.Int).Add(clientSlot, bigOne))
+	 currentSlot := new(big.Int).Add(clientSlot,new(big.Int).Add(clientTokens,bigTwo))
+	 lastTokenId := getBigIntState(evm, SlastTokenId)
+
+
+	 newClientBalance := new(big.Int).Add(getBigIntState(evm, clientSlot), tokenCounter)
+	 setBigIntState(evm, clientSlot, newClientBalance)
+
+	 newTokenNumber := new(big.Int).Add(clientTokens, tokenCounter)
+	 setBigIntState(evm, new(big.Int).Add(clientSlot, bigOne), newTokenNumber)
+
+	 newTotalSupply := new(big.Int).Add(getBigIntState(evm, StotalSupply.Big()), tokenCounter)
+	 setBigIntState(evm, StotalSupply.Big(), newTotalSupply)
+
+	 setBigIntState(evm, SlastTokenId, lastTokenId)
+	*/
+	 return nil, nil
+ }
