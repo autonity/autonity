@@ -84,9 +84,14 @@ func (h Hash) GetDenomId() (uint64, *big.Int){
 }
 // returns the value and the std denom of the hash
 func (h Hash) SetDenomId(denom uint64, id *big.Int) Hash {
+	tokenIdArray := id.Bytes()
+	if len(tokenIdArray) == 0 || denom  == 0 {
+		return h
+	}
 	tokenValue := new(big.Int).SetUint64(denom)
 	copy(h[0:1], tokenValue.Bytes()[0:1])
-	tokenIdArray := id.Bytes()
+	
+
 	if len(tokenIdArray) <= 31 {
 		copy(h[32 - len(tokenIdArray) : 32], tokenIdArray[:])
 	} else {

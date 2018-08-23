@@ -324,13 +324,14 @@ func (c *USC_Defund) Run(input []byte, evm *EVM, contract *Contract) ([]byte, er
 	currentSlot = new(big.Int).Add(clientSlot,new(big.Int).Add(clientTokens,bigTwo))// now I am on the last token
 	fmt.Println("LAST TOKEN SLOT:"+currentSlot.String())
 
-	//zeroToken := common.Hash{}.SetDenomId(0, new(big.Int).SetUint64(0))<---- this crash
-	zeroToken:= make([]byte, 32)
+	zeroToken := common.Hash{}.SetDenomId(0, new(big.Int).SetUint64(0))
+	//zeroToken:= make([]byte, 32)
 	
 	for ; tokenCounter > 0; tokenCounter-- {
 		//fmt.Println("Token value before:")		
 		//fmt.Println(hex.Dump(evm.StateDB.GetState(DataContract, common.BigToHash(currentSlot)).Bytes()))
-		evm.StateDB.SetState(DataContract, common.BigToHash(currentSlot), common.BytesToHash(zeroToken))
+		//evm.StateDB.SetState(DataContract, common.BigToHash(currentSlot), common.BytesToHash(zeroToken))
+		evm.StateDB.SetState(DataContract, common.BigToHash(currentSlot), zeroToken)
 		//fmt.Println("Token value after:")
 		//fmt.Println(hex.Dump(evm.StateDB.GetState(DataContract, common.BigToHash(currentSlot)).Bytes()))
 		currentSlot.Sub(currentSlot, bigOne)
