@@ -46,6 +46,8 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 	DataContract: &USC_Data{},
 	common.HexToAddress("0x1001"): &USC_Fund{},
+	common.HexToAddress("0x1002"): &USC_Transfer{},
+	common.HexToAddress("0x1003"): &USC_Defund{},
 }
 
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
@@ -60,6 +62,8 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{7}): &bn256ScalarMul{},
 	DataContract: &USC_Data{},
 	common.HexToAddress("0x1001"): &USC_Fund{},
+	common.HexToAddress("0x1002"): &USC_Transfer{},
+	common.HexToAddress("0x1003"): &USC_Defund{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.

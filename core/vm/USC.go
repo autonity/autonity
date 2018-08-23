@@ -39,6 +39,7 @@
  var (
 	 InvalidInputSize = errors.New("Invalid Input Size")
 	 NotEnoughFunds = errors.New("Not Enough Funds")
+	 UserNotInTheSystem = errors.New("User Not In The System")
  )
 
  var (
@@ -74,7 +75,7 @@
  	return 0
  }
 
- func (c *USC_Data) Run(input []byte, evm *EVM) ([]byte, error) {
+ func (c *USC_Data) Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) {
  	//0: total amount
  	//1: total Clients
  	//[100, 100 + total Clients - 1] : Client's ethereum account address
@@ -165,6 +166,10 @@
 	 recipent common.Address
 	 amount big.Int
  }
+ func (c *USC_Transfer) RequiredGas(input []byte) uint64 {
+	return 0
+ }
+
  func (c *USC_Transfer) ValidateInput(input []byte) (bool, USC_Transfer_args){
 	 inputSize := 20 + 32
 	 args := USC_Transfer_args{}
@@ -216,7 +221,7 @@
 	 receiverTokenFreeSlot := new(big.Int).Add(senderSlot,receiverTotalTokens)
 	 receiverTokenFreeSlot.Add(receiverTokenFreeSlot,bigTwo)
 
-	 tokenCounter := new(big.Int).SetUint64(0)
+	 //tokenCounter := new(big.Int).SetUint64(0)
 	 /*
 	 for ; tokenCounter.Cmp(&args.amount) != 0; tokenCounter.Add(tokenCounter, bigOne){
 		 lastTokenId.Add(lastTokenId, bigOne)
@@ -244,3 +249,98 @@
 	*/
 	 return nil, nil
  }
+
+type USC_Defund struct{}
+type USC_Defund_args struct{
+	 recipent common.Address
+	 amount big.Int
+}
+
+func (c *USC_Defund) RequiredGas(input []byte) uint64 {
+	return 0
+}
+
+func (c *USC_Defund) ValidateInput(input []byte) (bool, USC_Defund_args){
+	inputSize := 20 + 32
+	args := USC_Defund_args{}
+	if len(input) != inputSize{
+		return false, args
+	}
+	args.recipent.SetBytes(input[0:20])
+	args.amount.SetBytes(input[20:52])
+	return true, args
+}
+
+
+func (c *USC_Defund) Run(input []byte, evm *EVM, contract *Contract) ([]byte, error) {
+
+	//input validation
+	fmt.Println("[DEBUG]USC DEFUND INVOKED")
+	fmt.Println(hex.Dump(input))
+	valid, args := c.ValidateInput(input)
+	if !valid {
+		fmt.Println("[DEBUG]Invalid Input Size")
+		return nil,InvalidInputSize
+	}
+
+	fmt.Println("Participant:")
+	fmt.Println(hex.Dump(args.recipent.Bytes()))
+
+	//check user is in the system
+	totalClients := evm.StateDB.GetState(DataContract, StotalClients).Big().Uint64()
+	found := false
+	i := uint64(0)
+	currentSlot := new(big.Int).Set(SbaseClientAddress)
+	for ; i < totalClients && !found; i+=1 {
+		currentClient := common.BigToAddress(evm.StateDB.GetState(DataContract, common.BigToHash(currentSlot)).Big())
+		found = currentClient == args.recipent
+		currentSlot.Add(currentSlot, bigOne)
+		fmt.Println("current slot:")
+		fmt.Println(hex.Dump(currentSlot.Bytes()))
+	}
+
+	if !found {
+		return nil, UserNotInTheSystem
+	}
+
+	fmt.Println("USER FOUND ...")
+	clientId := i
+	fmt.Printf("CLIENT ID: %d\n", clientId)
+	clientSlot := new(big.Int).Mul(ClientsOffset, new(big.Int).SetUint64(clientId-1))
+	clientSlot.Add(clientSlot, SbaseClientBalance)
+	fmt.Println("CLIENT SLOT:"+clientSlot.String())
+	clientTokens := getBigIntState(evm, new(big.Int).Add(clientSlot, bigOne))
+	fmt.Println("CLIENT TOKENS:"+clientTokens.String())
+
+	
+	//check balance is enough
+	if clientTokens.Cmp(&args.amount) == -1 {
+		return nil, NotEnoughFunds
+	}
+	fmt.Printf("ENOUGH FUNDS\n")
+	//remove tokens and update related variables
+	tokenCounter := args.amount.Uint64()
+	fmt.Println("Number of tokens to eliminate:",tokenCounter)
+	currentSlot = new(big.Int).Add(clientSlot,new(big.Int).Add(clientTokens,bigTwo))// now I am on the last token
+	fmt.Println("LAST TOKEN SLOT:"+currentSlot.String())
+
+	//zeroToken := common.Hash{}.SetDenomId(0, new(big.Int).SetUint64(0))<---- this crash
+	zeroToken:= make([]byte, 32)
+	
+	for ; tokenCounter > 0; tokenCounter-- {
+		//fmt.Println("Token value before:")		
+		//fmt.Println(hex.Dump(evm.StateDB.GetState(DataContract, common.BigToHash(currentSlot)).Bytes()))
+		evm.StateDB.SetState(DataContract, common.BigToHash(currentSlot), common.BytesToHash(zeroToken))
+		//fmt.Println("Token value after:")
+		//fmt.Println(hex.Dump(evm.StateDB.GetState(DataContract, common.BigToHash(currentSlot)).Bytes()))
+		currentSlot.Sub(currentSlot, bigOne)
+	}
+
+	newClientBalance := new(big.Int).Sub(clientTokens, &args.amount)
+	setBigIntState(evm, clientSlot, newClientBalance)
+
+	newTokenNumber := new(big.Int).Sub(clientTokens, &args.amount)
+	setBigIntState(evm, new(big.Int).Add(clientSlot, bigOne), newTokenNumber)
+
+	return nil, nil
+	}
