@@ -31,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
+	"github.com/ethereum/go-ethereum/consensus/soma"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -213,6 +214,9 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
 		return clique.New(chainConfig.Clique, db)
+	}
+	if chainConfig.Soma != nil {
+		return soma.New(chainConfig.Soma, db)
 	}
 	// Otherwise assume proof-of-work
 	switch config.PowMode {
