@@ -1282,14 +1282,11 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 		Fatalf("%v", err)
 	}
 	var engine consensus.Engine
-	log.Info("")
 	if config.Clique != nil {
 		engine = clique.New(config.Clique, chainDb)
 	} else if config.Soma != nil {
-		log.Info("SOOMA")
 		engine = soma.New(config.Soma, chainDb)
 	} else {
-		log.Info("ethHAAAHS")
 		engine = ethash.NewFaker()
 		if !ctx.GlobalBool(FakePoWFlag.Name) {
 			engine = ethash.New(ethash.Config{
