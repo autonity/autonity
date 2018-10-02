@@ -75,22 +75,19 @@ func TestEVMContractDeployment(t *testing.T) {
 		Balance: initialBalance,
 	}
 	statedb := MakePreState(ethdb.NewMemDatabase(), alloc)
+	initialBalanceUser := statedb.GetBalance(userAddr)
+	t.Log("initialBalanceUser:\t", initialBalanceUser)
+	initialBalanceCoinbase := statedb.GetBalance(coinbaseAddr)
+	t.Log("initialBalanceCoinbase:\t", initialBalanceCoinbase)
+	initialBalanceorigin := statedb.GetBalance(originAddr)
+	t.Log("initialBalanceorigin:\t", initialBalanceorigin)
 
-	initialCall := true
-	canTransfer := func(db vm.StateDB, address common.Address, amount *big.Int) bool {
-		if initialCall {
-			initialCall = false
-			return true
-		}
-		return core.CanTransfer(db, address, amount)
-	}
-	transfer := func(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {}
 	vmTestBlockHash := func(n uint64) common.Hash {
 		return common.BytesToHash(crypto.Keccak256([]byte(big.NewInt(int64(n)).String())))
 	}
 	context := vm.Context{
-		CanTransfer: canTransfer,
-		Transfer:    transfer,
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
 		GetHash:     vmTestBlockHash,
 		Origin:      originAddr,
 		Coinbase:    coinbaseAddr,
@@ -140,7 +137,6 @@ func TestEVMContractDeployment(t *testing.T) {
 	functionSig := "test()"
 	t.Log("====== CALL =======", functionSig)
 	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()
-	//input, _ := hex.DecodeString("f8a8fd6d")
 	ret, gas, vmerr = evm.Call(sender, contractAddress, input, gas, value)
 	t.Logf("Result:\n%s\n", hex.Dump(ret))
 	t.Log("Gas: ", gas)
@@ -149,7 +145,6 @@ func TestEVMContractDeployment(t *testing.T) {
 	functionSig = "getCount()"
 	t.Log("====== CALL =======", functionSig)
 	input = crypto.Keccak256Hash([]byte(functionSig)).Bytes()
-	//input, _ := hex.DecodeString("f8a8fd6d")
 	ret, gas, vmerr = evm.Call(sender, contractAddress, input, gas, value)
 	t.Logf("Result:\n%s\n", hex.Dump(ret))
 	t.Log("Gas: ", gas)
@@ -160,7 +155,6 @@ func TestEVMContractDeployment(t *testing.T) {
 		functionSig = "incrementCounter()"
 		t.Log("====== CALL =======", functionSig)
 		input = crypto.Keccak256Hash([]byte(functionSig)).Bytes()
-		//input, _ := hex.DecodeString("f8a8fd6d")
 		ret, gas, vmerr = evm.Call(sender, contractAddress, input, gas, value)
 		t.Logf("Result:\n%s\n", hex.Dump(ret))
 		t.Log("Gas: ", gas)
@@ -170,8 +164,15 @@ func TestEVMContractDeployment(t *testing.T) {
 	functionSig = "getCount()"
 	t.Log("====== CALL =======", functionSig)
 	input = crypto.Keccak256Hash([]byte(functionSig)).Bytes()
-	//input, _ := hex.DecodeString("f8a8fd6d")
 	ret, gas, vmerr = evm.Call(sender, contractAddress, input, gas, value)
+	t.Logf("Result:\n%s\n", hex.Dump(ret))
+	t.Log("Gas: ", gas)
+	t.Log("Error: ", vmerr)
+	// CALL (TRANSFER)
+	t.Log("====== CALL ======= TRANSFER")
+	input = []byte{}
+	value = new(big.Int).SetUint64(0x100)
+	ret, gas, vmerr = evm.Call(sender, originAddr, nil, gas, value)
 	t.Logf("Result:\n%s\n", hex.Dump(ret))
 	t.Log("Gas: ", gas)
 	t.Log("Error: ", vmerr)
@@ -180,4 +181,10 @@ func TestEVMContractDeployment(t *testing.T) {
 	if totalExpectedIncrements.Uint64() != totalIncrements.Uint64() {
 		t.Error("Increments n smart contract and expected differ")
 	}
+	finalBalanceUser := statedb.GetBalance(userAddr)
+	t.Log("finalBalanceUser:\t", finalBalanceUser)
+	finalBalanceCoinbase := statedb.GetBalance(coinbaseAddr)
+	t.Log("finalBalanceCoinbase:\t", finalBalanceCoinbase)
+	finalBalanceorigin := statedb.GetBalance(originAddr)
+	t.Log("finalBalanceorigin:\t", finalBalanceorigin)
 }
