@@ -75,12 +75,6 @@ func TestEVMContractDeployment(t *testing.T) {
 		Balance: initialBalance,
 	}
 	statedb := MakePreState(ethdb.NewMemDatabase(), alloc)
-	initialBalanceUser := statedb.GetBalance(userAddr)
-	t.Log("initialBalanceUser:\t", initialBalanceUser)
-	initialBalanceCoinbase := statedb.GetBalance(coinbaseAddr)
-	t.Log("initialBalanceCoinbase:\t", initialBalanceCoinbase)
-	initialBalanceorigin := statedb.GetBalance(originAddr)
-	t.Log("initialBalanceorigin:\t", initialBalanceorigin)
 
 	vmTestBlockHash := func(n uint64) common.Hash {
 		return common.BytesToHash(crypto.Keccak256([]byte(big.NewInt(int64(n)).String())))
@@ -168,7 +162,20 @@ func TestEVMContractDeployment(t *testing.T) {
 	t.Logf("Result:\n%s\n", hex.Dump(ret))
 	t.Log("Gas: ", gas)
 	t.Log("Error: ", vmerr)
+
+	resultTotalIncrements := new(big.Int).SetBytes(ret)
+	if resultTotalIncrements.Uint64() != totalIncrements.Uint64() {
+		t.Error("Increments n smart contract and expected differ\n", "result: ", resultTotalIncrements, " expected: ", totalIncrements)
+	}
+
 	// CALL (TRANSFER)
+	initialBalanceUser := statedb.GetBalance(userAddr)
+	t.Log("initialBalanceUser:\t", initialBalanceUser)
+	initialBalanceCoinbase := statedb.GetBalance(coinbaseAddr)
+	t.Log("initialBalanceCoinbase:\t", initialBalanceCoinbase)
+	initialBalanceorigin := statedb.GetBalance(originAddr)
+	t.Log("initialBalanceorigin:\t", initialBalanceorigin)
+
 	t.Log("====== CALL ======= TRANSFER")
 	input = []byte{}
 	value = new(big.Int).SetUint64(0x100)
@@ -177,14 +184,18 @@ func TestEVMContractDeployment(t *testing.T) {
 	t.Log("Gas: ", gas)
 	t.Log("Error: ", vmerr)
 
-	totalExpectedIncrements := new(big.Int).SetBytes(ret)
-	if totalExpectedIncrements.Uint64() != totalIncrements.Uint64() {
-		t.Error("Increments n smart contract and expected differ")
-	}
+	statedb.Finalise(true) // clean dirty objects
+
 	finalBalanceUser := statedb.GetBalance(userAddr)
-	t.Log("finalBalanceUser:\t", finalBalanceUser)
+	t.Log("finalBalanceUser:\t\t", finalBalanceUser)
 	finalBalanceCoinbase := statedb.GetBalance(coinbaseAddr)
 	t.Log("finalBalanceCoinbase:\t", finalBalanceCoinbase)
 	finalBalanceorigin := statedb.GetBalance(originAddr)
 	t.Log("finalBalanceorigin:\t", finalBalanceorigin)
+
+	var transferredValue big.Int
+	transferredValue.Sub(finalBalanceorigin, initialBalanceorigin)
+	if transferredValue.Cmp(value) != 0 {
+		t.Error("Unexpected balance in origin account!")
+	}
 }
