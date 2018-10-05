@@ -3,9 +3,11 @@ package soma
 import (
 	"encoding/hex"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/compiler"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -59,6 +61,78 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB 
 	root, _ := statedb.Commit(false)
 	statedb, _ = state.New(root, sdb)
 	return statedb
+}
+
+func TestStateDBChanges(t *testing.T) {
+	// START STATE DB
+	memorydb := ethdb.NewMemDatabase() // generates memory db (this could the LevelDB)
+	sdb := state.NewDatabase(memorydb) // thread safe DB wrapper
+	statedb, _ := state.New(common.Hash{}, sdb)
+	userKey, _ := crypto.GenerateKey()
+	userAddr := crypto.PubkeyToAddress(userKey.PublicKey)
+	statedb.SetBalance(userAddr, big.NewInt(1000000000))
+	statedb.SetNonce(userAddr, uint64(0))
+	/*
+		statedb.SetCode(addr, a.Code)
+		for k, v := range a.Storage {
+			statedb.SetState(addr, k, v)
+		}
+	*/
+	// Commit and re-open to start with a clean state.
+	root, _ := statedb.Commit(true)
+	statedb, _ = state.New(root, sdb)
+	t.Log(statedb)
+
+	// COMPILE CONTRACT
+	basePath := os.Getenv("GOPATH") + "/src/gitlab.clearmatics.net/oss/autonity/"
+	testContractPath := basePath + "consensus/soma/test.sol"
+	contracts, err := compiler.CompileSolidity("", testContractPath)
+	if err != nil {
+		t.Error("ERROR failed to compile test.sol:", err)
+	}
+	testContract := contracts[testContractPath+":Test"]
+	t.Logf("Bytecode: %s\n", testContract.Code)
+
+	// START EVM
+	// evmContext := vm.Context{} //core.NewEVMContext()
+	vmTestBlockHash := func(n uint64) common.Hash {
+		return common.BytesToHash(crypto.Keccak256([]byte(big.NewInt(int64(n)).String())))
+	}
+	evmContext := vm.Context{
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
+		GetHash:     vmTestBlockHash,
+		Origin:      userAddr,
+		Coinbase:    userAddr,
+		BlockNumber: new(big.Int).SetUint64(0x00),
+		Time:        new(big.Int).SetUint64(0x01),
+		GasLimit:    uint64(0x0f4240),
+		Difficulty:  new(big.Int).SetUint64(0x0100),
+		GasPrice:    new(big.Int).SetUint64(0x3b9aca00),
+	}
+	chainConfig := params.AllSomaProtocolChanges
+	vmconfig := vm.Config{}
+	evm := vm.NewEVM(evmContext, statedb, chainConfig, vmconfig) //vmconfig)
+
+	// DEPLOY CONTRACT
+	sender := vm.AccountRef(userAddr)
+	data := common.Hex2Bytes(testContract.Code[2:])
+	gas := uint64(1000000)
+	value := new(big.Int).SetUint64(0x00)
+	ret, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
+	t.Log("====== CREATE =======")
+	t.Logf("Contract:\n%s\n", hex.Dump(ret))
+	t.Log("Address: ", contractAddress.String())
+	t.Log("Gas: ", gas)
+	t.Log("Error: ", vmerr)
+	// CALL
+	functionSig := "test()"
+	t.Log("====== CALL =======", functionSig)
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()
+	ret, gas, vmerr = evm.Call(sender, contractAddress, input, gas, value)
+	t.Logf("Result:\n%s\n", hex.Dump(ret))
+	t.Log("Gas: ", gas)
+	t.Log("Error: ", vmerr)
 }
 
 func TestEVMContractDeployment(t *testing.T) {
