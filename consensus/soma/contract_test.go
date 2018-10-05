@@ -64,6 +64,7 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB 
 }
 
 func TestStateDBChanges(t *testing.T) {
+	genesisHash := common.Hash{}
 	// START STATE DB
 	memorydb := ethdb.NewMemDatabase() // generates memory db (this could the LevelDB)
 	sdb := state.NewDatabase(memorydb) // thread safe DB wrapper
@@ -72,6 +73,7 @@ func TestStateDBChanges(t *testing.T) {
 	userAddr := crypto.PubkeyToAddress(userKey.PublicKey)
 	statedb.SetBalance(userAddr, big.NewInt(1000000000))
 	statedb.SetNonce(userAddr, uint64(0))
+	statedb.Commit(false)
 	/*
 		statedb.SetCode(addr, a.Code)
 		for k, v := range a.Storage {
@@ -81,7 +83,6 @@ func TestStateDBChanges(t *testing.T) {
 	// Commit and re-open to start with a clean state.
 	root, _ := statedb.Commit(true)
 	statedb, _ = state.New(root, sdb)
-	t.Log(statedb)
 
 	// COMPILE CONTRACT
 	basePath := os.Getenv("GOPATH") + "/src/gitlab.clearmatics.net/oss/autonity/"
@@ -96,6 +97,9 @@ func TestStateDBChanges(t *testing.T) {
 	// START EVM
 	// evmContext := vm.Context{} //core.NewEVMContext()
 	vmTestBlockHash := func(n uint64) common.Hash {
+		if n == 0 {
+			return genesisHash
+		}
 		return common.BytesToHash(crypto.Keccak256([]byte(big.NewInt(int64(n)).String())))
 	}
 	evmContext := vm.Context{
@@ -125,6 +129,10 @@ func TestStateDBChanges(t *testing.T) {
 	t.Log("Address: ", contractAddress.String())
 	t.Log("Gas: ", gas)
 	t.Log("Error: ", vmerr)
+
+	contractAddress = common.HexToAddress("0x00")
+	statedb.SetNonce(contractAddress, uint64(0))
+	statedb.SetCode(contractAddress, data)
 	// CALL
 	functionSig := "test()"
 	t.Log("====== CALL =======", functionSig)
@@ -133,6 +141,12 @@ func TestStateDBChanges(t *testing.T) {
 	t.Logf("Result:\n%s\n", hex.Dump(ret))
 	t.Log("Gas: ", gas)
 	t.Log("Error: ", vmerr)
+
+	t.Logf("\n%s\n", hex.Dump(statedb.GetCode(contractAddress)))
+	t.Log(statedb.GetBalance(userAddr))
+	for key := range memorydb.Keys() {
+		t.Logf("%x\n", key)
+	}
 }
 
 func TestEVMContractDeployment(t *testing.T) {
