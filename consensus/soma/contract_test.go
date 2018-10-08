@@ -2,6 +2,7 @@ package soma
 
 import (
 	"encoding/hex"
+	"log"
 	"math/big"
 	"os"
 	"testing"
@@ -80,9 +81,6 @@ func TestStateDBChanges(t *testing.T) {
 			statedb.SetState(addr, k, v)
 		}
 	*/
-	// Commit and re-open to start with a clean state.
-	root, _ := statedb.Commit(true)
-	statedb, _ = state.New(root, sdb)
 
 	// COMPILE CONTRACT
 	basePath := os.Getenv("GOPATH") + "/src/gitlab.clearmatics.net/oss/autonity/"
@@ -131,8 +129,9 @@ func TestStateDBChanges(t *testing.T) {
 	t.Log("Error: ", vmerr)
 
 	//contractAddress = common.HexToAddress("0x00")
-	statedb.SetNonce(contractAddress, uint64(0))
-	statedb.SetCode(contractAddress, data)
+	//statedb.SetNonce(contractAddress, uint64(0))
+	//statedb.SetCode(contractAddress, data)
+
 	// CALL
 	functionSig := "test()"
 	t.Log("====== CALL =======", functionSig)
@@ -142,45 +141,56 @@ func TestStateDBChanges(t *testing.T) {
 	t.Log("Gas: ", gas)
 	t.Log("Error: ", vmerr)
 
-	t.Logf("\n%s\n", hex.Dump(statedb.GetCode(contractAddress)))
+	// commit makes current state saved into DB
+	root, _ := statedb.Commit(true)
+	t.Logf("Trie root: 0x%x\n", root)
+
+	//t.Logf("Contract address code:\n%s\n", hex.Dump(statedb.GetCode(contractAddress)))
 	t.Log(statedb.GetBalance(userAddr))
 	t.Logf("memorydb Keys: %#v\n", memorydb.Keys())
-	t.Logf("UserAddr: 0x%x\n", userAddr.Bytes())
-	t.Logf("ContractAddress: 0x%x\n", contractAddress.Bytes())
+	t.Logf("UserAddr: 0x%x\tHash: 0x%x\n", userAddr.Bytes(), crypto.Keccak256Hash(userAddr.Bytes()).Bytes())
+	t.Logf("ContractAddress: 0x%x\tHash: 0x%x\n", contractAddress.Bytes(), crypto.Keccak256Hash(contractAddress.Bytes()).Bytes())
 
+	printDB(sdb)
+}
+
+func printDB(sdb state.Database) {
+	log.Print("\n\n\n>>>>>>>>>>>>>>>>>>>>>>>>>> [START] printDB()")
+	log.Print("Trie Nodes")
 	for idx, node := range sdb.TrieDB().Nodes() {
+		log.Print("\n\t====================================================================\n\t===================================================================\n")
 		val, err := sdb.TrieDB().Node(node)
 		if err != nil {
-			t.Log("ERROR:", err)
+			log.Print("ERROR:", err)
 		}
 		var decodedValue [][]byte
 		err = rlp.DecodeBytes(val, &decodedValue)
 		if err != nil {
-			t.Log("ERROR:", err)
+			log.Print("ERROR:", err)
 		}
-		t.Logf("node[%d]:\n", idx)
-		t.Logf("\tkey:\t0x%x\n", node)
-		t.Logf("\tvalue bytes:\t0x%x\n", val)
+		log.Printf("node[%d]:\n", idx)
+		log.Printf("\tkey:\t0x%x\n", node)
+		log.Printf("\tvalue bytes:\t0x%x\n", val)
 		for _, decodedProp := range decodedValue {
-			t.Logf("\t\tdecoded prop:\t0x%x\n", decodedProp)
+			log.Printf("\t\tdecoded prop:\t0x%x\n", decodedProp)
 		}
 
-		// just testing
-		h := common.BytesToHash(decodedValue[0])
-		t.Logf("\n\thash form trie:\t0x%x\n", h)
+		if len(decodedValue) != 0 {
+			h := common.BytesToHash(decodedValue[0])
+			log.Printf("\n\thash of address used as key in trie:\t0x%x\n", h)
 
-		var acc state.Account
-		err = rlp.DecodeBytes(decodedValue[1], &acc)
-		if err != nil {
-			t.Log("ERROR:", err)
+			var acc state.Account
+			err = rlp.DecodeBytes(decodedValue[1], &acc)
+			if err != nil {
+				log.Print("ERROR:", err)
+			}
+			log.Printf("\n\taccount of user form trie:\t%#v\n", acc)
+			//log.Printf("node[%d]:\t%x\t%#v\n\t%#v\n%#v\n", idx, node, val, a, b)
+		} else {
+			log.Printf("\n\tunknown decoded value:\t%#v", decodedValue)
 		}
-		t.Logf("\n\taccount form trie:\t%#v\n", acc)
-		//t.Logf("node[%d]:\t%x\t%#v\n\t%#v\n%#v\n", idx, node, val, a, b)
-
 	}
-	for key := range memorydb.Keys() {
-		t.Logf("%x\n", key)
-	}
+	log.Print("<<<<<<<<<<<<<<<<<<<<<<<<<< [END] printDB()\n\n\n")
 }
 
 func TestEVMContractDeployment(t *testing.T) {
