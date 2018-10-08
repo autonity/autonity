@@ -165,6 +165,7 @@ func TestStateDBChanges(t *testing.T) {
 			t.Logf("\t\tdecoded prop:\t0x%x\n", decodedProp)
 		}
 
+		// just testing
 		h := common.BytesToHash(decodedValue[0])
 		t.Logf("\n\thash form trie:\t0x%x\n", h)
 
