@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 func TestEVMRuntimeCall(t *testing.T) {
@@ -73,7 +74,6 @@ func TestStateDBChanges(t *testing.T) {
 	userAddr := crypto.PubkeyToAddress(userKey.PublicKey)
 	statedb.SetBalance(userAddr, big.NewInt(1000000000))
 	statedb.SetNonce(userAddr, uint64(0))
-	statedb.Commit(false)
 	/*
 		statedb.SetCode(addr, a.Code)
 		for k, v := range a.Storage {
@@ -130,7 +130,7 @@ func TestStateDBChanges(t *testing.T) {
 	t.Log("Gas: ", gas)
 	t.Log("Error: ", vmerr)
 
-	contractAddress = common.HexToAddress("0x00")
+	//contractAddress = common.HexToAddress("0x00")
 	statedb.SetNonce(contractAddress, uint64(0))
 	statedb.SetCode(contractAddress, data)
 	// CALL
@@ -144,6 +144,39 @@ func TestStateDBChanges(t *testing.T) {
 
 	t.Logf("\n%s\n", hex.Dump(statedb.GetCode(contractAddress)))
 	t.Log(statedb.GetBalance(userAddr))
+	t.Logf("memorydb Keys: %#v\n", memorydb.Keys())
+	t.Logf("UserAddr: 0x%x\n", userAddr.Bytes())
+	t.Logf("ContractAddress: 0x%x\n", contractAddress.Bytes())
+
+	for idx, node := range sdb.TrieDB().Nodes() {
+		val, err := sdb.TrieDB().Node(node)
+		if err != nil {
+			t.Log("ERROR:", err)
+		}
+		var decodedValue [][]byte
+		err = rlp.DecodeBytes(val, &decodedValue)
+		if err != nil {
+			t.Log("ERROR:", err)
+		}
+		t.Logf("node[%d]:\n", idx)
+		t.Logf("\tkey:\t0x%x\n", node)
+		t.Logf("\tvalue bytes:\t0x%x\n", val)
+		for _, decodedProp := range decodedValue {
+			t.Logf("\t\tdecoded prop:\t0x%x\n", decodedProp)
+		}
+
+		h := common.BytesToHash(decodedValue[0])
+		t.Logf("\n\thash form trie:\t0x%x\n", h)
+
+		var acc state.Account
+		err = rlp.DecodeBytes(decodedValue[1], &acc)
+		if err != nil {
+			t.Log("ERROR:", err)
+		}
+		t.Logf("\n\taccount form trie:\t%#v\n", acc)
+		//t.Logf("node[%d]:\t%x\t%#v\n\t%#v\n%#v\n", idx, node, val, a, b)
+
+	}
 	for key := range memorydb.Keys() {
 		t.Logf("%x\n", key)
 	}
