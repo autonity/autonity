@@ -15,59 +15,41 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-func deployContract(bytecodeStr string, statedb *state.StateDB) (common.Hash, error) {
+func deployContract(bytecodeStr string, userAddr common.Address, header *types.Header, statedb *state.StateDB) common.Address {
 	contractBytecode := common.Hex2Bytes(bytecodeStr[2:]) // [2:] removes 0x
-
-	stateRoot := common.Hash{}
-	log.Printf("State root: 0x%x\n", stateRoot)
-	/*
-		type Account struct {
-			Nonce    uint64
-			Balance  *big.Int
-			Root     common.Hash // merkle root of the storage trie
-			CodeHash []byte
-		}
-	*/
-
-	userAddr := common.Address{}
-	/*
-		statedb, err := state.New(common.Hash{}, sdb)
-		if err != nil {
-			log.Printf("ERROR starting statedb! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<,")
-		}
-	*/
 
 	evmContext := vm.Context{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
 		//GetHash:     core.GetHashFn(header,chainContext),
-		GetHash:     func(n uint64) common.Hash { return stateRoot },
+		GetHash:     func(n uint64) common.Hash { return header.Root }, // since this a one time thing, no point in adding complex functions to get the hash
 		Origin:      userAddr,
 		Coinbase:    userAddr,
-		BlockNumber: new(big.Int).SetUint64(0x00),
-		Time:        new(big.Int).SetUint64(0x01),
-		GasLimit:    uint64(0x0f4240),
-		Difficulty:  new(big.Int).SetUint64(0x0100),
-		GasPrice:    new(big.Int).SetUint64(0x3b9aca00),
+		BlockNumber: header.Number,
+		Time:        header.Time,
+		GasLimit:    header.GasLimit,
+		Difficulty:  header.Difficulty,
+		GasPrice:    new(big.Int).SetUint64(0x0),
 	}
 	chainConfig := params.AllSomaProtocolChanges
 	vmconfig := vm.Config{}
 	/*
-		type Config struct {
-			// Debug enabled debugging Interpreter options
-			Debug bool
-			// Tracer is the op code logger
-			Tracer Tracer
-			// NoRecursion disabled Interpreter call, callcode,
-			// delegate call and create.
-			NoRecursion bool
-			// Enable recording of SHA3/keccak preimages
-			EnablePreimageRecording bool
-			// JumpTable contains the EVM instruction table. This
-			// may be left uninitialised and will be set to the default
-			// table.
-			JumpTable [256]operation
-		}
+		// vm.Config
+			type Config struct {
+				// Debug enabled debugging Interpreter options
+				Debug bool
+				// Tracer is the op code logger
+				Tracer Tracer
+				// NoRecursion disabled Interpreter call, callcode,
+				// delegate call and create.
+				NoRecursion bool
+				// Enable recording of SHA3/keccak preimages
+				EnablePreimageRecording bool
+				// JumpTable contains the EVM instruction table. This
+				// may be left uninitialised and will be set to the default
+				// table.
+				JumpTable [256]operation
+			}
 	*/
 	evm := vm.NewEVM(evmContext, statedb, chainConfig, vmconfig)
 
@@ -82,15 +64,7 @@ func deployContract(bytecodeStr string, statedb *state.StateDB) (common.Hash, er
 	log.Println("Gas: ", gas)
 	log.Println("Error: ", vmerr)
 
-	// commit makes current state saved into DB
-	//root, err := statedb.Commit(true)
-	//log.Printf("Trie root: 0x%x\n", root)
-
-	//sdb := statedb.Database() //state.NewDatabase(db)
-	//printDB(sdb)
-
-	return common.Hash{}, nil
-	//return root, err
+	return contractAddress
 }
 
 func printDebug(funcName string, chain consensus.ChainReader, header *types.Header) {

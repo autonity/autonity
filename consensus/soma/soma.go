@@ -573,7 +573,9 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 func (c *Soma) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	//printDB(state.Database())
 	if header.Number.Int64() == 1 {
-		deployContract(c.config.Bytecode, state) // TODO deploy contract
+		// func deployContract(bytecodeStr string, userAddr common.Address, header *types.Header, statedb *state.StateDB) common.Address {
+		userAddr := common.Address{}
+		deployContract(c.config.Bytecode, userAddr, header, state) // TODO deploy contract
 	}
 	printDebug("Finalize", chain, header)
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
