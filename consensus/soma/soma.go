@@ -216,7 +216,6 @@ func New(config *params.SomaConfig, db ethdb.Database) *Soma {
 	if conf.Epoch == 0 {
 		conf.Epoch = epochLength
 	}
-	deployContract(config, db) // TODO deploy contract
 	// Allocate the snapshot caches and create the engine
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	signatures, _ := lru.NewARC(inmemorySignatures)
@@ -506,10 +505,7 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
 func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error {
-	golog.Printf("Prepare: =========================================================\n")
-	// golog.Printf("%#v\n", chain)
-	golog.Printf("%#v\n", header.Number)
-	golog.Printf("=========================================================\n")
+	printDebug("Prepare", chain, header)
 	// If the block isn't a checkpoint, cast a random vote (good enough for now)
 	header.Coinbase = common.Address{}
 	header.Nonce = types.BlockNonce{}
@@ -575,12 +571,15 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
 func (c *Soma) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
-	golog.Printf("Finalize: =========================================================\n")
-	// golog.Printf("%#v\n", chain)
-	golog.Printf("%#v\n", header.Number)
-	golog.Printf("=========================================================\n")
+	//printDB(state.Database())
+	if header.Number.Int64() == 1 {
+		deployContract(c.config.Bytecode, state) // TODO deploy contract
+	}
+	printDebug("Finalize", chain, header)
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
+	golog.Printf("\n\n\nBefore: 0x%x\n", header.Root)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	golog.Printf("After: 0x%x\n\n\n", header.Root)
 	header.UncleHash = types.CalcUncleHash(nil)
 
 	// Assemble and return the final block for sealing

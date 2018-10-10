@@ -114,6 +114,23 @@ func TestStateDBChanges(t *testing.T) {
 	}
 	chainConfig := params.AllSomaProtocolChanges
 	vmconfig := vm.Config{}
+	/*
+		type Config struct {
+			// Debug enabled debugging Interpreter options
+			Debug bool
+			// Tracer is the op code logger
+			Tracer Tracer
+			// NoRecursion disabled Interpreter call, callcode,
+			// delegate call and create.
+			NoRecursion bool
+			// Enable recording of SHA3/keccak preimages
+			EnablePreimageRecording bool
+			// JumpTable contains the EVM instruction table. This
+			// may be left uninitialised and will be set to the default
+			// table.
+			JumpTable [256]operation
+		}
+	*/
 	evm := vm.NewEVM(evmContext, statedb, chainConfig, vmconfig) //vmconfig)
 
 	// DEPLOY CONTRACT
