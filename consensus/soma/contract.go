@@ -15,9 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-func deployContract(bytecodeStr string, userAddr common.Address, header *types.Header, statedb *state.StateDB) common.Address {
+func deployContract(bytecodeStr string, userAddr common.Address, header *types.Header, statedb *state.StateDB) (common.Address, *types.Transaction) {
 	contractBytecode := common.Hex2Bytes(bytecodeStr[2:]) // [2:] removes 0x
 
+	gasPrice := new(big.Int).SetUint64(0x0)
 	evmContext := vm.Context{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
@@ -29,7 +30,7 @@ func deployContract(bytecodeStr string, userAddr common.Address, header *types.H
 		Time:        header.Time,
 		GasLimit:    header.GasLimit,
 		Difficulty:  header.Difficulty,
-		GasPrice:    new(big.Int).SetUint64(0x0),
+		GasPrice:    gasPrice,
 	}
 	chainConfig := params.AllSomaProtocolChanges
 	vmconfig := vm.Config{}
@@ -64,7 +65,13 @@ func deployContract(bytecodeStr string, userAddr common.Address, header *types.H
 	log.Println("Gas: ", gas)
 	log.Println("Error: ", vmerr)
 
-	return contractAddress
+	// create transaction
+	contractTx := types.NewContractCreation(statedb.GetNonce(contractAddress), value, header.GasLimit, gasPrice, data)
+
+	//statedb.Commit(false)
+	//printDB(statedb.Database())
+
+	return contractAddress, contractTx
 }
 
 func printDebug(funcName string, chain consensus.ChainReader, header *types.Header) {

@@ -2,7 +2,6 @@ package soma
 
 import (
 	"encoding/hex"
-	"log"
 	"math/big"
 	"os"
 	"testing"
@@ -16,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 func TestEVMRuntimeCall(t *testing.T) {
@@ -169,45 +167,6 @@ func TestStateDBChanges(t *testing.T) {
 	t.Logf("ContractAddress: 0x%x\tHash: 0x%x\n", contractAddress.Bytes(), crypto.Keccak256Hash(contractAddress.Bytes()).Bytes())
 
 	printDB(sdb)
-}
-
-func printDB(sdb state.Database) {
-	log.Print("\n\n\n>>>>>>>>>>>>>>>>>>>>>>>>>> [START] printDB()")
-	log.Print("Trie Nodes")
-	for idx, node := range sdb.TrieDB().Nodes() {
-		log.Print("\n\t====================================================================\n\t===================================================================\n")
-		val, err := sdb.TrieDB().Node(node)
-		if err != nil {
-			log.Print("ERROR:", err)
-		}
-		var decodedValue [][]byte
-		err = rlp.DecodeBytes(val, &decodedValue)
-		if err != nil {
-			log.Print("ERROR:", err)
-		}
-		log.Printf("node[%d]:\n", idx)
-		log.Printf("\tkey:\t0x%x\n", node)
-		log.Printf("\tvalue bytes:\t0x%x\n", val)
-		for _, decodedProp := range decodedValue {
-			log.Printf("\t\tdecoded prop:\t0x%x\n", decodedProp)
-		}
-
-		if len(decodedValue) != 0 {
-			h := common.BytesToHash(decodedValue[0])
-			log.Printf("\n\thash of address used as key in trie:\t0x%x\n", h)
-
-			var acc state.Account
-			err = rlp.DecodeBytes(decodedValue[1], &acc)
-			if err != nil {
-				log.Print("ERROR:", err)
-			}
-			log.Printf("\n\taccount of user form trie:\t%#v\n", acc)
-			//log.Printf("node[%d]:\t%x\t%#v\n\t%#v\n%#v\n", idx, node, val, a, b)
-		} else {
-			log.Printf("\n\tunknown decoded value:\t%#v", decodedValue)
-		}
-	}
-	log.Print("<<<<<<<<<<<<<<<<<<<<<<<<<< [END] printDB()\n\n\n")
 }
 
 func TestEVMContractDeployment(t *testing.T) {
