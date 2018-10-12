@@ -20,6 +20,7 @@ package soma
 import (
 	"bytes"
 	"errors"
+	golog "log"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -209,7 +210,7 @@ type Soma struct {
 // New creates a Soma proof-of-authority consensus engine with the initial
 // signers set to the ones provided by the user.
 func New(config *params.SomaConfig, db ethdb.Database) *Soma {
-	log.Info("Running Soma")
+	log.Info("\n\t====================================== Running Soma ======================================")
 	// Set any missing consensus parameters to their defaults
 	conf := *config
 	if conf.Epoch == 0 {
@@ -504,6 +505,7 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
 func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error {
+	printDebug("Prepare", chain, header)
 	// If the block isn't a checkpoint, cast a random vote (good enough for now)
 	header.Coinbase = common.Address{}
 	header.Nonce = types.BlockNonce{}
@@ -569,8 +571,17 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
 func (c *Soma) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+	//printDB(state.Database())
+	if header.Number.Int64() == 1 {
+		userAddr := common.Address{}
+		contractAddress, unsignedTx := deployContract(c.config.Bytecode, userAddr, header, state) // TODO deploy contract
+		golog.Printf("\n>>>\tContract Address: 0x%x\n>>>\tUnsigned Tx: %#v\n", contractAddress, unsignedTx)
+	}
+	printDebug("Finalize", chain, header)
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
+	golog.Printf("\n\n\nBefore: 0x%x\n", header.Root)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	golog.Printf("After: 0x%x\n\n\n", header.Root)
 	header.UncleHash = types.CalcUncleHash(nil)
 
 	// Assemble and return the final block for sealing

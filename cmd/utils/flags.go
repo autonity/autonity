@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io/ioutil"
+	golog "log"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -1274,6 +1275,7 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 
 // MakeChain creates a chain manager from set command line flags.
 func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chainDb ethdb.Database) {
+	golog.Printf("\n\nMakeChain <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n\n")
 	var err error
 	chainDb = MakeChainDatabase(ctx, stack)
 
