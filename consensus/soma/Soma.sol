@@ -6,6 +6,8 @@ pragma solidity ^0.4.23;
 *  however validators no longer vote for proposers to be added or removed through the Soma contract.
 */
 
+import "./SomaInterface.sol";
+
 contract Soma is SomaInterface {
     mapping (address => bool) public m_validators;
     mapping (address => uint256) public m_votes;
@@ -44,7 +46,7 @@ contract Soma is SomaInterface {
     * Interface for users to cast their votes to propose addition or removal of a validator from the set
     * param: _vote (address) the address to be added or removed from the validator set
     */
-    function CastVote(address _vote) public onlyActiveValidators(msg.sender) {
+    function castVote(address _vote) public onlyActiveValidators(msg.sender) {
         // Increment vote
         m_votes[_vote]++;
 
@@ -63,7 +65,11 @@ contract Soma is SomaInterface {
         // If validator already exists remove
         if(m_validators[_vote]) {
             m_validators[_vote] = false;
-            delete validators[_vote];
+            for (uint256 i = 0; i < validators.length; i++) {
+                if (_vote==validators[i]) {
+                    delete validators[i];
+                }
+            }
         } else {
             m_validators[_vote] = true;
             validators.push(_vote);
@@ -78,12 +84,12 @@ contract Soma is SomaInterface {
     }
 
     /*
-    * ActiveValidators
+    * ActiveValidator
     *
-    * Returns the active validator set
+    * Returns boolean to indicate whether a given address is in the validator set
     */
-    function ActiveValidators() public view returns (address[]) {
-        return validators;
+    function ActiveValidator(address _validator) public view returns (bool) {
+        return m_validators[_validator];
     }
 
 
@@ -101,7 +107,7 @@ contract Soma is SomaInterface {
     * Modifier that checks if the voter is an active validator
     */
     modifier onlyActiveValidators(address _voter) {
-        require(m_chains[_voter], "Voter is not active validator");
+        require(m_validators[_voter], "Voter is not active validator");
         _;
 }
 
