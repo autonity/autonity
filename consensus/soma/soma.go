@@ -375,8 +375,10 @@ func (c *Soma) snapshot(chain consensus.ChainReader, number uint64, hash common.
 		snap    *Snapshot
 	)
 	for snap == nil {
+		log.Info("SNAPSHOT!!!")
 		// If an in-memory snapshot was found, use that
 		if s, ok := c.recents.Get(hash); ok {
+			log.Info("FOUND RECENT IN-MEMORY SNAPSHOT")
 			snap = s.(*Snapshot)
 			break
 		}
@@ -469,10 +471,25 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 	if number == 0 {
 		return errUnknownBlock
 	}
-	// Retrieve the snapshot needed to verify this header and cache it
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
-	if err != nil {
-		return err
+	// TODO: If block is 1 then check the genesis block for validators listed...
+	var signers []common.Address{}
+
+	if number == 1 {
+		genesis := chain.GetHeaderByNumber(0)
+		if err := c.VerifyHeader(chain, genesis, false); err != nil {
+			return nil, err
+		}
+		signers = make([]common.Address, (len(genesis.Extra)-extraVanity-extraSeal)/common.AddressLength)
+		for i := 0; i < len(signers); i++ {
+			copy(signers[i][:], genesis.Extra[extraVanity+i*common.AddressLength:])
+		}
+	} else {
+		// Retrieve the snapshot needed to verify this header and cache it
+		snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
+		if err != nil {
+			return err
+		}
+		signers = snap.Signers
 	}
 
 	// Resolve the authorization key and check against signers
@@ -480,7 +497,8 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 	if err != nil {
 		return err
 	}
-	if _, ok := snap.Signers[signer]; !ok {
+	// TODO: The Soma contract should be queried here...
+	if _, ok := signers[signer]; !ok {
 		return errUnauthorized
 	}
 	for seen, recent := range snap.Recents {
@@ -491,14 +509,15 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 			}
 		}
 	}
+	// TODO: Remove from Soma as this will be maintained by the governance smart contract
 	// Ensure that the difficulty corresponds to the turn-ness of the signer
-	inturn := snap.inturn(header.Number.Uint64(), signer)
-	if inturn && header.Difficulty.Cmp(diffInTurn) != 0 {
-		return errInvalidDifficulty
-	}
-	if !inturn && header.Difficulty.Cmp(diffNoTurn) != 0 {
-		return errInvalidDifficulty
-	}
+	// inturn := snap.inturn(header.Number.Uint64(), signer)
+	// if inturn && header.Difficulty.Cmp(diffInTurn) != 0 {
+	// 	return errInvalidDifficulty
+	// }
+	// if !inturn && header.Difficulty.Cmp(diffNoTurn) != 0 {
+	// 	return errInvalidDifficulty
+	// }
 	return nil
 }
 
@@ -574,12 +593,14 @@ func (c *Soma) Finalize(chain consensus.ChainReader, header *types.Header, state
 	//printDB(state.Database())
 	if header.Number.Int64() == 1 {
 		userAddr := common.Address{}
-		contractAddress, unsignedTx := deployContract(c.config.Bytecode, userAddr, header, state) // TODO deploy contract
-		golog.Printf("\n>>>\tContract Address: 0x%x\n>>>\tUnsigned Tx: %#v\n", contractAddress, unsignedTx)
+		contractAddress, _ := deployContract(c.config.Bytecode, userAddr, header, state) // TODO deploy contract
+		// contractAddress, unsignedTx := deployContract(c.config.Bytecode, userAddr, header, state) // TODO deploy contract
+		golog.Printf("\n>>>\tContract Address: 0x%x\n", contractAddress)
+		// golog.Printf("\n>>>\tContract Address: 0x%x\n>>>\tUnsigned Tx: %#v\n", contractAddress, unsignedTx)
 	}
 	printDebug("Finalize", chain, header)
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
-	golog.Printf("\n\n\nBefore: 0x%x\n", header.Root)
+	golog.Printf("\n\n\nBe	fore: 0x%x\n", header.Root)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	golog.Printf("After: 0x%x\n\n\n", header.Root)
 	header.UncleHash = types.CalcUncleHash(nil)
