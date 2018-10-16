@@ -2,6 +2,8 @@ package soma
 
 import (
 	"encoding/hex"
+	"encoding/json"
+	"log"
 	"math/big"
 	"os"
 	"testing"
@@ -69,6 +71,7 @@ func TestStateDBChanges(t *testing.T) {
 	memorydb := ethdb.NewMemDatabase() // generates memory db (this could the LevelDB)
 	sdb := state.NewDatabase(memorydb) // thread safe DB wrapper
 	statedb, _ := state.New(common.Hash{}, sdb)
+
 	userKey, _ := crypto.GenerateKey()
 	userAddr := crypto.PubkeyToAddress(userKey.PublicKey)
 	statedb.SetBalance(userAddr, big.NewInt(1000000000))
@@ -81,7 +84,7 @@ func TestStateDBChanges(t *testing.T) {
 	*/
 
 	// COMPILE CONTRACT
-	basePath := os.Getenv("GOPATH") + "/src/gitlab.clearmatics.net/oss/autonity/"
+	basePath := os.Getenv("GOPATH") + "/src/github.com/clearmatics/autonity/"
 	testContractPath := basePath + "consensus/soma/test.sol"
 	contracts, err := compiler.CompileSolidity("", testContractPath)
 	if err != nil {
@@ -306,4 +309,95 @@ func TestEVMContractDeployment(t *testing.T) {
 	if transferredValue.Cmp(value) != 0 {
 		t.Error("Unexpected balance in origin account!")
 	}
+}
+
+func TestEVMSomaContractDeployment(t *testing.T) {
+	initialBalance := big.NewInt(1000000000)
+	userKey, _ := crypto.GenerateKey()
+	userAddr := crypto.PubkeyToAddress(userKey.PublicKey)
+	coinbaseKey, _ := crypto.GenerateKey()
+	coinbaseAddr := crypto.PubkeyToAddress(coinbaseKey.PublicKey)
+	originKey, _ := crypto.GenerateKey()
+	originAddr := crypto.PubkeyToAddress(originKey.PublicKey)
+
+	alloc := make(core.GenesisAlloc)
+	alloc[userAddr] = core.GenesisAccount{
+		Balance: initialBalance,
+	}
+	statedb := MakePreState(ethdb.NewMemDatabase(), alloc)
+
+	vmTestBlockHash := func(n uint64) common.Hash {
+		return common.BytesToHash(crypto.Keccak256([]byte(big.NewInt(int64(n)).String())))
+	}
+	context := vm.Context{
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
+		GetHash:     vmTestBlockHash,
+		Origin:      originAddr,
+		Coinbase:    coinbaseAddr,
+		BlockNumber: new(big.Int).SetUint64(0x00),
+		Time:        new(big.Int).SetUint64(0x01),
+		GasLimit:    uint64(0xFFFFFFFFFF),
+		Difficulty:  new(big.Int).SetUint64(0x0100),
+		GasPrice:    new(big.Int).SetUint64(0x3b9aca00),
+	}
+	vmconfig := vm.Config{}
+	//vmconfig.NoRecursion = true
+	evm := vm.NewEVM(context, statedb, params.MainnetChainConfig, vmconfig) //vmconfig)
+
+	// CREATE
+	sender := vm.AccountRef(userAddr)
+	// Compile the Soma contract and then deploy it natively
+	governBinStr := CompileSoma()
+	binaryBytes := common.Hex2Bytes(governBinStr)
+	encodedAddress := [32]byte{}
+	copy(encodedAddress[12:], userAddr[:])
+
+	abiEncoding := common.Hex2Bytes("00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001")
+	constructorArgs := append(abiEncoding[:], encodedAddress[:]...)
+	somaCode := append(binaryBytes[:], constructorArgs[:]...)
+	gas := uint64(0xFFFFFFFFFF)
+	value := new(big.Int).SetUint64(0x00)
+	ret, contractAddress, gas, vmerr := evm.Create(sender, somaCode, gas, value)
+	t.Log("====== CREATE =======")
+	t.Logf("Contract:\n%s\n", hex.Dump(ret))
+	t.Log("Address: ", contractAddress.String())
+	t.Log("Gas: ", gas)
+	t.Log("Error: ", vmerr)
+
+	functionSig := "ActiveValidator(address)"
+	t.Log("====== CALL =======", functionSig)
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()[:4]
+	inputData := append(input[:], encodedAddress[:]...)
+	ret, gas, vmerr = evm.Call(sender, contractAddress, inputData, gas, value)
+	t.Logf("Result:\n%s\n", hex.Dump(ret))
+	t.Log("Gas: ", gas)
+	t.Log("Error: ", vmerr)
+
+}
+
+func CompileSoma() string {
+	basePath := os.Getenv("GOPATH") + "/src/github.com/ethereum/go-ethereum/consensus/soma/"
+	contractPath := basePath + "Soma.sol"
+
+	contracts, err := compiler.CompileSolidity("", contractPath)
+	if err != nil {
+		log.Fatal("ERROR failed to compile Soma.sol:", err)
+	}
+
+	governContract := contracts[basePath+"Soma.sol:Soma"]
+	governBinStr, _ := getContractBytecodeAndABI(governContract)
+
+	return governBinStr
+}
+
+func getContractBytecodeAndABI(c *compiler.Contract) (string, string) {
+	cABIBytes, err := json.Marshal(c.Info.AbiDefinition)
+	if err != nil {
+		log.Fatal("ERROR marshalling contract ABI:", err)
+	}
+
+	contractBinStr := c.Code[2:]
+	contractABIStr := string(cABIBytes)
+	return contractBinStr, contractABIStr
 }

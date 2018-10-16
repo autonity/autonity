@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -68,10 +70,119 @@ func deployContract(bytecodeStr string, userAddr common.Address, header *types.H
 	// create transaction
 	contractTx := types.NewContractCreation(statedb.GetNonce(contractAddress), value, header.GasLimit, gasPrice, data)
 
+	// CALL
+	functionSig := "ActiveValidator(address)"
+	log.Println("====== CALL =======", functionSig)
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()[:4]
+	inputData := append(input[:], userAddr[:]...)
+	ret, gas, vmerr = evm.Call(sender, contractAddress, inputData, gas, value)
+	log.Printf("Result:\n%s\n", hex.Dump(ret))
+	log.Println("User Address: ", userAddr)
+	log.Println("Gas: ", gas)
+	log.Println("Error: ", vmerr)
+
 	//statedb.Commit(false)
 	//printDB(statedb.Database())
 
 	return contractAddress, contractTx
+}
+
+func callContract(contractAddress common.Address, userAddr common.Address, header *types.Header, statedb *state.StateDB) {
+	gasPrice := new(big.Int).SetUint64(0x0)
+	evmContext := vm.Context{
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
+		//GetHash:     core.GetHashFn(header,chainContext),
+		GetHash:     func(n uint64) common.Hash { return header.Root }, // since this a one time thing, no point in adding complex functions to get the hash
+		Origin:      userAddr,
+		Coinbase:    userAddr,
+		BlockNumber: header.Number,
+		Time:        header.Time,
+		GasLimit:    header.GasLimit,
+		Difficulty:  header.Difficulty,
+		GasPrice:    gasPrice,
+	}
+	chainConfig := params.AllSomaProtocolChanges
+	vmconfig := vm.Config{}
+
+	evm := vm.NewEVM(evmContext, statedb, chainConfig, vmconfig)
+
+	sender := vm.AccountRef(userAddr)
+	gas := uint64(1000000)
+	value := new(big.Int).SetUint64(0x00)
+	// CALL
+	functionSig := "ActiveValidator(address)"
+	log.Println("====== CALL =======", functionSig)
+	encodedAddress := [32]byte{}
+	copy(encodedAddress[12:], userAddr[:])
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()[:4]
+	inputData := append(input[:], encodedAddress[:]...)
+	ret, gas, vmerr := evm.Call(sender, contractAddress, inputData, gas, value)
+	log.Printf("Result:\n%s\n", hex.Dump(ret))
+	log.Println("User Address: ", userAddr)
+	log.Println("Gas: ", gas)
+	log.Println("Error: ", vmerr)
+
+}
+
+func callActiveValidators(userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (bool, error) {
+	// Byte encoding of booleans
+	trueResult := "0000000000000000000000000000000000000000000000000000000000000001"
+
+	// Signature of function being called defined by Soma interface
+	functionSig := "ActiveValidator(address)"
+
+	// Instantiate new state database
+	sdb := state.NewDatabase(db)
+	statedb, _ := state.New(header.Root, sdb)
+
+	log.Println("====== QUERY THE SMART CONTRACT =======", functionSig)
+
+	gasPrice := new(big.Int).SetUint64(0x0)
+	evmContext := vm.Context{
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
+		//GetHash:     core.GetHashFn(header,chainContext),
+		GetHash:     func(n uint64) common.Hash { return header.Root }, // since this a one time thing, no point in adding complex functions to get the hash
+		Origin:      userAddr,
+		Coinbase:    userAddr,
+		BlockNumber: header.Number,
+		Time:        header.Time,
+		GasLimit:    header.GasLimit,
+		Difficulty:  header.Difficulty,
+		GasPrice:    gasPrice,
+	}
+	chainConfig := params.AllSomaProtocolChanges
+	vmconfig := vm.Config{}
+
+	evm := vm.NewEVM(evmContext, statedb, chainConfig, vmconfig)
+
+	sender := vm.AccountRef(userAddr)
+
+	log.Println("Contract exists: ", statedb.Exist(contractAddress))
+	gas := uint64(1000000)
+	value := new(big.Int).SetUint64(0x00)
+
+	// CALL
+	log.Println("====== CALL =======", functionSig)
+	encodedAddress := [32]byte{}
+	copy(encodedAddress[12:], userAddr[:])
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()[:4]
+	inputData := append(input[:], encodedAddress[:]...)
+	ret, gas, vmerr := evm.Call(sender, contractAddress, inputData, gas, value)
+	if vmerr != nil {
+		return false, vmerr
+	}
+	// Parse result
+	// result := strings.Compare(hex.EncodeToString(ret), trueResult)
+	log.Printf("Comparison:\n%s\n%s ", hex.EncodeToString(ret), trueResult)
+	if hex.EncodeToString(ret) == trueResult {
+		return true, nil
+
+	} else {
+		return false, nil
+	}
+
 }
 
 func printDebug(funcName string, chain consensus.ChainReader, header *types.Header) {

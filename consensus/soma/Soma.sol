@@ -6,10 +6,11 @@ pragma solidity ^0.4.23;
 *  however validators no longer vote for proposers to be added or removed through the Soma contract.
 */
 
-import "./SomaInterface.sol";
+// import "./SomaInterface.sol";
 
-contract Soma is SomaInterface {
+contract Soma  {
     mapping (address => bool) public m_validators;
+    mapping (address => bool) public m_recent_validators;
     mapping (address => uint256) public m_votes;
 
     address[] public validators;
@@ -109,7 +110,7 @@ contract Soma is SomaInterface {
     modifier onlyActiveValidators(address _voter) {
         require(m_validators[_voter], "Voter is not active validator");
         _;
-}
+    }
 
 
 }
