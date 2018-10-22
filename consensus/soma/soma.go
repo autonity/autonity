@@ -484,17 +484,34 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 		return err
 	}
 
+	// Check known validators for seals, smart contract included post block 2
+	if number < 2 {
+		signerFlag := checkSigner(c.config.Deployer, signer)
+		if !signerFlag {
+			return errUnauthorized
+		}
+	} else {
+		// Check signer is active validator
+		authorized, err := callActiveValidators(signer, c.somaContract, chain.CurrentHeader(), c.db, chain)
+		if err != nil {
+			return err
+		}
+		if !authorized {
+			return errUnauthorized
+		}
+		// if _, ok := snap.Signers[signer]; !ok {
+		// 	return errUnauthorized
+		// }
+	}
+
 	// TODO: Find if signer is actually a validator in the contract
 	// result := callActiveValidators(signer, c.somaContract, header, c.db)
 	// golog.Println("RESSSSUUULTTT: ", result)
 	// golog.Printf("\n\n\nBe	fore: 0x%x\n", header.Root)
 
-	if _, ok := snap.Signers[signer]; !ok {
-		return errUnauthorized
-	}
 	for seen, recent := range snap.Recents {
 		if recent == signer {
-			// Signer is among recents, only fail if the current block doesn't shift it out
+			// Signer is among recents, only fail if the current block	 doesn't shift it out
 			if limit := uint64(len(snap.Signers)/2 + 1); seen > number-limit {
 				return errUnauthorized
 			}
@@ -583,11 +600,15 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 func (c *Soma) Finalize(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// Deploy Soma on-chain governance contract
 	if header.Number.Int64() == 1 {
-		c.somaContract, _ = deployContract(c.config.Bytecode, c.config.Deployer, header, statedb) // TODO deploy contract
-		golog.Printf("\n>>>\tContract Address: 0x%x\n", c.somaContract)
+		log.Info("Soma Contract Deployer", "Address", c.config.Deployer)
+		contractAddress, err := deployContract(c.config.Bytecode, c.config.Deployer, header, statedb)
+		if err != nil {
+			return nil, err
+		}
+
+		c.somaContract = contractAddress
 	}
 
-	printDebug("Finalize", chain, header)
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = types.CalcUncleHash(nil)
@@ -631,12 +652,16 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 		return nil, err
 	}
 
-	// TODO: Find if signer is actually a validator in the contract
-	if number == 0 {
-
-	}
-	if number > 1 {
-		result, err := callActiveValidators(signer, c.somaContract, header, c.db)
+	if number < 2 {
+		signerFlag := checkSigner(c.config.Deployer, signer)
+		if !signerFlag {
+			// Note: This error will occur if account is not authorized to mine!
+			log.Info("Account not active validator, wait for others to sign block or use active validator to mine!")
+			<-stop
+			return nil, nil
+		}
+	} else {
+		result, err := callActiveValidators(signer, c.somaContract, chain.CurrentHeader(), c.db, chain)
 		if err != nil {
 			return nil, err
 		}
@@ -644,10 +669,9 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 		if !result {
 			return nil, errUnauthorized
 		}
-	}
-
-	if _, authorized := snap.Signers[signer]; !authorized {
-		return nil, errUnauthorized
+		// if _, authorized := snap.Signers[signer]; !authorized {
+		// 	return nil, errUnauthorized
+		// }
 	}
 
 	// If we're amongst the recent signers, wait for the next block
@@ -721,6 +745,11 @@ func (c *Soma) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
-// func genesisValidators() {
-
-// }
+// Iterates through the genesis signers to see if the sealer is included, as this only occurs for
+// block 1 this is mor efficient than creating some storage struct upon initialisation
+func checkSigner(genesisSigner common.Address, signer common.Address) bool {
+	if genesisSigner == signer {
+		return true
+	}
+	return false
+}
