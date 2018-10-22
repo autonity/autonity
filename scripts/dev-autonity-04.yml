@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dev-autonity-04
+spec:
+  type: NodePort
+  ports:
+    - protocol: TCP
+      name: rpc
+      port: 30040
+      targetPort: 30040
+      nodePort: 30040
+    - protocol: TCP
+      name: listener
+      port: 30343
+      targetPort: 30343
+      nodePort: 30343
+  selector:
+    app: dev-autonity-04
+  clusterIP: 100.70.107.140
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: dev-autonity-04
+spec:
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: dev-autonity-04
+    spec:
+      containers:
+      - image: 572232595707.dkr.ecr.eu-west-2.amazonaws.com/photon:latest 
+        name: dev-autonity-04
+        ports:
+        - containerPort: 30040
+          name: rpc
+        - containerPort: 30343
+          name: p2p
+        args:
+          - "--config"
+          - "/efs/04/config.toml"
+          - "--rpc"
+          # - "--rpcaddr" 
+          # - "0.0.0.0"
+          - "--verbosity"
+          - "9"
+          - "--bootnodes"
+          - "enode://c78e63779cea4123f25d7232da6dd53068a66a3666c8d6fb00c7f1d6a90ceab9c0a0d4f6759d3caabe3a7fd7be4183b5b143786f092fd0d311479c17837aebc2@54.154.217.80:30301"
+          - "--networkid"
+          - "16"
+          # - "--rpccorsdomain"
+          # - "http://block-explorer.stage02-1.clearmatics.com"
+          # - "--rpcapi"
+          # - "web3,eth"
+          - "--rpcport"
+          - "30040"
+          - "--port"
+          - "30343"
+          - "--nat"
+          - "extip:34.245.26.76"
+        volumeMounts:
+          - name: pv-volume
+            mountPath: /efs
+      volumes:
+        - name: pv-volume
+          nfs:
+            server: fs-f39fa73a.efs.eu-west-1.amazonaws.com
+            path: /

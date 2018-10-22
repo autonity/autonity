@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dev-autonity-01
+spec:
+  type: NodePort
+  ports:
+    - protocol: TCP
+      name: rpc
+      port: 30010
+      targetPort: 30010
+      nodePort: 30010
+    - protocol: TCP
+      name: listener
+      port: 30313
+      targetPort: 30313
+      nodePort: 30313
+  selector:
+    app: dev-autonity-01
+  clusterIP: 100.70.107.110
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: dev-autonity-01
+spec:
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: dev-autonity-01
+    spec:
+      containers:
+      - image: 572232595707.dkr.ecr.eu-west-2.amazonaws.com/photon:latest 
+        name: dev-autonity-01
+        ports:
+        - containerPort: 30010
+          name: rpc
+        - containerPort: 30313
+          name: p2p
+        args:
+          - "--config"
+          - "/efs/01/config.toml"
+          - "--rpc"
+          - "--verbosity"
+          - "9"
+          - "--minerthreads"
+          - "2"
+          - "--mine"
+          - "--unlock"
+          - "0x1f904b4843e3c46604b41c547aebc4314ae238d0"
+          - "--password"
+          - "/efs/01/password"
+          - "--maxpeers"
+          - "64"
+          - "--rpcport"
+          - "30010"
+          - "--port"
+          - "30313"
+          - "--nat"
+          - "extip:34.245.26.76"
+        volumeMounts:
+          - name: pv-volume
+            mountPath: /efs
+      volumes:
+        - name: pv-volume
+          nfs:
+            server: fs-f39fa73a.efs.eu-west-1.amazonaws.com
+            path: /

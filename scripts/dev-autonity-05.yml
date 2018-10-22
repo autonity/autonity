@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dev-autonity-05
+spec:
+  type: NodePort
+  ports:
+    - protocol: TCP
+      name: rpc
+      port: 30050
+      targetPort: 30050
+      nodePort: 30050
+    - protocol: TCP
+      name: listener
+      port: 30353
+      targetPort: 30353
+      nodePort: 30353
+  selector:
+    app: dev-autonity-05
+  clusterIP: 100.70.107.150
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: dev-autonity-05
+spec:
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: dev-autonity-05
+    spec:
+      containers:
+      - image: 572232595707.dkr.ecr.eu-west-2.amazonaws.com/photon:latest 
+        name: dev-autonity-05
+        ports:
+        - containerPort: 30050
+          name: rpc
+        - containerPort: 30353
+          name: p2p
+        args:
+          - "--config"
+          - "/efs/05/config.toml"
+          - "--rpc"
+          - "--verbosity"
+          - "9"
+          # - "--minerthreads"
+          # - "2"
+          # - "--mine"
+          # - "--unlock"
+          # - "0x1f904b4843e3c46604b41c547aebc4314ae238d0"
+          # - "--password"
+          # - "/efs/stage02-1/dev-autonity-05/password"
+          # - "--maxpeers"
+          # - "64"
+          - "--rpcport"
+          - "30050"
+          - "--port"
+          - "30353"
+          - "--nat"
+          - "extip:34.245.26.76"
+        volumeMounts:
+          - name: pv-volume
+            mountPath: /efs
+      volumes:
+        - name: pv-volume
+          nfs:
+            server: fs-f39fa73a.efs.eu-west-1.amazonaws.com
+            path: /
