@@ -202,6 +202,7 @@ type Soma struct {
 	proposals map[common.Address]bool // Current list of proposals we are pushing
 
 	signer       common.Address // Ethereum address of the signing key
+	deployer     common.Address // Ethereum address of the soma contract deployer
 	somaContract common.Address // Ethereum address of the governance contract
 	signFn       SignerFn       // Signer function to authorize hashes with
 	lock         sync.RWMutex   // Protects the signer fields
@@ -582,8 +583,7 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 func (c *Soma) Finalize(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// Deploy Soma on-chain governance contract
 	if header.Number.Int64() == 1 {
-		userAddr := common.Address{}
-		c.somaContract, _ = deployContract(c.config.Bytecode, userAddr, header, statedb) // TODO deploy contract
+		c.somaContract, _ = deployContract(c.config.Bytecode, c.config.Deployer, header, statedb) // TODO deploy contract
 		golog.Printf("\n>>>\tContract Address: 0x%x\n", c.somaContract)
 	}
 
@@ -644,10 +644,10 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 		if !result {
 			return nil, errUnauthorized
 		}
-	} else {
-		if _, authorized := snap.Signers[signer]; !authorized {
-			return nil, errUnauthorized
-		}
+	}
+
+	if _, authorized := snap.Signers[signer]; !authorized {
+		return nil, errUnauthorized
 	}
 
 	// If we're amongst the recent signers, wait for the next block

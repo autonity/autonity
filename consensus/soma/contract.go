@@ -58,7 +58,7 @@ func deployContract(bytecodeStr string, userAddr common.Address, header *types.H
 
 	sender := vm.AccountRef(userAddr)
 	data := contractBytecode
-	gas := uint64(1000000)
+	gas := uint64(0xFFFFFFFF)
 	value := new(big.Int).SetUint64(0x00)
 	ret, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
 	log.Println("====== CREATE =======")
@@ -108,7 +108,7 @@ func callContract(contractAddress common.Address, userAddr common.Address, heade
 	evm := vm.NewEVM(evmContext, statedb, chainConfig, vmconfig)
 
 	sender := vm.AccountRef(userAddr)
-	gas := uint64(1000000)
+	gas := uint64(0xFFFFFFFF)
 	value := new(big.Int).SetUint64(0x00)
 	// CALL
 	functionSig := "ActiveValidator(address)"
@@ -127,7 +127,7 @@ func callContract(contractAddress common.Address, userAddr common.Address, heade
 
 func callActiveValidators(userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (bool, error) {
 	// Byte encoding of booleans
-	trueResult := "0000000000000000000000000000000000000000000000000000000000000001"
+	expectedResult := "0000000000000000000000000000000000000000000000000000000000000001"
 
 	// Signature of function being called defined by Soma interface
 	functionSig := "ActiveValidator(address)"
@@ -136,8 +136,7 @@ func callActiveValidators(userAddr common.Address, contractAddress common.Addres
 	sdb := state.NewDatabase(db)
 	statedb, _ := state.New(header.Root, sdb)
 
-	log.Println("====== QUERY THE SMART CONTRACT =======", functionSig)
-
+	// Initialise a new Ethereum Virtual Machine
 	gasPrice := new(big.Int).SetUint64(0x0)
 	evmContext := vm.Context{
 		CanTransfer: core.CanTransfer,
@@ -153,30 +152,27 @@ func callActiveValidators(userAddr common.Address, contractAddress common.Addres
 		GasPrice:    gasPrice,
 	}
 	chainConfig := params.AllSomaProtocolChanges
+	sender := vm.AccountRef(userAddr)
+	gas := uint64(0xFFFFFFFF)
+	value := new(big.Int).SetUint64(0x00)
 	vmconfig := vm.Config{}
 
 	evm := vm.NewEVM(evmContext, statedb, chainConfig, vmconfig)
 
-	sender := vm.AccountRef(userAddr)
-
-	log.Println("Contract exists: ", statedb.Exist(contractAddress))
-	gas := uint64(1000000)
-	value := new(big.Int).SetUint64(0x00)
-
-	// CALL
-	log.Println("====== CALL =======", functionSig)
+	// Pad address for ABI encoding
 	encodedAddress := [32]byte{}
 	copy(encodedAddress[12:], userAddr[:])
 	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()[:4]
 	inputData := append(input[:], encodedAddress[:]...)
+
+	// Call ActiveValidators()
 	ret, gas, vmerr := evm.Call(sender, contractAddress, inputData, gas, value)
 	if vmerr != nil {
 		return false, vmerr
 	}
-	// Parse result
-	// result := strings.Compare(hex.EncodeToString(ret), trueResult)
-	log.Printf("Comparison:\n%s\n%s ", hex.EncodeToString(ret), trueResult)
-	if hex.EncodeToString(ret) == trueResult {
+
+	// Check result
+	if hex.EncodeToString(ret) == expectedResult {
 		return true, nil
 
 	} else {

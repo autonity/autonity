@@ -153,9 +153,10 @@ func (c *CliqueConfig) String() string {
 
 // SomaConfig is the consensus engine configs for proof-of-authority based sealing.
 type SomaConfig struct {
-	Period   uint64 `json:"period"`   // Number of seconds between blocks to enforce
-	Epoch    uint64 `json:"epoch"`    // Epoch length to reset votes and checkpoint
-	Bytecode string `json:"bytecode"` // Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
+	Period   uint64         `json:"period"`            // Number of seconds between blocks to enforce
+	Epoch    uint64         `json:"epoch"`             // Epoch length to reset votes and checkpoint
+	Deployer common.Address `json:"contract-deployer"` // Address of the validator who deploys contract stored in bytecode
+	Bytecode string         `json:"bytecode"`          // Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
 }
 
 // String implements the stringer interface, returning the consensus engine details.
