@@ -1,26 +1,14 @@
-Hi there,
-
-please note that this is an issue tracker reserved for bug reports and feature requests.
-
-For general questions please use the gitter channel or the Ethereum stack exchange at https://ethereum.stackexchange.com.
-
-#### System information
-
-Geth version: `geth version`
-OS & Version: Windows/Linux/OSX
-Commit hash : (if `develop`)
-
-#### Expected behaviour
+As a user
+I want
+So that
 
 
-#### Actual behaviour
+### Acceptance criteria
+-
+-
+-
 
-
-#### Steps to reproduce the behaviour
-
-
-#### Backtrace
-
-````
-[backtrace]
-````
+### Related issues
+-
+-
+-
