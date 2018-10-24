@@ -19,6 +19,7 @@ package soma
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	golog "log"
 	"math/big"
@@ -271,7 +272,7 @@ func (c *Soma) verifyHeader(chain consensus.ChainReader, header *types.Header, p
 		return errUnknownBlock
 	}
 	number := header.Number.Uint64()
-
+	// header.Difficulty = CalcDifficulty(snap, c.signer)
 	// Don't waste time checking blocks from the future
 	if header.Time.Cmp(big.NewInt(time.Now().Unix())) > 0 {
 		return consensus.ErrFutureBlock
@@ -376,10 +377,8 @@ func (c *Soma) snapshot(chain consensus.ChainReader, number uint64, hash common.
 		snap    *Snapshot
 	)
 	for snap == nil {
-		log.Info("SNAPSHOT!!!")
 		// If an in-memory snapshot was found, use that
 		if s, ok := c.recents.Get(hash); ok {
-			log.Info("FOUND RECENT IN-MEMORY SNAPSHOT")
 			snap = s.(*Snapshot)
 			break
 		}
@@ -427,6 +426,7 @@ func (c *Soma) snapshot(chain consensus.ChainReader, number uint64, hash common.
 		headers = append(headers, header)
 		number, hash = number-1, header.ParentHash
 	}
+
 	// Previous snapshot found, apply any pending headers on top of it
 	for i := 0; i < len(headers)/2; i++ {
 		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
@@ -467,16 +467,17 @@ func (c *Soma) VerifySeal(chain consensus.ChainReader, header *types.Header) err
 // headers that aren't yet part of the local blockchain to generate the snapshots
 // from.
 func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
+	log.Info("VerifySeal()", "Block", header.Number.Int64())
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
 		return errUnknownBlock
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
-	if err != nil {
-		return err
-	}
+	// snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Resolve the authorization key and check against signers
 	signer, err := ecrecover(header, c.signatures)
@@ -485,87 +486,97 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 	}
 
 	// Check known validators for seals, smart contract included post block 2
-	if number < 2 {
+	if number == 1 {
 		signerFlag := checkSigner(c.config.Deployer, signer)
 		if !signerFlag {
 			return errUnauthorized
 		}
 	} else {
 		// Check signer is active validator
-		authorized, err := callActiveValidators(signer, c.somaContract, chain.CurrentHeader(), c.db, chain)
+		authorized, err := callActiveValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 		if err != nil {
 			return err
 		}
 		if !authorized {
+			log.Info("Unauthorized VerifySeal")
 			return errUnauthorized
 		}
 		// if _, ok := snap.Signers[signer]; !ok {
 		// 	return errUnauthorized
 		// }
-	}
 
-	// TODO: Find if signer is actually a validator in the contract
-	// result := callActiveValidators(signer, c.somaContract, header, c.db)
-	// golog.Println("RESSSSUUULTTT: ", result)
-	// golog.Printf("\n\n\nBe	fore: 0x%x\n", header.Root)
-
-	for seen, recent := range snap.Recents {
-		if recent == signer {
-			// Signer is among recents, only fail if the current block	 doesn't shift it out
-			if limit := uint64(len(snap.Signers)/2 + 1); seen > number-limit {
-				return errUnauthorized
-			}
+		// If we're amongst the recent signers, wait for the next block
+		result, err := callRecentValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		if err != nil {
+			return err
 		}
+
+		log.Info("Verify Seal Recent", "Block", chain.CurrentHeader().Number.Int64(), "Result", result, "signer", signer)
+		log.Info("StateRoot", "Value", chain.CurrentHeader().Root)
+
+		// for seen, recent := range snap.Recents {
+		// 	if recent == signer {
+		// 		// Signer is among recents, only fail if the current block	 doesn't shift it out
+		// 		if limit := uint64(len(snap.Signers)/2 + 1); seen > number-limit {
+		// 			return errUnauthorized
+		// 		}
+		// 	}
+		// }
+
+		// TODO: Don't think this is required tbh as if the validator is not inturn then the verification should fail...
+		// Ensure that the difficulty corresponds to the turn-ness of the signer
+		// inturn := snap.inturn(header.Number.Uint64(), signer)
+		// if inturn && header.Difficulty.Cmp(diffInTurn) != 0 {
+		// 	return errInvalidDifficulty
+		// }
+		// if !inturn && header.Difficulty.Cmp(diffNoTurn) != 0 {
+		// 	return errInvalidDifficulty
+		// }
 	}
-	// TODO: Remove this as it should be performed by thwe
-	// Ensure that the difficulty corresponds to the turn-ness of the signer
-	inturn := snap.inturn(header.Number.Uint64(), signer)
-	if inturn && header.Difficulty.Cmp(diffInTurn) != 0 {
-		return errInvalidDifficulty
-	}
-	if !inturn && header.Difficulty.Cmp(diffNoTurn) != 0 {
-		return errInvalidDifficulty
-	}
+
 	return nil
 }
 
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
 func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error {
-	printDebug("Prepare", chain, header)
+	log.Info("Prepare", "Block", header.Number.Int64())
 	// If the block isn't a checkpoint, cast a random vote (good enough for now)
 	header.Coinbase = common.Address{}
 	header.Nonce = types.BlockNonce{}
 
 	number := header.Number.Uint64()
-	// Assemble the voting snapshot to check which votes make sense
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
-	if err != nil {
-		return err
-	}
-	if number%c.config.Epoch != 0 {
-		c.lock.RLock()
+	parentHeader := chain.GetHeaderByNumber(number - 1)
 
-		// Gather all the proposals that make sense voting on
-		addresses := make([]common.Address, 0, len(c.proposals))
-		for address, authorize := range c.proposals {
-			if snap.validVote(address, authorize) {
-				addresses = append(addresses, address)
-			}
-		}
-		// If there's pending proposals, cast a vote on them
-		if len(addresses) > 0 {
-			header.Coinbase = addresses[rand.Intn(len(addresses))]
-			if c.proposals[header.Coinbase] {
-				copy(header.Nonce[:], nonceAuthVote)
-			} else {
-				copy(header.Nonce[:], nonceDropVote)
-			}
-		}
-		c.lock.RUnlock()
-	}
+	// Assemble the voting snapshot to check which votes make sense
+	// snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
+	// if err != nil {
+	// 	return err
+	// }
+	// if number%c.config.Epoch != 0 {
+	// 	c.lock.RLock()
+
+	// 	// Gather all the proposals that make sense voting on
+	// 	addresses := make([]common.Address, 0, len(c.proposals))
+	// 	for address, authorize := range c.proposals {
+	// 		if snap.validVote(address, authorize) {
+	// 			addresses = append(addresses, address)
+	// 		}
+	// 	}
+	// 	// If there's pending proposals, cast a vote on them
+	// 	if len(addresses) > 0 {
+	// 		header.Coinbase = addresses[rand.Intn(len(addresses))]
+	// 		if c.proposals[header.Coinbase] {
+	// 			copy(header.Nonce[:], nonceAuthVote)
+	// 		} else {
+	// 			copy(header.Nonce[:], nonceDropVote)
+	// 		}
+	// 	}
+	// 	c.lock.RUnlock()
+	// }
 	// Set the correct difficulty
-	header.Difficulty = CalcDifficulty(snap, c.signer)
+	// header.Difficulty = CalcDifficulty(snap, c.signer)
+	header.Difficulty = calcDifficulty(chain, parentHeader, c)
 
 	// Ensure the extra data has all it's components
 	if len(header.Extra) < extraVanity {
@@ -573,11 +584,11 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 	}
 	header.Extra = header.Extra[:extraVanity]
 
-	if number%c.config.Epoch == 0 {
-		for _, signer := range snap.signers() {
-			header.Extra = append(header.Extra, signer[:]...)
-		}
-	}
+	// if number%c.config.Epoch == 0 {
+	// 	for _, signer := range snap.signers() {
+	// 		header.Extra = append(header.Extra, signer[:]...)
+	// 	}
+	// }
 	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
 	// Mix digest is reserved for now, set to empty
@@ -598,15 +609,30 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
 func (c *Soma) Finalize(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+	log.Info("Finalize", "Block", header.Number.Int64())
 	// Deploy Soma on-chain governance contract
 	if header.Number.Int64() == 1 {
 		log.Info("Soma Contract Deployer", "Address", c.config.Deployer)
-		contractAddress, err := deployContract(c.config.Bytecode, c.config.Deployer, header, statedb)
+		contractAddress, err := deployContract(chain, c.config.Bytecode, c.config.Deployer, header, statedb)
 		if err != nil {
 			return nil, err
 		}
 
 		c.somaContract = contractAddress
+
+	} else {
+		emptyByteVar := make([]byte, 65)
+		if !bytes.Equal(header.Extra[len(header.Extra)-extraSeal:], emptyByteVar) {
+			signer, err := c.Author(header)
+			if err != nil {
+				return nil, err
+			}
+			log.Info("Updating Governance", "Block", header.Number.Uint64(), "Signer", signer)
+			updateGovernance(chain, signer, c.somaContract, header, statedb)
+		} else {
+			log.Info("Updating Governance", "Block", header.Number.Uint64(), "Signer", c.signer)
+			updateGovernance(chain, c.signer, c.somaContract, header, statedb)
+		}
 	}
 
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
@@ -630,6 +656,7 @@ func (c *Soma) Authorize(signer common.Address, signFn SignerFn) {
 // Seal implements consensus.Engine, attempting to create a sealed block using
 // the local signing credentials.
 func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
+	log.Info("Seal()", "Block", block.Header().Number.Int64())
 	header := block.Header()
 
 	// Sealing the genesis block is not supported
@@ -637,6 +664,7 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 	if number == 0 {
 		return nil, errUnknownBlock
 	}
+
 	// For 0-period chains, refuse to seal empty blocks (no reward but would spin sealing)
 	if c.config.Period == 0 && len(block.Transactions()) == 0 {
 		return nil, errWaitTransactions
@@ -647,12 +675,13 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 	c.lock.RUnlock()
 
 	// Bail out if we're unauthorized to sign a block
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
-	if err != nil {
-		return nil, err
-	}
+	// log.Info("SEAL")
+	// snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	if number < 2 {
+	if number == 1 {
 		signerFlag := checkSigner(c.config.Deployer, signer)
 		if !signerFlag {
 			// Note: This error will occur if account is not authorized to mine!
@@ -661,38 +690,60 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 			return nil, nil
 		}
 	} else {
-		result, err := callActiveValidators(signer, c.somaContract, chain.CurrentHeader(), c.db, chain)
+		result, err := callActiveValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 		if err != nil {
 			return nil, err
 		}
-		golog.Printf("ActiveValidators():\n%x\n\n", result)
 		if !result {
 			return nil, errUnauthorized
 		}
 		// if _, authorized := snap.Signers[signer]; !authorized {
 		// 	return nil, errUnauthorized
 		// }
-	}
 
-	// If we're amongst the recent signers, wait for the next block
-	for seen, recent := range snap.Recents {
-		if recent == signer {
-			// Signer is among recents, only wait if the current block doesn't shift it out
-			if limit := uint64(len(snap.Signers)/2 + 1); number < limit || seen > number-limit {
-				log.Info("Signed recently, must wait for others")
-				<-stop
-				return nil, nil
-			}
+		// If we're amongst the recent signers, wait for the next block
+		result, err = callRecentValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		if err != nil {
+			return nil, err
 		}
+
+		log.Info("Seal Recent", "Block", chain.CurrentHeader().Number.Int64(), "Result", result, "signer", signer)
+
+		if !result {
+			// Note: This error will occur if account is not authorized to mine!
+			log.Info("Account not active validator, wait for others to sign block or use active validator to mine!")
+			<-stop
+			return nil, nil
+		}
+
+		// for seen, recent := range snap.Recents {
+		// 	// 	log.Info("Test", "Seen", seen, "Recent", recent)
+		// 	if recent == signer {
+		// 		// Signer is among recents, only wait if the current block doesn't shift it out
+		// 		if limit := uint64(len(snap.Signers)/2 + 1); number < limit || seen > number-limit {
+
+		// 			log.Info("Signed recently, must wait for others")
+		// 			<-stop
+		// 			return nil, nil
+		// 		}
+		// 	}
+		// }
 	}
 
 	// Sweet, the protocol permits us to sign the block, wait for our time
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
+	ret, err := getThreshold(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+	if err != nil {
+		return nil, err
+	}
+	size := new(big.Int)
+	size.SetBytes(ret)
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
-		wiggle := time.Duration(len(snap.Signers)/2+1) * wiggleTime
+		wiggle := time.Duration(size.Int64()+int64(1)) * wiggleTime
 		delay += time.Duration(rand.Int63n(int64(wiggle)))
 
+		log.Info("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
 		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
 	}
 	log.Trace("Waiting for slot to sign and propagate", "delay", common.PrettyDuration(delay))
@@ -716,22 +767,29 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
-func (c *Soma) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
-	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil)
-	if err != nil {
-		return nil
-	}
-	return CalcDifficulty(snap, c.signer)
-}
+// func (c *Soma) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+// 	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil)
+// 	if err != nil {
+// 		return nil
+// 	}
+// 	return CalcDifficulty(snap, c.signer)
+// }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
-func CalcDifficulty(snap *Snapshot, signer common.Address) *big.Int {
-	if snap.inturn(snap.Number+1, signer) {
-		return new(big.Int).Set(diffInTurn)
-	}
-	return new(big.Int).Set(diffNoTurn)
+// func CalcDifficulty(snap *Snapshot, signer common.Address) *big.Int {
+// 	if snap.inturn(snap.Number+1, signer) {
+// 		return new(big.Int).Set(diffInTurn)
+// 	}
+// 	return new(big.Int).Set(diffNoTurn)
+// }
+
+// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
+// that a new block should have based on the previous blocks in the chain and the
+// current signer.
+func (c *Soma) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+	return calcDifficulty(chain, parent, c)
 }
 
 // APIs implements consensus.Engine, returning the user facing RPC API to allow
@@ -752,4 +810,16 @@ func checkSigner(genesisSigner common.Address, signer common.Address) bool {
 		return true
 	}
 	return false
+}
+
+func printStruct(structVar interface{}) {
+	rlpBytes, err := rlp.EncodeToBytes(structVar)
+	if err != nil {
+		golog.Fatal(err)
+	}
+	jsonTx, err := json.MarshalIndent(structVar, "\t", "  ")
+	if err != nil {
+		golog.Fatal(err)
+	}
+	golog.Printf("Tx:\n%s\nrlp: 0x%x\n", string(jsonTx), rlpBytes)
 }

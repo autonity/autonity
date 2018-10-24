@@ -18,17 +18,39 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-func deployContract(bytecodeStr string, userAddr common.Address, header *types.Header, statedb *state.StateDB) (common.Address, error) {
-	contractBytecode := common.Hex2Bytes(bytecodeStr[2:]) // [2:] removes 0x
+func getEVM(chain consensus.ChainReader, header *types.Header, coinbase, origin common.Address, statedb *state.StateDB) *vm.EVM {
+	GetHashFn := func(ref *types.Header) func(n uint64) common.Hash {
+		var cache map[uint64]common.Hash
 
-	// Initialise new Ethereum Virtual Machine
+		return func(n uint64) common.Hash {
+			// If there's no hash cache yet, make one
+			if cache == nil {
+				cache = map[uint64]common.Hash{
+					ref.Number.Uint64() - 1: ref.ParentHash,
+				}
+			}
+			// Try to fulfill the request from the cache
+			if hash, ok := cache[n]; ok {
+				return hash
+			}
+			// Not cached, iterate the blocks and cache the hashes
+			for header := chain.GetHeader(ref.ParentHash, ref.Number.Uint64()-1); header != nil; header = chain.GetHeader(header.ParentHash, header.Number.Uint64()-1) {
+				cache[header.Number.Uint64()-1] = header.ParentHash
+				if n == header.Number.Uint64()-1 {
+					return header.ParentHash
+				}
+			}
+			return common.Hash{}
+		}
+	}
+
 	gasPrice := new(big.Int).SetUint64(0x0)
 	evmContext := vm.Context{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
-		GetHash:     func(n uint64) common.Hash { return header.Root }, // since this a one time thing, no point in adding complex functions to get the hash
-		Origin:      userAddr,
-		Coinbase:    userAddr,
+		GetHash:     GetHashFn(header),
+		Origin:      origin,
+		Coinbase:    coinbase,
 		BlockNumber: header.Number,
 		Time:        header.Time,
 		GasLimit:    header.GasLimit,
@@ -37,8 +59,14 @@ func deployContract(bytecodeStr string, userAddr common.Address, header *types.H
 	}
 	chainConfig := params.AllSomaProtocolChanges
 	vmconfig := vm.Config{}
-
 	evm := vm.NewEVM(evmContext, statedb, chainConfig, vmconfig)
+	return evm
+}
+
+func deployContract(chain consensus.ChainReader, bytecodeStr string, userAddr common.Address, header *types.Header, statedb *state.StateDB) (common.Address, error) {
+	contractBytecode := common.Hex2Bytes(bytecodeStr[2:]) // [2:] removes 0x
+
+	evm := getEVM(chain, header, userAddr, userAddr, statedb)
 
 	sender := vm.AccountRef(userAddr)
 	data := contractBytecode
@@ -56,7 +84,7 @@ func deployContract(bytecodeStr string, userAddr common.Address, header *types.H
 	return contractAddress, nil
 }
 
-func callActiveValidators(userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database, chain consensus.ChainReader) (bool, error) {
+func callActiveValidators(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (bool, error) {
 	// Byte encoding of booleans
 	expectedResult := "0000000000000000000000000000000000000000000000000000000000000001"
 
@@ -67,10 +95,77 @@ func callActiveValidators(userAddr common.Address, contractAddress common.Addres
 	sdb := state.NewDatabase(db)
 	statedb, _ := state.New(header.Root, sdb)
 
-	// Initialise a new Ethereum Virtual Machine
-	gasPrice := new(big.Int).SetUint64(0x0)
+	sender := vm.AccountRef(userAddr)
+	gas := uint64(0xFFFFFFFF)
+	evm := getEVM(chain, header, userAddr, userAddr, statedb)
 
-	// Implement my own stuff
+	// Pad address for ABI encoding
+	encodedAddress := [32]byte{}
+	copy(encodedAddress[12:], userAddr[:])
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()[:4]
+	inputData := append(input[:], encodedAddress[:]...)
+
+	// Call ActiveValidators()
+	ret, gas, vmerr := evm.StaticCall(sender, contractAddress, inputData, gas)
+	if vmerr != nil {
+		return false, vmerr
+	}
+
+	// Check result
+	if hex.EncodeToString(ret) == expectedResult {
+		return true, nil
+
+	} else {
+		return false, nil
+	}
+
+}
+
+// Calls the RecentValidators() function in the Soma governance smart contract. Returns true or false depending whether the
+// address is that of an recent validator
+func callRecentValidators(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (bool, error) {
+	// Byte encoding of booleans
+	expectedResult := "0000000000000000000000000000000000000000000000000000000000000000"
+
+	// Signature of function being called defined by Soma interface
+	functionSig := "RecentValidator(address)"
+
+	// Instantiate new state database
+	sdb := state.NewDatabase(db)
+	statedb, _ := state.New(header.Root, sdb)
+
+	sender := vm.AccountRef(userAddr)
+	gas := uint64(0xFFFFFFFF)
+	evm := getEVM(chain, header, userAddr, userAddr, statedb)
+
+	// Pad address for ABI encoding
+	encodedAddress := [32]byte{}
+	copy(encodedAddress[12:], userAddr[:])
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()[:4]
+	inputData := append(input[:], encodedAddress[:]...)
+
+	// Call ActiveValidators()
+	ret, gas, vmerr := evm.StaticCall(sender, contractAddress, inputData, gas)
+	if vmerr != nil {
+		return false, vmerr
+	}
+
+	// Check result
+	if hex.EncodeToString(ret) == expectedResult {
+		return true, nil
+
+	} else {
+		return false, nil
+	}
+
+}
+
+// updates the contract with the block submitter so that the validator set can be managed accordingly
+func updateGovernance(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, statedb *state.StateDB) error {
+	// Signature of function being called defined by Soma interface
+	functionSig := "UpdateGovernance()"
+
+	// Function to retrieve hash of block in EVM
 	GetHashFn := func(ref *types.Header, chain consensus.ChainReader) func(n uint64) common.Hash {
 		var cache map[uint64]common.Hash
 
@@ -96,11 +191,12 @@ func callActiveValidators(userAddr common.Address, contractAddress common.Addres
 		}
 	}
 
+	// Initialise a new Ethereum Virtual Machine
+	gasPrice := new(big.Int).SetUint64(0x0)
 	evmContext := vm.Context{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
 		GetHash:     GetHashFn(header, chain),
-		// GetHash:     func(n uint64) common.Hash { return header.Root },
 		Origin:      userAddr,
 		Coinbase:    userAddr,
 		BlockNumber: header.Number,
@@ -112,7 +208,7 @@ func callActiveValidators(userAddr common.Address, contractAddress common.Addres
 	chainConfig := params.AllSomaProtocolChanges
 	sender := vm.AccountRef(userAddr)
 	gas := uint64(0xFFFFFFFF)
-	// value := new(big.Int).SetUint64(0x00)
+	value := new(big.Int).SetUint64(0x00)
 	vmconfig := vm.Config{}
 
 	evm := vm.NewEVM(evmContext, statedb, chainConfig, vmconfig)
@@ -120,23 +216,108 @@ func callActiveValidators(userAddr common.Address, contractAddress common.Addres
 	// Pad address for ABI encoding
 	encodedAddress := [32]byte{}
 	copy(encodedAddress[12:], userAddr[:])
-	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()[:4]
-	inputData := append(input[:], encodedAddress[:]...)
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()
 
 	// Call ActiveValidators()
-	ret, gas, vmerr := evm.StaticCall(sender, contractAddress, inputData, gas)
+	ret, gas, vmerr := evm.Call(sender, contractAddress, input, gas, value)
 	if vmerr != nil {
-		return false, vmerr
+		log.Info("UpdateGovernance()", "Error", vmerr)
+		return vmerr
+	}
+	log.Info("UpdateValidators()", "Returns", ret)
+
+	return nil
+
+}
+
+// updates the contract with the block submitter so that the validator set can be managed accordingly
+func getThreshold(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) ([]byte, error) {
+	// Instantiate new state database
+	sdb := state.NewDatabase(db)
+	statedb, _ := state.New(header.Root, sdb)
+
+	// Signature of function being called defined by Soma interface
+	functionSig := "threshold()"
+
+	// Function to retrieve hash of block in EVM
+	GetHashFn := func(ref *types.Header, chain consensus.ChainReader) func(n uint64) common.Hash {
+		var cache map[uint64]common.Hash
+
+		return func(n uint64) common.Hash {
+			// If there's no hash cache yet, make one
+			if cache == nil {
+				cache = map[uint64]common.Hash{
+					ref.Number.Uint64() - 1: ref.ParentHash,
+				}
+			}
+			// Try to fulfill the request from the cache
+			if hash, ok := cache[n]; ok {
+				return hash
+			}
+			// Not cached, iterate the blocks and cache the hashes
+			for header := chain.GetHeader(ref.ParentHash, ref.Number.Uint64()-1); header != nil; header = chain.GetHeader(header.ParentHash, header.Number.Uint64()-1) {
+				cache[header.Number.Uint64()-1] = header.ParentHash
+				if n == header.Number.Uint64()-1 {
+					return header.ParentHash
+				}
+			}
+			return common.Hash{}
+		}
 	}
 
-	// Check result
-	if hex.EncodeToString(ret) == expectedResult {
-		return true, nil
+	// Initialise a new Ethereum Virtual Machine
+	gasPrice := new(big.Int).SetUint64(0x0)
+	evmContext := vm.Context{
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
+		GetHash:     GetHashFn(header, chain),
+		Origin:      userAddr,
+		Coinbase:    userAddr,
+		BlockNumber: header.Number,
+		Time:        header.Time,
+		GasLimit:    header.GasLimit,
+		Difficulty:  header.Difficulty,
+		GasPrice:    gasPrice,
+	}
+	chainConfig := params.AllSomaProtocolChanges
+	sender := vm.AccountRef(userAddr)
+	gas := uint64(0xFFFFFFFF)
+	value := new(big.Int).SetUint64(0x00)
+	vmconfig := vm.Config{}
 
+	evm := vm.NewEVM(evmContext, statedb, chainConfig, vmconfig)
+
+	// Pad address for ABI encoding
+	encodedAddress := [32]byte{}
+	copy(encodedAddress[12:], userAddr[:])
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()
+
+	// Call ActiveValidators()
+	ret, gas, vmerr := evm.Call(sender, contractAddress, input, gas, value)
+	if vmerr != nil {
+		return nil, vmerr
+	}
+
+	return ret, nil
+
+}
+
+// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
+// that a new block should have based on the previous blocks in the chain and the
+// current signer.
+func calcDifficulty(chain consensus.ChainReader, parent *types.Header, soma *Soma) *big.Int {
+	if parent.Number.Uint64() == 1 {
+		if soma.config.Deployer == soma.signer {
+			return new(big.Int).Set(diffInTurn)
+		}
+		return new(big.Int).Set(diffNoTurn)
 	} else {
-		return false, nil
+		result, _ := callRecentValidators(chain, soma.signer, soma.somaContract, parent, soma.db)
+		if result == false {
+			return new(big.Int).Set(diffInTurn)
+		}
+		return new(big.Int).Set(diffNoTurn)
 	}
-
 }
 
 func printDebug(funcName string, chain consensus.ChainReader, header *types.Header) {
