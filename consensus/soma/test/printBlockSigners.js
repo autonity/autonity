@@ -1,6 +1,5 @@
 const rlp = require('rlp')
 const net = require('net');
-const utils = require('ethereumjs-utils')
 const Web3 = require('web3');
 
 const secp256k1 = require('secp256k1')
@@ -48,7 +47,7 @@ const splitSignature = signatureStr => {
   const s = Buffer.from(signatureStr.slice(2).slice(32*2,(32*2)*2).padStart(32*2,0),'hex')
   const v = Number('0x' + signatureStr.slice(2).slice((32*2)*2))
 
-  console.log(`SplitSignature():\n\tr: ${r.toString('hex')}`, `\n\ts: ${s.toString('hex')}`,`\n\tv: ${v}`)
+  //console.log(`SplitSignature():\n\tr: ${r.toString('hex')}`, `\n\ts: ${s.toString('hex')}`,`\n\tv: ${v}`)
 
   return { r, s, v }
 }
@@ -63,10 +62,7 @@ const printHeader =  async header => {
   const signature = '0x' + header.extraData.slice(-(extraSeal*2))
   const extraDataUnsigned = header.extraData.slice(0,header.extraData.length-(extraSeal*2))//.padEnd(header.extraData.length,0)
 
-  // console.log('extraData:\t\t',header.extraData)
-  // console.log('unsignedExtraData:\t',extraDataUnsigned)
-
-  const blockHeaderNoSignature = Object.assign({},header, extraDataUnsigned)
+  const blockHeaderNoSignature = Object.assign({},header, {extraData: extraDataUnsigned})
   const blockHashNoSignature = sigHash(blockHeaderNoSignature)
 
   console.log(`HEADER ${number}`)
@@ -74,17 +70,9 @@ const printHeader =  async header => {
   const { r, s, v } = splitSignature(signature)
   const unsignedBlockBuffer = Buffer.from(blockHashNoSignature.slice(2),'hex')
 
-  //const pubKey = ecrecover(Buffer.from(blockHashNoSignature.slice(2), 'hex'),v,r,s)
-  //console.log('pubKey: ', pubKey.toString('hex'))
-
-  //const signerAddress = await web3.eth.accounts.recover(blockHashNoSignature, signature, true)
-  const sig = Buffer.concat([r,s,Buffer.from([v+27])])
-  const signerAddress1 = await web3.eth.personal.ecRecover(unsignedBlockBuffer.toString(), '0x'+sig.toString('hex'))
-  const pub = utils.ecrecover(unsignedBlockBuffer,v+27,r,s)
-  const signerAddress = '0x' + utils.pubToAddress(pub).toString('hex')
+  const signerAddress = await web3.eth.accounts.recover(blockHashNoSignature, signature, true)
 
   console.log(`\tSigner: ${signerAddress}`)
-  console.log(`\tSigner: ${signerAddress1}`)
 }
 
 // Using the IPC provider in node.js
