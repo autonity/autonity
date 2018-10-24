@@ -1,0 +1,18 @@
+{
+  "name": "soma_test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ethereumjs-utils": "^5.2.5",
+    "rlp": "^2.1.0",
+    "safe-buffer": "^5.1.2",
+    "secp256k1": "^3.5.2",
+    "web3": "^1.0.0-beta.36"
+  }
+}
