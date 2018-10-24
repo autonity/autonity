@@ -19,8 +19,6 @@ package soma
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 )
 
 // API is a user facing RPC API to allow controlling the signer and voting
@@ -30,90 +28,95 @@ type API struct {
 	soma  *Soma
 }
 
-// GetSnapshot retrieves the state snapshot at a given block.
-func (api *API) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
-	// Retrieve the requested block number (or current if none requested)
-	var header *types.Header
-	if number == nil || *number == rpc.LatestBlockNumber {
-		header = api.chain.CurrentHeader()
-	} else {
-		header = api.chain.GetHeaderByNumber(uint64(number.Int64()))
-	}
-	// Ensure we have an actually valid block and return its snapshot
-	if header == nil {
-		return nil, errUnknownBlock
-	}
-	return api.soma.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
+func (api *API) GetGovernanceAddress() common.Address {
+	// Return the address of the governance contract
+	return api.soma.somaContract
 }
+
+// GetSnapshot retrieves the state snapshot at a given block.
+// func (api *API) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
+// 	// Retrieve the requested block number (or current if none requested)
+// 	var header *types.Header
+// 	if number == nil || *number == rpc.LatestBlockNumber {
+// 		header = api.chain.CurrentHeader()
+// 	} else {
+// 		header = api.chain.GetHeaderByNumber(uint64(number.Int64()))
+// 	}
+// 	// Ensure we have an actually valid block and return its snapshot
+// 	if header == nil {
+// 		return nil, errUnknownBlock
+// 	}
+// 	return api.soma.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
+// }
 
 // GetSnapshotAtHash retrieves the state snapshot at a given block.
-func (api *API) GetSnapshotAtHash(hash common.Hash) (*Snapshot, error) {
-	header := api.chain.GetHeaderByHash(hash)
-	if header == nil {
-		return nil, errUnknownBlock
-	}
-	return api.soma.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
-}
+// func (api *API) GetSnapshotAtHash(hash common.Hash) (*Snapshot, error) {
+// 	header := api.chain.GetHeaderByHash(hash)
+// 	if header == nil {
+// 		return nil, errUnknownBlock
+// 	}
+// 	return api.soma.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
+// }
 
 // GetSigners retrieves the list of authorized signers at the specified block.
-func (api *API) GetSigners(number *rpc.BlockNumber) ([]common.Address, error) {
-	// Retrieve the requested block number (or current if none requested)
-	var header *types.Header
-	if number == nil || *number == rpc.LatestBlockNumber {
-		header = api.chain.CurrentHeader()
-	} else {
-		header = api.chain.GetHeaderByNumber(uint64(number.Int64()))
-	}
-	// Ensure we have an actually valid block and return the signers from its snapshot
-	if header == nil {
-		return nil, errUnknownBlock
-	}
-	snap, err := api.soma.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
-	if err != nil {
-		return nil, err
-	}
-	return snap.signers(), nil
-}
+// func (api *API) GetSigners(number *rpc.BlockNumber) ([]common.Address, error) {
+// 	// Retrieve the requested block number (or current if none requested)
+// 	var header *types.Header
+// 	if number == nil || *number == rpc.LatestBlockNumber {
+// 		header = api.chain.CurrentHeader()
+// 	} else {
+// 		header = api.chain.GetHeaderByNumber(uint64(number.Int64()))
+// 	}
+// 	// Ensure we have an actually valid block and return the signers from its snapshot
+// 	if header == nil {
+// 		return nil, errUnknownBlock
+// 	}
+// 	snap, err := api.soma.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return snap.signers(), nil
+// }
 
 // GetSignersAtHash retrieves the list of authorized signers at the specified block.
-func (api *API) GetSignersAtHash(hash common.Hash) ([]common.Address, error) {
-	header := api.chain.GetHeaderByHash(hash)
-	if header == nil {
-		return nil, errUnknownBlock
-	}
-	snap, err := api.soma.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
-	if err != nil {
-		return nil, err
-	}
-	return snap.signers(), nil
-}
+// func (api *API) GetSignersAtHash(hash common.Hash) ([]common.Address, error) {
+// 	header := api.chain.GetHeaderByHash(hash)
+// 	if header == nil {
+// 		return nil, errUnknownBlock
+// 	}
+// 	snap, err := api.soma.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return snap.signers(), nil
+// }
 
 // Proposals returns the current proposals the node tries to uphold and vote on.
-func (api *API) Proposals() map[common.Address]bool {
-	api.soma.lock.RLock()
-	defer api.soma.lock.RUnlock()
+// func (api *API) Proposals() map[common.Address]bool {
+// 	api.soma.lock.RLock()
+// 	defer api.soma.lock.RUnlock()
 
-	proposals := make(map[common.Address]bool)
-	for address, auth := range api.soma.proposals {
-		proposals[address] = auth
-	}
-	return proposals
-}
+// 	proposals := make(map[common.Address]bool)
+// 	for address, auth := range api.soma.proposals {
+// 		proposals[address] = auth
+// 	}
+// 	return proposals
+// }
 
 // Propose injects a new authorization proposal that the signer will attempt to
 // push through.
-func (api *API) Propose(address common.Address, auth bool) {
-	api.soma.lock.Lock()
-	defer api.soma.lock.Unlock()
+// func (api *API) Propose(address common.Address, auth bool) {
+// 	api.soma.lock.Lock()
+// 	defer api.soma.lock.Unlock()
 
-	api.soma.proposals[address] = auth
-}
+// 	api.soma.proposals[address] = auth
+// }
 
 // Discard drops a currently running proposal, stopping the signer from casting
 // further votes (either for or against).
-func (api *API) Discard(address common.Address) {
-	api.soma.lock.Lock()
-	defer api.soma.lock.Unlock()
+// func (api *API) Discard(address common.Address) {
+// 	api.soma.lock.Lock()
+// 	defer api.soma.lock.Unlock()
 
-	delete(api.soma.proposals, address)
-}
+// 	delete(api.soma.proposals, address)
+// }
