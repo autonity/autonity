@@ -32,8 +32,10 @@ spec:
         app: dev-autonity-01
     spec:
       containers:
-      - image: 572232595707.dkr.ecr.eu-west-2.amazonaws.com/photon:latest 
+      - image: clearmatics/dev-autonity:latest
         name: dev-autonity-01
+        imagePullSecrets:
+        - name: regcred
         ports:
         - containerPort: 30010
           name: rpc
@@ -67,4 +69,4 @@ spec:
         - name: pv-volume
           nfs:
             server: fs-f39fa73a.efs.eu-west-1.amazonaws.com
-            path: /
+            path: / 

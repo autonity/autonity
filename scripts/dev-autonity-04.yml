@@ -32,8 +32,10 @@ spec:
         app: dev-autonity-04
     spec:
       containers:
-      - image: 572232595707.dkr.ecr.eu-west-2.amazonaws.com/photon:latest 
+      - image: docker pull clearmatics/dev-autonity:latest 
         name: dev-autonity-04
+        imagePullSecrets:
+        - name: regcred
         ports:
         - containerPort: 30040
           name: rpc
