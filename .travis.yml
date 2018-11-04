@@ -1,63 +1,26 @@
+branches:
+  only:
+    - development
 language: go
 go_import_path: github.com/ethereum/go-ethereum
-sudo: false
 matrix:
   include:
     - os: linux
       dist: trusty
       sudo: required
       go: 1.9.x
+      env: 
+        - docker
       script:
         - sudo modprobe fuse
         - sudo chmod 666 /dev/fuse
         - sudo chown root:$USER /etc/fuse.conf
         - go run build/ci.go install
         - go run build/ci.go test -coverage $TEST_PACKAGES
-
-    # These are the latest Go versions.
-    - os: linux
-      dist: trusty
-      sudo: required
-      go: 1.10.x
-      script:
-        - sudo modprobe fuse
-        - sudo chmod 666 /dev/fuse
-        - sudo chown root:$USER /etc/fuse.conf
-        - go run build/ci.go install
-        - go run build/ci.go test -coverage $TEST_PACKAGES
-
-    # This builder only tests code linters on latest version of Go
-    - os: linux
-      dist: trusty
-      go: 1.10.x
-      env:
-        - lint
-      git:
-        submodules: false # avoid cloning ethereum/tests
-      script:
-        - go run build/ci.go lint
-
-    # This builder does the Ubuntu PPA upload
-    - os: linux
-      dist: trusty
-      go: 1.10.x
-      env:
-        - ubuntu-ppa
-      git:
-        submodules: false # avoid cloning ethereum/tests
-      addons:
-        apt:
-          packages:
-            - devscripts
-            - debhelper
-            - dput
-            - fakeroot
-      script:
-        - go run build/ci.go debsrc -signer "Go Ethereum Linux Builder <geth-ci@ethereum.org>" -upload ppa:ethereum/ethereum
-
-# notifications:
-#   webhooks:
-#     urls:
-#       - https://webhooks.gitter.im/e/e09ccdce1048c5e03445
-#     on_success: change
-#     on_failure: always
+      success:
+        - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+        - docker build -f Dockerfile -t autonity
+        - docker push autonity
+      deploy:
+      provider: script
+      script: scripts/deploy.sh
