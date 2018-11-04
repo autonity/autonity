@@ -53,7 +53,7 @@ spec:
           - "--password"
           - "/efs/01/password"
           - "--maxpeers"
-          - "64"
+          - "5"
           - "--rpcport"
           - "30010"
           - "--port"
