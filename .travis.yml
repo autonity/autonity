@@ -8,19 +8,20 @@ matrix:
     - os: linux
       dist: trusty
       sudo: required
-      go: 1.9.x
-      env: 
+      services:
         - docker
+      go: 1.9.x
       script:
         - sudo modprobe fuse
         - sudo chmod 666 /dev/fuse
         - sudo chown root:$USER /etc/fuse.conf
         - go run build/ci.go install
-        - go run build/ci.go test -coverage $TEST_PACKAGES
-      success:
+      before_deploy:
         - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-        - docker build -f Dockerfile -t autonity
-        - docker push autonity
+        - docker build -f Dockerfile -t clearmatics/dev-autonity
+        - docker push clearmatics/dev-autonity
       deploy:
       provider: script
       script: scripts/deploy.sh
+      on:
+        branch: development
