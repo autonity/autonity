@@ -32,7 +32,7 @@ spec:
         app: dev-autonity-05
     spec:
       containers:
-      - image: clearmatics/dev-autonity:latest 
+      - image: index.docker.io/clearmatics/dev-autonity:latest 
         name: dev-autonity-05
         imagePullSecrets:
         - name: regcred
