@@ -47,6 +47,8 @@ spec:
           - "--rpc"
           - "--verbosity"
           - "9"
+          - "--networkid"
+          - "16"
           - "--rpcport"
           - "30030"
           - "--port"

@@ -25,7 +25,7 @@ import (
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 )
 
-// Client defines typed wrappers for the Whisper v6 RPC API.
+// Client defines typed wrappers for the Whisper v6 RPC API
 type Client struct {
 	c *rpc.Client
 }
