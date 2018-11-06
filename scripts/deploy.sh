@@ -26,4 +26,4 @@ echo "executed deploys"
 # #     rm -rvf "${HOME}/*"
 # # }
 
-trap cleaner EXIT
+# trap cleaner EXIT
