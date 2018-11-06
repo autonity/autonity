@@ -2,7 +2,7 @@ branches:
   only:
     - development
 language: go
-go_import_path: github.com/ethereum/go-ethereum
+# go_import_path: github.com/ethereum/go-ethereum
 matrix:
   include:
     - os: linux
