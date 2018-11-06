@@ -16,7 +16,7 @@ kubectl config current-context
 pwd
 ls -lha
 
-kubectl get services
+kubectl get pods
 
 # kubectl apply -f dev01/
 
