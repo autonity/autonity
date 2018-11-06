@@ -3,7 +3,7 @@ set -o pipefail
 set -o errexit
 set -o nounset
 
-echo "executed deploy.sh"
+echo "executed deploy"
 
 # TIMER_VAR=1
 # DEPLOY_SET=(dev-autonity-01.yml dev-autonity-02.yml dev-autonity-03.yml dev-autonity-04.yml dev-autonity-05.yml)
