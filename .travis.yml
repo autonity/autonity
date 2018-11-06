@@ -22,7 +22,7 @@ matrix:
         - export PATH="$TRAVIS_BUILD_DIR/.bin:$PATH"
       script:
         - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-        - docker build -f Dockerfile -t clearmatics/dev-autonity
+        - docker build . -t clearmatics/dev-autonity
         - docker push clearmatics/dev-autonity
       # deploy:
       # provider: script
