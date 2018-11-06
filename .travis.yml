@@ -20,21 +20,19 @@ matrix:
         - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
         - mkdir -p .bin; mv ./kubectl .bin/kubectl && chmod +x .bin/kubectl
         - export PATH="$TRAVIS_BUILD_DIR/.bin:$PATH"
-      before_deployment:
-      provider: script
       script:
         - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
         - docker build -f Dockerfile -t clearmatics/dev-autonity
         - docker push clearmatics/dev-autonity
-      deploy:
-      provider: script
-      script:
-        - echo $AUTONITY_DEV_CA_CRT | base64 --decode -i > ${HOME}/ca.crt
-        - kubectl config set-cluster dev01.autonity.io --embed-certs=true --server=${AUTONITY_DEV_CLUSTER_ENDPOINT} --certificate-authority=${HOME}/ca.crt
-        - kubectl config set-credentials travis-default --token=$AUTONITY_DEV_USER_TOKEN
-        - kubectl config set-context travis --cluster=dev01.autonity.io --user=travis-default --namespace=default
-        - kubectl config use-context travis
-        - kubectl config current-context
-        - kubectl apply -f scripts/dev01/
-      on:
-        branch: development
+      # deploy:
+      # provider: script
+      # script:
+      #   - echo $AUTONITY_DEV_CA_CRT | base64 --decode -i > ${HOME}/ca.crt
+      #   - kubectl config set-cluster dev01.autonity.io --embed-certs=true --server=${AUTONITY_DEV_CLUSTER_ENDPOINT} --certificate-authority=${HOME}/ca.crt
+      #   - kubectl config set-credentials travis-default --token=$AUTONITY_DEV_USER_TOKEN
+      #   - kubectl config set-context travis --cluster=dev01.autonity.io --user=travis-default --namespace=default
+      #   - kubectl config use-context travis
+      #   - kubectl config current-context
+      #   - kubectl apply -f scripts/dev01/
+      # on:
+      #   branch: development
