@@ -16,7 +16,7 @@ kubectl config current-context
 pwd
 ls -lha
 
-kubectl --context dev01.autonity.io get services
+kubectl get services
 
 # kubectl apply -f dev01/
 
