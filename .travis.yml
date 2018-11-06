@@ -10,6 +10,7 @@ matrix:
       sudo: required
       services:
         - docker
+        - kubectl
       go: 1.9.x
       script:
         - sudo modprobe fuse
