@@ -21,7 +21,7 @@ matrix:
         - mkdir -p .bin; mv ./kubectl .bin/kubectl && chmod +x .bin/kubectl
         - export PATH="$TRAVIS_BUILD_DIR/.bin:$PATH"
       script:
-        - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+        - docker login -u $DOCKER_USER -p $DOCKER_PASS
         - docker build . -t clearmatics/dev-autonity
         - docker push clearmatics/dev-autonity
       # deploy:
