@@ -11,11 +11,11 @@ matrix:
       services:
         - docker
       go: 1.9.x
-      script:
-        - sudo modprobe fuse
-        - sudo chmod 666 /dev/fuse
-        - sudo chown root:$USER /etc/fuse.conf
-        - go run build/ci.go install
+      # script:
+        # - sudo modprobe fuse
+        # - sudo chmod 666 /dev/fuse
+        # - sudo chown root:$USER /etc/fuse.conf
+        # - go run build/ci.go install
       install:
         - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
         - mkdir -p .bin; mv ./kubectl .bin/kubectl && chmod +x .bin/kubectl
@@ -34,6 +34,7 @@ matrix:
         - kubectl config use-context travis
         - kubectl config current-context
         - kubectl apply -f dev01/
+        - pwd
         # - chmod +x scripts/deploy.sh 
         # - scripts/deploy.sh
       on:
