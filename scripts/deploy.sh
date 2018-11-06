@@ -13,7 +13,9 @@ kubectl config set-context travis --cluster=dev01.autonity.io --user=travis-defa
 kubectl config use-context travis
 kubectl config current-context
 
-kubectl apply -f ${HOME}/build/scripts/dev01/
+kubectl apply -f dev01/
+
+pwd
 
 # for i in "${DEPLOY_SET[@]}"
 # do
