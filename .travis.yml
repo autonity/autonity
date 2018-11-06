@@ -16,14 +16,14 @@ matrix:
         - sudo chmod 666 /dev/fuse
         - sudo chown root:$USER /etc/fuse.conf
         - go run build/ci.go install
-      install:
+      k8s_install:
         - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
         - mkdir -p .bin; mv ./kubectl .bin/kubectl && chmod +x .bin/kubectl
         - export PATH="$TRAVIS_BUILD_DIR/.bin:$PATH"
-      before_deploy:
-        - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-        - docker build -f Dockerfile -t clearmatics/dev-autonity
-        - docker push clearmatics/dev-autonity
+      # push_to_docker_hub:
+      #   - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+      #   - docker build -f Dockerfile -t clearmatics/dev-autonity
+      #   - docker push clearmatics/dev-autonity
       deploy:
       provider: script
       script:
