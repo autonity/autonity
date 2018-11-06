@@ -15,8 +15,6 @@ kubectl config current-context
 
 kubectl apply -f ${HOME}/build/scripts/dev01/
 
-# cd ${HOME}/scripts/
-
 # for i in "${DEPLOY_SET[@]}"
 # do
 # 	:
