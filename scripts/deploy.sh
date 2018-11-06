@@ -14,6 +14,7 @@ kubectl config use-context travis
 kubectl config current-context
 
 pwd
+ls -lha
 
 # kubectl apply -f dev01/
 
