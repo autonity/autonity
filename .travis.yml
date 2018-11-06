@@ -10,13 +10,13 @@ matrix:
       sudo: required
       services:
         - docker
-        - kubectl
       go: 1.9.x
       script:
         - sudo modprobe fuse
         - sudo chmod 666 /dev/fuse
         - sudo chown root:$USER /etc/fuse.conf
         - go run build/ci.go install
+        - apt-get install kubectl
       before_deploy:
         - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
         - docker build -f Dockerfile -t clearmatics/dev-autonity
