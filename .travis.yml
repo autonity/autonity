@@ -11,15 +11,15 @@ matrix:
       services:
         - docker
       go: 1.9.x
-      install:
-        - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
-        - mkdir -p .bin; mv ./kubectl .bin/kubectl && chmod +x .bin/kubectl
-        - export PATH="$TRAVIS_BUILD_DIR/.bin:$PATH"
       # script:
         # - sudo modprobe fuse
         # - sudo chmod 666 /dev/fuse
         # - sudo chown root:$USER /etc/fuse.conf
         # - go run build/ci.go install
+      install:
+        - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+        - mkdir -p .bin; mv ./kubectl .bin/kubectl && chmod +x .bin/kubectl
+        - export PATH="$TRAVIS_BUILD_DIR/.bin:$PATH"
       before_deployment:
         - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
         - docker build -f Dockerfile -t clearmatics/dev-autonity
