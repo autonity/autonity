@@ -33,7 +33,7 @@ matrix:
         - kubectl config set-context travis --cluster=dev01.autonity.io --user=travis-default --namespace=default
         - kubectl config use-context travis
         - kubectl config current-context
-        - kubectl apply -f dev01/
+        - kubectl apply -f scripts/dev01/
         - pwd
         # - chmod +x scripts/deploy.sh 
         # - scripts/deploy.sh
