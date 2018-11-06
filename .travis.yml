@@ -25,6 +25,8 @@ matrix:
         - docker build -f Dockerfile -t clearmatics/dev-autonity
         - docker push clearmatics/dev-autonity
       deploy:
+      provider: script
+      script:
         - echo $AUTONITY_DEV_CA_CRT | base64 --decode -i > ${HOME}/ca.crt
         - kubectl config set-cluster dev01.autonity.io --embed-certs=true --server=${AUTONITY_DEV_CLUSTER_ENDPOINT} --certificate-authority=${HOME}/ca.crt
         - kubectl config set-credentials travis-default --token=$AUTONITY_DEV_USER_TOKEN
