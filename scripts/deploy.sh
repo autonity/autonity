@@ -3,8 +3,8 @@ set -o pipefail
 set -o errexit
 set -o nounset
 
-DEPLOY_SET=(dev-autonity-01.yml dev-autonity-02.yml dev-autonity-03.yml dev-autonity-04.yml dev-autonity-05.yml)
-#s
+# DEPLOY_SET=(dev-autonity-01.yml dev-autonity-02.yml dev-autonity-03.yml dev-autonity-04.yml dev-autonity-05.yml)
+
 echo $AUTONITY_DEV_CA_CRT | base64 --decode -i > ${HOME}/ca.crt
 
 kubectl config set-cluster dev01.autonity.io --embed-certs=true --server=${AUTONITY_DEV_CLUSTER_ENDPOINT} --certificate-authority=${HOME}/ca.crt
@@ -13,13 +13,15 @@ kubectl config set-context travis --cluster=dev01.autonity.io --user=travis-defa
 kubectl config use-context travis
 kubectl config current-context
 
-cd ${HOME}/scripts/
+kubectl apply -f dev01/
 
-for i in "${DEPLOY_SET[@]}"
-do
-	:
-	kubectl apply -f $i
-done
+# cd ${HOME}/scripts/
+
+# for i in "${DEPLOY_SET[@]}"
+# do
+# 	:
+# 	kubectl apply -f $i
+# done
 
 # # function cleaner {
 # #     rm -rvf "${HOME}/*"
