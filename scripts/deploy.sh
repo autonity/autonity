@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 
 DEPLOY_SET=(dev-autonity-01.yml dev-autonity-02.yml dev-autonity-03.yml dev-autonity-04.yml dev-autonity-05.yml)
-
+#s
 echo $AUTONITY_DEV_CA_CRT | base64 --decode -i > ${HOME}/ca.crt
 
 kubectl config set-cluster our-k8s-cluster --embed-certs=true --server=${AUTONITY_DEV_CLUSTER_ENDPOINT} --certificate-authority=${HOME}/ca.crt
