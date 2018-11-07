@@ -21,18 +21,17 @@ matrix:
         - mkdir -p .bin; mv ./kubectl .bin/kubectl && chmod +x .bin/kubectl
         - export PATH="$TRAVIS_BUILD_DIR/.bin:$PATH"
       script:
-        - docker login -u $DOCKER_USER -p $DOCKER_PASS
-        - docker build . -t clearmatics/dev-autonity
-        - docker push clearmatics/dev-autonity
-        - echo $K8SCFG > ${HOME}/.kube/config
-        - kubectl config use-context dev01.autonity.io
-        - kubectl get pods
+        - echo $K8SCONFIG >  ${HOME}/config
+        - cat ${HOME}/config
+        # - docker login -u $DOCKER_USER -p $DOCKER_PASS
+        # - docker build . -t clearmatics/dev-autonity
+        # - docker push clearmatics/dev-autonity
         # - echo $AUTONITY_DEV_CA_CRT | base64 --decode -i > ${HOME}/ca.crt
-        # - kubectl config set-cluster dev01.autonity.io --embed-certs=true --server=https://api.dev01.autonity.io --certificate-authority=${HOME}/ca.crt
+        # - kubectl config set-cluster dev01.autonity.io --embed-certs=true --server=${AUTONITY_DEV_CLUSTER_ENDPOINT} --certificate-authority=${HOME}/ca.crt
         # - kubectl config set-credentials travis-default --token=${AUTONITY_DEV_USER_TOKEN}
         # - kubectl config set-context travis --cluster=dev01.autonity.io --user=travis-default --namespace=default
         # - kubectl config use-context travis
         # - kubectl config current-context
-        # - kubectl apply -f scripts/dev01/
+        # - kubectl apply -v=4 -f scripts/dev01/
       on:
         branch: development
