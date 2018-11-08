@@ -22,7 +22,7 @@ matrix:
         - export PATH="$TRAVIS_BUILD_DIR/.bin:$PATH"
       script:
         - echo $KCFG > | base64 --decode -i ${HOME}/config
-        - cat ${HOME}/config
+        - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io get pods
         # - docker login -u $DOCKER_USER -p $DOCKER_PASS
         # - docker build . -t clearmatics/dev-autonity
         # - docker push clearmatics/dev-autonity
