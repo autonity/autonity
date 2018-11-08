@@ -9,16 +9,18 @@ matrix:
       sudo: required
       services:
         - docker
-      go: 1.9.x
+      go: 1.10.x
       install:
         - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
         - mkdir -p .bin; mv ./kubectl .bin/kubectl && chmod +x .bin/kubectl
         - export PATH="$TRAVIS_BUILD_DIR/.bin:$PATH"
-      script:
+      before_script:
+        - echo $KUBECTL_CFG | base64 --decode -i > ${HOME}/config
         - docker login -u $DOCKER_USER -p $DOCKER_PASS
+      script:
         - docker build . -t clearmatics/dev-autonity
         - docker push clearmatics/dev-autonity
-        - echo $KUBECTL_CFG | base64 --decode -i > ${HOME}/config
+      after_script:
         - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io delete -f scripts/dev01/
         - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io apply -f scripts/dev01/
       on:
