@@ -25,7 +25,7 @@ matrix:
         - docker build . -t clearmatics/dev-autonity
         - docker push clearmatics/dev-autonity
         - echo $KCFG | base64 --decode -i > ${HOME}/config
-        - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io delete -f scripts/dev01/
-        - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io apply -f scripts/dev01/
+        # - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io delete -f scripts/dev01/dev-autonity-05.yml
+        - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io apply -f scripts/dev01/dev-autonity-05.yml
       on:
         branch: development
