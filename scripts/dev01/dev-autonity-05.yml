@@ -35,6 +35,8 @@ spec:
       - image: clearmatics/dev-autonity:latest 
         imagePullPolicy: Always
         name: dev-autonity-05
+      imagePullSecrets:
+        - name: regcred
         ports:
         - containerPort: 30050
           name: rpc
