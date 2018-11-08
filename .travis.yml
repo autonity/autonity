@@ -6,7 +6,7 @@ matrix:
   include:
     - os: linux
       dist: trusty
-      sudo: required
+      sudo: false
       services:
         - docker
       go: 1.10.x
@@ -21,7 +21,7 @@ matrix:
         - docker build . -t clearmatics/dev-autonity
         - docker push clearmatics/dev-autonity
       after_script:
-        - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io delete -f scripts/dev01/
-        - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io apply -f scripts/dev01/
+        - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io delete -f deployments/dev01/
+        - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io apply -f deployments/dev01/
       on:
         branch: development
