@@ -20,7 +20,7 @@ spec:
   clusterIP: 100.70.107.150
 ---
 apiVersion: apps/v1beta1
-kind: Pod
+kind: Deployment
 metadata:
   name: dev-autonity-05
 spec:
@@ -31,12 +31,12 @@ spec:
       labels:
         app: dev-autonity-05
     spec:
-      containers:
-      - image: clearmatics/dev-autonity:latest 
-        imagePullPolicy: Always
-        name: dev-autonity-05
       imagePullSecrets:
-        - name: regcred
+      - name: regcred
+      containers:
+      - name: dev-autonity-05
+        image: clearmatics/dev-autonity:latest 
+        imagePullPolicy: Always
         ports:
         - containerPort: 30050
           name: rpc
