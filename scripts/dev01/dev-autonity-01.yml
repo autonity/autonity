@@ -31,11 +31,12 @@ spec:
       labels:
         app: dev-autonity-01
     spec:
+      imagePullSecrets:
+      - name: regcred
       containers:
-      - image: clearmatics/dev-autonity:latest
-        name: dev-autonity-01
-        imagePullSecrets:
-        - name: regcred
+      - name: dev-autonity-01
+        image: clearmatics/dev-autonity:latest 
+        imagePullPolicy: Always
         ports:
         - containerPort: 30010
           name: rpc

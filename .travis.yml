@@ -2,7 +2,6 @@ branches:
   only:
     - development
 language: go
-# go_import_path: github.com/ethereum/go-ethereum
 matrix:
   include:
     - os: linux
@@ -11,11 +10,6 @@ matrix:
       services:
         - docker
       go: 1.9.x
-      # script:
-        # - sudo modprobe fuse
-        # - sudo chmod 666 /dev/fuse
-        # - sudo chown root:$USER /etc/fuse.conf
-        # - go run build/ci.go install
       install:
         - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
         - mkdir -p .bin; mv ./kubectl .bin/kubectl && chmod +x .bin/kubectl
@@ -25,7 +19,7 @@ matrix:
         - docker build . -t clearmatics/dev-autonity
         - docker push clearmatics/dev-autonity
         - echo $KCFG | base64 --decode -i > ${HOME}/config
-        # - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io delete -f scripts/dev01/dev-autonity-05.yml
-        - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io apply -f scripts/dev01/dev-autonity-05.yml
+        - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io delete -f scripts/dev01/
+        - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io apply -f scripts/dev01/
       on:
         branch: development
