@@ -21,7 +21,7 @@ matrix:
         - mkdir -p .bin; mv ./kubectl .bin/kubectl && chmod +x .bin/kubectl
         - export PATH="$TRAVIS_BUILD_DIR/.bin:$PATH"
       script:
-        - echo $K8S-CFG > | base64 --decode -i ${HOME}/config
+        - echo $KCFG > | base64 --decode -i ${HOME}/config
         - cat ${HOME}/config
         # - docker login -u $DOCKER_USER -p $DOCKER_PASS
         # - docker build . -t clearmatics/dev-autonity
