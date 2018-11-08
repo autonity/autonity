@@ -19,7 +19,7 @@ spec:
     app: dev-autonity-05
   clusterIP: 100.70.107.150
 ---
-apiVersion: apps/v1beta1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: dev-autonity-05
