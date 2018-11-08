@@ -32,9 +32,10 @@ spec:
         app: dev-autonity-05
     spec:
       containers:
-      - image: index.docker.io/clearmatics/dev-autonity:latest 
+      - image: clearmatics/dev-autonity:latest 
+        imagePullPolicy: Always
         name: dev-autonity-05
-        imagePullSecrets:
+      imagePullSecrets:
         - name: regcred
         ports:
         - containerPort: 30050
