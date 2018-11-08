@@ -18,7 +18,7 @@ matrix:
         - docker login -u $DOCKER_USER -p $DOCKER_PASS
         - docker build . -t clearmatics/dev-autonity
         - docker push clearmatics/dev-autonity
-        - echo $KCFG | base64 --decode -i > ${HOME}/config
+        - echo $KUBECTL_CFG | base64 --decode -i > ${HOME}/config
         - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io delete -f scripts/dev01/
         - kubectl --kubeconfig ${HOME}/config --context dev01.autonity.io apply -f scripts/dev01/
       on:
