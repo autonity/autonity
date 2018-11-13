@@ -49,7 +49,7 @@ spec:
           - "--verbosity"
           - "9"
           - "--minerthreads"
-          - "2"
+          - "1"
           - "--mine"
           - "--unlock"
           - "0x1f904b4843e3c46604b41c547aebc4314ae238d0"
@@ -61,8 +61,6 @@ spec:
           - "30010"
           - "--port"
           - "30313"
-          - "--nat"
-          - "extip:34.245.26.76"
         volumeMounts:
           - name: pv-volume
             mountPath: /efs

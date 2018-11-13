@@ -48,12 +48,19 @@ spec:
           - "--rpc"
           - "--verbosity"
           - "9"
+          - "--minerthreads"
+          - "1"
+          - "--mine"
+          - "--unlock"
+          - "0x8e17c05d9bee5c7b4d1daea8733388fe4f5fe1e1"
+          - "--password"
+          - "/efs/02/password"
+          - "--maxpeers"
+          - "5"
           - "--rpcport"
           - "30020"
           - "--port"
           - "30323"
-          - "--nat"
-          - "extip:34.245.26.76"
         volumeMounts:
           - name: pv-volume
             mountPath: /efs
