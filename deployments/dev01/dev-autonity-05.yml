@@ -57,6 +57,8 @@ spec:
           - "30050"
           - "--port"
           - "30353"
+          - "--nat"
+          - "extip:34.245.26.76"
         volumeMounts:
           - name: pv-volume
             mountPath: /efs
