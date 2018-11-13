@@ -43,8 +43,10 @@ spec:
         - containerPort: 30353
           name: p2p
         args:
-          - "--config"
-          - "/efs/05/config.toml"
+          - "--datadir"
+          - "/efs/05/"
+          - "--networkid"
+          - "9016"
           - "--rpc"
           - "--verbosity"
           - "9"
