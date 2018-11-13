@@ -43,6 +43,9 @@ spec:
         - containerPort: 30313
           name: p2p
         args:
+          - "--nodiscover"
+          - "--syncmode"
+          - "fast"
           - "--datadir"
           - "/efs/01/"
           - "--networkid"
