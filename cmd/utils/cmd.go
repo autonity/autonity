@@ -64,6 +64,7 @@ func Fatalf(format string, args ...interface{}) {
 }
 
 func StartNode(stack *node.Node) {
+	log.Info(">>>>>>>>>>>>>>>>> StartNode")
 	if err := stack.Start(); err != nil {
 		Fatalf("Error starting protocol stack: %v", err)
 	}

@@ -141,6 +141,12 @@ type Config struct {
 
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:",omitempty"`
+
+	// Boolean to determine whether node persmissioning is enabled
+	EnableNodePermission bool `toml:",omitempty"`
+
+	// DataDir directory where data is kept
+	DataDir string `toml:",omitempty"`
 }
 
 // Server manages all peer connections.
@@ -383,6 +389,7 @@ func (s *sharedUDPConn) Close() error {
 // Start starts running the server.
 // Servers can not be re-used after stopping.
 func (srv *Server) Start() (err error) {
+	log.Info(">>>>>>>>>>>>>> Server Start()")
 	srv.lock.Lock()
 	defer srv.lock.Unlock()
 	if srv.running {
@@ -500,6 +507,9 @@ func (srv *Server) Start() (err error) {
 	if srv.NoDial && srv.ListenAddr == "" {
 		srv.log.Warn("P2P server will be useless, neither dialing nor listening")
 	}
+
+	srv.log.Info("srv.Config", "DataDir", srv.Config.DataDir)
+	srv.log.Info("srv.Config", "DataDir", srv.DataDir)
 
 	srv.loopWG.Add(1)
 	go srv.run(dialer)
@@ -821,6 +831,25 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *discover.Node) e
 		srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
 		return err
 	}
+
+	// GLIENICKE Start Permissioning
+	currentNode := srv.NodeInfo().ID
+	cnodeName := srv.NodeInfo().Name
+	log.Info("Node Permissioning is Enabled.", "CurrentNode", currentNode, "cnodeName", cnodeName)
+	log.Info("Data Directory", "DataDir", srv.DataDir)
+	node := c.id.String()
+	direction := "INCOMING"
+	if dialDest != nil {
+		node = dialDest.ID.String()
+		direction = "OUTGOING"
+		log.Trace("Node Permissioning", "Connection Direction", direction)
+	}
+
+	if !isNodePermissioned(node, currentNode, srv.DataDir, direction) {
+		log.Info("isNodePersmissioned?")
+		return err
+	}
+
 	clog := srv.log.New("id", c.id, "addr", c.fd.RemoteAddr(), "conn", c.flags)
 	// For dialed connections, check that the remote public key matches.
 	if dialDest != nil && c.id != dialDest.ID {

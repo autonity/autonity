@@ -136,6 +136,7 @@ func (n *Node) Register(constructor ServiceConstructor) error {
 
 // Start create a live P2P node and starts running it.
 func (n *Node) Start() error {
+	log.Info(">>>>>>>>>>>>>>> NodeStart()")
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
@@ -146,6 +147,7 @@ func (n *Node) Start() error {
 	if err := n.openDataDir(); err != nil {
 		return err
 	}
+	log.Info("DataDir", " ", n.config.DataDir)
 
 	// Initialize the p2p server. This creates the node key and
 	// discovery databases.
@@ -162,8 +164,11 @@ func (n *Node) Start() error {
 	if n.serverConfig.NodeDatabase == "" {
 		n.serverConfig.NodeDatabase = n.config.NodeDB()
 	}
+
+	n.serverConfig.DataDir = n.config.DataDir
 	running := &p2p.Server{Config: n.serverConfig}
 	n.log.Info("Starting peer-to-peer node", "instance", n.serverConfig.Name)
+	n.log.Info("Starting peer-to-peer node", "instance", n.config.DataDir)
 
 	// Otherwise copy and specialize the P2P configuration
 	services := make(map[reflect.Type]Service)
@@ -189,10 +194,12 @@ func (n *Node) Start() error {
 		}
 		services[kind] = service
 	}
+
 	// Gather the protocols and start the freshly assembled P2P server
 	for _, service := range services {
 		running.Protocols = append(running.Protocols, service.Protocols()...)
 	}
+	log.Info(">>>>>>>>>>>>>running.Start()")
 	if err := running.Start(); err != nil {
 		return convertFileLockError(err)
 	}
