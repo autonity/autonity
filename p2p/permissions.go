@@ -3,11 +3,12 @@ package p2p
 import (
 	"encoding/json"
 	"io/ioutil"
-	golog "log"
 	"os"
 	"path/filepath"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 )
 
@@ -16,12 +17,26 @@ const (
 	PERMISSIONED_CONFIG = "../permissioned-nodes.json"
 )
 
+// queryDb()
+func queryDb(n *node.Node) {
+	db := n.OpenDatabase("chaindata", 0, 0)
+
+	functionSig := common.Hex2Bytes("latest")
+	db.Get(// Instantiate new state database
+		sdb := state.NewDatabase(db)
+	statedb, _ := state.New(header.Root, sdb))
+
+	// Instantiate new state database
+	// sdb := state.NewDatabase(db)
+	// statedb, _ := state.New(header.Root, sdb)
+
+}
+
 // check if a given node is permissioned to connect to the change
 func isNodePermissioned(nodename string, currentNode string, datadir string, direction string) bool {
 
 	var permissionedList []string
 	nodes := parsePermissionedNodes(datadir)
-	golog.Printf()
 	for _, v := range nodes {
 		permissionedList = append(permissionedList, v.ID.String())
 	}

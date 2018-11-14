@@ -117,6 +117,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		return nil, genesisErr
 	}
 	log.Info("Initialised chain configuration", "config", chainConfig)
+	log.Info("TESTTESTTEST")
 
 	eth := &Ethereum{
 		config:         config,
@@ -131,6 +132,12 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		etherbase:      config.Etherbase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
+	}
+	log.Info("Its been done")
+	log.Info("Its been done", "result", config.NodePermission)
+
+	if config.NodePermission {
+		log.Info("Its been done")
 	}
 
 	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId)
@@ -214,6 +221,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 	if chainConfig.Clique != nil {
 		return clique.New(chainConfig.Clique, db)
 	}
+	log.Info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>HERERERERERERERE")
 	// Otherwise assume proof-of-work
 	switch config.PowMode {
 	case ethash.ModeFake:

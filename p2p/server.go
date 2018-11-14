@@ -143,7 +143,7 @@ type Config struct {
 	Logger log.Logger `toml:",omitempty"`
 
 	// Boolean to determine whether node persmissioning is enabled
-	EnableNodePermission bool `toml:",omitempty"`
+	NodePermission bool `toml:",omitempty"`
 
 	// DataDir directory where data is kept
 	DataDir string `toml:",omitempty"`
@@ -833,22 +833,22 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *discover.Node) e
 	}
 
 	// GLIENICKE Start Permissioning
-	currentNode := srv.NodeInfo().ID
-	cnodeName := srv.NodeInfo().Name
-	log.Info("Node Permissioning is Enabled.", "CurrentNode", currentNode, "cnodeName", cnodeName)
-	log.Info("Data Directory", "DataDir", srv.DataDir)
-	node := c.id.String()
-	direction := "INCOMING"
-	if dialDest != nil {
-		node = dialDest.ID.String()
-		direction = "OUTGOING"
-		log.Trace("Node Permissioning", "Connection Direction", direction)
-	}
+	// currentNode := srv.NodeInfo().ID
+	// cnodeName := srv.NodeInfo().Name
+	// log.Info("Node Permissioning is Enabled.", "CurrentNode", currentNode, "cnodeName", cnodeName)
+	// log.Info("Data Directory", "DataDir", srv.DataDir)
+	// node := c.id.String()
+	// direction := "INCOMING"
+	// if dialDest != nil {
+	// 	node = dialDest.ID.String()
+	// 	direction = "OUTGOING"
+	// 	log.Trace("Node Permissioning", "Connection Direction", direction)
+	// }
 
-	if !isNodePermissioned(node, currentNode, srv.DataDir, direction) {
-		log.Info("isNodePersmissioned?")
-		return err
-	}
+	// if !isNodePermissioned(node, currentNode, srv.DataDir, direction) {
+	// 	log.Info("isNodePersmissioned?")
+	// 	return err
+	// }
 
 	clog := srv.log.New("id", c.id, "addr", c.fd.RemoteAddr(), "conn", c.flags)
 	// For dialed connections, check that the remote public key matches.

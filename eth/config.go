@@ -112,6 +112,9 @@ type Config struct {
 	// Enables tracking of SHA3 preimages in the VM
 	EnablePreimageRecording bool
 
+	// Glienicke Config
+	NodePermission bool
+
 	// Miscellaneous options
 	DocRoot string `toml:"-"`
 }

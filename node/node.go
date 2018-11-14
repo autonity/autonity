@@ -166,6 +166,8 @@ func (n *Node) Start() error {
 	}
 
 	n.serverConfig.DataDir = n.config.DataDir
+	n.serverConfig.NodePermission = n.config.NodePermission
+	log.Info("NodePermisssionIng")
 	running := &p2p.Server{Config: n.serverConfig}
 	n.log.Info("Starting peer-to-peer node", "instance", n.serverConfig.Name)
 	n.log.Info("Starting peer-to-peer node", "instance", n.config.DataDir)
