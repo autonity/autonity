@@ -53,6 +53,8 @@ spec:
           - "--rpc"
           - "--verbosity"
           - "9"
+          - "--rpcaddr"
+          - "0.0.0.0"
           - "--rpcport"
           - "30050"
           - "--port"

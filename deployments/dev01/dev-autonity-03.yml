@@ -51,6 +51,8 @@ spec:
           - "--networkid"
           - "9016"
           - "--rpc"
+          - "--rpcaddr"
+          - "0.0.0.0"
           - "--verbosity"
           - "9"
           - "--minerthreads"
