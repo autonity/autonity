@@ -3,12 +3,14 @@ package p2p
 import (
 	"encoding/json"
 	"io/ioutil"
+	golog "log"
 	"os"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 )
 
@@ -18,18 +20,21 @@ const (
 )
 
 // queryDb()
-func queryDb(n *node.Node) {
-	db := n.OpenDatabase("chaindata", 0, 0)
+func queryDb(datadir string) {
+	log.Info("QueryDb")
+	db, err := ethdb.NewLDBDatabase(datadir+"/geth/chaindata", 768, 512)
+	if err != nil {
+		log.Info("err", "err", err)
+	}
 
-	functionSig := common.Hex2Bytes("latest")
-	db.Get(// Instantiate new state database
-		sdb := state.NewDatabase(db)
-	statedb, _ := state.New(header.Root, sdb))
+	thing := rawdb.ReadHeadBlockHash(db)
+	golog.Printf("Thing: \t%x\n", thing)
 
-	// Instantiate new state database
-	// sdb := state.NewDatabase(db)
-	// statedb, _ := state.New(header.Root, sdb)
-
+	sdb := state.NewDatabase(db)
+	_, err = state.New(thing, sdb)
+	if err != nil {
+		log.Info("err", "err", err)
+	}
 }
 
 // check if a given node is permissioned to connect to the change

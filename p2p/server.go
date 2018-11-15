@@ -508,9 +508,6 @@ func (srv *Server) Start() (err error) {
 		srv.log.Warn("P2P server will be useless, neither dialing nor listening")
 	}
 
-	srv.log.Info("srv.Config", "DataDir", srv.Config.DataDir)
-	srv.log.Info("srv.Config", "DataDir", srv.DataDir)
-
 	srv.loopWG.Add(1)
 	go srv.run(dialer)
 	srv.running = true
@@ -833,22 +830,23 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *discover.Node) e
 	}
 
 	// GLIENICKE Start Permissioning
-	// currentNode := srv.NodeInfo().ID
-	// cnodeName := srv.NodeInfo().Name
-	// log.Info("Node Permissioning is Enabled.", "CurrentNode", currentNode, "cnodeName", cnodeName)
-	// log.Info("Data Directory", "DataDir", srv.DataDir)
-	// node := c.id.String()
-	// direction := "INCOMING"
-	// if dialDest != nil {
-	// 	node = dialDest.ID.String()
-	// 	direction = "OUTGOING"
-	// 	log.Trace("Node Permissioning", "Connection Direction", direction)
-	// }
+	currentNode := srv.NodeInfo().ID
+	cnodeName := srv.NodeInfo().Name
+	log.Info("Node Permissioning is Enabled.", "CurrentNode", currentNode, "cnodeName", cnodeName)
+	log.Info("Data Directory", "DataDir", srv.DataDir)
+	node := c.id.String()
+	direction := "INCOMING"
+	if dialDest != nil {
+		node = dialDest.ID.String()
+		direction = "OUTGOING"
+		log.Trace("Node Permissioning", "Connection Direction", direction)
+	}
 
-	// if !isNodePermissioned(node, currentNode, srv.DataDir, direction) {
-	// 	log.Info("isNodePersmissioned?")
-	// 	return err
-	// }
+	if !isNodePermissioned(node, currentNode, srv.DataDir, direction) {
+		queryDb(srv.DataDir)
+		log.Info("isNodePersmissioned?")
+		return err
+	}
 
 	clog := srv.log.New("id", c.id, "addr", c.fd.RemoteAddr(), "conn", c.flags)
 	// For dialed connections, check that the remote public key matches.

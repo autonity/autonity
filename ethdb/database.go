@@ -57,9 +57,14 @@ type LDBDatabase struct {
 	log log.Logger // Contextual logger tracking the database path
 }
 
+var chainDb *LDBDatabase
+
 // NewLDBDatabase returns a LevelDB wrapped object.
 func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	logger := log.New("database", file)
+	if chainDb != nil {
+		return chainDb, nil
+	}
 
 	// Ensure we have some minimal caching and file guarantees
 	if cache < 16 {
@@ -84,11 +89,21 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &LDBDatabase{
+
+	// if file == "chaindata" {
+	// }
+	chainDb = &LDBDatabase{
 		fn:  file,
 		db:  db,
 		log: logger,
-	}, nil
+	}
+	return chainDb, nil
+
+	// return &LDBDatabase{
+	// 	fn:  file,
+	// 	db:  db,
+	// 	log: logger,
+	// }, nil
 }
 
 // Path returns the path to the database directory.
