@@ -829,40 +829,38 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *discover.Node) e
 		return err
 	}
 
-	// GLIENICKE Start Permissioning
-	currentNode := srv.NodeInfo().ID
-	cnodeName := srv.NodeInfo().Name
-	log.Info("Node Permissioning is Enabled.", "CurrentNode", currentNode, "cnodeName", cnodeName)
-	log.Info("Glienicke permissioning",
-		"EnableNodePermission", srv.NodePermission,
-		"DataDir", srv.DataDir,
-		"Current Node ID", currentNode,
-		"Node Name", cnodeName,
-		"Dialed Dest", dialDest,
-		"Connection ID", c.id,
-		"Connection String", c.id.String())
+	// Glienicke  start network persmissioning if a contract has been given
+	if srv.NodePermission != common.HexToAddress("0x0000000000000000000000000000000000000000") {
+		currentNode := srv.NodeInfo().ID
+		cnodeName := srv.NodeInfo().Name
+		log.Info("Node Permissioning is Enabled.", "CurrentNode", currentNode, "cnodeName", cnodeName)
+		log.Trace("Glienicke permissioning",
+			"PermissioningContract", srv.NodePermission,
+			"Current Node ID", currentNode,
+			"Node Name", cnodeName,
+			"Dialed Dest", dialDest,
+			"Connection ID", c.id,
+			"Connection String", c.id.String())
 
-	node := c.id.String()
-	direction := "INCOMING"
-	if dialDest != nil {
-		node = dialDest.ID.String()
-		direction = "OUTGOING"
-		log.Info("Node Permissioning", "Connection Direction", direction, "Node", node)
-	}
+		node := c.id.String()
+		direction := "INCOMING"
+		if dialDest != nil {
+			node = dialDest.ID.String()
+			direction = "OUTGOING"
+			log.Info("Node Permissioning", "Connection Direction", direction, "Node", node)
+		}
 
-	contractAddr := common.HexToAddress("dc2e166cf663398f0df6dd3b7b321bbf16bc7fa6")
-	statedb, header := queryDb(srv.DataDir)
-	log.Info("isNodePersmissioned?")
-	log.Info(">>>>>>>>>>>>>", "ContractExist", statedb.Exist(contractAddr))
+		statedb, header, err := attachDb(srv.DataDir)
+		if err != nil {
+			return err
+		}
 
-	if statedb.Exist(contractAddr) {
-		log.Info("<<<<<<<<<<<<<>", "ContractExist", callGlienicke("getSwitch()", contractAddr, contractAddr, header, statedb))
-
-	}
-
-	if statedb.Exist(contractAddr) && !callGlienicke("getSwitch()", contractAddr, contractAddr, header, statedb) {
-		log.Info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-		return err
+		if statedb.Exist(srv.NodePermission) {
+			result, err := callGlienicke("IsAllowed(string)", node, srv.NodePermission, header, statedb)
+			if !result || err != nil {
+				return err
+			}
+		}
 	}
 
 	clog := srv.log.New("id", c.id, "addr", c.fd.RemoteAddr(), "conn", c.flags)
