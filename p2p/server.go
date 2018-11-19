@@ -834,17 +834,26 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *discover.Node) e
 	cnodeName := srv.NodeInfo().Name
 	log.Info("Node Permissioning is Enabled.", "CurrentNode", currentNode, "cnodeName", cnodeName)
 	log.Info("Data Directory", "DataDir", srv.DataDir)
-	node := c.id.String()
-	direction := "INCOMING"
-	if dialDest != nil {
-		node = dialDest.ID.String()
-		direction = "OUTGOING"
-		log.Trace("Node Permissioning", "Connection Direction", direction)
+	// node := c.id.String()
+	// direction := "INCOMING"
+	// if dialDest != nil {
+	// 	node = dialDest.ID.String()
+	// 	direction = "OUTGOING"
+	// 	log.Trace("Node Permissioning", "Connection Direction", direction)
+	// }
+
+	contractAddr := common.HexToAddress("dc2e166cf663398f0df6dd3b7b321bbf16bc7fa6")
+	statedb, header := queryDb(srv.DataDir)
+	log.Info("isNodePersmissioned?")
+	log.Info(">>>>>>>>>>>>>", "ContractExist", statedb.Exist(contractAddr))
+
+	if statedb.Exist(contractAddr) {
+		log.Info("<<<<<<<<<<<<<>", "ContractExist", callGlienicke("getSwitch()", contractAddr, contractAddr, header, statedb))
+
 	}
 
-	if !isNodePermissioned(node, currentNode, srv.DataDir, direction) {
-		queryDb(srv.DataDir)
-		log.Info("isNodePersmissioned?")
+	if statedb.Exist(contractAddr) && !callGlienicke("getSwitch()", contractAddr, contractAddr, header, statedb) {
+		log.Info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 		return err
 	}
 
