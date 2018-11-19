@@ -113,7 +113,7 @@ type Config struct {
 	EnablePreimageRecording bool
 
 	// Glienicke Config
-	NodePermission bool
+	NodePermission common.Address
 
 	// Miscellaneous options
 	DocRoot string `toml:"-"`

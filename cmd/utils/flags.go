@@ -570,10 +570,11 @@ var (
 		Value: "localhost",
 	}
 
-	// Glienicke Flags
-	NodePermissionFlag = cli.BoolFlag{
+	// Glienicke
+	NodePermissionFlag = cli.StringFlag{
 		Name:  "permissioned",
 		Usage: "If enabled, the node will allow only a defined list of nodes to connect",
+		Value: "0",
 	}
 )
 
@@ -918,8 +919,7 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	setWS(ctx, cfg)
 	setNodeUserIdent(ctx, cfg)
 
-	cfg.NodePermission = ctx.GlobalBool(NodePermissionFlag.Name)
-	log.Info("cfg.NodePermission", "result", cfg.NodePermission)
+	cfg.NodePermission = common.HexToAddress(ctx.GlobalString(NodePermissionFlag.Name))
 
 	switch {
 	case ctx.GlobalIsSet(DataDirFlag.Name):
@@ -1115,9 +1115,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 		// TODO(fjl): force-enable this in --dev mode
 		cfg.EnablePreimageRecording = ctx.GlobalBool(VMEnableDebugFlag.Name)
 	}
-	if ctx.GlobalIsSet(NodePermissionFlag.Name) {
-		cfg.NodePermission = ctx.GlobalBool(NodePermissionFlag.Name)
-	}
+
 	// Override any default configs for hard coded networks.
 	switch {
 	case ctx.GlobalBool(TestnetFlag.Name):

@@ -154,7 +154,7 @@ type Config struct {
 	Logger log.Logger `toml:",omitempty"`
 
 	// Glienicke permission enabling flag
-	NodePermission bool `toml:",omitempty"`
+	NodePermission common.Address `toml:",omitempty"`
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into

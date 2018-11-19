@@ -143,7 +143,7 @@ type Config struct {
 	Logger log.Logger `toml:",omitempty"`
 
 	// Boolean to determine whether node persmissioning is enabled
-	NodePermission bool `toml:",omitempty"`
+	NodePermission common.Address `toml:",omitempty"`
 
 	// DataDir directory where data is kept
 	DataDir string `toml:",omitempty"`
@@ -833,14 +833,22 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *discover.Node) e
 	currentNode := srv.NodeInfo().ID
 	cnodeName := srv.NodeInfo().Name
 	log.Info("Node Permissioning is Enabled.", "CurrentNode", currentNode, "cnodeName", cnodeName)
-	log.Info("Data Directory", "DataDir", srv.DataDir)
-	// node := c.id.String()
-	// direction := "INCOMING"
-	// if dialDest != nil {
-	// 	node = dialDest.ID.String()
-	// 	direction = "OUTGOING"
-	// 	log.Trace("Node Permissioning", "Connection Direction", direction)
-	// }
+	log.Info("Glienicke permissioning",
+		"EnableNodePermission", srv.NodePermission,
+		"DataDir", srv.DataDir,
+		"Current Node ID", currentNode,
+		"Node Name", cnodeName,
+		"Dialed Dest", dialDest,
+		"Connection ID", c.id,
+		"Connection String", c.id.String())
+
+	node := c.id.String()
+	direction := "INCOMING"
+	if dialDest != nil {
+		node = dialDest.ID.String()
+		direction = "OUTGOING"
+		log.Info("Node Permissioning", "Connection Direction", direction, "Node", node)
+	}
 
 	contractAddr := common.HexToAddress("dc2e166cf663398f0df6dd3b7b321bbf16bc7fa6")
 	statedb, header := queryDb(srv.DataDir)
