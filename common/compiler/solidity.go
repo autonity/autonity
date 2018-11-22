@@ -137,6 +137,9 @@ func CompileSolidity(solc string, customArgs string, sourcefiles ...string) (map
 		return nil, err
 	}
 	args := append(s.makeArgs(), "--")
+	fmt.Println(args)
+	fmt.Println(append(args, customArgs))
+	fmt.Println(append(append(args, customArgs), sourcefiles...)...)
 	cmd := exec.Command(s.Path, append(append(args, customArgs), sourcefiles...)...)
 	return s.run(cmd, source)
 }
