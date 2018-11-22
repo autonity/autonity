@@ -85,7 +85,7 @@ func main() {
 		var contracts map[string]*compiler.Contract
 		var err error
 		if *solFlag != "" {
-			contracts, err = compiler.CompileSolidity(*solcFlag, *solFlag)
+			contracts, err = compiler.CompileSolidity(*solcFlag, "", *solFlag)
 			if err != nil {
 				fmt.Printf("Failed to build Solidity contract: %v\n", err)
 				os.Exit(-1)
