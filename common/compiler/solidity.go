@@ -117,8 +117,8 @@ func CompileSolidityString(solc, customArgs, source string) (map[string]*Contrac
 	if err != nil {
 		return nil, err
 	}
-	args := append(s.makeArgs(), "--")
-	cmd := exec.Command(s.Path, append(append(args, customArgs), "-")...)
+	args := append(s.makeArgs(), customArgs)
+	cmd := exec.Command(s.Path, append(args, "-")...)
 	cmd.Stdin = strings.NewReader(source)
 	return s.run(cmd, source)
 }
@@ -136,8 +136,8 @@ func CompileSolidity(solc string, customArgs string, sourcefiles ...string) (map
 	if err != nil {
 		return nil, err
 	}
-	args := append(s.makeArgs(), "--")
-	cmd := exec.Command(s.Path, append(append(args, customArgs), sourcefiles...)...)
+	args := append(s.makeArgs(), customArgs)
+	cmd := exec.Command(s.Path, append(args, sourcefiles...)...)
 	return s.run(cmd, source)
 }
 
