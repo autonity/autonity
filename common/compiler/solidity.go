@@ -109,7 +109,7 @@ func SolidityVersion(solc string) (*Solidity, error) {
 }
 
 // CompileSolidityString builds and returns all the contracts contained within a source string.
-func CompileSolidityString(solc, customArgs, source string) (map[string]*Contract, error) {
+func CompileSolidityString(solc string, customArgs []string, source string) (map[string]*Contract, error) {
 	if len(source) == 0 {
 		return nil, errors.New("solc: empty source string")
 	}
