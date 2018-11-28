@@ -117,14 +117,14 @@ func CompileSolidityString(solc, customArgs, source string) (map[string]*Contrac
 	if err != nil {
 		return nil, err
 	}
-	args := append(s.makeArgs(), customArgs)
+	args := append(s.makeArgs(), customArgs...)
 	cmd := exec.Command(s.Path, append(args, "-")...)
 	cmd.Stdin = strings.NewReader(source)
 	return s.run(cmd, source)
 }
 
 // CompileSolidity compiles all given Solidity source files.
-func CompileSolidity(solc string, customArgs string, sourcefiles ...string) (map[string]*Contract, error) {
+func CompileSolidity(solc string, customArgs []string, sourcefiles ...string) (map[string]*Contract, error) {
 	if len(sourcefiles) == 0 {
 		return nil, errors.New("solc: no source files")
 	}
@@ -136,7 +136,7 @@ func CompileSolidity(solc string, customArgs string, sourcefiles ...string) (map
 	if err != nil {
 		return nil, err
 	}
-	args := append(s.makeArgs(), customArgs)
+	args := append(s.makeArgs(), customArgs...)
 	cmd := exec.Command(s.Path, append(args, sourcefiles...)...)
 	return s.run(cmd, source)
 }
