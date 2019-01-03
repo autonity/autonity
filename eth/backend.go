@@ -20,6 +20,9 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/consensus/istanbul"
+	istanbulBackend "github.com/ethereum/go-ethereum/consensus/istanbul/backend"
+	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"runtime"
 	"sync"
@@ -91,7 +94,8 @@ type Ethereum struct {
 	networkID     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
+	lock     sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
+	protocol Protocol
 }
 
 func (s *Ethereum) AddLesServer(ls LesServer) {
@@ -130,7 +134,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		chainConfig:    chainConfig,
 		eventMux:       ctx.EventMux,
 		accountManager: ctx.AccountManager,
-		engine:         CreateConsensusEngine(ctx, chainConfig, &config.Ethash, config.MinerNotify, config.MinerNoverify, chainDb),
+		engine:         CreateConsensusEngine(ctx, chainConfig, config, config.MinerNotify, config.MinerNoverify, chainDb),
 		shutdownChan:   make(chan bool),
 		networkID:      config.NetworkId,
 		gasPrice:       config.MinerGasPrice,
@@ -139,7 +143,17 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 	}
 
-	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId)
+	// force to set the istanbul etherbase to node key address
+	if chainConfig.Istanbul != nil {
+		eth.etherbase = crypto.PubkeyToAddress(ctx.NodeKey().PublicKey)
+		if h, ok := eth.engine.(consensus.Handler); ok {
+			eth.protocol = h.Protocol()
+		}
+	} else {
+		eth.protocol = EthDefaultProtocol
+	}
+
+	log.Info("Initialising Ethereum protocol", "versions", eth.protocol.Versions, "network", config.NetworkId)
 
 	if !config.SkipBcVersionCheck {
 		bcVersion := rawdb.ReadDatabaseVersion(chainDb)
@@ -173,7 +187,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, config.Whitelist); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, config.Whitelist, eth.protocol); err != nil {
 		return nil, err
 	}
 
@@ -220,13 +234,25 @@ func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Data
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainConfig, config *ethash.Config, notify []string, noverify bool, db ethdb.Database) consensus.Engine {
+func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database) consensus.Engine {
+
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
 		return clique.New(chainConfig.Clique, db)
 	}
+	// If Istanbul is requested, set it up
+	if chainConfig.Istanbul != nil {
+		if chainConfig.Istanbul.Epoch != 0 {
+			config.Istanbul.Epoch = chainConfig.Istanbul.Epoch
+		}
+		config.Istanbul.ProposerPolicy = istanbul.ProposerPolicy(chainConfig.Istanbul.ProposerPolicy)
+		return istanbulBackend.New(&config.Istanbul, ctx.NodeKey(), db)
+	}
+
 	// Otherwise assume proof-of-work
-	switch config.PowMode {
+	ethConfig := config.Ethash
+
+	switch ethConfig.PowMode {
 	case ethash.ModeFake:
 		log.Warn("Ethash used in fake mode")
 		return ethash.NewFaker()
@@ -238,12 +264,12 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 		return ethash.NewShared()
 	default:
 		engine := ethash.New(ethash.Config{
-			CacheDir:       ctx.ResolvePath(config.CacheDir),
-			CachesInMem:    config.CachesInMem,
-			CachesOnDisk:   config.CachesOnDisk,
-			DatasetDir:     config.DatasetDir,
-			DatasetsInMem:  config.DatasetsInMem,
-			DatasetsOnDisk: config.DatasetsOnDisk,
+			CacheDir:       ctx.ResolvePath(ethConfig.CacheDir),
+			CachesInMem:    ethConfig.CachesInMem,
+			CachesOnDisk:   ethConfig.CachesOnDisk,
+			DatasetDir:     ethConfig.DatasetDir,
+			DatasetsInMem:  ethConfig.DatasetsInMem,
+			DatasetsOnDisk: ethConfig.DatasetsOnDisk,
 		}, notify, noverify)
 		engine.SetThreads(-1) // Disable CPU mining
 		return engine
@@ -390,6 +416,11 @@ func (s *Ethereum) shouldPreserve(block *types.Block) bool {
 
 // SetEtherbase sets the mining reward address.
 func (s *Ethereum) SetEtherbase(etherbase common.Address) {
+	if _, ok := s.engine.(consensus.Istanbul); ok {
+		log.Error("Cannot set etherbase in Istanbul consensus")
+		return
+	}
+
 	s.lock.Lock()
 	s.etherbase = etherbase
 	s.lock.Unlock()

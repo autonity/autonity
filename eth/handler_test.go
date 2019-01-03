@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -50,12 +51,12 @@ func TestProtocolCompatibility(t *testing.T) {
 		{61, downloader.FastSync, false}, {62, downloader.FastSync, false}, {63, downloader.FastSync, true},
 	}
 	// Make sure anything we screw up is restored
-	backup := ProtocolVersions
-	defer func() { ProtocolVersions = backup }()
+	backup := EthDefaultProtocol.Versions
+	defer func() { EthDefaultProtocol.Versions = backup }()
 
 	// Try all available compatibility configs and check for errors
 	for i, tt := range tests {
-		ProtocolVersions = []uint{tt.version}
+		EthDefaultProtocol.Versions = []uint{tt.version}
 
 		pm, _, err := newTestProtocolManager(tt.mode, 0, nil, nil)
 		if pm != nil {
@@ -243,10 +244,10 @@ func testGetBlockBodies(t *testing.T, protocol int) {
 		available []bool        // Availability of explicitly requested blocks
 		expected  int           // Total number of existing blocks to expect
 	}{
-		{1, nil, nil, 1},             // A single random block should be retrievable
-		{10, nil, nil, 10},           // Multiple random blocks should be retrievable
-		{limit, nil, nil, limit},     // The maximum possible blocks should be retrievable
-		{limit + 1, nil, nil, limit}, // No more than the possible block count should be returned
+		{1, nil, nil, 1},                                                         // A single random block should be retrievable
+		{10, nil, nil, 10},                                                       // Multiple random blocks should be retrievable
+		{limit, nil, nil, limit},                                                 // The maximum possible blocks should be retrievable
+		{limit + 1, nil, nil, limit},                                             // No more than the possible block count should be returned
 		{0, []common.Hash{pm.blockchain.Genesis().Hash()}, []bool{true}, 1},      // The genesis block should be retrievable
 		{0, []common.Hash{pm.blockchain.CurrentBlock().Hash()}, []bool{true}, 1}, // The chains head block should be retrievable
 		{0, []common.Hash{{}}, []bool{false}, 0},                                 // A non existent block should not be returned

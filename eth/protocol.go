@@ -34,14 +34,26 @@ const (
 	eth63 = 63
 )
 
-// ProtocolName is the official short name of the protocol used during capability negotiation.
-var ProtocolName = "eth"
+// Protocol defines the protocol of the consensus
+type Protocol struct {
+	// Official short name of the protocol used during capability negotiation.
+	Name string
+	// Supported versions of the eth protocol (first is primary).
+	Versions []uint
+	// Number of implemented message corresponding to different protocol versions.
+	Lengths []uint64
+}
 
-// ProtocolVersions are the supported versions of the eth protocol (first is primary).
-var ProtocolVersions = []uint{eth63, eth62}
+var EthDefaultProtocol = Protocol{
+	// ProtocolName is the official short name of the protocol used during capability negotiation.
+	Name: "eth",
 
-// ProtocolLengths are the number of implemented message corresponding to different protocol versions.
-var ProtocolLengths = []uint64{17, 8}
+	// ProtocolVersions are the supported versions of the eth protocol (first is primary).
+	Versions: []uint{eth63, eth62},
+
+	// ProtocolLengths are the number of implemented message corresponding to different protocol versions.
+	Lengths: []uint64{17, 8},
+}
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
@@ -76,6 +88,7 @@ const (
 	ErrNoStatusMsg
 	ErrExtraStatusMsg
 	ErrSuspendedPeer
+	ErrNoPubKeyFound
 )
 
 func (e errCode) String() string {

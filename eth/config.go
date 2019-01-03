@@ -17,6 +17,7 @@
 package eth
 
 import (
+	"github.com/ethereum/go-ethereum/consensus/istanbul"
 	"math/big"
 	"os"
 	"os/user"
@@ -59,6 +60,7 @@ var DefaultConfig = Config{
 		Blocks:     20,
 		Percentile: 60,
 	},
+	Istanbul: *istanbul.DefaultConfig,
 }
 
 func init() {
@@ -114,6 +116,9 @@ type Config struct {
 
 	// Ethash options
 	Ethash ethash.Config
+
+	// Istanbul options
+	Istanbul istanbul.Config
 
 	// Transaction pool options
 	TxPool core.TxPoolConfig

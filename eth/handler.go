@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto"
 	"math"
 	"math/big"
 	"sync"
@@ -99,11 +100,13 @@ type ProtocolManager struct {
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
 	wg sync.WaitGroup
+
+	engine consensus.Engine
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, whitelist map[uint64]common.Hash) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, whitelist map[uint64]common.Hash, protocols Protocol) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
@@ -117,7 +120,13 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		noMorePeers: make(chan struct{}),
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
+		engine:      engine,
 	}
+
+	if handler, ok := manager.engine.(consensus.Handler); ok {
+		handler.SetBroadcaster(manager)
+	}
+
 	// Figure out whether to allow fast sync or not
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
 		log.Warn("Blockchain not empty, fast sync disabled")
@@ -127,8 +136,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		manager.fastSync = uint32(1)
 	}
 	// Initiate a sub-protocol for every implemented version we can handle
-	manager.SubProtocols = make([]p2p.Protocol, 0, len(ProtocolVersions))
-	for i, version := range ProtocolVersions {
+	manager.SubProtocols = make([]p2p.Protocol, 0, len(protocols.Versions))
+	for i, version := range protocols.Versions {
 		// Skip protocol version if incompatible with the mode of operation
 		if mode == downloader.FastSync && version < eth63 {
 			continue
@@ -136,9 +145,9 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		// Compatible; initialise the sub-protocol
 		version := version // Closure for the run
 		manager.SubProtocols = append(manager.SubProtocols, p2p.Protocol{
-			Name:    ProtocolName,
+			Name:    protocols.Name,
 			Version: version,
-			Length:  ProtocolLengths[i],
+			Length:  protocols.Lengths[i],
 			Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
 				peer := manager.newPeer(int(version), p, rw)
 				select {
@@ -337,6 +346,18 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, ProtocolMaxMsgSize)
 	}
 	defer msg.Discard()
+
+	if handler, ok := pm.engine.(consensus.Handler); ok {
+		pubKey := p.Node().Pubkey()
+		if pubKey == nil {
+			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
+		}
+		addr := crypto.PubkeyToAddress(*pubKey)
+		handled, err := handler.HandleMsg(addr, msg)
+		if handled {
+			return err
+		}
+	}
 
 	// Handle the message depending on its contents
 	switch {
@@ -708,6 +729,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	return nil
 }
 
+func (pm *ProtocolManager) Enqueue(id string, block *types.Block) {
+	pm.fetcher.Enqueue(id, block)
+}
+
 // BroadcastBlock will either propagate a block to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
 func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
@@ -789,6 +814,21 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 			return
 		}
 	}
+}
+
+func (self *ProtocolManager) FindPeers(targets map[common.Address]bool) map[common.Address]consensus.Peer {
+	m := make(map[common.Address]consensus.Peer)
+	for _, p := range self.peers.Peers() {
+		pubKey := p.Node().Pubkey()
+		if pubKey == nil {
+			continue
+		}
+		addr := crypto.PubkeyToAddress(*pubKey)
+		if targets[addr] {
+			m[addr] = p
+		}
+	}
+	return m
 }
 
 // NodeInfo represents a short summary of the Ethereum sub-protocol metadata

@@ -40,6 +40,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		MinerRecommit           time.Duration
 		MinerNoverify           bool
 		Ethash                  ethash.Config
+		Istanbul                istanbul.Config
 		TxPool                  core.TxPoolConfig
 		GPO                     gasprice.Config
 		EnablePreimageRecording bool
@@ -69,6 +70,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.MinerRecommit = c.MinerRecommit
 	enc.MinerNoverify = c.MinerNoverify
 	enc.Ethash = c.Ethash
+	enc.Istanbul = c.Istanbul
 	enc.TxPool = c.TxPool
 	enc.GPO = c.GPO
 	enc.EnablePreimageRecording = c.EnablePreimageRecording
@@ -102,6 +104,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		MinerRecommit           *time.Duration
 		MinerNoverify           *bool
 		Ethash                  *ethash.Config
+		Istanbul                *istanbul.Config
 		TxPool                  *core.TxPoolConfig
 		GPO                     *gasprice.Config
 		EnablePreimageRecording *bool
@@ -193,6 +196,9 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	}
 	if dec.EVMInterpreter != nil {
 		c.EVMInterpreter = *dec.EVMInterpreter
+	}
+	if dec.Istanbul != nil {
+		c.Istanbul = *dec.Istanbul
 	}
 	return nil
 }
