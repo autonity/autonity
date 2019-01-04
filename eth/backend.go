@@ -146,9 +146,17 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	// force to set the istanbul etherbase to node key address
 	if chainConfig.Istanbul != nil {
 		eth.etherbase = crypto.PubkeyToAddress(ctx.NodeKey().PublicKey)
-		if h, ok := eth.engine.(consensus.Handler); ok {
-			eth.protocol = h.Protocol()
+	}
+
+	if h, ok := eth.engine.(consensus.Handler); ok {
+		protocolName, extraMsgCodes := h.Protocol()
+		eth.protocol.Name = protocolName
+		eth.protocol.Versions = EthDefaultProtocol.Versions
+		eth.protocol.Lengths = make([]uint64, len(EthDefaultProtocol.Lengths))
+		for i := range eth.protocol.Lengths {
+			eth.protocol.Lengths[i] = EthDefaultProtocol.Lengths[i] + extraMsgCodes
 		}
+
 	} else {
 		eth.protocol = EthDefaultProtocol
 	}

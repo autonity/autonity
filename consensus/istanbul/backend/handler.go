@@ -35,13 +35,9 @@ var (
 	errDecodeFailed = errors.New("fail to decode istanbul message")
 )
 
-// Protocol implements consensus.Engine.Protocol
-func (sb *backend) Protocol() consensus.Protocol {
-	return consensus.Protocol{
-		Name:     "istanbul",
-		Versions: []uint{64},
-		Lengths:  []uint64{18},
-	}
+// Protocol implements consensus.Handler.Protocol
+func (sb *backend) Protocol() (protocolName string, extraMsgCodes uint64) {
+	return "istanbul", 1
 }
 
 // HandleMsg implements consensus.Handler.HandleMsg

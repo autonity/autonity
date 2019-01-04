@@ -118,6 +118,9 @@ type Handler interface {
 
 	// SetBroadcaster sets the broadcaster to send message to peers
 	SetBroadcaster(Broadcaster)
+
+	//msgCodes returns the number of extra implemented msgCodes by this consensus algorithm
+	Protocol() (protocolName string, extraMsgCodes uint64)
 }
 
 // PoW is a consensus engine based on proof-of-work.
