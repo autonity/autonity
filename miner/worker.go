@@ -267,12 +267,25 @@ func (w *worker) pendingBlock() *types.Block {
 // start sets the running status as 1 and triggers new work submitting.
 func (w *worker) start() {
 	atomic.StoreInt32(&w.running, 1)
+	if istanbul, ok := w.engine.(consensus.Istanbul); ok {
+		err := istanbul.Start(w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
+		if err != nil{
+			log.Error("Error starting Consensus Engine")
+		}
+	}
+
 	w.startCh <- struct{}{}
 }
 
 // stop sets the running status as 0.
 func (w *worker) stop() {
 	atomic.StoreInt32(&w.running, 0)
+	if istanbul, ok := w.engine.(consensus.Istanbul); ok {
+		err := istanbul.Stop()
+		if err != nil{
+			log.Error("Error stopping Consensus Engine")
+		}
+	}
 }
 
 // isRunning returns an indicator whether worker is running or not.
@@ -349,6 +362,12 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		case head := <-w.chainHeadCh:
 			clearPending(head.Block.NumberU64())
 			timestamp = time.Now().Unix()
+			if h, ok := w.engine.(consensus.Handler); ok {
+				err := h.NewChainHead()
+				if err != nil{
+					log.Error("Error calling consensus handler's function NewChainHead()")
+				}
+			}
 			commit(false, commitInterruptNewHead)
 
 		case <-timer.C:

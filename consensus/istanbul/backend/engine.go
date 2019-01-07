@@ -402,19 +402,19 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, stop <-
 	// Bail out if we're unauthorized to sign a block
 	snap, err := sb.snapshot(chain, number-1, header.ParentHash, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if _, v := snap.ValSet.GetByAddress(sb.address); v == nil {
-		return nil, errUnauthorized
+		return errUnauthorized
 	}
 
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
-		return nil, consensus.ErrUnknownAncestor
+		return consensus.ErrUnknownAncestor
 	}
 	block, err = sb.updateBlock(parent, block)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// wait for the timestamp of header, use this to adjust the block period
@@ -422,7 +422,7 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, stop <-
 	select {
 	case <-time.After(delay):
 	case <-stop:
-		return nil, nil
+		return nil
 	}
 
 	// get the proposed block hash and clear it if the seal() is completed.
