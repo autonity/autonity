@@ -1,12 +1,3 @@
-package types
-
-import (
-	"errors"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rlp"
-	"io"
-)
-
 // Copyright 2017 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -26,11 +17,11 @@ import (
 package types
 
 import (
-"errors"
-"io"
+	"errors"
+	"io"
 
-"github.com/ethereum/go-ethereum/common"
-"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 var (
