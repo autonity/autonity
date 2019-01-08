@@ -396,24 +396,29 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 // TODO : to be updated for 1.8.19 , make it asynchronous, add the worker resultCh
 func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	// update the block header timestamp and signature and propose the block to core engine
+	sb.logger.Info("Seal() consensus function called")
 	header := block.Header()
 	number := header.Number.Uint64()
 
 	// Bail out if we're unauthorized to sign a block
 	snap, err := sb.snapshot(chain, number-1, header.ParentHash, nil)
 	if err != nil {
+		sb.logger.Error("Error snapshot ", err, err.Error())
 		return err
 	}
 	if _, v := snap.ValSet.GetByAddress(sb.address); v == nil {
+		sb.logger.Error("Error validator", err, err.Error())
 		return errUnauthorized
 	}
 
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
+		sb.logger.Error("Error ancestor", err, err.Error())
 		return consensus.ErrUnknownAncestor
 	}
 	block, err = sb.updateBlock(parent, block)
 	if err != nil {
+		sb.logger.Error("Error updateBlock", err, err.Error())
 		return err
 	}
 
@@ -427,11 +432,8 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results
 
 	sb.commitCh = results // results channel stays always the same
 
-	// get the proposed block hash and clear it if the seal() is completed.
-	sb.sealMu.Lock()
-	sb.proposedBlockHash = block.Hash()
-
 	// post block into Istanbul engine
+	sb.logger.Info("Seal() consensus request sent")
 	go sb.EventMux().Post(istanbul.RequestEvent{
 		Proposal: block,
 	})
