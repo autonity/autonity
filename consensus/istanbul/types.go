@@ -37,8 +37,6 @@ type Proposal interface {
 	EncodeRLP(w io.Writer) error
 
 	DecodeRLP(s *rlp.Stream) error
-
-	String() string
 }
 
 type Request struct {

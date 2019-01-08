@@ -91,6 +91,8 @@ type core struct {
 	sequenceMeter metrics.Meter
 	// the timer to record consensus duration (from accepting a preprepare to final committed stage)
 	consensusTimer metrics.Timer
+
+	sentPreprepare bool
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -238,6 +240,7 @@ func (c *core) startNewRound(round *big.Int) {
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, newView.Round.Uint64())
 	c.waitingForRoundChange = false
+	c.sentPreprepare = false
 	c.setState(StateAcceptRequest)
 	if roundChange && c.isProposer() && c.current != nil {
 		// If it is locked, propose the old proposal

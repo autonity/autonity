@@ -425,33 +425,18 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results
 		return nil
 	}
 
+	sb.commitCh = results // results channel stays always the same
+
 	// get the proposed block hash and clear it if the seal() is completed.
 	sb.sealMu.Lock()
 	sb.proposedBlockHash = block.Hash()
-	clear := func() {
-		sb.proposedBlockHash = common.Hash{}
-		sb.sealMu.Unlock()
-	}
-	defer clear()
 
 	// post block into Istanbul engine
 	go sb.EventMux().Post(istanbul.RequestEvent{
 		Proposal: block,
 	})
 
-	// Todo: wrap it with a go routine
-	for {
-		select {
-		case result := <-sb.commitCh:
-			// if the block hash and the hash from channel are the same,
-			// return the result. Otherwise, keep waiting the next hash.
-			if block.Hash() == result.Hash() {
-				return result, nil
-			}
-		case <-stop:
-			return nil, nil
-		}
-	}
+	return nil
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
@@ -459,6 +444,10 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results
 // current signer.
 func (sb *backend) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
 	return defaultDifficulty
+}
+
+func (sb *backend) SetProposedBlockHash(hash common.Hash) {
+	sb.proposedBlockHash = hash
 }
 
 // update timestamp and signature of the block based on its number of transactions
@@ -516,7 +505,7 @@ func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types
 }
 
 // Stop implements consensus.Istanbul.Stop
-func (sb *backend) Stop() error {
+func (sb *backend) Close() error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if !sb.coreStarted {
@@ -607,7 +596,10 @@ func (sb *backend) snapshot(chain consensus.ChainReader, number uint64, hash com
 	return snap, err
 }
 
-// FIXME: Need to update this for Istanbul
+func (sb *backend) SealHash(header *types.Header) common.Hash {
+	return sigHash(header)
+}
+
 // sigHash returns the hash which is used as input for the Istanbul
 // signing. It is the hash of the entire header apart from the 65 byte signature
 // contained at the end of the extra data.

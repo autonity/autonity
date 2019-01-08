@@ -80,7 +80,7 @@ type backend struct {
 	hasBadBlock      func(hash common.Hash) bool
 
 	// the channels for istanbul engine notifications
-	commitCh          chan *types.Block
+	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	sealMu            sync.Mutex
 	coreStarted       bool

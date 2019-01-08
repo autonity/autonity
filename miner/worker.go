@@ -269,7 +269,7 @@ func (w *worker) start() {
 	atomic.StoreInt32(&w.running, 1)
 	if istanbul, ok := w.engine.(consensus.Istanbul); ok {
 		err := istanbul.Start(w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
-		if err != nil{
+		if err != nil {
 			log.Error("Error starting Consensus Engine")
 		}
 	}
@@ -281,8 +281,8 @@ func (w *worker) start() {
 func (w *worker) stop() {
 	atomic.StoreInt32(&w.running, 0)
 	if istanbul, ok := w.engine.(consensus.Istanbul); ok {
-		err := istanbul.Stop()
-		if err != nil{
+		err := istanbul.Close()
+		if err != nil {
 			log.Error("Error stopping Consensus Engine")
 		}
 	}
@@ -364,7 +364,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			timestamp = time.Now().Unix()
 			if h, ok := w.engine.(consensus.Handler); ok {
 				err := h.NewChainHead()
-				if err != nil{
+				if err != nil {
 					log.Error("Error calling consensus handler's function NewChainHead()")
 				}
 			}
