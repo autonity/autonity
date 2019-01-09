@@ -67,7 +67,7 @@ var (
 	// errInvalidUncleHash is returned if a block contains an non-empty uncle list.
 	errInvalidUncleHash = errors.New("non empty uncle hash")
 	// errInconsistentValidatorSet is returned if the validator set is inconsistent
-	errInconsistentValidatorSet = errors.New("non empty uncle hash")
+	errInconsistentValidatorSet = errors.New("inconsistent validor set")
 	// errInvalidTimestamp is returned if the timestamp of a block is lower than the previous block's timestamp + the minimum block period.
 	errInvalidTimestamp = errors.New("invalid timestamp")
 	// errInvalidVotingChain is returned if an authorization list is attempted to
@@ -172,17 +172,14 @@ func (sb *backend) verifyCascadingFields(chain consensus.ChainReader, header *ty
 	if parent.Time.Uint64()+sb.config.BlockPeriod > header.Time.Uint64() {
 		return errInvalidTimestamp
 	}
-	// Verify validators in extraData. Validators in snapshot and extraData should be the same.
-	snap, err := sb.snapshot(chain, number-1, header.ParentHash, parents)
-	if err != nil {
+
+	if err := sb.verifySigner(chain, header, parents); err != nil {
+		log.Error(err.Error())
 		return err
 	}
-	validators := make([]byte, len(snap.validators())*common.AddressLength)
-	for i, validator := range snap.validators() {
-		copy(validators[i*common.AddressLength:], validator[:])
-	}
-	// TODO : perform the actual check on the validators
-	if err := sb.verifySigner(chain, header, parents); err != nil {
+
+	if err := sb.verifyValidators(chain, header, parents); err != nil {
+		log.Error(err.Error())
 		return err
 	}
 
@@ -216,6 +213,50 @@ func (sb *backend) VerifyUncles(chain consensus.ChainReader, block *types.Block)
 	if len(block.Uncles()) > 0 {
 		return errInvalidUncleHash
 	}
+	return nil
+}
+
+//verifyValidators check if the right validators are in the header extradata
+func (sb *backend) verifyValidators(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
+	// Verifying the genesis block is not supported .. and does not make sense
+	number := header.Number.Uint64()
+	if number == 0 {
+		return errUnknownBlock
+	}
+
+	// Retrieve the snapshot needed to verify this header and cache it
+	snap, err := sb.snapshot(chain, number-1, header.ParentHash, parents)
+	if err != nil {
+		return err
+	}
+	snapValidators := snap.validators()
+
+	istanbulExtra, err := types.ExtractIstanbulExtra(header)
+	if err != nil {
+		return err
+	}
+
+	if len(istanbulExtra.Validators) != len(snapValidators) {
+		return errInconsistentValidatorSet
+	}
+
+	validatorsCount := len(istanbulExtra.Validators)
+
+	// we have no requirement on the ordering of the validator addresses in the extradata
+	validatorsMatch := 0
+	for i := 0; i < validatorsCount; i++ {
+		for j := 0; j < validatorsCount; j++ {
+			if snapValidators[i] == istanbulExtra.Validators[j] {
+				validatorsMatch += 1
+				break
+			}
+		}
+	}
+
+	if validatorsMatch < validatorsCount {
+		return errInconsistentValidatorSet
+	}
+
 	return nil
 }
 
