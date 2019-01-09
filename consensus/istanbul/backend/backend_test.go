@@ -115,6 +115,8 @@ func TestCommit(t *testing.T) {
 	backend := newBackend()
 
 	commitCh := make(chan *types.Block)
+	backend.commitCh = commitCh
+
 	// Case: it's a proposer, so the backend.commit will receive channel result from backend.Commit function
 	testCases := []struct {
 		expectedErr       error
@@ -147,10 +149,6 @@ func TestCommit(t *testing.T) {
 
 	for _, test := range testCases {
 		expBlock := test.expectedBlock()
-		go func() {
-			result := <-backend.commitCh
-			commitCh <- result
-		}()
 
 		backend.proposedBlockHash = expBlock.Hash()
 		if err := backend.Commit(expBlock, test.expectedSignature); err != nil {
