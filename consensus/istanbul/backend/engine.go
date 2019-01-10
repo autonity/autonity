@@ -67,7 +67,7 @@ var (
 	// errInvalidUncleHash is returned if a block contains an non-empty uncle list.
 	errInvalidUncleHash = errors.New("non empty uncle hash")
 	// errInconsistentValidatorSet is returned if the validator set is inconsistent
-	errInconsistentValidatorSet = errors.New("inconsistent validor set")
+	errInconsistentValidatorSet = errors.New("inconsistent validator set")
 	// errInvalidTimestamp is returned if the timestamp of a block is lower than the previous block's timestamp + the minimum block period.
 	errInvalidTimestamp = errors.New("invalid timestamp")
 	// errInvalidVotingChain is returned if an authorization list is attempted to
