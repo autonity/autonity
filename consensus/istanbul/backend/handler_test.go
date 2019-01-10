@@ -33,7 +33,7 @@ func TestIstanbulMessage(t *testing.T) {
 	data := []byte("data1")
 	hash := istanbul.RLPHash(data)
 	msg := makeMsg(istanbulMsg, data)
-	addr := common.StringToAddress("address")
+	addr := common.BytesToAddress([]byte("address"))
 
 	// 1. this message should not be in cache
 	// for peers

@@ -131,8 +131,11 @@ func makeHeader(parent *types.Block, config *istanbul.Config) *types.Header {
 
 func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) *types.Block {
 	block := makeBlockWithoutSeal(chain, engine, parent)
-	block, _ = engine.Seal(chain, block, nil)
-	return block
+
+	resultCh := make(chan *types.Block)
+	engine.Seal(chain, block, resultCh, nil)
+
+	return <-resultCh
 }
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) *types.Block {
@@ -150,34 +153,10 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
-	header.ParentHash = common.StringToHash("1234567890")
+	header.ParentHash = common.BytesToHash([]byte("1234567890"))
 	err = engine.Prepare(chain, header)
 	if err != consensus.ErrUnknownAncestor {
 		t.Errorf("error mismatch: have %v, want %v", err, consensus.ErrUnknownAncestor)
-	}
-}
-
-func TestSealStopChannel(t *testing.T) {
-	chain, engine := newBlockChain(4)
-	block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	stop := make(chan struct{}, 1)
-	eventSub := engine.EventMux().Subscribe(istanbul.RequestEvent{})
-	eventLoop := func() {
-		ev := <-eventSub.Chan()
-		_, ok := ev.Data.(istanbul.RequestEvent)
-		if !ok {
-			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
-		}
-		stop <- struct{}{}
-		eventSub.Unsubscribe()
-	}
-	go eventLoop()
-	finalBlock, err := engine.Seal(chain, block, stop)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
-	}
-	if finalBlock != nil {
-		t.Errorf("block mismatch: have %v, want nil", finalBlock)
 	}
 }
 
@@ -197,7 +176,9 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	}
 	go eventLoop()
 	seal := func() {
-		engine.Seal(chain, block, nil)
+		resultCh := make(chan *types.Block)
+		engine.Seal(chain, block, resultCh, nil)
+		<-resultCh
 		t.Error("seal should not be completed")
 	}
 	go seal()
@@ -213,10 +194,12 @@ func TestSealCommitted(t *testing.T) {
 	block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	expectedBlock, _ := engine.updateBlock(engine.chain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
 
-	finalBlock, err := engine.Seal(chain, block, nil)
+	resultCh := make(chan *types.Block)
+	err := engine.Seal(chain, block, resultCh, nil)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
+	finalBlock := <-resultCh
 	if finalBlock.Hash() != expectedBlock.Hash() {
 		t.Errorf("hash mismatch: have %v, want %v", finalBlock.Hash(), expectedBlock.Hash())
 	}
@@ -250,7 +233,7 @@ func TestVerifyHeader(t *testing.T) {
 	// non zero MixDigest
 	block = makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	header = block.Header()
-	header.MixDigest = common.StringToHash("123456789")
+	header.MixDigest = common.BytesToHash([]byte("123456789"))
 	err = engine.VerifyHeader(chain, header, false)
 	if err != errInvalidMixDigest {
 		t.Errorf("error mismatch: have %v, want %v", err, errInvalidMixDigest)
@@ -259,7 +242,7 @@ func TestVerifyHeader(t *testing.T) {
 	// invalid uncles hash
 	block = makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	header = block.Header()
-	header.UncleHash = common.StringToHash("123456789")
+	header.UncleHash = common.BytesToHash([]byte("123456789"))
 	err = engine.VerifyHeader(chain, header, false)
 	if err != errInvalidUncleHash {
 		t.Errorf("error mismatch: have %v, want %v", err, errInvalidUncleHash)
