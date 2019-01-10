@@ -302,7 +302,7 @@ func TestVerifyPrepare(t *testing.T) {
 			expected: errInconsistentSubject,
 			prepare: &istanbul.Subject{
 				View:   &istanbul.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
-				Digest: common.StringToHash("1234567890"),
+				Digest: common.BytesToHash([]byte("1234567890")),
 			},
 			roundState: newTestRoundState(
 				&istanbul.View{Round: big.NewInt(1), Sequence: big.NewInt(1)},

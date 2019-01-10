@@ -175,7 +175,7 @@ func TestStoreBacklog(t *testing.T) {
 		Round:    big.NewInt(10),
 		Sequence: big.NewInt(10),
 	}
-	p := validator.New(common.StringToAddress("12345667890"))
+	p := validator.New(common.BytesToAddress([]byte("12345667890")))
 	// push preprepare msg
 	preprepare := &istanbul.Preprepare{
 		View:     v,
@@ -195,7 +195,7 @@ func TestStoreBacklog(t *testing.T) {
 	// push prepare msg
 	subject := &istanbul.Subject{
 		View:   v,
-		Digest: common.StringToHash("1234567890"),
+		Digest: common.BytesToHash([]byte("1234567890")),
 	}
 	subjectPayload, _ := Encode(subject)
 
@@ -254,11 +254,11 @@ func TestProcessFutureBacklog(t *testing.T) {
 		Round:    big.NewInt(10),
 		Sequence: big.NewInt(10),
 	}
-	p := validator.New(common.StringToAddress("12345667890"))
+	p := validator.New(common.BytesToAddress([]byte("12345667890")))
 	// push a future msg
 	subject := &istanbul.Subject{
 		View:   v,
-		Digest: common.StringToHash("1234567890"),
+		Digest: common.BytesToHash([]byte("1234567890")),
 	}
 	subjectPayload, _ := Encode(subject)
 	m := &message{
@@ -294,7 +294,7 @@ func TestProcessBacklog(t *testing.T) {
 
 	subject := &istanbul.Subject{
 		View:   v,
-		Digest: common.StringToHash("1234567890"),
+		Digest: common.BytesToHash([]byte("1234567890")),
 	}
 	subjectPayload, _ := Encode(subject)
 

@@ -122,7 +122,7 @@ func (self *testSystemBackend) CheckValidatorSignature(data []byte, sig []byte) 
 }
 
 func (self *testSystemBackend) Hash(b interface{}) common.Hash {
-	return common.StringToHash("Test")
+	return common.BytesToHash([]byte("Test"))
 }
 
 func (self *testSystemBackend) NewRequest(request istanbul.Proposal) {

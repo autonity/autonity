@@ -76,7 +76,7 @@ func TestMessageSetWithSubject(t *testing.T) {
 
 	sub := &istanbul.Subject{
 		View:   view,
-		Digest: common.StringToHash("1234567890"),
+		Digest: common.BytesToHash([]byte("1234567890")),
 	}
 
 	rawSub, err := rlp.EncodeToBytes(sub)

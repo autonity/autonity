@@ -41,7 +41,7 @@ func TestHandleMsg(t *testing.T) {
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
 		},
-		Digest: common.StringToHash("1234567890"),
+		Digest: common.BytesToHash([]byte("1234567890")),
 	})
 	// with a matched payload. msgPreprepare should match with *istanbul.Preprepare in normal case.
 	msg := &message{
