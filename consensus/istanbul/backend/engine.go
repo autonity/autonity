@@ -489,10 +489,6 @@ func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types
 
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
-	if sb.commitCh != nil {
-		close(sb.commitCh)
-	}
-	sb.commitCh = make(chan *types.Block, 1)
 
 	sb.chain = chain
 	sb.currentBlock = currentBlock
