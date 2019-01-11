@@ -156,6 +156,10 @@ func (self *testSystemBackend) ParentValidators(proposal istanbul.Proposal) ista
 	return self.peers
 }
 
+func (self *testSystemBackend) SetProposedBlockHash(hash common.Hash) {
+	return
+}
+
 // ==============================================
 //
 // define the struct that need to be provided for integration tests.
@@ -265,7 +269,7 @@ func (t *testSystem) stop(core bool) {
 
 func (t *testSystem) NewBackend(id uint64) *testSystemBackend {
 	// assume always success
-	ethDB, _ := ethdb.NewMemDatabase()
+	ethDB := ethdb.NewMemDatabase()
 	backend := &testSystemBackend{
 		id:     id,
 		sys:    t,

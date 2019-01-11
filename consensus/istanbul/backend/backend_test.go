@@ -114,7 +114,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 func TestCommit(t *testing.T) {
 	backend := newBackend()
 
-	commitCh := make(chan *types.Block)
+	commitCh := make(chan *types.Block, 1)
 	backend.commitCh = commitCh
 
 	// Case: it's a proposer, so the backend.commit will receive channel result from backend.Commit function
