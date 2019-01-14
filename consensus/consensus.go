@@ -137,7 +137,4 @@ type Istanbul interface {
 
 	// Start starts the engine
 	Start(chain ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
-
-	// Stop stops the engine
-	Stop() error
 }

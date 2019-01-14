@@ -27,7 +27,7 @@ func (c *core) sendPreprepare(request *istanbul.Request) {
 	logger := c.logger.New("state", c.state)
 
 	// If I'm the proposer and I have the same sequence with the proposal
-	if c.current.Sequence().Cmp(request.Proposal.Number()) == 0 && c.isProposer() {
+	if c.current.Sequence().Cmp(request.Proposal.Number()) == 0 && c.isProposer() && !c.sentPreprepare {
 		curView := c.currentView()
 		preprepare, err := Encode(&istanbul.Preprepare{
 			View:     curView,
@@ -37,7 +37,8 @@ func (c *core) sendPreprepare(request *istanbul.Request) {
 			logger.Error("Failed to encode", "view", curView)
 			return
 		}
-
+		c.sentPreprepare = true
+		c.backend.SetProposedBlockHash(request.Proposal.Hash())
 		c.broadcast(&message{
 			Code: msgPreprepare,
 			Msg:  preprepare,

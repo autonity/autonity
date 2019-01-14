@@ -54,7 +54,6 @@ func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Databas
 		address:          crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:           log.New(),
 		db:               db,
-		commitCh:         make(chan *types.Block, 1),
 		recents:          recents,
 		candidates:       make(map[common.Address]bool),
 		coreStarted:      false,
@@ -80,9 +79,8 @@ type backend struct {
 	hasBadBlock      func(hash common.Hash) bool
 
 	// the channels for istanbul engine notifications
-	commitCh          chan *types.Block
+	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
-	sealMu            sync.Mutex
 	coreStarted       bool
 	coreMu            sync.RWMutex
 
@@ -184,7 +182,7 @@ func (sb *backend) Commit(proposal istanbul.Proposal, seals [][]byte) error {
 	// -- if success, the ChainHeadEvent event will be broadcasted, try to build
 	//    the next block and the previous Seal() will be stopped.
 	// -- otherwise, a error will be returned and a round change event will be fired.
-	if sb.proposedBlockHash == block.Hash() {
+	if sb.proposedBlockHash == block.Hash() && sb.commitCh != nil {
 		// feed block hash to Seal() and wait the Seal() result
 		sb.commitCh <- block
 		return nil

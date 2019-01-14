@@ -396,24 +396,29 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 // TODO : to be updated for 1.8.19 , make it asynchronous, add the worker resultCh
 func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	// update the block header timestamp and signature and propose the block to core engine
+	sb.logger.Info("Seal() consensus function called")
 	header := block.Header()
 	number := header.Number.Uint64()
 
 	// Bail out if we're unauthorized to sign a block
 	snap, err := sb.snapshot(chain, number-1, header.ParentHash, nil)
 	if err != nil {
+		sb.logger.Error("Error snapshot ", err, err.Error())
 		return err
 	}
 	if _, v := snap.ValSet.GetByAddress(sb.address); v == nil {
+		sb.logger.Error("Error validator", err, err.Error())
 		return errUnauthorized
 	}
 
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
+		sb.logger.Error("Error ancestor", err, err.Error())
 		return consensus.ErrUnknownAncestor
 	}
 	block, err = sb.updateBlock(parent, block)
 	if err != nil {
+		sb.logger.Error("Error updateBlock", err, err.Error())
 		return err
 	}
 
@@ -425,33 +430,15 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results
 		return nil
 	}
 
-	// get the proposed block hash and clear it if the seal() is completed.
-	sb.sealMu.Lock()
-	sb.proposedBlockHash = block.Hash()
-	clear := func() {
-		sb.proposedBlockHash = common.Hash{}
-		sb.sealMu.Unlock()
-	}
-	defer clear()
+	sb.commitCh = results // results channel stays always the same
 
 	// post block into Istanbul engine
+	sb.logger.Info("Seal() consensus request sent")
 	go sb.EventMux().Post(istanbul.RequestEvent{
 		Proposal: block,
 	})
 
-	// Todo: wrap it with a go routine
-	for {
-		select {
-		case result := <-sb.commitCh:
-			// if the block hash and the hash from channel are the same,
-			// return the result. Otherwise, keep waiting the next hash.
-			if block.Hash() == result.Hash() {
-				return result, nil
-			}
-		case <-stop:
-			return nil, nil
-		}
-	}
+	return nil
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
@@ -459,6 +446,10 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results
 // current signer.
 func (sb *backend) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
 	return defaultDifficulty
+}
+
+func (sb *backend) SetProposedBlockHash(hash common.Hash) {
+	sb.proposedBlockHash = hash
 }
 
 // update timestamp and signature of the block based on its number of transactions
@@ -498,10 +489,6 @@ func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types
 
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
-	if sb.commitCh != nil {
-		close(sb.commitCh)
-	}
-	sb.commitCh = make(chan *types.Block, 1)
 
 	sb.chain = chain
 	sb.currentBlock = currentBlock
@@ -516,7 +503,7 @@ func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types
 }
 
 // Stop implements consensus.Istanbul.Stop
-func (sb *backend) Stop() error {
+func (sb *backend) Close() error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if !sb.coreStarted {
@@ -607,7 +594,10 @@ func (sb *backend) snapshot(chain consensus.ChainReader, number uint64, hash com
 	return snap, err
 }
 
-// FIXME: Need to update this for Istanbul
+func (sb *backend) SealHash(header *types.Header) common.Hash {
+	return sigHash(header)
+}
+
 // sigHash returns the hash which is used as input for the Istanbul
 // signing. It is the hash of the entire header apart from the 65 byte signature
 // contained at the end of the extra data.

@@ -113,7 +113,7 @@ func version(ctx *cli.Context) error {
 		fmt.Println("Git Commit:", gitCommit)
 	}
 	fmt.Println("Architecture:", runtime.GOARCH)
-	fmt.Println("Protocol Versions:", eth.ProtocolVersions)
+	fmt.Println("Protocol Versions:", eth.EthDefaultProtocol.Versions)
 	fmt.Println("Network Id:", eth.DefaultConfig.NetworkId)
 	fmt.Println("Go Version:", runtime.Version())
 	fmt.Println("Operating System:", runtime.GOOS)
