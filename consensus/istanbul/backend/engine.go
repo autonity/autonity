@@ -173,13 +173,31 @@ func (sb *backend) verifyCascadingFields(chain consensus.ChainReader, header *ty
 		return errInvalidTimestamp
 	}
 
-	if err := sb.verifySigner(chain, header, parents); err != nil {
-		log.Error(err.Error())
+	// Verify validators in extraData. Validators in snapshot and extraData should be the same.
+	snap, err := sb.snapshot(chain, number-1, header.ParentHash, parents)
+	if err != nil {
 		return err
 	}
 
-	if err := sb.verifyValidators(chain, header, parents); err != nil {
-		log.Error(err.Error())
+	istanbulExtra, err := types.ExtractIstanbulExtra(header)
+	if err != nil {
+		return err
+	}
+
+	headerValidators := istanbulExtra.Validators
+	snapshotValidators := snap.validators()
+
+	if len(headerValidators) != len(snapshotValidators) {
+		return errInconsistentValidatorSet
+	}
+
+	for i := 0; i < len(snapshotValidators); i++ {
+		if snapshotValidators[i] != headerValidators[i] {
+			return errInconsistentValidatorSet
+		}
+	}
+
+	if err := sb.verifySigner(chain, header, parents); err != nil {
 		return err
 	}
 
@@ -213,50 +231,6 @@ func (sb *backend) VerifyUncles(chain consensus.ChainReader, block *types.Block)
 	if len(block.Uncles()) > 0 {
 		return errInvalidUncleHash
 	}
-	return nil
-}
-
-//verifyValidators check if the right validators are in the header extradata
-func (sb *backend) verifyValidators(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
-	// Verifying the genesis block is not supported .. and does not make sense
-	number := header.Number.Uint64()
-	if number == 0 {
-		return errUnknownBlock
-	}
-
-	// Retrieve the snapshot needed to verify this header and cache it
-	snap, err := sb.snapshot(chain, number-1, header.ParentHash, parents)
-	if err != nil {
-		return err
-	}
-	snapValidators := snap.validators()
-
-	istanbulExtra, err := types.ExtractIstanbulExtra(header)
-	if err != nil {
-		return err
-	}
-
-	if len(istanbulExtra.Validators) != len(snapValidators) {
-		return errInconsistentValidatorSet
-	}
-
-	validatorsCount := len(istanbulExtra.Validators)
-
-	// we have no requirement on the ordering of the validator addresses in the extradata
-	validatorsMatch := 0
-	for i := 0; i < validatorsCount; i++ {
-		for j := 0; j < validatorsCount; j++ {
-			if snapValidators[i] == istanbulExtra.Validators[j] {
-				validatorsMatch += 1
-				break
-			}
-		}
-	}
-
-	if validatorsMatch < validatorsCount {
-		return errInconsistentValidatorSet
-	}
-
 	return nil
 }
 
