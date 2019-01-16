@@ -712,17 +712,6 @@ web3._extend({
 	methods:
 	[
 		new web3._extend.Method({
-			name: 'getSnapshot',
-			call: 'istanbul_getSnapshot',
-			params: 1,
-			inputFormatter: [null]
-		}),
-		new web3._extend.Method({
-			name: 'getSnapshotAtHash',
-			call: 'istanbul_getSnapshotAtHash',
-			params: 1
-		}),
-		new web3._extend.Method({
 			name: 'getValidators',
 			call: 'istanbul_getValidators',
 			params: 1,

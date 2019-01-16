@@ -62,7 +62,7 @@ func (c *core) handlePreprepare(msg *message, src istanbul.Validator) error {
 		if err == errOldMessage {
 			//TODO : EIP Says ignore?
 			// Get validator set for the given proposal
-			valSet := c.backend.ParentValidators(preprepare.Proposal).Copy()
+			valSet := c.backend.Validators(preprepare.Proposal.Number().Uint64()).Copy()
 			previousProposer := c.backend.GetProposer(preprepare.Proposal.Number().Uint64() - 1)
 			valSet.CalcProposer(previousProposer, preprepare.View.Round.Uint64())
 			// Broadcast COMMIT if it is an existing block

@@ -228,7 +228,7 @@ func (c *core) startNewRound(round *big.Int) {
 			Sequence: new(big.Int).Add(lastProposal.Number(), common.Big1),
 			Round:    new(big.Int),
 		}
-		c.valSet = c.backend.Validators(lastProposal)
+		c.valSet = c.backend.Validators(lastProposal.Number().Uint64() + 1)
 	}
 
 	// Update logger
