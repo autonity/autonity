@@ -18,6 +18,8 @@ package backend
 
 import (
 	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/params"
 	"math/big"
 	"sync"
 	"time"
@@ -33,7 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -42,8 +44,20 @@ const (
 )
 
 // New creates an Ethereum backend for Istanbul core engine.
-func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database) consensus.Istanbul {
+func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) consensus.Istanbul {
 	// Allocate the snapshot caches and create the engine
+	if chainConfig.Istanbul.Epoch != 0 {
+		config.Epoch = chainConfig.Istanbul.Epoch
+	}
+	// Todo : BP here !
+	if chainConfig.Istanbul.Bytecode != "" || chainConfig.Istanbul.ABI != "" {
+		config.Bytecode = chainConfig.Istanbul.Bytecode
+		config.ABI = chainConfig.Istanbul.ABI
+		log.Info("Deployin default validator contract")
+	}
+
+	config.ProposerPolicy = istanbul.ProposerPolicy(chainConfig.Istanbul.ProposerPolicy)
+
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
@@ -55,10 +69,10 @@ func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Databas
 		logger:           log.New(),
 		db:               db,
 		recents:          recents,
-		candidates:       make(map[common.Address]bool),
 		coreStarted:      false,
 		recentMessages:   recentMessages,
 		knownMessages:    knownMessages,
+		vmConfig:         vmConfig,
 	}
 	backend.core = istanbulCore.New(backend, backend.config)
 	return backend
@@ -96,6 +110,9 @@ type backend struct {
 
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
+
+	somaContract common.Address // Ethereum address of the governance contract
+	vmConfig     *vm.Config
 }
 
 // Address implements istanbul.Backend.Address
@@ -103,9 +120,12 @@ func (sb *backend) Address() common.Address {
 	return sb.address
 }
 
-// Validators implements istanbul.Backend.Validators
-func (sb *backend) Validators(proposal istanbul.Proposal) istanbul.ValidatorSet {
-	return sb.getValidators(proposal.Number().Uint64(), proposal.Hash())
+func (sb *backend) Validators(number uint64) istanbul.ValidatorSet {
+	validators, err := sb.retrieveSavedValidators(number)
+	if err != nil {
+		return validator.NewSet(nil, sb.config.ProposerPolicy)
+	}
+	return validator.NewSet(validators, sb.config.ProposerPolicy)
 }
 
 // Broadcast implements istanbul.Backend.Broadcast
@@ -228,6 +248,56 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 	err := sb.VerifyHeader(sb.chain, block.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == errEmptyCommittedSeals {
+		// the current chain state is synchronised with Istanbul's state
+		// and we know that the proposed block was mined by a valid validator
+
+		header := block.Header()
+		blockchain := sb.chain.(*core.BlockChain) // we're mining so can't be a headerChain
+
+		//We need at this point to process all the transactions in the block
+		//in order to extract the list of the next validators and validate the extradata field
+		var validators []common.Address
+		var err error
+		if header.Number.Uint64() > 1 {
+
+			state, _ := blockchain.State()
+			state = state.Copy() // copy the state, we don't want to save modifications
+			gp := new(core.GasPool).AddGas(block.GasLimit())
+			usedGas := new(uint64)
+			// blockchain.Processor().Process() would have been a better choice but it calls back Finalize()
+			for i, tx := range block.Transactions() {
+				state.Prepare(tx.Hash(), block.Hash(), i)
+				// Might be vulnerable to DoS Attack depending on gaslimit
+				// Todo : Double check
+				_, _, err := core.ApplyTransaction(blockchain.Config(), blockchain, nil,
+					gp, state, header, tx, usedGas, *sb.vmConfig)
+
+				if err != nil {
+					return 0, err
+				}
+			}
+
+			validators, err = sb.contractGetValidators(blockchain, header, state)
+			if err != nil {
+				return 0, err
+			}
+		} else {
+			validators, err = sb.retrieveSavedValidators(1) //genesis block and block #1 have the same validators
+		}
+		istanbulExtra, _ := types.ExtractIstanbulExtra(header)
+
+		//Perform the actual comparison
+		if len(istanbulExtra.Validators) != len(validators) {
+			return 0, errInconsistentValidatorSet
+		}
+
+		for i := range validators {
+			if istanbulExtra.Validators[i] != validators[i] {
+				return 0, errInconsistentValidatorSet
+			}
+		}
+		// At this stage extradata field is consistent with the validator list returned by Soma-contract
+
 		return 0, nil
 	} else if err == consensus.ErrFutureBlock {
 		return time.Unix(block.Header().Time.Int64(), 0).Sub(now()), consensus.ErrFutureBlock
@@ -267,22 +337,6 @@ func (sb *backend) GetProposer(number uint64) common.Address {
 		return a
 	}
 	return common.Address{}
-}
-
-// ParentValidators implements istanbul.Backend.GetParentValidators
-func (sb *backend) ParentValidators(proposal istanbul.Proposal) istanbul.ValidatorSet {
-	if block, ok := proposal.(*types.Block); ok {
-		return sb.getValidators(block.Number().Uint64()-1, block.ParentHash())
-	}
-	return validator.NewSet(nil, sb.config.ProposerPolicy)
-}
-
-func (sb *backend) getValidators(number uint64, hash common.Hash) istanbul.ValidatorSet {
-	snap, err := sb.snapshot(sb.chain, number, hash, nil)
-	if err != nil {
-		return validator.NewSet(nil, sb.config.ProposerPolicy)
-	}
-	return snap.ValSet
 }
 
 func (sb *backend) LastProposal() (istanbul.Proposal, common.Address) {

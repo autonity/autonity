@@ -187,8 +187,11 @@ func (c *CliqueConfig) String() string {
 
 // IstanbulConfig is the consensus engine configs for Istanbul based sealing.
 type IstanbulConfig struct {
-	Epoch          uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
-	ProposerPolicy uint64 `json:"policy"` // The policy for proposer selection
+	Epoch          uint64         `json:"epoch"`             // Epoch length to reset votes and checkpoint
+	ProposerPolicy uint64         `json:"policy"`            // The policy for proposer selection
+	Deployer       common.Address `json:"contract-deployer"` // Address of the validator who deploys contract stored in bytecode
+	Bytecode       string         `json:"bytecode"`          // Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
+	ABI            string         `json:"abi"`               // Bytecode of validators contract // ABI of the said contract
 }
 
 // String implements the stringer interface, returning the consensus engine details.

@@ -268,6 +268,21 @@ func (a Address) Value() (driver.Value, error) {
 	return a[:], nil
 }
 
+// Implementation of Sort for a slice of addresses
+type Addresses []Address
+
+func (slice Addresses) Len() int {
+	return len(slice)
+}
+
+func (slice Addresses) Less(i, j int) bool {
+	return strings.Compare(slice[i].String(), slice[j].String()) < 0
+}
+
+func (slice Addresses) Swap(i, j int) {
+	slice[i], slice[j] = slice[j], slice[i]
+}
+
 // UnprefixedAddress allows marshaling an Address without 0x prefix.
 type UnprefixedAddress Address
 
