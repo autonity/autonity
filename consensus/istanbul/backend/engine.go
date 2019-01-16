@@ -408,7 +408,6 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-// TODO : to be updated for 1.8.19 , make it asynchronous, add the worker resultCh
 func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	// update the block header timestamp and signature and propose the block to core engine
 	sb.logger.Info("Seal() consensus function called")
@@ -677,7 +676,7 @@ func prepareExtra(header *types.Header, vals []common.Address) ([]byte, error) {
 // writeSeal writes the extra-data field of the given header with the given seals.
 // suggest to rename to writeSeal.
 func writeSeal(h *types.Header, seal []byte) error {
-	if len(seal)%types.IstanbulExtraSeal != 0 { // TODO :  len(seal) != types.IstanbulExtraSeal
+	if len(seal) != types.IstanbulExtraSeal {
 		return errInvalidSignature
 	}
 
