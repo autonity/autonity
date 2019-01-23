@@ -19,6 +19,7 @@ package backend
 import (
 	"bytes"
 	"errors"
+	"github.com/ethereum/go-ethereum/consensus/istanbul/validator"
 	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"time"
@@ -217,7 +218,8 @@ func (sb *backend) verifySigner(chain consensus.ChainReader, header *types.Heade
 		return errUnknownBlock
 	}
 
-	validators, err := sb.retrieveSavedValidators(number)
+	validators, err := sb.retrieveValidators(header, parents)
+
 	if err != nil {
 		return err
 	}
@@ -246,7 +248,11 @@ func (sb *backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 		return nil
 	}
 
-	validators := sb.Validators(number).Copy()
+	validatorAddresses, err := sb.retrieveValidators(header, parents)
+	if err != nil {
+		return err
+	}
+	validators := validator.NewSet(validatorAddresses, sb.config.ProposerPolicy)
 
 	extra, err := types.ExtractIstanbulExtra(header)
 	if err != nil {
@@ -512,6 +518,33 @@ func (sb *backend) retrieveSavedValidators(height uint64) ([]common.Address, err
 	}
 
 	return istanbulExtra.Validators, nil
+
+}
+
+// retrieve list of validators for the block at height passed as parameter
+func (sb *backend) retrieveValidators(header *types.Header, parents []*types.Header) ([]common.Address, error) {
+
+	var validators []common.Address
+	var err error
+
+	/*
+		We can't use retrieveSavedValidators if parents are being passed :
+		those blocks are not yet saved in the chain.
+		geth will stop processing the received chain from the moment an error appears.
+		See insertChain in blockchain.go
+	*/
+
+	if len(parents) > 0 {
+		parent := parents[len(parents)-1]
+		var istanbulExtra *types.IstanbulExtra
+		istanbulExtra, err = types.ExtractIstanbulExtra(parent)
+		if err == nil {
+			validators = istanbulExtra.Validators
+		}
+	} else {
+		validators, err = sb.retrieveSavedValidators(header.Number.Uint64())
+	}
+	return validators, err
 
 }
 
