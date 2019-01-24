@@ -218,7 +218,7 @@ func (sb *backend) verifySigner(chain consensus.ChainReader, header *types.Heade
 		return errUnknownBlock
 	}
 
-	validators, err := sb.retrieveValidators(header, parents)
+	validators, err := sb.retrieveValidators(header, parents, chain)
 
 	if err != nil {
 		return err
@@ -248,7 +248,7 @@ func (sb *backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 		return nil
 	}
 
-	validatorAddresses, err := sb.retrieveValidators(header, parents)
+	validatorAddresses, err := sb.retrieveValidators(header, parents, chain)
 	if err != nil {
 		return err
 	}
@@ -354,7 +354,7 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 			return nil, err
 		}
 		sb.somaContract = contractAddress
-		validators, _ = sb.retrieveSavedValidators(1)
+		validators, _ = sb.retrieveSavedValidators(1, chain)
 	} else {
 		// Check if state root in current header is in DB if not ask for pruned trie
 		if sb.somaContract == common.HexToAddress("0000000000000000000000000000000000000000") {
@@ -501,13 +501,13 @@ func (sb *backend) Close() error {
 }
 
 // retrieve list of validators for the block at height passed as parameter
-func (sb *backend) retrieveSavedValidators(height uint64) ([]common.Address, error) {
+func (sb *backend) retrieveSavedValidators(height uint64, reader consensus.ChainReader) ([]common.Address, error) {
 
 	if height == 0 {
 		height = 1
 	}
 
-	header := sb.chain.GetHeaderByNumber(height - 1)
+	header := reader.GetHeaderByNumber(height - 1)
 	if header == nil {
 		return nil, errUnknownBlock
 	}
@@ -522,7 +522,7 @@ func (sb *backend) retrieveSavedValidators(height uint64) ([]common.Address, err
 }
 
 // retrieve list of validators for the block at height passed as parameter
-func (sb *backend) retrieveValidators(header *types.Header, parents []*types.Header) ([]common.Address, error) {
+func (sb *backend) retrieveValidators(header *types.Header, parents []*types.Header, reader consensus.ChainReader) ([]common.Address, error) {
 
 	var validators []common.Address
 	var err error
@@ -542,7 +542,7 @@ func (sb *backend) retrieveValidators(header *types.Header, parents []*types.Hea
 			validators = istanbulExtra.Validators
 		}
 	} else {
-		validators, err = sb.retrieveSavedValidators(header.Number.Uint64())
+		validators, err = sb.retrieveSavedValidators(header.Number.Uint64(), reader)
 	}
 	return validators, err
 

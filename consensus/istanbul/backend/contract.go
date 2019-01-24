@@ -43,7 +43,7 @@ func (sb *backend) deployContract(chain consensus.ChainReader, header *types.Hea
 	sender := vm.AccountRef(sb.config.Deployer)
 
 	var validators common.Addresses
-	validators, _ = sb.retrieveSavedValidators(1)
+	validators, _ = sb.retrieveSavedValidators(1, chain)
 	sort.Sort(validators)
 	//We need to append to data the constructor's parameters
 	//That should always be genesis validators
