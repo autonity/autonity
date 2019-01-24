@@ -121,7 +121,7 @@ func (sb *backend) Address() common.Address {
 }
 
 func (sb *backend) Validators(number uint64) istanbul.ValidatorSet {
-	validators, err := sb.retrieveSavedValidators(number)
+	validators, err := sb.retrieveSavedValidators(number, sb.chain)
 	if err != nil {
 		return validator.NewSet(nil, sb.config.ProposerPolicy)
 	}
@@ -282,7 +282,7 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 				return 0, err
 			}
 		} else {
-			validators, err = sb.retrieveSavedValidators(1) //genesis block and block #1 have the same validators
+			validators, err = sb.retrieveSavedValidators(1, sb.chain) //genesis block and block #1 have the same validators
 		}
 		istanbulExtra, _ := types.ExtractIstanbulExtra(header)
 
