@@ -45,21 +45,18 @@ func newBlockChain(n int) (*core.BlockChain, *backend) {
 	memDB := ethdb.NewMemDatabase()
 	config := istanbul.DefaultConfig
 	// Use the first key as private key
-	b, _ := New(config, nodeKeys[0], memDB).(*backend)
+	b, _ := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{}).(*backend)
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil)
 	if err != nil {
 		panic(err)
 	}
 	b.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
-	snap, err := b.snapshot(blockchain, 0, common.Hash{}, nil)
-	if err != nil {
-		panic(err)
+	validators := b.Validators(0)
+	if validators.Size() == 0 {
+		panic("failed to get validators")
 	}
-	if snap == nil {
-		panic("failed to get snapshot")
-	}
-	proposerAddr := snap.ValSet.GetProposer().Address()
+	proposerAddr := validators.GetProposer().Address()
 
 	// find proposer key
 	for _, key := range nodeKeys {
@@ -162,8 +159,9 @@ func TestPrepare(t *testing.T) {
 
 func TestSealCommittedOtherHash(t *testing.T) {
 	chain, engine := newBlockChain(4)
+
 	block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	otherBlock := makeBlockWithoutSeal(chain, engine, block)
+	otherBlock := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	eventSub := engine.EventMux().Subscribe(istanbul.RequestEvent{})
 	eventLoop := func() {
 		ev := <-eventSub.Chan()
@@ -301,8 +299,8 @@ func TestVerifySeal(t *testing.T) {
 	header.Number = big.NewInt(4)
 	block1 := block.WithSeal(header)
 	err = engine.VerifySeal(chain, block1.Header())
-	if err != errUnauthorized {
-		t.Errorf("error mismatch: have %v, want %v", err, errUnauthorized)
+	if err != errUnknownBlock {
+		t.Errorf("error mismatch: have %v, want %v", err, errUnknownBlock)
 	}
 
 	// unauthorized users but still can get correct signer address
@@ -313,6 +311,7 @@ func TestVerifySeal(t *testing.T) {
 	}
 }
 
+/* The logic of this needs to change with respect of Soma */
 func TestVerifyHeaders(t *testing.T) {
 	chain, engine := newBlockChain(1)
 	genesis := chain.Genesis()

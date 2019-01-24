@@ -509,7 +509,7 @@ func (sb *backend) retrieveSavedValidators(height uint64) ([]common.Address, err
 
 	header := sb.chain.GetHeaderByNumber(height - 1)
 	if header == nil {
-		return nil, errors.New("invalid block height supplied - header not found")
+		return nil, errUnknownBlock
 	}
 
 	istanbulExtra, err := types.ExtractIstanbulExtra(header)
