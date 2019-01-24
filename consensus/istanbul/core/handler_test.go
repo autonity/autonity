@@ -52,7 +52,7 @@ func TestHandleMsg(t *testing.T) {
 		CommittedSeal: []byte{},
 	}
 
-	_, val := v0.Validators(nil).GetByAddress(v0.Address())
+	_, val := v0.Validators(0).GetByAddress(v0.Address())
 	if err := r0.handleCheckedMsg(msg, val); err != errFailedDecodePreprepare {
 		t.Errorf("error mismatch: have %v, want %v", err, errFailedDecodePreprepare)
 	}
@@ -73,7 +73,7 @@ func TestHandleMsg(t *testing.T) {
 		CommittedSeal: []byte{},
 	}
 
-	_, val = v0.Validators(nil).GetByAddress(v0.Address())
+	_, val = v0.Validators(0).GetByAddress(v0.Address())
 	if err := r0.handleCheckedMsg(msg, val); err != errFailedDecodePrepare {
 		t.Errorf("error mismatch: have %v, want %v", err, errFailedDecodePreprepare)
 	}
@@ -94,7 +94,7 @@ func TestHandleMsg(t *testing.T) {
 		CommittedSeal: []byte{},
 	}
 
-	_, val = v0.Validators(nil).GetByAddress(v0.Address())
+	_, val = v0.Validators(0).GetByAddress(v0.Address())
 	if err := r0.handleCheckedMsg(msg, val); err != errFailedDecodeCommit {
 		t.Errorf("error mismatch: have %v, want %v", err, errFailedDecodeCommit)
 	}
@@ -115,7 +115,7 @@ func TestHandleMsg(t *testing.T) {
 		CommittedSeal: []byte{},
 	}
 
-	_, val = v0.Validators(nil).GetByAddress(v0.Address())
+	_, val = v0.Validators(0).GetByAddress(v0.Address())
 	if err := r0.handleCheckedMsg(msg, val); err == nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
