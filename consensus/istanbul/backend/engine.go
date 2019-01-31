@@ -381,10 +381,8 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-// TODO : to be updated for 1.8.19 , make it asynchronous, add the worker resultCh
 func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
-	// update the block header timestamp and signature and propose the block to core engine
-	sb.logger.Info("Seal() consensus function called")
+	// update the block header and signature and propose the block to core engine
 	header := block.Header()
 	number := header.Number.Uint64()
 
@@ -416,7 +414,6 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	sb.commitCh = results // results channel stays always the same
 
 	// post block into Istanbul engine
-	sb.logger.Info("Seal() consensus request sent")
 	go sb.EventMux().Post(istanbul.RequestEvent{
 		Proposal: block,
 	})
