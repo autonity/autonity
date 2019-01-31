@@ -61,7 +61,7 @@ func (self *testSystemBackend) Address() common.Address {
 }
 
 // Peers returns all connected peers
-func (self *testSystemBackend) Validators(height uint64) istanbul.ValidatorSet {
+func (self *testSystemBackend) Validators(number uint64) istanbul.ValidatorSet {
 	return self.peers
 }
 

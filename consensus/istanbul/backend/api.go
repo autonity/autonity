@@ -28,11 +28,8 @@ type API struct {
 	istanbul *backend
 }
 
-// TODO : this need to be refactored
 // GetValidators retrieves the list of authorized validators at the specified block.
 func (api *API) GetValidators(number *rpc.BlockNumber) ([]common.Address, error) {
-	// Retrieve the requested block number (or current if none requested)
-
 	validators := api.istanbul.Validators(uint64(*number)).List()
 	addresses := make([]common.Address, len(validators))
 	for i, validator := range validators {

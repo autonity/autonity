@@ -18,8 +18,6 @@ package backend
 
 import (
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/params"
 	"math/big"
 	"sync"
 	"time"
@@ -31,10 +29,12 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/istanbul/validator"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/hashicorp/golang-lru"
 )
 
@@ -45,15 +45,16 @@ const (
 
 // New creates an Ethereum backend for Istanbul core engine.
 func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) consensus.Istanbul {
-	// Allocate the snapshot caches and create the engine
 	if chainConfig.Istanbul.Epoch != 0 {
 		config.Epoch = chainConfig.Istanbul.Epoch
 	}
-	// Todo : BP here !
-	if chainConfig.Istanbul.Bytecode != "" || chainConfig.Istanbul.ABI != "" {
+
+	if chainConfig.Istanbul.Bytecode != "" && chainConfig.Istanbul.ABI != "" {
 		config.Bytecode = chainConfig.Istanbul.Bytecode
 		config.ABI = chainConfig.Istanbul.ABI
-		log.Info("Deployin default validator contract")
+		log.Info("Default Validator smart contract set")
+	} else {
+		log.Info("User specified Validator smart contract set")
 	}
 
 	config.ProposerPolicy = istanbul.ProposerPolicy(chainConfig.Istanbul.ProposerPolicy)
