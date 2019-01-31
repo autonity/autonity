@@ -82,7 +82,7 @@ contract Soma {
                 break;
             }
         }
-        require(present, "Voter is not active validator");
+        require(present, "Voter is not a validator");
         _;
     }
 

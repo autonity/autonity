@@ -19,8 +19,6 @@ package backend
 import (
 	"bytes"
 	"errors"
-	"github.com/ethereum/go-ethereum/consensus/istanbul/validator"
-	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"time"
 
@@ -29,8 +27,10 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/istanbul"
 	istanbulCore "github.com/ethereum/go-ethereum/consensus/istanbul/core"
+	"github.com/ethereum/go-ethereum/consensus/istanbul/validator"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -356,7 +356,6 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 		sb.somaContract = contractAddress
 		validators, _ = sb.retrieveSavedValidators(1, chain)
 	} else {
-		// Check if state root in current header is in DB if not ask for pruned trie
 		if sb.somaContract == common.HexToAddress("0000000000000000000000000000000000000000") {
 			sb.somaContract = crypto.CreateAddress(sb.config.Deployer, 0)
 		}
@@ -371,7 +370,7 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 
-	// add validators in snapshot to extraData's validators section
+	// add validators to extraData's validators section
 	if header.Extra, err = prepareExtra(header, validators); err != nil {
 		return nil, err
 	}
@@ -501,13 +500,13 @@ func (sb *backend) Close() error {
 }
 
 // retrieve list of validators for the block at height passed as parameter
-func (sb *backend) retrieveSavedValidators(height uint64, reader consensus.ChainReader) ([]common.Address, error) {
+func (sb *backend) retrieveSavedValidators(number uint64, chain consensus.ChainReader) ([]common.Address, error) {
 
-	if height == 0 {
-		height = 1
+	if number == 0 {
+		number = 1
 	}
 
-	header := reader.GetHeaderByNumber(height - 1)
+	header := chain.GetHeaderByNumber(number - 1)
 	if header == nil {
 		return nil, errUnknownBlock
 	}
@@ -521,8 +520,8 @@ func (sb *backend) retrieveSavedValidators(height uint64, reader consensus.Chain
 
 }
 
-// retrieve list of validators for the block at height passed as parameter
-func (sb *backend) retrieveValidators(header *types.Header, parents []*types.Header, reader consensus.ChainReader) ([]common.Address, error) {
+// retrieve list of validators for the block header passed as parameter
+func (sb *backend) retrieveValidators(header *types.Header, parents []*types.Header, chain consensus.ChainReader) ([]common.Address, error) {
 
 	var validators []common.Address
 	var err error
@@ -542,7 +541,7 @@ func (sb *backend) retrieveValidators(header *types.Header, parents []*types.Hea
 			validators = istanbulExtra.Validators
 		}
 	} else {
-		validators, err = sb.retrieveSavedValidators(header.Number.Uint64(), reader)
+		validators, err = sb.retrieveSavedValidators(header.Number.Uint64(), chain)
 	}
 	return validators, err
 
