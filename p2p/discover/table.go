@@ -458,7 +458,7 @@ func (tab *Table) doRevalidate(done chan<- struct{}) {
 	b := tab.buckets[bi]
 	if err == nil {
 		// The node responded, move it to the front.
-		//log.Debug("Revalidated node", "b", bi, "id", last.ID())
+		log.Debug("Revalidated node", "b", bi, "id", last.ID())
 		b.bump(last)
 		return
 	}

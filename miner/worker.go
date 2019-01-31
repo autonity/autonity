@@ -357,7 +357,6 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		case <-w.startCh:
 			clearPending(w.chain.CurrentBlock().NumberU64())
 			timestamp = time.Now().Unix()
-			log.Info("start event received, creating new work")
 			commit(false, commitInterruptNewHead)
 
 		case head := <-w.chainHeadCh:
@@ -837,7 +836,6 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 
 // commitNewWork generates several new sealing tasks based on the parent block.
 func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) {
-	log.Info("commitNewWork() called")
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
