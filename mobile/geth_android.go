@@ -16,7 +16,7 @@
 
 // +build android
 
-package geth
+package autonity
 
 // clientIdentifier is a hard coded identifier to report into the network.
-var clientIdentifier = "GethDroid"
+var clientIdentifier = "AutonityDroid"

@@ -25,8 +25,8 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/clearmatics/autonity/accounts/abi"
+	"github.com/clearmatics/autonity/common"
 )
 
 func verify(t *testing.T, jsondata, calldata string, exp []interface{}) {

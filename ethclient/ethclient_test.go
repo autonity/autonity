@@ -22,8 +22,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/clearmatics/autonity"
+	"github.com/clearmatics/autonity/common"
 )
 
 // Verify that Client implements the ethereum interfaces.

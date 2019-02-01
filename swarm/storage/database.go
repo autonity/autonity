@@ -20,7 +20,7 @@ package storage
 // no need for queueing/caching
 
 import (
-	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/clearmatics/autonity/metrics"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"

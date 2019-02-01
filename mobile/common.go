@@ -16,7 +16,7 @@
 
 // Contains all the wrappers from the common package.
 
-package geth
+package autonity
 
 import (
 	"encoding/hex"
@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/clearmatics/autonity/common"
 )
 
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.

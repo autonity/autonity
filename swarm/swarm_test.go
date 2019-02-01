@@ -28,10 +28,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/swarm/api"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/rpc"
+	"github.com/clearmatics/autonity/swarm/api"
 )
 
 // TestNewSwarm validates Swarm fields in repsect to the provided configuration.
@@ -199,8 +199,8 @@ func TestParseEnsAPIAddress(t *testing.T) {
 	}{
 		{
 			description: "IPC endpoint",
-			value:       "/data/testnet/geth.ipc",
-			endpoint:    "/data/testnet/geth.ipc",
+			value:       "/data/testnet/autonity.ipc",
+			endpoint:    "/data/testnet/autonity.ipc",
 		},
 		{
 			description: "HTTP endpoint",
@@ -214,8 +214,8 @@ func TestParseEnsAPIAddress(t *testing.T) {
 		},
 		{
 			description: "IPC Endpoint and TLD",
-			value:       "test:/data/testnet/geth.ipc",
-			endpoint:    "/data/testnet/geth.ipc",
+			value:       "test:/data/testnet/autonity.ipc",
+			endpoint:    "/data/testnet/autonity.ipc",
 			tld:         "test",
 		},
 		{
@@ -232,8 +232,8 @@ func TestParseEnsAPIAddress(t *testing.T) {
 		},
 		{
 			description: "IPC Endpoint and contract address",
-			value:       "314159265dD8dbb310642f98f50C066173C1259b@/data/testnet/geth.ipc",
-			endpoint:    "/data/testnet/geth.ipc",
+			value:       "314159265dD8dbb310642f98f50C066173C1259b@/data/testnet/autonity.ipc",
+			endpoint:    "/data/testnet/autonity.ipc",
 			addr:        common.HexToAddress("314159265dD8dbb310642f98f50C066173C1259b"),
 		},
 		{
@@ -250,8 +250,8 @@ func TestParseEnsAPIAddress(t *testing.T) {
 		},
 		{
 			description: "IPC Endpoint, TLD and contract address",
-			value:       "test:314159265dD8dbb310642f98f50C066173C1259b@/data/testnet/geth.ipc",
-			endpoint:    "/data/testnet/geth.ipc",
+			value:       "test:314159265dD8dbb310642f98f50C066173C1259b@/data/testnet/autonity.ipc",
+			endpoint:    "/data/testnet/autonity.ipc",
 			addr:        common.HexToAddress("314159265dD8dbb310642f98f50C066173C1259b"),
 			tld:         "test",
 		},

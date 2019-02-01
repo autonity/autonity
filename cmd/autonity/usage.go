@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with go-ethereum. If not, see <http://www.gnu.org/licenses/>.
 
-// Contains the geth command usage template and generator.
+// Contains the autonity command usage template and generator.
 
 package main
 
@@ -24,8 +24,8 @@ import (
 
 	"strings"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/internal/debug"
+	"github.com/clearmatics/autonity/cmd/utils"
+	"github.com/clearmatics/autonity/internal/debug"
 	"gopkg.in/urfave/cli.v1"
 )
 

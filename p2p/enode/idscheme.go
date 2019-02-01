@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/p2p/enr"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/crypto/sha3"
+	"github.com/clearmatics/autonity/p2p/enr"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 // List of known secure identity schemes.

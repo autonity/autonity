@@ -16,14 +16,14 @@
 
 // Contains all the wrappers from the params package.
 
-package geth
+package autonity
 
 import (
 	"encoding/json"
 
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/p2p/discv5"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/p2p/discv5"
+	"github.com/clearmatics/autonity/params"
 )
 
 // MainnetGenesis returns the JSON spec to use for the main Ethereum network. It

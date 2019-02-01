@@ -53,7 +53,7 @@ INFO [02-21|12:14:38] Ruleset attestation updated              sha256=6c21d17374
 
 ...and (this is required only for non-production versions) load a mock-up `4byte.json` by copying the file from the source to your current working directory:
 ```text
-#cp $GOPATH/src/github.com/ethereum/go-ethereum/cmd/clef/4byte.json $PWD
+#cp $GOPATH/src/github.com/clearmatics/autonity/cmd/clef/4byte.json $PWD
 ```
 
 At this point, we can start the signer with the rule-file:
@@ -148,7 +148,7 @@ In this example:
     * auto-rejected if it does not.
 * Any other signing-requests will be passed along for manual approve/reject.
 
-_Note: make sure that `0x694...` is an account you have access to. You can create it either via the clef or the traditional account cli tool. If the latter was chosen, make sure both clef and geth use the same keystore by specifing `--keystore path/to/your/keystore` when running clef._
+_Note: make sure that `0x694...` is an account you have access to. You can create it either via the clef or the traditional account cli tool. If the latter was chosen, make sure both clef and autonity use the same keystore by specifing `--keystore path/to/your/keystore` when running clef._
 
 Attest the new file...
 ```text

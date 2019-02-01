@@ -160,12 +160,12 @@ class Footer extends Component<Props> {
 				</Grid>
 				<Grid item >
 					<Typography type='caption' color='inherit'>
-						<span style={commonStyles.light}>Geth</span> {general.version}
+						<span style={commonStyles.light}>Autonity</span> {general.version}
 					</Typography>
 					{general.commit && (
 						<Typography type='caption' color='inherit'>
 							<span style={commonStyles.light}>{'Commit '}</span>
-							<a href={`https://github.com/ethereum/go-ethereum/commit/${general.commit}`} target='_blank' style={{color: 'inherit', textDecoration: 'none'}} >
+							<a href={`https://github.com/clearmatics/autonity/commit/${general.commit}`} target='_blank' style={{color: 'inherit', textDecoration: 'none'}} >
 								{general.commit.substring(0, 8)}
 							</a>
 						</Typography>

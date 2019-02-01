@@ -23,10 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/swarm/fuse"
+	"github.com/clearmatics/autonity/cmd/utils"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/rpc"
+	"github.com/clearmatics/autonity/swarm/fuse"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -154,7 +154,7 @@ func getIPCEndpoint(ctx *cli.Context) string {
 	endpoint := cfg.IPCEndpoint()
 
 	if strings.HasPrefix(endpoint, "rpc:") || strings.HasPrefix(endpoint, "ipc:") {
-		// Backwards compatibility with geth < 1.5 which required
+		// Backwards compatibility with autonity < 1.5 which required
 		// these prefixes.
 		endpoint = endpoint[4:]
 	}

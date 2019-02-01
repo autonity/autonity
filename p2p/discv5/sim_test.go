@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/clearmatics/autonity/common"
 )
 
 // In this test, nodes try to randomly resolve each other.

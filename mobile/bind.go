@@ -16,16 +16,16 @@
 
 // Contains all the wrappers from the bind package.
 
-package geth
+package autonity
 
 import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/clearmatics/autonity/accounts/abi"
+	"github.com/clearmatics/autonity/accounts/abi/bind"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
 )
 
 // Signer is an interaface defining the callback when a contract requires a

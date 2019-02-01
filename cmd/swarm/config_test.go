@@ -27,10 +27,10 @@ import (
 	"time"
 
 	"github.com/docker/docker/pkg/reexec"
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/swarm"
-	"github.com/ethereum/go-ethereum/swarm/api"
+	"github.com/clearmatics/autonity/cmd/utils"
+	"github.com/clearmatics/autonity/rpc"
+	"github.com/clearmatics/autonity/swarm"
+	"github.com/clearmatics/autonity/swarm/api"
 )
 
 func TestConfigDump(t *testing.T) {
@@ -473,7 +473,7 @@ func TestConfigValidate(t *testing.T) {
 	}{
 		{
 			cfg: &api.Config{EnsAPIs: []string{
-				"/data/testnet/geth.ipc",
+				"/data/testnet/autonity.ipc",
 			}},
 		},
 		{
@@ -488,7 +488,7 @@ func TestConfigValidate(t *testing.T) {
 		},
 		{
 			cfg: &api.Config{EnsAPIs: []string{
-				"test:/data/testnet/geth.ipc",
+				"test:/data/testnet/autonity.ipc",
 			}},
 		},
 		{
@@ -498,7 +498,7 @@ func TestConfigValidate(t *testing.T) {
 		},
 		{
 			cfg: &api.Config{EnsAPIs: []string{
-				"314159265dD8dbb310642f98f50C066173C1259b@/data/testnet/geth.ipc",
+				"314159265dD8dbb310642f98f50C066173C1259b@/data/testnet/autonity.ipc",
 			}},
 		},
 		{
@@ -513,7 +513,7 @@ func TestConfigValidate(t *testing.T) {
 		},
 		{
 			cfg: &api.Config{EnsAPIs: []string{
-				"test:314159265dD8dbb310642f98f50C066173C1259b@/data/testnet/geth.ipc",
+				"test:314159265dD8dbb310642f98f50C066173C1259b@/data/testnet/autonity.ipc",
 			}},
 		},
 		{
@@ -546,9 +546,9 @@ func TestConfigValidate(t *testing.T) {
 		},
 		{
 			cfg: &api.Config{EnsAPIs: []string{
-				"@/data/testnet/geth.ipc",
+				"@/data/testnet/autonity.ipc",
 			}},
-			err: "invalid format [tld:][contract-addr@]url for ENS API endpoint configuration \"@/data/testnet/geth.ipc\": missing contract address",
+			err: "invalid format [tld:][contract-addr@]url for ENS API endpoint configuration \"@/data/testnet/autonity.ipc\": missing contract address",
 		},
 	} {
 		err := validateConfig(c.cfg)

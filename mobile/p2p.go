@@ -16,12 +16,12 @@
 
 // Contains wrappers for the p2p package.
 
-package geth
+package autonity
 
 import (
 	"errors"
 
-	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/clearmatics/autonity/p2p"
 )
 
 // NodeInfo represents pi short summary of the information known about the host.

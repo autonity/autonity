@@ -21,9 +21,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common/bitutil"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/clearmatics/autonity/common/bitutil"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/swarm/storage"
 )
 
 // TopicLength establishes the max length of a topic string

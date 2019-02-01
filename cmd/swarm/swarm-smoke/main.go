@@ -21,13 +21,13 @@ import (
 	"os"
 	"sort"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	gethmetrics "github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/metrics/influxdb"
-	swarmmetrics "github.com/ethereum/go-ethereum/swarm/metrics"
-	"github.com/ethereum/go-ethereum/swarm/tracing"
+	"github.com/clearmatics/autonity/cmd/utils"
+	autonitymetrics "github.com/clearmatics/autonity/metrics"
+	"github.com/clearmatics/autonity/metrics/influxdb"
+	swarmmetrics "github.com/clearmatics/autonity/swarm/metrics"
+	"github.com/clearmatics/autonity/swarm/tracing"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/clearmatics/autonity/log"
 
 	cli "gopkg.in/urfave/cli.v1"
 )
@@ -171,7 +171,7 @@ func main() {
 }
 
 func emitMetrics(ctx *cli.Context) error {
-	if gethmetrics.Enabled {
+	if autonitymetrics.Enabled {
 		var (
 			endpoint = ctx.GlobalString(swarmmetrics.MetricsInfluxDBEndpointFlag.Name)
 			database = ctx.GlobalString(swarmmetrics.MetricsInfluxDBDatabaseFlag.Name)
@@ -179,7 +179,7 @@ func emitMetrics(ctx *cli.Context) error {
 			password = ctx.GlobalString(swarmmetrics.MetricsInfluxDBPasswordFlag.Name)
 			hosttag  = ctx.GlobalString(swarmmetrics.MetricsInfluxDBHostTagFlag.Name)
 		)
-		return influxdb.InfluxDBWithTagsOnce(gethmetrics.DefaultRegistry, endpoint, database, username, password, "swarm-smoke.", map[string]string{
+		return influxdb.InfluxDBWithTagsOnce(autonitymetrics.DefaultRegistry, endpoint, database, username, password, "swarm-smoke.", map[string]string{
 			"host":     hosttag,
 			"version":  gitCommit,
 			"filesize": fmt.Sprintf("%v", filesize),

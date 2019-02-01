@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/swarm/storage/feed/lookup"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/swarm/storage/feed/lookup"
 )
 
 // Query is used to specify constraints when performing an update lookup

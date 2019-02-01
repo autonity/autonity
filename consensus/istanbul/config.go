@@ -16,7 +16,7 @@
 
 package istanbul
 
-import "github.com/ethereum/go-ethereum/common"
+import "github.com/clearmatics/autonity/common"
 
 type ProposerPolicy uint64
 

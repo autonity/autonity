@@ -35,12 +35,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/bitutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/common/bitutil"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/crypto/ecies"
+	"github.com/clearmatics/autonity/crypto/secp256k1"
+	"github.com/clearmatics/autonity/crypto/sha3"
+	"github.com/clearmatics/autonity/rlp"
 	"github.com/golang/snappy"
 )
 

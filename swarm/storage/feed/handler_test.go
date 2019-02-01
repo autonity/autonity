@@ -26,11 +26,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/swarm/chunk"
-	"github.com/ethereum/go-ethereum/swarm/storage"
-	"github.com/ethereum/go-ethereum/swarm/storage/feed/lookup"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/swarm/chunk"
+	"github.com/clearmatics/autonity/swarm/storage"
+	"github.com/clearmatics/autonity/swarm/storage/feed/lookup"
 )
 
 var (

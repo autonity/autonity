@@ -23,8 +23,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/clearmatics/autonity/cmd/utils"
+	"github.com/clearmatics/autonity/core/vm"
 )
 
 func TestState(t *testing.T) {

@@ -16,13 +16,13 @@
 
 // Contains initialization code for the mbile library.
 
-package geth
+package autonity
 
 import (
 	"os"
 	"runtime"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/clearmatics/autonity/log"
 )
 
 func init() {

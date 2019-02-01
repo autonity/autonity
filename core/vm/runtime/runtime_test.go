@@ -21,12 +21,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/accounts/abi"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/state"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/params"
 )
 
 func TestDefaults(t *testing.T) {

@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/swarm/log"
-	bv "github.com/ethereum/go-ethereum/swarm/network/bitvector"
-	"github.com/ethereum/go-ethereum/swarm/spancontext"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/clearmatics/autonity/metrics"
+	"github.com/clearmatics/autonity/swarm/log"
+	bv "github.com/clearmatics/autonity/swarm/network/bitvector"
+	"github.com/clearmatics/autonity/swarm/spancontext"
+	"github.com/clearmatics/autonity/swarm/storage"
 	"github.com/opentracing/opentracing-go"
 )
 
