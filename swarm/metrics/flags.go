@@ -19,10 +19,10 @@ package metrics
 import (
 	"time"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	gethmetrics "github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/metrics/influxdb"
-	"github.com/ethereum/go-ethereum/swarm/log"
+	"github.com/clearmatics/autonity/cmd/utils"
+	autonitymetrics "github.com/clearmatics/autonity/metrics"
+	"github.com/clearmatics/autonity/metrics/influxdb"
+	"github.com/clearmatics/autonity/swarm/log"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -74,7 +74,7 @@ var Flags = []cli.Flag{
 }
 
 func Setup(ctx *cli.Context) {
-	if gethmetrics.Enabled {
+	if autonitymetrics.Enabled {
 		log.Info("Enabling swarm metrics collection")
 		var (
 			enableExport = ctx.GlobalBool(MetricsEnableInfluxDBExportFlag.Name)
@@ -86,11 +86,11 @@ func Setup(ctx *cli.Context) {
 		)
 
 		// Start system runtime metrics collection
-		go gethmetrics.CollectProcessMetrics(2 * time.Second)
+		go autonitymetrics.CollectProcessMetrics(2 * time.Second)
 
 		if enableExport {
 			log.Info("Enabling swarm metrics export to InfluxDB")
-			go influxdb.InfluxDBWithTags(gethmetrics.DefaultRegistry, 10*time.Second, endpoint, database, username, password, "swarm.", map[string]string{
+			go influxdb.InfluxDBWithTags(autonitymetrics.DefaultRegistry, 10*time.Second, endpoint, database, username, password, "swarm.", map[string]string{
 				"host": hosttag,
 			})
 		}

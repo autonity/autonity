@@ -3,7 +3,7 @@ package feed
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/swarm/storage/feed/lookup"
+	"github.com/clearmatics/autonity/swarm/storage/feed/lookup"
 )
 
 func getTestID() *ID {

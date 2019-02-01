@@ -25,14 +25,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/protocols"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/swarm/log"
-	"github.com/ethereum/go-ethereum/swarm/pss"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/p2p/protocols"
+	"github.com/clearmatics/autonity/rlp"
+	"github.com/clearmatics/autonity/rpc"
+	"github.com/clearmatics/autonity/swarm/log"
+	"github.com/clearmatics/autonity/swarm/pss"
 )
 
 const (

@@ -17,9 +17,9 @@
 package runtime
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/vm"
 )
 
 func NewEnv(cfg *Config) *vm.EVM {

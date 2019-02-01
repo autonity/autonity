@@ -16,13 +16,13 @@
 
 // Contains a wrapper for the Ethereum client.
 
-package geth
+package autonity
 
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/ethclient"
 )
 
 // EthereumClient provides access to the Ethereum APIs.

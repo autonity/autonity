@@ -27,11 +27,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/swarm/storage/feed"
+	"github.com/clearmatics/autonity/swarm/storage/feed"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/swarm/log"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/swarm/log"
+	"github.com/clearmatics/autonity/swarm/storage"
 )
 
 const (

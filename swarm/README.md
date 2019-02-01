@@ -4,7 +4,7 @@
 
 Swarm is a distributed storage platform and content distribution service, a native base layer service of the ethereum web3 stack. The primary objective of Swarm is to provide a decentralized and redundant store for dapp code and data as well as block chain and state data. Swarm is also set out to provide various base layer services for web3, including node-to-node messaging, media streaming, decentralised database services and scalable state-channel infrastructure for decentralised service economies.
 
-[![Travis](https://travis-ci.org/ethereum/go-ethereum.svg?branch=master)](https://travis-ci.org/ethereum/go-ethereum)
+[![Travis](https://travis-ci.org/clearmatics/autonity.svg?branch=master)](https://travis-ci.org/clearmatics/autonity)
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/ethersphere/orange-lounge?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 ## Table of Contents
@@ -27,9 +27,9 @@ Swarm is a distributed storage platform and content distribution service, a nati
 
 Building Swarm requires Go (version 1.10 or later).
 
-    go get -d github.com/ethereum/go-ethereum
+    go get -d github.com/clearmatics/autonity
 
-    go install github.com/ethereum/go-ethereum/cmd/swarm
+    go install github.com/clearmatics/autonity/cmd/swarm
 
 ## Running Swarm
 
@@ -37,7 +37,7 @@ Going through all the possible command line flags is out of scope here, but we'v
 
 To run Swarm you need an Ethereum account. You can create a new account by running the following command:
 
-    geth account new
+    autonity account new
 
 You will be prompted for a password:
 
@@ -66,15 +66,15 @@ Confirm that it is up and running by pointing your browser to http://localhost:8
 
 ### Ethereum Name Service resolution
 
-The Ethereum Name Service is the Ethereum equivalent of DNS in the classic web. In order to use ENS to resolve names to Swarm content hashes (e.g. `bzz://theswarm.eth`), `swarm` has to connect to a `geth` instance, which is synced with the Ethereum mainnet. This is done using the `--ens-api` flag.
+The Ethereum Name Service is the Ethereum equivalent of DNS in the classic web. In order to use ENS to resolve names to Swarm content hashes (e.g. `bzz://theswarm.eth`), `swarm` has to connect to a `autonity` instance, which is synced with the Ethereum mainnet. This is done using the `--ens-api` flag.
 
     swarm --bzzaccount <your-account-here> \
-          --ens-api '$HOME/.ethereum/geth.ipc'
+          --ens-api '$HOME/.ethereum/autonity.ipc'
 
     # in our example
 
     swarm --bzzaccount 2f1cd699b0bf461dcfbf0098ad8f5587b038f0f1 \
-          --ens-api '$HOME/.ethereum/geth.ipc'
+          --ens-api '$HOME/.ethereum/autonity.ipc'
 
 For more information on usage, features or command line flags, please consult the Documentation.
 
@@ -90,12 +90,12 @@ Swarm documentation can be found at [https://swarm-guide.readthedocs.io](https:/
 
 We assume that you have Go v1.10 installed, and `GOPATH` is set.
 
-You must have your working copy under `$GOPATH/src/github.com/ethereum/go-ethereum`.
+You must have your working copy under `$GOPATH/src/github.com/clearmatics/autonity`.
 
 Most likely you will be working from your fork of `go-ethereum`, let's say from `github.com/nirname/go-ethereum`. Clone or move your fork into the right place:
 
 ```
-git clone git@github.com:nirname/go-ethereum.git $GOPATH/src/github.com/ethereum/go-ethereum
+git clone git@github.com:nirname/go-ethereum.git $GOPATH/src/github.com/clearmatics/autonity
 ```
 
 
@@ -181,7 +181,7 @@ Once you have `stateth` installed, and you have Docker running locally, you have
 
 1. Run `stateth` and keep it running in the background
 ```
-stateth --rm --grafana-dashboards-folder $GOPATH/src/github.com/ethereum/go-ethereum/swarm/grafana_dashboards --influxdb-database metrics
+stateth --rm --grafana-dashboards-folder $GOPATH/src/github.com/clearmatics/autonity/swarm/grafana_dashboards --influxdb-database metrics
 ```
 
 2. Run `swarm` with at least the following params:
@@ -228,7 +228,7 @@ Please make sure your contributions adhere to our coding guidelines:
  * Code must adhere to the official Go [formatting](https://golang.org/doc/effective_go.html#formatting) guidelines (i.e. uses [gofmt](https://golang.org/cmd/gofmt/)).
  * Code must be documented adhering to the official Go [commentary](https://golang.org/doc/effective_go.html#commentary) guidelines.
  * Pull requests need to be based on and opened against the `master` branch.
- * [Code review guidelines](https://github.com/ethereum/go-ethereum/wiki/Code-Review-Guidelines).
+ * [Code review guidelines](https://github.com/clearmatics/autonity/wiki/Code-Review-Guidelines).
  * Commit messages should be prefixed with the package(s) they modify.
    * E.g. "swarm/fuse: ignore default manifest entry"
 

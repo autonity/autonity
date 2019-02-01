@@ -19,10 +19,10 @@ package backend
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/istanbul"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/rlp"
 	lru "github.com/hashicorp/golang-lru"
 )
 

@@ -23,10 +23,10 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/tests"
+	"github.com/clearmatics/autonity/core/state"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/tests"
 
 	cli "gopkg.in/urfave/cli.v1"
 )

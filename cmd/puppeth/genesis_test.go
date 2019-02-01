@@ -25,12 +25,12 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/clearmatics/autonity/core"
 )
 
-// Tests the go-ethereum to Aleth chainspec conversion for the Stureby testnet.
+// Tests autonity to Aleth chainspec conversion for the Stureby testnet.
 func TestAlethSturebyConverter(t *testing.T) {
-	blob, err := ioutil.ReadFile("testdata/stureby_geth.json")
+	blob, err := ioutil.ReadFile("testdata/stureby_autonity.json")
 	if err != nil {
 		t.Fatalf("could not read file: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestAlethSturebyConverter(t *testing.T) {
 
 // Tests the go-ethereum to Parity chainspec conversion for the Stureby testnet.
 func TestParitySturebyConverter(t *testing.T) {
-	blob, err := ioutil.ReadFile("testdata/stureby_geth.json")
+	blob, err := ioutil.ReadFile("testdata/stureby_autonity.json")
 	if err != nil {
 		t.Fatalf("could not read file: %v", err)
 	}

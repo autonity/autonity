@@ -27,8 +27,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/swarm/storage/mock"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/swarm/storage/mock"
 )
 
 // GlobalStore contains the LevelDB database that is storing

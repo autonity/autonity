@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/istanbul"
-	"github.com/ethereum/go-ethereum/consensus/istanbul/validator"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/istanbul/validator"
+	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/log"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 

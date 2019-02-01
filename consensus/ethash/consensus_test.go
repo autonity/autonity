@@ -23,9 +23,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/params"
 )
 
 type diffTest struct {

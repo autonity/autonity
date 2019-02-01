@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto/sha3"
+	"github.com/clearmatics/autonity/params"
 )
 
 var (

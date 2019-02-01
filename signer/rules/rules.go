@@ -22,12 +22,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/internal/ethapi"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/signer/core"
-	"github.com/ethereum/go-ethereum/signer/rules/deps"
-	"github.com/ethereum/go-ethereum/signer/storage"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/internal/ethapi"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/signer/core"
+	"github.com/clearmatics/autonity/signer/rules/deps"
+	"github.com/clearmatics/autonity/signer/storage"
 	"github.com/robertkrimen/otto"
 )
 

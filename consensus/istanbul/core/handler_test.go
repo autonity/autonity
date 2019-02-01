@@ -20,8 +20,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/istanbul"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/istanbul"
 )
 
 // notice: the normal case have been tested in integration tests.

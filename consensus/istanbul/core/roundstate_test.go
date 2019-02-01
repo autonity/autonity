@@ -21,8 +21,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/istanbul"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/istanbul"
 )
 
 func newTestRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet) *roundState {

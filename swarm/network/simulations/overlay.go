@@ -27,13 +27,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/simulations"
-	"github.com/ethereum/go-ethereum/p2p/simulations/adapters"
-	"github.com/ethereum/go-ethereum/swarm/network"
-	"github.com/ethereum/go-ethereum/swarm/state"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/node"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/p2p/simulations"
+	"github.com/clearmatics/autonity/p2p/simulations/adapters"
+	"github.com/clearmatics/autonity/swarm/network"
+	"github.com/clearmatics/autonity/swarm/state"
 	colorable "github.com/mattn/go-colorable"
 )
 

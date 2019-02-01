@@ -21,9 +21,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/swarm/log"
-	"github.com/ethereum/go-ethereum/swarm/storage/mock"
+	"github.com/clearmatics/autonity/metrics"
+	"github.com/clearmatics/autonity/swarm/log"
+	"github.com/clearmatics/autonity/swarm/storage/mock"
 )
 
 type LocalStoreParams struct {

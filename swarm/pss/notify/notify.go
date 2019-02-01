@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/swarm/log"
-	"github.com/ethereum/go-ethereum/swarm/pss"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/rlp"
+	"github.com/clearmatics/autonity/swarm/log"
+	"github.com/clearmatics/autonity/swarm/pss"
 )
 
 const (

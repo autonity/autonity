@@ -19,7 +19,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/clearmatics/autonity/common"
 )
 
 // ContractRef is a reference to the contract's backing object

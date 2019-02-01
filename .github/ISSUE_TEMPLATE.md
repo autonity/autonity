@@ -6,7 +6,7 @@ For general questions please use the gitter channel or the Ethereum stack exchan
 
 #### System information
 
-Geth version: `geth version`
+Autonity version: `autonity version`
 OS & Version: Windows/Linux/OSX
 Commit hash : (if `develop`)
 

@@ -19,10 +19,10 @@ package les
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/light"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/light"
+	"github.com/clearmatics/autonity/log"
 )
 
 // LesOdr implements light.OdrBackend

@@ -23,14 +23,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/simulations/adapters"
-	"github.com/ethereum/go-ethereum/swarm/log"
-	"github.com/ethereum/go-ethereum/swarm/network"
-	"github.com/ethereum/go-ethereum/swarm/network/simulation"
-	"github.com/ethereum/go-ethereum/swarm/state"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/clearmatics/autonity/node"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/p2p/simulations/adapters"
+	"github.com/clearmatics/autonity/swarm/log"
+	"github.com/clearmatics/autonity/swarm/network"
+	"github.com/clearmatics/autonity/swarm/network/simulation"
+	"github.com/clearmatics/autonity/swarm/state"
+	"github.com/clearmatics/autonity/swarm/storage"
 )
 
 //constants for random file generation

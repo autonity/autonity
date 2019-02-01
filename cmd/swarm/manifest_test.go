@@ -24,9 +24,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/swarm/api"
-	swarm "github.com/ethereum/go-ethereum/swarm/api/client"
-	swarmhttp "github.com/ethereum/go-ethereum/swarm/api/http"
+	"github.com/clearmatics/autonity/swarm/api"
+	swarm "github.com/clearmatics/autonity/swarm/api/client"
+	swarmhttp "github.com/clearmatics/autonity/swarm/api/http"
 )
 
 // TestManifestChange tests manifest add, update and remove

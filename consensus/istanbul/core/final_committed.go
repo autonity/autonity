@@ -16,7 +16,7 @@
 
 package core
 
-import "github.com/ethereum/go-ethereum/common"
+import "github.com/clearmatics/autonity/common"
 
 func (c *core) handleFinalCommitted() error {
 	logger := c.logger.New("state", c.state)

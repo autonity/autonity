@@ -38,12 +38,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/swarm/spancontext"
-	"github.com/ethereum/go-ethereum/swarm/tracing"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/metrics"
+	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/rlp"
+	"github.com/clearmatics/autonity/swarm/spancontext"
+	"github.com/clearmatics/autonity/swarm/tracing"
 	opentracing "github.com/opentracing/opentracing-go"
 )
 

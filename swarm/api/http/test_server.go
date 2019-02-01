@@ -23,9 +23,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/swarm/api"
-	"github.com/ethereum/go-ethereum/swarm/storage"
-	"github.com/ethereum/go-ethereum/swarm/storage/feed"
+	"github.com/clearmatics/autonity/swarm/api"
+	"github.com/clearmatics/autonity/swarm/storage"
+	"github.com/clearmatics/autonity/swarm/storage/feed"
 )
 
 type TestServer interface {

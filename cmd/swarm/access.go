@@ -23,9 +23,9 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/swarm/api"
-	"github.com/ethereum/go-ethereum/swarm/api/client"
+	"github.com/clearmatics/autonity/cmd/utils"
+	"github.com/clearmatics/autonity/swarm/api"
+	"github.com/clearmatics/autonity/swarm/api/client"
 	"gopkg.in/urfave/cli.v1"
 )
 

@@ -1,8 +1,8 @@
 package log
 
 import (
-	l "github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
+	l "github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/metrics"
 )
 
 const (

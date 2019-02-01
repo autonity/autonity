@@ -627,7 +627,7 @@ func Poll(fds []PollFd, timeout int) (n int, err error) {
 
 // TODO: wrap
 //	Acct(name nil-string) (err error)
-//	Gethostuuid(uuid *byte, timeout *Timespec) (err error)
+//	Autonityostuuid(uuid *byte, timeout *Timespec) (err error)
 //	Ptrace(req int, pid int, addr uintptr, data int) (ret uintptr, err error)
 
 var mapper = &mmapper{

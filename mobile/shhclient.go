@@ -16,11 +16,11 @@
 
 // Contains a wrapper for the Whisper client.
 
-package geth
+package autonity
 
 import (
-	"github.com/ethereum/go-ethereum/whisper/shhclient"
-	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
+	"github.com/clearmatics/autonity/whisper/shhclient"
+	whisper "github.com/clearmatics/autonity/whisper/whisperv6"
 )
 
 // WhisperClient provides access to the Ethereum APIs.

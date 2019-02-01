@@ -26,10 +26,10 @@ import (
 	"hash"
 	"io"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/swarm/bmt"
-	ch "github.com/ethereum/go-ethereum/swarm/chunk"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/crypto/sha3"
+	"github.com/clearmatics/autonity/swarm/bmt"
+	ch "github.com/clearmatics/autonity/swarm/chunk"
 )
 
 const MaxPO = 16

@@ -19,8 +19,8 @@ package core
 import (
 	"time"
 
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/istanbul"
 )
 
 func (c *core) sendPreprepare(request *istanbul.Request) {

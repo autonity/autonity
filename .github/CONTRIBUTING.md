@@ -7,7 +7,7 @@ smallest of fixes!
 If you'd like to contribute to go-ethereum, please fork, fix, commit and send a 
 pull request for the maintainers to review and merge into the main code base. If
 you wish to submit more complex changes though, please check up with the core 
-devs first on [our gitter channel](https://gitter.im/ethereum/go-ethereum) to 
+devs first on [our gitter channel](https://gitter.im/clearmatics/autonity) to 
 ensure those changes are in line with the general philosophy of the project 
 and/or get some early feedback which can make both your efforts much lighter as
 well as our review and merge procedures quick and simple.
@@ -30,11 +30,11 @@ Please make sure your contributions adhere to our coding guidelines:
 Before you submit a feature request, please check and make sure that it isn't 
 possible through some other means. The JavaScript-enabled console is a powerful 
 feature in the right hands. Please check our 
-[Wiki page](https://github.com/ethereum/go-ethereum/wiki) for more info
+[Wiki page](https://github.com/clearmatics/autonity/wiki) for more info
 and help.
 
 ## Configuration, dependencies, and tests
 
-Please see the [Developers' Guide](https://github.com/ethereum/go-ethereum/wiki/Developers'-Guide)
+Please see the [Developers' Guide](https://github.com/clearmatics/autonity/wiki/Developers'-Guide)
 for more details on configuring your environment, managing project dependencies
 and testing procedures.

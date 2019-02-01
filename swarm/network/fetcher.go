@@ -21,9 +21,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/swarm/storage"
 )
 
 var searchTimeout = 1 * time.Second

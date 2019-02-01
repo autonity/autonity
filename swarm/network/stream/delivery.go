@@ -22,12 +22,12 @@ import (
 
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/swarm/log"
-	"github.com/ethereum/go-ethereum/swarm/network"
-	"github.com/ethereum/go-ethereum/swarm/spancontext"
-	"github.com/ethereum/go-ethereum/swarm/storage"
+	"github.com/clearmatics/autonity/metrics"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/swarm/log"
+	"github.com/clearmatics/autonity/swarm/network"
+	"github.com/clearmatics/autonity/swarm/spancontext"
+	"github.com/clearmatics/autonity/swarm/storage"
 	opentracing "github.com/opentracing/opentracing-go"
 )
 
