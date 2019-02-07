@@ -278,6 +278,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
+	rawdb.WriteEnodeWhitelist(db, g.Config.EnodeWhitelist)
 
 	config := g.Config
 	if config == nil {
