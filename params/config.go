@@ -164,6 +164,11 @@ type ChainConfig struct {
 	Ethash   *EthashConfig   `json:"ethash,omitempty"`
 	Clique   *CliqueConfig   `json:"clique,omitempty"`
 	Istanbul *IstanbulConfig `json:"istanbul,omitempty"`
+
+	// Network Permissioning
+	EnodeWhitelist    []string `json:"enodeWhitelist"`
+	GlienickeBytecode string   `json:"GlienickeBytecode,omitempty"`
+	GlienickeABI      string   `json:"GlienickeABI,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.
