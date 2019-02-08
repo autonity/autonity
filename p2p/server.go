@@ -344,6 +344,11 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 	}
 }
 
+// UpdateWhitelist updates the whitelist using static peers logic
+func (src *Server) UpdateWhitelist(enodes []*enode.Node){
+
+}
+
 // SubscribePeers subscribes the given channel to peer events
 func (srv *Server) SubscribeEvents(ch chan *PeerEvent) event.Subscription {
 	return srv.peerFeed.Subscribe(ch)

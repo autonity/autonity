@@ -19,6 +19,7 @@ package core
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/p2p/enode"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
@@ -46,3 +47,6 @@ type ChainSideEvent struct {
 }
 
 type ChainHeadEvent struct{ Block *types.Block }
+
+// GlienickeEvent is posted when the list of authorized enodes is updated.
+type GlienickeEvent struct{ Whitelist []*enode.Node}

@@ -95,6 +95,9 @@ type Ethereum struct {
 
 	lock     sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 	protocol Protocol
+
+	glienickeCh  chan core.GlienickeEvent
+	glienickeSub event.Subscription
 }
 
 func (s *Ethereum) AddLesServer(ls LesServer) {
@@ -519,6 +522,11 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start(srvr *p2p.Server) error {
+
+	// Subscribe to Glienicke updates events
+	s.glienickeSub = s.blockchain.SubscribeGlienickeEvent(s.glienickeCh)
+	go s.glienickeEventLoop(srvr)
+
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers(params.BloomBitsBlocks)
 
@@ -541,10 +549,25 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	return nil
 }
 
+// Whitelist updating loop. Act as a relay between state processing logic and DevP2P
+// for updating the list of authorized enodes
+func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
+	for {
+		select {
+		case event := <-s.glienickeCh:
+			server.SetWhitelist(event.Whitelist)
+		// Err() channel will be closed when unsubscribing.
+		case <-s.glienickeSub.Err():
+			return
+		}
+	}
+}
+
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Ethereum protocol.
 func (s *Ethereum) Stop() error {
 	s.bloomIndexer.Close()
+	s.glienickeSub.Unsubscribe()
 	s.blockchain.Stop()
 	s.engine.Close()
 	s.protocolManager.Stop()

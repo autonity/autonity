@@ -1,3 +1,19 @@
+// Copyright 2019 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -32,7 +48,7 @@ func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.B
 	}
 
 	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-
+	bc.glienickeFeed.Send(GlienickeEvent{Whitelist:newWhitelist})
 }
 
 // Instantiates a new EVM object which is required when creating or calling a deployed contract
@@ -55,7 +71,6 @@ func (bc *BlockChain) getEVM(header *types.Header, origin common.Address, stated
 	return evm
 }
 
-// todo : think about hash of genesis and verify on state after deployment (inc. Soma)
 // deployContract deploys the contract contained within the genesis field bytecode
 func (bc *BlockChain) deployContract(state *state.StateDB, header *types.Header) ([]*enode.Node, error) {
 	// Convert the contract bytecode from hex into bytes
@@ -109,7 +124,7 @@ func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.
 
 	ret, gas, vmerr := evm.Call(sender, glienickeAddress, input, gas, value)
 	if vmerr != nil {
-		log.Error("Error Soma Governance Contract getWhitelist()")
+		log.Error("Error Glienicke Contract getWhitelist()")
 		return nil, vmerr
 	}
 
@@ -124,7 +139,7 @@ func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.
 		newEnode, err := enode.ParseV4(returnedEnodes[i])
 		if err != nil {
 			enodes = append(enodes, newEnode)
-		}else {
+		} else {
 			log.Error("Invalid whitelisted enode", "returned enode", returnedEnodes[i], "error", err.Error())
 		}
 	}
