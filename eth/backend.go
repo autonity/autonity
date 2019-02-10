@@ -22,6 +22,7 @@ import (
 	"fmt"
 	istanbulBackend "github.com/clearmatics/autonity/consensus/istanbul/backend"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"runtime"
 	"sync"
@@ -527,8 +528,9 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	if !srvr.OpenNetwork {
 		// Subscribe to Glienicke updates events
 		s.glienickeSub = s.blockchain.SubscribeGlienickeEvent(s.glienickeCh)
-		go s.glienickeEventLoop(srvr)
-		srvr.UpdateWhitelist(rawdb.ReadEnodeWhitelist(s.chainDb))
+		savedList := rawdb.ReadEnodeWhitelist(s.chainDb)
+		go s.glienickeEventLoop(srvr, savedList)
+		srvr.UpdateWhitelist(savedList)
 	}
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers(params.BloomBitsBlocks)
@@ -554,11 +556,31 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 
 // Whitelist updating loop. Act as a relay between state processing logic and DevP2P
 // for updating the list of authorized enodes
-func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
+func (s *Ethereum) glienickeEventLoop(server *p2p.Server, list []*enode.Node) {
 	for {
 		select {
 		case event := <-s.glienickeCh:
+			// Filter the list of need to be dropped peers depending on TD.
+			for _, connectedEnode := range s.protocolManager.peers.Peers() {
+				found := false
+				for _, whitelistedEnode := range event.Whitelist {
+					if connectedEnode.String() == whitelistedEnode.String() {
+						found = true
+						break
+					}
+				}
+
+				if !found { // this node is no longer in the whitelist
+					peerID := fmt.Sprintf("%x", connectedEnode.ID().Bytes()[:8])
+					peer := s.protocolManager.peers.Peer(peerID)
+					localTd := s.blockchain.CurrentHeader().Number.Uint64()
+					if peer != nil && peer.td.Uint64() > localTd {
+						event.Whitelist = append(event.Whitelist, connectedEnode.Node())
+					}
+				}
+			}
 			server.UpdateWhitelist(event.Whitelist)
+			list = event.Whitelist
 		// Err() channel will be closed when unsubscribing.
 		case <-s.glienickeSub.Err():
 			return
