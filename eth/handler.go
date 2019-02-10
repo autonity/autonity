@@ -61,7 +61,10 @@ var (
 
 // errIncompatibleConfig is returned if the requested protocols and configs are
 // not compatible (low protocol version restrictions and high requirements).
-var errIncompatibleConfig = errors.New("incompatible configuration")
+var (
+	errIncompatibleConfig = errors.New("incompatible configuration")
+	errUnauthaurizedPeer  = errors.New("peer is not authorized")
+)
 
 func errResp(code errCode, format string, v ...interface{}) error {
 	return fmt.Errorf("%v - %v", code, fmt.Sprintf(format, v...))
@@ -97,16 +100,22 @@ type ProtocolManager struct {
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
+	glienickeCh         chan core.GlienickeEvent
+	glienickeSub        event.Subscription
+	enodesWhitelist     []*enode.Node
+	enodesWhitelistLock sync.RWMutex
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
 	wg sync.WaitGroup
 
 	engine consensus.Engine
+
+	openNetwork bool
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, whitelist map[uint64]common.Hash, protocols Protocol) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, whitelist map[uint64]common.Hash, protocols Protocol, openNetwork bool) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
@@ -121,6 +130,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
 		engine:      engine,
+		openNetwork: openNetwork,
 	}
 
 	if handler, ok := manager.engine.(consensus.Handler); ok {
@@ -227,6 +237,12 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
 
+	// update peers whitelist
+	if !pm.openNetwork {
+		pm.glienickeSub = pm.blockchain.SubscribeGlienickeEvent(pm.glienickeCh)
+		go pm.glienickeEventLoop()
+	}
+
 	// start sync handlers
 	go pm.syncer()
 	go pm.txsyncLoop()
@@ -257,6 +273,21 @@ func (pm *ProtocolManager) Stop() {
 	log.Info("Ethereum protocol stopped")
 }
 
+// Whitelist updating loop.
+func (s *ProtocolManager) glienickeEventLoop() {
+	for {
+		select {
+		case event := <-s.glienickeCh:
+			s.enodesWhitelistLock.Lock()
+			s.enodesWhitelist = event.Whitelist
+			s.enodesWhitelistLock.Unlock()
+		// Err() channel will be closed when unsubscribing.
+		case <-s.glienickeSub.Err():
+			return
+		}
+	}
+}
+
 func (pm *ProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 	return newPeer(pv, p, newMeteredMsgWriter(rw))
 }
@@ -282,6 +313,24 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		p.Log().Debug("Ethereum handshake failed", "err", err)
 		return err
 	}
+
+	if !pm.openNetwork {
+		whitelisted := false
+		pm.enodesWhitelistLock.RLock()
+		for _, enode := range pm.enodesWhitelist {
+			if p.Node().String() == enode.String() {
+				whitelisted = true
+				break
+			}
+		}
+		pm.enodesWhitelistLock.RUnlock()
+		if !whitelisted && p.td.Uint64() <= head.Number.Uint64() {
+			p.Log().Info("Dropping unauthorized peer with old TD.")
+			return errUnauthaurizedPeer
+		}
+		// Todo : pause relaying if not whitelisted until full sync
+	}
+
 	if rw, ok := p.rw.(*meteredMsgReadWriter); ok {
 		rw.Init(p.version)
 	}
