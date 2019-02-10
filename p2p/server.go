@@ -345,7 +345,38 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 }
 
 // UpdateWhitelist updates the whitelist using static peers logic
+// This function can be heavily optimized if needed
 func (src *Server) UpdateWhitelist(enodes []*enode.Node){
+
+	// Check for peers that needs to be disconnected
+	for _, oldEnode := range src.StaticNodes {
+		found := false
+		for _, whitelistedEnode  := range enodes {
+			if oldEnode.String() == whitelistedEnode.String() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Info("Kicking no longer authorized peer", "enode", oldEnode.String())
+			src.RemovePeer(oldEnode)
+		}
+	}
+
+	// Check for peers that needs to be connected
+	for _, whitelistedEnode := range enodes {
+		found := false
+		for _, oldEnode  := range src.StaticNodes {
+			if oldEnode.String() == whitelistedEnode.String() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Info("Connecting to newly authorized peer", "enode", whitelistedEnode.String())
+			src.AddPeer(whitelistedEnode)
+		}
+	}
 
 }
 
