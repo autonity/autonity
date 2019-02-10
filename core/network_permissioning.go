@@ -116,13 +116,10 @@ func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.
 	if err != nil {
 		return nil, err
 	}
-	value := new(big.Int).SetUint64(0x00)
-	//A standard call is issued - we leave the possibility to modify the state
 
-	// we need the address
 	glienickeAddress := crypto.CreateAddress(bc.chainConfig.GlienickeDeployer, 0)
 
-	ret, gas, vmerr := evm.Call(sender, glienickeAddress, input, gas, value)
+	ret, gas, vmerr := evm.StaticCall(sender, glienickeAddress, input, gas)
 	if vmerr != nil {
 		log.Error("Error Glienicke Contract getWhitelist()")
 		return nil, vmerr

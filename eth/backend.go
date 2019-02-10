@@ -524,10 +524,12 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Ethereum protocol implementation.
 func (s *Ethereum) Start(srvr *p2p.Server) error {
 
-	// Subscribe to Glienicke updates events
-	s.glienickeSub = s.blockchain.SubscribeGlienickeEvent(s.glienickeCh)
-	go s.glienickeEventLoop(srvr)
-
+	if !srvr.OpenNetwork {
+		// Subscribe to Glienicke updates events
+		s.glienickeSub = s.blockchain.SubscribeGlienickeEvent(s.glienickeCh)
+		go s.glienickeEventLoop(srvr)
+		srvr.UpdateWhitelist(rawdb.ReadEnodeWhitelist(s.chainDb))
+	}
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers(params.BloomBitsBlocks)
 
