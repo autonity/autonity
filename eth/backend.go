@@ -152,6 +152,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		etherbase:      config.Etherbase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
+		glienickeCh:    make(chan core.GlienickeEvent),
 	}
 
 	// force to set the istanbul etherbase to node key address
@@ -555,7 +556,7 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 	for {
 		select {
 		case event := <-s.glienickeCh:
-			server.SetWhitelist(event.Whitelist)
+			server.UpdateWhitelist(event.Whitelist)
 		// Err() channel will be closed when unsubscribing.
 		case <-s.glienickeSub.Err():
 			return
