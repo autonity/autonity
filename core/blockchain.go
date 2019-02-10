@@ -137,6 +137,8 @@ type BlockChain struct {
 
 	badBlocks      *lru.Cache              // Bad block cache
 	shouldPreserve func(*types.Block) bool // Function used to determine whether should preserve the given block.
+
+	openNetwork bool // True if we should disable Glienicke contract deployment
 }
 
 // NewBlockChain returns a fully initialised block chain using information
