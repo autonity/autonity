@@ -522,6 +522,10 @@ var (
 		Usage: "Comma separated enode URLs for P2P v5 discovery bootstrap (light server, light nodes)",
 		Value: "",
 	}
+	OpenNetworkFlag = cli.BoolFlag{
+		Name:  "open-network",
+		Usage: "Disable network permissioning feature, allow anyone to connect to the network.",
+	}
 	NodeKeyFileFlag = cli.StringFlag{
 		Name:  "nodekey",
 		Usage: "P2P node key file",
@@ -924,6 +928,8 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	setListenAddress(ctx, cfg)
 	setBootstrapNodes(ctx, cfg)
 	setBootstrapNodesV5(ctx, cfg)
+
+	cfg.OpenNetwork = ctx.GlobalBool(OpenNetworkFlag.Name)
 
 	lightClient := ctx.GlobalString(SyncModeFlag.Name) == "light"
 	lightServer := ctx.GlobalInt(LightServFlag.Name) != 0
