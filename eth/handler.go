@@ -253,6 +253,7 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
+	pm.glienickeSub.Unsubscribe() // quits glienickeEventLoop
 
 	// Quit the sync loop.
 	// After this send has completed, no new peers will be accepted.
