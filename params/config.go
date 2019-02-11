@@ -173,9 +173,9 @@ type ChainConfig struct {
 
 	// Network Permissioning
 	EnodeWhitelist    []string       `json:"enodeWhitelist,omitempty"`
-	GlienickeDeployer common.Address `json:"GlienickeDeployer,omitempty"`
-	GlienickeBytecode string         `json:"GlienickeBytecode,omitempty"`
-	GlienickeABI      string         `json:"GlienickeABI,omitempty"`
+	GlienickeDeployer common.Address `json:"glienickeDeployer,omitempty"`
+	GlienickeBytecode string         `json:"glienickeBytecode,omitempty"`
+	GlienickeABI      string         `json:"glienickeABI,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.

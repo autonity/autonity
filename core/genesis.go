@@ -283,15 +283,14 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 
 	enodeWhiteList := make([]*enode.Node,0, len(g.Config.EnodeWhitelist))
 	for _, enodeString := range g.Config.EnodeWhitelist {
+		log.Info("Genesis Authorized Enode", "enode", enodeString)
 		newEnode, err := enode.ParseV4(enodeString)
 		if err != nil {
 			return nil, errGenesisBadWhitelist
 		}
 		enodeWhiteList = append(enodeWhiteList, newEnode)
 	}
-
 	rawdb.WriteEnodeWhitelist(db, enodeWhiteList)
-
 	config := g.Config
 	if config == nil {
 		config = params.AllEthashProtocolChanges

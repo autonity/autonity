@@ -93,13 +93,17 @@ func (bc *BlockChain) deployContract(state *state.StateDB, header *types.Header)
 	evm := bc.getEVM(header, glienickeDeployer, state)
 	sender := vm.AccountRef(glienickeDeployer)
 
-	currentWhitelist :=  rawdb.ReadEnodeWhitelist(bc.db)
+	enodesWhitelist :=  rawdb.ReadEnodeWhitelist(bc.db)
+	var contractWhitelist []string
+	for _, node := range enodesWhitelist {
+		contractWhitelist = append(contractWhitelist, node.String())
+	}
 
 	GlienickeAbi, err := abi.JSON(strings.NewReader(glienickeABI))
 	if err != nil {
 		return nil, err
 	}
-	constructorParams, err := GlienickeAbi.Pack("", currentWhitelist)
+	constructorParams, err := GlienickeAbi.Pack("", contractWhitelist)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +122,7 @@ func (bc *BlockChain) deployContract(state *state.StateDB, header *types.Header)
 
 	log.Info("Deployed Glienicke Contract", "Address", contractAddress.String())
 
-	return currentWhitelist, nil
+	return enodesWhitelist, nil
 }
 
 func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.Header) ([]*enode.Node, error){
