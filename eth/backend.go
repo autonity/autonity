@@ -22,7 +22,6 @@ import (
 	"fmt"
 	istanbulBackend "github.com/clearmatics/autonity/consensus/istanbul/backend"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"runtime"
 	"sync"
@@ -201,7 +200,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, config.Whitelist, eth.protocol); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, config.Whitelist, eth.protocol, config.OpenNetwork); err != nil {
 		return nil, err
 	}
 
