@@ -201,7 +201,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, config.Whitelist, eth.protocol); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, config.Whitelist, eth.protocol, config.OpenNetwork); err != nil {
 		return nil, err
 	}
 
@@ -529,6 +529,10 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 		// Subscribe to Glienicke updates events
 		s.glienickeSub = s.blockchain.SubscribeGlienickeEvent(s.glienickeCh)
 		savedList := rawdb.ReadEnodeWhitelist(s.chainDb)
+		log.Info("Reading Whitelist")
+		for _, enode := range savedList {
+			log.Debug("saved enode", "enode", enode.String())
+		}
 		go s.glienickeEventLoop(srvr)
 		srvr.UpdateWhitelist(savedList)
 	}
@@ -560,10 +564,11 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 	for {
 		select {
 		case event := <-s.glienickeCh:
+			whitelist := append([]*enode.Node{}, event.Whitelist ...)
 			// Filter the list of need to be dropped peers depending on TD.
 			for _, connectedEnode := range s.protocolManager.peers.Peers() {
 				found := false
-				for _, whitelistedEnode := range event.Whitelist {
+				for _, whitelistedEnode := range whitelist {
 					if connectedEnode.String() == whitelistedEnode.String() {
 						found = true
 						break
@@ -575,11 +580,11 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 					peer := s.protocolManager.peers.Peer(peerID)
 					localTd := s.blockchain.CurrentHeader().Number.Uint64()
 					if peer != nil && peer.td.Uint64() > localTd {
-						event.Whitelist = append(event.Whitelist, connectedEnode.Node())
+						whitelist = append(whitelist, connectedEnode.Node())
 					}
 				}
 			}
-			server.UpdateWhitelist(event.Whitelist)
+			server.UpdateWhitelist(whitelist)
 		// Err() channel will be closed when unsubscribing.
 		case <-s.glienickeSub.Err():
 			return

@@ -19,6 +19,7 @@ package backend
 import (
 	"bytes"
 	"errors"
+	"github.com/clearmatics/autonity/core"
 	"math/big"
 	"time"
 
@@ -72,7 +73,7 @@ var (
 	errInvalidTimestamp = errors.New("invalid timestamp")
 	// errInvalidVotingChain is returned if an authorization list is attempted to
 	// be modified via out-of-range or non-contiguous headers.
-	errInvalidVotingChain = errors.New("invalid voting chain")
+	errInvalidVotingChain = errors.New("invalid voting blockchain")
 	// errInvalidVote is returned if a nonce value is something else that the two
 	// allowed constants of 0x00..0 or 0xff..f.
 	errInvalidVote = errors.New("vote nonce not 0x00..0 or 0xff..f")
@@ -340,14 +341,14 @@ func (sb *backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 
-	if sb.chain == nil {
-		sb.chain = chain // in the case of Finalize() called before the engine start()
+	if sb.blockchain == nil {
+		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
 
 	var validators []common.Address
 	var err error
-	// Deploy Soma on-chain governance contract
 	if header.Number.Int64() == 1 {
+		// Deploy Soma on-blockchain governance contract
 		log.Info("Soma Contract Deployer", "Address", sb.config.Deployer)
 		contractAddress, err := sb.deployContract(chain, header, state)
 		if err != nil {
@@ -355,6 +356,12 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 		}
 		sb.somaContract = contractAddress
 		validators, _ = sb.retrieveSavedValidators(1, chain)
+		// Deploy Glienicke network-permissioning contract
+		_, err = sb.blockchain.DeployGlienickeContract(state, header)
+		if err != nil {
+			return nil, err
+		}
+
 	} else {
 		if sb.somaContract == common.HexToAddress("0000000000000000000000000000000000000000") {
 			sb.somaContract = crypto.CreateAddress(sb.config.Deployer, 0)
@@ -422,7 +429,7 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
-// that a new block should have based on the previous blocks in the chain and the
+// that a new block should have based on the previous blocks in the blockchain and the
 // current signer.
 func (sb *backend) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
 	return defaultDifficulty
@@ -470,7 +477,7 @@ func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
 
-	sb.chain = chain
+	sb.blockchain = chain.(*core.BlockChain)
 	sb.currentBlock = currentBlock
 	sb.hasBadBlock = hasBadBlock
 
@@ -525,8 +532,8 @@ func (sb *backend) retrieveValidators(header *types.Header, parents []*types.Hea
 
 	/*
 		We can't use retrieveSavedValidators if parents are being passed :
-		those blocks are not yet saved in the chain.
-		autonity will stop processing the received chain from the moment an error appears.
+		those blocks are not yet saved in the blockchain.
+		autonity will stop processing the received blockchain from the moment an error appears.
 		See insertChain in blockchain.go
 	*/
 

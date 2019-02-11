@@ -156,8 +156,15 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 	}
 
 	for i, j := start, 0; j < size; i, j = i+elemSize, j+1 {
-
-		inter, err := toGoType(i, *t.Elem, output)
+		var inter interface{}
+		var	err error
+		if t.T == SliceTy && t.Elem.T == StringTy{
+			offset := binary.BigEndian.Uint64(output[i + 32 -8  :i + 32])
+			stringStart := start + int(offset)
+			inter, err = toGoType(stringStart, *t.Elem, output, true)
+		} else {
+			inter, err = toGoType(i, *t.Elem, output, false)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -172,7 +179,7 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 
 // toGoType parses the output bytes and recursively assigns the value of these bytes
 // into a go type with accordance with the ABI spec.
-func toGoType(index int, t Type, output []byte) (interface{}, error) {
+func toGoType(index int, t Type, output []byte, ABIv2Hack bool) (interface{}, error) {
 	if index+32 > len(output) {
 		return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+32)
 	}
@@ -185,7 +192,13 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 
 	// if we require a length prefix, find the beginning word and size returned.
 	if t.requiresLengthPrefix() {
-		begin, end, err = lengthPrefixPointsTo(index, output)
+		if ABIv2Hack {
+			begin = index + 32
+			end = int(big.NewInt(0).SetBytes(output[index : index+32]).Uint64())
+		}else{
+			begin, end, err = lengthPrefixPointsTo(index, output)
+		}
+
 		if err != nil {
 			return nil, err
 		}

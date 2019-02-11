@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/crypto"
 	"math"
 	"math/big"
@@ -131,6 +132,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		quitSync:    make(chan struct{}),
 		engine:      engine,
 		openNetwork: openNetwork,
+		glienickeCh: make(chan core.GlienickeEvent),
 	}
 
 	if handler, ok := manager.engine.(consensus.Handler); ok {
@@ -202,7 +204,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		return manager.blockchain.InsertChain(blocks)
 	}
 	manager.fetcher = fetcher.New(blockchain.GetBlockByHash, validator, manager.BroadcastBlock, heighter, inserter, manager.removePeer)
-
+	manager.enodesWhitelist = rawdb.ReadEnodeWhitelist(chaindb)
 	return manager, nil
 }
 

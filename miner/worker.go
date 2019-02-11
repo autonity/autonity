@@ -363,10 +363,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			clearPending(head.Block.NumberU64())
 			timestamp = time.Now().Unix()
 			if h, ok := w.engine.(consensus.Handler); ok {
-				err := h.NewChainHead()
-				if err != nil {
-					log.Error("Error calling consensus handler's function NewChainHead()")
-				}
+				h.NewChainHead()
 			}
 			commit(false, commitInterruptNewHead)
 
@@ -540,6 +537,7 @@ func (w *worker) taskLoop() {
 			if w.skipSealHook != nil && w.skipSealHook(task) {
 				continue
 			}
+			log.Info("New block Seal request", "hash", w.engine.SealHash(task.block.Header()))
 			w.pendingMu.Lock()
 			w.pendingTasks[w.engine.SealHash(task.block.Header())] = task
 			w.pendingMu.Unlock()
