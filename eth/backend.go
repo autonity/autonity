@@ -22,6 +22,7 @@ import (
 	"fmt"
 	istanbulBackend "github.com/clearmatics/autonity/consensus/istanbul/backend"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"runtime"
 	"sync"
@@ -559,10 +560,11 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 	for {
 		select {
 		case event := <-s.glienickeCh:
+			whitelist := append([]*enode.Node{}, event.Whitelist ...)
 			// Filter the list of need to be dropped peers depending on TD.
 			for _, connectedEnode := range s.protocolManager.peers.Peers() {
 				found := false
-				for _, whitelistedEnode := range event.Whitelist {
+				for _, whitelistedEnode := range whitelist {
 					if connectedEnode.String() == whitelistedEnode.String() {
 						found = true
 						break
@@ -574,11 +576,11 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 					peer := s.protocolManager.peers.Peer(peerID)
 					localTd := s.blockchain.CurrentHeader().Number.Uint64()
 					if peer != nil && peer.td.Uint64() > localTd {
-						event.Whitelist = append(event.Whitelist, connectedEnode.Node())
+						whitelist = append(whitelist, connectedEnode.Node())
 					}
 				}
 			}
-			server.UpdateWhitelist(event.Whitelist)
+			server.UpdateWhitelist(whitelist)
 		// Err() channel will be closed when unsubscribing.
 		case <-s.glienickeSub.Err():
 			return
