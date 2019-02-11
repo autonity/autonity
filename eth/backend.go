@@ -529,7 +529,7 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 		// Subscribe to Glienicke updates events
 		s.glienickeSub = s.blockchain.SubscribeGlienickeEvent(s.glienickeCh)
 		savedList := rawdb.ReadEnodeWhitelist(s.chainDb)
-		go s.glienickeEventLoop(srvr, savedList)
+		go s.glienickeEventLoop(srvr)
 		srvr.UpdateWhitelist(savedList)
 	}
 	// Start the bloom bits servicing goroutines
@@ -556,7 +556,7 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 
 // Whitelist updating loop. Act as a relay between state processing logic and DevP2P
 // for updating the list of authorized enodes
-func (s *Ethereum) glienickeEventLoop(server *p2p.Server, list []*enode.Node) {
+func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 	for {
 		select {
 		case event := <-s.glienickeCh:
@@ -580,7 +580,6 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server, list []*enode.Node) {
 				}
 			}
 			server.UpdateWhitelist(event.Whitelist)
-			list = event.Whitelist
 		// Err() channel will be closed when unsubscribing.
 		case <-s.glienickeSub.Err():
 			return

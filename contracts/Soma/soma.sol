@@ -4,8 +4,9 @@ pragma experimental ABIEncoderV2;
 
 /* Soma.sol
 *
-*  Soma is a smart contract implementation of Clique consensus, see EIP 225,
-*  however validators no longer vote for proposers to be added or removed through the Soma contract.
+*  Soma is the validator governance contract.
+*  The contract can be freely modified but must implement getValidators()
+*  which should return a list with no duplicated entries of addresses.
 */
 
 contract Soma {
@@ -13,6 +14,8 @@ contract Soma {
     address[] public validators;
 
 
+    // constructor get called at block #1 with msg.owner equal to Soma's deployer
+    // configured in the genesis file.
     constructor (address[] _validators) public {
 
         for (uint256 i = 0; i < _validators.length; i++) {
@@ -23,7 +26,7 @@ contract Soma {
 
 
     function AddValidator(address _validator) public onlyValidators(msg.sender) {
-        //Just need to make sure we're duplicating the entry
+        //Need to make sure we're duplicating the entry
         validators.push(_validator);
     }
 
