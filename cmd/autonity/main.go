@@ -266,9 +266,11 @@ func autonity(ctx *cli.Context) error {
 	if args := ctx.Args(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
-	node := makeFullNode(ctx)
-	startNode(ctx, node)
-	node.Wait()
+	log.Info("Making full node")
+	newNode := makeFullNode(ctx)
+	log.Info("Starting full node")
+	startNode(ctx, newNode)
+	newNode.Wait()
 	return nil
 }
 

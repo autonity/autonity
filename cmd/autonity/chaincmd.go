@@ -195,6 +195,7 @@ func initGenesis(ctx *cli.Context) error {
 		if err != nil {
 			utils.Fatalf("Failed to open database: %v", err)
 		}
+		log.Info("Setting up Genesis Block")
 		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
 		if err != nil {
 			utils.Fatalf("Failed to write genesis block: %v", err)

@@ -1304,6 +1304,9 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 			cfg.MinerGasPrice = big.NewInt(1)
 		}
+	default:
+		log.Info("Using Default Autonity Genesis Config")
+		cfg.Genesis = core.DefaultAutonityGenesisBlock()
 	}
 	// TODO(fjl): move trie cache generations into config
 	if gen := ctx.GlobalInt(TrieCacheGenFlag.Name); gen > 0 {
@@ -1420,6 +1423,8 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 		genesis = core.DefaultRinkebyGenesisBlock()
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		Fatalf("Developer chains are ephemeral")
+	default:
+		genesis = core.DefaultAutonityGenesisBlock()
 	}
 	return genesis
 }

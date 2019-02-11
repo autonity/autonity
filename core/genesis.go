@@ -163,7 +163,7 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, constant
 	if (stored == common.Hash{}) {
 		if genesis == nil {
 			log.Info("Writing default main-net genesis block")
-			genesis = DefaultGenesisBlock()
+			genesis = DefaultAutonityGenesisBlock()
 		} else {
 			log.Info("Writing custom genesis block")
 		}
@@ -184,6 +184,7 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, constant
 	if constantinopleOverride != nil {
 		newcfg.ConstantinopleBlock = constantinopleOverride
 	}
+
 	storedcfg := rawdb.ReadChainConfig(db, stored)
 	if storedcfg == nil {
 		log.Warn("Found genesis block without chain config")
@@ -312,6 +313,18 @@ func DefaultGenesisBlock() *Genesis {
 		GasLimit:   5000,
 		Difficulty: big.NewInt(17179869184),
 		Alloc:      decodePrealloc(mainnetAllocData),
+	}
+}
+
+// DefaultAutonityGenesisBlock returns the Autonity network genesis block.
+func DefaultAutonityGenesisBlock() *Genesis {
+	return &Genesis{
+		Config:		params.AutonityChainConfig,
+		Nonce:		0,
+		ExtraData:  hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000f86fea94c81edf8f7904d4efbcdb8b9cb56bdd48580f5e5a944a0f4c5c76c65db72118657020ad8ba5424c05f5b8410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0"),
+		GasLimit:   4700000,
+		Difficulty: big.NewInt(1),
+		Alloc:      make(GenesisAlloc),
 	}
 }
 
