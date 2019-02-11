@@ -506,7 +506,8 @@ func (srv *Server) Start() (err error) {
 		// Bootnodes are disabled.
 		// Static nodes logic is used to handle the Glienicke returned Whitelist and will be populated via the eth service.
 		log.Info("Private-network mode enabled.")
-		dialer = newDialState(srv.localnode.ID(), nil, nil, srv.ntab, dynPeers, srv.NetRestrict)
+		srv.NoDiscovery = true
+		dialer = newDialState(srv.localnode.ID(), nil, nil, nil, 0, srv.NetRestrict)
 	}
 	srv.loopWG.Add(1)
 	go srv.run(dialer)
