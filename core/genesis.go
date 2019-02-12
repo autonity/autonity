@@ -167,6 +167,9 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, constant
 		} else {
 			log.Info("Writing custom genesis block")
 		}
+		log.Info("Ensuring Autonity Protocol minimum features")
+		genesis.Config = ensureAutonityProtocolMinimum(genesis.Config)
+
 		block, err := genesis.Commit(db)
 		return genesis.Config, block.Hash(), err
 	}
@@ -210,6 +213,19 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, constant
 	}
 	rawdb.WriteChainConfig(db, stored, newcfg)
 	return newcfg, stored, nil
+}
+
+func ensureAutonityProtocolMinimum(cfg *params.ChainConfig) *params.ChainConfig {
+	cfg.HomesteadBlock = params.AutonityChainConfig.HomesteadBlock
+	cfg.DAOForkBlock = params.AutonityChainConfig.DAOForkBlock
+	cfg.DAOForkSupport = params.AutonityChainConfig.DAOForkSupport
+	cfg.EIP150Block = params.AutonityChainConfig.EIP150Block
+	cfg.EIP150Hash = params.AutonityChainConfig.EIP150Hash
+	cfg.EIP155Block = params.AutonityChainConfig.EIP155Block
+	cfg.EIP158Block = params.AutonityChainConfig.EIP158Block
+	cfg.ByzantiumBlock = params.AutonityChainConfig.ByzantiumBlock
+
+	return cfg
 }
 
 func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
@@ -324,7 +340,6 @@ func DefaultAutonityGenesisBlock() *Genesis {
 		ExtraData:  hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000f86fea94c81edf8f7904d4efbcdb8b9cb56bdd48580f5e5a944a0f4c5c76c65db72118657020ad8ba5424c05f5b8410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0"),
 		GasLimit:   4700000,
 		Difficulty: big.NewInt(1),
-		Alloc:      make(GenesisAlloc),
 	}
 }
 
