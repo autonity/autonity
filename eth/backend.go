@@ -564,7 +564,7 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 	for {
 		select {
 		case event := <-s.glienickeCh:
-			whitelist := append([]*enode.Node{}, event.Whitelist ...)
+			whitelist := append([]*enode.Node{}, event.Whitelist...)
 			// Filter the list of need to be dropped peers depending on TD.
 			for _, connectedEnode := range s.protocolManager.peers.Peers() {
 				found := false
@@ -584,6 +584,7 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 					}
 				}
 			}
+			s.protocolManager.enodesWhitelist = whitelist
 			server.UpdateWhitelist(whitelist)
 		// Err() channel will be closed when unsubscribing.
 		case <-s.glienickeSub.Err():

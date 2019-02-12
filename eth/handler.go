@@ -100,8 +100,6 @@ type ProtocolManager struct {
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
-	glienickeCh         chan core.GlienickeEvent
-	glienickeSub        event.Subscription
 	enodesWhitelist     []*enode.Node
 	enodesWhitelistLock sync.RWMutex
 	// wait group is used for graceful shutdowns during downloading
@@ -237,12 +235,6 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
 
-	// update peers whitelist
-	if !pm.openNetwork {
-		pm.glienickeSub = pm.blockchain.SubscribeGlienickeEvent(pm.glienickeCh)
-		go pm.glienickeEventLoop()
-	}
-
 	// start sync handlers
 	go pm.syncer()
 	go pm.txsyncLoop()
@@ -253,7 +245,6 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
-	pm.glienickeSub.Unsubscribe() // quits glienickeEventLoop
 
 	// Quit the sync loop.
 	// After this send has completed, no new peers will be accepted.
@@ -272,21 +263,6 @@ func (pm *ProtocolManager) Stop() {
 	pm.wg.Wait()
 
 	log.Info("Ethereum protocol stopped")
-}
-
-// Whitelist updating loop.
-func (s *ProtocolManager) glienickeEventLoop() {
-	for {
-		select {
-		case event := <-s.glienickeCh:
-			s.enodesWhitelistLock.Lock()
-			s.enodesWhitelist = event.Whitelist
-			s.enodesWhitelistLock.Unlock()
-		// Err() channel will be closed when unsubscribing.
-		case <-s.glienickeSub.Err():
-			return
-		}
-	}
 }
 
 func (pm *ProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
