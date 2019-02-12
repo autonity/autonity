@@ -714,8 +714,7 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'getValidators',
 			call: 'istanbul_getValidators',
-			params: 1,
-			inputFormatter: [null]
+			params: 1
 		}),
 		new web3._extend.Method({
 			name: 'getValidatorsAtHash',
