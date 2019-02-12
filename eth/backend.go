@@ -116,7 +116,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		log.Warn("Sanitizing invalid miner gas price", "provided", config.MinerGasPrice, "updated", DefaultConfig.MinerGasPrice)
 		config.MinerGasPrice = new(big.Int).Set(DefaultConfig.MinerGasPrice)
 	}
-	log.Info("Config", "config", config)
 	// Assemble the Ethereum object
 	chainDb, err := CreateDB(ctx, config, "chaindata")
 	if err != nil {
