@@ -352,17 +352,17 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
 
 	// Check for peers that needs to be disconnected
-	for _, oldEnode := range src.StaticNodes {
+	for _, connectedPeer := range src.Peers() {
 		found := false
 		for _, whitelistedEnode := range enodes {
-			if oldEnode.String() == whitelistedEnode.String() {
+			if connectedPeer.Node().ID() == whitelistedEnode.ID() {
 				found = true
 				break
 			}
 		}
 		if !found {
-			log.Info("Dropping no longer authorized peer", "enode", oldEnode.String())
-			src.RemovePeer(oldEnode)
+			log.Info("Dropping no longer authorized peer", "enode", connectedPeer.Node().String())
+			src.RemovePeer(connectedPeer.Node())
 		}
 	}
 
@@ -370,7 +370,7 @@ func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
 	for _, whitelistedEnode := range enodes {
 		found := false
 		for _, oldEnode := range src.StaticNodes {
-			if oldEnode.String() == whitelistedEnode.String() {
+			if oldEnode.ID() == whitelistedEnode.ID() {
 				found = true
 				break
 			}
