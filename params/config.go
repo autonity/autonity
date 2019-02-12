@@ -23,8 +23,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 )
 
-const proposerPolicy uint64 = iota
-
 // Genesis hashes to enforce below configs on.
 var (
 	MainnetGenesisHash = common.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")

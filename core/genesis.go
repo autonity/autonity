@@ -162,7 +162,7 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, constant
 	stored := rawdb.ReadCanonicalHash(db, 0)
 	if (stored == common.Hash{}) {
 		if genesis == nil {
-			log.Info("Writing default main-net genesis block")
+			log.Info("Writing default autonity genesis block")
 			genesis = DefaultAutonityGenesisBlock()
 		} else {
 			log.Info("Writing custom genesis block")

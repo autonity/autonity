@@ -77,12 +77,12 @@ JavaScript API. See https://github.com/clearmatics/autonity/wiki/JavaScript-Cons
 // same time.
 func localConsole(ctx *cli.Context) error {
 	// Create and start the newNode based on the CLI flags
-	newNode := makeFullNode(ctx)
-	startNode(ctx, newNode)
-	defer newNode.Stop()
+	node := makeFullNode(ctx)
+	startNode(ctx, node)
+	defer node.Stop()
 
 	// Attach to the newly started newNode and start the JavaScript console
-	client, err := newNode.Attach()
+	client, err := node.Attach()
 	if err != nil {
 		utils.Fatalf("Failed to attach to the inproc autonity: %v", err)
 	}
@@ -93,20 +93,20 @@ func localConsole(ctx *cli.Context) error {
 		Preload: utils.MakeConsolePreloads(ctx),
 	}
 
-	newConsole, err := console.New(config)
+	console, err := console.New(config)
 	if err != nil {
 		utils.Fatalf("Failed to start the JavaScript console: %v", err)
 	}
-	defer newConsole.Stop(false)
+	defer console.Stop(false)
 
 	// If only a short execution was requested, evaluate and return
 	if script := ctx.GlobalString(utils.ExecFlag.Name); script != "" {
-		newConsole.Evaluate(script)
+		console.Evaluate(script)
 		return nil
 	}
 	// Otherwise print the welcome screen and enter interactive mode
-	newConsole.Welcome()
-	newConsole.Interactive()
+	console.Welcome()
+	console.Interactive()
 
 	return nil
 }
