@@ -52,3 +52,9 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 	}
 	return addresses, nil
 }
+
+// Get Soma contract address
+func (api *API) GetSomaContractAddress() common.Address {
+	address := api.istanbul.somaContract
+	return address
+}
