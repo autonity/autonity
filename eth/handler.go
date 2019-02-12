@@ -321,7 +321,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		whitelisted := false
 		pm.enodesWhitelistLock.RLock()
 		for _, enode := range pm.enodesWhitelist {
-			if p.Node().String() == enode.String() {
+			if p.Node().ID() == enode.ID() {
 				whitelisted = true
 				break
 			}
