@@ -30,9 +30,14 @@ done
 for i in 1 2 3 4 5
 do
   IDX=$(($i - 1))
-  autonity attach http://172.25.0.1$i:8545 --exec "personal.unlockAccount(eth.accounts[$IDX],'test')"
-  autonity attach http://172.25.0.1$i:8545 --exec "miner.setEtherbase(eth.accounts[$IDX])"
-  autonity attach http://172.25.0.1$i:8545 --exec "eth.coinbase"
+  ADDRESS="http://172.25.0.1$i:8545"
+  UNLOCKED=$(autonity attach $ADDRESS --exec "personal.unlockAccount(eth.accounts[$IDX],'test')")
+  IS_COINBASE_SET=$(autonity attach $ADDRESS --exec "miner.setEtherbase(eth.accounts[$IDX])")
+  COINBASE=$(autonity attach $ADDRESS --exec "eth.coinbase")
+  echo "Node $i $ADDRESS Account: $COINBASE Coinbase: $IS_COINBASE_SET Unlocked: $UNLOCKED"
 done
 
-autonity attach http://172.25.0.11:8545 --exec "miner.start()"
+IS_MINING=$(autonity attach http://172.25.0.11:8545 --exec "miner.start()")
+echo "Node 1 is mining"
+
+# for i in {1..5}; do ./autonity attach http://0.0.0.0:854$i --exec '[eth.coinbase, eth.getBlock("latest").number, eth.getBlock("latest").hash, eth.mining]'; done
