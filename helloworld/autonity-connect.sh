@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# arrays were not cooperating in the docker container (busybox) shell
 ENODE_1=$(autonity attach http://172.25.0.11:8545 --exec "admin.nodeInfo.enode.slice(8,136)")
 ENODE_2=$(autonity attach http://172.25.0.12:8545 --exec "admin.nodeInfo.enode.slice(8,136)")
 ENODE_3=$(autonity attach http://172.25.0.13:8545 --exec "admin.nodeInfo.enode.slice(8,136)")
@@ -18,15 +19,19 @@ echo "eNode 3: $ENODE_3"
 echo "eNode 4: $ENODE_4"
 echo "eNode 5: $ENODE_5"
 
+# connect all the things! (connect nodes between them)
 for i in 1 2 3 4 5
 do
-  $(autonity attach http://172.25.0.1$i:8545 --exec "admin.addPeer('$ENODE_1')")
-  $(autonity attach http://172.25.0.1$i:8545 --exec "admin.addPeer('$ENODE_2')")
-  $(autonity attach http://172.25.0.1$i:8545 --exec "admin.addPeer('$ENODE_3')")
-  $(autonity attach http://172.25.0.1$i:8545 --exec "admin.addPeer('$ENODE_4')")
-  $(autonity attach http://172.25.0.1$i:8545 --exec "admin.addPeer('$ENODE_5')")
+  ADDRESS="http://172.25.0.1$i:8545"
+  $(autonity attach $ADDRESS --exec "admin.addPeer('$ENODE_1')")
+  $(autonity attach $ADDRESS --exec "admin.addPeer('$ENODE_2')")
+  $(autonity attach $ADDRESS --exec "admin.addPeer('$ENODE_3')")
+  $(autonity attach $ADDRESS --exec "admin.addPeer('$ENODE_4')")
+  $(autonity attach $ADDRESS --exec "admin.addPeer('$ENODE_5')")
 done
 
+# unlock all the things! (addresses)
+# set coinbase address
 for i in 1 2 3 4 5
 do
   IDX=$(($i - 1))
@@ -37,6 +42,7 @@ do
   echo "Node $i $ADDRESS Account: $COINBASE Coinbase: $IS_COINBASE_SET Unlocked: $UNLOCKED"
 done
 
+# mine all the blocks! (start mining node)
 IS_MINING=$(autonity attach http://172.25.0.11:8545 --exec "miner.start()")
 echo "Node 1 is mining"
 
