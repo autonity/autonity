@@ -8,7 +8,6 @@ services:
     volumes:
       - ./nodekey1:/nodekey:ro
       - ./keystore:/keystore:ro
-      - ./password:/password:ro
       - ./genesis-clique.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
@@ -28,7 +27,6 @@ services:
     volumes:
       - ./nodekey2:/nodekey:ro
       - ./keystore:/keystore:ro
-      - ./password:/password:ro
       - ./genesis-clique.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
@@ -48,7 +46,6 @@ services:
     volumes:
       - ./nodekey3:/nodekey:ro
       - ./keystore:/keystore:ro
-      - ./password:/password:ro
       - ./genesis-clique.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
@@ -68,7 +65,6 @@ services:
     volumes:
       - ./nodekey4:/nodekey:ro
       - ./keystore:/keystore:ro
-      - ./password:/password:ro
       - ./genesis-clique.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
@@ -88,7 +84,6 @@ services:
     volumes:
       - ./nodekey5:/nodekey:ro
       - ./keystore:/keystore:ro
-      - ./password:/password:ro
       - ./genesis-clique.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
