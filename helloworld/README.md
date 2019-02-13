@@ -1,5 +1,9 @@
 ## Autonity Hello World
 
+### tl;dr;
+
+Run `docker-compose up -d` and off you go!
+
 ### What is this?
 
 A simple script to start an autonity network. Currently it is using only Clique Proof Authority with a single Authority, but we will expand this in the future to use other consensus such as IBFT.
