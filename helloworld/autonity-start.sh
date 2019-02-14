@@ -7,7 +7,7 @@ KEYSTORE=keystore
 NODEKEY=nodekey
 RPC_PORT=8545
 RPC_ADDR=$(awk 'END{print $1}' /etc/hosts)
-RPC_API="clique,console,eth,web3,admin,debug,miner,personal,txpool,net"
+RPC_API="istanbul,clique,console,eth,web3,admin,debug,miner,personal,txpool,net"
 
 # init the data directory
 echo "Autonity INIT $RPC_ADDR"
@@ -23,4 +23,7 @@ $AUTONITY \
   --rpcaddr $RPC_ADDR \
   --rpcport $RPC_PORT \
   --rpcapi "$RPC_API" \
-  --rpccorsdomain "*"
+  --rpccorsdomain "*" \
+  --syncmode "full" \
+  --minerthreads 1
+  --verbosity 4 --debug
