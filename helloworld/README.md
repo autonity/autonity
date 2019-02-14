@@ -6,7 +6,7 @@ Run `docker-compose up -d` and off you go!
 
 ### What is this?
 
-A simple script to start an autonity network. Currently it is using only Clique Proof Authority with a single Authority, but we will expand this in the future to use other consensus such as IBFT.
+A simple script to start an Autonity network with IBFT.
 
 ### How do I run it?
 
@@ -73,7 +73,7 @@ instance: Autonity/v1.0.0-alpha-7bcaa485/linux-amd64/go1.11.5
 coinbase: 0x850c1eb8d190e05845ad7f84ac95a318c8aab07f
 at block: 298 (Wed, 13 Feb 2019 15:31:50 GMT)
 datadir: /autonity-data
-modules: admin:1.0 clique:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 txpool:1.0 web3:1.0
+modules: admin:1.0 istanbul:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 txpool:1.0 web3:1.0
 
 >
 ```
