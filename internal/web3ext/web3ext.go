@@ -714,14 +714,18 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'getValidators',
 			call: 'istanbul_getValidators',
-			params: 1,
-			inputFormatter: [null]
+			params: 1
 		}),
 		new web3._extend.Method({
 			name: 'getValidatorsAtHash',
 			call: 'istanbul_getValidatorsAtHash',
 			params: 1
-		})
+		}),
+		new web3._extend.Method({
+			name: 'getSomaContractAddress',
+			call: 'istanbul_getSomaContractAddress',
+			params: 0
+		})	
 	]
 });
 `

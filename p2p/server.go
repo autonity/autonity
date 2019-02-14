@@ -91,6 +91,9 @@ type Config struct {
 	// Use common.MakeName to create a name that follows existing conventions.
 	Name string `toml:"-"`
 
+	// OpenNetwork disable network permissioning logic
+	OpenNetwork bool
+
 	// BootstrapNodes are used to establish connectivity
 	// with the rest of the network.
 	BootstrapNodes []*enode.Node
@@ -344,6 +347,43 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 	}
 }
 
+// UpdateWhitelist updates the whitelist using static peers logic
+// This function can be heavily optimized if needed
+func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
+
+	// Check for peers that needs to be disconnected
+	for _, connectedPeer := range src.Peers() {
+		found := false
+		for _, whitelistedEnode := range enodes {
+			if connectedPeer.Node().ID() == whitelistedEnode.ID() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Info("Dropping no longer authorized peer", "enode", connectedPeer.Node().String())
+			src.RemovePeer(connectedPeer.Node())
+		}
+	}
+
+	// Check for peers that needs to be connected
+	for _, whitelistedEnode := range enodes {
+		found := false
+		for _, oldEnode := range src.StaticNodes {
+			if oldEnode.ID() == whitelistedEnode.ID() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Info("Connecting to newly authorized peer", "enode", whitelistedEnode.String())
+			src.AddPeer(whitelistedEnode)
+		}
+	}
+
+	src.StaticNodes = enodes
+}
+
 // SubscribePeers subscribes the given channel to peer events
 func (srv *Server) SubscribeEvents(ch chan *PeerEvent) event.Subscription {
 	return srv.peerFeed.Subscribe(ch)
@@ -451,12 +491,24 @@ func (srv *Server) Start() (err error) {
 			return err
 		}
 	}
-	if err := srv.setupDiscovery(); err != nil {
-		return err
-	}
 
 	dynPeers := srv.maxDialedConns()
-	dialer := newDialState(srv.localnode.ID(), srv.StaticNodes, srv.BootstrapNodes, srv.ntab, dynPeers, srv.NetRestrict)
+
+	var dialer *dialstate
+	if srv.OpenNetwork {
+		if err := srv.setupDiscovery(); err != nil {
+			return err
+		}
+		dialer = newDialState(srv.localnode.ID(), srv.StaticNodes, srv.BootstrapNodes, srv.ntab, dynPeers, srv.NetRestrict)
+		log.Info("Open-network mode enabled.")
+	} else {
+		// Discovery protocol is disabled for consortium chains.
+		// Bootnodes are disabled.
+		// Static nodes logic is used to handle the Glienicke returned Whitelist and will be populated via the eth service.
+		log.Info("Private-network mode enabled.")
+		srv.NoDiscovery = true
+		dialer = newDialState(srv.localnode.ID(), nil, nil, nil, 0, srv.NetRestrict)
+	}
 	srv.loopWG.Add(1)
 	go srv.run(dialer)
 	return nil

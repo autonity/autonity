@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"strings"
 
@@ -41,6 +42,7 @@ import (
 //go:generate gencodec -type GenesisAccount -field-override genesisAccountMarshaling -out gen_genesis_account.go
 
 var errGenesisNoConfig = errors.New("genesis has no chain configuration")
+var errGenesisBadWhitelist = errors.New("whitelist badly formatted")
 
 // Genesis specifies the header fields, state of a genesis block. It also defines hard
 // fork switch-over blocks through the chain configuration.
@@ -279,6 +281,16 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
+	enodeWhiteList := make([]*enode.Node,0, len(g.Config.EnodeWhitelist))
+	for _, enodeString := range g.Config.EnodeWhitelist {
+		log.Info("Genesis Authorized Enode", "enode", enodeString)
+		newEnode, err := enode.ParseV4(enodeString)
+		if err != nil {
+			return nil, errGenesisBadWhitelist
+		}
+		enodeWhiteList = append(enodeWhiteList, newEnode)
+	}
+	rawdb.WriteEnodeWhitelist(db, enodeWhiteList)
 	config := g.Config
 	if config == nil {
 		config = params.AllEthashProtocolChanges

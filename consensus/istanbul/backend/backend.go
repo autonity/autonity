@@ -89,7 +89,7 @@ type backend struct {
 	core             istanbulCore.Engine
 	logger           log.Logger
 	db               ethdb.Database
-	chain            consensus.ChainReader
+	blockchain       *core.BlockChain
 	currentBlock     func() *types.Block
 	hasBadBlock      func(hash common.Hash) bool
 
@@ -122,7 +122,7 @@ func (sb *backend) Address() common.Address {
 }
 
 func (sb *backend) Validators(number uint64) istanbul.ValidatorSet {
-	validators, err := sb.retrieveSavedValidators(number, sb.chain)
+	validators, err := sb.retrieveSavedValidators(number, sb.blockchain)
 	if err != nil {
 		return validator.NewSet(nil, sb.config.ProposerPolicy)
 	}
@@ -246,22 +246,19 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 	}
 
 	// verify the header of proposed block
-	err := sb.VerifyHeader(sb.chain, block.Header(), false)
+	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == errEmptyCommittedSeals {
-		// the current chain state is synchronised with Istanbul's state
+		// the current blockchain state is synchronised with Istanbul's state
 		// and we know that the proposed block was mined by a valid validator
-
 		header := block.Header()
-		blockchain := sb.chain.(*core.BlockChain) // we're mining so can't be a headerChain
-
 		//We need at this point to process all the transactions in the block
 		//in order to extract the list of the next validators and validate the extradata field
 		var validators []common.Address
 		var err error
 		if header.Number.Uint64() > 1 {
 
-			state, _ := blockchain.State()
+			state, _ := sb.blockchain.State()
 			state = state.Copy() // copy the state, we don't want to save modifications
 			gp := new(core.GasPool).AddGas(block.GasLimit())
 			usedGas := new(uint64)
@@ -270,7 +267,7 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 				state.Prepare(tx.Hash(), block.Hash(), i)
 				// Might be vulnerable to DoS Attack depending on gaslimit
 				// Todo : Double check
-				_, _, err := core.ApplyTransaction(blockchain.Config(), blockchain, nil,
+				_, _, err := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil,
 					gp, state, header, tx, usedGas, *sb.vmConfig)
 
 				if err != nil {
@@ -278,12 +275,12 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 				}
 			}
 
-			validators, err = sb.contractGetValidators(blockchain, header, state)
+			validators, err = sb.contractGetValidators(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
 			}
 		} else {
-			validators, err = sb.retrieveSavedValidators(1, sb.chain) //genesis block and block #1 have the same validators
+			validators, err = sb.retrieveSavedValidators(1, sb.blockchain) //genesis block and block #1 have the same validators
 		}
 		istanbulExtra, _ := types.ExtractIstanbulExtra(header)
 
@@ -328,12 +325,12 @@ func (sb *backend) CheckSignature(data []byte, address common.Address, sig []byt
 
 // HasPropsal implements istanbul.Backend.HashBlock
 func (sb *backend) HasPropsal(hash common.Hash, number *big.Int) bool {
-	return sb.chain.GetHeader(hash, number.Uint64()) != nil
+	return sb.blockchain.GetHeader(hash, number.Uint64()) != nil
 }
 
 // GetProposer implements istanbul.Backend.GetProposer
 func (sb *backend) GetProposer(number uint64) common.Address {
-	if h := sb.chain.GetHeaderByNumber(number); h != nil {
+	if h := sb.blockchain.GetHeaderByNumber(number); h != nil {
 		a, _ := sb.Author(h)
 		return a
 	}

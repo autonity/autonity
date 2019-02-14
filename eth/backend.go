@@ -22,6 +22,7 @@ import (
 	"fmt"
 	istanbulBackend "github.com/clearmatics/autonity/consensus/istanbul/backend"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"runtime"
 	"sync"
@@ -95,6 +96,9 @@ type Ethereum struct {
 
 	lock     sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 	protocol Protocol
+
+	glienickeCh  chan core.GlienickeEvent
+	glienickeSub event.Subscription
 }
 
 func (s *Ethereum) AddLesServer(ls LesServer) {
@@ -149,6 +153,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		etherbase:      config.Etherbase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
+		glienickeCh:    make(chan core.GlienickeEvent),
 	}
 
 	// force to set the istanbul etherbase to node key address
@@ -196,7 +201,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, config.Whitelist, eth.protocol); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, config.Whitelist, eth.protocol, config.OpenNetwork); err != nil {
 		return nil, err
 	}
 
@@ -519,6 +524,18 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start(srvr *p2p.Server) error {
+
+	if !srvr.OpenNetwork {
+		// Subscribe to Glienicke updates events
+		s.glienickeSub = s.blockchain.SubscribeGlienickeEvent(s.glienickeCh)
+		savedList := rawdb.ReadEnodeWhitelist(s.chainDb)
+		log.Info("Reading Whitelist")
+		for _, enode := range savedList {
+			log.Debug("saved enode", "enode", enode.String())
+		}
+		go s.glienickeEventLoop(srvr)
+		srvr.UpdateWhitelist(savedList)
+	}
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers(params.BloomBitsBlocks)
 
@@ -541,10 +558,46 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	return nil
 }
 
+// Whitelist updating loop. Act as a relay between state processing logic and DevP2P
+// for updating the list of authorized enodes
+func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
+	for {
+		select {
+		case event := <-s.glienickeCh:
+			whitelist := append([]*enode.Node{}, event.Whitelist ...)
+			// Filter the list of need to be dropped peers depending on TD.
+			for _, connectedPeer := range s.protocolManager.peers.Peers() {
+				found := false
+				connectedEnode := connectedPeer.Node()
+				for _, whitelistedEnode := range whitelist {
+					if connectedEnode.ID() == whitelistedEnode.ID() {
+						found = true
+						break
+					}
+				}
+
+				if !found { // this node is no longer in the whitelist
+					peerID := fmt.Sprintf("%x", connectedEnode.ID().Bytes()[:8])
+					peer := s.protocolManager.peers.Peer(peerID)
+					localTd := s.blockchain.CurrentHeader().Number.Uint64()
+					if peer != nil && peer.td.Uint64() > localTd {
+						whitelist = append(whitelist, connectedEnode)
+					}
+				}
+			}
+			server.UpdateWhitelist(whitelist)
+		// Err() channel will be closed when unsubscribing.
+		case <-s.glienickeSub.Err():
+			return
+		}
+	}
+}
+
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Ethereum protocol.
 func (s *Ethereum) Stop() error {
 	s.bloomIndexer.Close()
+	s.glienickeSub.Unsubscribe()
 	s.blockchain.Stop()
 	s.engine.Close()
 	s.protocolManager.Stop()
