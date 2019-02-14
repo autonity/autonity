@@ -3,7 +3,7 @@ services:
   node1:
     build:
       context: ../
-      dockerfile: ./Dockerfile
+      dockerfile: ./helloworld/Dockerfile
     image: autonity:helloworld
     volumes:
       - ./nodekey1:/nodekey:ro
@@ -22,7 +22,7 @@ services:
   node2:
     build:
       context: ../
-      dockerfile: ./Dockerfile
+      dockerfile: ./helloworld/Dockerfile
     image: autonity:helloworld
     volumes:
       - ./nodekey2:/nodekey:ro
@@ -41,7 +41,7 @@ services:
   node3:
     build:
       context: ../
-      dockerfile: ./Dockerfile
+      dockerfile: ./helloworld/Dockerfile
     image: autonity:helloworld
     volumes:
       - ./nodekey3:/nodekey:ro
@@ -60,7 +60,7 @@ services:
   node4:
     build:
       context: ../
-      dockerfile: ./Dockerfile
+      dockerfile: ./helloworld/Dockerfile
     image: autonity:helloworld
     volumes:
       - ./nodekey4:/nodekey:ro
@@ -79,7 +79,7 @@ services:
   node5:
     build:
       context: ../
-      dockerfile: ./Dockerfile
+      dockerfile: ./helloworld/Dockerfile
     image: autonity:helloworld
     volumes:
       - ./nodekey5:/nodekey:ro
@@ -110,7 +110,7 @@ services:
       - node5
     build:
       context: ../
-      dockerfile: ./Dockerfile
+      dockerfile: ./helloworld/Dockerfile
     image: autonity:helloworld
     volumes:
       - ./autonity-connect.sh:/autonity-connect.sh:ro
