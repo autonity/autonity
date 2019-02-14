@@ -114,6 +114,33 @@ drwx------ 2 clearmatics clearmatics 4.0K Feb 12 14:19 keystore
 * `keystore` directory with all the keystores (keystores are used to keep the private keys of the accounts, our keystores all use the password `test`)
 * `nodekey1` file containing Node Key used to generate ENode (this way the enodes never change, although it is not relevant for the Clique Hello World, it will be used in the future for the IBFT Hello World)
 
+### How can the validator set be changed?
+
+There are two ways to update the validator set:
+
+1. Update the Soma and Glienicke smart contracts
+2. Change the `genesis-ibft.json` and update the `nodekey` files
+
+#### Update Glienicke and Soma contract
+
+The _Glienick_ contract is responsible for making sure that only nodes in its list are able to connect to the Autonity client.
+
+In the default Docker Compose deployment the contract can be found at the `0x522B3294E6d06aA25Ad0f1B8891242E335D3B459` address. You can find the contract deployed in the Autonity code in the [`contracts`](https://github.com/clearmatics/autonity/tree/master/contracts/Glienicke) directory.
+
+The _Soma_ contract allows anyone to vote on the IBFT set of validators.
+
+In the default Docker Compose deployment the contract can be found at the `0xc3d854209eF19803954916F2fe4712448094363e` address. You can find the contract deployed in the Autonity code in the [`contracts`](https://github.com/clearmatics/autonity/tree/master/contracts/Soma) directory.
+
+#### Change the `genesis-ibft.json` and update the `nodekey` files
+
+_The Autonity Hello World limits the amount of validators to 4, but in a real world application you can have more validators_
+
+It is possible update the set of validators by updating the genesis file and the nodekey files, the steps needed are:
+
+1. Update the `nodekey1` file (or 2,3,4) with the private key of the validator
+2. Update the `enodeWhitelist` property in the genesis file
+3. Update the `extra-data` property in the genesis file by encoding it with the [istanbul tools](https://github.com/getamis/istanbul-tools)
+
 ### What are the keystore passwords?
 
 All the keystores use the same password: `test` (*please do not use in any production enviroment*)
