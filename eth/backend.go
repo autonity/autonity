@@ -579,7 +579,7 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 				if !found { // this node is no longer in the whitelist
 					peerID := fmt.Sprintf("%x", connectedEnode.ID().Bytes()[:8])
 					peer := s.protocolManager.peers.Peer(peerID)
-					localTd := s.blockchain.CurrentHeader().Number.Uint64()
+					localTd := s.blockchain.CurrentHeader().Number.Uint64() + 1
 					if peer != nil && peer.td.Uint64() > localTd {
 						whitelist = append(whitelist, connectedEnode)
 					}

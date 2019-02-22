@@ -146,6 +146,9 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	}
 	if mode == downloader.FastSync {
 		manager.fastSync = uint32(1)
+		log.Info("Fast Sync Mode")
+	} else if mode == downloader.FullSync {
+		log.Info("Full Sync Mode")
 	}
 	// Initiate a sub-protocol for every implemented version we can handle
 	manager.SubProtocols = make([]p2p.Protocol, 0, len(protocols.Versions))
@@ -327,7 +330,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 			}
 		}
 		pm.enodesWhitelistLock.RUnlock()
-		if !whitelisted && p.td.Uint64() <= head.Number.Uint64() {
+		if !whitelisted && p.td.Uint64() <= head.Number.Uint64() + 1 {
 			p.Log().Info("Dropping unauthorized peer with old TD.")
 			return errUnauthaurizedPeer
 		}
