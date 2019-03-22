@@ -126,7 +126,7 @@ func validateEvents(events chan NewTxsEvent, count int) error {
 		case ev := <-events:
 			received = append(received, ev.Txs...)
 		case <-time.After(time.Second):
-			return fmt.Errorf("event #%d not fired", received)
+			return fmt.Errorf("more than %d events fired: %v", count, received[count:])
 		}
 	}
 	if len(received) > count {
