@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -31,22 +32,24 @@ import (
 	"strings"
 )
 
-func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.Block) {
+func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
 	var newWhitelist []*enode.Node
 	var err error
 	if block.Number().Uint64() == 1 {
 		// use genesis block whitelist
 		newWhitelist = rawdb.ReadEnodeWhitelist(bc.db)
-	}else{
+	} else {
 		// call retrieveWhitelist contract function
 		newWhitelist, err = bc.callGlienickeContract(state, block.Header())
 		if err != nil {
-			log.Crit("Could not call Glienicke contract.", "error", err.Error())
+			return fmt.Errorf("could not call Glienicke contract: %s",  err)
 		}
 	}
 
 	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
 	go bc.glienickeFeed.Send(GlienickeEvent{Whitelist:newWhitelist})
+
+	return nil
 }
 
 // Instantiates a new EVM object which is required when creating or calling a deployed contract
