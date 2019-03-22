@@ -60,7 +60,8 @@ var DefaultConfig = Config{
 		Blocks:     20,
 		Percentile: 60,
 	},
-	Istanbul: *istanbul.DefaultConfig,
+	Istanbul:    *istanbul.DefaultConfig,
+	OpenNetwork: true,
 }
 
 func init() {
