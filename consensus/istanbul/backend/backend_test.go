@@ -19,16 +19,15 @@ package backend
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"sort"
-	"strings"
-	"testing"
-	"time"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/istanbul"
 	"github.com/clearmatics/autonity/consensus/istanbul/validator"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
+	"sort"
+	"strings"
+	"testing"
+	"time"
 )
 
 func TestSign(t *testing.T) {
@@ -129,7 +128,10 @@ func TestCommit(t *testing.T) {
 			[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.IstanbulExtraSeal-1)...)},
 			func() *types.Block {
 				chain, engine := newBlockChain(1)
-				block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+				block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+				if err != nil {
+					t.Fatal(err)
+				}
 				expectedBlock, _ := engine.updateBlock(engine.blockchain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
 				return expectedBlock
 			},
@@ -140,7 +142,10 @@ func TestCommit(t *testing.T) {
 			nil,
 			func() *types.Block {
 				chain, engine := newBlockChain(1)
-				block := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+				block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+				if err != nil {
+					t.Fatal(err)
+				}
 				expectedBlock, _ := engine.updateBlock(engine.blockchain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
 				return expectedBlock
 			},
@@ -173,7 +178,11 @@ func TestCommit(t *testing.T) {
 
 func TestGetProposer(t *testing.T) {
 	chain, engine := newBlockChain(1)
-	block := makeBlock(chain, engine, chain.Genesis())
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	chain.InsertChain(types.Blocks{block})
 	expected := engine.GetProposer(1)
 	actual := engine.Address()

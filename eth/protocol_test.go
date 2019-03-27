@@ -25,7 +25,6 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
-	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -153,15 +152,15 @@ func testSendTransactions(t *testing.T, protocol int) {
 	}
 
 	gspec.Config.EnodeWhitelist = enodes
-
-	genesis := gspec.MustCommit(db)
+	gspec.MustCommit(db)
 
 	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{}, nil)
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
 
-	txAdded := make(chan []*types.Transaction, 16)
+	const txCount = 100
+	txAdded := make(chan []*types.Transaction, txCount)
 	pm, err := NewProtocolManager(config, downloader.FullSync, DefaultConfig.NetworkId, evmux, &testTxPool{added: txAdded}, pow, blockchain, db, nil, EthDefaultProtocol, DefaultConfig.OpenNetwork)
 	if err != nil {
 		t.Fatalf("failed to start test protocol manager: %v", err)
@@ -175,16 +174,13 @@ func testSendTransactions(t *testing.T, protocol int) {
 		peers = append(peers, p)
 	}
 
-	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *core.BlockGen) {})
-	pm.BroadcastBlock(chain[0], true /*propagate*/)
-
 	// Fill the pool with big transactions.
 	const txsize = txsyncPackSize / 10
-	alltxs := make([]*types.Transaction, 100)
+	alltxs := make([]*types.Transaction, txCount)
 	for nonce := range alltxs {
 		alltxs[nonce] = newTestTransaction(testAccount, uint64(nonce), txsize)
 	}
-	pm.txpool.AddRemotes(alltxs)
+	pm.BroadcastTxs(alltxs)
 
 	// Connect several peers. They should all receive the pending transactions.
 	var wg sync.WaitGroup
@@ -193,7 +189,6 @@ func testSendTransactions(t *testing.T, protocol int) {
 		msg p2p.Msg
 		err error
 	}
-	msgCh := make(chan message)
 
 	checktxs := func(p *testPeer) {
 		defer wg.Done()
@@ -203,6 +198,7 @@ func testSendTransactions(t *testing.T, protocol int) {
 		for _, tx := range alltxs {
 			seen[tx.Hash()] = false
 		}
+		msgCh := make(chan message, 1)
 
 		for n := 0; n < len(alltxs) && !t.Failed(); {
 			var txs []*types.Transaction
@@ -214,16 +210,16 @@ func testSendTransactions(t *testing.T, protocol int) {
 
 			var readMsg message
 			select {
-			case readMsg = <- msgCh:
-				continue
-			case <-time.After(20 * time.Second):
-				readMsg.err = errors.New("p.app.ReadMsg() timeout")
+			case readMsg = <-msgCh:
+				break
+			case <-time.After(60 * time.Second):
+				t.Fatalf("timeout for peer %v: read error: %v. Tx in pool %d", p.Peer, err, len(txAdded))
 			}
 
 			msg := readMsg.msg
 
 			if readMsg.err != nil {
-				t.Fatalf("%v: read error: %v", p.Peer, err)
+				t.Fatalf("%v: read error: %v, Msg: %v", p.Peer, err, msg.String())
 			} else if msg.Code == 7 {
 				log.Debug("genesis block message")
 				continue
