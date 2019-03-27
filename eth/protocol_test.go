@@ -25,6 +25,7 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -187,6 +188,13 @@ func testSendTransactions(t *testing.T, protocol int) {
 
 	// Connect several peers. They should all receive the pending transactions.
 	var wg sync.WaitGroup
+
+	type message struct {
+		msg p2p.Msg
+		err error
+	}
+	msgCh := make(chan message)
+
 	checktxs := func(p *testPeer) {
 		defer wg.Done()
 		defer p.close()
@@ -198,9 +206,24 @@ func testSendTransactions(t *testing.T, protocol int) {
 
 		for n := 0; n < len(alltxs) && !t.Failed(); {
 			var txs []*types.Transaction
-			msg, err := p.app.ReadMsg()
-			if err != nil {
-				t.Errorf("%v: read error: %v", p.Peer, err)
+
+			go func() {
+				msg, err := p.app.ReadMsg()
+				msgCh <- message{msg, err}
+			}()
+
+			var readMsg message
+			select {
+			case readMsg = <- msgCh:
+				continue
+			case <-time.After(20 * time.Second):
+				readMsg.err = errors.New("p.app.ReadMsg() timeout")
+			}
+
+			msg := readMsg.msg
+
+			if readMsg.err != nil {
+				t.Fatalf("%v: read error: %v", p.Peer, err)
 			} else if msg.Code == 7 {
 				log.Debug("genesis block message")
 				continue
