@@ -951,7 +951,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	// Call network permissioning logic before committing the state
 	if bc.chainConfig.Clique != nil {
 		err = bc.updateEnodesWhitelist(state, block)
-		if err != nil {
+		if err != nil && err != GlienickeContractError {
 			return NonStatTy, err
 		}
 	}

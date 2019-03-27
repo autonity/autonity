@@ -17,7 +17,10 @@
 package core
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
+	"math/big"
+	"strings"
+
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -28,9 +31,9 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
-	"math/big"
-	"strings"
 )
+
+var GlienickeContractError = errors.New("could not call Glienicke contract")
 
 func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
 	var newWhitelist []*enode.Node
@@ -42,12 +45,13 @@ func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.B
 		// call retrieveWhitelist contract function
 		newWhitelist, err = bc.callGlienickeContract(state, block.Header())
 		if err != nil {
-			return fmt.Errorf("could not call Glienicke contract: %s",  err)
+			log.Error("could not call Glienicke contract", "err", err)
+			return GlienickeContractError
 		}
 	}
 
 	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-	go bc.glienickeFeed.Send(GlienickeEvent{Whitelist:newWhitelist})
+	go bc.glienickeFeed.Send(GlienickeEvent{Whitelist: newWhitelist})
 
 	return nil
 }
@@ -93,7 +97,7 @@ func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *type
 	evm := bc.getEVM(header, glienickeDeployer, state)
 	sender := vm.AccountRef(glienickeDeployer)
 
-	enodesWhitelist :=  rawdb.ReadEnodeWhitelist(bc.db)
+	enodesWhitelist := rawdb.ReadEnodeWhitelist(bc.db)
 	var contractWhitelist []string
 	for _, node := range enodesWhitelist {
 		contractWhitelist = append(contractWhitelist, node.String())
@@ -103,6 +107,7 @@ func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *type
 	if err != nil {
 		return nil, err
 	}
+
 	constructorParams, err := GlienickeAbi.Pack("", contractWhitelist)
 	if err != nil {
 		return nil, err
@@ -125,12 +130,13 @@ func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *type
 	return enodesWhitelist, nil
 }
 
-func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.Header) ([]*enode.Node, error){
+func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.Header) ([]*enode.Node, error) {
 	// Needs to be refactored somehow
 	glienickeDeployer := bc.chainConfig.GlienickeDeployer
 	if glienickeDeployer == (common.Address{}) {
 		glienickeDeployer = params.GlienickeDefaultDeployer
 	}
+
 	glienickeABI := bc.chainConfig.GlienickeABI
 	if bc.chainConfig.GlienickeABI == "" {
 		glienickeABI = params.GlienickeDefaultABI
@@ -139,9 +145,13 @@ func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.
 	sender := vm.AccountRef(glienickeDeployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := bc.getEVM(header, glienickeDeployer, state)
-	ABI, err := abi.JSON(strings.NewReader(glienickeABI))
-	input, err := ABI.Pack("getWhitelist")
 
+	ABI, err := abi.JSON(strings.NewReader(glienickeABI))
+	if err != nil {
+		return nil, err
+	}
+
+	input, err := ABI.Pack("getWhitelist")
 	if err != nil {
 		return nil, err
 	}

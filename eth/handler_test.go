@@ -57,7 +57,7 @@ func TestProtocolCompatibility(t *testing.T) {
 	for i, tt := range tests {
 		EthDefaultProtocol.Versions = []uint{tt.version}
 
-		pm, _, err := newTestProtocolManager(tt.mode, 0, nil, nil)
+		pm, _, err := newTestProtocolManager(tt.mode, 0, nil, nil, nil)
 		if pm != nil {
 			defer pm.Stop()
 		}
@@ -72,8 +72,10 @@ func TestGetBlockHeaders62(t *testing.T) { testGetBlockHeaders(t, 62) }
 func TestGetBlockHeaders63(t *testing.T) { testGetBlockHeaders(t, 63) }
 
 func testGetBlockHeaders(t *testing.T, protocol int) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxHashFetch+15, nil, nil)
-	peer, _ := newTestPeer("peer", protocol, pm, true)
+	p2pPeer := newTestP2PPeer("peer")
+
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxHashFetch+15, nil, nil, []string{p2pPeer.Info().Enode})
+	peer, _ := newTestPeer(p2pPeer, protocol, pm, true)
 	defer peer.close()
 
 	// Create a "random" unknown hash for testing
@@ -231,8 +233,10 @@ func TestGetBlockBodies62(t *testing.T) { testGetBlockBodies(t, 62) }
 func TestGetBlockBodies63(t *testing.T) { testGetBlockBodies(t, 63) }
 
 func testGetBlockBodies(t *testing.T, protocol int) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxBlockFetch+15, nil, nil)
-	peer, _ := newTestPeer("peer", protocol, pm, true)
+	p2pPeer := newTestP2PPeer("peer")
+
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxBlockFetch+15, nil, nil, []string{p2pPeer.Info().Enode})
+	peer, _ := newTestPeer(p2pPeer, protocol, pm, true)
 	defer peer.close()
 
 	// Create a batch of tests for various scenarios
@@ -338,8 +342,10 @@ func testGetNodeData(t *testing.T, protocol int) {
 		}
 	}
 	// Assemble the test environment
-	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
-	peer, _ := newTestPeer("peer", protocol, pm, true)
+	p2pPeer := newTestP2PPeer("peer")
+
+	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil, []string{p2pPeer.Info().Enode})
+	peer, _ := newTestPeer(p2pPeer, protocol, pm, true)
 	defer peer.close()
 
 	// Fetch for now the entire chain db
@@ -430,8 +436,10 @@ func testGetReceipt(t *testing.T, protocol int) {
 		}
 	}
 	// Assemble the test environment
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
-	peer, _ := newTestPeer("peer", protocol, pm, true)
+	p2pPeer := newTestP2PPeer("peer")
+
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil, []string{p2pPeer.Info().Enode})
+	peer, _ := newTestPeer(p2pPeer, protocol, pm, true)
 	defer peer.close()
 
 	// Collect the hashes to request, and the response to expect
@@ -472,8 +480,12 @@ func testDAOChallenge(t *testing.T, localForked, remoteForked bool, timeout bool
 		db      = ethdb.NewMemDatabase()
 		config  = &params.ChainConfig{DAOForkBlock: big.NewInt(1), DAOForkSupport: localForked}
 		gspec   = &core.Genesis{Config: config}
-		genesis = gspec.MustCommit(db)
 	)
+	p2pPeer := newTestP2PPeer("peer")
+	config.EnodeWhitelist = append(config.EnodeWhitelist, p2pPeer.Info().Enode)
+
+	genesis := gspec.MustCommit(db)
+
 	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{}, nil)
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
@@ -486,7 +498,7 @@ func testDAOChallenge(t *testing.T, localForked, remoteForked bool, timeout bool
 	defer pm.Stop()
 
 	// Connect a new peer and check that we receive the DAO challenge
-	peer, _ := newTestPeer("peer", eth63, pm, true)
+	peer, _ := newTestPeer(p2pPeer, eth63, pm, true)
 	defer peer.close()
 
 	challenge := &getBlockHeadersData{
@@ -553,8 +565,15 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		db      = ethdb.NewMemDatabase()
 		config  = &params.ChainConfig{}
 		gspec   = &core.Genesis{Config: config}
-		genesis = gspec.MustCommit(db)
 	)
+	var p2pPeers []*p2p.Peer
+	for i := 0; i < totalPeers; i++ {
+		p2pPeers = append(p2pPeers, newTestP2PPeer(fmt.Sprintf("peer %d", i)))
+		gspec.Config.EnodeWhitelist = append(gspec.Config.EnodeWhitelist, p2pPeers[i].Info().Enode)
+	}
+
+	genesis := gspec.MustCommit(db)
+
 	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{}, nil)
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
@@ -567,7 +586,8 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	defer pm.Stop()
 	var peers []*testPeer
 	for i := 0; i < totalPeers; i++ {
-		peer, _ := newTestPeer(fmt.Sprintf("peer %d", i), eth63, pm, true)
+		peer, _ := newTestPeer(p2pPeers[i], eth63, pm, true)
+
 		defer peer.close()
 		peers = append(peers, peer)
 	}

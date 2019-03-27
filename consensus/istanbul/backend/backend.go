@@ -17,6 +17,7 @@
 package backend
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"math/big"
 	"sync"
@@ -29,13 +30,14 @@ import (
 	"github.com/clearmatics/autonity/consensus/istanbul/validator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/params"
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/clearmatics/autonity/rlp"
+	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -359,4 +361,48 @@ func (sb *backend) HasBadProposal(hash common.Hash) bool {
 		return false
 	}
 	return sb.hasBadBlock(hash)
+}
+
+
+func GetGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
+	// Setup validators
+	var nodeKeys = make([]*ecdsa.PrivateKey, n)
+	var addrs = make([]common.Address, n)
+	for i := 0; i < n; i++ {
+		nodeKeys[i], _ = crypto.GenerateKey()
+		addrs[i] = crypto.PubkeyToAddress(nodeKeys[i].PublicKey)
+	}
+
+	// generate genesis block
+	genesis := core.DefaultGenesisBlock()
+	genesis.Config = params.TestChainConfig
+	// force enable Istanbul engine
+	genesis.Config.Istanbul = &params.IstanbulConfig{}
+	genesis.Config.Ethash = nil
+	genesis.Difficulty = defaultDifficulty
+	genesis.Nonce = emptyNonce.Uint64()
+	genesis.Mixhash = types.IstanbulDigest
+
+	AppendValidators(genesis, addrs)
+	return genesis, nodeKeys
+}
+
+func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
+
+	if len(genesis.ExtraData) < types.IstanbulExtraVanity {
+		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)...)
+	}
+	genesis.ExtraData = genesis.ExtraData[:types.IstanbulExtraVanity]
+
+	ist := &types.IstanbulExtra{
+		Validators:    addrs,
+		Seal:          []byte{},
+		CommittedSeal: [][]byte{},
+	}
+
+	istPayload, err := rlp.EncodeToBytes(&ist)
+	if err != nil {
+		panic("failed to encode istanbul extra")
+	}
+	genesis.ExtraData = append(genesis.ExtraData, istPayload...)
 }

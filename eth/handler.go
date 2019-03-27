@@ -132,7 +132,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		quitSync:    make(chan struct{}),
 		engine:      engine,
 		openNetwork: openNetwork,
-		glienickeCh: make(chan core.GlienickeEvent),
+		glienickeCh: make(chan core.GlienickeEvent, 64),
 	}
 
 	if handler, ok := manager.engine.(consensus.Handler); ok {

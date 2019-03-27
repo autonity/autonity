@@ -18,7 +18,7 @@ package backend
 
 import (
 	"bytes"
-	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
@@ -33,19 +33,17 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rlp"
 )
 
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
 func newBlockChain(n int) (*core.BlockChain, *backend) {
-	genesis, nodeKeys := getGenesisAndKeys(n)
+	genesis, nodeKeys := GetGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
 	config := istanbul.DefaultConfig
 	// Use the first key as private key
-	b, _ := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{}).(*backend)
+	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{}).(*backend)
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil)
 	if err != nil {
@@ -70,49 +68,6 @@ func newBlockChain(n int) (*core.BlockChain, *backend) {
 	return blockchain, b
 }
 
-func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
-	// Setup validators
-	var nodeKeys = make([]*ecdsa.PrivateKey, n)
-	var addrs = make([]common.Address, n)
-	for i := 0; i < n; i++ {
-		nodeKeys[i], _ = crypto.GenerateKey()
-		addrs[i] = crypto.PubkeyToAddress(nodeKeys[i].PublicKey)
-	}
-
-	// generate genesis block
-	genesis := core.DefaultGenesisBlock()
-	genesis.Config = params.TestChainConfig
-	// force enable Istanbul engine
-	genesis.Config.Istanbul = &params.IstanbulConfig{}
-	genesis.Config.Ethash = nil
-	genesis.Difficulty = defaultDifficulty
-	genesis.Nonce = emptyNonce.Uint64()
-	genesis.Mixhash = types.IstanbulDigest
-
-	appendValidators(genesis, addrs)
-	return genesis, nodeKeys
-}
-
-func appendValidators(genesis *core.Genesis, addrs []common.Address) {
-
-	if len(genesis.ExtraData) < types.IstanbulExtraVanity {
-		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)...)
-	}
-	genesis.ExtraData = genesis.ExtraData[:types.IstanbulExtraVanity]
-
-	ist := &types.IstanbulExtra{
-		Validators:    addrs,
-		Seal:          []byte{},
-		CommittedSeal: [][]byte{},
-	}
-
-	istPayload, err := rlp.EncodeToBytes(&ist)
-	if err != nil {
-		panic("failed to encode istanbul extra")
-	}
-	genesis.ExtraData = append(genesis.ExtraData, istPayload...)
-}
-
 func makeHeader(parent *types.Block, config *istanbul.Config) *types.Header {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
@@ -135,12 +90,22 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) *ty
 	return <-resultCh
 }
 
-func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) *types.Block {
+func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
 	engine.Prepare(chain, header)
-	state, _ := chain.StateAt(parent.Root())
+	state, err := chain.StateAt(parent.Root())
 	block, _ := engine.Finalize(chain, header, state, nil, nil, nil)
-	return block
+
+	// Write state changes to db
+	root, err := state.Commit(chain.Config().IsEIP158(block.Header().Number))
+	if err != nil {
+		return nil, fmt.Errorf("state write error: %v", err)
+	}
+	if err := state.Database().TrieDB().Commit(root, false); err != nil {
+		return nil, fmt.Errorf("trie write error: %v", err)
+	}
+
+	return block, nil
 }
 
 func TestPrepare(t *testing.T) {
@@ -314,29 +279,36 @@ func TestVerifySeal(t *testing.T) {
 /* The logic of this needs to change with respect of Soma */
 func TestVerifyHeaders(t *testing.T) {
 	chain, engine := newBlockChain(1)
-	genesis := chain.Genesis()
 
 	// success case
 	headers := []*types.Header{}
 	blocks := []*types.Block{}
 	size := 100
 
+	var err error
 	for i := 0; i < size; i++ {
 		var b *types.Block
 		if i == 0 {
-			b = makeBlockWithoutSeal(chain, engine, genesis)
-			b, _ = engine.updateBlock(genesis.Header(), b)
+			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
 		} else {
-			b = makeBlockWithoutSeal(chain, engine, blocks[i-1])
-			b, _ = engine.updateBlock(blocks[i-1].Header(), b)
+			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
 		}
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		b, _ = engine.updateBlock(engine.blockchain.GetHeader(b.ParentHash(), b.NumberU64()-1), b)
+
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
 	}
+
 	now = func() time.Time {
 		return time.Unix(headers[size-1].Time.Int64(), 0)
 	}
+
 	_, results := engine.VerifyHeaders(chain, headers, nil)
+
 	const timeoutDura = 2 * time.Second
 	timeout := time.NewTimer(timeoutDura)
 	index := 0
@@ -359,6 +331,7 @@ OUT1:
 			break OUT1
 		}
 	}
+
 	// abort cases
 	abort, results := engine.VerifyHeaders(chain, headers, nil)
 	timeout = time.NewTimer(timeoutDura)
@@ -392,6 +365,7 @@ OUT2:
 	index = 0
 	errors := 0
 	expectedErrors := 2
+
 OUT3:
 	for {
 		select {
