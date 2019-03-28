@@ -18,6 +18,7 @@ package backend
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -33,13 +34,15 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
 func newBlockChain(n int) (*core.BlockChain, *backend) {
-	genesis, nodeKeys := GetGenesisAndKeys(n)
+	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
 	config := istanbul.DefaultConfig
 	// Use the first key as private key
@@ -66,6 +69,49 @@ func newBlockChain(n int) (*core.BlockChain, *backend) {
 	}
 
 	return blockchain, b
+}
+
+func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
+	// Setup validators
+	var nodeKeys = make([]*ecdsa.PrivateKey, n)
+	var addrs = make([]common.Address, n)
+	for i := 0; i < n; i++ {
+		nodeKeys[i], _ = crypto.GenerateKey()
+		addrs[i] = crypto.PubkeyToAddress(nodeKeys[i].PublicKey)
+	}
+
+	// generate genesis block
+	genesis := core.DefaultGenesisBlock()
+	genesis.Config = params.TestChainConfig
+	// force enable Istanbul engine
+	genesis.Config.Istanbul = &params.IstanbulConfig{}
+	genesis.Config.Ethash = nil
+	genesis.Difficulty = defaultDifficulty
+	genesis.Nonce = emptyNonce.Uint64()
+	genesis.Mixhash = types.IstanbulDigest
+
+	appendValidators(genesis, addrs)
+	return genesis, nodeKeys
+}
+
+func appendValidators(genesis *core.Genesis, addrs []common.Address) {
+
+	if len(genesis.ExtraData) < types.IstanbulExtraVanity {
+		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)...)
+	}
+	genesis.ExtraData = genesis.ExtraData[:types.IstanbulExtraVanity]
+
+	ist := &types.IstanbulExtra{
+		Validators:    addrs,
+		Seal:          []byte{},
+		CommittedSeal: [][]byte{},
+	}
+
+	istPayload, err := rlp.EncodeToBytes(&ist)
+	if err != nil {
+		panic("failed to encode istanbul extra")
+	}
+	genesis.ExtraData = append(genesis.ExtraData, istPayload...)
 }
 
 func makeHeader(parent *types.Block, config *istanbul.Config) *types.Header {
