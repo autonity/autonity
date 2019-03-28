@@ -207,7 +207,7 @@ OUTER:
 
 		// check signatures large than 2F+1
 		signedCount := 0
-		committedSeals := v0.committedMsgs[0].committedSeals
+		committedSeals := v0.GetCommittedMsg(0).committedSeals
 		for _, validator := range r0.valSet.List() {
 			for _, seal := range committedSeals {
 				if bytes.Equal(validator.Address().Bytes(), seal[:common.AddressLength]) {

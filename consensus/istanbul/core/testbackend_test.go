@@ -19,6 +19,7 @@ package core
 import (
 	"crypto/ecdsa"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -41,6 +42,7 @@ type testSystemBackend struct {
 	events *event.TypeMux
 
 	committedMsgs []testCommittedMsgs
+	msgMutex      sync.RWMutex
 	sentMsgs      [][]byte // store the message when Send is called by core
 
 	address common.Address
@@ -69,6 +71,26 @@ func (self *testSystemBackend) EventMux() *event.TypeMux {
 	return self.events
 }
 
+func (self *testSystemBackend) LenCommittedMsgs() int {
+	self.msgMutex.RLock()
+	defer self.msgMutex.RUnlock()
+	return len(self.committedMsgs)
+}
+
+func (self *testSystemBackend) GetCommittedMsg(i int) testCommittedMsgs {
+	self.msgMutex.RLock()
+	defer self.msgMutex.RUnlock()
+	return self.committedMsgs[i]
+}
+
+func (self *testSystemBackend) AddCommittedMsg(msg testCommittedMsgs) []testCommittedMsgs {
+	self.msgMutex.Lock()
+	defer self.msgMutex.Unlock()
+	self.committedMsgs = append(self.committedMsgs, msg)
+
+	return self.committedMsgs
+}
+
 func (self *testSystemBackend) Send(message []byte, target common.Address) error {
 	testLogger.Info("enqueuing a message...", "address", self.Address())
 	self.sentMsgs = append(self.sentMsgs, message)
@@ -94,7 +116,7 @@ func (self *testSystemBackend) Gossip(valSet istanbul.ValidatorSet, message []by
 
 func (self *testSystemBackend) Commit(proposal istanbul.Proposal, seals [][]byte) error {
 	testLogger.Info("commit message", "address", self.Address())
-	self.committedMsgs = append(self.committedMsgs, testCommittedMsgs{
+	self.AddCommittedMsg(testCommittedMsgs{
 		commitProposal: proposal,
 		committedSeals: seals,
 	})
@@ -136,9 +158,9 @@ func (self *testSystemBackend) HasBadProposal(hash common.Hash) bool {
 }
 
 func (self *testSystemBackend) LastProposal() (istanbul.Proposal, common.Address) {
-	l := len(self.committedMsgs)
+	l := self.LenCommittedMsgs()
 	if l > 0 {
-		return self.committedMsgs[l-1].commitProposal, common.Address{}
+		return self.GetCommittedMsg(l-1).commitProposal, common.Address{}
 	}
 	return makeBlock(0), common.Address{}
 }

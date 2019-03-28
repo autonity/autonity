@@ -57,7 +57,7 @@ func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Databas
 		log.Info("User specified Validator smart contract set")
 	}
 
-	config.ProposerPolicy = istanbul.ProposerPolicy(chainConfig.Istanbul.ProposerPolicy)
+	config.SetProposerPolicy(istanbul.ProposerPolicy(chainConfig.Istanbul.ProposerPolicy))
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
@@ -123,10 +123,11 @@ func (sb *backend) Address() common.Address {
 
 func (sb *backend) Validators(number uint64) istanbul.ValidatorSet {
 	validators, err := sb.retrieveSavedValidators(number, sb.blockchain)
+	proposerPolicy := sb.config.GetProposerPolicy()
 	if err != nil {
-		return validator.NewSet(nil, sb.config.ProposerPolicy)
+		return validator.NewSet(nil, proposerPolicy)
 	}
-	return validator.NewSet(validators, sb.config.ProposerPolicy)
+	return validator.NewSet(validators, proposerPolicy)
 }
 
 // Broadcast implements istanbul.Backend.Broadcast
