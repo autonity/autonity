@@ -270,7 +270,7 @@ func (w *worker) start() {
 	if istanbul, ok := w.engine.(consensus.Istanbul); ok {
 		err := istanbul.Start(w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
 		if err != nil {
-			log.Error("Error starting Consensus Engine")
+			log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock())
 		}
 	}
 
