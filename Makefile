@@ -37,6 +37,9 @@ ios:
 test: all
 	build/env.sh go run build/ci.go test
 
+test-race: all
+	build/env.sh go run build/ci.go test -race
+
 lint: ## Run linters.
 	build/env.sh go run build/ci.go lint
 
