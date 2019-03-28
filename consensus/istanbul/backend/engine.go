@@ -19,7 +19,6 @@ package backend
 import (
 	"bytes"
 	"errors"
-	"github.com/clearmatics/autonity/core"
 	"math/big"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/istanbul"
 	istanbulCore "github.com/clearmatics/autonity/consensus/istanbul/core"
 	"github.com/clearmatics/autonity/consensus/istanbul/validator"
+	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"

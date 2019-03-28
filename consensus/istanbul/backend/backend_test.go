@@ -19,15 +19,16 @@ package backend
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/istanbul"
 	"github.com/clearmatics/autonity/consensus/istanbul/validator"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
-	"sort"
-	"strings"
-	"testing"
-	"time"
 )
 
 func TestSign(t *testing.T) {
