@@ -5,7 +5,8 @@ matrix:
   include:
 
     # These are the latest Go versions.
-    - os: linux
+    - if: type = pull_request
+      os: linux
       dist: trusty
       sudo: required
       go: 1.12.x
