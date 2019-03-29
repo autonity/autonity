@@ -29,13 +29,13 @@ import (
 	"github.com/clearmatics/autonity/consensus/istanbul/validator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/params"
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru"
 )
 
 const (

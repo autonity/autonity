@@ -19,6 +19,7 @@ package clique
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"fmt"
 	"sort"
 	"testing"
 
@@ -246,10 +247,10 @@ func TestClique(t *testing.T) {
 			// Votes from deauthorized signers are discarded immediately (auth votes)
 			signers: []string{"A", "B", "C"},
 			votes: []testerVote{
-				{signer: "C", voted: "B", auth: false},
+				{signer: "C", voted: "D", auth: true},
 				{signer: "A", voted: "C", auth: false},
 				{signer: "B", voted: "C", auth: false},
-				{signer: "A", voted: "B", auth: false},
+				{signer: "A", voted: "D", auth: true},
 			},
 			results: []string{"A", "B"},
 		}, {
@@ -378,6 +379,7 @@ func TestClique(t *testing.T) {
 	}
 	// Run through the scenarios and test them
 	for i, tt := range tests {
+		fmt.Printf("\n\n\n")
 		// Create the account pool and generate the initial set of signers
 		accounts := newTesterAccountPool()
 
@@ -392,27 +394,37 @@ func TestClique(t *testing.T) {
 				}
 			}
 		}
-		// Create the genesis block with the initial set of signers
-		genesis := &core.Genesis{
-			ExtraData: make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal),
-		}
-		for j, signer := range signers {
-			copy(genesis.ExtraData[extraVanity+j*common.AddressLength:], signer[:])
-		}
-		// Create a pristine blockchain with the genesis injected
-		db := ethdb.NewMemDatabase()
-		genesis.Commit(db)
 
-		// Assemble a chain of headers from the cast votes
-		config := *params.TestChainConfig
+		// Create the genesis block with the initial set of signers
+		var (
+			db      = ethdb.NewMemDatabase()
+			config  = params.TestChainConfig
+			genSpec = &core.Genesis{Config: config}
+		)
+		genSpec.ExtraData = make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal)
+		genSpec.Config.EnodeWhitelist = []string{"enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"}
+		for j, signer := range signers {
+			copy(genSpec.ExtraData[extraVanity+j*common.AddressLength:], signer[:])
+		}
+
 		config.Clique = &params.CliqueConfig{
 			Period: 1,
 			Epoch:  tt.epoch,
 		}
+
+		genesis := genSpec.MustCommit(db)
+
+		// Assemble a chain of headers from the cast votes
 		engine := New(config.Clique, db)
 		engine.fakeDiff = true
 
-		blocks, _ := core.GenerateChain(&config, genesis.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen) {
+		chain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil)
+		if err != nil {
+			t.Fatalf("test %d: failed to create test chain: %v", i, err)
+			continue
+		}
+
+		blocks, _ := core.GenerateChain(genSpec.Config, genesis, engine, db, len(tt.votes), func(j int, gen *core.BlockGen) {
 			// Cast the vote contained in this block
 			gen.SetCoinbase(accounts.address(tt.votes[j].voted))
 			if tt.votes[j].auth {
@@ -421,6 +433,7 @@ func TestClique(t *testing.T) {
 				gen.SetNonce(nonce)
 			}
 		})
+
 		// Iterate through the blocks and seal them individually
 		for j, block := range blocks {
 			// Autonity the header and prepare it for signing
@@ -439,6 +452,7 @@ func TestClique(t *testing.T) {
 			accounts.sign(header, tt.votes[j].signer)
 			blocks[j] = block.WithSeal(header)
 		}
+
 		// Split the blocks up into individual import batches (cornercase testing)
 		batches := [][]*types.Block{nil}
 		for j, block := range blocks {
@@ -447,25 +461,23 @@ func TestClique(t *testing.T) {
 			}
 			batches[len(batches)-1] = append(batches[len(batches)-1], block)
 		}
+
 		// Pass all the headers through clique and ensure tallying succeeds
-		chain, err := core.NewBlockChain(db, nil, &config, engine, vm.Config{}, nil)
-		if err != nil {
-			t.Errorf("test %d: failed to create test chain: %v", i, err)
-			continue
-		}
 		failed := false
 		for j := 0; j < len(batches)-1; j++ {
-			if k, err := chain.InsertChain(batches[j]); err != nil {
-				t.Errorf("test %d: failed to import batch %d, block %d: %v", i, j, k, err)
+			k, err := chain.InsertChain(batches[j])
+			if err != nil && tt.failure != errRecentlySigned {
+				t.Fatalf("test %d: failed to import batch %d, block %d: %v", i, j, k, err)
 				failed = true
 				break
 			}
 		}
+
 		if failed {
 			continue
 		}
 		if _, err = chain.InsertChain(batches[len(batches)-1]); err != tt.failure {
-			t.Errorf("test %d: failure mismatch: have %v, want %v", i, err, tt.failure)
+			t.Fatalf("test %d: failure mismatch: have %v, want %v", i, err, tt.failure)
 		}
 		if tt.failure != nil {
 			continue
@@ -475,7 +487,7 @@ func TestClique(t *testing.T) {
 
 		snap, err := engine.snapshot(chain, head.NumberU64(), head.Hash(), nil)
 		if err != nil {
-			t.Errorf("test %d: failed to retrieve voting snapshot: %v", i, err)
+			t.Fatalf("test %d: failed to retrieve voting snapshot: %v", i, err)
 			continue
 		}
 		// Verify the final list of signers against the expected ones
@@ -492,12 +504,12 @@ func TestClique(t *testing.T) {
 		}
 		result := snap.signers()
 		if len(result) != len(signers) {
-			t.Errorf("test %d: signers mismatch: have %x, want %x", i, result, signers)
+			t.Fatalf("test %d: signers mismatch: have %x, want %x", i, result, signers)
 			continue
 		}
 		for j := 0; j < len(result); j++ {
 			if !bytes.Equal(result[j][:], signers[j][:]) {
-				t.Errorf("test %d, signer %d: signer mismatch: have %x, want %x", i, j, result[j], signers[j])
+				t.Fatalf("test %d, signer %d: signer mismatch: have %x, want %x", i, j, result[j], signers[j])
 			}
 		}
 	}

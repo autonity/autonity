@@ -949,7 +949,13 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	}
 
 	// Call network permissioning logic before committing the state
-	bc.updateEnodesWhitelist(state, block)
+	if bc.chainConfig.Istanbul != nil {
+		err = bc.updateEnodesWhitelist(state, block)
+		if err != nil && err != GlienickeContractError {
+			return NonStatTy, err
+		}
+	}
+
 	rawdb.WriteBlock(bc.db, block)
 
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))

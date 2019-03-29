@@ -171,7 +171,7 @@ func checkPropagation(t *testing.T) {
 	}
 
 	const cycle = 100
-	const iterations = 100
+	const iterations = 200
 
 	for j := 0; j < iterations; j++ {
 		time.Sleep(cycle * time.Millisecond)

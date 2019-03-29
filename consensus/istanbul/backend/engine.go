@@ -19,7 +19,6 @@ package backend
 import (
 	"bytes"
 	"errors"
-	"github.com/clearmatics/autonity/core"
 	"math/big"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/istanbul"
 	istanbulCore "github.com/clearmatics/autonity/consensus/istanbul/core"
 	"github.com/clearmatics/autonity/consensus/istanbul/validator"
+	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -36,7 +36,7 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/clearmatics/autonity/rpc"
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -345,6 +345,21 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
 
+	validators, err := sb.getValidators(header, chain, state)
+	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
+	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	header.UncleHash = nilUncleHash
+
+	// add validators to extraData's validators section
+	if header.Extra, err = prepareExtra(header, validators); err != nil {
+		return nil, err
+	}
+
+	// Assemble and return the final block for sealing
+	return types.NewBlock(header, txs, nil, receipts), nil
+}
+
+func (sb *backend) getValidators(header *types.Header, chain consensus.ChainReader, state *state.StateDB) ([]common.Address, error) {
 	var validators []common.Address
 	var err error
 	if header.Number.Int64() == 1 {
@@ -355,7 +370,11 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 			return nil, err
 		}
 		sb.somaContract = contractAddress
-		validators, _ = sb.retrieveSavedValidators(1, chain)
+		validators, err = sb.retrieveSavedValidators(1, chain)
+		if err != nil {
+			return nil, err
+		}
+
 		// Deploy Glienicke network-permissioning contract
 		_, err = sb.blockchain.DeployGlienickeContract(state, header)
 		if err != nil {
@@ -371,19 +390,8 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 		if err != nil {
 			return nil, err
 		}
-
 	}
-	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
-	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	header.UncleHash = nilUncleHash
-
-	// add validators to extraData's validators section
-	if header.Extra, err = prepareExtra(header, validators); err != nil {
-		return nil, err
-	}
-
-	// Assemble and return the final block for sealing
-	return types.NewBlock(header, txs, nil, receipts), nil
+	return validators, err
 }
 
 // Seal generates a new block for the given input block with the local miner's

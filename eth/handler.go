@@ -132,7 +132,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		quitSync:    make(chan struct{}),
 		engine:      engine,
 		openNetwork: openNetwork,
-		glienickeCh: make(chan core.GlienickeEvent),
+		glienickeCh: make(chan core.GlienickeEvent, 64),
 	}
 
 	if handler, ok := manager.engine.(consensus.Handler); ok {
@@ -258,7 +258,9 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
-	pm.glienickeSub.Unsubscribe() // quits glienickeEventLoop
+	if !pm.openNetwork {
+		pm.glienickeSub.Unsubscribe() // quits glienickeEventLoop
+	}
 
 	// Quit the sync loop.
 	// After this send has completed, no new peers will be accepted.
@@ -331,7 +333,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		}
 		pm.enodesWhitelistLock.RUnlock()
 		if !whitelisted && p.td.Uint64() <= head.Number.Uint64() + 1 {
-			p.Log().Info("Dropping unauthorized peer with old TD.")
+			p.Log().Info("Dropping unauthorized peer with old TD.", "enode", p.Node().ID())
 			return errUnauthaurizedPeer
 		}
 		// Todo : pause relaying if not whitelisted until full sync

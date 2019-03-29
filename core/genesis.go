@@ -281,8 +281,13 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	enodeWhiteList := make([]*enode.Node,0, len(g.Config.EnodeWhitelist))
-	for _, enodeString := range g.Config.EnodeWhitelist {
+	config := g.Config
+	if config == nil {
+		config = params.AllEthashProtocolChanges
+	}
+
+	enodeWhiteList := make([]*enode.Node, 0, len(config.EnodeWhitelist))
+	for _, enodeString := range config.EnodeWhitelist {
 		log.Info("Genesis Authorized Enode", "enode", enodeString)
 		newEnode, err := enode.ParseV4(enodeString)
 		if err != nil {
@@ -290,11 +295,11 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 		}
 		enodeWhiteList = append(enodeWhiteList, newEnode)
 	}
-	rawdb.WriteEnodeWhitelist(db, enodeWhiteList)
-	config := g.Config
-	if config == nil {
-		config = params.AllEthashProtocolChanges
+
+	if len(enodeWhiteList) != 0 {
+		rawdb.WriteEnodeWhitelist(db, enodeWhiteList)
 	}
+
 	rawdb.WriteChainConfig(db, block.Hash(), config)
 	return block, nil
 }

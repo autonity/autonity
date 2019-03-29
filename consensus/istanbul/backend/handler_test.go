@@ -23,7 +23,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/istanbul"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rlp"
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru"
 )
 
 func TestIstanbulMessage(t *testing.T) {
