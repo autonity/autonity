@@ -253,7 +253,7 @@ func (sb *backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 	if err != nil {
 		return err
 	}
-	validators := validator.NewSet(validatorAddresses, sb.config.ProposerPolicy)
+	validators := validator.NewSet(validatorAddresses, sb.config.GetProposerPolicy())
 
 	extra, err := types.ExtractIstanbulExtra(header)
 	if err != nil {

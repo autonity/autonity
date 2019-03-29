@@ -38,7 +38,7 @@ func New(backend istanbul.Backend, config *istanbul.Config) Engine {
 		config:             config,
 		address:            backend.Address(),
 		state:              StateAcceptRequest,
-		handlerWg:          new(sync.WaitGroup),
+		handlerStopCh:      make(chan struct{}),
 		logger:             log.New("address", backend.Address()),
 		backend:            backend,
 		backlogs:           make(map[istanbul.Validator]*prque.Prque),
@@ -75,11 +75,12 @@ type core struct {
 	backlogs   map[istanbul.Validator]*prque.Prque
 	backlogsMu *sync.Mutex
 
-	current   *roundState
-	handlerWg *sync.WaitGroup
+	current       *roundState
+	handlerStopCh chan struct{}
 
-	roundChangeSet   *roundChangeSet
-	roundChangeTimer *time.Timer
+	roundChangeSet     *roundChangeSet
+	roundChangeTimer   *time.Timer
+	roundChangeTimerMu sync.RWMutex
 
 	pendingRequests   *prque.Prque
 	pendingRequestsMu *sync.Mutex
@@ -311,6 +312,9 @@ func (c *core) stopFuturePreprepareTimer() {
 
 func (c *core) stopTimer() {
 	c.stopFuturePreprepareTimer()
+
+	c.roundChangeTimerMu.RLock()
+	defer c.roundChangeTimerMu.RUnlock()
 	if c.roundChangeTimer != nil {
 		c.roundChangeTimer.Stop()
 	}
@@ -326,6 +330,8 @@ func (c *core) newRoundChangeTimer() {
 		timeout += time.Duration(math.Pow(2, float64(round))) * time.Second
 	}
 
+	c.roundChangeTimerMu.Lock()
+	defer c.roundChangeTimerMu.Unlock()
 	c.roundChangeTimer = time.AfterFunc(timeout, func() {
 		c.sendEvent(timeoutEvent{})
 	})

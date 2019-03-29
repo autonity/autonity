@@ -257,7 +257,7 @@ func checkPropagation(t *testing.T, includingNodeZero bool) {
 	prevTime = time.Now()
 	// (cycle * iterations) should not exceed 50 seconds, since TTL=50
 	const cycle = 200 // time in milliseconds
-	const iterations = 250
+	const iterations = 400
 
 	first := 0
 	if !includingNodeZero {

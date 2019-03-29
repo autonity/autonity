@@ -65,14 +65,14 @@ func TestNewRequest(t *testing.T) {
 	<-time.After(1 * time.Second)
 
 	for _, backend := range sys.backends {
-		if len(backend.committedMsgs) != 2 {
-			t.Errorf("the number of executed requests mismatch: have %v, want 2", len(backend.committedMsgs))
+		if backend.LenCommittedMsgs() != 2 {
+			t.Errorf("the number of executed requests mismatch: have %v, want 2", backend.LenCommittedMsgs())
 		}
-		if !reflect.DeepEqual(request1.Number(), backend.committedMsgs[0].commitProposal.Number()) {
-			t.Errorf("the number of requests mismatch: have %v, want %v", request1.Number(), backend.committedMsgs[0].commitProposal.Number())
+		if !reflect.DeepEqual(request1.Number(), backend.GetCommittedMsg(0).commitProposal.Number()) {
+			t.Errorf("the number of requests mismatch: have %v, want %v", request1.Number(), backend.GetCommittedMsg(0).commitProposal.Number())
 		}
-		if !reflect.DeepEqual(request2.Number(), backend.committedMsgs[1].commitProposal.Number()) {
-			t.Errorf("the number of requests mismatch: have %v, want %v", request2.Number(), backend.committedMsgs[1].commitProposal.Number())
+		if !reflect.DeepEqual(request2.Number(), backend.GetCommittedMsg(1).commitProposal.Number()) {
+			t.Errorf("the number of requests mismatch: have %v, want %v", request2.Number(), backend.GetCommittedMsg(1).commitProposal.Number())
 		}
 	}
 }
