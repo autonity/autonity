@@ -239,7 +239,7 @@ func (s *ProtocolSession) testExchange(e Exchange) error {
 	// time out globally or finish when all expectations satisfied
 	t := e.Timeout
 	if t == 0 {
-		t = 2000 * time.Millisecond
+		t = 4000 * time.Millisecond
 	}
 	alarm := time.NewTimer(t)
 	select {

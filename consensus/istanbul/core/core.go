@@ -78,9 +78,9 @@ type core struct {
 	current       *roundState
 	handlerStopCh chan struct{}
 
-	roundChangeSet   *roundChangeSet
-	roundChangeTimer *time.Timer
-	roundChangeMutex sync.RWMutex
+	roundChangeSet     *roundChangeSet
+	roundChangeTimer   *time.Timer
+	roundChangeTimerMu sync.RWMutex
 
 	pendingRequests   *prque.Prque
 	pendingRequestsMu *sync.Mutex
@@ -313,8 +313,8 @@ func (c *core) stopFuturePreprepareTimer() {
 func (c *core) stopTimer() {
 	c.stopFuturePreprepareTimer()
 
-	c.roundChangeMutex.RLock()
-	defer c.roundChangeMutex.RUnlock()
+	c.roundChangeTimerMu.RLock()
+	defer c.roundChangeTimerMu.RUnlock()
 	if c.roundChangeTimer != nil {
 		c.roundChangeTimer.Stop()
 	}
@@ -330,8 +330,8 @@ func (c *core) newRoundChangeTimer() {
 		timeout += time.Duration(math.Pow(2, float64(round))) * time.Second
 	}
 
-	c.roundChangeMutex.Lock()
-	defer c.roundChangeMutex.Unlock()
+	c.roundChangeTimerMu.Lock()
+	defer c.roundChangeTimerMu.Unlock()
 	c.roundChangeTimer = time.AfterFunc(timeout, func() {
 		c.sendEvent(timeoutEvent{})
 	})
