@@ -160,7 +160,7 @@ func (self *testSystemBackend) HasBadProposal(hash common.Hash) bool {
 func (self *testSystemBackend) LastProposal() (istanbul.Proposal, common.Address) {
 	l := self.LenCommittedMsgs()
 	if l > 0 {
-		return self.GetCommittedMsg(l-1).commitProposal, common.Address{}
+		return self.GetCommittedMsg(l - 1).commitProposal, common.Address{}
 	}
 	return makeBlock(0), common.Address{}
 }

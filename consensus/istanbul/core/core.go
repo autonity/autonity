@@ -75,8 +75,8 @@ type core struct {
 	backlogs   map[istanbul.Validator]*prque.Prque
 	backlogsMu *sync.Mutex
 
-	current           *roundState
-	handlerStopCh     chan struct{}
+	current       *roundState
+	handlerStopCh chan struct{}
 
 	roundChangeSet   *roundChangeSet
 	roundChangeTimer *time.Timer
