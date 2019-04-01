@@ -3,7 +3,7 @@ go_import_path: github.com/clearmatics/autonity
 sudo: false
 matrix:
   include:
-  - if: type = pull_request
+  - if: branch = master OR type = pull_request
     os: linux
     dist: trusty
     sudo: required
