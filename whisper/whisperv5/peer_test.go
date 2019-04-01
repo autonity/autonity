@@ -170,7 +170,7 @@ func checkPropagation(t *testing.T) {
 		return
 	}
 
-	const cycle = 200
+	const cycle = 300
 	const iterations = 400
 
 	for j := 0; j < iterations; j++ {
@@ -249,7 +249,7 @@ func sendMsg(t *testing.T, expected bool, id int) {
 		return
 	}
 
-	opt := MessageParams{KeySym: sharedKey, Topic: sharedTopic, Payload: expectedMessage, PoW: 0.00000001, WorkTime: 1}
+	opt := MessageParams{KeySym: sharedKey, Topic: sharedTopic, Payload: expectedMessage, PoW: 0.00000001, WorkTime: 1, TTL: 150}
 	if !expected {
 		opt.KeySym[0]++
 		opt.Topic[0]++

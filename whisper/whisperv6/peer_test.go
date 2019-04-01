@@ -256,7 +256,7 @@ func checkPropagation(t *testing.T, includingNodeZero bool) {
 
 	prevTime = time.Now()
 	// (cycle * iterations) should not exceed 50 seconds, since TTL=50
-	const cycle = 200 // time in milliseconds
+	const cycle = 300 // time in milliseconds
 	const iterations = 400
 
 	first := 0
@@ -367,7 +367,7 @@ func sendMsg(t *testing.T, expected bool, id int) {
 		return
 	}
 
-	opt := MessageParams{KeySym: sharedKey, Topic: sharedTopic, Payload: expectedMessage, PoW: 0.00000001, WorkTime: 1}
+	opt := MessageParams{KeySym: sharedKey, Topic: sharedTopic, Payload: expectedMessage, PoW: 0.00000001, WorkTime: 1, TTL: 150}
 	if !expected {
 		opt.KeySym = wrongKey
 		opt.Topic = wrongTopic
