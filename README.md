@@ -1,8 +1,7 @@
-[![Build Status](https://travis-ci.org/clearmatics/autonity.svg?branch=master)](https://travis-ci.org/clearmatics/autonity)
-
 ## Autonity
 
 [![Join the chat at https://gitter.im/clearmatics/autonity](https://badges.gitter.im/clearmatics/autonity.svg)](https://gitter.im/clearmatics/autonity?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Build Status](https://travis-ci.org/clearmatics/autonity.svg?branch=master)](https://travis-ci.org/clearmatics/autonity)
 
 Autonity is a generalization of the Ethereum protocol based on a fork of go-ethereum.
 
