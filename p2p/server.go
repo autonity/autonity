@@ -357,6 +357,20 @@ func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
 		for _, whitelistedEnode := range enodes {
 			if connectedPeer.Node().ID() == whitelistedEnode.ID() {
 				found = true
+			}
+
+			// if IP:Port are specified in a white list, we check them
+			if err := whitelistedEnode.ValidateComplete(); err == nil {
+				if !connectedPeer.Node().IP().Equal(whitelistedEnode.IP()) {
+					found = false
+				}
+
+				if connectedPeer.Node().UDP() != whitelistedEnode.UDP() {
+					found = false
+				}
+			}
+
+			if found {
 				break
 			}
 		}
@@ -507,8 +521,7 @@ func (srv *Server) Start() (err error) {
 		// Static nodes logic is used to handle the Glienicke returned Whitelist and will be populated via the eth service.
 		log.Info("Private-network mode enabled.")
 		srv.NoDiscovery = true
-		srv.StaticNodes = nil
-		dialer = newDialState(srv.localnode.ID(), nil, nil, nil, 0, srv.NetRestrict)
+		dialer = newDialState(srv.localnode.ID(), srv.StaticNodes, nil, nil, 0, srv.NetRestrict)
 	}
 	srv.loopWG.Add(1)
 	go srv.run(dialer)

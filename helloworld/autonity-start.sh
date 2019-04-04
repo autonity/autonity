@@ -15,6 +15,7 @@ $AUTONITY init --datadir $DATADIR genesis.json
 
 # start the node with the keystore and nodekey
 echo "Autonity START"
+cp ./static-nodes.json $DATADIR
 $AUTONITY \
   --datadir $DATADIR \
   --nodekey $NODEKEY \
@@ -25,5 +26,5 @@ $AUTONITY \
   --rpcapi "$RPC_API" \
   --rpccorsdomain "*" \
   --syncmode "full" \
-  --minerthreads 1
+  --minerthreads 1 \
   --verbosity 4 --debug
