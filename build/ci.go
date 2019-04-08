@@ -284,6 +284,8 @@ func buildFlags(env build.Environment) (flags []string) {
 		ld = append(ld, "-s")
 	}
 
+	ld = append(ld, "-a")
+
 	if len(ld) > 0 {
 		flags = append(flags, "-ldflags", strings.Join(ld, " "))
 	}
