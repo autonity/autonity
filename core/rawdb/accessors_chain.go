@@ -45,12 +45,8 @@ func WriteCanonicalHash(db DatabaseWriter, hash common.Hash, number uint64) {
 }
 
 // WriteEnodeWhitelist stores the list of permitted enodes
-func WriteEnodeWhitelist(db DatabaseWriter, whitelist []*enode.Node) {
-	var whitelistStorage []string
-	for _, node := range whitelist {
-		whitelistStorage = append(whitelistStorage, node.String())
-	}
-	bytes, err := rlp.EncodeToBytes(whitelistStorage)
+func WriteEnodeWhitelist(db DatabaseWriter, whitelist []string) {
+	bytes, err := rlp.EncodeToBytes(whitelist)
 	if err != nil {
 		log.Crit("Failed to RLP encode enode whitelist", "err", err)
 	}
@@ -60,22 +56,26 @@ func WriteEnodeWhitelist(db DatabaseWriter, whitelist []*enode.Node) {
 }
 
 // ReadEnodeWhitelist retrieve the list of permitted enodes
-func ReadEnodeWhitelist(db DatabaseReader) []*enode.Node {
+func ReadEnodeWhitelist(db DatabaseReader) ([]*enode.Node, []string) {
 	whitelistStorage := make([]string, 0, 1)
 	data, _ := db.Get(enodeWhiteList)
 	if len(data) == 0 {
-		return nil
+		return nil, nil
 	}
 	if err := rlp.Decode(bytes.NewReader(data), &whitelistStorage); err != nil {
 		log.Error("Invalid Enode whitelist", "err", err)
-		return nil
+		return nil, nil
 	}
 	var whitelist []*enode.Node
 	for _, node := range whitelistStorage {
-		whitelist = append(whitelist, enode.MustParseV4(node))
+		enode, err := enode.ParseV4WithResolve(node)
+		if err != nil {
+			panic(err)
+		}
+		whitelist = append(whitelist, enode)
 	}
 
-	return whitelist
+	return whitelist, whitelistStorage
 }
 
 // DeleteCanonicalHash removes the number to hash canonical mapping.

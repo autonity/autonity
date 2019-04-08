@@ -528,8 +528,8 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	if !srvr.OpenNetwork {
 		// Subscribe to Glienicke updates events
 		s.glienickeSub = s.blockchain.SubscribeGlienickeEvent(s.glienickeCh)
-		savedList := rawdb.ReadEnodeWhitelist(s.chainDb)
-		log.Info("Reading Whitelist")
+		savedList, savedListStr := rawdb.ReadEnodeWhitelist(s.chainDb)
+		log.Info("Reading Whitelist", savedListStr)
 		for _, enode := range savedList {
 			log.Debug("saved enode", "enode", enode.String())
 		}

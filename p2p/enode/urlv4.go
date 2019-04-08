@@ -67,6 +67,10 @@ func MustParseV4(rawurl string) *Node {
 //
 //    enode://<hex node id>@10.3.58.6:30303?discport=30301
 func ParseV4(rawurl string) (*Node, error) {
+	return parseV4(rawurl, false)
+}
+
+func parseV4(rawurl string, resolve bool) (*Node, error) {
 	if m := incompleteNodeURL.FindStringSubmatch(rawurl); m != nil {
 		id, err := parsePubkey(m[1])
 		if err != nil {
@@ -74,7 +78,12 @@ func ParseV4(rawurl string) (*Node, error) {
 		}
 		return NewV4(id, nil, 0, 0), nil
 	}
-	return parseComplete(rawurl)
+
+	return parseComplete(rawurl, resolve)
+}
+
+func ParseV4WithResolve(rawurl string) (*Node, error) {
+	return parseV4(rawurl, true)
 }
 
 // NewV4 creates a node from discovery v4 node information. The record
@@ -98,7 +107,7 @@ func NewV4(pubkey *ecdsa.PublicKey, ip net.IP, tcp, udp int) *Node {
 	return n
 }
 
-func parseComplete(rawurl string) (*Node, error) {
+func parseComplete(rawurl string, resolve bool) (*Node, error) {
 	var (
 		id               *ecdsa.PublicKey
 		ip               net.IP
@@ -123,8 +132,25 @@ func parseComplete(rawurl string) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid host: %v", err)
 	}
+
 	if ip = net.ParseIP(host); ip == nil {
-		return nil, errors.New("invalid IP address")
+		if !resolve {
+			return nil, errors.New("invalid domain or IP address", )
+		}
+		// if host is not IPV4/6, resolve host is a domain
+
+		hostName, err := net.LookupHost(host)
+		if err != nil {
+			return nil, errors.New("invalid domain or IP address")
+		}
+		if len(hostName) > 0 {
+			host = hostName[0]
+		}
+
+		ip = net.ParseIP(host)
+		if ip == nil {
+			return nil, errors.New("invalid IP address")
+		}
 	}
 	// Ensure the IP is 4 bytes long for IPv4 addresses.
 	if ipv4 := ip.To4(); ipv4 != nil {

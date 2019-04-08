@@ -170,7 +170,10 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, constant
 			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.Commit(db)
-		return genesis.Config, block.Hash(), err
+		if err != nil {
+			return params.AllEthashProtocolChanges, common.Hash{}, err
+		}
+		return genesis.Config, block.Hash(), nil
 	}
 
 	// Check whether the genesis block is already written.
@@ -288,16 +291,17 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 
 	enodeWhiteList := make([]*enode.Node, 0, len(config.EnodeWhitelist))
 	for _, enodeString := range config.EnodeWhitelist {
-		log.Info("Genesis Authorized Enode", "enode", enodeString)
-		newEnode, err := enode.ParseV4(enodeString)
+		newEnode, err := enode.ParseV4WithResolve(enodeString)
 		if err != nil {
+			log.Error("enode parse error", "err", err, "enode", enodeString)
 			return nil, errGenesisBadWhitelist
 		}
+		log.Info("Genesis Authorized Enode", "enode", enodeString, "parsed", newEnode)
 		enodeWhiteList = append(enodeWhiteList, newEnode)
 	}
 
 	if len(enodeWhiteList) != 0 {
-		rawdb.WriteEnodeWhitelist(db, enodeWhiteList)
+		rawdb.WriteEnodeWhitelist(db, config.EnodeWhitelist)
 	}
 
 	rawdb.WriteChainConfig(db, block.Hash(), config)
