@@ -16,7 +16,6 @@ matrix:
     - sudo modprobe fuse
     - sudo chmod 666 /dev/fuse
     - sudo chown root:$USER /etc/fuse.conf
-    - sudo apk add libc-dev
     - go run build/ci.go install
     - go run build/ci.go test -coverage $TEST_PACKAGES
 notifications:
