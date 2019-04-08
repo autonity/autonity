@@ -9,7 +9,6 @@ services:
       - ./nodekey1:/nodekey:ro
       - ./keystore:/keystore:ro
       - ./genesis-ibft.json:/genesis.json:ro
-      - ./static-nodes.json:/static-nodes.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8541:8545
@@ -29,7 +28,6 @@ services:
       - ./nodekey2:/nodekey:ro
       - ./keystore:/keystore:ro
       - ./genesis-ibft.json:/genesis.json:ro
-      - ./static-nodes.json:/static-nodes.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8542:8545
@@ -49,7 +47,6 @@ services:
       - ./nodekey3:/nodekey:ro
       - ./keystore:/keystore:ro
       - ./genesis-ibft.json:/genesis.json:ro
-      - ./static-nodes.json:/static-nodes.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8543:8545
@@ -69,7 +66,6 @@ services:
       - ./nodekey4:/nodekey:ro
       - ./keystore:/keystore:ro
       - ./genesis-ibft.json:/genesis.json:ro
-      - ./static-nodes.json:/static-nodes.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8544:8545
@@ -89,7 +85,6 @@ services:
       - ./nodekey5:/nodekey:ro
       - ./keystore:/keystore:ro
       - ./genesis-ibft.json:/genesis.json:ro
-      - ./static-nodes.json:/static-nodes.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8545:8545
