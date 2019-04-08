@@ -119,7 +119,12 @@ drwx------ 2 clearmatics clearmatics 4.0K Feb 12 14:19 keystore
 There are two ways to update the validator set:
 
 1. Update the Soma and Glienicke smart contracts
-2. Change the `genesis-ibft.json` and update the `nodekey` files
+2. Update the `nodekey` files
+3. Change the `genesis-ibft.json`: `autonity update-validators ./PATH_TO_GENESIS ValidatorID1,ValidatorID2`:
+
+```
+autonity update-validators ./genesis-ibft.json 0x850c1eb8d190e05845ad7f84ac95a318c8aab07f,0x4ad219b58a5b46a1d9662beaa6a70db9f570dea5,0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d,0xc443c6c6ae98f5110702921138d840e77da67702
+```
 
 #### Update Glienicke and Soma contract
 

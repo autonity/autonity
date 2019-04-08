@@ -79,7 +79,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
 		// CheckValidatorSignature should succeed
-		addr, err := istanbul.CheckValidatorSignature(vset, data, sig)
+		addr, err := types.CheckValidatorSignature(vset, data, sig)
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
@@ -101,7 +101,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 	}
 
 	// CheckValidatorSignature should return ErrUnauthorizedAddress
-	addr, err := istanbul.CheckValidatorSignature(vset, data, sig)
+	addr, err := types.CheckValidatorSignature(vset, data, sig)
 	if err != istanbul.ErrUnauthorizedAddress {
 		t.Errorf("error mismatch: have %v, want %v", err, istanbul.ErrUnauthorizedAddress)
 	}

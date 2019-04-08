@@ -90,11 +90,11 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.IstanbulDigest
 
-	appendValidators(genesis, addrs)
+	AppendValidators(genesis, addrs)
 	return genesis, nodeKeys
 }
 
-func appendValidators(genesis *core.Genesis, addrs []common.Address) {
+func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 
 	if len(genesis.ExtraData) < types.IstanbulExtraVanity {
 		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)...)

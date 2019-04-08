@@ -18,6 +18,7 @@ package backend
 
 import (
 	"errors"
+	"github.com/clearmatics/autonity/core/types"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -55,7 +56,7 @@ func (sb *backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 			return true, errDecodeFailed
 		}
 
-		hash := istanbul.RLPHash(data)
+		hash := types.RLPHash(data)
 
 		// Mark peer's message
 		ms, ok := sb.recentMessages.Get(addr)

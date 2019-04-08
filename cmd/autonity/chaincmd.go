@@ -19,9 +19,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -167,6 +169,15 @@ Remove blockchain and state databases`,
 		Description: `
 The arguments are interpreted as block numbers or hashes.
 Use "ethereum dump 0" to dump the genesis block.`,
+	}
+	updateValidatorsCommand = cli.Command{
+		Action:    utils.MigrateFlags(updateValidators),
+		Name:      "update-validators",
+		Usage:     "Update validator list in the given genesis file",
+		ArgsUsage: "<genesisPath> <comma separated list of validators IDs>",
+		Category: "BLOCKCHAIN COMMANDS",
+		Description: `
+It expects the genesis file as argument. The second parameter should be in format ID1,ID2,ID3,...`,
 	}
 )
 
@@ -469,4 +480,47 @@ func dump(ctx *cli.Context) error {
 func hashish(x string) bool {
 	_, err := strconv.Atoi(x)
 	return err != nil
+}
+
+// updateValidators will update extraData in genesis file according to the provided list of validators
+func updateValidators(ctx *cli.Context) error {
+	// Make sure we have a valid genesis JSON
+	genesisPath := ctx.Args().First()
+	if len(genesisPath) == 0 {
+		utils.Fatalf("Must supply path to genesis JSON genesisData")
+	}
+	genesisData, err := ioutil.ReadFile(genesisPath)
+	if err != nil {
+		utils.Fatalf("Failed to read genesis: %v", err)
+	}
+
+	genesis := new(core.Genesis)
+	if err := json.Unmarshal(genesisData, genesis); err != nil {
+		utils.Fatalf("invalid genesis: %v", err)
+	}
+
+	addressListString := ctx.Args().Get(1)
+	addressList := strings.Split(strings.TrimSpace(addressListString), ",")
+	var validators []common.Address
+	for _, address := range addressList {
+		validators = append(validators, common.HexToAddress(address))
+	}
+
+	if genesis.ExtraData, err = types.PrepareExtra(&genesis.ExtraData, validators); err != nil {
+		utils.Fatalf("error while updating extraData field: %v", err)
+	}
+
+	genesisData, err = json.MarshalIndent(genesis, "", "\t")
+	if err != nil {
+		utils.Fatalf("json marshal error: %v", err)
+	}
+
+	err = ioutil.WriteFile(genesisPath, genesisData, 0666)
+	if err != nil {
+		utils.Fatalf("can't update genesis file: %v", err)
+	}
+
+	fmt.Println(common.Bytes2Hex(genesis.ExtraData))
+
+	return nil
 }
