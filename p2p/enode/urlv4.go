@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/crypto"
@@ -32,6 +33,7 @@ import (
 )
 
 var incompleteNodeURL = regexp.MustCompile("(?i)^(?:enode://)?([0-9a-f]+)$")
+const defaultPort = ":30303"
 
 // MustParseV4 parses a node URL. It panics if the URL is not valid.
 func MustParseV4(rawurl string) *Node {
@@ -126,6 +128,10 @@ func parseComplete(rawurl string, resolve bool) (*Node, error) {
 	}
 	if id, err = parsePubkey(u.User.String()); err != nil {
 		return nil, fmt.Errorf("invalid node ID (%v)", err)
+	}
+	if strings.LastIndex(u.Host, ":") == -1 {
+		//set default port
+		u.Host += defaultPort
 	}
 	// Parse the IP address.
 	host, port, err := net.SplitHostPort(u.Host)
