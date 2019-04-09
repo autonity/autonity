@@ -145,17 +145,12 @@ func parseComplete(rawurl string, resolve bool) (*Node, error) {
 		}
 		// if host is not IPV4/6, resolve host is a domain
 
-		hostName, err := net.LookupHost(host)
+		hostIPs, err := net.LookupIP(host)
 		if err != nil {
 			return nil, errors.New("invalid domain or IP address")
 		}
-		if len(hostName) > 0 {
-			host = hostName[0]
-		}
-
-		ip = net.ParseIP(host)
-		if ip == nil {
-			return nil, errors.New("invalid IP address")
+		if len(hostIPs) > 0 {
+			ip = hostIPs[0]
 		}
 	}
 	// Ensure the IP is 4 bytes long for IPv4 addresses.
