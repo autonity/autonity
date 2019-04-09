@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"strings"
 
@@ -284,27 +283,12 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	config := g.Config
-	if config == nil {
-		config = params.AllEthashProtocolChanges
+	if g.Config == nil {
+		g.Config = params.AllEthashProtocolChanges
 	}
 
-	enodeWhiteList := make([]*enode.Node, 0, len(config.EnodeWhitelist))
-	for _, enodeString := range config.EnodeWhitelist {
-		newEnode, err := enode.ParseV4WithResolve(enodeString)
-		if err != nil {
-			log.Error("enode parse error", "err", err, "enode", enodeString)
-			return nil, errGenesisBadWhitelist
-		}
-		log.Info("Genesis Authorized Enode", "enode", enodeString, "parsed", newEnode)
-		enodeWhiteList = append(enodeWhiteList, newEnode)
-	}
-
-	if len(enodeWhiteList) != 0 {
-		rawdb.WriteEnodeWhitelist(db, config.EnodeWhitelist)
-	}
-
-	rawdb.WriteChainConfig(db, block.Hash(), config)
+	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, false))
+	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }
 

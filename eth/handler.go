@@ -207,7 +207,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		return manager.blockchain.InsertChain(blocks)
 	}
 	manager.fetcher = fetcher.New(blockchain.GetBlockByHash, validator, manager.BroadcastBlock, heighter, inserter, manager.removePeer)
-	manager.enodesWhitelist, _ = rawdb.ReadEnodeWhitelist(chaindb)
+	manager.enodesWhitelist = rawdb.ReadEnodeWhitelist(chaindb).List
 	return manager, nil
 }
 
