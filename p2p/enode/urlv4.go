@@ -141,7 +141,7 @@ func parseComplete(rawurl string, resolve bool) (*Node, error) {
 
 	if ip = net.ParseIP(host); ip == nil {
 		if !resolve {
-			return nil, errors.New("invalid domain or IP address", )
+			return nil, errors.New("invalid IP address", )
 		}
 		// if host is not IPV4/6, resolve host is a domain
 
