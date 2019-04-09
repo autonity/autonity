@@ -364,10 +364,6 @@ func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
 				if !connectedPeer.Node().IP().Equal(whitelistedEnode.IP()) {
 					found = false
 				}
-
-				if connectedPeer.Node().UDP() != whitelistedEnode.UDP() {
-					found = false
-				}
 			}
 
 			if found {
