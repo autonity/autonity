@@ -34,16 +34,18 @@ func NewNodes(strList []string, openNetwork bool) *Nodes {
 	return n
 }
 
-var cache = &domainCache{}
+var cache = &domainCache{m:make(map[string]resolvedNode)}
 
 const defaultTTL = 20
 
 type domainCache struct {
-	m map[string] *struct {
-		node *enode.Node
-		count int
-	}
+	m map[string]resolvedNode
 	sync.RWMutex
+}
+
+type resolvedNode struct {
+	node *enode.Node
+	count int
 }
 
 func (c *domainCache) Get(enodeStr string, getter func(string) (*enode.Node, error)) (*enode.Node, error) {
@@ -58,7 +60,8 @@ func (c *domainCache) Get(enodeStr string, getter func(string) (*enode.Node, err
 			return nil, err
 		}
 		c.Lock()
-		node.node = n
+		node = resolvedNode{node: n}
+		c.m[enodeStr] = node
 		c.Unlock()
 	}
 
@@ -66,7 +69,7 @@ func (c *domainCache) Get(enodeStr string, getter func(string) (*enode.Node, err
 	node.count++
 	if node.count >= defaultTTL {
 		// reset the cache if TTL is reached
-		c.m[enodeStr] = nil
+		delete(c.m, enodeStr)
 	}
 	c.Unlock()
 	return node.node, nil
