@@ -154,7 +154,7 @@ export AUTONITY_VALIDATORS=0x850c1eb8d190e05845ad7f84ac95a318c8aab07f,0x4ad219b5
 autonity update-validators
 ```
 
-If the first parameter(genesis path) or variable `AUTONITY_GENESIS` are not specified, genesis will be not updated and only the `ExtraData` will be printed.
+If the first parameter(genesis path) or variable `AUTONITY_GENESIS` is not specified, Genesis will be not updated and only the `ExtraData` will be printed.
 
 ### What are the keystore passwords?
 
