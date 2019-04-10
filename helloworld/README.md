@@ -140,7 +140,7 @@ It is possible update the set of validators by updating the genesis file and the
 
 1. Update the `nodekey1` file (or 2,3,4) with the private key of the validator
 2. Update the `enodeWhitelist` property in the genesis file
-3. Update the `extra-data` property in the genesis file by encoding it with the cli command `autonity update-validators ./PATH_TO_GENESIS ValidatorID1,ValidatorID2`:
+3. Update the `extra-data` property in the genesis file by encoding it with the cli command `autonity update-validators PATH_TO_GENESIS ValidatorID1,ValidatorID2`:
 
 ```
 autonity update-validators genesis-ibft.json 0x850c1eb8d190e05845ad7f84ac95a318c8aab07f,0x4ad219b58a5b46a1d9662beaa6a70db9f570dea5,0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d,0xc443c6c6ae98f5110702921138d840e77da67702
