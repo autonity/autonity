@@ -144,6 +144,8 @@ It is possible update the set of validators by updating the genesis file and the
 * with domain instead of IP `enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@domain.com:30303`
 * any of the above without port `enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@domain.com`
 
+By default, if it's not specified port `30303` will be used.
+
 ### What are the keystore passwords?
 
 All the keystores use the same password: `test` (*please do not use in any production enviroment*)
