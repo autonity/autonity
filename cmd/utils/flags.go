@@ -650,6 +650,16 @@ var (
 		Usage: "Default minimum difference between two consecutive block's timestamps in seconds",
 		Value: eth.DefaultConfig.Istanbul.BlockPeriod,
 	}
+	GenesisFlag = cli.StringFlag{
+		Name:   "genesis",
+		EnvVar: "AUTONITY_GENESIS",
+		Usage:  "a path to genesis file",
+	}
+	UpdateValidatorsFlag = cli.StringSliceFlag{
+		Name:   "validators",
+		EnvVar: "AUTONITY_VALIDATORS",
+		Usage:  "a new list of validators",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating

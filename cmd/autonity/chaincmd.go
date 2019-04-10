@@ -175,6 +175,10 @@ Use "ethereum dump 0" to dump the genesis block.`,
 		Name:      "update-validators",
 		Usage:     "Update validator list in the given genesis file",
 		ArgsUsage: "<genesisPath> <comma separated list of validators IDs>",
+		Flags: []cli.Flag{
+			utils.GenesisFlag,
+			utils.UpdateValidatorsFlag,
+		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
 It expects the genesis file as argument. The second parameter should be in format ID1,ID2,ID3,...`,
@@ -487,8 +491,13 @@ func updateValidators(ctx *cli.Context) error {
 	// Make sure we have a valid genesis JSON
 	genesisPath := ctx.Args().First()
 	if len(genesisPath) == 0 {
-		utils.Fatalf("Must supply path to genesis JSON genesisData")
+		genesisPath = ctx.String("genesis")
+
+		if len(genesisPath) == 0 {
+			utils.Fatalf("Must supply path to genesis JSON genesisData")
+		}
 	}
+
 	genesisData, err := ioutil.ReadFile(genesisPath)
 	if err != nil {
 		utils.Fatalf("Failed to read genesis: %v", err)
@@ -499,8 +508,18 @@ func updateValidators(ctx *cli.Context) error {
 		utils.Fatalf("invalid genesis: %v", err)
 	}
 
-	addressListString := ctx.Args().Get(1)
-	addressList := strings.Split(strings.TrimSpace(addressListString), ",")
+	addressListString := strings.TrimSpace(ctx.Args().Get(1))
+
+	var addressList []string
+	if len(addressListString) != 0 {
+		addressList = strings.Split(addressListString, ",")
+	} else {
+		addressList = ctx.StringSlice("validators")
+		if len(addressList) == 0 {
+			utils.Fatalf("Must specify non-empty list of validators")
+		}
+	}
+
 	var validators []common.Address
 	for _, address := range addressList {
 		validators = append(validators, common.HexToAddress(address))
@@ -520,6 +539,7 @@ func updateValidators(ctx *cli.Context) error {
 		utils.Fatalf("can't update genesis file: %v", err)
 	}
 
+	//output new ExtraData
 	fmt.Println(common.Bytes2Hex(genesis.ExtraData))
 
 	return nil
