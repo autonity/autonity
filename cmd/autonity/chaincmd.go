@@ -488,26 +488,6 @@ func hashish(x string) bool {
 
 // updateValidators will update extraData in genesis file according to the provided list of validators
 func updateValidators(ctx *cli.Context) error {
-	// Make sure we have a valid genesis JSON
-	genesisPath := ctx.Args().First()
-	if len(genesisPath) == 0 {
-		genesisPath = ctx.String("genesis")
-
-		if len(genesisPath) == 0 {
-			utils.Fatalf("Must supply path to genesis JSON genesisData")
-		}
-	}
-
-	genesisData, err := ioutil.ReadFile(genesisPath)
-	if err != nil {
-		utils.Fatalf("Failed to read genesis: %v", err)
-	}
-
-	genesis := new(core.Genesis)
-	if err := json.Unmarshal(genesisData, genesis); err != nil {
-		utils.Fatalf("invalid genesis: %v", err)
-	}
-
 	addressListString := strings.TrimSpace(ctx.Args().Get(1))
 
 	var addressList []string
@@ -525,22 +505,52 @@ func updateValidators(ctx *cli.Context) error {
 		validators = append(validators, common.HexToAddress(address))
 	}
 
-	if genesis.ExtraData, err = types.PrepareExtra(&genesis.ExtraData, validators); err != nil {
+	// Make sure we have a valid genesis JSON
+	genesisPath := ctx.Args().First()
+	if len(genesisPath) == 0 {
+		genesisPath = ctx.String("genesis")
+	}
+
+	var (
+		extraData []byte
+		genesisData []byte
+		err error
+		genesis *core.Genesis
+	)
+
+	updateGenesis := len(genesisPath) != 0
+	if updateGenesis {
+		genesisData, err = ioutil.ReadFile(genesisPath)
+		if err != nil {
+			utils.Fatalf("Failed to read genesis: %v", err)
+		}
+
+		genesis = new(core.Genesis)
+		if err := json.Unmarshal(genesisData, genesis); err != nil {
+			utils.Fatalf("invalid genesis: %v", err)
+		}
+
+		extraData = genesis.ExtraData
+	}
+
+	if extraData, err = types.PrepareExtra(&extraData, validators); err != nil {
 		utils.Fatalf("error while updating extraData field: %v", err)
 	}
 
-	genesisData, err = json.MarshalIndent(genesis, "", "\t")
-	if err != nil {
-		utils.Fatalf("json marshal error: %v", err)
-	}
-
-	err = ioutil.WriteFile(genesisPath, genesisData, 0666)
-	if err != nil {
-		utils.Fatalf("can't update genesis file: %v", err)
-	}
-
 	//output new ExtraData
-	fmt.Println(common.Bytes2Hex(genesis.ExtraData))
+	fmt.Println(common.Bytes2Hex(extraData))
+
+	if updateGenesis {
+		genesisData, err = json.MarshalIndent(genesis, "", "\t")
+		if err != nil {
+			utils.Fatalf("json marshal error: %v", err)
+		}
+
+		err = ioutil.WriteFile(genesisPath, genesisData, 0666)
+		if err != nil {
+			utils.Fatalf("can't update genesis file: %v", err)
+		}
+	}
 
 	return nil
 }

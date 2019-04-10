@@ -152,7 +152,9 @@ Or you can use environment variables `AUTONITY_GENESIS` and `AUTONITY_VALIDATORS
 export AUTONITY_GENESIS=genesis-ibft.json
 export AUTONITY_VALIDATORS=0x850c1eb8d190e05845ad7f84ac95a318c8aab07f,0x4ad219b58a5b46a1d9662beaa6a70db9f570dea5,0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d,0xc443c6c6ae98f5110702921138d840e77da67702
 autonity update-validators
-``` 
+```
+
+If the first parameter(genesis path) or variable `AUTONITY_GENESIS` are not specified, genesis will be not updated and only the `ExtraData` will be printed.
 
 ### What are the keystore passwords?
 
