@@ -55,7 +55,7 @@ func WriteEnodeWhitelist(db DatabaseWriter, whitelist *types.Nodes) {
 }
 
 // ReadEnodeWhitelist retrieve the list of permitted enodes
-func ReadEnodeWhitelist(db DatabaseReader) *types.Nodes {
+func ReadEnodeWhitelist(db DatabaseReader, openNetwork bool) *types.Nodes {
 	var strList []string
 
 	data, _ := db.Get(enodeWhiteList)
@@ -67,7 +67,7 @@ func ReadEnodeWhitelist(db DatabaseReader) *types.Nodes {
 		return nil
 	}
 
-	return types.NewNodes(strList, true)
+	return types.NewNodes(strList, openNetwork)
 }
 
 // DeleteCanonicalHash removes the number to hash canonical mapping.

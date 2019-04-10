@@ -91,7 +91,7 @@ type Config struct {
 	// Use common.MakeName to create a name that follows existing conventions.
 	Name string `toml:"-"`
 
-	// OpenNetwork disable network permissioning logic
+	// openNetwork disable network permissioning logic
 	OpenNetwork bool
 
 	// BootstrapNodes are used to establish connectivity

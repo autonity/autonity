@@ -10,7 +10,7 @@ type Nodes struct {
 	StrList []string
 }
 
-func NewNodes(strList []string, must bool) *Nodes {
+func NewNodes(strList []string, openNetwork bool) *Nodes {
 	n := &Nodes{
 		[]*enode.Node{},
 		[]string{},
@@ -18,13 +18,16 @@ func NewNodes(strList []string, must bool) *Nodes {
 
 	for _, enodeStr := range strList {
 		newEnode, err := enode.ParseV4WithResolve(enodeStr)
-		if must && err != nil {
+		if err != nil {
 			log.Error("Invalid whitelisted enode", "returned enode", enodeStr, "error", err.Error())
-			panic(err)
-		}
 
-		n.List = append(n.List, newEnode)
-		n.StrList = append(n.StrList, enodeStr)
+			if !openNetwork {
+				panic(err)
+			}
+		} else {
+			n.List = append(n.List, newEnode)
+			n.StrList = append(n.StrList, enodeStr)
+		}
 	}
 
 	return n

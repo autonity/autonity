@@ -42,7 +42,7 @@ func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.B
 
 	if block.Number().Uint64() == 1 {
 		// use genesis block whitelist
-		newWhitelist = rawdb.ReadEnodeWhitelist(bc.db)
+		newWhitelist = rawdb.ReadEnodeWhitelist(bc.db, bc.openNetwork)
 	} else {
 		// call retrieveWhitelist contract function
 		newWhitelist, err = bc.callGlienickeContract(state, block.Header())
@@ -99,7 +99,7 @@ func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *type
 	evm := bc.getEVM(header, glienickeDeployer, state)
 	sender := vm.AccountRef(glienickeDeployer)
 
-	enodesWhitelist := rawdb.ReadEnodeWhitelist(bc.db)
+	enodesWhitelist := rawdb.ReadEnodeWhitelist(bc.db, bc.openNetwork)
 
 	GlienickeAbi, err := abi.JSON(strings.NewReader(glienickeABI))
 	if err != nil {
@@ -168,5 +168,5 @@ func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.
 		return nil, err
 	}
 
-	return types.NewNodes(returnedEnodes, false), nil
+	return types.NewNodes(returnedEnodes, bc.openNetwork), nil
 }
