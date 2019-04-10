@@ -61,8 +61,8 @@ func TestCheckSignature(t *testing.T) {
 	}
 	a = getInvalidAddress()
 	err = b.CheckSignature(data, a, sig)
-	if err != errInvalidSignature {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidSignature)
+	if err != types.ErrInvalidSignature {
+		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidSignature)
 	}
 }
 
@@ -79,7 +79,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
 		// CheckValidatorSignature should succeed
-		addr, err := types.CheckValidatorSignature(vset, data, sig)
+		addr, err := istanbul.CheckValidatorSignature(vset, data, sig)
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
@@ -101,7 +101,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 	}
 
 	// CheckValidatorSignature should return ErrUnauthorizedAddress
-	addr, err := types.CheckValidatorSignature(vset, data, sig)
+	addr, err := istanbul.CheckValidatorSignature(vset, data, sig)
 	if err != istanbul.ErrUnauthorizedAddress {
 		t.Errorf("error mismatch: have %v, want %v", err, istanbul.ErrUnauthorizedAddress)
 	}
@@ -139,7 +139,7 @@ func TestCommit(t *testing.T) {
 		},
 		{
 			// invalid signature
-			errInvalidCommittedSeals,
+			types.ErrInvalidCommittedSeals,
 			nil,
 			func() *types.Block {
 				chain, engine := newBlockChain(1)
