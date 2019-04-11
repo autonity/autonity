@@ -28,7 +28,7 @@
   "nonce": "0x0",
   "timestamp": "0x0",
   "gasLimit": "0xffffffff",
-  "difficulty": "0x100000",
+  "difficulty": "0x1",
   "coinbase": "0x0000000000000000000000000000000000000000",
   "number": "0x0",
   "gasUsed": "0x0",
