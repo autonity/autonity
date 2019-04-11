@@ -1,13 +1,17 @@
 language: go
 go_import_path: github.com/clearmatics/autonity
 sudo: false
+addons:
+  apt:
+    packages:
+      - libc-dev
 matrix:
   include:
   - if: branch = master OR type = pull_request
     os: linux
     dist: trusty
     sudo: required
-    go: 1.12.x
+    go: 1.12.1
     script:
     - sudo modprobe fuse
     - sudo chmod 666 /dev/fuse
