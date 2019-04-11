@@ -725,7 +725,27 @@ web3._extend({
 			name: 'getSomaContractAddress',
 			call: 'istanbul_getSomaContractAddress',
 			params: 0
-		})	
+		}),
+		new web3._extend.Method({
+			name: 'getSomaContractABI',
+			call: 'istanbul_getSomaContractABI',
+			params: 0
+		}),
+		new web3._extend.Method({
+			name: 'getGlienickeContractAddress',
+			call: 'istanbul_getGlienickeContractAddress',
+			params: 0
+		}),
+		new web3._extend.Method({
+			name: 'getGlienickeContractABI',
+			call: 'istanbul_getGlienickeContractABI',
+			params: 0
+		}),
+		new web3._extend.Method({
+			name: 'getWhitelist',
+			call: 'istanbul_getWhitelist',
+			params: 0
+		})
 	]
 });
 `

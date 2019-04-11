@@ -55,6 +55,25 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 
 // Get Soma contract address
 func (api *API) GetSomaContractAddress() common.Address {
-	address := api.istanbul.somaContract
-	return address
+	return api.istanbul.somaContract
+}
+
+// Get Soma contract ABI
+func (api *API) GetSomaContractABI() string {
+	return api.istanbul.config.ABI
+}
+
+// Get Glienicke contract address
+func (api *API) GetGlienickeContractAddress() common.Address {
+	return api.istanbul.glienickeContract
+}
+
+// Get Glienicke contract ABI
+func (api *API) GetGlienickeContractABI() string {
+	return api.istanbul.blockchain.Config().GlienickeABI
+}
+
+// Get current white list
+func (api *API) GetWhitelist() []string {
+	return api.istanbul.WhiteList()
 }
