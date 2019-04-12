@@ -91,7 +91,7 @@ type Config struct {
 	// Use common.MakeName to create a name that follows existing conventions.
 	Name string `toml:"-"`
 
-	// openNetwork disable network permissioning logic
+	// OpenNetwork disable network permissioning logic
 	OpenNetwork bool
 
 	// BootstrapNodes are used to establish connectivity
@@ -357,16 +357,6 @@ func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
 		for _, whitelistedEnode := range enodes {
 			if connectedPeer.Node().ID() == whitelistedEnode.ID() {
 				found = true
-			}
-
-			// if IP:Port are specified in a white list, we check them
-			if err := whitelistedEnode.ValidateComplete(); err == nil {
-				if !connectedPeer.Node().IP().Equal(whitelistedEnode.IP()) {
-					found = false
-				}
-			}
-
-			if found {
 				break
 			}
 		}

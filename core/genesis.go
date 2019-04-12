@@ -287,7 +287,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 		g.Config = params.AllEthashProtocolChanges
 	}
 
-	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, g.Config.OpenNetwork))
+	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, false))
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }

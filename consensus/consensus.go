@@ -109,9 +109,6 @@ type Engine interface {
 
 	// Close terminates any background threads maintained by the consensus engine.
 	Close() error
-
-	// Close terminates any background threads maintained by the consensus engine.
-	//Config() error
 }
 
 // Handler should be implemented is the consensus needs to handle and send peer's message
