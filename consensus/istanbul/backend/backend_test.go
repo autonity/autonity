@@ -61,8 +61,8 @@ func TestCheckSignature(t *testing.T) {
 	}
 	a = getInvalidAddress()
 	err = b.CheckSignature(data, a, sig)
-	if err != errInvalidSignature {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidSignature)
+	if err != types.ErrInvalidSignature {
+		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidSignature)
 	}
 }
 
@@ -139,7 +139,7 @@ func TestCommit(t *testing.T) {
 		},
 		{
 			// invalid signature
-			errInvalidCommittedSeals,
+			types.ErrInvalidCommittedSeals,
 			nil,
 			func() *types.Block {
 				chain, engine := newBlockChain(1)
