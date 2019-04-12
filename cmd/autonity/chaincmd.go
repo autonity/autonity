@@ -512,10 +512,10 @@ func updateValidators(ctx *cli.Context) error {
 	}
 
 	var (
-		extraData []byte
+		extraData   []byte
 		genesisData []byte
-		err error
-		genesis *core.Genesis
+		err         error
+		genesis     *core.Genesis
 	)
 
 	updateGenesis := len(genesisPath) != 0

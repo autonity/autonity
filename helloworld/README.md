@@ -140,21 +140,16 @@ It is possible update the set of validators by updating the genesis file and the
 
 1. Update the `nodekey1` file (or 2,3,4) with the private key of the validator
 2. Update the `enodeWhitelist` property in the genesis file
-3. Update the `extra-data` property in the genesis file by encoding it with the cli command `autonity update-validators PATH_TO_GENESIS ValidatorID1,ValidatorID2`:
+3. Update the `validators` property in the genesis file by with a proper node ID, eg:
 
 ```
-autonity update-validators genesis-ibft.json 0x850c1eb8d190e05845ad7f84ac95a318c8aab07f,0x4ad219b58a5b46a1d9662beaa6a70db9f570dea5,0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d,0xc443c6c6ae98f5110702921138d840e77da67702
+"validators": [
+    "0x850C1Eb8D190e05845ad7F84ac95a318C8AaB07f",
+    "0x4AD219b58a5b46A1D9662BeAa6a70DB9F570deA5",
+    "0x4B07239Bd581d21AEfcdEe0c6dB38070F9A5FD2D",
+    "0xc443C6c6AE98F5110702921138D840e77dA67702"
+]
 ```
-
-Or you can use environment variables `AUTONITY_GENESIS` and `AUTONITY_VALIDATORS`:
-
-```
-export AUTONITY_GENESIS=genesis-ibft.json
-export AUTONITY_VALIDATORS=0x850c1eb8d190e05845ad7f84ac95a318c8aab07f,0x4ad219b58a5b46a1d9662beaa6a70db9f570dea5,0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d,0xc443c6c6ae98f5110702921138d840e77da67702
-autonity update-validators
-```
-
-If the first parameter(genesis path) or variable `AUTONITY_GENESIS` is not specified, Genesis will be not updated and only the `ExtraData` will be printed.
 
 ### What are the keystore passwords?
 

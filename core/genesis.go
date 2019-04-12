@@ -56,6 +56,7 @@ type Genesis struct {
 	Mixhash    common.Hash         `json:"mixHash"`
 	Coinbase   common.Address      `json:"coinbase"`
 	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
+	Validators []string            `json:"validators"`
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
@@ -261,6 +262,9 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
 	}
+	if len(g.Validators) != 0 {
+
+	}
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 
@@ -270,6 +274,13 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
+	if g.Config.Istanbul != nil {
+		err := g.setIstanbul()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	block := g.ToBlock(db)
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")
@@ -304,6 +315,22 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	return block, nil
 }
 
+//setIstanbul sets default Istanbul config values
+func (g *Genesis) setIstanbul() error {
+	if len(g.Validators) != 0 {
+		err := g.UpdateValidators(g.Validators)
+		if err != nil {
+			return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
+		}
+	}
+	log.Info("starting Istanbul consensus", "extraData", common.Bytes2Hex(g.ExtraData))
+
+	// we have to use '1' to have TD == BlockNumber for xBFT consensus
+	g.Difficulty = big.NewInt(1)
+
+	return nil
+}
+
 // MustCommit writes the genesis block and state to db, panicking on error.
 // The block is committed as the canonical head block.
 func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
@@ -312,6 +339,20 @@ func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
 		panic(err)
 	}
 	return block
+}
+
+func (g *Genesis) UpdateValidators(addressList []string) error {
+	var validators []common.Address
+	for _, address := range addressList {
+		validators = append(validators, common.HexToAddress(address))
+	}
+
+	var err error
+	if g.ExtraData, err = types.PrepareExtra(&g.ExtraData, validators); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
