@@ -139,7 +139,11 @@ _The Autonity Hello World limits the amount of validators to 4, but in a real wo
 It is possible update the set of validators by updating the genesis file and the nodekey files, the steps needed are:
 
 1. Update the `nodekey1` file (or 2,3,4) with the private key of the validator
-2. Update the `enodeWhitelist` property in the genesis file
+2. Update the `enodeWhitelist` property in the genesis file. Enode address can be a few formats:
+* Ethereum enodeV4 `enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303`
+* with domain instead of IP `enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@domain.com:30303`
+* any of the above without port `enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@domain.com`
+* by default, if it's not specified port `30303` will be used.
 3. Update the `extra-data` property in the genesis file by encoding it with the cli command `autonity update-validators PATH_TO_GENESIS ValidatorID1,ValidatorID2`:
 
 ```

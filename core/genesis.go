@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"strings"
 
@@ -170,7 +169,10 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, constant
 			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.Commit(db)
-		return genesis.Config, block.Hash(), err
+		if err != nil {
+			return params.AllEthashProtocolChanges, common.Hash{}, err
+		}
+		return genesis.Config, block.Hash(), nil
 	}
 
 	// Check whether the genesis block is already written.
@@ -281,26 +283,12 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	config := g.Config
-	if config == nil {
-		config = params.AllEthashProtocolChanges
+	if g.Config == nil {
+		g.Config = params.AllEthashProtocolChanges
 	}
 
-	enodeWhiteList := make([]*enode.Node, 0, len(config.EnodeWhitelist))
-	for _, enodeString := range config.EnodeWhitelist {
-		log.Info("Genesis Authorized Enode", "enode", enodeString)
-		newEnode, err := enode.ParseV4(enodeString)
-		if err != nil {
-			return nil, errGenesisBadWhitelist
-		}
-		enodeWhiteList = append(enodeWhiteList, newEnode)
-	}
-
-	if len(enodeWhiteList) != 0 {
-		rawdb.WriteEnodeWhitelist(db, enodeWhiteList)
-	}
-
-	rawdb.WriteChainConfig(db, block.Hash(), config)
+	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, false))
+	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }
 
