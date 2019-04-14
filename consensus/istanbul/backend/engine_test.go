@@ -90,11 +90,11 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.IstanbulDigest
 
-	appendValidators(genesis, addrs)
+	AppendValidators(genesis, addrs)
 	return genesis, nodeKeys
 }
 
-func appendValidators(genesis *core.Genesis, addrs []common.Address) {
+func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 
 	if len(genesis.ExtraData) < types.IstanbulExtraVanity {
 		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)...)
@@ -236,8 +236,8 @@ func TestVerifyHeader(t *testing.T) {
 	}
 	block, _ = engine.updateBlock(chain.Genesis().Header(), block)
 	err = engine.VerifyHeader(chain, block.Header(), false)
-	if err != errEmptyCommittedSeals {
-		t.Errorf("error mismatch: have %v, want %v", err, errEmptyCommittedSeals)
+	if err != types.ErrEmptyCommittedSeals {
+		t.Errorf("error mismatch: have %v, want %v", err, types.ErrEmptyCommittedSeals)
 	}
 
 	// short extra data
@@ -401,7 +401,7 @@ OUT1:
 		case err := <-results:
 			if err != nil {
 				/*  The two following errors mean that the processing has gone right */
-				if err != errEmptyCommittedSeals && err != errInvalidCommittedSeals {
+				if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
 					t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
 					break OUT1
 				}
@@ -424,7 +424,7 @@ OUT2:
 		select {
 		case err := <-results:
 			if err != nil {
-				if err != errEmptyCommittedSeals && err != errInvalidCommittedSeals {
+				if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
 					t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
 					break OUT2
 				}
@@ -454,7 +454,7 @@ OUT3:
 		select {
 		case err := <-results:
 			if err != nil {
-				if err != errEmptyCommittedSeals && err != errInvalidCommittedSeals {
+				if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
 					errors++
 				}
 			}
@@ -485,7 +485,7 @@ func TestPrepareExtra(t *testing.T) {
 		Extra: vanity,
 	}
 
-	payload, err := prepareExtra(h, validators)
+	payload, err := types.PrepareExtra(&h.Extra, validators)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want: nil", err)
 	}
@@ -496,7 +496,7 @@ func TestPrepareExtra(t *testing.T) {
 	// append useless information to extra-data
 	h.Extra = append(vanity, make([]byte, 15)...)
 
-	payload, err = prepareExtra(h, validators)
+	payload, err = types.PrepareExtra(&h.Extra, validators)
 	if !reflect.DeepEqual(payload, expectedResult) {
 		t.Errorf("payload mismatch: have %v, want %v", payload, expectedResult)
 	}
@@ -523,7 +523,7 @@ func TestWriteSeal(t *testing.T) {
 	}
 
 	// normal case
-	err := writeSeal(h, expectedSeal)
+	err := types.WriteSeal(h, expectedSeal)
 	if err != expectedErr {
 		t.Errorf("error mismatch: have %v, want %v", err, expectedErr)
 	}
@@ -539,9 +539,9 @@ func TestWriteSeal(t *testing.T) {
 
 	// invalid seal
 	unexpectedSeal := append(expectedSeal, make([]byte, 1)...)
-	err = writeSeal(h, unexpectedSeal)
-	if err != errInvalidSignature {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidSignature)
+	err = types.WriteSeal(h, unexpectedSeal)
+	if err != types.ErrInvalidSignature {
+		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidSignature)
 	}
 }
 
@@ -566,7 +566,7 @@ func TestWriteCommittedSeals(t *testing.T) {
 	}
 
 	// normal case
-	err := writeCommittedSeals(h, [][]byte{expectedCommittedSeal})
+	err := types.WriteCommittedSeals(h, [][]byte{expectedCommittedSeal})
 	if err != expectedErr {
 		t.Errorf("error mismatch: have %v, want %v", err, expectedErr)
 	}
@@ -582,8 +582,8 @@ func TestWriteCommittedSeals(t *testing.T) {
 
 	// invalid seal
 	unexpectedCommittedSeal := append(expectedCommittedSeal, make([]byte, 1)...)
-	err = writeCommittedSeals(h, [][]byte{unexpectedCommittedSeal})
-	if err != errInvalidCommittedSeals {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidCommittedSeals)
+	err = types.WriteCommittedSeals(h, [][]byte{unexpectedCommittedSeal})
+	if err != types.ErrInvalidCommittedSeals {
+		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidCommittedSeals)
 	}
 }

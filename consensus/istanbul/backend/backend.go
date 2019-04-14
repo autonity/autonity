@@ -144,7 +144,7 @@ func (sb *backend) Broadcast(valSet istanbul.ValidatorSet, payload []byte) error
 
 // Broadcast implements istanbul.Backend.Gossip
 func (sb *backend) Gossip(valSet istanbul.ValidatorSet, payload []byte) error {
-	hash := istanbul.RLPHash(payload)
+	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
 	targets := make(map[common.Address]bool)
@@ -190,7 +190,7 @@ func (sb *backend) Commit(proposal istanbul.Proposal, seals [][]byte) error {
 
 	h := block.Header()
 	// Append seals into extra-data
-	err := writeCommittedSeals(h, seals)
+	err := types.WriteCommittedSeals(h, seals)
 	if err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 	// verify the header of proposed block
 	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
-	if err == nil || err == errEmptyCommittedSeals {
+	if err == nil || err == types.ErrEmptyCommittedSeals {
 		// the current blockchain state is synchronised with Istanbul's state
 		// and we know that the proposed block was mined by a valid validator
 		header := block.Header()
@@ -312,14 +312,14 @@ func (sb *backend) Sign(data []byte) ([]byte, error) {
 
 // CheckSignature implements istanbul.Backend.CheckSignature
 func (sb *backend) CheckSignature(data []byte, address common.Address, sig []byte) error {
-	signer, err := istanbul.GetSignatureAddress(data, sig)
+	signer, err := types.GetSignatureAddress(data, sig)
 	if err != nil {
 		log.Error("Failed to get signer address", "err", err)
 		return err
 	}
 	// Compare derived addresses
 	if signer != address {
-		return errInvalidSignature
+		return types.ErrInvalidSignature
 	}
 	return nil
 }
