@@ -19,7 +19,6 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -45,12 +44,8 @@ func WriteCanonicalHash(db DatabaseWriter, hash common.Hash, number uint64) {
 }
 
 // WriteEnodeWhitelist stores the list of permitted enodes
-func WriteEnodeWhitelist(db DatabaseWriter, whitelist []*enode.Node) {
-	var whitelistStorage []string
-	for _, node := range whitelist {
-		whitelistStorage = append(whitelistStorage, node.String())
-	}
-	bytes, err := rlp.EncodeToBytes(whitelistStorage)
+func WriteEnodeWhitelist(db DatabaseWriter, whitelist *types.Nodes) {
+	bytes, err := rlp.EncodeToBytes(whitelist.StrList)
 	if err != nil {
 		log.Crit("Failed to RLP encode enode whitelist", "err", err)
 	}
@@ -60,22 +55,19 @@ func WriteEnodeWhitelist(db DatabaseWriter, whitelist []*enode.Node) {
 }
 
 // ReadEnodeWhitelist retrieve the list of permitted enodes
-func ReadEnodeWhitelist(db DatabaseReader) []*enode.Node {
-	whitelistStorage := make([]string, 0, 1)
+func ReadEnodeWhitelist(db DatabaseReader, openNetwork bool) *types.Nodes {
+	var strList []string
+
 	data, _ := db.Get(enodeWhiteList)
 	if len(data) == 0 {
 		return nil
 	}
-	if err := rlp.Decode(bytes.NewReader(data), &whitelistStorage); err != nil {
+	if err := rlp.Decode(bytes.NewReader(data), &strList); err != nil {
 		log.Error("Invalid Enode whitelist", "err", err)
 		return nil
 	}
-	var whitelist []*enode.Node
-	for _, node := range whitelistStorage {
-		whitelist = append(whitelist, enode.MustParseV4(node))
-	}
 
-	return whitelist
+	return types.NewNodes(strList, openNetwork)
 }
 
 // DeleteCanonicalHash removes the number to hash canonical mapping.

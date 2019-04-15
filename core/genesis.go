@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"strings"
 
@@ -34,6 +33,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -171,7 +171,10 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, constant
 			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.Commit(db)
-		return genesis.Config, block.Hash(), err
+		if err != nil {
+			return params.AllEthashProtocolChanges, common.Hash{}, err
+		}
+		return genesis.Config, block.Hash(), nil
 	}
 
 	// Check whether the genesis block is already written.
@@ -305,10 +308,14 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	}
 
 	if len(enodeWhiteList) != 0 {
-		rawdb.WriteEnodeWhitelist(db, enodeWhiteList)
+		var enodeWhiteListStr []string
+		for _, enodeID := range enodeWhiteList {
+			enodeWhiteListStr = append(enodeWhiteListStr, enodeID.String())
+		}
+		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodeWhiteListStr, false))
 	}
 
-	rawdb.WriteChainConfig(db, block.Hash(), config)
+	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }
 
@@ -338,6 +345,7 @@ func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
 	return block
 }
 
+// UpdateValidators updates Genesis ExtraData field with a new list of validators
 func (g *Genesis) UpdateValidators(addressList []string) error {
 	var validators []common.Address
 	for _, address := range addressList {

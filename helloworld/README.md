@@ -139,7 +139,11 @@ _The Autonity Hello World limits the amount of validators to 4, but in a real wo
 It is possible update the set of validators by updating the genesis file and the nodekey files, the steps needed are:
 
 1. Update the `nodekey1` file (or 2,3,4) with the private key of the validator
-2. Update the `enodeWhitelist` property in the genesis file
+2. Update the `enodeWhitelist` property in the genesis file. Enode address can be a few formats:
+* Ethereum enodeV4 `enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303`
+* with domain instead of IP `enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@domain.com:30303`
+* any of the above without port `enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@domain.com`
+* by default, if it's not specified port `30303` will be used.
 3. Update the `validators` property in the genesis file by with a proper node ID, eg:
 
 ```
@@ -147,9 +151,12 @@ It is possible update the set of validators by updating the genesis file and the
     "0x850C1Eb8D190e05845ad7F84ac95a318C8AaB07f",
     "0x4AD219b58a5b46A1D9662BeAa6a70DB9F570deA5",
     "0x4B07239Bd581d21AEfcdEe0c6dB38070F9A5FD2D",
-    "0xc443C6c6AE98F5110702921138D840e77dA67702"
+    "0xc443C6c6AE98F5110702921138D840e77dA67702",
+    "0x09428e8674496e2d1e965402f33a9520c5fcbbe2"
 ]
 ```
+
+The `validators` has higher priority compare to `extraData` and if both are specified, than `extraData` will be rewritten.
 
 ### What are the keystore passwords?
 
