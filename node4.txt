@@ -1,0 +1,549 @@
+Autonity INIT 172.25.0.14
+INFO [04-15|08:13:32.450] Maximum peer count                       ETH=25 LES=0 total=25
+INFO [04-15|08:13:32.450] Allocated cache and file handles         database=/autonity-data/autonity/chaindata cache=16 handles=16
+INFO [04-15|08:13:32.592] Writing custom genesis block
+INFO [04-15|08:13:32.592] starting Istanbul consensus              extraData=0000000000000000000000000000000000000000000000000000000000000000f858f85494850c1eb8d190e05845ad7f84ac95a318c8aab07f944ad219b58a5b46a1d9662beaa6a70db9f570dea5944b07239bd581d21aefcdee0c6db38070f9a5fd2d94c443c6c6ae98f5110702921138d840e77da6770280c0
+INFO [04-15|08:13:32.593] Persisted trie from memory database      nodes=11 size=1.61kB time=69.289µs gcnodes=0 gcsize=0.00B gctime=0s livenodes=1 livesize=0.00B
+INFO [04-15|08:13:32.593] Genesis Authorized Enode                 enode=enode://1f207dfb3bcbbd338fbc991ec13e40d204b58fe7275cea48cfeb53c2c24e1071e1b4ef2959325fe48a5893de8ff37c73a24a412f367e505e5dec832813da546a@172.25.0.12:30303
+INFO [04-15|08:13:32.593] Genesis Authorized Enode                 enode=enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@172.25.0.13:30303
+INFO [04-15|08:13:32.593] Genesis Authorized Enode                 enode=enode://438a5c2cd8fdc2ecbc508bf7362e41c0f0c3754ba1d3267127a3756324caf45e6546b02140e2144b205aeb372c96c5df9641485f721dc7c5b27eb9e35f5d887b@172.25.0.14:30303
+INFO [04-15|08:13:32.593] Genesis Authorized Enode                 enode=enode://3ce6c053cb563bfd94f4e0e248510a07ccee1bc836c9784da1816dba4b10564e7be1ba42e0bd8d73c8f6274f8e9878dc13814adb381c823264265c06048b4b59@172.25.0.15:30303
+INFO [04-15|08:13:32.594] Successfully wrote genesis state         database=chaindata                         hash=14e055…cf0db9
+INFO [04-15|08:13:32.594] Allocated cache and file handles         database=/autonity-data/autonity/lightchaindata cache=16 handles=16
+INFO [04-15|08:13:32.685] Writing custom genesis block
+INFO [04-15|08:13:32.685] starting Istanbul consensus              extraData=0000000000000000000000000000000000000000000000000000000000000000f858f85494850c1eb8d190e05845ad7f84ac95a318c8aab07f944ad219b58a5b46a1d9662beaa6a70db9f570dea5944b07239bd581d21aefcdee0c6db38070f9a5fd2d94c443c6c6ae98f5110702921138d840e77da6770280c0
+INFO [04-15|08:13:32.686] Persisted trie from memory database      nodes=11 size=1.61kB time=210.601µs gcnodes=0 gcsize=0.00B gctime=0s livenodes=1 livesize=0.00B
+INFO [04-15|08:13:32.687] Genesis Authorized Enode                 enode=enode://1f207dfb3bcbbd338fbc991ec13e40d204b58fe7275cea48cfeb53c2c24e1071e1b4ef2959325fe48a5893de8ff37c73a24a412f367e505e5dec832813da546a@172.25.0.12:30303
+INFO [04-15|08:13:32.687] Genesis Authorized Enode                 enode=enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@172.25.0.13:30303
+INFO [04-15|08:13:32.687] Genesis Authorized Enode                 enode=enode://438a5c2cd8fdc2ecbc508bf7362e41c0f0c3754ba1d3267127a3756324caf45e6546b02140e2144b205aeb372c96c5df9641485f721dc7c5b27eb9e35f5d887b@172.25.0.14:30303
+INFO [04-15|08:13:32.687] Genesis Authorized Enode                 enode=enode://3ce6c053cb563bfd94f4e0e248510a07ccee1bc836c9784da1816dba4b10564e7be1ba42e0bd8d73c8f6274f8e9878dc13814adb381c823264265c06048b4b59@172.25.0.15:30303
+INFO [04-15|08:13:32.688] Successfully wrote genesis state         database=lightchaindata                         hash=14e055…cf0db9
+Autonity START
+INFO [04-15|08:13:32.753] Maximum peer count                       ETH=25 LES=0 total=25
+INFO [04-15|08:13:32.753] Starting peer-to-peer node               instance=Autonity/v1.0.0-alpha-530eb572/linux-amd64/go1.11.6
+ERROR[04-15|08:13:32.753] self                                     enode=5b68cfe243a23a705d58e5f5c443c6c6ae98f5110702921138d840e77da67702
+INFO [04-15|08:13:32.753] Allocated cache and file handles         database=/autonity-data/autonity/chaindata cache=512 handles=524288
+INFO [04-15|08:13:32.871] Initialised chain configuration          config="{ChainID: 1991 Homestead: 0 DAO: <nil> DAOSupport: false EIP150: 0 EIP155: 0 EIP158: 0 Byzantium: <nil> Constantinople: <nil> Engine: istanbul}"
+INFO [04-15|08:13:32.872] User specified Validator smart contract set
+INFO [04-15|08:13:32.872] Initialising Ethereum protocol           versions="[63 62]" network=1
+INFO [04-15|08:13:32.914] Loaded most recent local header          number=0 hash=14e055…cf0db9 td=1 age=50y1d8h
+INFO [04-15|08:13:32.914] Loaded most recent local full block      number=0 hash=14e055…cf0db9 td=1 age=50y1d8h
+INFO [04-15|08:13:32.914] Loaded most recent local fast block      number=0 hash=14e055…cf0db9 td=1 age=50y1d8h
+INFO [04-15|08:13:32.914] Regenerated local transaction journal    transactions=0 accounts=0
+INFO [04-15|08:13:32.914] Full Sync Mode
+INFO [04-15|08:13:32.915] Soma Contract Deployer                   Address=0x1336000000000000000000000000000000000000
+INFO [04-15|08:13:32.916] Deployed Soma Governance Contract        Address=0xc3d854209eF19803954916F2fe4712448094363e
+INFO [04-15|08:13:32.916] Deployed Glienicke Contract              Address=0x522B3294E6d06aA25Ad0f1B8891242E335D3B459
+INFO [04-15|08:13:33.005] Private-network mode enabled.
+INFO [04-15|08:13:33.007] Reading Whitelist
+INFO [04-15|08:13:33.008] New local node record                    seq=1 id=5b68cfe243a23a70 ip=127.0.0.1 udp=0 tcp=30303
+INFO [04-15|08:13:33.008] Started P2P networking                   self="enode://438a5c2cd8fdc2ecbc508bf7362e41c0f0c3754ba1d3267127a3756324caf45e6546b02140e2144b205aeb372c96c5df9641485f721dc7c5b27eb9e35f5d887b@127.0.0.1:30303?discport=0"
+INFO [04-15|08:13:33.008] Connecting to newly authorized peer      enode=enode://1f207dfb3bcbbd338fbc991ec13e40d204b58fe7275cea48cfeb53c2c24e1071e1b4ef2959325fe48a5893de8ff37c73a24a412f367e505e5dec832813da546a@172.25.0.12:30303
+INFO [04-15|08:13:33.008] Connecting to newly authorized peer      enode=enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@172.25.0.13:30303
+INFO [04-15|08:13:33.008] Connecting to newly authorized peer      enode=enode://438a5c2cd8fdc2ecbc508bf7362e41c0f0c3754ba1d3267127a3756324caf45e6546b02140e2144b205aeb372c96c5df9641485f721dc7c5b27eb9e35f5d887b@172.25.0.14:30303
+WARN [04-15|08:13:33.009] Removing static dial candidate           id=0x8dad60         addr=172.25.0.14:30303 err="is self"
+INFO [04-15|08:13:33.009] Connecting to newly authorized peer      enode=enode://3ce6c053cb563bfd94f4e0e248510a07ccee1bc836c9784da1816dba4b10564e7be1ba42e0bd8d73c8f6274f8e9878dc13814adb381c823264265c06048b4b59@172.25.0.15:30303
+INFO [04-15|08:13:33.013] IPC endpoint opened                      url=/autonity-data/autonity.ipc
+INFO [04-15|08:13:33.014] HTTP endpoint opened                     url=http://172.25.0.14:8545     cors=* vhosts=localhost
+WARN [04-15|08:13:43.316] Removing static dial candidate           id=0x8dad60         addr=172.25.0.14:30303 err="is self"
+INFO [04-15|08:13:48.043] Transaction pool price threshold updated price=1000000000
+INFO [04-15|08:13:48.044] Soma Contract Deployer                   Address=0x1336000000000000000000000000000000000000
+INFO [04-15|08:13:48.044] Deployed Soma Governance Contract        Address=0xc3d854209eF19803954916F2fe4712448094363e
+INFO [04-15|08:13:48.045] Deployed Glienicke Contract              Address=0x522B3294E6d06aA25Ad0f1B8891242E335D3B459
+INFO [04-15|08:13:48.045] Commit new mining work                   number=1 sealhash=816d07…f736a2 uncles=0 txs=0 gas=0 fees=0 elapsed=1.382ms
+INFO [04-15|08:13:48.045] New block Seal request                   hash=816d07…f736a2
+INFO [04-15|08:13:53.009] Block synchronisation started
+INFO [04-15|08:13:53.009] Mining aborted due to sync
+WARN [04-15|08:13:53.011] Synchronisation failed, dropping peer    peer=85776bc3e28c4de8 err="peer is stalling"
+INFO [04-15|08:13:53.012] Soma Contract Deployer                   Address=0x1336000000000000000000000000000000000000
+INFO [04-15|08:13:53.012] Deployed Soma Governance Contract        Address=0xc3d854209eF19803954916F2fe4712448094363e
+INFO [04-15|08:13:53.013] Deployed Glienicke Contract              Address=0x522B3294E6d06aA25Ad0f1B8891242E335D3B459
+INFO [04-15|08:13:53.014] Commit new mining work                   number=1 sealhash=ca3534…7a5ece uncles=0 txs=0 gas=0 fees=0 elapsed=2.159ms
+INFO [04-15|08:13:53.014] New block Seal request                   hash=ca3534…7a5ece
+WARN [04-15|08:14:03.015] Synchronisation failed, dropping peer    peer=85776bc3e28c4de8 err="peer is stalling"
+INFO [04-15|08:14:09.020] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=a4644f…0727dd number=1
+INFO [04-15|08:14:09.027] Soma Contract Deployer                   Address=0x1336000000000000000000000000000000000000
+INFO [04-15|08:14:09.029] Deployed Soma Governance Contract        Address=0xc3d854209eF19803954916F2fe4712448094363e
+INFO [04-15|08:14:09.031] Deployed Glienicke Contract              Address=0x522B3294E6d06aA25Ad0f1B8891242E335D3B459
+INFO [04-15|08:14:09.034] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.869ms mgasps=0.000 number=1 hash=a4644f…0727dd cache=13.30kB
+INFO [04-15|08:14:09.036] Commit new mining work                   number=2 sealhash=d0070d…8f62cb uncles=0 txs=0 gas=0 fees=0 elapsed=1.363ms
+INFO [04-15|08:14:09.036] New block Seal request                   hash=d0070d…8f62cb
+INFO [04-15|08:14:19.045] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=6be74d…c7e24e number=2
+INFO [04-15|08:14:19.049] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.471ms mgasps=0.000 number=2 hash=6be74d…c7e24e cache=13.30kB
+INFO [04-15|08:14:19.049] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303
+INFO [04-15|08:14:19.050] Commit new mining work                   number=3 sealhash=74d6f8…a2d75b uncles=0 txs=0 gas=0 fees=0 elapsed=479.304µs
+INFO [04-15|08:14:19.050] New block Seal request                   hash=74d6f8…a2d75b
+WARN [04-15|08:14:19.051] unexpected request                       address=0xc443C6c6AE98F5110702921138D840e77dA67702 state=Committed seq=2 err="future message"   number=3 hash=876624…9f257e
+INFO [04-15|08:14:19.056] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=a8e4fd…4debb6 number=3
+INFO [04-15|08:14:19.059] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.347ms   mgasps=0.000 number=3 hash=a8e4fd…4debb6 cache=13.30kB
+INFO [04-15|08:14:19.060] Commit new mining work                   number=4 sealhash=75db64…962722 uncles=0 txs=0 gas=0 fees=0 elapsed=388.943µs
+INFO [04-15|08:14:19.060] New block Seal request                   hash=75db64…962722
+INFO [04-15|08:14:20.020] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=b293db…5bf9f0 number=4
+INFO [04-15|08:14:20.035] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=10.628ms  mgasps=0.000 number=4 hash=b293db…5bf9f0 cache=13.30kB
+INFO [04-15|08:14:20.036] Commit new mining work                   number=5 sealhash=3a8d57…98e56c uncles=0 txs=0 gas=0 fees=0 elapsed=1.106ms
+INFO [04-15|08:14:20.036] New block Seal request                   hash=3a8d57…98e56c
+INFO [04-15|08:14:20.037] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303
+INFO [04-15|08:14:21.019] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=e38535…10d7cf number=5
+INFO [04-15|08:14:21.023] Successfully sealed new block            number=5 sealhash=3a8d57…98e56c hash=e38535…10d7cf elapsed=986.949ms
+INFO [04-15|08:14:21.025] 🔨 mined potential block                  number=5 hash=e38535…10d7cf
+INFO [04-15|08:14:21.027] New block Seal request                   hash=a2ab77…d08fa8
+INFO [04-15|08:14:21.027] Commit new mining work                   number=6 sealhash=a2ab77…d08fa8 uncles=0 txs=0 gas=0 fees=0 elapsed=1.929ms
+INFO [04-15|08:14:22.018] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=f297e0…731017 number=6
+INFO [04-15|08:14:22.033] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.818ms   mgasps=0.000 number=6 hash=f297e0…731017 cache=13.30kB
+INFO [04-15|08:14:22.034] Commit new mining work                   number=7 sealhash=5816ff…e5222d uncles=0 txs=0 gas=0 fees=0 elapsed=992.597µs
+INFO [04-15|08:14:22.034] New block Seal request                   hash=5816ff…e5222d
+INFO [04-15|08:14:23.018] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=4e7b70…ec5547 number=7
+INFO [04-15|08:14:23.030] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=7.719ms   mgasps=0.000 number=7 hash=4e7b70…ec5547 cache=13.30kB
+INFO [04-15|08:14:23.031] Commit new mining work                   number=8 sealhash=3c1e52…3230b3 uncles=0 txs=0 gas=0 fees=0 elapsed=819.785µs
+INFO [04-15|08:14:23.031] New block Seal request                   hash=3c1e52…3230b3
+INFO [04-15|08:14:32.377] Dropping unauthorized peer with old TD.  id=85776bc3e28c4de8 conn=inbound enode=85776bc3e28c4de8                                                                                                                                           expectedTD=8 peerTD=5
+INFO [04-15|08:14:33.049] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=15f796…dc958e number=8
+INFO [04-15|08:14:33.053] Successfully sealed new block            number=8 sealhash=3c1e52…3230b3 hash=15f796…dc958e elapsed=10.022s
+INFO [04-15|08:14:33.054] 🔨 mined potential block                  number=8 hash=15f796…dc958e
+INFO [04-15|08:14:33.055] Commit new mining work                   number=9 sealhash=ce0bf9…bb1b7e uncles=0 txs=0 gas=0 fees=0 elapsed=1.614ms
+INFO [04-15|08:14:33.056] New block Seal request                   hash=ce0bf9…bb1b7e
+INFO [04-15|08:14:33.078] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=143367…90f93f number=9
+INFO [04-15|08:14:33.082] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.248ms   mgasps=0.000 number=9 hash=143367…90f93f cache=13.30kB
+INFO [04-15|08:14:33.083] Commit new mining work                   number=10 sealhash=e089f0…c46f6a uncles=0 txs=0 gas=0 fees=0 elapsed=512.428µs
+INFO [04-15|08:14:33.083] New block Seal request                   hash=e089f0…c46f6a
+INFO [04-15|08:14:34.016] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=e01a29…a7e05e number=10
+INFO [04-15|08:14:34.031] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=10.073ms  mgasps=0.000 number=10 hash=e01a29…a7e05e cache=13.30kB
+INFO [04-15|08:14:34.032] Commit new mining work                   number=11 sealhash=3feda6…5fc854 uncles=0 txs=0 gas=0 fees=0 elapsed=727.339µs
+INFO [04-15|08:14:34.032] New block Seal request                   hash=3feda6…5fc854
+INFO [04-15|08:14:44.053] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=e624e2…46dd35 number=11
+INFO [04-15|08:14:44.058] Successfully sealed new block            number=11 sealhash=3feda6…5fc854 hash=e624e2…46dd35 elapsed=10.026s
+INFO [04-15|08:14:44.059] 🔨 mined potential block                  number=11 hash=e624e2…46dd35
+INFO [04-15|08:14:44.060] Commit new mining work                   number=12 sealhash=fa5371…80a1c3 uncles=0 txs=0 gas=0 fees=0 elapsed=1.333ms
+INFO [04-15|08:14:44.061] New block Seal request                   hash=fa5371…80a1c3
+INFO [04-15|08:14:44.081] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=e54788…e2308b number=12
+INFO [04-15|08:14:44.085] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.774ms   mgasps=0.000 number=12 hash=e54788…e2308b cache=13.30kB
+INFO [04-15|08:14:44.086] 🔗 block reached canonical chain          number=5  hash=e38535…10d7cf
+INFO [04-15|08:14:44.086] Commit new mining work                   number=13 sealhash=d70fa1…e9356d uncles=0 txs=0 gas=0 fees=0 elapsed=590.824µs
+INFO [04-15|08:14:44.086] New block Seal request                   hash=d70fa1…e9356d
+INFO [04-15|08:14:45.016] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=73210c…bb51f9 number=13
+INFO [04-15|08:14:45.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=8.559ms   mgasps=0.000 number=13 hash=73210c…bb51f9 cache=13.30kB
+INFO [04-15|08:14:45.034] Commit new mining work                   number=14 sealhash=060ff8…1082c9 uncles=0 txs=0 gas=0 fees=0 elapsed=1.083ms
+INFO [04-15|08:14:45.034] New block Seal request                   hash=060ff8…1082c9
+INFO [04-15|08:14:46.024] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=de686c…7f131c number=14
+INFO [04-15|08:14:46.038] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.623ms   mgasps=0.000 number=14 hash=de686c…7f131c cache=13.30kB
+INFO [04-15|08:14:46.039] Commit new mining work                   number=15 sealhash=c06545…2a5a4f uncles=0 txs=0 gas=0 fees=0 elapsed=731.996µs
+INFO [04-15|08:14:46.039] New block Seal request                   hash=c06545…2a5a4f
+INFO [04-15|08:14:47.018] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=2a7221…588cbc number=15
+INFO [04-15|08:14:47.022] Successfully sealed new block            number=15 sealhash=c06545…2a5a4f hash=2a7221…588cbc elapsed=983.549ms
+INFO [04-15|08:14:47.032] New block Seal request                   hash=aa30f6…a7661d
+INFO [04-15|08:14:47.036] 🔗 block reached canonical chain          number=8  hash=15f796…dc958e
+INFO [04-15|08:14:47.036] 🔨 mined potential block                  number=15 hash=2a7221…588cbc
+INFO [04-15|08:14:47.036] Commit new mining work                   number=16 sealhash=aa30f6…a7661d uncles=0 txs=0 gas=0 fees=0 elapsed=5.313ms
+INFO [04-15|08:14:48.018] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=336078…b93a2a number=16
+INFO [04-15|08:14:48.031] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.778ms   mgasps=0.000 number=16 hash=336078…b93a2a cache=13.30kB
+INFO [04-15|08:14:48.033] Commit new mining work                   number=17 sealhash=4972a0…330b17 uncles=0 txs=0 gas=0 fees=0 elapsed=1.019ms
+INFO [04-15|08:14:48.033] New block Seal request                   hash=4972a0…330b17
+INFO [04-15|08:14:49.018] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=45598a…15740d number=17
+INFO [04-15|08:14:49.031] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=8.886ms   mgasps=0.000 number=17 hash=45598a…15740d cache=13.30kB
+INFO [04-15|08:14:49.033] Commit new mining work                   number=18 sealhash=e24f5c…fab579 uncles=0 txs=0 gas=0 fees=0 elapsed=1.902ms
+INFO [04-15|08:14:49.033] New block Seal request                   hash=e24f5c…fab579
+INFO [04-15|08:14:50.006] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=f79927…6a2abd number=18
+INFO [04-15|08:14:50.010] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.941ms   mgasps=0.000 number=18 hash=f79927…6a2abd cache=13.30kB
+INFO [04-15|08:14:50.010] 🔗 block reached canonical chain          number=11 hash=e624e2…46dd35
+INFO [04-15|08:14:50.010] Commit new mining work                   number=19 sealhash=7be4be…92029c uncles=0 txs=0 gas=0 fees=0 elapsed=488.262µs
+INFO [04-15|08:14:50.010] New block Seal request                   hash=7be4be…92029c
+INFO [04-15|08:14:51.005] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=5ab064…ad1279 number=19
+INFO [04-15|08:14:51.006] Successfully sealed new block            number=19 sealhash=7be4be…92029c hash=5ab064…ad1279 elapsed=995.913ms
+INFO [04-15|08:14:51.006] 🔨 mined potential block                  number=19 hash=5ab064…ad1279
+INFO [04-15|08:14:51.007] Commit new mining work                   number=20 sealhash=1b69b7…e9fb32 uncles=0 txs=0 gas=0 fees=0 elapsed=445.373µs
+INFO [04-15|08:14:51.007] New block Seal request                   hash=1b69b7…e9fb32
+INFO [04-15|08:14:52.018] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=b79472…73f60a number=20
+INFO [04-15|08:14:52.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=8.862ms   mgasps=0.000 number=20 hash=b79472…73f60a cache=13.30kB
+INFO [04-15|08:14:52.033] Commit new mining work                   number=21 sealhash=894526…4ae0c7 uncles=0 txs=0 gas=0 fees=0 elapsed=861.25µs
+INFO [04-15|08:14:52.034] New block Seal request                   hash=894526…4ae0c7
+INFO [04-15|08:14:53.015] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=220082…5b4e0d number=21
+INFO [04-15|08:14:53.028] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.029ms   mgasps=0.000 number=21 hash=220082…5b4e0d cache=13.30kB
+INFO [04-15|08:14:53.029] Commit new mining work                   number=22 sealhash=30d533…92f45f uncles=0 txs=0 gas=0 fees=0 elapsed=1.032ms
+INFO [04-15|08:14:53.029] New block Seal request                   hash=30d533…92f45f
+INFO [04-15|08:14:54.021] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=e8170d…024483 number=22
+INFO [04-15|08:14:54.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.303ms   mgasps=0.000 number=22 hash=e8170d…024483 cache=13.30kB
+INFO [04-15|08:14:54.038] 🔗 block reached canonical chain          number=15 hash=2a7221…588cbc
+INFO [04-15|08:14:54.038] Commit new mining work                   number=23 sealhash=9584bb…228542 uncles=0 txs=0 gas=0 fees=0 elapsed=802.842µs
+INFO [04-15|08:14:54.039] New block Seal request                   hash=9584bb…228542
+INFO [04-15|08:14:55.017] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=e262bf…6e2a41 number=23
+INFO [04-15|08:14:55.022] Successfully sealed new block            number=23 sealhash=9584bb…228542 hash=e262bf…6e2a41 elapsed=983.351ms
+INFO [04-15|08:14:55.027] 🔨 mined potential block                  number=23 hash=e262bf…6e2a41
+INFO [04-15|08:14:55.030] Commit new mining work                   number=24 sealhash=43be6c…f147b0 uncles=0 txs=0 gas=0 fees=0 elapsed=1.346ms
+INFO [04-15|08:14:55.029] New block Seal request                   hash=43be6c…f147b0
+INFO [04-15|08:14:56.006] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=7e5ca7…dc1d40 number=24
+INFO [04-15|08:14:56.010] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.796ms   mgasps=0.000 number=24 hash=7e5ca7…dc1d40 cache=13.30kB
+INFO [04-15|08:14:56.011] Commit new mining work                   number=25 sealhash=04f070…27553a uncles=0 txs=0 gas=0 fees=0 elapsed=444.937µs
+INFO [04-15|08:14:56.011] New block Seal request                   hash=04f070…27553a
+INFO [04-15|08:14:57.016] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=d3ed08…ae4595 number=25
+INFO [04-15|08:14:57.025] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.722ms   mgasps=0.000 number=25 hash=d3ed08…ae4595 cache=13.30kB
+INFO [04-15|08:14:57.026] Commit new mining work                   number=26 sealhash=400061…6da0b7 uncles=0 txs=0 gas=0 fees=0 elapsed=886.811µs
+INFO [04-15|08:14:57.026] New block Seal request                   hash=400061…6da0b7
+INFO [04-15|08:14:58.022] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=acc87b…a96818 number=26
+INFO [04-15|08:14:58.037] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=10.035ms  mgasps=0.000 number=26 hash=acc87b…a96818 cache=13.30kB
+INFO [04-15|08:14:58.038] 🔗 block reached canonical chain          number=19 hash=5ab064…ad1279
+INFO [04-15|08:14:58.038] Commit new mining work                   number=27 sealhash=42db8c…9b43fe uncles=0 txs=0 gas=0 fees=0 elapsed=974.122µs
+INFO [04-15|08:14:58.038] New block Seal request                   hash=42db8c…9b43fe
+INFO [04-15|08:14:59.012] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=9d580c…ff8fbd number=27
+INFO [04-15|08:14:59.016] Successfully sealed new block            number=27 sealhash=42db8c…9b43fe hash=9d580c…ff8fbd elapsed=978.258ms
+INFO [04-15|08:14:59.016] 🔨 mined potential block                  number=27 hash=9d580c…ff8fbd
+INFO [04-15|08:14:59.018] Commit new mining work                   number=28 sealhash=9e2cca…4be6f7 uncles=0 txs=0 gas=0 fees=0 elapsed=1.676ms
+INFO [04-15|08:14:59.019] New block Seal request                   hash=9e2cca…4be6f7
+INFO [04-15|08:15:00.018] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=4475ec…62a5ab number=28
+INFO [04-15|08:15:00.029] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.488ms   mgasps=0.000 number=28 hash=4475ec…62a5ab cache=13.30kB
+INFO [04-15|08:15:00.030] Commit new mining work                   number=29 sealhash=6f57eb…a0f20b uncles=0 txs=0 gas=0 fees=0 elapsed=817.805µs
+INFO [04-15|08:15:00.030] New block Seal request                   hash=6f57eb…a0f20b
+INFO [04-15|08:15:01.015] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=61123b…81f02c number=29
+INFO [04-15|08:15:01.034] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=4.678ms   mgasps=0.000 number=29 hash=61123b…81f02c cache=13.30kB
+INFO [04-15|08:15:01.034] Commit new mining work                   number=30 sealhash=e50400…05b497 uncles=0 txs=0 gas=0 fees=0 elapsed=682.792µs
+INFO [04-15|08:15:01.034] New block Seal request                   hash=e50400…05b497
+INFO [04-15|08:15:02.386] Dropping unauthorized peer with old TD.  id=85776bc3e28c4de8 conn=inbound enode=85776bc3e28c4de8                                                                                                                                           expectedTD=30 peerTD=14
+INFO [04-15|08:15:05.293] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=702835…e6af89 number=30
+INFO [04-15|08:15:05.298] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.245ms   mgasps=0.000 number=30 hash=702835…e6af89 cache=13.30kB
+INFO [04-15|08:15:05.298] 🔗 block reached canonical chain          number=23 hash=e262bf…6e2a41
+INFO [04-15|08:15:05.298] Commit new mining work                   number=31 sealhash=0da434…b8be93 uncles=0 txs=0 gas=0 fees=0 elapsed=708.36µs
+INFO [04-15|08:15:05.298] New block Seal request                   hash=0da434…b8be93
+INFO [04-15|08:15:06.019] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=455244…a08983 number=31
+INFO [04-15|08:15:06.025] Successfully sealed new block            number=31 sealhash=0da434…b8be93 hash=455244…a08983 elapsed=726.514ms
+INFO [04-15|08:15:06.026] 🔨 mined potential block                  number=31 hash=455244…a08983
+INFO [04-15|08:15:06.028] Commit new mining work                   number=32 sealhash=b2538e…9a6ca5 uncles=0 txs=0 gas=0 fees=0 elapsed=1.583ms
+INFO [04-15|08:15:06.029] New block Seal request                   hash=b2538e…9a6ca5
+INFO [04-15|08:15:07.016] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=19c8ae…bba3fb number=32
+INFO [04-15|08:15:07.031] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.064ms   mgasps=0.000 number=32 hash=19c8ae…bba3fb cache=13.30kB
+INFO [04-15|08:15:07.032] Commit new mining work                   number=33 sealhash=bdac67…f9e78d uncles=0 txs=0 gas=0 fees=0 elapsed=1.071ms
+INFO [04-15|08:15:07.032] New block Seal request                   hash=bdac67…f9e78d
+INFO [04-15|08:15:08.019] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=0b735b…a487a1 number=33
+INFO [04-15|08:15:08.040] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.716ms   mgasps=0.000 number=33 hash=0b735b…a487a1 cache=13.30kB
+INFO [04-15|08:15:08.041] Commit new mining work                   number=34 sealhash=d01025…e68378 uncles=0 txs=0 gas=0 fees=0 elapsed=690.504µs
+INFO [04-15|08:15:08.041] New block Seal request                   hash=d01025…e68378
+INFO [04-15|08:15:18.048] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=999488…865323 number=34
+INFO [04-15|08:15:18.049] Successfully sealed new block            number=34 sealhash=d01025…e68378 hash=999488…865323 elapsed=10.008s
+INFO [04-15|08:15:18.049] 🔗 block reached canonical chain          number=27 hash=9d580c…ff8fbd
+INFO [04-15|08:15:18.049] 🔨 mined potential block                  number=34 hash=999488…865323
+INFO [04-15|08:15:18.050] Commit new mining work                   number=35 sealhash=ab2b0f…1c9848 uncles=0 txs=0 gas=0 fees=0 elapsed=464.063µs
+INFO [04-15|08:15:18.050] New block Seal request                   hash=ab2b0f…1c9848
+INFO [04-15|08:15:18.059] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=784411…297db7 number=35
+INFO [04-15|08:15:18.067] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.799ms   mgasps=0.000 number=35 hash=784411…297db7 cache=13.30kB
+INFO [04-15|08:15:18.068] Commit new mining work                   number=36 sealhash=19c4db…97a4b4 uncles=0 txs=0 gas=0 fees=0 elapsed=462.062µs
+INFO [04-15|08:15:18.068] New block Seal request                   hash=19c4db…97a4b4
+INFO [04-15|08:15:19.015] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=5060e6…64632b number=36
+INFO [04-15|08:15:19.031] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=10.343ms  mgasps=0.000 number=36 hash=5060e6…64632b cache=13.30kB
+INFO [04-15|08:15:19.032] Commit new mining work                   number=37 sealhash=99db18…0a7c6d uncles=0 txs=0 gas=0 fees=0 elapsed=792.295µs
+INFO [04-15|08:15:19.032] New block Seal request                   hash=99db18…0a7c6d
+INFO [04-15|08:15:29.049] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=9c313b…e023f1 number=37
+INFO [04-15|08:15:29.055] Successfully sealed new block            number=37 sealhash=99db18…0a7c6d hash=9c313b…e023f1 elapsed=10.022s
+INFO [04-15|08:15:29.055] 🔨 mined potential block                  number=37 hash=9c313b…e023f1
+INFO [04-15|08:15:29.057] Commit new mining work                   number=38 sealhash=33b2c4…ca41ee uncles=0 txs=0 gas=0 fees=0 elapsed=1.352ms
+INFO [04-15|08:15:29.057] New block Seal request                   hash=33b2c4…ca41ee
+WARN [04-15|08:15:29.059] unexpected request                       address=0xc443C6c6AE98F5110702921138D840e77dA67702 state=Committed seq=37 err="future message"   number=38 hash=6a1d85…9216a1
+INFO [04-15|08:15:29.073] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=f6fe46…d20b1a number=38
+INFO [04-15|08:15:29.078] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.637ms   mgasps=0.000 number=38 hash=f6fe46…d20b1a cache=13.30kB
+INFO [04-15|08:15:29.078] 🔗 block reached canonical chain          number=31 hash=455244…a08983
+INFO [04-15|08:15:29.078] New block Seal request                   hash=45db23…549d10
+INFO [04-15|08:15:29.078] Commit new mining work                   number=39 sealhash=45db23…549d10 uncles=0 txs=0 gas=0 fees=0 elapsed=483.936µs
+INFO [04-15|08:15:30.018] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=80b44a…b2e029 number=39
+INFO [04-15|08:15:30.037] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=15.358ms  mgasps=0.000 number=39 hash=80b44a…b2e029 cache=13.30kB
+INFO [04-15|08:15:30.038] Commit new mining work                   number=40 sealhash=ff46c7…3708f3 uncles=0 txs=0 gas=0 fees=0 elapsed=656.663µs
+INFO [04-15|08:15:30.038] New block Seal request                   hash=ff46c7…3708f3
+INFO [04-15|08:15:32.395] Dropping unauthorized peer with old TD.  id=85776bc3e28c4de8 conn=inbound enode=85776bc3e28c4de8                                                                                                                                           expectedTD=40 peerTD=34
+INFO [04-15|08:15:40.053] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=dcc791…e55b03 number=40
+INFO [04-15|08:15:40.057] Successfully sealed new block            number=40 sealhash=ff46c7…3708f3 hash=dcc791…e55b03 elapsed=10.018s
+INFO [04-15|08:15:40.057] 🔨 mined potential block                  number=40 hash=dcc791…e55b03
+INFO [04-15|08:15:40.058] Commit new mining work                   number=41 sealhash=78acdf…534b23 uncles=0 txs=0 gas=0 fees=0 elapsed=1.552ms
+INFO [04-15|08:15:40.059] New block Seal request                   hash=78acdf…534b23
+INFO [04-15|08:15:40.076] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=14f80b…badae7 number=41
+INFO [04-15|08:15:40.081] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.383ms   mgasps=0.000 number=41 hash=14f80b…badae7 cache=13.30kB
+INFO [04-15|08:15:40.082] 🔗 block reached canonical chain          number=34 hash=999488…865323
+INFO [04-15|08:15:40.082] Commit new mining work                   number=42 sealhash=042520…d61a57 uncles=0 txs=0 gas=0 fees=0 elapsed=775.409µs
+INFO [04-15|08:15:40.082] New block Seal request                   hash=042520…d61a57
+INFO [04-15|08:15:41.016] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=e117b9…470015 number=42
+INFO [04-15|08:15:41.027] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=7.425ms   mgasps=0.000 number=42 hash=e117b9…470015 cache=13.30kB
+INFO [04-15|08:15:41.028] Commit new mining work                   number=43 sealhash=055c69…5909eb uncles=0 txs=0 gas=0 fees=0 elapsed=1.203ms
+INFO [04-15|08:15:41.029] New block Seal request                   hash=055c69…5909eb
+INFO [04-15|08:15:51.047] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=7f205c…daa948 number=43
+INFO [04-15|08:15:51.052] Successfully sealed new block            number=43 sealhash=055c69…5909eb hash=7f205c…daa948 elapsed=10.023s
+INFO [04-15|08:15:51.052] 🔨 mined potential block                  number=43 hash=7f205c…daa948
+INFO [04-15|08:15:51.054] Commit new mining work                   number=44 sealhash=c03bf4…31d461 uncles=0 txs=0 gas=0 fees=0 elapsed=757.122µs
+INFO [04-15|08:15:51.054] New block Seal request                   hash=c03bf4…31d461
+INFO [04-15|08:15:51.067] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=fd9f3e…716d0b number=44
+INFO [04-15|08:15:51.071] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.776ms   mgasps=0.000 number=44 hash=fd9f3e…716d0b cache=13.30kB
+INFO [04-15|08:15:51.071] 🔗 block reached canonical chain          number=37 hash=9c313b…e023f1
+INFO [04-15|08:15:51.071] New block Seal request                   hash=be9f81…b0e3a1
+INFO [04-15|08:15:51.071] Commit new mining work                   number=45 sealhash=be9f81…b0e3a1 uncles=0 txs=0 gas=0 fees=0 elapsed=474.67µs
+INFO [04-15|08:15:52.013] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=869165…76e57d number=45
+INFO [04-15|08:15:52.026] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.641ms   mgasps=0.000 number=45 hash=869165…76e57d cache=13.30kB
+INFO [04-15|08:15:52.028] Commit new mining work                   number=46 sealhash=c1a3d1…77380c uncles=0 txs=0 gas=0 fees=0 elapsed=1.191ms
+INFO [04-15|08:15:52.028] New block Seal request                   hash=c1a3d1…77380c
+INFO [04-15|08:16:02.045] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=38fdf0…360f1e number=46
+INFO [04-15|08:16:02.051] Successfully sealed new block            number=46 sealhash=c1a3d1…77380c hash=38fdf0…360f1e elapsed=10.023s
+INFO [04-15|08:16:02.051] 🔨 mined potential block                  number=46 hash=38fdf0…360f1e
+INFO [04-15|08:16:02.053] Commit new mining work                   number=47 sealhash=e2001b…041f7c uncles=0 txs=0 gas=0 fees=0 elapsed=1.319ms
+INFO [04-15|08:16:02.053] New block Seal request                   hash=e2001b…041f7c
+INFO [04-15|08:16:02.070] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=9ffa67…16de5d number=47
+INFO [04-15|08:16:02.074] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.810ms   mgasps=0.000 number=47 hash=9ffa67…16de5d cache=13.30kB
+INFO [04-15|08:16:02.074] 🔗 block reached canonical chain          number=40 hash=dcc791…e55b03
+INFO [04-15|08:16:02.075] Commit new mining work                   number=48 sealhash=1c5a29…060919 uncles=0 txs=0 gas=0 fees=0 elapsed=448.839µs
+INFO [04-15|08:16:02.075] New block Seal request                   hash=1c5a29…060919
+INFO [04-15|08:16:02.403] Dropping unauthorized peer with old TD.  id=85776bc3e28c4de8 conn=inbound enode=85776bc3e28c4de8                                                                                                                                           expectedTD=48 peerTD=43
+INFO [04-15|08:16:03.014] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=76e5d5…20b1ae number=48
+INFO [04-15|08:16:03.024] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.950ms   mgasps=0.000 number=48 hash=76e5d5…20b1ae cache=13.30kB
+INFO [04-15|08:16:03.025] Commit new mining work                   number=49 sealhash=e1d2ac…1b42df uncles=0 txs=0 gas=0 fees=0 elapsed=980.303µs
+INFO [04-15|08:16:03.026] New block Seal request                   hash=e1d2ac…1b42df
+INFO [04-15|08:16:13.045] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=278144…4d033a number=49
+INFO [04-15|08:16:13.049] Successfully sealed new block            number=49 sealhash=e1d2ac…1b42df hash=278144…4d033a elapsed=10.024s
+INFO [04-15|08:16:13.050] 🔨 mined potential block                  number=49 hash=278144…4d033a
+INFO [04-15|08:16:13.051] Commit new mining work                   number=50 sealhash=ac6b45…321ce8 uncles=0 txs=0 gas=0 fees=0 elapsed=1.211ms
+INFO [04-15|08:16:13.052] New block Seal request                   hash=ac6b45…321ce8
+INFO [04-15|08:16:13.064] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=c4274e…8c18cb number=50
+INFO [04-15|08:16:13.073] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.554ms   mgasps=0.000 number=50 hash=c4274e…8c18cb cache=13.30kB
+INFO [04-15|08:16:13.073] 🔗 block reached canonical chain          number=43 hash=7f205c…daa948
+INFO [04-15|08:16:13.073] New block Seal request                   hash=779cb7…e718e7
+INFO [04-15|08:16:13.073] Commit new mining work                   number=51 sealhash=779cb7…e718e7 uncles=0 txs=0 gas=0 fees=0 elapsed=453.745µs
+INFO [04-15|08:16:14.014] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=9a5a5f…da8010 number=51
+INFO [04-15|08:16:14.029] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.508ms   mgasps=0.000 number=51 hash=9a5a5f…da8010 cache=13.30kB
+INFO [04-15|08:16:14.030] Commit new mining work                   number=52 sealhash=0a5d75…6b5e52 uncles=0 txs=0 gas=0 fees=0 elapsed=818.945µs
+INFO [04-15|08:16:14.030] New block Seal request                   hash=0a5d75…6b5e52
+INFO [04-15|08:16:24.036] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=fcf99c…a60772 number=52
+INFO [04-15|08:16:24.038] Successfully sealed new block            number=52 sealhash=0a5d75…6b5e52 hash=fcf99c…a60772 elapsed=10.007s
+INFO [04-15|08:16:24.038] 🔨 mined potential block                  number=52 hash=fcf99c…a60772
+INFO [04-15|08:16:24.038] Commit new mining work                   number=53 sealhash=239ad7…542b9b uncles=0 txs=0 gas=0 fees=0 elapsed=563.659µs
+INFO [04-15|08:16:24.039] New block Seal request                   hash=239ad7…542b9b
+INFO [04-15|08:16:24.047] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=db381a…818144 number=53
+INFO [04-15|08:16:24.050] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.018ms   mgasps=0.000 number=53 hash=db381a…818144 cache=13.30kB
+INFO [04-15|08:16:24.051] 🔗 block reached canonical chain          number=46 hash=38fdf0…360f1e
+INFO [04-15|08:16:24.051] Commit new mining work                   number=54 sealhash=867b1c…858536 uncles=0 txs=0 gas=0 fees=0 elapsed=329.023µs
+INFO [04-15|08:16:24.051] New block Seal request                   hash=867b1c…858536
+INFO [04-15|08:16:25.015] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=e191a6…de0b5b number=54
+INFO [04-15|08:16:25.025] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=7.713ms   mgasps=0.000 number=54 hash=e191a6…de0b5b cache=13.30kB
+INFO [04-15|08:16:25.026] Commit new mining work                   number=55 sealhash=7033d7…2a510d uncles=0 txs=0 gas=0 fees=0 elapsed=1.219ms
+INFO [04-15|08:16:25.027] New block Seal request                   hash=7033d7…2a510d
+INFO [04-15|08:16:32.409] Dropping unauthorized peer with old TD.  id=85776bc3e28c4de8 conn=inbound enode=85776bc3e28c4de8                                                                                                                                           expectedTD=55 peerTD=52
+INFO [04-15|08:16:35.046] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=387366…9d9525 number=55
+INFO [04-15|08:16:35.051] Successfully sealed new block            number=55 sealhash=7033d7…2a510d hash=387366…9d9525 elapsed=10.024s
+INFO [04-15|08:16:35.051] 🔨 mined potential block                  number=55 hash=387366…9d9525
+INFO [04-15|08:16:35.053] Commit new mining work                   number=56 sealhash=1bc509…a912e3 uncles=0 txs=0 gas=0 fees=0 elapsed=1.370ms
+INFO [04-15|08:16:35.053] New block Seal request                   hash=1bc509…a912e3
+INFO [04-15|08:16:35.068] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=cd20b4…14aedd number=56
+INFO [04-15|08:16:35.075] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.034ms   mgasps=0.000 number=56 hash=cd20b4…14aedd cache=13.30kB
+INFO [04-15|08:16:35.075] 🔗 block reached canonical chain          number=49 hash=278144…4d033a
+INFO [04-15|08:16:35.075] Commit new mining work                   number=57 sealhash=c16c10…596600 uncles=0 txs=0 gas=0 fees=0 elapsed=393.819µs
+INFO [04-15|08:16:35.075] New block Seal request                   hash=c16c10…596600
+INFO [04-15|08:16:36.011] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=905f39…c566df number=57
+INFO [04-15|08:16:36.021] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.534ms   mgasps=0.000 number=57 hash=905f39…c566df cache=13.30kB
+INFO [04-15|08:16:36.022] Commit new mining work                   number=58 sealhash=ff1234…1e27dc uncles=0 txs=0 gas=0 fees=0 elapsed=950.162µs
+INFO [04-15|08:16:36.022] New block Seal request                   hash=ff1234…1e27dc
+INFO [04-15|08:16:46.029] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=3d99a3…ed2163 number=58
+INFO [04-15|08:16:46.030] Successfully sealed new block            number=58 sealhash=ff1234…1e27dc hash=3d99a3…ed2163 elapsed=10.008s
+INFO [04-15|08:16:46.030] 🔨 mined potential block                  number=58 hash=3d99a3…ed2163
+INFO [04-15|08:16:46.031] Commit new mining work                   number=59 sealhash=31f884…76b5fa uncles=0 txs=0 gas=0 fees=0 elapsed=358.655µs
+INFO [04-15|08:16:46.031] New block Seal request                   hash=31f884…76b5fa
+WARN [04-15|08:16:46.031] unexpected request                       address=0xc443C6c6AE98F5110702921138D840e77dA67702 state=Committed seq=58 err="future message"   number=59 hash=cf288e…2d2de6
+INFO [04-15|08:16:46.038] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=915275…97649b number=59
+INFO [04-15|08:16:46.042] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.354ms   mgasps=0.000 number=59 hash=915275…97649b cache=13.30kB
+INFO [04-15|08:16:46.042] 🔗 block reached canonical chain          number=52 hash=fcf99c…a60772
+INFO [04-15|08:16:46.042] Commit new mining work                   number=60 sealhash=5807d5…282a88 uncles=0 txs=0 gas=0 fees=0 elapsed=389.162µs
+INFO [04-15|08:16:46.042] New block Seal request                   hash=5807d5…282a88
+INFO [04-15|08:16:47.004] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=a40fc2…1a65fe number=60
+INFO [04-15|08:16:47.008] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.610ms   mgasps=0.000 number=60 hash=a40fc2…1a65fe cache=13.30kB
+INFO [04-15|08:16:47.008] Commit new mining work                   number=61 sealhash=2986db…8b9afa uncles=0 txs=0 gas=0 fees=0 elapsed=406.704µs
+INFO [04-15|08:16:47.008] New block Seal request                   hash=2986db…8b9afa
+INFO [04-15|08:16:57.017] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=2b98e8…882ce5 number=61
+INFO [04-15|08:16:57.018] Successfully sealed new block            number=61 sealhash=2986db…8b9afa hash=2b98e8…882ce5 elapsed=10.009s
+INFO [04-15|08:16:57.018] 🔨 mined potential block                  number=61 hash=2b98e8…882ce5
+INFO [04-15|08:16:57.019] Commit new mining work                   number=62 sealhash=f3a1df…3c0d1b uncles=0 txs=0 gas=0 fees=0 elapsed=398.884µs
+INFO [04-15|08:16:57.019] New block Seal request                   hash=f3a1df…3c0d1b
+WARN [04-15|08:16:57.019] unexpected request                       address=0xc443C6c6AE98F5110702921138D840e77dA67702 state=Committed seq=61 err="future message"   number=62 hash=3e304b…ea2707
+INFO [04-15|08:16:57.029] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=181273…072b8e number=62
+INFO [04-15|08:16:57.033] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.741ms   mgasps=0.000 number=62 hash=181273…072b8e cache=13.30kB
+INFO [04-15|08:16:57.034] 🔗 block reached canonical chain          number=55 hash=387366…9d9525
+INFO [04-15|08:16:57.034] New block Seal request                   hash=d978a0…d65884
+INFO [04-15|08:16:57.034] Commit new mining work                   number=63 sealhash=d978a0…d65884 uncles=0 txs=0 gas=0 fees=0 elapsed=512.717µs
+INFO [04-15|08:16:58.005] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=5cf444…c5eaf7 number=63
+INFO [04-15|08:16:58.008] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.997ms   mgasps=0.000 number=63 hash=5cf444…c5eaf7 cache=13.30kB
+INFO [04-15|08:16:58.008] Commit new mining work                   number=64 sealhash=162db9…321fb8 uncles=0 txs=0 gas=0 fees=0 elapsed=416.046µs
+INFO [04-15|08:16:58.008] New block Seal request                   hash=162db9…321fb8
+INFO [04-15|08:17:02.412] Dropping unauthorized peer with old TD.  id=85776bc3e28c4de8 conn=inbound enode=85776bc3e28c4de8                                                                                                                                           expectedTD=64 peerTD=60
+INFO [04-15|08:17:08.014] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=a1a335…e5c463 number=64
+INFO [04-15|08:17:08.015] Successfully sealed new block            number=64 sealhash=162db9…321fb8 hash=a1a335…e5c463 elapsed=10.007s
+INFO [04-15|08:17:08.015] 🔨 mined potential block                  number=64 hash=a1a335…e5c463
+INFO [04-15|08:17:08.016] Commit new mining work                   number=65 sealhash=a950fa…b6ff2f uncles=0 txs=0 gas=0 fees=0 elapsed=433.23µs
+INFO [04-15|08:17:08.016] New block Seal request                   hash=a950fa…b6ff2f
+INFO [04-15|08:17:08.025] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=6e97f0…05b91f number=65
+INFO [04-15|08:17:08.029] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.659ms   mgasps=0.000 number=65 hash=6e97f0…05b91f cache=13.30kB
+INFO [04-15|08:17:08.032] 🔗 block reached canonical chain          number=58 hash=3d99a3…ed2163
+INFO [04-15|08:17:08.032] Commit new mining work                   number=66 sealhash=5363f1…f58c8a uncles=0 txs=0 gas=0 fees=0 elapsed=443.511µs
+INFO [04-15|08:17:08.032] New block Seal request                   hash=5363f1…f58c8a
+INFO [04-15|08:17:09.017] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=4e828e…5a6386 number=66
+INFO [04-15|08:17:09.030] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=8.552ms   mgasps=0.000 number=66 hash=4e828e…5a6386 cache=13.30kB
+INFO [04-15|08:17:09.031] Commit new mining work                   number=67 sealhash=2e818b…a0c98a uncles=0 txs=0 gas=0 fees=0 elapsed=654.465µs
+INFO [04-15|08:17:09.031] New block Seal request                   hash=2e818b…a0c98a
+INFO [04-15|08:17:19.036] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=c84335…ac2bf0 number=67
+INFO [04-15|08:17:19.038] Successfully sealed new block            number=67 sealhash=2e818b…a0c98a hash=c84335…ac2bf0 elapsed=10.006s
+INFO [04-15|08:17:19.038] 🔨 mined potential block                  number=67 hash=c84335…ac2bf0
+INFO [04-15|08:17:19.038] Commit new mining work                   number=68 sealhash=52ab1a…36ce21 uncles=0 txs=0 gas=0 fees=0 elapsed=548.899µs
+INFO [04-15|08:17:19.038] New block Seal request                   hash=52ab1a…36ce21
+INFO [04-15|08:17:19.046] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=754d98…09f61a number=68
+INFO [04-15|08:17:19.049] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.793ms   mgasps=0.000 number=68 hash=754d98…09f61a cache=13.30kB
+INFO [04-15|08:17:19.049] 🔗 block reached canonical chain          number=61 hash=2b98e8…882ce5
+INFO [04-15|08:17:19.049] Commit new mining work                   number=69 sealhash=777bdc…90d790 uncles=0 txs=0 gas=0 fees=0 elapsed=307.597µs
+INFO [04-15|08:17:19.049] New block Seal request                   hash=777bdc…90d790
+INFO [04-15|08:17:20.018] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=8429bc…04bd33 number=69
+INFO [04-15|08:17:20.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.948ms   mgasps=0.000 number=69 hash=8429bc…04bd33 cache=13.30kB
+INFO [04-15|08:17:20.034] Commit new mining work                   number=70 sealhash=99026e…04ace9 uncles=0 txs=0 gas=0 fees=0 elapsed=1.223ms
+INFO [04-15|08:17:20.034] New block Seal request                   hash=99026e…04ace9
+INFO [04-15|08:17:30.053] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=64d9ab…6b3584 number=70
+INFO [04-15|08:17:30.057] Successfully sealed new block            number=70 sealhash=99026e…04ace9 hash=64d9ab…6b3584 elapsed=10.023s
+INFO [04-15|08:17:30.057] 🔨 mined potential block                  number=70 hash=64d9ab…6b3584
+INFO [04-15|08:17:30.059] Commit new mining work                   number=71 sealhash=d43a8f…d0d81e uncles=0 txs=0 gas=0 fees=0 elapsed=1.184ms
+INFO [04-15|08:17:30.060] New block Seal request                   hash=d43a8f…d0d81e
+WARN [04-15|08:17:30.061] unexpected request                       address=0xc443C6c6AE98F5110702921138D840e77dA67702 state=Committed seq=70 err="future message"   number=71 hash=e1bbd0…9c2445
+INFO [04-15|08:17:30.076] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=cc029b…d55b21 number=71
+INFO [04-15|08:17:30.081] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.851ms   mgasps=0.000 number=71 hash=cc029b…d55b21 cache=13.30kB
+INFO [04-15|08:17:30.082] 🔗 block reached canonical chain          number=64 hash=a1a335…e5c463
+INFO [04-15|08:17:30.082] Commit new mining work                   number=72 sealhash=4f702b…526bfb uncles=0 txs=0 gas=0 fees=0 elapsed=383.505µs
+INFO [04-15|08:17:30.082] New block Seal request                   hash=4f702b…526bfb
+INFO [04-15|08:17:31.018] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=58ecee…80d01b number=72
+INFO [04-15|08:17:31.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=8.688ms   mgasps=0.000 number=72 hash=58ecee…80d01b cache=13.30kB
+INFO [04-15|08:17:31.033] Commit new mining work                   number=73 sealhash=f767fe…39b3ce uncles=0 txs=0 gas=0 fees=0 elapsed=680.501µs
+INFO [04-15|08:17:31.033] New block Seal request                   hash=f767fe…39b3ce
+INFO [04-15|08:17:32.415] Dropping unauthorized peer with old TD.  id=85776bc3e28c4de8 conn=inbound enode=85776bc3e28c4de8                                                                                                                                           expectedTD=73 peerTD=67
+INFO [04-15|08:17:41.051] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=1af333…b0f0cb number=73
+INFO [04-15|08:17:41.057] Successfully sealed new block            number=73 sealhash=f767fe…39b3ce hash=1af333…b0f0cb elapsed=10.023s
+INFO [04-15|08:17:41.057] 🔨 mined potential block                  number=73 hash=1af333…b0f0cb
+INFO [04-15|08:17:41.059] Commit new mining work                   number=74 sealhash=2d691a…564cd2 uncles=0 txs=0 gas=0 fees=0 elapsed=1.394ms
+INFO [04-15|08:17:41.059] New block Seal request                   hash=2d691a…564cd2
+INFO [04-15|08:17:41.072] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=2acbd9…013331 number=74
+INFO [04-15|08:17:41.076] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.868ms   mgasps=0.000 number=74 hash=2acbd9…013331 cache=13.30kB
+INFO [04-15|08:17:41.077] 🔗 block reached canonical chain          number=67 hash=c84335…ac2bf0
+INFO [04-15|08:17:41.077] Commit new mining work                   number=75 sealhash=5069b2…63151e uncles=0 txs=0 gas=0 fees=0 elapsed=402.9µs
+INFO [04-15|08:17:41.077] New block Seal request                   hash=5069b2…63151e
+INFO [04-15|08:17:42.018] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=eeb0e8…db94c3 number=75
+INFO [04-15|08:17:42.027] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.776ms   mgasps=0.000 number=75 hash=eeb0e8…db94c3 cache=13.30kB
+INFO [04-15|08:17:42.028] Commit new mining work                   number=76 sealhash=c4dd31…163f5b uncles=0 txs=0 gas=0 fees=0 elapsed=920.667µs
+INFO [04-15|08:17:42.028] New block Seal request                   hash=c4dd31…163f5b
+INFO [04-15|08:17:52.043] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=663bc5…7491f3 number=76
+INFO [04-15|08:17:52.047] Successfully sealed new block            number=76 sealhash=c4dd31…163f5b hash=663bc5…7491f3 elapsed=10.018s
+INFO [04-15|08:17:52.047] 🔨 mined potential block                  number=76 hash=663bc5…7491f3
+INFO [04-15|08:17:52.049] Commit new mining work                   number=77 sealhash=7b3dd9…02ba68 uncles=0 txs=0 gas=0 fees=0 elapsed=1.466ms
+INFO [04-15|08:17:52.050] New block Seal request                   hash=7b3dd9…02ba68
+INFO [04-15|08:17:52.070] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=4f1400…3affa8 number=77
+INFO [04-15|08:17:52.076] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=4.010ms   mgasps=0.000 number=77 hash=4f1400…3affa8 cache=13.30kB
+INFO [04-15|08:17:52.077] 🔗 block reached canonical chain          number=70 hash=64d9ab…6b3584
+INFO [04-15|08:17:52.077] Commit new mining work                   number=78 sealhash=f8df44…f00491 uncles=0 txs=0 gas=0 fees=0 elapsed=591.282µs
+INFO [04-15|08:17:52.077] New block Seal request                   hash=f8df44…f00491
+INFO [04-15|08:17:53.003] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=9ea94b…005f22 number=78
+INFO [04-15|08:17:53.007] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.323ms   mgasps=0.000 number=78 hash=9ea94b…005f22 cache=13.30kB
+INFO [04-15|08:17:53.007] Commit new mining work                   number=79 sealhash=37c1cd…03688d uncles=0 txs=0 gas=0 fees=0 elapsed=407.79µs
+INFO [04-15|08:17:53.007] New block Seal request                   hash=37c1cd…03688d
+INFO [04-15|08:18:02.424] Dropping unauthorized peer with old TD.  id=85776bc3e28c4de8 conn=inbound enode=85776bc3e28c4de8                                                                                                                                           expectedTD=79 peerTD=76
+INFO [04-15|08:18:03.030] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=48c2e4…32ceca number=79
+INFO [04-15|08:18:03.035] Successfully sealed new block            number=79 sealhash=37c1cd…03688d hash=48c2e4…32ceca elapsed=10.027s
+INFO [04-15|08:18:03.035] 🔨 mined potential block                  number=79 hash=48c2e4…32ceca
+INFO [04-15|08:18:03.037] Commit new mining work                   number=80 sealhash=4bab18…6ab67a uncles=0 txs=0 gas=0 fees=0 elapsed=1.554ms
+INFO [04-15|08:18:03.037] New block Seal request                   hash=4bab18…6ab67a
+INFO [04-15|08:18:03.049] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=c574b9…fe8158 number=80
+INFO [04-15|08:18:03.054] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.817ms   mgasps=0.000 number=80 hash=c574b9…fe8158 cache=13.30kB
+INFO [04-15|08:18:03.054] 🔗 block reached canonical chain          number=73 hash=1af333…b0f0cb
+INFO [04-15|08:18:03.054] Commit new mining work                   number=81 sealhash=2779da…baca8e uncles=0 txs=0 gas=0 fees=0 elapsed=396.511µs
+INFO [04-15|08:18:03.054] New block Seal request                   hash=2779da…baca8e
+INFO [04-15|08:18:04.015] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=9ac451…3f5341 number=81
+INFO [04-15|08:18:04.026] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=7.865ms   mgasps=0.000 number=81 hash=9ac451…3f5341 cache=13.30kB
+INFO [04-15|08:18:04.028] Commit new mining work                   number=82 sealhash=8455a2…b6a86f uncles=0 txs=0 gas=0 fees=0 elapsed=1.036ms
+INFO [04-15|08:18:04.028] New block Seal request                   hash=8455a2…b6a86f
+INFO [04-15|08:18:14.033] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=462deb…6843a8 number=82
+INFO [04-15|08:18:14.035] Successfully sealed new block            number=82 sealhash=8455a2…b6a86f hash=462deb…6843a8 elapsed=10.007s
+INFO [04-15|08:18:14.035] 🔨 mined potential block                  number=82 hash=462deb…6843a8
+INFO [04-15|08:18:14.035] Commit new mining work                   number=83 sealhash=4aa986…9c9b03 uncles=0 txs=0 gas=0 fees=0 elapsed=432.919µs
+INFO [04-15|08:18:14.036] New block Seal request                   hash=4aa986…9c9b03
+INFO [04-15|08:18:14.044] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=5ef601…ecf47a number=83
+INFO [04-15|08:18:14.047] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.500ms   mgasps=0.000 number=83 hash=5ef601…ecf47a cache=13.30kB
+INFO [04-15|08:18:14.048] 🔗 block reached canonical chain          number=76 hash=663bc5…7491f3
+INFO [04-15|08:18:14.048] Commit new mining work                   number=84 sealhash=7d2221…9b8016 uncles=0 txs=0 gas=0 fees=0 elapsed=424.611µs
+INFO [04-15|08:18:14.048] New block Seal request                   hash=7d2221…9b8016
+INFO [04-15|08:18:15.004] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=2c00c4…d8b52d number=84
+INFO [04-15|08:18:15.007] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.117ms   mgasps=0.000 number=84 hash=2c00c4…d8b52d cache=13.30kB
+INFO [04-15|08:18:15.008] Commit new mining work                   number=85 sealhash=c07992…755151 uncles=0 txs=0 gas=0 fees=0 elapsed=327.483µs
+INFO [04-15|08:18:15.008] New block Seal request                   hash=c07992…755151
+INFO [04-15|08:18:25.017] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=139be4…605bdc number=85
+INFO [04-15|08:18:25.018] Successfully sealed new block            number=85 sealhash=c07992…755151 hash=139be4…605bdc elapsed=10.010s
+INFO [04-15|08:18:25.019] 🔨 mined potential block                  number=85 hash=139be4…605bdc
+INFO [04-15|08:18:25.019] Commit new mining work                   number=86 sealhash=c30b0d…598c7a uncles=0 txs=0 gas=0 fees=0 elapsed=463.869µs
+INFO [04-15|08:18:25.019] New block Seal request                   hash=c30b0d…598c7a
+INFO [04-15|08:18:25.025] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=456fa8…dfd8e2 number=86
+INFO [04-15|08:18:25.029] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.778ms   mgasps=0.000 number=86 hash=456fa8…dfd8e2 cache=13.30kB
+INFO [04-15|08:18:25.030] 🔗 block reached canonical chain          number=79 hash=48c2e4…32ceca
+INFO [04-15|08:18:25.030] Commit new mining work                   number=87 sealhash=eb8642…4c1ca1 uncles=0 txs=0 gas=0 fees=0 elapsed=384.702µs
+INFO [04-15|08:18:25.030] New block Seal request                   hash=eb8642…4c1ca1
+INFO [04-15|08:18:26.003] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=4e0c54…48bb6e number=87
+INFO [04-15|08:18:26.007] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.369ms   mgasps=0.000 number=87 hash=4e0c54…48bb6e cache=13.30kB
+INFO [04-15|08:18:26.007] Commit new mining work                   number=88 sealhash=cc50b7…603d4d uncles=0 txs=0 gas=0 fees=0 elapsed=426.48µs
+INFO [04-15|08:18:26.007] New block Seal request                   hash=cc50b7…603d4d
+INFO [04-15|08:18:32.432] Dropping unauthorized peer with old TD.  id=85776bc3e28c4de8 conn=inbound enode=85776bc3e28c4de8                                                                                                                                           expectedTD=88 peerTD=85
+INFO [04-15|08:18:36.029] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=547065…7ce73e number=88
+INFO [04-15|08:18:36.034] Successfully sealed new block            number=88 sealhash=cc50b7…603d4d hash=547065…7ce73e elapsed=10.026s
+INFO [04-15|08:18:36.034] 🔨 mined potential block                  number=88 hash=547065…7ce73e
+INFO [04-15|08:18:36.035] Commit new mining work                   number=89 sealhash=c5f24d…9f7b76 uncles=0 txs=0 gas=0 fees=0 elapsed=951.483µs
+INFO [04-15|08:18:36.036] New block Seal request                   hash=c5f24d…9f7b76
+WARN [04-15|08:18:36.036] unexpected request                       address=0xc443C6c6AE98F5110702921138D840e77dA67702 state=Committed seq=88 err="future message"   number=89 hash=364e28…0c97b7
+INFO [04-15|08:18:36.048] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=e994f8…8a0e79 number=89
+INFO [04-15|08:18:36.053] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.911ms   mgasps=0.000 number=89 hash=e994f8…8a0e79 cache=13.30kB
+INFO [04-15|08:18:36.054] 🔗 block reached canonical chain          number=82 hash=462deb…6843a8
+INFO [04-15|08:18:36.054] Commit new mining work                   number=90 sealhash=49d0e3…46ec2f uncles=0 txs=0 gas=0 fees=0 elapsed=401.046µs
+INFO [04-15|08:18:36.054] New block Seal request                   hash=49d0e3…46ec2f
+INFO [04-15|08:18:37.004] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=9eb84d…bc44b8 number=90
+INFO [04-15|08:18:37.007] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.179ms   mgasps=0.000 number=90 hash=9eb84d…bc44b8 cache=13.30kB
+INFO [04-15|08:18:37.007] Commit new mining work                   number=91 sealhash=50d590…686213 uncles=0 txs=0 gas=0 fees=0 elapsed=296.177µs
+INFO [04-15|08:18:37.007] New block Seal request                   hash=50d590…686213
+INFO [04-15|08:18:47.014] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=afc423…edd013 number=91
+INFO [04-15|08:18:47.016] Successfully sealed new block            number=91 sealhash=50d590…686213 hash=afc423…edd013 elapsed=10.008s
+INFO [04-15|08:18:47.016] 🔨 mined potential block                  number=91 hash=afc423…edd013
+INFO [04-15|08:18:47.016] Commit new mining work                   number=92 sealhash=fc9619…a1dd14 uncles=0 txs=0 gas=0 fees=0 elapsed=420.096µs
+INFO [04-15|08:18:47.017] New block Seal request                   hash=fc9619…a1dd14
+INFO [04-15|08:18:47.029] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=b1b42e…1223e1 number=92
+INFO [04-15|08:18:47.033] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.734ms   mgasps=0.000 number=92 hash=b1b42e…1223e1 cache=13.30kB
+INFO [04-15|08:18:47.034] 🔗 block reached canonical chain          number=85 hash=139be4…605bdc
+INFO [04-15|08:18:47.034] Commit new mining work                   number=93 sealhash=a59901…4df6de uncles=0 txs=0 gas=0 fees=0 elapsed=523.551µs
+INFO [04-15|08:18:47.034] New block Seal request                   hash=a59901…4df6de
+INFO [04-15|08:18:48.009] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=d13d97…f545ba number=93
+INFO [04-15|08:18:48.013] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.779ms   mgasps=0.000 number=93 hash=d13d97…f545ba cache=13.30kB
+INFO [04-15|08:18:48.014] Commit new mining work                   number=94 sealhash=e1ed6d…3332d6 uncles=0 txs=0 gas=0 fees=0 elapsed=332.693µs
+INFO [04-15|08:18:48.014] New block Seal request                   hash=e1ed6d…3332d6
+INFO [04-15|08:18:58.019] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=1a4110…eb6d18 number=94
+INFO [04-15|08:18:58.020] Successfully sealed new block            number=94 sealhash=e1ed6d…3332d6 hash=1a4110…eb6d18 elapsed=10.006s
+INFO [04-15|08:18:58.020] 🔨 mined potential block                  number=94 hash=1a4110…eb6d18
+INFO [04-15|08:18:58.021] Commit new mining work                   number=95 sealhash=f63c3a…23433e uncles=0 txs=0 gas=0 fees=0 elapsed=410.823µs
+INFO [04-15|08:18:58.021] New block Seal request                   hash=f63c3a…23433e
+INFO [04-15|08:18:58.031] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=049a09…cf183b number=95
+INFO [04-15|08:18:58.036] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.501ms   mgasps=0.000 number=95 hash=049a09…cf183b cache=13.30kB
+INFO [04-15|08:18:58.036] 🔗 block reached canonical chain          number=88 hash=547065…7ce73e
+INFO [04-15|08:18:58.036] Commit new mining work                   number=96 sealhash=5ef4eb…8815f4 uncles=0 txs=0 gas=0 fees=0 elapsed=446.263µs
+INFO [04-15|08:18:58.036] New block Seal request                   hash=5ef4eb…8815f4
+INFO [04-15|08:18:59.017] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=254661…26954e number=96
+INFO [04-15|08:18:59.028] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=7.648ms   mgasps=0.000 number=96 hash=254661…26954e cache=13.30kB
+INFO [04-15|08:18:59.030] Commit new mining work                   number=97 sealhash=d65c70…3d2676 uncles=0 txs=0 gas=0 fees=0 elapsed=1.298ms
+INFO [04-15|08:18:59.030] New block Seal request                   hash=d65c70…3d2676
+INFO [04-15|08:19:02.440] Dropping unauthorized peer with old TD.  id=85776bc3e28c4de8 conn=inbound enode=85776bc3e28c4de8                                                                                                                                           expectedTD=97 peerTD=91
+INFO [04-15|08:19:09.041] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=e9bd8b…3b4e4f number=97
+INFO [04-15|08:19:09.043] Successfully sealed new block            number=97 sealhash=d65c70…3d2676 hash=e9bd8b…3b4e4f elapsed=10.013s
+INFO [04-15|08:19:09.043] 🔨 mined potential block                  number=97 hash=e9bd8b…3b4e4f
+INFO [04-15|08:19:09.044] Commit new mining work                   number=98 sealhash=a31c8e…48d7bc uncles=0 txs=0 gas=0 fees=0 elapsed=476.013µs
+INFO [04-15|08:19:09.044] New block Seal request                   hash=a31c8e…48d7bc
+WARN [04-15|08:19:09.045] unexpected request                       address=0xc443C6c6AE98F5110702921138D840e77dA67702 state=Committed seq=97 err="future message"   number=98 hash=f7e934…161cad
+INFO [04-15|08:19:09.070] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=f503d9…ea291c number=98
+INFO [04-15|08:19:09.075] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.496ms   mgasps=0.000 number=98 hash=f503d9…ea291c cache=13.30kB
+INFO [04-15|08:19:09.076] 🔗 block reached canonical chain          number=91 hash=afc423…edd013
+INFO [04-15|08:19:09.078] Commit new mining work                   number=99 sealhash=3dfcf1…e4291f uncles=0 txs=0 gas=0 fees=0 elapsed=2.307ms
+INFO [04-15|08:19:09.078] New block Seal request                   hash=3dfcf1…e4291f
+INFO [04-15|08:19:10.008] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=f13258…5e6f8f number=99
+INFO [04-15|08:19:10.017] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.901ms   mgasps=0.000 number=99 hash=f13258…5e6f8f cache=13.30kB
+INFO [04-15|08:19:10.018] Commit new mining work                   number=100 sealhash=8bffa9…f30f3e uncles=0 txs=0 gas=0 fees=0 elapsed=529.228µs
+INFO [04-15|08:19:10.018] New block Seal request                   hash=8bffa9…f30f3e
+INFO [04-15|08:19:20.035] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=b2cccb…abbcb6 number=100
+INFO [04-15|08:19:20.039] Successfully sealed new block            number=100 sealhash=8bffa9…f30f3e hash=b2cccb…abbcb6 elapsed=10.021s
+INFO [04-15|08:19:20.039] 🔨 mined potential block                  number=100 hash=b2cccb…abbcb6
+INFO [04-15|08:19:20.041] Commit new mining work                   number=101 sealhash=239d8a…e713fd uncles=0 txs=0 gas=0 fees=0 elapsed=1.333ms
+INFO [04-15|08:19:20.041] New block Seal request                   hash=239d8a…e713fd
+INFO [04-15|08:19:20.063] Committed                                address=0xc443C6c6AE98F5110702921138D840e77dA67702 hash=7847eb…8d9c71 number=101
+INFO [04-15|08:19:20.068] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.084ms   mgasps=0.000 number=101 hash=7847eb…8d9c71 cache=13.30kB
+INFO [04-15|08:19:20.069] 🔗 block reached canonical chain          number=94  hash=1a4110…eb6d18
+INFO [04-15|08:19:20.069] Commit new mining work                   number=102 sealhash=d14a51…5d9cb6 uncles=0 txs=0 gas=0 fees=0 elapsed=489.792µs
+INFO [04-15|08:19:20.069] New block Seal request                   hash=d14a51…5d9cb6

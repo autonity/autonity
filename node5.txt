@@ -1,0 +1,189 @@
+Autonity INIT 172.25.0.15
+INFO [04-15|08:13:35.547] Maximum peer count                       ETH=25 LES=0 total=25
+INFO [04-15|08:13:35.548] Allocated cache and file handles         database=/autonity-data/autonity/chaindata cache=16 handles=16
+INFO [04-15|08:13:35.736] Writing custom genesis block
+INFO [04-15|08:13:35.736] starting Istanbul consensus              extraData=0000000000000000000000000000000000000000000000000000000000000000f858f85494850c1eb8d190e05845ad7f84ac95a318c8aab07f944ad219b58a5b46a1d9662beaa6a70db9f570dea5944b07239bd581d21aefcdee0c6db38070f9a5fd2d94c443c6c6ae98f5110702921138d840e77da6770280c0
+INFO [04-15|08:13:35.737] Persisted trie from memory database      nodes=11 size=1.61kB time=207.037µs gcnodes=0 gcsize=0.00B gctime=0s livenodes=1 livesize=0.00B
+INFO [04-15|08:13:35.737] Genesis Authorized Enode                 enode=enode://1f207dfb3bcbbd338fbc991ec13e40d204b58fe7275cea48cfeb53c2c24e1071e1b4ef2959325fe48a5893de8ff37c73a24a412f367e505e5dec832813da546a@172.25.0.12:30303
+INFO [04-15|08:13:35.738] Genesis Authorized Enode                 enode=enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@172.25.0.13:30303
+INFO [04-15|08:13:35.738] Genesis Authorized Enode                 enode=enode://438a5c2cd8fdc2ecbc508bf7362e41c0f0c3754ba1d3267127a3756324caf45e6546b02140e2144b205aeb372c96c5df9641485f721dc7c5b27eb9e35f5d887b@172.25.0.14:30303
+INFO [04-15|08:13:35.738] Genesis Authorized Enode                 enode=enode://3ce6c053cb563bfd94f4e0e248510a07ccee1bc836c9784da1816dba4b10564e7be1ba42e0bd8d73c8f6274f8e9878dc13814adb381c823264265c06048b4b59@172.25.0.15:30303
+INFO [04-15|08:13:35.739] Successfully wrote genesis state         database=chaindata                         hash=14e055…cf0db9
+INFO [04-15|08:13:35.739] Allocated cache and file handles         database=/autonity-data/autonity/lightchaindata cache=16 handles=16
+INFO [04-15|08:13:35.820] Writing custom genesis block
+INFO [04-15|08:13:35.820] starting Istanbul consensus              extraData=0000000000000000000000000000000000000000000000000000000000000000f858f85494850c1eb8d190e05845ad7f84ac95a318c8aab07f944ad219b58a5b46a1d9662beaa6a70db9f570dea5944b07239bd581d21aefcdee0c6db38070f9a5fd2d94c443c6c6ae98f5110702921138d840e77da6770280c0
+INFO [04-15|08:13:35.822] Persisted trie from memory database      nodes=11 size=1.61kB time=237.68µs  gcnodes=0 gcsize=0.00B gctime=0s livenodes=1 livesize=0.00B
+INFO [04-15|08:13:35.822] Genesis Authorized Enode                 enode=enode://1f207dfb3bcbbd338fbc991ec13e40d204b58fe7275cea48cfeb53c2c24e1071e1b4ef2959325fe48a5893de8ff37c73a24a412f367e505e5dec832813da546a@172.25.0.12:30303
+INFO [04-15|08:13:35.822] Genesis Authorized Enode                 enode=enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@172.25.0.13:30303
+INFO [04-15|08:13:35.823] Genesis Authorized Enode                 enode=enode://438a5c2cd8fdc2ecbc508bf7362e41c0f0c3754ba1d3267127a3756324caf45e6546b02140e2144b205aeb372c96c5df9641485f721dc7c5b27eb9e35f5d887b@172.25.0.14:30303
+INFO [04-15|08:13:35.823] Genesis Authorized Enode                 enode=enode://3ce6c053cb563bfd94f4e0e248510a07ccee1bc836c9784da1816dba4b10564e7be1ba42e0bd8d73c8f6274f8e9878dc13814adb381c823264265c06048b4b59@172.25.0.15:30303
+INFO [04-15|08:13:35.824] Successfully wrote genesis state         database=lightchaindata                         hash=14e055…cf0db9
+Autonity START
+INFO [04-15|08:13:35.892] Maximum peer count                       ETH=25 LES=0 total=25
+INFO [04-15|08:13:35.892] Starting peer-to-peer node               instance=Autonity/v1.0.0-alpha-530eb572/linux-amd64/go1.11.6
+ERROR[04-15|08:13:35.893] self                                     enode=8ecf1cf8e370bead81a3090c09428e8674496e2d1e965402f33a9520c5fcbbe2
+INFO [04-15|08:13:35.893] Allocated cache and file handles         database=/autonity-data/autonity/chaindata cache=512 handles=524288
+INFO [04-15|08:13:36.006] Initialised chain configuration          config="{ChainID: 1991 Homestead: 0 DAO: <nil> DAOSupport: false EIP150: 0 EIP155: 0 EIP158: 0 Byzantium: <nil> Constantinople: <nil> Engine: istanbul}"
+INFO [04-15|08:13:36.006] User specified Validator smart contract set
+INFO [04-15|08:13:36.006] Initialising Ethereum protocol           versions="[63 62]" network=1
+INFO [04-15|08:13:36.074] Loaded most recent local header          number=0 hash=14e055…cf0db9 td=1 age=50y1d8h
+INFO [04-15|08:13:36.074] Loaded most recent local full block      number=0 hash=14e055…cf0db9 td=1 age=50y1d8h
+INFO [04-15|08:13:36.074] Loaded most recent local fast block      number=0 hash=14e055…cf0db9 td=1 age=50y1d8h
+INFO [04-15|08:13:36.074] Regenerated local transaction journal    transactions=0 accounts=0
+INFO [04-15|08:13:36.074] Full Sync Mode
+INFO [04-15|08:13:36.075] Soma Contract Deployer                   Address=0x1336000000000000000000000000000000000000
+INFO [04-15|08:13:36.075] Deployed Soma Governance Contract        Address=0xc3d854209eF19803954916F2fe4712448094363e
+INFO [04-15|08:13:36.076] Deployed Glienicke Contract              Address=0x522B3294E6d06aA25Ad0f1B8891242E335D3B459
+INFO [04-15|08:13:36.207] Private-network mode enabled.
+INFO [04-15|08:13:36.209] Reading Whitelist
+INFO [04-15|08:13:36.211] New local node record                    seq=1 id=8ecf1cf8e370bead ip=127.0.0.1 udp=0 tcp=30303
+INFO [04-15|08:13:36.211] Started P2P networking                   self="enode://3ce6c053cb563bfd94f4e0e248510a07ccee1bc836c9784da1816dba4b10564e7be1ba42e0bd8d73c8f6274f8e9878dc13814adb381c823264265c06048b4b59@127.0.0.1:30303?discport=0"
+INFO [04-15|08:13:36.211] Connecting to newly authorized peer      enode=enode://1f207dfb3bcbbd338fbc991ec13e40d204b58fe7275cea48cfeb53c2c24e1071e1b4ef2959325fe48a5893de8ff37c73a24a412f367e505e5dec832813da546a@172.25.0.12:30303
+INFO [04-15|08:13:36.211] Connecting to newly authorized peer      enode=enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@172.25.0.13:30303
+INFO [04-15|08:13:36.211] Connecting to newly authorized peer      enode=enode://438a5c2cd8fdc2ecbc508bf7362e41c0f0c3754ba1d3267127a3756324caf45e6546b02140e2144b205aeb372c96c5df9641485f721dc7c5b27eb9e35f5d887b@172.25.0.14:30303
+INFO [04-15|08:13:36.212] Connecting to newly authorized peer      enode=enode://3ce6c053cb563bfd94f4e0e248510a07ccee1bc836c9784da1816dba4b10564e7be1ba42e0bd8d73c8f6274f8e9878dc13814adb381c823264265c06048b4b59@172.25.0.15:30303
+WARN [04-15|08:13:36.212] Removing static dial candidate           id=0x8dad60         addr=172.25.0.15:30303 err="is self"
+INFO [04-15|08:13:36.216] IPC endpoint opened                      url=/autonity-data/autonity.ipc
+INFO [04-15|08:13:36.217] HTTP endpoint opened                     url=http://172.25.0.15:8545     cors=* vhosts=localhost
+WARN [04-15|08:13:43.918] Removing static dial candidate           id=0x8dad60         addr=172.25.0.15:30303 err="is self"
+INFO [04-15|08:13:46.212] Block synchronisation started
+WARN [04-15|08:13:46.214] Synchronisation failed, dropping peer    peer=85776bc3e28c4de8 err="peer is stalling"
+WARN [04-15|08:14:06.217] Synchronisation failed, dropping peer    peer=85776bc3e28c4de8 err="peer is stalling"
+INFO [04-15|08:14:09.032] Soma Contract Deployer                   Address=0x1336000000000000000000000000000000000000
+INFO [04-15|08:14:09.033] Deployed Soma Governance Contract        Address=0xc3d854209eF19803954916F2fe4712448094363e
+INFO [04-15|08:14:09.037] Deployed Glienicke Contract              Address=0x522B3294E6d06aA25Ad0f1B8891242E335D3B459
+INFO [04-15|08:14:09.039] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.028ms mgasps=0.000 number=1 hash=a4644f…0727dd cache=13.30kB
+INFO [04-15|08:14:19.052] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.627ms mgasps=0.000 number=2 hash=6be74d…c7e24e cache=13.30kB
+INFO [04-15|08:14:19.052] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303
+INFO [04-15|08:14:19.060] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.971ms mgasps=0.000 number=3 hash=a8e4fd…4debb6 cache=13.30kB
+INFO [04-15|08:14:20.038] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.806ms mgasps=0.000 number=4 hash=b293db…5bf9f0 cache=13.30kB
+INFO [04-15|08:14:21.037] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.115ms mgasps=0.000 number=5 hash=e38535…10d7cf cache=13.30kB
+INFO [04-15|08:14:22.036] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.653ms mgasps=0.000 number=6 hash=f297e0…731017 cache=13.30kB
+INFO [04-15|08:14:23.028] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.824ms mgasps=0.000 number=7 hash=4e7b70…ec5547 cache=13.30kB
+INFO [04-15|08:14:33.075] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=20.326ms mgasps=0.000 number=8 hash=15f796…dc958e cache=13.30kB
+INFO [04-15|08:14:33.085] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.410ms  mgasps=0.000 number=9 hash=143367…90f93f cache=13.30kB
+INFO [04-15|08:14:33.085] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303
+INFO [04-15|08:14:34.037] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.136ms  mgasps=0.000 number=10 hash=e01a29…a7e05e cache=13.30kB
+INFO [04-15|08:14:44.068] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35812
+INFO [04-15|08:14:44.068] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=4.911ms  mgasps=0.000 number=11 hash=e624e2…46dd35 cache=13.30kB
+INFO [04-15|08:14:44.092] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.663ms  mgasps=0.000 number=12 hash=e54788…e2308b cache=13.30kB
+INFO [04-15|08:14:45.036] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=8.932ms  mgasps=0.000 number=13 hash=73210c…bb51f9 cache=13.30kB
+INFO [04-15|08:14:46.040] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.145ms  mgasps=0.000 number=14 hash=de686c…7f131c cache=13.30kB
+INFO [04-15|08:14:47.037] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=8.146ms  mgasps=0.000 number=15 hash=2a7221…588cbc cache=13.30kB
+INFO [04-15|08:14:48.035] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.482ms  mgasps=0.000 number=16 hash=336078…b93a2a cache=13.30kB
+INFO [04-15|08:14:49.039] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.699ms  mgasps=0.000 number=17 hash=45598a…15740d cache=13.30kB
+INFO [04-15|08:14:50.015] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.516ms  mgasps=0.000 number=18 hash=f79927…6a2abd cache=13.30kB ignored=1
+INFO [04-15|08:14:51.012] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.145ms  mgasps=0.000 number=19 hash=5ab064…ad1279 cache=13.30kB
+INFO [04-15|08:14:52.035] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.392ms  mgasps=0.000 number=20 hash=b79472…73f60a cache=13.30kB
+INFO [04-15|08:14:53.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.928ms  mgasps=0.000 number=21 hash=220082…5b4e0d cache=13.30kB
+INFO [04-15|08:14:54.035] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.375ms  mgasps=0.000 number=22 hash=e8170d…024483 cache=13.30kB
+INFO [04-15|08:14:55.037] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.080ms  mgasps=0.000 number=23 hash=e262bf…6e2a41 cache=13.30kB
+INFO [04-15|08:14:56.013] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.633ms  mgasps=0.000 number=24 hash=7e5ca7…dc1d40 cache=13.30kB
+INFO [04-15|08:14:57.028] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=4.298ms  mgasps=0.000 number=25 hash=d3ed08…ae4595 cache=13.30kB
+INFO [04-15|08:14:58.040] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=8.018ms  mgasps=0.000 number=26 hash=acc87b…a96818 cache=13.30kB
+INFO [04-15|08:14:59.031] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.482ms  mgasps=0.000 number=27 hash=9d580c…ff8fbd cache=13.30kB
+INFO [04-15|08:15:00.029] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=4.384ms  mgasps=0.000 number=28 hash=4475ec…62a5ab cache=13.30kB
+INFO [04-15|08:15:00.029] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35812
+INFO [04-15|08:15:01.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.241ms  mgasps=0.000 number=29 hash=61123b…81f02c cache=13.30kB
+INFO [04-15|08:15:05.299] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.755ms  mgasps=0.000 number=30 hash=702835…e6af89 cache=13.30kB
+INFO [04-15|08:15:06.040] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.907ms  mgasps=0.000 number=31 hash=455244…a08983 cache=13.30kB
+INFO [04-15|08:15:06.041] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35840
+INFO [04-15|08:15:07.036] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.808ms  mgasps=0.000 number=32 hash=19c8ae…bba3fb cache=13.30kB
+INFO [04-15|08:15:08.041] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=4.377ms  mgasps=0.000 number=33 hash=0b735b…a487a1 cache=13.30kB
+INFO [04-15|08:15:18.053] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.746ms  mgasps=0.000 number=34 hash=999488…865323 cache=13.30kB
+INFO [04-15|08:15:18.068] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.307ms  mgasps=0.000 number=35 hash=784411…297db7 cache=13.30kB
+INFO [04-15|08:15:19.033] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35840
+INFO [04-15|08:15:19.033] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=10.253ms mgasps=0.000 number=36 hash=5060e6…64632b cache=13.30kB
+INFO [04-15|08:15:29.063] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.631ms  mgasps=0.000 number=37 hash=9c313b…e023f1 cache=13.30kB
+INFO [04-15|08:15:29.080] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.655ms  mgasps=0.000 number=38 hash=f6fe46…d20b1a cache=13.30kB
+INFO [04-15|08:15:30.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=8.608ms  mgasps=0.000 number=39 hash=80b44a…b2e029 cache=13.30kB
+INFO [04-15|08:15:40.068] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.274ms  mgasps=0.000 number=40 hash=dcc791…e55b03 cache=13.30kB
+INFO [04-15|08:15:40.068] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35852
+INFO [04-15|08:15:40.083] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.856ms  mgasps=0.000 number=41 hash=14f80b…badae7 cache=13.30kB
+INFO [04-15|08:15:41.030] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=4.514ms  mgasps=0.000 number=42 hash=e117b9…470015 cache=13.30kB
+INFO [04-15|08:15:51.061] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35852
+INFO [04-15|08:15:51.061] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.615ms  mgasps=0.000 number=43 hash=7f205c…daa948 cache=13.30kB
+INFO [04-15|08:15:51.073] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.621ms  mgasps=0.000 number=44 hash=fd9f3e…716d0b cache=13.30kB
+INFO [04-15|08:15:52.029] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=7.075ms  mgasps=0.000 number=45 hash=869165…76e57d cache=13.30kB
+INFO [04-15|08:16:02.062] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=7.828ms  mgasps=0.000 number=46 hash=38fdf0…360f1e cache=13.30kB
+INFO [04-15|08:16:02.076] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.265ms  mgasps=0.000 number=47 hash=9ffa67…16de5d cache=13.30kB
+INFO [04-15|08:16:03.031] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.129ms  mgasps=0.000 number=48 hash=76e5d5…20b1ae cache=13.30kB
+INFO [04-15|08:16:13.057] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35876
+INFO [04-15|08:16:13.057] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=4.658ms  mgasps=0.000 number=49 hash=278144…4d033a cache=13.30kB
+INFO [04-15|08:16:13.073] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.248ms  mgasps=0.000 number=50 hash=c4274e…8c18cb cache=13.30kB
+INFO [04-15|08:16:14.031] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.539ms  mgasps=0.000 number=51 hash=9a5a5f…da8010 cache=13.30kB
+INFO [04-15|08:16:24.044] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35876
+INFO [04-15|08:16:24.044] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.945ms  mgasps=0.000 number=52 hash=fcf99c…a60772 cache=13.30kB
+INFO [04-15|08:16:24.052] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.478ms  mgasps=0.000 number=53 hash=db381a…818144 cache=13.30kB
+INFO [04-15|08:16:25.033] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=9.628ms  mgasps=0.000 number=54 hash=e191a6…de0b5b cache=13.30kB
+INFO [04-15|08:16:35.061] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.896ms  mgasps=0.000 number=55 hash=387366…9d9525 cache=13.30kB
+INFO [04-15|08:16:35.073] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.236ms  mgasps=0.000 number=56 hash=cd20b4…14aedd cache=13.30kB
+INFO [04-15|08:16:36.025] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35886
+INFO [04-15|08:16:36.025] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.939ms  mgasps=0.000 number=57 hash=905f39…c566df cache=13.30kB
+INFO [04-15|08:16:46.034] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.483ms  mgasps=0.000 number=58 hash=3d99a3…ed2163 cache=13.30kB
+INFO [04-15|08:16:46.034] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35886
+INFO [04-15|08:16:46.043] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.984ms  mgasps=0.000 number=59 hash=915275…97649b cache=13.30kB
+INFO [04-15|08:16:47.010] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.579ms  mgasps=0.000 number=60 hash=a40fc2…1a65fe cache=13.30kB
+INFO [04-15|08:16:57.021] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.188ms  mgasps=0.000 number=61 hash=2b98e8…882ce5 cache=13.30kB
+INFO [04-15|08:16:57.035] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.593ms  mgasps=0.000 number=62 hash=181273…072b8e cache=13.30kB
+INFO [04-15|08:16:58.009] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.983ms  mgasps=0.000 number=63 hash=5cf444…c5eaf7 cache=13.30kB
+INFO [04-15|08:17:08.019] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35926
+INFO [04-15|08:17:08.019] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.155ms  mgasps=0.000 number=64 hash=a1a335…e5c463 cache=13.30kB
+INFO [04-15|08:17:08.030] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.513ms  mgasps=0.000 number=65 hash=6e97f0…05b91f cache=13.30kB
+INFO [04-15|08:17:09.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.842ms  mgasps=0.000 number=66 hash=4e828e…5a6386 cache=13.30kB
+INFO [04-15|08:17:19.043] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35926
+INFO [04-15|08:17:19.043] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.892ms  mgasps=0.000 number=67 hash=c84335…ac2bf0 cache=13.30kB
+INFO [04-15|08:17:19.052] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.796ms  mgasps=0.000 number=68 hash=754d98…09f61a cache=13.30kB
+INFO [04-15|08:17:20.030] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.637ms  mgasps=0.000 number=69 hash=8429bc…04bd33 cache=13.30kB
+INFO [04-15|08:17:30.069] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.151ms  mgasps=0.000 number=70 hash=64d9ab…6b3584 cache=13.30kB
+INFO [04-15|08:17:30.083] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.947ms  mgasps=0.000 number=71 hash=cc029b…d55b21 cache=13.30kB
+INFO [04-15|08:17:31.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.326ms  mgasps=0.000 number=72 hash=58ecee…80d01b cache=13.30kB
+INFO [04-15|08:17:41.065] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35936
+INFO [04-15|08:17:41.065] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.473ms  mgasps=0.000 number=73 hash=1af333…b0f0cb cache=13.30kB
+INFO [04-15|08:17:41.080] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.432ms  mgasps=0.000 number=74 hash=2acbd9…013331 cache=13.30kB
+INFO [04-15|08:17:42.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.751ms  mgasps=0.000 number=75 hash=eeb0e8…db94c3 cache=13.30kB
+INFO [04-15|08:17:52.059] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35936
+INFO [04-15|08:17:52.059] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=7.007ms  mgasps=0.000 number=76 hash=663bc5…7491f3 cache=13.30kB
+INFO [04-15|08:17:52.076] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.932ms  mgasps=0.000 number=77 hash=4f1400…3affa8 cache=13.30kB
+INFO [04-15|08:17:53.008] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.893ms  mgasps=0.000 number=78 hash=9ea94b…005f22 cache=13.30kB
+INFO [04-15|08:18:03.041] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.138ms  mgasps=0.000 number=79 hash=48c2e4…32ceca cache=13.30kB
+INFO [04-15|08:18:03.057] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.197ms  mgasps=0.000 number=80 hash=c574b9…fe8158 cache=13.30kB
+INFO [04-15|08:18:04.029] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=7.064ms  mgasps=0.000 number=81 hash=9ac451…3f5341 cache=13.30kB
+INFO [04-15|08:18:14.040] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35946
+INFO [04-15|08:18:14.040] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.231ms  mgasps=0.000 number=82 hash=462deb…6843a8 cache=13.30kB
+INFO [04-15|08:18:14.049] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.427ms  mgasps=0.000 number=83 hash=5ef601…ecf47a cache=13.30kB
+INFO [04-15|08:18:14.049] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35946
+INFO [04-15|08:18:15.009] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.776ms  mgasps=0.000 number=84 hash=2c00c4…d8b52d cache=13.30kB
+INFO [04-15|08:18:25.022] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.271ms  mgasps=0.000 number=85 hash=139be4…605bdc cache=13.30kB
+INFO [04-15|08:18:25.030] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.886ms  mgasps=0.000 number=86 hash=456fa8…dfd8e2 cache=13.30kB
+INFO [04-15|08:18:26.009] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.315ms  mgasps=0.000 number=87 hash=4e0c54…48bb6e cache=13.30kB
+INFO [04-15|08:18:36.041] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35954
+INFO [04-15|08:18:36.041] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=4.358ms  mgasps=0.000 number=88 hash=547065…7ce73e cache=13.30kB
+INFO [04-15|08:18:36.053] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.319ms  mgasps=0.000 number=89 hash=e994f8…8a0e79 cache=13.30kB
+INFO [04-15|08:18:37.008] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.127ms  mgasps=0.000 number=90 hash=9eb84d…bc44b8 cache=13.30kB
+INFO [04-15|08:18:37.009] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35954
+INFO [04-15|08:18:47.020] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.940ms  mgasps=0.000 number=91 hash=afc423…edd013 cache=13.30kB
+INFO [04-15|08:18:47.034] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.514ms  mgasps=0.000 number=92 hash=b1b42e…1223e1 cache=13.30kB
+INFO [04-15|08:18:48.014] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.974ms  mgasps=0.000 number=93 hash=d13d97…f545ba cache=13.30kB
+INFO [04-15|08:18:58.024] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.184ms  mgasps=0.000 number=94 hash=1a4110…eb6d18 cache=13.30kB
+INFO [04-15|08:18:58.036] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.460ms  mgasps=0.000 number=95 hash=049a09…cf183b cache=13.30kB
+INFO [04-15|08:18:59.034] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.567ms  mgasps=0.000 number=96 hash=254661…26954e cache=13.30kB
+INFO [04-15|08:19:09.051] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35962
+INFO [04-15|08:19:09.051] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=4.124ms  mgasps=0.000 number=97 hash=e9bd8b…3b4e4f cache=13.30kB
+INFO [04-15|08:19:09.077] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.160ms  mgasps=0.000 number=98 hash=f503d9…ea291c cache=13.30kB
+INFO [04-15|08:19:10.014] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.512ms  mgasps=0.000 number=99 hash=f13258…5e6f8f cache=13.30kB
+INFO [04-15|08:19:10.015] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35962
+INFO [04-15|08:19:20.054] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.311ms  mgasps=0.000 number=100 hash=b2cccb…abbcb6 cache=13.30kB
+INFO [04-15|08:19:20.069] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.565ms  mgasps=0.000 number=101 hash=7847eb…8d9c71 cache=13.30kB
+INFO [04-15|08:19:21.014] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.766ms  mgasps=0.000 number=102 hash=96c6fb…55dfee cache=13.30kB
+INFO [04-15|08:19:31.042] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.757ms  mgasps=0.000 number=103 hash=cc217b…267346 cache=13.30kB
+INFO [04-15|08:19:31.060] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.914ms  mgasps=0.000 number=104 hash=072293…9157fa cache=13.30kB
+INFO [04-15|08:19:32.032] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.472ms  mgasps=0.000 number=105 hash=0fd01f…85edde cache=13.30kB
+INFO [04-15|08:19:42.059] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=5.815ms  mgasps=0.000 number=106 hash=50d1dd…b59210 cache=13.30kB
+INFO [04-15|08:19:42.060] Connecting to newly authorized peer      enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35978
+INFO [04-15|08:19:42.079] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=3.165ms  mgasps=0.000 number=107 hash=92daa2…8fbf0a cache=13.30kB
+INFO [04-15|08:19:43.011] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=2.801ms  mgasps=0.000 number=108 hash=cbcf8c…882cd4 cache=13.30kB
+INFO [04-15|08:19:43.011] Dropping no longer authorized peer       enode=enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:35978
+INFO [04-15|08:19:53.044] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=8.129ms  mgasps=0.000 number=109 hash=bde780…4a5545 cache=13.30kB
+INFO [04-15|08:19:53.062] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=1.776ms  mgasps=0.000 number=110 hash=34bc85…e236ea cache=13.30kB
+INFO [04-15|08:19:54.024] Imported new chain segment               blocks=1 txs=0 mgas=0.000 elapsed=6.692ms  mgasps=0.000 number=111 hash=4b9e6f…d2e98a cache=13.30kB
