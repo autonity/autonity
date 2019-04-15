@@ -19,6 +19,7 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -57,17 +58,19 @@ func WriteEnodeWhitelist(db DatabaseWriter, whitelist *types.Nodes) {
 // ReadEnodeWhitelist retrieve the list of permitted enodes
 func ReadEnodeWhitelist(db DatabaseReader, openNetwork bool) *types.Nodes {
 	var strList []string
+	nodes := &types.Nodes{List: make([]*enode.Node, 0)}
 
 	data, _ := db.Get(enodeWhiteList)
 	if len(data) == 0 {
-		return nil
+		return nodes
 	}
 	if err := rlp.Decode(bytes.NewReader(data), &strList); err != nil {
 		log.Error("Invalid Enode whitelist", "err", err)
-		return nil
+		return nodes
 	}
 
-	return types.NewNodes(strList, openNetwork)
+	nodes = types.NewNodes(strList, openNetwork)
+	return nodes
 }
 
 // DeleteCanonicalHash removes the number to hash canonical mapping.
