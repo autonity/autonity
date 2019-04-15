@@ -262,9 +262,6 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
 	}
-	if len(g.Validators) != 0 {
-
-	}
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 
