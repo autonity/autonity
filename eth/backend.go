@@ -529,7 +529,7 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 		// Subscribe to Glienicke updates events
 		s.glienickeSub = s.blockchain.SubscribeGlienickeEvent(s.glienickeCh)
 		savedList := rawdb.ReadEnodeWhitelist(s.chainDb, srvr.OpenNetwork)
-		log.Info("Reading Whitelist", savedList.StrList)
+		log.Info("Reading Whitelist", "list", savedList.StrList)
 		go s.glienickeEventLoop(srvr)
 		srvr.UpdateWhitelist(savedList.List)
 	}
