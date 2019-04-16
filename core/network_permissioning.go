@@ -17,7 +17,7 @@
 package core
 
 import (
-	"github.com/pkg/errors"
+	"errors"
 	"math/big"
 	"strings"
 
@@ -37,7 +37,7 @@ var GlienickeContractError = errors.New("could not call Glienicke contract")
 func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
 	var (
 		newWhitelist *types.Nodes
-		err error
+		err          error
 	)
 
 	if block.Number().Uint64() == 1 {
@@ -163,7 +163,7 @@ func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.
 	}
 
 	var returnedEnodes []string
-	if err := ABI.Unpack(returnedEnodes, "getWhitelist", ret); err != nil { // can't work with aliased types
+	if err := ABI.Unpack(&returnedEnodes, "getWhitelist", ret); err != nil { // can't work with aliased types
 		log.Error("Could not unpack getWhitelist returned value")
 		return nil, err
 	}
