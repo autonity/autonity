@@ -119,7 +119,8 @@ drwx------ 2 clearmatics clearmatics 4.0K Feb 12 14:19 keystore
 There are two ways to update the validator set:
 
 1. Update the Soma and Glienicke smart contracts
-2. Change the `genesis-ibft.json` and update the `nodekey` files
+2. Update the `nodekey` files
+3. Change the `genesis-ibft.json`
 
 #### Update Glienicke and Soma contract
 
@@ -138,8 +139,26 @@ _The Autonity Hello World limits the amount of validators to 4, but in a real wo
 It is possible update the set of validators by updating the genesis file and the nodekey files, the steps needed are:
 
 1. Update the `nodekey1` file (or 2,3,4) with the private key of the validator
-2. Update the `enodeWhitelist` property in the genesis file
-3. Update the `extra-data` property in the genesis file by encoding it with the [istanbul tools](https://github.com/getamis/istanbul-tools)
+2. Update the `enodeWhitelist` property in the genesis file. Enode address can be a few formats:
+* Ethereum enodeV4 `enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303`
+* with domain instead of IP `enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@domain.com:30303`
+* any of the above without port `enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@domain.com`
+* by default, if it's not specified port `30303` will be used.
+3. Update the `extra-data` property in the genesis file by encoding it with the cli command `autonity update-validators PATH_TO_GENESIS ValidatorID1,ValidatorID2`:
+
+```
+autonity update-validators genesis-ibft.json 0x850c1eb8d190e05845ad7f84ac95a318c8aab07f,0x4ad219b58a5b46a1d9662beaa6a70db9f570dea5,0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d,0xc443c6c6ae98f5110702921138d840e77da67702
+```
+
+Or you can use environment variables `AUTONITY_GENESIS` and `AUTONITY_VALIDATORS`:
+
+```
+export AUTONITY_GENESIS=genesis-ibft.json
+export AUTONITY_VALIDATORS=0x850c1eb8d190e05845ad7f84ac95a318c8aab07f,0x4ad219b58a5b46a1d9662beaa6a70db9f570dea5,0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d,0xc443c6c6ae98f5110702921138d840e77da67702
+autonity update-validators
+```
+
+If the first parameter(genesis path) or variable `AUTONITY_GENESIS` is not specified, Genesis will be not updated and only the `ExtraData` will be printed.
 
 ### What are the keystore passwords?
 

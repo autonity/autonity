@@ -22,6 +22,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/hashicorp/golang-lru"
 )
@@ -55,7 +56,7 @@ func (sb *backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 			return true, errDecodeFailed
 		}
 
-		hash := istanbul.RLPHash(data)
+		hash := types.RLPHash(data)
 
 		// Mark peer's message
 		ms, ok := sb.recentMessages.Get(addr)

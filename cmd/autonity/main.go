@@ -185,6 +185,7 @@ func init() {
 		copydbCommand,
 		removedbCommand,
 		dumpCommand,
+		updateValidatorsCommand,
 		// See monitorcmd.go:
 		monitorCommand,
 		// See accountcmd.go:
