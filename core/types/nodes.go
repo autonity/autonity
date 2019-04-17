@@ -25,10 +25,9 @@ func NewNodes(strList []string, openNetwork bool) *Nodes {
 			if !openNetwork {
 				panic(err)
 			}
-		} else {
-			n.List = append(n.List, newEnode)
-			n.StrList = append(n.StrList, enodeStr)
 		}
+		n.List = append(n.List, newEnode)
+		n.StrList = append(n.StrList, enodeStr)
 	}
 
 	return n

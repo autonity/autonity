@@ -273,9 +273,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
-	config := g.Config
-	if config == nil {
-		config = params.AllEthashProtocolChanges
+	if g.Config == nil {
+		g.Config = params.AllEthashProtocolChanges
 	}
 
 	if g.Config != nil && g.Config.Istanbul != nil {
@@ -296,7 +295,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, false))
+	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, true))
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }
