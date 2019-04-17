@@ -33,6 +33,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -55,6 +56,7 @@ type Genesis struct {
 	Mixhash    common.Hash         `json:"mixHash"`
 	Coinbase   common.Address      `json:"coinbase"`
 	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
+	Validators []string            `json:"validators"`
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
@@ -272,6 +274,18 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
+	config := g.Config
+	if config == nil {
+		config = params.AllEthashProtocolChanges
+	}
+
+	if g.Config != nil && g.Config.Istanbul != nil {
+		err := g.setIstanbul()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	block := g.ToBlock(db)
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")
@@ -283,13 +297,42 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	if g.Config == nil {
-		g.Config = params.AllEthashProtocolChanges
+	enodeWhiteList := make([]*enode.Node, 0, len(config.EnodeWhitelist))
+	for _, enodeString := range config.EnodeWhitelist {
+		log.Info("Genesis Authorized Enode", "enode", enodeString)
+		newEnode, err := enode.ParseV4(enodeString)
+		if err != nil {
+			return nil, errGenesisBadWhitelist
+		}
+		enodeWhiteList = append(enodeWhiteList, newEnode)
 	}
 
-	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, false))
+	if len(enodeWhiteList) != 0 {
+		var enodeWhiteListStr []string
+		for _, enodeID := range enodeWhiteList {
+			enodeWhiteListStr = append(enodeWhiteListStr, enodeID.String())
+		}
+		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodeWhiteListStr, false))
+	}
+
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
+}
+
+//setIstanbul sets default Istanbul config values
+func (g *Genesis) setIstanbul() error {
+	if len(g.Validators) != 0 {
+		err := g.UpdateValidators(g.Validators)
+		if err != nil {
+			return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
+		}
+	}
+	log.Info("starting Istanbul consensus", "extraData", common.Bytes2Hex(g.ExtraData))
+
+	// we have to use '1' to have TD == BlockNumber for xBFT consensus
+	g.Difficulty = big.NewInt(1)
+
+	return nil
 }
 
 // MustCommit writes the genesis block and state to db, panicking on error.
@@ -300,6 +343,21 @@ func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
 		panic(err)
 	}
 	return block
+}
+
+// UpdateValidators updates Genesis ExtraData field with a new list of validators
+func (g *Genesis) UpdateValidators(addressList []string) error {
+	var validators []common.Address
+	for _, address := range addressList {
+		validators = append(validators, common.HexToAddress(address))
+	}
+
+	var err error
+	if g.ExtraData, err = types.PrepareExtra(&g.ExtraData, validators); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.

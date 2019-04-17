@@ -25,6 +25,7 @@ $AUTONITY \
   --rpcapi "$RPC_API" \
   --rpccorsdomain "*" \
   --syncmode "full" \
-  --minerthreads 1 \
+  --mine \
+  --miner.threads 1 \
   --verbosity 4 \
   --debug
