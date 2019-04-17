@@ -4,6 +4,7 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"sync"
+	"time"
 )
 
 type Nodes struct {
@@ -17,8 +18,13 @@ func NewNodes(strList []string, openNetwork bool) *Nodes {
 		[]string{},
 	}
 
+	getEnode := enode.ParseV4WithResolve
+	if !openNetwork {
+		getEnode = enode.GetParseV4WithResolveMaxTry(1000, time.Second)
+	}
+
 	for _, enodeStr := range strList {
-		newEnode, err := cache.Get(enodeStr, enode.ParseV4WithResolve)
+		newEnode, err := cache.Get(enodeStr, getEnode)
 		if err != nil {
 			log.Error("Invalid whitelisted enode", "returned enode", enodeStr, "error", err.Error())
 
