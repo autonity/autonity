@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/log"
 	"net"
 	"net/url"
 	"regexp"
@@ -101,6 +102,7 @@ func ParseV4WithResolveMaxTry(rawurl string, maxTry int, wait time.Duration) (*N
 			break
 		}
 		time.Sleep(wait)
+		log.Error("trying to parse", "enode", rawurl, "attempt", i)
 	}
 
 	return node, err
