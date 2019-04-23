@@ -112,8 +112,9 @@ type backend struct {
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
 
-	somaContract common.Address // Ethereum address of the governance contract
-	vmConfig     *vm.Config
+	somaContract      common.Address // Ethereum address of the governance contract
+	glienickeContract common.Address // Ethereum address of the white list contract
+	vmConfig          *vm.Config
 }
 
 // Address implements istanbul.Backend.Address
@@ -360,4 +361,21 @@ func (sb *backend) HasBadProposal(hash common.Hash) bool {
 		return false
 	}
 	return sb.hasBadBlock(hash)
+}
+
+// Whitelist for the current block
+func (sb *backend) WhiteList() []string {
+	db, err := sb.blockchain.State()
+	if err != nil {
+		sb.logger.Error("Failed to get block white list", "err", err)
+		return nil
+	}
+
+	enodes, err := sb.blockchain.GetWhitelist(sb.blockchain.CurrentBlock(), db)
+	if err != nil {
+		sb.logger.Error("Failed to get block white list", "err", err)
+		return nil
+	}
+
+	return enodes.StrList
 }

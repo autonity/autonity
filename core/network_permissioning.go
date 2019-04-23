@@ -35,6 +35,19 @@ import (
 var GlienickeContractError = errors.New("could not call Glienicke contract")
 
 func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
+	newWhitelist, err := bc.GetWhitelist(block, state)
+	if err != nil {
+		log.Error("could not call Glienicke contract", "err", err)
+		return GlienickeContractError
+	}
+
+	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
+	go bc.glienickeFeed.Send(GlienickeEvent{Whitelist: newWhitelist.List})
+
+	return nil
+}
+
+func (bc *BlockChain) GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
 	var (
 		newWhitelist *types.Nodes
 		err          error
@@ -45,17 +58,10 @@ func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.B
 		newWhitelist = rawdb.ReadEnodeWhitelist(bc.db, false)
 	} else {
 		// call retrieveWhitelist contract function
-		newWhitelist, err = bc.callGlienickeContract(state, block.Header())
-		if err != nil {
-			log.Error("could not call Glienicke contract", "err", err)
-			return GlienickeContractError
-		}
+		newWhitelist, err = bc.callGlienickeContract(db, block.Header())
 	}
 
-	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-	go bc.glienickeFeed.Send(GlienickeEvent{Whitelist: newWhitelist.List})
-
-	return nil
+	return newWhitelist, err
 }
 
 // Instantiates a new EVM object which is required when creating or calling a deployed contract
@@ -79,8 +85,7 @@ func (bc *BlockChain) getEVM(header *types.Header, origin common.Address, stated
 }
 
 // deployContract deploys the contract contained within the genesis field bytecode
-func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
-
+func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *types.Header) (*types.Nodes, common.Address, error) {
 	//if bytecode or abi is missing use default one
 	glienickeByteCode := bc.chainConfig.GlienickeBytecode
 	glienickeABI := bc.chainConfig.GlienickeABI
@@ -88,6 +93,8 @@ func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *type
 		glienickeByteCode = params.GlienickeDefaultBytecode
 		glienickeABI = params.GlienickeDefaultABI
 	}
+	bc.chainConfig.GlienickeABI = glienickeABI
+
 	//Same for deployer
 	glienickeDeployer := bc.chainConfig.GlienickeDeployer
 	if glienickeDeployer == (common.Address{}) {
@@ -101,14 +108,14 @@ func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *type
 
 	enodesWhitelist := rawdb.ReadEnodeWhitelist(bc.db, false)
 
-	GlienickeAbi, err := abi.JSON(strings.NewReader(glienickeABI))
+	glienickeAbi, err := abi.JSON(strings.NewReader(glienickeABI))
 	if err != nil {
-		return nil, err
+		return nil, common.Address{}, err
 	}
 
-	constructorParams, err := GlienickeAbi.Pack("", enodesWhitelist.StrList)
+	constructorParams, err := glienickeAbi.Pack("", enodesWhitelist.StrList)
 	if err != nil {
-		return nil, err
+		return nil, common.Address{}, err
 	}
 
 	data := append(contractBytecode, constructorParams...)
@@ -117,15 +124,14 @@ func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *type
 
 	// Deploy the Glienicke validator governance contract
 	_, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
-
 	if vmerr != nil {
 		log.Error("Error Glienicke Contract deployment")
-		return nil, vmerr
+		return nil, common.Address{}, vmerr
 	}
 
 	log.Info("Deployed Glienicke Contract", "Address", contractAddress.String())
 
-	return enodesWhitelist, nil
+	return enodesWhitelist, contractAddress, nil
 }
 
 func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.Header) (*types.Nodes, error) {

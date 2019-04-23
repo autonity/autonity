@@ -48,11 +48,12 @@ func (sb *backend) deployContract(chain consensus.ChainReader, header *types.Hea
 	//We need to append to data the constructor's parameters
 	//That should always be genesis validators
 
-	SomaAbi, err := abi.JSON(strings.NewReader(sb.config.ABI))
+	somaAbi, err := abi.JSON(strings.NewReader(sb.config.ABI))
 	if err != nil {
 		return common.Address{}, err
 	}
-	constructorParams, err := SomaAbi.Pack("", validators)
+
+	constructorParams, err := somaAbi.Pack("", validators)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -63,7 +64,6 @@ func (sb *backend) deployContract(chain consensus.ChainReader, header *types.Hea
 
 	// Deploy the Soma validator governance contract
 	_, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
-
 	if vmerr != nil {
 		log.Error("Error Soma Governance Contract deployment")
 		return contractAddress, vmerr
@@ -78,12 +78,17 @@ func (sb *backend) contractGetValidators(chain consensus.ChainReader, header *ty
 	sender := vm.AccountRef(sb.config.Deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := sb.getEVM(chain, header, sb.config.Deployer, statedb)
-	SomaAbi, err := abi.JSON(strings.NewReader(sb.config.ABI))
-	input, err := SomaAbi.Pack("getValidators")
 
+	somaAbi, err := abi.JSON(strings.NewReader(sb.config.ABI))
 	if err != nil {
 		return nil, err
 	}
+
+	input, err := somaAbi.Pack("getValidators")
+	if err != nil {
+		return nil, err
+	}
+
 	value := new(big.Int).SetUint64(0x00)
 	//A standard call is issued - we leave the possibility to modify the state
 	ret, gas, vmerr := evm.Call(sender, sb.somaContract, input, gas, value)
@@ -93,12 +98,12 @@ func (sb *backend) contractGetValidators(chain consensus.ChainReader, header *ty
 	}
 
 	var addresses []common.Address
-	if err := SomaAbi.Unpack(&addresses, "getValidators", ret); err != nil { // can't work with aliased types
+	if err := somaAbi.Unpack(&addresses, "getValidators", ret); err != nil { // can't work with aliased types
 		log.Error("Could not unpack getValidators returned value")
 		return nil, err
 	}
 
-	sortableAddresses := common.Addresses(addresses) // Haven't found a way to avoid this
+	sortableAddresses := common.Addresses(addresses)
 	sort.Sort(sortableAddresses)
 	return sortableAddresses, nil
 }

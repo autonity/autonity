@@ -348,6 +348,7 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 func (sb *backend) getValidators(header *types.Header, chain consensus.ChainReader, state *state.StateDB) ([]common.Address, error) {
 	var validators []common.Address
 	var err error
+
 	if header.Number.Int64() == 1 {
 		// Deploy Soma on-blockchain governance contract
 		log.Info("Soma Contract Deployer", "Address", sb.config.Deployer)
@@ -362,7 +363,7 @@ func (sb *backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 
 		// Deploy Glienicke network-permissioning contract
-		_, err = sb.blockchain.DeployGlienickeContract(state, header)
+		_, sb.glienickeContract, err = sb.blockchain.DeployGlienickeContract(state, header)
 		if err != nil {
 			return nil, err
 		}
@@ -372,11 +373,16 @@ func (sb *backend) getValidators(header *types.Header, chain consensus.ChainRead
 			sb.somaContract = crypto.CreateAddress(sb.config.Deployer, 0)
 		}
 
+		if sb.glienickeContract == common.HexToAddress("0000000000000000000000000000000000000000") {
+			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GlienickeDeployer, 0)
+		}
+
 		validators, err = sb.contractGetValidators(chain, header, state)
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	return validators, err
 }
 
