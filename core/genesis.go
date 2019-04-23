@@ -33,7 +33,6 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -274,9 +273,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
-	config := g.Config
-	if config == nil {
-		config = params.AllEthashProtocolChanges
+	if g.Config == nil {
+		g.Config = params.AllEthashProtocolChanges
 	}
 
 	if g.Config != nil && g.Config.Istanbul != nil {
@@ -297,24 +295,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	enodeWhiteList := make([]*enode.Node, 0, len(config.EnodeWhitelist))
-	for _, enodeString := range config.EnodeWhitelist {
-		log.Info("Genesis Authorized Enode", "enode", enodeString)
-		newEnode, err := enode.ParseV4(enodeString)
-		if err != nil {
-			return nil, errGenesisBadWhitelist
-		}
-		enodeWhiteList = append(enodeWhiteList, newEnode)
-	}
-
-	if len(enodeWhiteList) != 0 {
-		var enodeWhiteListStr []string
-		for _, enodeID := range enodeWhiteList {
-			enodeWhiteListStr = append(enodeWhiteListStr, enodeID.String())
-		}
-		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodeWhiteListStr, false))
-	}
-
+	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, true))
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }

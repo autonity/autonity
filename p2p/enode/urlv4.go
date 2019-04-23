@@ -21,11 +21,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/log"
 	"net"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/crypto"
@@ -33,6 +35,7 @@ import (
 )
 
 var incompleteNodeURL = regexp.MustCompile("(?i)^(?:enode://)?([0-9a-f]+)$")
+
 const defaultPort = ":30303"
 
 // MustParseV4 parses a node URL. It panics if the URL is not valid.
@@ -82,6 +85,27 @@ func parseV4(rawurl string, resolve bool) (*Node, error) {
 	}
 
 	return parseComplete(rawurl, resolve)
+}
+
+func GetParseV4WithResolveMaxTry(maxTry int, wait time.Duration) func(rawurl string) (*Node, error) {
+	return func(rawurl string) (*Node, error) {
+		return ParseV4WithResolveMaxTry(rawurl, maxTry, wait)
+	}
+}
+
+func ParseV4WithResolveMaxTry(rawurl string, maxTry int, wait time.Duration) (*Node, error) {
+	var node *Node
+	var err error
+	for i := 0; i < maxTry; i++ {
+		node, err = ParseV4WithResolve(rawurl)
+		if err == nil {
+			break
+		}
+		time.Sleep(wait)
+		log.Error("trying to parse", "enode", rawurl, "attempt", i)
+	}
+
+	return node, err
 }
 
 func ParseV4WithResolve(rawurl string) (*Node, error) {
@@ -141,7 +165,7 @@ func parseComplete(rawurl string, resolve bool) (*Node, error) {
 
 	if ip = net.ParseIP(host); ip == nil {
 		if !resolve {
-			return nil, errors.New("invalid IP address", )
+			return nil, errors.New("invalid IP address")
 		}
 		// if host is not IPV4/6, resolve host is a domain
 
