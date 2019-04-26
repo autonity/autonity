@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"math/big"
+	"sort"
 	"strings"
 
 	"github.com/clearmatics/autonity/accounts/abi"
@@ -113,6 +114,7 @@ func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *type
 		return nil, common.Address{}, err
 	}
 
+	sort.Strings(enodesWhitelist.StrList)
 	constructorParams, err := glienickeAbi.Pack("", enodesWhitelist.StrList)
 	if err != nil {
 		return nil, common.Address{}, err

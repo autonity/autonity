@@ -77,9 +77,8 @@ func filterNodes(n *Nodes, openNetwork bool) *Nodes {
 	for i, node := range n.List {
 		if node != nil {
 			filtered.List = append(filtered.List, node)
-		}
-
-		if openNetwork {
+			filtered.StrList = append(filtered.StrList, n.StrList[i])
+		} else if openNetwork {
 			// we want to store raw enodes for later checks
 			filtered.StrList = append(filtered.StrList, n.StrList[i])
 		}
