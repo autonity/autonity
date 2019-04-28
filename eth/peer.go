@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	mapset "github.com/deckarep/golang-set"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rlp"
+	mapset "github.com/deckarep/golang-set"
 )
 
 var (
@@ -81,9 +81,10 @@ type peer struct {
 	version  int         // Protocol version negotiated
 	forkDrop *time.Timer // Timed connection dropper if forks aren't validated in time
 
-	head common.Hash
-	td   *big.Int
-	lock sync.RWMutex
+	head    common.Hash
+	td      *big.Int
+	trusted bool // Tells if the node should be put in quarantine or not
+	lock    sync.RWMutex
 
 	knownTxs    mapset.Set                // Set of transaction hashes known to be known by this peer
 	knownBlocks mapset.Set                // Set of block hashes known to be known by this peer
@@ -105,6 +106,7 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		queuedProps: make(chan *propEvent, maxQueuedProps),
 		queuedAnns:  make(chan *types.Block, maxQueuedAnns),
 		term:        make(chan struct{}),
+		trusted:     false,
 	}
 }
 
@@ -448,6 +450,20 @@ func (ps *peerSet) Peers() map[string]*peer {
 	return set
 }
 
+// Peers returns all untrusted registered peers
+func (ps *peerSet) UntrustedPeers() map[string]*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	set := make(map[string]*peer)
+	for id, p := range ps.peers {
+		if !p.trusted {
+			set[id] = p
+		}
+	}
+	return set
+}
+
 // Unregister removes a remote peer from the active set, disabling any further
 // actions to/from that particular entity.
 func (ps *peerSet) Unregister(id string) error {
@@ -480,7 +496,7 @@ func (ps *peerSet) Len() int {
 	return len(ps.peers)
 }
 
-// PeersWithoutBlock retrieves a list of peers that do not have a given block in
+// PeersWithoutBlock retrieves a list oftrusted peers that do not have a given block in
 // their set of known hashes.
 func (ps *peerSet) PeersWithoutBlock(hash common.Hash) []*peer {
 	ps.lock.RLock()
@@ -488,14 +504,14 @@ func (ps *peerSet) PeersWithoutBlock(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownBlocks.Contains(hash) {
+		if p.trusted && !p.knownBlocks.Contains(hash) {
 			list = append(list, p)
 		}
 	}
 	return list
 }
 
-// PeersWithoutTx retrieves a list of peers that do not have a given transaction
+// PeersWithoutTx retrieves a list of trusted peers that do not have a given transaction
 // in their set of known hashes.
 func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 	ps.lock.RLock()
@@ -503,7 +519,7 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownTxs.Contains(hash) {
+		if p.trusted && !p.knownTxs.Contains(hash) {
 			list = append(list, p)
 		}
 	}

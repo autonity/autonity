@@ -105,6 +105,9 @@ type ProtocolManager struct {
 	glienickeSub        event.Subscription
 	enodesWhitelist     []*enode.Node
 	enodesWhitelistLock sync.RWMutex
+
+	chainHeadEventCh  chan core.ChainHeadEvent
+	chainHeadEventSub event.Subscription
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
 	wg sync.WaitGroup
@@ -119,20 +122,21 @@ type ProtocolManager struct {
 func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, whitelist map[uint64]common.Hash, protocols Protocol, openNetwork bool) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:   networkID,
-		eventMux:    mux,
-		txpool:      txpool,
-		blockchain:  blockchain,
-		chainconfig: config,
-		peers:       newPeerSet(),
-		whitelist:   whitelist,
-		newPeerCh:   make(chan *peer),
-		noMorePeers: make(chan struct{}),
-		txsyncCh:    make(chan *txsync),
-		quitSync:    make(chan struct{}),
-		engine:      engine,
-		openNetwork: openNetwork,
-		glienickeCh: make(chan core.GlienickeEvent, 64),
+		networkID:        networkID,
+		eventMux:         mux,
+		txpool:           txpool,
+		blockchain:       blockchain,
+		chainconfig:      config,
+		peers:            newPeerSet(),
+		whitelist:        whitelist,
+		newPeerCh:        make(chan *peer),
+		noMorePeers:      make(chan struct{}),
+		txsyncCh:         make(chan *txsync),
+		quitSync:         make(chan struct{}),
+		engine:           engine,
+		openNetwork:      openNetwork,
+		glienickeCh:      make(chan core.GlienickeEvent, 64),
+		chainHeadEventCh: make(chan core.ChainHeadEvent, 64),
 	}
 
 	if handler, ok := manager.engine.(consensus.Handler); ok {
@@ -248,6 +252,8 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 		go pm.glienickeEventLoop()
 	}
 
+	pm.chainHeadEventSub = pm.blockchain.SubscribeChainHeadEvent(pm.chainHeadEventCh)
+	go pm.chainHeadEventLoop()
 	// start sync handlers
 	go pm.syncer()
 	go pm.txsyncLoop()
@@ -258,6 +264,8 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
+	pm.chainHeadEventSub.Unsubscribe()
+
 	if !pm.openNetwork {
 		pm.glienickeSub.Unsubscribe() // quits glienickeEventLoop
 	}
@@ -291,6 +299,23 @@ func (s *ProtocolManager) glienickeEventLoop() {
 			s.enodesWhitelistLock.Unlock()
 		// Err() channel will be closed when unsubscribing.
 		case <-s.glienickeSub.Err():
+			return
+		}
+	}
+}
+
+func (s *ProtocolManager) chainHeadEventLoop() {
+	for {
+		select {
+		case <-s.chainHeadEventCh:
+			for _, peer := range s.peers.UntrustedPeers() {
+				if s.blockchain.HasBlock(peer.head, peer.td.Uint64()-1) {
+					peer.trusted = true
+					s.syncTransactions(peer)
+				}
+			}
+		// Err() channel will be closed when unsubscribing.
+		case <-s.chainHeadEventSub.Err():
 			return
 		}
 	}
@@ -332,9 +357,13 @@ func (pm *ProtocolManager) handle(p *peer) error {
 			}
 		}
 		pm.enodesWhitelistLock.RUnlock()
-		if !whitelisted && p.td.Uint64() <= head.Number.Uint64() + 1 {
-			p.Log().Info("Dropping unauthorized peer with old TD.", "enode", p.Node().ID())
-			return errUnauthaurizedPeer
+		if p.td.Uint64() <= head.Number.Uint64()+1 { // This peer is telling us that we are ahead of him.
+			if whitelisted {
+				p.trusted = true
+			} else {
+				p.Log().Info("Dropping unauthorized peer with old TD.", "enode", p.Node().ID())
+				return errUnauthaurizedPeer
+			}
 		}
 		// Todo : pause relaying if not whitelisted until full sync
 	}
@@ -353,9 +382,12 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
 		return err
 	}
-	// Propagate existing transactions. new transactions appearing
-	// after this will be sent via broadcasts.
-	pm.syncTransactions(p)
+
+	if p.trusted {
+		// Propagate existing transactions. new transactions appearing
+		// after this will be sent via broadcasts.
+		pm.syncTransactions(p)
+	}
 
 	// If we're DAO hard-fork aware, validate any remote peer with regard to the hard-fork
 	if daoBlock := pm.chainconfig.DAOForkBlock; daoBlock != nil {
@@ -404,7 +436,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	defer msg.Discard()
 
-	if handler, ok := pm.engine.(consensus.Handler); ok {
+	if handler, ok := pm.engine.(consensus.Handler); ok && p.trusted {
 		pubKey := p.Node().Pubkey()
 		if pubKey == nil {
 			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
@@ -424,6 +456,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
+
+		if !p.trusted {
+			p.Log().Warn("untrusted peer GetBlockHeadersMsg")
+			return nil
+		}
+
 		// Decode the complex header query
 		var query getBlockHeadersData
 		if err := msg.Decode(&query); err != nil {
@@ -572,6 +610,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == GetBlockBodiesMsg:
+
+		if !p.trusted {
+			p.Log().Warn("untrusted peer GetBlockBodiesMsg")
+			return nil
+		}
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -625,6 +668,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case p.version >= eth63 && msg.Code == GetNodeDataMsg:
+
+		if !p.trusted {
+			p.Log().Warn("untrusted peer GetNodeDataMsg")
+			return nil
+		}
+
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -663,6 +712,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case p.version >= eth63 && msg.Code == GetReceiptsMsg:
+
+		if !p.trusted {
+			p.Log().Warn("untrusted peer GetReceiptsMsg")
+			return nil
+		}
+
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -762,6 +817,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == TxMsg:
+
+		// We DO NOT accept transactions from an untrusted peer
+		// but ideally, we should, and mark them as "untrusted tx"
+		if !p.trusted {
+			p.Log().Warn("untrusted peer TxMsg")
+			return nil
+		}
+
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			break
