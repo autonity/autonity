@@ -66,7 +66,7 @@ type core struct {
 	events                *event.TypeMuxSubscription
 	finalCommittedSub     *event.TypeMuxSubscription
 	timeoutSub            *event.TypeMuxSubscription
-	futurePreprepareTimer *time.Timer
+	futureProposalTimer *time.Timer
 
 	valSet                tendermint.ValidatorSet
 	waitingForRoundChange bool
@@ -90,10 +90,10 @@ type core struct {
 	roundMeter metrics.Meter
 	// the meter to record the sequence update rate
 	sequenceMeter metrics.Meter
-	// the timer to record consensus duration (from accepting a preprepare to final committed stage)
+	// the timer to record consensus duration (from accepting a proposal to final committed stage)
 	consensusTimer metrics.Timer
 
-	sentPreprepare bool
+	sentProposal bool
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -105,7 +105,7 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	msg.CommittedSeal = []byte{}
 	// Assign the CommittedSeal if it's a COMMIT message and proposal is not nil
 	if msg.Code == msgCommit && c.current.Proposal() != nil {
-		seal := PrepareCommittedSeal(c.current.Proposal().Hash())
+		seal := PrepareCommittedSeal(c.current.Proposal().Proposal.Hash())
 		msg.CommittedSeal, err = c.backend.Sign(seal)
 		if err != nil {
 			return nil, err
@@ -173,7 +173,7 @@ func (c *core) commit() {
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 
-		if err := c.backend.Commit(proposal, committedSeals); err != nil {
+		if err := c.backend.Commit(proposal.Proposal, committedSeals); err != nil {
 			c.current.UnlockHash() //Unlock block when insertion fails
 			c.sendNextRoundChange()
 			return
@@ -241,18 +241,18 @@ func (c *core) startNewRound(round *big.Int) {
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, newView.Round.Uint64())
 	c.waitingForRoundChange = false
-	c.sentPreprepare = false
+	c.sentProposal = false
 	c.setState(StateAcceptRequest)
 	if roundChange && c.isProposer() && c.current != nil {
 		// If it is locked, propose the old proposal
 		// If we have pending request, propose pending request
 		if c.current.IsHashLocked() {
 			r := &tendermint.Request{
-				Proposal: c.current.Proposal(), //c.current.Proposal would be the locked proposal by previous proposer, see updateRoundState
+				Proposal: c.current.Proposal().Proposal, //c.current.Proposal would be the locked proposal by previous proposer, see updateRoundState
 			}
-			c.sendPreprepare(r)
+			c.sendProposal(r)
 		} else if c.current.pendingRequest != nil {
-			c.sendPreprepare(c.current.pendingRequest)
+			c.sendProposal(c.current.pendingRequest)
 		}
 	}
 	c.newRoundChangeTimer()
@@ -281,7 +281,7 @@ func (c *core) updateRoundState(view *tendermint.View, validatorSet tendermint.V
 	// Lock only if both roundChange is true and it is locked
 	if roundChange && c.current != nil {
 		if c.current.IsHashLocked() {
-			c.current = newRoundState(view, validatorSet, c.current.GetLockedHash(), c.current.Preprepare, c.current.pendingRequest, c.backend.HasBadProposal)
+			c.current = newRoundState(view, validatorSet, c.current.GetLockedHash(), c.current.Proposal(), c.current.pendingRequest, c.backend.HasBadProposal)
 		} else {
 			c.current = newRoundState(view, validatorSet, common.Hash{}, nil, c.current.pendingRequest, c.backend.HasBadProposal)
 		}
@@ -304,14 +304,14 @@ func (c *core) Address() common.Address {
 	return c.address
 }
 
-func (c *core) stopFuturePreprepareTimer() {
-	if c.futurePreprepareTimer != nil {
-		c.futurePreprepareTimer.Stop()
+func (c *core) stopFutureProposalTimer() {
+	if c.futureProposalTimer != nil {
+		c.futureProposalTimer.Stop()
 	}
 }
 
 func (c *core) stopTimer() {
-	c.stopFuturePreprepareTimer()
+	c.stopFutureProposalTimer()
 
 	c.roundChangeTimerMu.RLock()
 	defer c.roundChangeTimerMu.RUnlock()

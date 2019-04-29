@@ -29,7 +29,7 @@ func newTestRoundState(view *tendermint.View, validatorSet tendermint.ValidatorS
 	return &roundState{
 		round:      view.Round,
 		sequence:   view.Sequence,
-		Preprepare: newTestPreprepare(view),
+		Proposal: newTestProposal(view),
 		Prepares:   newMessageSet(validatorSet),
 		Commits:    newMessageSet(validatorSet),
 		mu:         new(sync.RWMutex),

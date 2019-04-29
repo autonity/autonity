@@ -180,7 +180,7 @@ func (sb *backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) error 
 }
 
 // Commit implements tendermint.Backend.Commit
-func (sb *backend) Commit(proposal tendermint.Proposal, seals [][]byte) error {
+func (sb *backend) Commit(proposal tendermint.ProposalBlock, seals [][]byte) error {
 	// Check if the proposal is a valid block
 	block := &types.Block{}
 	block, ok := proposal.(*types.Block)
@@ -223,7 +223,7 @@ func (sb *backend) EventMux() *event.TypeMux {
 }
 
 // Verify implements tendermint.Backend.Verify
-func (sb *backend) Verify(proposal tendermint.Proposal) (time.Duration, error) {
+func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, error) {
 	// Check if the proposal is a valid block
 	block := &types.Block{}
 	block, ok := proposal.(*types.Block)
@@ -339,7 +339,7 @@ func (sb *backend) GetProposer(number uint64) common.Address {
 	return common.Address{}
 }
 
-func (sb *backend) LastProposal() (tendermint.Proposal, common.Address) {
+func (sb *backend) LastProposal() (tendermint.ProposalBlock, common.Address) {
 	block := sb.currentBlock()
 
 	var proposer common.Address

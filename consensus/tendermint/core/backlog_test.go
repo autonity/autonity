@@ -41,13 +41,13 @@ func TestCheckMessage(t *testing.T) {
 	}
 
 	// invalid view format
-	err := c.checkMessage(msgPreprepare, nil)
+	err := c.checkMessage(msgProposal, nil)
 	if err != errInvalidMessage {
 		t.Errorf("error mismatch: have %v, want %v", err, errInvalidMessage)
 	}
 
-	testStates := []State{StateAcceptRequest, StatePreprepared, StatePrepared, StateCommitted}
-	testCode := []uint64{msgPreprepare, msgPrepare, msgCommit, msgRoundChange}
+	testStates := []State{StateAcceptRequest, StateProposald, StatePrepared, StateCommitted}
+	testCode := []uint64{msgProposal, msgPrepare, msgCommit, msgRoundChange}
 
 	// future sequence
 	v := &tendermint.View{
@@ -113,7 +113,7 @@ func TestCheckMessage(t *testing.T) {
 			if err != nil {
 				t.Errorf("error mismatch: have %v, want nil", err)
 			}
-		} else if testCode[i] == msgPreprepare {
+		} else if testCode[i] == msgProposal {
 			if err != nil {
 				t.Errorf("error mismatch: have %v, want nil", err)
 			}
@@ -124,8 +124,8 @@ func TestCheckMessage(t *testing.T) {
 		}
 	}
 
-	// current view, state = StatePreprepared
-	c.state = StatePreprepared
+	// current view, state = StateProposald
+	c.state = StateProposald
 	for i := 0; i < len(testCode); i++ {
 		err = c.checkMessage(testCode[i], v)
 		if testCode[i] == msgRoundChange {
@@ -176,15 +176,15 @@ func TestStoreBacklog(t *testing.T) {
 		Sequence: big.NewInt(10),
 	}
 	p := validator.New(common.BytesToAddress([]byte("12345667890")))
-	// push preprepare msg
-	preprepare := &tendermint.Preprepare{
+	// push proposal msg
+	proposal := &tendermint.Proposal{
 		View:     v,
 		Proposal: makeBlock(1),
 	}
-	prepreparePayload, _ := Encode(preprepare)
+	proposalPayload, _ := Encode(proposal)
 	m := &message{
-		Code: msgPreprepare,
-		Msg:  prepreparePayload,
+		Code: msgProposal,
+		Msg:  proposalPayload,
 	}
 	c.storeBacklog(m, p)
 	msg := c.backlogs[p].PopItem()
@@ -286,11 +286,11 @@ func TestProcessBacklog(t *testing.T) {
 		Round:    big.NewInt(0),
 		Sequence: big.NewInt(1),
 	}
-	preprepare := &tendermint.Preprepare{
+	proposal := &tendermint.Proposal{
 		View:     v,
 		Proposal: makeBlock(1),
 	}
-	prepreparePayload, _ := Encode(preprepare)
+	proposalPayload, _ := Encode(proposal)
 
 	subject := &tendermint.Subject{
 		View:   v,
@@ -300,8 +300,8 @@ func TestProcessBacklog(t *testing.T) {
 
 	msgs := []*message{
 		{
-			Code: msgPreprepare,
-			Msg:  prepreparePayload,
+			Code: msgProposal,
+			Msg:  proposalPayload,
 		},
 		{
 			Code: msgPrepare,

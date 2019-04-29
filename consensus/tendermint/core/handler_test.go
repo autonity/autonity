@@ -43,9 +43,9 @@ func TestHandleMsg(t *testing.T) {
 		},
 		Digest: common.BytesToHash([]byte("1234567890")),
 	})
-	// with a matched payload. msgPreprepare should match with *tendermint.Preprepare in normal case.
+	// with a matched payload. msgProposal should match with *tendermint.Proposal in normal case.
 	msg := &message{
-		Code:          msgPreprepare,
+		Code:          msgProposal,
 		Msg:           m,
 		Address:       v0.Address(),
 		Signature:     []byte{},
@@ -53,11 +53,11 @@ func TestHandleMsg(t *testing.T) {
 	}
 
 	_, val := v0.Validators(0).GetByAddress(v0.Address())
-	if err := r0.handleCheckedMsg(msg, val); err != errFailedDecodePreprepare {
-		t.Errorf("error mismatch: have %v, want %v", err, errFailedDecodePreprepare)
+	if err := r0.handleCheckedMsg(msg, val); err != errFailedDecodeProposal {
+		t.Errorf("error mismatch: have %v, want %v", err, errFailedDecodeProposal)
 	}
 
-	m, _ = Encode(&tendermint.Preprepare{
+	m, _ = Encode(&tendermint.Proposal{
 		View: &tendermint.View{
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
@@ -75,10 +75,10 @@ func TestHandleMsg(t *testing.T) {
 
 	_, val = v0.Validators(0).GetByAddress(v0.Address())
 	if err := r0.handleCheckedMsg(msg, val); err != errFailedDecodePrepare {
-		t.Errorf("error mismatch: have %v, want %v", err, errFailedDecodePreprepare)
+		t.Errorf("error mismatch: have %v, want %v", err, errFailedDecodeProposal)
 	}
 
-	m, _ = Encode(&tendermint.Preprepare{
+	m, _ = Encode(&tendermint.Proposal{
 		View: &tendermint.View{
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
@@ -99,7 +99,7 @@ func TestHandleMsg(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, errFailedDecodeCommit)
 	}
 
-	m, _ = Encode(&tendermint.Preprepare{
+	m, _ = Encode(&tendermint.Proposal{
 		View: &tendermint.View{
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),

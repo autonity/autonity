@@ -33,7 +33,7 @@ type State uint64
 
 const (
 	StateAcceptRequest State = iota
-	StatePreprepared
+	StateProposald
 	StatePrepared
 	StateCommitted
 )
@@ -41,8 +41,8 @@ const (
 func (s State) String() string {
 	if s == StateAcceptRequest {
 		return "Accept request"
-	} else if s == StatePreprepared {
-		return "Preprepared"
+	} else if s == StateProposald {
+		return "Proposald"
 	} else if s == StatePrepared {
 		return "Prepared"
 	} else if s == StateCommitted {
@@ -67,7 +67,7 @@ func (s State) Cmp(y State) int {
 }
 
 const (
-	msgPreprepare uint64 = iota
+	msgProposal uint64 = iota
 	msgPrepare
 	msgCommit
 	msgRoundChange

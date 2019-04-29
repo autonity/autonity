@@ -25,7 +25,7 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
-func TestMessageSetWithPreprepare(t *testing.T) {
+func TestMessageSetWithProposal(t *testing.T) {
 	valSet := newTestValidatorSet(4)
 
 	ms := newMessageSet(valSet)
@@ -34,7 +34,7 @@ func TestMessageSetWithPreprepare(t *testing.T) {
 		Round:    new(big.Int),
 		Sequence: new(big.Int),
 	}
-	pp := &tendermint.Preprepare{
+	pp := &tendermint.Proposal{
 		View:     view,
 		Proposal: makeBlock(1),
 	}
@@ -44,7 +44,7 @@ func TestMessageSetWithPreprepare(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 	msg := &message{
-		Code:    msgPreprepare,
+		Code:    msgProposal,
 		Msg:     rawPP,
 		Address: valSet.GetProposer().Address(),
 	}

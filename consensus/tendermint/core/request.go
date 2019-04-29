@@ -34,7 +34,7 @@ func (c *core) handleRequest(request *tendermint.Request) error {
 
 	c.current.pendingRequest = request
 	if c.state == StateAcceptRequest {
-		c.sendPreprepare(request)
+		c.sendProposal(request)
 	}
 	return nil
 }

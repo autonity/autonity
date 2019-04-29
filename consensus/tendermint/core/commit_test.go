@@ -83,7 +83,7 @@ func TestHandleCommit(t *testing.T) {
 							expectedSubject.View,
 							c.valSet,
 						)
-						c.state = StatePreprepared
+						c.state = StateProposald
 					} else {
 						c.current = newTestRoundState(
 							&tendermint.View{
@@ -112,7 +112,7 @@ func TestHandleCommit(t *testing.T) {
 							expectedSubject.View,
 							c.valSet,
 						)
-						c.state = StatePreprepared
+						c.state = StateProposald
 					} else {
 						c.current = newTestRoundState(
 							&tendermint.View{
@@ -143,12 +143,12 @@ func TestHandleCommit(t *testing.T) {
 						c.valSet,
 					)
 
-					// only replica0 stays at StatePreprepared
+					// only replica0 stays at StateProposald
 					// other replicas are at StatePrepared
 					if i != 0 {
 						c.state = StatePrepared
 					} else {
-						c.state = StatePreprepared
+						c.state = StateProposald
 					}
 				}
 				return sys

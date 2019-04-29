@@ -25,19 +25,19 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func testPreprepare(t *testing.T) {
-	pp := &tendermint.Preprepare{
+func testProposal(t *testing.T) {
+	pp := &tendermint.Proposal{
 		View: &tendermint.View{
 			Round:    big.NewInt(1),
 			Sequence: big.NewInt(2),
 		},
 		Proposal: makeBlock(1),
 	}
-	prepreparePayload, _ := Encode(pp)
+	proposalPayload, _ := Encode(pp)
 
 	m := &message{
-		Code:    msgPreprepare,
-		Msg:     prepreparePayload,
+		Code:    msgProposal,
+		Msg:     proposalPayload,
 		Address: common.HexToAddress("0x1234567890"),
 	}
 
@@ -52,7 +52,7 @@ func testPreprepare(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 
-	var decodedPP *tendermint.Preprepare
+	var decodedPP *tendermint.Proposal
 	err = decodedMsg.Decode(&decodedPP)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -85,7 +85,7 @@ func testSubject(t *testing.T) {
 	subjectPayload, _ := Encode(s)
 
 	m := &message{
-		Code:    msgPreprepare,
+		Code:    msgProposal,
 		Msg:     subjectPayload,
 		Address: common.HexToAddress("0x1234567890"),
 	}
@@ -125,7 +125,7 @@ func testSubjectWithSignature(t *testing.T) {
 	subjectPayload, _ := Encode(s)
 	// 1. Encode test
 	m := &message{
-		Code:          msgPreprepare,
+		Code:          msgProposal,
 		Msg:           subjectPayload,
 		Address:       common.HexToAddress("0x1234567890"),
 		Signature:     expectedSig,
@@ -173,7 +173,7 @@ func testSubjectWithSignature(t *testing.T) {
 }
 
 func TestMessageEncodeDecode(t *testing.T) {
-	testPreprepare(t)
+	testProposal(t)
 	testSubject(t)
 	testSubjectWithSignature(t)
 }

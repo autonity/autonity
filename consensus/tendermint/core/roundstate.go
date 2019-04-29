@@ -27,13 +27,13 @@ import (
 )
 
 // newRoundState creates a new roundState instance with the given view and validatorSet
-// lockedHash and preprepare are for round change when lock exists,
-// we need to keep a reference of preprepare in order to propose locked proposal when there is a lock and itself is the proposer
-func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, lockedHash common.Hash, preprepare *tendermint.Preprepare, pendingRequest *tendermint.Request, hasBadProposal func(hash common.Hash) bool) *roundState {
+// lockedHash and proposal are for round change when lock exists,
+// we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
+func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, lockedHash common.Hash, proposal *tendermint.Proposal, pendingRequest *tendermint.Request, hasBadProposal func(hash common.Hash) bool) *roundState {
 	return &roundState{
 		round:          view.Round,
 		sequence:       view.Sequence,
-		Preprepare:     preprepare,
+		proposal:       proposal,
 		Prepares:       newMessageSet(validatorSet),
 		Commits:        newMessageSet(validatorSet),
 		lockedHash:     lockedHash,
@@ -47,7 +47,7 @@ func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, 
 type roundState struct {
 	round          *big.Int
 	sequence       *big.Int
-	Preprepare     *tendermint.Preprepare
+	proposal       *tendermint.Proposal
 	Prepares       *messageSet
 	Commits        *messageSet
 	lockedHash     common.Hash
@@ -76,7 +76,7 @@ func (s *roundState) Subject() *tendermint.Subject {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.Preprepare == nil {
+	if s.Proposal == nil {
 		return nil
 	}
 
@@ -85,23 +85,23 @@ func (s *roundState) Subject() *tendermint.Subject {
 			Round:    new(big.Int).Set(s.round),
 			Sequence: new(big.Int).Set(s.sequence),
 		},
-		Digest: s.Preprepare.Proposal.Hash(),
+		Digest: s.proposal.Proposal.Hash(),
 	}
 }
 
-func (s *roundState) SetPreprepare(preprepare *tendermint.Preprepare) {
+func (s *roundState) SetProposal(proposal *tendermint.Proposal) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.Preprepare = preprepare
+	s.proposal = proposal
 }
 
-func (s *roundState) Proposal() tendermint.Proposal {
+func (s *roundState) Proposal() *tendermint.Proposal {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.Preprepare != nil {
-		return s.Preprepare.Proposal
+	if s.proposal != nil {
+		return s.proposal
 	}
 
 	return nil
@@ -139,8 +139,8 @@ func (s *roundState) LockHash() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.Preprepare != nil {
-		s.lockedHash = s.Preprepare.Proposal.Hash()
+	if s.proposal != nil {
+		s.lockedHash = s.proposal.Proposal.Hash()
 	}
 }
 
@@ -175,7 +175,7 @@ func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 	var ss struct {
 		Round          *big.Int
 		Sequence       *big.Int
-		Preprepare     *tendermint.Preprepare
+		proposal       *tendermint.Proposal
 		Prepares       *messageSet
 		Commits        *messageSet
 		lockedHash     common.Hash
@@ -187,7 +187,7 @@ func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 	}
 	s.round = ss.Round
 	s.sequence = ss.Sequence
-	s.Preprepare = ss.Preprepare
+	s.proposal = ss.proposal
 	s.Prepares = ss.Prepares
 	s.Commits = ss.Commits
 	s.lockedHash = ss.lockedHash
@@ -212,7 +212,7 @@ func (s *roundState) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{
 		s.round,
 		s.sequence,
-		s.Preprepare,
+		s.proposal,
 		s.Prepares,
 		s.Commits,
 		s.lockedHash,

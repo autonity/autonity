@@ -24,14 +24,14 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func newTestPreprepare(v *tendermint.View) *tendermint.Preprepare {
-	return &tendermint.Preprepare{
+func newTestProposal(v *tendermint.View) *tendermint.Proposal {
+	return &tendermint.Proposal{
 		View:     v,
 		Proposal: newTestProposal(),
 	}
 }
 
-func TestHandlePreprepare(t *testing.T) {
+func TestHandleProposal(t *testing.T) {
 	N := uint64(4) // replica 0 is the proposer, it will send messages to others
 	F := uint64(1) // F does not affect tests
 
@@ -101,7 +101,7 @@ func TestHandlePreprepare(t *testing.T) {
 					c.valSet = backend.peers
 					if i != 0 {
 						// replica 0 is the proposer
-						c.state = StatePreprepared
+						c.state = StateProposald
 					}
 				}
 				return sys
@@ -119,7 +119,7 @@ func TestHandlePreprepare(t *testing.T) {
 					c := backend.engine.(*core)
 					c.valSet = backend.peers
 					if i != 0 {
-						c.state = StatePreprepared
+						c.state = StateProposald
 						c.current.SetSequence(big.NewInt(10))
 						c.current.SetRound(big.NewInt(10))
 					}
@@ -141,7 +141,7 @@ OUTER:
 
 		curView := r0.currentView()
 
-		preprepare := &tendermint.Preprepare{
+		proposal := &tendermint.Proposal{
 			View:     curView,
 			Proposal: test.expectedRequest,
 		}
@@ -154,11 +154,11 @@ OUTER:
 
 			c := v.engine.(*core)
 
-			m, _ := Encode(preprepare)
+			m, _ := Encode(proposal)
 			_, val := r0.valSet.GetByAddress(v0.Address())
-			// run each backends and verify handlePreprepare function.
-			if err := c.handlePreprepare(&message{
-				Code:    msgPreprepare,
+			// run each backends and verify handleProposal function.
+			if err := c.handleProposal(&message{
+				Code:    msgProposal,
 				Msg:     m,
 				Address: v0.Address(),
 			}, val); err != nil {
@@ -168,8 +168,8 @@ OUTER:
 				continue OUTER
 			}
 
-			if c.state != StatePreprepared {
-				t.Errorf("state mismatch: have %v, want %v", c.state, StatePreprepared)
+			if c.state != StateProposald {
+				t.Errorf("state mismatch: have %v, want %v", c.state, StateProposald)
 			}
 
 			if !test.existingBlock && !reflect.DeepEqual(c.current.Subject().View, curView) {
@@ -204,7 +204,7 @@ OUTER:
 	}
 }
 
-func TestHandlePreprepareWithLock(t *testing.T) {
+func TestHandleProposalWithLock(t *testing.T) {
 	N := uint64(4) // replica 0 is the proposer, it will send messages to others
 	F := uint64(1) // F does not affect tests
 	proposal := newTestProposal()
@@ -245,11 +245,11 @@ func TestHandlePreprepareWithLock(t *testing.T) {
 		v0 := test.system.backends[0]
 		r0 := v0.engine.(*core)
 		curView := r0.currentView()
-		preprepare := &tendermint.Preprepare{
+		proposal := &tendermint.Proposal{
 			View:     curView,
 			Proposal: test.proposal,
 		}
-		lockPreprepare := &tendermint.Preprepare{
+		lockProposal := &tendermint.Proposal{
 			View:     curView,
 			Proposal: test.lockProposal,
 		}
@@ -261,12 +261,12 @@ func TestHandlePreprepareWithLock(t *testing.T) {
 			}
 
 			c := v.engine.(*core)
-			c.current.SetPreprepare(lockPreprepare)
+			c.current.SetProposal(lockProposal)
 			c.current.LockHash()
-			m, _ := Encode(preprepare)
+			m, _ := Encode(proposal)
 			_, val := r0.valSet.GetByAddress(v0.Address())
-			if err := c.handlePreprepare(&message{
-				Code:    msgPreprepare,
+			if err := c.handleProposal(&message{
+				Code:    msgProposal,
 				Msg:     m,
 				Address: v0.Address(),
 			}, val); err != nil {
@@ -274,7 +274,7 @@ func TestHandlePreprepareWithLock(t *testing.T) {
 			}
 			if test.proposal == test.lockProposal {
 				if c.state != StatePrepared {
-					t.Errorf("state mismatch: have %v, want %v", c.state, StatePreprepared)
+					t.Errorf("state mismatch: have %v, want %v", c.state, StateProposald)
 				}
 				if !reflect.DeepEqual(curView, c.currentView()) {
 					t.Errorf("view mismatch: have %v, want %v", c.currentView(), curView)

@@ -43,11 +43,11 @@ type Backend interface {
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	Commit(proposal Proposal, seals [][]byte) error
+	Commit(proposal ProposalBlock, seals [][]byte) error
 
 	// Verify verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
-	Verify(Proposal) (time.Duration, error)
+	Verify(ProposalBlock) (time.Duration, error)
 
 	// Sign signs input data with the backend's private key
 	Sign([]byte) ([]byte, error)
@@ -57,7 +57,7 @@ type Backend interface {
 	CheckSignature(data []byte, addr common.Address, sig []byte) error
 
 	// LastProposal retrieves latest committed proposal and the address of proposer
-	LastProposal() (Proposal, common.Address)
+	LastProposal() (ProposalBlock, common.Address)
 
 	// HasPropsal checks if the combination of the given hash and height matches any existing blocks
 	HasPropsal(hash common.Hash, number *big.Int) bool

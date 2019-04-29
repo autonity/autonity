@@ -18,7 +18,7 @@ package tendermint
 
 // RequestEvent is posted to propose a proposal
 type RequestEvent struct {
-	Proposal Proposal
+	Proposal ProposalBlock
 }
 
 // MessageEvent is posted for Istanbul engine communication

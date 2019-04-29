@@ -23,9 +23,9 @@ import (
 
 var (
 	// msgPriority is defined for calculating processing priority to speedup consensus
-	// msgPreprepare > msgCommit > msgPrepare
+	// msgProposal > msgCommit > msgPrepare
 	msgPriority = map[uint64]int{
-		msgPreprepare: 1,
+		msgProposal: 1,
 		msgCommit:     2,
 		msgPrepare:    3,
 	}
@@ -61,16 +61,16 @@ func (c *core) checkMessage(msgCode uint64, view *tendermint.View) error {
 		return errFutureMessage
 	}
 
-	// StateAcceptRequest only accepts msgPreprepare
+	// StateAcceptRequest only accepts msgProposal
 	// other messages are future messages
 	if c.state == StateAcceptRequest {
-		if msgCode > msgPreprepare {
+		if msgCode > msgProposal {
 			return errFutureMessage
 		}
 		return nil
 	}
 
-	// For states(StatePreprepared, StatePrepared, StateCommitted),
+	// For states(StateProposald, StatePrepared, StateCommitted),
 	// can accept all message types if processing with same view
 	return nil
 }
@@ -93,8 +93,8 @@ func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
 		backlog = prque.New()
 	}
 	switch msg.Code {
-	case msgPreprepare:
-		var p *tendermint.Preprepare
+	case msgProposal:
+		var p *tendermint.Proposal
 		err := msg.Decode(&p)
 		if err == nil {
 			backlog.Push(msg, toPriority(msg.Code, p.View))
@@ -130,8 +130,8 @@ func (c *core) processBacklog() {
 			msg := m.(*message)
 			var view *tendermint.View
 			switch msg.Code {
-			case msgPreprepare:
-				var m *tendermint.Preprepare
+			case msgProposal:
+				var m *tendermint.Proposal
 				err := msg.Decode(&m)
 				if err == nil {
 					view = m.View

@@ -50,7 +50,7 @@ func (c *core) handlePrepare(msg *message, src tendermint.Validator) error {
 	}
 
 	// If it is locked, it can only process on the locked block.
-	// Passing verifyPrepare and checkMessage implies it is processing on the locked block since it was verified in the Preprepared state.
+	// Passing verifyPrepare and checkMessage implies it is processing on the locked block since it was verified in the Proposald state.
 	if err := c.verifyPrepare(prepare, src); err != nil {
 		return err
 	}
