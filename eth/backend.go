@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	istanbulBackend "github.com/clearmatics/autonity/consensus/istanbul/backend"
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
@@ -157,7 +158,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 
 	// force to set the istanbul etherbase to node key address
-	if chainConfig.Istanbul != nil {
+	if chainConfig.Istanbul != nil || chainConfig.Tendermint != nil {
 		eth.etherbase = crypto.PubkeyToAddress(ctx.NodeKey().PublicKey)
 	}
 
@@ -257,6 +258,10 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 	// If Istanbul is requested, set it up
 	if chainConfig.Istanbul != nil {
 		return istanbulBackend.New(&config.Istanbul, ctx.NodeKey(), db, chainConfig, vmConfig)
+	}
+	// If Istanbul is requested, set it up
+	if chainConfig.Tendermint != nil {
+		return tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, chainConfig, vmConfig)
 	}
 
 	// Otherwise assume proof-of-work
@@ -561,7 +566,7 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 	for {
 		select {
 		case event := <-s.glienickeCh:
-			whitelist := append([]*enode.Node{}, event.Whitelist ...)
+			whitelist := append([]*enode.Node{}, event.Whitelist...)
 			// Filter the list of need to be dropped peers depending on TD.
 			for _, connectedPeer := range s.protocolManager.peers.Peers() {
 				found := false

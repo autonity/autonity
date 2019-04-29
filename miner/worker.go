@@ -919,7 +919,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	commitUncles(w.localUncles)
 	commitUncles(w.remoteUncles)
 
-	if !noempty && w.config.Istanbul == nil {
+	if !noempty && (w.config.Istanbul == nil && w.config.Tendermint == nil) {
 		// Create an empty block based on temporary copied state for sealing in advance without waiting block
 		// execution finished.
 		w.commit(uncles, nil, false, tstart)
@@ -932,7 +932,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		return
 	}
 	// Short circuit if there is no available pending transactions
-	if len(pending) == 0 && w.config.Istanbul == nil {
+	if len(pending) == 0 && (w.config.Istanbul == nil && w.config.Tendermint == nil) {
 		w.updateSnapshot()
 		return
 	}
