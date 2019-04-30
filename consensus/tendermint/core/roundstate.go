@@ -35,7 +35,7 @@ func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, 
 		sequence:       view.Sequence,
 		proposal:       proposal,
 		Prevotes:       newMessageSet(validatorSet),
-		Precommits:        newMessageSet(validatorSet),
+		Precommits:     newMessageSet(validatorSet),
 		lockedHash:     lockedHash,
 		mu:             new(sync.RWMutex),
 		pendingRequest: pendingRequest,
@@ -49,7 +49,7 @@ type roundState struct {
 	sequence       *big.Int
 	proposal       *tendermint.Proposal
 	Prevotes       *messageSet
-	Precommits        *messageSet
+	Precommits     *messageSet
 	lockedHash     common.Hash
 	pendingRequest *tendermint.Request
 
@@ -177,7 +177,7 @@ func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 		Sequence       *big.Int
 		proposal       *tendermint.Proposal
 		Prevotes       *messageSet
-		Precommits        *messageSet
+		Precommits     *messageSet
 		lockedHash     common.Hash
 		pendingRequest *tendermint.Request
 	}

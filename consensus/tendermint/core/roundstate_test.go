@@ -29,9 +29,9 @@ func newTestRoundState(view *tendermint.View, validatorSet tendermint.ValidatorS
 	return &roundState{
 		round:      view.Round,
 		sequence:   view.Sequence,
-		proposal: newTestProposal(view),
+		proposal:   newTestProposal(view),
 		Prevotes:   newMessageSet(validatorSet),
-		Precommits:    newMessageSet(validatorSet),
+		Precommits: newMessageSet(validatorSet),
 		mu:         new(sync.RWMutex),
 		hasBadProposal: func(hash common.Hash) bool {
 			return false

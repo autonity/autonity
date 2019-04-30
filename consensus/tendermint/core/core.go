@@ -62,10 +62,10 @@ type core struct {
 	state   State
 	logger  log.Logger
 
-	backend               tendermint.Backend
-	events                *event.TypeMuxSubscription
-	finalCommittedSub     *event.TypeMuxSubscription
-	timeoutSub            *event.TypeMuxSubscription
+	backend             tendermint.Backend
+	events              *event.TypeMuxSubscription
+	finalCommittedSub   *event.TypeMuxSubscription
+	timeoutSub          *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 
 	valSet                tendermint.ValidatorSet
