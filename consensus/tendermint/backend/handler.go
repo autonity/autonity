@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	istanbulMsg = 0x11
+	tendermintMsg = 0x11
 )
 
 var (
@@ -46,7 +46,7 @@ func (sb *backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 
-	if msg.Code == istanbulMsg {
+	if msg.Code == tendermintMsg {
 		if !sb.coreStarted {
 			return true, tendermint.ErrStoppedEngine
 		}
@@ -75,7 +75,7 @@ func (sb *backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		}
 		sb.knownMessages.Add(hash, true)
 
-		go sb.istanbulEventMux.Post(tendermint.MessageEvent{
+		go sb.eventMux.Post(tendermint.MessageEvent{
 			Payload: data,
 		})
 
@@ -95,6 +95,6 @@ func (sb *backend) NewChainHead() error {
 	if !sb.coreStarted {
 		return tendermint.ErrStoppedEngine
 	}
-	go sb.istanbulEventMux.Post(tendermint.CommitEvent{})
+	go sb.eventMux.Post(tendermint.CommitEvent{})
 	return nil
 }

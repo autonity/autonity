@@ -63,17 +63,17 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
 	backend := &backend{
-		config:           config,
-		istanbulEventMux: new(event.TypeMux),
-		privateKey:       privateKey,
-		address:          crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:           log.New(),
-		db:               db,
-		recents:          recents,
-		coreStarted:      false,
-		recentMessages:   recentMessages,
-		knownMessages:    knownMessages,
-		vmConfig:         vmConfig,
+		config:         config,
+		eventMux:       new(event.TypeMux),
+		privateKey:     privateKey,
+		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
+		logger:         log.New(),
+		db:             db,
+		recents:        recents,
+		coreStarted:    false,
+		recentMessages: recentMessages,
+		knownMessages:  knownMessages,
+		vmConfig:       vmConfig,
 	}
 	backend.core = tendermintCore.New(backend, backend.config)
 	return backend
@@ -82,16 +82,16 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 // ----------------------------------------------------------------------------
 
 type backend struct {
-	config           *tendermint.Config
-	istanbulEventMux *event.TypeMux
-	privateKey       *ecdsa.PrivateKey
-	address          common.Address
-	core             tendermintCore.Engine
-	logger           log.Logger
-	db               ethdb.Database
-	blockchain       *core.BlockChain
-	currentBlock     func() *types.Block
-	hasBadBlock      func(hash common.Hash) bool
+	config       *tendermint.Config
+	eventMux     *event.TypeMux
+	privateKey   *ecdsa.PrivateKey
+	address      common.Address
+	core         tendermintCore.Engine
+	logger       log.Logger
+	db           ethdb.Database
+	blockchain   *core.BlockChain
+	currentBlock func() *types.Block
+	hasBadBlock  func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
@@ -139,7 +139,7 @@ func (sb *backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) err
 	msg := tendermint.MessageEvent{
 		Payload: payload,
 	}
-	go sb.istanbulEventMux.Post(msg)
+	go sb.eventMux.Post(msg)
 	return nil
 }
 
@@ -173,7 +173,7 @@ func (sb *backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) error 
 			m.Add(hash, true)
 			sb.recentMessages.Add(addr, m)
 
-			go p.Send(istanbulMsg, payload)
+			go p.Send(tendermintMsg, payload)
 		}
 	}
 	return nil
@@ -219,7 +219,7 @@ func (sb *backend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) 
 
 // EventMux implements tendermint.Backend.EventMux
 func (sb *backend) EventMux() *event.TypeMux {
-	return sb.istanbulEventMux
+	return sb.eventMux
 }
 
 // Verify implements tendermint.Backend.Verify
@@ -284,15 +284,15 @@ func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, err
 		} else {
 			validators, err = sb.retrieveSavedValidators(1, sb.blockchain) //genesis block and block #1 have the same validators
 		}
-		istanbulExtra, _ := types.ExtractIstanbulExtra(header)
+		tendermintExtra, _ := types.ExtractIstanbulExtra(header)
 
 		//Perform the actual comparison
-		if len(istanbulExtra.Validators) != len(validators) {
+		if len(tendermintExtra.Validators) != len(validators) {
 			return 0, errInconsistentValidatorSet
 		}
 
 		for i := range validators {
-			if istanbulExtra.Validators[i] != validators[i] {
+			if tendermintExtra.Validators[i] != validators[i] {
 				return 0, errInconsistentValidatorSet
 			}
 		}
