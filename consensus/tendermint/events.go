@@ -26,6 +26,6 @@ type MessageEvent struct {
 	Payload []byte
 }
 
-// FinalCommittedEvent is posted when a proposal is committed
-type FinalCommittedEvent struct {
+// CommitEvent is posted when a proposal is committed
+type CommitEvent struct {
 }

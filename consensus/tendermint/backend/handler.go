@@ -95,6 +95,6 @@ func (sb *backend) NewChainHead() error {
 	if !sb.coreStarted {
 		return tendermint.ErrStoppedEngine
 	}
-	go sb.istanbulEventMux.Post(tendermint.FinalCommittedEvent{})
+	go sb.istanbulEventMux.Post(tendermint.CommitEvent{})
 	return nil
 }

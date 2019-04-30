@@ -122,7 +122,7 @@ func (self *testSystemBackend) Precommit(proposal tendermint.ProposalBlock, seal
 	})
 
 	// fake new head events
-	go self.events.Post(tendermint.FinalCommittedEvent{})
+	go self.events.Post(tendermint.CommitEvent{})
 	return nil
 }
 

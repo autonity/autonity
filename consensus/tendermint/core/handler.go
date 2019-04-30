@@ -59,7 +59,7 @@ func (c *core) subscribeEvents() {
 		timeoutEvent{},
 	)
 	c.finalCommittedSub = c.backend.EventMux().Subscribe(
-		tendermint.FinalCommittedEvent{},
+		tendermint.CommitEvent{},
 	)
 }
 
@@ -118,8 +118,8 @@ func (c *core) handleEvents() {
 				return
 			}
 			switch event.Data.(type) {
-			case tendermint.FinalCommittedEvent:
-				c.handleFinalCommitted()
+			case tendermint.CommitEvent:
+				c.handleCommit()
 			}
 		}
 	}
