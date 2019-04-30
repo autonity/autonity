@@ -69,7 +69,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 			// 1. The proposer needs to be a proposer matches the given (Sequence + Round)
 			// 2. The given block must exist
 			if valSet.IsProposer(src.Address()) && c.backend.HasPropsal(proposal.Proposal.Hash(), proposal.Proposal.Number()) {
-				c.sendCommitForOldBlock(proposal.View, proposal.Proposal.Hash())
+				c.sendPrecommitForOldBlock(proposal.View, proposal.Proposal.Hash())
 				return nil
 			}
 		}
@@ -109,7 +109,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 				// Broadcast COMMIT and enters Prevoted state directly
 				c.acceptProposal(proposal)
 				c.setState(StatePrevoted)
-				c.sendCommit() // TODO : double check, why not PREPARE?
+				c.sendPrecommit() // TODO : double check, why not PREPARE?
 			} else {
 				// Send round change
 				c.sendNextRoundChange()

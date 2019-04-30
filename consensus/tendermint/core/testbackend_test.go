@@ -41,7 +41,7 @@ type testSystemBackend struct {
 	peers  tendermint.ValidatorSet
 	events *event.TypeMux
 
-	committedMsgs []testCommittedMsgs
+	committedMsgs []testPrecommittedMsgs
 	msgMutex      sync.RWMutex
 	sentMsgs      [][]byte // store the message when Send is called by core
 
@@ -49,8 +49,8 @@ type testSystemBackend struct {
 	db      ethdb.Database
 }
 
-type testCommittedMsgs struct {
-	commitProposal tendermint.Proposal
+type testPrecommittedMsgs struct {
+	commitProposal tendermint.ProposalBlock
 	committedSeals [][]byte
 }
 
@@ -71,19 +71,19 @@ func (self *testSystemBackend) EventMux() *event.TypeMux {
 	return self.events
 }
 
-func (self *testSystemBackend) LenCommittedMsgs() int {
+func (self *testSystemBackend) LenPrecommittedMsgs() int {
 	self.msgMutex.RLock()
 	defer self.msgMutex.RUnlock()
 	return len(self.committedMsgs)
 }
 
-func (self *testSystemBackend) GetCommittedMsg(i int) testCommittedMsgs {
+func (self *testSystemBackend) GetPrecommittedMsg(i int) testPrecommittedMsgs {
 	self.msgMutex.RLock()
 	defer self.msgMutex.RUnlock()
 	return self.committedMsgs[i]
 }
 
-func (self *testSystemBackend) AddCommittedMsg(msg testCommittedMsgs) []testCommittedMsgs {
+func (self *testSystemBackend) AddPrecommittedMsg(msg testPrecommittedMsgs) []testPrecommittedMsgs {
 	self.msgMutex.Lock()
 	defer self.msgMutex.Unlock()
 	self.committedMsgs = append(self.committedMsgs, msg)
@@ -114,9 +114,9 @@ func (self *testSystemBackend) Gossip(valSet tendermint.ValidatorSet, message []
 	return nil
 }
 
-func (self *testSystemBackend) Commit(proposal tendermint.Proposal, seals [][]byte) error {
+func (self *testSystemBackend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) error {
 	testLogger.Info("commit message", "address", self.Address())
-	self.AddCommittedMsg(testCommittedMsgs{
+	self.AddPrecommittedMsg(testPrecommittedMsgs{
 		commitProposal: proposal,
 		committedSeals: seals,
 	})
@@ -126,7 +126,7 @@ func (self *testSystemBackend) Commit(proposal tendermint.Proposal, seals [][]by
 	return nil
 }
 
-func (self *testSystemBackend) Verify(proposal tendermint.Proposal) (time.Duration, error) {
+func (self *testSystemBackend) Verify(proposal tendermint.ProposalBlock) (time.Duration, error) {
 	return 0, nil
 }
 
@@ -147,7 +147,7 @@ func (self *testSystemBackend) Hash(b interface{}) common.Hash {
 	return common.BytesToHash([]byte("Test"))
 }
 
-func (self *testSystemBackend) NewRequest(request tendermint.Proposal) {
+func (self *testSystemBackend) NewRequest(request tendermint.ProposalBlock) {
 	go self.events.Post(tendermint.RequestEvent{
 		Proposal: request,
 	})
@@ -157,10 +157,10 @@ func (self *testSystemBackend) HasBadProposal(hash common.Hash) bool {
 	return false
 }
 
-func (self *testSystemBackend) LastProposal() (tendermint.Proposal, common.Address) {
-	l := self.LenCommittedMsgs()
+func (self *testSystemBackend) LastProposal() (tendermint.ProposalBlock, common.Address) {
+	l := self.LenPrecommittedMsgs()
 	if l > 0 {
-		return self.GetCommittedMsg(l - 1).commitProposal, common.Address{}
+		return self.GetPrecommittedMsg(l - 1).commitProposal, common.Address{}
 	}
 	return makeBlock(0), common.Address{}
 }

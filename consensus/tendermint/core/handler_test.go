@@ -85,9 +85,9 @@ func TestHandleMsg(t *testing.T) {
 		},
 		Proposal: makeBlock(2),
 	})
-	// with a unmatched payload. tendermint.MsgCommit should match with *tendermint.Subject in normal case.
+	// with a unmatched payload. tendermint.MsgPrecommit should match with *tendermint.Subject in normal case.
 	msg = &message{
-		Code:          msgCommit,
+		Code:          msgPrecommit,
 		Msg:           m,
 		Address:       v0.Address(),
 		Signature:     []byte{},
@@ -95,8 +95,8 @@ func TestHandleMsg(t *testing.T) {
 	}
 
 	_, val = v0.Validators(0).GetByAddress(v0.Address())
-	if err := r0.handleCheckedMsg(msg, val); err != errFailedDecodeCommit {
-		t.Errorf("error mismatch: have %v, want %v", err, errFailedDecodeCommit)
+	if err := r0.handleCheckedMsg(msg, val); err != errFailedDecodePrecommit {
+		t.Errorf("error mismatch: have %v, want %v", err, errFailedDecodePrecommit)
 	}
 
 	m, _ = Encode(&tendermint.Proposal{

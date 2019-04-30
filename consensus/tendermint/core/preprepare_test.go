@@ -27,7 +27,7 @@ import (
 func newTestProposal(v *tendermint.View) *tendermint.Proposal {
 	return &tendermint.Proposal{
 		View:     v,
-		Proposal: newTestProposal(),
+		Proposal: newTestProposalBlock(),
 	}
 }
 
@@ -37,7 +37,7 @@ func TestHandleProposal(t *testing.T) {
 
 	testCases := []struct {
 		system          *testSystem
-		expectedRequest tendermint.Proposal
+		expectedRequest tendermint.ProposalBlock
 		expectedErr     error
 		existingBlock   bool
 	}{
@@ -55,7 +55,7 @@ func TestHandleProposal(t *testing.T) {
 				}
 				return sys
 			}(),
-			newTestProposal(),
+			newTestProposalBlock(),
 			nil,
 			false,
 		},
@@ -185,7 +185,7 @@ OUTER:
 
 			expectedCode := msgPrevote
 			if test.existingBlock {
-				expectedCode = msgCommit
+				expectedCode = msgPrecommit
 			}
 			if decodedMsg.Code != expectedCode {
 				t.Errorf("message code mismatch: have %v, want %v", decodedMsg.Code, expectedCode)
@@ -207,7 +207,7 @@ OUTER:
 func TestHandleProposalWithLock(t *testing.T) {
 	N := uint64(4) // replica 0 is the proposer, it will send messages to others
 	F := uint64(1) // F does not affect tests
-	proposal := newTestProposal()
+	proposal := newTestProposalBlock()
 	mismatchProposal := makeBlock(10)
 	newSystem := func() *testSystem {
 		sys := NewTestSystemWithBackend(N, F)
@@ -225,8 +225,8 @@ func TestHandleProposalWithLock(t *testing.T) {
 
 	testCases := []struct {
 		system       *testSystem
-		proposal     tendermint.Proposal
-		lockProposal tendermint.Proposal
+		proposal     tendermint.ProposalBlock
+		lockProposal tendermint.ProposalBlock
 	}{
 		{
 			newSystem(),

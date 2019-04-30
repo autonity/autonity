@@ -111,13 +111,13 @@ func TestCheckValidatorSignature(t *testing.T) {
 	}
 }
 
-func TestCommit(t *testing.T) {
+func TestPrecommit(t *testing.T) {
 	backend := newBackend()
 
 	commitCh := make(chan *types.Block, 1)
 	backend.commitCh = commitCh
 
-	// Case: it's a proposer, so the backend.commit will receive channel result from backend.Commit function
+	// Case: it's a proposer, so the backend.commit will receive channel result from backend.Precommit function
 	testCases := []struct {
 		expectedErr       error
 		expectedSignature [][]byte
@@ -157,7 +157,7 @@ func TestCommit(t *testing.T) {
 		expBlock := test.expectedBlock()
 
 		backend.proposedBlockHash = expBlock.Hash()
-		if err := backend.Commit(expBlock, test.expectedSignature); err != nil {
+		if err := backend.Precommit(expBlock, test.expectedSignature); err != nil {
 			if err != test.expectedErr {
 				t.Errorf("error mismatch: have %v, want %v", err, test.expectedErr)
 			}

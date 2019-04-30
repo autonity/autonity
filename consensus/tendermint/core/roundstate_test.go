@@ -29,9 +29,9 @@ func newTestRoundState(view *tendermint.View, validatorSet tendermint.ValidatorS
 	return &roundState{
 		round:      view.Round,
 		sequence:   view.Sequence,
-		Proposal: newTestProposal(view),
+		proposal: newTestProposal(view),
 		Prevotes:   newMessageSet(validatorSet),
-		Commits:    newMessageSet(validatorSet),
+		Precommits:    newMessageSet(validatorSet),
 		mu:         new(sync.RWMutex),
 		hasBadProposal: func(hash common.Hash) bool {
 			return false
@@ -56,7 +56,7 @@ func TestLockHash(t *testing.T) {
 	}
 
 	// Lock
-	expected := rs.Proposal().Hash()
+	expected := rs.Proposal().Proposal.Hash()
 	rs.LockHash()
 	if expected != rs.GetLockedHash() {
 		t.Errorf("error mismatch: have %v, want %v", rs.GetLockedHash(), expected)

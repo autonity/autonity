@@ -31,7 +31,7 @@ func TestHandlePrevote(t *testing.T) {
 	N := uint64(4)
 	F := uint64(1)
 
-	proposal := newTestProposal()
+	proposal := newTestProposalBlock()
 	expectedSubject := &tendermint.Subject{
 		View: &tendermint.View{
 			Round:    big.NewInt(0),
@@ -226,7 +226,7 @@ OUTER:
 
 		// core should have 2F+1 PREPARE messages
 		if r0.current.Prevotes.Size() <= 2*r0.valSet.F() {
-			t.Errorf("the size of PREPARE messages should be larger than 2F+1: size %v", r0.current.Commits.Size())
+			t.Errorf("the size of PREPARE messages should be larger than 2F+1: size %v", r0.current.Precommits.Size())
 		}
 
 		// a message will be delivered to backend if 2F+1
@@ -241,8 +241,8 @@ OUTER:
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
 
-		if decodedMsg.Code != msgCommit {
-			t.Errorf("message code mismatch: have %v, want %v", decodedMsg.Code, msgCommit)
+		if decodedMsg.Code != msgPrecommit {
+			t.Errorf("message code mismatch: have %v, want %v", decodedMsg.Code, msgPrecommit)
 		}
 		var m *tendermint.Subject
 		err = decodedMsg.Decode(&m)
@@ -278,7 +278,7 @@ func TestVerifyPrevote(t *testing.T) {
 			expected: nil,
 			prepare: &tendermint.Subject{
 				View:   &tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposalBlock().Hash(),
 			},
 			roundState: newTestRoundState(
 				&tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
@@ -290,7 +290,7 @@ func TestVerifyPrevote(t *testing.T) {
 			expected: errInconsistentSubject,
 			prepare: &tendermint.Subject{
 				View:   &tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposalBlock().Hash(),
 			},
 			roundState: newTestRoundState(
 				&tendermint.View{Round: big.NewInt(1), Sequence: big.NewInt(1)},
@@ -314,7 +314,7 @@ func TestVerifyPrevote(t *testing.T) {
 			expected: errInconsistentSubject,
 			prepare: &tendermint.Subject{
 				View:   &tendermint.View{Round: big.NewInt(0), Sequence: nil},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposalBlock().Hash(),
 			},
 			roundState: newTestRoundState(
 				&tendermint.View{Round: big.NewInt(1), Sequence: big.NewInt(1)},
@@ -326,7 +326,7 @@ func TestVerifyPrevote(t *testing.T) {
 			expected: errInconsistentSubject,
 			prepare: &tendermint.Subject{
 				View:   &tendermint.View{Round: big.NewInt(1), Sequence: big.NewInt(0)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposalBlock().Hash(),
 			},
 			roundState: newTestRoundState(
 				&tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
@@ -338,7 +338,7 @@ func TestVerifyPrevote(t *testing.T) {
 			expected: errInconsistentSubject,
 			prepare: &tendermint.Subject{
 				View:   &tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(1)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposalBlock().Hash(),
 			},
 			roundState: newTestRoundState(
 				&tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},

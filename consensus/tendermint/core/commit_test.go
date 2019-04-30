@@ -27,11 +27,11 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 )
 
-func TestHandleCommit(t *testing.T) {
+func TestHandlePrecommit(t *testing.T) {
 	N := uint64(4)
 	F := uint64(1)
 
-	proposal := newTestProposal()
+	proposal := newTestProposalBlock()
 	expectedSubject := &tendermint.Subject{
 		View: &tendermint.View{
 			Round:    big.NewInt(0),
@@ -168,8 +168,8 @@ OUTER:
 		for i, v := range test.system.backends {
 			validator := r0.valSet.GetByIndex(uint64(i))
 			m, _ := Encode(v.engine.(*core).current.Subject())
-			if err := r0.handleCommit(&message{
-				Code:          msgCommit,
+			if err := r0.handlePrecommit(&message{
+				Code:          msgPrecommit,
 				Msg:           m,
 				Address:       validator.Address(),
 				Signature:     []byte{},
@@ -186,12 +186,12 @@ OUTER:
 		}
 
 		// prepared is normal case
-		if r0.state != StateCommitted {
+		if r0.state != StatePrecommitted {
 			// There are not enough commit messages in core
 			if r0.state != StatePrevoted {
 				t.Errorf("state mismatch: have %v, want %v", r0.state, StatePrevoted)
 			}
-			if r0.current.Commits.Size() > 2*r0.valSet.F() {
+			if r0.current.Precommits.Size() > 2*r0.valSet.F() {
 				t.Errorf("the size of commit messages should be less than %v", 2*r0.valSet.F()+1)
 			}
 			if r0.current.IsHashLocked() {
@@ -201,13 +201,13 @@ OUTER:
 		}
 
 		// core should have 2F+1 prepare messages
-		if r0.current.Commits.Size() <= 2*r0.valSet.F() {
-			t.Errorf("the size of commit messages should be larger than 2F+1: size %v", r0.current.Commits.Size())
+		if r0.current.Precommits.Size() <= 2*r0.valSet.F() {
+			t.Errorf("the size of commit messages should be larger than 2F+1: size %v", r0.current.Precommits.Size())
 		}
 
 		// check signatures large than 2F+1
 		signedCount := 0
-		committedSeals := v0.GetCommittedMsg(0).committedSeals
+		committedSeals := v0.GetPrecommittedMsg(0).committedSeals
 		for _, validator := range r0.valSet.List() {
 			for _, seal := range committedSeals {
 				if bytes.Equal(validator.Address().Bytes(), seal[:common.AddressLength]) {
@@ -226,7 +226,7 @@ OUTER:
 }
 
 // round is not checked for now
-func TestVerifyCommit(t *testing.T) {
+func TestVerifyPrecommit(t *testing.T) {
 	// for log purpose
 	privateKey, _ := crypto.GenerateKey()
 	peer := validator.New(getPublicKeyAddress(privateKey))
@@ -244,7 +244,7 @@ func TestVerifyCommit(t *testing.T) {
 			expected: nil,
 			commit: &tendermint.Subject{
 				View:   &tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposalBlock().Hash(),
 			},
 			roundState: newTestRoundState(
 				&tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
@@ -256,7 +256,7 @@ func TestVerifyCommit(t *testing.T) {
 			expected: errInconsistentSubject,
 			commit: &tendermint.Subject{
 				View:   &tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposalBlock().Hash(),
 			},
 			roundState: newTestRoundState(
 				&tendermint.View{Round: big.NewInt(1), Sequence: big.NewInt(1)},
@@ -280,7 +280,7 @@ func TestVerifyCommit(t *testing.T) {
 			expected: errInconsistentSubject,
 			commit: &tendermint.Subject{
 				View:   &tendermint.View{Round: big.NewInt(0), Sequence: nil},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposalBlock().Hash(),
 			},
 			roundState: newTestRoundState(
 				&tendermint.View{Round: big.NewInt(1), Sequence: big.NewInt(1)},
@@ -292,7 +292,7 @@ func TestVerifyCommit(t *testing.T) {
 			expected: errInconsistentSubject,
 			commit: &tendermint.Subject{
 				View:   &tendermint.View{Round: big.NewInt(1), Sequence: big.NewInt(0)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposalBlock().Hash(),
 			},
 			roundState: newTestRoundState(
 				&tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
@@ -304,7 +304,7 @@ func TestVerifyCommit(t *testing.T) {
 			expected: errInconsistentSubject,
 			commit: &tendermint.Subject{
 				View:   &tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(1)},
-				Digest: newTestProposal().Hash(),
+				Digest: newTestProposalBlock().Hash(),
 			},
 			roundState: newTestRoundState(
 				&tendermint.View{Round: big.NewInt(0), Sequence: big.NewInt(0)},
@@ -316,7 +316,7 @@ func TestVerifyCommit(t *testing.T) {
 		c := sys.backends[0].engine.(*core)
 		c.current = test.roundState
 
-		if err := c.verifyCommit(test.commit, peer); err != nil {
+		if err := c.verifyPrecommit(test.commit, peer); err != nil {
 			if err != test.expected {
 				t.Errorf("result %d: error mismatch: have %v, want %v", i, err, test.expected)
 			}

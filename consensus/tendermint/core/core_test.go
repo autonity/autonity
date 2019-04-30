@@ -39,7 +39,7 @@ func makeBlock(number int64) *types.Block {
 	return block.WithSeal(header)
 }
 
-func newTestProposal() tendermint.Proposal {
+func newTestProposalBlock() tendermint.ProposalBlock {
 	return makeBlock(1)
 }
 
@@ -65,14 +65,14 @@ func TestNewRequest(t *testing.T) {
 	<-time.After(1 * time.Second)
 
 	for _, backend := range sys.backends {
-		if backend.LenCommittedMsgs() != 2 {
-			t.Errorf("the number of executed requests mismatch: have %v, want 2", backend.LenCommittedMsgs())
+		if backend.LenPrecommittedMsgs() != 2 {
+			t.Errorf("the number of executed requests mismatch: have %v, want 2", backend.LenPrecommittedMsgs())
 		}
-		if !reflect.DeepEqual(request1.Number(), backend.GetCommittedMsg(0).commitProposal.Number()) {
-			t.Errorf("the number of requests mismatch: have %v, want %v", request1.Number(), backend.GetCommittedMsg(0).commitProposal.Number())
+		if !reflect.DeepEqual(request1.Number(), backend.GetPrecommittedMsg(0).commitProposal.Number()) {
+			t.Errorf("the number of requests mismatch: have %v, want %v", request1.Number(), backend.GetPrecommittedMsg(0).commitProposal.Number())
 		}
-		if !reflect.DeepEqual(request2.Number(), backend.GetCommittedMsg(1).commitProposal.Number()) {
-			t.Errorf("the number of requests mismatch: have %v, want %v", request2.Number(), backend.GetCommittedMsg(1).commitProposal.Number())
+		if !reflect.DeepEqual(request2.Number(), backend.GetPrecommittedMsg(1).commitProposal.Number()) {
+			t.Errorf("the number of requests mismatch: have %v, want %v", request2.Number(), backend.GetPrecommittedMsg(1).commitProposal.Number())
 		}
 	}
 }

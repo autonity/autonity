@@ -35,7 +35,7 @@ func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, 
 		sequence:       view.Sequence,
 		proposal:       proposal,
 		Prevotes:       newMessageSet(validatorSet),
-		Commits:        newMessageSet(validatorSet),
+		Precommits:        newMessageSet(validatorSet),
 		lockedHash:     lockedHash,
 		mu:             new(sync.RWMutex),
 		pendingRequest: pendingRequest,
@@ -49,7 +49,7 @@ type roundState struct {
 	sequence       *big.Int
 	proposal       *tendermint.Proposal
 	Prevotes       *messageSet
-	Commits        *messageSet
+	Precommits        *messageSet
 	lockedHash     common.Hash
 	pendingRequest *tendermint.Request
 
@@ -57,15 +57,15 @@ type roundState struct {
 	hasBadProposal func(hash common.Hash) bool
 }
 
-func (s *roundState) GetPrevoteOrCommitSize() int {
+func (s *roundState) GetPrevoteOrPrecommitSize() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	result := s.Prevotes.Size() + s.Commits.Size()
+	result := s.Prevotes.Size() + s.Precommits.Size()
 
 	// find duplicate one
 	for _, m := range s.Prevotes.Values() {
-		if s.Commits.Get(m.Address) != nil {
+		if s.Precommits.Get(m.Address) != nil {
 			result--
 		}
 	}
@@ -76,7 +76,7 @@ func (s *roundState) Subject() *tendermint.Subject {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.Proposal == nil {
+	if s.Proposal() == nil {
 		return nil
 	}
 
@@ -177,7 +177,7 @@ func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 		Sequence       *big.Int
 		proposal       *tendermint.Proposal
 		Prevotes       *messageSet
-		Commits        *messageSet
+		Precommits        *messageSet
 		lockedHash     common.Hash
 		pendingRequest *tendermint.Request
 	}
@@ -189,7 +189,7 @@ func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 	s.sequence = ss.Sequence
 	s.proposal = ss.proposal
 	s.Prevotes = ss.Prevotes
-	s.Commits = ss.Commits
+	s.Precommits = ss.Precommits
 	s.lockedHash = ss.lockedHash
 	s.pendingRequest = ss.pendingRequest
 	s.mu = new(sync.RWMutex)
@@ -214,7 +214,7 @@ func (s *roundState) EncodeRLP(w io.Writer) error {
 		s.sequence,
 		s.proposal,
 		s.Prevotes,
-		s.Commits,
+		s.Precommits,
 		s.lockedHash,
 		s.pendingRequest,
 	})

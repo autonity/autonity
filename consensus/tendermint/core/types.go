@@ -35,7 +35,7 @@ const (
 	StateAcceptRequest State = iota
 	StateProposald
 	StatePrevoted
-	StateCommitted
+	StatePrecommitted
 )
 
 func (s State) String() string {
@@ -45,8 +45,8 @@ func (s State) String() string {
 		return "Proposald"
 	} else if s == StatePrevoted {
 		return "Prevoted"
-	} else if s == StateCommitted {
-		return "Committed"
+	} else if s == StatePrecommitted {
+		return "Precommitted"
 	} else {
 		return "Unknown"
 	}
@@ -69,7 +69,7 @@ func (s State) Cmp(y State) int {
 const (
 	msgProposal uint64 = iota
 	msgPrevote
-	msgCommit
+	msgPrecommit
 	msgRoundChange
 	msgAll
 )

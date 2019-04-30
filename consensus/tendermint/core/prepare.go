@@ -59,11 +59,11 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 
 	// Change to Prevoted state if we've received enough PREPARE messages or it is locked
 	// and we are in earlier state before Prevoted state.
-	if ((c.current.IsHashLocked() && prepare.Digest == c.current.GetLockedHash()) || c.current.GetPrevoteOrCommitSize() > 2*c.valSet.F()) &&
+	if ((c.current.IsHashLocked() && prepare.Digest == c.current.GetLockedHash()) || c.current.GetPrevoteOrPrecommitSize() > 2*c.valSet.F()) &&
 		c.state.Cmp(StatePrevoted) < 0 {
 		c.current.LockHash()
 		c.setState(StatePrevoted)
-		c.sendCommit()
+		c.sendPrecommit()
 	}
 
 	return nil

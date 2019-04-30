@@ -167,8 +167,8 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 		return testBacklog(c.handleProposal(msg, src))
 	case msgPrevote:
 		return testBacklog(c.handlePrevote(msg, src))
-	case msgCommit:
-		return testBacklog(c.handleCommit(msg, src))
+	case msgPrecommit:
+		return testBacklog(c.handlePrecommit(msg, src))
 	case msgRoundChange:
 		return testBacklog(c.handleRoundChange(msg, src))
 	default:

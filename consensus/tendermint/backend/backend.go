@@ -179,8 +179,8 @@ func (sb *backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) error 
 	return nil
 }
 
-// Commit implements tendermint.Backend.Commit
-func (sb *backend) Commit(proposal tendermint.ProposalBlock, seals [][]byte) error {
+// Precommit implements tendermint.Backend.Precommit
+func (sb *backend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) error {
 	// Check if the proposal is a valid block
 	block := &types.Block{}
 	block, ok := proposal.(*types.Block)
@@ -198,7 +198,7 @@ func (sb *backend) Commit(proposal tendermint.ProposalBlock, seals [][]byte) err
 	// update block's header
 	block = block.WithSeal(h)
 
-	sb.logger.Info("Committed", "address", sb.Address(), "hash", proposal.Hash(), "number", proposal.Number().Uint64())
+	sb.logger.Info("Precommitted", "address", sb.Address(), "hash", proposal.Hash(), "number", proposal.Number().Uint64())
 	// - if the proposed and committed blocks are the same, send the proposed hash
 	//   to commit channel, which is being watched inside the engine.Seal() function.
 	// - otherwise, we try to insert the block.

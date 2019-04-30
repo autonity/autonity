@@ -23,20 +23,20 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func (c *core) sendCommit() {
+func (c *core) sendPrecommit() {
 	sub := c.current.Subject()
-	c.broadcastCommit(sub)
+	c.broadcastPrecommit(sub)
 }
 
-func (c *core) sendCommitForOldBlock(view *tendermint.View, digest common.Hash) {
+func (c *core) sendPrecommitForOldBlock(view *tendermint.View, digest common.Hash) {
 	sub := &tendermint.Subject{
 		View:   view,
 		Digest: digest,
 	}
-	c.broadcastCommit(sub)
+	c.broadcastPrecommit(sub)
 }
 
-func (c *core) broadcastCommit(sub *tendermint.Subject) {
+func (c *core) broadcastPrecommit(sub *tendermint.Subject) {
 	logger := c.logger.New("state", c.state)
 
 	encodedSubject, err := Encode(sub)
@@ -45,34 +45,34 @@ func (c *core) broadcastCommit(sub *tendermint.Subject) {
 		return
 	}
 	c.broadcast(&message{
-		Code: msgCommit,
+		Code: msgPrecommit,
 		Msg:  encodedSubject,
 	})
 }
 
-func (c *core) handleCommit(msg *message, src tendermint.Validator) error {
+func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 	// Decode COMMIT message
 	var commit *tendermint.Subject
 	err := msg.Decode(&commit)
 	if err != nil {
-		return errFailedDecodeCommit
+		return errFailedDecodePrecommit
 	}
 
-	if err := c.checkMessage(msgCommit, commit.View); err != nil {
+	if err := c.checkMessage(msgPrecommit, commit.View); err != nil {
 		return err
 	}
 
-	if err := c.verifyCommit(commit, src); err != nil {
+	if err := c.verifyPrecommit(commit, src); err != nil {
 		return err
 	}
 
-	c.acceptCommit(msg, src)
+	c.acceptPrecommit(msg, src)
 
-	// Commit the proposal once we have enough COMMIT messages and we are not in the Committed state.
+	// Precommit the proposal once we have enough COMMIT messages and we are not in the Committed state.
 	//
 	// If we already have a proposal, we may have chance to speed up the consensus process
 	// by committing the proposal without PREPARE messages.
-	if c.current.Commits.Size() > 2*c.valSet.F() && c.state.Cmp(StateCommitted) < 0 {
+	if c.current.Precommits.Size() > 2*c.valSet.F() && c.state.Cmp(StatePrecommitted) < 0 {
 		// Still need to call LockHash here since state can skip Prevoted state and jump directly to the Committed state.
 		c.current.LockHash()
 		c.commit()
@@ -81,8 +81,8 @@ func (c *core) handleCommit(msg *message, src tendermint.Validator) error {
 	return nil
 }
 
-// verifyCommit verifies if the received COMMIT message is equivalent to our subject
-func (c *core) verifyCommit(commit *tendermint.Subject, src tendermint.Validator) error {
+// verifyPrecommit verifies if the received COMMIT message is equivalent to our subject
+func (c *core) verifyPrecommit(commit *tendermint.Subject, src tendermint.Validator) error {
 	logger := c.logger.New("from", src, "state", c.state)
 
 	sub := c.current.Subject()
@@ -94,11 +94,11 @@ func (c *core) verifyCommit(commit *tendermint.Subject, src tendermint.Validator
 	return nil
 }
 
-func (c *core) acceptCommit(msg *message, src tendermint.Validator) error {
+func (c *core) acceptPrecommit(msg *message, src tendermint.Validator) error {
 	logger := c.logger.New("from", src, "state", c.state)
 
 	// Add the COMMIT message to current round state
-	if err := c.current.Commits.Add(msg); err != nil {
+	if err := c.current.Precommits.Add(msg); err != nil {
 		logger.Error("Failed to record commit message", "msg", msg, "err", err)
 		return err
 	}

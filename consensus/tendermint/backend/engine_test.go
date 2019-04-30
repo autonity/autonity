@@ -46,7 +46,7 @@ func newBlockChain(n int) (*core.BlockChain, *backend) {
 	memDB := ethdb.NewMemDatabase()
 	config := tendermint.DefaultConfig
 	// Use the first key as private key
-	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{}).(*backend)
+	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil)
 	if err != nil {
@@ -84,7 +84,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis := core.DefaultGenesisBlock()
 	genesis.Config = params.TestChainConfig
 	// force enable PoS engine
-	genesis.Config.Istanbul = &params.IstanbulConfig{}
+	genesis.Config.Tendermint = &params.TendermintConfig{}
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
@@ -141,7 +141,7 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*t
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
-	engine.Prevote(chain, header)
+	engine.Prepare(chain, header)
 	state, err := chain.StateAt(parent.Root())
 	block, _ := engine.Finalize(chain, header, state, nil, nil, nil)
 
@@ -160,12 +160,12 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types
 func TestPrevote(t *testing.T) {
 	chain, engine := newBlockChain(1)
 	header := makeHeader(chain.Genesis(), engine.config)
-	err := engine.Prevote(chain, header)
+	err := engine.Prepare(chain, header)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 	header.ParentHash = common.BytesToHash([]byte("1234567890"))
-	err = engine.Prevote(chain, header)
+	err = engine.Prepare(chain, header)
 	if err != consensus.ErrUnknownAncestor {
 		t.Errorf("error mismatch: have %v, want %v", err, consensus.ErrUnknownAncestor)
 	}
@@ -189,7 +189,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
-		engine.Commit(otherBlock, [][]byte{})
+		engine.Precommit(otherBlock, [][]byte{})
 		eventSub.Unsubscribe()
 	}
 	go eventLoop()

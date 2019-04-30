@@ -104,7 +104,7 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	// Add proof of consensus
 	msg.CommittedSeal = []byte{}
 	// Assign the CommittedSeal if it's a COMMIT message and proposal is not nil
-	if msg.Code == msgCommit && c.current.Proposal() != nil {
+	if msg.Code == msgPrecommit && c.current.Proposal() != nil {
 		seal := PrepareCommittedSeal(c.current.Proposal().Proposal.Hash())
 		msg.CommittedSeal, err = c.backend.Sign(seal)
 		if err != nil {
@@ -163,17 +163,17 @@ func (c *core) isProposer() bool {
 }
 
 func (c *core) commit() {
-	c.setState(StateCommitted)
+	c.setState(StatePrecommitted)
 
 	proposal := c.current.Proposal()
 	if proposal != nil {
-		committedSeals := make([][]byte, c.current.Commits.Size())
-		for i, v := range c.current.Commits.Values() {
+		committedSeals := make([][]byte, c.current.Precommits.Size())
+		for i, v := range c.current.Precommits.Values() {
 			committedSeals[i] = make([]byte, types.IstanbulExtraSeal)
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 
-		if err := c.backend.Commit(proposal.Proposal, committedSeals); err != nil {
+		if err := c.backend.Precommit(proposal.Proposal, committedSeals); err != nil {
 			c.current.UnlockHash() //Unlock block when insertion fails
 			c.sendNextRoundChange()
 			return
@@ -345,6 +345,6 @@ func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address,
 func PrepareCommittedSeal(hash common.Hash) []byte {
 	var buf bytes.Buffer
 	buf.Write(hash.Bytes())
-	buf.Write([]byte{byte(msgCommit)})
+	buf.Write([]byte{byte(msgPrecommit)})
 	return buf.Bytes()
 }
