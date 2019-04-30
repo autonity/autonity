@@ -62,7 +62,7 @@ func TestHandleCommit(t *testing.T) {
 
 					if i == 0 {
 						// replica 0 is the proposer
-						c.state = StatePrepared
+						c.state = StatePrevoted
 					}
 				}
 				return sys
@@ -144,9 +144,9 @@ func TestHandleCommit(t *testing.T) {
 					)
 
 					// only replica0 stays at StateProposald
-					// other replicas are at StatePrepared
+					// other replicas are at StatePrevoted
 					if i != 0 {
-						c.state = StatePrepared
+						c.state = StatePrevoted
 					} else {
 						c.state = StateProposald
 					}
@@ -188,8 +188,8 @@ OUTER:
 		// prepared is normal case
 		if r0.state != StateCommitted {
 			// There are not enough commit messages in core
-			if r0.state != StatePrepared {
-				t.Errorf("state mismatch: have %v, want %v", r0.state, StatePrepared)
+			if r0.state != StatePrevoted {
+				t.Errorf("state mismatch: have %v, want %v", r0.state, StatePrevoted)
 			}
 			if r0.current.Commits.Size() > 2*r0.valSet.F() {
 				t.Errorf("the size of commit messages should be less than %v", 2*r0.valSet.F()+1)

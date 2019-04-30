@@ -44,7 +44,7 @@ const (
 )
 
 // New creates an Ethereum backend for Istanbul core engine.
-func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) consensus.Istanbul {
+func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *backend {
 	if chainConfig.Istanbul.Epoch != 0 {
 		config.Epoch = chainConfig.Istanbul.Epoch
 	}

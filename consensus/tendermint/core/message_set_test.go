@@ -85,7 +85,7 @@ func TestMessageSetWithSubject(t *testing.T) {
 	}
 
 	msg := &message{
-		Code:    msgPrepare,
+		Code:    msgPrevote,
 		Msg:     rawSub,
 		Address: valSet.GetProposer().Address(),
 	}

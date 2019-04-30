@@ -34,7 +34,7 @@ type State uint64
 const (
 	StateAcceptRequest State = iota
 	StateProposald
-	StatePrepared
+	StatePrevoted
 	StateCommitted
 )
 
@@ -43,8 +43,8 @@ func (s State) String() string {
 		return "Accept request"
 	} else if s == StateProposald {
 		return "Proposald"
-	} else if s == StatePrepared {
-		return "Prepared"
+	} else if s == StatePrevoted {
+		return "Prevoted"
 	} else if s == StateCommitted {
 		return "Committed"
 	} else {
@@ -68,7 +68,7 @@ func (s State) Cmp(y State) int {
 
 const (
 	msgProposal uint64 = iota
-	msgPrepare
+	msgPrevote
 	msgCommit
 	msgRoundChange
 	msgAll

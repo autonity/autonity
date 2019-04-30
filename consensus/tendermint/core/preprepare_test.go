@@ -183,7 +183,7 @@ OUTER:
 				t.Errorf("error mismatch: have %v, want nil", err)
 			}
 
-			expectedCode := msgPrepare
+			expectedCode := msgPrevote
 			if test.existingBlock {
 				expectedCode = msgCommit
 			}
@@ -273,7 +273,7 @@ func TestHandleProposalWithLock(t *testing.T) {
 				t.Errorf("error mismatch: have %v, want nil", err)
 			}
 			if test.proposal == test.lockProposal {
-				if c.state != StatePrepared {
+				if c.state != StatePrevoted {
 					t.Errorf("state mismatch: have %v, want %v", c.state, StateProposald)
 				}
 				if !reflect.DeepEqual(curView, c.currentView()) {

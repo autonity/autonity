@@ -46,8 +46,8 @@ func TestCheckMessage(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, errInvalidMessage)
 	}
 
-	testStates := []State{StateAcceptRequest, StateProposald, StatePrepared, StateCommitted}
-	testCode := []uint64{msgProposal, msgPrepare, msgCommit, msgRoundChange}
+	testStates := []State{StateAcceptRequest, StateProposald, StatePrevoted, StateCommitted}
+	testCode := []uint64{msgProposal, msgPrevote, msgCommit, msgRoundChange}
 
 	// future sequence
 	v := &tendermint.View{
@@ -137,8 +137,8 @@ func TestCheckMessage(t *testing.T) {
 		}
 	}
 
-	// current view, state = StatePrepared
-	c.state = StatePrepared
+	// current view, state = StatePrevoted
+	c.state = StatePrevoted
 	for i := 0; i < len(testCode); i++ {
 		err = c.checkMessage(testCode[i], v)
 		if testCode[i] == msgRoundChange {
@@ -200,7 +200,7 @@ func TestStoreBacklog(t *testing.T) {
 	subjectPayload, _ := Encode(subject)
 
 	m = &message{
-		Code: msgPrepare,
+		Code: msgPrevote,
 		Msg:  subjectPayload,
 	}
 	c.storeBacklog(m, p)
@@ -304,7 +304,7 @@ func TestProcessBacklog(t *testing.T) {
 			Msg:  proposalPayload,
 		},
 		{
-			Code: msgPrepare,
+			Code: msgPrevote,
 			Msg:  subjectPayload,
 		},
 		{

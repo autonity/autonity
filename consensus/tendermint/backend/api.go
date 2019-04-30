@@ -22,7 +22,7 @@ import (
 	"github.com/clearmatics/autonity/rpc"
 )
 
-// API is a user facing RPC API to dump Istanbul state
+// API is a user facing RPC API to dump PoS state
 type API struct {
 	chain      consensus.ChainReader
 	tendermint *backend

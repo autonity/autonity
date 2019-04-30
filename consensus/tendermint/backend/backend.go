@@ -39,12 +39,12 @@ import (
 )
 
 const (
-	// fetcherID is the ID indicates the block is from Istanbul engine
+	// fetcherID is the ID indicates the block is from PoS engine
 	fetcherID = "tendermint"
 )
 
-// New creates an Ethereum backend for Istanbul core engine.
-func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) consensus.Istanbul {
+// New creates an Ethereum backend for PoS core engine.
+func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *backend {
 	if chainConfig.Tendermint.Epoch != 0 {
 		config.Epoch = chainConfig.Tendermint.Epoch
 	}
@@ -251,7 +251,7 @@ func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, err
 	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
-		// the current blockchain state is synchronised with Istanbul's state
+		// the current blockchain state is synchronised with PoS's state
 		// and we know that the proposed block was mined by a valid validator
 		header := block.Header()
 		//We need at this point to process all the transactions in the block

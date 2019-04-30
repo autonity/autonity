@@ -38,7 +38,7 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
-// in this test, we can set n to 1, and it means we can process Istanbul and commit a
+// in this test, we can set n to 1, and it means we can process PoS and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process tendermint.
 func newBlockChain(n int) (*core.BlockChain, *backend) {
@@ -83,7 +83,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.Config = params.TestChainConfig
-	// force enable Istanbul engine
+	// force enable PoS engine
 	genesis.Config.Istanbul = &params.IstanbulConfig{}
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
@@ -141,7 +141,7 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*t
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
-	engine.Prepare(chain, header)
+	engine.Prevote(chain, header)
 	state, err := chain.StateAt(parent.Root())
 	block, _ := engine.Finalize(chain, header, state, nil, nil, nil)
 
@@ -157,15 +157,15 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types
 	return block, nil
 }
 
-func TestPrepare(t *testing.T) {
+func TestPrevote(t *testing.T) {
 	chain, engine := newBlockChain(1)
 	header := makeHeader(chain.Genesis(), engine.config)
-	err := engine.Prepare(chain, header)
+	err := engine.Prevote(chain, header)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 	header.ParentHash = common.BytesToHash([]byte("1234567890"))
-	err = engine.Prepare(chain, header)
+	err = engine.Prevote(chain, header)
 	if err != consensus.ErrUnknownAncestor {
 		t.Errorf("error mismatch: have %v, want %v", err, consensus.ErrUnknownAncestor)
 	}
@@ -204,7 +204,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	const timeoutDura = 2 * time.Second
 	timeout := time.NewTimer(timeoutDura)
 	<-timeout.C
-	// wait 2 seconds to ensure we cannot get any blocks from Istanbul
+	// wait 2 seconds to ensure we cannot get any blocks from PoS
 }
 
 func TestSealCommitted(t *testing.T) {

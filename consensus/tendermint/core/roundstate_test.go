@@ -30,7 +30,7 @@ func newTestRoundState(view *tendermint.View, validatorSet tendermint.ValidatorS
 		round:      view.Round,
 		sequence:   view.Sequence,
 		Proposal: newTestProposal(view),
-		Prepares:   newMessageSet(validatorSet),
+		Prevotes:   newMessageSet(validatorSet),
 		Commits:    newMessageSet(validatorSet),
 		mu:         new(sync.RWMutex),
 		hasBadProposal: func(hash common.Hash) bool {

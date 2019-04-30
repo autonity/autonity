@@ -46,7 +46,7 @@ func newBlockChain(n int) (*core.BlockChain, *backend) {
 	memDB := ethdb.NewMemDatabase()
 	config := istanbul.DefaultConfig
 	// Use the first key as private key
-	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{}).(*backend)
+	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil)
 	if err != nil {

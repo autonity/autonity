@@ -64,9 +64,9 @@ func TestHandleMsg(t *testing.T) {
 		},
 		Proposal: makeBlock(1),
 	})
-	// with a unmatched payload. msgPrepare should match with *tendermint.Subject in normal case.
+	// with a unmatched payload. msgPrevote should match with *tendermint.Subject in normal case.
 	msg = &message{
-		Code:          msgPrepare,
+		Code:          msgPrevote,
 		Msg:           m,
 		Address:       v0.Address(),
 		Signature:     []byte{},
@@ -74,7 +74,7 @@ func TestHandleMsg(t *testing.T) {
 	}
 
 	_, val = v0.Validators(0).GetByAddress(v0.Address())
-	if err := r0.handleCheckedMsg(msg, val); err != errFailedDecodePrepare {
+	if err := r0.handleCheckedMsg(msg, val); err != errFailedDecodePrevote {
 		t.Errorf("error mismatch: have %v, want %v", err, errFailedDecodeProposal)
 	}
 

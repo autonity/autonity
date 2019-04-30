@@ -106,9 +106,9 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 		// Send ROUND CHANGE if the locked proposal and the received proposal are different
 		if c.current.IsHashLocked() {
 			if proposal.Proposal.Hash() == c.current.GetLockedHash() {
-				// Broadcast COMMIT and enters Prepared state directly
+				// Broadcast COMMIT and enters Prevoted state directly
 				c.acceptProposal(proposal)
-				c.setState(StatePrepared)
+				c.setState(StatePrevoted)
 				c.sendCommit() // TODO : double check, why not PREPARE?
 			} else {
 				// Send round change
@@ -120,7 +120,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 			//   2. we have no locked proposal
 			c.acceptProposal(proposal)
 			c.setState(StateProposald)
-			c.sendPrepare()
+			c.sendPrevote()
 		}
 	}
 

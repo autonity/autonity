@@ -22,7 +22,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func (c *core) sendPrepare() {
+func (c *core) sendPrevote() {
 	logger := c.logger.New("state", c.state)
 
 	sub := c.current.Subject()
@@ -32,45 +32,45 @@ func (c *core) sendPrepare() {
 		return
 	}
 	c.broadcast(&message{
-		Code: msgPrepare,
+		Code: msgPrevote,
 		Msg:  encodedSubject,
 	})
 }
 
-func (c *core) handlePrepare(msg *message, src tendermint.Validator) error {
+func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 	// Decode PREPARE message
 	var prepare *tendermint.Subject
 	err := msg.Decode(&prepare)
 	if err != nil {
-		return errFailedDecodePrepare
+		return errFailedDecodePrevote
 	}
 
-	if err := c.checkMessage(msgPrepare, prepare.View); err != nil {
+	if err := c.checkMessage(msgPrevote, prepare.View); err != nil {
 		return err
 	}
 
 	// If it is locked, it can only process on the locked block.
-	// Passing verifyPrepare and checkMessage implies it is processing on the locked block since it was verified in the Proposald state.
-	if err := c.verifyPrepare(prepare, src); err != nil {
+	// Passing verifyPrevote and checkMessage implies it is processing on the locked block since it was verified in the Proposald state.
+	if err := c.verifyPrevote(prepare, src); err != nil {
 		return err
 	}
 
-	c.acceptPrepare(msg, src)
+	c.acceptPrevote(msg, src)
 
-	// Change to Prepared state if we've received enough PREPARE messages or it is locked
-	// and we are in earlier state before Prepared state.
-	if ((c.current.IsHashLocked() && prepare.Digest == c.current.GetLockedHash()) || c.current.GetPrepareOrCommitSize() > 2*c.valSet.F()) &&
-		c.state.Cmp(StatePrepared) < 0 {
+	// Change to Prevoted state if we've received enough PREPARE messages or it is locked
+	// and we are in earlier state before Prevoted state.
+	if ((c.current.IsHashLocked() && prepare.Digest == c.current.GetLockedHash()) || c.current.GetPrevoteOrCommitSize() > 2*c.valSet.F()) &&
+		c.state.Cmp(StatePrevoted) < 0 {
 		c.current.LockHash()
-		c.setState(StatePrepared)
+		c.setState(StatePrevoted)
 		c.sendCommit()
 	}
 
 	return nil
 }
 
-// verifyPrepare verifies if the received PREPARE message is equivalent to our subject
-func (c *core) verifyPrepare(prepare *tendermint.Subject, src tendermint.Validator) error {
+// verifyPrevote verifies if the received PREPARE message is equivalent to our subject
+func (c *core) verifyPrevote(prepare *tendermint.Subject, src tendermint.Validator) error {
 	logger := c.logger.New("from", src, "state", c.state)
 
 	sub := c.current.Subject()
@@ -82,11 +82,11 @@ func (c *core) verifyPrepare(prepare *tendermint.Subject, src tendermint.Validat
 	return nil
 }
 
-func (c *core) acceptPrepare(msg *message, src tendermint.Validator) error {
+func (c *core) acceptPrevote(msg *message, src tendermint.Validator) error {
 	logger := c.logger.New("from", src, "state", c.state)
 
 	// Add the PREPARE message to current round state
-	if err := c.current.Prepares.Add(msg); err != nil {
+	if err := c.current.Prevotes.Add(msg); err != nil {
 		logger.Error("Failed to add PREPARE message to round state", "msg", msg, "err", err)
 		return err
 	}

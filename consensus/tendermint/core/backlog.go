@@ -23,11 +23,11 @@ import (
 
 var (
 	// msgPriority is defined for calculating processing priority to speedup consensus
-	// msgProposal > msgCommit > msgPrepare
+	// msgProposal > msgCommit > msgPrevote
 	msgPriority = map[uint64]int{
 		msgProposal: 1,
 		msgCommit:     2,
-		msgPrepare:    3,
+		msgPrevote:    3,
 	}
 )
 
@@ -70,7 +70,7 @@ func (c *core) checkMessage(msgCode uint64, view *tendermint.View) error {
 		return nil
 	}
 
-	// For states(StateProposald, StatePrepared, StateCommitted),
+	// For states(StateProposald, StatePrevoted, StateCommitted),
 	// can accept all message types if processing with same view
 	return nil
 }
@@ -99,7 +99,7 @@ func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
 		if err == nil {
 			backlog.Push(msg, toPriority(msg.Code, p.View))
 		}
-		// for msgRoundChange, msgPrepare and msgCommit cases
+		// for msgRoundChange, msgPrevote and msgCommit cases
 	default:
 		var p *tendermint.Subject
 		err := msg.Decode(&p)
@@ -136,7 +136,7 @@ func (c *core) processBacklog() {
 				if err == nil {
 					view = m.View
 				}
-				// for msgRoundChange, msgPrepare and msgCommit cases
+				// for msgRoundChange, msgPrevote and msgCommit cases
 			default:
 				var sub *tendermint.Subject
 				err := msg.Decode(&sub)

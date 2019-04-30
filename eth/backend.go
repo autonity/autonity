@@ -255,11 +255,9 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 	if chainConfig.Clique != nil {
 		return clique.New(chainConfig.Clique, db)
 	}
-	// If Istanbul is requested, set it up
 	if chainConfig.Istanbul != nil {
 		return istanbulBackend.New(&config.Istanbul, ctx.NodeKey(), db, chainConfig, vmConfig)
 	}
-	// If Istanbul is requested, set it up
 	if chainConfig.Tendermint != nil {
 		return tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, chainConfig, vmConfig)
 	}
@@ -431,8 +429,8 @@ func (s *Ethereum) shouldPreserve(block *types.Block) bool {
 
 // SetEtherbase sets the mining reward address.
 func (s *Ethereum) SetEtherbase(etherbase common.Address) {
-	if _, ok := s.engine.(consensus.Istanbul); ok {
-		log.Error("Cannot set etherbase in Istanbul consensus")
+	if _, ok := s.engine.(consensus.PoS); ok {
+		log.Error("Cannot set etherbase in PoS consensus")
 		return
 	}
 

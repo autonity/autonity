@@ -54,8 +54,8 @@ var (
 	errInvalidDifficulty = errors.New("invalid difficulty")
 	// errInvalidExtraDataFormat is returned when the extra data format is incorrect
 	errInvalidExtraDataFormat = errors.New("invalid extra data format")
-	// errInvalidMixDigest is returned if a block's mix digest is not Istanbul digest.
-	errInvalidMixDigest = errors.New("invalid Istanbul mix digest")
+	// errInvalidMixDigest is returned if a block's mix digest is not PoS digest.
+	errInvalidMixDigest = errors.New("invalid PoS mix digest")
 	// errInvalidNonce is returned if a block's nonce is invalid
 	errInvalidNonce = errors.New("invalid nonce")
 	// errInvalidUncleHash is returned if a block contains an non-empty uncle list.
@@ -124,7 +124,7 @@ func (sb *backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 	if header.MixDigest != types.IstanbulDigest {
 		return errInvalidMixDigest
 	}
-	// Ensure that the block doesn't contain any uncles which are meaningless in Istanbul
+	// Ensure that the block doesn't contain any uncles which are meaningless in PoS
 	if header.UncleHash != nilUncleHash {
 		return errInvalidUncleHash
 	}
@@ -332,7 +332,7 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	}
 
 	validators, err := sb.getValidators(header, chain, state)
-	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
+	// No block rewards in PoS, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 
@@ -420,7 +420,7 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results
 
 	sb.commitCh = results // results channel stays always the same
 
-	// post block into Istanbul engine
+	// post block into PoS engine
 	go sb.EventMux().Post(tendermint.RequestEvent{
 		Proposal: block,
 	})

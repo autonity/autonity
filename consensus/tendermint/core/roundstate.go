@@ -34,7 +34,7 @@ func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, 
 		round:          view.Round,
 		sequence:       view.Sequence,
 		proposal:       proposal,
-		Prepares:       newMessageSet(validatorSet),
+		Prevotes:       newMessageSet(validatorSet),
 		Commits:        newMessageSet(validatorSet),
 		lockedHash:     lockedHash,
 		mu:             new(sync.RWMutex),
@@ -48,7 +48,7 @@ type roundState struct {
 	round          *big.Int
 	sequence       *big.Int
 	proposal       *tendermint.Proposal
-	Prepares       *messageSet
+	Prevotes       *messageSet
 	Commits        *messageSet
 	lockedHash     common.Hash
 	pendingRequest *tendermint.Request
@@ -57,14 +57,14 @@ type roundState struct {
 	hasBadProposal func(hash common.Hash) bool
 }
 
-func (s *roundState) GetPrepareOrCommitSize() int {
+func (s *roundState) GetPrevoteOrCommitSize() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	result := s.Prepares.Size() + s.Commits.Size()
+	result := s.Prevotes.Size() + s.Commits.Size()
 
 	// find duplicate one
-	for _, m := range s.Prepares.Values() {
+	for _, m := range s.Prevotes.Values() {
 		if s.Commits.Get(m.Address) != nil {
 			result--
 		}
@@ -176,7 +176,7 @@ func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 		Round          *big.Int
 		Sequence       *big.Int
 		proposal       *tendermint.Proposal
-		Prepares       *messageSet
+		Prevotes       *messageSet
 		Commits        *messageSet
 		lockedHash     common.Hash
 		pendingRequest *tendermint.Request
@@ -188,7 +188,7 @@ func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 	s.round = ss.Round
 	s.sequence = ss.Sequence
 	s.proposal = ss.proposal
-	s.Prepares = ss.Prepares
+	s.Prevotes = ss.Prevotes
 	s.Commits = ss.Commits
 	s.lockedHash = ss.lockedHash
 	s.pendingRequest = ss.pendingRequest
@@ -213,7 +213,7 @@ func (s *roundState) EncodeRLP(w io.Writer) error {
 		s.round,
 		s.sequence,
 		s.proposal,
-		s.Prepares,
+		s.Prevotes,
 		s.Commits,
 		s.lockedHash,
 		s.pendingRequest,

@@ -466,7 +466,7 @@ func (sb *backend) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
-// Start implements consensus.Istanbul.Start
+// Start implements consensus.PoS.Start
 func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
@@ -489,7 +489,7 @@ func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	return nil
 }
 
-// Stop implements consensus.Istanbul.Stop
+// Stop implements consensus.PoS.Stop
 func (sb *backend) Close() error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()

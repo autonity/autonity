@@ -27,7 +27,7 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 )
 
-func TestHandlePrepare(t *testing.T) {
+func TestHandlePrevote(t *testing.T) {
 	N := uint64(4)
 	F := uint64(1)
 
@@ -193,8 +193,8 @@ OUTER:
 		for i, v := range test.system.backends {
 			validator := r0.valSet.GetByIndex(uint64(i))
 			m, _ := Encode(v.engine.(*core).current.Subject())
-			if err := r0.handlePrepare(&message{
-				Code:    msgPrepare,
+			if err := r0.handlePrevote(&message{
+				Code:    msgPrevote,
 				Msg:     m,
 				Address: validator.Address(),
 			}, validator); err != nil {
@@ -209,12 +209,12 @@ OUTER:
 		}
 
 		// prepared is normal case
-		if r0.state != StatePrepared {
+		if r0.state != StatePrevoted {
 			// There are not enough PREPARE messages in core
 			if r0.state != StateProposald {
 				t.Errorf("state mismatch: have %v, want %v", r0.state, StateProposald)
 			}
-			if r0.current.Prepares.Size() > 2*r0.valSet.F() {
+			if r0.current.Prevotes.Size() > 2*r0.valSet.F() {
 				t.Errorf("the size of PREPARE messages should be less than %v", 2*r0.valSet.F()+1)
 			}
 			if r0.current.IsHashLocked() {
@@ -225,7 +225,7 @@ OUTER:
 		}
 
 		// core should have 2F+1 PREPARE messages
-		if r0.current.Prepares.Size() <= 2*r0.valSet.F() {
+		if r0.current.Prevotes.Size() <= 2*r0.valSet.F() {
 			t.Errorf("the size of PREPARE messages should be larger than 2F+1: size %v", r0.current.Commits.Size())
 		}
 
@@ -259,7 +259,7 @@ OUTER:
 }
 
 // round is not checked for now
-func TestVerifyPrepare(t *testing.T) {
+func TestVerifyPrevote(t *testing.T) {
 	// for log purpose
 	privateKey, _ := crypto.GenerateKey()
 	peer := validator.New(getPublicKeyAddress(privateKey))
@@ -350,7 +350,7 @@ func TestVerifyPrepare(t *testing.T) {
 		c := sys.backends[0].engine.(*core)
 		c.current = test.roundState
 
-		if err := c.verifyPrepare(test.prepare, peer); err != nil {
+		if err := c.verifyPrevote(test.prepare, peer); err != nil {
 			if err != test.expected {
 				t.Errorf("result %d: error mismatch: have %v, want %v", i, err, test.expected)
 			}
