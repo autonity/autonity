@@ -112,7 +112,7 @@ func (sb *backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 	}
 
 	// Ensure that the extra data format is satisfied
-	if _, err := types.ExtractIstanbulExtra(header); err != nil {
+	if _, err := types.ExtractPoSExtra(header); err != nil {
 		return errInvalidExtraDataFormat
 	}
 
@@ -241,7 +241,7 @@ func (sb *backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 	}
 	validators := validator.NewSet(validatorAddresses, sb.config.GetProposerPolicy())
 
-	extra, err := types.ExtractIstanbulExtra(header)
+	extra, err := types.ExtractPoSExtra(header)
 	if err != nil {
 		return err
 	}
@@ -515,7 +515,7 @@ func (sb *backend) retrieveSavedValidators(number uint64, chain consensus.ChainR
 		return nil, errUnknownBlock
 	}
 
-	istanbulExtra, err := types.ExtractIstanbulExtra(header)
+	istanbulExtra, err := types.ExtractPoSExtra(header)
 	if err != nil {
 		return nil, err
 	}
@@ -539,8 +539,8 @@ func (sb *backend) retrieveValidators(header *types.Header, parents []*types.Hea
 
 	if len(parents) > 0 {
 		parent := parents[len(parents)-1]
-		var istanbulExtra *types.IstanbulExtra
-		istanbulExtra, err = types.ExtractIstanbulExtra(parent)
+		var istanbulExtra *types.PoSExtra
+		istanbulExtra, err = types.ExtractPoSExtra(parent)
 		if err == nil {
 			validators = istanbulExtra.Validators
 		}

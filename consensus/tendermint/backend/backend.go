@@ -284,7 +284,7 @@ func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, err
 		} else {
 			validators, err = sb.retrieveSavedValidators(1, sb.blockchain) //genesis block and block #1 have the same validators
 		}
-		tendermintExtra, _ := types.ExtractIstanbulExtra(header)
+		tendermintExtra, _ := types.ExtractPoSExtra(header)
 
 		//Perform the actual comparison
 		if len(tendermintExtra.Validators) != len(validators) {
