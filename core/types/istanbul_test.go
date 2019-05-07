@@ -48,14 +48,14 @@ func TestExtractToIstanbul(t *testing.T) {
 	testCases := []struct {
 		vanity         []byte
 		istRawData     []byte
-		expectedResult *IstanbulExtra
+		expectedResult *PoSExtra
 		expectedErr    error
 	}{
 		{
 			// normal case
 			bytes.Repeat([]byte{0x00}, IstanbulExtraVanity),
 			hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0"),
-			&IstanbulExtra{
+			&PoSExtra{
 				Validators: []common.Address{
 					common.BytesToAddress(hexutil.MustDecode("0x44add0ec310f115a0e603b2d7db9f067778eaf8a")),
 					common.BytesToAddress(hexutil.MustDecode("0x294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212")),
@@ -77,7 +77,7 @@ func TestExtractToIstanbul(t *testing.T) {
 	}
 	for _, test := range testCases {
 		h := &Header{Extra: append(test.vanity, test.istRawData...)}
-		istanbulExtra, err := ExtractIstanbulExtra(h)
+		istanbulExtra, err := ExtractPoSExtra(h)
 		if err != test.expectedErr {
 			t.Errorf("expected: %v, but got: %v", test.expectedErr, err)
 		}

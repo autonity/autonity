@@ -24,9 +24,9 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/istanbul"
-	istanbulCore "github.com/clearmatics/autonity/consensus/istanbul/core"
-	"github.com/clearmatics/autonity/consensus/istanbul/validator"
+	"github.com/clearmatics/autonity/consensus/tendermint"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
@@ -39,61 +39,61 @@ import (
 )
 
 const (
-	// fetcherID is the ID indicates the block is from Istanbul engine
-	fetcherID = "istanbul"
+	// fetcherID is the ID indicates the block is from PoS engine
+	fetcherID = "tendermint"
 )
 
-// New creates an Ethereum backend for Istanbul core engine.
-func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *backend {
-	if chainConfig.Istanbul.Epoch != 0 {
-		config.Epoch = chainConfig.Istanbul.Epoch
+// New creates an Ethereum backend for PoS core engine.
+func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *backend {
+	if chainConfig.Tendermint.Epoch != 0 {
+		config.Epoch = chainConfig.Tendermint.Epoch
 	}
 
-	if chainConfig.Istanbul.Bytecode != "" && chainConfig.Istanbul.ABI != "" {
-		config.Bytecode = chainConfig.Istanbul.Bytecode
-		config.ABI = chainConfig.Istanbul.ABI
+	if chainConfig.Tendermint.Bytecode != "" && chainConfig.Tendermint.ABI != "" {
+		config.Bytecode = chainConfig.Tendermint.Bytecode
+		config.ABI = chainConfig.Tendermint.ABI
 		log.Info("Default Validator smart contract set")
 	} else {
 		log.Info("User specified Validator smart contract set")
 	}
 
-	config.SetProposerPolicy(istanbul.ProposerPolicy(chainConfig.Istanbul.ProposerPolicy))
+	config.SetProposerPolicy(tendermint.ProposerPolicy(chainConfig.Tendermint.ProposerPolicy))
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
 	backend := &backend{
-		config:           config,
-		istanbulEventMux: new(event.TypeMux),
-		privateKey:       privateKey,
-		address:          crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:           log.New(),
-		db:               db,
-		recents:          recents,
-		coreStarted:      false,
-		recentMessages:   recentMessages,
-		knownMessages:    knownMessages,
-		vmConfig:         vmConfig,
+		config:         config,
+		eventMux:       new(event.TypeMux),
+		privateKey:     privateKey,
+		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
+		logger:         log.New(),
+		db:             db,
+		recents:        recents,
+		coreStarted:    false,
+		recentMessages: recentMessages,
+		knownMessages:  knownMessages,
+		vmConfig:       vmConfig,
 	}
-	backend.core = istanbulCore.New(backend, backend.config)
+	backend.core = tendermintCore.New(backend, backend.config)
 	return backend
 }
 
 // ----------------------------------------------------------------------------
 
 type backend struct {
-	config           *istanbul.Config
-	istanbulEventMux *event.TypeMux
-	privateKey       *ecdsa.PrivateKey
-	address          common.Address
-	core             istanbulCore.Engine
-	logger           log.Logger
-	db               ethdb.Database
-	blockchain       *core.BlockChain
-	currentBlock     func() *types.Block
-	hasBadBlock      func(hash common.Hash) bool
+	config       *tendermint.Config
+	eventMux     *event.TypeMux
+	privateKey   *ecdsa.PrivateKey
+	address      common.Address
+	core         tendermintCore.Engine
+	logger       log.Logger
+	db           ethdb.Database
+	blockchain   *core.BlockChain
+	currentBlock func() *types.Block
+	hasBadBlock  func(hash common.Hash) bool
 
-	// the channels for istanbul engine notifications
+	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
@@ -117,12 +117,12 @@ type backend struct {
 	vmConfig          *vm.Config
 }
 
-// Address implements istanbul.Backend.Address
+// Address implements tendermint.Backend.Address
 func (sb *backend) Address() common.Address {
 	return sb.address
 }
 
-func (sb *backend) Validators(number uint64) istanbul.ValidatorSet {
+func (sb *backend) Validators(number uint64) tendermint.ValidatorSet {
 	validators, err := sb.retrieveSavedValidators(number, sb.blockchain)
 	proposerPolicy := sb.config.GetProposerPolicy()
 	if err != nil {
@@ -131,20 +131,20 @@ func (sb *backend) Validators(number uint64) istanbul.ValidatorSet {
 	return validator.NewSet(validators, proposerPolicy)
 }
 
-// Broadcast implements istanbul.Backend.Broadcast
-func (sb *backend) Broadcast(valSet istanbul.ValidatorSet, payload []byte) error {
+// Broadcast implements tendermint.Backend.Broadcast
+func (sb *backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) error {
 	// send to others
 	sb.Gossip(valSet, payload)
 	// send to self
-	msg := istanbul.MessageEvent{
+	msg := tendermint.MessageEvent{
 		Payload: payload,
 	}
-	go sb.istanbulEventMux.Post(msg)
+	go sb.eventMux.Post(msg)
 	return nil
 }
 
-// Broadcast implements istanbul.Backend.Gossip
-func (sb *backend) Gossip(valSet istanbul.ValidatorSet, payload []byte) error {
+// Broadcast implements tendermint.Backend.Gossip
+func (sb *backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) error {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
@@ -173,14 +173,14 @@ func (sb *backend) Gossip(valSet istanbul.ValidatorSet, payload []byte) error {
 			m.Add(hash, true)
 			sb.recentMessages.Add(addr, m)
 
-			go p.Send(istanbulMsg, payload)
+			go p.Send(tendermintMsg, payload)
 		}
 	}
 	return nil
 }
 
-// Commit implements istanbul.Backend.Commit
-func (sb *backend) Commit(proposal istanbul.Proposal, seals [][]byte) error {
+// Precommit implements tendermint.Backend.Precommit
+func (sb *backend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) error {
 	// Check if the proposal is a valid block
 	block := &types.Block{}
 	block, ok := proposal.(*types.Block)
@@ -198,7 +198,7 @@ func (sb *backend) Commit(proposal istanbul.Proposal, seals [][]byte) error {
 	// update block's header
 	block = block.WithSeal(h)
 
-	sb.logger.Info("Committed", "address", sb.Address(), "hash", proposal.Hash(), "number", proposal.Number().Uint64())
+	sb.logger.Info("Precommitted", "address", sb.Address(), "hash", proposal.Hash(), "number", proposal.Number().Uint64())
 	// - if the proposed and committed blocks are the same, send the proposed hash
 	//   to commit channel, which is being watched inside the engine.Seal() function.
 	// - otherwise, we try to insert the block.
@@ -217,13 +217,13 @@ func (sb *backend) Commit(proposal istanbul.Proposal, seals [][]byte) error {
 	return nil
 }
 
-// EventMux implements istanbul.Backend.EventMux
+// EventMux implements tendermint.Backend.EventMux
 func (sb *backend) EventMux() *event.TypeMux {
-	return sb.istanbulEventMux
+	return sb.eventMux
 }
 
-// Verify implements istanbul.Backend.Verify
-func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
+// Verify implements tendermint.Backend.Verify
+func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, error) {
 	// Check if the proposal is a valid block
 	block := &types.Block{}
 	block, ok := proposal.(*types.Block)
@@ -251,7 +251,7 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
-		// the current blockchain state is synchronised with Istanbul's state
+		// the current blockchain state is synchronised with PoS's state
 		// and we know that the proposed block was mined by a valid validator
 		header := block.Header()
 		//We need at this point to process all the transactions in the block
@@ -284,15 +284,15 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 		} else {
 			validators, err = sb.retrieveSavedValidators(1, sb.blockchain) //genesis block and block #1 have the same validators
 		}
-		istanbulExtra, _ := types.ExtractPoSExtra(header)
+		tendermintExtra, _ := types.ExtractPoSExtra(header)
 
 		//Perform the actual comparison
-		if len(istanbulExtra.Validators) != len(validators) {
+		if len(tendermintExtra.Validators) != len(validators) {
 			return 0, errInconsistentValidatorSet
 		}
 
 		for i := range validators {
-			if istanbulExtra.Validators[i] != validators[i] {
+			if tendermintExtra.Validators[i] != validators[i] {
 				return 0, errInconsistentValidatorSet
 			}
 		}
@@ -305,13 +305,13 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 	return 0, err
 }
 
-// Sign implements istanbul.Backend.Sign
+// Sign implements tendermint.Backend.Sign
 func (sb *backend) Sign(data []byte) ([]byte, error) {
 	hashData := crypto.Keccak256(data)
 	return crypto.Sign(hashData, sb.privateKey)
 }
 
-// CheckSignature implements istanbul.Backend.CheckSignature
+// CheckSignature implements tendermint.Backend.CheckSignature
 func (sb *backend) CheckSignature(data []byte, address common.Address, sig []byte) error {
 	signer, err := types.GetSignatureAddress(data, sig)
 	if err != nil {
@@ -325,12 +325,12 @@ func (sb *backend) CheckSignature(data []byte, address common.Address, sig []byt
 	return nil
 }
 
-// HasPropsal implements istanbul.Backend.HashBlock
+// HasPropsal implements tendermint.Backend.HashBlock
 func (sb *backend) HasPropsal(hash common.Hash, number *big.Int) bool {
 	return sb.blockchain.GetHeader(hash, number.Uint64()) != nil
 }
 
-// GetProposer implements istanbul.Backend.GetProposer
+// GetProposer implements tendermint.Backend.GetProposer
 func (sb *backend) GetProposer(number uint64) common.Address {
 	if h := sb.blockchain.GetHeaderByNumber(number); h != nil {
 		a, _ := sb.Author(h)
@@ -339,7 +339,7 @@ func (sb *backend) GetProposer(number uint64) common.Address {
 	return common.Address{}
 }
 
-func (sb *backend) LastProposal() (istanbul.Proposal, common.Address) {
+func (sb *backend) LastProposal() (tendermint.ProposalBlock, common.Address) {
 	block := sb.currentBlock()
 
 	var proposer common.Address

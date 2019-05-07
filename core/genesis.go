@@ -277,8 +277,8 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 		g.Config = params.AllEthashProtocolChanges
 	}
 
-	if g.Config != nil && g.Config.Istanbul != nil {
-		err := g.setIstanbul()
+	if g.Config != nil && (g.Config.Istanbul != nil || g.Config.Tendermint != nil) {
+		err := g.setPoS()
 		if err != nil {
 			return nil, err
 		}
@@ -300,8 +300,8 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	return block, nil
 }
 
-//setIstanbul sets default Istanbul config values
-func (g *Genesis) setIstanbul() error {
+//setPoS sets default PoS(IBFT or Tendermint) config values
+func (g *Genesis) setPoS() error {
 	if len(g.Validators) != 0 {
 		err := g.UpdateValidators(g.Validators)
 		if err != nil {

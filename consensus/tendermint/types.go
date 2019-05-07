@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package istanbul
+package tendermint
 
 import (
 	"fmt"
@@ -26,8 +26,8 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
-// ProposalBlock supports retrieving height and serialized block to be used during Istanbul consensus.
-type Proposal interface {
+// ProposalBlock supports retrieving height and serialized block to be used during Tendermint consensus.
+type ProposalBlock interface {
 	// Number retrieves the sequence number of this proposal.
 	Number() *big.Int
 
@@ -40,12 +40,12 @@ type Proposal interface {
 }
 
 type Request struct {
-	Proposal Proposal
+	ProposalBlock ProposalBlock
 }
 
 // View includes a round number and a sequence number.
 // Sequence is the block number we'd like to commit.
-// Each round has a number and is composed by 3 steps: preprepare, prepare and commit.
+// Each round has a number and is composed by 3 steps: proposal, prepare and commit.
 //
 // If the given block is not accepted by validators, a round change will occur
 // and the validators start a new round with round+1.
@@ -91,27 +91,27 @@ func (v *View) Cmp(y *View) int {
 	return 0
 }
 
-type Preprepare struct {
-	View     *View
-	Proposal Proposal
+type Proposal struct {
+	View          *View
+	ProposalBlock ProposalBlock
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
-func (b *Preprepare) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{b.View, b.Proposal})
+func (b *Proposal) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, []interface{}{b.View, b.ProposalBlock})
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (b *Preprepare) DecodeRLP(s *rlp.Stream) error {
-	var preprepare struct {
+func (b *Proposal) DecodeRLP(s *rlp.Stream) error {
+	var proposal struct {
 		View     *View
 		Proposal *types.Block
 	}
 
-	if err := s.Decode(&preprepare); err != nil {
+	if err := s.Decode(&proposal); err != nil {
 		return err
 	}
-	b.View, b.Proposal = preprepare.View, preprepare.Proposal
+	b.View, b.ProposalBlock = proposal.View, proposal.Proposal
 
 	return nil
 }

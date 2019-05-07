@@ -22,22 +22,22 @@ import (
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func testPreprepare(t *testing.T) {
-	pp := &istanbul.Preprepare{
-		View: &istanbul.View{
+func testProposal(t *testing.T) {
+	pp := &tendermint.Proposal{
+		View: &tendermint.View{
 			Round:    big.NewInt(1),
 			Sequence: big.NewInt(2),
 		},
-		Proposal: makeBlock(1),
+		ProposalBlock: makeBlock(1),
 	}
-	prepreparePayload, _ := Encode(pp)
+	proposalPayload, _ := Encode(pp)
 
 	m := &message{
-		Code:    msgPreprepare,
-		Msg:     prepreparePayload,
+		Code:    msgProposal,
+		Msg:     proposalPayload,
 		Address: common.HexToAddress("0x1234567890"),
 	}
 
@@ -52,30 +52,30 @@ func testPreprepare(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 
-	var decodedPP *istanbul.Preprepare
+	var decodedPP *tendermint.Proposal
 	err = decodedMsg.Decode(&decodedPP)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 
-	// if block is encoded/decoded by rlp, we cannot to compare interface data type using reflect.DeepEqual. (like istanbul.ProposalBlock)
+	// if block is encoded/decoded by rlp, we cannot to compare interface data type using reflect.DeepEqual. (like tendermint.ProposalBlock)
 	// so individual comparison here.
-	if !reflect.DeepEqual(pp.Proposal.Hash(), decodedPP.Proposal.Hash()) {
-		t.Errorf("proposal hash mismatch: have %v, want %v", decodedPP.Proposal.Hash(), pp.Proposal.Hash())
+	if !reflect.DeepEqual(pp.ProposalBlock.Hash(), decodedPP.ProposalBlock.Hash()) {
+		t.Errorf("proposal hash mismatch: have %v, want %v", decodedPP.ProposalBlock.Hash(), pp.ProposalBlock.Hash())
 	}
 
 	if !reflect.DeepEqual(pp.View, decodedPP.View) {
 		t.Errorf("view mismatch: have %v, want %v", decodedPP.View, pp.View)
 	}
 
-	if !reflect.DeepEqual(pp.Proposal.Number(), decodedPP.Proposal.Number()) {
-		t.Errorf("proposal number mismatch: have %v, want %v", decodedPP.Proposal.Number(), pp.Proposal.Number())
+	if !reflect.DeepEqual(pp.ProposalBlock.Number(), decodedPP.ProposalBlock.Number()) {
+		t.Errorf("proposal number mismatch: have %v, want %v", decodedPP.ProposalBlock.Number(), pp.ProposalBlock.Number())
 	}
 }
 
 func testSubject(t *testing.T) {
-	s := &istanbul.Subject{
-		View: &istanbul.View{
+	s := &tendermint.Subject{
+		View: &tendermint.View{
 			Round:    big.NewInt(1),
 			Sequence: big.NewInt(2),
 		},
@@ -85,7 +85,7 @@ func testSubject(t *testing.T) {
 	subjectPayload, _ := Encode(s)
 
 	m := &message{
-		Code:    msgPreprepare,
+		Code:    msgProposal,
 		Msg:     subjectPayload,
 		Address: common.HexToAddress("0x1234567890"),
 	}
@@ -101,7 +101,7 @@ func testSubject(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 
-	var decodedSub *istanbul.Subject
+	var decodedSub *tendermint.Subject
 	err = decodedMsg.Decode(&decodedSub)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -113,8 +113,8 @@ func testSubject(t *testing.T) {
 }
 
 func testSubjectWithSignature(t *testing.T) {
-	s := &istanbul.Subject{
-		View: &istanbul.View{
+	s := &tendermint.Subject{
+		View: &tendermint.View{
 			Round:    big.NewInt(1),
 			Sequence: big.NewInt(2),
 		},
@@ -125,7 +125,7 @@ func testSubjectWithSignature(t *testing.T) {
 	subjectPayload, _ := Encode(s)
 	// 1. Encode test
 	m := &message{
-		Code:          msgPreprepare,
+		Code:          msgProposal,
 		Msg:           subjectPayload,
 		Address:       common.HexToAddress("0x1234567890"),
 		Signature:     expectedSig,
@@ -165,15 +165,15 @@ func testSubjectWithSignature(t *testing.T) {
 	// 2.3 Test failed validate func
 	decodedMsg = new(message)
 	err = decodedMsg.FromPayload(msgPayload, func(data []byte, sig []byte) (common.Address, error) {
-		return common.Address{}, istanbul.ErrUnauthorizedAddress
+		return common.Address{}, tendermint.ErrUnauthorizedAddress
 	})
-	if err != istanbul.ErrUnauthorizedAddress {
-		t.Errorf("error mismatch: have %v, want %v", err, istanbul.ErrUnauthorizedAddress)
+	if err != tendermint.ErrUnauthorizedAddress {
+		t.Errorf("error mismatch: have %v, want %v", err, tendermint.ErrUnauthorizedAddress)
 	}
 }
 
 func TestMessageEncodeDecode(t *testing.T) {
-	testPreprepare(t)
+	testProposal(t)
 	testSubject(t)
 	testSubjectWithSignature(t)
 }

@@ -1,0 +1,76 @@
+// Copyright 2017 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+
+package core
+
+import (
+	"math/big"
+	"sync"
+	"testing"
+
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint"
+)
+
+func newTestRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet) *roundState {
+	return &roundState{
+		round:      view.Round,
+		sequence:   view.Sequence,
+		proposal:   newTestProposal(view),
+		Prevotes:   newMessageSet(validatorSet),
+		Precommits: newMessageSet(validatorSet),
+		mu:         new(sync.RWMutex),
+		hasBadProposal: func(hash common.Hash) bool {
+			return false
+		},
+	}
+}
+
+func TestLockHash(t *testing.T) {
+	sys := NewTestSystemWithBackend(1, 0)
+	rs := newTestRoundState(
+		&tendermint.View{
+			Round:    big.NewInt(0),
+			Sequence: big.NewInt(0),
+		},
+		sys.backends[0].peers,
+	)
+	if rs.GetLockedHash() != (common.Hash{}) {
+		t.Errorf("error mismatch: have %v, want empty", rs.GetLockedHash())
+	}
+	if rs.IsHashLocked() {
+		t.Error("IsHashLocked should return false")
+	}
+
+	// Lock
+	expected := rs.Proposal().ProposalBlock.Hash()
+	rs.LockHash()
+	if expected != rs.GetLockedHash() {
+		t.Errorf("error mismatch: have %v, want %v", rs.GetLockedHash(), expected)
+	}
+	if !rs.IsHashLocked() {
+		t.Error("IsHashLocked should return true")
+	}
+
+	// Unlock
+	rs.UnlockHash()
+	if rs.GetLockedHash() != (common.Hash{}) {
+		t.Errorf("error mismatch: have %v, want empty", rs.GetLockedHash())
+	}
+	if rs.IsHashLocked() {
+		t.Error("IsHashLocked should return false")
+	}
+}

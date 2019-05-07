@@ -28,7 +28,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
@@ -38,13 +38,13 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
-// in this test, we can set n to 1, and it means we can process Istanbul and commit a
+// in this test, we can set n to 1, and it means we can process PoS and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
-// other fake events to process Istanbul.
+// other fake events to process tendermint.
 func newBlockChain(n int) (*core.BlockChain, *backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
-	config := istanbul.DefaultConfig
+	config := tendermint.DefaultConfig
 	// Use the first key as private key
 	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 	genesis.MustCommit(memDB)
@@ -83,8 +83,8 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.Config = params.TestChainConfig
-	// force enable Istanbul engine
-	genesis.Config.Istanbul = &params.IstanbulConfig{}
+	// force enable PoS engine
+	genesis.Config.Tendermint = &params.TendermintConfig{}
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
@@ -109,12 +109,12 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 
 	istPayload, err := rlp.EncodeToBytes(&ist)
 	if err != nil {
-		panic("failed to encode istanbul extra")
+		panic("failed to encode tendermint extra")
 	}
 	genesis.ExtraData = append(genesis.ExtraData, istPayload...)
 }
 
-func makeHeader(parent *types.Block, config *istanbul.Config) *types.Header {
+func makeHeader(parent *types.Block, config *tendermint.Config) *types.Header {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
@@ -157,7 +157,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types
 	return block, nil
 }
 
-func TestPrepare(t *testing.T) {
+func TestPrevote(t *testing.T) {
 	chain, engine := newBlockChain(1)
 	header := makeHeader(chain.Genesis(), engine.config)
 	err := engine.Prepare(chain, header)
@@ -182,14 +182,14 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	eventSub := engine.EventMux().Subscribe(istanbul.RequestEvent{})
+	eventSub := engine.EventMux().Subscribe(tendermint.RequestEvent{})
 	eventLoop := func() {
 		ev := <-eventSub.Chan()
-		_, ok := ev.Data.(istanbul.RequestEvent)
+		_, ok := ev.Data.(tendermint.RequestEvent)
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
-		engine.Commit(otherBlock, [][]byte{})
+		engine.Precommit(otherBlock, [][]byte{})
 		eventSub.Unsubscribe()
 	}
 	go eventLoop()
@@ -204,7 +204,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	const timeoutDura = 2 * time.Second
 	timeout := time.NewTimer(timeoutDura)
 	<-timeout.C
-	// wait 2 seconds to ensure we cannot get any blocks from Istanbul
+	// wait 2 seconds to ensure we cannot get any blocks from PoS
 }
 
 func TestSealCommitted(t *testing.T) {
@@ -528,7 +528,7 @@ func TestWriteSeal(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, expectedErr)
 	}
 
-	// verify istanbul extra-data
+	// verify tendermint extra-data
 	istExtra, err := types.ExtractPoSExtra(h)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -571,7 +571,7 @@ func TestWriteCommittedSeals(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, expectedErr)
 	}
 
-	// verify istanbul extra-data
+	// verify tendermint extra-data
 	istExtra, err := types.ExtractPoSExtra(h)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)

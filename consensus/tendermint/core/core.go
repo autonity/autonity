@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -33,7 +33,7 @@ import (
 )
 
 // New creates an Istanbul consensus core
-func New(backend istanbul.Backend, config *istanbul.Config) Engine {
+func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
 		config:             config,
 		address:            backend.Address(),
@@ -41,14 +41,14 @@ func New(backend istanbul.Backend, config *istanbul.Config) Engine {
 		handlerStopCh:      make(chan struct{}),
 		logger:             log.New("address", backend.Address()),
 		backend:            backend,
-		backlogs:           make(map[istanbul.Validator]*prque.Prque),
+		backlogs:           make(map[tendermint.Validator]*prque.Prque),
 		backlogsMu:         new(sync.Mutex),
 		pendingRequests:    prque.New(),
 		pendingRequestsMu:  new(sync.Mutex),
 		consensusTimestamp: time.Time{},
-		roundMeter:         metrics.NewRegisteredMeter("consensus/istanbul/core/round", nil),
-		sequenceMeter:      metrics.NewRegisteredMeter("consensus/istanbul/core/sequence", nil),
-		consensusTimer:     metrics.NewRegisteredTimer("consensus/istanbul/core/consensus", nil),
+		roundMeter:         metrics.NewRegisteredMeter("consensus/tendermint/core/round", nil),
+		sequenceMeter:      metrics.NewRegisteredMeter("consensus/tendermint/core/sequence", nil),
+		consensusTimer:     metrics.NewRegisteredTimer("consensus/tendermint/core/consensus", nil),
 	}
 	c.validateFn = c.checkValidatorSignature
 	return c
@@ -57,22 +57,22 @@ func New(backend istanbul.Backend, config *istanbul.Config) Engine {
 // ----------------------------------------------------------------------------
 
 type core struct {
-	config  *istanbul.Config
+	config  *tendermint.Config
 	address common.Address
 	state   State
 	logger  log.Logger
 
-	backend               istanbul.Backend
-	events                *event.TypeMuxSubscription
-	finalCommittedSub     *event.TypeMuxSubscription
-	timeoutSub            *event.TypeMuxSubscription
-	futurePreprepareTimer *time.Timer
+	backend             tendermint.Backend
+	events              *event.TypeMuxSubscription
+	finalCommittedSub   *event.TypeMuxSubscription
+	timeoutSub          *event.TypeMuxSubscription
+	futureProposalTimer *time.Timer
 
-	valSet                istanbul.ValidatorSet
+	valSet                tendermint.ValidatorSet
 	waitingForRoundChange bool
 	validateFn            func([]byte, []byte) (common.Address, error)
 
-	backlogs   map[istanbul.Validator]*prque.Prque
+	backlogs   map[tendermint.Validator]*prque.Prque
 	backlogsMu *sync.Mutex
 
 	current       *roundState
@@ -90,10 +90,10 @@ type core struct {
 	roundMeter metrics.Meter
 	// the meter to record the sequence update rate
 	sequenceMeter metrics.Meter
-	// the timer to record consensus duration (from accepting a preprepare to final committed stage)
+	// the timer to record consensus duration (from accepting a proposal to final committed stage)
 	consensusTimer metrics.Timer
 
-	sentPreprepare bool
+	sentProposal bool
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -104,8 +104,8 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	// Add proof of consensus
 	msg.CommittedSeal = []byte{}
 	// Assign the CommittedSeal if it's a COMMIT message and proposal is not nil
-	if msg.Code == msgCommit && c.current.Proposal() != nil {
-		seal := PrepareCommittedSeal(c.current.Proposal().Hash())
+	if msg.Code == msgPrecommit && c.current.Proposal() != nil {
+		seal := PrepareCommittedSeal(c.current.Proposal().ProposalBlock.Hash())
 		msg.CommittedSeal, err = c.backend.Sign(seal)
 		if err != nil {
 			return nil, err
@@ -147,8 +147,8 @@ func (c *core) broadcast(msg *message) {
 	}
 }
 
-func (c *core) currentView() *istanbul.View {
-	return &istanbul.View{
+func (c *core) currentView() *tendermint.View {
+	return &tendermint.View{
 		Sequence: new(big.Int).Set(c.current.Sequence()),
 		Round:    new(big.Int).Set(c.current.Round()),
 	}
@@ -163,17 +163,17 @@ func (c *core) isProposer() bool {
 }
 
 func (c *core) commit() {
-	c.setState(StateCommitted)
+	c.setState(StatePrecommiteDone)
 
 	proposal := c.current.Proposal()
 	if proposal != nil {
-		committedSeals := make([][]byte, c.current.Commits.Size())
-		for i, v := range c.current.Commits.Values() {
+		committedSeals := make([][]byte, c.current.Precommits.Size())
+		for i, v := range c.current.Precommits.Values() {
 			committedSeals[i] = make([]byte, types.IstanbulExtraSeal)
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 
-		if err := c.backend.Commit(proposal, committedSeals); err != nil {
+		if err := c.backend.Precommit(proposal.ProposalBlock, committedSeals); err != nil {
 			c.current.UnlockHash() //Unlock block when insertion fails
 			c.sendNextRoundChange()
 			return
@@ -218,14 +218,14 @@ func (c *core) startNewRound(round *big.Int) {
 		return
 	}
 
-	var newView *istanbul.View
+	var newView *tendermint.View
 	if roundChange {
-		newView = &istanbul.View{
+		newView = &tendermint.View{
 			Sequence: new(big.Int).Set(c.current.Sequence()),
 			Round:    new(big.Int).Set(round),
 		}
 	} else {
-		newView = &istanbul.View{
+		newView = &tendermint.View{
 			Sequence: new(big.Int).Add(lastProposal.Number(), common.Big1),
 			Round:    new(big.Int),
 		}
@@ -241,18 +241,18 @@ func (c *core) startNewRound(round *big.Int) {
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, newView.Round.Uint64())
 	c.waitingForRoundChange = false
-	c.sentPreprepare = false
+	c.sentProposal = false
 	c.setState(StateAcceptRequest)
 	if roundChange && c.isProposer() && c.current != nil {
 		// If it is locked, propose the old proposal
 		// If we have pending request, propose pending request
 		if c.current.IsHashLocked() {
-			r := &istanbul.Request{
-				Proposal: c.current.Proposal(), //c.current.ProposalBlock would be the locked proposal by previous proposer, see updateRoundState
+			r := &tendermint.Request{
+				ProposalBlock: c.current.Proposal().ProposalBlock, //c.current.ProposalBlock would be the locked proposal by previous proposer, see updateRoundState
 			}
-			c.sendPreprepare(r)
+			c.sendProposal(r)
 		} else if c.current.pendingRequest != nil {
-			c.sendPreprepare(c.current.pendingRequest)
+			c.sendProposal(c.current.pendingRequest)
 		}
 	}
 	c.newRoundChangeTimer()
@@ -260,7 +260,7 @@ func (c *core) startNewRound(round *big.Int) {
 	logger.Debug("New round", "new_round", newView.Round, "new_seq", newView.Sequence, "new_proposer", c.valSet.GetProposer(), "valSet", c.valSet.List(), "size", c.valSet.Size(), "isProposer", c.isProposer())
 }
 
-func (c *core) catchUpRound(view *istanbul.View) {
+func (c *core) catchUpRound(view *tendermint.View) {
 	logger := c.logger.New("old_round", c.current.Round(), "old_seq", c.current.Sequence(), "old_proposer", c.valSet.GetProposer())
 
 	if view.Round.Cmp(c.current.Round()) > 0 {
@@ -277,11 +277,11 @@ func (c *core) catchUpRound(view *istanbul.View) {
 }
 
 // updateRoundState updates round state by checking if locking block is necessary
-func (c *core) updateRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet, roundChange bool) {
+func (c *core) updateRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, roundChange bool) {
 	// Lock only if both roundChange is true and it is locked
 	if roundChange && c.current != nil {
 		if c.current.IsHashLocked() {
-			c.current = newRoundState(view, validatorSet, c.current.GetLockedHash(), c.current.Preprepare, c.current.pendingRequest, c.backend.HasBadProposal)
+			c.current = newRoundState(view, validatorSet, c.current.GetLockedHash(), c.current.Proposal(), c.current.pendingRequest, c.backend.HasBadProposal)
 		} else {
 			c.current = newRoundState(view, validatorSet, common.Hash{}, nil, c.current.pendingRequest, c.backend.HasBadProposal)
 		}
@@ -304,14 +304,14 @@ func (c *core) Address() common.Address {
 	return c.address
 }
 
-func (c *core) stopFuturePreprepareTimer() {
-	if c.futurePreprepareTimer != nil {
-		c.futurePreprepareTimer.Stop()
+func (c *core) stopFutureProposalTimer() {
+	if c.futureProposalTimer != nil {
+		c.futureProposalTimer.Stop()
 	}
 }
 
 func (c *core) stopTimer() {
-	c.stopFuturePreprepareTimer()
+	c.stopFutureProposalTimer()
 
 	c.roundChangeTimerMu.RLock()
 	defer c.roundChangeTimerMu.RUnlock()
@@ -338,13 +338,13 @@ func (c *core) newRoundChangeTimer() {
 }
 
 func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address, error) {
-	return istanbul.CheckValidatorSignature(c.valSet, data, sig)
+	return tendermint.CheckValidatorSignature(c.valSet, data, sig)
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash
 func PrepareCommittedSeal(hash common.Hash) []byte {
 	var buf bytes.Buffer
 	buf.Write(hash.Bytes())
-	buf.Write([]byte{byte(msgCommit)})
+	buf.Write([]byte{byte(msgPrecommit)})
 	return buf.Bytes()
 }
