@@ -46,7 +46,7 @@ func TestCheckMessage(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, errInvalidMessage)
 	}
 
-	testStates := []State{StateAcceptRequest, StateProposald, StatePrevoted, StatePrecommitted}
+	testStates := []State{StateAcceptRequest, StateProposeDone, StatePrevoteDone, StatePrecommiteDone}
 	testCode := []uint64{msgProposal, msgPrevote, msgPrecommit, msgRoundChange}
 
 	// future sequence
@@ -124,8 +124,8 @@ func TestCheckMessage(t *testing.T) {
 		}
 	}
 
-	// current view, state = StateProposald
-	c.state = StateProposald
+	// current view, state = StateProposeDone
+	c.state = StateProposeDone
 	for i := 0; i < len(testCode); i++ {
 		err = c.checkMessage(testCode[i], v)
 		if testCode[i] == msgRoundChange {
@@ -137,8 +137,8 @@ func TestCheckMessage(t *testing.T) {
 		}
 	}
 
-	// current view, state = StatePrevoted
-	c.state = StatePrevoted
+	// current view, state = StatePrevoteDone
+	c.state = StatePrevoteDone
 	for i := 0; i < len(testCode); i++ {
 		err = c.checkMessage(testCode[i], v)
 		if testCode[i] == msgRoundChange {
@@ -151,7 +151,7 @@ func TestCheckMessage(t *testing.T) {
 	}
 
 	// current view, state = StateCommitted
-	c.state = StatePrecommitted
+	c.state = StatePrecommiteDone
 	for i := 0; i < len(testCode); i++ {
 		err = c.checkMessage(testCode[i], v)
 		if testCode[i] == msgRoundChange {
@@ -178,8 +178,8 @@ func TestStoreBacklog(t *testing.T) {
 	p := validator.New(common.BytesToAddress([]byte("12345667890")))
 	// push proposal msg
 	proposal := &tendermint.Proposal{
-		View:     v,
-		Proposal: makeBlock(1),
+		View:          v,
+		ProposalBlock: makeBlock(1),
 	}
 	proposalPayload, _ := Encode(proposal)
 	m := &message{
@@ -287,8 +287,8 @@ func TestProcessBacklog(t *testing.T) {
 		Sequence: big.NewInt(1),
 	}
 	proposal := &tendermint.Proposal{
-		View:     v,
-		Proposal: makeBlock(1),
+		View:          v,
+		ProposalBlock: makeBlock(1),
 	}
 	proposalPayload, _ := Encode(proposal)
 

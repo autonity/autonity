@@ -56,7 +56,7 @@ func TestLockHash(t *testing.T) {
 	}
 
 	// Lock
-	expected := rs.Proposal().Proposal.Hash()
+	expected := rs.Proposal().ProposalBlock.Hash()
 	rs.LockHash()
 	if expected != rs.GetLockedHash() {
 		t.Errorf("error mismatch: have %v, want %v", rs.GetLockedHash(), expected)

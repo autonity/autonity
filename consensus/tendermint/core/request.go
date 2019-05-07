@@ -26,11 +26,11 @@ func (c *core) handleRequest(request *tendermint.Request) error {
 			logger.Warn("invalid request")
 			return err
 		}
-		logger.Warn("unexpected request", "err", err, "number", request.Proposal.Number(), "hash", request.Proposal.Hash())
+		logger.Warn("unexpected request", "err", err, "number", request.ProposalBlock.Number(), "hash", request.ProposalBlock.Hash())
 		return err
 	}
 
-	logger.Trace("handleRequest", "number", request.Proposal.Number(), "hash", request.Proposal.Hash())
+	logger.Trace("handleRequest", "number", request.ProposalBlock.Number(), "hash", request.ProposalBlock.Hash())
 
 	c.current.pendingRequest = request
 	if c.state == StateAcceptRequest {
@@ -44,11 +44,11 @@ func (c *core) handleRequest(request *tendermint.Request) error {
 // return errFutureMessage if the sequence of proposal is larger than current sequence
 // return errOldMessage if the sequence of proposal is smaller than current sequence
 func (c *core) checkRequestMsg(request *tendermint.Request) error {
-	if request == nil || request.Proposal == nil {
+	if request == nil || request.ProposalBlock == nil {
 		return errInvalidMessage
 	}
 
-	if c := c.current.sequence.Cmp(request.Proposal.Number()); c > 0 {
+	if c := c.current.sequence.Cmp(request.ProposalBlock.Number()); c > 0 {
 		return errOldMessage
 	} else if c < 0 {
 		return errFutureMessage
@@ -60,12 +60,12 @@ func (c *core) checkRequestMsg(request *tendermint.Request) error {
 func (c *core) storeRequestMsg(request *tendermint.Request) {
 	logger := c.logger.New("state", c.state)
 
-	logger.Trace("Store future request", "number", request.Proposal.Number(), "hash", request.Proposal.Hash())
+	logger.Trace("Store future request", "number", request.ProposalBlock.Number(), "hash", request.ProposalBlock.Hash())
 
 	c.pendingRequestsMu.Lock()
 	defer c.pendingRequestsMu.Unlock()
 
-	c.pendingRequests.Push(request, float32(-request.Proposal.Number().Int64()))
+	c.pendingRequests.Push(request, float32(-request.ProposalBlock.Number().Int64()))
 }
 
 func (c *core) processPendingRequests() {
@@ -83,17 +83,17 @@ func (c *core) processPendingRequests() {
 		err := c.checkRequestMsg(r)
 		if err != nil {
 			if err == errFutureMessage {
-				c.logger.Trace("Stop processing request", "number", r.Proposal.Number(), "hash", r.Proposal.Hash())
+				c.logger.Trace("Stop processing request", "number", r.ProposalBlock.Number(), "hash", r.ProposalBlock.Hash())
 				c.pendingRequests.Push(m, prio)
 				break
 			}
-			c.logger.Trace("Skip the pending request", "number", r.Proposal.Number(), "hash", r.Proposal.Hash(), "err", err)
+			c.logger.Trace("Skip the pending request", "number", r.ProposalBlock.Number(), "hash", r.ProposalBlock.Hash(), "err", err)
 			continue
 		}
-		c.logger.Trace("Post pending request", "number", r.Proposal.Number(), "hash", r.Proposal.Hash())
+		c.logger.Trace("Post pending request", "number", r.ProposalBlock.Number(), "hash", r.ProposalBlock.Hash())
 
 		go c.sendEvent(tendermint.RequestEvent{
-			Proposal: r.Proposal,
+			ProposalBlock: r.ProposalBlock,
 		})
 	}
 }

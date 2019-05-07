@@ -149,7 +149,7 @@ func (self *testSystemBackend) Hash(b interface{}) common.Hash {
 
 func (self *testSystemBackend) NewRequest(request tendermint.ProposalBlock) {
 	go self.events.Post(tendermint.RequestEvent{
-		Proposal: request,
+		ProposalBlock: request,
 	})
 }
 

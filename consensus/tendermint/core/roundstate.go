@@ -85,7 +85,7 @@ func (s *roundState) Subject() *tendermint.Subject {
 			Round:    new(big.Int).Set(s.round),
 			Sequence: new(big.Int).Set(s.sequence),
 		},
-		Digest: s.proposal.Proposal.Hash(),
+		Digest: s.proposal.ProposalBlock.Hash(),
 	}
 }
 
@@ -140,7 +140,7 @@ func (s *roundState) LockHash() {
 	defer s.mu.Unlock()
 
 	if s.proposal != nil {
-		s.lockedHash = s.proposal.Proposal.Hash()
+		s.lockedHash = s.proposal.ProposalBlock.Hash()
 	}
 }
 

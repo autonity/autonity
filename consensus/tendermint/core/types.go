@@ -33,19 +33,19 @@ type State uint64
 
 const (
 	StateAcceptRequest State = iota
-	StateProposald
-	StatePrevoted
-	StatePrecommitted
+	StateProposeDone
+	StatePrevoteDone
+	StatePrecommiteDone
 )
 
 func (s State) String() string {
 	if s == StateAcceptRequest {
 		return "Accept request"
-	} else if s == StateProposald {
+	} else if s == StateProposeDone {
 		return "Proposald"
-	} else if s == StatePrevoted {
+	} else if s == StatePrevoteDone {
 		return "Prevoted"
-	} else if s == StatePrecommitted {
+	} else if s == StatePrecommiteDone {
 		return "Precommitted"
 	} else {
 		return "Unknown"

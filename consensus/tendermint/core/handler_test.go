@@ -43,7 +43,7 @@ func TestHandleMsg(t *testing.T) {
 		},
 		Digest: common.BytesToHash([]byte("1234567890")),
 	})
-	// with a matched payload. msgProposal should match with *tendermint.Proposal in normal case.
+	// with a matched payload. msgProposal should match with *tendermint.ProposalBlock in normal case.
 	msg := &message{
 		Code:          msgProposal,
 		Msg:           m,
@@ -62,7 +62,7 @@ func TestHandleMsg(t *testing.T) {
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
 		},
-		Proposal: makeBlock(1),
+		ProposalBlock: makeBlock(1),
 	})
 	// with a unmatched payload. msgPrevote should match with *tendermint.Subject in normal case.
 	msg = &message{
@@ -83,7 +83,7 @@ func TestHandleMsg(t *testing.T) {
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
 		},
-		Proposal: makeBlock(2),
+		ProposalBlock: makeBlock(2),
 	})
 	// with a unmatched payload. tendermint.MsgPrecommit should match with *tendermint.Subject in normal case.
 	msg = &message{
@@ -104,7 +104,7 @@ func TestHandleMsg(t *testing.T) {
 			Sequence: big.NewInt(0),
 			Round:    big.NewInt(0),
 		},
-		Proposal: makeBlock(3),
+		ProposalBlock: makeBlock(3),
 	})
 	// invalid message code. message code is not exists in list
 	msg = &message{

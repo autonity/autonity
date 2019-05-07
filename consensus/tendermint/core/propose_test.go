@@ -26,8 +26,8 @@ import (
 
 func newTestProposal(v *tendermint.View) *tendermint.Proposal {
 	return &tendermint.Proposal{
-		View:     v,
-		Proposal: newTestProposalBlock(),
+		View:          v,
+		ProposalBlock: newTestProposalBlock(),
 	}
 }
 
@@ -101,7 +101,7 @@ func TestHandleProposal(t *testing.T) {
 					c.valSet = backend.peers
 					if i != 0 {
 						// replica 0 is the proposer
-						c.state = StateProposald
+						c.state = StateProposeDone
 					}
 				}
 				return sys
@@ -119,7 +119,7 @@ func TestHandleProposal(t *testing.T) {
 					c := backend.engine.(*core)
 					c.valSet = backend.peers
 					if i != 0 {
-						c.state = StateProposald
+						c.state = StateProposeDone
 						c.current.SetSequence(big.NewInt(10))
 						c.current.SetRound(big.NewInt(10))
 					}
@@ -142,8 +142,8 @@ OUTER:
 		curView := r0.currentView()
 
 		proposal := &tendermint.Proposal{
-			View:     curView,
-			Proposal: test.expectedRequest,
+			View:          curView,
+			ProposalBlock: test.expectedRequest,
 		}
 
 		for i, v := range test.system.backends {
@@ -168,8 +168,8 @@ OUTER:
 				continue OUTER
 			}
 
-			if c.state != StateProposald {
-				t.Errorf("state mismatch: have %v, want %v", c.state, StateProposald)
+			if c.state != StateProposeDone {
+				t.Errorf("state mismatch: have %v, want %v", c.state, StateProposeDone)
 			}
 
 			if !test.existingBlock && !reflect.DeepEqual(c.current.Subject().View, curView) {
@@ -246,12 +246,12 @@ func TestHandleProposalWithLock(t *testing.T) {
 		r0 := v0.engine.(*core)
 		curView := r0.currentView()
 		proposal := &tendermint.Proposal{
-			View:     curView,
-			Proposal: test.proposal,
+			View:          curView,
+			ProposalBlock: test.proposal,
 		}
 		lockProposal := &tendermint.Proposal{
-			View:     curView,
-			Proposal: test.lockProposal,
+			View:          curView,
+			ProposalBlock: test.lockProposal,
 		}
 
 		for i, v := range test.system.backends {
@@ -273,8 +273,8 @@ func TestHandleProposalWithLock(t *testing.T) {
 				t.Errorf("error mismatch: have %v, want nil", err)
 			}
 			if test.proposal == test.lockProposal {
-				if c.state != StatePrevoted {
-					t.Errorf("state mismatch: have %v, want %v", c.state, StateProposald)
+				if c.state != StatePrevoteDone {
+					t.Errorf("state mismatch: have %v, want %v", c.state, StateProposeDone)
 				}
 				if !reflect.DeepEqual(curView, c.currentView()) {
 					t.Errorf("view mismatch: have %v, want %v", c.currentView(), curView)

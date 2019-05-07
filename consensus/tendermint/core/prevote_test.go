@@ -62,7 +62,7 @@ func TestHandlePrevote(t *testing.T) {
 
 					if i == 0 {
 						// replica 0 is the proposer
-						c.state = StateProposald
+						c.state = StateProposeDone
 					}
 				}
 				return sys
@@ -83,7 +83,7 @@ func TestHandlePrevote(t *testing.T) {
 							expectedSubject.View,
 							c.valSet,
 						)
-						c.state = StateProposald
+						c.state = StateProposeDone
 					} else {
 						c.current = newTestRoundState(
 							&tendermint.View{
@@ -112,7 +112,7 @@ func TestHandlePrevote(t *testing.T) {
 							expectedSubject.View,
 							c.valSet,
 						)
-						c.state = StateProposald
+						c.state = StateProposeDone
 					} else {
 						c.current = newTestRoundState(
 							&tendermint.View{
@@ -141,7 +141,7 @@ func TestHandlePrevote(t *testing.T) {
 							expectedSubject.View,
 							c.valSet,
 						)
-						c.state = StateProposald
+						c.state = StateProposeDone
 					} else {
 						c.current = newTestRoundState(
 							&tendermint.View{
@@ -173,7 +173,7 @@ func TestHandlePrevote(t *testing.T) {
 
 					if i == 0 {
 						// replica 0 is the proposer
-						c.state = StateProposald
+						c.state = StateProposeDone
 					}
 				}
 				return sys
@@ -209,10 +209,10 @@ OUTER:
 		}
 
 		// prepared is normal case
-		if r0.state != StatePrevoted {
+		if r0.state != StatePrevoteDone {
 			// There are not enough PREPARE messages in core
-			if r0.state != StateProposald {
-				t.Errorf("state mismatch: have %v, want %v", r0.state, StateProposald)
+			if r0.state != StateProposeDone {
+				t.Errorf("state mismatch: have %v, want %v", r0.state, StateProposeDone)
 			}
 			if r0.current.Prevotes.Size() > 2*r0.valSet.F() {
 				t.Errorf("the size of PREPARE messages should be less than %v", 2*r0.valSet.F()+1)

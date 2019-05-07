@@ -70,7 +70,7 @@ func (c *core) checkMessage(msgCode uint64, view *tendermint.View) error {
 		return nil
 	}
 
-	// For states(StateProposald, StatePrevoted, StatePrecommitted),
+	// For states(StateProposeDone, StatePrevoteDone, StatePrecommiteDone),
 	// can accept all message types if processing with same view
 	return nil
 }

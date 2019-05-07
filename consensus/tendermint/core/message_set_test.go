@@ -35,8 +35,8 @@ func TestMessageSetWithProposal(t *testing.T) {
 		Sequence: new(big.Int),
 	}
 	pp := &tendermint.Proposal{
-		View:     view,
-		Proposal: makeBlock(1),
+		View:          view,
+		ProposalBlock: makeBlock(1),
 	}
 
 	rawPP, err := rlp.EncodeToBytes(pp)

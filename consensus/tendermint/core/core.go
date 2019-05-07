@@ -105,7 +105,7 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	msg.CommittedSeal = []byte{}
 	// Assign the CommittedSeal if it's a COMMIT message and proposal is not nil
 	if msg.Code == msgPrecommit && c.current.Proposal() != nil {
-		seal := PrepareCommittedSeal(c.current.Proposal().Proposal.Hash())
+		seal := PrepareCommittedSeal(c.current.Proposal().ProposalBlock.Hash())
 		msg.CommittedSeal, err = c.backend.Sign(seal)
 		if err != nil {
 			return nil, err
@@ -163,7 +163,7 @@ func (c *core) isProposer() bool {
 }
 
 func (c *core) commit() {
-	c.setState(StatePrecommitted)
+	c.setState(StatePrecommiteDone)
 
 	proposal := c.current.Proposal()
 	if proposal != nil {
@@ -173,7 +173,7 @@ func (c *core) commit() {
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 
-		if err := c.backend.Precommit(proposal.Proposal, committedSeals); err != nil {
+		if err := c.backend.Precommit(proposal.ProposalBlock, committedSeals); err != nil {
 			c.current.UnlockHash() //Unlock block when insertion fails
 			c.sendNextRoundChange()
 			return
@@ -248,7 +248,7 @@ func (c *core) startNewRound(round *big.Int) {
 		// If we have pending request, propose pending request
 		if c.current.IsHashLocked() {
 			r := &tendermint.Request{
-				Proposal: c.current.Proposal().Proposal, //c.current.Proposal would be the locked proposal by previous proposer, see updateRoundState
+				ProposalBlock: c.current.Proposal().ProposalBlock, //c.current.ProposalBlock would be the locked proposal by previous proposer, see updateRoundState
 			}
 			c.sendProposal(r)
 		} else if c.current.pendingRequest != nil {

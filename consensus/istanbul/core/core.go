@@ -248,7 +248,7 @@ func (c *core) startNewRound(round *big.Int) {
 		// If we have pending request, propose pending request
 		if c.current.IsHashLocked() {
 			r := &istanbul.Request{
-				Proposal: c.current.Proposal(), //c.current.Proposal would be the locked proposal by previous proposer, see updateRoundState
+				Proposal: c.current.Proposal(), //c.current.ProposalBlock would be the locked proposal by previous proposer, see updateRoundState
 			}
 			c.sendPreprepare(r)
 		} else if c.current.pendingRequest != nil {

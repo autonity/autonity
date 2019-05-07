@@ -422,7 +422,7 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, results
 
 	// post block into PoS engine
 	go sb.EventMux().Post(tendermint.RequestEvent{
-		Proposal: block,
+		ProposalBlock: block,
 	})
 
 	return nil

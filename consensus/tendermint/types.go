@@ -40,7 +40,7 @@ type ProposalBlock interface {
 }
 
 type Request struct {
-	Proposal ProposalBlock
+	ProposalBlock ProposalBlock
 }
 
 // View includes a round number and a sequence number.
@@ -92,13 +92,13 @@ func (v *View) Cmp(y *View) int {
 }
 
 type Proposal struct {
-	View     *View
-	Proposal ProposalBlock
+	View          *View
+	ProposalBlock ProposalBlock
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
 func (b *Proposal) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{b.View, b.Proposal})
+	return rlp.Encode(w, []interface{}{b.View, b.ProposalBlock})
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
@@ -111,7 +111,7 @@ func (b *Proposal) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&proposal); err != nil {
 		return err
 	}
-	b.View, b.Proposal = proposal.View, proposal.Proposal
+	b.View, b.ProposalBlock = proposal.View, proposal.Proposal
 
 	return nil
 }

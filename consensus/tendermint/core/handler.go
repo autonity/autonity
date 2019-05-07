@@ -87,7 +87,7 @@ func (c *core) handleEvents() {
 			switch ev := event.Data.(type) {
 			case tendermint.RequestEvent:
 				r := &tendermint.Request{
-					Proposal: ev.Proposal,
+					ProposalBlock: ev.ProposalBlock,
 				}
 				err := c.handleRequest(r)
 				if err == errFutureMessage {

@@ -267,8 +267,8 @@ func (w *worker) pendingBlock() *types.Block {
 // start sets the running status as 1 and triggers new work submitting.
 func (w *worker) start() {
 	atomic.StoreInt32(&w.running, 1)
-	if istanbul, ok := w.engine.(consensus.PoS); ok {
-		err := istanbul.Start(w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
+	if pos, ok := w.engine.(consensus.PoS); ok {
+		err := pos.Start(w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
 		if err != nil {
 			log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)
 		}

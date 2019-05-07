@@ -43,7 +43,7 @@ type Backend interface {
 
 	// Precommit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	Precommit(proposal ProposalBlock, seals [][]byte) error
+	Precommit(proposalBlock ProposalBlock, seals [][]byte) error
 
 	// Verify verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
