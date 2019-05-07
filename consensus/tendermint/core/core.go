@@ -163,13 +163,13 @@ func (c *core) isProposer() bool {
 }
 
 func (c *core) commit() {
-	c.setState(StatePrecommiteDone)
+	c.setState(StatePrecommitDone)
 
 	proposal := c.current.Proposal()
 	if proposal != nil {
 		committedSeals := make([][]byte, c.current.Precommits.Size())
 		for i, v := range c.current.Precommits.Values() {
-			committedSeals[i] = make([]byte, types.IstanbulExtraSeal)
+			committedSeals[i] = make([]byte, types.PoSExtraSeal)
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 

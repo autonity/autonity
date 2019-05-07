@@ -121,7 +121,7 @@ func (sb *backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 		return errInvalidNonce
 	}
 	// Ensure that the mix digest is zero as we don't have fork protection currently
-	if header.MixDigest != types.IstanbulDigest {
+	if header.MixDigest != types.PoSDigest {
 		return errInvalidMixDigest
 	}
 	// Ensure that the block doesn't contain any uncles which are meaningless in PoS
@@ -300,7 +300,7 @@ func (sb *backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 	// unused fields, force to set to empty
 	header.Coinbase = sb.address
 	header.Nonce = emptyNonce
-	header.MixDigest = types.IstanbulDigest
+	header.MixDigest = types.PoSDigest
 
 	// copy the parent extra data as the header extra data
 	number := header.Number.Uint64()
@@ -539,10 +539,10 @@ func (sb *backend) retrieveValidators(header *types.Header, parents []*types.Hea
 
 	if len(parents) > 0 {
 		parent := parents[len(parents)-1]
-		var posExtra *types.PoSExtra
-		posExtra, err = types.ExtractPoSExtra(parent)
+		var tendermintExtra *types.PoSExtra
+		tendermintExtra, err = types.ExtractPoSExtra(parent)
 		if err == nil {
-			validators = posExtra.Validators
+			validators = tendermintExtra.Validators
 		}
 	} else {
 		validators, err = sb.retrieveSavedValidators(header.Number.Uint64(), chain)

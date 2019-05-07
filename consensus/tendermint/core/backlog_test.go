@@ -46,7 +46,7 @@ func TestCheckMessage(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, errInvalidMessage)
 	}
 
-	testStates := []State{StateAcceptRequest, StateProposeDone, StatePrevoteDone, StatePrecommiteDone}
+	testStates := []State{StateAcceptRequest, StateProposeDone, StatePrevoteDone, StatePrecommitDone}
 	testCode := []uint64{msgProposal, msgPrevote, msgPrecommit, msgRoundChange}
 
 	// future sequence
@@ -151,7 +151,7 @@ func TestCheckMessage(t *testing.T) {
 	}
 
 	// current view, state = StateCommitted
-	c.state = StatePrecommiteDone
+	c.state = StatePrecommitDone
 	for i := 0; i < len(testCode); i++ {
 		err = c.checkMessage(testCode[i], v)
 		if testCode[i] == msgRoundChange {

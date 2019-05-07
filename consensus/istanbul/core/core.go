@@ -169,7 +169,7 @@ func (c *core) commit() {
 	if proposal != nil {
 		committedSeals := make([][]byte, c.current.Commits.Size())
 		for i, v := range c.current.Commits.Values() {
-			committedSeals[i] = make([]byte, types.IstanbulExtraSeal)
+			committedSeals[i] = make([]byte, types.PoSExtraSeal)
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 

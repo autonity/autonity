@@ -88,7 +88,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
-	genesis.Mixhash = types.IstanbulDigest
+	genesis.Mixhash = types.PoSDigest
 
 	AppendValidators(genesis, addrs)
 	return genesis, nodeKeys
@@ -96,10 +96,10 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 
-	if len(genesis.ExtraData) < types.IstanbulExtraVanity {
-		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)...)
+	if len(genesis.ExtraData) < types.PoSExtraVanity {
+		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.PoSExtraVanity)...)
 	}
-	genesis.ExtraData = genesis.ExtraData[:types.IstanbulExtraVanity]
+	genesis.ExtraData = genesis.ExtraData[:types.PoSExtraVanity]
 
 	ist := &types.PoSExtra{
 		Validators:    addrs,
@@ -478,7 +478,7 @@ func TestPrepareExtra(t *testing.T) {
 	validators[2] = common.BytesToAddress(hexutil.MustDecode("0x6beaaed781d2d2ab6350f5c4566a2c6eaac407a6"))
 	validators[3] = common.BytesToAddress(hexutil.MustDecode("0x8be76812f765c24641ec63dc2852b378aba2b440"))
 
-	vanity := make([]byte, types.IstanbulExtraVanity)
+	vanity := make([]byte, types.PoSExtraVanity)
 	expectedResult := append(vanity, hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0")...)
 
 	h := &types.Header{
@@ -503,9 +503,9 @@ func TestPrepareExtra(t *testing.T) {
 }
 
 func TestWriteSeal(t *testing.T) {
-	vanity := bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)
+	vanity := bytes.Repeat([]byte{0x00}, types.PoSExtraVanity)
 	istRawData := hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0")
-	expectedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.IstanbulExtraSeal-3)...)
+	expectedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.PoSExtraSeal-3)...)
 	expectedIstExtra := &types.PoSExtra{
 		Validators: []common.Address{
 			common.BytesToAddress(hexutil.MustDecode("0x44add0ec310f115a0e603b2d7db9f067778eaf8a")),
@@ -546,9 +546,9 @@ func TestWriteSeal(t *testing.T) {
 }
 
 func TestWriteCommittedSeals(t *testing.T) {
-	vanity := bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)
+	vanity := bytes.Repeat([]byte{0x00}, types.PoSExtraVanity)
 	istRawData := hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0")
-	expectedCommittedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.IstanbulExtraSeal-3)...)
+	expectedCommittedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.PoSExtraSeal-3)...)
 	expectedIstExtra := &types.PoSExtra{
 		Validators: []common.Address{
 			common.BytesToAddress(hexutil.MustDecode("0x44add0ec310f115a0e603b2d7db9f067778eaf8a")),
