@@ -539,10 +539,10 @@ func (sb *backend) retrieveValidators(header *types.Header, parents []*types.Hea
 
 	if len(parents) > 0 {
 		parent := parents[len(parents)-1]
-		var posExtra *types.PoSExtra
-		posExtra, err = types.ExtractPoSExtra(parent)
+		var tendermintExtra *types.PoSExtra
+		tendermintExtra, err = types.ExtractPoSExtra(parent)
 		if err == nil {
-			validators = posExtra.Validators
+			validators = tendermintExtra.Validators
 		}
 	} else {
 		validators, err = sb.retrieveSavedValidators(header.Number.Uint64(), chain)
