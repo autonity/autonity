@@ -30,8 +30,8 @@ func TestHeaderHash(t *testing.T) {
 	expectedExtra := common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000000f89af8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b440b8410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0")
 	expectedHash := common.HexToHash("0xcefefd3ade63a5955bca4562ed840b67f39e74df217f7e5f7241a6e9552cca70")
 
-	// for istanbul consensus
-	header := &Header{MixDigest: IstanbulDigest, Extra: expectedExtra}
+	// for pos consensus
+	header := &Header{MixDigest: PoSDigest, Extra: expectedExtra}
 	if !reflect.DeepEqual(header.Hash(), expectedHash) {
 		t.Errorf("expected: %v, but got: %v", expectedHash.Hex(), header.Hash().Hex())
 	}
@@ -44,16 +44,16 @@ func TestHeaderHash(t *testing.T) {
 	}
 }
 
-func TestExtractToIstanbul(t *testing.T) {
+func TestExtractToPoS(t *testing.T) {
 	testCases := []struct {
 		vanity         []byte
-		istRawData     []byte
+		posRawData     []byte
 		expectedResult *PoSExtra
 		expectedErr    error
 	}{
 		{
 			// normal case
-			bytes.Repeat([]byte{0x00}, IstanbulExtraVanity),
+			bytes.Repeat([]byte{0x00}, PoSExtraVanity),
 			hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0"),
 			&PoSExtra{
 				Validators: []common.Address{
@@ -69,20 +69,20 @@ func TestExtractToIstanbul(t *testing.T) {
 		},
 		{
 			// insufficient vanity
-			bytes.Repeat([]byte{0x00}, IstanbulExtraVanity-1),
+			bytes.Repeat([]byte{0x00}, PoSExtraVanity-1),
 			nil,
 			nil,
-			ErrInvalidIstanbulHeaderExtra,
+			ErrInvalidPoSHeaderExtra,
 		},
 	}
 	for _, test := range testCases {
-		h := &Header{Extra: append(test.vanity, test.istRawData...)}
-		istanbulExtra, err := ExtractPoSExtra(h)
+		h := &Header{Extra: append(test.vanity, test.posRawData...)}
+		posExtra, err := ExtractPoSExtra(h)
 		if err != test.expectedErr {
 			t.Errorf("expected: %v, but got: %v", test.expectedErr, err)
 		}
-		if !reflect.DeepEqual(istanbulExtra, test.expectedResult) {
-			t.Errorf("expected: %v, but got: %v", test.expectedResult, istanbulExtra)
+		if !reflect.DeepEqual(posExtra, test.expectedResult) {
+			t.Errorf("expected: %v, but got: %v", test.expectedResult, posExtra)
 		}
 	}
 }
