@@ -35,7 +35,7 @@ const (
 	StateAcceptRequest State = iota
 	StateProposeDone
 	StatePrevoteDone
-	StatePrecommiteDone
+	StatePrecommitDone
 )
 
 func (s State) String() string {
@@ -45,7 +45,7 @@ func (s State) String() string {
 		return "Proposald"
 	} else if s == StatePrevoteDone {
 		return "Prevoted"
-	} else if s == StatePrecommiteDone {
+	} else if s == StatePrecommitDone {
 		return "Precommitted"
 	} else {
 		return "Unknown"

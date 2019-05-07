@@ -186,7 +186,7 @@ OUTER:
 		}
 
 		// prepared is normal case
-		if r0.state != StatePrecommiteDone {
+		if r0.state != StatePrecommitDone {
 			// There are not enough commit messages in core
 			if r0.state != StatePrevoteDone {
 				t.Errorf("state mismatch: have %v, want %v", r0.state, StatePrevoteDone)

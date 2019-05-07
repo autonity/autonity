@@ -72,7 +72,7 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 	//
 	// If we already have a proposal, we may have chance to speed up the consensus process
 	// by committing the proposal without PREPARE messages.
-	if c.current.Precommits.Size() > 2*c.valSet.F() && c.state.Cmp(StatePrecommiteDone) < 0 {
+	if c.current.Precommits.Size() > 2*c.valSet.F() && c.state.Cmp(StatePrecommitDone) < 0 {
 		// Still need to call LockHash here since state can skip Prevoted state and jump directly to the Committed state.
 		c.current.LockHash()
 		c.commit()

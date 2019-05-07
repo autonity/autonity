@@ -163,7 +163,7 @@ func (c *core) isProposer() bool {
 }
 
 func (c *core) commit() {
-	c.setState(StatePrecommiteDone)
+	c.setState(StatePrecommitDone)
 
 	proposal := c.current.Proposal()
 	if proposal != nil {
