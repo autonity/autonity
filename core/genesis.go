@@ -303,7 +303,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 //setPoS sets default PoS(IBFT or Tendermint) config values
 func (g *Genesis) setPoS() error {
 	if len(g.Validators) != 0 {
-		err := g.UpdateValidators(g.Validators)
+		err := g.SetPoSExtraData(g.Validators)
 		if err != nil {
 			return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
 		}
@@ -326,8 +326,8 @@ func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
 	return block
 }
 
-// UpdateValidators updates Genesis ExtraData field with a new list of validators
-func (g *Genesis) UpdateValidators(addressList []string) error {
+// SetPoSExtraData updates Genesis ExtraData field with a new list of validators
+func (g *Genesis) SetPoSExtraData(addressList []string) error {
 	var validators []common.Address
 	for _, address := range addressList {
 		validators = append(validators, common.HexToAddress(address))
