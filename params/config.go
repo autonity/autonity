@@ -224,7 +224,7 @@ type TendermintConfig struct {
 
 // String implements the stringer interface, returning the consensus engine details.
 func (c *TendermintConfig) String() string {
-	return "istanbul"
+	return "tendermint"
 }
 
 // String implements the fmt.Stringer interface.

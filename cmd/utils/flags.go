@@ -650,6 +650,19 @@ var (
 		Usage: "Default minimum difference between two consecutive block's timestamps in seconds",
 		Value: eth.DefaultConfig.Istanbul.BlockPeriod,
 	}
+
+	// Tendermint settings
+	TendermintRequestTimeoutFlag = cli.Uint64Flag{
+		Name:  "tendermint.requesttimeout",
+		Usage: "Timeout for each Tendermint round in milliseconds",
+		Value: eth.DefaultConfig.Tendermint.RequestTimeout,
+	}
+	TendermintBlockPeriodFlag = cli.Uint64Flag{
+		Name:  "tendermint.blockperiod",
+		Usage: "Default minimum difference between two consecutive block's timestamps in seconds",
+		Value: eth.DefaultConfig.Tendermint.BlockPeriod,
+	}
+
 	GenesisFlag = cli.StringFlag{
 		Name:   "genesis",
 		EnvVar: "AUTONITY_GENESIS",
@@ -1096,6 +1109,15 @@ func setIstanbul(ctx *cli.Context, cfg *eth.Config) {
 	}
 }
 
+func setTendermint(ctx *cli.Context, cfg *eth.Config) {
+	if ctx.GlobalIsSet(TendermintRequestTimeoutFlag.Name) {
+		cfg.Tendermint.RequestTimeout = ctx.GlobalUint64(TendermintRequestTimeoutFlag.Name)
+	}
+	if ctx.GlobalIsSet(TendermintBlockPeriodFlag.Name) {
+		cfg.Tendermint.BlockPeriod = ctx.GlobalUint64(TendermintBlockPeriodFlag.Name)
+	}
+}
+
 func setEthash(ctx *cli.Context, cfg *eth.Config) {
 	if ctx.GlobalIsSet(EthashCacheDirFlag.Name) {
 		cfg.Ethash.CacheDir = ctx.GlobalString(EthashCacheDirFlag.Name)
@@ -1206,6 +1228,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
 	setIstanbul(ctx, cfg)
+	setTendermint(ctx, cfg)
 	setWhitelist(ctx, cfg)
 
 	if ctx.GlobalIsSet(SyncModeFlag.Name) {

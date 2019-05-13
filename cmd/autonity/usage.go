@@ -256,6 +256,13 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.IstanbulBlockPeriodFlag,
 		},
 	},
+	{
+		Name: "TENDERMINT",
+		Flags: []cli.Flag{
+			utils.TendermintRequestTimeoutFlag,
+			utils.TendermintBlockPeriodFlag,
+		},
+	},
 }
 
 // byCategory sorts an array of flagGroup by Name in the order

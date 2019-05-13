@@ -157,7 +157,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		glienickeCh:    make(chan core.GlienickeEvent),
 	}
 
-	// force to set the istanbul etherbase to node key address
+	// force to set the PoS etherbase to node key address
 	if chainConfig.Istanbul != nil || chainConfig.Tendermint != nil {
 		eth.etherbase = crypto.PubkeyToAddress(ctx.NodeKey().PublicKey)
 	}

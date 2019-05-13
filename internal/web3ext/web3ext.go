@@ -32,6 +32,7 @@ var Modules = map[string]string{
 	"swarmfs":    SWARMFS_JS,
 	"txpool":     TxPool_JS,
 	"istanbul":   Istanbul_JS,
+	"tendermint": Tendermint_JS,
 }
 
 const Chequebook_JS = `
@@ -744,6 +745,50 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'getWhitelist',
 			call: 'istanbul_getWhitelist',
+			params: 0
+		})
+	]
+});
+`
+
+const Tendermint_JS = `
+web3._extend({
+	property: 'tendermint',
+	methods:
+	[
+		new web3._extend.Method({
+			name: 'getValidators',
+			call: 'tendermint_getValidators',
+			params: 1
+		}),
+		new web3._extend.Method({
+			name: 'getValidatorsAtHash',
+			call: 'tendermint_getValidatorsAtHash',
+			params: 1
+		}),
+		new web3._extend.Method({
+			name: 'getSomaContractAddress',
+			call: 'tendermint_getSomaContractAddress',
+			params: 0
+		}),
+		new web3._extend.Method({
+			name: 'getSomaContractABI',
+			call: 'tendermint_getSomaContractABI',
+			params: 0
+		}),
+		new web3._extend.Method({
+			name: 'getGlienickeContractAddress',
+			call: 'tendermint_getGlienickeContractAddress',
+			params: 0
+		}),
+		new web3._extend.Method({
+			name: 'getGlienickeContractABI',
+			call: 'tendermint_getGlienickeContractABI',
+			params: 0
+		}),
+		new web3._extend.Method({
+			name: 'getWhitelist',
+			call: 'tendermint_getWhitelist',
 			params: 0
 		})
 	]

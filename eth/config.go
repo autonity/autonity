@@ -62,6 +62,7 @@ var DefaultConfig = Config{
 		Percentile: 60,
 	},
 	Istanbul:    *istanbul.DefaultConfig,
+	Tendermint:  *tendermint.DefaultConfig,
 	OpenNetwork: false,
 }
 
