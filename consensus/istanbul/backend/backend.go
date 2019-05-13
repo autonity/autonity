@@ -57,11 +57,11 @@ func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Databas
 		log.Info("User specified Validator smart contract set")
 	}
 
-	if chainConfig.Tendermint.RequestTimeout != 0 {
-		config.RequestTimeout = chainConfig.Tendermint.RequestTimeout
+	if chainConfig.Istanbul.RequestTimeout != 0 {
+		config.RequestTimeout = chainConfig.Istanbul.RequestTimeout
 	}
-	if chainConfig.Tendermint.BlockPeriod != 0 {
-		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
+	if chainConfig.Istanbul.BlockPeriod != 0 {
+		config.BlockPeriod = chainConfig.Istanbul.BlockPeriod
 	}
 
 	config.SetProposerPolicy(istanbul.ProposerPolicy(chainConfig.Istanbul.ProposerPolicy))
