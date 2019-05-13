@@ -225,6 +225,10 @@ func initGenesis(ctx *cli.Context) error {
 }
 
 func setupDefaults(genesis *core.Genesis) {
+	if genesis == nil || genesis.Config == nil {
+		return
+	}
+
 	if genesis.Config.Istanbul != nil {
 		if genesis.Config.Istanbul.Epoch == 0 {
 			genesis.Config.Istanbul.Epoch = istanbul.DefaultConfig.Epoch
