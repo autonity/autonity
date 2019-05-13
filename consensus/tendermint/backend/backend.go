@@ -57,6 +57,13 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 		log.Info("User specified Validator smart contract set")
 	}
 
+	if chainConfig.Tendermint.RequestTimeout != 0 {
+		config.RequestTimeout = chainConfig.Tendermint.RequestTimeout
+	}
+	if chainConfig.Tendermint.BlockPeriod != 0 {
+		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
+	}
+
 	config.SetProposerPolicy(tendermint.ProposerPolicy(chainConfig.Tendermint.ProposerPolicy))
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
@@ -288,11 +295,24 @@ func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, err
 
 		//Perform the actual comparison
 		if len(tendermintExtra.Validators) != len(validators) {
+			sb.logger.Error("wrong validator set",
+				"extraLen", len(tendermintExtra.Validators),
+				"currentLen", len(validators),
+				"extra", tendermintExtra.Validators,
+				"current", validators,
+				)
 			return 0, errInconsistentValidatorSet
 		}
 
 		for i := range validators {
 			if tendermintExtra.Validators[i] != validators[i] {
+				sb.logger.Error("wrong validator in the set",
+					"index", i,
+					"extraValidator", tendermintExtra.Validators[i],
+					"currentValidator", validators[i],
+					"extra", tendermintExtra.Validators,
+					"current", validators,
+					)
 				return 0, errInconsistentValidatorSet
 			}
 		}

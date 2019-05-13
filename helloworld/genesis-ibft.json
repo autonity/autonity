@@ -6,12 +6,9 @@
     "eip155Block": 0,
     "eip158Block": 0,
     "byzantinumBlock": 0,
-    "tendermint": {
+    "istanbul": {
       "policy": 0,
-      "epoch": 30000,
-      "contract-deployer": "0x0000000000000000000000000000000000000001",
-      "bytecode": "",
-      "abi": ""
+      "epoch": 30000
     },
     "chainId": 1991,
     "enodeWhitelist": [
@@ -23,7 +20,8 @@
     ],
     "glienickeDeployer": "0x0000000000000000000000000000000000000001",
     "glienickeBytecode": "",
-    "glienickeABI": ""
+    "glienickeABI": "",
+    "opennetwork": false
   },
   "nonce": "0x0",
   "timestamp": "0x0",

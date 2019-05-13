@@ -308,7 +308,7 @@ func (g *Genesis) setPoS() error {
 			return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
 		}
 	}
-	log.Info("starting Istanbul consensus", "extraData", common.Bytes2Hex(g.ExtraData))
+	log.Info("starting PoS consensus", "extraData", common.Bytes2Hex(g.ExtraData))
 
 	// we have to use '1' to have TD == BlockNumber for xBFT consensus
 	g.Difficulty = big.NewInt(1)

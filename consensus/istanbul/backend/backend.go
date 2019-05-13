@@ -57,6 +57,13 @@ func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Databas
 		log.Info("User specified Validator smart contract set")
 	}
 
+	if chainConfig.Tendermint.RequestTimeout != 0 {
+		config.RequestTimeout = chainConfig.Tendermint.RequestTimeout
+	}
+	if chainConfig.Tendermint.BlockPeriod != 0 {
+		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
+	}
+
 	config.SetProposerPolicy(istanbul.ProposerPolicy(chainConfig.Istanbul.ProposerPolicy))
 
 	recents, _ := lru.NewARC(inmemorySnapshots)

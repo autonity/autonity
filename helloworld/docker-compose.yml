@@ -8,7 +8,7 @@ services:
     volumes:
       - ./nodekey1:/nodekey:ro
       - ./keystore:/keystore:ro
-      - ./genesis-ibft.json:/genesis.json:ro
+      - ./genesis-tendermint.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8541:8545
@@ -27,7 +27,7 @@ services:
     volumes:
       - ./nodekey2:/nodekey:ro
       - ./keystore:/keystore:ro
-      - ./genesis-ibft.json:/genesis.json:ro
+      - ./genesis-tendermint.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8542:8545
@@ -46,7 +46,7 @@ services:
     volumes:
       - ./nodekey3:/nodekey:ro
       - ./keystore:/keystore:ro
-      - ./genesis-ibft.json:/genesis.json:ro
+      - ./genesis-tendermint.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8543:8545
@@ -65,7 +65,7 @@ services:
     volumes:
       - ./nodekey4:/nodekey:ro
       - ./keystore:/keystore:ro
-      - ./genesis-ibft.json:/genesis.json:ro
+      - ./genesis-tendermint.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8544:8545
@@ -84,7 +84,7 @@ services:
     volumes:
       - ./nodekey5:/nodekey:ro
       - ./keystore:/keystore:ro
-      - ./genesis-ibft.json:/genesis.json:ro
+      - ./genesis-tendermint.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8545:8545
@@ -95,29 +95,6 @@ services:
     networks:
       chainnet:
         ipv4_address: 172.25.0.15
-  connector:
-    links:
-      - node1
-      - node2
-      - node3
-      - node4
-      - node5
-    depends_on:
-      - node1
-      - node2
-      - node3
-      - node4
-      - node5
-    build:
-      context: ../
-      dockerfile: ./helloworld/Dockerfile
-    image: autonity:helloworld
-    volumes:
-      - ./autonity-connect.sh:/autonity-connect.sh:ro
-    container_name: nodes-connector
-    command: ["./autonity-connect.sh"]
-    networks:
-      - chainnet
 
 networks:
   chainnet:
