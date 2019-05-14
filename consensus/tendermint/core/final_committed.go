@@ -18,9 +18,7 @@ package core
 
 import "github.com/clearmatics/autonity/common"
 
-func (c *core) handleCommit() error {
-	logger := c.logger.New("state", c.state)
-	logger.Trace("Received a final committed proposal")
+func (c *core) handleCommit() {
+	c.logger.Trace("Received a final committed proposal","state", c.state)
 	c.startNewRound(common.Big0)
-	return nil
 }

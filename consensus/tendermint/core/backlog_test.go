@@ -233,11 +233,12 @@ func TestStoreBacklog(t *testing.T) {
 }
 
 func TestProcessFutureBacklog(t *testing.T) {
+	logger := log.New("backend", "test", "id", 0)
 	backend := &testSystemBackend{
-		events: new(event.TypeMux),
+		events: event.NewTypeMuxSilent(logger),
 	}
 	c := &core{
-		logger:     log.New("backend", "test", "id", 0),
+		logger:     logger,
 		backlogs:   make(map[tendermint.Validator]*prque.Prque),
 		backlogsMu: new(sync.Mutex),
 		backend:    backend,
@@ -323,12 +324,13 @@ func TestProcessBacklog(t *testing.T) {
 
 func testProcessBacklog(t *testing.T, msg *message) {
 	vset := newTestValidatorSet(1)
+	logger := log.New("backend", "test", "id", 0)
 	backend := &testSystemBackend{
-		events: new(event.TypeMux),
+		events: event.NewTypeMuxSilent(logger),
 		peers:  vset,
 	}
 	c := &core{
-		logger:     log.New("backend", "test", "id", 0),
+		logger:     logger,
 		backlogs:   make(map[tendermint.Validator]*prque.Prque),
 		backlogsMu: new(sync.Mutex),
 		backend:    backend,

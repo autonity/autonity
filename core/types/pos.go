@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/log"
 	lru "github.com/hashicorp/golang-lru"
 	"io"
 
@@ -130,7 +131,11 @@ func SigHash(header *Header) (hash common.Hash) {
 	hasher := sha3.NewKeccak256()
 
 	// Clean seal is required for calculating proposer seal.
-	rlp.Encode(hasher, PoSFilteredHeader(header, false))
+	err := rlp.Encode(hasher, PoSFilteredHeader(header, false))
+	if err != nil {
+		log.Error("can't hash the header", "err", err, "header", header)
+		return common.Hash{}
+	}
 	hasher.Sum(hash[:0])
 	return hash
 }

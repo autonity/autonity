@@ -17,6 +17,7 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"testing"
 
@@ -47,7 +48,10 @@ func TestRoundChangeSet(t *testing.T) {
 			Msg:     m,
 			Address: v.Address(),
 		}
-		rc.Add(view.Round, msg)
+		_, err := rc.Add(view.Round, msg)
+		if err != nil {
+			log.Error("can't add a message to the round", "err", err, "round", view.Round, "message", msg)
+		}
 		if rc.roundChanges[view.Round.Uint64()].Size() != i+1 {
 			t.Errorf("the size of round change messages mismatch: have %v, want %v", rc.roundChanges[view.Round.Uint64()].Size(), i+1)
 		}
@@ -60,7 +64,10 @@ func TestRoundChangeSet(t *testing.T) {
 			Msg:     m,
 			Address: v.Address(),
 		}
-		rc.Add(view.Round, msg)
+		_, err := rc.Add(view.Round, msg)
+		if err != nil {
+			log.Error("can't add a message to the round", "err", err, "round", view.Round, "message", msg)
+		}
 		if rc.roundChanges[view.Round.Uint64()].Size() != vset.Size() {
 			t.Errorf("the size of round change messages mismatch: have %v, want %v", rc.roundChanges[view.Round.Uint64()].Size(), vset.Size())
 		}
