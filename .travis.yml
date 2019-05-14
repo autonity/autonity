@@ -21,8 +21,8 @@ matrix:
     - sudo chmod 666 /dev/fuse
     - sudo chown root:$USER /etc/fuse.conf
     - go run build/ci.go install
-    - go run build/ci.go test -coverage $TEST_PACKAGES
     - make lint
+    - go run build/ci.go test -coverage $TEST_PACKAGES
 
 notifications:
   slack:
