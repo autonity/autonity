@@ -10,6 +10,7 @@
 
 GOBIN = $(shell pwd)/build/bin
 GO ?= latest
+LATEST_MASTER ?= $(shell git log -n 1 origin/master --pretty=format:"%H")
 
 autonity:
 	build/env.sh go run build/ci.go install ./cmd/autonity
@@ -40,8 +41,12 @@ test: all
 test-race: all
 	build/env.sh go run build/ci.go test -race
 
-lint: ## Run linters.
-	build/env.sh go run build/ci.go lint
+lint:
+	@echo "--> Running linter from $(LATEST_MASTER)"
+	@golangci-lint run --new-from-rev=$LATEST_MASTER
+
+lint-deps:
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.16.0
 
 clean:
 	./build/clean_go_build_cache.sh
