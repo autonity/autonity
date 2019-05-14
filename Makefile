@@ -43,10 +43,10 @@ test-race: all
 
 lint:
 	@echo "--> Running linter from $(LATEST_MASTER)"
-	@golangci-lint run --new-from-rev=$LATEST_MASTER
+	@./build/bin/golangci-lint run --new-from-rev=$LATEST_MASTER
 
 lint-deps:
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.16.0
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.16.0
 
 clean:
 	./build/clean_go_build_cache.sh
