@@ -42,7 +42,7 @@ test-race: all
 	build/env.sh go run build/ci.go test -race
 
 lint:
-	@echo "--> Running linter from $(LATEST_MASTER)"
+	@echo "--> Running linter for code diff versus origin/master commit $(LATEST_MASTER)"
 	@./build/bin/golangci-lint run --new-from-rev=$(LATEST_MASTER)
 
 lint-deps:
