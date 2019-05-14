@@ -148,9 +148,7 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*t
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
-	if err := engine.Prepare(chain, header); err != nil {
-		return nil, fmt.Errorf("engine state init error: %v", err)
-	}
+	_ = engine.Prepare(chain, header)
 	state, err := chain.StateAt(parent.Root())
 	if err != nil {
 		return nil, fmt.Errorf("state get error: %v", err)
@@ -201,10 +199,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
-		err = engine.Precommit(otherBlock, [][]byte{})
-		if err != nil {
-			t.Errorf("other block should be committed: %v", err)
-		}
+		_ = engine.Precommit(otherBlock, [][]byte{})
 		eventSub.Unsubscribe()
 	}
 	go eventLoop()
@@ -386,16 +381,14 @@ func TestVerifyHeaders(t *testing.T) {
 	blocks := []*types.Block{}
 	size := 100
 
-	var err error
 	for i := 0; i < size; i++ {
-		var b *types.Block
-		if i == 0 {
-			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-		} else {
-			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
+		blockToInsert := chain.Genesis()
+		if i != 0 {
+			blockToInsert = blocks[i-1]
 		}
+		b, err := makeBlockWithoutSeal(chain, engine, blockToInsert)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal(i, err)
 		}
 
 		b, _ = engine.updateBlock(engine.blockchain.GetHeader(b.ParentHash(), b.NumberU64()-1), b)
