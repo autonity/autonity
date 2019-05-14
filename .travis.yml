@@ -1,6 +1,6 @@
 language: go
 go_import_path: github.com/clearmatics/autonity
-sudo: false
+sudo: true
 addons:
   apt:
     packages:
