@@ -120,7 +120,7 @@ func (c *core) processBacklog() {
 		}
 
 		logger := c.logger.New("from", src, "state", c.state)
-		isFuture := false
+		var isFuture bool
 
 		// We stop processing if
 		//   1. backlog is empty

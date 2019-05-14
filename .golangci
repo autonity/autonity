@@ -3,18 +3,3 @@ run:
 
 linters:
   enable-all: true
-  disable:
-    - gocyclo
-    - golint
-    - maligned
-    - errcheck
-    - staticcheck
-    - interfacer
-    - unconvert
-    - nakedret
-    - lll
-    - gochecknoglobals
-    - gocritic
-    - gochecknoinits
-    - scopelint
-    - stylecheck

@@ -39,7 +39,7 @@ type testSystemBackend struct {
 
 	engine Engine
 	peers  tendermint.ValidatorSet
-	events *event.TypeMux
+	events *event.TypeMuxSilent
 
 	committedMsgs []testPrecommittedMsgs
 	msgMutex      sync.RWMutex
@@ -67,7 +67,7 @@ func (self *testSystemBackend) Validators(number uint64) tendermint.ValidatorSet
 	return self.peers
 }
 
-func (self *testSystemBackend) EventMux() *event.TypeMux {
+func (self *testSystemBackend) EventMux() *event.TypeMuxSilent {
 	return self.events
 }
 
@@ -109,9 +109,8 @@ func (self *testSystemBackend) Broadcast(valSet tendermint.ValidatorSet, message
 	return nil
 }
 
-func (self *testSystemBackend) Gossip(valSet tendermint.ValidatorSet, message []byte) error {
+func (self *testSystemBackend) Gossip(valSet tendermint.ValidatorSet, message []byte) {
 	testLogger.Warn("not sign any data")
-	return nil
 }
 
 func (self *testSystemBackend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) error {
@@ -179,7 +178,6 @@ func (self *testSystemBackend) ParentValidators(proposal tendermint.Proposal) te
 }
 
 func (self *testSystemBackend) SetProposedBlockHash(hash common.Hash) {
-	return
 }
 
 // ==============================================
@@ -270,7 +268,10 @@ func (t *testSystem) listen() {
 func (t *testSystem) Run(core bool) func() {
 	for _, b := range t.backends {
 		if core {
-			b.engine.Start() // start Istanbul core
+			err := b.engine.Start()
+			if err != nil {
+				testLogger.Error("testSystem can't Start the engine", "err", err)
+			}
 		}
 	}
 
@@ -284,7 +285,10 @@ func (t *testSystem) stop(core bool) {
 
 	for _, b := range t.backends {
 		if core {
-			b.engine.Stop()
+			err := b.engine.Stop()
+			if err != nil {
+				testLogger.Error("testSystem can't Stop the engine", "err", err)
+			}
 		}
 	}
 }
@@ -295,7 +299,7 @@ func (t *testSystem) NewBackend(id uint64) *testSystemBackend {
 	backend := &testSystemBackend{
 		id:     id,
 		sys:    t,
-		events: new(event.TypeMux),
+		events: event.NewTypeMuxSilent(testLogger),
 		db:     ethDB,
 	}
 

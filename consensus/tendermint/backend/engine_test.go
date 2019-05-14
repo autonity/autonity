@@ -41,7 +41,7 @@ import (
 // in this test, we can set n to 1, and it means we can process PoS and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process tendermint.
-func newBlockChain(n int) (*core.BlockChain, *backend) {
+func newBlockChain(n int, t *testing.T) (*core.BlockChain, *backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
 	config := tendermint.DefaultConfig
@@ -50,12 +50,17 @@ func newBlockChain(n int) (*core.BlockChain, *backend) {
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil)
 	if err != nil {
-		panic(err)
+		t.Error("failed to create a blockchain", err)
 	}
-	b.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+
+	err = b.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	if err != nil {
+		t.Error("failed to start a blockchain", err)
+	}
+
 	validators := b.Validators(0)
 	if validators.Size() == 0 {
-		panic("failed to get validators")
+		t.Errorf("failed to get validators: %v", err)
 	}
 	proposerAddr := validators.GetProposer().Address()
 
@@ -134,15 +139,22 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*t
 	}
 
 	resultCh := make(chan *types.Block)
-	engine.Seal(chain, block, resultCh, nil)
+	if err := engine.Seal(chain, block, resultCh, nil); err != nil {
+		return nil, err
+	}
 
 	return <-resultCh, nil
 }
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
-	engine.Prepare(chain, header)
+	if err := engine.Prepare(chain, header); err != nil {
+		return nil, fmt.Errorf("engine state init error: %v", err)
+	}
 	state, err := chain.StateAt(parent.Root())
+	if err != nil {
+		return nil, fmt.Errorf("state get error: %v", err)
+	}
 	block, _ := engine.Finalize(chain, header, state, nil, nil, nil)
 
 	// Write state changes to db
@@ -158,7 +170,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types
 }
 
 func TestPrevote(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine := newBlockChain(1, t)
 	header := makeHeader(chain.Genesis(), engine.config)
 	err := engine.Prepare(chain, header)
 	if err != nil {
@@ -172,7 +184,7 @@ func TestPrevote(t *testing.T) {
 }
 
 func TestSealCommittedOtherHash(t *testing.T) {
-	chain, engine := newBlockChain(4)
+	chain, engine := newBlockChain(4, t)
 
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	if err != nil {
@@ -189,13 +201,19 @@ func TestSealCommittedOtherHash(t *testing.T) {
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
-		engine.Precommit(otherBlock, [][]byte{})
+		err = engine.Precommit(otherBlock, [][]byte{})
+		if err != nil {
+			t.Errorf("other block should be committed: %v", err)
+		}
 		eventSub.Unsubscribe()
 	}
 	go eventLoop()
 	seal := func() {
 		resultCh := make(chan *types.Block)
-		engine.Seal(chain, block, resultCh, nil)
+		err := engine.Seal(chain, block, resultCh, nil)
+		if err != nil {
+			t.Errorf("seal should not return an error: %v", err)
+		}
 		<-resultCh
 		t.Error("seal should not be completed")
 	}
@@ -208,7 +226,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 }
 
 func TestSealCommitted(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine := newBlockChain(1, t)
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	if err != nil {
 		t.Fatal(err)
@@ -227,7 +245,7 @@ func TestSealCommitted(t *testing.T) {
 }
 
 func TestVerifyHeader(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine := newBlockChain(1, t)
 
 	// errEmptyCommittedSeals case
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -329,7 +347,7 @@ func TestVerifyHeader(t *testing.T) {
 }
 
 func TestVerifySeal(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine := newBlockChain(1, t)
 	genesis := chain.Genesis()
 	// cannot verify genesis
 	err := engine.VerifySeal(chain, genesis.Header())
@@ -361,7 +379,7 @@ func TestVerifySeal(t *testing.T) {
 
 /* The logic of this needs to change with respect of Soma */
 func TestVerifyHeaders(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine := newBlockChain(1, t)
 
 	// success case
 	headers := []*types.Header{}
@@ -441,9 +459,10 @@ OUT2:
 			break OUT2
 		}
 	}
+
 	// error header cases
 	headers[2].Number = big.NewInt(100)
-	abort, results = engine.VerifyHeaders(chain, headers, nil)
+	_, results = engine.VerifyHeaders(chain, headers, nil)
 	timeout = time.NewTimer(timeoutDura)
 	index = 0
 	errors := 0
@@ -497,6 +516,9 @@ func TestPrepareExtra(t *testing.T) {
 	h.Extra = append(vanity, make([]byte, 15)...)
 
 	payload, err = types.PrepareExtra(&h.Extra, validators)
+	if err != nil {
+		t.Errorf("prepare extra data error: %v", err)
+	}
 	if !reflect.DeepEqual(payload, expectedResult) {
 		t.Errorf("payload mismatch: have %v, want %v", payload, expectedResult)
 	}
