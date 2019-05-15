@@ -6,7 +6,7 @@
     "eip155Block": 0,
     "eip158Block": 0,
     "byzantinumBlock": 0,
-    "istanbul": {
+    "tendermint": {
       "policy": 0,
       "epoch": 30000
     },
