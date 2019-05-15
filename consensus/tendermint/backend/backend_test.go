@@ -32,7 +32,7 @@ import (
 )
 
 func TestSign(t *testing.T) {
-	b := newBackend()
+	b := newBackend(t)
 	data := []byte("Here is a string....")
 	sig, err := b.Sign(data)
 	if err != nil {
@@ -53,7 +53,7 @@ func TestCheckSignature(t *testing.T) {
 	data := []byte("Here is a string....")
 	hashData := crypto.Keccak256([]byte(data))
 	sig, _ := crypto.Sign(hashData, key)
-	b := newBackend()
+	b := newBackend(t)
 	a := getAddress()
 	err := b.CheckSignature(data, a, sig)
 	if err != nil {
@@ -112,7 +112,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 }
 
 func TestPrecommit(t *testing.T) {
-	backend := newBackend()
+	backend := newBackend(t)
 
 	commitCh := make(chan *types.Block, 1)
 	backend.commitCh = commitCh
@@ -128,7 +128,7 @@ func TestPrecommit(t *testing.T) {
 			nil,
 			[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.PoSExtraSeal-1)...)},
 			func() *types.Block {
-				chain, engine := newBlockChain(1)
+				chain, engine := newBlockChain(1, t)
 				block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 				if err != nil {
 					t.Fatal(err)
@@ -142,7 +142,7 @@ func TestPrecommit(t *testing.T) {
 			types.ErrInvalidCommittedSeals,
 			nil,
 			func() *types.Block {
-				chain, engine := newBlockChain(1)
+				chain, engine := newBlockChain(1, t)
 				block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 				if err != nil {
 					t.Fatal(err)
@@ -178,13 +178,20 @@ func TestPrecommit(t *testing.T) {
 }
 
 func TestGetProposer(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine := newBlockChain(1, t)
 	block, err := makeBlock(chain, engine, chain.Genesis())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	chain.InsertChain(types.Blocks{block})
+	insertedCount, err := chain.InsertChain(types.Blocks{block})
+	if err != nil {
+		t.Errorf("can't insert the block into the chain. Block %v. Chain genesis %v", block, chain.Genesis())
+	}
+	if insertedCount != 1 {
+		t.Errorf("expected to insert only 1 block got %d", insertedCount)
+	}
+
 	expected := engine.GetProposer(1)
 	actual := engine.Address()
 	if actual != expected {
@@ -239,9 +246,13 @@ func (slice Keys) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
-func newBackend() (b *backend) {
-	_, b = newBlockChain(4)
-	key, _ := generatePrivateKey()
+func newBackend(t *testing.T) (b *backend) {
+	_, b = newBlockChain(4, t)
+	key, err := generatePrivateKey()
+	if err != nil {
+		t.Errorf("failed to generate private key: %v", err)
+	}
+
 	b.privateKey = key
 	return
 }

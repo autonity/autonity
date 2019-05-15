@@ -56,8 +56,17 @@ func testNewValidatorSet(t *testing.T) {
 	// Create ValidatorSet
 	valSet := NewSet(ExtractValidators(b), tendermint.RoundRobin)
 	if valSet == nil {
-		t.Errorf("the validator byte array cannot be parsed")
+		t.Error("the validator byte array cannot be parsed")
 		t.FailNow()
+	}
+
+	if valSet.Size() != ValCnt {
+		t.Errorf("validator set has %d elements instead of %d", valSet.Size(), ValCnt)
+	}
+
+	valsMap := make(map[string]struct{})
+	for _, val := range validators {
+		valsMap[val.String()] = struct{}{}
 	}
 
 	// Check validators sorting: should be in ascending order
@@ -65,7 +74,12 @@ func testNewValidatorSet(t *testing.T) {
 		val := valSet.GetByIndex(uint64(i))
 		nextVal := valSet.GetByIndex(uint64(i + 1))
 		if strings.Compare(val.String(), nextVal.String()) >= 0 {
-			t.Errorf("validator set is not sorted in ascending order")
+			t.Error("validator set is not sorted in ascending order")
+		}
+
+		if _, ok := valsMap[val.String()]; !ok {
+			t.Errorf("validator set has unexpected element %s. Original validators %v, given %v",
+				val.String(), validators, valSet.List())
 		}
 	}
 }

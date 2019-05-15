@@ -66,7 +66,9 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 		return err
 	}
 
-	c.acceptPrecommit(msg, src)
+	if err := c.acceptPrecommit(msg, src); err != nil {
+		c.logger.Error("Failed to record commit message", "from", src, "state", c.state, "msg", msg, "err", err)
+	}
 
 	// Precommit the proposal once we have enough COMMIT messages and we are not in the Committed state.
 	//
@@ -94,14 +96,7 @@ func (c *core) verifyPrecommit(commit *tendermint.Subject, src tendermint.Valida
 	return nil
 }
 
+// acceptPrecommit adds the COMMIT message to current round state
 func (c *core) acceptPrecommit(msg *message, src tendermint.Validator) error {
-	logger := c.logger.New("from", src, "state", c.state)
-
-	// Add the COMMIT message to current round state
-	if err := c.current.Precommits.Add(msg); err != nil {
-		logger.Error("Failed to record commit message", "msg", msg, "err", err)
-		return err
-	}
-
-	return nil
+	return c.current.Precommits.Add(msg)
 }

@@ -69,9 +69,10 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
+	logger := log.New()
 	backend := &backend{
 		config:         config,
-		eventMux:       new(event.TypeMux),
+		eventMux:       event.NewTypeMuxSilent(logger),
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:         log.New(),
@@ -90,7 +91,7 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 
 type backend struct {
 	config       *tendermint.Config
-	eventMux     *event.TypeMux
+	eventMux     *event.TypeMuxSilent
 	privateKey   *ecdsa.PrivateKey
 	address      common.Address
 	core         tendermintCore.Engine
@@ -106,10 +107,6 @@ type backend struct {
 	coreStarted       bool
 	coreMu            sync.RWMutex
 
-	// Current list of candidates we are pushing
-	candidates map[common.Address]bool
-	// Protects the signer fields
-	candidatesLock sync.RWMutex
 	// Snapshots for recent block to speed up reorgs
 	recents *lru.ARCCache
 
@@ -151,7 +148,7 @@ func (sb *backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) err
 }
 
 // Broadcast implements tendermint.Backend.Gossip
-func (sb *backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) error {
+func (sb *backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
@@ -180,16 +177,18 @@ func (sb *backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) error 
 			m.Add(hash, true)
 			sb.recentMessages.Add(addr, m)
 
-			go p.Send(tendermintMsg, payload)
+			go func(p consensus.Peer) {
+				if err := p.Send(tendermintMsg, payload); err != nil {
+					sb.logger.Error("error while sending tendermintMsg message to the peer", "err", err)
+				}
+			}(p)
 		}
 	}
-	return nil
 }
 
 // Precommit implements tendermint.Backend.Precommit
 func (sb *backend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) error {
 	// Check if the proposal is a valid block
-	block := &types.Block{}
 	block, ok := proposal.(*types.Block)
 	if !ok {
 		sb.logger.Error("Invalid proposal, %v", proposal)
@@ -225,14 +224,13 @@ func (sb *backend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) 
 }
 
 // EventMux implements tendermint.Backend.EventMux
-func (sb *backend) EventMux() *event.TypeMux {
+func (sb *backend) EventMux() *event.TypeMuxSilent {
 	return sb.eventMux
 }
 
 // Verify implements tendermint.Backend.Verify
 func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, error) {
 	// Check if the proposal is a valid block
-	block := &types.Block{}
 	block, ok := proposal.(*types.Block)
 	if !ok {
 		sb.logger.Error("Invalid proposal, %v", proposal)
@@ -290,6 +288,9 @@ func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, err
 			}
 		} else {
 			validators, err = sb.retrieveSavedValidators(1, sb.blockchain) //genesis block and block #1 have the same validators
+			if err != nil {
+				return 0, err
+			}
 		}
 		tendermintExtra, _ := types.ExtractPoSExtra(header)
 

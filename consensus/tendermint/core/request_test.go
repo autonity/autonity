@@ -81,11 +81,12 @@ func TestCheckRequestMsg(t *testing.T) {
 }
 
 func TestStoreRequestMsg(t *testing.T) {
+	logger := log.New("backend", "test", "id", 0)
 	backend := &testSystemBackend{
-		events: new(event.TypeMux),
+		events: event.NewTypeMuxSilent(logger),
 	}
 	c := &core{
-		logger:  log.New("backend", "test", "id", 0),
+		logger:  logger,
 		backend: backend,
 		state:   StateAcceptRequest,
 		current: newRoundState(&tendermint.View{

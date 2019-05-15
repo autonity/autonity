@@ -5,6 +5,10 @@ addons:
   apt:
     packages:
       - libc-dev
+
+before_script:
+  - make lint-deps
+
 matrix:
   include:
   - if: branch IN (master, tendermint) OR type = pull_request
@@ -17,7 +21,9 @@ matrix:
     - sudo chmod 666 /dev/fuse
     - sudo chown root:$USER /etc/fuse.conf
     - go run build/ci.go install
+    - make lint
     - go run build/ci.go test -coverage $TEST_PACKAGES
+
 notifications:
   slack:
     secure: GKYSUbw82VHxUw9JsCgxPfAN5bBE3JZs8YvKEABADDeioMI+3m90HKhuA7F7AtFCK1okIDAGSauX3NqcrAMNk0GnsgTGcvutpSnSL4Jprrff2SkTOfdQCyMdhAmZWBBGOUJx85Ei7lSCSRNRemI3E2jhLPDaQlQGuvUXN1+YM4iFK15dYIrWyDL2ZIMcCThcBft0P7h9Z6LX1bMf5SE9IATjgijzDXeJVUsgpt14p2suflU+jGq+EXqpCSW1uuwlEktiTxOpIpAmP6SdR/ltaMQ9khLCzvf7xkddIuE0AR4/PC+ug+pmsSyqhfW/5w0uGCeRXnQKomhkgzo9BV/uWeRZqAc/tMGXkYAUdwBvzbde9pXEdAoXg89BurCqQVIvUqVrnVONR8WI3pUa+03fFYpt34lF6SaFdluGQzwd6TTGSceEWaAuA8Ng7mSQrQD12857kFtq+WmetTkKKGZ3KW0i9Iz35/l6V22OfkEWb+ARiJuKAo5vQlQLRIJlWD+PiB66YASXyMN5xYtzQHZpxH+J8cWrvBmZSwBvZh0ZxAEgUtZUM5eFuKKymNaBBEj7uLiY/1M2RLNa8ZsOSsGi1nsd8UEd4sKJttrXgR5r4Y4oXQtlX2UPPMtR7VOfDEB7pnjSrfPBD5DrVMHpUU2F1rISXfjRLZvSgRq717NZUsI=

@@ -71,7 +71,6 @@ const (
 	msgPrevote
 	msgPrecommit
 	msgRoundChange
-	msgAll
 )
 
 type message struct {

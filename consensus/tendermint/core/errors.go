@@ -41,6 +41,4 @@ var (
 	errFailedDecodePrevote = errors.New("failed to decode PREPARE")
 	// errFailedDecodePrecommit is returned when the COMMIT message is malformed.
 	errFailedDecodePrecommit = errors.New("failed to decode COMMIT")
-	// errFailedDecodeMessageSet is returned when the message set is malformed.
-	errFailedDecodeMessageSet = errors.New("failed to decode message set")
 )

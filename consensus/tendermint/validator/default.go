@@ -133,7 +133,7 @@ func roundRobinProposer(valSet tendermint.ValidatorSet, proposer common.Address,
 	if valSet.Size() == 0 {
 		return nil
 	}
-	seed := uint64(0)
+	var seed uint64
 	if emptyAddress(proposer) {
 		seed = round
 	} else {
@@ -147,7 +147,7 @@ func stickyProposer(valSet tendermint.ValidatorSet, proposer common.Address, rou
 	if valSet.Size() == 0 {
 		return nil
 	}
-	seed := uint64(0)
+	var seed uint64
 	if emptyAddress(proposer) {
 		seed = round
 	} else {
