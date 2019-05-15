@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity android ios autonity-cross swarm evm all test clean
+.PHONY: autonity android ios autonity-cross swarm evm all test clean lint lint-deps
 .PHONY: autonity-linux autonity-linux-386 autonity-linux-amd64 autonity-linux-mips64 autonity-linux-mips64le
 .PHONY: autonity-linux-arm autonity-linux-arm-5 autonity-linux-arm-6 autonity-linux-arm-7 autonity-linux-arm64
 .PHONY: autonity-darwin autonity-darwin-386 autonity-darwin-amd64
@@ -10,7 +10,10 @@
 
 GOBIN = $(shell pwd)/build/bin
 GO ?= latest
-LATEST_MASTER ?= $(shell git log -n 1 origin/master --pretty=format:"%H")
+LATEST_COMMIT ?= $(shell git log -n 1 origin/master --pretty=format:"%H")
+ifeq ($(LATEST_COMMIT),)
+LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
+endif
 
 autonity:
 	build/env.sh go run build/ci.go install ./cmd/autonity
@@ -42,8 +45,8 @@ test-race: all
 	build/env.sh go run build/ci.go test -race
 
 lint:
-	@echo "--> Running linter for code diff versus origin/master commit $(LATEST_MASTER)"
-	@./build/bin/golangci-lint run --new-from-rev=$(LATEST_MASTER)
+	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
+	@./build/bin/golangci-lint run --new-from-rev=$(LATEST_COMMIT)
 
 lint-deps:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.16.0
