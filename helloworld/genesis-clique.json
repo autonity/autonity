@@ -9,8 +9,7 @@
     "clique": {
       "period": 1,
       "epoch": 50
-    },
-    "opennetwork": false
+    }
   },
   "alloc": {
     "0x850c1eb8d190e05845ad7f84ac95a318c8aab07f": { "balance": "10000000" },
