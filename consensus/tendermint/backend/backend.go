@@ -301,7 +301,7 @@ func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, err
 				"currentLen", len(validators),
 				"extra", tendermintExtra.Validators,
 				"current", validators,
-				)
+			)
 			return 0, errInconsistentValidatorSet
 		}
 
@@ -313,7 +313,7 @@ func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, err
 					"currentValidator", validators[i],
 					"extra", tendermintExtra.Validators,
 					"current", validators,
-					)
+				)
 				return 0, errInconsistentValidatorSet
 			}
 		}

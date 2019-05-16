@@ -6,3 +6,4 @@ linters:
   disable:
     - lll
     - dupl
+    - gochecknoglobals
