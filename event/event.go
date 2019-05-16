@@ -129,7 +129,7 @@ func (mux *TypeMux) del(s *TypeMuxSubscription) {
 
 type TypeMuxSilent struct {
 	*TypeMux
-	logger  log.Logger
+	logger log.Logger
 }
 
 func NewTypeMuxSilent(l log.Logger) *TypeMuxSilent {

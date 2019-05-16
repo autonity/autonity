@@ -206,7 +206,7 @@ type IstanbulConfig struct {
 	Deployer       common.Address `json:"contract-deployer"` // Address of the validator who deploys contract stored in bytecode
 	Bytecode       string         `json:"bytecode"`          // Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
 	ABI            string         `json:"abi"`               // Bytecode of validators contract // ABI of the said contract
-	BlockPeriod    uint64		  `json:"block-period"`
+	BlockPeriod    uint64         `json:"block-period"`
 	RequestTimeout uint64         `json:"request-timeout"`
 }
 
@@ -222,8 +222,8 @@ type TendermintConfig struct {
 	Deployer       common.Address `json:"contract-deployer"` // Address of the validator who deploys contract stored in bytecode
 	Bytecode       string         `json:"bytecode"`          // Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
 	ABI            string         `json:"abi"`               // Bytecode of validators contract // ABI of the said contract
-	BlockPeriod    uint64		  `json:"block-period"`
-	RequestTimeout uint64		  `json:"request-timeout"`
+	BlockPeriod    uint64         `json:"block-period"`
+	RequestTimeout uint64         `json:"request-timeout"`
 }
 
 // String implements the stringer interface, returning the consensus engine details.
