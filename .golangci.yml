@@ -8,6 +8,7 @@ linters:
     - dupl
     - gochecknoglobals
     - gocritic
+    - maligned
 
 linters-settings:
     govet:
@@ -21,5 +22,9 @@ linters-settings:
       min-occurrences: 2
     misspell:
       locale: US
+    gocyclo:
+      min-complexity: 35
+    gofmt:
+      auto-fix: true
     goimports:
-      local-prefixes: github.com/golangci/golangci-lint
+      auto-fix: true
