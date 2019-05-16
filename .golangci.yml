@@ -7,6 +7,7 @@ linters:
     - lll
     - dupl
     - gochecknoglobals
+    - gocritic
 
 linters-settings:
     govet:
