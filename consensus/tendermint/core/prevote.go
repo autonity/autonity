@@ -55,7 +55,7 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 		return err
 	}
 
-	err = c.acceptPrevote(msg, src)
+	err = c.acceptPrevote(msg)
 	if err != nil {
 		c.logger.Error("Failed to add PREPARE message to round state",
 			"from", src, "state", c.state, "msg", msg, "err", err)
@@ -86,7 +86,7 @@ func (c *core) verifyPrevote(prepare *tendermint.Subject, src tendermint.Validat
 	return nil
 }
 
-func (c *core) acceptPrevote(msg *message, src tendermint.Validator) error {
+func (c *core) acceptPrevote(msg *message) error {
 	// Add the PREPARE message to current round state
 	if err := c.current.Prevotes.Add(msg); err != nil {
 		return err

@@ -47,7 +47,7 @@ func TestHandlePrecommit(t *testing.T) {
 		{
 			// normal case
 			func() *testSystem {
-				sys := newTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -72,7 +72,7 @@ func TestHandlePrecommit(t *testing.T) {
 		{
 			// future message
 			func() *testSystem {
-				sys := newTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -101,7 +101,7 @@ func TestHandlePrecommit(t *testing.T) {
 		{
 			// subject not match
 			func() *testSystem {
-				sys := newTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -130,7 +130,7 @@ func TestHandlePrecommit(t *testing.T) {
 		{
 			// jump state
 			func() *testSystem {
-				sys := newTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)

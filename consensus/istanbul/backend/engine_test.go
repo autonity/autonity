@@ -213,7 +213,7 @@ func TestSealCommitted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedBlock, _ := engine.updateBlock(engine.blockchain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
+	expectedBlock, _ := engine.updateBlock(block)
 
 	resultCh := make(chan *types.Block)
 	err = engine.Seal(chain, block, resultCh, nil)
@@ -234,7 +234,7 @@ func TestVerifyHeader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	block, _ = engine.updateBlock(chain.Genesis().Header(), block)
+	block, _ = engine.updateBlock(block)
 	err = engine.VerifyHeader(chain, block.Header(), false)
 	if err != types.ErrEmptyCommittedSeals {
 		t.Errorf("error mismatch: have %v, want %v", err, types.ErrEmptyCommittedSeals)
@@ -380,7 +380,7 @@ func TestVerifyHeaders(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		b, _ = engine.updateBlock(engine.blockchain.GetHeader(b.ParentHash(), b.NumberU64()-1), b)
+		b, _ = engine.updateBlock(b)
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())

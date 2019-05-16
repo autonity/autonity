@@ -133,7 +133,7 @@ func TestPrecommit(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				expectedBlock, _ := engine.updateBlock(engine.blockchain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
+				expectedBlock, _ := engine.updateBlock(block)
 				return expectedBlock
 			},
 		},
@@ -147,7 +147,7 @@ func TestPrecommit(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				expectedBlock, _ := engine.updateBlock(engine.blockchain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
+				expectedBlock, _ := engine.updateBlock(block)
 				return expectedBlock
 			},
 		},

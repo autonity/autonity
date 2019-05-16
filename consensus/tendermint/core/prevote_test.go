@@ -47,7 +47,7 @@ func TestHandlePrevote(t *testing.T) {
 		{
 			// normal case
 			func() *testSystem {
-				sys := newTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -72,7 +72,7 @@ func TestHandlePrevote(t *testing.T) {
 		{
 			// future message
 			func() *testSystem {
-				sys := newTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -101,7 +101,7 @@ func TestHandlePrevote(t *testing.T) {
 		{
 			// subject not match
 			func() *testSystem {
-				sys := newTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -130,7 +130,7 @@ func TestHandlePrevote(t *testing.T) {
 		{
 			// subject not match
 			func() *testSystem {
-				sys := newTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -158,7 +158,7 @@ func TestHandlePrevote(t *testing.T) {
 		{
 			// less than 2F+1
 			func() *testSystem {
-				sys := newTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				// save less than 2*F+1 replica
 				sys.backends = sys.backends[2*int(F)+1:]
@@ -265,7 +265,7 @@ func TestVerifyPrevote(t *testing.T) {
 	peer := validator.New(getPublicKeyAddress(privateKey))
 	valSet := validator.NewSet([]common.Address{peer.Address()}, tendermint.RoundRobin)
 
-	sys := newTestSystemWithBackend(uint64(1), uint64(0))
+	sys := newTestSystemWithBackend(uint64(1))
 
 	testCases := []struct {
 		expected error

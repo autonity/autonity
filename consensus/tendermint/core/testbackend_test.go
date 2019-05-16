@@ -215,7 +215,7 @@ func newTestValidatorSet(n int) tendermint.ValidatorSet {
 }
 
 // FIXME: int64 is needed for N and F
-func newTestSystemWithBackend(n, f uint64) *testSystem {
+func newTestSystemWithBackend(n uint64) *testSystem {
 	testLogger.SetHandler(elog.StdoutHandler)
 
 	addrs := generateValidators(int(n))

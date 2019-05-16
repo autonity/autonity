@@ -28,7 +28,7 @@ import (
 func TestHandleMsg(t *testing.T) {
 	N := uint64(4)
 	F := uint64(1)
-	sys := newTestSystemWithBackend(N, F)
+	sys := newTestSystemWithBackend(N)
 
 	closer := sys.Run(true)
 	defer closer()
