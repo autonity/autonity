@@ -20,6 +20,6 @@ linters-settings:
       min-len: 2
       min-occurrences: 2
     misspell:
-      locale: UK
+      locale: US
     goimports:
       local-prefixes: github.com/golangci/golangci-lint

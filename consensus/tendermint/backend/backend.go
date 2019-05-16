@@ -256,7 +256,7 @@ func (sb *Backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, err
 	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
-		// the current blockchain state is synchronised with PoS's state
+		// the current blockchain state is synchronized with PoS's state
 		// and we know that the proposed block was mined by a valid validator
 		header := block.Header()
 		//We need at this point to process all the transactions in the block
