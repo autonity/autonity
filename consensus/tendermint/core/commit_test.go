@@ -29,7 +29,6 @@ import (
 
 func TestHandlePrecommit(t *testing.T) {
 	N := uint64(4)
-	F := uint64(1)
 
 	proposal := newTestProposalBlock()
 	expectedSubject := &tendermint.Subject{
@@ -232,7 +231,7 @@ func TestVerifyPrecommit(t *testing.T) {
 	peer := validator.New(getPublicKeyAddress(privateKey))
 	valSet := validator.NewSet([]common.Address{peer.Address()}, tendermint.RoundRobin)
 
-	sys := newTestSystemWithBackend(uint64(1), uint64(0))
+	sys := newTestSystemWithBackend(1)
 
 	testCases := []struct {
 		expected   error

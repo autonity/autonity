@@ -265,7 +265,7 @@ func TestVerifyPrevote(t *testing.T) {
 	peer := validator.New(getPublicKeyAddress(privateKey))
 	valSet := validator.NewSet([]common.Address{peer.Address()}, tendermint.RoundRobin)
 
-	sys := newTestSystemWithBackend(uint64(1))
+	sys := newTestSystemWithBackend(1)
 
 	testCases := []struct {
 		expected error
