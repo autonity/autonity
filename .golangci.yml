@@ -24,7 +24,5 @@ linters-settings:
       locale: US
     gocyclo:
       min-complexity: 35
-    gofmt:
-      auto-fix: true
     goimports:
-      auto-fix: true
+      local-prefixes: github.com/clearmatics/autonity

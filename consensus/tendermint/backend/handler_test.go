@@ -19,11 +19,12 @@ package backend
 import (
 	"testing"
 
+	"github.com/hashicorp/golang-lru"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rlp"
-	"github.com/hashicorp/golang-lru"
 )
 
 func TestIstanbulMessage(t *testing.T) {
