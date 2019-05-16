@@ -47,9 +47,8 @@ func TestNewRequest(t *testing.T) {
 	testLogger.SetHandler(elog.StdoutHandler)
 
 	N := uint64(4)
-	F := uint64(1)
 
-	sys := NewTestSystemWithBackend(N, F)
+	sys := newTestSystemWithBackend(N)
 
 	close := sys.Run(true)
 	defer close()

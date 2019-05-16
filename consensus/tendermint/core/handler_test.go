@@ -27,8 +27,7 @@ import (
 // notice: the normal case have been tested in integration tests.
 func TestHandleMsg(t *testing.T) {
 	N := uint64(4)
-	F := uint64(1)
-	sys := NewTestSystemWithBackend(N, F)
+	sys := newTestSystemWithBackend(N)
 
 	closer := sys.Run(true)
 	defer closer()

@@ -66,7 +66,7 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 		return err
 	}
 
-	if err := c.acceptPrecommit(msg, src); err != nil {
+	if err := c.acceptPrecommit(msg); err != nil {
 		c.logger.Error("Failed to record commit message", "from", src, "state", c.state, "msg", msg, "err", err)
 	}
 
@@ -97,6 +97,6 @@ func (c *core) verifyPrecommit(commit *tendermint.Subject, src tendermint.Valida
 }
 
 // acceptPrecommit adds the COMMIT message to current round state
-func (c *core) acceptPrecommit(msg *message, src tendermint.Validator) error {
+func (c *core) acceptPrecommit(msg *message) error {
 	return c.current.Precommits.Add(msg)
 }

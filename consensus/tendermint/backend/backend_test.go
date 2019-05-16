@@ -39,7 +39,7 @@ func TestSign(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 	//Check signature recover
-	hashData := crypto.Keccak256([]byte(data))
+	hashData := crypto.Keccak256(data)
 	pubkey, _ := crypto.Ecrecover(hashData, sig)
 	var signer common.Address
 	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
@@ -51,7 +51,7 @@ func TestSign(t *testing.T) {
 func TestCheckSignature(t *testing.T) {
 	key, _ := generatePrivateKey()
 	data := []byte("Here is a string....")
-	hashData := crypto.Keccak256([]byte(data))
+	hashData := crypto.Keccak256(data)
 	sig, _ := crypto.Sign(hashData, key)
 	b := newBackend(t)
 	a := getAddress()
@@ -71,7 +71,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 
 	// 1. Positive test: sign with validator's key should succeed
 	data := []byte("dummy data")
-	hashData := crypto.Keccak256([]byte(data))
+	hashData := crypto.Keccak256(data)
 	for i, k := range keys {
 		// Sign
 		sig, err := crypto.Sign(hashData, k)
@@ -117,7 +117,7 @@ func TestPrecommit(t *testing.T) {
 	commitCh := make(chan *types.Block, 1)
 	backend.commitCh = commitCh
 
-	// Case: it's a proposer, so the backend.commit will receive channel result from backend.Precommit function
+	// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Precommit function
 	testCases := []struct {
 		expectedErr       error
 		expectedSignature [][]byte
@@ -133,7 +133,7 @@ func TestPrecommit(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				expectedBlock, _ := engine.updateBlock(engine.blockchain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
+				expectedBlock, _ := engine.updateBlock(block)
 				return expectedBlock
 			},
 		},
@@ -147,7 +147,7 @@ func TestPrecommit(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				expectedBlock, _ := engine.updateBlock(engine.blockchain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
+				expectedBlock, _ := engine.updateBlock(block)
 				return expectedBlock
 			},
 		},
@@ -246,7 +246,7 @@ func (slice Keys) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
-func newBackend(t *testing.T) (b *backend) {
+func newBackend(t *testing.T) (b *Backend) {
 	_, b = newBlockChain(4, t)
 	key, err := generatePrivateKey()
 	if err != nil {

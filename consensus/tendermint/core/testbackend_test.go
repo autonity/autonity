@@ -58,126 +58,126 @@ type testPrecommittedMsgs struct {
 //
 // define the functions that needs to be provided for tendermint.
 
-func (self *testSystemBackend) Address() common.Address {
-	return self.address
+func (b *testSystemBackend) Address() common.Address {
+	return b.address
 }
 
 // Peers returns all connected peers
-func (self *testSystemBackend) Validators(number uint64) tendermint.ValidatorSet {
-	return self.peers
+func (b *testSystemBackend) Validators(number uint64) tendermint.ValidatorSet {
+	return b.peers
 }
 
-func (self *testSystemBackend) EventMux() *event.TypeMuxSilent {
-	return self.events
+func (b *testSystemBackend) EventMux() *event.TypeMuxSilent {
+	return b.events
 }
 
-func (self *testSystemBackend) LenPrecommittedMsgs() int {
-	self.msgMutex.RLock()
-	defer self.msgMutex.RUnlock()
-	return len(self.committedMsgs)
+func (b *testSystemBackend) LenPrecommittedMsgs() int {
+	b.msgMutex.RLock()
+	defer b.msgMutex.RUnlock()
+	return len(b.committedMsgs)
 }
 
-func (self *testSystemBackend) GetPrecommittedMsg(i int) testPrecommittedMsgs {
-	self.msgMutex.RLock()
-	defer self.msgMutex.RUnlock()
-	return self.committedMsgs[i]
+func (b *testSystemBackend) GetPrecommittedMsg(i int) testPrecommittedMsgs {
+	b.msgMutex.RLock()
+	defer b.msgMutex.RUnlock()
+	return b.committedMsgs[i]
 }
 
-func (self *testSystemBackend) AddPrecommittedMsg(msg testPrecommittedMsgs) []testPrecommittedMsgs {
-	self.msgMutex.Lock()
-	defer self.msgMutex.Unlock()
-	self.committedMsgs = append(self.committedMsgs, msg)
+func (b *testSystemBackend) AddPrecommittedMsg(msg testPrecommittedMsgs) []testPrecommittedMsgs {
+	b.msgMutex.Lock()
+	defer b.msgMutex.Unlock()
+	b.committedMsgs = append(b.committedMsgs, msg)
 
-	return self.committedMsgs
+	return b.committedMsgs
 }
 
-func (self *testSystemBackend) Send(message []byte, target common.Address) error {
-	testLogger.Info("enqueuing a message...", "address", self.Address())
-	self.sentMsgs = append(self.sentMsgs, message)
-	self.sys.queuedMessage <- tendermint.MessageEvent{
+func (b *testSystemBackend) Send(message []byte, target common.Address) error {
+	testLogger.Info("enqueuing a message...", "address", b.Address())
+	b.sentMsgs = append(b.sentMsgs, message)
+	b.sys.queuedMessage <- tendermint.MessageEvent{
 		Payload: message,
 	}
 	return nil
 }
 
-func (self *testSystemBackend) Broadcast(valSet tendermint.ValidatorSet, message []byte) error {
-	testLogger.Info("enqueuing a message...", "address", self.Address())
-	self.sentMsgs = append(self.sentMsgs, message)
-	self.sys.queuedMessage <- tendermint.MessageEvent{
+func (b *testSystemBackend) Broadcast(valSet tendermint.ValidatorSet, message []byte) error {
+	testLogger.Info("enqueuing a message...", "address", b.Address())
+	b.sentMsgs = append(b.sentMsgs, message)
+	b.sys.queuedMessage <- tendermint.MessageEvent{
 		Payload: message,
 	}
 	return nil
 }
 
-func (self *testSystemBackend) Gossip(valSet tendermint.ValidatorSet, message []byte) {
+func (b *testSystemBackend) Gossip(valSet tendermint.ValidatorSet, message []byte) {
 	testLogger.Warn("not sign any data")
 }
 
-func (self *testSystemBackend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) error {
-	testLogger.Info("commit message", "address", self.Address())
-	self.AddPrecommittedMsg(testPrecommittedMsgs{
+func (b *testSystemBackend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) error {
+	testLogger.Info("commit message", "address", b.Address())
+	b.AddPrecommittedMsg(testPrecommittedMsgs{
 		commitProposal: proposal,
 		committedSeals: seals,
 	})
 
 	// fake new head events
-	go self.events.Post(tendermint.CommitEvent{})
+	go b.events.Post(tendermint.CommitEvent{})
 	return nil
 }
 
-func (self *testSystemBackend) Verify(proposal tendermint.ProposalBlock) (time.Duration, error) {
+func (b *testSystemBackend) Verify(proposal tendermint.ProposalBlock) (time.Duration, error) {
 	return 0, nil
 }
 
-func (self *testSystemBackend) Sign(data []byte) ([]byte, error) {
+func (b *testSystemBackend) Sign(data []byte) ([]byte, error) {
 	testLogger.Warn("not sign any data")
 	return data, nil
 }
 
-func (self *testSystemBackend) CheckSignature([]byte, common.Address, []byte) error {
+func (b *testSystemBackend) CheckSignature([]byte, common.Address, []byte) error {
 	return nil
 }
 
-func (self *testSystemBackend) CheckValidatorSignature(data []byte, sig []byte) (common.Address, error) {
+func (b *testSystemBackend) CheckValidatorSignature(data []byte, sig []byte) (common.Address, error) {
 	return common.Address{}, nil
 }
 
-func (self *testSystemBackend) Hash(b interface{}) common.Hash {
+func (b *testSystemBackend) Hash(data interface{}) common.Hash {
 	return common.BytesToHash([]byte("Test"))
 }
 
-func (self *testSystemBackend) NewRequest(request tendermint.ProposalBlock) {
-	go self.events.Post(tendermint.RequestEvent{
+func (b *testSystemBackend) NewRequest(request tendermint.ProposalBlock) {
+	go b.events.Post(tendermint.RequestEvent{
 		ProposalBlock: request,
 	})
 }
 
-func (self *testSystemBackend) HasBadProposal(hash common.Hash) bool {
+func (b *testSystemBackend) HasBadProposal(hash common.Hash) bool {
 	return false
 }
 
-func (self *testSystemBackend) LastProposal() (tendermint.ProposalBlock, common.Address) {
-	l := self.LenPrecommittedMsgs()
+func (b *testSystemBackend) LastProposal() (tendermint.ProposalBlock, common.Address) {
+	l := b.LenPrecommittedMsgs()
 	if l > 0 {
-		return self.GetPrecommittedMsg(l - 1).commitProposal, common.Address{}
+		return b.GetPrecommittedMsg(l - 1).commitProposal, common.Address{}
 	}
 	return makeBlock(0), common.Address{}
 }
 
 // Only block height 5 will return true
-func (self *testSystemBackend) HasPropsal(hash common.Hash, number *big.Int) bool {
+func (b *testSystemBackend) HasPropsal(hash common.Hash, number *big.Int) bool {
 	return number.Cmp(big.NewInt(5)) == 0
 }
 
-func (self *testSystemBackend) GetProposer(number uint64) common.Address {
+func (b *testSystemBackend) GetProposer(number uint64) common.Address {
 	return common.Address{}
 }
 
-func (self *testSystemBackend) ParentValidators(proposal tendermint.Proposal) tendermint.ValidatorSet {
-	return self.peers
+func (b *testSystemBackend) ParentValidators(proposal tendermint.Proposal) tendermint.ValidatorSet {
+	return b.peers
 }
 
-func (self *testSystemBackend) SetProposedBlockHash(hash common.Hash) {
+func (b *testSystemBackend) SetProposedBlockHash(hash common.Hash) {
 }
 
 // ==============================================
@@ -215,7 +215,7 @@ func newTestValidatorSet(n int) tendermint.ValidatorSet {
 }
 
 // FIXME: int64 is needed for N and F
-func NewTestSystemWithBackend(n, f uint64) *testSystem {
+func newTestSystemWithBackend(n uint64) *testSystem {
 	testLogger.SetHandler(elog.StdoutHandler)
 
 	addrs := generateValidators(int(n))

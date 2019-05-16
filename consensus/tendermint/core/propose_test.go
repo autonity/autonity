@@ -33,7 +33,6 @@ func newTestProposal(v *tendermint.View) *tendermint.Proposal {
 
 func TestHandleProposal(t *testing.T) {
 	N := uint64(4) // replica 0 is the proposer, it will send messages to others
-	F := uint64(1) // F does not affect tests
 
 	testCases := []struct {
 		system          *testSystem
@@ -44,7 +43,7 @@ func TestHandleProposal(t *testing.T) {
 		{
 			// normal case
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -62,7 +61,7 @@ func TestHandleProposal(t *testing.T) {
 		{
 			// future message
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -91,7 +90,7 @@ func TestHandleProposal(t *testing.T) {
 		{
 			// non-proposer
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				// force remove replica 0, let replica 1 be the proposer
 				sys.backends = sys.backends[1:]
@@ -113,7 +112,7 @@ func TestHandleProposal(t *testing.T) {
 		{
 			// errOldMessage
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -206,11 +205,10 @@ OUTER:
 
 func TestHandleProposalWithLock(t *testing.T) {
 	N := uint64(4) // replica 0 is the proposer, it will send messages to others
-	F := uint64(1) // F does not affect tests
 	proposal := newTestProposalBlock()
 	mismatchProposal := makeBlock(10)
 	newSystem := func() *testSystem {
-		sys := NewTestSystemWithBackend(N, F)
+		sys := newTestSystemWithBackend(N)
 
 		for i, backend := range sys.backends {
 			c := backend.engine.(*core)

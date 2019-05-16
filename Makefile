@@ -46,7 +46,7 @@ test-race: all
 
 lint:
 	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
-	@./build/bin/golangci-lint run --new-from-rev=$(LATEST_COMMIT) --deadline=10m
+	@./build/bin/golangci-lint run --new-from-rev=$(LATEST_COMMIT)
 
 lint-deps:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.16.0

@@ -57,7 +57,7 @@ func TestCheckMessage(t *testing.T) {
 	for i := 0; i < len(testStates); i++ {
 		c.state = testStates[i]
 		for j := 0; j < len(testCode); j++ {
-			err := c.checkMessage(testCode[j], v)
+			err = c.checkMessage(testCode[j], v)
 			if err != errFutureMessage {
 				t.Errorf("error mismatch: have %v, want %v", err, errFutureMessage)
 			}
@@ -72,7 +72,7 @@ func TestCheckMessage(t *testing.T) {
 	for i := 0; i < len(testStates); i++ {
 		c.state = testStates[i]
 		for j := 0; j < len(testCode); j++ {
-			err := c.checkMessage(testCode[j], v)
+			err = c.checkMessage(testCode[j], v)
 			if testCode[j] == msgRoundChange {
 				if err != nil {
 					t.Errorf("error mismatch: have %v, want nil", err)
@@ -92,7 +92,7 @@ func TestCheckMessage(t *testing.T) {
 	for i := 0; i < len(testStates); i++ {
 		c.state = testStates[i]
 		for j := 0; j < len(testCode); j++ {
-			err := c.checkMessage(testCode[j], v)
+			err = c.checkMessage(testCode[j], v)
 			if testCode[j] == msgRoundChange {
 				if err != nil {
 					t.Errorf("error mismatch: have %v, want nil", err)

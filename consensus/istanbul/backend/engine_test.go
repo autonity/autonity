@@ -41,7 +41,7 @@ import (
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
-func newBlockChain(n int) (*core.BlockChain, *backend) {
+func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
 	config := istanbul.DefaultConfig
@@ -127,7 +127,7 @@ func makeHeader(parent *types.Block, config *istanbul.Config) *types.Header {
 	return header
 }
 
-func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
+func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
 	block, err := makeBlockWithoutSeal(chain, engine, parent)
 	if err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*t
 	return <-resultCh, nil
 }
 
-func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
+func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
 	engine.Prepare(chain, header)
 	state, err := chain.StateAt(parent.Root())
@@ -213,7 +213,7 @@ func TestSealCommitted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedBlock, _ := engine.updateBlock(engine.blockchain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
+	expectedBlock, _ := engine.updateBlock(block)
 
 	resultCh := make(chan *types.Block)
 	err = engine.Seal(chain, block, resultCh, nil)
@@ -234,7 +234,7 @@ func TestVerifyHeader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	block, _ = engine.updateBlock(chain.Genesis().Header(), block)
+	block, _ = engine.updateBlock(block)
 	err = engine.VerifyHeader(chain, block.Header(), false)
 	if err != types.ErrEmptyCommittedSeals {
 		t.Errorf("error mismatch: have %v, want %v", err, types.ErrEmptyCommittedSeals)
@@ -380,7 +380,7 @@ func TestVerifyHeaders(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		b, _ = engine.updateBlock(engine.blockchain.GetHeader(b.ParentHash(), b.NumberU64()-1), b)
+		b, _ = engine.updateBlock(b)
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())

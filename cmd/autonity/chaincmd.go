@@ -246,7 +246,7 @@ func setupDefaults(genesis *core.Genesis) {
 		if len(genesis.Config.Istanbul.Bytecode) == 0 {
 			genesis.Config.Istanbul.Bytecode = istanbul.DefaultConfig.Bytecode
 		}
-		if len(genesis.Config.Istanbul.Deployer) == 0 || genesis.Config.Istanbul.Deployer ==  (common.Address{}) {
+		if len(genesis.Config.Istanbul.Deployer) == 0 || genesis.Config.Istanbul.Deployer == (common.Address{}) {
 			genesis.Config.Istanbul.Deployer = istanbul.DefaultConfig.Deployer
 		}
 	}
