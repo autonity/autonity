@@ -7,3 +7,18 @@ linters:
     - lll
     - dupl
     - gochecknoglobals
+
+linters-settings:
+    govet:
+      check-shadowing: true
+    golint:
+      min-confidence: 0
+    maligned:
+      suggest-new: true
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    misspell:
+      locale: UK
+    goimports:
+      local-prefixes: github.com/golangci/golangci-lint
