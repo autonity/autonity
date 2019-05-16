@@ -41,7 +41,7 @@ import (
 // in this test, we can set n to 1, and it means we can process PoS and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process tendermint.
-func newBlockChain(n int, t *testing.T) (*core.BlockChain, *backend) {
+func newBlockChain(n int, t *testing.T) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
 	config := tendermint.DefaultConfig
@@ -132,7 +132,7 @@ func makeHeader(parent *types.Block, config *tendermint.Config) *types.Header {
 	return header
 }
 
-func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
+func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
 	block, err := makeBlockWithoutSeal(chain, engine, parent)
 	if err != nil {
 		return nil, err
@@ -146,7 +146,7 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*t
 	return <-resultCh, nil
 }
 
-func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
+func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
 	_ = engine.Prepare(chain, header)
 	state, err := chain.StateAt(parent.Root())

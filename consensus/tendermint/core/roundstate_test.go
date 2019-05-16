@@ -40,7 +40,7 @@ func newTestRoundState(view *tendermint.View, validatorSet tendermint.ValidatorS
 }
 
 func TestLockHash(t *testing.T) {
-	sys := NewTestSystemWithBackend(1, 0)
+	sys := newTestSystemWithBackend(1, 0)
 	rs := newTestRoundState(
 		&tendermint.View{
 			Round:    big.NewInt(0),

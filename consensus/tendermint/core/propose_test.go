@@ -44,7 +44,7 @@ func TestHandleProposal(t *testing.T) {
 		{
 			// normal case
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N, F)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -62,7 +62,7 @@ func TestHandleProposal(t *testing.T) {
 		{
 			// future message
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N, F)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -91,7 +91,7 @@ func TestHandleProposal(t *testing.T) {
 		{
 			// non-proposer
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N, F)
 
 				// force remove replica 0, let replica 1 be the proposer
 				sys.backends = sys.backends[1:]
@@ -113,7 +113,7 @@ func TestHandleProposal(t *testing.T) {
 		{
 			// errOldMessage
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N, F)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -210,7 +210,7 @@ func TestHandleProposalWithLock(t *testing.T) {
 	proposal := newTestProposalBlock()
 	mismatchProposal := makeBlock(10)
 	newSystem := func() *testSystem {
-		sys := NewTestSystemWithBackend(N, F)
+		sys := newTestSystemWithBackend(N, F)
 
 		for i, backend := range sys.backends {
 			c := backend.engine.(*core)

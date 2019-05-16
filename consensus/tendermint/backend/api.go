@@ -25,7 +25,7 @@ import (
 // API is a user facing RPC API to dump PoS state
 type API struct {
 	chain      consensus.ChainReader
-	tendermint *backend
+	tendermint *Backend
 }
 
 // GetValidators retrieves the list of authorized validators at the specified block.

@@ -16,7 +16,7 @@ import (
 )
 
 // Instantiates a new EVM object which is required when creating or calling a deployed contract
-func (sb *backend) getEVM(chain consensus.ChainReader, header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
+func (sb *Backend) getEVM(chain consensus.ChainReader, header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
 
 	coinbase, _ := sb.Author(header)
 	evmContext := vm.Context{
@@ -36,7 +36,7 @@ func (sb *backend) getEVM(chain consensus.ChainReader, header *types.Header, ori
 }
 
 // deployContract deploys the contract contained within the genesis field bytecode
-func (sb *backend) deployContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error) {
+func (sb *Backend) deployContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error) {
 	// Convert the contract bytecode from hex into bytes
 	contractBytecode := common.Hex2Bytes(sb.config.Bytecode)
 	evm := sb.getEVM(chain, header, sb.config.Deployer, statedb)
@@ -74,7 +74,7 @@ func (sb *backend) deployContract(chain consensus.ChainReader, header *types.Hea
 	return contractAddress, nil
 }
 
-func (sb *backend) contractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
+func (sb *Backend) contractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
 	sender := vm.AccountRef(sb.config.Deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := sb.getEVM(chain, header, sb.config.Deployer, statedb)

@@ -49,7 +49,7 @@ func TestNewRequest(t *testing.T) {
 	N := uint64(4)
 	F := uint64(1)
 
-	sys := NewTestSystemWithBackend(N, F)
+	sys := newTestSystemWithBackend(N, F)
 
 	close := sys.Run(true)
 	defer close()

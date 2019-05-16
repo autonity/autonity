@@ -43,8 +43,8 @@ const (
 	fetcherID = "tendermint"
 )
 
-// New creates an Ethereum backend for PoS core engine.
-func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *backend {
+// New creates an Ethereum Backend for PoS core engine.
+func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
 	if chainConfig.Tendermint.Epoch != 0 {
 		config.Epoch = chainConfig.Tendermint.Epoch
 	}
@@ -70,7 +70,7 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
 	logger := log.New()
-	backend := &backend{
+	backend := &Backend{
 		config:         config,
 		eventMux:       event.NewTypeMuxSilent(logger),
 		privateKey:     privateKey,
@@ -89,7 +89,7 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 
 // ----------------------------------------------------------------------------
 
-type backend struct {
+type Backend struct {
 	config       *tendermint.Config
 	eventMux     *event.TypeMuxSilent
 	privateKey   *ecdsa.PrivateKey
@@ -122,11 +122,11 @@ type backend struct {
 }
 
 // Address implements tendermint.Backend.Address
-func (sb *backend) Address() common.Address {
+func (sb *Backend) Address() common.Address {
 	return sb.address
 }
 
-func (sb *backend) Validators(number uint64) tendermint.ValidatorSet {
+func (sb *Backend) Validators(number uint64) tendermint.ValidatorSet {
 	validators, err := sb.retrieveSavedValidators(number, sb.blockchain)
 	proposerPolicy := sb.config.GetProposerPolicy()
 	if err != nil {
@@ -136,7 +136,7 @@ func (sb *backend) Validators(number uint64) tendermint.ValidatorSet {
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) error {
+func (sb *Backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) error {
 	// send to others
 	sb.Gossip(valSet, payload)
 	// send to self
@@ -148,7 +148,7 @@ func (sb *backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) err
 }
 
 // Broadcast implements tendermint.Backend.Gossip
-func (sb *backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
+func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
@@ -187,7 +187,7 @@ func (sb *backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 }
 
 // Precommit implements tendermint.Backend.Precommit
-func (sb *backend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) error {
+func (sb *Backend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) error {
 	// Check if the proposal is a valid block
 	block, ok := proposal.(*types.Block)
 	if !ok {
@@ -224,12 +224,12 @@ func (sb *backend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) 
 }
 
 // EventMux implements tendermint.Backend.EventMux
-func (sb *backend) EventMux() *event.TypeMuxSilent {
+func (sb *Backend) EventMux() *event.TypeMuxSilent {
 	return sb.eventMux
 }
 
 // Verify implements tendermint.Backend.Verify
-func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, error) {
+func (sb *Backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, error) {
 	// Check if the proposal is a valid block
 	block, ok := proposal.(*types.Block)
 	if !ok {
@@ -327,13 +327,13 @@ func (sb *backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, err
 }
 
 // Sign implements tendermint.Backend.Sign
-func (sb *backend) Sign(data []byte) ([]byte, error) {
+func (sb *Backend) Sign(data []byte) ([]byte, error) {
 	hashData := crypto.Keccak256(data)
 	return crypto.Sign(hashData, sb.privateKey)
 }
 
 // CheckSignature implements tendermint.Backend.CheckSignature
-func (sb *backend) CheckSignature(data []byte, address common.Address, sig []byte) error {
+func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byte) error {
 	signer, err := types.GetSignatureAddress(data, sig)
 	if err != nil {
 		log.Error("Failed to get signer address", "err", err)
@@ -347,12 +347,12 @@ func (sb *backend) CheckSignature(data []byte, address common.Address, sig []byt
 }
 
 // HasPropsal implements tendermint.Backend.HashBlock
-func (sb *backend) HasPropsal(hash common.Hash, number *big.Int) bool {
+func (sb *Backend) HasPropsal(hash common.Hash, number *big.Int) bool {
 	return sb.blockchain.GetHeader(hash, number.Uint64()) != nil
 }
 
 // GetProposer implements tendermint.Backend.GetProposer
-func (sb *backend) GetProposer(number uint64) common.Address {
+func (sb *Backend) GetProposer(number uint64) common.Address {
 	if h := sb.blockchain.GetHeaderByNumber(number); h != nil {
 		a, _ := sb.Author(h)
 		return a
@@ -360,7 +360,7 @@ func (sb *backend) GetProposer(number uint64) common.Address {
 	return common.Address{}
 }
 
-func (sb *backend) LastProposal() (tendermint.ProposalBlock, common.Address) {
+func (sb *Backend) LastProposal() (tendermint.ProposalBlock, common.Address) {
 	block := sb.currentBlock()
 
 	var proposer common.Address
@@ -377,7 +377,7 @@ func (sb *backend) LastProposal() (tendermint.ProposalBlock, common.Address) {
 	return block, proposer
 }
 
-func (sb *backend) HasBadProposal(hash common.Hash) bool {
+func (sb *Backend) HasBadProposal(hash common.Hash) bool {
 	if sb.hasBadBlock == nil {
 		return false
 	}
@@ -385,7 +385,7 @@ func (sb *backend) HasBadProposal(hash common.Hash) bool {
 }
 
 // Whitelist for the current block
-func (sb *backend) WhiteList() []string {
+func (sb *Backend) WhiteList() []string {
 	db, err := sb.blockchain.State()
 	if err != nil {
 		sb.logger.Error("Failed to get block white list", "err", err)

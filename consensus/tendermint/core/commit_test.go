@@ -47,7 +47,7 @@ func TestHandlePrecommit(t *testing.T) {
 		{
 			// normal case
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N, F)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -72,7 +72,7 @@ func TestHandlePrecommit(t *testing.T) {
 		{
 			// future message
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N, F)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -101,7 +101,7 @@ func TestHandlePrecommit(t *testing.T) {
 		{
 			// subject not match
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N, F)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -130,7 +130,7 @@ func TestHandlePrecommit(t *testing.T) {
 		{
 			// jump state
 			func() *testSystem {
-				sys := NewTestSystemWithBackend(N, F)
+				sys := newTestSystemWithBackend(N, F)
 
 				for i, backend := range sys.backends {
 					c := backend.engine.(*core)
@@ -232,7 +232,7 @@ func TestVerifyPrecommit(t *testing.T) {
 	peer := validator.New(getPublicKeyAddress(privateKey))
 	valSet := validator.NewSet([]common.Address{peer.Address()}, tendermint.RoundRobin)
 
-	sys := NewTestSystemWithBackend(uint64(1), uint64(0))
+	sys := newTestSystemWithBackend(uint64(1), uint64(0))
 
 	testCases := []struct {
 		expected   error

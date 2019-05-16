@@ -117,7 +117,7 @@ func TestPrecommit(t *testing.T) {
 	commitCh := make(chan *types.Block, 1)
 	backend.commitCh = commitCh
 
-	// Case: it's a proposer, so the backend.commit will receive channel result from backend.Precommit function
+	// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Precommit function
 	testCases := []struct {
 		expectedErr       error
 		expectedSignature [][]byte
@@ -246,7 +246,7 @@ func (slice Keys) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
-func newBackend(t *testing.T) (b *backend) {
+func newBackend(t *testing.T) (b *Backend) {
 	_, b = newBlockChain(4, t)
 	key, err := generatePrivateKey()
 	if err != nil {
