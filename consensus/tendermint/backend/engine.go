@@ -350,7 +350,8 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 	if header.Number.Int64() == 1 {
 		// Deploy Soma on-blockchain governance contract
 		log.Info("Soma Contract Deployer", "Address", sb.config.Deployer)
-		contractAddress, err := sb.deployContract(chain, header, state)
+		var contractAddress common.Address
+		contractAddress, err = sb.deployContract(chain, header, state)
 		if err != nil {
 			return nil, err
 		}

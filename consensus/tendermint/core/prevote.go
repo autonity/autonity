@@ -45,13 +45,13 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 		return errFailedDecodePrevote
 	}
 
-	if err := c.checkMessage(msgPrevote, prepare.View); err != nil {
+	if err = c.checkMessage(msgPrevote, prepare.View); err != nil {
 		return err
 	}
 
 	// If it is locked, it can only process on the locked block.
 	// Passing verifyPrevote and checkMessage implies it is processing on the locked block since it was verified in the Proposald state.
-	if err := c.verifyPrevote(prepare, src); err != nil {
+	if err = c.verifyPrevote(prepare, src); err != nil {
 		return err
 	}
 

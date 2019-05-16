@@ -262,7 +262,6 @@ func (sb *Backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, err
 		//We need at this point to process all the transactions in the block
 		//in order to extract the list of the next validators and validate the extradata field
 		var validators []common.Address
-		var err error
 		if header.Number.Uint64() > 1 {
 
 			state, _ := sb.blockchain.State()
@@ -274,7 +273,7 @@ func (sb *Backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, err
 				state.Prepare(tx.Hash(), block.Hash(), i)
 				// Might be vulnerable to DoS Attack depending on gaslimit
 				// Todo : Double check
-				_, _, err := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil,
+				_, _, err = core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil,
 					gp, state, header, tx, usedGas, *sb.vmConfig)
 
 				if err != nil {
