@@ -21,7 +21,9 @@ import (
 	"math/big"
 	"sync"
 	"time"
+
 	"github.com/hashicorp/golang-lru"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"

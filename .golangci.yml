@@ -9,6 +9,7 @@ linters:
     - gochecknoglobals
     - gocritic
     - maligned
+    - goimports
 
 linters-settings:
     govet:
@@ -24,5 +25,5 @@ linters-settings:
       locale: US
     gocyclo:
       min-complexity: 35
-    goimports:
-      local-prefixes: github.com/clearmatics/autonity
+    gofmt:
+      auto-fix: false
