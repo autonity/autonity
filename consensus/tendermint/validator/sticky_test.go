@@ -17,26 +17,26 @@ func TestCalcSeedNotFoundProposer(t *testing.T) {
 
 	proposerAddress := common.BytesToAddress(bytes.Repeat([]byte{1}, common.AddressLength))
 
-	testCases := []struct{
+	testCases := []struct {
 		validatorIndex int
-		round uint64
+		round          uint64
 
 		resultOffset uint64
-	} {
+	}{
 		{
-			round: 0,
+			round:        0,
 			resultOffset: 0,
 		},
 		{
-			round: 1,
+			round:        1,
 			resultOffset: 1,
 		},
 		{
-			round: 2,
+			round:        2,
 			resultOffset: 2,
 		},
 		{
-			round: 10,
+			round:        10,
 			resultOffset: 10,
 		},
 	}
@@ -62,94 +62,94 @@ func TestCalcSeedWithProposer(t *testing.T) {
 
 	proposerAddress := common.BytesToAddress(bytes.Repeat([]byte{1}, common.AddressLength))
 
-	testCases := []struct{
+	testCases := []struct {
 		validatorIndex int
-		round uint64
+		round          uint64
 
 		resultOffset uint64
-	} {
+	}{
 		{
 			validatorIndex: 0,
-			round: 0,
-			resultOffset: 0,
+			round:          0,
+			resultOffset:   0,
 		},
 		{
 			validatorIndex: 1,
-			round: 0,
-			resultOffset: 1,
+			round:          0,
+			resultOffset:   1,
 		},
 		{
 			validatorIndex: 2,
-			round: 0,
-			resultOffset: 2,
+			round:          0,
+			resultOffset:   2,
 		},
 		{
 			validatorIndex: 10,
-			round: 0,
-			resultOffset: 10,
+			round:          0,
+			resultOffset:   10,
 		},
 
 		{
 			validatorIndex: 0,
-			round: 1,
-			resultOffset: 1,
+			round:          1,
+			resultOffset:   1,
 		},
 		{
 			validatorIndex: 1,
-			round: 1,
-			resultOffset: 2,
+			round:          1,
+			resultOffset:   2,
 		},
 		{
 			validatorIndex: 2,
-			round: 1,
-			resultOffset: 3,
+			round:          1,
+			resultOffset:   3,
 		},
 		{
 			validatorIndex: 10,
-			round: 1,
-			resultOffset: 11,
+			round:          1,
+			resultOffset:   11,
 		},
 
 		{
 			validatorIndex: 0,
-			round: 2,
-			resultOffset: 2,
+			round:          2,
+			resultOffset:   2,
 		},
 		{
 			validatorIndex: 1,
-			round: 2,
-			resultOffset: 3,
+			round:          2,
+			resultOffset:   3,
 		},
 		{
 			validatorIndex: 2,
-			round: 2,
-			resultOffset: 4,
+			round:          2,
+			resultOffset:   4,
 		},
 		{
 			validatorIndex: 10,
-			round: 2,
-			resultOffset: 12,
+			round:          2,
+			resultOffset:   12,
 		},
 
 		{
 			validatorIndex: 0,
-			round: 10,
-			resultOffset: 10,
+			round:          10,
+			resultOffset:   10,
 		},
 		{
 			validatorIndex: 1,
-			round: 10,
-			resultOffset: 11,
+			round:          10,
+			resultOffset:   11,
 		},
 		{
 			validatorIndex: 2,
-			round: 10,
-			resultOffset: 12,
+			round:          10,
+			resultOffset:   12,
 		},
 		{
 			validatorIndex: 10,
-			round: 10,
-			resultOffset: 20,
+			round:          10,
+			resultOffset:   20,
 		},
 	}
 
@@ -176,50 +176,50 @@ func TestStickyProposerZeroSize(t *testing.T) {
 	proposerAddress := common.BytesToAddress(bytes.Repeat([]byte{1}, common.AddressLength))
 	proposerZeroAddress := common.Address{}
 
-	testCases := []struct{
-		size int
-		round uint64
+	testCases := []struct {
+		size     int
+		round    uint64
 		proposer common.Address
-	} {
+	}{
 		{
-			size: 0,
-			round: 0,
+			size:     0,
+			round:    0,
 			proposer: proposerZeroAddress,
 		},
 		{
-			size: 0,
-			round: 1,
+			size:     0,
+			round:    1,
 			proposer: proposerZeroAddress,
 		},
 		{
-			size: 0,
-			round: 2,
+			size:     0,
+			round:    2,
 			proposer: proposerZeroAddress,
 		},
 		{
-			size: 0,
-			round: 10,
+			size:     0,
+			round:    10,
 			proposer: proposerZeroAddress,
 		},
 
 		{
-			size: 0,
-			round: 0,
+			size:     0,
+			round:    0,
 			proposer: proposerAddress,
 		},
 		{
-			size: 0,
-			round: 1,
+			size:     0,
+			round:    1,
 			proposer: proposerAddress,
 		},
 		{
-			size: 0,
-			round: 2,
+			size:     0,
+			round:    2,
 			proposer: proposerAddress,
 		},
 		{
-			size: 0,
-			round: 10,
+			size:     0,
+			round:    10,
 			proposer: proposerAddress,
 		},
 	}
@@ -247,163 +247,118 @@ func TestStickyProposer(t *testing.T) {
 	proposerAddress := common.BytesToAddress(bytes.Repeat([]byte{1}, common.AddressLength))
 	proposerZeroAddress := common.Address{}
 
-	testCases := []struct{
-		size int
-		round uint64
+	testCases := []struct {
+		size     int
+		round    uint64
 		proposer common.Address
-		pick uint64
-	} {
+		pick     uint64
+	}{
 		// size is greater than pick
 		{
-			size: 10,
-			round: 0,
+			size:     10,
+			round:    0,
 			proposer: proposerZeroAddress,
-			pick: 0,
+			pick:     0,
 		},
 		{
-			size: 10,
-			round: 1,
+			size:     10,
+			round:    1,
 			proposer: proposerZeroAddress,
-			pick: 1,
+			pick:     1,
 		},
 		{
-			size: 10,
-			round: 2,
+			size:     10,
+			round:    2,
 			proposer: proposerZeroAddress,
-			pick: 2,
+			pick:     2,
 		},
 		{
-			size: 10,
-			round: 10,
+			size:     10,
+			round:    8,
 			proposer: proposerZeroAddress,
-			pick: 10,
+			pick:     8,
 		},
 		// non-zero address
 		{
-			size: 10,
-			round: 0,
+			size:     10,
+			round:    0,
 			proposer: proposerAddress,
-			pick: 0,
+			pick:     1,
 		},
 		{
-			size: 10,
-			round: 1,
+			size:     10,
+			round:    1,
 			proposer: proposerAddress,
-			pick: 1,
+			pick:     2,
 		},
 		{
-			size: 10,
-			round: 2,
+			size:     10,
+			round:    2,
 			proposer: proposerAddress,
-			pick: 2,
+			pick:     3,
 		},
 		{
-			size: 10,
-			round: 10,
+			size:     10,
+			round:    8,
 			proposer: proposerAddress,
-			pick: 10,
+			pick:     9,
 		},
 
-		// size is equal to pick
+		// size is  less or equal to pick
 		{
-			size: 3,
-			round: 0,
-			proposer: proposerAddress,
-			pick: 0,
+			size:     3,
+			round:    0,
+			proposer: proposerZeroAddress,
+			pick:     0,
 		},
 		{
-			size: 3,
-			round: 1,
-			proposer: proposerAddress,
-			pick: 1,
+			size:     3,
+			round:    1,
+			proposer: proposerZeroAddress,
+			pick:     1,
 		},
 		{
-			size: 3,
-			round: 2,
-			proposer: proposerAddress,
-			pick: 2,
+			size:     3,
+			round:    2,
+			proposer: proposerZeroAddress,
+			pick:     2,
 		},
 		{
-			size: 3,
-			round: 10,
-			proposer: proposerAddress,
-			pick: 10,
+			size:     3,
+			round:    3,
+			proposer: proposerZeroAddress,
+			pick:     0,
+		},
+		{
+			size:     3,
+			round:    10,
+			proposer: proposerZeroAddress,
+			pick:     1,
 		},
 		// non-zero address
 		{
-			size: 3,
-			round: 0,
-			proposer: proposerZeroAddress,
-			pick: 0,
-		},
-		{
-			size: 3,
-			round: 1,
-			proposer: proposerZeroAddress,
-			pick: 1,
-		},
-		{
-			size: 3,
-			round: 2,
-			proposer: proposerZeroAddress,
-			pick: 2,
-		},
-		{
-			size: 3,
-			round: 10,
-			proposer: proposerZeroAddress,
-			pick: 10,
-		},
-
-		// size is equal to pick
-		{
-			size: 2,
-			round: 0,
-			proposer: proposerZeroAddress,
-			pick: 0,
-		},
-		{
-			size: 2,
-			round: 1,
-			proposer: proposerZeroAddress,
-			pick: 1,
-		},
-		{
-			size: 2,
-			round: 2,
-			proposer: proposerZeroAddress,
-			pick: 2,
-		},
-		{
-			size: 2,
-			round: 10,
-			proposer: proposerZeroAddress,
-			pick: 10,
-		},
-		// non-zero address
-		{
-			size: 2,
-			round: 0,
+			size:     3,
+			round:    0,
 			proposer: proposerAddress,
-			pick: 0,
+			pick:     1,
 		},
 		{
-			size: 2,
-			round: 1,
+			size:     3,
+			round:    1,
 			proposer: proposerAddress,
-			pick: 1,
+			pick:     2,
 		},
 		{
-			size: 2,
-			round: 2,
+			size:     3,
+			round:    2,
 			proposer: proposerAddress,
-			pick: 2,
+			pick:     0,
 		},
 		{
-			size: 2,
-			round: 10,
+			size:     3,
+			round:    10,
 			proposer: proposerAddress,
-			pick: 10,
+			pick:     2,
 		},
 	}
 
@@ -415,31 +370,22 @@ func TestStickyProposer(t *testing.T) {
 				Size().
 				Return(testCase.size)
 
-			validator := tendermint.NewMockValidator(ctrl)
-			index := 1
-			validatorSet.EXPECT().
-				GetByAddress(gomock.Eq(testCase.proposer)).
-				Return(1, validator)
+			if testCase.proposer != proposerZeroAddress {
+				index := 1
+				validator := tendermint.NewMockValidator(ctrl)
+				validatorSet.EXPECT().
+					GetByAddress(gomock.Eq(testCase.proposer)).
+					Return(index, validator)
+			}
 
 			expectedValidator := tendermint.NewMockValidator(ctrl)
 			validatorSet.EXPECT().
 				GetByIndex(gomock.Eq(testCase.pick)).
 				Return(expectedValidator)
 
-
 			val := stickyProposer(validatorSet, testCase.proposer, testCase.round)
 			if !reflect.DeepEqual(val, expectedValidator) {
 				t.Errorf("got wrond validator %v, expected %v", val, expectedValidator)
-			}
-
-			if testCase.pick != uint64(index) {
-				if reflect.DeepEqual(validator, expectedValidator) {
-					t.Errorf("should be not the same validator, validator index %d, picked %d", index, testCase.pick)
-				}
-			} else {
-				if !reflect.DeepEqual(validator, expectedValidator) {
-					t.Errorf("should be the same validator, validator index %d, picked %d", index, testCase.pick)
-				}
 			}
 		})
 	}
