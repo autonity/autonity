@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity android ios autonity-cross swarm evm all test clean lint lint-deps
+.PHONY: autonity android ios autonity-cross swarm evm all test clean lint lint-deps mock-gen
 .PHONY: autonity-linux autonity-linux-386 autonity-linux-amd64 autonity-linux-mips64 autonity-linux-mips64le
 .PHONY: autonity-linux-arm autonity-linux-arm-5 autonity-linux-arm-6 autonity-linux-arm-7 autonity-linux-arm64
 .PHONY: autonity-darwin autonity-darwin-386 autonity-darwin-amd64
@@ -49,7 +49,9 @@ mock-gen:
 
 lint:
 	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
-	@./build/bin/golangci-lint run --new-from-rev=$(LATEST_COMMIT) --exclude="which can be annoying to use"
+	@./build/bin/golangci-lint run \
+	    --new-from-rev=$(LATEST_COMMIT) \
+	    --exclude="which can be annoying to use"
 
 lint-deps:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.16.0
