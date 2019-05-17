@@ -6,7 +6,8 @@ import (
 )
 
 func roundRobinProposer(valSet tendermint.ValidatorSet, proposer common.Address, round uint64) tendermint.Validator {
-	if valSet.Size() == 0 {
+	size := valSet.Size()
+	if size == 0 {
 		return nil
 	}
 
@@ -15,6 +16,6 @@ func roundRobinProposer(valSet tendermint.ValidatorSet, proposer common.Address,
 		seed = calcSeed(valSet, proposer, round) + 1
 	}
 
-	pick := seed % uint64(valSet.Size())
+	pick := seed % uint64(size)
 	return valSet.GetByIndex(pick)
 }

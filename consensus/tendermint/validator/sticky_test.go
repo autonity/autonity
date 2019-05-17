@@ -12,9 +12,6 @@ import (
 )
 
 func TestCalcSeedNotFoundProposer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	proposerAddress := common.BytesToAddress(bytes.Repeat([]byte{1}, common.AddressLength))
 
 	testCases := []struct {
@@ -43,6 +40,9 @@ func TestCalcSeedNotFoundProposer(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(fmt.Sprintf("validator index %d, validator is nil %v, round %d", testCase.validatorIndex, true, testCase.round), func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
 			validatorSet := tendermint.NewMockValidatorSet(ctrl)
 			validatorSet.EXPECT().
 				GetByAddress(gomock.Eq(proposerAddress)).
@@ -57,9 +57,6 @@ func TestCalcSeedNotFoundProposer(t *testing.T) {
 }
 
 func TestCalcSeedWithProposer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	proposerAddress := common.BytesToAddress(bytes.Repeat([]byte{1}, common.AddressLength))
 
 	testCases := []struct {
@@ -155,6 +152,9 @@ func TestCalcSeedWithProposer(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(fmt.Sprintf("validator index %d, validator is nil %v, round %d", testCase.validatorIndex, false, testCase.round), func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
 			validator := tendermint.NewMockValidator(ctrl)
 			validatorSet := tendermint.NewMockValidatorSet(ctrl)
 			validatorSet.EXPECT().
