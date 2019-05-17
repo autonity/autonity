@@ -21,27 +21,22 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func New(addr common.Address) tendermint.Validator {
+func New(addr common.Address) *defaultValidator {
 	return &defaultValidator{
 		address: addr,
 	}
 }
 
-func NewSet(addrs []common.Address, policy tendermint.ProposerPolicy) tendermint.ValidatorSet {
+func NewSet(addrs []common.Address, policy tendermint.ProposerPolicy) *defaultSet {
 	return newDefaultSet(addrs, policy)
 }
 
 func ExtractValidators(extraData []byte) []common.Address {
 	// get the validator addresses
-	addrs := make([]common.Address, (len(extraData) / common.AddressLength))
+	addrs := make([]common.Address, len(extraData) / common.AddressLength)
 	for i := 0; i < len(addrs); i++ {
 		copy(addrs[i][:], extraData[i*common.AddressLength:])
 	}
 
 	return addrs
-}
-
-// Check whether the extraData is presented in prescribed form
-func ValidExtraData(extraData []byte) bool {
-	return len(extraData)%common.AddressLength == 0
 }

@@ -17,13 +17,12 @@
 package validator
 
 import (
-	"reflect"
-	"strings"
-	"testing"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/crypto"
+	"reflect"
+	"strings"
+	"testing"
 )
 
 var (
@@ -213,6 +212,7 @@ func testStickyProposer(t *testing.T) {
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val2) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
 	}
+
 	// test empty last proposer
 	lastProposer = common.Address{}
 	valSet.CalcProposer(lastProposer, uint64(3))

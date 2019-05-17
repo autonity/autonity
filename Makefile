@@ -44,6 +44,9 @@ test: all
 test-race: all
 	build/env.sh go run build/ci.go test -race
 
+mock-gen:
+	mockgen -source=consensus/tendermint/validator.go -package=tendermint -destination=consensus/tendermint/validator_mock.go
+
 lint:
 	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
 	@./build/bin/golangci-lint run --new-from-rev=$(LATEST_COMMIT)
@@ -59,6 +62,7 @@ clean:
 # You need to put $GOBIN (or $GOPATH/bin) in your PATH to use 'go generate'.
 
 devtools:
+	go get -u github.com/golang/mock/mockgen
 	env GOBIN= go get -u golang.org/x/tools/cmd/stringer
 	env GOBIN= go get -u github.com/kevinburke/go-bindata/go-bindata
 	env GOBIN= go get -u github.com/fjl/gencodec
