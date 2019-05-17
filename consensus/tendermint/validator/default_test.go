@@ -213,6 +213,7 @@ func testStickyProposer(t *testing.T) {
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val2) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
 	}
+
 	// test empty last proposer
 	lastProposer = common.Address{}
 	valSet.CalcProposer(lastProposer, uint64(3))
