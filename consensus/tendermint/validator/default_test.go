@@ -17,12 +17,13 @@
 package validator
 
 import (
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
-	"github.com/clearmatics/autonity/crypto"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/crypto"
 )
 
 var (

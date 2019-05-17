@@ -33,7 +33,7 @@ func NewSet(addrs []common.Address, policy tendermint.ProposerPolicy) *defaultSe
 
 func ExtractValidators(extraData []byte) []common.Address {
 	// get the validator addresses
-	addrs := make([]common.Address, len(extraData) / common.AddressLength)
+	addrs := make([]common.Address, len(extraData)/common.AddressLength)
 	for i := 0; i < len(addrs); i++ {
 		copy(addrs[i][:], extraData[i*common.AddressLength:])
 	}

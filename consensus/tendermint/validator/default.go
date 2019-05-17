@@ -69,7 +69,7 @@ func newDefaultSet(addrs []common.Address, policy tendermint.ProposerPolicy) *de
 	case tendermint.Sticky:
 		valSet.selector = stickyProposer
 	case tendermint.RoundRobin:
-		fallthrough
+		valSet.selector = roundRobinProposer
 	default:
 		valSet.selector = roundRobinProposer
 	}

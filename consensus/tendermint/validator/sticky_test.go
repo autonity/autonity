@@ -39,6 +39,7 @@ func TestCalcSeedNotFoundProposer(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(fmt.Sprintf("validator index %d, validator is nil %v, round %d", testCase.validatorIndex, true, testCase.round), func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
@@ -151,6 +152,7 @@ func TestCalcSeedWithProposer(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(fmt.Sprintf("validator index %d, validator is nil %v, round %d", testCase.validatorIndex, false, testCase.round), func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
@@ -225,6 +227,7 @@ func TestStickyProposerZeroSize(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(fmt.Sprintf("validator is zero address, round %d", testCase.round), func(t *testing.T) {
 			validatorSet := tendermint.NewMockValidatorSet(ctrl)
 
@@ -363,6 +366,7 @@ func TestStickyProposer(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(fmt.Sprintf("validator set size %d, proposer address %s, round %d", testCase.size, testCase.proposer.String(), testCase.round), func(t *testing.T) {
 			validatorSet := tendermint.NewMockValidatorSet(ctrl)
 

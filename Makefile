@@ -49,7 +49,7 @@ mock-gen:
 
 lint:
 	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
-	@./build/bin/golangci-lint run --new-from-rev=$(LATEST_COMMIT)
+	@./build/bin/golangci-lint run --new-from-rev=$(LATEST_COMMIT) --exclude="which can be annoying to use"
 
 lint-deps:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.16.0
