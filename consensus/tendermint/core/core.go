@@ -18,6 +18,7 @@ package core
 
 import (
 	"bytes"
+	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -30,10 +31,35 @@ import (
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
-var (
+const (
 	initialProposeTimeout   = 5 * time.Second
 	initialPrevoteTimeout   = 5 * time.Second
 	initialPrecommitTimeout = 5 * time.Second
+)
+
+var (
+	// errInconsistentSubject is returned when received subject is different from
+	// current subject.
+	errInconsistentSubject = errors.New("inconsistent subjects")
+	// errNotFromProposer is returned when received message is supposed to be from
+	// proposer.
+	errNotFromProposer = errors.New("message does not come from proposer")
+	// errIgnored is returned when a message was ignored.
+	errIgnored = errors.New("message is ignored")
+	// errFutureMessage is returned when current view is earlier than the
+	// view of the received message.
+	errFutureMessage = errors.New("future message")
+	// errOldMessage is returned when the received message's view is earlier
+	// than current view.
+	errOldMessage = errors.New("old message")
+	// errInvalidMessage is returned when the message is malformed.
+	errInvalidMessage = errors.New("invalid message")
+	// errFailedDecodeProposal is returned when the PRE-PREPARE message is malformed.
+	errFailedDecodeProposal = errors.New("failed to decode PRE-PREPARE")
+	// errFailedDecodePrevote is returned when the PREPARE message is malformed.
+	errFailedDecodePrevote = errors.New("failed to decode PREPARE")
+	// errFailedDecodePrecommit is returned when the COMMIT message is malformed.
+	errFailedDecodePrecommit = errors.New("failed to decode COMMIT")
 )
 
 // New creates an Istanbul consensus core
@@ -291,6 +317,8 @@ func (c *core) onTimeoutPrevote() {
 func (c *core) onTimeoutPrecommit() {
 
 }
+
+//---------------------------------------TIMEOUT---------------------------------------
 
 type timeout struct {
 	timer *time.Timer
