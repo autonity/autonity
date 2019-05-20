@@ -35,20 +35,23 @@ import (
 // New creates an Istanbul consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
-		config:             config,
-		address:            backend.Address(),
-		state:              StateAcceptRequest,
-		handlerStopCh:      make(chan struct{}),
-		logger:             log.New("address", backend.Address()),
-		backend:            backend,
-		backlogs:           make(map[tendermint.Validator]*prque.Prque),
-		backlogsMu:         new(sync.Mutex),
-		pendingRequests:    prque.New(),
-		pendingRequestsMu:  new(sync.Mutex),
-		consensusTimestamp: time.Time{},
-		roundMeter:         metrics.NewRegisteredMeter("consensus/tendermint/core/round", nil),
-		sequenceMeter:      metrics.NewRegisteredMeter("consensus/tendermint/core/sequence", nil),
-		consensusTimer:     metrics.NewRegisteredTimer("consensus/tendermint/core/consensus", nil),
+		config:                  config,
+		address:                 backend.Address(),
+		state:                   StateAcceptRequest,
+		handlerStopCh:           make(chan struct{}),
+		logger:                  log.New("address", backend.Address()),
+		backend:                 backend,
+		backlogs:                make(map[tendermint.Validator]*prque.Prque),
+		backlogsMu:              new(sync.Mutex),
+		pendingRequests:         prque.New(),
+		pendingRequestsMu:       new(sync.Mutex),
+		consensusTimestamp:      time.Time{},
+		roundMeter:              metrics.NewRegisteredMeter("consensus/tendermint/core/round", nil),
+		sequenceMeter:           metrics.NewRegisteredMeter("consensus/tendermint/core/sequence", nil),
+		consensusTimer:          metrics.NewRegisteredTimer("consensus/tendermint/core/consensus", nil),
+		initialProposeTimeout:   5 * time.Second,
+		initialPrevoteTimeout:   5 * time.Second,
+		initialPrecommitTimeout: 5 * time.Second,
 	}
 	c.validateFn = c.checkValidatorSignature
 	return c
@@ -107,6 +110,18 @@ type core struct {
 
 	// TODO: may require a mutex
 	latestPendingRequest *tendermint.Request
+
+	initialProposeTimeout time.Duration
+	proposeTimeoutTimer   *time.Timer
+	proposeTimeoutTimerMu sync.RWMutex
+
+	initialPrevoteTimeout time.Duration
+	prevoteTimeoutTimer   *time.Timer
+	prevoteTimeoutTimerMu sync.RWMutex
+
+	initialPrecommitTimeout time.Duration
+	precommitTimeoutTimer   *time.Timer
+	precommitTimeoutTimerMu sync.RWMutex
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -412,8 +427,34 @@ func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address,
 }
 
 func (c *core) scheduleTimeoutPropose() {
-	// TODO: add a timeoutField to the core struct and us the time lib to start the timeout
-	// TODO: implement OnTimeoutPropose
+}
+
+func (c *core) onTimeoutPropose() {
+}
+
+func (c *core) timeoutPropose(round int64) time.Duration {
+	return time.Minute
+}
+
+func (c *core) scheduleTimeoutPrevote() {
+}
+
+func (c *core) onTimeoutPrevote() {
+}
+
+func (c *core) timeoutPrevote(round int64) time.Duration {
+	return time.Minute
+}
+
+func (c *core) scheduleTimeoutPrecommit() {
+}
+
+func (c *core) onTimeoutPrecommit() {
+
+}
+
+func (c *core) timeoutPrecommit(round int64) time.Duration {
+	return time.Minute
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash
