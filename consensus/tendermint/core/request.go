@@ -32,7 +32,8 @@ func (c *core) handleRequest(request *tendermint.Request) error {
 
 	logger.Trace("handleRequest", "number", request.ProposalBlock.Number(), "hash", request.ProposalBlock.Hash())
 
-	c.current.pendingRequest = request
+	c.latestPendingRequest = request
+	// TODO: remove, we should not be sending a proposal from handleRequest
 	if c.state == StateAcceptRequest {
 		c.sendProposal(request)
 	}

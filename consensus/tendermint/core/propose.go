@@ -23,6 +23,8 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
+// TODO: add new message struct for proposal (proposalMessage) and determine how to rlp encode them especially nil
+// TODO: add new message for vote (prevote and precommit) and determine how to rlp encode them especially nil
 func (c *core) sendProposal(request *tendermint.Request) {
 	logger := c.logger.New("state", c.state)
 

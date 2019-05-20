@@ -76,7 +76,7 @@ type core struct {
 	backlogs   map[tendermint.Validator]*prque.Prque
 	backlogsMu *sync.Mutex
 
-	// TODO: update the name to currentRS
+	// TODO: update the name to currentRoundState
 	current       *roundState
 	handlerStopCh chan struct{}
 
@@ -103,7 +103,10 @@ type core struct {
 	lockedValue tendermint.ProposalBlock
 	validValue  tendermint.ProposalBlock
 
-	currentHeightRS []roundState
+	currentHeightRoundsStates []roundState
+
+	// TODO: may require a mutex
+	latestPendingRequest *tendermint.Request
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -192,6 +195,7 @@ func (c *core) commit() {
 }
 
 // startNewRound starts a new round. if round equals to 0, it means to starts a new sequence
+// TODO: change name to startRound
 func (c *core) startNewRound(round *big.Int) {
 	//TODO: update the name of lastProposalBlock and LastBlockProposal()
 	lastProposalBlock, lastProposalBlockProposer := c.backend.LastProposal()
@@ -209,12 +213,12 @@ func (c *core) startNewRound(round *big.Int) {
 		c.valSet = c.backend.Validators(height.Uint64())
 
 		// TODO: Assuming that round == 0 only when the node moves to a new height, need to confirm where exactly the node moves to a new height
-		c.currentHeightRS = nil
+		c.currentHeightRoundsStates = nil
 
 	} else {
 		// Assuming the above values will be set for round > 0
 		// Add the current round state to the core previous round states
-		c.currentHeightRS = append(c.currentHeightRS, *c.current)
+		c.currentHeightRoundsStates = append(c.currentHeightRoundsStates, *c.current)
 	}
 
 	// Update the current round state
@@ -234,13 +238,19 @@ func (c *core) startNewRound(round *big.Int) {
 
 	c.valSet.CalcProposer(lastProposalBlockProposer, round.Uint64())
 	c.sentProposal = false
+	// c.setState(StateAcceptRequest) will process the pending request sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setState(StateAcceptRequest)
 
-	var proposalRequest tendermint.Request
+	var proposalRequest *tendermint.Request
 	if c.isProposer() {
 		if c.validValue != nil {
-			proposalRequest = tendermint.Request{ProposalBlock: c.validValue}
+			proposalRequest = &tendermint.Request{ProposalBlock: c.validValue}
+		} else {
+			proposalRequest = c.latestPendingRequest
 		}
+		c.sendProposal(proposalRequest)
+	} else {
+		c.scheduleTimeoutPropose()
 	}
 
 	// TODO remove the following
@@ -399,6 +409,11 @@ func (c *core) newRoundChangeTimer() {
 
 func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address, error) {
 	return tendermint.CheckValidatorSignature(c.valSet, data, sig)
+}
+
+func (c *core) scheduleTimeoutPropose() {
+	// TODO: add a timeoutField to the core struct and us the time lib to start the timeout
+	// TODO: implement OnTimeoutPropose
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash
