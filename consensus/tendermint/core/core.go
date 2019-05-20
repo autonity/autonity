@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
@@ -677,6 +678,89 @@ func toPriority(msgCode uint64, view *tendermint.View) float32 {
 	return -float32(view.Sequence.Uint64()*1000 + view.Round.Uint64()*10 + uint64(msgPriority[msgCode]))
 }
 
+//---------------------------------------Request---------------------------------------
+
+func (c *core) handleRequest(request *tendermint.Request) error {
+	logger := c.logger.New("state", c.state, "seq", c.current.sequence)
+
+	if err := c.checkRequestMsg(request); err != nil {
+		if err == errInvalidMessage {
+			logger.Warn("invalid request")
+			return err
+		}
+		logger.Warn("unexpected request", "err", err, "number", request.ProposalBlock.Number(), "hash", request.ProposalBlock.Hash())
+		return err
+	}
+
+	logger.Trace("handleRequest", "number", request.ProposalBlock.Number(), "hash", request.ProposalBlock.Hash())
+
+	c.latestPendingRequest = request
+	// TODO: remove, we should not be sending a proposal from handleRequest
+	if c.state == StateAcceptRequest {
+		c.sendProposal(request)
+	}
+	return nil
+}
+
+// check request state
+// return errInvalidMessage if the message is invalid
+// return errFutureMessage if the sequence of proposal is larger than current sequence
+// return errOldMessage if the sequence of proposal is smaller than current sequence
+func (c *core) checkRequestMsg(request *tendermint.Request) error {
+	if request == nil || request.ProposalBlock == nil {
+		return errInvalidMessage
+	}
+
+	if c := c.current.sequence.Cmp(request.ProposalBlock.Number()); c > 0 {
+		return errOldMessage
+	} else if c < 0 {
+		return errFutureMessage
+	} else {
+		return nil
+	}
+}
+
+func (c *core) storeRequestMsg(request *tendermint.Request) {
+	logger := c.logger.New("state", c.state)
+
+	logger.Trace("Store future request", "number", request.ProposalBlock.Number(), "hash", request.ProposalBlock.Hash())
+
+	c.pendingRequestsMu.Lock()
+	defer c.pendingRequestsMu.Unlock()
+
+	c.pendingRequests.Push(request, float32(-request.ProposalBlock.Number().Int64()))
+}
+
+func (c *core) processPendingRequests() {
+	c.pendingRequestsMu.Lock()
+	defer c.pendingRequestsMu.Unlock()
+
+	for !(c.pendingRequests.Empty()) {
+		m, prio := c.pendingRequests.Pop()
+		r, ok := m.(*tendermint.Request)
+		if !ok {
+			c.logger.Warn("Malformed request, skip", "msg", m)
+			continue
+		}
+		// Push back if it's a future message
+		err := c.checkRequestMsg(r)
+		if err != nil {
+			if err == errFutureMessage {
+				c.logger.Trace("Stop processing request", "number", r.ProposalBlock.Number(), "hash", r.ProposalBlock.Hash())
+				c.pendingRequests.Push(m, prio)
+				break
+			}
+			c.logger.Trace("Skip the pending request", "number", r.ProposalBlock.Number(), "hash", r.ProposalBlock.Hash(), "err", err)
+			continue
+		}
+		c.logger.Trace("Post pending request", "number", r.ProposalBlock.Number(), "hash", r.ProposalBlock.Hash())
+
+		go c.sendEvent(tendermint.RequestEvent{
+			ProposalBlock: r.ProposalBlock,
+		})
+	}
+}
+
 //---------------------------------------Propose---------------------------------------
 
 // TODO: add new message struct for proposal (proposalMessage) and determine how to rlp encode them especially nil
@@ -786,6 +870,81 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 
 func (c *core) acceptProposal(proposal *tendermint.Proposal) {
 	c.current.SetProposal(proposal)
+}
+
+//---------------------------------------Prevote---------------------------------------
+
+func (c *core) sendPrevote() {
+	logger := c.logger.New("state", c.state)
+
+	sub := c.current.Subject()
+	encodedSubject, err := Encode(sub)
+	if err != nil {
+		logger.Error("Failed to encode", "subject", sub)
+		return
+	}
+	c.broadcast(&message{
+		Code: msgPrevote,
+		Msg:  encodedSubject,
+	})
+}
+
+func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
+	// Decode PREPARE message
+	var prepare *tendermint.Subject
+	err := msg.Decode(&prepare)
+	if err != nil {
+		return errFailedDecodePrevote
+	}
+
+	if err = c.checkMessage(msgPrevote, prepare.View); err != nil {
+		return err
+	}
+
+	// If it is locked, it can only process on the locked block.
+	// Passing verifyPrevote and checkMessage implies it is processing on the locked block since it was verified in the Proposald state.
+	if err = c.verifyPrevote(prepare, src); err != nil {
+		return err
+	}
+
+	err = c.acceptPrevote(msg)
+	if err != nil {
+		c.logger.Error("Failed to add PREPARE message to round state",
+			"from", src, "state", c.state, "msg", msg, "err", err)
+	}
+
+	// Change to Prevoted state if we've received enough PREPARE messages or it is locked
+	// and we are in earlier state before Prevoted state.
+	if ((c.current.IsHashLocked() && prepare.Digest == c.current.GetLockedHash()) || c.current.GetPrevoteOrPrecommitSize() > 2*c.valSet.F()) &&
+		c.state.Cmp(StatePrevoteDone) < 0 {
+		c.current.LockHash()
+		c.setState(StatePrevoteDone)
+		c.sendPrecommit()
+	}
+
+	return nil
+}
+
+// verifyPrevote verifies if the received PREPARE message is equivalent to our subject
+func (c *core) verifyPrevote(prepare *tendermint.Subject, src tendermint.Validator) error {
+	logger := c.logger.New("from", src, "state", c.state)
+
+	sub := c.current.Subject()
+	if !reflect.DeepEqual(prepare, sub) {
+		logger.Warn("Inconsistent subjects between PREPARE and proposal", "expected", sub, "got", prepare)
+		return errInconsistentSubject
+	}
+
+	return nil
+}
+
+func (c *core) acceptPrevote(msg *message) error {
+	// Add the PREPARE message to current round state
+	if err := c.current.Prevotes.Add(msg); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 //---------------------------------------Precommit---------------------------------------
