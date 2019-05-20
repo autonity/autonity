@@ -331,6 +331,8 @@ func (c *core) onTimeoutPrecommit() {
 
 //---------------------------------------Timeout---------------------------------------
 
+type timeoutEvent struct{}
+
 type timeout struct {
 	timer *time.Timer
 	sync.RWMutex
@@ -364,6 +366,11 @@ func timeoutPrecommit(round int64) time.Duration {
 }
 
 //---------------------------------------Backlog---------------------------------------
+
+type backlogEvent struct {
+	src tendermint.Validator
+	msg *message
+}
 
 // checkMessage checks the message state
 // return errInvalidMessage if the message is invalid
