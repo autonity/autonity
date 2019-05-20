@@ -41,7 +41,9 @@ func newMessageSet(valSet tendermint.ValidatorSet) *messageSet {
 
 // ----------------------------------------------------------------------------
 
+// TODO: think about whether to refactor the valset or that whether the messageSet is even required
 type messageSet struct {
+	// TODO: this view is not being used here
 	view       *tendermint.View
 	valSet     tendermint.ValidatorSet
 	messagesMu *sync.Mutex

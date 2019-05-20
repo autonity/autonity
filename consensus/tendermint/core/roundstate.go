@@ -45,12 +45,16 @@ func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, 
 
 // roundState stores the consensus state
 type roundState struct {
-	round          *big.Int
-	sequence       *big.Int
-	proposal       *tendermint.Proposal
-	Prevotes       *messageSet
-	Precommits     *messageSet
-	lockedHash     common.Hash
+	round    *big.Int
+	sequence *big.Int
+	proposal *tendermint.Proposal
+	// TODO: messageSet is probably not required, need to port the function from messageSet to here, will also need to introduce mutexes.
+	// These should simply be map[common.Address]message
+	Prevotes   *messageSet
+	Precommits *messageSet
+	// TODO: remove this lockedHash as this should be in core
+	lockedHash common.Hash
+	// TODO: also remove pendingRequest, this should only be managed by core
 	pendingRequest *tendermint.Request
 
 	mu             *sync.RWMutex

@@ -59,8 +59,9 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 type core struct {
 	config  *tendermint.Config
 	address common.Address
-	state   State
-	logger  log.Logger
+	// TODO change the name to step Step
+	state  State
+	logger log.Logger
 
 	backend             tendermint.Backend
 	events              *event.TypeMuxSubscription
@@ -75,6 +76,7 @@ type core struct {
 	backlogs   map[tendermint.Validator]*prque.Prque
 	backlogsMu *sync.Mutex
 
+	// TODO: update the name to currentRS
 	current       *roundState
 	handlerStopCh chan struct{}
 
@@ -85,6 +87,7 @@ type core struct {
 	pendingRequests   *prque.Prque
 	pendingRequestsMu *sync.Mutex
 
+	// TODO: remove these ethstats from the code temporarily since it probably needs to be implemented again
 	consensusTimestamp time.Time
 	// the meter to record the round change rate
 	roundMeter metrics.Meter
@@ -94,6 +97,13 @@ type core struct {
 	consensusTimer metrics.Timer
 
 	sentProposal bool
+
+	lockedRound *big.Int
+	validRound  *big.Int
+	lockedValue tendermint.ProposalBlock
+	validValue  tendermint.ProposalBlock
+
+	currentHeightRS []roundState
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -183,7 +193,57 @@ func (c *core) commit() {
 
 // startNewRound starts a new round. if round equals to 0, it means to starts a new sequence
 func (c *core) startNewRound(round *big.Int) {
-	var logger log.Logger
+	//TODO: update the name of lastProposalBlock and LastBlockProposal()
+	lastProposalBlock, lastProposalBlockProposer := c.backend.LastProposal()
+	height := new(big.Int).Add(lastProposalBlock.Number(), common.Big1)
+	logger := c.logger.New("Previous Round", round.Uint64()-1, "Previous Height", height.Uint64()-1)
+
+	// Start of new height where round is 0
+	if round.Uint64() == 0 {
+		// Set the shared round values to initial values
+		c.lockedRound = nil
+		c.lockedValue = nil
+		c.validRound = nil
+		c.validValue = nil
+
+		c.valSet = c.backend.Validators(height.Uint64())
+
+		// TODO: Assuming that round == 0 only when the node moves to a new height, need to confirm where exactly the node moves to a new height
+		c.currentHeightRS = nil
+
+	} else {
+		// Assuming the above values will be set for round > 0
+		// Add the current round state to the core previous round states
+		c.currentHeightRS = append(c.currentHeightRS, *c.current)
+	}
+
+	// Update the current round state
+	curView := tendermint.View{
+		Round:    new(big.Int).Set(round),
+		Sequence: new(big.Int).Set(height),
+	}
+
+	c.current = newRoundState(
+		&curView,
+		c.valSet,
+		common.Hash{},
+		nil,
+		nil,
+		c.backend.HasBadProposal,
+	)
+
+	c.valSet.CalcProposer(lastProposalBlockProposer, round.Uint64())
+	c.sentProposal = false
+	c.setState(StateAcceptRequest)
+
+	var proposalRequest tendermint.Request
+	if c.isProposer() {
+		if c.validValue != nil {
+			proposalRequest = tendermint.Request{ProposalBlock: c.validValue}
+		}
+	}
+
+	// TODO remove the following
 	if c.current == nil {
 		logger = c.logger.New("old_round", -1, "old_seq", 0)
 	} else {

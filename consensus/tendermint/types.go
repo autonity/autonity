@@ -49,6 +49,7 @@ type Request struct {
 //
 // If the given block is not accepted by validators, a round change will occur
 // and the validators start a new round with round+1.
+// TODO: probably don't need this struct, however, need to figure out how to write the encode and decode rlp stuff for whatever is going to replace this.
 type View struct {
 	Round    *big.Int
 	Sequence *big.Int
@@ -91,6 +92,7 @@ func (v *View) Cmp(y *View) int {
 	return 0
 }
 
+// TODO: update the proposal with the relevant values, ie with values that should be broadcasted
 type Proposal struct {
 	View          *View
 	ProposalBlock ProposalBlock
