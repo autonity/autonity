@@ -173,8 +173,6 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 		return testBacklog(c.handlePrevote(msg, src))
 	case msgPrecommit:
 		return testBacklog(c.handlePrecommit(msg, src))
-	case msgRoundChange:
-		return testBacklog(c.handleRoundChange(msg, src))
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}
@@ -182,6 +180,7 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 	return errInvalidMessage
 }
 
+// TODO: re-implement to incorporate all three timeouts
 func (c *core) handleTimeoutMsg() {
 	// If we're not waiting for round change yet, we can try to catch up
 	// the max round with F+1 round change message. We only need to catch up
@@ -191,7 +190,5 @@ func (c *core) handleTimeoutMsg() {
 	if lastProposal != nil && lastProposal.Number().Cmp(c.current.Sequence()) >= 0 {
 		c.logger.Trace("round change timeout, catch up latest sequence", "number", lastProposal.Number().Uint64())
 		c.startNewRound(common.Big0)
-	} else {
-		c.sendNextRoundChange()
 	}
 }

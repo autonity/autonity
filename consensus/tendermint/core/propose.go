@@ -98,7 +98,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 				})
 			})
 		} else {
-			c.sendNextRoundChange()
+			// TODO: possibly send propose(nil) (need to update)
 		}
 		return err
 	}
@@ -113,8 +113,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 				c.setState(StatePrevoteDone)
 				c.sendPrecommit() // TODO : double check, why not PREPARE?
 			} else {
-				// Send round change
-				c.sendNextRoundChange()
+				// TODO: possibly send propose(nil) (need to update)
 			}
 		} else {
 			// Either

@@ -42,7 +42,7 @@ func (s State) String() string {
 	if s == StateAcceptRequest {
 		return "Accept request"
 	} else if s == StateProposeDone {
-		return "Proposald"
+		return "Proposal"
 	} else if s == StatePrevoteDone {
 		return "Prevoted"
 	} else if s == StatePrecommitDone {
@@ -70,7 +70,6 @@ const (
 	msgProposal uint64 = iota
 	msgPrevote
 	msgPrecommit
-	msgRoundChange
 )
 
 type message struct {
