@@ -57,10 +57,6 @@ func (c *core) checkMessage(msgCode uint64, view *tendermint.View) error {
 		return errOldMessage
 	}
 
-	if c.waitingForRoundChange {
-		return errFutureMessage
-	}
-
 	// StateAcceptRequest only accepts msgProposal
 	// other messages are future messages
 	if c.state == StateAcceptRequest {

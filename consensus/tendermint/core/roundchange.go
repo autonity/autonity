@@ -40,12 +40,6 @@ func (c *core) sendRoundChange(round *big.Int) {
 		return
 	}
 
-	c.catchUpRound(&tendermint.View{
-		// The round number we'd like to transfer to.
-		Round:    new(big.Int).Set(round),
-		Sequence: new(big.Int).Set(cv.Sequence),
-	})
-
 	// Now we have the new round number and sequence number
 	cv = c.currentView()
 	rc := &tendermint.Subject{
@@ -79,33 +73,6 @@ func (c *core) handleRoundChange(msg *message, src tendermint.Validator) error {
 		return err
 	}
 
-	cv := c.currentView()
-	roundView := rc.View
-
-	// Add the ROUND CHANGE message to its message set and return how many
-	// messages we've got with the same round number and sequence number.
-	num, err := c.roundChangeSet.Add(roundView.Round, msg)
-	if err != nil {
-		logger.Warn("Failed to add round change message", "from", src, "msg", msg, "err", err)
-		return err
-	}
-
-	// Once we received f+1 ROUND CHANGE messages, those messages form a weak certificate.
-	// If our round number is smaller than the certificate's round number, we would
-	// try to catch up the round number.
-	if c.waitingForRoundChange && num == c.valSet.F()+1 {
-		if cv.Round.Cmp(roundView.Round) < 0 {
-			c.sendRoundChange(roundView.Round)
-		}
-		return nil
-	} else if num == 2*c.valSet.F()+1 && (c.waitingForRoundChange || cv.Round.Cmp(roundView.Round) < 0) {
-		// We've received 2f+1 ROUND CHANGE messages, start a new round immediately.
-		c.startNewRound(roundView.Round)
-		return nil
-	} else if cv.Round.Cmp(roundView.Round) < 0 {
-		// Only gossip the message with current round to other validators.
-		return errIgnored
-	}
 	return nil
 }
 

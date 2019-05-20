@@ -130,6 +130,5 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 }
 
 func (c *core) acceptProposal(proposal *tendermint.Proposal) {
-	c.consensusTimestamp = time.Now()
 	c.current.SetProposal(proposal)
 }
