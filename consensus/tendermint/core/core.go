@@ -31,22 +31,28 @@ import (
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
+var (
+	initialProposeTimeout   = 5 * time.Second
+	initialPrevoteTimeout   = 5 * time.Second
+	initialPrecommitTimeout = 5 * time.Second
+)
+
 // New creates an Istanbul consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
-		config:                  config,
-		address:                 backend.Address(),
-		state:                   StateAcceptRequest,
-		handlerStopCh:           make(chan struct{}),
-		logger:                  log.New("address", backend.Address()),
-		backend:                 backend,
-		backlogs:                make(map[tendermint.Validator]*prque.Prque),
-		backlogsMu:              new(sync.Mutex),
-		pendingRequests:         prque.New(),
-		pendingRequestsMu:       new(sync.Mutex),
-		initialProposeTimeout:   5 * time.Second,
-		initialPrevoteTimeout:   5 * time.Second,
-		initialPrecommitTimeout: 5 * time.Second,
+		config:            config,
+		address:           backend.Address(),
+		state:             StateAcceptRequest,
+		handlerStopCh:     make(chan struct{}),
+		logger:            log.New("address", backend.Address()),
+		backend:           backend,
+		backlogs:          make(map[tendermint.Validator]*prque.Prque),
+		backlogsMu:        new(sync.Mutex),
+		pendingRequests:   prque.New(),
+		pendingRequestsMu: new(sync.Mutex),
+		proposeTimeout:    new(timeout),
+		prevoteTimeout:    new(timeout),
+		precommitTimeout:  new(timeout),
 	}
 	c.validateFn = c.checkValidatorSignature
 	return c
@@ -96,17 +102,9 @@ type core struct {
 	// TODO: may require a mutex
 	latestPendingRequest *tendermint.Request
 
-	initialProposeTimeout time.Duration
-	proposeTimeoutTimer   *time.Timer
-	proposeTimeoutTimerMu sync.RWMutex
-
-	initialPrevoteTimeout time.Duration
-	prevoteTimeoutTimer   *time.Timer
-	prevoteTimeoutTimerMu sync.RWMutex
-
-	initialPrecommitTimeout time.Duration
-	precommitTimeoutTimer   *time.Timer
-	precommitTimeoutTimerMu sync.RWMutex
+	proposeTimeout   *timeout
+	prevoteTimeout   *timeout
+	precommitTimeout *timeout
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -249,7 +247,7 @@ func (c *core) startNewRound(round *big.Int) {
 		}
 		c.sendProposal(proposalRequest)
 	} else {
-		c.scheduleTimeoutPropose()
+		c.proposeTimeout.scheduleTimeout(timeoutPropose(round.Int64()), c.onTimeoutPropose)
 	}
 }
 
@@ -304,41 +302,52 @@ func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address,
 	return tendermint.CheckValidatorSignature(c.valSet, data, sig)
 }
 
-func (c *core) scheduleTimeoutPropose() {
-}
-
-func (c *core) onTimeoutPropose() {
-}
-
-func (c *core) timeoutPropose(round int64) time.Duration {
-	return time.Minute
-}
-
-func (c *core) scheduleTimeoutPrevote() {
-}
-
-func (c *core) onTimeoutPrevote() {
-}
-
-func (c *core) timeoutPrevote(round int64) time.Duration {
-	return time.Minute
-}
-
-func (c *core) scheduleTimeoutPrecommit() {
-}
-
-func (c *core) onTimeoutPrecommit() {
-
-}
-
-func (c *core) timeoutPrecommit(round int64) time.Duration {
-	return time.Minute
-}
-
 // PrepareCommittedSeal returns a committed seal for the given hash
 func PrepareCommittedSeal(hash common.Hash) []byte {
 	var buf bytes.Buffer
 	buf.Write(hash.Bytes())
 	buf.Write([]byte{byte(msgPrecommit)})
 	return buf.Bytes()
+}
+
+func (c *core) onTimeoutPropose() {
+}
+
+func (c *core) onTimeoutPrevote() {
+}
+
+func (c *core) onTimeoutPrecommit() {
+
+}
+
+type timeout struct {
+	timer *time.Timer
+	sync.RWMutex
+}
+
+// runAfterTimeout() will be run in a separate go routine, so values used inside the function needs to be managed separately
+func (t *timeout) scheduleTimeout(stepTimeout time.Duration, runAfterTimeout func()) *time.Timer {
+	t.Lock()
+	defer t.Unlock()
+	t.timer = time.AfterFunc(stepTimeout, runAfterTimeout)
+	return t.timer
+}
+
+func (t *timeout) stopTimer() bool {
+	t.RLock()
+	defer t.RUnlock()
+	return t.timer.Stop()
+}
+
+// The timeout may need to be changed depending on the State
+func timeoutPropose(round int64) time.Duration {
+	return initialProposeTimeout + time.Duration(round)*time.Second
+}
+
+func timeoutPrevote(round int64) time.Duration {
+	return initialProposeTimeout + time.Duration(round)*time.Second
+}
+
+func timeoutPrecommit(round int64) time.Duration {
+	return initialProposeTimeout + time.Duration(round)*time.Second
 }
