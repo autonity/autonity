@@ -46,6 +46,8 @@ func (c *core) Stop() error {
 
 // ----------------------------------------------------------------------------
 
+// TODO: update all of the TypeMuxSilent to event.Feed
+
 // Subscribe both internal and external events
 func (c *core) subscribeEvents() {
 	c.events = c.backend.EventMux().Subscribe(
@@ -55,9 +57,11 @@ func (c *core) subscribeEvents() {
 		// internal events
 		backlogEvent{},
 	)
+	// TODO: not sure why a backend EventMux is being used for core internal events, lazy coding
 	c.timeoutSub = c.backend.EventMux().Subscribe(
 		timeoutEvent{},
 	)
+	// TODO: not sure why a backend EventMux is being used for core internal events, lazy coding
 	c.finalCommittedSub = c.backend.EventMux().Subscribe(
 		tendermint.CommitEvent{},
 	)
