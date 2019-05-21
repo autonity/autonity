@@ -34,9 +34,9 @@ import (
 )
 
 const (
-	initialProposeTimeout   = 5 * time.Second
-	initialPrevoteTimeout   = 5 * time.Second
-	initialPrecommitTimeout = 5 * time.Second
+	initialProposeTimeout = 5 * time.Second
+	//initialPrevoteTimeout   = 5 * time.Second
+	//initialPrecommitTimeout = 5 * time.Second
 )
 
 var (
@@ -47,7 +47,7 @@ var (
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
 	// errIgnored is returned when a message was ignored.
-	errIgnored = errors.New("message is ignored")
+	//errIgnored = errors.New("message is ignored")
 	// errFutureMessage is returned when currentRoundState view is earlier than the
 	// view of the received message.
 	errFutureMessage = errors.New("future message")
@@ -320,12 +320,12 @@ func PrepareCommittedSeal(hash common.Hash) []byte {
 func (c *core) onTimeoutPropose() {
 }
 
-func (c *core) onTimeoutPrevote() {
-}
-
-func (c *core) onTimeoutPrecommit() {
-
-}
+//func (c *core) onTimeoutPrevote() {
+//}
+//
+//func (c *core) onTimeoutPrecommit() {
+//
+//}
 
 //---------------------------------------Timeout---------------------------------------
 
@@ -344,24 +344,24 @@ func (t *timeout) scheduleTimeout(stepTimeout time.Duration, runAfterTimeout fun
 	return t.timer
 }
 
-func (t *timeout) stopTimer() bool {
-	t.RLock()
-	defer t.RUnlock()
-	return t.timer.Stop()
-}
+//func (t *timeout) stopTimer() bool {
+//	t.RLock()
+//	defer t.RUnlock()
+//	return t.timer.Stop()
+//}
 
 // The timeout may need to be changed depending on the Step
 func timeoutPropose(round int64) time.Duration {
 	return initialProposeTimeout + time.Duration(round)*time.Second
 }
 
-func timeoutPrevote(round int64) time.Duration {
-	return initialProposeTimeout + time.Duration(round)*time.Second
-}
-
-func timeoutPrecommit(round int64) time.Duration {
-	return initialProposeTimeout + time.Duration(round)*time.Second
-}
+//func timeoutPrevote(round int64) time.Duration {
+//	return initialProposeTimeout + time.Duration(round)*time.Second
+//}
+//
+//func timeoutPrecommit(round int64) time.Duration {
+//	return initialProposeTimeout + time.Duration(round)*time.Second
+//}
 
 //---------------------------------------Handler---------------------------------------
 
@@ -834,9 +834,9 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 					msg: msg,
 				})
 			})
-		} else {
-			// TODO: possibly send propose(nil) (need to update)
-		}
+		} //else {
+		// TODO: possibly send propose(nil) (need to update)
+		//}
 		return err
 	}
 
@@ -849,9 +849,9 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 				c.acceptProposal(proposal)
 				c.setStep(StepPrevoteDone)
 				c.sendPrecommit() // TODO : double check, why not PREPARE?
-			} else {
-				// TODO: possibly send propose(nil) (need to update)
-			}
+			} //else {
+			// TODO: possibly send propose(nil) (need to update)
+			//}
 		} else {
 			// Either
 			//   1. the locked proposal and the received proposal match
