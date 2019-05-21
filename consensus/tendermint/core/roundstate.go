@@ -29,7 +29,7 @@ import (
 // newRoundState creates a new roundState instance with the given view and validatorSet
 // lockedHash and proposal are for round change when lock exists,
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
-func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, lockedHash common.Hash, proposal *tendermint.Proposal, pendingRequest *tendermint.Request, hasBadProposal func(hash common.Hash) bool) *roundState {
+func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, lockedHash common.Hash, proposal *tendermint.Proposal, hasBadProposal func(hash common.Hash) bool) *roundState {
 	return &roundState{
 		round:          view.Round,
 		height:         view.Height,
@@ -38,7 +38,6 @@ func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, 
 		Precommits:     newMessageSet(validatorSet),
 		lockedHash:     lockedHash,
 		mu:             new(sync.RWMutex),
-		pendingRequest: pendingRequest,
 		hasBadProposal: hasBadProposal,
 	}
 }
@@ -54,8 +53,6 @@ type roundState struct {
 	Precommits *messageSet
 	// TODO: remove this lockedHash as this should be in core
 	lockedHash common.Hash
-	// TODO: also remove pendingRequest, this should only be managed by core
-	pendingRequest *tendermint.Request
 
 	mu             *sync.RWMutex
 	hasBadProposal func(hash common.Hash) bool
@@ -177,13 +174,12 @@ func (s *roundState) GetLockedHash() common.Hash {
 // be confusing.
 func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 	var ss struct {
-		Round          *big.Int
-		Height         *big.Int
-		proposal       *tendermint.Proposal
-		Prevotes       *messageSet
-		Precommits     *messageSet
-		lockedHash     common.Hash
-		pendingRequest *tendermint.Request
+		Round      *big.Int
+		Height     *big.Int
+		proposal   *tendermint.Proposal
+		Prevotes   *messageSet
+		Precommits *messageSet
+		lockedHash common.Hash
 	}
 
 	if err := stream.Decode(&ss); err != nil {
@@ -195,7 +191,6 @@ func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 	s.Prevotes = ss.Prevotes
 	s.Precommits = ss.Precommits
 	s.lockedHash = ss.lockedHash
-	s.pendingRequest = ss.pendingRequest
 	s.mu = new(sync.RWMutex)
 
 	return nil
@@ -220,6 +215,5 @@ func (s *roundState) EncodeRLP(w io.Writer) error {
 		s.Prevotes,
 		s.Precommits,
 		s.lockedHash,
-		s.pendingRequest,
 	})
 }

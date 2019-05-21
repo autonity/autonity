@@ -259,7 +259,6 @@ func (c *core) startRound(round *big.Int) {
 		c.valSet,
 		common.Hash{},
 		nil,
-		nil,
 		c.backend.HasBadProposal,
 	)
 
