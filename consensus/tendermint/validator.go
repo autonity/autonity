@@ -28,6 +28,12 @@ type Validator interface {
 
 	// String representation of Validator
 	String() string
+
+	VotingPower()	int64
+	SetVotingPower(power int64)
+
+	ProposerPriority() int64
+	SetProposerPriority(priority int64)
 }
 
 // ----------------------------------------------------------------------------

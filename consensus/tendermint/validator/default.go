@@ -28,14 +28,32 @@ import (
 
 type defaultValidator struct {
 	address common.Address
+	votingPower	int64
+	proposerPriority int64
 }
 
-func (val *defaultValidator) Address() common.Address {
+func (val defaultValidator) Address() common.Address {
 	return val.address
 }
 
-func (val *defaultValidator) String() string {
+func (val defaultValidator) String() string {
 	return val.Address().String()
+}
+
+func (val defaultValidator) VotingPower()	int64 {
+	return val.votingPower
+}
+
+func (val *defaultValidator) SetVotingPower(power int64) {
+	val.votingPower = power
+}
+
+func (val defaultValidator) ProposerPriority() int64 {
+	return val.proposerPriority
+}
+
+func (val *defaultValidator) SetProposerPriority(priority int64) {
+	val.proposerPriority = priority
 }
 
 // ----------------------------------------------------------------------------
@@ -47,6 +65,8 @@ type defaultSet struct {
 	proposer    tendermint.Validator
 	validatorMu sync.RWMutex
 	selector    tendermint.ProposalSelector
+
+	totalVotingPower int64
 }
 
 func newDefaultSet(addrs []common.Address, policy tendermint.ProposerPolicy) *defaultSet {
@@ -58,8 +78,10 @@ func newDefaultSet(addrs []common.Address, policy tendermint.ProposerPolicy) *de
 	for i, addr := range addrs {
 		valSet.validators[i] = New(addr)
 	}
+
 	// sort validator
 	sort.Sort(valSet.validators)
+
 	// init proposer
 	if valSet.Size() > 0 {
 		valSet.proposer = valSet.GetByIndex(0)
@@ -70,6 +92,11 @@ func newDefaultSet(addrs []common.Address, policy tendermint.ProposerPolicy) *de
 		valSet.selector = stickyProposer
 	case tendermint.RoundRobin:
 		valSet.selector = roundRobinProposer
+	case tendermint.Tendermint:
+		valSet.selector = tendermintProposer
+		if len(valSet.validators) > 0 {
+			valSet.IncrementProposerPriority(1)
+		}
 	default:
 		valSet.selector = roundRobinProposer
 	}
