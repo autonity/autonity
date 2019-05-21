@@ -192,10 +192,10 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	eventSub := engine.EventMux().Subscribe(tendermint.RequestEvent{})
+	eventSub := engine.EventMux().Subscribe(tendermint.NewUnminedBlockEvent{})
 	eventLoop := func() {
 		ev := <-eventSub.Chan()
-		_, ok := ev.Data.(tendermint.RequestEvent)
+		_, ok := ev.Data.(tendermint.NewUnminedBlockEvent)
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}

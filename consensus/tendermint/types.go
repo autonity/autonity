@@ -26,29 +26,6 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
-// ProposalBlock supports retrieving height and serialized block to be used during Tendermint consensus.
-type ProposalBlock interface {
-	// Number retrieves the sequence number of this proposal.
-	Number() *big.Int
-
-	// Hash retrieves the hash of this proposal.
-	Hash() common.Hash
-
-	EncodeRLP(w io.Writer) error
-
-	DecodeRLP(s *rlp.Stream) error
-}
-
-type Request struct {
-	ProposalBlock ProposalBlock
-}
-
-// View includes a round number and a sequence number.
-// Height is the block number we'd like to commit.
-// Each round has a number and is composed by 3 steps: proposal, prepare and commit.
-//
-// If the given block is not accepted by validators, a round change will occur
-// and the validators start a new round with round+1.
 // TODO: probably don't need this struct, however, need to figure out how to write the encode and decode rlp stuff for whatever is going to replace this.
 type View struct {
 	Round  *big.Int
@@ -95,7 +72,7 @@ func (v *View) Cmp(y *View) int {
 // TODO: update the proposal with the relevant values, ie with values that should be broadcasted
 type Proposal struct {
 	View          *View
-	ProposalBlock ProposalBlock
+	ProposalBlock types.Block
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
@@ -107,7 +84,7 @@ func (b *Proposal) EncodeRLP(w io.Writer) error {
 func (b *Proposal) DecodeRLP(s *rlp.Stream) error {
 	var proposal struct {
 		View     *View
-		Proposal *types.Block
+		Proposal types.Block
 	}
 
 	if err := s.Decode(&proposal); err != nil {

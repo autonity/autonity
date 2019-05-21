@@ -77,19 +77,19 @@ var (
 // New creates an Istanbul consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
-		config:            config,
-		address:           backend.Address(),
-		step:              StepAcceptRequest,
-		handlerStopCh:     make(chan struct{}),
-		logger:            log.New("address", backend.Address()),
-		backend:           backend,
-		backlogs:          make(map[tendermint.Validator]*prque.Prque),
-		backlogsMu:        new(sync.Mutex),
-		pendingRequests:   prque.New(),
-		pendingRequestsMu: new(sync.Mutex),
-		proposeTimeout:    new(timeout),
-		prevoteTimeout:    new(timeout),
-		precommitTimeout:  new(timeout),
+		config:                 config,
+		address:                backend.Address(),
+		step:                   StepAcceptRequest,
+		handlerStopCh:          make(chan struct{}),
+		logger:                 log.New("address", backend.Address()),
+		backend:                backend,
+		backlogs:               make(map[tendermint.Validator]*prque.Prque),
+		backlogsMu:             new(sync.Mutex),
+		pendingUnminedBlocks:   prque.New(),
+		pendingUnminedBlocksMu: new(sync.Mutex),
+		proposeTimeout:         new(timeout),
+		prevoteTimeout:         new(timeout),
+		precommitTimeout:       new(timeout),
 	}
 	c.validateFn = c.checkValidatorSignature
 	return c
@@ -118,20 +118,20 @@ type core struct {
 	currentRoundState *roundState
 	handlerStopCh     chan struct{}
 
-	pendingRequests   *prque.Prque
-	pendingRequestsMu *sync.Mutex
+	pendingUnminedBlocks   *prque.Prque
+	pendingUnminedBlocksMu *sync.Mutex
 
 	sentProposal bool
 
 	lockedRound *big.Int
 	validRound  *big.Int
-	lockedValue tendermint.ProposalBlock
-	validValue  tendermint.ProposalBlock
+	lockedValue *types.Block
+	validValue  *types.Block
 
 	currentHeightRoundsStates []roundState
 
 	// TODO: may require a mutex
-	latestPendingRequest *tendermint.Request
+	latestPendingUnminedBlock *types.Block
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -233,9 +233,9 @@ func (c *core) startRound(round *big.Int) {
 	if round.Uint64() == 0 {
 		// Set the shared round values to initial values
 		c.lockedRound = nil
-		c.lockedValue = nil
+		c.lockedValue = new(types.Block)
 		c.validRound = nil
-		c.validValue = nil
+		c.validValue = new(types.Block)
 
 		c.valSet = c.backend.Validators(height.Uint64())
 
@@ -267,14 +267,14 @@ func (c *core) startRound(round *big.Int) {
 	// c.setStep(StepAcceptRequest) will process the pending request sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setStep(StepAcceptRequest)
 
-	var proposalRequest *tendermint.Request
+	var p *types.Block
 	if c.isProposer() {
 		if c.validValue != nil {
-			proposalRequest = &tendermint.Request{ProposalBlock: c.validValue}
+			p = c.validValue
 		} else {
-			proposalRequest = c.latestPendingRequest
+			p = c.latestPendingUnminedBlock
 		}
-		c.sendProposal(proposalRequest)
+		c.sendProposal(p)
 	} else {
 		c.proposeTimeout.scheduleTimeout(timeoutPropose(round.Int64()), c.onTimeoutPropose)
 	}
@@ -394,7 +394,7 @@ func (c *core) Stop() error {
 func (c *core) subscribeEvents() {
 	c.events = c.backend.EventMux().Subscribe(
 		// external events
-		tendermint.RequestEvent{},
+		tendermint.NewUnminedBlockEvent{},
 		tendermint.MessageEvent{},
 		// internal events
 		backlogEvent{},
@@ -425,28 +425,26 @@ func (c *core) handleEvents() {
 
 	for {
 		select {
-		case event, ok := <-c.events.Chan():
+		case ev, ok := <-c.events.Chan():
 			if !ok {
 				return
 			}
-			// A real event arrived, process interesting content
-			switch ev := event.Data.(type) {
-			case tendermint.RequestEvent:
-				r := &tendermint.Request{
-					ProposalBlock: ev.ProposalBlock,
-				}
-				err := c.handleRequest(r)
+			// A real ev arrived, process interesting content
+			switch e := ev.Data.(type) {
+			case tendermint.NewUnminedBlockEvent:
+				pb := &e.NewUnminedBlock
+				err := c.handleUnminedBlock(pb)
 				if err == errFutureMessage {
-					c.storeRequestMsg(r)
+					c.storeUnminedBlockMsg(pb)
 				}
 			case tendermint.MessageEvent:
-				if err := c.handleMsg(ev.Payload); err == nil {
-					c.backend.Gossip(c.valSet, ev.Payload)
+				if err := c.handleMsg(e.Payload); err == nil {
+					c.backend.Gossip(c.valSet, e.Payload)
 				}
 			case backlogEvent:
 				// No need to check signature for internal messages
-				if err := c.handleCheckedMsg(ev.msg, ev.src); err == nil {
-					p, err := ev.msg.Payload()
+				if err := c.handleCheckedMsg(e.msg, e.src); err == nil {
+					p, err := e.msg.Payload()
 					if err != nil {
 						c.logger.Warn("Get message payload failed", "err", err)
 						continue
@@ -459,11 +457,11 @@ func (c *core) handleEvents() {
 				return
 			}
 			c.handleTimeoutMsg()
-		case event, ok := <-c.finalCommittedSub.Chan():
+		case ev, ok := <-c.finalCommittedSub.Chan():
 			if !ok {
 				return
 			}
-			switch event.Data.(type) {
+			switch ev.Data.(type) {
 			case tendermint.CommitEvent:
 				c.handleCommit()
 			}
@@ -524,15 +522,6 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 
 // TODO: re-implement to incorporate all three timeouts
 func (c *core) handleTimeoutMsg() {
-	// If we're not waiting for round change yet, we can try to catch up
-	// the max round with F+1 round change message. We only need to catch up
-	// if the max round is larger than currentRoundState round.
-
-	lastProposal, _ := c.backend.LastProposal()
-	if lastProposal != nil && lastProposal.Number().Cmp(c.currentRoundState.Height()) >= 0 {
-		c.logger.Trace("round change timeout, catch up latest height", "number", lastProposal.Number().Uint64())
-		c.startRound(common.Big0)
-	}
 }
 
 //---------------------------------------Backlog---------------------------------------
@@ -675,26 +664,26 @@ func toPriority(msgCode uint64, view *tendermint.View) float32 {
 	return -float32(view.Height.Uint64()*1000 + view.Round.Uint64()*10 + uint64(msgPriority[msgCode]))
 }
 
-//---------------------------------------Request---------------------------------------
+//---------------------------------------NewUnminedBlock---------------------------------------
 
-func (c *core) handleRequest(request *tendermint.Request) error {
+func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 	logger := c.logger.New("step", c.step, "height", c.currentRoundState.height)
 
-	if err := c.checkRequestMsg(request); err != nil {
+	if err := c.checkUnminedBlockMsg(unminedBlock); err != nil {
 		if err == errInvalidMessage {
-			logger.Warn("invalid request")
+			logger.Warn("invalid unminedBlock")
 			return err
 		}
-		logger.Warn("unexpected request", "err", err, "number", request.ProposalBlock.Number(), "hash", request.ProposalBlock.Hash())
+		logger.Warn("unexpected unminedBlock", "err", err, "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
 		return err
 	}
 
-	logger.Trace("handleRequest", "number", request.ProposalBlock.Number(), "hash", request.ProposalBlock.Hash())
+	logger.Trace("handleUnminedBlock", "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
 
-	c.latestPendingRequest = request
-	// TODO: remove, we should not be sending a proposal from handleRequest
+	c.latestPendingUnminedBlock = unminedBlock
+	// TODO: remove, we should not be sending a proposal from handleUnminedBlock
 	if c.step == StepAcceptRequest {
-		c.sendProposal(request)
+		c.sendProposal(unminedBlock)
 	}
 	return nil
 }
@@ -703,12 +692,12 @@ func (c *core) handleRequest(request *tendermint.Request) error {
 // return errInvalidMessage if the message is invalid
 // return errFutureMessage if the height of proposal is larger than currentRoundState height
 // return errOldMessage if the height of proposal is smaller than currentRoundState height
-func (c *core) checkRequestMsg(request *tendermint.Request) error {
-	if request == nil || request.ProposalBlock == nil {
+func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
+	if unminedBlock == nil {
 		return errInvalidMessage
 	}
 
-	if c := c.currentRoundState.height.Cmp(request.ProposalBlock.Number()); c > 0 {
+	if c := c.currentRoundState.height.Cmp(unminedBlock.Number()); c > 0 {
 		return errOldMessage
 	} else if c < 0 {
 		return errFutureMessage
@@ -717,43 +706,43 @@ func (c *core) checkRequestMsg(request *tendermint.Request) error {
 	}
 }
 
-func (c *core) storeRequestMsg(request *tendermint.Request) {
+func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
 	logger := c.logger.New("step", c.step)
 
-	logger.Trace("Store future request", "number", request.ProposalBlock.Number(), "hash", request.ProposalBlock.Hash())
+	logger.Trace("Store future unminedBlock", "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
 
-	c.pendingRequestsMu.Lock()
-	defer c.pendingRequestsMu.Unlock()
+	c.pendingUnminedBlocksMu.Lock()
+	defer c.pendingUnminedBlocksMu.Unlock()
 
-	c.pendingRequests.Push(request, float32(-request.ProposalBlock.Number().Int64()))
+	c.pendingUnminedBlocks.Push(unminedBlock, float32(-unminedBlock.Number().Int64()))
 }
 
 func (c *core) processPendingRequests() {
-	c.pendingRequestsMu.Lock()
-	defer c.pendingRequestsMu.Unlock()
+	c.pendingUnminedBlocksMu.Lock()
+	defer c.pendingUnminedBlocksMu.Unlock()
 
-	for !(c.pendingRequests.Empty()) {
-		m, prio := c.pendingRequests.Pop()
-		r, ok := m.(*tendermint.Request)
+	for !(c.pendingUnminedBlocks.Empty()) {
+		m, prio := c.pendingUnminedBlocks.Pop()
+		ub, ok := m.(*types.Block)
 		if !ok {
 			c.logger.Warn("Malformed request, skip", "msg", m)
 			continue
 		}
 		// Push back if it's a future message
-		err := c.checkRequestMsg(r)
+		err := c.checkUnminedBlockMsg(ub)
 		if err != nil {
 			if err == errFutureMessage {
-				c.logger.Trace("Stop processing request", "number", r.ProposalBlock.Number(), "hash", r.ProposalBlock.Hash())
-				c.pendingRequests.Push(m, prio)
+				c.logger.Trace("Stop processing request", "number", ub.Number(), "hash", ub.Hash())
+				c.pendingUnminedBlocks.Push(m, prio)
 				break
 			}
-			c.logger.Trace("Skip the pending request", "number", r.ProposalBlock.Number(), "hash", r.ProposalBlock.Hash(), "err", err)
+			c.logger.Trace("Skip the pending request", "number", ub.Number(), "hash", ub.Hash(), "err", err)
 			continue
 		}
-		c.logger.Trace("Post pending request", "number", r.ProposalBlock.Number(), "hash", r.ProposalBlock.Hash())
+		c.logger.Trace("Post pending request", "number", ub.Number(), "hash", ub.Hash())
 
-		go c.sendEvent(tendermint.RequestEvent{
-			ProposalBlock: r.ProposalBlock,
+		go c.sendEvent(tendermint.NewUnminedBlockEvent{
+			NewUnminedBlock: *ub,
 		})
 	}
 }
@@ -762,22 +751,22 @@ func (c *core) processPendingRequests() {
 
 // TODO: add new message struct for proposal (proposalMessage) and determine how to rlp encode them especially nil
 // TODO: add new message for vote (prevote and precommit) and determine how to rlp encode them especially nil
-func (c *core) sendProposal(request *tendermint.Request) {
+func (c *core) sendProposal(p *types.Block) {
 	logger := c.logger.New("step", c.step)
 
 	// If I'm the proposer and I have the same height with the proposal
-	if c.currentRoundState.Height().Cmp(request.ProposalBlock.Number()) == 0 && c.isProposer() && !c.sentProposal {
+	if c.currentRoundState.Height().Cmp(p.Number()) == 0 && c.isProposer() && !c.sentProposal {
 		curView := c.currentView()
 		proposal, err := Encode(&tendermint.Proposal{
 			View:          curView,
-			ProposalBlock: request.ProposalBlock,
+			ProposalBlock: *p,
 		})
 		if err != nil {
 			logger.Error("Failed to encode", "view", curView)
 			return
 		}
 		c.sentProposal = true
-		c.backend.SetProposedBlockHash(request.ProposalBlock.Hash())
+		c.backend.SetProposedBlockHash(p.Hash())
 		c.broadcast(&message{
 			Code: msgProposal,
 			Msg:  proposal,

@@ -188,10 +188,11 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 }
 
 // Precommit implements tendermint.Backend.Precommit
-func (sb *Backend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) error {
+func (sb *Backend) Precommit(proposal types.Block, seals [][]byte) error {
 	// Check if the proposal is a valid block
-	block, ok := proposal.(*types.Block)
-	if !ok {
+	block := &proposal
+
+	if block == nil {
 		sb.logger.Error("Invalid proposal, %v", proposal)
 		return errInvalidProposal
 	}
@@ -230,10 +231,10 @@ func (sb *Backend) EventMux() *event.TypeMuxSilent {
 }
 
 // Verify implements tendermint.Backend.Verify
-func (sb *Backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, error) {
+func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
 	// Check if the proposal is a valid block
-	block, ok := proposal.(*types.Block)
-	if !ok {
+	block := &proposal
+	if block == nil {
 		sb.logger.Error("Invalid proposal, %v", proposal)
 		return 0, errInvalidProposal
 	}
@@ -360,7 +361,7 @@ func (sb *Backend) GetProposer(number uint64) common.Address {
 	return common.Address{}
 }
 
-func (sb *Backend) LastProposal() (tendermint.ProposalBlock, common.Address) {
+func (sb *Backend) LastProposal() (types.Block, common.Address) {
 	block := sb.currentBlock()
 
 	var proposer common.Address
@@ -369,12 +370,12 @@ func (sb *Backend) LastProposal() (tendermint.ProposalBlock, common.Address) {
 		proposer, err = sb.Author(block.Header())
 		if err != nil {
 			sb.logger.Error("Failed to get block proposer", "err", err)
-			return nil, common.Address{}
+			return types.Block{}, common.Address{}
 		}
 	}
 
 	// Return header only block here since we don't need block body
-	return block, proposer
+	return *block, proposer
 }
 
 func (sb *Backend) HasBadProposal(hash common.Hash) bool {

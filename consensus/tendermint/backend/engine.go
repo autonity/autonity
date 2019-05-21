@@ -420,8 +420,8 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	sb.commitCh = results // results channel stays always the same
 
 	// post block into PoS engine
-	go sb.EventMux().Post(tendermint.RequestEvent{
-		ProposalBlock: block,
+	go sb.EventMux().Post(tendermint.NewUnminedBlockEvent{
+		NewUnminedBlock: *block,
 	})
 
 	return nil
