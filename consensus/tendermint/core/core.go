@@ -41,18 +41,18 @@ const (
 
 var (
 	// errInconsistentSubject is returned when received subject is different from
-	// current subject.
+	// currentRoundState subject.
 	errInconsistentSubject = errors.New("inconsistent subjects")
 	// errNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
 	// errIgnored is returned when a message was ignored.
 	errIgnored = errors.New("message is ignored")
-	// errFutureMessage is returned when current view is earlier than the
+	// errFutureMessage is returned when currentRoundState view is earlier than the
 	// view of the received message.
 	errFutureMessage = errors.New("future message")
 	// errOldMessage is returned when the received message's view is earlier
-	// than current view.
+	// than currentRoundState view.
 	errOldMessage = errors.New("old message")
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")
@@ -79,7 +79,7 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
 		config:            config,
 		address:           backend.Address(),
-		state:             StateAcceptRequest,
+		step:              StepAcceptRequest,
 		handlerStopCh:     make(chan struct{}),
 		logger:            log.New("address", backend.Address()),
 		backend:           backend,
@@ -101,7 +101,7 @@ type core struct {
 	config  *tendermint.Config
 	address common.Address
 	// TODO change the name to step Step
-	state  State
+	step   Step
 	logger log.Logger
 
 	backend             tendermint.Backend
@@ -116,9 +116,8 @@ type core struct {
 	backlogs   map[tendermint.Validator]*prque.Prque
 	backlogsMu *sync.Mutex
 
-	// TODO: update the name to currentRoundState
-	current       *roundState
-	handlerStopCh chan struct{}
+	currentRoundState *roundState
+	handlerStopCh     chan struct{}
 
 	pendingRequests   *prque.Prque
 	pendingRequestsMu *sync.Mutex
@@ -148,8 +147,8 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	// Add proof of consensus
 	msg.CommittedSeal = []byte{}
 	// Assign the CommittedSeal if it's a COMMIT message and proposal is not nil
-	if msg.Code == msgPrecommit && c.current.Proposal() != nil {
-		seal := PrepareCommittedSeal(c.current.Proposal().ProposalBlock.Hash())
+	if msg.Code == msgPrecommit && c.currentRoundState.Proposal() != nil {
+		seal := PrepareCommittedSeal(c.currentRoundState.Proposal().ProposalBlock.Hash())
 		msg.CommittedSeal, err = c.backend.Sign(seal)
 		if err != nil {
 			return nil, err
@@ -176,7 +175,7 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 }
 
 func (c *core) broadcast(msg *message) {
-	logger := c.logger.New("state", c.state)
+	logger := c.logger.New("step", c.step)
 
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
@@ -193,8 +192,8 @@ func (c *core) broadcast(msg *message) {
 
 func (c *core) currentView() *tendermint.View {
 	return &tendermint.View{
-		Sequence: new(big.Int).Set(c.current.Sequence()),
-		Round:    new(big.Int).Set(c.current.Round()),
+		Sequence: new(big.Int).Set(c.currentRoundState.Sequence()),
+		Round:    new(big.Int).Set(c.currentRoundState.Round()),
 	}
 }
 
@@ -207,27 +206,26 @@ func (c *core) isProposer() bool {
 }
 
 func (c *core) commit() {
-	c.setState(StatePrecommitDone)
+	c.setStep(StepPrecommitDone)
 
-	proposal := c.current.Proposal()
+	proposal := c.currentRoundState.Proposal()
 	if proposal != nil {
-		committedSeals := make([][]byte, c.current.Precommits.Size())
-		for i, v := range c.current.Precommits.Values() {
+		committedSeals := make([][]byte, c.currentRoundState.Precommits.Size())
+		for i, v := range c.currentRoundState.Precommits.Values() {
 			committedSeals[i] = make([]byte, types.PoSExtraSeal)
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 
 		if err := c.backend.Precommit(proposal.ProposalBlock, committedSeals); err != nil {
-			c.current.UnlockHash() //Unlock block when insertion fails
+			c.currentRoundState.UnlockHash() //Unlock block when insertion fails
 			// TODO: go to next height
 			return
 		}
 	}
 }
 
-// startNewRound starts a new round. if round equals to 0, it means to starts a new sequence
-// TODO: change name to startRound
-func (c *core) startNewRound(round *big.Int) {
+// startRound starts a new round. if round equals to 0, it means to starts a new sequence
+func (c *core) startRound(round *big.Int) {
 	//TODO: update the name of lastProposalBlock and LastBlockProposal()
 	lastProposalBlock, lastProposalBlockProposer := c.backend.LastProposal()
 	height := new(big.Int).Add(lastProposalBlock.Number(), common.Big1)
@@ -247,17 +245,17 @@ func (c *core) startNewRound(round *big.Int) {
 
 	} else {
 		// Assuming the above values will be set for round > 0
-		// Add the current round state to the core previous round states
-		c.currentHeightRoundsStates = append(c.currentHeightRoundsStates, *c.current)
+		// Add the currentRoundState round step to the core previous round states
+		c.currentHeightRoundsStates = append(c.currentHeightRoundsStates, *c.currentRoundState)
 	}
 
-	// Update the current round state
+	// Update the currentRoundState round step
 	curView := tendermint.View{
 		Round:    new(big.Int).Set(round),
 		Sequence: new(big.Int).Set(height),
 	}
 
-	c.current = newRoundState(
+	c.currentRoundState = newRoundState(
 		&curView,
 		c.valSet,
 		common.Hash{},
@@ -268,8 +266,8 @@ func (c *core) startNewRound(round *big.Int) {
 
 	c.valSet.CalcProposer(lastProposalBlockProposer, round.Uint64())
 	c.sentProposal = false
-	// c.setState(StateAcceptRequest) will process the pending request sent by the backed.Seal() and set c.lastestPendingRequest
-	c.setState(StateAcceptRequest)
+	// c.setStep(StepAcceptRequest) will process the pending request sent by the backed.Seal() and set c.lastestPendingRequest
+	c.setStep(StepAcceptRequest)
 
 	var proposalRequest *tendermint.Request
 	if c.isProposer() {
@@ -284,11 +282,12 @@ func (c *core) startNewRound(round *big.Int) {
 	}
 }
 
-func (c *core) setState(state State) {
-	if c.state != state {
-		c.state = state
+func (c *core) setStep(step Step) {
+	// TODO: remove the if
+	if c.step != step {
+		c.step = step
 	}
-	if state == StateAcceptRequest {
+	if step == StepAcceptRequest {
 		c.processPendingRequests()
 	}
 	c.processBacklog()
@@ -353,7 +352,7 @@ func (t *timeout) stopTimer() bool {
 	return t.timer.Stop()
 }
 
-// The timeout may need to be changed depending on the State
+// The timeout may need to be changed depending on the Step
 func timeoutPropose(round int64) time.Duration {
 	return initialProposeTimeout + time.Duration(round)*time.Second
 }
@@ -371,7 +370,7 @@ func timeoutPrecommit(round int64) time.Duration {
 // Start implements core.Engine.Start
 func (c *core) Start() error {
 	// Start a new round from last sequence + 1
-	c.startNewRound(common.Big0)
+	c.startRound(common.Big0)
 
 	// Tests will handle events itself, so we have to make subscribeEvents()
 	// be able to call in test.
@@ -420,9 +419,9 @@ func (c *core) unsubscribeEvents() {
 }
 
 func (c *core) handleEvents() {
-	// Clear state
+	// Clear step
 	defer func() {
-		c.current = nil
+		c.currentRoundState = nil
 		<-c.handlerStopCh
 	}()
 
@@ -529,12 +528,12 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 func (c *core) handleTimeoutMsg() {
 	// If we're not waiting for round change yet, we can try to catch up
 	// the max round with F+1 round change message. We only need to catch up
-	// if the max round is larger than current round.
+	// if the max round is larger than currentRoundState round.
 
 	lastProposal, _ := c.backend.LastProposal()
-	if lastProposal != nil && lastProposal.Number().Cmp(c.current.Sequence()) >= 0 {
+	if lastProposal != nil && lastProposal.Number().Cmp(c.currentRoundState.Sequence()) >= 0 {
 		c.logger.Trace("round change timeout, catch up latest sequence", "number", lastProposal.Number().Uint64())
-		c.startNewRound(common.Big0)
+		c.startRound(common.Big0)
 	}
 }
 
@@ -545,10 +544,10 @@ type backlogEvent struct {
 	msg *message
 }
 
-// checkMessage checks the message state
+// checkMessage checks the message step
 // return errInvalidMessage if the message is invalid
-// return errFutureMessage if the message view is larger than current view
-// return errOldMessage if the message view is smaller than current view
+// return errFutureMessage if the message view is larger than currentRoundState view
+// return errOldMessage if the message view is smaller than currentRoundState view
 func (c *core) checkMessage(msgCode uint64, view *tendermint.View) error {
 	if view == nil || view.Sequence == nil || view.Round == nil {
 		return errInvalidMessage
@@ -562,22 +561,22 @@ func (c *core) checkMessage(msgCode uint64, view *tendermint.View) error {
 		return errOldMessage
 	}
 
-	// StateAcceptRequest only accepts msgProposal
+	// StepAcceptRequest only accepts msgProposal
 	// other messages are future messages
-	if c.state == StateAcceptRequest {
+	if c.step == StepAcceptRequest {
 		if msgCode > msgProposal {
 			return errFutureMessage
 		}
 		return nil
 	}
 
-	// For states(StateProposeDone, StatePrevoteDone, StatePrecommitDone),
+	// For steps(StepProposeDone, StepPrevoteDone, StepPrecommitDone),
 	// can accept all message types if processing with same view
 	return nil
 }
 
 func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
-	logger := c.logger.New("from", src, "state", c.state)
+	logger := c.logger.New("from", src, "step", c.step)
 
 	if src.Address() == c.Address() {
 		logger.Warn("Backlog from self")
@@ -620,7 +619,7 @@ func (c *core) processBacklog() {
 			continue
 		}
 
-		logger := c.logger.New("from", src, "state", c.state)
+		logger := c.logger.New("from", src, "step", c.step)
 		var isFuture bool
 
 		// We stop processing if
@@ -681,7 +680,7 @@ func toPriority(msgCode uint64, view *tendermint.View) float32 {
 //---------------------------------------Request---------------------------------------
 
 func (c *core) handleRequest(request *tendermint.Request) error {
-	logger := c.logger.New("state", c.state, "seq", c.current.sequence)
+	logger := c.logger.New("step", c.step, "seq", c.currentRoundState.sequence)
 
 	if err := c.checkRequestMsg(request); err != nil {
 		if err == errInvalidMessage {
@@ -696,22 +695,22 @@ func (c *core) handleRequest(request *tendermint.Request) error {
 
 	c.latestPendingRequest = request
 	// TODO: remove, we should not be sending a proposal from handleRequest
-	if c.state == StateAcceptRequest {
+	if c.step == StepAcceptRequest {
 		c.sendProposal(request)
 	}
 	return nil
 }
 
-// check request state
+// check request step
 // return errInvalidMessage if the message is invalid
-// return errFutureMessage if the sequence of proposal is larger than current sequence
-// return errOldMessage if the sequence of proposal is smaller than current sequence
+// return errFutureMessage if the sequence of proposal is larger than currentRoundState sequence
+// return errOldMessage if the sequence of proposal is smaller than currentRoundState sequence
 func (c *core) checkRequestMsg(request *tendermint.Request) error {
 	if request == nil || request.ProposalBlock == nil {
 		return errInvalidMessage
 	}
 
-	if c := c.current.sequence.Cmp(request.ProposalBlock.Number()); c > 0 {
+	if c := c.currentRoundState.sequence.Cmp(request.ProposalBlock.Number()); c > 0 {
 		return errOldMessage
 	} else if c < 0 {
 		return errFutureMessage
@@ -721,7 +720,7 @@ func (c *core) checkRequestMsg(request *tendermint.Request) error {
 }
 
 func (c *core) storeRequestMsg(request *tendermint.Request) {
-	logger := c.logger.New("state", c.state)
+	logger := c.logger.New("step", c.step)
 
 	logger.Trace("Store future request", "number", request.ProposalBlock.Number(), "hash", request.ProposalBlock.Hash())
 
@@ -766,10 +765,10 @@ func (c *core) processPendingRequests() {
 // TODO: add new message struct for proposal (proposalMessage) and determine how to rlp encode them especially nil
 // TODO: add new message for vote (prevote and precommit) and determine how to rlp encode them especially nil
 func (c *core) sendProposal(request *tendermint.Request) {
-	logger := c.logger.New("state", c.state)
+	logger := c.logger.New("step", c.step)
 
 	// If I'm the proposer and I have the same sequence with the proposal
-	if c.current.Sequence().Cmp(request.ProposalBlock.Number()) == 0 && c.isProposer() && !c.sentProposal {
+	if c.currentRoundState.Sequence().Cmp(request.ProposalBlock.Number()) == 0 && c.isProposer() && !c.sentProposal {
 		curView := c.currentView()
 		proposal, err := Encode(&tendermint.Proposal{
 			View:          curView,
@@ -789,7 +788,7 @@ func (c *core) sendProposal(request *tendermint.Request) {
 }
 
 func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
-	logger := c.logger.New("from", src, "state", c.state)
+	logger := c.logger.New("from", src, "step", c.step)
 
 	// Decode PRE-PREPARE
 	var proposal *tendermint.Proposal
@@ -818,7 +817,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 		return err
 	}
 
-	// Check if the message comes from current proposer
+	// Check if the message comes from currentRoundState proposer
 	if !c.valSet.IsProposer(src.Address()) {
 		logger.Warn("Ignore proposal messages from non-proposer")
 		return errNotFromProposer
@@ -844,13 +843,13 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 	}
 
 	// Here is about to accept the PRE-PREPARE
-	if c.state == StateAcceptRequest {
+	if c.step == StepAcceptRequest {
 		// Send ROUND CHANGE if the locked proposal and the received proposal are different
-		if c.current.IsHashLocked() {
-			if proposal.ProposalBlock.Hash() == c.current.GetLockedHash() {
-				// Broadcast COMMIT and enters Prevoted state directly
+		if c.currentRoundState.IsHashLocked() {
+			if proposal.ProposalBlock.Hash() == c.currentRoundState.GetLockedHash() {
+				// Broadcast COMMIT and enters Prevoted step directly
 				c.acceptProposal(proposal)
-				c.setState(StatePrevoteDone)
+				c.setStep(StepPrevoteDone)
 				c.sendPrecommit() // TODO : double check, why not PREPARE?
 			} else {
 				// TODO: possibly send propose(nil) (need to update)
@@ -860,7 +859,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 			//   1. the locked proposal and the received proposal match
 			//   2. we have no locked proposal
 			c.acceptProposal(proposal)
-			c.setState(StateProposeDone)
+			c.setStep(StepProposeDone)
 			c.sendPrevote()
 		}
 	}
@@ -869,15 +868,15 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 }
 
 func (c *core) acceptProposal(proposal *tendermint.Proposal) {
-	c.current.SetProposal(proposal)
+	c.currentRoundState.SetProposal(proposal)
 }
 
 //---------------------------------------Prevote---------------------------------------
 
 func (c *core) sendPrevote() {
-	logger := c.logger.New("state", c.state)
+	logger := c.logger.New("step", c.step)
 
-	sub := c.current.Subject()
+	sub := c.currentRoundState.Subject()
 	encodedSubject, err := Encode(sub)
 	if err != nil {
 		logger.Error("Failed to encode", "subject", sub)
@@ -902,23 +901,23 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 	}
 
 	// If it is locked, it can only process on the locked block.
-	// Passing verifyPrevote and checkMessage implies it is processing on the locked block since it was verified in the Proposald state.
+	// Passing verifyPrevote and checkMessage implies it is processing on the locked block since it was verified in the Proposald step.
 	if err = c.verifyPrevote(prepare, src); err != nil {
 		return err
 	}
 
 	err = c.acceptPrevote(msg)
 	if err != nil {
-		c.logger.Error("Failed to add PREPARE message to round state",
-			"from", src, "state", c.state, "msg", msg, "err", err)
+		c.logger.Error("Failed to add PREPARE message to round step",
+			"from", src, "step", c.step, "msg", msg, "err", err)
 	}
 
-	// Change to Prevoted state if we've received enough PREPARE messages or it is locked
-	// and we are in earlier state before Prevoted state.
-	if ((c.current.IsHashLocked() && prepare.Digest == c.current.GetLockedHash()) || c.current.GetPrevoteOrPrecommitSize() > 2*c.valSet.F()) &&
-		c.state.Cmp(StatePrevoteDone) < 0 {
-		c.current.LockHash()
-		c.setState(StatePrevoteDone)
+	// Change to Prevoted step if we've received enough PREPARE messages or it is locked
+	// and we are in earlier step before Prevoted step.
+	if ((c.currentRoundState.IsHashLocked() && prepare.Digest == c.currentRoundState.GetLockedHash()) || c.currentRoundState.GetPrevoteOrPrecommitSize() > 2*c.valSet.F()) &&
+		c.step.Cmp(StepPrevoteDone) < 0 {
+		c.currentRoundState.LockHash()
+		c.setStep(StepPrevoteDone)
 		c.sendPrecommit()
 	}
 
@@ -927,9 +926,9 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 
 // verifyPrevote verifies if the received PREPARE message is equivalent to our subject
 func (c *core) verifyPrevote(prepare *tendermint.Subject, src tendermint.Validator) error {
-	logger := c.logger.New("from", src, "state", c.state)
+	logger := c.logger.New("from", src, "step", c.step)
 
-	sub := c.current.Subject()
+	sub := c.currentRoundState.Subject()
 	if !reflect.DeepEqual(prepare, sub) {
 		logger.Warn("Inconsistent subjects between PREPARE and proposal", "expected", sub, "got", prepare)
 		return errInconsistentSubject
@@ -939,8 +938,8 @@ func (c *core) verifyPrevote(prepare *tendermint.Subject, src tendermint.Validat
 }
 
 func (c *core) acceptPrevote(msg *message) error {
-	// Add the PREPARE message to current round state
-	if err := c.current.Prevotes.Add(msg); err != nil {
+	// Add the PREPARE message to currentRoundState round step
+	if err := c.currentRoundState.Prevotes.Add(msg); err != nil {
 		return err
 	}
 
@@ -949,7 +948,7 @@ func (c *core) acceptPrevote(msg *message) error {
 
 //---------------------------------------Precommit---------------------------------------
 func (c *core) sendPrecommit() {
-	sub := c.current.Subject()
+	sub := c.currentRoundState.Subject()
 	c.broadcastPrecommit(sub)
 }
 
@@ -962,7 +961,7 @@ func (c *core) sendPrecommitForOldBlock(view *tendermint.View, digest common.Has
 }
 
 func (c *core) broadcastPrecommit(sub *tendermint.Subject) {
-	logger := c.logger.New("state", c.state)
+	logger := c.logger.New("step", c.step)
 
 	encodedSubject, err := Encode(sub)
 	if err != nil {
@@ -992,16 +991,16 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 	}
 
 	if err := c.acceptPrecommit(msg); err != nil {
-		c.logger.Error("Failed to record commit message", "from", src, "state", c.state, "msg", msg, "err", err)
+		c.logger.Error("Failed to record commit message", "from", src, "step", c.step, "msg", msg, "err", err)
 	}
 
-	// Precommit the proposal once we have enough COMMIT messages and we are not in the Committed state.
+	// Precommit the proposal once we have enough COMMIT messages and we are not in the Committed step.
 	//
 	// If we already have a proposal, we may have chance to speed up the consensus process
 	// by committing the proposal without PREPARE messages.
-	if c.current.Precommits.Size() > 2*c.valSet.F() && c.state.Cmp(StatePrecommitDone) < 0 {
-		// Still need to call LockHash here since state can skip Prevoted state and jump directly to the Committed state.
-		c.current.LockHash()
+	if c.currentRoundState.Precommits.Size() > 2*c.valSet.F() && c.step.Cmp(StepPrecommitDone) < 0 {
+		// Still need to call LockHash here since step can skip Prevoted step and jump directly to the Committed step.
+		c.currentRoundState.LockHash()
 		c.commit()
 	}
 
@@ -1010,9 +1009,9 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 
 // verifyPrecommit verifies if the received COMMIT message is equivalent to our subject
 func (c *core) verifyPrecommit(commit *tendermint.Subject, src tendermint.Validator) error {
-	logger := c.logger.New("from", src, "state", c.state)
+	logger := c.logger.New("from", src, "step", c.step)
 
-	sub := c.current.Subject()
+	sub := c.currentRoundState.Subject()
 	if !reflect.DeepEqual(commit, sub) {
 		logger.Warn("Inconsistent subjects between commit and proposal", "expected", sub, "got", commit)
 		return errInconsistentSubject
@@ -1021,13 +1020,13 @@ func (c *core) verifyPrecommit(commit *tendermint.Subject, src tendermint.Valida
 	return nil
 }
 
-// acceptPrecommit adds the COMMIT message to current round state
+// acceptPrecommit adds the COMMIT message to currentRoundState round step
 func (c *core) acceptPrecommit(msg *message) error {
-	return c.current.Precommits.Add(msg)
+	return c.currentRoundState.Precommits.Add(msg)
 }
 
 //---------------------------------------Commit---------------------------------------
 func (c *core) handleCommit() {
-	c.logger.Trace("Received a final committed proposal", "state", c.state)
-	c.startNewRound(common.Big0)
+	c.logger.Trace("Received a final committed proposal", "step", c.step)
+	c.startRound(common.Big0)
 }

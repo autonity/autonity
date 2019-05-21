@@ -43,7 +43,7 @@ func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, 
 	}
 }
 
-// roundState stores the consensus state
+// roundState stores the consensus step
 type roundState struct {
 	round    *big.Int
 	sequence *big.Int

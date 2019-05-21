@@ -29,23 +29,23 @@ type Engine interface {
 	Stop() error
 }
 
-type State uint64
+type Step uint64
 
 const (
-	StateAcceptRequest State = iota
-	StateProposeDone
-	StatePrevoteDone
-	StatePrecommitDone
+	StepAcceptRequest Step = iota
+	StepProposeDone
+	StepPrevoteDone
+	StepPrecommitDone
 )
 
-func (s State) String() string {
-	if s == StateAcceptRequest {
+func (s Step) String() string {
+	if s == StepAcceptRequest {
 		return "Accept request"
-	} else if s == StateProposeDone {
+	} else if s == StepProposeDone {
 		return "Proposal"
-	} else if s == StatePrevoteDone {
+	} else if s == StepPrevoteDone {
 		return "Prevoted"
-	} else if s == StatePrecommitDone {
+	} else if s == StepPrecommitDone {
 		return "Precommitted"
 	} else {
 		return "Unknown"
@@ -53,10 +53,10 @@ func (s State) String() string {
 }
 
 // Cmp compares s and y and returns:
-//   -1 if s is the previous state of y
-//    0 if s and y are the same state
-//   +1 if s is the next state of y
-func (s State) Cmp(y State) int {
+//   -1 if s is the previous step of y
+//    0 if s and y are the same step
+//   +1 if s is the next step of y
+func (s Step) Cmp(y Step) int {
 	if uint64(s) < uint64(y) {
 		return -1
 	}
