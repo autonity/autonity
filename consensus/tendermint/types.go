@@ -71,54 +71,64 @@ func (v *View) Cmp(y *View) int {
 
 // TODO: update the proposal with the relevant values, ie with values that should be broadcasted
 type Proposal struct {
-	View          *View
+	Round         *big.Int
+	Height        *big.Int
+	ValidRound    *big.Int
 	ProposalBlock types.Block
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
-func (b *Proposal) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{b.View, b.ProposalBlock})
+func (p *Proposal) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, []interface{}{
+		p.Round,
+		p.Height,
+		p.ValidRound,
+		p.ProposalBlock})
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (b *Proposal) DecodeRLP(s *rlp.Stream) error {
+func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 	var proposal struct {
-		View     *View
-		Proposal types.Block
+		Round         *big.Int
+		Height        *big.Int
+		ValidRound    *big.Int
+		ProposalBlock types.Block
 	}
 
 	if err := s.Decode(&proposal); err != nil {
 		return err
 	}
-	b.View, b.ProposalBlock = proposal.View, proposal.Proposal
+	p.Round, p.Height, p.ValidRound, p.ProposalBlock = proposal.Round, proposal.Height, proposal.ValidRound, proposal.ProposalBlock
 
 	return nil
 }
 
 type Subject struct {
-	View   *View
+	Round  *big.Int
+	Height *big.Int
 	Digest common.Hash
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
-func (b *Subject) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{b.View, b.Digest})
+func (sub *Subject) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, []interface{}{sub.Round, sub.Height, sub.Digest})
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (b *Subject) DecodeRLP(s *rlp.Stream) error {
+func (sub *Subject) DecodeRLP(s *rlp.Stream) error {
 	var subject struct {
-		View   *View
+		Round  *big.Int
+		Height *big.Int
 		Digest common.Hash
 	}
 
 	if err := s.Decode(&subject); err != nil {
 		return err
 	}
-	b.View, b.Digest = subject.View, subject.Digest
+	sub.Round, sub.Height, sub.Digest = subject.Round, subject.Height, subject.Digest
 	return nil
 }
 
-func (b *Subject) String() string {
-	return fmt.Sprintf("{View: %v, Digest: %v}", b.View, b.Digest.String())
+func (sub *Subject) String() string {
+	return fmt.Sprintf("{Round: %v, Height: %v Digest: %v}", sub.Round, sub.Height, sub.Digest.String())
 }

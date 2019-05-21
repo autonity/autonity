@@ -584,14 +584,14 @@ func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
 		var p *tendermint.Proposal
 		err := msg.Decode(&p)
 		if err == nil {
-			backlog.Push(msg, toPriority(msg.Code, p.View))
+			backlog.Push(msg, toPriority(msg.Code, p.Round, p.Height))
 		}
 		// for msgRoundChange, msgPrevote and msgPrecommit cases
 	default:
 		var p *tendermint.Subject
 		err := msg.Decode(&p)
 		if err == nil {
-			backlog.Push(msg, toPriority(msg.Code, p.View))
+			backlog.Push(msg, toPriority(msg.Code, p.Round, p.Height))
 		}
 	}
 	c.backlogs[src] = backlog
@@ -615,28 +615,28 @@ func (c *core) processBacklog() {
 		for !(backlog.Empty() || isFuture) {
 			m, prio := backlog.Pop()
 			msg := m.(*message)
-			var view *tendermint.View
+			var round, height *big.Int
 			switch msg.Code {
 			case msgProposal:
 				var m *tendermint.Proposal
 				err := msg.Decode(&m)
 				if err == nil {
-					view = m.View
+					round, height = m.Round, m.Height
 				}
 				// for msgRoundChange, msgPrevote and msgPrecommit cases
 			default:
 				var sub *tendermint.Subject
 				err := msg.Decode(&sub)
 				if err == nil {
-					view = sub.View
+					round, height = sub.Round, sub.Height
 				}
 			}
-			if view == nil {
+			if round == nil || height == nil {
 				logger.Debug("Nil view", "msg", msg)
 				continue
 			}
 			// Push back if it's a future message
-			err := c.checkMessage(msg.Code, view)
+			err := c.checkMessage(msg.Code, &tendermint.View{Round: round, Height: height})
 			if err != nil {
 				if err == errFutureMessage {
 					logger.Trace("Stop processing backlog", "msg", msg)
@@ -657,11 +657,11 @@ func (c *core) processBacklog() {
 	}
 }
 
-func toPriority(msgCode uint64, view *tendermint.View) float32 {
+func toPriority(msgCode uint64, r *big.Int, h *big.Int) float32 {
 	// FIXME: round will be reset as 0 while new height
 	// 10 * Round limits the range of message code is from 0 to 9
 	// 1000 * Height limits the range of round is from 0 to 99
-	return -float32(view.Height.Uint64()*1000 + view.Round.Uint64()*10 + uint64(msgPriority[msgCode]))
+	return -float32(h.Uint64()*1000 + r.Uint64()*10 + uint64(msgPriority[msgCode]))
 }
 
 //---------------------------------------NewUnminedBlock---------------------------------------
@@ -756,13 +756,15 @@ func (c *core) sendProposal(p *types.Block) {
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.currentRoundState.Height().Cmp(p.Number()) == 0 && c.isProposer() && !c.sentProposal {
-		curView := c.currentView()
+		r, h, vr := c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound
 		proposal, err := Encode(&tendermint.Proposal{
-			View:          curView,
+			Round:         r,
+			Height:        h,
+			ValidRound:    vr,
 			ProposalBlock: *p,
 		})
 		if err != nil {
-			logger.Error("Failed to encode", "view", curView)
+			logger.Error("Failed to encode", "Round", r, "Height", h, "ValidRound", vr)
 			return
 		}
 		c.sentProposal = true
@@ -786,18 +788,19 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 
 	// Ensure we have the same view with the PRE-PREPARE message
 	// If it is old message, see if we need to broadcast COMMIT
-	if err := c.checkMessage(msgProposal, proposal.View); err != nil {
+	//TODO: fixup
+	if err := c.checkMessage(msgProposal, &tendermint.View{Round: proposal.Round, Height: proposal.Height}); err != nil {
 		if err == errOldMessage {
 			//TODO : EIP Says ignore?
 			// Get validator set for the given proposal
 			valSet := c.backend.Validators(proposal.ProposalBlock.Number().Uint64()).Copy()
 			previousProposer := c.backend.GetProposer(proposal.ProposalBlock.Number().Uint64() - 1)
-			valSet.CalcProposer(previousProposer, proposal.View.Round.Uint64())
+			valSet.CalcProposer(previousProposer, proposal.Round.Uint64())
 			// Broadcast COMMIT if it is an existing block
 			// 1. The proposer needs to be a proposer matches the given (Height + Round)
 			// 2. The given block must exist
 			if valSet.IsProposer(src.Address()) && c.backend.HasPropsal(proposal.ProposalBlock.Hash(), proposal.ProposalBlock.Number()) {
-				c.sendPrecommitForOldBlock(proposal.View, proposal.ProposalBlock.Hash())
+				c.sendPrecommitForOldBlock(proposal.Round, proposal.Height, proposal.ProposalBlock.Hash())
 				return nil
 			}
 		}
@@ -883,7 +886,7 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 		return errFailedDecodePrevote
 	}
 
-	if err = c.checkMessage(msgPrevote, prepare.View); err != nil {
+	if err = c.checkMessage(msgPrevote, &tendermint.View{Round: prepare.Round, Height: prepare.Height}); err != nil {
 		return err
 	}
 
@@ -939,9 +942,10 @@ func (c *core) sendPrecommit() {
 	c.broadcastPrecommit(sub)
 }
 
-func (c *core) sendPrecommitForOldBlock(view *tendermint.View, digest common.Hash) {
+func (c *core) sendPrecommitForOldBlock(r *big.Int, h *big.Int, digest common.Hash) {
 	sub := &tendermint.Subject{
-		View:   view,
+		Round:  r,
+		Height: h,
 		Digest: digest,
 	}
 	c.broadcastPrecommit(sub)
@@ -969,7 +973,7 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 		return errFailedDecodePrecommit
 	}
 
-	if err := c.checkMessage(msgPrecommit, commit.View); err != nil {
+	if err := c.checkMessage(msgPrecommit, &tendermint.View{Round: commit.Round, Height: commit.Height}); err != nil {
 		return err
 	}
 
