@@ -44,20 +44,20 @@ type Request struct {
 }
 
 // View includes a round number and a sequence number.
-// Sequence is the block number we'd like to commit.
+// Height is the block number we'd like to commit.
 // Each round has a number and is composed by 3 steps: proposal, prepare and commit.
 //
 // If the given block is not accepted by validators, a round change will occur
 // and the validators start a new round with round+1.
 // TODO: probably don't need this struct, however, need to figure out how to write the encode and decode rlp stuff for whatever is going to replace this.
 type View struct {
-	Round    *big.Int
-	Sequence *big.Int
+	Round  *big.Int
+	Height *big.Int
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
 func (v *View) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{v.Round, v.Sequence})
+	return rlp.Encode(w, []interface{}{v.Round, v.Height})
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
@@ -70,12 +70,12 @@ func (v *View) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&view); err != nil {
 		return err
 	}
-	v.Round, v.Sequence = view.Round, view.Sequence
+	v.Round, v.Height = view.Round, view.Sequence
 	return nil
 }
 
 func (v *View) String() string {
-	return fmt.Sprintf("{Round: %d, Sequence: %d}", v.Round.Uint64(), v.Sequence.Uint64())
+	return fmt.Sprintf("{Round: %d, Height: %d}", v.Round.Uint64(), v.Height.Uint64())
 }
 
 // Cmp compares v and y and returns:
@@ -83,8 +83,8 @@ func (v *View) String() string {
 //    0 if v == y
 //   +1 if v >  y
 func (v *View) Cmp(y *View) int {
-	if v.Sequence.Cmp(y.Sequence) != 0 {
-		return v.Sequence.Cmp(y.Sequence)
+	if v.Height.Cmp(y.Height) != 0 {
+		return v.Height.Cmp(y.Height)
 	}
 	if v.Round.Cmp(y.Round) != 0 {
 		return v.Round.Cmp(y.Round)

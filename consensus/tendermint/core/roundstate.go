@@ -32,7 +32,7 @@ import (
 func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, lockedHash common.Hash, proposal *tendermint.Proposal, pendingRequest *tendermint.Request, hasBadProposal func(hash common.Hash) bool) *roundState {
 	return &roundState{
 		round:          view.Round,
-		sequence:       view.Sequence,
+		height:         view.Height,
 		proposal:       proposal,
 		Prevotes:       newMessageSet(validatorSet),
 		Precommits:     newMessageSet(validatorSet),
@@ -46,7 +46,7 @@ func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, 
 // roundState stores the consensus step
 type roundState struct {
 	round    *big.Int
-	sequence *big.Int
+	height   *big.Int
 	proposal *tendermint.Proposal
 	// TODO: messageSet is probably not required, need to port the function from messageSet to here, will also need to introduce mutexes.
 	// These should simply be map[common.Address]message
@@ -86,8 +86,8 @@ func (s *roundState) Subject() *tendermint.Subject {
 
 	return &tendermint.Subject{
 		View: &tendermint.View{
-			Round:    new(big.Int).Set(s.round),
-			Sequence: new(big.Int).Set(s.sequence),
+			Round:  new(big.Int).Set(s.round),
+			Height: new(big.Int).Set(s.height),
 		},
 		Digest: s.proposal.ProposalBlock.Hash(),
 	}
@@ -125,18 +125,18 @@ func (s *roundState) Round() *big.Int {
 	return s.round
 }
 
-func (s *roundState) SetSequence(seq *big.Int) {
+func (s *roundState) SetHeight(height *big.Int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.sequence = seq
+	s.height = height
 }
 
-func (s *roundState) Sequence() *big.Int {
+func (s *roundState) Height() *big.Int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.sequence
+	return s.height
 }
 
 func (s *roundState) LockHash() {
@@ -178,7 +178,7 @@ func (s *roundState) GetLockedHash() common.Hash {
 func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 	var ss struct {
 		Round          *big.Int
-		Sequence       *big.Int
+		Height         *big.Int
 		proposal       *tendermint.Proposal
 		Prevotes       *messageSet
 		Precommits     *messageSet
@@ -190,7 +190,7 @@ func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 		return err
 	}
 	s.round = ss.Round
-	s.sequence = ss.Sequence
+	s.height = ss.Height
 	s.proposal = ss.proposal
 	s.Prevotes = ss.Prevotes
 	s.Precommits = ss.Precommits
@@ -215,7 +215,7 @@ func (s *roundState) EncodeRLP(w io.Writer) error {
 
 	return rlp.Encode(w, []interface{}{
 		s.round,
-		s.sequence,
+		s.height,
 		s.proposal,
 		s.Prevotes,
 		s.Precommits,

@@ -26,12 +26,12 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-// Construct a new message set to accumulate messages for given sequence/view number.
+// Construct a new message set to accumulate messages for given height/view number.
 func newMessageSet(valSet tendermint.ValidatorSet) *messageSet {
 	return &messageSet{
 		view: &tendermint.View{
-			Round:    new(big.Int),
-			Sequence: new(big.Int),
+			Round:  new(big.Int),
+			Height: new(big.Int),
 		},
 		messagesMu: new(sync.Mutex),
 		messages:   make(map[common.Address]*message),
@@ -96,7 +96,7 @@ func (ms *messageSet) verify(msg *message) error {
 		return tendermint.ErrUnauthorizedAddress
 	}
 
-	// TODO: check view number and sequence number
+	// TODO: check view number and height number
 
 	return nil
 }

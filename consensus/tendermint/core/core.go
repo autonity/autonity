@@ -100,9 +100,8 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 type core struct {
 	config  *tendermint.Config
 	address common.Address
-	// TODO change the name to step Step
-	step   Step
-	logger log.Logger
+	step    Step
+	logger  log.Logger
 
 	backend             tendermint.Backend
 	events              *event.TypeMuxSubscription
@@ -192,8 +191,8 @@ func (c *core) broadcast(msg *message) {
 
 func (c *core) currentView() *tendermint.View {
 	return &tendermint.View{
-		Sequence: new(big.Int).Set(c.currentRoundState.Sequence()),
-		Round:    new(big.Int).Set(c.currentRoundState.Round()),
+		Height: new(big.Int).Set(c.currentRoundState.Height()),
+		Round:  new(big.Int).Set(c.currentRoundState.Round()),
 	}
 }
 
@@ -224,7 +223,7 @@ func (c *core) commit() {
 	}
 }
 
-// startRound starts a new round. if round equals to 0, it means to starts a new sequence
+// startRound starts a new round. if round equals to 0, it means to starts a new height
 func (c *core) startRound(round *big.Int) {
 	//TODO: update the name of lastProposalBlock and LastBlockProposal()
 	lastProposalBlock, lastProposalBlockProposer := c.backend.LastProposal()
@@ -251,8 +250,8 @@ func (c *core) startRound(round *big.Int) {
 
 	// Update the currentRoundState round step
 	curView := tendermint.View{
-		Round:    new(big.Int).Set(round),
-		Sequence: new(big.Int).Set(height),
+		Round:  new(big.Int).Set(round),
+		Height: new(big.Int).Set(height),
 	}
 
 	c.currentRoundState = newRoundState(
@@ -369,7 +368,7 @@ func timeoutPrecommit(round int64) time.Duration {
 
 // Start implements core.Engine.Start
 func (c *core) Start() error {
-	// Start a new round from last sequence + 1
+	// Start a new round from last height + 1
 	c.startRound(common.Big0)
 
 	// Tests will handle events itself, so we have to make subscribeEvents()
@@ -531,8 +530,8 @@ func (c *core) handleTimeoutMsg() {
 	// if the max round is larger than currentRoundState round.
 
 	lastProposal, _ := c.backend.LastProposal()
-	if lastProposal != nil && lastProposal.Number().Cmp(c.currentRoundState.Sequence()) >= 0 {
-		c.logger.Trace("round change timeout, catch up latest sequence", "number", lastProposal.Number().Uint64())
+	if lastProposal != nil && lastProposal.Number().Cmp(c.currentRoundState.Height()) >= 0 {
+		c.logger.Trace("round change timeout, catch up latest height", "number", lastProposal.Number().Uint64())
 		c.startRound(common.Big0)
 	}
 }
@@ -549,7 +548,7 @@ type backlogEvent struct {
 // return errFutureMessage if the message view is larger than currentRoundState view
 // return errOldMessage if the message view is smaller than currentRoundState view
 func (c *core) checkMessage(msgCode uint64, view *tendermint.View) error {
-	if view == nil || view.Sequence == nil || view.Round == nil {
+	if view == nil || view.Height == nil || view.Round == nil {
 		return errInvalidMessage
 	}
 
@@ -671,16 +670,16 @@ func (c *core) processBacklog() {
 }
 
 func toPriority(msgCode uint64, view *tendermint.View) float32 {
-	// FIXME: round will be reset as 0 while new sequence
+	// FIXME: round will be reset as 0 while new height
 	// 10 * Round limits the range of message code is from 0 to 9
-	// 1000 * Sequence limits the range of round is from 0 to 99
-	return -float32(view.Sequence.Uint64()*1000 + view.Round.Uint64()*10 + uint64(msgPriority[msgCode]))
+	// 1000 * Height limits the range of round is from 0 to 99
+	return -float32(view.Height.Uint64()*1000 + view.Round.Uint64()*10 + uint64(msgPriority[msgCode]))
 }
 
 //---------------------------------------Request---------------------------------------
 
 func (c *core) handleRequest(request *tendermint.Request) error {
-	logger := c.logger.New("step", c.step, "seq", c.currentRoundState.sequence)
+	logger := c.logger.New("step", c.step, "height", c.currentRoundState.height)
 
 	if err := c.checkRequestMsg(request); err != nil {
 		if err == errInvalidMessage {
@@ -703,14 +702,14 @@ func (c *core) handleRequest(request *tendermint.Request) error {
 
 // check request step
 // return errInvalidMessage if the message is invalid
-// return errFutureMessage if the sequence of proposal is larger than currentRoundState sequence
-// return errOldMessage if the sequence of proposal is smaller than currentRoundState sequence
+// return errFutureMessage if the height of proposal is larger than currentRoundState height
+// return errOldMessage if the height of proposal is smaller than currentRoundState height
 func (c *core) checkRequestMsg(request *tendermint.Request) error {
 	if request == nil || request.ProposalBlock == nil {
 		return errInvalidMessage
 	}
 
-	if c := c.currentRoundState.sequence.Cmp(request.ProposalBlock.Number()); c > 0 {
+	if c := c.currentRoundState.height.Cmp(request.ProposalBlock.Number()); c > 0 {
 		return errOldMessage
 	} else if c < 0 {
 		return errFutureMessage
@@ -767,8 +766,8 @@ func (c *core) processPendingRequests() {
 func (c *core) sendProposal(request *tendermint.Request) {
 	logger := c.logger.New("step", c.step)
 
-	// If I'm the proposer and I have the same sequence with the proposal
-	if c.currentRoundState.Sequence().Cmp(request.ProposalBlock.Number()) == 0 && c.isProposer() && !c.sentProposal {
+	// If I'm the proposer and I have the same height with the proposal
+	if c.currentRoundState.Height().Cmp(request.ProposalBlock.Number()) == 0 && c.isProposer() && !c.sentProposal {
 		curView := c.currentView()
 		proposal, err := Encode(&tendermint.Proposal{
 			View:          curView,
@@ -807,7 +806,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 			previousProposer := c.backend.GetProposer(proposal.ProposalBlock.Number().Uint64() - 1)
 			valSet.CalcProposer(previousProposer, proposal.View.Round.Uint64())
 			// Broadcast COMMIT if it is an existing block
-			// 1. The proposer needs to be a proposer matches the given (Sequence + Round)
+			// 1. The proposer needs to be a proposer matches the given (Height + Round)
 			// 2. The given block must exist
 			if valSet.IsProposer(src.Address()) && c.backend.HasPropsal(proposal.ProposalBlock.Hash(), proposal.ProposalBlock.Number()) {
 				c.sendPrecommitForOldBlock(proposal.View, proposal.ProposalBlock.Hash())
