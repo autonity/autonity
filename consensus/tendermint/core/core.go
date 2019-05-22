@@ -211,7 +211,6 @@ func (c *core) commit() {
 		}
 
 		if err := c.backend.Precommit(proposal.ProposalBlock, committedSeals); err != nil {
-			c.currentRoundState.UnlockHash() //Unlock block when insertion fails
 			// TODO: go to next height
 			return
 		}
@@ -243,7 +242,7 @@ func (c *core) startRound(round *big.Int) {
 		c.currentHeightRoundsStates[c.currentRoundState.Round().Int64()] = *c.currentRoundState
 	}
 
-	c.currentRoundState = newRoundState(round, height, c.valSet, common.Hash{}, nil, c.backend.HasBadProposal)
+	c.currentRoundState = newRoundState(round, height, c.valSet, c.backend.HasBadProposal)
 	c.valSet.CalcProposer(lastProposalBlockProposer, round.Uint64())
 	c.sentProposal = false
 	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
@@ -889,15 +888,6 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 			"from", src, "step", c.step, "msg", msg, "err", err)
 	}
 
-	// Change to Prevoted step if we've received enough PREPARE messages or it is locked
-	// and we are in earlier step before Prevoted step.
-	if ((c.currentRoundState.IsHashLocked() && prepare.Digest == c.currentRoundState.GetLockedHash()) || c.currentRoundState.GetPrevoteOrPrecommitSize() > 2*c.valSet.F()) &&
-		c.step.Cmp(StepPrevoteDone) < 0 {
-		c.currentRoundState.LockHash()
-		c.setStep(StepPrevoteDone)
-		c.sendPrecommit()
-	}
-
 	return nil
 }
 
@@ -978,7 +968,6 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 	// by committing the proposal without PREPARE messages.
 	if c.currentRoundState.Precommits.Size() > 2*c.valSet.F() && c.step.Cmp(StepPrecommitDone) < 0 {
 		// Still need to call LockHash here since step can skip Prevoted step and jump directly to the Committed step.
-		c.currentRoundState.LockHash()
 		c.commit()
 	}
 

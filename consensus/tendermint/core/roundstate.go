@@ -27,17 +27,14 @@ import (
 )
 
 // newRoundState creates a new roundState instance with the given view and validatorSet
-// lockedHash and proposal are for round change when lock exists,
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
 // TODO: instad of using big.Int use int64 and only use big.Int when needed for rlp encoding and use big.NewInt() to initialize
-func newRoundState(r *big.Int, h *big.Int, validatorSet tendermint.ValidatorSet, lockedHash common.Hash, proposal *tendermint.Proposal, hasBadProposal func(hash common.Hash) bool) *roundState {
+func newRoundState(r *big.Int, h *big.Int, validatorSet tendermint.ValidatorSet, hasBadProposal func(hash common.Hash) bool) *roundState {
 	return &roundState{
 		round:          r,
 		height:         h,
-		proposal:       proposal,
 		Prevotes:       newMessageSet(validatorSet),
 		Precommits:     newMessageSet(validatorSet),
-		lockedHash:     lockedHash,
 		mu:             new(sync.RWMutex),
 		hasBadProposal: hasBadProposal,
 	}
@@ -53,8 +50,6 @@ type roundState struct {
 	Prevotes *messageSet
 	// TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
 	Precommits *messageSet
-	// TODO: remove this lockedHash as this should be in core
-	lockedHash common.Hash
 
 	mu             *sync.RWMutex
 	hasBadProposal func(hash common.Hash) bool
@@ -136,62 +131,16 @@ func (s *roundState) Height() *big.Int {
 	return s.height
 }
 
-func (s *roundState) LockHash() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.proposal != nil {
-		s.lockedHash = s.proposal.ProposalBlock.Hash()
-	}
-}
-
-func (s *roundState) UnlockHash() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.lockedHash = common.Hash{}
-}
-
-func (s *roundState) IsHashLocked() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.lockedHash == (common.Hash{}) {
-		return false
-	}
-	return !s.hasBadProposal(s.GetLockedHash())
-}
-
-func (s *roundState) GetLockedHash() common.Hash {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.lockedHash
-}
-
 // The DecodeRLP method should read one value from the given
 // Stream. It is not forbidden to read less or more, but it might
 // be confusing.
 func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
-	var ss struct {
-		Round      *big.Int
-		Height     *big.Int
-		proposal   *tendermint.Proposal
-		Prevotes   *messageSet
-		Precommits *messageSet
-		lockedHash common.Hash
-	}
+	var rs = new(roundState)
 
-	if err := stream.Decode(&ss); err != nil {
+	if err := stream.Decode(&rs); err != nil {
 		return err
 	}
-	s.round = ss.Round
-	s.height = ss.Height
-	s.proposal = ss.proposal
-	s.Prevotes = ss.Prevotes
-	s.Precommits = ss.Precommits
-	s.lockedHash = ss.lockedHash
-	s.mu = new(sync.RWMutex)
+	s.round, s.height, s.proposal, s.Prevotes, s.Precommits, s.mu = rs.round, rs.height, rs.proposal, rs.Prevotes, rs.Precommits, new(sync.RWMutex)
 
 	return nil
 }
@@ -208,12 +157,5 @@ func (s *roundState) EncodeRLP(w io.Writer) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return rlp.Encode(w, []interface{}{
-		s.round,
-		s.height,
-		s.proposal,
-		s.Prevotes,
-		s.Precommits,
-		s.lockedHash,
-	})
+	return rlp.Encode(w, []interface{}{s.round, s.height, s.proposal, s.Prevotes, s.Precommits})
 }
