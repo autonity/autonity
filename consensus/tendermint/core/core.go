@@ -48,12 +48,14 @@ var (
 	errNotFromProposer = errors.New("message does not come from proposer")
 	// errIgnored is returned when a message was ignored.
 	//errIgnored = errors.New("message is ignored")
-	// errFutureMessage is returned when currentRoundState view is earlier than the
+	// errFutureHeightMessage is returned when currentRoundState view is earlier than the
 	// view of the received message.
-	errFutureMessage = errors.New("future message")
-	// errOldMessage is returned when the received message's view is earlier
+	errFutureHeightMessage = errors.New("future message")
+	// errOldHeightMessage is returned when the received message's view is earlier
 	// than currentRoundState view.
-	errOldMessage = errors.New("old message")
+	errOldHeightMessage = errors.New("old message")
+	// errDifferentRoundMessage message is returned when message is of the same Height but form a different round
+	errDifferentRoundMessage = errors.New("same height but different round message")
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")
 	// errFailedDecodeProposal is returned when the PRE-PREPARE message is malformed.
@@ -128,7 +130,7 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightRoundsStates []roundState
+	currentHeightRoundsStates map[int64]roundState
 
 	// TODO: may require a mutex
 	latestPendingUnminedBlock *types.Block
@@ -233,12 +235,12 @@ func (c *core) startRound(round *big.Int) {
 		c.valSet = c.backend.Validators(height.Uint64())
 
 		// TODO: Assuming that round == 0 only when the node moves to a new height, need to confirm where exactly the node moves to a new height
-		c.currentHeightRoundsStates = nil
+		c.currentHeightRoundsStates = make(map[int64]roundState)
 
 	} else {
 		// Assuming the above values will be set for round > 0
 		// Add the currentRoundState round step to the core previous round states
-		c.currentHeightRoundsStates = append(c.currentHeightRoundsStates, *c.currentRoundState)
+		c.currentHeightRoundsStates[c.currentRoundState.Round().Int64()] = *c.currentRoundState
 	}
 
 	c.currentRoundState = newRoundState(round, height, c.valSet, common.Hash{}, nil, c.backend.HasBadProposal)
@@ -414,7 +416,7 @@ func (c *core) handleEvents() {
 			case tendermint.NewUnminedBlockEvent:
 				pb := &e.NewUnminedBlock
 				err := c.handleUnminedBlock(pb)
-				if err == errFutureMessage {
+				if err == errFutureHeightMessage {
 					c.storeUnminedBlockMsg(pb)
 				}
 			case tendermint.MessageEvent:
@@ -480,7 +482,7 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
-		if err == errFutureMessage {
+		if err == errFutureHeightMessage {
 			c.storeBacklog(msg, src)
 		}
 
@@ -514,8 +516,8 @@ type backlogEvent struct {
 
 // checkMessage checks the message step
 // return errInvalidMessage if the message is invalid
-// return errFutureMessage if the message view is larger than currentRoundState view
-// return errOldMessage if the message view is smaller than currentRoundState view
+// return errFutureHeightMessage if the message view is larger than currentRoundState view
+// return errOldHeightMessage if the message view is smaller than currentRoundState view
 func (c *core) checkMessage(msgCode uint64, round *big.Int, height *big.Int) error {
 	if height == nil || round == nil {
 		return errInvalidMessage
@@ -523,20 +525,18 @@ func (c *core) checkMessage(msgCode uint64, round *big.Int, height *big.Int) err
 
 	// TODO: add current round messages to currentHeightRoundStates
 	if height.Cmp(c.currentRoundState.Height()) > 0 {
-		return errFutureMessage
-	} else if round.Cmp(c.currentRoundState.Round()) > 0 {
-		return errFutureMessage
+		return errFutureHeightMessage
 	} else if height.Cmp(c.currentRoundState.Height()) < 0 {
-		return errOldMessage
-	} else if round.Cmp(c.currentRoundState.Round()) < 0 {
-		return errOldMessage
+		return errOldHeightMessage
+	} else if round.Cmp(c.currentRoundState.Round()) != 0 {
+		return errDifferentRoundMessage
 	}
 
 	// StepAcceptProposal only accepts msgProposal
 	// other messages are future messages
 	if c.step == StepAcceptProposal {
 		if msgCode > msgProposal {
-			return errFutureMessage
+			return errFutureHeightMessage
 		}
 		return nil
 	}
@@ -622,7 +622,7 @@ func (c *core) processBacklog() {
 			// Push back if it's a future message
 			err := c.checkMessage(msg.Code, round, height)
 			if err != nil {
-				if err == errFutureMessage {
+				if err == errFutureHeightMessage {
 					logger.Trace("Stop processing backlog", "msg", msg)
 					backlog.Push(msg, prio)
 					isFuture = true
@@ -674,17 +674,17 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 
 // check request step
 // return errInvalidMessage if the message is invalid
-// return errFutureMessage if the height of proposal is larger than currentRoundState height
-// return errOldMessage if the height of proposal is smaller than currentRoundState height
+// return errFutureHeightMessage if the height of proposal is larger than currentRoundState height
+// return errOldHeightMessage if the height of proposal is smaller than currentRoundState height
 func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 	if unminedBlock == nil {
 		return errInvalidMessage
 	}
 
 	if c := c.currentRoundState.height.Cmp(unminedBlock.Number()); c > 0 {
-		return errOldMessage
+		return errOldHeightMessage
 	} else if c < 0 {
-		return errFutureMessage
+		return errFutureHeightMessage
 	} else {
 		return nil
 	}
@@ -715,7 +715,7 @@ func (c *core) processPendingRequests() {
 		// Push back if it's a future message
 		err := c.checkUnminedBlockMsg(ub)
 		if err != nil {
-			if err == errFutureMessage {
+			if err == errFutureHeightMessage {
 				c.logger.Trace("Stop processing request", "number", ub.Number(), "hash", ub.Hash())
 				c.pendingUnminedBlocks.Push(m, prio)
 				break
@@ -773,7 +773,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 	// If it is old message, see if we need to broadcast COMMIT
 	//TODO: fixup
 	if err := c.checkMessage(msgProposal, proposal.Round, proposal.Height); err != nil {
-		if err == errOldMessage {
+		if err == errOldHeightMessage {
 			// TODO: keeping it for the time being but rebroadcasting based on old messages should not be required due to partial synchrony assumption
 			// TODO: also need to add previous round messages to currentHeightRoundStates and only rebroadcast if older height
 			valSet := c.backend.Validators(proposal.ProposalBlock.Number().Uint64()).Copy()
@@ -809,6 +809,8 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 					msg: msg,
 				})
 			})
+		} else if err == errDifferentRoundMessage {
+			//prevoteMS := c.currentHeightRoundsStates[proposal.Round.Int64()].Prevotes
 		}
 		return err
 	}
