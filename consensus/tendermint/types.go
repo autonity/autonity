@@ -54,28 +54,28 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
-type Subject struct {
-	Round  *big.Int
-	Height *big.Int
-	Digest common.Hash
+type Vote struct {
+	Round             *big.Int
+	Height            *big.Int
+	ProposedBlockHash common.Hash
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
-func (sub *Subject) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{sub.Round, sub.Height, sub.Digest})
+func (sub *Vote) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, []interface{}{sub.Round, sub.Height, sub.ProposedBlockHash})
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (sub *Subject) DecodeRLP(s *rlp.Stream) error {
-	var subject = new(Subject)
+func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
+	var subject = new(Vote)
 
 	if err := s.Decode(&subject); err != nil {
 		return err
 	}
-	sub.Round, sub.Height, sub.Digest = subject.Round, subject.Height, subject.Digest
+	sub.Round, sub.Height, sub.ProposedBlockHash = subject.Round, subject.Height, subject.ProposedBlockHash
 	return nil
 }
 
-func (sub *Subject) String() string {
-	return fmt.Sprintf("{Round: %v, Height: %v Digest: %v}", sub.Round, sub.Height, sub.Digest.String())
+func (sub *Vote) String() string {
+	return fmt.Sprintf("{Round: %v, Height: %v ProposedBlockHash: %v}", sub.Round, sub.Height, sub.ProposedBlockHash.String())
 }

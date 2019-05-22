@@ -70,7 +70,7 @@ func (s *roundState) GetPrevoteOrPrecommitSize() int {
 	return result
 }
 
-func (s *roundState) Subject() *tendermint.Subject {
+func (s *roundState) Subject() *tendermint.Vote {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -78,10 +78,10 @@ func (s *roundState) Subject() *tendermint.Subject {
 		return nil
 	}
 
-	return &tendermint.Subject{
-		Round:  new(big.Int).Set(s.round),
-		Height: new(big.Int).Set(s.height),
-		Digest: s.proposal.ProposalBlock.Hash(),
+	return &tendermint.Vote{
+		Round:             new(big.Int).Set(s.round),
+		Height:            new(big.Int).Set(s.height),
+		ProposedBlockHash: s.proposal.ProposalBlock.Hash(),
 	}
 }
 

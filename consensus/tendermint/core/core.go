@@ -571,7 +571,7 @@ func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
 		}
 		// for msgRoundChange, msgPrevote and msgPrecommit cases
 	default:
-		var p *tendermint.Subject
+		var p *tendermint.Vote
 		err := msg.Decode(&p)
 		if err == nil {
 			backlog.Push(msg, toPriority(msg.Code, p.Round, p.Height))
@@ -608,7 +608,7 @@ func (c *core) processBacklog() {
 				}
 				// for msgRoundChange, msgPrevote and msgPrecommit cases
 			default:
-				var sub *tendermint.Subject
+				var sub *tendermint.Vote
 				err := msg.Decode(&sub)
 				if err == nil {
 					round, height = sub.Round, sub.Height
@@ -842,15 +842,15 @@ func (c *core) acceptProposal(proposal *tendermint.Proposal) {
 func (c *core) sendPrevote(isNil bool) {
 	logger := c.logger.New("step", c.step)
 
-	var sub = &tendermint.Subject{
+	var sub = &tendermint.Vote{
 		Round:  big.NewInt(c.currentRoundState.round.Int64()),
 		Height: big.NewInt(c.currentRoundState.Height().Int64()),
 	}
 
 	if isNil {
-		sub.Digest = common.Hash{}
+		sub.ProposedBlockHash = common.Hash{}
 	} else {
-		sub.Digest = c.currentRoundState.Proposal().ProposalBlock.Hash()
+		sub.ProposedBlockHash = c.currentRoundState.Proposal().ProposalBlock.Hash()
 	}
 
 	encodedSubject, err := Encode(sub)
@@ -866,7 +866,7 @@ func (c *core) sendPrevote(isNil bool) {
 
 func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 	// Decode PREPARE message
-	var prepare *tendermint.Subject
+	var prepare *tendermint.Vote
 	err := msg.Decode(&prepare)
 	if err != nil {
 		return errFailedDecodePrevote
@@ -892,7 +892,7 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 }
 
 // verifyPrevote verifies if the received PREPARE message is equivalent to our subject
-func (c *core) verifyPrevote(prepare *tendermint.Subject, src tendermint.Validator) error {
+func (c *core) verifyPrevote(prepare *tendermint.Vote, src tendermint.Validator) error {
 	logger := c.logger.New("from", src, "step", c.step)
 
 	sub := c.currentRoundState.Subject()
@@ -920,15 +920,15 @@ func (c *core) sendPrecommit() {
 }
 
 func (c *core) sendPrecommitForOldBlock(r *big.Int, h *big.Int, digest common.Hash) {
-	sub := &tendermint.Subject{
-		Round:  r,
-		Height: h,
-		Digest: digest,
+	sub := &tendermint.Vote{
+		Round:             r,
+		Height:            h,
+		ProposedBlockHash: digest,
 	}
 	c.broadcastPrecommit(sub)
 }
 
-func (c *core) broadcastPrecommit(sub *tendermint.Subject) {
+func (c *core) broadcastPrecommit(sub *tendermint.Vote) {
 	logger := c.logger.New("step", c.step)
 
 	encodedSubject, err := Encode(sub)
@@ -944,7 +944,7 @@ func (c *core) broadcastPrecommit(sub *tendermint.Subject) {
 
 func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 	// Decode COMMIT message
-	var commit *tendermint.Subject
+	var commit *tendermint.Vote
 	err := msg.Decode(&commit)
 	if err != nil {
 		return errFailedDecodePrecommit
@@ -975,7 +975,7 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 }
 
 // verifyPrecommit verifies if the received COMMIT message is equivalent to our subject
-func (c *core) verifyPrecommit(commit *tendermint.Subject, src tendermint.Validator) error {
+func (c *core) verifyPrecommit(commit *tendermint.Vote, src tendermint.Validator) error {
 	logger := c.logger.New("from", src, "step", c.step)
 
 	sub := c.currentRoundState.Subject()
