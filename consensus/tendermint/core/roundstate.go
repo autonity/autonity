@@ -29,6 +29,7 @@ import (
 // newRoundState creates a new roundState instance with the given view and validatorSet
 // lockedHash and proposal are for round change when lock exists,
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
+// TODO: instad of using big.Int use int64 and only use big.Int when needed for rlp encoding and use big.NewInt() to initialize
 func newRoundState(r *big.Int, h *big.Int, validatorSet tendermint.ValidatorSet, lockedHash common.Hash, proposal *tendermint.Proposal, hasBadProposal func(hash common.Hash) bool) *roundState {
 	return &roundState{
 		round:          r,
@@ -49,7 +50,8 @@ type roundState struct {
 	proposal *tendermint.Proposal
 	// TODO: messageSet is probably not required, need to port the function from messageSet to here, will also need to introduce mutexes.
 	// These should simply be map[common.Address]message
-	Prevotes   *messageSet
+	Prevotes *messageSet
+	// TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
 	Precommits *messageSet
 	// TODO: remove this lockedHash as this should be in core
 	lockedHash common.Hash

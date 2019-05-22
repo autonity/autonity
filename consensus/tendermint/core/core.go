@@ -79,7 +79,7 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
 		config:                 config,
 		address:                backend.Address(),
-		step:                   StepAcceptRequest,
+		step:                   StepAcceptProposal,
 		handlerStopCh:          make(chan struct{}),
 		logger:                 log.New("address", backend.Address()),
 		backend:                backend,
@@ -225,9 +225,9 @@ func (c *core) startRound(round *big.Int) {
 	// Start of new height where round is 0
 	if round.Uint64() == 0 {
 		// Set the shared round values to initial values
-		c.lockedRound = nil
+		c.lockedRound = big.NewInt(-1)
 		c.lockedValue = new(types.Block)
-		c.validRound = nil
+		c.validRound = big.NewInt(-1)
 		c.validValue = new(types.Block)
 
 		c.valSet = c.backend.Validators(height.Uint64())
@@ -241,19 +241,11 @@ func (c *core) startRound(round *big.Int) {
 		c.currentHeightRoundsStates = append(c.currentHeightRoundsStates, *c.currentRoundState)
 	}
 
-	c.currentRoundState = newRoundState(
-		round,
-		height,
-		c.valSet,
-		common.Hash{},
-		nil,
-		c.backend.HasBadProposal,
-	)
-
+	c.currentRoundState = newRoundState(round, height, c.valSet, common.Hash{}, nil, c.backend.HasBadProposal)
 	c.valSet.CalcProposer(lastProposalBlockProposer, round.Uint64())
 	c.sentProposal = false
-	// c.setStep(StepAcceptRequest) will process the pending request sent by the backed.Seal() and set c.lastestPendingRequest
-	c.setStep(StepAcceptRequest)
+	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
+	c.setStep(StepAcceptProposal)
 
 	var p *types.Block
 	if c.isProposer() {
@@ -273,7 +265,7 @@ func (c *core) setStep(step Step) {
 	if c.step != step {
 		c.step = step
 	}
-	if step == StepAcceptRequest {
+	if step == StepAcceptProposal {
 		c.processPendingRequests()
 	}
 	c.processBacklog()
@@ -473,6 +465,7 @@ func (c *core) handleMsg(payload []byte) error {
 	}
 
 	// Only accept message if the address is valid
+	// TODO: the check is already made in c.validateFn
 	_, src := c.valSet.GetByAddress(msg.Address)
 	if src == nil {
 		logger.Error("Invalid address in message", "msg", msg)
@@ -528,6 +521,7 @@ func (c *core) checkMessage(msgCode uint64, round *big.Int, height *big.Int) err
 		return errInvalidMessage
 	}
 
+	// TODO: add current round messages to currentHeightRoundStates
 	if height.Cmp(c.currentRoundState.Height()) > 0 {
 		return errFutureMessage
 	} else if round.Cmp(c.currentRoundState.Round()) > 0 {
@@ -538,9 +532,9 @@ func (c *core) checkMessage(msgCode uint64, round *big.Int, height *big.Int) err
 		return errOldMessage
 	}
 
-	// StepAcceptRequest only accepts msgProposal
+	// StepAcceptProposal only accepts msgProposal
 	// other messages are future messages
-	if c.step == StepAcceptRequest {
+	if c.step == StepAcceptProposal {
 		if msgCode > msgProposal {
 			return errFutureMessage
 		}
@@ -672,7 +666,7 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 
 	c.latestPendingUnminedBlock = unminedBlock
 	// TODO: remove, we should not be sending a proposal from handleUnminedBlock
-	if c.step == StepAcceptRequest {
+	if c.step == StepAcceptProposal {
 		c.sendProposal(unminedBlock)
 	}
 	return nil
@@ -769,20 +763,19 @@ func (c *core) sendProposal(p *types.Block) {
 func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 	logger := c.logger.New("from", src, "step", c.step)
 
-	// Decode PRE-PREPARE
 	var proposal *tendermint.Proposal
 	err := msg.Decode(&proposal)
 	if err != nil {
 		return errFailedDecodeProposal
 	}
 
-	// Ensure we have the same view with the PRE-PREPARE message
+	// Ensure we have the same view with the Proposal message
 	// If it is old message, see if we need to broadcast COMMIT
 	//TODO: fixup
 	if err := c.checkMessage(msgProposal, proposal.Round, proposal.Height); err != nil {
 		if err == errOldMessage {
-			//TODO : EIP Says ignore?
-			// Get validator set for the given proposal
+			// TODO: keeping it for the time being but rebroadcasting based on old messages should not be required due to partial synchrony assumption
+			// TODO: also need to add previous round messages to currentHeightRoundStates and only rebroadcast if older height
 			valSet := c.backend.Validators(proposal.ProposalBlock.Number().Uint64()).Copy()
 			previousProposer := c.backend.GetProposer(proposal.ProposalBlock.Number().Uint64() - 1)
 			valSet.CalcProposer(previousProposer, proposal.Round.Uint64())
@@ -816,32 +809,24 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 					msg: msg,
 				})
 			})
-		} //else {
-		// TODO: possibly send propose(nil) (need to update)
-		//}
+		}
 		return err
 	}
 
-	// Here is about to accept the PRE-PREPARE
-	if c.step == StepAcceptRequest {
-		// Send ROUND CHANGE if the locked proposal and the received proposal are different
-		if c.currentRoundState.IsHashLocked() {
-			if proposal.ProposalBlock.Hash() == c.currentRoundState.GetLockedHash() {
-				// Broadcast COMMIT and enters Prevoted step directly
-				c.acceptProposal(proposal)
-				c.setStep(StepPrevoteDone)
-				c.sendPrecommit() // TODO : double check, why not PREPARE?
-			} //else {
-			// TODO: possibly send propose(nil) (need to update)
-			//}
-		} else {
-			// Either
-			//   1. the locked proposal and the received proposal match
-			//   2. we have no locked proposal
-			c.acceptProposal(proposal)
-			c.setStep(StepProposeDone)
-			c.sendPrevote()
+	// Here is about to accept the Proposal
+	if c.step == StepAcceptProposal {
+		c.acceptProposal(proposal)
+
+		if proposal.ValidRound.Int64() == -1 {
+			if c.lockedRound == proposal.ValidRound || proposal.ProposalBlock.Hash() == c.lockedValue.Hash() {
+				c.sendPrevote(false)
+			} else {
+				c.sendPrevote(true)
+			}
+		} else if proposal.ValidRound.Int64() > -1 {
+
 		}
+		c.setStep(StepProposeDone)
 	}
 
 	return nil
@@ -853,10 +838,20 @@ func (c *core) acceptProposal(proposal *tendermint.Proposal) {
 
 //---------------------------------------Prevote---------------------------------------
 
-func (c *core) sendPrevote() {
+func (c *core) sendPrevote(isNil bool) {
 	logger := c.logger.New("step", c.step)
 
-	sub := c.currentRoundState.Subject()
+	var sub = &tendermint.Subject{
+		Round:  big.NewInt(c.currentRoundState.round.Int64()),
+		Height: big.NewInt(c.currentRoundState.Height().Int64()),
+	}
+
+	if isNil {
+		sub.Digest = common.Hash{}
+	} else {
+		sub.Digest = c.currentRoundState.Proposal().ProposalBlock.Hash()
+	}
+
 	encodedSubject, err := Encode(sub)
 	if err != nil {
 		logger.Error("Failed to encode", "subject", sub)

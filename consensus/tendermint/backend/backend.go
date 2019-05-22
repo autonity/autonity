@@ -114,6 +114,7 @@ type Backend struct {
 	// event subscription for ChainHeadEvent event
 	broadcaster consensus.Broadcaster
 
+	//TODO: ARCChace is patented by IBM, so probably need to stop using it
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
 
@@ -233,6 +234,7 @@ func (sb *Backend) EventMux() *event.TypeMuxSilent {
 // Verify implements tendermint.Backend.Verify
 func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
 	// Check if the proposal is a valid block
+	// TODO: fix always false statement
 	block := &proposal
 	if block == nil {
 		sb.logger.Error("Invalid proposal, %v", proposal)

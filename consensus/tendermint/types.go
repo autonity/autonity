@@ -44,12 +44,7 @@ func (p *Proposal) EncodeRLP(w io.Writer) error {
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
 func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
-	var proposal struct {
-		Round         *big.Int
-		Height        *big.Int
-		ValidRound    *big.Int
-		ProposalBlock types.Block
-	}
+	var proposal = new(Proposal)
 
 	if err := s.Decode(&proposal); err != nil {
 		return err
@@ -72,11 +67,7 @@ func (sub *Subject) EncodeRLP(w io.Writer) error {
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
 func (sub *Subject) DecodeRLP(s *rlp.Stream) error {
-	var subject struct {
-		Round  *big.Int
-		Height *big.Int
-		Digest common.Hash
-	}
+	var subject = new(Subject)
 
 	if err := s.Decode(&subject); err != nil {
 		return err

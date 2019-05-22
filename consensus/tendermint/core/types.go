@@ -32,15 +32,15 @@ type Engine interface {
 type Step uint64
 
 const (
-	StepAcceptRequest Step = iota
+	StepAcceptProposal Step = iota
 	StepProposeDone
 	StepPrevoteDone
 	StepPrecommitDone
 )
 
 func (s Step) String() string {
-	if s == StepAcceptRequest {
-		return "Accept request"
+	if s == StepAcceptProposal {
+		return "Accepting proposal"
 	} else if s == StepProposeDone {
 		return "Proposal"
 	} else if s == StepPrevoteDone {
