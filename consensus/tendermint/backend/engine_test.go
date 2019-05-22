@@ -199,7 +199,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
-		_ = engine.Precommit(otherBlock, [][]byte{})
+		_ = engine.Precommit(*otherBlock, [][]byte{})
 		eventSub.Unsubscribe()
 	}
 	go eventLoop()

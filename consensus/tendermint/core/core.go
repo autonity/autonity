@@ -189,13 +189,6 @@ func (c *core) broadcast(msg *message) {
 	}
 }
 
-func (c *core) currentView() *tendermint.View {
-	return &tendermint.View{
-		Height: new(big.Int).Set(c.currentRoundState.Height()),
-		Round:  new(big.Int).Set(c.currentRoundState.Round()),
-	}
-}
-
 func (c *core) isProposer() bool {
 	v := c.valSet
 	if v == nil {
@@ -248,14 +241,9 @@ func (c *core) startRound(round *big.Int) {
 		c.currentHeightRoundsStates = append(c.currentHeightRoundsStates, *c.currentRoundState)
 	}
 
-	// Update the currentRoundState round step
-	curView := tendermint.View{
-		Round:  new(big.Int).Set(round),
-		Height: new(big.Int).Set(height),
-	}
-
 	c.currentRoundState = newRoundState(
-		&curView,
+		round,
+		height,
 		c.valSet,
 		common.Hash{},
 		nil,
@@ -535,16 +523,18 @@ type backlogEvent struct {
 // return errInvalidMessage if the message is invalid
 // return errFutureMessage if the message view is larger than currentRoundState view
 // return errOldMessage if the message view is smaller than currentRoundState view
-func (c *core) checkMessage(msgCode uint64, view *tendermint.View) error {
-	if view == nil || view.Height == nil || view.Round == nil {
+func (c *core) checkMessage(msgCode uint64, round *big.Int, height *big.Int) error {
+	if height == nil || round == nil {
 		return errInvalidMessage
 	}
 
-	if view.Cmp(c.currentView()) > 0 {
+	if height.Cmp(c.currentRoundState.Height()) > 0 {
 		return errFutureMessage
-	}
-
-	if view.Cmp(c.currentView()) < 0 {
+	} else if round.Cmp(c.currentRoundState.Round()) > 0 {
+		return errFutureMessage
+	} else if height.Cmp(c.currentRoundState.Height()) < 0 {
+		return errOldMessage
+	} else if round.Cmp(c.currentRoundState.Round()) < 0 {
 		return errOldMessage
 	}
 
@@ -636,7 +626,7 @@ func (c *core) processBacklog() {
 				continue
 			}
 			// Push back if it's a future message
-			err := c.checkMessage(msg.Code, &tendermint.View{Round: round, Height: height})
+			err := c.checkMessage(msg.Code, round, height)
 			if err != nil {
 				if err == errFutureMessage {
 					logger.Trace("Stop processing backlog", "msg", msg)
@@ -789,7 +779,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 	// Ensure we have the same view with the PRE-PREPARE message
 	// If it is old message, see if we need to broadcast COMMIT
 	//TODO: fixup
-	if err := c.checkMessage(msgProposal, &tendermint.View{Round: proposal.Round, Height: proposal.Height}); err != nil {
+	if err := c.checkMessage(msgProposal, proposal.Round, proposal.Height); err != nil {
 		if err == errOldMessage {
 			//TODO : EIP Says ignore?
 			// Get validator set for the given proposal
@@ -886,7 +876,7 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 		return errFailedDecodePrevote
 	}
 
-	if err = c.checkMessage(msgPrevote, &tendermint.View{Round: prepare.Round, Height: prepare.Height}); err != nil {
+	if err = c.checkMessage(msgPrevote, prepare.Round, prepare.Height); err != nil {
 		return err
 	}
 
@@ -973,7 +963,7 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 		return errFailedDecodePrecommit
 	}
 
-	if err := c.checkMessage(msgPrecommit, &tendermint.View{Round: commit.Round, Height: commit.Height}); err != nil {
+	if err := c.checkMessage(msgPrecommit, commit.Round, commit.Height); err != nil {
 		return err
 	}
 

@@ -18,7 +18,6 @@ package core
 
 import (
 	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 
@@ -29,10 +28,6 @@ import (
 // Construct a new message set to accumulate messages for given height/view number.
 func newMessageSet(valSet tendermint.ValidatorSet) *messageSet {
 	return &messageSet{
-		view: &tendermint.View{
-			Round:  new(big.Int),
-			Height: new(big.Int),
-		},
 		messagesMu: new(sync.Mutex),
 		messages:   make(map[common.Address]*message),
 		valSet:     valSet,
@@ -43,15 +38,9 @@ func newMessageSet(valSet tendermint.ValidatorSet) *messageSet {
 
 // TODO: think about whether to refactor the valset or that whether the messageSet is even required
 type messageSet struct {
-	// TODO: this view is not being used here
-	view       *tendermint.View
 	valSet     tendermint.ValidatorSet
 	messagesMu *sync.Mutex
 	messages   map[common.Address]*message
-}
-
-func (ms *messageSet) View() *tendermint.View {
-	return ms.view
 }
 
 func (ms *messageSet) Add(msg *message) error {

@@ -29,10 +29,10 @@ import (
 // newRoundState creates a new roundState instance with the given view and validatorSet
 // lockedHash and proposal are for round change when lock exists,
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
-func newRoundState(view *tendermint.View, validatorSet tendermint.ValidatorSet, lockedHash common.Hash, proposal *tendermint.Proposal, hasBadProposal func(hash common.Hash) bool) *roundState {
+func newRoundState(r *big.Int, h *big.Int, validatorSet tendermint.ValidatorSet, lockedHash common.Hash, proposal *tendermint.Proposal, hasBadProposal func(hash common.Hash) bool) *roundState {
 	return &roundState{
-		round:          view.Round,
-		height:         view.Height,
+		round:          r,
+		height:         h,
 		proposal:       proposal,
 		Prevotes:       newMessageSet(validatorSet),
 		Precommits:     newMessageSet(validatorSet),
@@ -82,10 +82,8 @@ func (s *roundState) Subject() *tendermint.Subject {
 	}
 
 	return &tendermint.Subject{
-		View: &tendermint.View{
-			Round:  new(big.Int).Set(s.round),
-			Height: new(big.Int).Set(s.height),
-		},
+		Round:  new(big.Int).Set(s.round),
+		Height: new(big.Int).Set(s.height),
 		Digest: s.proposal.ProposalBlock.Hash(),
 	}
 }
