@@ -28,28 +28,56 @@ import (
 
 // newRoundState creates a new roundState instance with the given view and validatorSet
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
-// TODO: instad of using big.Int use int64 and only use big.Int when needed for rlp encoding and use big.NewInt() to initialize
-func newRoundState(r *big.Int, h *big.Int, validatorSet tendermint.ValidatorSet, hasBadProposal func(hash common.Hash) bool) *roundState {
+// TODO: instead of using big.Int use int64 and only use big.Int when needed for rlp encoding and use big.NewInt() to initialize
+// TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
+func newRoundState(r *big.Int, h *big.Int, hasBadProposal func(hash common.Hash) bool) *roundState {
 	return &roundState{
 		round:          r,
 		height:         h,
-		Prevotes:       newMessageSet(validatorSet),
-		Precommits:     newMessageSet(validatorSet),
+		Prevotes:       newMessageSet(),
+		Precommits:     newMessageSet(),
 		mu:             new(sync.RWMutex),
 		hasBadProposal: hasBadProposal,
 	}
 }
 
+func newMessageSet() messageSet {
+	return messageSet{messages: make([]message, 0)}
+}
+
+type messageSet struct {
+	messages []message
+	mu       *sync.RWMutex
+}
+
+func (ms *messageSet) Add(msg message) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.messages = append(ms.messages, msg)
+}
+
+func (ms *messageSet) Values() []message {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
+	var result = make([]message, 0)
+	result = append(result, ms.messages...)
+	return result
+}
+
+func (ms *messageSet) Size() int {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	return len(ms.messages)
+}
+
 // roundState stores the consensus step
 type roundState struct {
-	round    *big.Int
-	height   *big.Int
-	proposal *tendermint.Proposal
-	// TODO: messageSet is probably not required, need to port the function from messageSet to here, will also need to introduce mutexes.
-	// These should simply be map[common.Address]message
-	Prevotes *messageSet
-	// TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
-	Precommits *messageSet
+	round      *big.Int
+	height     *big.Int
+	proposal   *tendermint.Proposal
+	Prevotes   messageSet
+	Precommits messageSet
 
 	mu             *sync.RWMutex
 	hasBadProposal func(hash common.Hash) bool
@@ -62,11 +90,12 @@ func (s *roundState) GetPrevoteOrPrecommitSize() int {
 	result := s.Prevotes.Size() + s.Precommits.Size()
 
 	// find duplicate one
-	for _, m := range s.Prevotes.Values() {
-		if s.Precommits.Get(m.Address) != nil {
-			result--
-		}
-	}
+	//TODO: fix, so that the address is taken from msg
+	//for _, m := range s.Prevotes.Values() {
+	//	if s.Precommits.Get(m.Address) != nil {
+	//		result--
+	//	}
+	//}
 	return result
 }
 
@@ -140,7 +169,12 @@ func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
 	if err := stream.Decode(&rs); err != nil {
 		return err
 	}
-	s.round, s.height, s.proposal, s.Prevotes, s.Precommits, s.mu = rs.round, rs.height, rs.proposal, rs.Prevotes, rs.Precommits, new(sync.RWMutex)
+	s.round = rs.round
+	s.height = rs.height
+	s.proposal = rs.proposal
+	s.Prevotes = rs.Prevotes
+	s.Precommits = rs.Precommits
+	s.mu = new(sync.RWMutex)
 
 	return nil
 }

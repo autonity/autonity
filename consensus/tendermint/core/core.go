@@ -242,7 +242,7 @@ func (c *core) startRound(round *big.Int) {
 		c.currentHeightRoundsStates[c.currentRoundState.Round().Int64()] = *c.currentRoundState
 	}
 
-	c.currentRoundState = newRoundState(round, height, c.valSet, c.backend.HasBadProposal)
+	c.currentRoundState = newRoundState(round, height, c.backend.HasBadProposal)
 	c.valSet.CalcProposer(lastProposalBlockProposer, round.Uint64())
 	c.sentProposal = false
 	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
@@ -415,6 +415,7 @@ func (c *core) handleEvents() {
 			case tendermint.NewUnminedBlockEvent:
 				pb := &e.NewUnminedBlock
 				err := c.handleUnminedBlock(pb)
+				//TODO: return consensus.ErrFutureBlock and handle it gracefully
 				if err == errFutureHeightMessage {
 					c.storeUnminedBlockMsg(pb)
 				}
@@ -882,11 +883,12 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 		return err
 	}
 
-	err = c.acceptPrevote(msg)
-	if err != nil {
-		c.logger.Error("Failed to add PREPARE message to round step",
-			"from", src, "step", c.step, "msg", msg, "err", err)
-	}
+	c.acceptPrevote(msg)
+	//err = c.acceptPrevote(msg)
+	//if err != nil {
+	//	c.logger.Error("Failed to add PREPARE message to round step",
+	//		"from", src, "step", c.step, "msg", msg, "err", err)
+	//}
 
 	return nil
 }
@@ -904,13 +906,10 @@ func (c *core) verifyPrevote(prepare *tendermint.Vote, src tendermint.Validator)
 	return nil
 }
 
-func (c *core) acceptPrevote(msg *message) error {
+func (c *core) acceptPrevote(msg *message) {
+	// TODO: fix up
 	// Add the PREPARE message to currentRoundState round step
-	if err := c.currentRoundState.Prevotes.Add(msg); err != nil {
-		return err
-	}
-
-	return nil
+	c.currentRoundState.Prevotes.Add(*msg)
 }
 
 //---------------------------------------Precommit---------------------------------------
@@ -958,9 +957,10 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 		return err
 	}
 
-	if err := c.acceptPrecommit(msg); err != nil {
-		c.logger.Error("Failed to record commit message", "from", src, "step", c.step, "msg", msg, "err", err)
-	}
+	c.acceptPrecommit(msg)
+	//if err := c.acceptPrecommit(msg); err != nil {
+	//	c.logger.Error("Failed to record commit message", "from", src, "step", c.step, "msg", msg, "err", err)
+	//}
 
 	// Precommit the proposal once we have enough COMMIT messages and we are not in the Committed step.
 	//
@@ -988,8 +988,9 @@ func (c *core) verifyPrecommit(commit *tendermint.Vote, src tendermint.Validator
 }
 
 // acceptPrecommit adds the COMMIT message to currentRoundState round step
-func (c *core) acceptPrecommit(msg *message) error {
-	return c.currentRoundState.Precommits.Add(msg)
+// TODO: fix up
+func (c *core) acceptPrecommit(msg *message) {
+	c.currentRoundState.Precommits.Add(*msg)
 }
 
 //---------------------------------------Commit---------------------------------------

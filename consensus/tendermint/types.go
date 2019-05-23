@@ -49,7 +49,10 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&proposal); err != nil {
 		return err
 	}
-	p.Round, p.Height, p.ValidRound, p.ProposalBlock = proposal.Round, proposal.Height, proposal.ValidRound, proposal.ProposalBlock
+	p.Round = proposal.Round
+	p.Height = proposal.Height
+	p.ValidRound = proposal.ValidRound
+	p.ProposalBlock = proposal.ProposalBlock
 
 	return nil
 }
@@ -72,7 +75,9 @@ func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&subject); err != nil {
 		return err
 	}
-	sub.Round, sub.Height, sub.ProposedBlockHash = subject.Round, subject.Height, subject.ProposedBlockHash
+	sub.Round = subject.Round
+	sub.Height = subject.Height
+	sub.ProposedBlockHash = subject.ProposedBlockHash
 	return nil
 }
 
