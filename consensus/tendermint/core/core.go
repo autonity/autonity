@@ -19,6 +19,7 @@ package core
 import (
 	"bytes"
 	"errors"
+	"math"
 	"math/big"
 	"reflect"
 	"sync"
@@ -64,6 +65,10 @@ var (
 	errFailedDecodePrevote = errors.New("failed to decode PREPARE")
 	// errFailedDecodePrecommit is returned when the COMMIT message is malformed.
 	errFailedDecodePrecommit = errors.New("failed to decode COMMIT")
+	// errNoMajority is returned when test value is less than math.Ceil(2/3*N)
+	errNoMajority = errors.New("no majority")
+	// errNilPrevoteSent is returned when timer could be stopped in time
+	errNilPrevoteSent = errors.New("timer expired and nil prevote sent")
 )
 
 var (
@@ -290,6 +295,10 @@ func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address,
 	return tendermint.CheckValidatorSignature(c.valSet, data, sig)
 }
 
+func (c *core) quorum(i int) bool {
+	return float64(i) > math.Ceil(float64(2)/float64(3)*float64(c.valSet.Size()))
+}
+
 // PrepareCommittedSeal returns a committed seal for the given hash
 func PrepareCommittedSeal(hash common.Hash) []byte {
 	var buf bytes.Buffer
@@ -299,6 +308,8 @@ func PrepareCommittedSeal(hash common.Hash) []byte {
 }
 
 func (c *core) onTimeoutPropose() {
+	c.sendPrevote(true)
+	c.setStep(StepPrecommitDone)
 }
 
 //func (c *core) onTimeoutPrevote() {
@@ -313,7 +324,8 @@ func (c *core) onTimeoutPropose() {
 type timeoutEvent struct{}
 
 type timeout struct {
-	timer *time.Timer
+	timer   *time.Timer
+	started bool
 	sync.RWMutex
 }
 
@@ -321,15 +333,16 @@ type timeout struct {
 func (t *timeout) scheduleTimeout(stepTimeout time.Duration, runAfterTimeout func()) *time.Timer {
 	t.Lock()
 	defer t.Unlock()
+	t.started = true
 	t.timer = time.AfterFunc(stepTimeout, runAfterTimeout)
 	return t.timer
 }
 
-//func (t *timeout) stopTimer() bool {
-//	t.RLock()
-//	defer t.RUnlock()
-//	return t.timer.Stop()
-//}
+func (t *timeout) stopTimer() bool {
+	t.RLock()
+	defer t.RUnlock()
+	return t.timer.Stop()
+}
 
 // The timeout may need to be changed depending on the Step
 func timeoutPropose(round int64) time.Duration {
@@ -489,6 +502,7 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 		return err
 	}
 
+	// TODO: check step before calling the relevant handler
 	switch msg.Code {
 	case msgProposal:
 		return testBacklog(c.handleProposal(msg, src))
@@ -786,6 +800,17 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 				c.sendPrecommitForOldBlock(proposal.Round, proposal.Height, proposal.ProposalBlock.Hash())
 				return nil
 			}
+		} else if err == errDifferentRoundMessage {
+			_, ok := c.currentHeightRoundsStates[proposal.Round.Int64()]
+			if !ok {
+				c.currentHeightRoundsStates[proposal.Round.Int64()] = *newRoundState(
+					big.NewInt(c.currentRoundState.Height().Int64()),
+					big.NewInt(proposal.Round.Int64()),
+					c.backend.HasBadProposal)
+			}
+
+			prevoteMS := c.currentHeightRoundsStates[proposal.Round.Int64()].Prevotes
+			prevoteMS.Add(*msg)
 		}
 		return err
 	}
@@ -809,26 +834,39 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 					msg: msg,
 				})
 			})
-		} else if err == errDifferentRoundMessage {
-			//prevoteMS := c.currentHeightRoundsStates[proposal.Round.Int64()].Prevotes
 		}
 		return err
 	}
 
 	// Here is about to accept the Proposal
 	if c.step == StepAcceptProposal {
+		//TODO: check if prevote(nil) is sent using preoposal timer and if not stop the timer
+		if c.proposeTimeout.started {
+			if stopped := c.proposeTimeout.stopTimer(); !stopped {
+				return errNilPrevoteSent
+			}
+		}
 		c.acceptProposal(proposal)
+		vr := proposal.ValidRound.Int64()
 
-		if proposal.ValidRound.Int64() == -1 {
-			if c.lockedRound == proposal.ValidRound || proposal.ProposalBlock.Hash() == c.lockedValue.Hash() {
+		if vr == -1 {
+			if c.lockedRound.Int64() == proposal.ValidRound.Int64() || proposal.ProposalBlock.Hash() == c.lockedValue.Hash() {
 				c.sendPrevote(false)
 			} else {
 				c.sendPrevote(true)
 			}
-		} else if proposal.ValidRound.Int64() > -1 {
-
+			c.setStep(StepProposeDone)
+		} else if rs, ok := c.currentHeightRoundsStates[vr]; vr > -1 && vr < c.currentRoundState.round.Int64() && ok && c.quorum(rs.Prevotes.Size()) {
+			if c.lockedRound.Int64() <= proposal.ValidRound.Int64() || proposal.ProposalBlock.Hash() == c.lockedValue.Hash() {
+				c.sendPrevote(false)
+			} else {
+				c.sendPrevote(true)
+			}
+			c.setStep(StepProposeDone)
+		} else {
+			return errNoMajority
 		}
-		c.setStep(StepProposeDone)
+
 	}
 
 	return nil
