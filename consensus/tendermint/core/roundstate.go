@@ -42,34 +42,57 @@ func newRoundState(r *big.Int, h *big.Int, hasBadProposal func(hash common.Hash)
 }
 
 func newMessageSet() messageSet {
-	return messageSet{messages: make([]message, 0)}
+	return messageSet{
+		votes:    map[common.Hash]map[common.Address]message{},
+		nilvotes: map[common.Address]message{},
+	}
 }
 
 type messageSet struct {
-	messages []message
+	votes    map[common.Hash]map[common.Address]message
+	nilvotes map[common.Address]message
 	mu       *sync.RWMutex
 }
 
-func (ms *messageSet) Add(msg message) {
+func (ms *messageSet) AddVote(blockHash common.Hash, msg message) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-	ms.messages = append(ms.messages, msg)
+	if addressesMap, ok := ms.votes[blockHash]; ok {
+		if _, ok := addressesMap[msg.Address]; !ok {
+			addressesMap[msg.Address] = msg
+		}
+	}
 }
 
-func (ms *messageSet) Values() []message {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-
-	var result = make([]message, 0)
-	result = append(result, ms.messages...)
-	return result
+func (ms *messageSet) AddNilVote(msg message) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	if _, ok := ms.nilvotes[msg.Address]; ok {
+		ms.nilvotes[msg.Address] = msg
+	}
 }
 
-func (ms *messageSet) Size() int {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	return len(ms.messages)
+func (ms *messageSet) VotesSize(h common.Hash) int {
+	if m, ok := ms.votes[h]; ok {
+		return len(m)
+	}
+	return 0
 }
+
+//func (ms *messageSet) Values() []message {
+//	ms.mu.RLock()
+//	defer ms.mu.RUnlock()
+//
+//	var result = make([]message, 0)
+//	result = append(result, ms.messages...)
+//	return result
+//}
+//
+//func (ms *messageSet) Size() int {
+//	ms.mu.RLock()
+//	defer ms.mu.RUnlock()
+//	return len(ms.messages)
+//}
 
 // roundState stores the consensus step
 type roundState struct {
@@ -87,7 +110,7 @@ func (s *roundState) GetPrevoteOrPrecommitSize() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	result := s.Prevotes.Size() + s.Precommits.Size()
+	//result := s.Prevotes.Size() + s.Precommits.Size()
 
 	// find duplicate one
 	//TODO: fix, so that the address is taken from msg
@@ -96,7 +119,8 @@ func (s *roundState) GetPrevoteOrPrecommitSize() int {
 	//		result--
 	//	}
 	//}
-	return result
+	//return result
+	return 0
 }
 
 func (s *roundState) Subject() *tendermint.Vote {

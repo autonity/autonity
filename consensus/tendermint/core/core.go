@@ -143,6 +143,8 @@ type core struct {
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
 	precommitTimeout *timeout
+
+	//TODO: Add futureRounds to keep track of when to move to next round after receiving f + 1 messages from that round
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -209,16 +211,16 @@ func (c *core) commit() {
 
 	proposal := c.currentRoundState.Proposal()
 	if proposal != nil {
-		committedSeals := make([][]byte, c.currentRoundState.Precommits.Size())
-		for i, v := range c.currentRoundState.Precommits.Values() {
-			committedSeals[i] = make([]byte, types.PoSExtraSeal)
-			copy(committedSeals[i][:], v.CommittedSeal[:])
-		}
-
-		if err := c.backend.Precommit(proposal.ProposalBlock, committedSeals); err != nil {
-			// TODO: go to next height
-			return
-		}
+		//committedSeals := make([][]byte, c.currentRoundState.Precommits.Size())
+		//for i, v := range c.currentRoundState.Precommits.Values() {
+		//	committedSeals[i] = make([]byte, types.PoSExtraSeal)
+		//	copy(committedSeals[i][:], v.CommittedSeal[:])
+		//}
+		//
+		//if err := c.backend.Precommit(proposal.ProposalBlock, committedSeals); err != nil {
+		//	// TODO: go to next height
+		//	return
+		//}
 	}
 }
 
@@ -296,7 +298,7 @@ func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address,
 }
 
 func (c *core) quorum(i int) bool {
-	return float64(i) > math.Ceil(float64(2)/float64(3)*float64(c.valSet.Size()))
+	return float64(i) >= math.Ceil(float64(2)/float64(3)*float64(c.valSet.Size()))
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash
@@ -810,7 +812,11 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 			}
 
 			prevoteMS := c.currentHeightRoundsStates[proposal.Round.Int64()].Prevotes
-			prevoteMS.Add(*msg)
+			if proposal.ProposalBlock.Hash() == (common.Hash{}) {
+				prevoteMS.AddNilVote(*msg)
+			} else {
+				prevoteMS.AddVote(proposal.ProposalBlock.Hash(), *msg)
+			}
 		}
 		return err
 	}
@@ -848,16 +854,17 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 		}
 		c.acceptProposal(proposal)
 		vr := proposal.ValidRound.Int64()
+		h := proposal.ProposalBlock.Hash()
 
 		if vr == -1 {
-			if c.lockedRound.Int64() == proposal.ValidRound.Int64() || proposal.ProposalBlock.Hash() == c.lockedValue.Hash() {
+			if c.lockedRound.Int64() == proposal.ValidRound.Int64() || h == c.lockedValue.Hash() {
 				c.sendPrevote(false)
 			} else {
 				c.sendPrevote(true)
 			}
 			c.setStep(StepProposeDone)
-		} else if rs, ok := c.currentHeightRoundsStates[vr]; vr > -1 && vr < c.currentRoundState.round.Int64() && ok && c.quorum(rs.Prevotes.Size()) {
-			if c.lockedRound.Int64() <= proposal.ValidRound.Int64() || proposal.ProposalBlock.Hash() == c.lockedValue.Hash() {
+		} else if rs, ok := c.currentHeightRoundsStates[vr]; vr > -1 && vr < c.currentRoundState.round.Int64() && ok && c.quorum(rs.Prevotes.VotesSize(h)) {
+			if c.lockedRound.Int64() <= proposal.ValidRound.Int64() || h == c.lockedValue.Hash() {
 				c.sendPrevote(false)
 			} else {
 				c.sendPrevote(true)
@@ -947,7 +954,7 @@ func (c *core) verifyPrevote(prepare *tendermint.Vote, src tendermint.Validator)
 func (c *core) acceptPrevote(msg *message) {
 	// TODO: fix up
 	// Add the PREPARE message to currentRoundState round step
-	c.currentRoundState.Prevotes.Add(*msg)
+	//c.currentRoundState.Prevotes.Add(*msg)
 }
 
 //---------------------------------------Precommit---------------------------------------
@@ -1004,10 +1011,10 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 	//
 	// If we already have a proposal, we may have chance to speed up the consensus process
 	// by committing the proposal without PREPARE messages.
-	if c.currentRoundState.Precommits.Size() > 2*c.valSet.F() && c.step.Cmp(StepPrecommitDone) < 0 {
-		// Still need to call LockHash here since step can skip Prevoted step and jump directly to the Committed step.
-		c.commit()
-	}
+	//if c.currentRoundState.Precommits.Size() > 2*c.valSet.F() && c.step.Cmp(StepPrecommitDone) < 0 {
+	//	// Still need to call LockHash here since step can skip Prevoted step and jump directly to the Committed step.
+	//	c.commit()
+	//}
 
 	return nil
 }
@@ -1028,7 +1035,7 @@ func (c *core) verifyPrecommit(commit *tendermint.Vote, src tendermint.Validator
 // acceptPrecommit adds the COMMIT message to currentRoundState round step
 // TODO: fix up
 func (c *core) acceptPrecommit(msg *message) {
-	c.currentRoundState.Precommits.Add(*msg)
+	//c.currentRoundState.Precommits.Add(*msg)
 }
 
 //---------------------------------------Commit---------------------------------------
