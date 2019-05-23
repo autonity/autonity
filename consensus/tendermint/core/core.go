@@ -51,12 +51,14 @@ var (
 	//errIgnored = errors.New("message is ignored")
 	// errFutureHeightMessage is returned when currentRoundState view is earlier than the
 	// view of the received message.
-	errFutureHeightMessage = errors.New("future message")
+	errFutureHeightMessage = errors.New("future height message")
 	// errOldHeightMessage is returned when the received message's view is earlier
 	// than currentRoundState view.
-	errOldHeightMessage = errors.New("old message")
-	// errDifferentRoundMessage message is returned when message is of the same Height but form a different round
-	errDifferentRoundMessage = errors.New("same height but different round message")
+	errOldHeightMessage = errors.New("old height message")
+	// errOldRoundMessage message is returned when message is of the same Height but form a smaller round
+	errOldRoundMessage = errors.New("same height but old round message")
+	// errFutureRoundMessage message is returned when message is of the same Height but form a newer round
+	errFutureRoundMessage = errors.New("same height but future round message")
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")
 	// errFailedDecodeProposal is returned when the PRE-PREPARE message is malformed.
@@ -128,7 +130,8 @@ type core struct {
 	pendingUnminedBlocks   *prque.Prque
 	pendingUnminedBlocksMu *sync.Mutex
 
-	sentProposal bool
+	sentProposal          bool
+	setValidRoundAndValue bool
 
 	lockedRound *big.Int
 	validRound  *big.Int
@@ -310,13 +313,15 @@ func PrepareCommittedSeal(hash common.Hash) []byte {
 }
 
 func (c *core) onTimeoutPropose() {
+	// TODO; check whether the heigh, round and step are still the same when called
 	c.sendPrevote(true)
 	c.setStep(StepPrecommitDone)
 }
 
-//func (c *core) onTimeoutPrevote() {
-//}
-//
+func (c *core) onTimeoutPrevote() {
+	// TODO; check whether the heigh, round and step are still the same when called
+}
+
 //func (c *core) onTimeoutPrecommit() {
 //
 //}
@@ -351,10 +356,10 @@ func timeoutPropose(round int64) time.Duration {
 	return initialProposeTimeout + time.Duration(round)*time.Second
 }
 
-//func timeoutPrevote(round int64) time.Duration {
-//	return initialProposeTimeout + time.Duration(round)*time.Second
-//}
-//
+func timeoutPrevote(round int64) time.Duration {
+	return initialProposeTimeout + time.Duration(round)*time.Second
+}
+
 //func timeoutPrecommit(round int64) time.Duration {
 //	return initialProposeTimeout + time.Duration(round)*time.Second
 //}
@@ -497,7 +502,8 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
-		if err == errFutureHeightMessage {
+		// We want to store only future messages in backlog
+		if err == errFutureHeightMessage || err == errFutureRoundMessage {
 			c.storeBacklog(msg, src)
 		}
 
@@ -539,13 +545,14 @@ func (c *core) checkMessage(msgCode uint64, round *big.Int, height *big.Int) err
 		return errInvalidMessage
 	}
 
-	// TODO: add current round messages to currentHeightRoundStates
 	if height.Cmp(c.currentRoundState.Height()) > 0 {
 		return errFutureHeightMessage
 	} else if height.Cmp(c.currentRoundState.Height()) < 0 {
 		return errOldHeightMessage
-	} else if round.Cmp(c.currentRoundState.Round()) != 0 {
-		return errDifferentRoundMessage
+	} else if round.Cmp(c.currentRoundState.Round()) > 0 {
+		return errFutureRoundMessage
+	} else if round.Cmp(c.currentRoundState.Round()) < 0 {
+		return errOldRoundMessage
 	}
 
 	// StepAcceptProposal only accepts msgProposal
@@ -697,6 +704,7 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 		return errInvalidMessage
 	}
 
+	//TODO: make the err message more specfic to block maybe use consensus.ErrFutureBlock?
 	if c := c.currentRoundState.height.Cmp(unminedBlock.Number()); c > 0 {
 		return errOldHeightMessage
 	} else if c < 0 {
@@ -789,7 +797,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 	// If it is old message, see if we need to broadcast COMMIT
 	//TODO: fixup
 	if err := c.checkMessage(msgProposal, proposal.Round, proposal.Height); err != nil {
-		if err == errOldHeightMessage {
+		if err == errOldHeightMessage || err == errOldRoundMessage {
 			// TODO: keeping it for the time being but rebroadcasting based on old messages should not be required due to partial synchrony assumption
 			// TODO: also need to add previous round messages to currentHeightRoundStates and only rebroadcast if older height
 			valSet := c.backend.Validators(proposal.ProposalBlock.Number().Uint64()).Copy()
@@ -801,21 +809,6 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 			if valSet.IsProposer(src.Address()) && c.backend.HasPropsal(proposal.ProposalBlock.Hash(), proposal.ProposalBlock.Number()) {
 				c.sendPrecommitForOldBlock(proposal.Round, proposal.Height, proposal.ProposalBlock.Hash())
 				return nil
-			}
-		} else if err == errDifferentRoundMessage {
-			_, ok := c.currentHeightRoundsStates[proposal.Round.Int64()]
-			if !ok {
-				c.currentHeightRoundsStates[proposal.Round.Int64()] = *newRoundState(
-					big.NewInt(c.currentRoundState.Height().Int64()),
-					big.NewInt(proposal.Round.Int64()),
-					c.backend.HasBadProposal)
-			}
-
-			prevoteMS := c.currentHeightRoundsStates[proposal.Round.Int64()].Prevotes
-			if proposal.ProposalBlock.Hash() == (common.Hash{}) {
-				prevoteMS.AddNilVote(*msg)
-			} else {
-				prevoteMS.AddVote(proposal.ProposalBlock.Hash(), *msg)
 			}
 		}
 		return err
@@ -888,79 +881,108 @@ func (c *core) acceptProposal(proposal *tendermint.Proposal) {
 func (c *core) sendPrevote(isNil bool) {
 	logger := c.logger.New("step", c.step)
 
-	var sub = &tendermint.Vote{
+	var vote = &tendermint.Vote{
 		Round:  big.NewInt(c.currentRoundState.round.Int64()),
 		Height: big.NewInt(c.currentRoundState.Height().Int64()),
 	}
 
 	if isNil {
-		sub.ProposedBlockHash = common.Hash{}
+		vote.ProposedBlockHash = common.Hash{}
 	} else {
-		sub.ProposedBlockHash = c.currentRoundState.Proposal().ProposalBlock.Hash()
+		vote.ProposedBlockHash = c.currentRoundState.Proposal().ProposalBlock.Hash()
 	}
 
-	encodedSubject, err := Encode(sub)
+	encodedVote, err := Encode(vote)
 	if err != nil {
-		logger.Error("Failed to encode", "subject", sub)
+		logger.Error("Failed to encode", "subject", vote)
 		return
 	}
 	c.broadcast(&message{
 		Code: msgPrevote,
-		Msg:  encodedSubject,
+		Msg:  encodedVote,
 	})
 }
 
+// TODO: possibly need to add sentPrevote and sentPrecommit
 func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 	// Decode PREPARE message
-	var prepare *tendermint.Vote
-	err := msg.Decode(&prepare)
+	var prevote *tendermint.Vote
+	err := msg.Decode(&prevote)
 	if err != nil {
 		return errFailedDecodePrevote
 	}
 
-	if err = c.checkMessage(msgPrevote, prepare.Round, prepare.Height); err != nil {
+	if err = c.checkMessage(msgPrevote, prevote.Round, prevote.Height); err != nil {
+		// We want to store old round messages for future rounds since it is required for validRound
+		if err == errOldRoundMessage {
+			_, ok := c.currentHeightRoundsStates[prevote.Round.Int64()]
+			if !ok {
+				c.currentHeightRoundsStates[prevote.Round.Int64()] = *newRoundState(
+					big.NewInt(c.currentRoundState.Height().Int64()),
+					big.NewInt(prevote.Round.Int64()),
+					c.backend.HasBadProposal)
+			}
+
+			prevoteMS := c.currentHeightRoundsStates[prevote.Round.Int64()].Prevotes
+			if prevote.ProposedBlockHash == (common.Hash{}) {
+				prevoteMS.AddNilVote(*msg)
+			} else {
+				prevoteMS.AddVote(prevote.ProposedBlockHash, *msg)
+			}
+		}
 		return err
 	}
 
-	// If it is locked, it can only process on the locked block.
-	// Passing verifyPrevote and checkMessage implies it is processing on the locked block since it was verified in the Proposald step.
-	if err = c.verifyPrevote(prepare, src); err != nil {
-		return err
-	}
+	// Now we can add the prevote to our current round state
+	if c.step >= StepProposeDone {
+		c.currentRoundState.Prevotes.AddVote(prevote.ProposedBlockHash, *msg)
 
-	c.acceptPrevote(msg)
-	//err = c.acceptPrevote(msg)
-	//if err != nil {
-	//	c.logger.Error("Failed to add PREPARE message to round step",
-	//		"from", src, "step", c.step, "msg", msg, "err", err)
-	//}
-
-	return nil
-}
-
-// verifyPrevote verifies if the received PREPARE message is equivalent to our subject
-func (c *core) verifyPrevote(prepare *tendermint.Vote, src tendermint.Validator) error {
-	logger := c.logger.New("from", src, "step", c.step)
-
-	sub := c.currentRoundState.Subject()
-	if !reflect.DeepEqual(prepare, sub) {
-		logger.Warn("Inconsistent subjects between PREPARE and proposal", "expected", sub, "got", prepare)
-		return errInconsistentSubject
+		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(prevote.ProposedBlockHash)) {
+			c.prevoteTimeout.scheduleTimeout(timeoutPrevote(c.currentRoundState.Round().Int64()), c.onTimeoutPrevote)
+		} else if c.step == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
+			c.sendPrecommit(true)
+			c.setStep(StepPrevoteDone)
+		} else if c.quorum(c.currentRoundState.Prevotes.VotesSize(prevote.ProposedBlockHash)) && !c.setValidRoundAndValue {
+			// this piece of code should only run once
+			if c.step == StepProposeDone {
+				c.lockedValue = &c.currentRoundState.Proposal().ProposalBlock
+				c.lockedRound = big.NewInt(c.currentRoundState.Round().Int64())
+				c.sendPrecommit(false)
+				c.setStep(StepPrevoteDone)
+			}
+			c.validValue = &c.currentRoundState.Proposal().ProposalBlock
+			c.validRound = big.NewInt(c.currentRoundState.Round().Int64())
+			c.setValidRoundAndValue = true
+		}
 	}
 
 	return nil
-}
-
-func (c *core) acceptPrevote(msg *message) {
-	// TODO: fix up
-	// Add the PREPARE message to currentRoundState round step
-	//c.currentRoundState.Prevotes.Add(*msg)
 }
 
 //---------------------------------------Precommit---------------------------------------
-func (c *core) sendPrecommit() {
-	sub := c.currentRoundState.Subject()
-	c.broadcastPrecommit(sub)
+func (c *core) sendPrecommit(isNil bool) {
+	logger := c.logger.New("step", c.step)
+
+	var vote = &tendermint.Vote{
+		Round:  big.NewInt(c.currentRoundState.round.Int64()),
+		Height: big.NewInt(c.currentRoundState.Height().Int64()),
+	}
+
+	if isNil {
+		vote.ProposedBlockHash = common.Hash{}
+	} else {
+		vote.ProposedBlockHash = c.currentRoundState.Proposal().ProposalBlock.Hash()
+	}
+
+	encodedVote, err := Encode(vote)
+	if err != nil {
+		logger.Error("Failed to encode", "subject", vote)
+		return
+	}
+	c.broadcast(&message{
+		Code: msgPrecommit,
+		Msg:  encodedVote,
+	})
 }
 
 func (c *core) sendPrecommitForOldBlock(r *big.Int, h *big.Int, digest common.Hash) {

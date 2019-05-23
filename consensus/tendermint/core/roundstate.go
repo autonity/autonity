@@ -79,6 +79,19 @@ func (ms *messageSet) VotesSize(h common.Hash) int {
 	return 0
 }
 
+func (ms *messageSet) NilVotesSize() int {
+	return len(ms.nilvotes)
+}
+
+func (ms *messageSet) TotalSize(blockHash common.Hash) int {
+	total := len(ms.nilvotes)
+	if _, ok := ms.votes[blockHash]; !ok {
+		return total
+	}
+
+	return total + len(ms.votes[blockHash])
+}
+
 //func (ms *messageSet) Values() []message {
 //	ms.mu.RLock()
 //	defer ms.mu.RUnlock()
