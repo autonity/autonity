@@ -188,6 +188,7 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 	}
 }
 
+// TODO: I think it was Commit but was changed to Precommit during 'copy-paste'
 // Precommit implements tendermint.Backend.Precommit
 func (sb *Backend) Precommit(proposal types.Block, seals [][]byte) error {
 	// Check if the proposal is a valid block

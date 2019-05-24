@@ -21,7 +21,6 @@ import (
 	"errors"
 	"math"
 	"math/big"
-	"reflect"
 	"sync"
 	"time"
 
@@ -43,7 +42,7 @@ const (
 var (
 	// errInconsistentSubject is returned when received subject is different from
 	// currentRoundState subject.
-	errInconsistentSubject = errors.New("inconsistent subjects")
+	//errInconsistentSubject = errors.New("inconsistent subjects")
 	// errNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
@@ -83,6 +82,7 @@ var (
 	}
 )
 
+// TODO: add better logging
 // New creates an Istanbul consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
@@ -214,16 +214,15 @@ func (c *core) commit() {
 
 	proposal := c.currentRoundState.Proposal()
 	if proposal != nil {
-		//committedSeals := make([][]byte, c.currentRoundState.Precommits.Size())
-		//for i, v := range c.currentRoundState.Precommits.Values() {
-		//	committedSeals[i] = make([]byte, types.PoSExtraSeal)
-		//	copy(committedSeals[i][:], v.CommittedSeal[:])
-		//}
-		//
-		//if err := c.backend.Precommit(proposal.ProposalBlock, committedSeals); err != nil {
-		//	// TODO: go to next height
-		//	return
-		//}
+		committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
+		for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
+			committedSeals[i] = make([]byte, types.PoSExtraSeal)
+			copy(committedSeals[i][:], v.CommittedSeal[:])
+		}
+
+		if err := c.backend.Precommit(proposal.ProposalBlock, committedSeals); err != nil {
+			return
+		}
 	}
 }
 
@@ -322,9 +321,9 @@ func (c *core) onTimeoutPrevote() {
 	// TODO; check whether the heigh, round and step are still the same when called
 }
 
-//func (c *core) onTimeoutPrecommit() {
-//
-//}
+func (c *core) onTimeoutPrecommit() {
+	// TODO; check whether the heigh, round and step are still the same when called
+}
 
 //---------------------------------------Timeout---------------------------------------
 
@@ -360,9 +359,9 @@ func timeoutPrevote(round int64) time.Duration {
 	return initialProposeTimeout + time.Duration(round)*time.Second
 }
 
-//func timeoutPrecommit(round int64) time.Duration {
-//	return initialProposeTimeout + time.Duration(round)*time.Second
-//}
+func timeoutPrecommit(round int64) time.Duration {
+	return initialProposeTimeout + time.Duration(round)*time.Second
+}
 
 //---------------------------------------Handler---------------------------------------
 
@@ -935,14 +934,22 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 
 	// Now we can add the prevote to our current round state
 	if c.step >= StepProposeDone {
-		c.currentRoundState.Prevotes.AddVote(prevote.ProposedBlockHash, *msg)
+		prevoteHash := prevote.ProposedBlockHash
+		curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
 
-		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(prevote.ProposedBlockHash)) {
+		if prevoteHash == (common.Hash{}) {
+			c.currentRoundState.Prevotes.AddNilVote(*msg)
+		} else {
+			c.currentRoundState.Prevotes.AddVote(prevoteHash, *msg)
+		}
+
+		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)) {
 			c.prevoteTimeout.scheduleTimeout(timeoutPrevote(c.currentRoundState.Round().Int64()), c.onTimeoutPrevote)
 		} else if c.step == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
+			// TODO: probably need to stop timer, same in the other if branches need to fix this
 			c.sendPrecommit(true)
 			c.setStep(StepPrevoteDone)
-		} else if c.quorum(c.currentRoundState.Prevotes.VotesSize(prevote.ProposedBlockHash)) && !c.setValidRoundAndValue {
+		} else if c.quorum(c.currentRoundState.Prevotes.VotesSize(curProposaleHash)) && !c.setValidRoundAndValue {
 			// this piece of code should only run once
 			if c.step == StepProposeDone {
 				c.lockedValue = &c.currentRoundState.Proposal().ProposalBlock
@@ -1010,54 +1017,34 @@ func (c *core) broadcastPrecommit(sub *tendermint.Vote) {
 
 func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 	// Decode COMMIT message
-	var commit *tendermint.Vote
-	err := msg.Decode(&commit)
+	var precommit *tendermint.Vote
+	err := msg.Decode(&precommit)
 	if err != nil {
 		return errFailedDecodePrecommit
 	}
 
-	if err := c.checkMessage(msgPrecommit, commit.Round, commit.Height); err != nil {
+	if err := c.checkMessage(msgPrecommit, precommit.Round, precommit.Height); err != nil {
+		// We don't care about old round messages, so if the message is in the correct height and round it should be fine
 		return err
 	}
 
-	if err := c.verifyPrecommit(commit, src); err != nil {
-		return err
+	// We don't care about which step we are in to accept a precommit, since it has the highest importance
+	precommitHash := precommit.ProposedBlockHash
+	curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
+
+	if precommitHash == (common.Hash{}) {
+		c.currentRoundState.Precommits.AddNilVote(*msg)
+	} else {
+		c.currentRoundState.Precommits.AddVote(precommitHash, *msg)
 	}
 
-	c.acceptPrecommit(msg)
-	//if err := c.acceptPrecommit(msg); err != nil {
-	//	c.logger.Error("Failed to record commit message", "from", src, "step", c.step, "msg", msg, "err", err)
-	//}
-
-	// Precommit the proposal once we have enough COMMIT messages and we are not in the Committed step.
-	//
-	// If we already have a proposal, we may have chance to speed up the consensus process
-	// by committing the proposal without PREPARE messages.
-	//if c.currentRoundState.Precommits.Size() > 2*c.valSet.F() && c.step.Cmp(StepPrecommitDone) < 0 {
-	//	// Still need to call LockHash here since step can skip Prevoted step and jump directly to the Committed step.
-	//	c.commit()
-	//}
-
-	return nil
-}
-
-// verifyPrecommit verifies if the received COMMIT message is equivalent to our subject
-func (c *core) verifyPrecommit(commit *tendermint.Vote, src tendermint.Validator) error {
-	logger := c.logger.New("from", src, "step", c.step)
-
-	sub := c.currentRoundState.Subject()
-	if !reflect.DeepEqual(commit, sub) {
-		logger.Warn("Inconsistent subjects between commit and proposal", "expected", sub, "got", commit)
-		return errInconsistentSubject
+	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.NilVotesSize()) {
+		c.precommitTimeout.scheduleTimeout(timeoutPrecommit(c.currentRoundState.Round().Int64()), c.onTimeoutPrecommit)
+	} else if c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)) {
+		c.commit()
 	}
 
 	return nil
-}
-
-// acceptPrecommit adds the COMMIT message to currentRoundState round step
-// TODO: fix up
-func (c *core) acceptPrecommit(msg *message) {
-	//c.currentRoundState.Precommits.Add(*msg)
 }
 
 //---------------------------------------Commit---------------------------------------

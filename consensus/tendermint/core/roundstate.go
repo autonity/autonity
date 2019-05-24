@@ -92,14 +92,21 @@ func (ms *messageSet) TotalSize(blockHash common.Hash) int {
 	return total + len(ms.votes[blockHash])
 }
 
-//func (ms *messageSet) Values() []message {
-//	ms.mu.RLock()
-//	defer ms.mu.RUnlock()
-//
-//	var result = make([]message, 0)
-//	result = append(result, ms.messages...)
-//	return result
-//}
+func (ms *messageSet) Values(blockHash common.Hash) []message {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
+	if _, ok := ms.votes[blockHash]; !ok {
+		return nil
+	}
+
+	var messages = make([]message, 0)
+	for _, v := range ms.votes[blockHash] {
+		messages = append(messages, v)
+	}
+	return messages
+}
+
 //
 //func (ms *messageSet) Size() int {
 //	ms.mu.RLock()
