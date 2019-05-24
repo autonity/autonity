@@ -266,7 +266,7 @@ func (c *core) startRound(round *big.Int) {
 		}
 		c.sendProposal(p)
 	} else {
-		c.proposeTimeout.scheduleTimeout(timeoutPropose(round.Int64()), c.onTimeoutPropose)
+		c.proposeTimeout.scheduleTimeout(timeoutPropose(round.Int64()), c.currentRoundState.Height().Int64(), c.currentRoundState.Round().Int64(), c.onTimeoutPropose)
 	}
 }
 
@@ -311,18 +311,24 @@ func PrepareCommittedSeal(hash common.Hash) []byte {
 	return buf.Bytes()
 }
 
-func (c *core) onTimeoutPropose() {
-	// TODO; check whether the heigh, round and step are still the same when called
-	c.sendPrevote(true)
-	c.setStep(StepPrecommitDone)
+func (c *core) onTimeoutPropose(h int64, r int64) {
+	if h == c.currentRoundState.Height().Int64() && r == c.currentRoundState.Round().Int64() && c.step == StepAcceptProposal {
+		c.sendPrevote(true)
+		c.setStep(StepProposeDone)
+	}
 }
 
-func (c *core) onTimeoutPrevote() {
-	// TODO; check whether the heigh, round and step are still the same when called
+func (c *core) onTimeoutPrevote(h int64, r int64) {
+	if h == c.currentRoundState.Height().Int64() && r == c.currentRoundState.Round().Int64() && c.step == StepProposeDone {
+		c.sendPrecommit(true)
+		c.setStep(StepPrevoteDone)
+	}
 }
 
-func (c *core) onTimeoutPrecommit() {
-	// TODO; check whether the heigh, round and step are still the same when called
+func (c *core) onTimeoutPrecommit(h int64, r int64) {
+	if h == c.currentRoundState.Height().Int64() && r == c.currentRoundState.Round().Int64() {
+		c.startRound(new(big.Int).Add(c.currentRoundState.Height(), common.Big1))
+	}
 }
 
 //---------------------------------------Timeout---------------------------------------
@@ -336,11 +342,13 @@ type timeout struct {
 }
 
 // runAfterTimeout() will be run in a separate go routine, so values used inside the function needs to be managed separately
-func (t *timeout) scheduleTimeout(stepTimeout time.Duration, runAfterTimeout func()) *time.Timer {
+func (t *timeout) scheduleTimeout(stepTimeout time.Duration, height int64, round int64, runAfterTimeout func(h int64, r int64)) *time.Timer {
 	t.Lock()
 	defer t.Unlock()
 	t.started = true
-	t.timer = time.AfterFunc(stepTimeout, runAfterTimeout)
+	t.timer = time.AfterFunc(stepTimeout, func() {
+		runAfterTimeout(height, round)
+	})
 	return t.timer
 }
 
@@ -703,7 +711,7 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 		return errInvalidMessage
 	}
 
-	//TODO: make the err message more specfic to block maybe use consensus.ErrFutureBlock?
+	//TODO: make the err message more specific to block maybe use consensus.ErrFutureBlock?
 	if c := c.currentRoundState.height.Cmp(unminedBlock.Number()); c > 0 {
 		return errOldHeightMessage
 	} else if c < 0 {
@@ -838,7 +846,6 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 
 	// Here is about to accept the Proposal
 	if c.step == StepAcceptProposal {
-		//TODO: check if prevote(nil) is sent using preoposal timer and if not stop the timer
 		if c.proposeTimeout.started {
 			if stopped := c.proposeTimeout.stopTimer(); !stopped {
 				return errNilPrevoteSent
@@ -933,6 +940,7 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 	}
 
 	// Now we can add the prevote to our current round state
+	// TODO: manage prevote timer
 	if c.step >= StepProposeDone {
 		prevoteHash := prevote.ProposedBlockHash
 		curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
@@ -944,7 +952,7 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 		}
 
 		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)) {
-			c.prevoteTimeout.scheduleTimeout(timeoutPrevote(c.currentRoundState.Round().Int64()), c.onTimeoutPrevote)
+			c.prevoteTimeout.scheduleTimeout(timeoutPrevote(c.currentRoundState.Round().Int64()), c.currentRoundState.Height().Int64(), c.currentRoundState.Round().Int64(), c.onTimeoutPrevote)
 		} else if c.step == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
 			// TODO: probably need to stop timer, same in the other if branches need to fix this
 			c.sendPrecommit(true)
@@ -1027,7 +1035,7 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 		// We don't care about old round messages, so if the message is in the correct height and round it should be fine
 		return err
 	}
-
+	// TODO: manage precommit timer
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 	precommitHash := precommit.ProposedBlockHash
 	curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
@@ -1039,7 +1047,7 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 	}
 
 	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.NilVotesSize()) {
-		c.precommitTimeout.scheduleTimeout(timeoutPrecommit(c.currentRoundState.Round().Int64()), c.onTimeoutPrecommit)
+		c.precommitTimeout.scheduleTimeout(timeoutPrecommit(c.currentRoundState.Round().Int64()), c.currentRoundState.Height().Int64(), c.currentRoundState.Round().Int64(), c.onTimeoutPrecommit)
 	} else if c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)) {
 		c.commit()
 	}
