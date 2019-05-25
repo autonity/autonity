@@ -57,9 +57,9 @@ type Backend interface {
 	// the given validator
 	CheckSignature(data []byte, addr common.Address, sig []byte) error
 
-	// LastProposal retrieves latest committed proposal and the address of proposer
-	// TODO: change the name and return (*types.Block)
-	LastProposal() (types.Block, common.Address)
+	// LastCommittedProposal retrieves latest committed proposal and the address of proposer
+
+	LastCommittedProposal() (*types.Block, common.Address)
 
 	// HasPropsal checks if the combination of the given hash and height matches any existing blocks
 	HasPropsal(hash common.Hash, number *big.Int) bool

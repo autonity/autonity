@@ -364,7 +364,7 @@ func (sb *Backend) GetProposer(number uint64) common.Address {
 	return common.Address{}
 }
 
-func (sb *Backend) LastProposal() (types.Block, common.Address) {
+func (sb *Backend) LastCommittedProposal() (*types.Block, common.Address) {
 	block := sb.currentBlock()
 
 	var proposer common.Address
@@ -373,12 +373,12 @@ func (sb *Backend) LastProposal() (types.Block, common.Address) {
 		proposer, err = sb.Author(block.Header())
 		if err != nil {
 			sb.logger.Error("Failed to get block proposer", "err", err)
-			return types.Block{}, common.Address{}
+			return new(types.Block), common.Address{}
 		}
 	}
 
 	// Return header only block here since we don't need block body
-	return *block, proposer
+	return block, proposer
 }
 
 func (sb *Backend) HasBadProposal(hash common.Hash) bool {

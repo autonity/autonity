@@ -216,9 +216,8 @@ func (c *core) commit() {
 
 // startRound starts a new round. if round equals to 0, it means to starts a new height
 func (c *core) startRound(round *big.Int) {
-	//TODO: update the name of lastProposalBlock and LastBlockProposal()
-	lastProposalBlock, lastProposalBlockProposer := c.backend.LastProposal()
-	height := new(big.Int).Add(lastProposalBlock.Number(), common.Big1)
+	lastCommittedProposalBlock, lastCommittedProposalBlockProposer := c.backend.LastCommittedProposal()
+	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 
 	// Start of new height where round is 0
 	if round.Uint64() == 0 {
@@ -255,7 +254,7 @@ func (c *core) startRound(round *big.Int) {
 	}
 
 	c.currentRoundState = newRoundState(round, height, c.backend.HasBadProposal)
-	c.valSet.CalcProposer(lastProposalBlockProposer, round.Uint64())
+	c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
 	c.sentProposal = false
 	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setStep(StepAcceptProposal)
