@@ -42,9 +42,9 @@ type Backend interface {
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(valSet ValidatorSet, payload []byte)
 
-	// Precommit delivers an approved proposal to backend.
+	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	Precommit(proposalBlock types.Block, seals [][]byte) error
+	Commit(proposalBlock types.Block, seals [][]byte) error
 
 	// Verify verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.

@@ -188,9 +188,8 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 	}
 }
 
-// TODO: I think it was Commit but was changed to Precommit during 'copy-paste'
-// Precommit implements tendermint.Backend.Precommit
-func (sb *Backend) Precommit(proposal types.Block, seals [][]byte) error {
+// Commit implements tendermint.Backend.Commit
+func (sb *Backend) Commit(proposal types.Block, seals [][]byte) error {
 	// Check if the proposal is a valid block
 	block := &proposal
 
@@ -208,7 +207,7 @@ func (sb *Backend) Precommit(proposal types.Block, seals [][]byte) error {
 	// update block's header
 	block = block.WithSeal(h)
 
-	sb.logger.Info("Precommitted", "address", sb.Address(), "hash", proposal.Hash(), "number", proposal.Number().Uint64())
+	sb.logger.Info("Committed", "address", sb.Address(), "hash", proposal.Hash(), "number", proposal.Number().Uint64())
 	// - if the proposed and committed blocks are the same, send the proposed hash
 	//   to commit channel, which is being watched inside the engine.Seal() function.
 	// - otherwise, we try to insert the block.

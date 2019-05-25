@@ -208,7 +208,7 @@ func (c *core) commit() {
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 
-		if err := c.backend.Precommit(proposal.ProposalBlock, committedSeals); err != nil {
+		if err := c.backend.Commit(proposal.ProposalBlock, committedSeals); err != nil {
 			return
 		}
 	}

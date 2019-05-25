@@ -83,9 +83,9 @@ func TestCheckValidatorSignature(t *testing.T) {
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
-		validator := vset.GetByIndex(uint64(i))
-		if addr != validator.Address() {
-			t.Errorf("validator address mismatch: have %v, want %v", addr, validator.Address())
+		val := vset.GetByIndex(uint64(i))
+		if addr != val.Address() {
+			t.Errorf("val address mismatch: have %v, want %v", addr, val.Address())
 		}
 	}
 
@@ -111,13 +111,13 @@ func TestCheckValidatorSignature(t *testing.T) {
 	}
 }
 
-func TestPrecommit(t *testing.T) {
+func TestCommit(t *testing.T) {
 	backend := newBackend(t)
 
 	commitCh := make(chan *types.Block, 1)
 	backend.commitCh = commitCh
 
-	// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Precommit function
+	// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
 	testCases := []struct {
 		expectedErr       error
 		expectedSignature [][]byte
@@ -154,10 +154,10 @@ func TestPrecommit(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		expBlock := test.expectedBlock()
+		expBlock := *test.expectedBlock()
 
 		backend.proposedBlockHash = expBlock.Hash()
-		if err := backend.Precommit(expBlock, test.expectedSignature); err != nil {
+		if err := backend.Commit(expBlock, test.expectedSignature); err != nil {
 			if err != test.expectedErr {
 				t.Errorf("error mismatch: have %v, want %v", err, test.expectedErr)
 			}
