@@ -24,48 +24,6 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
-type Engine interface {
-	Start() error
-	Stop() error
-}
-
-type Step uint64
-
-const (
-	StepAcceptProposal Step = iota
-	StepProposeDone
-	StepPrevoteDone
-	StepPrecommitDone
-)
-
-func (s Step) String() string {
-	if s == StepAcceptProposal {
-		return "Accepting proposal"
-	} else if s == StepProposeDone {
-		return "Proposal"
-	} else if s == StepPrevoteDone {
-		return "Prevoted"
-	} else if s == StepPrecommitDone {
-		return "Precommitted"
-	} else {
-		return "Unknown"
-	}
-}
-
-// Cmp compares s and y and returns:
-//   -1 if s is the previous step of y
-//    0 if s and y are the same step
-//   +1 if s is the next step of y
-func (s Step) Cmp(y Step) int {
-	if uint64(s) < uint64(y) {
-		return -1
-	}
-	if uint64(s) > uint64(y) {
-		return 1
-	}
-	return 0
-}
-
 const (
 	msgProposal uint64 = iota
 	msgPrevote
