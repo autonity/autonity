@@ -43,7 +43,9 @@ func newRoundState(r *big.Int, h *big.Int, hasBadProposal func(hash common.Hash)
 
 func newMessageSet() messageSet {
 	return messageSet{
-		votes:    map[common.Hash]map[common.Address]message{},
+		// map[proposedBlockHash]map[validatorAddress]vote
+		votes: map[common.Hash]map[common.Address]message{},
+		// map[validatorAddress]nilvote
 		nilvotes: map[common.Address]message{},
 	}
 }
@@ -57,11 +59,19 @@ type messageSet struct {
 func (ms *messageSet) AddVote(blockHash common.Hash, msg message) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-	if addressesMap, ok := ms.votes[blockHash]; ok {
-		if _, ok := addressesMap[msg.Address]; !ok {
-			addressesMap[msg.Address] = msg
-		}
+
+	var addressesMap map[common.Address]message
+	var ok bool
+
+	if addressesMap, ok = ms.votes[blockHash]; !ok {
+		return
 	}
+
+	if _, ok := addressesMap[msg.Address]; ok {
+		return
+	}
+
+	addressesMap[msg.Address] = msg
 }
 
 func (ms *messageSet) AddNilVote(msg message) {
@@ -100,7 +110,7 @@ func (ms *messageSet) Values(blockHash common.Hash) []message {
 		return nil
 	}
 
-	var messages = make([]message, 0)
+	var messages []message
 	for _, v := range ms.votes[blockHash] {
 		messages = append(messages, v)
 	}

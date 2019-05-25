@@ -148,6 +148,8 @@ type core struct {
 	precommitTimeout *timeout
 
 	//TODO: Add futureRounds to keep track of when to move to next round after receiving f + 1 messages from that round
+	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
+	futureRoundsChange map[int64]int64
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -242,13 +244,28 @@ func (c *core) startRound(round *big.Int) {
 
 		c.valSet = c.backend.Validators(height.Uint64())
 
-		// TODO: Assuming that round == 0 only when the node moves to a new height, need to confirm where exactly the node moves to a new height
+		// Assuming that round == 0 only when the node moves to a new height
 		c.currentHeightRoundsStates = make(map[int64]roundState)
-
 	} else {
 		// Assuming the above values will be set for round > 0
 		// Add the currentRoundState round step to the core previous round states
+		// TODO: fix up with references so that I don't overwrite messages when receiving old messages
 		c.currentHeightRoundsStates[c.currentRoundState.Round().Int64()] = *c.currentRoundState
+	}
+
+	c.proposeTimeout = nil
+	c.prevoteTimeout = nil
+	c.precommitTimeout = nil
+
+	var rounds []int64
+	for k := range c.futureRoundsChange {
+		rounds = append(rounds, k)
+	}
+
+	for _, r := range rounds {
+		if r <= round.Int64() {
+			delete(c.futureRoundsChange, r)
+		}
 	}
 
 	c.currentRoundState = newRoundState(round, height, c.backend.HasBadProposal)
@@ -510,6 +527,33 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
+		if err == errFutureRoundMessage {
+			//We cannont move to a round in a new height without receiving a new block
+			var msgRound int64
+			if msg.Code == msgProposal {
+				var p tendermint.Proposal
+				if e := msg.Decode(p); e != nil {
+					return errFailedDecodeProposal
+				}
+				msgRound = p.Round.Int64()
+
+			} else {
+				var v tendermint.Vote
+				if e := msg.Decode(v); e != nil {
+					// TODO: introduce new error: errFailedDecodeVote
+					return errFailedDecodePrecommit
+				}
+				msgRound = v.Round.Int64()
+			}
+
+			c.futureRoundsChange[msgRound] = c.futureRoundsChange[msgRound] + 1
+			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
+
+			if totalFutureRoundMessages >= int64(c.valSet.F()) {
+				c.startRound(big.NewInt(msgRound))
+			}
+
+		}
 		if err == errFutureHeightMessage || err == errFutureRoundMessage {
 			c.storeBacklog(msg, src)
 		}
