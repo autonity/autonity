@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core/types"
 )
@@ -20,10 +21,6 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 	logger.Trace("handleUnminedBlock", "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
 
 	c.latestPendingUnminedBlock = unminedBlock
-	// TODO: remove, we should not be sending a proposal from handleUnminedBlock
-	if c.step == StepAcceptProposal {
-		c.sendProposal(unminedBlock)
-	}
 	return nil
 }
 
@@ -36,11 +33,11 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 		return errInvalidMessage
 	}
 
-	//TODO: make the err message more specific to block maybe use consensus.ErrFutureBlock?
 	if c := c.currentRoundState.height.Cmp(unminedBlock.Number()); c > 0 {
+		// TODO: probably delete this case?
 		return errOldHeightMessage
 	} else if c < 0 {
-		return errFutureHeightMessage
+		return consensus.ErrFutureBlock
 	} else {
 		return nil
 	}

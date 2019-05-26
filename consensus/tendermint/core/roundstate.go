@@ -28,8 +28,6 @@ import (
 
 // newRoundState creates a new roundState instance with the given view and validatorSet
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
-// TODO: instead of using big.Int use int64 and only use big.Int when needed for rlp encoding and use big.NewInt() to initialize
-// TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
 func newRoundState(r *big.Int, h *big.Int, hasBadProposal func(hash common.Hash) bool) *roundState {
 	return &roundState{
 		round:          r,
@@ -53,23 +51,6 @@ type roundState struct {
 	hasBadProposal func(hash common.Hash) bool
 }
 
-func (s *roundState) GetPrevoteOrPrecommitSize() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	//result := s.Prevotes.Size() + s.Precommits.Size()
-
-	// find duplicate one
-	//TODO: fix, so that the address is taken from msg
-	//for _, m := range s.Prevotes.Values() {
-	//	if s.Precommits.Get(m.Address) != nil {
-	//		result--
-	//	}
-	//}
-	//return result
-	return 0
-}
-
 func (s *roundState) Subject() *tendermint.Vote {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -79,8 +60,8 @@ func (s *roundState) Subject() *tendermint.Vote {
 	}
 
 	return &tendermint.Vote{
-		Round:             new(big.Int).Set(s.round),
-		Height:            new(big.Int).Set(s.height),
+		Round:             big.NewInt(s.round.Int64()),
+		Height:            big.NewInt(s.height.Int64()),
 		ProposedBlockHash: s.proposal.ProposalBlock.Hash(),
 	}
 }
@@ -107,7 +88,7 @@ func (s *roundState) SetRound(r *big.Int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.round = new(big.Int).Set(r)
+	s.round = big.NewInt(r.Int64())
 }
 
 func (s *roundState) Round() *big.Int {

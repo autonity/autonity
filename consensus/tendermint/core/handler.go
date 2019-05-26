@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
@@ -74,8 +75,8 @@ func (c *core) handleEvents() {
 			case tendermint.NewUnminedBlockEvent:
 				pb := &e.NewUnminedBlock
 				err := c.handleUnminedBlock(pb)
-				//TODO: return consensus.ErrFutureBlock and handle it gracefully
-				if err == errFutureHeightMessage {
+
+				if err == consensus.ErrFutureBlock {
 					c.storeUnminedBlockMsg(pb)
 				}
 			case tendermint.MessageEvent:
@@ -185,7 +186,6 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 		return err
 	}
 
-	// TODO: check step before calling the relevant handler
 	switch msg.Code {
 	case msgProposal:
 		return testBacklog(c.handleProposal(msg, sender))
