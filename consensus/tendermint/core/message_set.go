@@ -28,9 +28,11 @@ func (ms *messageSet) AddVote(blockHash common.Hash, msg message) {
 	var addressesMap map[common.Address]message
 	var ok bool
 
-	if addressesMap, ok = ms.votes[blockHash]; !ok {
-		return
+	if _, ok = ms.votes[blockHash]; !ok {
+		ms.votes[blockHash] = make(map[common.Address]message)
 	}
+
+	addressesMap = ms.votes[blockHash]
 
 	if _, ok := addressesMap[msg.Address]; ok {
 		return
@@ -60,11 +62,11 @@ func (ms *messageSet) NilVotesSize() int {
 
 func (ms *messageSet) TotalSize(blockHash common.Hash) int {
 	total := len(ms.nilvotes)
-	if _, ok := ms.votes[blockHash]; !ok {
-		return total
+	for _, v := range ms.votes {
+		total = total + len(v)
 	}
 
-	return total + len(ms.votes[blockHash])
+	return total
 }
 
 func (ms *messageSet) Values(blockHash common.Hash) []message {
@@ -81,10 +83,3 @@ func (ms *messageSet) Values(blockHash common.Hash) []message {
 	}
 	return messages
 }
-
-//
-//func (ms *messageSet) Size() int {
-//	ms.mu.RLock()
-//	defer ms.mu.RUnlock()
-//	return len(ms.messages)
-//}

@@ -63,6 +63,8 @@ var (
 	errNoMajority = errors.New("no majority")
 	// errNilPrevoteSent is returned when timer could be stopped in time
 	errNilPrevoteSent = errors.New("timer expired and nil prevote sent")
+	// errNilPrecommitSent is returned when timer could be stopped in time
+	errNilPrecommitSent = errors.New("timer expired and nil precommit sent")
 )
 
 type Engine interface {
@@ -256,6 +258,7 @@ func (c *core) startRound(round *big.Int) {
 	c.currentRoundState = newRoundState(round, height, c.backend.HasBadProposal)
 	c.currentHeightRoundsStates[round.Int64()] = c.currentRoundState
 	c.sentProposal = false
+	c.setValidRoundAndValue = false
 	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setStep(StepAcceptProposal)
 

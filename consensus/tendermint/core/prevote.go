@@ -32,8 +32,8 @@ func (c *core) sendPrevote(isNil bool) {
 	})
 }
 
-// TODO: possibly need to add sentPrevote and sentPrecommit
-func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
+func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
+	logger := c.logger.New("from", sender, "step", c.step)
 	// Decode PREPARE message
 	var prevote *tendermint.Vote
 	err := msg.Decode(&prevote)
@@ -57,10 +57,11 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 	}
 
 	// Now we can add the prevote to our current round state
-	// TODO: manage prevote timer
 	if c.step >= StepProposeDone {
 		prevoteHash := prevote.ProposedBlockHash
 		curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
+		curR := c.currentRoundState.Round().Int64()
+		curH := c.currentRoundState.Height().Int64()
 
 		if prevoteHash == (common.Hash{}) {
 			c.currentRoundState.Prevotes.AddNilVote(*msg)
@@ -68,26 +69,51 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 			c.currentRoundState.Prevotes.AddVote(prevoteHash, *msg)
 		}
 
+		logger.Info("Accepted Prevote", prevoteHash)
+
+		// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)) {
-			timeoutDuration := timeoutPrevote(c.currentRoundState.Round().Int64())
-			c.prevoteTimeout.scheduleTimeout(timeoutDuration, c.currentRoundState.Round().Int64(), c.currentRoundState.Height().Int64(), c.onTimeoutPrevote)
+			if err := c.stopPrevoteTimeout(); err == nil {
+				timeoutDuration := timeoutPrevote(curR)
+				c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
+			} else {
+				return err
+			}
+			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
 		} else if c.step == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
-			// TODO: probably need to stop timer, same in the other if branches need to fix this
-			c.sendPrecommit(true)
-			c.setStep(StepPrevoteDone)
+			if err := c.stopPrevoteTimeout(); err == nil {
+				c.sendPrecommit(true)
+				c.setStep(StepPrevoteDone)
+			} else {
+				return err
+			}
+			// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
 		} else if c.quorum(c.currentRoundState.Prevotes.VotesSize(curProposaleHash)) && !c.setValidRoundAndValue {
 			// this piece of code should only run once
-			if c.step == StepProposeDone {
-				c.lockedValue = &c.currentRoundState.Proposal().ProposalBlock
-				c.lockedRound = big.NewInt(c.currentRoundState.Round().Int64())
-				c.sendPrecommit(false)
-				c.setStep(StepPrevoteDone)
+			if err := c.stopPrevoteTimeout(); err == nil {
+				if c.step == StepProposeDone {
+					c.lockedValue = &c.currentRoundState.Proposal().ProposalBlock
+					c.lockedRound = big.NewInt(curR)
+					c.sendPrecommit(false)
+					c.setStep(StepPrevoteDone)
+				}
+				c.validValue = &c.currentRoundState.Proposal().ProposalBlock
+				c.validRound = big.NewInt(curR)
+				c.setValidRoundAndValue = true
+			} else {
+				return err
 			}
-			c.validValue = &c.currentRoundState.Proposal().ProposalBlock
-			c.validRound = big.NewInt(c.currentRoundState.Round().Int64())
-			c.setValidRoundAndValue = true
 		}
 	}
 
+	return nil
+}
+
+func (c *core) stopPrevoteTimeout() error {
+	if c.prevoteTimeout.started {
+		if stopped := c.prevoteTimeout.stopTimer(); !stopped {
+			return errNilPrecommitSent
+		}
+	}
 	return nil
 }

@@ -14,7 +14,6 @@ const (
 	initialPrecommitTimeout = 5 * time.Second
 )
 
-// TODO: Decide whether to send an event deal with timeouts
 type timeoutEvent struct {
 	roundWhenCalled  int64
 	heightWhenCalled int64
