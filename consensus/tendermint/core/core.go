@@ -238,9 +238,9 @@ func (c *core) startRound(round *big.Int) {
 	}
 
 	// Reset all timeouts
-	c.proposeTimeout = nil
-	c.prevoteTimeout = nil
-	c.precommitTimeout = nil
+	c.proposeTimeout = new(timeout)
+	c.prevoteTimeout = new(timeout)
+	c.precommitTimeout = new(timeout)
 
 	// Remove previous rounds from futureRoundsChange map
 	var rounds = make([]int64, 0)
