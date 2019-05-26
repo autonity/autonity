@@ -193,10 +193,10 @@ func (sb *Backend) Commit(proposal types.Block, seals [][]byte) error {
 	// Check if the proposal is a valid block
 	block := &proposal
 
-	if block == nil {
-		sb.logger.Error("Invalid proposal, %v", proposal)
-		return errInvalidProposal
-	}
+	//if block == nil {
+	//	sb.logger.Error("Invalid proposal, %v", proposal)
+	//	return errInvalidProposal
+	//}
 
 	h := block.Header()
 	// Append seals into extra-data
@@ -234,12 +234,13 @@ func (sb *Backend) EventMux() *event.TypeMuxSilent {
 // Verify implements tendermint.Backend.Verify
 func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
 	// Check if the proposal is a valid block
-	// TODO: fix always false statement
+	// TODO: fix always false statement and check for non nil
+	// TODO: use interface instead of type
 	block := &proposal
-	if block == nil {
-		sb.logger.Error("Invalid proposal, %v", proposal)
-		return 0, errInvalidProposal
-	}
+	//if block == nil {
+	//	sb.logger.Error("Invalid proposal, %v", proposal)
+	//	return 0, errInvalidProposal
+	//}
 
 	// check bad block
 	if sb.HasBadProposal(block.Hash()) {

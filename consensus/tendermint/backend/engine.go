@@ -44,7 +44,7 @@ const (
 
 var (
 	// errInvalidProposal is returned when a prposal is malformed.
-	errInvalidProposal = errors.New("invalid proposal")
+	//errInvalidProposal = errors.New("invalid proposal")
 	// errUnknownBlock is returned when the list of validators is requested for a block
 	// that is not part of the local blockchain.
 	errUnknownBlock = errors.New("unknown block")
