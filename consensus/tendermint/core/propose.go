@@ -8,8 +8,6 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
-// TODO: add new message struct for proposal (proposalMessage) and determine how to rlp encode them especially nil
-// TODO: add new message for vote (prevote and precommit) and determine how to rlp encode them especially nil
 func (c *core) sendProposal(p *types.Block) {
 	logger := c.logger.New("step", c.step)
 
@@ -35,8 +33,8 @@ func (c *core) sendProposal(p *types.Block) {
 	}
 }
 
-func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
-	logger := c.logger.New("from", src, "step", c.step)
+func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
+	logger := c.logger.New("from", sender, "step", c.step)
 
 	var proposal *tendermint.Proposal
 	err := msg.Decode(&proposal)
@@ -45,14 +43,13 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 	}
 
 	// Ensure we have the same view with the Proposal message
-	// If it is old message, see if we need to broadcast COMMIT
 	if err := c.checkMessage(msgProposal, proposal.Round, proposal.Height); err != nil {
 		// We don't care about old proposals so they are ignored
 		return err
 	}
 
 	// Check if the message comes from currentRoundState proposer
-	if !c.valSet.IsProposer(src.Address()) {
+	if !c.valSet.IsProposer(sender.Address()) {
 		logger.Warn("Ignore proposal messages from non-proposer")
 		return errNotFromProposer
 	}
@@ -62,11 +59,12 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 		logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 		// if it's a future block, we will handle it again after the duration
 		// TIME FIELD OF HEADER CHECKED HERE - NOT HEIGHT
+		// TODO: implement wiggle time / median time
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
 				c.sendEvent(backlogEvent{
-					src: src,
+					src: sender,
 					msg: msg,
 				})
 			})
@@ -81,19 +79,27 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 				return errNilPrevoteSent
 			}
 		}
-		c.acceptProposal(proposal)
+		// Set the proposal for the current round
+		c.currentRoundState.SetProposal(proposal)
+
 		vr := proposal.ValidRound.Int64()
 		h := proposal.ProposalBlock.Hash()
+		curR := c.currentRoundState.round.Int64()
 
 		if vr == -1 {
-			if c.lockedRound.Int64() == proposal.ValidRound.Int64() || h == c.lockedValue.Hash() {
+			// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
+			if c.lockedRound.Int64() == vr || h == c.lockedValue.Hash() {
 				c.sendPrevote(false)
 			} else {
 				c.sendPrevote(true)
 			}
 			c.setStep(StepProposeDone)
-		} else if rs, ok := c.currentHeightRoundsStates[vr]; vr > -1 && vr < c.currentRoundState.round.Int64() && ok && c.quorum(rs.Prevotes.VotesSize(h)) {
-			if c.lockedRound.Int64() <= proposal.ValidRound.Int64() || h == c.lockedValue.Hash() {
+			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
+		} else if rs, ok := c.currentHeightRoundsStates[vr]; vr > -1 &&
+			vr < curR &&
+			ok &&
+			c.quorum(rs.Prevotes.VotesSize(h)) {
+			if c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash() {
 				c.sendPrevote(false)
 			} else {
 				c.sendPrevote(true)
@@ -106,8 +112,4 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 	}
 
 	return nil
-}
-
-func (c *core) acceptProposal(proposal *tendermint.Proposal) {
-	c.currentRoundState.SetProposal(proposal)
 }

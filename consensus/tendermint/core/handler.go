@@ -136,17 +136,17 @@ func (c *core) handleMsg(payload []byte) error {
 
 	// Only accept message if the address is valid
 	// TODO: the check is already made in c.validateFn
-	_, src := c.valSet.GetByAddress(msg.Address)
-	if src == nil {
+	_, sender := c.valSet.GetByAddress(msg.Address)
+	if sender == nil {
 		logger.Error("Invalid address in message", "msg", msg)
 		return tendermint.ErrUnauthorizedAddress
 	}
 
-	return c.handleCheckedMsg(msg, src)
+	return c.handleCheckedMsg(msg, sender)
 }
 
-func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
-	logger := c.logger.New("address", c.address, "from", src)
+func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error {
+	logger := c.logger.New("address", c.address, "from", sender)
 
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
@@ -179,7 +179,7 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 
 		}
 		if err == errFutureHeightMessage || err == errFutureRoundMessage {
-			c.storeBacklog(msg, src)
+			c.storeBacklog(msg, sender)
 		}
 
 		return err
@@ -188,11 +188,11 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 	// TODO: check step before calling the relevant handler
 	switch msg.Code {
 	case msgProposal:
-		return testBacklog(c.handleProposal(msg, src))
+		return testBacklog(c.handleProposal(msg, sender))
 	case msgPrevote:
-		return testBacklog(c.handlePrevote(msg, src))
+		return testBacklog(c.handlePrevote(msg, sender))
 	case msgPrecommit:
-		return testBacklog(c.handlePrecommit(msg, src))
+		return testBacklog(c.handlePrecommit(msg, sender))
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}
