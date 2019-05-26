@@ -34,7 +34,7 @@ func (c *core) sendPrevote(isNil bool) {
 
 func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 	logger := c.logger.New("from", sender, "step", c.step)
-	// Decode PREPARE message
+
 	var prevote *tendermint.Vote
 	err := msg.Decode(&prevote)
 	if err != nil {
@@ -103,6 +103,8 @@ func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 			} else {
 				return err
 			}
+		} else {
+			return errNoMajority
 		}
 	}
 

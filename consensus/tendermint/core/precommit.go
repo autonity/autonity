@@ -32,8 +32,9 @@ func (c *core) sendPrecommit(isNil bool) {
 	})
 }
 
-func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
-	// Decode COMMIT message
+func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error {
+	logger := c.logger.New("from", sender, "step", c.step)
+
 	var precommit *tendermint.Vote
 	err := msg.Decode(&precommit)
 	if err != nil {
@@ -44,10 +45,12 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 		// We don't care about old round precommit messages, otherwise we would not be in a new round rather a new height
 		return err
 	}
-	// TODO: manage precommit timer
+
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 	precommitHash := precommit.ProposedBlockHash
 	curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
+	curR := c.currentRoundState.Round().Int64()
+	curH := c.currentRoundState.Height().Int64()
 
 	if precommitHash == (common.Hash{}) {
 		c.currentRoundState.Precommits.AddNilVote(*msg)
@@ -55,11 +58,21 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 		c.currentRoundState.Precommits.AddVote(precommitHash, *msg)
 	}
 
+	logger.Info("Accepted Prevote", precommitHash)
+
+	// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.NilVotesSize()) {
-		timeoutDuration := timeoutPrecommit(c.currentRoundState.Round().Int64())
-		c.precommitTimeout.scheduleTimeout(timeoutDuration, c.currentRoundState.Round().Int64(), c.currentRoundState.Height().Int64(), c.onTimeoutPrecommit)
+		timeoutDuration := timeoutPrecommit(curR)
+		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
+		// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 	} else if c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)) {
-		c.commit()
+		if err := c.stopPrecommitTimeout(); err == nil {
+			c.commit()
+		} else {
+			return err
+		}
+	} else {
+		return errNoMajority
 	}
 
 	return nil
@@ -68,4 +81,13 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 func (c *core) handleCommit() {
 	c.logger.Trace("Received a final committed proposal", "step", c.step)
 	c.startRound(common.Big0)
+}
+
+func (c *core) stopPrecommitTimeout() error {
+	if c.prevoteTimeout.started {
+		if stopped := c.prevoteTimeout.stopTimer(); !stopped {
+			return errMovedToNewRound
+		}
+	}
+	return nil
 }

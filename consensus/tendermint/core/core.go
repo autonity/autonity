@@ -65,6 +65,8 @@ var (
 	errNilPrevoteSent = errors.New("timer expired and nil prevote sent")
 	// errNilPrecommitSent is returned when timer could be stopped in time
 	errNilPrecommitSent = errors.New("timer expired and nil precommit sent")
+	// errMovedToNewRound is returned when timer could be stopped in time
+	errMovedToNewRound = errors.New("timer expired and new round started")
 )
 
 type Engine interface {
