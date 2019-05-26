@@ -231,11 +231,6 @@ func (c *core) startRound(round *big.Int) {
 
 		// Assuming that round == 0 only when the node moves to a new height
 		c.currentHeightRoundsStates = make(map[int64]*roundState)
-	} else {
-		// Assuming the above values will be set for round > 0
-		// Add the currentRoundState round step to the core previous round states
-		// TODO: fix up with references so that I don't overwrite messages when receiving old messages
-		c.currentHeightRoundsStates[c.currentRoundState.Round().Int64()] = c.currentRoundState
 	}
 
 	// Reset all timeouts
@@ -255,8 +250,11 @@ func (c *core) startRound(round *big.Int) {
 		}
 	}
 
-	// Update current round state
+	// Update current round state and the reference to c.currentHeightRoundsState
+	// We only add old round prevote messages to c.currentHeightRoundState, while future messages are sent to the backlog
+	// Which are processed when the step is set to StepAcceptProposal
 	c.currentRoundState = newRoundState(round, height, c.backend.HasBadProposal)
+	c.currentHeightRoundsStates[round.Int64()] = c.currentRoundState
 	c.sentProposal = false
 	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setStep(StepAcceptProposal)

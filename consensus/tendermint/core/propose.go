@@ -46,22 +46,8 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 
 	// Ensure we have the same view with the Proposal message
 	// If it is old message, see if we need to broadcast COMMIT
-	//TODO: fixup
 	if err := c.checkMessage(msgProposal, proposal.Round, proposal.Height); err != nil {
-		if err == errOldHeightMessage || err == errOldRoundMessage {
-			// TODO: keeping it for the time being but rebroadcasting based on old messages should not be required due to partial synchrony assumption
-			// TODO: also need to add previous round messages to currentHeightRoundStates and only rebroadcast if older height
-			valSet := c.backend.Validators(proposal.ProposalBlock.Number().Uint64()).Copy()
-			previousProposer := c.backend.GetProposer(proposal.ProposalBlock.Number().Uint64() - 1)
-			valSet.CalcProposer(previousProposer, proposal.Round.Uint64())
-			// Broadcast COMMIT if it is an existing block
-			// 1. The proposer needs to be a proposer matches the given (Height + Round)
-			// 2. The given block must exist
-			if valSet.IsProposer(src.Address()) && c.backend.HasPropsal(proposal.ProposalBlock.Hash(), proposal.ProposalBlock.Number()) {
-				c.sendPrecommitForOldBlock(proposal.Round, proposal.Height, proposal.ProposalBlock.Hash())
-				return nil
-			}
-		}
+		// We don't care about old proposals so they are ignored
 		return err
 	}
 

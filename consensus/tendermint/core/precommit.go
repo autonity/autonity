@@ -32,29 +32,6 @@ func (c *core) sendPrecommit(isNil bool) {
 	})
 }
 
-func (c *core) sendPrecommitForOldBlock(r *big.Int, h *big.Int, digest common.Hash) {
-	sub := &tendermint.Vote{
-		Round:             r,
-		Height:            h,
-		ProposedBlockHash: digest,
-	}
-	c.broadcastPrecommit(sub)
-}
-
-func (c *core) broadcastPrecommit(sub *tendermint.Vote) {
-	logger := c.logger.New("step", c.step)
-
-	encodedSubject, err := Encode(sub)
-	if err != nil {
-		logger.Error("Failed to encode", "subject", sub)
-		return
-	}
-	c.broadcast(&message{
-		Code: msgPrecommit,
-		Msg:  encodedSubject,
-	})
-}
-
 func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 	// Decode COMMIT message
 	var precommit *tendermint.Vote
@@ -64,7 +41,7 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 	}
 
 	if err := c.checkMessage(msgPrecommit, precommit.Round, precommit.Height); err != nil {
-		// We don't care about old round messages, so if the message is in the correct height and round it should be fine
+		// We don't care about old round precommit messages, otherwise we would not be in a new round rather a new height
 		return err
 	}
 	// TODO: manage precommit timer

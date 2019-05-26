@@ -199,7 +199,3 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 
 	return errInvalidMessage
 }
-
-// TODO: re-implement to incorporate all three timeouts
-func (c *core) handleTimeoutMsg() {
-}

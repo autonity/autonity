@@ -44,14 +44,8 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 	if err = c.checkMessage(msgPrevote, prevote.Round, prevote.Height); err != nil {
 		// We want to store old round messages for future rounds since it is required for validRound
 		if err == errOldRoundMessage {
-			_, ok := c.currentHeightRoundsStates[prevote.Round.Int64()]
-			if !ok {
-				c.currentHeightRoundsStates[prevote.Round.Int64()] = newRoundState(
-					big.NewInt(c.currentRoundState.Height().Int64()),
-					big.NewInt(prevote.Round.Int64()),
-					c.backend.HasBadProposal)
-			}
-
+			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
+			// And we only process old rounds while future rounds messages are pushed on to the backlog
 			prevoteMS := c.currentHeightRoundsStates[prevote.Round.Int64()].Prevotes
 			if prevote.ProposedBlockHash == (common.Hash{}) {
 				prevoteMS.AddNilVote(*msg)
