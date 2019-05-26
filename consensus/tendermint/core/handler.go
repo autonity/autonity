@@ -30,7 +30,7 @@ func (c *core) Stop() error {
 	return nil
 }
 
-// TODO: update all of the TypeMuxSilent to event.Feed
+// TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal events: backlogEvent, timeoutEvent
 
 // Subscribe both internal and external events
 func (c *core) subscribeEvents() {
@@ -41,11 +41,9 @@ func (c *core) subscribeEvents() {
 		// internal events
 		backlogEvent{},
 	)
-	// TODO: not sure why a backend EventMux is being used for core internal events, lazy coding
 	c.timeoutSub = c.backend.EventMux().Subscribe(
 		timeoutEvent{},
 	)
-	// TODO: not sure why a backend EventMux is being used for core internal events, lazy coding
 	c.finalCommittedSub = c.backend.EventMux().Subscribe(
 		tendermint.CommitEvent{},
 	)
@@ -95,11 +93,20 @@ func (c *core) handleEvents() {
 					c.backend.Gossip(c.valSet, p)
 				}
 			}
-		case _, ok := <-c.timeoutSub.Chan():
+		case ev, ok := <-c.timeoutSub.Chan():
 			if !ok {
 				return
 			}
-			c.handleTimeoutMsg()
+			if timeoutE, ok := ev.Data.(timeoutEvent); ok {
+				switch timeoutE.step {
+				case msgProposal:
+					c.handleTimeoutPropose(timeoutE)
+				case msgPrevote:
+					c.handleTimeoutPrevote(timeoutE)
+				case msgPrecommit:
+					c.handleTimeoutPrecommit(timeoutE)
+				}
+			}
 		case ev, ok := <-c.finalCommittedSub.Chan():
 			if !ok {
 				return

@@ -46,7 +46,7 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 		if err == errOldRoundMessage {
 			_, ok := c.currentHeightRoundsStates[prevote.Round.Int64()]
 			if !ok {
-				c.currentHeightRoundsStates[prevote.Round.Int64()] = *newRoundState(
+				c.currentHeightRoundsStates[prevote.Round.Int64()] = newRoundState(
 					big.NewInt(c.currentRoundState.Height().Int64()),
 					big.NewInt(prevote.Round.Int64()),
 					c.backend.HasBadProposal)
@@ -75,7 +75,8 @@ func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
 		}
 
 		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)) {
-			c.prevoteTimeout.scheduleTimeout(timeoutPrevote(c.currentRoundState.Round().Int64()), c.currentRoundState.Height().Int64(), c.currentRoundState.Round().Int64(), c.onTimeoutPrevote)
+			timeoutDuration := timeoutPrevote(c.currentRoundState.Round().Int64())
+			c.prevoteTimeout.scheduleTimeout(timeoutDuration, c.currentRoundState.Round().Int64(), c.currentRoundState.Height().Int64(), c.onTimeoutPrevote)
 		} else if c.step == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
 			// TODO: probably need to stop timer, same in the other if branches need to fix this
 			c.sendPrecommit(true)

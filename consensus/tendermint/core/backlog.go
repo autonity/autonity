@@ -58,7 +58,7 @@ func (c *core) checkMessage(msgCode uint64, round *big.Int, height *big.Int) err
 func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
 	logger := c.logger.New("from", src, "step", c.step)
 
-	if src.Address() == c.Address() {
+	if src.Address() == c.address {
 		logger.Warn("Backlog from self")
 		return
 	}

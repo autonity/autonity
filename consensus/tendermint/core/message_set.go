@@ -75,7 +75,7 @@ func (ms *messageSet) Values(blockHash common.Hash) []message {
 		return nil
 	}
 
-	var messages []message
+	var messages = make([]message, 0)
 	for _, v := range ms.votes[blockHash] {
 		messages = append(messages, v)
 	}

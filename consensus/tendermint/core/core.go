@@ -124,7 +124,7 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightRoundsStates map[int64]roundState
+	currentHeightRoundsStates map[int64]*roundState
 
 	// TODO: may require a mutex
 	latestPendingUnminedBlock *types.Block
@@ -133,7 +133,6 @@ type core struct {
 	prevoteTimeout   *timeout
 	precommitTimeout *timeout
 
-	//TODO: Add futureRounds to keep track of when to move to next round after receiving f + 1 messages from that round
 	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
 	futureRoundsChange map[int64]int64
 }
@@ -141,7 +140,7 @@ type core struct {
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	var err error
 	// Add sender address
-	msg.Address = c.Address()
+	msg.Address = c.address
 
 	// Add proof of consensus
 	msg.CommittedSeal = []byte{}
@@ -220,7 +219,7 @@ func (c *core) startRound(round *big.Int) {
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 
 	// Start of new height where round is 0
-	if round.Uint64() == 0 {
+	if round.Int64() == 0 {
 		// Set the shared round values to initial values
 		c.lockedRound = big.NewInt(-1)
 		c.lockedValue = new(types.Block)
@@ -228,21 +227,24 @@ func (c *core) startRound(round *big.Int) {
 		c.validValue = new(types.Block)
 
 		c.valSet = c.backend.Validators(height.Uint64())
+		c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
 
 		// Assuming that round == 0 only when the node moves to a new height
-		c.currentHeightRoundsStates = make(map[int64]roundState)
+		c.currentHeightRoundsStates = make(map[int64]*roundState)
 	} else {
 		// Assuming the above values will be set for round > 0
 		// Add the currentRoundState round step to the core previous round states
 		// TODO: fix up with references so that I don't overwrite messages when receiving old messages
-		c.currentHeightRoundsStates[c.currentRoundState.Round().Int64()] = *c.currentRoundState
+		c.currentHeightRoundsStates[c.currentRoundState.Round().Int64()] = c.currentRoundState
 	}
 
+	// Reset all timeouts
 	c.proposeTimeout = nil
 	c.prevoteTimeout = nil
 	c.precommitTimeout = nil
 
-	var rounds []int64
+	// Remove previous rounds from futureRoundsChange map
+	var rounds = make([]int64, 0)
 	for k := range c.futureRoundsChange {
 		rounds = append(rounds, k)
 	}
@@ -253,8 +255,8 @@ func (c *core) startRound(round *big.Int) {
 		}
 	}
 
+	// Update current round state
 	c.currentRoundState = newRoundState(round, height, c.backend.HasBadProposal)
-	c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
 	c.sentProposal = false
 	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setStep(StepAcceptProposal)
@@ -268,23 +270,18 @@ func (c *core) startRound(round *big.Int) {
 		}
 		c.sendProposal(p)
 	} else {
-		c.proposeTimeout.scheduleTimeout(timeoutPropose(round.Int64()), c.currentRoundState.Height().Int64(), c.currentRoundState.Round().Int64(), c.onTimeoutPropose)
+		timeoutDuration := timeoutPropose(round.Int64())
+		c.proposeTimeout.scheduleTimeout(timeoutDuration, round.Int64(), height.Int64(), c.onTimeoutPropose)
 	}
 }
 
 func (c *core) setStep(step Step) {
-	// TODO: remove the if
-	if c.step != step {
-		c.step = step
-	}
+	c.step = step
+
 	if step == StepAcceptProposal {
 		c.processPendingRequests()
 	}
 	c.processBacklog()
-}
-
-func (c *core) Address() common.Address {
-	return c.address
 }
 
 func (c *core) stopFutureProposalTimer() {

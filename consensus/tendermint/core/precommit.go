@@ -79,7 +79,8 @@ func (c *core) handlePrecommit(msg *message, src tendermint.Validator) error {
 	}
 
 	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.NilVotesSize()) {
-		c.precommitTimeout.scheduleTimeout(timeoutPrecommit(c.currentRoundState.Round().Int64()), c.currentRoundState.Height().Int64(), c.currentRoundState.Round().Int64(), c.onTimeoutPrecommit)
+		timeoutDuration := timeoutPrecommit(c.currentRoundState.Round().Int64())
+		c.precommitTimeout.scheduleTimeout(timeoutDuration, c.currentRoundState.Round().Int64(), c.currentRoundState.Height().Int64(), c.onTimeoutPrecommit)
 	} else if c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)) {
 		c.commit()
 	}
