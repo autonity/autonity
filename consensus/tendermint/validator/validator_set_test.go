@@ -11,11 +11,6 @@ import (
 	"testing/quick"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	cmn "github.com/tendermint/tendermint/libs/common"
-	tmtime "github.com/tendermint/tendermint/types/time"
 )
 
 func TestValidatorSetBasic(t *testing.T) {
@@ -28,23 +23,20 @@ func TestValidatorSetBasic(t *testing.T) {
 	assert.Panics(t, func() { vset.IncrementProposerPriority(1) })
 
 	assert.EqualValues(t, vset, vset.Copy())
-	assert.False(t, vset.GetByAddress([]byte("some val")))
-	idx, val := vset.GetByAddress([]byte("some val"))
+	someAddress := &common.Address{}
+	someAddress.SetBytes([]byte("some val"))
+	idx, val := vset.GetByAddress(*someAddress)
 	assert.Equal(t, -1, idx)
 	assert.Nil(t, val)
-	addr, val := vset.GetByIndex(-100)
-	assert.Nil(t, addr)
+	val = vset.GetByIndex(-100)
 	assert.Nil(t, val)
-	addr, val = vset.GetByIndex(0)
-	assert.Nil(t, addr)
+	val = vset.GetByIndex(0)
 	assert.Nil(t, val)
-	addr, val = vset.GetByIndex(100)
-	assert.Nil(t, addr)
+	val = vset.GetByIndex(100)
 	assert.Nil(t, val)
 	assert.Zero(t, vset.Size())
 	assert.Equal(t, int64(0), vset.TotalVotingPower())
 	assert.Nil(t, vset.GetProposer())
-	assert.Nil(t, vset.Hash())
 
 	// add
 

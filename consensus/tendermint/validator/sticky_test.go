@@ -172,9 +172,6 @@ func TestCalcSeedWithProposer(t *testing.T) {
 }
 
 func TestStickyProposerZeroSize(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	proposerAddress := common.BytesToAddress(bytes.Repeat([]byte{1}, common.AddressLength))
 	proposerZeroAddress := common.Address{}
 
@@ -229,6 +226,9 @@ func TestStickyProposerZeroSize(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("validator is zero address, round %d", testCase.round), func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
 			validatorSet := tendermint.NewMockValidatorSet(ctrl)
 
 			validatorSet.EXPECT().
@@ -244,9 +244,6 @@ func TestStickyProposerZeroSize(t *testing.T) {
 }
 
 func TestStickyProposer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	proposerAddress := common.BytesToAddress(bytes.Repeat([]byte{1}, common.AddressLength))
 	proposerZeroAddress := common.Address{}
 
@@ -368,6 +365,9 @@ func TestStickyProposer(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("validator set size %d, proposer address %s, round %d", testCase.size, testCase.proposer.String(), testCase.round), func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
 			validatorSet := tendermint.NewMockValidatorSet(ctrl)
 
 			validatorSet.EXPECT().

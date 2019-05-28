@@ -61,6 +61,58 @@ func (mr *MockValidatorMockRecorder) String() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockValidator)(nil).String))
 }
 
+// VotingPower mocks base method
+func (m *MockValidator) VotingPower() int64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VotingPower")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// VotingPower indicates an expected call of VotingPower
+func (mr *MockValidatorMockRecorder) VotingPower() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VotingPower", reflect.TypeOf((*MockValidator)(nil).VotingPower))
+}
+
+// SetVotingPower mocks base method
+func (m *MockValidator) SetVotingPower(power int64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetVotingPower", power)
+}
+
+// SetVotingPower indicates an expected call of SetVotingPower
+func (mr *MockValidatorMockRecorder) SetVotingPower(power interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVotingPower", reflect.TypeOf((*MockValidator)(nil).SetVotingPower), power)
+}
+
+// ProposerPriority mocks base method
+func (m *MockValidator) ProposerPriority() int64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProposerPriority")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// ProposerPriority indicates an expected call of ProposerPriority
+func (mr *MockValidatorMockRecorder) ProposerPriority() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposerPriority", reflect.TypeOf((*MockValidator)(nil).ProposerPriority))
+}
+
+// SetProposerPriority mocks base method
+func (m *MockValidator) SetProposerPriority(priority int64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetProposerPriority", priority)
+}
+
+// SetProposerPriority indicates an expected call of SetProposerPriority
+func (mr *MockValidatorMockRecorder) SetProposerPriority(priority interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProposerPriority", reflect.TypeOf((*MockValidator)(nil).SetProposerPriority), priority)
+}
+
 // MockValidatorSet is a mock of ValidatorSet interface
 type MockValidatorSet struct {
 	ctrl     *gomock.Controller
