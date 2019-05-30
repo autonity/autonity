@@ -17,6 +17,7 @@
 package validator
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"sort"
@@ -27,8 +28,8 @@ import (
 )
 
 type defaultValidator struct {
-	address common.Address
-	votingPower	int64
+	address          common.Address
+	votingPower      int64
 	proposerPriority int64
 }
 
@@ -37,7 +38,8 @@ func (val defaultValidator) Address() common.Address {
 }
 
 func (val defaultValidator) String() string {
-	return val.Address().String()
+	return fmt.Sprintf("addtess %s, votingPower %d, proposerPriority %d",
+		val.Address().String(), val.votingPower, val.proposerPriority)
 }
 
 func (val defaultValidator) VotingPower() int64 {
@@ -99,6 +101,12 @@ func newDefaultSet(policy tendermint.ProposerPolicy, vals ...tendermint.Validato
 		valSet.selector = roundRobinProposer
 	case tendermint.Tendermint:
 		valSet.selector = tendermintProposer
+		if len(valSet.validators) > 0 {
+			fmt.Println("list", valSet.List())
+			valSet.IncrementProposerPriority(1)
+			fmt.Println("list1", valSet.List())
+			fmt.Println()
+		}
 	default:
 		valSet.selector = roundRobinProposer
 	}
@@ -187,7 +195,16 @@ func (valSet *defaultSet) Copy() tendermint.ValidatorSet {
 	for _, v := range valSet.validators {
 		vals = append(vals, v.Copy())
 	}
-	return NewSet(valSet.policy, vals...)
+	proposerIndex, _ := valSet.GetByAddress(valSet.GetProposer().Address())
+
+	return &defaultSet{
+		validators:       vals,
+		policy:           valSet.policy,
+		proposer:         vals[proposerIndex],
+		validatorMu:      sync.RWMutex{},
+		selector:         valSet.selector,
+		totalVotingPower: valSet.totalVotingPower,
+	}
 }
 
 func (valSet *defaultSet) F() int { return int(math.Ceil(float64(valSet.Size())/3)) - 1 }
