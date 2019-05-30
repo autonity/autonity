@@ -27,7 +27,7 @@ import (
 )
 
 func TestRoundChangeSet(t *testing.T) {
-	vset := validator.NewSet(generateValidators(4), tendermint.RoundRobin)
+	vset := validator.NewSet(tendermint.RoundRobin, generateValidators(4), tendermint.RoundRobin)
 	rc := newRoundChangeSet(vset)
 
 	view := &tendermint.View{

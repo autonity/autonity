@@ -21,14 +21,25 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func New(addr common.Address) *defaultValidator {
+func New(addr common.Address, votingPower int64) *defaultValidator {
 	return &defaultValidator{
 		address: addr,
+		votingPower: votingPower,
 	}
 }
 
-func NewSet(addrs []common.Address, policy tendermint.ProposerPolicy) *defaultSet {
-	return newDefaultSet(addrs, policy)
+
+func NewValidatorsList(votingPower int64, addrs ...common.Address) []tendermint.Validator {
+	vals := make([]tendermint.Validator, len(addrs))
+	for i := range addrs {
+		vals[i] = New(addrs[i], votingPower)
+	}
+
+	return vals
+}
+
+func NewSet(policy tendermint.ProposerPolicy, vals ...tendermint.Validator) *defaultSet {
+	return newDefaultSet(policy, vals...)
 }
 
 func ExtractValidators(extraData []byte) []common.Address {

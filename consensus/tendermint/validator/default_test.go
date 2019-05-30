@@ -48,13 +48,13 @@ func testNewValidatorSet(t *testing.T) {
 	for i := 0; i < ValCnt; i++ {
 		key, _ := crypto.GenerateKey()
 		addr := crypto.PubkeyToAddress(key.PublicKey)
-		val := New(addr)
+		val := New(addr, 100)
 		validators = append(validators, val)
 		b = append(b, val.Address().Bytes()...)
 	}
 
 	// Create ValidatorSet
-	valSet := NewSet(ExtractValidators(b), tendermint.RoundRobin)
+	valSet := NewSet(tendermint.RoundRobin, NewValidatorsList(100, ExtractValidators(b)...)...)
 	if valSet == nil {
 		t.Error("the validator byte array cannot be parsed")
 		t.FailNow()
@@ -89,10 +89,10 @@ func testNormalValSet(t *testing.T) {
 	b2 := common.Hex2Bytes(testAddress2)
 	addr1 := common.BytesToAddress(b1)
 	addr2 := common.BytesToAddress(b2)
-	val1 := New(addr1)
-	val2 := New(addr2)
+	val1 := New(addr1, 100)
+	val2 := New(addr2, 100)
 
-	valSet := newDefaultSet([]common.Address{addr1, addr2}, tendermint.RoundRobin)
+	valSet := newDefaultSet(tendermint.RoundRobin, val1, val2)
 	if valSet == nil {
 		t.Errorf("the format of validator set is invalid")
 		t.FailNow()
@@ -125,31 +125,31 @@ func testNormalValSet(t *testing.T) {
 	}
 	// test calculate proposer
 	lastProposer := addr1
-	valSet.CalcProposer(lastProposer, uint64(0))
+	valSet.CalcProposer(lastProposer, 0, uint64(0))
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val2) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
 	}
-	valSet.CalcProposer(lastProposer, uint64(3))
+	valSet.CalcProposer(lastProposer, 0, uint64(3))
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val1) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val1)
 	}
 	// test empty last proposer
 	lastProposer = common.Address{}
-	valSet.CalcProposer(lastProposer, uint64(3))
+	valSet.CalcProposer(lastProposer, 0, uint64(3))
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val2) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
 	}
 }
 
 func testEmptyValSet(t *testing.T) {
-	valSet := NewSet(ExtractValidators([]byte{}), tendermint.RoundRobin)
+	valSet := NewSet(tendermint.RoundRobin, NewValidatorsList(100, ExtractValidators([]byte{})...)...)
 	if valSet == nil {
 		t.Errorf("validator set should not be nil")
 	}
 }
 
 func testAddAndRemoveValidator(t *testing.T) {
-	valSet := NewSet(ExtractValidators([]byte{}), tendermint.RoundRobin)
+	valSet := NewSet(tendermint.RoundRobin, NewValidatorsList(100, ExtractValidators([]byte{})...)...)
 	if !valSet.AddValidator(common.BytesToAddress([]byte(string(2)))) {
 		t.Error("the validator should be added")
 	}
@@ -193,10 +193,10 @@ func testStickyProposer(t *testing.T) {
 	b2 := common.Hex2Bytes(testAddress2)
 	addr1 := common.BytesToAddress(b1)
 	addr2 := common.BytesToAddress(b2)
-	val1 := New(addr1)
-	val2 := New(addr2)
+	val1 := New(addr1, 100)
+	val2 := New(addr2, 100)
 
-	valSet := newDefaultSet([]common.Address{addr1, addr2}, tendermint.Sticky)
+	valSet := newDefaultSet(tendermint.Sticky, val1, val2)
 
 	// test get proposer
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val1) {
@@ -204,19 +204,19 @@ func testStickyProposer(t *testing.T) {
 	}
 	// test calculate proposer
 	lastProposer := addr1
-	valSet.CalcProposer(lastProposer, uint64(0))
+	valSet.CalcProposer(lastProposer, 0, uint64(0))
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val1) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val1)
 	}
 
-	valSet.CalcProposer(lastProposer, uint64(1))
+	valSet.CalcProposer(lastProposer, 0, uint64(1))
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val2) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
 	}
 
 	// test empty last proposer
 	lastProposer = common.Address{}
-	valSet.CalcProposer(lastProposer, uint64(3))
+	valSet.CalcProposer(lastProposer, 0, uint64(3))
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val2) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
 	}

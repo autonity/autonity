@@ -34,6 +34,7 @@ type Validator interface {
 
 	ProposerPriority() int64
 	SetProposerPriority(priority int64)
+	Copy() Validator
 }
 
 // ----------------------------------------------------------------------------
@@ -56,7 +57,7 @@ func (slice Validators) Swap(i, j int) {
 
 type ValidatorSet interface {
 	// Calculate the proposer
-	CalcProposer(lastProposer common.Address, round uint64)
+	CalcProposer(lastProposer common.Address, oldround, round uint64)
 	// Return the validator size
 	Size() int
 	// Return the validator array
@@ -79,8 +80,10 @@ type ValidatorSet interface {
 	F() int
 	// Get proposer policy
 	Policy() ProposerPolicy
+	IncrementProposerPriority(times int)
+	GetHighest() Validator
 }
 
 // ----------------------------------------------------------------------------
 
-type ProposalSelector func(ValidatorSet, common.Address, uint64) Validator
+type ProposalSelector func(validatorSet ValidatorSet, lastProposerAddress common.Address, oldround, round uint64) Validator

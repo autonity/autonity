@@ -75,7 +75,7 @@ func TestRoundRobinProposerZeroSize(t *testing.T) {
 				Size().
 				Return(testCase.size)
 
-			val := roundRobinProposer(validatorSet, proposerAddress, testCase.round)
+			val := roundRobinProposer(validatorSet, proposerAddress, 0, testCase.round)
 			if val != nil {
 				t.Errorf("got wrond validator %v, expected nil", val)
 			}
@@ -228,7 +228,7 @@ func TestRoundRobinProposer(t *testing.T) {
 				GetByIndex(gomock.Eq(testCase.pick)).
 				Return(expectedValidator)
 
-			val := roundRobinProposer(validatorSet, testCase.proposer, testCase.round)
+			val := roundRobinProposer(validatorSet, testCase.proposer, 0, testCase.round)
 			if !reflect.DeepEqual(val, expectedValidator) {
 				t.Errorf("got wrond validator %v, expected %v", val, expectedValidator)
 			}

@@ -5,7 +5,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func stickyProposer(valSet tendermint.ValidatorSet, proposer common.Address, round uint64) tendermint.Validator {
+func stickyProposer(valSet tendermint.ValidatorSet, proposer common.Address, _, round uint64) tendermint.Validator {
 	size := valSet.Size()
 	if size == 0 {
 		return nil

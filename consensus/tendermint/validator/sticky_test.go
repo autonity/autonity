@@ -235,7 +235,7 @@ func TestStickyProposerZeroSize(t *testing.T) {
 				Size().
 				Return(testCase.size)
 
-			val := stickyProposer(validatorSet, proposerAddress, testCase.round)
+			val := stickyProposer(validatorSet, proposerAddress, 0, testCase.round)
 			if val != nil {
 				t.Errorf("got wrond validator %v, expected nil", val)
 			}
@@ -387,7 +387,7 @@ func TestStickyProposer(t *testing.T) {
 				GetByIndex(gomock.Eq(testCase.pick)).
 				Return(expectedValidator)
 
-			val := stickyProposer(validatorSet, testCase.proposer, testCase.round)
+			val := stickyProposer(validatorSet, testCase.proposer, 0, testCase.round)
 			if !reflect.DeepEqual(val, expectedValidator) {
 				t.Errorf("got wrond validator %v, expected %v", val, expectedValidator)
 			}

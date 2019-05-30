@@ -40,7 +40,7 @@ func (val defaultValidator) String() string {
 	return val.Address().String()
 }
 
-func (val defaultValidator) VotingPower()	int64 {
+func (val defaultValidator) VotingPower() int64 {
 	return val.votingPower
 }
 
@@ -56,6 +56,11 @@ func (val *defaultValidator) SetProposerPriority(priority int64) {
 	val.proposerPriority = priority
 }
 
+func (val *defaultValidator) Copy() tendermint.Validator {
+	vCopy := *val
+	return &vCopy
+}
+
 // ----------------------------------------------------------------------------
 
 type defaultSet struct {
@@ -69,14 +74,14 @@ type defaultSet struct {
 	totalVotingPower int64
 }
 
-func newDefaultSet(addrs []common.Address, policy tendermint.ProposerPolicy) *defaultSet {
+func newDefaultSet(policy tendermint.ProposerPolicy, vals ...tendermint.Validator) *defaultSet {
 	valSet := &defaultSet{}
 
 	valSet.policy = policy
 	// init validators
-	valSet.validators = make([]tendermint.Validator, len(addrs))
-	for i, addr := range addrs {
-		valSet.validators[i] = New(addr)
+	valSet.validators = make([]tendermint.Validator, len(vals))
+	for i, validator := range vals {
+		valSet.validators[i] = validator.Copy()
 	}
 
 	// sort validator
@@ -94,9 +99,6 @@ func newDefaultSet(addrs []common.Address, policy tendermint.ProposerPolicy) *de
 		valSet.selector = roundRobinProposer
 	case tendermint.Tendermint:
 		valSet.selector = tendermintProposer
-		if len(valSet.validators) > 0 {
-			valSet.IncrementProposerPriority(1)
-		}
 	default:
 		valSet.selector = roundRobinProposer
 	}
@@ -143,10 +145,10 @@ func (valSet *defaultSet) IsProposer(address common.Address) bool {
 	return reflect.DeepEqual(valSet.GetProposer(), val)
 }
 
-func (valSet *defaultSet) CalcProposer(lastProposer common.Address, round uint64) {
+func (valSet *defaultSet) CalcProposer(lastProposer common.Address, oldround, round uint64) {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
-	valSet.proposer = valSet.selector(valSet, lastProposer, round)
+	valSet.proposer = valSet.selector(valSet, lastProposer, oldround, round)
 }
 
 func (valSet *defaultSet) AddValidator(address common.Address) bool {
@@ -157,7 +159,7 @@ func (valSet *defaultSet) AddValidator(address common.Address) bool {
 			return false
 		}
 	}
-	valSet.validators = append(valSet.validators, New(address))
+	valSet.validators = append(valSet.validators, New(address, 100))
 	// TODO: we may not need to re-sort it again
 	// sort validator
 	sort.Sort(valSet.validators)
@@ -181,11 +183,11 @@ func (valSet *defaultSet) Copy() tendermint.ValidatorSet {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
 
-	addresses := make([]common.Address, 0, len(valSet.validators))
+	vals := make([]tendermint.Validator, 0, len(valSet.validators))
 	for _, v := range valSet.validators {
-		addresses = append(addresses, v.Address())
+		vals = append(vals, v.Copy())
 	}
-	return NewSet(addresses, valSet.policy)
+	return NewSet(valSet.policy, vals...)
 }
 
 func (valSet *defaultSet) F() int { return int(math.Ceil(float64(valSet.Size())/3)) - 1 }

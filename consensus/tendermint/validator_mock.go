@@ -113,6 +113,20 @@ func (mr *MockValidatorMockRecorder) SetProposerPriority(priority interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProposerPriority", reflect.TypeOf((*MockValidator)(nil).SetProposerPriority), priority)
 }
 
+// Copy mocks base method
+func (m *MockValidator) Copy() Validator {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Copy")
+	ret0, _ := ret[0].(Validator)
+	return ret0
+}
+
+// Copy indicates an expected call of Copy
+func (mr *MockValidatorMockRecorder) Copy() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Copy", reflect.TypeOf((*MockValidator)(nil).Copy))
+}
+
 // MockValidatorSet is a mock of ValidatorSet interface
 type MockValidatorSet struct {
 	ctrl     *gomock.Controller
@@ -137,15 +151,15 @@ func (m *MockValidatorSet) EXPECT() *MockValidatorSetMockRecorder {
 }
 
 // CalcProposer mocks base method
-func (m *MockValidatorSet) CalcProposer(lastProposer common.Address, round uint64) {
+func (m *MockValidatorSet) CalcProposer(lastProposer common.Address, oldround, round uint64) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "CalcProposer", lastProposer, round)
+	m.ctrl.Call(m, "CalcProposer", lastProposer, oldround, round)
 }
 
 // CalcProposer indicates an expected call of CalcProposer
-func (mr *MockValidatorSetMockRecorder) CalcProposer(lastProposer, round interface{}) *gomock.Call {
+func (mr *MockValidatorSetMockRecorder) CalcProposer(lastProposer, oldround, round interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalcProposer", reflect.TypeOf((*MockValidatorSet)(nil).CalcProposer), lastProposer, round)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalcProposer", reflect.TypeOf((*MockValidatorSet)(nil).CalcProposer), lastProposer, oldround, round)
 }
 
 // Size mocks base method
@@ -301,4 +315,30 @@ func (m *MockValidatorSet) Policy() ProposerPolicy {
 func (mr *MockValidatorSetMockRecorder) Policy() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Policy", reflect.TypeOf((*MockValidatorSet)(nil).Policy))
+}
+
+// IncrementProposerPriority mocks base method
+func (m *MockValidatorSet) IncrementProposerPriority(times int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "IncrementProposerPriority", times)
+}
+
+// IncrementProposerPriority indicates an expected call of IncrementProposerPriority
+func (mr *MockValidatorSetMockRecorder) IncrementProposerPriority(times interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrementProposerPriority", reflect.TypeOf((*MockValidatorSet)(nil).IncrementProposerPriority), times)
+}
+
+// GetHighest mocks base method
+func (m *MockValidatorSet) GetHighest() Validator {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHighest")
+	ret0, _ := ret[0].(Validator)
+	return ret0
+}
+
+// GetHighest indicates an expected call of GetHighest
+func (mr *MockValidatorSetMockRecorder) GetHighest() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHighest", reflect.TypeOf((*MockValidatorSet)(nil).GetHighest))
 }

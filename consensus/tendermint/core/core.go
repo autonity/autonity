@@ -239,7 +239,7 @@ func (c *core) startNewRound(round *big.Int) {
 	// New snapshot for new round
 	c.updateRoundState(newView, c.valSet, roundChange)
 	// Calculate new proposer
-	c.valSet.CalcProposer(lastProposer, newView.Round.Uint64())
+	c.valSet.CalcProposer(lastProposer, c.current.round.Uint64(), newView.Round.Uint64())
 	c.waitingForRoundChange = false
 	c.sentProposal = false
 	c.setState(StateAcceptRequest)

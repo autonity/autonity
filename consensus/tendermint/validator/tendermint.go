@@ -22,20 +22,28 @@ const MaxTotalVotingPower = int64(8198552921648689607)
 
 // tendermintProposer returns the current proposer. If the validator set is empty, nil
 // is returned.
-func tendermintProposer(valSet tendermint.ValidatorSet, _ common.Address, _ uint64) tendermint.Validator {
+func tendermintProposer(valSet tendermint.ValidatorSet, _ common.Address, oldround, round uint64) tendermint.Validator {
 	size := valSet.Size()
 	if size == 0 {
 		return nil
 	}
 
+	if round == 0 || oldround < round {
+		valSet.IncrementProposerPriority(int(round - oldround))
+	}
+
+	return valSet.GetHighest()
+}
+
+func (vals *defaultSet) GetHighest() tendermint.Validator {
 	var proposer tendermint.Validator
-	for _, val := range valSet.List() {
+	for _, val := range vals.List() {
 		if proposer == nil || val.Address() != proposer.Address() {
 			proposer = CompareProposerPriority(proposer, val)
 		}
 	}
 
-	return proposer
+	return proposer.Copy()
 }
 
 // Returns the one with higher ProposerPriority.
@@ -70,20 +78,33 @@ func (vals *defaultSet) IncrementProposerPriority(times int) {
 	}
 
 	var proposer tendermint.Validator
-	proposer = vals.incrementProposerPriority()
-	vals.proposer = proposer
+	const shiftEveryNthIter = 10
+	// call IncrementProposerPriority(1) times times:
+	for i := 0; i < times; i++ {
+		shiftByAvgProposerPriority := i%shiftEveryNthIter == 0
+		proposer = vals.incrementProposerPriority(shiftByAvgProposerPriority)
+	}
+	isShiftedAvgOnLastIter := (times-1)%shiftEveryNthIter == 0
+	if !isShiftedAvgOnLastIter {
+		validatorsHeap := heap.New()
+		vals.shiftByAvgProposerPriority(validatorsHeap)
+	}
+	vals.proposer = proposer.Copy()
 }
 
-func (vals *defaultSet) incrementProposerPriority() tendermint.Validator {
+func (vals *defaultSet) incrementProposerPriority(subAvg bool) tendermint.Validator {
 	for _, val := range vals.validators {
 		// Check for overflow for sum.
 		val.SetProposerPriority(safeAddClip(val.ProposerPriority(), val.VotingPower()))
 	}
 
 	validatorsHeap := heap.New()
-	// just update the heap
-	for _, val := range vals.validators {
-		validatorsHeap.PushComparable(val, proposerPriorityComparable{val})
+	if subAvg { // shift by avg ProposerPriority
+		vals.shiftByAvgProposerPriority(validatorsHeap)
+	} else { // just update the heap
+		for _, val := range vals.validators {
+			validatorsHeap.PushComparable(val, proposerPriorityComparable{val})
+		}
 	}
 
 	// Decrement the validator with most ProposerPriority:
