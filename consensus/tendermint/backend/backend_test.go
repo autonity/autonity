@@ -227,7 +227,7 @@ func newTestValidatorSet(n int) (tendermint.ValidatorSet, []*ecdsa.PrivateKey) {
 		keys[i] = privateKey
 		addrs[i] = crypto.PubkeyToAddress(privateKey.PublicKey)
 	}
-	vset := validator.NewSet(tendermint.RoundRobin, addrs, tendermint.RoundRobin)
+	vset := validator.NewSet(tendermint.RoundRobin, validator.NewValidatorsList(1, addrs...)...)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
 	return vset, keys
 }

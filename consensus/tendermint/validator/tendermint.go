@@ -62,13 +62,11 @@ func CompareProposerPriority(v tendermint.Validator, other tendermint.Validator)
 		result := bytes.Compare(v.Address().Bytes(), other.Address().Bytes())
 		if result < 0 {
 			return v
-		} else if result > 0 {
-			return other
-		} else {
-			panic("Cannot compare identical validators")
-			return nil
 		}
 	}
+
+	// result > 0
+	return other
 }
 
 // IncrementProposerPriority increments ProposerPriority of each validator and updates the

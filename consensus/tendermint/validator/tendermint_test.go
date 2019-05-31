@@ -2,10 +2,10 @@ package validator
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"math"
 	"math/big"
-	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
@@ -134,29 +134,7 @@ func newValidatorStorage() *validatorStorage {
 	return &validatorStorage{make(map[int]tendermint.Validator)}
 }
 
-func (v *validatorStorage) getValidators(n int, votingPower int64) []tendermint.Validator {
-	validators := make([]tendermint.Validator, n)
-	for i := 0; i < n; i++ {
-		val, ok := v.m[i]
-		if ok {
-			validators[i] = val.Copy()
-			v.m[i] = val.Copy()
-			continue
-		}
-
-		val = &defaultValidator{
-			address:     common.BigToAddress(big.NewInt(int64(i))),
-			votingPower: votingPower,
-		}
-
-		v.m[i] = val.Copy()
-		validators[i] = val.Copy()
-	}
-
-	return validators
-}
-
-func (v *validatorStorage) getValidator(i int, votingPower, proposerPriority int64) tendermint.Validator {
+func (v *validatorStorage) getValidator(i int, votingPower, _ int64) tendermint.Validator {
 	val, ok := v.m[i]
 	if ok {
 		return val.Copy()
@@ -296,6 +274,9 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 	}
 
 	for i, tc := range tcs {
+		i := i
+		tc := tc
+
 		t.Run(fmt.Sprintf("case %d, times %d", i, tc.times), func(t *testing.T) {
 			if i > 1 {
 				// newDefaultSet call did the first IncrementProposerPriority
@@ -536,10 +517,14 @@ func TestProposerSelection3(t *testing.T) {
 
 		// times is usually 1
 		times := 1
-		mod := (rand.Int() % 5) + 1
-		if rand.Int()%mod > 0 {
+		rnd1, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+		mod := (rnd1.Uint64() % 5) + 1
+
+		rnd2, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+		if rnd2.Uint64()%mod > 0 {
 			// sometimes its up to 5
-			times = (rand.Int() % 4) + 1
+			rnd3, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+			times = int((rnd3.Uint64() % 4) + 1)
 		}
 		vset.IncrementProposerPriority(times)
 

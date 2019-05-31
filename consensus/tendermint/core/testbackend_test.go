@@ -201,17 +201,17 @@ func newTestSystem(n uint64) *testSystem {
 	}
 }
 
-func generateValidators(n int) []common.Address {
+func generateValidators(n int) []tendermint.Validator {
 	vals := make([]common.Address, 0)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
 		vals = append(vals, crypto.PubkeyToAddress(privateKey.PublicKey))
 	}
-	return vals
+	return validator.NewValidatorsList(1, vals...)
 }
 
 func newTestValidatorSet(n int) tendermint.ValidatorSet {
-	return validator.NewSet(tendermint.RoundRobin, generateValidators(n), tendermint.RoundRobin)
+	return validator.NewSet(tendermint.RoundRobin, generateValidators(n)...)
 }
 
 // FIXME: int64 is needed for N and F
@@ -223,7 +223,7 @@ func newTestSystemWithBackend(n uint64) *testSystem {
 	config := tendermint.DefaultConfig
 
 	for i := uint64(0); i < n; i++ {
-		vset := validator.NewSet(tendermint.RoundRobin, addrs, tendermint.RoundRobin)
+		vset := validator.NewSet(tendermint.RoundRobin, addrs...)
 		backend := sys.NewBackend(i)
 		backend.peers = vset
 		backend.address = vset.GetByIndex(i).Address()

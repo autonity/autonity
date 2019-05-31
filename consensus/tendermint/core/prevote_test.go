@@ -262,8 +262,8 @@ OUTER:
 func TestVerifyPrevote(t *testing.T) {
 	// for log purpose
 	privateKey, _ := crypto.GenerateKey()
-	peer := validator.New(getPublicKeyAddress(privateKey))
-	valSet := validator.NewSet(tendermint.RoundRobin, []common.Address{peer.Address()}, tendermint.RoundRobin)
+	peer := validator.New(getPublicKeyAddress(privateKey), 1)
+	valSet := validator.NewSet(tendermint.RoundRobin, peer)
 
 	sys := newTestSystemWithBackend(1)
 

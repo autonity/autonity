@@ -131,9 +131,9 @@ func (sb *Backend) Validators(number uint64) tendermint.ValidatorSet {
 	validators, err := sb.retrieveSavedValidators(number, sb.blockchain)
 	proposerPolicy := sb.config.GetProposerPolicy()
 	if err != nil {
-		return validator.NewSet(proposerPolicy, nil, proposerPolicy)
+		return validator.NewSet(proposerPolicy, nil)
 	}
-	return validator.NewSet(proposerPolicy, validators, proposerPolicy)
+	return validator.NewSet(proposerPolicy, validator.NewValidatorsList(1, validators...)...)
 }
 
 // Broadcast implements tendermint.Backend.Broadcast

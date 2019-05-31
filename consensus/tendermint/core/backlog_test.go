@@ -175,7 +175,7 @@ func TestStoreBacklog(t *testing.T) {
 		Round:    big.NewInt(10),
 		Sequence: big.NewInt(10),
 	}
-	p := validator.New(common.BytesToAddress([]byte("12345667890")))
+	p := validator.New(common.BytesToAddress([]byte("12345667890")), 1)
 	// push proposal msg
 	proposal := &tendermint.Proposal{
 		View:          v,
@@ -255,7 +255,7 @@ func TestProcessFutureBacklog(t *testing.T) {
 		Round:    big.NewInt(10),
 		Sequence: big.NewInt(10),
 	}
-	p := validator.New(common.BytesToAddress([]byte("12345667890")))
+	p := validator.New(common.BytesToAddress([]byte("12345667890")), 1)
 	// push a future msg
 	subject := &tendermint.Subject{
 		View:   v,
