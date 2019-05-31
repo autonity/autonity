@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity android ios autonity-cross swarm evm all test clean lint lint-deps mock-gen
+.PHONY: autonity android ios autonity-cross swarm evm all test clean lint lint-deps mock-gen test-fast
 .PHONY: autonity-linux autonity-linux-386 autonity-linux-amd64 autonity-linux-mips64 autonity-linux-mips64le
 .PHONY: autonity-linux-arm autonity-linux-arm-5 autonity-linux-arm-6 autonity-linux-arm-7 autonity-linux-arm64
 .PHONY: autonity-darwin autonity-darwin-386 autonity-darwin-amd64
@@ -39,6 +39,9 @@ ios:
 	@echo "Import \"$(GOBIN)/autonity.framework\" to use the library."
 
 test: all
+	build/env.sh go run build/ci.go test -coverage
+
+test-fast:
 	build/env.sh go run build/ci.go test
 
 test-race: all
@@ -52,6 +55,10 @@ lint:
 	@./build/bin/golangci-lint run \
 	    --new-from-rev=$(LATEST_COMMIT) \
 	    --exclude="which can be annoying to use"
+
+test-deps:
+	go get golang.org/x/tools/cmd/cover
+	go get github.com/mattn/goveralls
 
 lint-deps:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.16.0
