@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
@@ -501,16 +502,16 @@ func TestProposerSelectionDistribution(t *testing.T) {
 	}
 }
 
-/*
 func TestProposerSelection3(t *testing.T) {
-	vset := NewValidatorSet([]*Validator{
-		newValidator([]byte("a"), 1),
-		newValidator([]byte("b"), 1),
-		newValidator([]byte("c"), 1),
-		newValidator([]byte("d"), 1),
-	})
-
-	proposerOrder := make([]*Validator, 4)
+	validatorStorage := newValidatorStorage()
+	valList := []tendermint.Validator{
+		validatorStorage.getValidator(0, 1, 0),
+		validatorStorage.getValidator(1, 1, 0),
+		validatorStorage.getValidator(2, 1, 0),
+		validatorStorage.getValidator(3, 1, 0),
+	}
+	vset := newDefaultSet(tendermint.Tendermint, valList...)
+	proposerOrder := make([]tendermint.Validator, 4)
 	for i := 0; i < 4; i++ {
 		proposerOrder[i] = vset.GetProposer()
 		vset.IncrementProposerPriority(1)
@@ -521,34 +522,28 @@ func TestProposerSelection3(t *testing.T) {
 	// we should go in order for ever, despite some IncrementProposerPriority with times > 1
 	var i, j int
 	for ; i < 10000; i++ {
-		got := vset.GetProposer().Address
-		expected := proposerOrder[j%4].Address
+		got := vset.GetProposer().Address().Bytes()
+		expected := proposerOrder[j%4].Address().Bytes()
 		if !bytes.Equal(got, expected) {
 			t.Fatalf(fmt.Sprintf("vset.Proposer (%X) does not match expected proposer (%X) for (%d, %d)", got, expected, i, j))
 		}
 
-		// serialize, deserialize, check proposer
-		b := vset.toBytes()
-		vset.fromBytes(b)
-
 		computed := vset.GetProposer() // findGetProposer()
 		if i != 0 {
-			if !bytes.Equal(got, computed.Address) {
-				t.Fatalf(fmt.Sprintf("vset.Proposer (%X) does not match computed proposer (%X) for (%d, %d)", got, computed.Address, i, j))
+			if !bytes.Equal(got, computed.Address().Bytes()) {
+				t.Fatalf(fmt.Sprintf("vset.Proposer (%X) does not match computed proposer (%X) for (%d, %d)", got, computed.Address(), i, j))
 			}
 		}
 
 		// times is usually 1
 		times := 1
-		mod := (cmn.RandInt() % 5) + 1
-		if cmn.RandInt()%mod > 0 {
+		mod := (rand.Int() % 5) + 1
+		if rand.Int()%mod > 0 {
 			// sometimes its up to 5
-			times = (cmn.RandInt() % 4) + 1
+			times = (rand.Int() % 4) + 1
 		}
 		vset.IncrementProposerPriority(times)
 
 		j += times
 	}
 }
-
- */
