@@ -64,7 +64,7 @@ func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
 			// Get validator set for the given proposal
 			valSet := c.backend.Validators(proposal.ProposalBlock.Number().Uint64()).Copy()
 			previousProposer := c.backend.GetProposer(proposal.ProposalBlock.Number().Uint64() - 1)
-			valSet.CalcProposer(previousProposer, proposal.View.Round.Uint64())
+			valSet.CalcProposer(previousProposer, c.current.round.Uint64(), proposal.View.Round.Uint64())
 			// Broadcast COMMIT if it is an existing block
 			// 1. The proposer needs to be a proposer matches the given (Sequence + Round)
 			// 2. The given block must exist
