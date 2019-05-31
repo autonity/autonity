@@ -90,7 +90,7 @@ func newDefaultSet(policy tendermint.ProposerPolicy, vals ...tendermint.Validato
 	sort.Sort(valSet.validators)
 
 	// init proposer
-	if valSet.Size() > 0 {
+	if valSet.Size() > 0 && policy != tendermint.Tendermint {
 		valSet.proposer = valSet.GetByIndex(0)
 	}
 
@@ -102,10 +102,7 @@ func newDefaultSet(policy tendermint.ProposerPolicy, vals ...tendermint.Validato
 	case tendermint.Tendermint:
 		valSet.selector = tendermintProposer
 		if len(valSet.validators) > 0 {
-			fmt.Println("list", valSet.List())
 			valSet.IncrementProposerPriority(1)
-			fmt.Println("list1", valSet.List())
-			fmt.Println()
 		}
 	default:
 		valSet.selector = roundRobinProposer
@@ -191,9 +188,9 @@ func (valSet *defaultSet) Copy() tendermint.ValidatorSet {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
 
-	vals := make([]tendermint.Validator, 0, len(valSet.validators))
-	for _, v := range valSet.validators {
-		vals = append(vals, v.Copy())
+	vals := make([]tendermint.Validator, len(valSet.validators))
+	for i, v := range valSet.validators {
+		vals[i] = v.Copy()
 	}
 	proposerIndex, _ := valSet.GetByAddress(valSet.GetProposer().Address())
 

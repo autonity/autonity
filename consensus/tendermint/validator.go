@@ -82,6 +82,7 @@ type ValidatorSet interface {
 	Policy() ProposerPolicy
 	IncrementProposerPriority(times int)
 	GetHighest() Validator
+	TotalVotingPower() int64
 }
 
 // ----------------------------------------------------------------------------

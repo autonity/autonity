@@ -43,7 +43,9 @@ func (vals *defaultSet) GetHighest() tendermint.Validator {
 		}
 	}
 
-	return proposer.Copy()
+	vals.proposer = proposer.Copy()
+
+	return vals.proposer
 }
 
 // Returns the one with higher ProposerPriority.
@@ -84,6 +86,7 @@ func (vals *defaultSet) IncrementProposerPriority(times int) {
 		shiftByAvgProposerPriority := i%shiftEveryNthIter == 0
 		proposer = vals.incrementProposerPriority(shiftByAvgProposerPriority)
 	}
+
 	isShiftedAvgOnLastIter := (times-1)%shiftEveryNthIter == 0
 	if !isShiftedAvgOnLastIter {
 		validatorsHeap := heap.New()
@@ -99,9 +102,11 @@ func (vals *defaultSet) incrementProposerPriority(subAvg bool) tendermint.Valida
 	}
 
 	validatorsHeap := heap.New()
-	if subAvg { // shift by avg ProposerPriority
+	if subAvg {
+		// shift by avg ProposerPriority
 		vals.shiftByAvgProposerPriority(validatorsHeap)
-	} else { // just update the heap
+	} else {
+		// just update the heap
 		for _, val := range vals.validators {
 			validatorsHeap.PushComparable(val, proposerPriorityComparable{val})
 		}

@@ -342,3 +342,17 @@ func (mr *MockValidatorSetMockRecorder) GetHighest() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHighest", reflect.TypeOf((*MockValidatorSet)(nil).GetHighest))
 }
+
+// TotalVotingPower mocks base method
+func (m *MockValidatorSet) TotalVotingPower() int64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TotalVotingPower")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// TotalVotingPower indicates an expected call of TotalVotingPower
+func (mr *MockValidatorSetMockRecorder) TotalVotingPower() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TotalVotingPower", reflect.TypeOf((*MockValidatorSet)(nil).TotalVotingPower))
+}

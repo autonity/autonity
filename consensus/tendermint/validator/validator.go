@@ -22,10 +22,12 @@ import (
 )
 
 func New(addr common.Address, votingPower int64) *defaultValidator {
-	return &defaultValidator{
+	val := &defaultValidator{
 		address: addr,
-		votingPower: votingPower,
 	}
+	val.SetVotingPower(votingPower)
+
+	return val
 }
 
 

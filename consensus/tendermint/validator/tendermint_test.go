@@ -1,11 +1,12 @@
 package validator
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"math"
 	"math/big"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/quick"
 
@@ -186,7 +187,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 		wantProposer          tendermint.Validator
 	}{
 
-		0: {
+		{
 			vals.Copy(),
 			[]int64{
 				// Acumm+VotingPower-Avg:
@@ -195,7 +196,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 				0 + 1 - 4},
 			0,
 			vals.GetByIndex(0)},
-		1: {
+		{
 			vals.Copy(),
 			[]int64{
 				0 + 10 - 12 - 4, // this will be mostest on 2nd iter, too
@@ -203,7 +204,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 				0 + 1 - 4},
 			1,
 			vals.GetByIndex(0)}, // increment twice -> expect average to be subtracted twice
-		2: {
+		{
 			vals.Copy(),
 			[]int64{
 				((0 + 10 - 12 - 4) + 10 - 12) + 10 - 12 + 4, // still mostest
@@ -211,7 +212,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 				((0 + 1 - 4) + 1) + 1 + 4},
 			2,
 			vals.GetByIndex(0)},
-		3: {
+		{
 			vals.Copy(),
 			[]int64{
 				0 + 4*(10-12) + 4 - 4, // still mostest
@@ -219,7 +220,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 				0 + 4*1 + 4 - 4},
 			3,
 			vals.GetByIndex(0)},
-		4: {
+		{
 			vals.Copy(),
 			[]int64{
 				0 + 4*(10-12) + 10 + 4 - 4, // 4 iters was mostest
@@ -227,7 +228,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 				0 + 5*1 + 4 - 4},
 			4,
 			vals.GetByIndex(1)},
-		5: {
+		{
 			vals.Copy(),
 			[]int64{
 				0 + 6*10 - 5*12 + 4 - 4, // mostest again
@@ -235,7 +236,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 				0 + 6*1 + 4 - 4},
 			5,
 			vals.GetByIndex(0)},
-		6: {
+		{
 			vals.Copy(),
 			[]int64{
 				0 + 7*10 - 6*12 + 4 - 4, // in 7 iters this val is mostest 6 times
@@ -243,7 +244,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 				0 + 7*1 + 4 - 4},
 			6,
 			vals.GetByIndex(0)},
-		7: {
+		{
 			vals.Copy(),
 			[]int64{
 				0 + 8*10 - 7*12 + 4 - 4, // mostest
@@ -251,7 +252,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 				0 + 8*1 + 4 - 4},
 			7,
 			vals.GetByIndex(0)},
-		8: {
+		{
 			vals.Copy(),
 			[]int64{
 				0 + 9*10 - 7*12 + 4 - 4,
@@ -259,7 +260,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 				0 + 9*1 - 12 + 4 - 4}, // mostest
 			8,
 			vals.GetByIndex(2)},
-		9: {
+		{
 			vals.Copy(),
 			[]int64{
 				0 + 10*10 - 8*12 + 4 - 4, // after 10 iters this is mostest again
@@ -267,7 +268,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 				0 + 10*1 - 12 + 4 - 4},   // in between 10 iters this val is "mostest" once
 			9,
 			vals.GetByIndex(0)},
-		10: {
+		{
 			vals.Copy(),
 			[]int64{
 				0 + 11*10 - 9*12 + 4 - 4,
@@ -276,7 +277,7 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 			10,
 			vals.GetByIndex(0),
 		},
-		11: {
+		{
 			vals.Copy(),
 			[]int64{
 				// shift twice inside incrementProposerPriority (shift every 10th iter);
@@ -294,11 +295,9 @@ func TestAveragingInIncrementProposerPriorityWithVotingPower(t *testing.T) {
 	}
 
 	for i, tc := range tcs {
-		i := i
-		tc := tc
-
 		t.Run(fmt.Sprintf("case %d, times %d", i, tc.times), func(t *testing.T) {
 			if i > 1 {
+				// newDefaultSet call did the first IncrementProposerPriority
 				tc.vals.IncrementProposerPriority(tc.times)
 			}
 
@@ -340,66 +339,6 @@ func TestValidatorSetTotalVotingPowerPanicsOnOverflow(t *testing.T) {
 	)
 }
 
-/*
-func TestAvgProposerPriority(t *testing.T) {
-	// Create Validator set without calling IncrementProposerPriority:
-	tcs := []struct {
-		vs   ValidatorSet
-		want int64
-	}{
-		0: {ValidatorSet{Validators: []*Validator{{ProposerPriority: 0}, {ProposerPriority: 0}, {ProposerPriority: 0}}}, 0},
-		1: {ValidatorSet{Validators: []*Validator{{ProposerPriority: math.MaxInt64}, {ProposerPriority: 0}, {ProposerPriority: 0}}}, math.MaxInt64 / 3},
-		2: {ValidatorSet{Validators: []*Validator{{ProposerPriority: math.MaxInt64}, {ProposerPriority: 0}}}, math.MaxInt64 / 2},
-		3: {ValidatorSet{Validators: []*Validator{{ProposerPriority: math.MaxInt64}, {ProposerPriority: math.MaxInt64}}}, math.MaxInt64},
-		4: {ValidatorSet{Validators: []*Validator{{ProposerPriority: math.MinInt64}, {ProposerPriority: math.MinInt64}}}, math.MinInt64},
-	}
-	for i, tc := range tcs {
-		got := tc.vs.computeAvgProposerPriority()
-		assert.Equal(t, tc.want, got, "test case: %v", i)
-	}
-}
-
-func TestAveragingInIncrementProposerPriority(t *testing.T) {
-	// Test that the averaging works as expected inside of IncrementProposerPriority.
-	// Each validator comes with zero voting power which simplifies reasoning about
-	// the expected ProposerPriority.
-	tcs := []struct {
-		vs    ValidatorSet
-		times int
-		avg   int64
-	}{
-		0: {ValidatorSet{
-			Validators: []*Validator{
-				{Address: []byte("a"), ProposerPriority: 1},
-				{Address: []byte("b"), ProposerPriority: 2},
-				{Address: []byte("c"), ProposerPriority: 3}}},
-			1, 2},
-		1: {ValidatorSet{
-			Validators: []*Validator{
-				{Address: []byte("a"), ProposerPriority: 10},
-				{Address: []byte("b"), ProposerPriority: -10},
-				{Address: []byte("c"), ProposerPriority: 1}}},
-			// this should average twice but the average should be 0 after the first iteration
-			// (voting power is 0 -> no changes)
-			11, 1 / 3},
-		2: {ValidatorSet{
-			Validators: []*Validator{
-				{Address: []byte("a"), ProposerPriority: 100},
-				{Address: []byte("b"), ProposerPriority: -10},
-				{Address: []byte("c"), ProposerPriority: 1}}},
-			1, 91 / 3},
-	}
-	for i, tc := range tcs {
-		// work on copy to have the old ProposerPriorities:
-		newVset := tc.vs.CopyIncrementProposerPriority(tc.times)
-		for _, val := range tc.vs.Validators {
-			_, updatedVal := newVset.GetByAddress(val.Address)
-			assert.Equal(t, updatedVal.ProposerPriority, val.ProposerPriority-tc.avg, "test case: %v", i)
-		}
-	}
-}
-*/
-
 func TestSafeAdd(t *testing.T) {
 	f := func(a, b int64) bool {
 		c, overflow := safeAdd(a, b)
@@ -411,14 +350,205 @@ func TestSafeAdd(t *testing.T) {
 }
 
 func TestSafeAddClip(t *testing.T) {
-	assert.EqualValues(t, math.MaxInt64, safeAddClip(math.MaxInt64, 10))
-	assert.EqualValues(t, math.MaxInt64, safeAddClip(math.MaxInt64, math.MaxInt64))
-	assert.EqualValues(t, math.MinInt64, safeAddClip(math.MinInt64, -10))
+	cases := []struct{
+		a, b int64
+		result int64
+	}{
+		{math.MaxInt64, 10, math.MaxInt64},
+		{math.MaxInt64, math.MaxInt64, math.MaxInt64},
+		{math.MinInt64, -10, math.MinInt64},
+	}
+
+	for _, testCase := range cases {
+		if res := safeAddClip(testCase.a, testCase.b); res != testCase.result {
+			t.Fatalf("test case a=%d b=%d, got %d expected %d", testCase.a, testCase.b, res, testCase.result)
+		}
+	}
 }
 
 func TestSafeSubClip(t *testing.T) {
-	assert.EqualValues(t, math.MinInt64, safeSubClip(math.MinInt64, 10))
-	assert.EqualValues(t, 0, safeSubClip(math.MinInt64, math.MinInt64))
-	assert.EqualValues(t, math.MinInt64, safeSubClip(math.MinInt64, math.MaxInt64))
-	assert.EqualValues(t, math.MaxInt64, safeSubClip(math.MaxInt64, -10))
+	cases := []struct{
+		a, b int64
+		result int64
+	}{
+		{math.MinInt64, 10, math.MinInt64},
+		{math.MinInt64, math.MinInt64, 0},
+		{math.MinInt64, math.MaxInt64, math.MinInt64},
+		{math.MaxInt64, -10, math.MaxInt64},
+	}
+
+	for _, testCase := range cases {
+		if res := safeSubClip(testCase.a, testCase.b); res != testCase.result {
+			t.Fatalf("test case a=%d b=%d, got %d expected %d", testCase.a, testCase.b, res, testCase.result)
+		}
+	}
 }
+
+
+func TestProposerSelectionManyRounds(t *testing.T) {
+	validatorStorage := newValidatorStorage()
+	vset := newDefaultSet(tendermint.Tendermint,
+		validatorStorage.getValidator(0, 1000, 0),
+		validatorStorage.getValidator(1, 300, 0),
+		validatorStorage.getValidator(2, 330, 0),
+	)
+
+	var proposers []string
+	for i := 0; i < 99; i++ {
+		val := vset.GetProposer()
+		proposers = append(proposers, val.Address().String())
+		vset.IncrementProposerPriority(1)
+	}
+	expected := `0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000002 0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000`
+	if expected != strings.Join(proposers, " ") {
+		t.Errorf("Expected sequence of proposers was\n%v\nbut got \n%v", expected, strings.Join(proposers, " "))
+	}
+}
+
+func TestProposerSelection2(t *testing.T) {
+	// when all voting power is same, we go in order of addresses
+	validatorStorage := newValidatorStorage()
+	valList := []tendermint.Validator{
+		validatorStorage.getValidator(0, 100, 0),
+		validatorStorage.getValidator(1, 100, 0),
+		validatorStorage.getValidator(2, 100, 0),
+	}
+	vset := newDefaultSet(tendermint.Tendermint, valList...)
+
+	for i := 0; i < len(valList)*5; i++ {
+		ii := (i) % len(valList)
+		prop := vset.GetProposer()
+		if !bytes.Equal(prop.Address().Bytes(), valList[ii].Address().Bytes()) {
+			t.Fatalf("(%d): Expected %X. Got %X", i, valList[ii].Address(), prop.Address())
+		}
+		vset.IncrementProposerPriority(1)
+	}
+}
+
+func TestProposerSelectionOneValidatorOnce(t *testing.T) {
+	// One validator has more than the others, but not enough to propose twice in a row
+	validatorStorage := newValidatorStorage()
+	valList := []tendermint.Validator{
+		validatorStorage.getValidator(0, 100, 0),
+		validatorStorage.getValidator(1, 100, 0),
+		validatorStorage.getValidator(2, 400, 0),
+	}
+
+	vset := newDefaultSet(tendermint.Tendermint, valList...)
+	prop := vset.GetProposer()
+	if !bytes.Equal(prop.Address().Bytes(), valList[2].Address().Bytes()) {
+		t.Fatalf("Expected address with highest voting power to be first proposer. Got %X", prop.Address())
+	}
+	vset.IncrementProposerPriority(1)
+	prop = vset.GetProposer()
+	if !bytes.Equal(prop.Address().Bytes(), valList[0].Address().Bytes()) {
+		t.Fatalf("Expected smallest address to be validator. Got %X", prop.Address())
+	}
+}
+
+func TestProposerSelectionOneValidatorTwice(t *testing.T) {
+	// One validator has more than the others, and enough to be proposer twice in a row
+	validatorStorage := newValidatorStorage()
+	valList := []tendermint.Validator{
+		validatorStorage.getValidator(0, 100, 0),
+		validatorStorage.getValidator(1, 100, 0),
+		validatorStorage.getValidator(2, 401, 0),
+	}
+	vset := newDefaultSet(tendermint.Tendermint, valList...)
+	prop := vset.GetProposer()
+	if !bytes.Equal(prop.Address().Bytes(), valList[2].Address().Bytes()) {
+		t.Fatalf("Expected address with highest voting power to be first proposer. Got %X", prop.Address())
+	}
+	vset.IncrementProposerPriority(1)
+	prop = vset.GetProposer()
+	if !bytes.Equal(prop.Address().Bytes(), valList[2].Address().Bytes()) {
+		t.Fatalf("Expected address with highest voting power to be second proposer. Got %X", prop.Address())
+	}
+	vset.IncrementProposerPriority(1)
+	prop = vset.GetProposer()
+	if !bytes.Equal(prop.Address().Bytes(), valList[0].Address().Bytes()) {
+		t.Fatalf("Expected smallest address to be validator. Got %X", prop.Address())
+	}
+}
+
+func TestProposerSelectionDistribution(t *testing.T) {
+	// each validator should be the proposer a proportional number of times
+	validatorStorage := newValidatorStorage()
+	valList := []tendermint.Validator{
+		validatorStorage.getValidator(0, 4, 0),
+		validatorStorage.getValidator(1, 5, 0),
+		validatorStorage.getValidator(2, 3, 0),
+	}
+	vset := newDefaultSet(tendermint.Tendermint, valList...)
+	propCount := make([]int, 3)
+	N := 1
+	for i := 0; i < 120*N; i++ {
+		prop := vset.GetProposer()
+		bytesAddress := prop.Address().Bytes()
+		ii := bytesAddress[len(bytesAddress)-1]
+		propCount[ii]++
+		vset.IncrementProposerPriority(1)
+	}
+
+	if propCount[0] != 40*N {
+		t.Fatalf("Expected prop count for validator with 4/12 of voting power to be %d/%d. Got %d/%d", 40*N, 120*N, propCount[0], 120*N)
+	}
+	if propCount[1] != 50*N {
+		t.Fatalf("Expected prop count for validator with 5/12 of voting power to be %d/%d. Got %d/%d", 50*N, 120*N, propCount[1], 120*N)
+	}
+	if propCount[2] != 30*N {
+		t.Fatalf("Expected prop count for validator with 3/12 of voting power to be %d/%d. Got %d/%d", 30*N, 120*N, propCount[2], 120*N)
+	}
+}
+
+/*
+func TestProposerSelection3(t *testing.T) {
+	vset := NewValidatorSet([]*Validator{
+		newValidator([]byte("a"), 1),
+		newValidator([]byte("b"), 1),
+		newValidator([]byte("c"), 1),
+		newValidator([]byte("d"), 1),
+	})
+
+	proposerOrder := make([]*Validator, 4)
+	for i := 0; i < 4; i++ {
+		proposerOrder[i] = vset.GetProposer()
+		vset.IncrementProposerPriority(1)
+	}
+
+	// i for the loop
+	// j for the times
+	// we should go in order for ever, despite some IncrementProposerPriority with times > 1
+	var i, j int
+	for ; i < 10000; i++ {
+		got := vset.GetProposer().Address
+		expected := proposerOrder[j%4].Address
+		if !bytes.Equal(got, expected) {
+			t.Fatalf(fmt.Sprintf("vset.Proposer (%X) does not match expected proposer (%X) for (%d, %d)", got, expected, i, j))
+		}
+
+		// serialize, deserialize, check proposer
+		b := vset.toBytes()
+		vset.fromBytes(b)
+
+		computed := vset.GetProposer() // findGetProposer()
+		if i != 0 {
+			if !bytes.Equal(got, computed.Address) {
+				t.Fatalf(fmt.Sprintf("vset.Proposer (%X) does not match computed proposer (%X) for (%d, %d)", got, computed.Address, i, j))
+			}
+		}
+
+		// times is usually 1
+		times := 1
+		mod := (cmn.RandInt() % 5) + 1
+		if cmn.RandInt()%mod > 0 {
+			// sometimes its up to 5
+			times = (cmn.RandInt() % 4) + 1
+		}
+		vset.IncrementProposerPriority(times)
+
+		j += times
+	}
+}
+
+ */
