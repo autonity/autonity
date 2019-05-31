@@ -30,7 +30,6 @@ func New(addr common.Address, votingPower int64) *defaultValidator {
 	return val
 }
 
-
 func NewValidatorsList(votingPower int64, addrs ...common.Address) []tendermint.Validator {
 	vals := make([]tendermint.Validator, len(addrs))
 	for i := range addrs {

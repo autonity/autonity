@@ -351,8 +351,8 @@ func TestSafeAdd(t *testing.T) {
 }
 
 func TestSafeAddClip(t *testing.T) {
-	cases := []struct{
-		a, b int64
+	cases := []struct {
+		a, b   int64
 		result int64
 	}{
 		{math.MaxInt64, 10, math.MaxInt64},
@@ -368,8 +368,8 @@ func TestSafeAddClip(t *testing.T) {
 }
 
 func TestSafeSubClip(t *testing.T) {
-	cases := []struct{
-		a, b int64
+	cases := []struct {
+		a, b   int64
 		result int64
 	}{
 		{math.MinInt64, 10, math.MinInt64},
@@ -384,7 +384,6 @@ func TestSafeSubClip(t *testing.T) {
 		}
 	}
 }
-
 
 func TestProposerSelectionManyRounds(t *testing.T) {
 	validatorStorage := newValidatorStorage()
