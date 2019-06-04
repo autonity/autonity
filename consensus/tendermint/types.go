@@ -70,7 +70,11 @@ func (sub *Vote) EncodeRLP(w io.Writer) error {
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
 func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
-	var subject = new(Vote)
+	var subject struct {
+		Round             *big.Int
+		Height            *big.Int
+		ProposedBlockHash common.Hash
+	}
 
 	if err := s.Decode(&subject); err != nil {
 		return err
