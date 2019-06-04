@@ -19,6 +19,7 @@ package core
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -226,9 +227,9 @@ func (c *core) startRound(round *big.Int) {
 	if round.Int64() == 0 {
 		// Set the shared round values to initial values
 		c.lockedRound = big.NewInt(-1)
-		c.lockedValue = new(types.Block)
+		c.lockedValue = nil
 		c.validRound = big.NewInt(-1)
-		c.validValue = new(types.Block)
+		c.validValue = nil
 
 		c.valSet = c.backend.Validators(height.Uint64())
 		c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
@@ -266,12 +267,27 @@ func (c *core) startRound(round *big.Int) {
 
 	var p *types.Block
 	if c.isProposer() {
+		fmt.Println("case 0", c.currentRoundState.Proposal())
 		if c.validValue != nil {
+			fmt.Println("case 1", c.validValue)
+			c.validValue = &c.currentRoundState.Proposal().ProposalBlock
 			p = c.validValue
 		} else {
 			p = c.latestPendingUnminedBlock
+			fmt.Println("case 2", c.latestPendingUnminedBlock)
 		}
 		c.sendProposal(p)
+
+		/*
+		if c.current.IsHashLocked() {
+				r := &tendermint.Request{
+					ProposalBlock: c.current.Proposal().ProposalBlock, //c.current.ProposalBlock would be the locked proposal by previous proposer, see updateRoundState
+				}
+				c.sendProposal(r)
+			} else if c.current.pendingRequest != nil {
+				c.sendProposal(c.current.pendingRequest)
+			}
+		 */
 	} else {
 		timeoutDuration := timeoutPropose(round.Int64())
 		c.proposeTimeout.scheduleTimeout(timeoutDuration, round.Int64(), height.Int64(), c.onTimeoutPropose)
@@ -279,9 +295,11 @@ func (c *core) startRound(round *big.Int) {
 }
 
 func (c *core) setStep(step Step) {
+	fmt.Println("!!!!!!!!!!!!! setStep", step, StepAcceptProposal)
 	c.step = step
 
 	if step == StepAcceptProposal {
+		fmt.Println("!!!!!!!!!!!!! setStep 1", step, StepAcceptProposal)
 		c.processPendingRequests()
 	}
 	c.processBacklog()

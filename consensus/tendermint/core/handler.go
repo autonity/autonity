@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -73,17 +74,20 @@ func (c *core) handleEvents() {
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case tendermint.NewUnminedBlockEvent:
+				fmt.Println("handleEvents tendermint.NewUnminedBlockEvent")
 				pb := &e.NewUnminedBlock
 				err := c.handleUnminedBlock(pb)
-
 				if err == consensus.ErrFutureBlock {
 					c.storeUnminedBlockMsg(pb)
 				}
+
 			case tendermint.MessageEvent:
+				fmt.Println("handleEvents tendermint.MessageEvent")
 				if err := c.handleMsg(e.Payload); err == nil {
 					c.backend.Gossip(c.valSet, e.Payload)
 				}
 			case backlogEvent:
+				fmt.Println("handleEvents backlogEvent")
 				// No need to check signature for internal messages
 				if err := c.handleCheckedMsg(e.msg, e.src); err == nil {
 					p, err := e.msg.Payload()
@@ -153,7 +157,7 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
 		if err == errFutureRoundMessage {
-			//We cannont move to a round in a new height without receiving a new block
+			//We cannot move to a round in a new height without receiving a new block
 			var msgRound int64
 			if msg.Code == msgProposal {
 				var p tendermint.Proposal
