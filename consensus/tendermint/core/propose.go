@@ -10,6 +10,7 @@ import (
 
 func (c *core) sendProposal(p *types.Block) {
 	logger := c.logger.New("step", c.step)
+	logger.Info("sendProposal", "isNilBlock", p==nil, "block", p)
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.currentRoundState.Height().Cmp(p.Number()) == 0 && c.isProposer() && !c.sentProposal {
