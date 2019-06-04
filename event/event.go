@@ -138,7 +138,7 @@ func NewTypeMuxSilent(l log.Logger) *TypeMuxSilent {
 
 func (mux *TypeMuxSilent) Post(ev interface{}) {
 	err := mux.TypeMux.Post(ev)
-	mux.logger.Error("mux error while posting message", err)
+	mux.logger.Error("mux error while posting message", "err", err)
 }
 
 func find(slice []*TypeMuxSubscription, item *TypeMuxSubscription) int {
