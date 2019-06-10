@@ -10,7 +10,7 @@ import (
 
 func (c *core) sendProposal(p *types.Block) {
 	logger := c.logger.New("step", c.step)
-	logger.Info("sendProposal", "isNilBlock", p==nil, "block", p)
+	logger.Info("sendProposal", "isNilBlock", p == nil, "block", p)
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.currentRoundState.Height().Cmp(p.Number()) == 0 && c.isProposer() && !c.sentProposal {
@@ -19,10 +19,10 @@ func (c *core) sendProposal(p *types.Block) {
 			Round:         r,
 			Height:        h,
 			ValidRound:    vr,
-			ProposalBlock: *p,
+			ProposalBlock: p,
 		})
 		if err != nil {
-			logger.Error("Failed to encode", "Round", r, "Height", h, "ValidRound", vr)
+			logger.Error("Failed to encode", "Round", r, "Height", h, "ValidRound", vr, "Error", err)
 			return
 		}
 		c.sentProposal = true
@@ -56,7 +56,7 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 	}
 
 	// Verify the proposal we received
-	if duration, err := c.backend.Verify(proposal.ProposalBlock); err != nil {
+	if duration, err := c.backend.Verify(*proposal.ProposalBlock); err != nil {
 		logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 		// if it's a future block, we will handle it again after the duration
 		// TIME FIELD OF HEADER CHECKED HERE - NOT HEIGHT
