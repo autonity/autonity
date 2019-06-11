@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core/types"
@@ -21,6 +20,10 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 
 	logger.Trace("handleUnminedBlock", "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
 
+	// This will be only true until it is first populated
+	if c.latestPendingUnminedBlock == nil {
+		close(c.firstUnminedBlockCh)
+	}
 	c.latestPendingUnminedBlock = unminedBlock
 	return nil
 }
@@ -56,13 +59,10 @@ func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
 }
 
 func (c *core) processPendingRequests() {
-	fmt.Println("processPendingRequests")
 	c.pendingUnminedBlocksMu.Lock()
 	defer c.pendingUnminedBlocksMu.Unlock()
 
 	for !c.pendingUnminedBlocks.Empty() {
-		fmt.Println("processPendingRequests !c.pendingUnminedBlocks.Empty()")
-
 		m, prio := c.pendingUnminedBlocks.Pop()
 		ub, ok := m.(*types.Block)
 		if !ok {

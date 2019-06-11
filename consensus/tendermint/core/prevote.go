@@ -92,12 +92,12 @@ func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 			// this piece of code should only run once
 			if err := c.stopPrevoteTimeout(); err == nil {
 				if c.step == StepProposeDone {
-					c.lockedValue = &c.currentRoundState.Proposal().ProposalBlock
+					c.lockedValue = c.currentRoundState.Proposal().ProposalBlock
 					c.lockedRound = big.NewInt(curR)
 					c.sendPrecommit(false)
 					c.setStep(StepPrevoteDone)
 				}
-				c.validValue = &c.currentRoundState.Proposal().ProposalBlock
+				c.validValue = c.currentRoundState.Proposal().ProposalBlock
 				c.validRound = big.NewInt(curR)
 				c.setValidRoundAndValue = true
 			} else {
