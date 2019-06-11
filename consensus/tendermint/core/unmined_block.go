@@ -20,6 +20,10 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 
 	logger.Trace("handleUnminedBlock", "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
 
+	// This will be only true until it is first populated
+	if c.latestPendingUnminedBlock == nil {
+		close(c.firstUnminedBlockCh)
+	}
 	c.latestPendingUnminedBlock = unminedBlock
 	return nil
 }
