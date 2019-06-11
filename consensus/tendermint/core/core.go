@@ -88,6 +88,7 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		backlogsMu:             new(sync.Mutex),
 		pendingUnminedBlocks:   prque.New(),
 		pendingUnminedBlocksMu: new(sync.Mutex),
+		firstUnminedBlockCh:    make(chan struct{}),
 		proposeTimeout:         new(timeout),
 		prevoteTimeout:         new(timeout),
 		precommitTimeout:       new(timeout),
@@ -225,10 +226,10 @@ func (c *core) startRound(round *big.Int) {
 	// Start of new height where round is 0
 	if round.Int64() == 0 {
 		// Set the shared round values to initial values
-		c.lockedRound = big.NewInt(-1)
-		c.lockedValue = new(types.Block)
-		c.validRound = big.NewInt(-1)
-		c.validValue = new(types.Block)
+		c.lockedRound = big.NewInt(0)
+		c.lockedValue = nil
+		c.validRound = big.NewInt(0)
+		c.validValue = nil
 
 		c.valSet = c.backend.Validators(height.Uint64())
 		c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
