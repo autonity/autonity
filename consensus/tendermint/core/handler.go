@@ -10,14 +10,13 @@ import (
 
 // Start implements core.Engine.Start
 func (c *core) Start() error {
-	// Start a new round from last height + 1
-	c.startRound(common.Big0)
-
 	// Tests will handle events itself, so we have to make subscribeEvents()
 	// be able to call in test.
 	c.subscribeEvents()
 	go c.handleEvents()
 
+	// Start a new round from last height + 1
+	go c.startRound(common.Big0)
 	return nil
 }
 
@@ -75,7 +74,6 @@ func (c *core) handleEvents() {
 			case tendermint.NewUnminedBlockEvent:
 				pb := &e.NewUnminedBlock
 				err := c.handleUnminedBlock(pb)
-
 				if err == consensus.ErrFutureBlock {
 					c.storeUnminedBlockMsg(pb)
 				}
@@ -153,7 +151,7 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
 		if err == errFutureRoundMessage {
-			//We cannont move to a round in a new height without receiving a new block
+			//We cannot move to a round in a new height without receiving a new block
 			var msgRound int64
 			if msg.Code == msgProposal {
 				var p tendermint.Proposal

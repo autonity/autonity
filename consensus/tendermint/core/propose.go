@@ -18,7 +18,7 @@ func (c *core) sendProposal(p *types.Block) {
 			Round:         r,
 			Height:        h,
 			ValidRound:    vr,
-			ProposalBlock: *p,
+			ProposalBlock: p,
 		})
 		if err != nil {
 			logger.Error("Failed to encode", "Round", r, "Height", h, "ValidRound", vr)
@@ -55,7 +55,7 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 	}
 
 	// Verify the proposal we received
-	if duration, err := c.backend.Verify(proposal.ProposalBlock); err != nil {
+	if duration, err := c.backend.Verify(*proposal.ProposalBlock); err != nil {
 		logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 		// if it's a future block, we will handle it again after the duration
 		// TIME FIELD OF HEADER CHECKED HERE - NOT HEIGHT

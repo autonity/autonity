@@ -30,7 +30,7 @@ type Proposal struct {
 	Round         *big.Int
 	Height        *big.Int
 	ValidRound    *big.Int
-	ProposalBlock types.Block
+	ProposalBlock *types.Block
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
@@ -44,7 +44,12 @@ func (p *Proposal) EncodeRLP(w io.Writer) error {
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
 func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
-	var proposal = new(Proposal)
+	var proposal struct {
+		Round         *big.Int
+		Height        *big.Int
+		ValidRound    *big.Int
+		ProposalBlock *types.Block
+	}
 
 	if err := s.Decode(&proposal); err != nil {
 		return err
@@ -70,14 +75,18 @@ func (sub *Vote) EncodeRLP(w io.Writer) error {
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
 func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
-	var subject = new(Vote)
+	var vote struct {
+		Round             *big.Int
+		Height            *big.Int
+		ProposedBlockHash common.Hash
+	}
 
-	if err := s.Decode(&subject); err != nil {
+	if err := s.Decode(&vote); err != nil {
 		return err
 	}
-	sub.Round = subject.Round
-	sub.Height = subject.Height
-	sub.ProposedBlockHash = subject.ProposedBlockHash
+	sub.Round = vote.Round
+	sub.Height = vote.Height
+	sub.ProposedBlockHash = vote.ProposedBlockHash
 	return nil
 }
 

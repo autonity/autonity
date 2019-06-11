@@ -130,8 +130,8 @@ type core struct {
 
 	currentHeightRoundsStates map[int64]*roundState
 
-	// TODO: may require a mutex
 	latestPendingUnminedBlock *types.Block
+	firstUnminedBlockCh       chan struct{}
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -211,7 +211,7 @@ func (c *core) commit() {
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 
-		if err := c.backend.Commit(proposal.ProposalBlock, committedSeals); err != nil {
+		if err := c.backend.Commit(*proposal.ProposalBlock, committedSeals); err != nil {
 			return
 		}
 	}
@@ -269,6 +269,9 @@ func (c *core) startRound(round *big.Int) {
 		if c.validValue != nil {
 			p = c.validValue
 		} else {
+			if c.latestPendingUnminedBlock == nil {
+				<-c.firstUnminedBlockCh
+			}
 			p = c.latestPendingUnminedBlock
 		}
 		c.sendProposal(p)
