@@ -14,12 +14,7 @@ func (c *core) sendProposal(p *types.Block) {
 	// If I'm the proposer and I have the same height with the proposal
 	if c.currentRoundState.Height().Cmp(p.Number()) == 0 && c.isProposer() && !c.sentProposal {
 		r, h, vr := c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound
-		proposal, err := Encode(&tendermint.Proposal{
-			Round:         r,
-			Height:        h,
-			ValidRound:    vr,
-			ProposalBlock: p,
-		})
+		proposal, err := Encode(tendermint.NewProposal(r, h, vr, p))
 		if err != nil {
 			logger.Error("Failed to encode", "Round", r, "Height", h, "ValidRound", vr)
 			return

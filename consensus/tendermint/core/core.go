@@ -226,9 +226,9 @@ func (c *core) startRound(round *big.Int) {
 	// Start of new height where round is 0
 	if round.Int64() == 0 {
 		// Set the shared round values to initial values
-		c.lockedRound = big.NewInt(0)
+		c.lockedRound = big.NewInt(-1)
 		c.lockedValue = nil
-		c.validRound = big.NewInt(0)
+		c.validRound = big.NewInt(-1)
 		c.validValue = nil
 
 		c.valSet = c.backend.Validators(height.Uint64())
