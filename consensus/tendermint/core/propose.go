@@ -38,7 +38,7 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 	}
 
 	// Ensure we have the same view with the Proposal message
-	if err := c.checkMessage(msgProposal, proposal.Round, proposal.Height); err != nil {
+	if err := c.checkMessage(proposal.Round, proposal.Height); err != nil {
 		// We don't care about old proposals so they are ignored
 		return err
 	}

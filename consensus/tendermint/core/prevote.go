@@ -41,7 +41,7 @@ func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 		return errFailedDecodePrevote
 	}
 
-	if err = c.checkMessage(msgPrevote, prevote.Round, prevote.Height); err != nil {
+	if err = c.checkMessage(prevote.Round, prevote.Height); err != nil {
 		// We want to store old round messages for future rounds since it is required for validRound
 		if err == errOldRoundMessage {
 			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
@@ -69,7 +69,7 @@ func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 			c.currentRoundState.Prevotes.AddVote(prevoteHash, *msg)
 		}
 
-		logger.Info("Accepted Prevote", prevoteHash)
+		logger.Info("Accepted Prevote", "Prevote Hash", prevoteHash)
 
 		// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)) {

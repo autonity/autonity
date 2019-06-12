@@ -11,13 +11,13 @@ const (
 
 func (s Step) String() string {
 	if s == StepAcceptProposal {
-		return "Accepting proposal"
+		return "StepAcceptProposal"
 	} else if s == StepProposeDone {
-		return "Proposal"
+		return "StepProposeDone"
 	} else if s == StepPrevoteDone {
-		return "Prevoted"
+		return "StepPrevoteDone"
 	} else if s == StepPrecommitDone {
-		return "Precommitted"
+		return "StepPrecommitDone"
 	} else {
 		return "Unknown"
 	}

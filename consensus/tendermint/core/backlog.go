@@ -26,7 +26,7 @@ type backlogEvent struct {
 // return errInvalidMessage if the message is invalid
 // return errFutureHeightMessage if the message view is larger than currentRoundState view
 // return errOldHeightMessage if the message view is smaller than currentRoundState view
-func (c *core) checkMessage(msgCode uint64, round *big.Int, height *big.Int) error {
+func (c *core) checkMessage(round *big.Int, height *big.Int) error {
 	if height == nil || round == nil {
 		return errInvalidMessage
 	}
@@ -41,17 +41,6 @@ func (c *core) checkMessage(msgCode uint64, round *big.Int, height *big.Int) err
 		return errOldRoundMessage
 	}
 
-	// StepAcceptProposal only accepts msgProposal
-	// other messages are future messages
-	if c.step == StepAcceptProposal {
-		if msgCode > msgProposal {
-			return errFutureHeightMessage
-		}
-		return nil
-	}
-
-	// For steps(StepProposeDone, StepPrevoteDone, StepPrecommitDone),
-	// can accept all message types if processing with same view
 	return nil
 }
 
@@ -129,7 +118,7 @@ func (c *core) processBacklog() {
 				continue
 			}
 			// Push back if it's a future message
-			err := c.checkMessage(msg.Code, round, height)
+			err := c.checkMessage(round, height)
 			if err != nil {
 				if err == errFutureHeightMessage {
 					logger.Trace("Stop processing backlog", "msg", msg)

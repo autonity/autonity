@@ -42,7 +42,7 @@ func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error 
 		return errFailedDecodePrecommit
 	}
 
-	if err := c.checkMessage(msgPrecommit, precommit.Round, precommit.Height); err != nil {
+	if err := c.checkMessage(precommit.Round, precommit.Height); err != nil {
 		// We don't care about old round precommit messages, otherwise we would not be in a new round rather a new height
 		return err
 	}
@@ -59,7 +59,7 @@ func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error 
 		c.currentRoundState.Precommits.AddVote(precommitHash, *msg)
 	}
 
-	logger.Info("Accepted Prevote", precommitHash)
+	logger.Info("Accepted Prevote", "PrecommitHash", precommitHash)
 
 	// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.NilVotesSize()) {

@@ -8,15 +8,16 @@ import (
 
 func newMessageSet() messageSet {
 	return messageSet{
-		// map[proposedBlockHash]map[validatorAddress]vote
-		votes: map[common.Hash]map[common.Address]message{},
-		// map[validatorAddress]nilvote
+		votes:    map[common.Hash]map[common.Address]message{},
 		nilvotes: map[common.Address]message{},
+		mu:       new(sync.RWMutex),
 	}
 }
 
 type messageSet struct {
-	votes    map[common.Hash]map[common.Address]message
+	// map[proposedBlockHash]map[validatorAddress]vote
+	votes map[common.Hash]map[common.Address]message
+	// map[validatorAddress]nilvote
 	nilvotes map[common.Address]message
 	mu       *sync.RWMutex
 }
