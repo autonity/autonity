@@ -23,7 +23,7 @@ func (c *core) sendProposal(p *types.Block) {
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
 
-		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", proposalBlock, c.address.String())
+		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", proposalBlock, c.address.String(), "broadcast")
 
 		c.broadcast(&message{
 			Code: msgProposal,
@@ -41,7 +41,7 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 		return errFailedDecodeProposal
 	}
 
-	c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String())
+	c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 
 	// Ensure we have the same view with the Proposal message
 	if err := c.checkMessage(proposal.Round, proposal.Height); err != nil {
@@ -124,16 +124,17 @@ func (c *core) stopProposeTimeout() error {
 	return nil
 }
 
-func (c *core) logProposalMessageEvent(message string, proposal *tendermint.Proposal, from string) {
+func (c *core) logProposalMessageEvent(message string, proposal *tendermint.Proposal, from, to string) {
 	c.logger.Info(message,
-		"from", from,
 		"type", "Proposal",
+		"from", from,
+		"to", to,
 		"currentHeight", c.currentRoundState.height,
 		"msgHeight", proposal.Height,
 		"currentRound", c.currentRoundState.round,
 		"msgRound", proposal.Round,
-		"currentSteo", c.step,
-		"msgStep", c.step,
+		"currentStep", c.step,
+		"isProposer", c.isProposer(),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
 		"hash", proposal.ProposalBlock.Hash(),

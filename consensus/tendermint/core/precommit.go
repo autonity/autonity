@@ -27,7 +27,7 @@ func (c *core) sendPrecommit(isNil bool) {
 		return
 	}
 
-	c.logPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String())
+	c.logPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
 	c.broadcast(&message{
 		Code: msgPrecommit,
@@ -60,7 +60,7 @@ func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error 
 		c.currentRoundState.Precommits.AddVote(precommitHash, *msg)
 	}
 
-	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, msg.Address.String())
+	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, msg.Address.String(), c.address.String())
 
 	// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize(curProposaleHash)) {
@@ -100,24 +100,25 @@ func (c *core) stopPrecommitTimeout() error {
 	return nil
 }
 
-func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vote, from string) {
-	curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
+func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vote, from, to string) {
+	currentProposalHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
 	c.logger.Info(message,
+		"type", "Precommit",
 		"from", from,
-		"type", "Prevote",
+		"to", to,
 		"currentHeight", c.currentRoundState.height,
 		"msgHeight", precommit.Height,
 		"currentRound", c.currentRoundState.round,
 		"msgRound", precommit.Round,
-		"currentSteo", c.step,
-		"msgStep", c.step,
+		"currentStep", c.step,
+		"isProposer", c.isProposer(),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
 		"hash", precommit.ProposedBlockHash,
-		"totalVotes", c.currentRoundState.Precommits.TotalSize(curProposaleHash),
+		"totalVotes", c.currentRoundState.Precommits.TotalSize(currentProposalHash),
 		"totalNilVotes", c.currentRoundState.Precommits.NilVotesSize(),
 		"quorumReject", c.quorum(c.currentRoundState.Precommits.NilVotesSize()),
-		"totalNonNilVotes", c.currentRoundState.Precommits.VotesSize(curProposaleHash),
-		"quorumAccept", c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)),
+		"totalNonNilVotes", c.currentRoundState.Precommits.VotesSize(currentProposalHash),
+		"quorumAccept", c.quorum(c.currentRoundState.Precommits.VotesSize(currentProposalHash)),
 	)
 }

@@ -27,7 +27,7 @@ func (c *core) sendPrevote(isNil bool) {
 		return
 	}
 
-	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String())
+	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
 	c.broadcast(&message{
 		Code: msgPrevote,
@@ -70,7 +70,7 @@ func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 			c.currentRoundState.Prevotes.AddVote(prevoteHash, *msg)
 		}
 
-		c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, msg.Address.String())
+		c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, msg.Address.String(), c.address.String())
 
 		// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)) {
@@ -121,17 +121,18 @@ func (c *core) stopPrevoteTimeout() error {
 	return nil
 }
 
-func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, from string) {
+func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, from, to string) {
 	curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
 	c.logger.Info(message,
-		"from", from,
 		"type", "Prevote",
+		"from", from,
+		"to", to,
 		"currentHeight", c.currentRoundState.height,
 		"msgHeight", prevote.Height,
 		"currentRound", c.currentRoundState.round,
 		"msgRound", prevote.Round,
-		"currentSteo", c.step,
-		"msgStep", c.step,
+		"currentStep", c.step,
+		"isProposer", c.isProposer(),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
 		"hash", prevote.ProposedBlockHash,

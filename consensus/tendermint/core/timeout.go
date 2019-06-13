@@ -44,16 +44,16 @@ func (t *timeout) stopTimer() bool {
 	return t.timer.Stop()
 }
 
-func (c *core) logTimeoutEvent(message string, t string, e timeoutEvent) {
+func (c *core) logTimeoutEvent(message string, msgType string, timeout timeoutEvent) {
 	c.logger.Info(message,
 		"from", c.address.String(),
-		"type", t,
+		"type", msgType,
 		"currentHeight", c.currentRoundState.height,
-		"msgHeight", e.heightWhenCalled,
+		"msgHeight", timeout.heightWhenCalled,
 		"currentRound", c.currentRoundState.round,
-		"msgRound", e.roundWhenCalled,
+		"msgRound", timeout.roundWhenCalled,
 		"currentStep", c.step,
-		"msgStep", e.step,
+		"msgStep", timeout.step,
 	)
 }
 
