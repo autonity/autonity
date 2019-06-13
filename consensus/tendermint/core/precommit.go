@@ -59,7 +59,7 @@ func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error 
 		c.currentRoundState.Precommits.AddVote(precommitHash, *msg)
 	}
 
-	logger.Info("Accepted Prevote", "PrecommitHash", precommitHash)
+	logger.Info("Accepted PreCommit", "height", precommit.Height, "round", precommit.Round, "PrecommitHash", precommitHash)
 
 	// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.NilVotesSize()) {
