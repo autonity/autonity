@@ -70,19 +70,19 @@ func (c *core) onTimeoutPropose(r int64, h int64) {
 func (c *core) handleTimeoutPropose(msg timeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.step == StepAcceptProposal {
 		c.logger.Info("MESSAGE: handle internal message",
-		    "type", "timeoutPropose",
-		    "currentHeight", c.currentRoundState.height,
-		    "currentRound", c.currentRoundState.round,
-		    "currentStep", c.step,
-		    "from", c.address.String(),
-		    "currentProposer", c.isProposer(),
-		    "msgHeight", msg.heightWhenCalled,
-		    "msgRound", msg.roundWhenCalled,
-		    "msgStep", msg.step,
-		    "message", msg,
-	        )
+			"type", "timeoutPropose",
+			"currentHeight", c.currentRoundState.height,
+			"currentRound", c.currentRoundState.round,
+			"currentStep", c.step,
+			"from", c.address.String(),
+			"currentProposer", c.isProposer(),
+			"msgHeight", msg.heightWhenCalled,
+			"msgRound", msg.roundWhenCalled,
+			"msgStep", msg.step,
+			"message", msg,
+		)
 
-                c.sendPrevote(true)
+		c.sendPrevote(true)
 		c.setStep(StepProposeDone)
 	}
 }
@@ -114,19 +114,19 @@ func (c *core) onTimeoutPrevote(r int64, h int64) {
 func (c *core) handleTimeoutPrevote(msg timeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.step == StepProposeDone {
 		c.logger.Info("MESSAGE: handle internal message",
-		    "type", "timeoutPrevote",
-		    "currentHeight", c.currentRoundState.height,
-		    "currentRound", c.currentRoundState.round,
-		    "currentStep", c.step,
-		    "from", c.address.String(),
-		    "currentProposer", c.isProposer(),
-		    "msgHeight", msg.heightWhenCalled,
-		    "msgRound", msg.roundWhenCalled,
-		    "msgStep", msg.step,
-		    "message", msg,
-	        )
+			"type", "timeoutPrevote",
+			"currentHeight", c.currentRoundState.height,
+			"currentRound", c.currentRoundState.round,
+			"currentStep", c.step,
+			"from", c.address.String(),
+			"currentProposer", c.isProposer(),
+			"msgHeight", msg.heightWhenCalled,
+			"msgRound", msg.roundWhenCalled,
+			"msgStep", msg.step,
+			"message", msg,
+		)
 
-                c.sendPrecommit(true)
+		c.sendPrecommit(true)
 		c.setStep(StepPrevoteDone)
 	}
 }
@@ -156,18 +156,18 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 
 func (c *core) handleTimeoutPrecommit(msg timeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
-                c.logger.Info("MESSAGE: handle internal message",
-		    "type", "timeoutPrecommit",
-		    "currentHeight", c.currentRoundState.height,
-		    "currentRound", c.currentRoundState.round,
-		    "currentStep", c.step,
-		    "from", c.address.String(),
-		    "currentProposer", c.isProposer(),
-		    "msgHeight", msg.heightWhenCalled,
-		    "msgRound", msg.roundWhenCalled,
-		    "msgStep", msg.step,
-		    "message", msg,
-	        )
+		c.logger.Info("MESSAGE: handle internal message",
+			"type", "timeoutPrecommit",
+			"currentHeight", c.currentRoundState.height,
+			"currentRound", c.currentRoundState.round,
+			"currentStep", c.step,
+			"from", c.address.String(),
+			"currentProposer", c.isProposer(),
+			"msgHeight", msg.heightWhenCalled,
+			"msgRound", msg.roundWhenCalled,
+			"msgStep", msg.step,
+			"message", msg,
+		)
 
 		c.startRound(new(big.Int).Add(c.currentRoundState.Height(), common.Big1))
 	}

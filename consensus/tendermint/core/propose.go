@@ -23,7 +23,6 @@ func (c *core) sendProposal(p *types.Block) {
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
 
-
 		logger.Info("MESSAGE: sent external message",
 			"type", "proposal",
 			"currentHeight", c.currentRoundState.height,

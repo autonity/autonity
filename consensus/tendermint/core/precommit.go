@@ -28,7 +28,7 @@ func (c *core) sendPrecommit(isNil bool) {
 	}
 
 	logger.Info("MESSAGE: sent external message",
-		"type", "vote",
+		"type", "precommit",
 		"currentHeight", c.currentRoundState.height,
 		"currentRound", c.currentRoundState.round,
 		"currentStep", c.step,

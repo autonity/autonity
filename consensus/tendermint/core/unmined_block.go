@@ -1,24 +1,23 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core/types"
 )
 
 func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
-	logger := c.logger.New("step", c.step, "height", c.currentRoundState.height)
-
 	if err := c.checkUnminedBlockMsg(unminedBlock); err != nil {
 		if err == errInvalidMessage {
-			logger.Warn("invalid unminedBlock")
+			c.logger.Warn("invalid unminedBlock")
 			return err
 		}
-		logger.Warn("unexpected unminedBlock", "err", err, "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
+		c.logger.Warn("unexpected unminedBlock", "err", err, "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
 		return err
 	}
 
-	logger.Trace("handleUnminedBlock", "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
+	c.logNewUnminedBlockEvent(unminedBlock)
 
 	// This will be only true until it is first populated
 	if c.latestPendingUnminedBlock == nil {
@@ -86,4 +85,18 @@ func (c *core) processPendingRequests() {
 			NewUnminedBlock: *ub,
 		})
 	}
+}
+
+func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
+	c.logger.Info("NewUnminedBlockEvent: Received internal message",
+		"from", c.address.String(),
+		"type", "New Unmined Block",
+		"currentHeight", c.currentRoundState.height,
+		"currentRound", c.currentRoundState.round,
+		"currentStep", c.step,
+		"currentProposer", c.isProposer(),
+		"msgHeight", ub.Header().Number.Uint64(),
+		"isNilMsg", ub.Hash() == common.Hash{},
+		"block", ub,
+	)
 }
