@@ -72,6 +72,20 @@ func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error 
 	)
 
 	if err := c.checkMessage(precommit.Round, precommit.Height); err != nil {
+		logger.Info("MESSAGE: backlog message ingored",
+			"type", "precommit",
+			"currentHeight", c.currentRoundState.height,
+			"currentRound", c.currentRoundState.round,
+			"currentStep", c.step,
+			"from", msg.Address.String(),
+			"sender", sender.Address().String(),
+			"to", c.address.String(),
+			"currentProposer", c.isProposer(),
+			"msgHeight", precommit.Height,
+			"msgRound", precommit.Round,
+			"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
+			"message", precommit,
+		)
 		// We don't care about old round precommit messages, otherwise we would not be in a new round rather a new height
 		return err
 	}
@@ -88,22 +102,26 @@ func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error 
 		c.currentRoundState.Precommits.AddVote(precommitHash, *msg)
 	}
 
-	logger.Info("Accepted PreCommit", "height", precommit.Height, "round", precommit.Round, "PrecommitHash", precommitHash)
+	logger.Info("Accepted PreCommit", "height", precommit.Height, "round", precommit.Round, "Hash", precommitHash, "quorumReject", c.quorum(c.currentRoundState.Precommits.NilVotesSize()), "totalNilVotes", c.currentRoundState.Precommits.NilVotesSize(), "quorumAccept", c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)), "totalNonNilVotes", c.currentRoundState.Precommits.VotesSize(curProposaleHash))
 
 	// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.NilVotesSize()) {
 		timeoutDuration := timeoutPrecommit(curR)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
 		// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)) {
-		if err := c.stopPrecommitTimeout(); err == nil {
-			c.commit()
-		} else {
-			return err
-		}
-	} else {
+
+		return nil
+	}
+
+	if !c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)) {
 		return errNoMajority
 	}
+
+	if err := c.stopPrecommitTimeout(); err != nil {
+		return err
+	}
+
+	c.commit()
 
 	return nil
 }
