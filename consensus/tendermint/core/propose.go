@@ -124,17 +124,18 @@ func (c *core) stopProposeTimeout() error {
 	return nil
 }
 
-func (c *core) logProposalMessageEvent(message string, proposalBlock *tendermint.Proposal, from string) {
+func (c *core) logProposalMessageEvent(message string, proposal *tendermint.Proposal, from string) {
 	c.logger.Info(message,
 		"from", from,
 		"type", "Proposal",
 		"currentHeight", c.currentRoundState.height,
-		"msgHeight", proposalBlock.Height,
+		"msgHeight", proposal.Height,
 		"currentRound", c.currentRoundState.round,
-		"msgRound", proposalBlock.Round,
+		"msgRound", proposal.Round,
 		"currentSteo", c.step,
 		"msgStep", c.step,
 		"currentProposer", c.valSet.GetProposer(),
-		"isNilMsg", proposalBlock.ProposalBlock.Hash() == common.Hash{},
+		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
+		"hash", proposal.ProposalBlock.Hash(),
 	)
 }

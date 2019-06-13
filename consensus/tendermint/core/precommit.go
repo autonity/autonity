@@ -37,15 +37,11 @@ func (c *core) sendPrecommit(isNil bool) {
 
 // TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
 func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error {
-	logger := c.logger.New("from", sender, "step", c.step)
-
 	var precommit *tendermint.Vote
 	err := msg.Decode(&precommit)
 	if err != nil {
 		return errFailedDecodePrecommit
 	}
-
-	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, msg.Address.String())
 
 	if err := c.checkMessage(precommit.Round, precommit.Height); err != nil {
 		// We don't care about old round precommit messages, otherwise we would not be in a new round rather a new height
@@ -64,28 +60,30 @@ func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error 
 		c.currentRoundState.Precommits.AddVote(precommitHash, *msg)
 	}
 
-	logger.Info("Accepted Precommit", "height", precommit.Height, "round", precommit.Round, "Hash", precommitHash, "quorumReject", c.quorum(c.currentRoundState.Precommits.NilVotesSize()), "totalNilVotes", c.currentRoundState.Precommits.NilVotesSize(), "quorumAccept", c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)), "totalNonNilVotes", c.currentRoundState.Precommits.VotesSize(curProposaleHash))
+	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, msg.Address.String())
 
 	// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.NilVotesSize()) {
+	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize(curProposaleHash)) {
+		if err := c.stopPrecommitTimeout(); err != nil {
+			return err
+		}
+
 		timeoutDuration := timeoutPrecommit(curR)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
-		// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 
 		return nil
 	}
 
-	if !c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)) {
-		return errNoMajority
+	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
+	if c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)) {
+		if err := c.stopPrecommitTimeout(); err != nil {
+			return err
+		}
+
+		c.commit()
 	}
 
-	if err := c.stopPrecommitTimeout(); err != nil {
-		return err
-	}
-
-	c.commit()
-
-	return nil
+	return errNoMajority
 }
 
 func (c *core) handleCommit() {
@@ -103,6 +101,7 @@ func (c *core) stopPrecommitTimeout() error {
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vote, from string) {
+	curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
 	c.logger.Info(message,
 		"from", from,
 		"type", "Prevote",
@@ -114,5 +113,11 @@ func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vo
 		"msgStep", c.step,
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
+		"hash", precommit.ProposedBlockHash,
+		"totalVotes", c.currentRoundState.Precommits.TotalSize(curProposaleHash),
+		"totalNilVotes", c.currentRoundState.Precommits.NilVotesSize(),
+		"quorumReject", c.quorum(c.currentRoundState.Precommits.NilVotesSize()),
+		"totalNonNilVotes", c.currentRoundState.Precommits.VotesSize(curProposaleHash),
+		"quorumAccept", c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)),
 	)
 }
