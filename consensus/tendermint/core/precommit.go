@@ -26,6 +26,20 @@ func (c *core) sendPrecommit(isNil bool) {
 		logger.Error("Failed to encode", "subject", vote)
 		return
 	}
+
+	logger.Info("MESSAGE: sent external message",
+		"type", "vote",
+		"currentHeight", c.currentRoundState.height,
+		"currentRound", c.currentRoundState.round,
+		"currentStep", c.step,
+		"from", c.address.String(),
+		"currentProposer", c.isProposer(),
+		"msgHeight", vote.Height,
+		"msgRound", vote.Round,
+		"isNilMsg", vote.ProposedBlockHash == common.Hash{},
+		"message", vote,
+	)
+
 	c.broadcast(&message{
 		Code: msgPrecommit,
 		Msg:  encodedVote,
@@ -41,6 +55,21 @@ func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error 
 	if err != nil {
 		return errFailedDecodePrecommit
 	}
+
+	logger.Info("MESSAGE: got backlog message",
+		"type", "precommit",
+		"currentHeight", c.currentRoundState.height,
+		"currentRound", c.currentRoundState.round,
+		"currentStep", c.step,
+		"from", msg.Address.String(),
+		"sender", sender.Address().String(),
+		"to", c.address.String(),
+		"currentProposer", c.isProposer(),
+		"msgHeight", precommit.Height,
+		"msgRound", precommit.Round,
+		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
+		"message", precommit,
+	)
 
 	if err := c.checkMessage(precommit.Round, precommit.Height); err != nil {
 		// We don't care about old round precommit messages, otherwise we would not be in a new round rather a new height

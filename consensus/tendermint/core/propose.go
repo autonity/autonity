@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/common"
 	"time"
 
 	"github.com/clearmatics/autonity/consensus"
@@ -13,14 +14,29 @@ func (c *core) sendProposal(p *types.Block) {
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.currentRoundState.Height().Cmp(p.Number()) == 0 && c.isProposer() && !c.sentProposal {
-		r, h, vr := c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound
-		proposal, err := Encode(tendermint.NewProposal(r, h, vr, p))
+		proposalBlock := tendermint.NewProposal(c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound, p)
+		proposal, err := Encode(proposalBlock)
 		if err != nil {
-			logger.Error("Failed to encode", "Round", r, "Height", h, "ValidRound", vr)
+			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
 			return
 		}
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
+
+
+		logger.Info("MESSAGE: sent external message",
+			"type", "proposal",
+			"currentHeight", c.currentRoundState.height,
+			"currentRound", c.currentRoundState.round,
+			"from", c.address.String(),
+			"currentProposer", c.isProposer(),
+			"msgHeight", proposalBlock.Height,
+			"msgRound", proposalBlock.Round,
+			"msgStep", c.step,
+			"isNilMsg", proposalBlock.ProposalBlock.Hash() == common.Hash{},
+			"message", proposal,
+		)
+
 		c.broadcast(&message{
 			Code: msgProposal,
 			Msg:  proposal,
@@ -36,6 +52,21 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 	if err != nil {
 		return errFailedDecodeProposal
 	}
+
+	logger.Info("MESSAGE: got backlog message",
+		"type", "proposal",
+		"currentHeight", c.currentRoundState.height,
+		"currentRound", c.currentRoundState.round,
+		"currentStep", c.step,
+		"from", msg.Address.String(),
+		"sender", sender.Address().String(),
+		"to", c.address.String(),
+		"currentProposer", c.isProposer(),
+		"msgHeight", proposal.Height,
+		"msgRound", proposal.Round,
+		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
+		"message", proposal,
+	)
 
 	// Ensure we have the same view with the Proposal message
 	if err := c.checkMessage(proposal.Round, proposal.Height); err != nil {

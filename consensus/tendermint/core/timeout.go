@@ -45,11 +45,26 @@ func (t *timeout) stopTimer() bool {
 }
 
 func (c *core) onTimeoutPropose(r int64, h int64) {
-	c.sendEvent(timeoutEvent{
+	msg := timeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
 		step:             msgProposal,
-	})
+	}
+
+	c.logger.Info("MESSAGE: internal message",
+		"type", "timeoutPropose",
+		"currentHeight", c.currentRoundState.height,
+		"currentRound", c.currentRoundState.round,
+		"currentStep", c.step,
+		"from", c.address.String(),
+		"currentProposer", c.isProposer(),
+		"msgHeight", msg.heightWhenCalled,
+		"msgRound", msg.roundWhenCalled,
+		"msgStep", msg.step,
+		"message", msg,
+	)
+
+	c.sendEvent(msg)
 }
 
 func (c *core) handleTimeoutPropose(timeoutE timeoutEvent) {
@@ -60,11 +75,26 @@ func (c *core) handleTimeoutPropose(timeoutE timeoutEvent) {
 }
 
 func (c *core) onTimeoutPrevote(r int64, h int64) {
-	c.sendEvent(timeoutEvent{
+	msg := timeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
 		step:             msgPrevote,
-	})
+	}
+
+	c.logger.Info("MESSAGE: internal message",
+		"type", "timeoutPrevote",
+		"currentHeight", c.currentRoundState.height,
+		"currentRound", c.currentRoundState.round,
+		"currentStep", c.step,
+		"from", c.address.String(),
+		"currentProposer", c.isProposer(),
+		"msgHeight", msg.heightWhenCalled,
+		"msgRound", msg.roundWhenCalled,
+		"msgStep", msg.step,
+		"message", msg,
+	)
+
+	c.sendEvent(msg)
 
 }
 
@@ -76,11 +106,26 @@ func (c *core) handleTimeoutPrevote(timeoutE timeoutEvent) {
 }
 
 func (c *core) onTimeoutPrecommit(r int64, h int64) {
-	c.sendEvent(timeoutEvent{
+	msg := timeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
 		step:             msgPrecommit,
-	})
+	}
+
+	c.logger.Info("MESSAGE: internal message",
+		"type", "timeoutPrecommit",
+		"currentHeight", c.currentRoundState.height,
+		"currentRound", c.currentRoundState.round,
+		"currentStep", c.step,
+		"from", c.address.String(),
+		"currentProposer", c.isProposer(),
+		"msgHeight", msg.heightWhenCalled,
+		"msgRound", msg.roundWhenCalled,
+		"msgStep", msg.step,
+		"message", msg,
+	)
+
+	c.sendEvent(msg)
 }
 
 func (c *core) handleTimeoutPrecommit(timeoutE timeoutEvent) {

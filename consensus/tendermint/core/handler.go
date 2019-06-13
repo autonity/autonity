@@ -72,6 +72,18 @@ func (c *core) handleEvents() {
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case tendermint.NewUnminedBlockEvent:
+				c.logger.Info("MESSAGE: got internal message",
+					"type", "vote",
+					"currentHeight", c.currentRoundState.height,
+					"currentRound", c.currentRoundState.round,
+					"currentStep", c.step,
+					"from", c.address.String(),
+					"currentProposer", c.isProposer(),
+					"msgHeight", e.NewUnminedBlock.Header().Number.Uint64(),
+					"isNilMsg", e.NewUnminedBlock.Hash() == common.Hash{},
+					"message", e,
+				)
+
 				pb := &e.NewUnminedBlock
 				err := c.handleUnminedBlock(pb)
 				if err == consensus.ErrFutureBlock {

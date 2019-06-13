@@ -26,6 +26,20 @@ func (c *core) sendPrevote(isNil bool) {
 		logger.Error("Failed to encode", "subject", vote)
 		return
 	}
+
+	logger.Info("MESSAGE: sent external message",
+		"type", "prevote",
+		"currentHeight", c.currentRoundState.height,
+		"currentRound", c.currentRoundState.round,
+		"from", c.address.String(),
+		"currentProposer", c.isProposer(),
+		"msgHeight", vote.Height,
+		"msgRound", vote.Round,
+		"msgStep", c.step,
+		"isNilMsg", vote.ProposedBlockHash == common.Hash{},
+		"message", vote,
+	)
+
 	c.broadcast(&message{
 		Code: msgPrevote,
 		Msg:  encodedVote,
@@ -40,6 +54,21 @@ func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 	if err != nil {
 		return errFailedDecodePrevote
 	}
+
+	logger.Info("MESSAGE: got backlog message",
+		"type", "prevote",
+		"currentHeight", c.currentRoundState.height,
+		"currentRound", c.currentRoundState.round,
+		"currentStep", c.step,
+		"from", msg.Address.String(),
+		"sender", sender.Address().String(),
+		"to", c.address.String(),
+		"currentProposer", c.isProposer(),
+		"msgHeight", prevote.Height,
+		"msgRound", prevote.Round,
+		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
+		"message", prevote,
+	)
 
 	if err = c.checkMessage(prevote.Round, prevote.Height); err != nil {
 		// We want to store old round messages for future rounds since it is required for validRound
