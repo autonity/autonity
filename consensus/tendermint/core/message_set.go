@@ -15,10 +15,8 @@ func newMessageSet() messageSet {
 }
 
 type messageSet struct {
-	// map[proposedBlockHash]map[validatorAddress]vote
-	votes map[common.Hash]map[common.Address]message
-	// map[validatorAddress]nilvote
-	nilvotes map[common.Address]message
+	votes    map[common.Hash]map[common.Address]message // map[proposedBlockHash]map[validatorAddress]vote
+	nilvotes map[common.Address]message                 // map[validatorAddress]vote
 	mu       *sync.RWMutex
 }
 
@@ -45,12 +43,14 @@ func (ms *messageSet) AddVote(blockHash common.Hash, msg message) {
 func (ms *messageSet) AddNilVote(msg message) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-	if _, ok := ms.nilvotes[msg.Address]; ok {
+	if _, ok := ms.nilvotes[msg.Address]; !ok {
 		ms.nilvotes[msg.Address] = msg
 	}
 }
 
 func (ms *messageSet) VotesSize(h common.Hash) int {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	if m, ok := ms.votes[h]; ok {
 		return len(m)
 	}
@@ -58,11 +58,16 @@ func (ms *messageSet) VotesSize(h common.Hash) int {
 }
 
 func (ms *messageSet) NilVotesSize() int {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	return len(ms.nilvotes)
 }
 
 func (ms *messageSet) TotalSize(blockHash common.Hash) int {
-	total := len(ms.nilvotes)
+	total := ms.NilVotesSize()
+
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	for _, v := range ms.votes {
 		total = total + len(v)
 	}
