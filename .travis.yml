@@ -6,9 +6,6 @@ addons:
     packages:
       - libc-dev
 
-before_script:
-  - make lint-deps
-
 matrix:
   include:
   - if: branch IN (master, tendermint) OR type = pull_request
