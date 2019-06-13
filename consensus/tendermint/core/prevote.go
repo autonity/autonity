@@ -69,7 +69,7 @@ func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 			c.currentRoundState.Prevotes.AddVote(prevoteHash, *msg)
 		}
 
-		logger.Info("Accepted Prevote", "Prevote Hash", prevoteHash)
+		logger.Info("Accepted Prevote", "height", prevote.Height, "round", prevote.Round, "Hash", prevoteHash)
 
 		// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)) {
