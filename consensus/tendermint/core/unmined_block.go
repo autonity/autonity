@@ -88,7 +88,7 @@ func (c *core) processPendingRequests() {
 }
 
 func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
-	c.logger.Info("NewUnminedBlockEvent: Received internal message",
+	c.logger.Info("NewUnminedBlockEvent: Received",
 		"from", c.address.String(),
 		"type", "New Unmined Block",
 		"currentHeight", c.currentRoundState.height,
@@ -97,6 +97,5 @@ func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
 		"currentProposer", c.isProposer(),
 		"msgHeight", ub.Header().Number.Uint64(),
 		"isNilMsg", ub.Hash() == common.Hash{},
-		"block", ub,
 	)
 }

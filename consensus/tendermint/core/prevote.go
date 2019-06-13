@@ -10,35 +10,24 @@ import (
 func (c *core) sendPrevote(isNil bool) {
 	logger := c.logger.New("step", c.step)
 
-	var vote = &tendermint.Vote{
+	var prevote = &tendermint.Vote{
 		Round:  big.NewInt(c.currentRoundState.round.Int64()),
 		Height: big.NewInt(c.currentRoundState.Height().Int64()),
 	}
 
 	if isNil {
-		vote.ProposedBlockHash = common.Hash{}
+		prevote.ProposedBlockHash = common.Hash{}
 	} else {
-		vote.ProposedBlockHash = c.currentRoundState.Proposal().ProposalBlock.Hash()
+		prevote.ProposedBlockHash = c.currentRoundState.Proposal().ProposalBlock.Hash()
 	}
 
-	encodedVote, err := Encode(vote)
+	encodedVote, err := Encode(prevote)
 	if err != nil {
-		logger.Error("Failed to encode", "subject", vote)
+		logger.Error("Failed to encode", "subject", prevote)
 		return
 	}
 
-	logger.Info("MESSAGE: sent external message",
-		"type", "prevote",
-		"currentHeight", c.currentRoundState.height,
-		"currentRound", c.currentRoundState.round,
-		"from", c.address.String(),
-		"currentProposer", c.isProposer(),
-		"msgHeight", vote.Height,
-		"msgRound", vote.Round,
-		"msgStep", c.step,
-		"isNilMsg", vote.ProposedBlockHash == common.Hash{},
-		"message", vote,
-	)
+	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String())
 
 	c.broadcast(&message{
 		Code: msgPrevote,
@@ -55,20 +44,7 @@ func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 		return errFailedDecodePrevote
 	}
 
-	logger.Info("MESSAGE: got backlog message",
-		"type", "prevote",
-		"currentHeight", c.currentRoundState.height,
-		"currentRound", c.currentRoundState.round,
-		"currentStep", c.step,
-		"from", msg.Address.String(),
-		"sender", sender.Address().String(),
-		"to", c.address.String(),
-		"currentProposer", c.isProposer(),
-		"msgHeight", prevote.Height,
-		"msgRound", prevote.Round,
-		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
-		"message", prevote,
-	)
+	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, msg.Address.String())
 
 	if err = c.checkMessage(prevote.Round, prevote.Height); err != nil {
 		// We want to store old round messages for future rounds since it is required for validRound
@@ -147,4 +123,19 @@ func (c *core) stopPrevoteTimeout() error {
 		}
 	}
 	return nil
+}
+
+func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, from string) {
+	c.logger.Info(message,
+		"from", from,
+		"type", "Prevote",
+		"currentHeight", c.currentRoundState.height,
+		"msgHeight", prevote.Height,
+		"currentRound", c.currentRoundState.round,
+		"msgRound", prevote.Round,
+		"currentSteo", c.step,
+		"msgStep", c.step,
+		"currentProposer", c.valSet.GetProposer(),
+		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
+	)
 }

@@ -144,6 +144,7 @@ func (c *core) handleMsg(payload []byte) error {
 	return c.handleCheckedMsg(msg, sender)
 }
 
+// TODO: sender is redundant, so remove
 func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error {
 	logger := c.logger.New("address", c.address, "from", sender)
 

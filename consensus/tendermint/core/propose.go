@@ -23,18 +23,7 @@ func (c *core) sendProposal(p *types.Block) {
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
 
-		logger.Info("MESSAGE: sent external message",
-			"type", "proposal",
-			"currentHeight", c.currentRoundState.height,
-			"currentRound", c.currentRoundState.round,
-			"from", c.address.String(),
-			"currentProposer", c.isProposer(),
-			"msgHeight", proposalBlock.Height,
-			"msgRound", proposalBlock.Round,
-			"msgStep", c.step,
-			"isNilMsg", proposalBlock.ProposalBlock.Hash() == common.Hash{},
-			"message", proposal,
-		)
+		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", proposalBlock, c.address.String())
 
 		c.broadcast(&message{
 			Code: msgProposal,
@@ -52,20 +41,7 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 		return errFailedDecodeProposal
 	}
 
-	logger.Info("MESSAGE: got backlog message",
-		"type", "proposal",
-		"currentHeight", c.currentRoundState.height,
-		"currentRound", c.currentRoundState.round,
-		"currentStep", c.step,
-		"from", msg.Address.String(),
-		"sender", sender.Address().String(),
-		"to", c.address.String(),
-		"currentProposer", c.isProposer(),
-		"msgHeight", proposal.Height,
-		"msgRound", proposal.Round,
-		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
-		"message", proposal,
-	)
+	c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String())
 
 	// Ensure we have the same view with the Proposal message
 	if err := c.checkMessage(proposal.Round, proposal.Height); err != nil {
@@ -102,6 +78,8 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 		if err := c.stopProposeTimeout(); err == nil {
 			// Set the proposal for the current round
 			c.currentRoundState.SetProposal(proposal)
+
+			logger.Info("Accepted Proposal", "height", proposal.Height, "round", proposal.Round, "Hash", proposal.ProposalBlock.Hash())
 
 			vr := proposal.ValidRound.Int64()
 			h := proposal.ProposalBlock.Hash()
@@ -144,4 +122,19 @@ func (c *core) stopProposeTimeout() error {
 		}
 	}
 	return nil
+}
+
+func (c *core) logProposalMessageEvent(message string, proposalBlock *tendermint.Proposal, from string) {
+	c.logger.Info(message,
+		"from", from,
+		"type", "Proposal",
+		"currentHeight", c.currentRoundState.height,
+		"msgHeight", proposalBlock.Height,
+		"currentRound", c.currentRoundState.round,
+		"msgRound", proposalBlock.Round,
+		"currentSteo", c.step,
+		"msgStep", c.step,
+		"currentProposer", c.valSet.GetProposer(),
+		"isNilMsg", proposalBlock.ProposalBlock.Hash() == common.Hash{},
+	)
 }
