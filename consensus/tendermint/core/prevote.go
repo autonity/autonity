@@ -98,40 +98,40 @@ func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 			c.currentRoundState.Prevotes.AddVote(prevoteHash, *msg)
 		}
 
-		logger.Info("Accepted Prevote", "height", prevote.Height, "round", prevote.Round, "Hash", prevoteHash)
+		logger.Info("Accepted Prevote", "height", prevote.Height, "round", prevote.Round, "Hash", prevoteHash, "quorumReject", c.quorum(c.currentRoundState.Prevotes.NilVotesSize()), "totalNilVotes", c.currentRoundState.Prevotes.NilVotesSize(), "quorumAccept", c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)), "totalNonNilVotes", c.currentRoundState.Prevotes.TotalSize(curProposaleHash))
 
 		// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)) {
-			if err := c.stopPrevoteTimeout(); err == nil {
-				timeoutDuration := timeoutPrevote(curR)
-				c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
-			} else {
+			if err := c.stopPrevoteTimeout(); err != nil {
 				return err
 			}
+
+			timeoutDuration := timeoutPrevote(curR)
+			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
 			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
 		} else if c.step == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
-			if err := c.stopPrevoteTimeout(); err == nil {
-				c.sendPrecommit(true)
-				c.setStep(StepPrevoteDone)
-			} else {
+			if err := c.stopPrevoteTimeout(); err != nil {
 				return err
 			}
+			c.sendPrecommit(true)
+			c.setStep(StepPrevoteDone)
 			// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
+
 		} else if c.quorum(c.currentRoundState.Prevotes.VotesSize(curProposaleHash)) && !c.setValidRoundAndValue {
 			// this piece of code should only run once
-			if err := c.stopPrevoteTimeout(); err == nil {
-				if c.step == StepProposeDone {
-					c.lockedValue = c.currentRoundState.Proposal().ProposalBlock
-					c.lockedRound = big.NewInt(curR)
-					c.sendPrecommit(false)
-					c.setStep(StepPrevoteDone)
-				}
-				c.validValue = c.currentRoundState.Proposal().ProposalBlock
-				c.validRound = big.NewInt(curR)
-				c.setValidRoundAndValue = true
-			} else {
+			if err := c.stopPrevoteTimeout(); err != nil {
 				return err
 			}
+
+			if c.step == StepProposeDone {
+				c.lockedValue = c.currentRoundState.Proposal().ProposalBlock
+				c.lockedRound = big.NewInt(curR)
+				c.sendPrecommit(false)
+				c.setStep(StepPrevoteDone)
+			}
+			c.validValue = c.currentRoundState.Proposal().ProposalBlock
+			c.validRound = big.NewInt(curR)
+			c.setValidRoundAndValue = true
 		} else {
 			return errNoMajority
 		}
