@@ -51,21 +51,6 @@ type roundState struct {
 	hasBadProposal func(hash common.Hash) bool
 }
 
-func (s *roundState) Subject() *tendermint.Vote {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.Proposal() == nil {
-		return nil
-	}
-
-	return &tendermint.Vote{
-		Round:             big.NewInt(s.round.Int64()),
-		Height:            big.NewInt(s.height.Int64()),
-		ProposedBlockHash: s.proposal.ProposalBlock.Hash(),
-	}
-}
-
 func (s *roundState) SetProposal(proposal *tendermint.Proposal) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
