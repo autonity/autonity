@@ -1,44 +1,30 @@
-// Copyright 2017 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
 package core
 
 import (
+	"github.com/clearmatics/autonity/common"
 	"time"
 
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/core/types"
 )
 
-func (c *core) sendProposal(request *tendermint.Request) {
-	logger := c.logger.New("state", c.state)
+func (c *core) sendProposal(p *types.Block) {
+	logger := c.logger.New("step", c.step)
 
-	// If I'm the proposer and I have the same sequence with the proposal
-	if c.current.Sequence().Cmp(request.ProposalBlock.Number()) == 0 && c.isProposer() && !c.sentProposal {
-		curView := c.currentView()
-		proposal, err := Encode(&tendermint.Proposal{
-			View:          curView,
-			ProposalBlock: request.ProposalBlock,
-		})
+	// If I'm the proposer and I have the same height with the proposal
+	if c.currentRoundState.Height().Cmp(p.Number()) == 0 && c.isProposer() && !c.sentProposal {
+		proposalBlock := tendermint.NewProposal(c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound, p)
+		proposal, err := Encode(proposalBlock)
 		if err != nil {
-			logger.Error("Failed to encode", "view", curView)
+			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
 			return
 		}
 		c.sentProposal = true
-		c.backend.SetProposedBlockHash(request.ProposalBlock.Hash())
+		c.backend.SetProposedBlockHash(p.Hash())
+
+		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", proposalBlock, c.address.String(), "broadcast")
+
 		c.broadcast(&message{
 			Code: msgProposal,
 			Msg:  proposal,
@@ -46,88 +32,111 @@ func (c *core) sendProposal(request *tendermint.Request) {
 	}
 }
 
-func (c *core) handleProposal(msg *message, src tendermint.Validator) error {
-	logger := c.logger.New("from", src, "state", c.state)
+func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
+	logger := c.logger.New("from", sender, "step", c.step)
 
-	// Decode PRE-PREPARE
 	var proposal *tendermint.Proposal
 	err := msg.Decode(&proposal)
 	if err != nil {
 		return errFailedDecodeProposal
 	}
 
-	// Ensure we have the same view with the PRE-PREPARE message
-	// If it is old message, see if we need to broadcast COMMIT
-	if err := c.checkMessage(msgProposal, proposal.View); err != nil {
-		if err == errOldMessage {
-			//TODO : EIP Says ignore?
-			// Get validator set for the given proposal
-			valSet := c.backend.Validators(proposal.ProposalBlock.Number().Uint64()).Copy()
-			previousProposer := c.backend.GetProposer(proposal.ProposalBlock.Number().Uint64() - 1)
-			valSet.CalcProposer(previousProposer, proposal.View.Round.Uint64())
-			// Broadcast COMMIT if it is an existing block
-			// 1. The proposer needs to be a proposer matches the given (Sequence + Round)
-			// 2. The given block must exist
-			if valSet.IsProposer(src.Address()) && c.backend.HasPropsal(proposal.ProposalBlock.Hash(), proposal.ProposalBlock.Number()) {
-				c.sendPrecommitForOldBlock(proposal.View, proposal.ProposalBlock.Hash())
-				return nil
-			}
-		}
+	c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
+
+	// Ensure we have the same view with the Proposal message
+	if err := c.checkMessage(proposal.Round, proposal.Height); err != nil {
+		// We don't care about old proposals so they are ignored
 		return err
 	}
 
-	// Check if the message comes from current proposer
-	if !c.valSet.IsProposer(src.Address()) {
+	// Check if the message comes from currentRoundState proposer
+	if !c.valSet.IsProposer(sender.Address()) {
 		logger.Warn("Ignore proposal messages from non-proposer")
 		return errNotFromProposer
 	}
 
 	// Verify the proposal we received
-	if duration, err := c.backend.Verify(proposal.ProposalBlock); err != nil {
+	if duration, err := c.backend.Verify(*proposal.ProposalBlock); err != nil {
 		logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 		// if it's a future block, we will handle it again after the duration
 		// TIME FIELD OF HEADER CHECKED HERE - NOT HEIGHT
+		// TODO: implement wiggle time / median time
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
 				c.sendEvent(backlogEvent{
-					src: src,
+					src: sender,
 					msg: msg,
 				})
 			})
-		} else {
-			c.sendNextRoundChange()
 		}
 		return err
 	}
 
-	// Here is about to accept the PRE-PREPARE
-	if c.state == StateAcceptRequest {
-		// Send ROUND CHANGE if the locked proposal and the received proposal are different
-		if c.current.IsHashLocked() {
-			if proposal.ProposalBlock.Hash() == c.current.GetLockedHash() {
-				// Broadcast COMMIT and enters Prevoted state directly
-				c.acceptProposal(proposal)
-				c.setState(StatePrevoteDone)
-				c.sendPrecommit() // TODO : double check, why not PREPARE?
+	// Here is about to accept the Proposal
+	if c.step == StepAcceptProposal {
+		if err := c.stopProposeTimeout(); err == nil {
+			// Set the proposal for the current round
+			c.currentRoundState.SetProposal(proposal)
+
+			logger.Info("Accepted Proposal", "height", proposal.Height, "round", proposal.Round, "Hash", proposal.ProposalBlock.Hash())
+
+			vr := proposal.ValidRound.Int64()
+			h := proposal.ProposalBlock.Hash()
+			curR := c.currentRoundState.round.Int64()
+
+			if vr == -1 {
+				// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
+				if c.lockedRound.Int64() == vr || h == c.lockedValue.Hash() {
+					c.sendPrevote(false)
+				} else {
+					c.sendPrevote(true)
+				}
+				c.setStep(StepProposeDone)
+				// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
+			} else if rs, ok := c.currentHeightRoundsStates[vr]; vr > -1 &&
+				vr < curR &&
+				ok &&
+				c.quorum(rs.Prevotes.VotesSize(h)) {
+				if c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash() {
+					c.sendPrevote(false)
+				} else {
+					c.sendPrevote(true)
+				}
+				c.setStep(StepProposeDone)
 			} else {
-				// Send round change
-				c.sendNextRoundChange()
+				return errNoMajority
 			}
 		} else {
-			// Either
-			//   1. the locked proposal and the received proposal match
-			//   2. we have no locked proposal
-			c.acceptProposal(proposal)
-			c.setState(StateProposeDone)
-			c.sendPrevote()
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (c *core) acceptProposal(proposal *tendermint.Proposal) {
-	c.consensusTimestamp = time.Now()
-	c.current.SetProposal(proposal)
+func (c *core) stopProposeTimeout() error {
+	if c.proposeTimeout.started {
+		if stopped := c.proposeTimeout.stopTimer(); !stopped {
+			return errNilPrevoteSent
+		}
+	}
+	return nil
+}
+
+func (c *core) logProposalMessageEvent(message string, proposal *tendermint.Proposal, from, to string) {
+	c.logger.Info(message,
+		"type", "Proposal",
+		"from", from,
+		"to", to,
+		"currentHeight", c.currentRoundState.height,
+		"msgHeight", proposal.Height,
+		"currentRound", c.currentRoundState.round,
+		"msgRound", proposal.Round,
+		"currentStep", c.step,
+		"isProposer", c.isProposer(),
+		"currentProposer", c.valSet.GetProposer(),
+		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
+		"hash", proposal.ProposalBlock.Hash(),
+	)
 }

@@ -17,6 +17,7 @@
 package tendermint
 
 import (
+	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"time"
 
@@ -41,13 +42,13 @@ type Backend interface {
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(valSet ValidatorSet, payload []byte)
 
-	// Precommit delivers an approved proposal to backend.
+	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	Precommit(proposalBlock ProposalBlock, seals [][]byte) error
+	Commit(proposalBlock types.Block, seals [][]byte) error
 
 	// Verify verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
-	Verify(ProposalBlock) (time.Duration, error)
+	Verify(types.Block) (time.Duration, error)
 
 	// Sign signs input data with the backend's private key
 	Sign([]byte) ([]byte, error)
@@ -56,8 +57,8 @@ type Backend interface {
 	// the given validator
 	CheckSignature(data []byte, addr common.Address, sig []byte) error
 
-	// LastProposal retrieves latest committed proposal and the address of proposer
-	LastProposal() (ProposalBlock, common.Address)
+	// LastCommittedProposal retrieves latest committed proposal and the address of proposer
+	LastCommittedProposal() (*types.Block, common.Address)
 
 	// HasPropsal checks if the combination of the given hash and height matches any existing blocks
 	HasPropsal(hash common.Hash, number *big.Int) bool

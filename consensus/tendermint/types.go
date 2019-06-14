@@ -26,120 +26,94 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
-// ProposalBlock supports retrieving height and serialized block to be used during Tendermint consensus.
-type ProposalBlock interface {
-	// Number retrieves the sequence number of this proposal.
-	Number() *big.Int
-
-	// Hash retrieves the hash of this proposal.
-	Hash() common.Hash
-
-	EncodeRLP(w io.Writer) error
-
-	DecodeRLP(s *rlp.Stream) error
-}
-
-type Request struct {
-	ProposalBlock ProposalBlock
-}
-
-// View includes a round number and a sequence number.
-// Sequence is the block number we'd like to commit.
-// Each round has a number and is composed by 3 steps: proposal, prepare and commit.
-//
-// If the given block is not accepted by validators, a round change will occur
-// and the validators start a new round with round+1.
-type View struct {
-	Round    *big.Int
-	Sequence *big.Int
-}
-
-// EncodeRLP serializes b into the Ethereum RLP format.
-func (v *View) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{v.Round, v.Sequence})
-}
-
-// DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (v *View) DecodeRLP(s *rlp.Stream) error {
-	var view struct {
-		Round    *big.Int
-		Sequence *big.Int
-	}
-
-	if err := s.Decode(&view); err != nil {
-		return err
-	}
-	v.Round, v.Sequence = view.Round, view.Sequence
-	return nil
-}
-
-func (v *View) String() string {
-	return fmt.Sprintf("{Round: %d, Sequence: %d}", v.Round.Uint64(), v.Sequence.Uint64())
-}
-
-// Cmp compares v and y and returns:
-//   -1 if v <  y
-//    0 if v == y
-//   +1 if v >  y
-func (v *View) Cmp(y *View) int {
-	if v.Sequence.Cmp(y.Sequence) != 0 {
-		return v.Sequence.Cmp(y.Sequence)
-	}
-	if v.Round.Cmp(y.Round) != 0 {
-		return v.Round.Cmp(y.Round)
-	}
-	return 0
-}
-
 type Proposal struct {
-	View          *View
-	ProposalBlock ProposalBlock
+	Round      *big.Int
+	Height     *big.Int
+	ValidRound *big.Int
+	// RLP decode sets nil to 0, so 0 = false and 1 = true
+	IsValidRoundNil *big.Int
+	ProposalBlock   *types.Block
+}
+
+func NewProposal(r *big.Int, h *big.Int, vr *big.Int, p *types.Block) *Proposal {
+	return &Proposal{
+		Round:           r,
+		Height:          h,
+		ValidRound:      vr,
+		IsValidRoundNil: big.NewInt(0),
+		ProposalBlock:   p,
+	}
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
-func (b *Proposal) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{b.View, b.ProposalBlock})
+func (p *Proposal) EncodeRLP(w io.Writer) error {
+	if p.ValidRound.Int64() == -1 {
+		p.ValidRound = nil
+		p.IsValidRoundNil = big.NewInt(1)
+	}
+	return rlp.Encode(w, []interface{}{
+		p.Round,
+		p.Height,
+		p.ValidRound,
+		p.IsValidRoundNil,
+		p.ProposalBlock})
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (b *Proposal) DecodeRLP(s *rlp.Stream) error {
+func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 	var proposal struct {
-		View     *View
-		Proposal *types.Block
+		Round           *big.Int
+		Height          *big.Int
+		ValidRound      *big.Int
+		IsValidRoundNil *big.Int
+		ProposalBlock   *types.Block
 	}
 
 	if err := s.Decode(&proposal); err != nil {
 		return err
 	}
-	b.View, b.ProposalBlock = proposal.View, proposal.Proposal
+
+	if proposal.ValidRound.Int64() == 0 && proposal.IsValidRoundNil.Int64() == 1 {
+		proposal.ValidRound = big.NewInt(-1)
+	}
+
+	p.Round = proposal.Round
+	p.Height = proposal.Height
+	p.ValidRound = proposal.ValidRound
+	p.IsValidRoundNil = proposal.IsValidRoundNil
+	p.ProposalBlock = proposal.ProposalBlock
 
 	return nil
 }
 
-type Subject struct {
-	View   *View
-	Digest common.Hash
+type Vote struct {
+	Round             *big.Int
+	Height            *big.Int
+	ProposedBlockHash common.Hash
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
-func (b *Subject) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{b.View, b.Digest})
+func (sub *Vote) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, []interface{}{sub.Round, sub.Height, sub.ProposedBlockHash})
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (b *Subject) DecodeRLP(s *rlp.Stream) error {
-	var subject struct {
-		View   *View
-		Digest common.Hash
+func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
+	var vote struct {
+		Round             *big.Int
+		Height            *big.Int
+		ProposedBlockHash common.Hash
 	}
 
-	if err := s.Decode(&subject); err != nil {
+	if err := s.Decode(&vote); err != nil {
 		return err
 	}
-	b.View, b.Digest = subject.View, subject.Digest
+	sub.Round = vote.Round
+	sub.Height = vote.Height
+	sub.ProposedBlockHash = vote.ProposedBlockHash
 	return nil
 }
 
-func (b *Subject) String() string {
-	return fmt.Sprintf("{View: %v, Digest: %v}", b.View, b.Digest.String())
+func (sub *Vote) String() string {
+	return fmt.Sprintf("{Round: %v, Height: %v ProposedBlockHash: %v}", sub.Round, sub.Height, sub.ProposedBlockHash.String())
 }

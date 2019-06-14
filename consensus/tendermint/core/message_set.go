@@ -1,115 +1,91 @@
-// Copyright 2017 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
 package core
 
 import (
-	"fmt"
-	"math/big"
-	"strings"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-// Construct a new message set to accumulate messages for given sequence/view number.
-func newMessageSet(valSet tendermint.ValidatorSet) *messageSet {
-	return &messageSet{
-		view: &tendermint.View{
-			Round:    new(big.Int),
-			Sequence: new(big.Int),
-		},
-		messagesMu: new(sync.Mutex),
-		messages:   make(map[common.Address]*message),
-		valSet:     valSet,
+func newMessageSet() messageSet {
+	return messageSet{
+		votes:    map[common.Hash]map[common.Address]message{},
+		nilvotes: map[common.Address]message{},
+		mu:       new(sync.RWMutex),
 	}
 }
-
-// ----------------------------------------------------------------------------
 
 type messageSet struct {
-	view       *tendermint.View
-	valSet     tendermint.ValidatorSet
-	messagesMu *sync.Mutex
-	messages   map[common.Address]*message
+	votes    map[common.Hash]map[common.Address]message // map[proposedBlockHash]map[validatorAddress]vote
+	nilvotes map[common.Address]message                 // map[validatorAddress]vote
+	mu       *sync.RWMutex
 }
 
-func (ms *messageSet) View() *tendermint.View {
-	return ms.view
-}
+func (ms *messageSet) AddVote(blockHash common.Hash, msg message) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 
-func (ms *messageSet) Add(msg *message) error {
-	ms.messagesMu.Lock()
-	defer ms.messagesMu.Unlock()
+	var addressesMap map[common.Address]message
+	var ok bool
 
-	if err := ms.verify(msg); err != nil {
-		return err
+	if _, ok = ms.votes[blockHash]; !ok {
+		ms.votes[blockHash] = make(map[common.Address]message)
 	}
 
-	return ms.addVerifiedMessage(msg)
-}
+	addressesMap = ms.votes[blockHash]
 
-func (ms *messageSet) Values() (result []*message) {
-	ms.messagesMu.Lock()
-	defer ms.messagesMu.Unlock()
-
-	for _, v := range ms.messages {
-		result = append(result, v)
+	if _, ok := addressesMap[msg.Address]; ok {
+		return
 	}
 
-	return result
+	addressesMap[msg.Address] = msg
 }
 
-func (ms *messageSet) Size() int {
-	ms.messagesMu.Lock()
-	defer ms.messagesMu.Unlock()
-	return len(ms.messages)
+func (ms *messageSet) AddNilVote(msg message) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	if _, ok := ms.nilvotes[msg.Address]; !ok {
+		ms.nilvotes[msg.Address] = msg
+	}
 }
 
-func (ms *messageSet) Get(addr common.Address) *message {
-	ms.messagesMu.Lock()
-	defer ms.messagesMu.Unlock()
-	return ms.messages[addr]
+func (ms *messageSet) VotesSize(h common.Hash) int {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	if m, ok := ms.votes[h]; ok {
+		return len(m)
+	}
+	return 0
 }
 
-// ----------------------------------------------------------------------------
+func (ms *messageSet) NilVotesSize() int {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	return len(ms.nilvotes)
+}
 
-func (ms *messageSet) verify(msg *message) error {
-	// verify if the message comes from one of the validators
-	if _, v := ms.valSet.GetByAddress(msg.Address); v == nil {
-		return tendermint.ErrUnauthorizedAddress
+func (ms *messageSet) TotalSize(blockHash common.Hash) int {
+	total := ms.NilVotesSize()
+
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	for _, v := range ms.votes {
+		total = total + len(v)
 	}
 
-	// TODO: check view number and sequence number
-
-	return nil
+	return total
 }
 
-func (ms *messageSet) addVerifiedMessage(msg *message) error {
-	ms.messages[msg.Address] = msg
-	return nil
-}
+func (ms *messageSet) Values(blockHash common.Hash) []message {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 
-func (ms *messageSet) String() string {
-	ms.messagesMu.Lock()
-	defer ms.messagesMu.Unlock()
-	addresses := make([]string, 0, len(ms.messages))
-	for _, v := range ms.messages {
-		addresses = append(addresses, v.Address.String())
+	if _, ok := ms.votes[blockHash]; !ok {
+		return nil
 	}
-	return fmt.Sprintf("[%v]", strings.Join(addresses, ", "))
+
+	var messages = make([]message, 0)
+	for _, v := range ms.votes[blockHash] {
+		messages = append(messages, v)
+	}
+	return messages
 }

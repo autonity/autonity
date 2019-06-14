@@ -1,36 +1,22 @@
-// Copyright 2017 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
 package core
 
 import (
+	"math/big"
+
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
 // Start implements core.Engine.Start
 func (c *core) Start() error {
-	// Start a new round from last sequence + 1
-	c.startNewRound(common.Big0)
-
 	// Tests will handle events itself, so we have to make subscribeEvents()
 	// be able to call in test.
 	c.subscribeEvents()
 	go c.handleEvents()
 
+	// Start a new round from last height + 1
+	go c.startRound(common.Big0)
 	return nil
 }
 
@@ -44,13 +30,13 @@ func (c *core) Stop() error {
 	return nil
 }
 
-// ----------------------------------------------------------------------------
+// TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal events: backlogEvent, timeoutEvent
 
 // Subscribe both internal and external events
 func (c *core) subscribeEvents() {
 	c.events = c.backend.EventMux().Subscribe(
 		// external events
-		tendermint.RequestEvent{},
+		tendermint.NewUnminedBlockEvent{},
 		tendermint.MessageEvent{},
 		// internal events
 		backlogEvent{},
@@ -71,36 +57,34 @@ func (c *core) unsubscribeEvents() {
 }
 
 func (c *core) handleEvents() {
-	// Clear state
+	// Clear step
 	defer func() {
-		c.current = nil
+		c.currentRoundState = nil
 		<-c.handlerStopCh
 	}()
 
 	for {
 		select {
-		case event, ok := <-c.events.Chan():
+		case ev, ok := <-c.events.Chan():
 			if !ok {
 				return
 			}
-			// A real event arrived, process interesting content
-			switch ev := event.Data.(type) {
-			case tendermint.RequestEvent:
-				r := &tendermint.Request{
-					ProposalBlock: ev.ProposalBlock,
-				}
-				err := c.handleRequest(r)
-				if err == errFutureMessage {
-					c.storeRequestMsg(r)
+			// A real ev arrived, process interesting content
+			switch e := ev.Data.(type) {
+			case tendermint.NewUnminedBlockEvent:
+				pb := &e.NewUnminedBlock
+				err := c.handleUnminedBlock(pb)
+				if err == consensus.ErrFutureBlock {
+					c.storeUnminedBlockMsg(pb)
 				}
 			case tendermint.MessageEvent:
-				if err := c.handleMsg(ev.Payload); err == nil {
-					c.backend.Gossip(c.valSet, ev.Payload)
+				if err := c.handleMsg(e.Payload); err == nil {
+					c.backend.Gossip(c.valSet, e.Payload)
 				}
 			case backlogEvent:
 				// No need to check signature for internal messages
-				if err := c.handleCheckedMsg(ev.msg, ev.src); err == nil {
-					p, err := ev.msg.Payload()
+				if err := c.handleCheckedMsg(e.msg, e.src); err == nil {
+					p, err := e.msg.Payload()
 					if err != nil {
 						c.logger.Warn("Get message payload failed", "err", err)
 						continue
@@ -108,16 +92,25 @@ func (c *core) handleEvents() {
 					c.backend.Gossip(c.valSet, p)
 				}
 			}
-		case _, ok := <-c.timeoutSub.Chan():
+		case ev, ok := <-c.timeoutSub.Chan():
 			if !ok {
 				return
 			}
-			c.handleTimeoutMsg()
-		case event, ok := <-c.finalCommittedSub.Chan():
+			if timeoutE, ok := ev.Data.(timeoutEvent); ok {
+				switch timeoutE.step {
+				case msgProposal:
+					c.handleTimeoutPropose(timeoutE)
+				case msgPrevote:
+					c.handleTimeoutPrevote(timeoutE)
+				case msgPrecommit:
+					c.handleTimeoutPrecommit(timeoutE)
+				}
+			}
+		case ev, ok := <-c.finalCommittedSub.Chan():
 			if !ok {
 				return
 			}
-			switch event.Data.(type) {
+			switch ev.Data.(type) {
 			case tendermint.CommitEvent:
 				c.handleCommit()
 			}
@@ -141,22 +134,52 @@ func (c *core) handleMsg(payload []byte) error {
 	}
 
 	// Only accept message if the address is valid
-	_, src := c.valSet.GetByAddress(msg.Address)
-	if src == nil {
+	// TODO: the check is already made in c.validateFn
+	_, sender := c.valSet.GetByAddress(msg.Address)
+	if sender == nil {
 		logger.Error("Invalid address in message", "msg", msg)
 		return tendermint.ErrUnauthorizedAddress
 	}
 
-	return c.handleCheckedMsg(msg, src)
+	return c.handleCheckedMsg(msg, sender)
 }
 
-func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
-	logger := c.logger.New("address", c.address, "from", src)
+// TODO: sender is redundant, so remove
+func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error {
+	logger := c.logger.New("address", c.address, "from", sender)
 
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
-		if err == errFutureMessage {
-			c.storeBacklog(msg, src)
+		// We want to store only future messages in backlog
+		if err == errFutureRoundMessage {
+			//We cannot move to a round in a new height without receiving a new block
+			var msgRound int64
+			if msg.Code == msgProposal {
+				var p tendermint.Proposal
+				if e := msg.Decode(p); e != nil {
+					return errFailedDecodeProposal
+				}
+				msgRound = p.Round.Int64()
+
+			} else {
+				var v tendermint.Vote
+				if e := msg.Decode(v); e != nil {
+					// TODO: introduce new error: errFailedDecodeVote
+					return errFailedDecodePrecommit
+				}
+				msgRound = v.Round.Int64()
+			}
+
+			c.futureRoundsChange[msgRound] = c.futureRoundsChange[msgRound] + 1
+			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
+
+			if totalFutureRoundMessages >= int64(c.valSet.F()) {
+				c.startRound(big.NewInt(msgRound))
+			}
+
+		}
+		if err == errFutureHeightMessage || err == errFutureRoundMessage {
+			c.storeBacklog(msg, sender)
 		}
 
 		return err
@@ -164,37 +187,14 @@ func (c *core) handleCheckedMsg(msg *message, src tendermint.Validator) error {
 
 	switch msg.Code {
 	case msgProposal:
-		return testBacklog(c.handleProposal(msg, src))
+		return testBacklog(c.handleProposal(msg, sender))
 	case msgPrevote:
-		return testBacklog(c.handlePrevote(msg, src))
+		return testBacklog(c.handlePrevote(msg, sender))
 	case msgPrecommit:
-		return testBacklog(c.handlePrecommit(msg, src))
-	case msgRoundChange:
-		return testBacklog(c.handleRoundChange(msg, src))
+		return testBacklog(c.handlePrecommit(msg, sender))
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}
 
 	return errInvalidMessage
-}
-
-func (c *core) handleTimeoutMsg() {
-	// If we're not waiting for round change yet, we can try to catch up
-	// the max round with F+1 round change message. We only need to catch up
-	// if the max round is larger than current round.
-	if !c.waitingForRoundChange {
-		maxRound := c.roundChangeSet.MaxRound(c.valSet.F() + 1)
-		if maxRound != nil && maxRound.Cmp(c.current.Round()) > 0 {
-			c.sendRoundChange(maxRound)
-			return
-		}
-	}
-
-	lastProposal, _ := c.backend.LastProposal()
-	if lastProposal != nil && lastProposal.Number().Cmp(c.current.Sequence()) >= 0 {
-		c.logger.Trace("round change timeout, catch up latest sequence", "number", lastProposal.Number().Uint64())
-		c.startNewRound(common.Big0)
-	} else {
-		c.sendNextRoundChange()
-	}
 }

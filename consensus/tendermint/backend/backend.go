@@ -114,6 +114,7 @@ type Backend struct {
 	// event subscription for ChainHeadEvent event
 	broadcaster consensus.Broadcaster
 
+	//TODO: ARCChace is patented by IBM, so probably need to stop using it
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
 
@@ -187,14 +188,15 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 	}
 }
 
-// Precommit implements tendermint.Backend.Precommit
-func (sb *Backend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) error {
+// Commit implements tendermint.Backend.Commit
+func (sb *Backend) Commit(proposal types.Block, seals [][]byte) error {
 	// Check if the proposal is a valid block
-	block, ok := proposal.(*types.Block)
-	if !ok {
-		sb.logger.Error("Invalid proposal, %v", proposal)
-		return errInvalidProposal
-	}
+	block := &proposal
+
+	//if block == nil {
+	//	sb.logger.Error("Invalid proposal, %v", proposal)
+	//	return errInvalidProposal
+	//}
 
 	h := block.Header()
 	// Append seals into extra-data
@@ -205,7 +207,7 @@ func (sb *Backend) Precommit(proposal tendermint.ProposalBlock, seals [][]byte) 
 	// update block's header
 	block = block.WithSeal(h)
 
-	sb.logger.Info("Precommitted", "address", sb.Address(), "hash", proposal.Hash(), "number", proposal.Number().Uint64())
+	sb.logger.Info("Committed", "address", sb.Address(), "hash", proposal.Hash(), "number", proposal.Number().Uint64())
 	// - if the proposed and committed blocks are the same, send the proposed hash
 	//   to commit channel, which is being watched inside the engine.Seal() function.
 	// - otherwise, we try to insert the block.
@@ -230,13 +232,15 @@ func (sb *Backend) EventMux() *event.TypeMuxSilent {
 }
 
 // Verify implements tendermint.Backend.Verify
-func (sb *Backend) Verify(proposal tendermint.ProposalBlock) (time.Duration, error) {
+func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
 	// Check if the proposal is a valid block
-	block, ok := proposal.(*types.Block)
-	if !ok {
-		sb.logger.Error("Invalid proposal, %v", proposal)
-		return 0, errInvalidProposal
-	}
+	// TODO: fix always false statement and check for non nil
+	// TODO: use interface instead of type
+	block := &proposal
+	//if block == nil {
+	//	sb.logger.Error("Invalid proposal, %v", proposal)
+	//	return 0, errInvalidProposal
+	//}
 
 	// check bad block
 	if sb.HasBadProposal(block.Hash()) {
@@ -360,7 +364,7 @@ func (sb *Backend) GetProposer(number uint64) common.Address {
 	return common.Address{}
 }
 
-func (sb *Backend) LastProposal() (tendermint.ProposalBlock, common.Address) {
+func (sb *Backend) LastCommittedProposal() (*types.Block, common.Address) {
 	block := sb.currentBlock()
 
 	var proposer common.Address
@@ -369,7 +373,7 @@ func (sb *Backend) LastProposal() (tendermint.ProposalBlock, common.Address) {
 		proposer, err = sb.Author(block.Header())
 		if err != nil {
 			sb.logger.Error("Failed to get block proposer", "err", err)
-			return nil, common.Address{}
+			return new(types.Block), common.Address{}
 		}
 	}
 

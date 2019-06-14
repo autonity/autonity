@@ -44,7 +44,7 @@ const (
 
 var (
 	// errInvalidProposal is returned when a prposal is malformed.
-	errInvalidProposal = errors.New("invalid proposal")
+	//errInvalidProposal = errors.New("invalid proposal")
 	// errUnknownBlock is returned when the list of validators is requested for a block
 	// that is not part of the local blockchain.
 	errUnknownBlock = errors.New("unknown block")
@@ -420,8 +420,8 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	sb.commitCh = results // results channel stays always the same
 
 	// post block into PoS engine
-	go sb.EventMux().Post(tendermint.RequestEvent{
-		ProposalBlock: block,
+	go sb.EventMux().Post(tendermint.NewUnminedBlockEvent{
+		NewUnminedBlock: *block,
 	})
 
 	return nil

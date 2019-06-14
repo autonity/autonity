@@ -1,96 +1,145 @@
-// Copyright 2017 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
 package core
 
 import (
-	"reflect"
+	"math/big"
 
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func (c *core) sendPrevote() {
-	logger := c.logger.New("state", c.state)
+func (c *core) sendPrevote(isNil bool) {
+	logger := c.logger.New("step", c.step)
 
-	sub := c.current.Subject()
-	encodedSubject, err := Encode(sub)
+	var prevote = &tendermint.Vote{
+		Round:  big.NewInt(c.currentRoundState.round.Int64()),
+		Height: big.NewInt(c.currentRoundState.Height().Int64()),
+	}
+
+	if isNil {
+		prevote.ProposedBlockHash = common.Hash{}
+	} else {
+		prevote.ProposedBlockHash = c.currentRoundState.Proposal().ProposalBlock.Hash()
+	}
+
+	encodedVote, err := Encode(prevote)
 	if err != nil {
-		logger.Error("Failed to encode", "subject", sub)
+		logger.Error("Failed to encode", "subject", prevote)
 		return
 	}
+
+	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
+
 	c.broadcast(&message{
 		Code: msgPrevote,
-		Msg:  encodedSubject,
+		Msg:  encodedVote,
 	})
 }
 
-func (c *core) handlePrevote(msg *message, src tendermint.Validator) error {
-	// Decode PREPARE message
-	var prepare *tendermint.Subject
-	err := msg.Decode(&prepare)
+func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
+	var prevote *tendermint.Vote
+	err := msg.Decode(&prevote)
 	if err != nil {
 		return errFailedDecodePrevote
 	}
 
-	if err = c.checkMessage(msgPrevote, prepare.View); err != nil {
+	if err = c.checkMessage(prevote.Round, prevote.Height); err != nil {
+		// We want to store old round messages for future rounds since it is required for validRound
+		if err == errOldRoundMessage {
+			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
+			// And we only process old rounds while future rounds messages are pushed on to the backlog
+			prevoteMS := c.currentHeightRoundsStates[prevote.Round.Int64()].Prevotes
+			if prevote.ProposedBlockHash == (common.Hash{}) {
+				prevoteMS.AddNilVote(*msg)
+			} else {
+				prevoteMS.AddVote(prevote.ProposedBlockHash, *msg)
+			}
+		}
 		return err
 	}
 
-	// If it is locked, it can only process on the locked block.
-	// Passing verifyPrevote and checkMessage implies it is processing on the locked block since it was verified in the Proposald state.
-	if err = c.verifyPrevote(prepare, src); err != nil {
-		return err
-	}
+	// Now we can add the prevote to our current round state
+	if c.step >= StepProposeDone {
+		prevoteHash := prevote.ProposedBlockHash
+		curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
+		curR := c.currentRoundState.Round().Int64()
+		curH := c.currentRoundState.Height().Int64()
 
-	err = c.acceptPrevote(msg)
-	if err != nil {
-		c.logger.Error("Failed to add PREPARE message to round state",
-			"from", src, "state", c.state, "msg", msg, "err", err)
-	}
+		if prevoteHash == (common.Hash{}) {
+			c.currentRoundState.Prevotes.AddNilVote(*msg)
+		} else {
+			c.currentRoundState.Prevotes.AddVote(prevoteHash, *msg)
+		}
 
-	// Change to Prevoted state if we've received enough PREPARE messages or it is locked
-	// and we are in earlier state before Prevoted state.
-	if ((c.current.IsHashLocked() && prepare.Digest == c.current.GetLockedHash()) || c.current.GetPrevoteOrPrecommitSize() > 2*c.valSet.F()) &&
-		c.state.Cmp(StatePrevoteDone) < 0 {
-		c.current.LockHash()
-		c.setState(StatePrevoteDone)
-		c.sendPrecommit()
+		c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, msg.Address.String(), c.address.String())
+
+		// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
+		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)) {
+			if err := c.stopPrevoteTimeout(); err != nil {
+				return err
+			}
+
+			timeoutDuration := timeoutPrevote(curR)
+			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
+			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
+		} else if c.step == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
+			if err := c.stopPrevoteTimeout(); err != nil {
+				return err
+			}
+			c.sendPrecommit(true)
+			c.setStep(StepPrevoteDone)
+			// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
+
+		} else if c.quorum(c.currentRoundState.Prevotes.VotesSize(curProposaleHash)) && !c.setValidRoundAndValue {
+			// this piece of code should only run once
+			if err := c.stopPrevoteTimeout(); err != nil {
+				return err
+			}
+
+			if c.step == StepProposeDone {
+				c.lockedValue = c.currentRoundState.Proposal().ProposalBlock
+				c.lockedRound = big.NewInt(curR)
+				c.sendPrecommit(false)
+				c.setStep(StepPrevoteDone)
+			}
+			c.validValue = c.currentRoundState.Proposal().ProposalBlock
+			c.validRound = big.NewInt(curR)
+			c.setValidRoundAndValue = true
+		} else {
+			return errNoMajority
+		}
 	}
 
 	return nil
 }
 
-// verifyPrevote verifies if the received PREPARE message is equivalent to our subject
-func (c *core) verifyPrevote(prepare *tendermint.Subject, src tendermint.Validator) error {
-	logger := c.logger.New("from", src, "state", c.state)
-
-	sub := c.current.Subject()
-	if !reflect.DeepEqual(prepare, sub) {
-		logger.Warn("Inconsistent subjects between PREPARE and proposal", "expected", sub, "got", prepare)
-		return errInconsistentSubject
+func (c *core) stopPrevoteTimeout() error {
+	if c.prevoteTimeout.started {
+		if stopped := c.prevoteTimeout.stopTimer(); !stopped {
+			return errNilPrecommitSent
+		}
 	}
-
 	return nil
 }
 
-func (c *core) acceptPrevote(msg *message) error {
-	// Add the PREPARE message to current round state
-	if err := c.current.Prevotes.Add(msg); err != nil {
-		return err
-	}
-
-	return nil
+func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, from, to string) {
+	curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
+	c.logger.Info(message,
+		"type", "Prevote",
+		"from", from,
+		"to", to,
+		"currentHeight", c.currentRoundState.height,
+		"msgHeight", prevote.Height,
+		"currentRound", c.currentRoundState.round,
+		"msgRound", prevote.Round,
+		"currentStep", c.step,
+		"isProposer", c.isProposer(),
+		"currentProposer", c.valSet.GetProposer(),
+		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
+		"hash", prevote.ProposedBlockHash,
+		"totalVotes", c.currentRoundState.Prevotes.TotalSize(curProposaleHash),
+		"totalNilVotes", c.currentRoundState.Prevotes.NilVotesSize(),
+		"quorumReject", c.quorum(c.currentRoundState.Prevotes.NilVotesSize()),
+		"totalNonNilVotes", c.currentRoundState.Prevotes.TotalSize(curProposaleHash),
+		"quorumAccept", c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)),
+	)
 }
