@@ -50,7 +50,7 @@ func (c *core) handlePrecommit(msg *message, _ tendermint.Validator) error {
 
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 	precommitHash := precommit.ProposedBlockHash
-	curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
+	curProposalHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
 	curR := c.currentRoundState.Round().Int64()
 	curH := c.currentRoundState.Height().Int64()
 
@@ -62,8 +62,17 @@ func (c *core) handlePrecommit(msg *message, _ tendermint.Validator) error {
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, msg.Address.String(), c.address.String())
 
-	// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize(curProposaleHash)) {
+	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
+	if c.quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
+		if err := c.stopPrecommitTimeout(); err != nil {
+			return err
+		}
+
+		c.commit()
+		return nil
+
+		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
+	} else if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize(curProposalHash)) {
 		if err := c.stopPrecommitTimeout(); err != nil {
 			return err
 		}
@@ -72,15 +81,6 @@ func (c *core) handlePrecommit(msg *message, _ tendermint.Validator) error {
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
 
 		return nil
-	}
-
-	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	if c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)) {
-		if err := c.stopPrecommitTimeout(); err != nil {
-			return err
-		}
-
-		c.commit()
 	}
 
 	return errNoMajority
