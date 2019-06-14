@@ -41,8 +41,6 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 		return errFailedDecodeProposal
 	}
 
-	c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
-
 	// Ensure we have the same view with the Proposal message
 	if err := c.checkMessage(proposal.Round, proposal.Height); err != nil {
 		// We don't care about old proposals so they are ignored
@@ -79,7 +77,7 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 			// Set the proposal for the current round
 			c.currentRoundState.SetProposal(proposal)
 
-			logger.Info("Accepted Proposal", "height", proposal.Height, "round", proposal.Round, "Hash", proposal.ProposalBlock.Hash())
+			c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 
 			vr := proposal.ValidRound.Int64()
 			h := proposal.ProposalBlock.Hash()
