@@ -36,7 +36,7 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 		return errInvalidMessage
 	}
 
-	if c := c.currentRoundState.height.Cmp(unminedBlock.Number()); c > 0 {
+	if c := c.currentRoundState.Height().Cmp(unminedBlock.Number()); c > 0 {
 		// TODO: probably delete this case?
 		return errOldHeightMessage
 	} else if c < 0 {
@@ -91,8 +91,8 @@ func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
 	c.logger.Info("NewUnminedBlockEvent: Received",
 		"from", c.address.String(),
 		"type", "New Unmined Block",
-		"currentHeight", c.currentRoundState.height,
-		"currentRound", c.currentRoundState.round,
+		"currentHeight", c.currentRoundState.Height(),
+		"currentRound", c.currentRoundState.Round(),
 		"currentStep", c.step,
 		"currentProposer", c.isProposer(),
 		"msgHeight", ub.Header().Number.Uint64(),

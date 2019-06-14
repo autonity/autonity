@@ -11,7 +11,7 @@ func (c *core) sendPrevote(isNil bool) {
 	logger := c.logger.New("step", c.step)
 
 	var prevote = &tendermint.Vote{
-		Round:  big.NewInt(c.currentRoundState.round.Int64()),
+		Round:  big.NewInt(c.currentRoundState.Round().Int64()),
 		Height: big.NewInt(c.currentRoundState.Height().Int64()),
 	}
 
@@ -128,9 +128,9 @@ func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, 
 		"type", "Prevote",
 		"from", from,
 		"to", to,
-		"currentHeight", c.currentRoundState.height,
+		"currentHeight", c.currentRoundState.Height(),
 		"msgHeight", prevote.Height,
-		"currentRound", c.currentRoundState.round,
+		"currentRound", c.currentRoundState.Round(),
 		"msgRound", prevote.Round,
 		"currentStep", c.step,
 		"isProposer", c.isProposer(),

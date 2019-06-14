@@ -81,7 +81,7 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 
 			vr := proposal.ValidRound.Int64()
 			h := proposal.ProposalBlock.Hash()
-			curR := c.currentRoundState.round.Int64()
+			curR := c.currentRoundState.Round().Int64()
 
 			if vr == -1 {
 				// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
@@ -127,9 +127,9 @@ func (c *core) logProposalMessageEvent(message string, proposal *tendermint.Prop
 		"type", "Proposal",
 		"from", from,
 		"to", to,
-		"currentHeight", c.currentRoundState.height,
+		"currentHeight", c.currentRoundState.Height(),
 		"msgHeight", proposal.Height,
-		"currentRound", c.currentRoundState.round,
+		"currentRound", c.currentRoundState.Round(),
 		"msgRound", proposal.Round,
 		"currentStep", c.step,
 		"isProposer", c.isProposer(),

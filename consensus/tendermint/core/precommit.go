@@ -11,7 +11,7 @@ func (c *core) sendPrecommit(isNil bool) {
 	logger := c.logger.New("step", c.step)
 
 	var precommit = &tendermint.Vote{
-		Round:  big.NewInt(c.currentRoundState.round.Int64()),
+		Round:  big.NewInt(c.currentRoundState.Round().Int64()),
 		Height: big.NewInt(c.currentRoundState.Height().Int64()),
 	}
 
@@ -106,9 +106,9 @@ func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vo
 		"type", "Precommit",
 		"from", from,
 		"to", to,
-		"currentHeight", c.currentRoundState.height,
+		"currentHeight", c.currentRoundState.Height(),
 		"msgHeight", precommit.Height,
-		"currentRound", c.currentRoundState.round,
+		"currentRound", c.currentRoundState.Round(),
 		"msgRound", precommit.Round,
 		"currentStep", c.step,
 		"isProposer", c.isProposer(),
