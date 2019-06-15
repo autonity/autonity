@@ -102,7 +102,7 @@ func (s *roundState) GetCurrentProposalHash() common.Hash {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.proposal != nil {
+	if s.proposal.ProposalBlock != nil {
 		return s.proposal.ProposalBlock.Hash()
 	}
 

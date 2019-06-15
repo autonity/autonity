@@ -59,8 +59,6 @@ var (
 	errFailedDecodePrevote = errors.New("failed to decode PREPARE")
 	// errFailedDecodePrecommit is returned when the COMMIT message is malformed.
 	errFailedDecodePrecommit = errors.New("failed to decode COMMIT")
-	// errNoMajority is returned when test value is less than math.Ceil(2/3*N)
-	errNoMajority = errors.New("no majority")
 	// errNilPrevoteSent is returned when timer could be stopped in time
 	errNilPrevoteSent = errors.New("timer expired and nil prevote sent")
 	// errNilPrecommitSent is returned when timer could be stopped in time

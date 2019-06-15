@@ -73,40 +73,37 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 
 	// Here is about to accept the Proposal
 	if c.step == StepAcceptProposal {
-		if err := c.stopProposeTimeout(); err == nil {
-			// Set the proposal for the current round
-			c.currentRoundState.SetProposal(proposal)
-
-			c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
-
-			vr := proposal.ValidRound.Int64()
-			h := proposal.ProposalBlock.Hash()
-			curR := c.currentRoundState.Round().Int64()
-
-			if vr == -1 {
-				// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
-				if c.lockedRound.Int64() == vr || h == c.lockedValue.Hash() {
-					c.sendPrevote(false)
-				} else {
-					c.sendPrevote(true)
-				}
-				c.setStep(StepProposeDone)
-				// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
-			} else if rs, ok := c.currentHeightRoundsStates[vr]; vr > -1 &&
-				vr < curR &&
-				ok &&
-				c.quorum(rs.Prevotes.VotesSize(h)) {
-				if c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash() {
-					c.sendPrevote(false)
-				} else {
-					c.sendPrevote(true)
-				}
-				c.setStep(StepProposeDone)
-			} else {
-				return errNoMajority
-			}
-		} else {
+		if err := c.stopProposeTimeout(); err != nil {
 			return err
+		}
+		// Set the proposal for the current round
+		c.currentRoundState.SetProposal(proposal)
+
+		c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
+
+		vr := proposal.ValidRound.Int64()
+		h := proposal.ProposalBlock.Hash()
+		curR := c.currentRoundState.Round().Int64()
+
+		if vr == -1 {
+			// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
+			if c.lockedRound.Int64() == vr || h == c.lockedValue.Hash() {
+				c.sendPrevote(false)
+			} else {
+				c.sendPrevote(true)
+			}
+			c.setStep(StepProposeDone)
+			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
+		} else if rs, ok := c.currentHeightRoundsStates[vr]; vr > -1 &&
+			vr < curR &&
+			ok &&
+			c.quorum(rs.Prevotes.VotesSize(h)) {
+			if c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash() {
+				c.sendPrevote(false)
+			} else {
+				c.sendPrevote(true)
+			}
+			c.setStep(StepProposeDone)
 		}
 	}
 

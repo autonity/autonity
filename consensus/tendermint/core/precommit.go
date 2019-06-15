@@ -73,7 +73,6 @@ func (c *core) handlePrecommit(msg *message, _ tendermint.Validator) error {
 		}
 
 		c.commit()
-		return nil
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 	} else if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize()) {
@@ -83,11 +82,9 @@ func (c *core) handlePrecommit(msg *message, _ tendermint.Validator) error {
 
 		timeoutDuration := timeoutPrecommit(curR)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
-
-		return nil
 	}
 
-	return errNoMajority
+	return nil
 }
 
 func (c *core) handleCommit() {

@@ -109,8 +109,6 @@ func (c *core) handlePrevote(msg *message, _ tendermint.Validator) error {
 
 			timeoutDuration := timeoutPrevote(curR)
 			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
-		} else {
-			return errNoMajority
 		}
 	}
 
