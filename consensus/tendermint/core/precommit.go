@@ -18,7 +18,11 @@ func (c *core) sendPrecommit(isNil bool) {
 	if isNil {
 		precommit.ProposedBlockHash = common.Hash{}
 	} else {
-		precommit.ProposedBlockHash = c.currentRoundState.Proposal().ProposalBlock.Hash()
+		if h := c.currentRoundState.GetCurrentProposalHash(); h == (common.Hash{}) {
+			c.logger.Info("sendPrecommit Proposal is empty! It should not be empty!")
+			return
+		}
+		precommit.ProposedBlockHash = c.currentRoundState.GetCurrentProposalHash()
 	}
 
 	encodedVote, err := Encode(precommit)
@@ -50,7 +54,7 @@ func (c *core) handlePrecommit(msg *message, _ tendermint.Validator) error {
 
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 	precommitHash := precommit.ProposedBlockHash
-	curProposalHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
+	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	curR := c.currentRoundState.Round().Int64()
 	curH := c.currentRoundState.Height().Int64()
 
@@ -63,7 +67,7 @@ func (c *core) handlePrecommit(msg *message, _ tendermint.Validator) error {
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, msg.Address.String(), c.address.String())
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	if c.quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
+	if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
 		if err := c.stopPrecommitTimeout(); err != nil {
 			return err
 		}
@@ -72,7 +76,7 @@ func (c *core) handlePrecommit(msg *message, _ tendermint.Validator) error {
 		return nil
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize(curProposalHash)) {
+	} else if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize()) {
 		if err := c.stopPrecommitTimeout(); err != nil {
 			return err
 		}
@@ -101,7 +105,7 @@ func (c *core) stopPrecommitTimeout() error {
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vote, from, to string) {
-	currentProposalHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
+	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	c.logger.Info(message,
 		"type", "Precommit",
 		"from", from,
@@ -115,7 +119,7 @@ func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vo
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
 		"hash", precommit.ProposedBlockHash,
-		"totalVotes", c.currentRoundState.Precommits.TotalSize(currentProposalHash),
+		"totalVotes", c.currentRoundState.Precommits.TotalSize(),
 		"totalNilVotes", c.currentRoundState.Precommits.NilVotesSize(),
 		"quorumReject", c.quorum(c.currentRoundState.Precommits.NilVotesSize()),
 		"totalNonNilVotes", c.currentRoundState.Precommits.VotesSize(currentProposalHash),

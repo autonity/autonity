@@ -32,6 +32,7 @@ func newRoundState(r *big.Int, h *big.Int, hasBadProposal func(hash common.Hash)
 	return &roundState{
 		round:          r,
 		height:         h,
+		proposal:       new(tendermint.Proposal),
 		Prevotes:       newMessageSet(),
 		Precommits:     newMessageSet(),
 		mu:             new(sync.RWMutex),
@@ -95,6 +96,17 @@ func (s *roundState) Height() *big.Int {
 	defer s.mu.RUnlock()
 
 	return s.height
+}
+
+func (s *roundState) GetCurrentProposalHash() common.Hash {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.proposal != nil {
+		return s.proposal.ProposalBlock.Hash()
+	}
+
+	return common.Hash{}
 }
 
 // The DecodeRLP method should read one value from the given

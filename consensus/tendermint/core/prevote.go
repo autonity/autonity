@@ -18,7 +18,11 @@ func (c *core) sendPrevote(isNil bool) {
 	if isNil {
 		prevote.ProposedBlockHash = common.Hash{}
 	} else {
-		prevote.ProposedBlockHash = c.currentRoundState.Proposal().ProposalBlock.Hash()
+		if h := c.currentRoundState.GetCurrentProposalHash(); h == (common.Hash{}) {
+			c.logger.Info("sendPrecommit Proposal is empty! It should not be empty!")
+			return
+		}
+		prevote.ProposedBlockHash = c.currentRoundState.GetCurrentProposalHash()
 	}
 
 	encodedVote, err := Encode(prevote)
@@ -60,7 +64,7 @@ func (c *core) handlePrevote(msg *message, _ tendermint.Validator) error {
 	// Now we can add the prevote to our current round state
 	if c.step >= StepProposeDone {
 		prevoteHash := prevote.ProposedBlockHash
-		curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
+		curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 		curR := c.currentRoundState.Round().Int64()
 		curH := c.currentRoundState.Height().Int64()
 
@@ -80,17 +84,8 @@ func (c *core) handlePrevote(msg *message, _ tendermint.Validator) error {
 			c.sendPrecommit(true)
 			c.setStep(StepPrevoteDone)
 
-			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)) {
-			if err := c.stopPrevoteTimeout(); err != nil {
-				return err
-			}
-
-			timeoutDuration := timeoutPrevote(curR)
-			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
-
 			// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.quorum(c.currentRoundState.Prevotes.VotesSize(curProposaleHash)) && !c.setValidRoundAndValue {
+		} else if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Prevotes.VotesSize(curProposalHash)) && !c.setValidRoundAndValue {
 			// this piece of code should only run once
 			if err := c.stopPrevoteTimeout(); err != nil {
 				return err
@@ -105,6 +100,15 @@ func (c *core) handlePrevote(msg *message, _ tendermint.Validator) error {
 			c.validValue = c.currentRoundState.Proposal().ProposalBlock
 			c.validRound = big.NewInt(curR)
 			c.setValidRoundAndValue = true
+
+			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
+		} else if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {
+			if err := c.stopPrevoteTimeout(); err != nil {
+				return err
+			}
+
+			timeoutDuration := timeoutPrevote(curR)
+			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
 		} else {
 			return errNoMajority
 		}
@@ -123,7 +127,7 @@ func (c *core) stopPrevoteTimeout() error {
 }
 
 func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, from, to string) {
-	curProposaleHash := c.currentRoundState.Proposal().ProposalBlock.Hash()
+	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	c.logger.Info(message,
 		"type", "Prevote",
 		"from", from,
@@ -137,10 +141,10 @@ func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, 
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
 		"hash", prevote.ProposedBlockHash,
-		"totalVotes", c.currentRoundState.Prevotes.TotalSize(curProposaleHash),
+		"totalVotes", c.currentRoundState.Prevotes.TotalSize(),
 		"totalNilVotes", c.currentRoundState.Prevotes.NilVotesSize(),
 		"quorumReject", c.quorum(c.currentRoundState.Prevotes.NilVotesSize()),
-		"totalNonNilVotes", c.currentRoundState.Prevotes.TotalSize(curProposaleHash),
-		"quorumAccept", c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)),
+		"totalNonNilVotes", c.currentRoundState.Prevotes.VotesSize(currentProposalHash),
+		"quorumAccept", c.quorum(c.currentRoundState.Prevotes.VotesSize(currentProposalHash)),
 	)
 }
