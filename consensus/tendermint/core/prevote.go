@@ -127,7 +127,6 @@ func (c *core) stopPrevoteTimeout() error {
 func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, from, to string) {
 	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	c.logger.Info(message,
-		"type", "Prevote",
 		"from", from,
 		"to", to,
 		"currentHeight", c.currentRoundState.Height(),
@@ -139,6 +138,7 @@ func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, 
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
 		"hash", prevote.ProposedBlockHash,
+		"type", "Prevote",
 		"totalVotes", c.currentRoundState.Prevotes.TotalSize(),
 		"totalNilVotes", c.currentRoundState.Prevotes.NilVotesSize(),
 		"quorumReject", c.quorum(c.currentRoundState.Prevotes.NilVotesSize()),

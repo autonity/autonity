@@ -80,7 +80,7 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		address:                backend.Address(),
 		step:                   StepAcceptProposal,
 		handlerStopCh:          make(chan struct{}),
-		logger:                 log.New("address", backend.Address()),
+		logger:                 log.New(),
 		backend:                backend,
 		backlogs:               make(map[tendermint.Validator]*prque.Prque),
 		backlogsMu:             new(sync.Mutex),

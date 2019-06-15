@@ -104,7 +104,6 @@ func (c *core) stopPrecommitTimeout() error {
 func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vote, from, to string) {
 	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	c.logger.Info(message,
-		"type", "Precommit",
 		"from", from,
 		"to", to,
 		"currentHeight", c.currentRoundState.Height(),
@@ -116,6 +115,7 @@ func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vo
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
 		"hash", precommit.ProposedBlockHash,
+		"type", "Precommit",
 		"totalVotes", c.currentRoundState.Precommits.TotalSize(),
 		"totalNilVotes", c.currentRoundState.Precommits.NilVotesSize(),
 		"quorumReject", c.quorum(c.currentRoundState.Precommits.NilVotesSize()),
