@@ -76,16 +76,8 @@ func (c *core) handlePrevote(msg *message, _ tendermint.Validator) error {
 
 		c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, msg.Address.String(), c.address.String())
 
-		// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
-		if c.step == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
-			if err := c.stopPrevoteTimeout(); err != nil {
-				return err
-			}
-			c.sendPrecommit(true)
-			c.setStep(StepPrevoteDone)
-
-			// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Prevotes.VotesSize(curProposalHash)) && !c.setValidRoundAndValue {
+		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
+		if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Prevotes.VotesSize(curProposalHash)) && !c.setValidRoundAndValue {
 			// this piece of code should only run once
 			if err := c.stopPrevoteTimeout(); err != nil {
 				return err
@@ -100,6 +92,13 @@ func (c *core) handlePrevote(msg *message, _ tendermint.Validator) error {
 			c.validValue = c.currentRoundState.Proposal().ProposalBlock
 			c.validRound = big.NewInt(curR)
 			c.setValidRoundAndValue = true
+			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
+		} else if c.step == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
+			if err := c.stopPrevoteTimeout(); err != nil {
+				return err
+			}
+			c.sendPrecommit(true)
+			c.setStep(StepPrevoteDone)
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 		} else if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {
