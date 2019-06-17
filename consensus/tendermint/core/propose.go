@@ -13,7 +13,7 @@ func (c *core) sendProposal(p *types.Block) {
 	logger := c.logger.New("step", c.step)
 
 	// If I'm the proposer and I have the same height with the proposal
-	if c.currentRoundState.Height().Cmp(p.Number()) == 0 && c.isProposer() && !c.sentProposal {
+	if c.currentRoundState.Height().Int64() == p.Number().Int64() && c.isProposer() && !c.sentProposal {
 		proposalBlock := tendermint.NewProposal(c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound, p)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {

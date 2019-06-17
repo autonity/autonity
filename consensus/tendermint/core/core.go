@@ -76,20 +76,21 @@ type Engine interface {
 // New creates an Istanbul consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
-		config:                 config,
-		address:                backend.Address(),
-		step:                   StepAcceptProposal,
-		handlerStopCh:          make(chan struct{}),
-		logger:                 log.New(),
-		backend:                backend,
-		backlogs:               make(map[tendermint.Validator]*prque.Prque),
-		backlogsMu:             new(sync.Mutex),
-		pendingUnminedBlocks:   prque.New(),
-		pendingUnminedBlocksMu: new(sync.Mutex),
-		firstUnminedBlockCh:    make(chan struct{}),
-		proposeTimeout:         new(timeout),
-		prevoteTimeout:         new(timeout),
-		precommitTimeout:       new(timeout),
+		config:                      config,
+		address:                     backend.Address(),
+		step:                        StepAcceptProposal,
+		handlerStopCh:               make(chan struct{}),
+		logger:                      log.New(),
+		backend:                     backend,
+		backlogs:                    make(map[tendermint.Validator]*prque.Prque),
+		backlogsMu:                  new(sync.Mutex),
+		pendingUnminedBlocks:        prque.New(),
+		pendingUnminedBlocksMu:      new(sync.Mutex),
+		unminedBlockCh:              make(chan struct{}),
+		latestPendingUnminedBlockMu: new(sync.RWMutex),
+		proposeTimeout:              new(timeout),
+		prevoteTimeout:              new(timeout),
+		precommitTimeout:            new(timeout),
 	}
 	c.validateFn = c.checkValidatorSignature
 	return c
@@ -131,8 +132,9 @@ type core struct {
 
 	currentHeightRoundsStates map[int64]*roundState
 
-	latestPendingUnminedBlock *types.Block
-	firstUnminedBlockCh       chan struct{}
+	latestPendingUnminedBlock   *types.Block
+	latestPendingUnminedBlockMu *sync.RWMutex
+	unminedBlockCh              chan struct{}
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -271,14 +273,14 @@ func (c *core) startRound(round *big.Int) {
 	c.logger.Info("Starting new Round", "Height", height, "Round", round)
 
 	var p *types.Block
+	<-c.unminedBlockCh
 	if c.isProposer() {
 		if c.validValue != nil {
 			p = c.validValue
 		} else {
-			if c.latestPendingUnminedBlock == nil {
-				<-c.firstUnminedBlockCh
-			}
+			c.latestPendingUnminedBlockMu.RLock()
 			p = c.latestPendingUnminedBlock
+			c.latestPendingUnminedBlockMu.RUnlock()
 		}
 		c.sendProposal(p)
 	} else {

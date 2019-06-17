@@ -19,13 +19,12 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 
 	c.logNewUnminedBlockEvent(unminedBlock)
 
-	wasNil := c.latestPendingUnminedBlock == nil
+	c.latestPendingUnminedBlockMu.Lock()
 	c.latestPendingUnminedBlock = unminedBlock
+	c.latestPendingUnminedBlockMu.Unlock()
 
-	// This will be only true until it is first populated
-	if wasNil {
-		close(c.firstUnminedBlockCh)
-	}
+	c.unminedBlockCh <- struct{}{}
+
 	return nil
 }
 
