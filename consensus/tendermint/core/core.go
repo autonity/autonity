@@ -120,6 +120,8 @@ type core struct {
 	pendingUnminedBlocksMu *sync.Mutex
 
 	sentProposal          bool
+	sentPrevote           bool
+	sentPrecommit         bool
 	setValidRoundAndValue bool
 
 	lockedRound *big.Int
@@ -260,6 +262,8 @@ func (c *core) startRound(round *big.Int) {
 	c.currentRoundState = newRoundState(round, height, c.backend.HasBadProposal)
 	c.currentHeightRoundsStates[round.Int64()] = c.currentRoundState
 	c.sentProposal = false
+	c.sentPrevote = false
+	c.sentPrecommit = false
 	c.setValidRoundAndValue = false
 	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setStep(StepAcceptProposal)

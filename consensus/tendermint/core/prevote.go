@@ -33,13 +33,14 @@ func (c *core) sendPrevote(isNil bool) {
 
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
+	c.sentPrevote = true
 	c.broadcast(&message{
 		Code: msgPrevote,
 		Msg:  encodedVote,
 	})
 }
 
-func (c *core) handlePrevote(msg *message, _ tendermint.Validator) error {
+func (c *core) handlePrevote(msg *message) error {
 	var prevote *tendermint.Vote
 	err := msg.Decode(&prevote)
 	if err != nil {
@@ -101,7 +102,7 @@ func (c *core) handlePrevote(msg *message, _ tendermint.Validator) error {
 			c.setStep(StepPrevoteDone)
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {
+		} else if c.step == StepProposeDone && !c.prevoteTimeout.started && !c.sentPrecommit && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {
 			if err := c.stopPrevoteTimeout(); err != nil {
 				return err
 			}

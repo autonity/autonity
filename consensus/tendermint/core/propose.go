@@ -32,9 +32,7 @@ func (c *core) sendProposal(p *types.Block) {
 	}
 }
 
-func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
-	logger := c.logger.New("from", sender, "step", c.step)
-
+func (c *core) handleProposal(msg *message) error {
 	var proposal *tendermint.Proposal
 	err := msg.Decode(&proposal)
 	if err != nil {
@@ -48,20 +46,21 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 	}
 
 	// Check if the message comes from currentRoundState proposer
-	if !c.valSet.IsProposer(sender.Address()) {
-		logger.Warn("Ignore proposal messages from non-proposer")
+	if !c.valSet.IsProposer(msg.Address) {
+		c.logger.Warn("Ignore proposal messages from non-proposer")
 		return errNotFromProposer
 	}
 
 	// Verify the proposal we received
 	if duration, err := c.backend.Verify(*proposal.ProposalBlock); err != nil {
-		logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
+		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 		// if it's a future block, we will handle it again after the duration
 		// TIME FIELD OF HEADER CHECKED HERE - NOT HEIGHT
 		// TODO: implement wiggle time / median time
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
+				_, sender := c.valSet.GetByAddress(msg.Address)
 				c.sendEvent(backlogEvent{
 					src: sender,
 					msg: msg,
@@ -94,10 +93,7 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 			}
 			c.setStep(StepProposeDone)
 			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if rs, ok := c.currentHeightRoundsStates[vr]; vr > -1 &&
-			vr < curR &&
-			ok &&
-			c.quorum(rs.Prevotes.VotesSize(h)) {
+		} else if rs, ok := c.currentHeightRoundsStates[vr]; vr > -1 && vr < curR && ok && c.quorum(rs.Prevotes.VotesSize(h)) {
 			if c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash() {
 				c.sendPrevote(false)
 			} else {

@@ -187,11 +187,11 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 
 	switch msg.Code {
 	case msgProposal:
-		return testBacklog(c.handleProposal(msg, sender))
+		return testBacklog(c.handleProposal(msg))
 	case msgPrevote:
-		return testBacklog(c.handlePrevote(msg, sender))
+		return testBacklog(c.handlePrevote(msg))
 	case msgPrecommit:
-		return testBacklog(c.handlePrecommit(msg, sender))
+		return testBacklog(c.handlePrecommit(msg))
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}
