@@ -268,6 +268,8 @@ func (c *core) startRound(round *big.Int) {
 	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setStep(StepAcceptProposal)
 
+	c.logger.Info("Starting new Round", "Height", height, "Round", round)
+
 	var p *types.Block
 	if c.isProposer() {
 		if c.validValue != nil {

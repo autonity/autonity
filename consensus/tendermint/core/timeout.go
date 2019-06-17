@@ -116,7 +116,7 @@ func (c *core) handleTimeoutPrecommit(msg timeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 
-		go c.startRound(new(big.Int).Add(c.currentRoundState.Height(), common.Big1))
+		go c.startRound(new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
 	}
 }
 
