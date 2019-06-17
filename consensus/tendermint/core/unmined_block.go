@@ -19,11 +19,13 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 
 	c.logNewUnminedBlockEvent(unminedBlock)
 
+	wasNil := c.latestPendingUnminedBlock == nil
+	c.latestPendingUnminedBlock = unminedBlock
+
 	// This will be only true until it is first populated
-	if c.latestPendingUnminedBlock == nil {
+	if wasNil {
 		close(c.firstUnminedBlockCh)
 	}
-	c.latestPendingUnminedBlock = unminedBlock
 	return nil
 }
 
