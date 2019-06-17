@@ -90,7 +90,7 @@ func (c *core) handlePrecommit(msg *message) error {
 
 func (c *core) handleCommit() {
 	c.logger.Trace("Received a final committed proposal", "step", c.step)
-	c.startRound(common.Big0)
+	go c.startRound(common.Big0)
 }
 
 func (c *core) stopPrecommitTimeout() error {

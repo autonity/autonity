@@ -174,7 +174,7 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
 
 			if totalFutureRoundMessages >= int64(c.valSet.F()) {
-				c.startRound(big.NewInt(msgRound))
+				go c.startRound(big.NewInt(msgRound))
 			}
 
 		}
