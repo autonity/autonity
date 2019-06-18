@@ -103,10 +103,6 @@ func (c *core) handlePrevote(msg *message) error {
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 		} else if c.step == StepProposeDone && !c.prevoteTimeout.started && !c.sentPrecommit && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {
-			if err := c.stopPrevoteTimeout(); err != nil {
-				return err
-			}
-
 			timeoutDuration := timeoutPrevote(curR)
 			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
 			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
@@ -117,8 +113,8 @@ func (c *core) handlePrevote(msg *message) error {
 }
 
 func (c *core) stopPrevoteTimeout() error {
-	c.logger.Debug("Stopping Scheduled Prevote Timeout")
 	if c.prevoteTimeout.started {
+		c.logger.Debug("Stopping Scheduled Prevote Timeout")
 		if stopped := c.prevoteTimeout.stopTimer(); !stopped {
 			return errNilPrecommitSent
 		}

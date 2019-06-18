@@ -77,10 +77,6 @@ func (c *core) handlePrecommit(msg *message) error {
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 	} else if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize()) {
-		if err := c.stopPrecommitTimeout(); err != nil {
-			return err
-		}
-
 		timeoutDuration := timeoutPrecommit(curR)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
@@ -95,8 +91,8 @@ func (c *core) handleCommit() {
 }
 
 func (c *core) stopPrecommitTimeout() error {
-	c.logger.Debug("Stopping Scheduled Precommit Timeout")
 	if c.precommitTimeout.started {
+		c.logger.Debug("Stopping Scheduled Precommit Timeout")
 		if stopped := c.precommitTimeout.stopTimer(); !stopped {
 			return errMovedToNewRound
 		}
