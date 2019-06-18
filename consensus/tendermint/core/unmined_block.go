@@ -20,10 +20,13 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 	c.logNewUnminedBlockEvent(unminedBlock)
 
 	c.latestPendingUnminedBlockMu.Lock()
+	wasNilOrDiffHeight := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height()
 	c.latestPendingUnminedBlock = unminedBlock
 	c.latestPendingUnminedBlockMu.Unlock()
 
-	c.unminedBlockCh <- struct{}{}
+	if wasNilOrDiffHeight {
+		c.unminedBlockCh <- struct{}{}
+	}
 
 	return nil
 }
