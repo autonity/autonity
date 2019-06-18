@@ -109,6 +109,7 @@ func (c *core) handlePrevote(msg *message) error {
 
 			timeoutDuration := timeoutPrevote(curR)
 			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
+			c.logger.Info("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
 		}
 	}
 

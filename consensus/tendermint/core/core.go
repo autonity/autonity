@@ -294,6 +294,7 @@ func (c *core) startRound(round *big.Int) {
 	} else {
 		timeoutDuration := timeoutPropose(round.Int64())
 		c.proposeTimeout.scheduleTimeout(timeoutDuration, round.Int64(), height.Int64(), c.onTimeoutPropose)
+		c.logger.Info("Scheduled Proposal Timeout", "Timeout Duration", timeoutDuration)
 	}
 }
 

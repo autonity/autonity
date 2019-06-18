@@ -83,6 +83,7 @@ func (c *core) handlePrecommit(msg *message) error {
 
 		timeoutDuration := timeoutPrecommit(curR)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
+		c.logger.Info("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
 	}
 
 	return nil
