@@ -19,7 +19,7 @@ func (c *core) sendPrevote(isNil bool) {
 		prevote.ProposedBlockHash = common.Hash{}
 	} else {
 		if h := c.currentRoundState.GetCurrentProposalHash(); h == (common.Hash{}) {
-			c.logger.Info("sendPrecommit Proposal is empty! It should not be empty!")
+			c.logger.Error("sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
 		prevote.ProposedBlockHash = c.currentRoundState.GetCurrentProposalHash()
@@ -109,7 +109,7 @@ func (c *core) handlePrevote(msg *message) error {
 
 			timeoutDuration := timeoutPrevote(curR)
 			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
-			c.logger.Info("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
+			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
 		}
 	}
 
@@ -127,7 +127,7 @@ func (c *core) stopPrevoteTimeout() error {
 
 func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, from, to string) {
 	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
-	c.logger.Info(message,
+	c.logger.Debug(message,
 		"from", from,
 		"to", to,
 		"currentHeight", c.currentRoundState.Height(),

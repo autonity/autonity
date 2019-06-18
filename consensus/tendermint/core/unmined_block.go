@@ -92,7 +92,7 @@ func (c *core) processPendingRequests() {
 }
 
 func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
-	c.logger.Info("NewUnminedBlockEvent: Received",
+	c.logger.Debug("NewUnminedBlockEvent: Received",
 		"from", c.address.String(),
 		"type", "New Unmined Block",
 		"currentHeight", c.currentRoundState.Height(),

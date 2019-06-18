@@ -45,7 +45,7 @@ func (t *timeout) stopTimer() bool {
 }
 
 func (c *core) logTimeoutEvent(message string, msgType string, timeout timeoutEvent) {
-	c.logger.Info(message,
+	c.logger.Debug(message,
 		"from", c.address.String(),
 		"type", msgType,
 		"currentHeight", c.currentRoundState.Height(),

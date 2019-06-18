@@ -274,7 +274,7 @@ func (c *core) startRound(round *big.Int) {
 	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setStep(StepAcceptProposal)
 
-	c.logger.Info("Starting new Round", "Height", height, "Round", round)
+	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
 
 	// Only wait for new unmined block if latestPendingUnminedBlock is nil or fo previous height
 	if c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height() {
@@ -294,7 +294,7 @@ func (c *core) startRound(round *big.Int) {
 	} else {
 		timeoutDuration := timeoutPropose(round.Int64())
 		c.proposeTimeout.scheduleTimeout(timeoutDuration, round.Int64(), height.Int64(), c.onTimeoutPropose)
-		c.logger.Info("Scheduled Proposal Timeout", "Timeout Duration", timeoutDuration)
+		c.logger.Debug("Scheduled Proposal Timeout", "Timeout Duration", timeoutDuration)
 	}
 }
 

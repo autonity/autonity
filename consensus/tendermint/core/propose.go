@@ -116,7 +116,7 @@ func (c *core) stopProposeTimeout() error {
 }
 
 func (c *core) logProposalMessageEvent(message string, proposal *tendermint.Proposal, from, to string) {
-	c.logger.Info(message,
+	c.logger.Debug(message,
 		"type", "Proposal",
 		"from", from,
 		"to", to,

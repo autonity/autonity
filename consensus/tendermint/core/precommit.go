@@ -19,7 +19,7 @@ func (c *core) sendPrecommit(isNil bool) {
 		precommit.ProposedBlockHash = common.Hash{}
 	} else {
 		if h := c.currentRoundState.GetCurrentProposalHash(); h == (common.Hash{}) {
-			c.logger.Info("sendPrecommit Proposal is empty! It should not be empty!")
+			c.logger.Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
 		precommit.ProposedBlockHash = c.currentRoundState.GetCurrentProposalHash()
@@ -83,7 +83,7 @@ func (c *core) handlePrecommit(msg *message) error {
 
 		timeoutDuration := timeoutPrecommit(curR)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
-		c.logger.Info("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
+		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
 	}
 
 	return nil
@@ -105,7 +105,7 @@ func (c *core) stopPrecommitTimeout() error {
 
 func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vote, from, to string) {
 	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
-	c.logger.Info(message,
+	c.logger.Debug(message,
 		"from", from,
 		"to", to,
 		"currentHeight", c.currentRoundState.Height(),
