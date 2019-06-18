@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	initialProposeTimeout   = 5 * time.Second
-	initialPrevoteTimeout   = 5 * time.Second
-	initialPrecommitTimeout = 5 * time.Second
+	initialProposeTimeout   = 10 * time.Second
+	initialPrevoteTimeout   = 10 * time.Second
+	initialPrecommitTimeout = 10 * time.Second
 )
 
 type timeoutEvent struct {

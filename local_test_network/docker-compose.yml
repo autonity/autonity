@@ -85,7 +85,7 @@ services:
       - ./nodekey5:/nodekey:ro
       - ./keystore:/keystore:ro
       - ./genesis.json:/genesis.json:ro
-      - ./autonity-start.sh:/autonity-start.sh:ro
+      - ./autonity-start-proposer.sh:/autonity-start.sh:ro
     ports:
       - 8545:8545
       - 30353:30303
