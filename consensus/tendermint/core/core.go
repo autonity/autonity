@@ -223,6 +223,10 @@ func (c *core) commit() {
 
 // startRound starts a new round. if round equals to 0, it means to starts a new height
 func (c *core) startRound(round *big.Int) {
+	if r := recover(); r != nil {
+		c.logger.Error("panic in core.startRound", "panic", r)
+	}
+
 	lastCommittedProposalBlock, lastCommittedProposalBlockProposer := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 
