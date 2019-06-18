@@ -107,6 +107,7 @@ func (c *core) handleProposal(msg *message) error {
 }
 
 func (c *core) stopProposeTimeout() error {
+	c.logger.Debug("Stopping Scheduled Proposal Timeout")
 	if c.proposeTimeout.started {
 		if stopped := c.proposeTimeout.stopTimer(); !stopped {
 			return errNilPrevoteSent

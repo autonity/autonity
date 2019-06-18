@@ -95,8 +95,9 @@ func (c *core) handleCommit() {
 }
 
 func (c *core) stopPrecommitTimeout() error {
-	if c.prevoteTimeout.started {
-		if stopped := c.prevoteTimeout.stopTimer(); !stopped {
+	c.logger.Debug("Stopping Scheduled Precommit Timeout")
+	if c.precommitTimeout.started {
+		if stopped := c.precommitTimeout.stopTimer(); !stopped {
 			return errMovedToNewRound
 		}
 	}

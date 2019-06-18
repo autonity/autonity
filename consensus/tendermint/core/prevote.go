@@ -117,6 +117,7 @@ func (c *core) handlePrevote(msg *message) error {
 }
 
 func (c *core) stopPrevoteTimeout() error {
+	c.logger.Debug("Stopping Scheduled Prevote Timeout")
 	if c.prevoteTimeout.started {
 		if stopped := c.prevoteTimeout.stopTimer(); !stopped {
 			return errNilPrecommitSent
