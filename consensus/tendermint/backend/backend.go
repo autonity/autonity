@@ -294,6 +294,7 @@ func (sb *Backend) ReSend(numberOfWorkers int) {
 func (sb *Backend) workerSendLoop() {
 	for msgToPeers := range sb.resend {
 		if int(time.Now().Sub(msgToPeers.startTime).Seconds()) > TTL {
+			sb.logger.Info("worker loop. TTL expired", "msg", msgToPeers)
 			continue
 		}
 
@@ -304,7 +305,7 @@ func (sb *Backend) workerSendLoop() {
 			m[p] = true
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		ps, notConnected := sb.broadcaster.FindPeers(m)
 
 		peersStr := fmt.Sprintf("peers %d: ", len(notConnected))
@@ -347,6 +348,7 @@ func (sb *Backend) workerSendLoop() {
 		}
 
 		if int(time.Now().Sub(msgToPeers.startTime).Seconds()) > TTL {
+			sb.logger.Info("worker loop. TTL expired", "msg", msgToPeers)
 			continue
 		}
 		if len(notConnected) > 0 {
