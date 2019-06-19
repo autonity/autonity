@@ -180,6 +180,8 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 		}
 
 		if len(notConnected) > 0 {
+			sb.logger.Info("gossip. got not connected peers", "peers", notConnected)
+
 			sb.resend <- messageToPeers{
 				message{
 					hash,
@@ -210,18 +212,19 @@ type peerError struct {
 
 func (sb *Backend) sendToPeer(ctx context.Context, cancelFunc context.CancelFunc, addr common.Address, hash common.Hash, payload []byte, p consensus.Peer) chan error {
 	ms, ok := sb.recentMessages.Get(addr)
+	errCh := make(chan error, 1)
 	var m *lru.ARCCache
 	if ok {
 		m, _ = ms.(*lru.ARCCache)
 		if _, k := m.Get(hash); k {
 			// This peer had this event, skip it
-			return nil
+			errCh <- nil
+			return errCh
 		}
 	} else {
 		m, _ = lru.NewARC(inmemoryMessages)
 	}
 
-	errCh := make(chan error, 1)
 	go func(p consensus.Peer, m *lru.ARCCache) {
 		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
@@ -232,6 +235,8 @@ func (sb *Backend) sendToPeer(ctx context.Context, cancelFunc context.CancelFunc
 		for {
 			select {
 			case <-ticker.C:
+				sb.logger.Info("inner sender loop", "msg", payload)
+
 				if err := p.Send(tendermintMsg, payload); err != nil {
 					err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + err.Error()), addr}
 				} else {
@@ -275,6 +280,8 @@ func (sb *Backend) workerSendLoop() {
 			continue
 		}
 
+		sb.logger.Info("worker loop. resending", "msg", msgToPeers)
+
 		m := make(map[common.Address]bool)
 		for _, p := range msgToPeers.peers {
 			m[p] = true
@@ -282,6 +289,7 @@ func (sb *Backend) workerSendLoop() {
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		ps, notConnected := sb.broadcaster.FindPeers(m)
+		sb.logger.Info("worker loop. got not connected peers", "peers", notConnected)
 
 		var errChs []chan error
 		if sb.broadcaster != nil && len(ps) > 0 {
@@ -320,6 +328,8 @@ func (sb *Backend) workerSendLoop() {
 			continue
 		}
 		if len(notConnected) > 0 {
+			sb.logger.Info("worker loop. got not connected and error peers", "peers", notConnected)
+
 			sb.resend <- messageToPeers{
 				message{
 					msgToPeers.msg.hash,
