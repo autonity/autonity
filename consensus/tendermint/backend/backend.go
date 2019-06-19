@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -180,9 +181,7 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 		}
 
 		if len(notConnected) > 0 {
-			sb.logger.Info("gossip. got not connected peers", "peers", notConnected)
-
-			sb.resend <- messageToPeers{
+			msg := messageToPeers{
 				message{
 					hash,
 					payload,
@@ -190,6 +189,10 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 				notConnected,
 				time.Now(),
 			}
+
+			sb.logger.Info("gossip. got not connected peers", "msg", msg.String())
+
+			sb.resend <- msg
 		}
 	}
 }
@@ -198,6 +201,18 @@ type messageToPeers struct {
 	msg       message
 	peers     []common.Address
 	startTime time.Time
+}
+
+func (m messageToPeers) String() string {
+	msg := fmt.Sprintf("msg hash %s   length %d", m.msg.hash.String(), len(m.msg.payload))
+	t := fmt.Sprintf("time %s", m.startTime.String())
+
+	peers := fmt.Sprintf("peers %d: ", len(m.peers))
+	for _, p := range m.peers {
+		peers = fmt.Sprintf("%s%s ", peers, p.Hex())
+	}
+
+	return fmt.Sprintf("%s %s %s", msg, t, peers)
 }
 
 type message struct {
@@ -289,7 +304,12 @@ func (sb *Backend) workerSendLoop() {
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		ps, notConnected := sb.broadcaster.FindPeers(m)
-		sb.logger.Info("worker loop. got not connected peers", "peers", notConnected)
+
+		peersStr := fmt.Sprintf("peers %d: ", len(notConnected))
+		for _, p := range notConnected {
+			peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
+		}
+		sb.logger.Info("worker loop. got not connected peers", "peers", peersStr)
 
 		var errChs []chan error
 		if sb.broadcaster != nil && len(ps) > 0 {
@@ -328,9 +348,7 @@ func (sb *Backend) workerSendLoop() {
 			continue
 		}
 		if len(notConnected) > 0 {
-			sb.logger.Info("worker loop. got not connected and error peers", "peers", notConnected)
-
-			sb.resend <- messageToPeers{
+			msg := messageToPeers{
 				message{
 					msgToPeers.msg.hash,
 					msgToPeers.msg.payload,
@@ -338,6 +356,10 @@ func (sb *Backend) workerSendLoop() {
 				notConnected,
 				msgToPeers.startTime,
 			}
+
+			sb.logger.Info("worker loop. got not connected and error peers", "msg", msg.String())
+
+			sb.resend <- msg
 		}
 	}
 }
