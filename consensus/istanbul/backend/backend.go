@@ -155,10 +155,10 @@ func (sb *Backend) Gossip(valSet istanbul.ValidatorSet, payload []byte) error {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
-	targets := make(map[common.Address]bool)
+	targets := make(map[common.Address]struct{})
 	for _, val := range valSet.List() {
 		if val.Address() != sb.Address() {
-			targets[val.Address()] = true
+			targets[val.Address()] = struct{}{}
 		}
 	}
 
