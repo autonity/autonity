@@ -245,12 +245,14 @@ func (sb *Backend) sendToPeer(ctx context.Context, cancelFunc context.CancelFunc
 		defer ticker.Stop()
 
 		var err error
+		var try int
 
 	SenderLoop:
 		for {
 			select {
 			case <-ticker.C:
-				sb.logger.Info("inner sender loop", "msg", payload)
+				sb.logger.Info("inner sender loop", "try", try, "peer", addr.Hex(), "msg", hash.Hex())
+				try++
 
 				if err := p.Send(tendermintMsg, payload); err != nil {
 					err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + err.Error()), addr}
