@@ -17,7 +17,9 @@
 package backend
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -83,8 +85,12 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
+		resend:         make(chan messageToPeers, 1024),
 	}
 	backend.core = tendermintCore.New(backend, backend.config)
+
+	go backend.ReSend(10)
+
 	return backend
 }
 
@@ -121,6 +127,8 @@ type Backend struct {
 	somaContract      common.Address // Ethereum address of the governance contract
 	glienickeContract common.Address // Ethereum address of the white list contract
 	vmConfig          *vm.Config
+
+	resend chan messageToPeers
 }
 
 // Address implements tendermint.Backend.Address
@@ -149,6 +157,8 @@ func (sb *Backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) err
 	return nil
 }
 
+const TTL = 10 //seconds
+
 // Broadcast implements tendermint.Backend.Gossip
 func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 	hash := types.RLPHash(payload)
@@ -161,29 +171,163 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 		}
 	}
 
-	if sb.broadcaster != nil && len(targets) > 0 {
-		ps := sb.broadcaster.FindPeers(targets)
-		for addr, p := range ps {
-			ms, ok := sb.recentMessages.Get(addr)
-			var m *lru.ARCCache
-			if ok {
-				m, _ = ms.(*lru.ARCCache)
-				if _, k := m.Get(hash); k {
-					// This peer had this event, skip it
-					continue
-				}
-			} else {
-				m, _ = lru.NewARC(inmemoryMessages)
-			}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 
+	if sb.broadcaster != nil && len(targets) > 0 {
+		ps, notConnected := sb.broadcaster.FindPeers(targets)
+		for addr, p := range ps {
+			sb.sendToPeer(ctx, cancel, addr, hash, payload, p)
+		}
+
+		if len(notConnected) > 0 {
+			sb.resend <- messageToPeers{
+				message{
+					hash,
+					payload,
+				},
+				notConnected,
+				time.Now(),
+			}
+		}
+	}
+}
+
+type messageToPeers struct {
+	msg       message
+	peers     []common.Address
+	startTime time.Time
+}
+
+type message struct {
+	hash    common.Hash
+	payload []byte
+}
+
+type peerError struct {
+	error
+	addr common.Address
+}
+
+func (sb *Backend) sendToPeer(ctx context.Context, cancelFunc context.CancelFunc, addr common.Address, hash common.Hash, payload []byte, p consensus.Peer) chan error {
+	ms, ok := sb.recentMessages.Get(addr)
+	var m *lru.ARCCache
+	if ok {
+		m, _ = ms.(*lru.ARCCache)
+		if _, k := m.Get(hash); k {
+			// This peer had this event, skip it
+			return nil
+		}
+	} else {
+		m, _ = lru.NewARC(inmemoryMessages)
+	}
+
+	errCh := make(chan error, 1)
+	go func(p consensus.Peer, m *lru.ARCCache) {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+
+		var err error
+
+	SenderLoop:
+		for {
+			select {
+			case <-ticker.C:
+				if err := p.Send(tendermintMsg, payload); err != nil {
+					err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + err.Error()), addr}
+				} else {
+					err = nil
+					cancelFunc()
+					break SenderLoop
+				}
+			case <-ctx.Done():
+				err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + ctx.Err().Error()), addr}
+			}
+		}
+
+		if err == nil {
 			m.Add(hash, true)
 			sb.recentMessages.Add(addr, m)
+		}
 
-			go func(p consensus.Peer) {
-				if err := p.Send(tendermintMsg, payload); err != nil {
-					sb.logger.Error("error while sending tendermintMsg message to the peer", "err", err)
+		errCh <- err
+	}(p, m)
+
+	return errCh
+}
+
+func (sb *Backend) ReSend(numberOfWorkers int) {
+	workers := sync.WaitGroup{}
+	workers.Add(numberOfWorkers)
+
+	for i := 0; i < numberOfWorkers; i++ {
+		go func() {
+			sb.workerSendLoop()
+			workers.Done()
+		}()
+	}
+
+	workers.Wait()
+}
+
+func (sb *Backend) workerSendLoop() {
+	for msgToPeers := range sb.resend {
+		if int(time.Now().Sub(msgToPeers.startTime).Seconds()) > TTL {
+			continue
+		}
+
+		m := make(map[common.Address]bool)
+		for _, p := range msgToPeers.peers {
+			m[p] = true
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		ps, notConnected := sb.broadcaster.FindPeers(m)
+
+		var errChs []chan error
+		if sb.broadcaster != nil && len(ps) > 0 {
+			for addr, p := range ps {
+				errCh := sb.sendToPeer(ctx, cancel, addr, msgToPeers.msg.hash, msgToPeers.msg.payload, p)
+				errChs = append(errChs, errCh)
+			}
+		}
+
+		wg := sync.WaitGroup{}
+		wg.Add(len(errChs))
+		notConnectedCh := make(chan common.Address, len(errChs))
+
+		for _, errCh := range errChs {
+			go func(errCh chan error) {
+				err := <-errCh
+				if err != nil {
+					pe, ok := err.(peerError)
+					if ok {
+						notConnectedCh <- pe.addr
+
+						sb.logger.Error(pe.Error(), "peer", pe.addr)
+					}
 				}
-			}(p)
+
+				wg.Done()
+			}(errCh)
+		}
+		wg.Wait()
+
+		for addr := range notConnectedCh {
+			notConnected = append(notConnected, addr)
+		}
+
+		if int(time.Now().Sub(msgToPeers.startTime).Seconds()) > TTL {
+			continue
+		}
+		if len(notConnected) > 0 {
+			sb.resend <- messageToPeers{
+				message{
+					msgToPeers.msg.hash,
+					msgToPeers.msg.payload,
+				},
+				notConnected,
+				msgToPeers.startTime,
+			}
 		}
 	}
 }

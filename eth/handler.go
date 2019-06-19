@@ -873,8 +873,9 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	}
 }
 
-func (self *ProtocolManager) FindPeers(targets map[common.Address]bool) map[common.Address]consensus.Peer {
+func (self *ProtocolManager) FindPeers(targets map[common.Address]bool) (map[common.Address]consensus.Peer, []common.Address) {
 	m := make(map[common.Address]consensus.Peer)
+
 	for _, p := range self.peers.Peers() {
 		pubKey := p.Node().Pubkey()
 		if pubKey == nil {
@@ -885,7 +886,14 @@ func (self *ProtocolManager) FindPeers(targets map[common.Address]bool) map[comm
 			m[addr] = p
 		}
 	}
-	return m
+
+	var notConnected []common.Address
+	for addr := range targets {
+		if _, ok := m[addr]; !ok {
+			notConnected = append(notConnected, addr)
+		}
+	}
+	return m, notConnected
 }
 
 // NodeInfo represents a short summary of the Ethereum sub-protocol metadata

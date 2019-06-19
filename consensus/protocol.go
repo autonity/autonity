@@ -27,7 +27,7 @@ type Broadcaster interface {
 	// Enqueue add a block into fetcher queue
 	Enqueue(id string, block *types.Block)
 	// FindPeers retrives peers by addresses
-	FindPeers(map[common.Address]bool) map[common.Address]Peer
+	FindPeers(map[common.Address]bool) (map[common.Address]Peer, []common.Address)
 }
 
 // Peer defines the interface to communicate with peer

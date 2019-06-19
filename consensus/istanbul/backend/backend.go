@@ -163,7 +163,7 @@ func (sb *Backend) Gossip(valSet istanbul.ValidatorSet, payload []byte) error {
 	}
 
 	if sb.broadcaster != nil && len(targets) > 0 {
-		ps := sb.broadcaster.FindPeers(targets)
+		ps, _ := sb.broadcaster.FindPeers(targets)
 		for addr, p := range ps {
 			ms, ok := sb.recentMessages.Get(addr)
 			var m *lru.ARCCache
