@@ -21,6 +21,7 @@ import (
 	"errors"
 	"math"
 	"math/big"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -225,6 +226,7 @@ func (c *core) commit() {
 func (c *core) startRound(round *big.Int) {
 	defer func() {
 		if r := recover(); r != nil {
+			debug.PrintStack()
 			c.logger.Crit("panic in core.startRound", "panic", r)
 		}
 	}()

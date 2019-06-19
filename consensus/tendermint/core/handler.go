@@ -2,6 +2,7 @@ package core
 
 import (
 	"math/big"
+	"runtime/debug"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -60,6 +61,7 @@ func (c *core) handleEvents() {
 	// Clear step
 	defer func() {
 		if r := recover(); r != nil {
+			debug.PrintStack()
 			c.logger.Crit("panic in core.handleEvents", "panic", r)
 		}
 
