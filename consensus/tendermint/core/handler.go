@@ -60,7 +60,7 @@ func (c *core) handleEvents() {
 	// Clear step
 	defer func() {
 		if r := recover(); r != nil {
-			c.logger.Error("panic in core.handleEvents", "panic", r)
+			c.logger.Crit("panic in core.handleEvents", "panic", r)
 		}
 
 		c.currentRoundState = nil

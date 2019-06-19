@@ -225,7 +225,7 @@ func (c *core) commit() {
 func (c *core) startRound(round *big.Int) {
 	defer func() {
 		if r := recover(); r != nil {
-			c.logger.Error("panic in core.startRound", "panic", r)
+			c.logger.Crit("panic in core.startRound", "panic", r)
 		}
 	}()
 
