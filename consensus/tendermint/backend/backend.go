@@ -165,16 +165,16 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
-	targets := make(map[common.Address]bool)
+	targets := make(map[common.Address]struct{})
 	for _, val := range valSet.List() {
 		if val.Address() != sb.Address() {
-			targets[val.Address()] = true
+			targets[val.Address()] = struct{}{}
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-
 	if sb.broadcaster != nil && len(targets) > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+
 		ps, notConnected := sb.broadcaster.FindPeers(targets)
 		for addr, p := range ps {
 			sb.sendToPeer(ctx, cancel, addr, hash, payload, p)
@@ -267,6 +267,7 @@ func (sb *Backend) sendToPeer(ctx context.Context, cancelFunc context.CancelFunc
 				}
 			case <-ctx.Done():
 				err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + ctx.Err().Error()), addr}
+				break SenderLoop
 			}
 		}
 
@@ -297,19 +298,18 @@ func (sb *Backend) ReSend(numberOfWorkers int) {
 
 func (sb *Backend) workerSendLoop() {
 	for msgToPeers := range sb.resend {
-		if int(time.Now().Sub(msgToPeers.startTime).Seconds()) > TTL {
+		if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
 			sb.logger.Info("worker loop. TTL expired", "msg", msgToPeers)
 			continue
 		}
 
 		sb.logger.Info("worker loop. resending", "msg", msgToPeers)
 
-		m := make(map[common.Address]bool)
+		m := make(map[common.Address]struct{})
 		for _, p := range msgToPeers.peers {
-			m[p] = true
+			m[p] = struct{}{}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		ps, notConnected := sb.broadcaster.FindPeers(m)
 
 		peersStr := fmt.Sprintf("peers %d: ", len(notConnected))
@@ -320,6 +320,8 @@ func (sb *Backend) workerSendLoop() {
 
 		var errChs []chan error
 		if sb.broadcaster != nil && len(ps) > 0 {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
 			for addr, p := range ps {
 				errCh := sb.sendToPeer(ctx, cancel, addr, msgToPeers.msg.hash, msgToPeers.msg.payload, p)
 				errChs = append(errChs, errCh)
@@ -351,7 +353,7 @@ func (sb *Backend) workerSendLoop() {
 			notConnected = append(notConnected, addr)
 		}
 
-		if int(time.Now().Sub(msgToPeers.startTime).Seconds()) > TTL {
+		if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
 			sb.logger.Info("worker loop. TTL expired", "msg", msgToPeers)
 			continue
 		}

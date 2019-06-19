@@ -35,7 +35,7 @@ func (c *core) sendPrevote(isNil bool) {
 	})
 }
 
-func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
+func (c *core) handlePrevote(msg *message, _ tendermint.Validator) error {
 	var prevote *tendermint.Vote
 	err := msg.Decode(&prevote)
 	if err != nil {
