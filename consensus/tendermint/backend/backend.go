@@ -254,11 +254,15 @@ func (sb *Backend) sendToPeer(ctx context.Context, cancelFunc context.CancelFunc
 				sb.logger.Info("inner sender loop", "try", try, "peer", addr.Hex(), "msg", hash.Hex())
 				try++
 
-				if err := p.Send(tendermintMsg, payload); err != nil {
+				if err = p.Send(tendermintMsg, payload); err != nil {
 					err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + err.Error()), addr}
+
+					sb.logger.Info("inner sender loop. error", "try", try, "peer", addr.Hex(), "msg", hash.Hex(), "err", err.Error())
 				} else {
 					err = nil
 					cancelFunc()
+
+					sb.logger.Info("inner sender loop. success", "try", try, "peer", addr.Hex(), "msg", hash.Hex())
 					break SenderLoop
 				}
 			case <-ctx.Done():
