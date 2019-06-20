@@ -212,7 +212,7 @@ type peerError struct {
 	addr common.Address
 }
 
-func (sb *Backend) sendToPeer(ctx context.Context, cancelFunc context.CancelFunc, addr common.Address, hash common.Hash, payload []byte, p consensus.Peer) chan error {
+func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash common.Hash, payload []byte, p consensus.Peer) chan error {
 	ms, ok := sb.recentMessages.Get(addr)
 	errCh := make(chan error, 1)
 	var m *lru.ARCCache
@@ -247,7 +247,6 @@ func (sb *Backend) sendToPeer(ctx context.Context, cancelFunc context.CancelFunc
 					sb.logger.Info("inner sender loop. error", "try", try, "peer", addr.Hex(), "msg", hash.Hex(), "err", err.Error())
 				} else {
 					err = nil
-					cancelFunc()
 
 					sb.logger.Info("inner sender loop. success", "try", try, "peer", addr.Hex(), "msg", hash.Hex())
 					break SenderLoop
@@ -315,9 +314,10 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 	if sb.broadcaster != nil && len(ps) > 0 {
 		var errChs []chan error
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
 		for addr, p := range ps {
-			errCh := sb.sendToPeer(ctx, cancel, addr, msgToPeers.msg.hash, msgToPeers.msg.payload, p)
+			errCh := sb.sendToPeer(ctx, addr, msgToPeers.msg.hash, msgToPeers.msg.payload, p)
 			errChs = append(errChs, errCh)
 		}
 
