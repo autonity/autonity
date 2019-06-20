@@ -165,35 +165,22 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
-	targets := make(map[common.Address]struct{})
+	var targets []common.Address
 	for _, val := range valSet.List() {
 		if val.Address() != sb.Address() {
-			targets[val.Address()] = struct{}{}
+			targets = append(targets, val.Address())
 		}
 	}
 
 	if sb.broadcaster != nil && len(targets) > 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-
-		ps, notConnected := sb.broadcaster.FindPeers(targets)
-		for addr, p := range ps {
-			sb.sendToPeer(ctx, cancel, addr, hash, payload, p)
-		}
-
-		if len(notConnected) > 0 {
-			msg := messageToPeers{
-				message{
-					hash,
-					payload,
-				},
-				notConnected,
-				time.Now(),
-			}
-
-			sb.logger.Info("gossip. got not connected peers", "msg", msg.String())
-
-			sb.resend <- msg
-		}
+		sb.trySend(messageToPeers{
+			message{
+				hash,
+				payload,
+			},
+			targets,
+			time.Now(),
+		})
 	}
 }
 
@@ -298,79 +285,84 @@ func (sb *Backend) ReSend(numberOfWorkers int) {
 
 func (sb *Backend) workerSendLoop() {
 	for msgToPeers := range sb.resend {
-		if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
-			sb.logger.Info("worker loop. TTL expired", "msg", msgToPeers)
-			continue
+		sb.trySend(msgToPeers)
+	}
+}
+
+func (sb *Backend) trySend(msgToPeers messageToPeers) {
+	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
+		sb.logger.Info("worker loop. TTL expired", "msg", msgToPeers)
+		return
+	}
+
+	sb.logger.Info("worker loop. resending", "msg", msgToPeers)
+
+	m := make(map[common.Address]struct{})
+	for _, p := range msgToPeers.peers {
+		m[p] = struct{}{}
+	}
+
+	ps, notConnected := sb.broadcaster.FindPeers(m)
+	peersStr := fmt.Sprintf("peers %d: ", len(notConnected))
+	for _, p := range notConnected {
+		peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
+	}
+
+	sb.logger.Info("worker loop. got not connected peers", "peers", peersStr)
+
+	var errChs []chan error
+	if sb.broadcaster != nil && len(ps) > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+		for addr, p := range ps {
+			errCh := sb.sendToPeer(ctx, cancel, addr, msgToPeers.msg.hash, msgToPeers.msg.payload, p)
+			errChs = append(errChs, errCh)
 		}
+	}
 
-		sb.logger.Info("worker loop. resending", "msg", msgToPeers)
+	wg := sync.WaitGroup{}
+	wg.Add(len(errChs))
+	notConnectedCh := make(chan common.Address, len(errChs))
+	for _, errCh := range errChs {
+		go func(errCh chan error) {
+			err := <-errCh
+			if err != nil {
+				pe, ok := err.(peerError)
+				if ok {
+					notConnectedCh <- pe.addr
 
-		m := make(map[common.Address]struct{})
-		for _, p := range msgToPeers.peers {
-			m[p] = struct{}{}
-		}
-
-		ps, notConnected := sb.broadcaster.FindPeers(m)
-
-		peersStr := fmt.Sprintf("peers %d: ", len(notConnected))
-		for _, p := range notConnected {
-			peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
-		}
-		sb.logger.Info("worker loop. got not connected peers", "peers", peersStr)
-
-		var errChs []chan error
-		if sb.broadcaster != nil && len(ps) > 0 {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-			for addr, p := range ps {
-				errCh := sb.sendToPeer(ctx, cancel, addr, msgToPeers.msg.hash, msgToPeers.msg.payload, p)
-				errChs = append(errChs, errCh)
-			}
-		}
-
-		wg := sync.WaitGroup{}
-		wg.Add(len(errChs))
-		notConnectedCh := make(chan common.Address, len(errChs))
-
-		for _, errCh := range errChs {
-			go func(errCh chan error) {
-				err := <-errCh
-				if err != nil {
-					pe, ok := err.(peerError)
-					if ok {
-						notConnectedCh <- pe.addr
-
-						sb.logger.Error(pe.Error(), "peer", pe.addr)
-					}
+					sb.logger.Error(pe.Error(), "peer", pe.addr)
 				}
-
-				wg.Done()
-			}(errCh)
-		}
-		wg.Wait()
-
-		for addr := range notConnectedCh {
-			notConnected = append(notConnected, addr)
-		}
-
-		if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
-			sb.logger.Info("worker loop. TTL expired", "msg", msgToPeers)
-			continue
-		}
-		if len(notConnected) > 0 {
-			msg := messageToPeers{
-				message{
-					msgToPeers.msg.hash,
-					msgToPeers.msg.payload,
-				},
-				notConnected,
-				msgToPeers.startTime,
 			}
 
-			sb.logger.Info("worker loop. got not connected and error peers", "msg", msg.String())
+			wg.Done()
+		}(errCh)
+	}
 
-			sb.resend <- msg
+	wg.Wait()
+
+	for addr := range notConnectedCh {
+		notConnected = append(notConnected, addr)
+	}
+
+	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
+		sb.logger.Info("worker loop. TTL expired", "msg", msgToPeers)
+		return
+	}
+
+	if len(notConnected) > 0 {
+		msg := messageToPeers{
+			message{
+				msgToPeers.msg.hash,
+				msgToPeers.msg.payload,
+			},
+			notConnected,
+			msgToPeers.startTime,
 		}
+
+		sb.logger.Info("worker loop. got not connected and error peers", "msg", msg.String())
+
+		sb.resend <- msg
 	}
 }
 
