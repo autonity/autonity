@@ -303,12 +303,14 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 	}
 
 	ps, notConnected := sb.broadcaster.FindPeers(m)
-	peersStr := fmt.Sprintf("peers %d: ", len(notConnected))
-	for _, p := range notConnected {
-		peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
-	}
+	if len(notConnected) > 0 {
+		peersStr := fmt.Sprintf("peers %d: ", len(notConnected))
+		for _, p := range notConnected {
+			peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
+		}
 
-	sb.logger.Info("worker loop. got not connected peers", "peers", peersStr)
+		sb.logger.Info("worker loop. got not connected peers", "peers", peersStr)
+	}
 
 	var errChs []chan error
 	if sb.broadcaster != nil && len(ps) > 0 {
