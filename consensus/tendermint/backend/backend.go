@@ -86,11 +86,8 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
-		resend:         make(chan messageToPeers, 1024),
 	}
 	backend.core = tendermintCore.New(backend, backend.config)
-
-	go backend.ReSend(10)
 
 	return backend
 }
