@@ -36,7 +36,7 @@ func (c *core) sendPrecommit(isNil bool) {
 }
 
 // TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
-func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error {
+func (c *core) handlePrecommit(msg *message, _ tendermint.Validator) error {
 	var precommit *tendermint.Vote
 	err := msg.Decode(&precommit)
 	if err != nil {

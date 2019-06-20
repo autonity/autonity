@@ -485,6 +485,10 @@ func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	}
 
 	sb.coreStarted = true
+
+	sb.resend = make(chan messageToPeers, 1024)
+	go sb.ReSend(10)
+
 	return nil
 }
 
@@ -499,6 +503,9 @@ func (sb *Backend) Close() error {
 		return err
 	}
 	sb.coreStarted = false
+
+	close(sb.resend)
+
 	return nil
 }
 

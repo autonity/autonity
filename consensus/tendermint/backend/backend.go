@@ -17,7 +17,10 @@
 package backend
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -85,6 +88,7 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 		vmConfig:       vmConfig,
 	}
 	backend.core = tendermintCore.New(backend, backend.config)
+
 	return backend
 }
 
@@ -121,6 +125,8 @@ type Backend struct {
 	somaContract      common.Address // Ethereum address of the governance contract
 	glienickeContract common.Address // Ethereum address of the white list contract
 	vmConfig          *vm.Config
+
+	resend chan messageToPeers
 }
 
 // Address implements tendermint.Backend.Address
@@ -149,42 +155,215 @@ func (sb *Backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) err
 	return nil
 }
 
+const TTL = 10 //seconds
+
 // Broadcast implements tendermint.Backend.Gossip
 func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
-	targets := make(map[common.Address]bool)
+	var targets []common.Address
 	for _, val := range valSet.List() {
 		if val.Address() != sb.Address() {
-			targets[val.Address()] = true
+			targets = append(targets, val.Address())
 		}
 	}
 
 	if sb.broadcaster != nil && len(targets) > 0 {
-		ps := sb.broadcaster.FindPeers(targets)
-		for addr, p := range ps {
-			ms, ok := sb.recentMessages.Get(addr)
-			var m *lru.ARCCache
-			if ok {
-				m, _ = ms.(*lru.ARCCache)
-				if _, k := m.Get(hash); k {
-					// This peer had this event, skip it
-					continue
-				}
-			} else {
-				m, _ = lru.NewARC(inmemoryMessages)
-			}
+		sb.trySend(messageToPeers{
+			message{
+				hash,
+				payload,
+			},
+			targets,
+			time.Now(),
+		})
+	}
+}
 
+type messageToPeers struct {
+	msg       message
+	peers     []common.Address
+	startTime time.Time
+}
+
+func (m messageToPeers) String() string {
+	msg := fmt.Sprintf("msg hash %s   length %d", m.msg.hash.String(), len(m.msg.payload))
+	t := fmt.Sprintf("time %s", m.startTime.String())
+
+	peers := fmt.Sprintf("peers %d: ", len(m.peers))
+	for _, p := range m.peers {
+		peers = fmt.Sprintf("%s%s ", peers, p.Hex())
+	}
+
+	return fmt.Sprintf("%s %s %s", msg, t, peers)
+}
+
+type message struct {
+	hash    common.Hash
+	payload []byte
+}
+
+type peerError struct {
+	error
+	addr common.Address
+}
+
+func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash common.Hash, payload []byte, p consensus.Peer) chan error {
+	ms, ok := sb.recentMessages.Get(addr)
+	errCh := make(chan error, 1)
+	var m *lru.ARCCache
+	if ok {
+		m, _ = ms.(*lru.ARCCache)
+		if _, k := m.Get(hash); k {
+			// This peer had this event, skip it
+			errCh <- nil
+			return errCh
+		}
+	} else {
+		m, _ = lru.NewARC(inmemoryMessages)
+	}
+
+	go func(p consensus.Peer, m *lru.ARCCache) {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+
+		var err error
+		var try int
+
+	SenderLoop:
+		for {
+			select {
+			case <-ticker.C:
+				sb.logger.Info("inner sender loop", "try", try, "peer", addr.Hex(), "msg", hash.Hex())
+				try++
+
+				if err = p.Send(tendermintMsg, payload); err != nil {
+					err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + err.Error()), addr}
+
+					sb.logger.Info("inner sender loop. error", "try", try, "peer", addr.Hex(), "msg", hash.Hex(), "err", err.Error())
+				} else {
+					err = nil
+
+					sb.logger.Info("inner sender loop. success", "try", try, "peer", addr.Hex(), "msg", hash.Hex())
+					break SenderLoop
+				}
+			case <-ctx.Done():
+				err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + ctx.Err().Error()), addr}
+				break SenderLoop
+			}
+		}
+
+		if err == nil {
 			m.Add(hash, true)
 			sb.recentMessages.Add(addr, m)
-
-			go func(p consensus.Peer) {
-				if err := p.Send(tendermintMsg, payload); err != nil {
-					sb.logger.Error("error while sending tendermintMsg message to the peer", "err", err)
-				}
-			}(p)
 		}
+
+		errCh <- err
+	}(p, m)
+
+	return errCh
+}
+
+func (sb *Backend) ReSend(numberOfWorkers int) {
+	workers := sync.WaitGroup{}
+	workers.Add(numberOfWorkers)
+
+	for i := 0; i < numberOfWorkers; i++ {
+		go func() {
+			sb.workerSendLoop()
+			workers.Done()
+		}()
+	}
+
+	workers.Wait()
+}
+
+func (sb *Backend) workerSendLoop() {
+	for msgToPeers := range sb.resend {
+		sb.trySend(msgToPeers)
+	}
+}
+
+func (sb *Backend) trySend(msgToPeers messageToPeers) {
+	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
+		sb.logger.Info("worker loop. TTL expired", "msg", msgToPeers)
+		return
+	}
+
+	sb.logger.Info("worker loop. resending", "msg", msgToPeers)
+
+	m := make(map[common.Address]struct{})
+	for _, p := range msgToPeers.peers {
+		m[p] = struct{}{}
+	}
+
+	ps, notConnected := sb.broadcaster.FindPeers(m)
+	if len(notConnected) > 0 {
+		peersStr := fmt.Sprintf("peers %d: ", len(notConnected))
+		for _, p := range notConnected {
+			peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
+		}
+
+		sb.logger.Info("worker loop. got not connected peers", "peers", peersStr)
+	}
+
+	if sb.broadcaster != nil && len(ps) > 0 {
+		var errChs []chan error
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		for addr, p := range ps {
+			errCh := sb.sendToPeer(ctx, addr, msgToPeers.msg.hash, msgToPeers.msg.payload, p)
+			errChs = append(errChs, errCh)
+		}
+
+		wg := sync.WaitGroup{}
+		wg.Add(len(ps))
+		notConnectedCh := make(chan common.Address, len(ps))
+
+		for _, errCh := range errChs {
+			go func(errCh chan error) {
+				err := <-errCh
+				if err != nil {
+					pe, ok := err.(peerError)
+					if ok {
+						notConnectedCh <- pe.addr
+
+						sb.logger.Error(pe.Error(), "peer", pe.addr)
+					}
+				}
+
+				wg.Done()
+			}(errCh)
+		}
+
+		wg.Wait()
+		close(notConnectedCh)
+
+		for addr := range notConnectedCh {
+			notConnected = append(notConnected, addr)
+		}
+	}
+
+	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
+		sb.logger.Info("worker loop. TTL expired", "msg", msgToPeers)
+		return
+	}
+
+	if len(notConnected) > 0 {
+		msg := messageToPeers{
+			message{
+				msgToPeers.msg.hash,
+				msgToPeers.msg.payload,
+			},
+			notConnected,
+			msgToPeers.startTime,
+		}
+
+		sb.logger.Info("worker loop. got not connected and error peers", "msg", msg.String())
+
+		sb.resend <- msg
 	}
 }
 
