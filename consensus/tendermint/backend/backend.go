@@ -318,31 +318,33 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 			errCh := sb.sendToPeer(ctx, cancel, addr, msgToPeers.msg.hash, msgToPeers.msg.payload, p)
 			errChs = append(errChs, errCh)
 		}
-	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(errChs))
-	notConnectedCh := make(chan common.Address, len(errChs))
-	for _, errCh := range errChs {
-		go func(errCh chan error) {
-			err := <-errCh
-			if err != nil {
-				pe, ok := err.(peerError)
-				if ok {
-					notConnectedCh <- pe.addr
+		wg := sync.WaitGroup{}
+		wg.Add(len(ps))
+		notConnectedCh := make(chan common.Address, len(ps))
 
-					sb.logger.Error(pe.Error(), "peer", pe.addr)
+		for _, errCh := range errChs {
+			go func(errCh chan error) {
+				err := <-errCh
+				if err != nil {
+					pe, ok := err.(peerError)
+					if ok {
+						notConnectedCh <- pe.addr
+
+						sb.logger.Error(pe.Error(), "peer", pe.addr)
+					}
 				}
-			}
 
-			wg.Done()
-		}(errCh)
-	}
+				wg.Done()
+			}(errCh)
+		}
 
-	wg.Wait()
+		wg.Wait()
+		close(notConnectedCh)
 
-	for addr := range notConnectedCh {
-		notConnected = append(notConnected, addr)
+		for addr := range notConnectedCh {
+			notConnected = append(notConnected, addr)
+		}
 	}
 
 	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
