@@ -190,7 +190,7 @@ func (c *core) broadcast(msg *message) {
 	}
 
 	// Broadcast payload
-	logger.Info("broadcasting", "msg", msg.String())
+	logger.Debug("broadcasting", "msg", msg.String())
 	if err = c.backend.Broadcast(c.valSet, payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return

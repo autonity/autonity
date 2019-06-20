@@ -95,6 +95,7 @@ func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
 	c.logger.Debug("NewUnminedBlockEvent: Received",
 		"from", c.address.String(),
 		"type", "New Unmined Block",
+		"hash", ub.Hash(),
 		"currentHeight", c.currentRoundState.Height(),
 		"currentRound", c.currentRoundState.Round(),
 		"currentStep", c.step,
