@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	initialProposeTimeout   = 5 * time.Second
-	initialPrevoteTimeout   = 5 * time.Second
-	initialPrecommitTimeout = 5 * time.Second
+	initialProposeTimeout   = 10 * time.Second
+	initialPrevoteTimeout   = 10 * time.Second
+	initialPrecommitTimeout = 10 * time.Second
 )
 
 type timeoutEvent struct {
@@ -45,12 +45,12 @@ func (t *timeout) stopTimer() bool {
 }
 
 func (c *core) logTimeoutEvent(message string, msgType string, timeout timeoutEvent) {
-	c.logger.Info(message,
+	c.logger.Debug(message,
 		"from", c.address.String(),
 		"type", msgType,
-		"currentHeight", c.currentRoundState.height,
+		"currentHeight", c.currentRoundState.Height(),
 		"msgHeight", timeout.heightWhenCalled,
-		"currentRound", c.currentRoundState.round,
+		"currentRound", c.currentRoundState.Round(),
 		"msgRound", timeout.roundWhenCalled,
 		"currentStep", c.step,
 		"msgStep", timeout.step,
@@ -116,7 +116,7 @@ func (c *core) handleTimeoutPrecommit(msg timeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 
-		c.startRound(new(big.Int).Add(c.currentRoundState.Height(), common.Big1))
+		go c.startRound(new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
 	}
 }
 

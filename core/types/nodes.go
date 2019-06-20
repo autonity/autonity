@@ -36,7 +36,7 @@ func NewNodes(strList []string, openNetwork bool) *Nodes {
 		wg.Add(1)
 
 		go func(enodeStr string) {
-			log.Error("performing", "node", enodeStr)
+			log.Debug("performing", "node", enodeStr)
 			newEnode, err := cache.Get(enodeStr, getEnode)
 			if err != nil {
 				errCh <- err

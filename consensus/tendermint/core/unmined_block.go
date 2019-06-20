@@ -19,11 +19,15 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 
 	c.logNewUnminedBlockEvent(unminedBlock)
 
-	// This will be only true until it is first populated
-	if c.latestPendingUnminedBlock == nil {
-		close(c.firstUnminedBlockCh)
-	}
+	c.latestPendingUnminedBlockMu.Lock()
+	wasNilOrDiffHeight := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height()
 	c.latestPendingUnminedBlock = unminedBlock
+	c.latestPendingUnminedBlockMu.Unlock()
+
+	if wasNilOrDiffHeight {
+		c.unminedBlockCh <- struct{}{}
+	}
+
 	return nil
 }
 
@@ -36,7 +40,7 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 		return errInvalidMessage
 	}
 
-	if c := c.currentRoundState.height.Cmp(unminedBlock.Number()); c > 0 {
+	if c := c.currentRoundState.Height().Cmp(unminedBlock.Number()); c > 0 {
 		// TODO: probably delete this case?
 		return errOldHeightMessage
 	} else if c < 0 {
@@ -88,11 +92,12 @@ func (c *core) processPendingRequests() {
 }
 
 func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
-	c.logger.Info("NewUnminedBlockEvent: Received",
+	c.logger.Debug("NewUnminedBlockEvent: Received",
 		"from", c.address.String(),
 		"type", "New Unmined Block",
-		"currentHeight", c.currentRoundState.height,
-		"currentRound", c.currentRoundState.round,
+		"hash", ub.Hash(),
+		"currentHeight", c.currentRoundState.Height(),
+		"currentRound", c.currentRoundState.Round(),
 		"currentStep", c.step,
 		"currentProposer", c.isProposer(),
 		"msgHeight", ub.Header().Number.Uint64(),

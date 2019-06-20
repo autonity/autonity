@@ -2,6 +2,7 @@ package core
 
 import (
 	"math/big"
+	"runtime/debug"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -59,6 +60,11 @@ func (c *core) unsubscribeEvents() {
 func (c *core) handleEvents() {
 	// Clear step
 	defer func() {
+		if r := recover(); r != nil {
+			debug.PrintStack()
+			c.logger.Crit("panic in core.handleEvents", "panic", r)
+		}
+
 		c.currentRoundState = nil
 		<-c.handlerStopCh
 	}()
@@ -174,7 +180,7 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
 
 			if totalFutureRoundMessages >= int64(c.valSet.F()) {
-				c.startRound(big.NewInt(msgRound))
+				go c.startRound(big.NewInt(msgRound))
 			}
 
 		}
@@ -187,11 +193,11 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 
 	switch msg.Code {
 	case msgProposal:
-		return testBacklog(c.handleProposal(msg, sender))
+		return testBacklog(c.handleProposal(msg))
 	case msgPrevote:
-		return testBacklog(c.handlePrevote(msg, sender))
+		return testBacklog(c.handlePrevote(msg))
 	case msgPrecommit:
-		return testBacklog(c.handlePrecommit(msg, sender))
+		return testBacklog(c.handlePrecommit(msg))
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}
