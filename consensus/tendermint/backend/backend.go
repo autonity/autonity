@@ -312,8 +312,8 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 		sb.logger.Info("worker loop. got not connected peers", "peers", peersStr)
 	}
 
-	var errChs []chan error
 	if sb.broadcaster != nil && len(ps) > 0 {
+		var errChs []chan error
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 		for addr, p := range ps {
