@@ -156,6 +156,7 @@ func (sb *Backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) err
 }
 
 const TTL = 10 //seconds
+const retryInterval = 100 //milliseconds
 
 // Broadcast implements tendermint.Backend.Gossip
 func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
@@ -227,7 +228,7 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 	}
 
 	go func(p consensus.Peer, m *lru.ARCCache) {
-		ticker := time.NewTicker(100 * time.Millisecond)
+		ticker := time.NewTicker(retryInterval * time.Millisecond)
 		defer ticker.Stop()
 
 		var err error
@@ -293,8 +294,8 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 		return
 	}
 
-	if time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/100000 < 100 {
-		//100ms - too early for resend
+	if time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/1000000 < retryInterval {
+		//too early for resend
 		sb.resend <- messageToPeers{
 			message{
 				msgToPeers.msg.hash,
@@ -327,7 +328,7 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 
 	if sb.broadcaster != nil && len(ps) > 0 {
 		var errChs []chan error
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), TTL*time.Second)
 		defer cancel()
 
 		for addr, p := range ps {
