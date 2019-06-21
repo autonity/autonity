@@ -294,7 +294,9 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 		return
 	}
 
-	if time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) < retryInterval {
+	if time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) < retryInterval &&
+		time.Since(msgToPeers.startTime).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) > retryInterval {
+
 		//too early for resend
 		sb.resend <- msgToPeers
 
