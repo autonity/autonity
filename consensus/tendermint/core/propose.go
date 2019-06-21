@@ -20,6 +20,12 @@ func (c *core) sendProposal(p *types.Block) {
 			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
 			return
 		}
+
+		if proposalBlock == nil {
+			logger.Error("send nil proposed block", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
+			return
+		}
+
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
 
