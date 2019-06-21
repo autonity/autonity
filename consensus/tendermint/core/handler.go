@@ -77,20 +77,29 @@ func (c *core) handleEvents() {
 			switch e := ev.Data.(type) {
 			case tendermint.NewUnminedBlockEvent:
 				pb := &e.NewUnminedBlock
+
 				err := c.handleUnminedBlock(pb)
-				if err == consensus.ErrFutureBlock {
+				switch err {
+				case consensus.ErrFutureBlock:
 					c.storeUnminedBlockMsg(pb)
+				case nil:
+					continue
+				default:
+					c.logger.Error("Get message(NewUnminedBlockEvent) failed", "err", err)
 				}
+
 			case tendermint.MessageEvent:
-				if err := c.handleMsg(e.Payload); err == nil {
-					c.backend.Gossip(c.valSet, e.Payload)
+				if err := c.handleMsg(e.Payload); err != nil {
+					c.logger.Error("Get message(MessageEvent) payload failed", "err", err)
+					continue
 				}
+				c.backend.Gossip(c.valSet, e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
 				if err := c.handleCheckedMsg(e.msg, e.src); err == nil {
 					p, err := e.msg.Payload()
 					if err != nil {
-						c.logger.Warn("Get message payload failed", "err", err)
+						c.logger.Error("Get message payload failed", "err", err)
 						continue
 					}
 					c.backend.Gossip(c.valSet, p)
