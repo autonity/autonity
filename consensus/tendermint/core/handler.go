@@ -89,6 +89,10 @@ func (c *core) handleEvents() {
 				}
 
 			case tendermint.MessageEvent:
+				if len(e.Payload) == 0 {
+					c.logger.Error("Get message(MessageEvent) empty payload")
+				}
+
 				if err := c.handleMsg(e.Payload); err != nil {
 					c.logger.Error("Get message(MessageEvent) payload failed", "err", err)
 					continue
@@ -141,6 +145,14 @@ func (c *core) handleMsg(payload []byte) error {
 
 	// Decode message and check its signature
 	msg := new(message)
+
+	if c.validateFn == nil {
+		c.logger.Error("c.validateFn is NIL",
+			"height", c.currentRoundState.height.String(),
+			"round", c.currentRoundState.round.String(),
+			"proposal", c.currentRoundState.proposal,
+		)
+	}
 	if err := msg.FromPayload(payload, c.validateFn); err != nil {
 		logger.Error("Failed to decode message from payload", "err", err)
 		return err

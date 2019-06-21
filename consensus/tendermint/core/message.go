@@ -76,16 +76,18 @@ func (m *message) FromPayload(b []byte, validateFn func([]byte, []byte) (common.
 	}
 
 	// Validate message (on a message without Signature)
-	if validateFn != nil {
-		var payload []byte
-		payload, err = m.PayloadNoSig()
-		if err != nil {
-			return err
-		}
-
-		_, err = validateFn(payload, m.Signature)
+	if validateFn == nil {
+		return nil
 	}
+
 	// Still return the message even the err is not nil
+	var payload []byte
+	payload, err = m.PayloadNoSig()
+	if err != nil {
+		return err
+	}
+
+	_, err = validateFn(payload, m.Signature)
 	return err
 }
 
