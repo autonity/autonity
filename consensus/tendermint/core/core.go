@@ -211,7 +211,14 @@ func (c *core) commit() {
 	proposal := c.currentRoundState.Proposal()
 
 	if proposal != nil {
-		log.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash(), "block", proposal.ProposalBlock)
+		if proposal.ProposalBlock != nil {
+			log.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash(), "block", proposal.ProposalBlock)
+		} else {
+			log.Error("commit a NIL block",
+				"block", proposal.ProposalBlock,
+				"height", c.currentRoundState.height.String(),
+				"round", c.currentRoundState.round.String())
+		}
 
 		committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
 		for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
