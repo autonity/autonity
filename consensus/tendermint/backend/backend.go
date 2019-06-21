@@ -155,7 +155,7 @@ func (sb *Backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) err
 	return nil
 }
 
-const TTL = 10 //seconds
+const TTL = 10            //seconds
 const retryInterval = 100 //milliseconds
 
 // Broadcast implements tendermint.Backend.Gossip
@@ -294,7 +294,7 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 		return
 	}
 
-	if time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/1000000 < retryInterval {
+	if time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) < retryInterval {
 		//too early for resend
 		sb.resend <- msgToPeers
 
