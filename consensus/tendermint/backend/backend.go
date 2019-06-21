@@ -177,6 +177,7 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 			},
 			targets,
 			time.Now(),
+			time.Now(),
 		})
 	}
 }
@@ -185,6 +186,7 @@ type messageToPeers struct {
 	msg       message
 	peers     []common.Address
 	startTime time.Time
+	lastTry   time.Time
 }
 
 func (m messageToPeers) String() string {
@@ -291,6 +293,21 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 		return
 	}
 
+	if time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/100000 < 100 {
+		//100ms - too early for resend
+		sb.resend <- messageToPeers{
+			message{
+				msgToPeers.msg.hash,
+				msgToPeers.msg.payload,
+			},
+			msgToPeers.peers,
+			msgToPeers.startTime,
+			time.Now(),
+		}
+
+		return
+	}
+
 	sb.logger.Debug("worker loop. resending", "msg", msgToPeers)
 
 	m := make(map[common.Address]struct{})
@@ -359,6 +376,7 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 			},
 			notConnected,
 			msgToPeers.startTime,
+			time.Now(),
 		}
 
 		sb.logger.Debug("worker loop. got not connected and error peers", "msg", msg.String())

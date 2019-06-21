@@ -209,7 +209,10 @@ func (c *core) commit() {
 	c.setStep(StepPrecommitDone)
 
 	proposal := c.currentRoundState.Proposal()
+
 	if proposal != nil {
+		log.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash(), "block", proposal.ProposalBlock)
+
 		committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
 		for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
 			committedSeals[i] = make([]byte, types.PoSExtraSeal)

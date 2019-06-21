@@ -62,11 +62,9 @@ func (c *core) handleEvents() {
 	defer func() {
 		if r := recover(); r != nil {
 			debug.PrintStack()
+
 			c.logger.Crit("panic in core.handleEvents", "panic", r)
 		}
-
-		c.currentRoundState = nil
-		<-c.handlerStopCh
 	}()
 
 	for {
