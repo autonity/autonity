@@ -296,15 +296,7 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 
 	if time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/1000000 < retryInterval {
 		//too early for resend
-		sb.resend <- messageToPeers{
-			message{
-				msgToPeers.msg.hash,
-				msgToPeers.msg.payload,
-			},
-			msgToPeers.peers,
-			msgToPeers.startTime,
-			time.Now(),
-		}
+		sb.resend <- msgToPeers
 
 		return
 	}
