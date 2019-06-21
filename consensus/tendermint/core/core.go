@@ -108,7 +108,7 @@ type core struct {
 	timeoutSub          *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 
-	valSet     tendermint.ValidatorSet
+	valSet tendermint.ValidatorSet
 
 	backlogs   map[tendermint.Validator]*prque.Prque
 	backlogsMu *sync.Mutex

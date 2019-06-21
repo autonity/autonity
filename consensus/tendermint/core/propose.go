@@ -22,7 +22,10 @@ func (c *core) sendProposal(p *types.Block) {
 		}
 
 		if proposalBlock == nil {
-			logger.Error("send nil proposed block", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
+			logger.Error("send nil proposed block",
+				"Round", c.currentRoundState.round.String(), "Height",
+				c.currentRoundState.height.String(), "ValidRound", c.validRound)
+
 			return
 		}
 
