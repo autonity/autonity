@@ -155,8 +155,8 @@ func (sb *Backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) err
 	return nil
 }
 
-const TTL = 10            //seconds
-const retryInterval = 100 //milliseconds
+const TTL = 10           //seconds
+const retryInterval = 50 //milliseconds
 
 // Broadcast implements tendermint.Backend.Gossip
 func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {

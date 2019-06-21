@@ -83,31 +83,36 @@ func (c *core) handleEvents() {
 				case consensus.ErrFutureBlock:
 					c.storeUnminedBlockMsg(pb)
 				case nil:
-					continue
+					//nothing to do
 				default:
-					c.logger.Error("Get message(NewUnminedBlockEvent) failed", "err", err)
+					c.logger.Error("core.handleEvents Get message(NewUnminedBlockEvent) failed", "err", err)
 				}
 
 			case tendermint.MessageEvent:
 				if len(e.Payload) == 0 {
-					c.logger.Error("Get message(MessageEvent) empty payload")
+					c.logger.Error("core.handleEvents Get message(MessageEvent) empty payload")
 				}
 
 				if err := c.handleMsg(e.Payload); err != nil {
-					c.logger.Error("Get message(MessageEvent) payload failed", "err", err)
+					c.logger.Error("core.handleEvents Get message(MessageEvent) payload failed", "err", err)
 					continue
 				}
+
 				c.backend.Gossip(c.valSet, e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
-				if err := c.handleCheckedMsg(e.msg, e.src); err == nil {
-					p, err := e.msg.Payload()
-					if err != nil {
-						c.logger.Error("Get message payload failed", "err", err)
-						continue
-					}
-					c.backend.Gossip(c.valSet, p)
+				err := c.handleCheckedMsg(e.msg, e.src)
+				if err != nil {
+					c.logger.Error("core.handleEvents handleCheckedMsg message failed", "err", err)
+					continue
 				}
+
+				p, err := e.msg.Payload()
+				if err != nil {
+					c.logger.Error("core.handleEvents Get message payload failed", "err", err)
+					continue
+				}
+				c.backend.Gossip(c.valSet, p)
 			}
 		case ev, ok := <-c.timeoutSub.Chan():
 			if !ok {
