@@ -146,14 +146,7 @@ func (c *core) handleMsg(payload []byte) error {
 	// Decode message and check its signature
 	msg := new(message)
 
-	if c.validateFn == nil {
-		c.logger.Error("c.validateFn is NIL",
-			"height", c.currentRoundState.height.String(),
-			"round", c.currentRoundState.round.String(),
-			"proposal", c.currentRoundState.proposal,
-		)
-	}
-	if err := msg.FromPayload(payload, c.validateFn); err != nil {
+	if err := msg.FromPayload(payload, c.checkValidatorSignature); err != nil {
 		logger.Error("Failed to decode message from payload", "err", err)
 		return err
 	}

@@ -93,7 +93,6 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		prevoteTimeout:              new(timeout),
 		precommitTimeout:            new(timeout),
 	}
-	c.validateFn = c.checkValidatorSignature
 	return c
 }
 
@@ -110,7 +109,6 @@ type core struct {
 	futureProposalTimer *time.Timer
 
 	valSet     tendermint.ValidatorSet
-	validateFn func([]byte, []byte) (common.Address, error)
 
 	backlogs   map[tendermint.Validator]*prque.Prque
 	backlogsMu *sync.Mutex

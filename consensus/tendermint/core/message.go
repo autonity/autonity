@@ -70,7 +70,7 @@ func (m *message) DecodeRLP(s *rlp.Stream) error {
 
 func (m *message) FromPayload(b []byte, validateFn func([]byte, []byte) (common.Address, error)) error {
 	// Decode message
-	err := rlp.DecodeBytes(b, &m)
+	err := rlp.DecodeBytes(b, m)
 	if err != nil {
 		return err
 	}
