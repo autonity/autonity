@@ -298,8 +298,6 @@ OUT1:
 	}
 }
 
-
-
 /* The logic of this needs to change with respect of Soma */
 func TestVerifyHeadersAbortValidation(t *testing.T) {
 	chain, engine := newBlockChain(1)
@@ -332,11 +330,10 @@ func TestVerifyHeadersAbortValidation(t *testing.T) {
 	}
 
 	const timeoutDura = 2 * time.Second
-	timeout := time.NewTimer(timeoutDura)
 
 	// abort cases
 	abort, results := engine.VerifyHeaders(chain, headers, nil)
-	timeout = time.NewTimer(timeoutDura)
+	timeout := time.NewTimer(timeoutDura)
 	index := 0
 OUT2:
 	for {
