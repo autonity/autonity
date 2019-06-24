@@ -69,6 +69,8 @@ lint:
 	    --new-from-rev=$(LATEST_COMMIT) \
 	    --config ./.golangci/step4.yml
 
+lint-ci: lint-deps lint
+
 test-deps:
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/mattn/goveralls

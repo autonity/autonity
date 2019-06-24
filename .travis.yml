@@ -6,7 +6,6 @@ addons:
     packages:
       - libc-dev
 before_script:
-  - make lint-deps
   - make test-deps
 matrix:
   include:
@@ -20,7 +19,7 @@ matrix:
         - sudo chmod 666 /dev/fuse
         - sudo chown root:$USER /etc/fuse.conf
         - go run build/ci.go install
-        - make lint
+        - make lint-ci
         - go run build/ci.go test -coverage $TEST_PACKAGES
         - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
 notifications:
