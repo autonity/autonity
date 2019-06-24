@@ -18,6 +18,7 @@ package tendermint
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/log"
 	"io"
 	"math/big"
 
@@ -45,18 +46,31 @@ func NewProposal(r *big.Int, h *big.Int, vr *big.Int, p *types.Block) *Proposal 
 	}
 }
 
+var logger = log.New("tendermint vote types")
+
 // EncodeRLP serializes b into the Ethereum RLP format.
 func (p *Proposal) EncodeRLP(w io.Writer) error {
 	if p.ValidRound.Int64() == -1 {
 		p.ValidRound = nil
 		p.IsValidRoundNil = big.NewInt(1)
 	}
+
+	if p.ProposalBlock == nil {
+		logger.Error("encode nil proposal block",
+			"height", p.Height.String(),
+			"round", p.Round.String(),
+			"isValidRoundNil", p.IsValidRoundNil.String(),
+			"validRound", p.ValidRound.String(),
+		)
+	}
+
 	return rlp.Encode(w, []interface{}{
 		p.Round,
 		p.Height,
 		p.ValidRound,
 		p.IsValidRoundNil,
-		p.ProposalBlock})
+		p.ProposalBlock,
+	})
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
@@ -82,6 +96,15 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 	p.ValidRound = proposal.ValidRound
 	p.IsValidRoundNil = proposal.IsValidRoundNil
 	p.ProposalBlock = proposal.ProposalBlock
+
+	if proposal.ProposalBlock == nil {
+		logger.Error("decode nil proposal block",
+			"height", p.Height.String(),
+			"round", p.Round.String(),
+			"isValidRoundNil", p.IsValidRoundNil.String(),
+			"validRound", p.ValidRound.String(),
+		)
+	}
 
 	return nil
 }

@@ -155,7 +155,8 @@ func (sb *Backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) err
 	return nil
 }
 
-const TTL = 10 //seconds
+const TTL = 10           //seconds
+const retryInterval = 50 //milliseconds
 
 // Broadcast implements tendermint.Backend.Gossip
 func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
@@ -177,6 +178,7 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 			},
 			targets,
 			time.Now(),
+			time.Now(),
 		})
 	}
 }
@@ -185,6 +187,7 @@ type messageToPeers struct {
 	msg       message
 	peers     []common.Address
 	startTime time.Time
+	lastTry   time.Time
 }
 
 func (m messageToPeers) String() string {
@@ -225,7 +228,7 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 	}
 
 	go func(p consensus.Peer, m *lru.ARCCache) {
-		ticker := time.NewTicker(100 * time.Millisecond)
+		ticker := time.NewTicker(retryInterval * time.Millisecond)
 		defer ticker.Stop()
 
 		var err error
@@ -291,6 +294,15 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 		return
 	}
 
+	if time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) < retryInterval &&
+		time.Since(msgToPeers.startTime).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) > retryInterval {
+
+		//too early for resend
+		sb.resend <- msgToPeers
+
+		return
+	}
+
 	sb.logger.Debug("worker loop. resending", "msg", msgToPeers)
 
 	m := make(map[common.Address]struct{})
@@ -310,7 +322,7 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 
 	if sb.broadcaster != nil && len(ps) > 0 {
 		var errChs []chan error
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), TTL*time.Second)
 		defer cancel()
 
 		for addr, p := range ps {
@@ -359,6 +371,7 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 			},
 			notConnected,
 			msgToPeers.startTime,
+			time.Now(),
 		}
 
 		sb.logger.Debug("worker loop. got not connected and error peers", "msg", msg.String())

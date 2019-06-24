@@ -62,11 +62,9 @@ func (c *core) handleEvents() {
 	defer func() {
 		if r := recover(); r != nil {
 			debug.PrintStack()
+
 			c.logger.Crit("panic in core.handleEvents", "panic", r)
 		}
-
-		c.currentRoundState = nil
-		<-c.handlerStopCh
 	}()
 
 	for {
@@ -79,24 +77,42 @@ func (c *core) handleEvents() {
 			switch e := ev.Data.(type) {
 			case tendermint.NewUnminedBlockEvent:
 				pb := &e.NewUnminedBlock
+
 				err := c.handleUnminedBlock(pb)
-				if err == consensus.ErrFutureBlock {
+				switch err {
+				case consensus.ErrFutureBlock:
 					c.storeUnminedBlockMsg(pb)
+				case nil:
+					//nothing to do
+				default:
+					c.logger.Error("core.handleEvents Get message(NewUnminedBlockEvent) failed", "err", err)
 				}
+
 			case tendermint.MessageEvent:
-				if err := c.handleMsg(e.Payload); err == nil {
-					c.backend.Gossip(c.valSet, e.Payload)
+				if len(e.Payload) == 0 {
+					c.logger.Error("core.handleEvents Get message(MessageEvent) empty payload")
 				}
+
+				if err := c.handleMsg(e.Payload); err != nil {
+					c.logger.Error("core.handleEvents Get message(MessageEvent) payload failed", "err", err)
+					continue
+				}
+
+				c.backend.Gossip(c.valSet, e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
-				if err := c.handleCheckedMsg(e.msg, e.src); err == nil {
-					p, err := e.msg.Payload()
-					if err != nil {
-						c.logger.Warn("Get message payload failed", "err", err)
-						continue
-					}
-					c.backend.Gossip(c.valSet, p)
+				err := c.handleCheckedMsg(e.msg, e.src)
+				if err != nil {
+					c.logger.Error("core.handleEvents handleCheckedMsg message failed", "err", err)
+					continue
 				}
+
+				p, err := e.msg.Payload()
+				if err != nil {
+					c.logger.Error("core.handleEvents Get message payload failed", "err", err)
+					continue
+				}
+				c.backend.Gossip(c.valSet, p)
 			}
 		case ev, ok := <-c.timeoutSub.Chan():
 			if !ok {
@@ -134,7 +150,8 @@ func (c *core) handleMsg(payload []byte) error {
 
 	// Decode message and check its signature
 	msg := new(message)
-	if err := msg.FromPayload(payload, c.validateFn); err != nil {
+
+	if err := msg.FromPayload(payload, c.checkValidatorSignature); err != nil {
 		logger.Error("Failed to decode message from payload", "err", err)
 		return err
 	}

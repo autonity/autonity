@@ -93,7 +93,6 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		prevoteTimeout:              new(timeout),
 		precommitTimeout:            new(timeout),
 	}
-	c.validateFn = c.checkValidatorSignature
 	return c
 }
 
@@ -109,8 +108,7 @@ type core struct {
 	timeoutSub          *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 
-	valSet     tendermint.ValidatorSet
-	validateFn func([]byte, []byte) (common.Address, error)
+	valSet tendermint.ValidatorSet
 
 	backlogs   map[tendermint.Validator]*prque.Prque
 	backlogsMu *sync.Mutex
@@ -209,7 +207,17 @@ func (c *core) commit() {
 	c.setStep(StepPrecommitDone)
 
 	proposal := c.currentRoundState.Proposal()
+
 	if proposal != nil {
+		if proposal.ProposalBlock != nil {
+			log.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash(), "block", proposal.ProposalBlock)
+		} else {
+			log.Error("commit a NIL block",
+				"block", proposal.ProposalBlock,
+				"height", c.currentRoundState.height.String(),
+				"round", c.currentRoundState.round.String())
+		}
+
 		committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
 		for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
 			committedSeals[i] = make([]byte, types.PoSExtraSeal)
