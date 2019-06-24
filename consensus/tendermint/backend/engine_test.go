@@ -323,9 +323,10 @@ OUT2:
 			break OUT2
 		}
 	}
+
 	// error header cases
 	headers[2].Number = big.NewInt(100)
-	abort, results = engine.VerifyHeaders(chain, headers, nil)
+	_, results = engine.VerifyHeaders(chain, headers, nil)
 	timeout = time.NewTimer(timeoutDura)
 	index = 0
 	errors := 0
@@ -351,8 +352,6 @@ OUT3:
 			break OUT3
 		}
 	}
-
-	abort <- struct{}{}
 }
 
 func TestPrepareExtra(t *testing.T) {

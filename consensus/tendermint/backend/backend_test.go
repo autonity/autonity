@@ -368,20 +368,14 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
-	err := engine.Prepare(chain, header)
-	if err != nil {
-		return nil, err
-	}
+	_ = engine.Prepare(chain, header)
 
 	state, err := chain.StateAt(parent.Root())
 	if err != nil {
 		return nil, err
 	}
 
-	block, err := engine.Finalize(chain, header, state, nil, nil, nil)
-	if err != nil {
-		return nil, err
-	}
+	block, _ := engine.Finalize(chain, header, state, nil, nil, nil)
 
 	// Write state changes to db
 	root, err := state.Commit(chain.Config().IsEIP158(block.Header().Number))
