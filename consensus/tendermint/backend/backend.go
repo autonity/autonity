@@ -238,7 +238,6 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 		for {
 			select {
 			case <-ticker.C:
-				sb.logger.Debug("inner sender loop", "try", try, "peer", addr.Hex(), "msg", hash.Hex())
 				try++
 
 				if err = p.Send(tendermintMsg, payload); err != nil {
@@ -311,13 +310,14 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 	}
 
 	ps, notConnected := sb.broadcaster.FindPeers(m)
+	notConnectedPeersBeforeSending := len(notConnected)
 	if len(notConnected) > 0 {
 		peersStr := fmt.Sprintf("peers %d: ", len(notConnected))
 		for _, p := range notConnected {
 			peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
 		}
 
-		sb.logger.Debug("worker loop. got not connected peers", "peers", peersStr)
+		sb.logger.Debug("worker loop. peers not connected", "peers", peersStr)
 	}
 
 	if sb.broadcaster != nil && len(ps) > 0 {
@@ -358,6 +358,8 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 		}
 	}
 
+	notConnectedPeersAfterSendingWithErrors := len(notConnected)
+
 	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
 		sb.logger.Debug("worker loop. TTL expired", "msg", msgToPeers)
 		return
@@ -374,7 +376,9 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 			time.Now(),
 		}
 
-		sb.logger.Debug("worker loop. got not connected and error peers", "msg", msg.String())
+		if notConnectedPeersBeforeSending != notConnectedPeersAfterSendingWithErrors {
+			sb.logger.Debug("worker loop. peers not connected and errors while sending", "msg", msg.String())
+		}
 
 		sb.resend <- msg
 	}
