@@ -296,11 +296,48 @@ OUT1:
 			break OUT1
 		}
 	}
+}
+
+
+
+/* The logic of this needs to change with respect of Soma */
+func TestVerifyHeadersAbortValidation(t *testing.T) {
+	chain, engine := newBlockChain(1)
+
+	// success case
+	headers := []*types.Header{}
+	blocks := []*types.Block{}
+	size := 100
+
+	var err error
+	for i := 0; i < size; i++ {
+		var b *types.Block
+		if i == 0 {
+			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		} else {
+			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		b, _ = engine.updateBlock(b)
+
+		blocks = append(blocks, b)
+		headers = append(headers, blocks[i].Header())
+	}
+
+	now = func() time.Time {
+		return time.Unix(headers[size-1].Time.Int64(), 0)
+	}
+
+	const timeoutDura = 2 * time.Second
+	timeout := time.NewTimer(timeoutDura)
 
 	// abort cases
 	abort, results := engine.VerifyHeaders(chain, headers, nil)
 	timeout = time.NewTimer(timeoutDura)
-	index = 0
+	index := 0
 OUT2:
 	for {
 		select {
@@ -323,12 +360,46 @@ OUT2:
 			break OUT2
 		}
 	}
+}
+
+/* The logic of this needs to change with respect of Soma */
+func TestVerifyErrorHeaders(t *testing.T) {
+	chain, engine := newBlockChain(1)
+
+	// success case
+	headers := []*types.Header{}
+	blocks := []*types.Block{}
+	size := 100
+
+	var err error
+	for i := 0; i < size; i++ {
+		var b *types.Block
+		if i == 0 {
+			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		} else {
+			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		b, _ = engine.updateBlock(b)
+
+		blocks = append(blocks, b)
+		headers = append(headers, blocks[i].Header())
+	}
+
+	now = func() time.Time {
+		return time.Unix(headers[size-1].Time.Int64(), 0)
+	}
+
+	const timeoutDura = 2 * time.Second
 
 	// error header cases
 	headers[2].Number = big.NewInt(100)
-	_, results = engine.VerifyHeaders(chain, headers, nil)
-	timeout = time.NewTimer(timeoutDura)
-	index = 0
+	_, results := engine.VerifyHeaders(chain, headers, nil)
+	timeout := time.NewTimer(timeoutDura)
+	index := 0
 	errors := 0
 	expectedErrors := 2
 
