@@ -26,13 +26,13 @@ import (
 	"github.com/hashicorp/golang-lru"
 )
 
-func TestIstanbulMessage(t *testing.T) {
+func TestTendermintMessage(t *testing.T) {
 	_, backend := newBlockChain(1)
 
 	// generate one msg
 	data := []byte("data1")
 	hash := types.RLPHash(data)
-	msg := makeMsg(istanbulMsg, data)
+	msg := makeMsg(tendermintMsg, data)
 	addr := common.BytesToAddress([]byte("address"))
 
 	// 1. this message should not be in cache

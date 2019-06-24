@@ -46,7 +46,7 @@ func TestSign(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 	//Check signature recover
-	hashData := crypto.Keccak256([]byte(data))
+	hashData := crypto.Keccak256(data)
 	pubkey, _ := crypto.Ecrecover(hashData, sig)
 	var signer common.Address
 	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
@@ -58,7 +58,7 @@ func TestSign(t *testing.T) {
 func TestCheckSignature(t *testing.T) {
 	key, _ := generatePrivateKey()
 	data := []byte("Here is a string....")
-	hashData := crypto.Keccak256([]byte(data))
+	hashData := crypto.Keccak256(data)
 	sig, _ := crypto.Sign(hashData, key)
 	b := newBackend()
 	a := getAddress()
@@ -78,7 +78,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 
 	// 1. Positive test: sign with validator's key should succeed
 	data := []byte("dummy data")
-	hashData := crypto.Keccak256([]byte(data))
+	hashData := crypto.Keccak256(data)
 	for i, k := range keys {
 		// Sign
 		sig, err := crypto.Sign(hashData, k)
@@ -191,7 +191,11 @@ func TestGetProposer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	chain.InsertChain(types.Blocks{block})
+	_, err = chain.InsertChain(types.Blocks{block})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	expected := engine.GetProposer(1)
 	actual := engine.Address()
 	if actual != expected {
@@ -253,7 +257,6 @@ func newBackend() (b *Backend) {
 	return
 }
 
-
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
@@ -268,7 +271,12 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	if err != nil {
 		panic(err)
 	}
-	b.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+
+	err = b.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	if err != nil {
+		panic(err)
+	}
+
 	validators := b.Validators(0)
 	if validators.Size() == 0 {
 		panic("failed to get validators")
@@ -350,16 +358,30 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 	}
 
 	resultCh := make(chan *types.Block)
-	engine.Seal(chain, block, resultCh, nil)
+	err = engine.Seal(chain, block, resultCh, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return <-resultCh, nil
 }
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
-	engine.Prepare(chain, header)
+	err := engine.Prepare(chain, header)
+	if err != nil {
+		return nil, err
+	}
+
 	state, err := chain.StateAt(parent.Root())
-	block, _ := engine.Finalize(chain, header, state, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := engine.Finalize(chain, header, state, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	// Write state changes to db
 	root, err := state.Commit(chain.Config().IsEIP158(block.Header().Number))

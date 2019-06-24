@@ -63,13 +63,21 @@ func TestSealCommittedOtherHash(t *testing.T) {
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
-		engine.Commit(*otherBlock, [][]byte{})
+		err = engine.Commit(*otherBlock, [][]byte{})
+		if err != nil {
+			t.Error("commit should not return error", err.Error())
+		}
+
 		eventSub.Unsubscribe()
 	}
 	go eventLoop()
 	seal := func() {
 		resultCh := make(chan *types.Block)
-		engine.Seal(chain, block, resultCh, nil)
+		err = engine.Seal(chain, block, resultCh, nil)
+		if err != nil {
+			t.Error("seal should not return error", err.Error())
+		}
+
 		<-resultCh
 		t.Error("seal should not be completed")
 	}
@@ -343,6 +351,8 @@ OUT3:
 			break OUT3
 		}
 	}
+
+	abort <- struct{}{}
 }
 
 func TestPrepareExtra(t *testing.T) {
@@ -371,6 +381,9 @@ func TestPrepareExtra(t *testing.T) {
 	h.Extra = append(vanity, make([]byte, 15)...)
 
 	payload, err = types.PrepareExtra(&h.Extra, validators)
+	if err != nil {
+		t.Errorf("error PrepareExtra: have %v", err)
+	}
 	if !reflect.DeepEqual(payload, expectedResult) {
 		t.Errorf("payload mismatch: have %v, want %v", payload, expectedResult)
 	}
