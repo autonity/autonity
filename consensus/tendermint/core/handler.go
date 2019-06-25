@@ -17,7 +17,7 @@ func (c *core) Start() error {
 	go c.handleEvents()
 
 	// Start a new round from last height + 1
-	go c.startRound(common.Big0)
+	c.startRound(common.Big0)
 	return nil
 }
 
@@ -197,7 +197,7 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
 
 			if totalFutureRoundMessages >= int64(c.valSet.F()) {
-				go c.startRound(big.NewInt(msgRound))
+				c.startRound(big.NewInt(msgRound))
 			}
 
 		}
