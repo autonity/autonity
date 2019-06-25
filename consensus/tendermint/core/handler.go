@@ -42,10 +42,10 @@ func (c *core) subscribeEvents() {
 		// internal messageEventSub
 		backlogEvent{},
 	)
-	c.timeoutSub = c.backend.EventMux().Subscribe(
+	c.timeoutEventSub = c.backend.EventMux().Subscribe(
 		timeoutEvent{},
 	)
-	c.finalCommittedSub = c.backend.EventMux().Subscribe(
+	c.committedSub = c.backend.EventMux().Subscribe(
 		tendermint.CommitEvent{},
 	)
 }
@@ -53,8 +53,8 @@ func (c *core) subscribeEvents() {
 // Unsubscribe all messageEventSub
 func (c *core) unsubscribeEvents() {
 	c.messageEventSub.Unsubscribe()
-	c.timeoutSub.Unsubscribe()
-	c.finalCommittedSub.Unsubscribe()
+	c.timeoutEventSub.Unsubscribe()
+	c.committedSub.Unsubscribe()
 }
 
 func (c *core) handleEvents() {
@@ -114,7 +114,7 @@ func (c *core) handleEvents() {
 				}
 				c.backend.Gossip(c.valSet, p)
 			}
-		case ev, ok := <-c.timeoutSub.Chan():
+		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
 				return
 			}
@@ -128,7 +128,7 @@ func (c *core) handleEvents() {
 					c.handleTimeoutPrecommit(timeoutE)
 				}
 			}
-		case ev, ok := <-c.finalCommittedSub.Chan():
+		case ev, ok := <-c.committedSub.Chan():
 			if !ok {
 				return
 			}

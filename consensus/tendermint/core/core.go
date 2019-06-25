@@ -73,7 +73,6 @@ type Engine interface {
 	Stop() error
 }
 
-// TODO: add better logging
 // New creates an Istanbul consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
@@ -102,10 +101,12 @@ type core struct {
 	step    Step
 	logger  log.Logger
 
-	backend             tendermint.Backend
+	backend       tendermint.Backend
+	handlerStopCh chan struct{}
+
 	messageEventSub     *event.TypeMuxSubscription
-	finalCommittedSub   *event.TypeMuxSubscription
-	timeoutSub          *event.TypeMuxSubscription
+	committedSub        *event.TypeMuxSubscription
+	timeoutEventSub     *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 
 	valSet tendermint.ValidatorSet
@@ -114,7 +115,6 @@ type core struct {
 	backlogsMu *sync.Mutex
 
 	currentRoundState *roundState
-	handlerStopCh     chan struct{}
 
 	pendingUnminedBlocks   *prque.Prque
 	pendingUnminedBlocksMu *sync.Mutex
