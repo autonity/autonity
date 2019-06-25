@@ -11,7 +11,7 @@ import (
 
 // Start implements core.Engine.Start
 func (c *core) Start() error {
-	// Tests will handle events itself, so we have to make subscribeEvents()
+	// Tests will handle messageEventSub itself, so we have to make subscribeEvents()
 	// be able to call in test.
 	c.subscribeEvents()
 	go c.handleEvents()
@@ -31,15 +31,15 @@ func (c *core) Stop() error {
 	return nil
 }
 
-// TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal events: backlogEvent, timeoutEvent
+// TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, timeoutEvent
 
-// Subscribe both internal and external events
+// Subscribe both internal and external messageEventSub
 func (c *core) subscribeEvents() {
-	c.events = c.backend.EventMux().Subscribe(
-		// external events
+	c.messageEventSub = c.backend.EventMux().Subscribe(
+		// external messageEventSub
 		tendermint.NewUnminedBlockEvent{},
 		tendermint.MessageEvent{},
-		// internal events
+		// internal messageEventSub
 		backlogEvent{},
 	)
 	c.timeoutSub = c.backend.EventMux().Subscribe(
@@ -50,9 +50,9 @@ func (c *core) subscribeEvents() {
 	)
 }
 
-// Unsubscribe all events
+// Unsubscribe all messageEventSub
 func (c *core) unsubscribeEvents() {
-	c.events.Unsubscribe()
+	c.messageEventSub.Unsubscribe()
 	c.timeoutSub.Unsubscribe()
 	c.finalCommittedSub.Unsubscribe()
 }
@@ -69,7 +69,7 @@ func (c *core) handleEvents() {
 
 	for {
 		select {
-		case ev, ok := <-c.events.Chan():
+		case ev, ok := <-c.messageEventSub.Chan():
 			if !ok {
 				return
 			}
@@ -140,7 +140,7 @@ func (c *core) handleEvents() {
 	}
 }
 
-// sendEvent sends events to mux
+// sendEvent sends messageEventSub to mux
 func (c *core) sendEvent(ev interface{}) {
 	c.backend.EventMux().Post(ev)
 }

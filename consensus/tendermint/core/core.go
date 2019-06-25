@@ -103,7 +103,7 @@ type core struct {
 	logger  log.Logger
 
 	backend             tendermint.Backend
-	events              *event.TypeMuxSubscription
+	messageEventSub     *event.TypeMuxSubscription
 	finalCommittedSub   *event.TypeMuxSubscription
 	timeoutSub          *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
