@@ -325,10 +325,6 @@ func (c *core) stopFutureProposalTimer() {
 	}
 }
 
-func (c *core) stopTimer() {
-	c.stopFutureProposalTimer()
-}
-
 func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address, error) {
 	return tendermint.CheckValidatorSignature(c.valSet, data, sig)
 }

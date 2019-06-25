@@ -23,7 +23,7 @@ func (c *core) Start() error {
 
 // Stop implements core.Engine.Stop
 func (c *core) Stop() error {
-	c.stopTimer()
+	c.stopFutureProposalTimer()
 	c.unsubscribeEvents()
 
 	// Make sure the handler goroutine exits
