@@ -194,12 +194,26 @@ func (m messageToPeers) String() string {
 	msg := fmt.Sprintf("msg hash %s   length %d", m.msg.hash.String(), len(m.msg.payload))
 	t := fmt.Sprintf("time %s", m.startTime.String())
 
-	peers := fmt.Sprintf("peers %d: ", len(m.peers))
-	for _, p := range m.peers {
-		peers = fmt.Sprintf("%s%s ", peers, p.Hex())
-	}
+	peers := peersToString(m.peers)
 
 	return fmt.Sprintf("%s %s %s", msg, t, peers)
+}
+
+func peersToString(ps []common.Address) string {
+	peersStr := fmt.Sprintf("peers %d: ", len(ps))
+	for _, p := range ps {
+		peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
+	}
+
+	return peersStr
+}
+
+func getPeerKeys(psMap map[common.Address]consensus.Peer) []common.Address {
+	var ps []common.Address
+	for k := range psMap {
+		ps = append(ps, k)
+	}
+	return ps
 }
 
 type message struct {
@@ -220,6 +234,7 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 		m, _ = ms.(*lru.ARCCache)
 		if _, k := m.Get(hash); k {
 			// This peer had this event, skip it
+			sb.logger.Debug("inner sender loop. message sent earlier", "peer", addr.Hex(), "msg", hash.Hex())
 			errCh <- nil
 			return errCh
 		}
@@ -302,8 +317,6 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 		return
 	}
 
-	sb.logger.Debug("worker loop. resending", "msg", msgToPeers)
-
 	m := make(map[common.Address]struct{})
 	for _, p := range msgToPeers.peers {
 		m[p] = struct{}{}
@@ -317,10 +330,11 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 			peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
 		}
 
-		sb.logger.Debug("worker loop. peers not connected", "peers", peersStr)
+		sb.logger.Debug("worker loop. peers still not connected", "peers", peersStr)
 	}
 
 	if sb.broadcaster != nil && len(ps) > 0 {
+		sb.logger.Debug("worker loop. resend to connected peers", "msg", msgToPeers.msg.hash.String(), "peers", peersToString(getPeerKeys(ps)))
 		var errChs []chan error
 		ctx, cancel := context.WithTimeout(context.Background(), TTL*time.Second)
 		defer cancel()
