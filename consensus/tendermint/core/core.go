@@ -103,10 +103,11 @@ type core struct {
 	backend       tendermint.Backend
 	handlerStopCh chan struct{}
 
-	messageEventSub     *event.TypeMuxSubscription
-	committedSub        *event.TypeMuxSubscription
-	timeoutEventSub     *event.TypeMuxSubscription
-	futureProposalTimer *time.Timer
+	messageEventSub         *event.TypeMuxSubscription
+	newUnminedBlockEventSub *event.TypeMuxSubscription
+	committedSub            *event.TypeMuxSubscription
+	timeoutEventSub         *event.TypeMuxSubscription
+	futureProposalTimer     *time.Timer
 
 	valSet tendermint.ValidatorSet
 
@@ -306,7 +307,7 @@ func (c *core) setStep(step Step) {
 	c.step = step
 
 	if step == StepAcceptProposal {
-		c.processPendingRequests()
+		c.processPendingUnminedBlock()
 	}
 	c.processBacklog()
 }

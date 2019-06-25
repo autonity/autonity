@@ -61,7 +61,7 @@ func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
 	c.pendingUnminedBlocks.Push(unminedBlock, float32(-unminedBlock.Number().Int64()))
 }
 
-func (c *core) processPendingRequests() {
+func (c *core) processPendingUnminedBlock() {
 	c.pendingUnminedBlocksMu.Lock()
 	defer c.pendingUnminedBlocksMu.Unlock()
 
