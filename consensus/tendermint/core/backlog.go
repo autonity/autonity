@@ -131,7 +131,7 @@ func (c *core) processBacklog() {
 			}
 			logger.Trace("Post backlog event", "msg", msg)
 
-			go c.sendEvent(backlogEvent{
+			c.sendEvent(backlogEvent{
 				src: src,
 				msg: msg,
 			})

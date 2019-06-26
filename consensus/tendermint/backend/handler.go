@@ -76,7 +76,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		}
 		sb.knownMessages.Add(hash, true)
 
-		go sb.eventMux.Post(tendermint.MessageEvent{
+		sb.postEvent(tendermint.MessageEvent{
 			Payload: data,
 		})
 
@@ -96,6 +96,6 @@ func (sb *Backend) NewChainHead() error {
 	if !sb.coreStarted {
 		return tendermint.ErrStoppedEngine
 	}
-	go sb.eventMux.Post(tendermint.CommitEvent{})
+	sb.postEvent(tendermint.CommitEvent{})
 	return nil
 }

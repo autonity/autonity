@@ -66,7 +66,7 @@ func (c *core) onTimeoutPropose(r int64, h int64) {
 
 	c.logTimeoutEvent("TimeoutEvent(Propose): Sent", "Propose", msg)
 
-	c.sendEvent(msg)
+	c.sendEventWait(msg)
 }
 
 func (c *core) handleTimeoutPropose(msg timeoutEvent) {
@@ -87,7 +87,7 @@ func (c *core) onTimeoutPrevote(r int64, h int64) {
 
 	c.logTimeoutEvent("TimeoutEvent(Prevote): Sent", "Prevote", msg)
 
-	c.sendEvent(msg)
+	c.sendEventWait(msg)
 
 }
 
@@ -109,7 +109,7 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 
 	c.logTimeoutEvent("TimeoutEvent(Precommit): Sent", "Precommit", msg)
 
-	c.sendEvent(msg)
+	c.sendEventWait(msg)
 }
 
 func (c *core) handleTimeoutPrecommit(msg timeoutEvent) {

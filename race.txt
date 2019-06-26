@@ -1,0 +1,469 @@
+?   	github.com/clearmatics/autonity/consensus/tendermint	[no test files]
+=== RUN   TestSign
+--- PASS: TestSign (2.52s)
+=== RUN   TestCheckSignature
+--- PASS: TestCheckSignature (2.21s)
+=== RUN   TestCheckValidatorSignature
+--- PASS: TestCheckValidatorSignature (0.00s)
+=== RUN   TestCommit
+--- PASS: TestCommit (5.75s)
+=== RUN   TestGetProposer
+==================
+WARNING: DATA RACE
+Read at 0x00c0243873a8 by goroutine 101:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).checkUnminedBlockMsg()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:43 +0x6a
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleUnminedBlock()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:11 +0x60
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleEvents()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:81 +0xc10
+
+Previous write at 0x00c0243873a8 by goroutine 102:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).startRound()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/core.go:280 +0x95d
+
+Goroutine 101 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:17 +0x5e
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+
+Goroutine 102 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:20 +0x9c
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c03dd18168 by goroutine 101:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*roundState).Height()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/roundstate.go:95 +0x50
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).checkUnminedBlockMsg()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:43 +0x82
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleUnminedBlock()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:11 +0x60
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleEvents()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:81 +0xc10
+
+Previous write at 0x00c03dd18168 by goroutine 102:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).startRound()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/roundstate.go:37 +0x8e6
+
+Goroutine 101 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:17 +0x5e
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+
+Goroutine 102 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:20 +0x9c
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c03dd18128 by goroutine 101:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*roundState).Height()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/roundstate.go:98 +0xac
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).checkUnminedBlockMsg()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:43 +0x82
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleUnminedBlock()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:11 +0x60
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleEvents()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:81 +0xc10
+
+Previous write at 0x00c03dd18128 by goroutine 102:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).startRound()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/roundstate.go:39 +0x7dc
+
+Goroutine 101 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:17 +0x5e
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+
+Goroutine 102 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:20 +0x9c
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c03dd18120 by goroutine 101:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*roundState).Round()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/roundstate.go:84 +0xa8
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).logNewUnminedBlockEvent()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:100 +0x145
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleUnminedBlock()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:20 +0x725
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleEvents()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:81 +0xc10
+
+Previous write at 0x00c03dd18120 by goroutine 102:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).startRound()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/roundstate.go:39 +0x7a7
+
+Goroutine 101 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:17 +0x5e
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+
+Goroutine 102 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:20 +0x9c
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c024387388 by goroutine 101:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).isProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/core.go:199 +0x42
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).logNewUnminedBlockEvent()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:102 +0x163
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleUnminedBlock()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:20 +0x725
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleEvents()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:81 +0xc10
+
+Previous write at 0x00c024387388 by goroutine 102:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).startRound()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/core.go:253 +0x1935
+
+Goroutine 101 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:17 +0x5e
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+
+Goroutine 102 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:20 +0x9c
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c024387340 by goroutine 101:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).logNewUnminedBlockEvent()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:101 +0x2a0
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleUnminedBlock()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:20 +0x725
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleEvents()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:81 +0xc10
+
+Previous write at 0x00c024387340 by goroutine 102:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).setStep()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/core.go:314 +0x3e
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).startRound()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/core.go:287 +0xb17
+
+Goroutine 101 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:17 +0x5e
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+
+Goroutine 102 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:20 +0x9c
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c0243873f8 by goroutine 101:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleUnminedBlock()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/unmined_block.go:24 +0x7af
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).handleEvents()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:81 +0xc10
+
+Previous read at 0x00c0243873f8 by goroutine 102:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).startRound()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/core.go:292 +0xc9c
+
+Goroutine 101 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:17 +0x5e
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+
+Goroutine 102 (running) created at:
+  github.com/clearmatics/autonity/consensus/tendermint/core.(*core).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/core/handler.go:20 +0x9c
+  github.com/clearmatics/autonity/consensus/tendermint/backend.(*Backend).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/engine.go:483 +0x1ab
+  github.com/clearmatics/autonity/consensus/tendermint/backend.newBlockChain()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:275 +0x4a6
+  github.com/clearmatics/autonity/consensus/tendermint/backend.TestGetProposer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/tendermint/backend/backend_test.go:188 +0x4f
+  testing.tRunner()
+      /snap/go/current/src/testing/testing.go:865 +0x163
+==================
+--- FAIL: TestGetProposer (1.76s)
+    testing.go:809: race detected during execution of test
+=== RUN   TestPrepare
+--- PASS: TestPrepare (2.01s)
+=== RUN   TestSealCommittedOtherHash
+--- PASS: TestSealCommittedOtherHash (3.89s)
+=== RUN   TestSealCommitted
+--- PASS: TestSealCommitted (1.94s)
+=== RUN   TestVerifyHeader
+--- PASS: TestVerifyHeader (2.23s)
+=== RUN   TestVerifySeal
+--- PASS: TestVerifySeal (2.03s)
+=== RUN   TestVerifyHeaders
+--- PASS: TestVerifyHeaders (2.15s)
+=== RUN   TestVerifyHeadersAbortValidation
+--- PASS: TestVerifyHeadersAbortValidation (4.21s)
+=== RUN   TestVerifyErrorHeaders
+--- PASS: TestVerifyErrorHeaders (2.41s)
+=== RUN   TestPrepareExtra
+--- PASS: TestPrepareExtra (0.00s)
+=== RUN   TestWriteSeal
+--- PASS: TestWriteSeal (0.00s)
+=== RUN   TestWriteCommittedSeals
+--- PASS: TestWriteCommittedSeals (0.00s)
+=== RUN   TestTendermintMessage
+--- PASS: TestTendermintMessage (2.05s)
+FAIL
+FAIL	github.com/clearmatics/autonity/consensus/tendermint/backend	35.367s
+?   	github.com/clearmatics/autonity/consensus/tendermint/core	[no test files]
+=== RUN   TestValidatorSet
+--- PASS: TestValidatorSet (0.04s)
+=== RUN   TestRoundRobinProposerZeroSize
+=== RUN   TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_0
+=== RUN   TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_1
+=== RUN   TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_2
+=== RUN   TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_10
+=== RUN   TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_0#01
+=== RUN   TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_1#01
+=== RUN   TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_2#01
+=== RUN   TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_10#01
+--- PASS: TestRoundRobinProposerZeroSize (0.00s)
+    --- PASS: TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_0 (0.00s)
+    --- PASS: TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_1 (0.00s)
+    --- PASS: TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_2 (0.00s)
+    --- PASS: TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_10 (0.00s)
+    --- PASS: TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_0#01 (0.00s)
+    --- PASS: TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_1#01 (0.00s)
+    --- PASS: TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_2#01 (0.00s)
+    --- PASS: TestRoundRobinProposerZeroSize/validator_is_zero_address,_round_10#01 (0.00s)
+=== RUN   TestRoundRobinProposer
+=== RUN   TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_0
+=== RUN   TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_1
+=== RUN   TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_2
+=== RUN   TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_8
+=== RUN   TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_0
+=== RUN   TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_1
+=== RUN   TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_2
+=== RUN   TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_7
+=== RUN   TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_0
+=== RUN   TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_1
+=== RUN   TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_2
+=== RUN   TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_3
+=== RUN   TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_10
+=== RUN   TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_0
+=== RUN   TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_1
+=== RUN   TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_2
+=== RUN   TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_10
+--- PASS: TestRoundRobinProposer (0.01s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_0 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_1 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_2 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_8 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_0 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_1 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_2 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_7 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_0 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_1 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_2 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_3 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_10 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_0 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_1 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_2 (0.00s)
+    --- PASS: TestRoundRobinProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_10 (0.00s)
+=== RUN   TestCalcSeedNotFoundProposer
+=== RUN   TestCalcSeedNotFoundProposer/validator_index_0,_validator_is_nil_true,_round_0
+=== RUN   TestCalcSeedNotFoundProposer/validator_index_0,_validator_is_nil_true,_round_1
+=== RUN   TestCalcSeedNotFoundProposer/validator_index_0,_validator_is_nil_true,_round_2
+=== RUN   TestCalcSeedNotFoundProposer/validator_index_0,_validator_is_nil_true,_round_10
+--- PASS: TestCalcSeedNotFoundProposer (0.00s)
+    --- PASS: TestCalcSeedNotFoundProposer/validator_index_0,_validator_is_nil_true,_round_0 (0.00s)
+    --- PASS: TestCalcSeedNotFoundProposer/validator_index_0,_validator_is_nil_true,_round_1 (0.00s)
+    --- PASS: TestCalcSeedNotFoundProposer/validator_index_0,_validator_is_nil_true,_round_2 (0.00s)
+    --- PASS: TestCalcSeedNotFoundProposer/validator_index_0,_validator_is_nil_true,_round_10 (0.00s)
+=== RUN   TestCalcSeedWithProposer
+=== RUN   TestCalcSeedWithProposer/validator_index_0,_validator_is_nil_false,_round_0
+=== RUN   TestCalcSeedWithProposer/validator_index_1,_validator_is_nil_false,_round_0
+=== RUN   TestCalcSeedWithProposer/validator_index_2,_validator_is_nil_false,_round_0
+=== RUN   TestCalcSeedWithProposer/validator_index_10,_validator_is_nil_false,_round_0
+=== RUN   TestCalcSeedWithProposer/validator_index_0,_validator_is_nil_false,_round_1
+=== RUN   TestCalcSeedWithProposer/validator_index_1,_validator_is_nil_false,_round_1
+=== RUN   TestCalcSeedWithProposer/validator_index_2,_validator_is_nil_false,_round_1
+=== RUN   TestCalcSeedWithProposer/validator_index_10,_validator_is_nil_false,_round_1
+=== RUN   TestCalcSeedWithProposer/validator_index_0,_validator_is_nil_false,_round_2
+=== RUN   TestCalcSeedWithProposer/validator_index_1,_validator_is_nil_false,_round_2
+=== RUN   TestCalcSeedWithProposer/validator_index_2,_validator_is_nil_false,_round_2
+=== RUN   TestCalcSeedWithProposer/validator_index_10,_validator_is_nil_false,_round_2
+=== RUN   TestCalcSeedWithProposer/validator_index_0,_validator_is_nil_false,_round_10
+=== RUN   TestCalcSeedWithProposer/validator_index_1,_validator_is_nil_false,_round_10
+=== RUN   TestCalcSeedWithProposer/validator_index_2,_validator_is_nil_false,_round_10
+=== RUN   TestCalcSeedWithProposer/validator_index_10,_validator_is_nil_false,_round_10
+--- PASS: TestCalcSeedWithProposer (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_0,_validator_is_nil_false,_round_0 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_1,_validator_is_nil_false,_round_0 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_2,_validator_is_nil_false,_round_0 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_10,_validator_is_nil_false,_round_0 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_0,_validator_is_nil_false,_round_1 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_1,_validator_is_nil_false,_round_1 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_2,_validator_is_nil_false,_round_1 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_10,_validator_is_nil_false,_round_1 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_0,_validator_is_nil_false,_round_2 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_1,_validator_is_nil_false,_round_2 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_2,_validator_is_nil_false,_round_2 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_10,_validator_is_nil_false,_round_2 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_0,_validator_is_nil_false,_round_10 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_1,_validator_is_nil_false,_round_10 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_2,_validator_is_nil_false,_round_10 (0.00s)
+    --- PASS: TestCalcSeedWithProposer/validator_index_10,_validator_is_nil_false,_round_10 (0.00s)
+=== RUN   TestStickyProposerZeroSize
+=== RUN   TestStickyProposerZeroSize/validator_is_zero_address,_round_0
+=== RUN   TestStickyProposerZeroSize/validator_is_zero_address,_round_1
+=== RUN   TestStickyProposerZeroSize/validator_is_zero_address,_round_2
+=== RUN   TestStickyProposerZeroSize/validator_is_zero_address,_round_10
+=== RUN   TestStickyProposerZeroSize/validator_is_zero_address,_round_0#01
+=== RUN   TestStickyProposerZeroSize/validator_is_zero_address,_round_1#01
+=== RUN   TestStickyProposerZeroSize/validator_is_zero_address,_round_2#01
+=== RUN   TestStickyProposerZeroSize/validator_is_zero_address,_round_10#01
+--- PASS: TestStickyProposerZeroSize (0.00s)
+    --- PASS: TestStickyProposerZeroSize/validator_is_zero_address,_round_0 (0.00s)
+    --- PASS: TestStickyProposerZeroSize/validator_is_zero_address,_round_1 (0.00s)
+    --- PASS: TestStickyProposerZeroSize/validator_is_zero_address,_round_2 (0.00s)
+    --- PASS: TestStickyProposerZeroSize/validator_is_zero_address,_round_10 (0.00s)
+    --- PASS: TestStickyProposerZeroSize/validator_is_zero_address,_round_0#01 (0.00s)
+    --- PASS: TestStickyProposerZeroSize/validator_is_zero_address,_round_1#01 (0.00s)
+    --- PASS: TestStickyProposerZeroSize/validator_is_zero_address,_round_2#01 (0.00s)
+    --- PASS: TestStickyProposerZeroSize/validator_is_zero_address,_round_10#01 (0.00s)
+=== RUN   TestStickyProposer
+=== RUN   TestStickyProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_0
+=== RUN   TestStickyProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_1
+=== RUN   TestStickyProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_2
+=== RUN   TestStickyProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_8
+=== RUN   TestStickyProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_0
+=== RUN   TestStickyProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_1
+=== RUN   TestStickyProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_2
+=== RUN   TestStickyProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_8
+=== RUN   TestStickyProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_0
+=== RUN   TestStickyProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_1
+=== RUN   TestStickyProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_2
+=== RUN   TestStickyProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_3
+=== RUN   TestStickyProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_10
+=== RUN   TestStickyProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_0
+=== RUN   TestStickyProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_1
+=== RUN   TestStickyProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_2
+=== RUN   TestStickyProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_10
+--- PASS: TestStickyProposer (0.01s)
+    --- PASS: TestStickyProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_0 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_1 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_2 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_10,_proposer_address_0x0000000000000000000000000000000000000000,_round_8 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_0 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_1 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_2 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_10,_proposer_address_0x0101010101010101010101010101010101010101,_round_8 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_0 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_1 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_2 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_3 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_3,_proposer_address_0x0000000000000000000000000000000000000000,_round_10 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_0 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_1 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_2 (0.00s)
+    --- PASS: TestStickyProposer/validator_set_size_3,_proposer_address_0x0101010101010101010101010101010101010101,_round_10 (0.00s)
+PASS
+ok  	github.com/clearmatics/autonity/consensus/tendermint/validator	(cached)

@@ -151,8 +151,12 @@ func (sb *Backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) err
 	msg := tendermint.MessageEvent{
 		Payload: payload,
 	}
-	go sb.eventMux.Post(msg)
+	sb.postEvent(msg)
 	return nil
+}
+
+func (sb Backend) postEvent(event interface{}) {
+	go sb.eventMux.Post(event)
 }
 
 const TTL = 10           //seconds

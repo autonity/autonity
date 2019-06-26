@@ -85,7 +85,7 @@ func (c *core) processPendingRequests() {
 		}
 		c.logger.Trace("Post pending request", "number", ub.Number(), "hash", ub.Hash())
 
-		go c.sendEvent(tendermint.NewUnminedBlockEvent{
+		c.sendEventWait(tendermint.NewUnminedBlockEvent{
 			NewUnminedBlock: *ub,
 		})
 	}
