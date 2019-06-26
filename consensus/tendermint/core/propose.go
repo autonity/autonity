@@ -70,7 +70,7 @@ func (c *core) handleProposal(msg *message) error {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
 				_, sender := c.valSet.GetByAddress(msg.Address)
-				c.sendEventWait(backlogEvent{
+				c.sendEvent(backlogEvent{
 					src: sender,
 					msg: msg,
 				})
