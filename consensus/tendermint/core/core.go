@@ -89,6 +89,7 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		proposeTimeout:              new(timeout),
 		prevoteTimeout:              new(timeout),
 		precommitTimeout:            new(timeout),
+		valSet:						 new(validatorSet),
 	}
 	return c
 }
@@ -193,9 +194,6 @@ func (c *core) broadcast(msg *message) {
 }
 
 func (c *core) isProposer() bool {
-	if c.valSet == nil {
-		return false
-	}
 	return c.valSet.IsProposer(c.backend.Address())
 }
 
@@ -247,11 +245,7 @@ func (c *core) startRound(round *big.Int) {
 		c.validValue = nil
 
 		valSet := c.backend.Validators(height.Uint64())
-		if c.valSet == nil {
-			c.valSet = newValidatorSet(valSet)
-		} else {
-			c.valSet.set(valSet)
-		}
+		c.valSet.set(valSet)
 
 		c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
 
