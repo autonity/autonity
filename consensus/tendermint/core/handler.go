@@ -140,12 +140,12 @@ func (c *core) handleEvents() {
 	}
 }
 
-// sendEvent sends events to mux
+// sendEvent sends event to mux
 func (c *core) sendEvent(ev interface{}) {
 	go c.sendEventWait(ev)
 }
 
-// sendEvent sends events to mux
+// sendEventWait sends event to mux
 func (c *core) sendEventWait(ev interface{}) {
 	c.backend.EventMux().Post(ev)
 }
