@@ -84,11 +84,8 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		logger:                      log.New(),
 		backend:                     backend,
 		backlogs:                    make(map[tendermint.Validator]*prque.Prque),
-		backlogsMu:                  new(sync.Mutex),
 		pendingUnminedBlocks:        prque.New(),
-		pendingUnminedBlocksMu:      new(sync.Mutex),
 		unminedBlockCh:              make(chan struct{}),
-		latestPendingUnminedBlockMu: new(sync.RWMutex),
 		proposeTimeout:              new(timeout),
 		prevoteTimeout:              new(timeout),
 		precommitTimeout:            new(timeout),
@@ -108,16 +105,16 @@ type core struct {
 	timeoutSub          *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 
-	valSet tendermint.ValidatorSet
+	valSet *validatorSet
 
 	backlogs   map[tendermint.Validator]*prque.Prque
-	backlogsMu *sync.Mutex
+	backlogsMu sync.Mutex
 
 	currentRoundState *roundState
 	handlerStopCh     chan struct{}
 
 	pendingUnminedBlocks   *prque.Prque
-	pendingUnminedBlocksMu *sync.Mutex
+	pendingUnminedBlocksMu sync.Mutex
 
 	sentProposal          bool
 	sentPrevote           bool
@@ -132,7 +129,7 @@ type core struct {
 	currentHeightRoundsStates map[int64]*roundState
 
 	latestPendingUnminedBlock   *types.Block
-	latestPendingUnminedBlockMu *sync.RWMutex
+	latestPendingUnminedBlockMu sync.RWMutex
 	unminedBlockCh              chan struct{}
 
 	proposeTimeout   *timeout
@@ -189,18 +186,17 @@ func (c *core) broadcast(msg *message) {
 
 	// Broadcast payload
 	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(c.valSet, payload); err != nil {
+	if err = c.backend.Broadcast(c.valSet.Copy(), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}
 }
 
 func (c *core) isProposer() bool {
-	v := c.valSet
-	if v == nil {
+	if c.valSet == nil {
 		return false
 	}
-	return v.IsProposer(c.backend.Address())
+	return c.valSet.IsProposer(c.backend.Address())
 }
 
 func (c *core) commit() {
@@ -250,7 +246,13 @@ func (c *core) startRound(round *big.Int) {
 		c.validRound = big.NewInt(-1)
 		c.validValue = nil
 
-		c.valSet = c.backend.Validators(height.Uint64())
+		valSet := c.backend.Validators(height.Uint64())
+		if c.valSet == nil {
+			c.valSet = newValidatorSet(valSet)
+		} else {
+			c.valSet.set(valSet)
+		}
+
 		c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
 
 		// Assuming that round == 0 only when the node moves to a new height
@@ -330,7 +332,7 @@ func (c *core) stopTimer() {
 }
 
 func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address, error) {
-	return tendermint.CheckValidatorSignature(c.valSet, data, sig)
+	return tendermint.CheckValidatorSignature(c.valSet.Copy(), data, sig)
 }
 
 func (c *core) quorum(i int) bool {

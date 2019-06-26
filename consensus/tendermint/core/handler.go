@@ -98,7 +98,7 @@ func (c *core) handleEvents() {
 					continue
 				}
 
-				c.backend.Gossip(c.valSet, e.Payload)
+				c.backend.Gossip(c.valSet.Copy(), e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
 				err := c.handleCheckedMsg(e.msg, e.src)
@@ -112,7 +112,7 @@ func (c *core) handleEvents() {
 					c.logger.Error("core.handleEvents Get message payload failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(c.valSet, p)
+				c.backend.Gossip(c.valSet.Copy(), p)
 			}
 		case ev, ok := <-c.timeoutSub.Chan():
 			if !ok {
