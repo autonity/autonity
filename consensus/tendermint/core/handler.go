@@ -34,9 +34,9 @@ func (c *core) Stop() error {
 
 func (c *core) subscribeEvents() {
 	c.messageEventSub = c.backend.EventMux().Subscribe(
-		// external messageEventSub
+		// external messages
 		tendermint.MessageEvent{},
-		// internal messageEventSub
+		// internal messages
 		backlogEvent{},
 	)
 	c.newUnminedBlockEventSub = c.backend.EventMux().Subscribe(
@@ -121,7 +121,7 @@ func (c *core) handleConsensusEvents() {
 					continue
 				}
 
-				c.backend.Gossip(c.valSet, e.Payload)
+				c.backend.Gossip(c.valSet.Copy(), e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
 				err := c.handleCheckedMsg(e.msg, e.src)
@@ -135,7 +135,7 @@ func (c *core) handleConsensusEvents() {
 					c.logger.Error("core.handleConsensusEvents Get message payload failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(c.valSet, p)
+				c.backend.Gossip(c.valSet.Copy(), p)
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
@@ -163,7 +163,7 @@ func (c *core) handleConsensusEvents() {
 	}
 }
 
-// sendEvent sends messageEventSub to mux
+// sendEvent sends event to mux
 func (c *core) sendEvent(ev interface{}) {
 	c.backend.EventMux().Post(ev)
 }
