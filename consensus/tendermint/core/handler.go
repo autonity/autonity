@@ -13,11 +13,11 @@ import (
 func (c *core) Start() error {
 	c.subscribeEvents()
 
-	//We want to sequentially handle all the event which modify the current consensus state
-	go c.handleConsensusEvents()
-
 	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent()
+
+	//We want to sequentially handle all the event which modify the current consensus state
+	go c.handleConsensusEvents()
 
 	return nil
 }

@@ -83,7 +83,6 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		backend:              backend,
 		backlogs:             make(map[tendermint.Validator]*prque.Prque),
 		pendingUnminedBlocks: prque.New(),
-		unminedBlockCh:       make(chan struct{}),
 		proposeTimeout:       new(timeout),
 		prevoteTimeout:       new(timeout),
 		precommitTimeout:     new(timeout),
@@ -127,11 +126,11 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
+	// TODO: change type to map[int64]roundState
 	currentHeightRoundsStates map[int64]*roundState
 
 	latestPendingUnminedBlock   *types.Block
 	latestPendingUnminedBlockMu sync.RWMutex
-	unminedBlockCh              chan struct{}
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -266,6 +265,7 @@ func (c *core) startRound(round *big.Int) {
 	// Update current round state and the reference to c.currentHeightRoundsState
 	// We only add old round prevote messages to c.currentHeightRoundState, while future messages are sent to the backlog
 	// Which are processed when the step is set to StepAcceptProposal
+	// TODO: Update round state instead of creating new currentRoundState
 	c.currentRoundState = newRoundState(round, height, c.backend.HasBadProposal)
 	c.currentHeightRoundsStates[round.Int64()] = c.currentRoundState
 	c.sentProposal = false
@@ -277,12 +277,29 @@ func (c *core) startRound(round *big.Int) {
 
 	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
 
+	// Wait for c.handleNewUnminedBlockEvent() go routine to update c.latestPendingUnminedBlock
 	// Only wait for new unmined block if latestPendingUnminedBlock is nil or fo previous height
 	c.latestPendingUnminedBlockMu.RLock()
 	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height()
 	c.latestPendingUnminedBlockMu.RUnlock()
+
 	if isMined {
-		<-c.unminedBlockCh
+		ticker := time.NewTicker(100 * time.Millisecond)
+		done := make(chan struct{})
+
+		go func() {
+			for range ticker.C {
+				c.latestPendingUnminedBlockMu.RLock()
+				isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height()
+				c.latestPendingUnminedBlockMu.RUnlock()
+				if !isMined {
+					done <- struct{}{}
+				}
+			}
+		}()
+
+		<-done
+		ticker.Stop()
 	}
 
 	var p *types.Block
