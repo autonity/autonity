@@ -77,19 +77,19 @@ type Engine interface {
 // New creates an Istanbul consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
-		config:                      config,
-		address:                     backend.Address(),
-		step:                        StepAcceptProposal,
-		handlerStopCh:               make(chan struct{}),
-		logger:                      log.New(),
-		backend:                     backend,
-		backlogs:                    make(map[tendermint.Validator]*prque.Prque),
-		pendingUnminedBlocks:        prque.New(),
-		unminedBlockCh:              make(chan struct{}),
-		proposeTimeout:              new(timeout),
-		prevoteTimeout:              new(timeout),
-		precommitTimeout:            new(timeout),
-		valSet:						 new(validatorSet),
+		config:               config,
+		address:              backend.Address(),
+		step:                 StepAcceptProposal,
+		handlerStopCh:        make(chan struct{}),
+		logger:               log.New(),
+		backend:              backend,
+		backlogs:             make(map[tendermint.Validator]*prque.Prque),
+		pendingUnminedBlocks: prque.New(),
+		unminedBlockCh:       make(chan struct{}),
+		proposeTimeout:       new(timeout),
+		prevoteTimeout:       new(timeout),
+		precommitTimeout:     new(timeout),
+		valSet:               new(validatorSet),
 	}
 	return c
 }

@@ -12,16 +12,6 @@ type validatorSet struct {
 	tendermint.ValidatorSet
 }
 
-func (v *validatorSet) get() tendermint.ValidatorSet {
-	v.RLock()
-	defer v.RUnlock()
-	if v.ValidatorSet == nil {
-		return nil
-	}
-	valSet := v.ValidatorSet.Copy()
-	return valSet
-}
-
 func (v *validatorSet) set(valSet tendermint.ValidatorSet) {
 	v.Lock()
 	v.ValidatorSet = valSet
@@ -98,7 +88,6 @@ func (v *validatorSet) Policy() tendermint.ProposerPolicy {
 	policy := v.ValidatorSet.Policy()
 	return policy
 }
-
 
 func (v *validatorSet) CalcProposer(lastProposer common.Address, round uint64) {
 	v.RLock()

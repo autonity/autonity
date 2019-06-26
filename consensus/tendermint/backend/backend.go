@@ -155,7 +155,7 @@ func (sb *Backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) err
 	return nil
 }
 
-func (sb Backend) postEvent(event interface{}) {
+func (sb *Backend) postEvent(event interface{}) {
 	go sb.eventMux.Post(event)
 }
 
