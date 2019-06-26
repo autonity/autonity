@@ -40,7 +40,8 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 		return errInvalidMessage
 	}
 
-	if c := c.currentRoundState.Height().Cmp(unminedBlock.Number()); c > 0 {
+	number := unminedBlock.Number()
+	if c := c.currentRoundState.Height().Cmp(number); c > 0 {
 		// TODO: probably delete this case?
 		return errOldHeightMessage
 	} else if c < 0 {

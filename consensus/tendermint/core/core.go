@@ -282,7 +282,10 @@ func (c *core) startRound(round *big.Int) {
 	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
 
 	// Only wait for new unmined block if latestPendingUnminedBlock is nil or fo previous height
-	if c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height() {
+	c.latestPendingUnminedBlockMu.RLock()
+	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height()
+	c.latestPendingUnminedBlockMu.RUnlock()
+	if isMined {
 		<-c.unminedBlockCh
 	}
 
