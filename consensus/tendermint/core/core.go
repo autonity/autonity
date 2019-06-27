@@ -77,7 +77,6 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
 		config:               config,
 		address:              backend.Address(),
-		step:                 StepAcceptProposal,
 		handlerStopCh:        make(chan struct{}),
 		logger:               log.New(),
 		backend:              backend,
@@ -94,7 +93,6 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 type core struct {
 	config  *tendermint.Config
 	address common.Address
-	step    Step
 	logger  log.Logger
 
 	backend       tendermint.Backend
@@ -175,7 +173,7 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 }
 
 func (c *core) broadcast(msg *message) {
-	logger := c.logger.New("step", c.step)
+	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
@@ -267,7 +265,7 @@ func (c *core) startRound(round *big.Int) {
 	if round.Int64() > 0 {
 		// This is a shallow copy, should be fine for now
 		c.currentHeightRoundsStates[round.Int64()] = *c.currentRoundState
-		c.currentRoundState.update(round, height)
+		c.currentRoundState.Update(round, height)
 	}
 
 	c.sentProposal = false
@@ -322,7 +320,7 @@ func (c *core) startRound(round *big.Int) {
 }
 
 func (c *core) setStep(step Step) {
-	c.step = step
+	c.currentRoundState.SetStep(step)
 
 	if step == StepAcceptProposal {
 		c.processPendingUnminedBlock()

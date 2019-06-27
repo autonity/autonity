@@ -8,7 +8,7 @@ import (
 )
 
 func (c *core) sendPrevote(isNil bool) {
-	logger := c.logger.New("step", c.step)
+	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	var prevote = &tendermint.Vote{
 		Round:  big.NewInt(c.currentRoundState.Round().Int64()),
@@ -63,7 +63,7 @@ func (c *core) handlePrevote(msg *message) error {
 	}
 
 	// Now we can add the prevote to our current round state
-	if c.step >= StepProposeDone {
+	if c.currentRoundState.Step() >= StepProposeDone {
 		prevoteHash := prevote.ProposedBlockHash
 		curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 		curR := c.currentRoundState.Round().Int64()
@@ -84,7 +84,7 @@ func (c *core) handlePrevote(msg *message) error {
 				return err
 			}
 
-			if c.step == StepProposeDone {
+			if c.currentRoundState.Step() == StepProposeDone {
 				c.lockedValue = c.currentRoundState.Proposal().ProposalBlock
 				c.lockedRound = big.NewInt(curR)
 				c.sendPrecommit(false)
@@ -94,7 +94,7 @@ func (c *core) handlePrevote(msg *message) error {
 			c.validRound = big.NewInt(curR)
 			c.setValidRoundAndValue = true
 			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.step == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
+		} else if c.currentRoundState.Step() == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
 			if err := c.stopPrevoteTimeout(); err != nil {
 				return err
 			}
@@ -102,7 +102,7 @@ func (c *core) handlePrevote(msg *message) error {
 			c.setStep(StepPrevoteDone)
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.step == StepProposeDone && !c.prevoteTimeout.started && !c.sentPrecommit && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {
+		} else if c.currentRoundState.Step() == StepProposeDone && !c.prevoteTimeout.started && !c.sentPrecommit && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {
 			timeoutDuration := timeoutPrevote(curR)
 			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
 			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
@@ -131,7 +131,7 @@ func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, 
 		"msgHeight", prevote.Height,
 		"currentRound", c.currentRoundState.Round(),
 		"msgRound", prevote.Round,
-		"currentStep", c.step,
+		"currentStep", c.currentRoundState.Step(),
 		"isProposer", c.isProposer(),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},

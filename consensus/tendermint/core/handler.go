@@ -16,7 +16,7 @@ func (c *core) Start() error {
 	// set currentRoundState before starting go routines
 	lastCommittedProposalBlock, _ := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
-	c.currentRoundState = newRoundState(big.NewInt(0), height)
+	c.currentRoundState = NewRoundState(big.NewInt(0), height)
 
 	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent()

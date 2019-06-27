@@ -24,12 +24,13 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-// newRoundState creates a new roundState instance with the given view and validatorSet
+// NewRoundState creates a new roundState instance with the given view and validatorSet
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
-func newRoundState(r *big.Int, h *big.Int) *roundState {
+func NewRoundState(r *big.Int, h *big.Int) *roundState {
 	return &roundState{
 		round:      r,
 		height:     h,
+		step:       StepAcceptProposal,
 		proposal:   new(tendermint.Proposal),
 		Prevotes:   newMessageSet(),
 		Precommits: newMessageSet(),
@@ -39,15 +40,17 @@ func newRoundState(r *big.Int, h *big.Int) *roundState {
 
 // roundState stores the consensus step
 type roundState struct {
-	round      *big.Int
-	height     *big.Int
+	round  *big.Int
+	height *big.Int
+	step   Step
+
 	proposal   *tendermint.Proposal
 	Prevotes   messageSet
 	Precommits messageSet
 	mu         *sync.RWMutex
 }
 
-func (s *roundState) update(r *big.Int, h *big.Int) {
+func (s *roundState) Update(r *big.Int, h *big.Int) {
 	s.mu.Unlock()
 	defer s.mu.Unlock()
 	s.round = r
@@ -101,6 +104,20 @@ func (s *roundState) Height() *big.Int {
 	defer s.mu.RUnlock()
 
 	return s.height
+}
+
+func (s *roundState) SetStep(step Step) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.step = step
+}
+
+func (s *roundState) Step() Step {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.step
 }
 
 func (s *roundState) GetCurrentProposalHash() common.Hash {
