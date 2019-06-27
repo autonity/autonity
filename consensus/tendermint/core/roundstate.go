@@ -26,14 +26,14 @@ import (
 
 // newRoundState creates a new roundState instance with the given view and validatorSet
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
-func newRoundState(r *big.Int, h *big.Int, hasBadProposal func(hash common.Hash) bool) *roundState {
+func newRoundState(r *big.Int, h *big.Int) *roundState {
 	return &roundState{
-		round:          r,
-		height:         h,
-		proposal:       new(tendermint.Proposal),
-		Prevotes:       newMessageSet(),
-		Precommits:     newMessageSet(),
-		hasBadProposal: hasBadProposal,
+		round:      r,
+		height:     h,
+		proposal:   new(tendermint.Proposal),
+		Prevotes:   newMessageSet(),
+		Precommits: newMessageSet(),
+		mu:         new(sync.RWMutex),
 	}
 }
 
@@ -44,9 +44,17 @@ type roundState struct {
 	proposal   *tendermint.Proposal
 	Prevotes   messageSet
 	Precommits messageSet
+	mu         *sync.RWMutex
+}
 
-	mu             *sync.RWMutex
-	hasBadProposal func(hash common.Hash) bool
+func (s *roundState) update(r *big.Int, h *big.Int) {
+	s.mu.Unlock()
+	defer s.mu.Unlock()
+	s.round = r
+	s.height = h
+	s.proposal = new(tendermint.Proposal)
+	s.Prevotes = newMessageSet()
+	s.Precommits = newMessageSet()
 }
 
 func (s *roundState) SetProposal(proposal *tendermint.Proposal) {

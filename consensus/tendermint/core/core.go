@@ -126,8 +126,7 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	// TODO: change type to map[int64]roundState
-	currentHeightRoundsStates map[int64]*roundState
+	currentHeightRoundsStates map[int64]roundState
 
 	latestPendingUnminedBlock   *types.Block
 	latestPendingUnminedBlockMu sync.RWMutex
@@ -242,7 +241,7 @@ func (c *core) startRound(round *big.Int) {
 		c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
 
 		// Assuming that round == 0 only when the node moves to a new height
-		c.currentHeightRoundsStates = make(map[int64]*roundState)
+		c.currentHeightRoundsStates = make(map[int64]roundState)
 	}
 
 	// Reset all timeouts
@@ -262,12 +261,15 @@ func (c *core) startRound(round *big.Int) {
 		}
 	}
 
-	// Update current round state and the reference to c.currentHeightRoundsState
+	// Update current round state and add a copy to c.currentHeightRoundsState
 	// We only add old round prevote messages to c.currentHeightRoundState, while future messages are sent to the backlog
 	// Which are processed when the step is set to StepAcceptProposal
-	// TODO: Update round state instead of creating new currentRoundState
-	c.currentRoundState = newRoundState(round, height, c.backend.HasBadProposal)
-	c.currentHeightRoundsStates[round.Int64()] = c.currentRoundState
+	if round.Int64() > 0 {
+		// This is a shallow copy, should be fine for now
+		c.currentHeightRoundsStates[round.Int64()] = *c.currentRoundState
+		c.currentRoundState.update(round, height)
+	}
+
 	c.sentProposal = false
 	c.sentPrevote = false
 	c.sentPrecommit = false

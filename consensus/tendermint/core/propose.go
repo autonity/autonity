@@ -79,6 +79,8 @@ func (c *core) handleProposal(msg *message) error {
 		return err
 	}
 
+	// TODO: check for bad proposal using c.backed.HasBadProposal
+
 	// Here is about to accept the Proposal
 	if c.step == StepAcceptProposal {
 		if err := c.stopProposeTimeout(); err != nil {
