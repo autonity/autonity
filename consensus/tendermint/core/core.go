@@ -75,17 +75,18 @@ type Engine interface {
 // New creates an Istanbul consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
-		config:               config,
-		address:              backend.Address(),
-		handlerStopCh:        make(chan struct{}),
-		logger:               log.New(),
-		backend:              backend,
-		backlogs:             make(map[tendermint.Validator]*prque.Prque),
-		pendingUnminedBlocks: prque.New(),
-		proposeTimeout:       new(timeout),
-		prevoteTimeout:       new(timeout),
-		precommitTimeout:     new(timeout),
-		valSet:               new(validatorSet),
+		config:                      config,
+		address:                     backend.Address(),
+		handlerStopCh:               make(chan struct{}),
+		logger:                      log.New(),
+		backend:                     backend,
+		backlogs:                    make(map[tendermint.Validator]*prque.Prque),
+		pendingUnminedBlocks:        prque.New(),
+		latestPendingUnminedBlockCh: make(chan *types.Block),
+		proposeTimeout:              new(timeout),
+		prevoteTimeout:              new(timeout),
+		precommitTimeout:            new(timeout),
+		valSet:                      new(validatorSet),
 	}
 	return c
 }
@@ -128,6 +129,7 @@ type core struct {
 
 	latestPendingUnminedBlock   *types.Block
 	latestPendingUnminedBlockMu sync.RWMutex
+	latestPendingUnminedBlockCh chan *types.Block
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -279,21 +281,7 @@ func (c *core) startRound(round *big.Int) {
 
 	// Wait for c.handleNewUnminedBlockEvent() go routine to update c.latestPendingUnminedBlock
 	// Only wait for new unmined block if latestPendingUnminedBlock is nil or fo previous height
-	if c.checkLatestPendingUnminedBlock() {
-		ticker := time.NewTicker(100 * time.Millisecond)
-		done := make(chan struct{})
-
-		go func() {
-			for range ticker.C {
-				if !c.checkLatestPendingUnminedBlock() {
-					done <- struct{}{}
-				}
-			}
-		}()
-
-		<-done
-		ticker.Stop()
-	}
+	c.checkLatestPendingUnminedBlock()
 
 	var p *types.Block
 	if c.isProposer() {
@@ -321,17 +309,26 @@ func (c *core) setStep(step Step) {
 	c.processBacklog()
 }
 
-func (c *core) checkLatestPendingUnminedBlock() bool {
+func (c *core) checkLatestPendingUnminedBlock() {
 	c.latestPendingUnminedBlockMu.RLock()
 	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
 	c.latestPendingUnminedBlockMu.RUnlock()
-	return isMined
+
+	if isMined {
+		<-c.latestPendingUnminedBlockCh
+	}
+
 }
 
 func (c *core) setLatestPendingUnminedBlock(b *types.Block) {
 	c.latestPendingUnminedBlockMu.Lock()
+	wasNilOrDiffHeight := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
 	c.latestPendingUnminedBlock = b
 	c.latestPendingUnminedBlockMu.Unlock()
+
+	if wasNilOrDiffHeight {
+		c.latestPendingUnminedBlockCh <- b
+	}
 }
 
 func (c *core) stopFutureProposalTimer() {

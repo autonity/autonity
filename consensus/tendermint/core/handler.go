@@ -75,20 +75,18 @@ func (c *core) handleNewUnminedBlockEvent() {
 	}()
 
 	for e := range c.newUnminedBlockEventSub.Chan() {
-		// TODO: check is probably unnecessary
-		if newUnminedBlockEvent, ok := e.Data.(tendermint.NewUnminedBlockEvent); ok {
+		newUnminedBlockEvent := e.Data.(tendermint.NewUnminedBlockEvent)
 
-			pb := &newUnminedBlockEvent.NewUnminedBlock
+		pb := &newUnminedBlockEvent.NewUnminedBlock
 
-			err := c.handleUnminedBlock(pb)
-			switch err {
-			case consensus.ErrFutureBlock:
-				c.storeUnminedBlockMsg(pb)
-			case nil:
-				//nothing to do
-			default:
-				c.logger.Error("core.handleNewUnminedBlockEvent Get message(NewUnminedBlockEvent) failed", "err", err)
-			}
+		err := c.handleUnminedBlock(pb)
+		switch err {
+		case consensus.ErrFutureBlock:
+			c.storeUnminedBlockMsg(pb)
+		case nil:
+			//nothing to do
+		default:
+			c.logger.Error("core.handleNewUnminedBlockEvent Get message(NewUnminedBlockEvent) failed", "err", err)
 		}
 
 	}
