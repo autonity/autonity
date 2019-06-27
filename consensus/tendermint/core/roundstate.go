@@ -51,7 +51,7 @@ type roundState struct {
 }
 
 func (s *roundState) Update(r *big.Int, h *big.Int) {
-	s.mu.Unlock()
+	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.round = r
 	s.height = h

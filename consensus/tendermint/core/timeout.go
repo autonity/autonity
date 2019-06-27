@@ -24,7 +24,7 @@ type timeoutEvent struct {
 type timeout struct {
 	timer   *time.Timer
 	started bool
-	sync.RWMutex
+	sync.Mutex
 }
 
 // runAfterTimeout() will be run in a separate go routine, so values used inside the function needs to be managed separately
@@ -39,8 +39,8 @@ func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height
 }
 
 func (t *timeout) stopTimer() bool {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 	return t.timer.Stop()
 }
 
