@@ -292,7 +292,7 @@ func (c *core) startRound(round *big.Int) {
 		go func() {
 			for range ticker.C {
 				c.latestPendingUnminedBlockMu.RLock()
-				isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height()
+				isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
 				c.latestPendingUnminedBlockMu.RUnlock()
 				if !isMined {
 					done <- struct{}{}
