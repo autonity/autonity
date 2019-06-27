@@ -17,13 +17,11 @@
 package core
 
 import (
-	"io"
 	"math/big"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
-	"github.com/clearmatics/autonity/rlp"
 )
 
 // newRoundState creates a new roundState instance with the given view and validatorSet
@@ -35,7 +33,6 @@ func newRoundState(r *big.Int, h *big.Int, hasBadProposal func(hash common.Hash)
 		proposal:       new(tendermint.Proposal),
 		Prevotes:       newMessageSet(),
 		Precommits:     newMessageSet(),
-		mu:             new(sync.RWMutex),
 		hasBadProposal: hasBadProposal,
 	}
 }
@@ -107,38 +104,4 @@ func (s *roundState) GetCurrentProposalHash() common.Hash {
 	}
 
 	return common.Hash{}
-}
-
-// The DecodeRLP method should read one value from the given
-// Stream. It is not forbidden to read less or more, but it might
-// be confusing.
-func (s *roundState) DecodeRLP(stream *rlp.Stream) error {
-	var rs = new(roundState)
-
-	if err := stream.Decode(&rs); err != nil {
-		return err
-	}
-	s.round = rs.round
-	s.height = rs.height
-	s.proposal = rs.proposal
-	s.Prevotes = rs.Prevotes
-	s.Precommits = rs.Precommits
-	s.mu = new(sync.RWMutex)
-
-	return nil
-}
-
-// EncodeRLP should write the RLP encoding of its receiver to w.
-// If the implementation is a pointer method, it may also be
-// called for nil pointers.
-//
-// Implementations should generate valid RLP. The data written is
-// not verified at the moment, but a future version might. It is
-// recommended to write only a single value but writing multiple
-// values or no value at all is also permitted.
-func (s *roundState) EncodeRLP(w io.Writer) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return rlp.Encode(w, []interface{}{s.round, s.height, s.proposal, s.Prevotes, s.Precommits})
 }
