@@ -279,20 +279,13 @@ func (c *core) startRound(round *big.Int) {
 
 	// Wait for c.handleNewUnminedBlockEvent() go routine to update c.latestPendingUnminedBlock
 	// Only wait for new unmined block if latestPendingUnminedBlock is nil or fo previous height
-	c.latestPendingUnminedBlockMu.RLock()
-	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height()
-	c.latestPendingUnminedBlockMu.RUnlock()
-
-	if isMined {
+	if c.checkLatestPendingUnminedBlock() {
 		ticker := time.NewTicker(100 * time.Millisecond)
 		done := make(chan struct{})
 
 		go func() {
 			for range ticker.C {
-				c.latestPendingUnminedBlockMu.RLock()
-				isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
-				c.latestPendingUnminedBlockMu.RUnlock()
-				if !isMined {
+				if !c.checkLatestPendingUnminedBlock() {
 					done <- struct{}{}
 				}
 			}
@@ -326,6 +319,19 @@ func (c *core) setStep(step Step) {
 		c.processPendingUnminedBlock()
 	}
 	c.processBacklog()
+}
+
+func (c *core) checkLatestPendingUnminedBlock() bool {
+	c.latestPendingUnminedBlockMu.RLock()
+	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height()
+	c.latestPendingUnminedBlockMu.RUnlock()
+	return isMined
+}
+
+func (c *core) setcheckLatestPendingUnminedBlock(b *types.Block) {
+	c.latestPendingUnminedBlockMu.Lock()
+	c.latestPendingUnminedBlock = b
+	c.latestPendingUnminedBlockMu.Unlock()
 }
 
 func (c *core) stopFutureProposalTimer() {

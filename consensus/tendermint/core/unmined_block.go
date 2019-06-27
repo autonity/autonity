@@ -19,9 +19,7 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 
 	c.logNewUnminedBlockEvent(unminedBlock)
 
-	c.latestPendingUnminedBlockMu.Lock()
-	c.latestPendingUnminedBlock = unminedBlock
-	c.latestPendingUnminedBlockMu.Unlock()
+	c.setcheckLatestPendingUnminedBlock(unminedBlock)
 
 	return nil
 }
