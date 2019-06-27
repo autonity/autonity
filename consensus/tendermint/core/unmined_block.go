@@ -19,7 +19,7 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 
 	c.logNewUnminedBlockEvent(unminedBlock)
 
-	c.setcheckLatestPendingUnminedBlock(unminedBlock)
+	c.setLatestPendingUnminedBlock(unminedBlock)
 
 	return nil
 }

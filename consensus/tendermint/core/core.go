@@ -323,12 +323,12 @@ func (c *core) setStep(step Step) {
 
 func (c *core) checkLatestPendingUnminedBlock() bool {
 	c.latestPendingUnminedBlockMu.RLock()
-	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height()
+	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
 	c.latestPendingUnminedBlockMu.RUnlock()
 	return isMined
 }
 
-func (c *core) setcheckLatestPendingUnminedBlock(b *types.Block) {
+func (c *core) setLatestPendingUnminedBlock(b *types.Block) {
 	c.latestPendingUnminedBlockMu.Lock()
 	c.latestPendingUnminedBlock = b
 	c.latestPendingUnminedBlockMu.Unlock()
