@@ -45,7 +45,7 @@ func (c *core) checkMessage(round *big.Int, height *big.Int) error {
 }
 
 func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
-	logger := c.logger.New("from", src, "step", c.step)
+	logger := c.logger.New("from", src, "step", c.currentRoundState.Step())
 
 	if src.Address() == c.address {
 		logger.Warn("Backlog from self")
@@ -88,7 +88,7 @@ func (c *core) processBacklog() {
 			continue
 		}
 
-		logger := c.logger.New("from", src, "step", c.step)
+		logger := c.logger.New("from", src, "step", c.currentRoundState.Step())
 		var isFuture bool
 
 		// We stop processing if
@@ -131,7 +131,7 @@ func (c *core) processBacklog() {
 			}
 			logger.Trace("Post backlog event", "msg", msg)
 
-			go c.sendEvent(backlogEvent{
+			c.sendEvent(backlogEvent{
 				src: src,
 				msg: msg,
 			})

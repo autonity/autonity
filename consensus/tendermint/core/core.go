@@ -21,7 +21,6 @@ import (
 	"errors"
 	"math"
 	"math/big"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -73,25 +72,21 @@ type Engine interface {
 	Stop() error
 }
 
-// TODO: add better logging
 // New creates an Istanbul consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
 		config:                      config,
 		address:                     backend.Address(),
-		step:                        StepAcceptProposal,
 		handlerStopCh:               make(chan struct{}),
 		logger:                      log.New(),
 		backend:                     backend,
 		backlogs:                    make(map[tendermint.Validator]*prque.Prque),
-		backlogsMu:                  new(sync.Mutex),
 		pendingUnminedBlocks:        prque.New(),
-		pendingUnminedBlocksMu:      new(sync.Mutex),
-		unminedBlockCh:              make(chan struct{}),
-		latestPendingUnminedBlockMu: new(sync.RWMutex),
+		latestPendingUnminedBlockCh: make(chan *types.Block),
 		proposeTimeout:              new(timeout),
 		prevoteTimeout:              new(timeout),
 		precommitTimeout:            new(timeout),
+		valSet:                      new(validatorSet),
 	}
 	return c
 }
@@ -99,25 +94,26 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 type core struct {
 	config  *tendermint.Config
 	address common.Address
-	step    Step
 	logger  log.Logger
 
-	backend             tendermint.Backend
-	events              *event.TypeMuxSubscription
-	finalCommittedSub   *event.TypeMuxSubscription
-	timeoutSub          *event.TypeMuxSubscription
-	futureProposalTimer *time.Timer
+	backend       tendermint.Backend
+	handlerStopCh chan struct{}
 
-	valSet tendermint.ValidatorSet
+	messageEventSub         *event.TypeMuxSubscription
+	newUnminedBlockEventSub *event.TypeMuxSubscription
+	committedSub            *event.TypeMuxSubscription
+	timeoutEventSub         *event.TypeMuxSubscription
+	futureProposalTimer     *time.Timer
+
+	valSet *validatorSet
 
 	backlogs   map[tendermint.Validator]*prque.Prque
-	backlogsMu *sync.Mutex
+	backlogsMu sync.Mutex
 
 	currentRoundState *roundState
-	handlerStopCh     chan struct{}
 
 	pendingUnminedBlocks   *prque.Prque
-	pendingUnminedBlocksMu *sync.Mutex
+	pendingUnminedBlocksMu sync.Mutex
 
 	sentProposal          bool
 	sentPrevote           bool
@@ -129,11 +125,11 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightRoundsStates map[int64]*roundState
+	currentHeightRoundsStates map[int64]roundState
 
 	latestPendingUnminedBlock   *types.Block
-	latestPendingUnminedBlockMu *sync.RWMutex
-	unminedBlockCh              chan struct{}
+	latestPendingUnminedBlockMu sync.RWMutex
+	latestPendingUnminedBlockCh chan *types.Block
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -179,7 +175,7 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 }
 
 func (c *core) broadcast(msg *message) {
-	logger := c.logger.New("step", c.step)
+	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
@@ -189,18 +185,14 @@ func (c *core) broadcast(msg *message) {
 
 	// Broadcast payload
 	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(c.valSet, payload); err != nil {
+	if err = c.backend.Broadcast(c.valSet.Copy(), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}
 }
 
 func (c *core) isProposer() bool {
-	v := c.valSet
-	if v == nil {
-		return false
-	}
-	return v.IsProposer(c.backend.Address())
+	return c.valSet.IsProposer(c.backend.Address())
 }
 
 func (c *core) commit() {
@@ -232,13 +224,6 @@ func (c *core) commit() {
 
 // startRound starts a new round. if round equals to 0, it means to starts a new height
 func (c *core) startRound(round *big.Int) {
-	defer func() {
-		if r := recover(); r != nil {
-			debug.PrintStack()
-			c.logger.Crit("panic in core.startRound", "panic", r)
-		}
-	}()
-
 	lastCommittedProposalBlock, lastCommittedProposalBlockProposer := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 
@@ -250,11 +235,13 @@ func (c *core) startRound(round *big.Int) {
 		c.validRound = big.NewInt(-1)
 		c.validValue = nil
 
-		c.valSet = c.backend.Validators(height.Uint64())
+		valSet := c.backend.Validators(height.Uint64())
+		c.valSet.set(valSet)
+
 		c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
 
 		// Assuming that round == 0 only when the node moves to a new height
-		c.currentHeightRoundsStates = make(map[int64]*roundState)
+		c.currentHeightRoundsStates = make(map[int64]roundState)
 	}
 
 	// Reset all timeouts
@@ -274,11 +261,15 @@ func (c *core) startRound(round *big.Int) {
 		}
 	}
 
-	// Update current round state and the reference to c.currentHeightRoundsState
+	// Update current round state and add a copy to c.currentHeightRoundsState
 	// We only add old round prevote messages to c.currentHeightRoundState, while future messages are sent to the backlog
 	// Which are processed when the step is set to StepAcceptProposal
-	c.currentRoundState = newRoundState(round, height, c.backend.HasBadProposal)
-	c.currentHeightRoundsStates[round.Int64()] = c.currentRoundState
+	if round.Int64() > 0 {
+		// This is a shallow copy, should be fine for now
+		c.currentHeightRoundsStates[round.Int64()] = *c.currentRoundState
+		c.currentRoundState.Update(round, height)
+	}
+
 	c.sentProposal = false
 	c.sentPrevote = false
 	c.sentPrecommit = false
@@ -288,10 +279,9 @@ func (c *core) startRound(round *big.Int) {
 
 	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
 
+	// Wait for c.handleNewUnminedBlockEvent() go routine to update c.latestPendingUnminedBlock
 	// Only wait for new unmined block if latestPendingUnminedBlock is nil or fo previous height
-	if c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height() {
-		<-c.unminedBlockCh
-	}
+	c.checkLatestPendingUnminedBlock()
 
 	var p *types.Block
 	if c.isProposer() {
@@ -311,12 +301,34 @@ func (c *core) startRound(round *big.Int) {
 }
 
 func (c *core) setStep(step Step) {
-	c.step = step
+	c.currentRoundState.SetStep(step)
 
 	if step == StepAcceptProposal {
-		c.processPendingRequests()
+		c.processPendingUnminedBlock()
 	}
 	c.processBacklog()
+}
+
+func (c *core) checkLatestPendingUnminedBlock() {
+	c.latestPendingUnminedBlockMu.RLock()
+	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
+	c.latestPendingUnminedBlockMu.RUnlock()
+
+	if isMined {
+		<-c.latestPendingUnminedBlockCh
+	}
+
+}
+
+func (c *core) setLatestPendingUnminedBlock(b *types.Block) {
+	c.latestPendingUnminedBlockMu.Lock()
+	wasNilOrDiffHeight := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
+	c.latestPendingUnminedBlock = b
+	c.latestPendingUnminedBlockMu.Unlock()
+
+	if wasNilOrDiffHeight {
+		c.latestPendingUnminedBlockCh <- b
+	}
 }
 
 func (c *core) stopFutureProposalTimer() {
@@ -325,12 +337,8 @@ func (c *core) stopFutureProposalTimer() {
 	}
 }
 
-func (c *core) stopTimer() {
-	c.stopFutureProposalTimer()
-}
-
 func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address, error) {
-	return tendermint.CheckValidatorSignature(c.valSet, data, sig)
+	return tendermint.CheckValidatorSignature(c.valSet.Copy(), data, sig)
 }
 
 func (c *core) quorum(i int) bool {

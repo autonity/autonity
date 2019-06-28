@@ -10,7 +10,7 @@ import (
 )
 
 func (c *core) sendProposal(p *types.Block) {
-	logger := c.logger.New("step", c.step)
+	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.currentRoundState.Height().Int64() == p.Number().Int64() && c.isProposer() && !c.sentProposal {
@@ -79,8 +79,10 @@ func (c *core) handleProposal(msg *message) error {
 		return err
 	}
 
+	// TODO: check for bad proposal using c.backed.HasBadProposal
+
 	// Here is about to accept the Proposal
-	if c.step == StepAcceptProposal {
+	if c.currentRoundState.Step() == StepAcceptProposal {
 		if err := c.stopProposeTimeout(); err != nil {
 			return err
 		}
@@ -134,7 +136,7 @@ func (c *core) logProposalMessageEvent(message string, proposal *tendermint.Prop
 		"msgHeight", proposal.Height,
 		"currentRound", c.currentRoundState.Round(),
 		"msgRound", proposal.Round,
-		"currentStep", c.step,
+		"currentStep", c.currentRoundState.Step(),
 		"isProposer", c.isProposer(),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},

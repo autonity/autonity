@@ -8,7 +8,7 @@ import (
 )
 
 func (c *core) sendPrecommit(isNil bool) {
-	logger := c.logger.New("step", c.step)
+	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	var precommit = &tendermint.Vote{
 		Round:  big.NewInt(c.currentRoundState.Round().Int64()),
@@ -86,8 +86,8 @@ func (c *core) handlePrecommit(msg *message) error {
 }
 
 func (c *core) handleCommit() {
-	c.logger.Trace("Received a final committed proposal", "step", c.step)
-	go c.startRound(common.Big0)
+	c.logger.Trace("Received a final committed proposal", "step", c.currentRoundState.Step())
+	c.startRound(common.Big0)
 }
 
 func (c *core) stopPrecommitTimeout() error {
@@ -109,7 +109,7 @@ func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vo
 		"msgHeight", precommit.Height,
 		"currentRound", c.currentRoundState.Round(),
 		"msgRound", precommit.Round,
-		"currentStep", c.step,
+		"currentStep", c.currentRoundState.Step(),
 		"isProposer", c.isProposer(),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},

@@ -19,14 +19,7 @@ func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
 
 	c.logNewUnminedBlockEvent(unminedBlock)
 
-	c.latestPendingUnminedBlockMu.Lock()
-	wasNilOrDiffHeight := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number() != c.currentRoundState.Height()
-	c.latestPendingUnminedBlock = unminedBlock
-	c.latestPendingUnminedBlockMu.Unlock()
-
-	if wasNilOrDiffHeight {
-		c.unminedBlockCh <- struct{}{}
-	}
+	c.setLatestPendingUnminedBlock(unminedBlock)
 
 	return nil
 }
@@ -40,7 +33,8 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 		return errInvalidMessage
 	}
 
-	if c := c.currentRoundState.Height().Cmp(unminedBlock.Number()); c > 0 {
+	number := unminedBlock.Number()
+	if c := c.currentRoundState.Height().Cmp(number); c > 0 {
 		// TODO: probably delete this case?
 		return errOldHeightMessage
 	} else if c < 0 {
@@ -51,7 +45,7 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 }
 
 func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
-	logger := c.logger.New("step", c.step)
+	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	logger.Trace("Store future unminedBlock", "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
 
@@ -61,7 +55,7 @@ func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
 	c.pendingUnminedBlocks.Push(unminedBlock, float32(-unminedBlock.Number().Int64()))
 }
 
-func (c *core) processPendingRequests() {
+func (c *core) processPendingUnminedBlock() {
 	c.pendingUnminedBlocksMu.Lock()
 	defer c.pendingUnminedBlocksMu.Unlock()
 
@@ -85,7 +79,7 @@ func (c *core) processPendingRequests() {
 		}
 		c.logger.Trace("Post pending request", "number", ub.Number(), "hash", ub.Hash())
 
-		go c.sendEvent(tendermint.NewUnminedBlockEvent{
+		c.sendEvent(tendermint.NewUnminedBlockEvent{
 			NewUnminedBlock: *ub,
 		})
 	}
@@ -98,7 +92,7 @@ func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
 		"hash", ub.Hash(),
 		"currentHeight", c.currentRoundState.Height(),
 		"currentRound", c.currentRoundState.Round(),
-		"currentStep", c.step,
+		"currentStep", c.currentRoundState.Step(),
 		"currentProposer", c.isProposer(),
 		"msgHeight", ub.Header().Number.Uint64(),
 		"isNilMsg", ub.Hash() == common.Hash{},
