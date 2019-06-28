@@ -238,7 +238,7 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 		m, _ = ms.(*lru.ARCCache)
 		if _, k := m.Get(hash); k {
 			// This peer had this event, skip it
-			sb.logger.Debug("inner sender loop. message sent earlier", "peer", addr.Hex(), "msg", hash.Hex())
+			sb.logger.Trace("inner sender loop. message sent earlier", "peer", addr.Hex(), "msg", hash.Hex())
 			errCh <- nil
 			return errCh
 		}
@@ -262,11 +262,11 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 				if err = p.Send(tendermintMsg, payload); err != nil {
 					err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + err.Error()), addr}
 
-					sb.logger.Debug("inner sender loop. error", "try", try, "peer", addr.Hex(), "msg", hash.Hex(), "err", err.Error())
+					sb.logger.Trace("inner sender loop. error", "try", try, "peer", addr.Hex(), "msg", hash.Hex(), "err", err.Error())
 				} else {
 					err = nil
 
-					sb.logger.Debug("inner sender loop. success", "try", try, "peer", addr.Hex(), "msg", hash.Hex())
+					sb.logger.Trace("inner sender loop. success", "try", try, "peer", addr.Hex(), "msg", hash.Hex())
 					break SenderLoop
 				}
 			case <-ctx.Done():
@@ -308,7 +308,7 @@ func (sb *Backend) workerSendLoop() {
 
 func (sb *Backend) trySend(msgToPeers messageToPeers) {
 	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
-		sb.logger.Debug("worker loop. TTL expired", "msg", msgToPeers)
+		sb.logger.Trace("worker loop. TTL expired", "msg", msgToPeers)
 		return
 	}
 
@@ -334,11 +334,11 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 			peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
 		}
 
-		sb.logger.Debug("worker loop. peers still not connected", "peers", peersStr)
+		sb.logger.Trace("worker loop. peers still not connected", "peers", peersStr)
 	}
 
 	if sb.broadcaster != nil && len(ps) > 0 {
-		sb.logger.Debug("worker loop. resend to connected peers", "msg", msgToPeers.msg.hash.String(), "peers", peersToString(getPeerKeys(ps)))
+		sb.logger.Trace("worker loop. resend to connected peers", "msg", msgToPeers.msg.hash.String(), "peers", peersToString(getPeerKeys(ps)))
 		var errChs []chan error
 		ctx, cancel := context.WithTimeout(context.Background(), TTL*time.Second)
 		defer cancel()
@@ -379,7 +379,7 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 	notConnectedPeersAfterSendingWithErrors := len(notConnected)
 
 	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
-		sb.logger.Debug("worker loop. TTL expired", "msg", msgToPeers)
+		sb.logger.Trace("worker loop. TTL expired", "msg", msgToPeers)
 		return
 	}
 
@@ -395,7 +395,7 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 		}
 
 		if notConnectedPeersBeforeSending != notConnectedPeersAfterSendingWithErrors {
-			sb.logger.Debug("worker loop. peers not connected and errors while sending", "msg", msg.String())
+			sb.logger.Trace("worker loop. peers not connected and errors while sending", "msg", msg.String())
 		}
 
 		sb.resend <- msg
