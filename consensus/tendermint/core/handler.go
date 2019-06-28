@@ -11,19 +11,25 @@ import (
 
 // Start implements core.Engine.Start
 func (c *core) Start() error {
-	// Tests will handle events itself, so we have to make subscribeEvents()
-	// be able to call in test.
 	c.subscribeEvents()
-	go c.handleEvents()
 
-	// Start a new round from last height + 1
-	go c.startRound(common.Big0)
+	// set currentRoundState before starting go routines
+	lastCommittedProposalBlock, _ := c.backend.LastCommittedProposal()
+	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
+	c.currentRoundState = NewRoundState(big.NewInt(0), height)
+
+	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
+	go c.handleNewUnminedBlockEvent()
+
+	//We want to sequentially handle all the event which modify the current consensus state
+	go c.handleConsensusEvents()
+
 	return nil
 }
 
 // Stop implements core.Engine.Stop
 func (c *core) Stop() error {
-	c.stopTimer()
+	c.stopFutureProposalTimer()
 	c.unsubscribeEvents()
 
 	// Make sure the handler goroutine exits
@@ -31,70 +37,90 @@ func (c *core) Stop() error {
 	return nil
 }
 
-// TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal events: backlogEvent, timeoutEvent
-
-// Subscribe both internal and external events
 func (c *core) subscribeEvents() {
-	c.events = c.backend.EventMux().Subscribe(
-		// external events
-		tendermint.NewUnminedBlockEvent{},
+	c.messageEventSub = c.backend.EventMux().Subscribe(
+		// external messages
 		tendermint.MessageEvent{},
-		// internal events
+		// internal messages
 		backlogEvent{},
 	)
-	c.timeoutSub = c.backend.EventMux().Subscribe(
+	c.newUnminedBlockEventSub = c.backend.EventMux().Subscribe(
+		tendermint.NewUnminedBlockEvent{},
+	)
+	c.timeoutEventSub = c.backend.EventMux().Subscribe(
 		timeoutEvent{},
 	)
-	c.finalCommittedSub = c.backend.EventMux().Subscribe(
+	c.committedSub = c.backend.EventMux().Subscribe(
 		tendermint.CommitEvent{},
 	)
 }
 
-// Unsubscribe all events
+// Unsubscribe all messageEventSub
 func (c *core) unsubscribeEvents() {
-	c.events.Unsubscribe()
-	c.timeoutSub.Unsubscribe()
-	c.finalCommittedSub.Unsubscribe()
+	c.messageEventSub.Unsubscribe()
+	c.newUnminedBlockEventSub.Unsubscribe()
+	c.timeoutEventSub.Unsubscribe()
+	c.committedSub.Unsubscribe()
 }
 
-func (c *core) handleEvents() {
+// TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, timeoutEvent
+
+func (c *core) handleNewUnminedBlockEvent() {
+	defer func() {
+		if r := recover(); r != nil {
+			debug.PrintStack()
+
+			c.logger.Crit("panic in core.handleNewUnminedBlockEvent", "panic", r)
+		}
+	}()
+
+	for e := range c.newUnminedBlockEventSub.Chan() {
+		newUnminedBlockEvent := e.Data.(tendermint.NewUnminedBlockEvent)
+
+		pb := &newUnminedBlockEvent.NewUnminedBlock
+
+		err := c.handleUnminedBlock(pb)
+		switch err {
+		case consensus.ErrFutureBlock:
+			c.storeUnminedBlockMsg(pb)
+		case nil:
+			//nothing to do
+		default:
+			c.logger.Error("core.handleNewUnminedBlockEvent Get message(NewUnminedBlockEvent) failed", "err", err)
+		}
+
+	}
+}
+
+func (c *core) handleConsensusEvents() {
 	// Clear step
 	defer func() {
 		if r := recover(); r != nil {
 			debug.PrintStack()
 
-			c.logger.Crit("panic in core.handleEvents", "panic", r)
+			c.logger.Crit("panic in core.handleConsensusEvents", "panic", r)
 		}
 	}()
 
+	// Start a new round from last height + 1
+	// Do not want to block listening for events
+	go c.startRound(common.Big0)
+
 	for {
 		select {
-		case ev, ok := <-c.events.Chan():
+		case ev, ok := <-c.messageEventSub.Chan():
 			if !ok {
 				return
 			}
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
-			case tendermint.NewUnminedBlockEvent:
-				pb := &e.NewUnminedBlock
-
-				err := c.handleUnminedBlock(pb)
-				switch err {
-				case consensus.ErrFutureBlock:
-					c.storeUnminedBlockMsg(pb)
-				case nil:
-					//nothing to do
-				default:
-					c.logger.Error("core.handleEvents Get message(NewUnminedBlockEvent) failed", "err", err)
-				}
-
 			case tendermint.MessageEvent:
 				if len(e.Payload) == 0 {
-					c.logger.Error("core.handleEvents Get message(MessageEvent) empty payload")
+					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) empty payload")
 				}
 
 				if err := c.handleMsg(e.Payload); err != nil {
-					c.logger.Error("core.handleEvents Get message(MessageEvent) payload failed", "err", err)
+					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
 					continue
 				}
 
@@ -103,18 +129,18 @@ func (c *core) handleEvents() {
 				// No need to check signature for internal messages
 				err := c.handleCheckedMsg(e.msg, e.src)
 				if err != nil {
-					c.logger.Error("core.handleEvents handleCheckedMsg message failed", "err", err)
+					c.logger.Error("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
 					continue
 				}
 
 				p, err := e.msg.Payload()
 				if err != nil {
-					c.logger.Error("core.handleEvents Get message payload failed", "err", err)
+					c.logger.Error("core.handleConsensusEvents Get message payload failed", "err", err)
 					continue
 				}
 				c.backend.Gossip(c.valSet.Copy(), p)
 			}
-		case ev, ok := <-c.timeoutSub.Chan():
+		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
 				return
 			}
@@ -128,7 +154,7 @@ func (c *core) handleEvents() {
 					c.handleTimeoutPrecommit(timeoutE)
 				}
 			}
-		case ev, ok := <-c.finalCommittedSub.Chan():
+		case ev, ok := <-c.committedSub.Chan():
 			if !ok {
 				return
 			}
@@ -197,7 +223,7 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
 
 			if totalFutureRoundMessages >= int64(c.valSet.F()) {
-				go c.startRound(big.NewInt(msgRound))
+				c.startRound(big.NewInt(msgRound))
 			}
 
 		}

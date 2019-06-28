@@ -24,7 +24,7 @@ type timeoutEvent struct {
 type timeout struct {
 	timer   *time.Timer
 	started bool
-	sync.RWMutex
+	sync.Mutex
 }
 
 // runAfterTimeout() will be run in a separate go routine, so values used inside the function needs to be managed separately
@@ -39,8 +39,8 @@ func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height
 }
 
 func (t *timeout) stopTimer() bool {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 	return t.timer.Stop()
 }
 
@@ -52,7 +52,7 @@ func (c *core) logTimeoutEvent(message string, msgType string, timeout timeoutEv
 		"msgHeight", timeout.heightWhenCalled,
 		"currentRound", c.currentRoundState.Round(),
 		"msgRound", timeout.roundWhenCalled,
-		"currentStep", c.step,
+		"currentStep", c.currentRoundState.Step(),
 		"msgStep", timeout.step,
 	)
 }
@@ -70,7 +70,7 @@ func (c *core) onTimeoutPropose(r int64, h int64) {
 }
 
 func (c *core) handleTimeoutPropose(msg timeoutEvent) {
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.step == StepAcceptProposal {
+	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == StepAcceptProposal {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 
 		c.sendPrevote(true)
@@ -92,7 +92,7 @@ func (c *core) onTimeoutPrevote(r int64, h int64) {
 }
 
 func (c *core) handleTimeoutPrevote(msg timeoutEvent) {
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.step == StepProposeDone {
+	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == StepProposeDone {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 
 		c.sendPrecommit(true)
@@ -116,7 +116,7 @@ func (c *core) handleTimeoutPrecommit(msg timeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 
-		go c.startRound(new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
+		c.startRound(new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
 	}
 }
 
