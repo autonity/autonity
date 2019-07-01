@@ -89,6 +89,7 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		prevoteTimeout:              new(timeout),
 		precommitTimeout:            new(timeout),
 		valSet:                      new(validatorSet),
+		futureRoundsChange:          make(map[int64]int64),
 	}
 	return c
 }
@@ -250,12 +251,11 @@ func (c *core) startRound(round *big.Int) {
 	c.prevoteTimeout = new(timeout)
 	c.precommitTimeout = new(timeout)
 
-	// Remove previous rounds from futureRoundsChange map
+	// Get all rounds from c.futureRoundsChange and remove previous rounds
 	var rounds = make([]int64, 0)
 	for k := range c.futureRoundsChange {
 		rounds = append(rounds, k)
 	}
-
 	for _, r := range rounds {
 		if r <= round.Int64() {
 			delete(c.futureRoundsChange, r)
