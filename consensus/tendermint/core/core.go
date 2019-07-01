@@ -267,8 +267,8 @@ func (c *core) startRound(round *big.Int) {
 	if round.Int64() > 0 {
 		// This is a shallow copy, should be fine for now
 		c.currentHeightRoundsStates[round.Int64()] = *c.currentRoundState
-		c.currentRoundState.Update(round, height)
 	}
+	c.currentRoundState.Update(round, height)
 
 	c.sentProposal = false
 	c.sentPrevote = false
