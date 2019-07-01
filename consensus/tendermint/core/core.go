@@ -235,10 +235,9 @@ func (c *core) startRound(round *big.Int) {
 		c.validRound = big.NewInt(-1)
 		c.validValue = nil
 
+		// Set validator set for Height
 		valSet := c.backend.Validators(height.Uint64())
 		c.valSet.set(valSet)
-
-		c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
 
 		// Assuming that round == 0 only when the node moves to a new height
 		c.currentHeightRoundsStates = make(map[int64]roundState)
@@ -269,6 +268,9 @@ func (c *core) startRound(round *big.Int) {
 		c.currentHeightRoundsStates[round.Int64()] = *c.currentRoundState
 	}
 	c.currentRoundState.Update(round, height)
+
+	// Calculate new proposer
+	c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
 
 	c.sentProposal = false
 	c.sentPrevote = false
