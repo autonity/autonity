@@ -213,7 +213,7 @@ func peersToString(ps []common.Address) string {
 }
 
 func getPeerKeys(psMap map[common.Address]consensus.Peer) []common.Address {
-	var ps []common.Address
+	ps := make([]common.Address, 0, len(psMap))
 	for k := range psMap {
 		ps = append(ps, k)
 	}
