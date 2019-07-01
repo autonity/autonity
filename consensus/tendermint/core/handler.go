@@ -203,7 +203,6 @@ func (c *core) handleMsg(payload []byte) error {
 	return c.handleCheckedMsg(msg, sender)
 }
 
-// TODO: sender is redundant, so remove
 func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error {
 	logger := c.logger.New("address", c.address, "from", sender)
 
@@ -219,17 +218,16 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 			//We cannot move to a round in a new height without receiving a new block
 			var msgRound int64
 			if msg.Code == msgProposal {
-				var p tendermint.Proposal
-				if e := msg.Decode(p); e != nil {
+				var p *tendermint.Proposal
+				if e := msg.Decode(&p); e != nil {
 					return errFailedDecodeProposal
 				}
 				msgRound = p.Round.Int64()
 
 			} else {
-				var v tendermint.Vote
-				if e := msg.Decode(v); e != nil {
-					// TODO: introduce new error: errFailedDecodeVote
-					return errFailedDecodePrecommit
+				var v *tendermint.Vote
+				if e := msg.Decode(&v); e != nil {
+					return errFailedDecodeVote
 				}
 				msgRound = v.Round.Int64()
 			}

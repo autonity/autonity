@@ -53,12 +53,14 @@ var (
 	errFutureRoundMessage = errors.New("same height but future round message")
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")
-	// errFailedDecodeProposal is returned when the PRE-PREPARE message is malformed.
+	// errFailedDecodeProposal is returned when the PROPOSAL message is malformed.
 	errFailedDecodeProposal = errors.New("failed to decode PROPOSAL")
-	// errFailedDecodePrevote is returned when the PREPARE message is malformed.
+	// errFailedDecodePrevote is returned when the PREVOTE message is malformed.
 	errFailedDecodePrevote = errors.New("failed to decode PREVOTE")
-	// errFailedDecodePrecommit is returned when the COMMIT message is malformed.
+	// errFailedDecodePrecommit is returned when the PRECOMMIT message is malformed.
 	errFailedDecodePrecommit = errors.New("failed to decode PRECOMMIT")
+	// errFailedDecodeVote is returned for when PREVOTE or PRECOMMIT is malformed.
+	errFailedDecodeVote = errors.New("failed to decode vote")
 	// errNilPrevoteSent is returned when timer could be stopped in time
 	errNilPrevoteSent = errors.New("timer expired and nil prevote sent")
 	// errNilPrecommitSent is returned when timer could be stopped in time
