@@ -62,20 +62,24 @@ func (c *core) handlePrevote(msg *message) error {
 		return err
 	}
 
+	// After checking the message we know it is from the same height and round, so we should store it even if
+	// c.currentRoundState.Step() < StepProposeDone. The propose timeout which is started at the beginning of the round
+	// will update the step to at least StepProposeDone and when it handle its on prevote(nil), then it will also have
+	// votes from other nodes.
+	prevoteHash := prevote.ProposedBlockHash
+	if prevoteHash == (common.Hash{}) {
+		c.currentRoundState.Prevotes.AddNilVote(*msg)
+	} else {
+		c.currentRoundState.Prevotes.AddVote(prevoteHash, *msg)
+	}
+
+	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, msg.Address.String(), c.address.String())
+
 	// Now we can add the prevote to our current round state
 	if c.currentRoundState.Step() >= StepProposeDone {
-		prevoteHash := prevote.ProposedBlockHash
 		curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 		curR := c.currentRoundState.Round().Int64()
 		curH := c.currentRoundState.Height().Int64()
-
-		if prevoteHash == (common.Hash{}) {
-			c.currentRoundState.Prevotes.AddNilVote(*msg)
-		} else {
-			c.currentRoundState.Prevotes.AddVote(prevoteHash, *msg)
-		}
-
-		c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, msg.Address.String(), c.address.String())
 
 		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
 		if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Prevotes.VotesSize(curProposalHash)) && !c.setValidRoundAndValue {
