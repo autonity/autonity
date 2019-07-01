@@ -52,7 +52,7 @@ func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
 		return
 	}
 
-	logger.Trace("Store future message")
+	logger.Debug("Store future message")
 
 	c.backlogsMu.Lock()
 	defer c.backlogsMu.Unlock()

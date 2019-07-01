@@ -210,7 +210,12 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
-		if err == errFutureRoundMessage {
+		if err == errFutureHeightMessage {
+			logger.Debug("Storing future height message in backlog")
+			c.storeBacklog(msg, sender)
+		} else if err == errFutureRoundMessage {
+			logger.Debug("Storing future height message in backlog")
+			c.storeBacklog(msg, sender)
 			//We cannot move to a round in a new height without receiving a new block
 			var msgRound int64
 			if msg.Code == msgProposal {
@@ -233,12 +238,10 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
 
 			if totalFutureRoundMessages >= int64(c.valSet.F()) {
+				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
 				c.startRound(big.NewInt(msgRound))
 			}
 
-		}
-		if err == errFutureHeightMessage || err == errFutureRoundMessage {
-			c.storeBacklog(msg, sender)
 		}
 
 		return err
@@ -246,10 +249,13 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 
 	switch msg.Code {
 	case msgProposal:
+		logger.Debug("tendermint.MessageEvent: PROPOSAL")
 		return testBacklog(c.handleProposal(msg))
 	case msgPrevote:
+		logger.Debug("tendermint.MessageEvent: PREVOTE")
 		return testBacklog(c.handlePrevote(msg))
 	case msgPrecommit:
+		logger.Debug("tendermint.MessageEvent: PRECOMMIT")
 		return testBacklog(c.handlePrecommit(msg))
 	default:
 		logger.Error("Invalid message", "msg", msg)
