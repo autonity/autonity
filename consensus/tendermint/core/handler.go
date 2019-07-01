@@ -75,6 +75,7 @@ func (c *core) handleNewUnminedBlockEvent() {
 	}()
 
 	for e := range c.newUnminedBlockEventSub.Chan() {
+		c.logger.Debug("Started handling tendermint.NewUnminedBlockEvent")
 		newUnminedBlockEvent := e.Data.(tendermint.NewUnminedBlockEvent)
 
 		pb := &newUnminedBlockEvent.NewUnminedBlock
@@ -89,6 +90,7 @@ func (c *core) handleNewUnminedBlockEvent() {
 			c.logger.Error("core.handleNewUnminedBlockEvent Get message(NewUnminedBlockEvent) failed", "err", err)
 		}
 
+		c.logger.Debug("Finished handling tendermint.NewUnminedBlockEvent")
 	}
 }
 
@@ -119,19 +121,23 @@ func (c *core) handleConsensusEvents() {
 					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) empty payload")
 				}
 
+				c.logger.Debug("Started handling tendermint.MessageEvent")
 				if err := c.handleMsg(e.Payload); err != nil {
 					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
 					continue
 				}
+				c.logger.Debug("Finished handling tendermint.MessageEvent")
 
 				c.backend.Gossip(c.valSet.Copy(), e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
+				c.logger.Debug("Started handling backlogEvent")
 				err := c.handleCheckedMsg(e.msg, e.src)
 				if err != nil {
 					c.logger.Error("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
 					continue
 				}
+				c.logger.Debug("Finished handling backlogEvent")
 
 				p, err := e.msg.Payload()
 				if err != nil {
@@ -145,6 +151,7 @@ func (c *core) handleConsensusEvents() {
 				return
 			}
 			if timeoutE, ok := ev.Data.(timeoutEvent); ok {
+				c.logger.Debug("Started handling timeoutEvent")
 				switch timeoutE.step {
 				case msgProposal:
 					c.handleTimeoutPropose(timeoutE)
@@ -153,6 +160,7 @@ func (c *core) handleConsensusEvents() {
 				case msgPrecommit:
 					c.handleTimeoutPrecommit(timeoutE)
 				}
+				c.logger.Debug("Finished handling timeoutEvent")
 			}
 		case ev, ok := <-c.committedSub.Chan():
 			if !ok {
@@ -160,7 +168,9 @@ func (c *core) handleConsensusEvents() {
 			}
 			switch ev.Data.(type) {
 			case tendermint.CommitEvent:
+				c.logger.Debug("Started handling CommitEvent")
 				c.handleCommit()
+				c.logger.Debug("Finished handling CommitEvent")
 			}
 		}
 	}
@@ -200,7 +210,12 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
-		if err == errFutureRoundMessage {
+		if err == errFutureHeightMessage {
+			logger.Debug("Storing future height message in backlog")
+			c.storeBacklog(msg, sender)
+		} else if err == errFutureRoundMessage {
+			logger.Debug("Storing future height message in backlog")
+			c.storeBacklog(msg, sender)
 			//We cannot move to a round in a new height without receiving a new block
 			var msgRound int64
 			if msg.Code == msgProposal {
@@ -223,12 +238,10 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
 
 			if totalFutureRoundMessages >= int64(c.valSet.F()) {
+				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
 				c.startRound(big.NewInt(msgRound))
 			}
 
-		}
-		if err == errFutureHeightMessage || err == errFutureRoundMessage {
-			c.storeBacklog(msg, sender)
 		}
 
 		return err
@@ -236,10 +249,13 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 
 	switch msg.Code {
 	case msgProposal:
+		logger.Debug("tendermint.MessageEvent: PROPOSAL")
 		return testBacklog(c.handleProposal(msg))
 	case msgPrevote:
+		logger.Debug("tendermint.MessageEvent: PREVOTE")
 		return testBacklog(c.handlePrevote(msg))
 	case msgPrecommit:
+		logger.Debug("tendermint.MessageEvent: PRECOMMIT")
 		return testBacklog(c.handlePrecommit(msg))
 	default:
 		logger.Error("Invalid message", "msg", msg)
