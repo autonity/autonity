@@ -54,11 +54,11 @@ var (
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")
 	// errFailedDecodeProposal is returned when the PRE-PREPARE message is malformed.
-	errFailedDecodeProposal = errors.New("failed to decode PRE-PREPARE")
+	errFailedDecodeProposal = errors.New("failed to decode PROPOSAL")
 	// errFailedDecodePrevote is returned when the PREPARE message is malformed.
-	errFailedDecodePrevote = errors.New("failed to decode PREPARE")
+	errFailedDecodePrevote = errors.New("failed to decode PREVOTE")
 	// errFailedDecodePrecommit is returned when the COMMIT message is malformed.
-	errFailedDecodePrecommit = errors.New("failed to decode COMMIT")
+	errFailedDecodePrecommit = errors.New("failed to decode PRECOMMIT")
 	// errNilPrevoteSent is returned when timer could be stopped in time
 	errNilPrevoteSent = errors.New("timer expired and nil prevote sent")
 	// errNilPrecommitSent is returned when timer could be stopped in time
