@@ -160,7 +160,7 @@ func (c *core) handleConsensusEvents() {
 				case msgPrecommit:
 					c.handleTimeoutPrecommit(timeoutE)
 				}
-				c.logger.Debug("Started handling timeoutEvent")
+				c.logger.Debug("Finished handling timeoutEvent")
 			}
 		case ev, ok := <-c.committedSub.Chan():
 			if !ok {
@@ -170,7 +170,7 @@ func (c *core) handleConsensusEvents() {
 			case tendermint.CommitEvent:
 				c.logger.Debug("Started handling CommitEvent")
 				c.handleCommit()
-				c.logger.Debug("Started handling CommitEvent")
+				c.logger.Debug("Finished handling CommitEvent")
 			}
 		}
 	}
