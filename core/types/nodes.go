@@ -17,7 +17,7 @@ type Nodes struct {
 const (
 	maxParseTries     = 300
 	delayBetweenTries = time.Second
-	defaultTTL        = 20
+	defaultTTL        = 120
 )
 
 func NewNodes(strList []string, openNetwork bool) *Nodes {
