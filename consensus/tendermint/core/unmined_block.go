@@ -47,7 +47,7 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
-	logger.Trace("Store future unminedBlock", "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
+	logger.Debug("Store future unminedBlock", "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
 
 	c.pendingUnminedBlocksMu.Lock()
 	defer c.pendingUnminedBlocksMu.Unlock()
@@ -70,14 +70,14 @@ func (c *core) processPendingUnminedBlock() {
 		err := c.checkUnminedBlockMsg(ub)
 		if err != nil {
 			if err == errFutureHeightMessage {
-				c.logger.Trace("Stop processing request", "number", ub.Number(), "hash", ub.Hash())
+				c.logger.Debug("Stop processing request", "number", ub.Number(), "hash", ub.Hash())
 				c.pendingUnminedBlocks.Push(m, prio)
 				break
 			}
-			c.logger.Trace("Skip the pending request", "number", ub.Number(), "hash", ub.Hash(), "err", err)
+			c.logger.Debug("Skip the pending request", "number", ub.Number(), "hash", ub.Hash(), "err", err)
 			continue
 		}
-		c.logger.Trace("Post pending request", "number", ub.Number(), "hash", ub.Hash())
+		c.logger.Debug("Post pending request", "number", ub.Number(), "hash", ub.Hash())
 
 		c.sendEvent(tendermint.NewUnminedBlockEvent{
 			NewUnminedBlock: *ub,
