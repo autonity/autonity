@@ -53,12 +53,14 @@ var (
 	errFutureRoundMessage = errors.New("same height but future round message")
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")
-	// errFailedDecodeProposal is returned when the PRE-PREPARE message is malformed.
-	errFailedDecodeProposal = errors.New("failed to decode PRE-PREPARE")
-	// errFailedDecodePrevote is returned when the PREPARE message is malformed.
-	errFailedDecodePrevote = errors.New("failed to decode PREPARE")
-	// errFailedDecodePrecommit is returned when the COMMIT message is malformed.
-	errFailedDecodePrecommit = errors.New("failed to decode COMMIT")
+	// errFailedDecodeProposal is returned when the PROPOSAL message is malformed.
+	errFailedDecodeProposal = errors.New("failed to decode PROPOSAL")
+	// errFailedDecodePrevote is returned when the PREVOTE message is malformed.
+	errFailedDecodePrevote = errors.New("failed to decode PREVOTE")
+	// errFailedDecodePrecommit is returned when the PRECOMMIT message is malformed.
+	errFailedDecodePrecommit = errors.New("failed to decode PRECOMMIT")
+	// errFailedDecodeVote is returned for when PREVOTE or PRECOMMIT is malformed.
+	errFailedDecodeVote = errors.New("failed to decode vote")
 	// errNilPrevoteSent is returned when timer could be stopped in time
 	errNilPrevoteSent = errors.New("timer expired and nil prevote sent")
 	// errNilPrecommitSent is returned when timer could be stopped in time
@@ -87,6 +89,7 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		prevoteTimeout:              new(timeout),
 		precommitTimeout:            new(timeout),
 		valSet:                      new(validatorSet),
+		futureRoundsChange:          make(map[int64]int64),
 	}
 	return c
 }
@@ -235,10 +238,9 @@ func (c *core) startRound(round *big.Int) {
 		c.validRound = big.NewInt(-1)
 		c.validValue = nil
 
+		// Set validator set for Height
 		valSet := c.backend.Validators(height.Uint64())
 		c.valSet.set(valSet)
-
-		c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
 
 		// Assuming that round == 0 only when the node moves to a new height
 		c.currentHeightRoundsStates = make(map[int64]roundState)
@@ -249,12 +251,11 @@ func (c *core) startRound(round *big.Int) {
 	c.prevoteTimeout = new(timeout)
 	c.precommitTimeout = new(timeout)
 
-	// Remove previous rounds from futureRoundsChange map
+	// Get all rounds from c.futureRoundsChange and remove previous rounds
 	var rounds = make([]int64, 0)
 	for k := range c.futureRoundsChange {
 		rounds = append(rounds, k)
 	}
-
 	for _, r := range rounds {
 		if r <= round.Int64() {
 			delete(c.futureRoundsChange, r)
@@ -269,6 +270,9 @@ func (c *core) startRound(round *big.Int) {
 		c.currentHeightRoundsStates[round.Int64()] = *c.currentRoundState
 	}
 	c.currentRoundState.Update(round, height)
+
+	// Calculate new proposer
+	c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
 
 	c.sentProposal = false
 	c.sentPrevote = false

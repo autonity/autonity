@@ -126,9 +126,8 @@ func (c *core) handleConsensusEvents() {
 					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
 					continue
 				}
-				c.logger.Debug("Finished handling tendermint.MessageEvent")
-
 				c.backend.Gossip(c.valSet.Copy(), e.Payload)
+				c.logger.Debug("Finished handling tendermint.MessageEvent")
 			case backlogEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling backlogEvent")
@@ -137,7 +136,6 @@ func (c *core) handleConsensusEvents() {
 					c.logger.Error("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
 					continue
 				}
-				c.logger.Debug("Finished handling backlogEvent")
 
 				p, err := e.msg.Payload()
 				if err != nil {
@@ -145,6 +143,7 @@ func (c *core) handleConsensusEvents() {
 					continue
 				}
 				c.backend.Gossip(c.valSet.Copy(), p)
+				c.logger.Debug("Finished handling backlogEvent")
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
@@ -203,7 +202,6 @@ func (c *core) handleMsg(payload []byte) error {
 	return c.handleCheckedMsg(msg, sender)
 }
 
-// TODO: sender is redundant, so remove
 func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error {
 	logger := c.logger.New("address", c.address, "from", sender)
 
@@ -219,17 +217,16 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 			//We cannot move to a round in a new height without receiving a new block
 			var msgRound int64
 			if msg.Code == msgProposal {
-				var p tendermint.Proposal
-				if e := msg.Decode(p); e != nil {
+				var p *tendermint.Proposal
+				if e := msg.Decode(&p); e != nil {
 					return errFailedDecodeProposal
 				}
 				msgRound = p.Round.Int64()
 
 			} else {
-				var v tendermint.Vote
-				if e := msg.Decode(v); e != nil {
-					// TODO: introduce new error: errFailedDecodeVote
-					return errFailedDecodePrecommit
+				var v *tendermint.Vote
+				if e := msg.Decode(&v); e != nil {
+					return errFailedDecodeVote
 				}
 				msgRound = v.Round.Int64()
 			}

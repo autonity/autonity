@@ -57,26 +57,26 @@ func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
 	c.backlogsMu.Lock()
 	defer c.backlogsMu.Unlock()
 
-	backlog := c.backlogs[src]
-	if backlog == nil {
-		backlog = prque.New()
+	backlogPrque := c.backlogs[src]
+	if backlogPrque == nil {
+		backlogPrque = prque.New()
 	}
 	switch msg.Code {
 	case msgProposal:
 		var p *tendermint.Proposal
 		err := msg.Decode(&p)
 		if err == nil {
-			backlog.Push(msg, toPriority(msg.Code, p.Round, p.Height))
+			backlogPrque.Push(msg, toPriority(msg.Code, p.Round, p.Height))
 		}
-		// for msgRoundChange, msgPrevote and msgPrecommit cases
+		// for msgPrevote and msgPrecommit cases
 	default:
 		var p *tendermint.Vote
 		err := msg.Decode(&p)
 		if err == nil {
-			backlog.Push(msg, toPriority(msg.Code, p.Round, p.Height))
+			backlogPrque.Push(msg, toPriority(msg.Code, p.Round, p.Height))
 		}
 	}
-	c.backlogs[src] = backlog
+	c.backlogs[src] = backlogPrque
 }
 
 func (c *core) processBacklog() {
@@ -121,17 +121,17 @@ func (c *core) processBacklog() {
 			err := c.checkMessage(round, height)
 			if err != nil {
 				if err == errFutureHeightMessage {
-					logger.Trace("Stop processing backlog", "msg", msg)
+					logger.Debug("Stop processing backlog", "msg", msg)
 					backlog.Push(msg, prio)
 					isFuture = true
 					break
 				}
-				logger.Trace("Skip the backlog event", "msg", msg, "err", err)
+				logger.Debug("Skip the backlog event", "msg", msg, "err", err)
 				continue
 			}
-			logger.Trace("Post backlog event", "msg", msg)
+			logger.Debug("Post backlog event", "msg", msg)
 
-			c.sendEvent(backlogEvent{
+			go c.sendEvent(backlogEvent{
 				src: src,
 				msg: msg,
 			})
