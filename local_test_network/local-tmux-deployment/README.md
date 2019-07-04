@@ -1,0 +1,1 @@
+Please run `make-autonity`. It will launch 4 local nodes with Tendermint consensus algorithm in a tmux session called `autonity`, which wil contain 4 windows for each of the node.
