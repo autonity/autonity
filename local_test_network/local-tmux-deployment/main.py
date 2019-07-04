@@ -160,7 +160,7 @@ def tmux_start_clients(addresses, dont_start_id=None):
                 """ --networkid 1991  --gasprice '0' """
                 """ --unlock 0x{}""".format(addresses[node_id]) +
                 """ --password ./network-data/node{}/pass.txt --debug --mine --minerthreads '1'""".format(node_id) +
-                """ --etherbase 0x{} --verbosity 4" C-m """.format(addresses[node_id], node_id + 1))
+                """ --etherbase 0x{} --verbosity 4" \&\> network-data/autonity{}.log C-m """.format(addresses[node_id], node_id + 1))
 
         execute("""tmux split-window -h -t autonity:{}""".format(node_id + 1))
         execute("""tmux send-keys -t autonity:{} "sleep 10s" C-m""".format(node_id + 1))
