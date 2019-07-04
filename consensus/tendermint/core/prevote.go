@@ -1,13 +1,14 @@
 package core
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func (c *core) sendPrevote(isNil bool) {
+func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	var prevote = &tendermint.Vote{
@@ -34,13 +35,13 @@ func (c *core) sendPrevote(isNil bool) {
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
 	c.sentPrevote = true
-	c.broadcast(&message{
+	c.broadcast(ctx, &message{
 		Code: msgPrevote,
 		Msg:  encodedVote,
 	})
 }
 
-func (c *core) handlePrevote(msg *message) error {
+func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 	var prevote *tendermint.Vote
 	err := msg.Decode(&prevote)
 	if err != nil {
@@ -91,7 +92,7 @@ func (c *core) handlePrevote(msg *message) error {
 			if c.currentRoundState.Step() == StepProposeDone {
 				c.lockedValue = c.currentRoundState.Proposal().ProposalBlock
 				c.lockedRound = big.NewInt(curR)
-				c.sendPrecommit(false)
+				c.sendPrecommit(ctx, false)
 				c.setStep(StepPrevoteDone)
 			}
 			c.validValue = c.currentRoundState.Proposal().ProposalBlock
@@ -102,7 +103,7 @@ func (c *core) handlePrevote(msg *message) error {
 			if err := c.stopPrevoteTimeout(); err != nil {
 				return err
 			}
-			c.sendPrecommit(true)
+			c.sendPrecommit(ctx, true)
 			c.setStep(StepPrevoteDone)
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus

@@ -1,13 +1,14 @@
 package core
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func (c *core) sendPrecommit(isNil bool) {
+func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	var precommit = &tendermint.Vote{
@@ -34,14 +35,14 @@ func (c *core) sendPrecommit(isNil bool) {
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
 	c.sentPrecommit = true
-	c.broadcast(&message{
+	c.broadcast(ctx, &message{
 		Code: msgPrecommit,
 		Msg:  encodedVote,
 	})
 }
 
 // TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
-func (c *core) handlePrecommit(msg *message) error {
+func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	var precommit *tendermint.Vote
 	err := msg.Decode(&precommit)
 	if err != nil {
@@ -73,7 +74,12 @@ func (c *core) handlePrecommit(msg *message) error {
 			return err
 		}
 
-		c.commit()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			c.commit()
+		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 	} else if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize()) {
@@ -85,9 +91,9 @@ func (c *core) handlePrecommit(msg *message) error {
 	return nil
 }
 
-func (c *core) handleCommit() {
+func (c *core) handleCommit(ctx context.Context) {
 	c.logger.Debug("Received a final committed proposal", "step", c.currentRoundState.Step())
-	c.startRound(common.Big0)
+	c.startRound(ctx, common.Big0)
 }
 
 func (c *core) stopPrecommitTimeout() error {

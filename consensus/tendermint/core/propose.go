@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"github.com/clearmatics/autonity/common"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
-func (c *core) sendProposal(p *types.Block) {
+func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	// If I'm the proposer and I have the same height with the proposal
@@ -34,14 +35,14 @@ func (c *core) sendProposal(p *types.Block) {
 
 		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", proposalBlock, c.address.String(), "broadcast")
 
-		c.broadcast(&message{
+		c.broadcast(ctx, &message{
 			Code: msgProposal,
 			Msg:  proposal,
 		})
 	}
 }
 
-func (c *core) handleProposal(msg *message) error {
+func (c *core) handleProposal(ctx context.Context, msg *message) error {
 	var proposal *tendermint.Proposal
 	err := msg.Decode(&proposal)
 	if err != nil {
@@ -98,17 +99,17 @@ func (c *core) handleProposal(msg *message) error {
 		if vr == -1 {
 			// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
 			if c.lockedRound.Int64() == vr || h == c.lockedValue.Hash() {
-				c.sendPrevote(false)
+				c.sendPrevote(ctx, false)
 			} else {
-				c.sendPrevote(true)
+				c.sendPrevote(ctx, true)
 			}
 			c.setStep(StepProposeDone)
 			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		} else if rs, ok := c.currentHeightRoundsStates[vr]; vr > -1 && vr < curR && ok && c.quorum(rs.Prevotes.VotesSize(h)) {
 			if c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash() {
-				c.sendPrevote(false)
+				c.sendPrevote(ctx, false)
 			} else {
-				c.sendPrevote(true)
+				c.sendPrevote(ctx, true)
 			}
 			c.setStep(StepProposeDone)
 		}

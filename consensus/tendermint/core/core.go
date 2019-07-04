@@ -18,6 +18,7 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"math"
 	"math/big"
@@ -101,6 +102,7 @@ type core struct {
 
 	backend       tendermint.Backend
 	handlerStopCh chan struct{}
+	cancel context.CancelFunc
 
 	messageEventSub         *event.TypeMuxSubscription
 	newUnminedBlockEventSub *event.TypeMuxSubscription
@@ -177,7 +179,7 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	return payload, nil
 }
 
-func (c *core) broadcast(msg *message) {
+func (c *core) broadcast(ctx context.Context, msg *message) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	payload, err := c.finalizeMessage(msg)
@@ -188,7 +190,7 @@ func (c *core) broadcast(msg *message) {
 
 	// Broadcast payload
 	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(c.valSet.Copy(), payload); err != nil {
+	if err = c.backend.Broadcast(ctx, c.valSet.Copy(), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}
@@ -226,7 +228,7 @@ func (c *core) commit() {
 }
 
 // startRound starts a new round. if round equals to 0, it means to starts a new height
-func (c *core) startRound(round *big.Int) {
+func (c *core) startRound(ctx context.Context, round *big.Int) {
 	lastCommittedProposalBlock, lastCommittedProposalBlockProposer := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 
@@ -285,7 +287,7 @@ func (c *core) startRound(round *big.Int) {
 
 	// Wait for c.handleNewUnminedBlockEvent() go routine to update c.latestPendingUnminedBlock
 	// Only wait for new unmined block if latestPendingUnminedBlock is nil or fo previous height
-	c.checkLatestPendingUnminedBlock()
+	c.checkLatestPendingUnminedBlock(ctx)
 
 	var p *types.Block
 	if c.isProposer() {
@@ -296,7 +298,7 @@ func (c *core) startRound(round *big.Int) {
 			p = c.latestPendingUnminedBlock
 			c.latestPendingUnminedBlockMu.RUnlock()
 		}
-		c.sendProposal(p)
+		c.sendProposal(ctx, p)
 	} else {
 		timeoutDuration := timeoutPropose(round.Int64())
 		c.proposeTimeout.scheduleTimeout(timeoutDuration, round.Int64(), height.Int64(), c.onTimeoutPropose)
@@ -313,15 +315,19 @@ func (c *core) setStep(step Step) {
 	c.processBacklog()
 }
 
-func (c *core) checkLatestPendingUnminedBlock() {
+func (c *core) checkLatestPendingUnminedBlock(ctx context.Context) {
 	c.latestPendingUnminedBlockMu.RLock()
 	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
 	c.latestPendingUnminedBlockMu.RUnlock()
 
 	if isMined {
-		<-c.latestPendingUnminedBlockCh
+		select {
+		case <-ctx.Done():
+			return
+		case <-c.latestPendingUnminedBlockCh:
+			return
+		}
 	}
-
 }
 
 func (c *core) setLatestPendingUnminedBlock(b *types.Block) {

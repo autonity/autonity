@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"math/big"
 	"sync"
 	"time"
@@ -69,11 +70,11 @@ func (c *core) onTimeoutPropose(r int64, h int64) {
 	c.sendEvent(msg)
 }
 
-func (c *core) handleTimeoutPropose(msg timeoutEvent) {
+func (c *core) handleTimeoutPropose(ctx context.Context, msg timeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == StepAcceptProposal {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 
-		c.sendPrevote(true)
+		c.sendPrevote(ctx, true)
 		c.setStep(StepProposeDone)
 	}
 }
@@ -91,11 +92,11 @@ func (c *core) onTimeoutPrevote(r int64, h int64) {
 
 }
 
-func (c *core) handleTimeoutPrevote(msg timeoutEvent) {
+func (c *core) handleTimeoutPrevote(ctx context.Context, msg timeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == StepProposeDone {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 
-		c.sendPrecommit(true)
+		c.sendPrecommit(ctx, true)
 		c.setStep(StepPrevoteDone)
 	}
 }
@@ -112,11 +113,11 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 	c.sendEvent(msg)
 }
 
-func (c *core) handleTimeoutPrecommit(msg timeoutEvent) {
+func (c *core) handleTimeoutPrecommit(ctx context.Context, msg timeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 
-		c.startRound(new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
+		c.startRound(ctx, new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
 	}
 }
 

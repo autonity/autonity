@@ -17,6 +17,7 @@
 package core
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"math/big"
 	"sync"
@@ -109,7 +110,7 @@ func (self *testSystemBackend) Broadcast(valSet istanbul.ValidatorSet, message [
 	return nil
 }
 
-func (self *testSystemBackend) Gossip(valSet istanbul.ValidatorSet, message []byte) error {
+func (self *testSystemBackend) Gossip(_ context.Context, valSet istanbul.ValidatorSet, message []byte) error {
 	testLogger.Warn("not sign any data")
 	return nil
 }
