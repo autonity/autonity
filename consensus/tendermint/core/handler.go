@@ -29,11 +29,19 @@ func (c *core) Start() error {
 
 // Stop implements core.Engine.Stop
 func (c *core) Stop() error {
+	// Stop all timeouts
+	_ = c.stopProposeTimeout()
+	_ = c.stopPrevoteTimeout()
+	_ = c.stopPrecommitTimeout()
+
 	c.stopFutureProposalTimer()
 	c.unsubscribeEvents()
 
 	// Make sure the handler goroutine exits
-	c.handlerStopCh <- struct{}{}
+	c.unminedBlockHandlerStopCh <- struct{}{}
+	c.consensusHandlerStopCh <- struct{}{}
+
+	c.currentRoundState = nil
 	return nil
 }
 
@@ -72,6 +80,7 @@ func (c *core) handleNewUnminedBlockEvent() {
 
 			c.logger.Crit("panic in core.handleNewUnminedBlockEvent", "panic", r)
 		}
+		<-c.unminedBlockHandlerStopCh
 	}()
 
 	for e := range c.newUnminedBlockEventSub.Chan() {
@@ -102,6 +111,8 @@ func (c *core) handleConsensusEvents() {
 
 			c.logger.Crit("panic in core.handleConsensusEvents", "panic", r)
 		}
+
+		<-c.consensusHandlerStopCh
 	}()
 
 	// Start a new round from last height + 1

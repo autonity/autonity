@@ -79,7 +79,8 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
 		config:                      config,
 		address:                     backend.Address(),
-		handlerStopCh:               make(chan struct{}),
+		consensusHandlerStopCh:      make(chan struct{}),
+		unminedBlockHandlerStopCh:   make(chan struct{}),
 		logger:                      log.New(),
 		backend:                     backend,
 		backlogs:                    make(map[tendermint.Validator]*prque.Prque),
@@ -99,8 +100,10 @@ type core struct {
 	address common.Address
 	logger  log.Logger
 
-	backend       tendermint.Backend
-	handlerStopCh chan struct{}
+	backend tendermint.Backend
+
+	consensusHandlerStopCh    chan struct{}
+	unminedBlockHandlerStopCh chan struct{}
 
 	messageEventSub         *event.TypeMuxSubscription
 	newUnminedBlockEventSub *event.TypeMuxSubscription
@@ -246,6 +249,10 @@ func (c *core) startRound(round *big.Int) {
 		c.currentHeightRoundsStates = make(map[int64]roundState)
 	}
 
+	// Stop all timeouts
+	_ = c.stopProposeTimeout()
+	_ = c.stopPrevoteTimeout()
+	_ = c.stopPrecommitTimeout()
 	// Reset all timeouts
 	c.proposeTimeout = new(timeout)
 	c.prevoteTimeout = new(timeout)
