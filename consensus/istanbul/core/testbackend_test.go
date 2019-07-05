@@ -59,127 +59,131 @@ type testCommittedMsgs struct {
 //
 // define the functions that needs to be provided for Istanbul.
 
-func (self *testSystemBackend) Address() common.Address {
-	return self.address
+func (b *testSystemBackend) Address() common.Address {
+	return b.address
 }
 
 // Peers returns all connected peers
-func (self *testSystemBackend) Validators(number uint64) istanbul.ValidatorSet {
-	return self.peers
+func (b *testSystemBackend) Validators(number uint64) istanbul.ValidatorSet {
+	return b.peers
 }
 
-func (self *testSystemBackend) EventMux() *event.TypeMux {
-	return self.events
+func (b *testSystemBackend) EventMux() *event.TypeMux {
+	return b.events
 }
 
-func (self *testSystemBackend) LenCommittedMsgs() int {
-	self.msgMutex.RLock()
-	defer self.msgMutex.RUnlock()
-	return len(self.committedMsgs)
+func (b *testSystemBackend) LenCommittedMsgs() int {
+	b.msgMutex.RLock()
+	defer b.msgMutex.RUnlock()
+	return len(b.committedMsgs)
 }
 
-func (self *testSystemBackend) GetCommittedMsg(i int) testCommittedMsgs {
-	self.msgMutex.RLock()
-	defer self.msgMutex.RUnlock()
-	return self.committedMsgs[i]
+func (b *testSystemBackend) GetCommittedMsg(i int) testCommittedMsgs {
+	b.msgMutex.RLock()
+	defer b.msgMutex.RUnlock()
+	return b.committedMsgs[i]
 }
 
-func (self *testSystemBackend) AddCommittedMsg(msg testCommittedMsgs) []testCommittedMsgs {
-	self.msgMutex.Lock()
-	defer self.msgMutex.Unlock()
-	self.committedMsgs = append(self.committedMsgs, msg)
+func (b *testSystemBackend) AddCommittedMsg(msg testCommittedMsgs) []testCommittedMsgs {
+	b.msgMutex.Lock()
+	defer b.msgMutex.Unlock()
+	b.committedMsgs = append(b.committedMsgs, msg)
 
-	return self.committedMsgs
+	return b.committedMsgs
 }
 
-func (self *testSystemBackend) Send(message []byte, target common.Address) error {
-	testLogger.Info("enqueuing a message...", "address", self.Address())
-	self.sentMsgs = append(self.sentMsgs, message)
-	self.sys.queuedMessage <- istanbul.MessageEvent{
+func (b *testSystemBackend) Send(message []byte, target common.Address) error {
+	testLogger.Info("enqueuing a message...", "address", b.Address())
+	b.sentMsgs = append(b.sentMsgs, message)
+	b.sys.queuedMessage <- istanbul.MessageEvent{
 		Payload: message,
 	}
 	return nil
 }
 
-func (self *testSystemBackend) Broadcast(valSet istanbul.ValidatorSet, message []byte) error {
-	testLogger.Info("enqueuing a message...", "address", self.Address())
-	self.sentMsgs = append(self.sentMsgs, message)
-	self.sys.queuedMessage <- istanbul.MessageEvent{
+func (b *testSystemBackend) Broadcast(valSet istanbul.ValidatorSet, message []byte) error {
+	testLogger.Info("enqueuing a message...", "address", b.Address())
+	b.sentMsgs = append(b.sentMsgs, message)
+	b.sys.queuedMessage <- istanbul.MessageEvent{
 		Payload: message,
 	}
 	return nil
 }
 
-func (self *testSystemBackend) Gossip(_ context.Context, valSet istanbul.ValidatorSet, message []byte) error {
+func (b *testSystemBackend) Gossip(_ context.Context, valSet istanbul.ValidatorSet, message []byte) error {
 	testLogger.Warn("not sign any data")
 	return nil
 }
 
-func (self *testSystemBackend) Commit(proposal istanbul.Proposal, seals [][]byte) error {
-	testLogger.Info("commit message", "address", self.Address())
-	self.AddCommittedMsg(testCommittedMsgs{
+func (b *testSystemBackend) Commit(proposal istanbul.Proposal, seals [][]byte) error {
+	testLogger.Info("commit message", "address", b.Address())
+	b.AddCommittedMsg(testCommittedMsgs{
 		commitProposal: proposal,
 		committedSeals: seals,
 	})
 
 	// fake new head events
-	go self.events.Post(istanbul.FinalCommittedEvent{})
+	go func() {
+		_ = b.events.Post(istanbul.FinalCommittedEvent{})
+	}()
 	return nil
 }
 
-func (self *testSystemBackend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
+func (b *testSystemBackend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 	return 0, nil
 }
 
-func (self *testSystemBackend) Sign(data []byte) ([]byte, error) {
+func (b *testSystemBackend) Sign(data []byte) ([]byte, error) {
 	testLogger.Warn("not sign any data")
 	return data, nil
 }
 
-func (self *testSystemBackend) CheckSignature([]byte, common.Address, []byte) error {
+func (b *testSystemBackend) CheckSignature([]byte, common.Address, []byte) error {
 	return nil
 }
 
-func (self *testSystemBackend) CheckValidatorSignature(data []byte, sig []byte) (common.Address, error) {
+func (b *testSystemBackend) CheckValidatorSignature(data []byte, sig []byte) (common.Address, error) {
 	return common.Address{}, nil
 }
 
-func (self *testSystemBackend) Hash(b interface{}) common.Hash {
+func (b *testSystemBackend) Hash(_ interface{}) common.Hash {
 	return common.BytesToHash([]byte("Test"))
 }
 
-func (self *testSystemBackend) NewRequest(request istanbul.Proposal) {
-	go self.events.Post(istanbul.RequestEvent{
-		Proposal: request,
-	})
+func (b *testSystemBackend) NewRequest(request istanbul.Proposal) {
+	go func() {
+		_ = b.events.Post(istanbul.RequestEvent{
+			Proposal: request,
+		})
+	}()
 }
 
-func (self *testSystemBackend) HasBadProposal(hash common.Hash) bool {
+func (b *testSystemBackend) HasBadProposal(hash common.Hash) bool {
 	return false
 }
 
-func (self *testSystemBackend) LastProposal() (istanbul.Proposal, common.Address) {
-	l := self.LenCommittedMsgs()
+func (b *testSystemBackend) LastProposal() (istanbul.Proposal, common.Address) {
+	l := b.LenCommittedMsgs()
 	if l > 0 {
-		return self.GetCommittedMsg(l - 1).commitProposal, common.Address{}
+		return b.GetCommittedMsg(l - 1).commitProposal, common.Address{}
 	}
 	return makeBlock(0), common.Address{}
 }
 
 // Only block height 5 will return true
-func (self *testSystemBackend) HasPropsal(hash common.Hash, number *big.Int) bool {
+func (b *testSystemBackend) HasPropsal(hash common.Hash, number *big.Int) bool {
 	return number.Cmp(big.NewInt(5)) == 0
 }
 
-func (self *testSystemBackend) GetProposer(number uint64) common.Address {
+func (b *testSystemBackend) GetProposer(number uint64) common.Address {
 	return common.Address{}
 }
 
-func (self *testSystemBackend) ParentValidators(proposal istanbul.Proposal) istanbul.ValidatorSet {
-	return self.peers
+func (b *testSystemBackend) ParentValidators(proposal istanbul.Proposal) istanbul.ValidatorSet {
+	return b.peers
 }
 
-func (self *testSystemBackend) SetProposedBlockHash(hash common.Hash) {
+func (b *testSystemBackend) SetProposedBlockHash(hash common.Hash) {
 	return
 }
 

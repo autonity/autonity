@@ -342,7 +342,8 @@ func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 	if sb.broadcaster != nil && len(ps) > 0 {
 		sb.logger.Trace("worker loop. resend to connected peers", "msg", msgToPeers.msg.hash.String(), "peers", peersToString(getPeerKeys(ps)))
 		var errChs []chan error
-		ctx, cancel := context.WithTimeout(ctx, TTL*time.Second)
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, TTL*time.Second)
 		defer cancel()
 
 		for addr, p := range ps {

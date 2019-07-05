@@ -102,7 +102,7 @@ type core struct {
 
 	backend       tendermint.Backend
 	handlerStopCh chan struct{}
-	cancel context.CancelFunc
+	cancel        context.CancelFunc
 
 	messageEventSub         *event.TypeMuxSubscription
 	newUnminedBlockEventSub *event.TypeMuxSubscription

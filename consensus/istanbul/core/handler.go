@@ -96,7 +96,7 @@ func (c *core) handleEvents() {
 				}
 			case istanbul.MessageEvent:
 				if err := c.handleMsg(ev.Payload); err == nil {
-					c.backend.Gossip(context.Background(), c.valSet, ev.Payload)
+					_ = c.backend.Gossip(context.Background(), c.valSet, ev.Payload)
 				}
 			case backlogEvent:
 				// No need to check signature for internal messages
@@ -106,7 +106,7 @@ func (c *core) handleEvents() {
 						c.logger.Warn("Get message payload failed", "err", err)
 						continue
 					}
-					c.backend.Gossip(context.Background(), c.valSet, p)
+					_ = c.backend.Gossip(context.Background(), c.valSet, p)
 				}
 			}
 		case _, ok := <-c.timeoutSub.Chan():
