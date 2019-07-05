@@ -17,7 +17,6 @@
 package istanbul
 
 import (
-	"context"
 	"math/big"
 	"time"
 
@@ -40,7 +39,7 @@ type Backend interface {
 	Broadcast(valSet ValidatorSet, payload []byte) error
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(ctx context.Context, valSet ValidatorSet, payload []byte) error
+	Gossip(valSet ValidatorSet, payload []byte) error
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.

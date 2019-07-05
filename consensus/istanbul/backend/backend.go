@@ -17,7 +17,6 @@
 package backend
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"math/big"
 	"sync"
@@ -142,7 +141,7 @@ func (sb *Backend) Validators(number uint64) istanbul.ValidatorSet {
 // Broadcast implements istanbul.Backend.Broadcast
 func (sb *Backend) Broadcast(valSet istanbul.ValidatorSet, payload []byte) error {
 	// send to others
-	_ = sb.Gossip(context.Background(), valSet, payload)
+	_ = sb.Gossip(valSet, payload)
 	// send to self
 	msg := istanbul.MessageEvent{
 		Payload: payload,
@@ -154,7 +153,7 @@ func (sb *Backend) Broadcast(valSet istanbul.ValidatorSet, payload []byte) error
 }
 
 // Broadcast implements istanbul.Backend.Gossip
-func (sb *Backend) Gossip(_ context.Context, valSet istanbul.ValidatorSet, payload []byte) error {
+func (sb *Backend) Gossip(valSet istanbul.ValidatorSet, payload []byte) error {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 

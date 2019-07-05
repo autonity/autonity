@@ -17,7 +17,6 @@
 package core
 
 import (
-	"context"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/istanbul"
 )
@@ -96,7 +95,7 @@ func (c *core) handleEvents() {
 				}
 			case istanbul.MessageEvent:
 				if err := c.handleMsg(ev.Payload); err == nil {
-					_ = c.backend.Gossip(context.Background(), c.valSet, ev.Payload)
+					_ = c.backend.Gossip(c.valSet, ev.Payload)
 				}
 			case backlogEvent:
 				// No need to check signature for internal messages
@@ -106,7 +105,7 @@ func (c *core) handleEvents() {
 						c.logger.Warn("Get message payload failed", "err", err)
 						continue
 					}
-					_ = c.backend.Gossip(context.Background(), c.valSet, p)
+					_ = c.backend.Gossip(c.valSet, p)
 				}
 			}
 		case _, ok := <-c.timeoutSub.Chan():
