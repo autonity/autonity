@@ -28,4 +28,4 @@ $AUTONITY \
   --mine \
   --miner.threads 1 \
   --verbosity 4 \
-  --debug
+  --debug 2>&1 | tee $DATADIR\logs.log

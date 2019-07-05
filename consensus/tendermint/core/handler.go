@@ -107,6 +107,8 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 
 			c.logger.Crit("panic in core.handleConsensusEvents", "panic", r)
 		}
+
+		<-c.handlerStopCh
 	}()
 
 	// Start a new round from last height + 1

@@ -222,7 +222,7 @@ func (n *Node) Start() error {
 	// Finish initializing the startup
 	n.services = services
 	n.server = running
-	n.stop = make(chan struct{})
+	n.stop = make(chan struct{}, 1)
 
 	return nil
 }
@@ -433,7 +433,7 @@ func (n *Node) Stop() error {
 	}
 
 	// unblock n.Wait
-	close(n.stop)
+	n.stop <- struct{}{}
 
 	// Remove the keystore if it was created ephemerally.
 	var keystoreErr error
@@ -458,10 +458,9 @@ func (n *Node) Wait() {
 		n.lock.RUnlock()
 		return
 	}
-	stop := n.stop
 	n.lock.RUnlock()
 
-	<-stop
+	<-n.stop
 }
 
 // Restart terminates a running node and boots up a new one in its place. If the
