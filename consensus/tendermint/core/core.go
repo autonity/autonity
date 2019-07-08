@@ -201,7 +201,7 @@ func (c *core) isProposer() bool {
 }
 
 func (c *core) commit() {
-	c.setStep(StepPrecommitDone)
+	c.setStep(precommitDone)
 
 	proposal := c.currentRoundState.Proposal()
 

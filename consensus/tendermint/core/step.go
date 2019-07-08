@@ -6,7 +6,7 @@ const (
 	propose Step = iota
 	prevote
 	precommit
-	StepPrecommitDone
+	precommitDone
 )
 
 func (s Step) String() string {
@@ -16,8 +16,8 @@ func (s Step) String() string {
 		return "prevote"
 	} else if s == precommit {
 		return "precommit"
-	} else if s == StepPrecommitDone {
-		return "StepPrecommitDone"
+	} else if s == precommitDone {
+		return "precommitDone"
 	} else {
 		return "Unknown"
 	}
