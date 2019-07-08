@@ -266,7 +266,7 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 
 	// Update current round state and add a copy to c.currentHeightRoundsState
 	// We only add old round prevote messages to c.currentHeightRoundState, while future messages are sent to the backlog
-	// Which are processed when the step is set to StepAcceptProposal
+	// Which are processed when the step is set to propose
 	if round.Int64() > 0 {
 		// This is a shallow copy, should be fine for now
 		c.currentHeightRoundsStates[round.Int64()] = *c.currentRoundState
@@ -280,8 +280,8 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 	c.sentPrevote = false
 	c.sentPrecommit = false
 	c.setValidRoundAndValue = false
-	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
-	c.setStep(StepAcceptProposal)
+	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
+	c.setStep(propose)
 
 	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
 
@@ -309,7 +309,7 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 func (c *core) setStep(step Step) {
 	c.currentRoundState.SetStep(step)
 
-	if step == StepAcceptProposal {
+	if step == propose {
 		c.processPendingUnminedBlock()
 	}
 	c.processBacklog()

@@ -83,7 +83,7 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 	// TODO: check for bad proposal using c.backed.HasBadProposal
 
 	// Here is about to accept the Proposal
-	if c.currentRoundState.Step() == StepAcceptProposal {
+	if c.currentRoundState.Step() == propose {
 		if err := c.stopProposeTimeout(); err != nil {
 			return err
 		}

@@ -71,7 +71,7 @@ func (c *core) onTimeoutPropose(r int64, h int64) {
 }
 
 func (c *core) handleTimeoutPropose(ctx context.Context, msg timeoutEvent) {
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == StepAcceptProposal {
+	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 
 		c.sendPrevote(ctx, true)

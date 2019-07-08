@@ -30,7 +30,7 @@ func NewRoundState(r *big.Int, h *big.Int) *roundState {
 	return &roundState{
 		round:      r,
 		height:     h,
-		step:       StepAcceptProposal,
+		step:       propose,
 		proposal:   new(tendermint.Proposal),
 		Prevotes:   newMessageSet(),
 		Precommits: newMessageSet(),
