@@ -37,7 +37,6 @@ func (c *core) Stop() error {
 	c.unsubscribeEvents()
 
 	// Make sure the handler goroutine exits
-	c.handlerStopCh <- struct{}{}
 	c.cancel()
 	return nil
 }

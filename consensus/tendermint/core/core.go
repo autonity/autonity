@@ -80,7 +80,6 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
 		config:                      config,
 		address:                     backend.Address(),
-		handlerStopCh:               make(chan struct{}),
 		logger:                      log.New(),
 		backend:                     backend,
 		backlogs:                    make(map[tendermint.Validator]*prque.Prque),
@@ -100,9 +99,8 @@ type core struct {
 	address common.Address
 	logger  log.Logger
 
-	backend       tendermint.Backend
-	handlerStopCh chan struct{}
-	cancel        context.CancelFunc
+	backend tendermint.Backend
+	cancel  context.CancelFunc
 
 	messageEventSub         *event.TypeMuxSubscription
 	newUnminedBlockEventSub *event.TypeMuxSubscription
