@@ -93,7 +93,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 				c.lockedValue = c.currentRoundState.Proposal().ProposalBlock
 				c.lockedRound = big.NewInt(curR)
 				c.sendPrecommit(ctx, false)
-				c.setStep(StepPrevoteDone)
+				c.setStep(precommit)
 			}
 			c.validValue = c.currentRoundState.Proposal().ProposalBlock
 			c.validRound = big.NewInt(curR)
@@ -104,7 +104,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 				return err
 			}
 			c.sendPrecommit(ctx, true)
-			c.setStep(StepPrevoteDone)
+			c.setStep(precommit)
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 		} else if c.currentRoundState.Step() == prevote && !c.prevoteTimeout.started && !c.sentPrecommit && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {

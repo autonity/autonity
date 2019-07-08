@@ -43,19 +43,19 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 
 // TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
 func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
-	var precommit *tendermint.Vote
-	err := msg.Decode(&precommit)
+	var preCommit *tendermint.Vote
+	err := msg.Decode(&preCommit)
 	if err != nil {
 		return errFailedDecodePrecommit
 	}
 
-	if err := c.checkMessage(precommit.Round, precommit.Height); err != nil {
-		// We don't care about old round precommit messages, otherwise we would not be in a new round rather a new height
+	if err := c.checkMessage(preCommit.Round, preCommit.Height); err != nil {
+		// We don't care about old round preCommit messages, otherwise we would not be in a new round rather a new height
 		return err
 	}
 
-	// We don't care about which step we are in to accept a precommit, since it has the highest importance
-	precommitHash := precommit.ProposedBlockHash
+	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
+	precommitHash := preCommit.ProposedBlockHash
 	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	curR := c.currentRoundState.Round().Int64()
 	curH := c.currentRoundState.Height().Int64()
@@ -66,7 +66,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		c.currentRoundState.Precommits.AddVote(precommitHash, *msg)
 	}
 
-	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, msg.Address.String(), c.address.String())
+	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 	if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {

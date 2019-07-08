@@ -97,7 +97,7 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg timeoutEvent) {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 
 		c.sendPrecommit(ctx, true)
-		c.setStep(StepPrevoteDone)
+		c.setStep(precommit)
 	}
 }
 
