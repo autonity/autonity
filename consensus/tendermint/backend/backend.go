@@ -126,7 +126,8 @@ type Backend struct {
 	glienickeContract common.Address // Ethereum address of the white list contract
 	vmConfig          *vm.Config
 
-	resend chan messageToPeers
+	resend        chan messageToPeers
+	doneResending bool
 
 	cancel context.CancelFunc
 }
@@ -303,8 +304,13 @@ func (sb *Backend) ReSend(ctx context.Context, numberOfWorkers int) {
 }
 
 func (sb *Backend) workerSendLoop(ctx context.Context) {
-	for msgToPeers := range sb.resend {
-		sb.trySend(ctx, msgToPeers)
+	for {
+		select {
+		case msgToPeers := <-sb.resend:
+			sb.trySend(ctx, msgToPeers)
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
@@ -318,7 +324,10 @@ func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 		time.Since(msgToPeers.startTime).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) > retryInterval {
 
 		//too early for resend
-		sb.resend <- msgToPeers
+
+		if !sb.doneResending {
+			sb.resend <- msgToPeers
+		}
 
 		return
 	}
@@ -402,7 +411,9 @@ func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 			sb.logger.Trace("worker loop. peers not connected and errors while sending", "msg", msg.String())
 		}
 
-		sb.resend <- msg
+		if !sb.doneResending {
+			sb.resend <- msg
+		}
 	}
 }
 
