@@ -80,27 +80,32 @@ func (c *core) handleNewUnminedBlockEvent() {
 
 			c.logger.Crit("panic in core.handleNewUnminedBlockEvent", "panic", r)
 		}
-		<-c.unminedBlockHandlerStopCh
 	}()
 
-	for e := range c.newUnminedBlockEventSub.Chan() {
-		c.logger.Debug("Started handling tendermint.NewUnminedBlockEvent")
-		newUnminedBlockEvent := e.Data.(tendermint.NewUnminedBlockEvent)
+	for {
+		select {
+		case e := <-c.newUnminedBlockEventSub.Chan():
+			c.logger.Debug("Started handling tendermint.NewUnminedBlockEvent")
 
-		pb := &newUnminedBlockEvent.NewUnminedBlock
+			newUnminedBlockEvent := e.Data.(tendermint.NewUnminedBlockEvent)
+			pb := &newUnminedBlockEvent.NewUnminedBlock
+			err := c.handleUnminedBlock(pb)
 
-		err := c.handleUnminedBlock(pb)
-		switch err {
-		case consensus.ErrFutureBlock:
-			c.storeUnminedBlockMsg(pb)
-		case nil:
-			//nothing to do
-		default:
-			c.logger.Error("core.handleNewUnminedBlockEvent Get message(NewUnminedBlockEvent) failed", "err", err)
+			switch err {
+			case consensus.ErrFutureBlock:
+				c.storeUnminedBlockMsg(pb)
+			case nil:
+				//nothing to do
+			default:
+				c.logger.Error("core.handleNewUnminedBlockEvent Get message(NewUnminedBlockEvent) failed", "err", err)
+			}
+			c.logger.Debug("Finished handling tendermint.NewUnminedBlockEvent")
+		case <-c.unminedBlockHandlerStopCh:
+			c.logger.Debug("Closing handleNewUnminedBlockEvent() go-routine")
+			return
 		}
-
-		c.logger.Debug("Finished handling tendermint.NewUnminedBlockEvent")
 	}
+
 }
 
 func (c *core) handleConsensusEvents() {
@@ -111,8 +116,6 @@ func (c *core) handleConsensusEvents() {
 
 			c.logger.Crit("panic in core.handleConsensusEvents", "panic", r)
 		}
-
-		<-c.consensusHandlerStopCh
 	}()
 
 	// Start a new round from last height + 1
@@ -182,6 +185,9 @@ func (c *core) handleConsensusEvents() {
 				c.handleCommit()
 				c.logger.Debug("Finished handling CommitEvent")
 			}
+		case <-c.consensusHandlerStopCh:
+			c.logger.Debug("Closing handleConsensusEvents() go-routine")
+			return
 		}
 	}
 }
