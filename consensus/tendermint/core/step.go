@@ -4,7 +4,7 @@ type Step uint64
 
 const (
 	propose Step = iota
-	StepProposeDone
+	prevote
 	StepPrevoteDone
 	StepPrecommitDone
 )
@@ -12,8 +12,8 @@ const (
 func (s Step) String() string {
 	if s == propose {
 		return "propose"
-	} else if s == StepProposeDone {
-		return "StepProposeDone"
+	} else if s == prevote {
+		return "prevote"
 	} else if s == StepPrevoteDone {
 		return "StepPrevoteDone"
 	} else if s == StepPrecommitDone {
