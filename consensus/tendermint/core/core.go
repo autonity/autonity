@@ -249,6 +249,9 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 	}
 
 	// Reset all timeouts
+	_ = c.stopProposeTimeout()
+	_ = c.stopPrevoteTimeout()
+	_ = c.stopPrecommitTimeout()
 	c.proposeTimeout = new(timeout)
 	c.prevoteTimeout = new(timeout)
 	c.precommitTimeout = new(timeout)
