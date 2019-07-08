@@ -84,7 +84,10 @@ func (c *core) handleNewUnminedBlockEvent() {
 
 	for {
 		select {
-		case e := <-c.newUnminedBlockEventSub.Chan():
+		case e, ok := <-c.newUnminedBlockEventSub.Chan():
+			if !ok {
+				continue
+			}
 			c.logger.Debug("Started handling tendermint.NewUnminedBlockEvent")
 
 			newUnminedBlockEvent := e.Data.(tendermint.NewUnminedBlockEvent)
@@ -126,7 +129,7 @@ func (c *core) handleConsensusEvents() {
 		select {
 		case ev, ok := <-c.messageEventSub.Chan():
 			if !ok {
-				return
+				continue
 			}
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
@@ -161,7 +164,7 @@ func (c *core) handleConsensusEvents() {
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
-				return
+				continue
 			}
 			if timeoutE, ok := ev.Data.(timeoutEvent); ok {
 				c.logger.Debug("Started handling timeoutEvent")
@@ -177,7 +180,7 @@ func (c *core) handleConsensusEvents() {
 			}
 		case ev, ok := <-c.committedSub.Chan():
 			if !ok {
-				return
+				continue
 			}
 			switch ev.Data.(type) {
 			case tendermint.CommitEvent:
