@@ -33,6 +33,10 @@ func (c *core) Start() error {
 
 // Stop implements core.Engine.Stop
 func (c *core) Stop() error {
+	_ = c.stopProposeTimeout()
+	_ = c.stopPrevoteTimeout()
+	_ = c.stopPrecommitTimeout()
+
 	c.stopFutureProposalTimer()
 	c.unsubscribeEvents()
 
