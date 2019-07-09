@@ -70,9 +70,10 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 	if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
-		if err := c.stopPrecommitTimeout(); err != nil {
+		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
 		}
+		c.logger.Debug("Stopped Scheduled Precommit Timeout")
 
 		select {
 		case <-ctx.Done():
@@ -82,7 +83,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize()) {
+	} else if !c.precommitTimeout.timerStarted() && c.quorum(c.currentRoundState.Precommits.TotalSize()) {
 		timeoutDuration := timeoutPrecommit(curR)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
@@ -94,16 +95,6 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 func (c *core) handleCommit(ctx context.Context) {
 	c.logger.Debug("Received a final committed proposal", "step", c.currentRoundState.Step())
 	c.startRound(ctx, common.Big0)
-}
-
-func (c *core) stopPrecommitTimeout() error {
-	if c.precommitTimeout.started {
-		c.logger.Debug("Stopping Scheduled Precommit Timeout")
-		if stopped := c.precommitTimeout.stopTimer(); !stopped {
-			return errMovedToNewRound
-		}
-	}
-	return nil
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vote, from, to string) {

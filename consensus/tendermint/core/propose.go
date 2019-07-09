@@ -84,9 +84,11 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 
 	// Here is about to accept the Proposal
 	if c.currentRoundState.Step() == propose {
-		if err := c.stopProposeTimeout(); err != nil {
+		if err := c.proposeTimeout.stopTimer(); err != nil {
 			return err
 		}
+		c.logger.Debug("Stopped Scheduled Proposal Timeout")
+
 		// Set the proposal for the current round
 		c.currentRoundState.SetProposal(proposal)
 
@@ -115,16 +117,6 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 		}
 	}
 
-	return nil
-}
-
-func (c *core) stopProposeTimeout() error {
-	if c.proposeTimeout.started {
-		c.logger.Debug("Stopping Scheduled Proposal Timeout")
-		if stopped := c.proposeTimeout.stopTimer(); !stopped {
-			return errNilPrevoteSent
-		}
-	}
 	return nil
 }
 

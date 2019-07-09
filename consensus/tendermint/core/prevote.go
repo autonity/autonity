@@ -85,9 +85,10 @@ func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
 		if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Prevotes.VotesSize(curProposalHash)) && !c.setValidRoundAndValue {
 			// this piece of code should only run once
-			if err := c.stopPrevoteTimeout(); err != nil {
+			if err := c.prevoteTimeout.stopTimer(); err != nil {
 				return err
 			}
+			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 
 			if c.currentRoundState.Step() == prevote {
 				c.lockedValue = c.currentRoundState.Proposal().ProposalBlock
@@ -100,30 +101,22 @@ func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 			c.setValidRoundAndValue = true
 			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
 		} else if c.currentRoundState.Step() == prevote && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
-			if err := c.stopPrevoteTimeout(); err != nil {
+			if err := c.prevoteTimeout.stopTimer(); err != nil {
 				return err
 			}
+			c.logger.Debug("Stopped Scheduled Prevote Timeout")
+
 			c.sendPrecommit(ctx, true)
 			c.setStep(precommit)
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.currentRoundState.Step() == prevote && !c.prevoteTimeout.started && !c.sentPrecommit && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {
+		} else if c.currentRoundState.Step() == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {
 			timeoutDuration := timeoutPrevote(curR)
 			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
 			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
 		}
 	}
 
-	return nil
-}
-
-func (c *core) stopPrevoteTimeout() error {
-	if c.prevoteTimeout.started {
-		c.logger.Debug("Stopping Scheduled Prevote Timeout")
-		if stopped := c.prevoteTimeout.stopTimer(); !stopped {
-			return errNilPrecommitSent
-		}
-	}
 	return nil
 }
 

@@ -36,6 +36,10 @@ func (c *core) Stop() error {
 	c.stopFutureProposalTimer()
 	c.unsubscribeEvents()
 
+	_ = c.proposeTimeout.stopTimer()
+	_ = c.prevoteTimeout.stopTimer()
+	_ = c.precommitTimeout.stopTimer()
+
 	// Make sure the handler goroutine exits
 	c.cancel()
 	return nil
@@ -128,6 +132,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 				c.logger.Debug("Started handling tendermint.MessageEvent")
 				if err := c.handleMsg(ctx, e.Payload); err != nil {
 					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
+					c.logger.Debug("Finished handling tendermint.MessageEvent with ERROR", "err", err)
 					continue
 				}
 				c.backend.Gossip(ctx, c.valSet.Copy(), e.Payload)
@@ -138,12 +143,14 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 				err := c.handleCheckedMsg(ctx, e.msg, e.src)
 				if err != nil {
 					c.logger.Error("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
+					c.logger.Debug("Finished handling backlogEvent with ERROR", "err", err)
 					continue
 				}
 
 				p, err := e.msg.Payload()
 				if err != nil {
 					c.logger.Error("core.handleConsensusEvents Get message payload failed", "err", err)
+					c.logger.Debug("Finished handling backlogEvent with ERROR", "err", err)
 					continue
 				}
 				c.backend.Gossip(ctx, c.valSet.Copy(), p)

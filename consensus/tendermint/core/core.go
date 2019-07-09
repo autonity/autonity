@@ -85,9 +85,6 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		backlogs:                    make(map[tendermint.Validator]*prque.Prque),
 		pendingUnminedBlocks:        prque.New(),
 		latestPendingUnminedBlockCh: make(chan *types.Block),
-		proposeTimeout:              new(timeout),
-		prevoteTimeout:              new(timeout),
-		precommitTimeout:            new(timeout),
 		valSet:                      new(validatorSet),
 		futureRoundsChange:          make(map[int64]int64),
 	}
@@ -134,9 +131,9 @@ type core struct {
 	latestPendingUnminedBlockMu sync.RWMutex
 	latestPendingUnminedBlockCh chan *types.Block
 
-	proposeTimeout   *timeout
-	prevoteTimeout   *timeout
-	precommitTimeout *timeout
+	proposeTimeout   timeout
+	prevoteTimeout   timeout
+	precommitTimeout timeout
 
 	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
 	futureRoundsChange map[int64]int64
@@ -247,9 +244,12 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 	}
 
 	// Reset all timeouts
-	c.proposeTimeout = new(timeout)
-	c.prevoteTimeout = new(timeout)
-	c.precommitTimeout = new(timeout)
+	_ = c.proposeTimeout.stopTimer()
+	_ = c.prevoteTimeout.stopTimer()
+	_ = c.precommitTimeout.stopTimer()
+	c.proposeTimeout = newTimeout(propose)
+	c.prevoteTimeout = newTimeout(prevote)
+	c.precommitTimeout = newTimeout(precommit)
 
 	// Get all rounds from c.futureRoundsChange and remove previous rounds
 	var rounds = make([]int64, 0)
