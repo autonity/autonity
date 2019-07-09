@@ -63,14 +63,14 @@ func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
 	}
 	switch msg.Code {
 	case msgProposal:
-		var p *tendermint.Proposal
+		var p tendermint.Proposal
 		err := msg.Decode(&p)
 		if err == nil {
 			backlogPrque.Push(msg, toPriority(msg.Code, p.Round, p.Height))
 		}
 		// for msgPrevote and msgPrecommit cases
 	default:
-		var p *tendermint.Vote
+		var p tendermint.Vote
 		err := msg.Decode(&p)
 		if err == nil {
 			backlogPrque.Push(msg, toPriority(msg.Code, p.Round, p.Height))
@@ -100,14 +100,14 @@ func (c *core) processBacklog() {
 			var round, height *big.Int
 			switch msg.Code {
 			case msgProposal:
-				var m *tendermint.Proposal
+				var m tendermint.Proposal
 				err := msg.Decode(&m)
 				if err == nil {
 					round, height = m.Round, m.Height
 				}
 				// for msgRoundChange, msgPrevote and msgPrecommit cases
 			default:
-				var sub *tendermint.Vote
+				var sub tendermint.Vote
 				err := msg.Decode(&sub)
 				if err == nil {
 					round, height = sub.Round, sub.Height
