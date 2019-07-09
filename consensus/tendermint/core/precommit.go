@@ -11,7 +11,7 @@ import (
 func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
-	var precommit = &tendermint.Vote{
+	var precommit = tendermint.Vote{
 		Round:  big.NewInt(c.currentRoundState.Round().Int64()),
 		Height: big.NewInt(c.currentRoundState.Height().Int64()),
 	}
@@ -26,7 +26,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 		precommit.ProposedBlockHash = c.currentRoundState.GetCurrentProposalHash()
 	}
 
-	encodedVote, err := Encode(precommit)
+	encodedVote, err := Encode(&precommit)
 	if err != nil {
 		logger.Error("Failed to encode", "subject", precommit)
 		return
@@ -43,7 +43,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 
 // TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
 func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
-	var preCommit *tendermint.Vote
+	var preCommit tendermint.Vote
 	err := msg.Decode(&preCommit)
 	if err != nil {
 		return errFailedDecodePrecommit
@@ -97,7 +97,7 @@ func (c *core) handleCommit(ctx context.Context) {
 	c.startRound(ctx, common.Big0)
 }
 
-func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vote, from, to string) {
+func (c *core) logPrecommitMessageEvent(message string, precommit tendermint.Vote, from, to string) {
 	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	c.logger.Debug(message,
 		"from", from,

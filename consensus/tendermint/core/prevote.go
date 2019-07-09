@@ -11,7 +11,7 @@ import (
 func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
-	var prevote = &tendermint.Vote{
+	var prevote = tendermint.Vote{
 		Round:  big.NewInt(c.currentRoundState.Round().Int64()),
 		Height: big.NewInt(c.currentRoundState.Height().Int64()),
 	}
@@ -26,7 +26,7 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 		prevote.ProposedBlockHash = c.currentRoundState.GetCurrentProposalHash()
 	}
 
-	encodedVote, err := Encode(prevote)
+	encodedVote, err := Encode(&prevote)
 	if err != nil {
 		logger.Error("Failed to encode", "subject", prevote)
 		return
@@ -42,7 +42,7 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 }
 
 func (c *core) handlePrevote(ctx context.Context, msg *message) error {
-	var preVote *tendermint.Vote
+	var preVote tendermint.Vote
 	err := msg.Decode(&preVote)
 	if err != nil {
 		return errFailedDecodePrevote
@@ -120,7 +120,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 	return nil
 }
 
-func (c *core) logPrevoteMessageEvent(message string, prevote *tendermint.Vote, from, to string) {
+func (c *core) logPrevoteMessageEvent(message string, prevote tendermint.Vote, from, to string) {
 	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	c.logger.Debug(message,
 		"from", from,

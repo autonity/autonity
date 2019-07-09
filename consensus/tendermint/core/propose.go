@@ -33,7 +33,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
 
-		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", proposalBlock, c.address.String(), "broadcast")
+		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", *proposalBlock, c.address.String(), "broadcast")
 
 		c.broadcast(ctx, &message{
 			Code: msgProposal,
@@ -43,7 +43,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 }
 
 func (c *core) handleProposal(ctx context.Context, msg *message) error {
-	var proposal *tendermint.Proposal
+	var proposal tendermint.Proposal
 	err := msg.Decode(&proposal)
 	if err != nil {
 		return errFailedDecodeProposal
@@ -90,7 +90,7 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 		c.logger.Debug("Stopped Scheduled Proposal Timeout")
 
 		// Set the proposal for the current round
-		c.currentRoundState.SetProposal(proposal)
+		c.currentRoundState.SetProposal(&proposal)
 
 		c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 
@@ -120,7 +120,7 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 	return nil
 }
 
-func (c *core) logProposalMessageEvent(message string, proposal *tendermint.Proposal, from, to string) {
+func (c *core) logProposalMessageEvent(message string, proposal tendermint.Proposal, from, to string) {
 	c.logger.Debug(message,
 		"type", "Proposal",
 		"from", from,

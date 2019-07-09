@@ -228,14 +228,14 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender tender
 			//We cannot move to a round in a new height without receiving a new block
 			var msgRound int64
 			if msg.Code == msgProposal {
-				var p *tendermint.Proposal
+				var p tendermint.Proposal
 				if e := msg.Decode(&p); e != nil {
 					return errFailedDecodeProposal
 				}
 				msgRound = p.Round.Int64()
 
 			} else {
-				var v *tendermint.Vote
+				var v tendermint.Vote
 				if e := msg.Decode(&v); e != nil {
 					return errFailedDecodeVote
 				}
