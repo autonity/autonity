@@ -1,13 +1,14 @@
 package core
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func (c *core) sendPrecommit(isNil bool) {
+func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	var precommit = &tendermint.Vote{
@@ -34,27 +35,27 @@ func (c *core) sendPrecommit(isNil bool) {
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
 	c.sentPrecommit = true
-	c.broadcast(&message{
+	c.broadcast(ctx, &message{
 		Code: msgPrecommit,
 		Msg:  encodedVote,
 	})
 }
 
 // TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
-func (c *core) handlePrecommit(msg *message) error {
-	var precommit *tendermint.Vote
-	err := msg.Decode(&precommit)
+func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
+	var preCommit *tendermint.Vote
+	err := msg.Decode(&preCommit)
 	if err != nil {
 		return errFailedDecodePrecommit
 	}
 
-	if err := c.checkMessage(precommit.Round, precommit.Height); err != nil {
-		// We don't care about old round precommit messages, otherwise we would not be in a new round rather a new height
+	if err := c.checkMessage(preCommit.Round, preCommit.Height); err != nil {
+		// We don't care about old round preCommit messages, otherwise we would not be in a new round rather a new height
 		return err
 	}
 
-	// We don't care about which step we are in to accept a precommit, since it has the highest importance
-	precommitHash := precommit.ProposedBlockHash
+	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
+	precommitHash := preCommit.ProposedBlockHash
 	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	curR := c.currentRoundState.Round().Int64()
 	curH := c.currentRoundState.Height().Int64()
@@ -65,18 +66,24 @@ func (c *core) handlePrecommit(msg *message) error {
 		c.currentRoundState.Precommits.AddVote(precommitHash, *msg)
 	}
 
-	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, msg.Address.String(), c.address.String())
+	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 	if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
-		if err := c.stopPrecommitTimeout(); err != nil {
+		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
 		}
+		c.logger.Debug("Stopped Scheduled Precommit Timeout")
 
-		c.commit()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			c.commit()
+		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize()) {
+	} else if !c.precommitTimeout.timerStarted() && c.quorum(c.currentRoundState.Precommits.TotalSize()) {
 		timeoutDuration := timeoutPrecommit(curR)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
@@ -85,19 +92,9 @@ func (c *core) handlePrecommit(msg *message) error {
 	return nil
 }
 
-func (c *core) handleCommit() {
+func (c *core) handleCommit(ctx context.Context) {
 	c.logger.Debug("Received a final committed proposal", "step", c.currentRoundState.Step())
-	c.startRound(common.Big0)
-}
-
-func (c *core) stopPrecommitTimeout() error {
-	if c.precommitTimeout.started {
-		c.logger.Debug("Stopping Scheduled Precommit Timeout")
-		if stopped := c.precommitTimeout.stopTimer(); !stopped {
-			return errMovedToNewRound
-		}
-	}
-	return nil
+	c.startRound(ctx, common.Big0)
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit *tendermint.Vote, from, to string) {

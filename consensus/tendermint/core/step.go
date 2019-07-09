@@ -3,21 +3,21 @@ package core
 type Step uint64
 
 const (
-	StepAcceptProposal Step = iota
-	StepProposeDone
-	StepPrevoteDone
-	StepPrecommitDone
+	propose Step = iota
+	prevote
+	precommit
+	precommitDone
 )
 
 func (s Step) String() string {
-	if s == StepAcceptProposal {
-		return "StepAcceptProposal"
-	} else if s == StepProposeDone {
-		return "StepProposeDone"
-	} else if s == StepPrevoteDone {
-		return "StepPrevoteDone"
-	} else if s == StepPrecommitDone {
-		return "StepPrecommitDone"
+	if s == propose {
+		return "propose"
+	} else if s == prevote {
+		return "prevote"
+	} else if s == precommit {
+		return "precommit"
+	} else if s == precommitDone {
+		return "precommitDone"
 	} else {
 		return "Unknown"
 	}

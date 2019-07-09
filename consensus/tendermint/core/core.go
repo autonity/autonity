@@ -18,6 +18,7 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"math"
 	"math/big"
@@ -79,15 +80,11 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
 		config:                      config,
 		address:                     backend.Address(),
-		handlerStopCh:               make(chan struct{}),
 		logger:                      log.New(),
 		backend:                     backend,
 		backlogs:                    make(map[tendermint.Validator]*prque.Prque),
 		pendingUnminedBlocks:        prque.New(),
 		latestPendingUnminedBlockCh: make(chan *types.Block),
-		proposeTimeout:              new(timeout),
-		prevoteTimeout:              new(timeout),
-		precommitTimeout:            new(timeout),
 		valSet:                      new(validatorSet),
 		futureRoundsChange:          make(map[int64]int64),
 	}
@@ -99,8 +96,8 @@ type core struct {
 	address common.Address
 	logger  log.Logger
 
-	backend       tendermint.Backend
-	handlerStopCh chan struct{}
+	backend tendermint.Backend
+	cancel  context.CancelFunc
 
 	messageEventSub         *event.TypeMuxSubscription
 	newUnminedBlockEventSub *event.TypeMuxSubscription
@@ -134,9 +131,9 @@ type core struct {
 	latestPendingUnminedBlockMu sync.RWMutex
 	latestPendingUnminedBlockCh chan *types.Block
 
-	proposeTimeout   *timeout
-	prevoteTimeout   *timeout
-	precommitTimeout *timeout
+	proposeTimeout   timeout
+	prevoteTimeout   timeout
+	precommitTimeout timeout
 
 	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
 	futureRoundsChange map[int64]int64
@@ -177,7 +174,7 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	return payload, nil
 }
 
-func (c *core) broadcast(msg *message) {
+func (c *core) broadcast(ctx context.Context, msg *message) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	payload, err := c.finalizeMessage(msg)
@@ -188,7 +185,7 @@ func (c *core) broadcast(msg *message) {
 
 	// Broadcast payload
 	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(c.valSet.Copy(), payload); err != nil {
+	if err = c.backend.Broadcast(ctx, c.valSet.Copy(), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}
@@ -199,7 +196,7 @@ func (c *core) isProposer() bool {
 }
 
 func (c *core) commit() {
-	c.setStep(StepPrecommitDone)
+	c.setStep(precommitDone)
 
 	proposal := c.currentRoundState.Proposal()
 
@@ -226,7 +223,7 @@ func (c *core) commit() {
 }
 
 // startRound starts a new round. if round equals to 0, it means to starts a new height
-func (c *core) startRound(round *big.Int) {
+func (c *core) startRound(ctx context.Context, round *big.Int) {
 	lastCommittedProposalBlock, lastCommittedProposalBlockProposer := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 
@@ -247,9 +244,12 @@ func (c *core) startRound(round *big.Int) {
 	}
 
 	// Reset all timeouts
-	c.proposeTimeout = new(timeout)
-	c.prevoteTimeout = new(timeout)
-	c.precommitTimeout = new(timeout)
+	_ = c.proposeTimeout.stopTimer()
+	_ = c.prevoteTimeout.stopTimer()
+	_ = c.precommitTimeout.stopTimer()
+	c.proposeTimeout = newTimeout(propose)
+	c.prevoteTimeout = newTimeout(prevote)
+	c.precommitTimeout = newTimeout(precommit)
 
 	// Get all rounds from c.futureRoundsChange and remove previous rounds
 	var rounds = make([]int64, 0)
@@ -264,7 +264,7 @@ func (c *core) startRound(round *big.Int) {
 
 	// Update current round state and add a copy to c.currentHeightRoundsState
 	// We only add old round prevote messages to c.currentHeightRoundState, while future messages are sent to the backlog
-	// Which are processed when the step is set to StepAcceptProposal
+	// Which are processed when the step is set to propose
 	if round.Int64() > 0 {
 		// This is a shallow copy, should be fine for now
 		c.currentHeightRoundsStates[round.Int64()] = *c.currentRoundState
@@ -278,14 +278,14 @@ func (c *core) startRound(round *big.Int) {
 	c.sentPrevote = false
 	c.sentPrecommit = false
 	c.setValidRoundAndValue = false
-	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
-	c.setStep(StepAcceptProposal)
+	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
+	c.setStep(propose)
 
 	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
 
 	// Wait for c.handleNewUnminedBlockEvent() go routine to update c.latestPendingUnminedBlock
 	// Only wait for new unmined block if latestPendingUnminedBlock is nil or fo previous height
-	c.checkLatestPendingUnminedBlock()
+	c.checkLatestPendingUnminedBlock(ctx)
 
 	var p *types.Block
 	if c.isProposer() {
@@ -296,7 +296,7 @@ func (c *core) startRound(round *big.Int) {
 			p = c.latestPendingUnminedBlock
 			c.latestPendingUnminedBlockMu.RUnlock()
 		}
-		c.sendProposal(p)
+		c.sendProposal(ctx, p)
 	} else {
 		timeoutDuration := timeoutPropose(round.Int64())
 		c.proposeTimeout.scheduleTimeout(timeoutDuration, round.Int64(), height.Int64(), c.onTimeoutPropose)
@@ -307,21 +307,25 @@ func (c *core) startRound(round *big.Int) {
 func (c *core) setStep(step Step) {
 	c.currentRoundState.SetStep(step)
 
-	if step == StepAcceptProposal {
+	if step == propose {
 		c.processPendingUnminedBlock()
 	}
 	c.processBacklog()
 }
 
-func (c *core) checkLatestPendingUnminedBlock() {
+func (c *core) checkLatestPendingUnminedBlock(ctx context.Context) {
 	c.latestPendingUnminedBlockMu.RLock()
 	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
 	c.latestPendingUnminedBlockMu.RUnlock()
 
 	if isMined {
-		<-c.latestPendingUnminedBlockCh
+		select {
+		case <-ctx.Done():
+			return
+		case <-c.latestPendingUnminedBlockCh:
+			return
+		}
 	}
-
 }
 
 func (c *core) setLatestPendingUnminedBlock(b *types.Block) {

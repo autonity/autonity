@@ -18,6 +18,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"math/big"
 	"time"
@@ -480,6 +481,9 @@ func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	sb.currentBlock = currentBlock
 	sb.hasBadBlock = hasBadBlock
 
+	var ctx context.Context
+	ctx, sb.cancel = context.WithCancel(context.Background())
+
 	if err := sb.core.Start(); err != nil {
 		return err
 	}
@@ -487,7 +491,7 @@ func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	sb.coreStarted = true
 
 	sb.resend = make(chan messageToPeers, 1024)
-	go sb.ReSend(10)
+	go sb.ReSend(ctx, 10)
 
 	return nil
 }
@@ -504,7 +508,7 @@ func (sb *Backend) Close() error {
 	}
 	sb.coreStarted = false
 
-	close(sb.resend)
+	sb.cancel()
 
 	return nil
 }

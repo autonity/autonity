@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"math/big"
 	"runtime/debug"
 
@@ -21,8 +22,11 @@ func (c *core) Start() error {
 	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent()
 
+	var ctx context.Context
+	ctx, c.cancel = context.WithCancel(context.Background())
+
 	//We want to sequentially handle all the event which modify the current consensus state
-	go c.handleConsensusEvents()
+	go c.handleConsensusEvents(ctx)
 
 	return nil
 }
@@ -32,8 +36,12 @@ func (c *core) Stop() error {
 	c.stopFutureProposalTimer()
 	c.unsubscribeEvents()
 
+	_ = c.proposeTimeout.stopTimer()
+	_ = c.prevoteTimeout.stopTimer()
+	_ = c.precommitTimeout.stopTimer()
+
 	// Make sure the handler goroutine exits
-	c.handlerStopCh <- struct{}{}
+	c.cancel()
 	return nil
 }
 
@@ -94,7 +102,7 @@ func (c *core) handleNewUnminedBlockEvent() {
 	}
 }
 
-func (c *core) handleConsensusEvents() {
+func (c *core) handleConsensusEvents(ctx context.Context) {
 	// Clear step
 	defer func() {
 		if r := recover(); r != nil {
@@ -106,7 +114,7 @@ func (c *core) handleConsensusEvents() {
 
 	// Start a new round from last height + 1
 	// Do not want to block listening for events
-	go c.startRound(common.Big0)
+	go c.startRound(ctx, common.Big0)
 
 	for {
 		select {
@@ -122,27 +130,30 @@ func (c *core) handleConsensusEvents() {
 				}
 
 				c.logger.Debug("Started handling tendermint.MessageEvent")
-				if err := c.handleMsg(e.Payload); err != nil {
+				if err := c.handleMsg(ctx, e.Payload); err != nil {
 					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
+					c.logger.Debug("Finished handling tendermint.MessageEvent with ERROR", "err", err)
 					continue
 				}
-				c.backend.Gossip(c.valSet.Copy(), e.Payload)
+				c.backend.Gossip(ctx, c.valSet.Copy(), e.Payload)
 				c.logger.Debug("Finished handling tendermint.MessageEvent")
 			case backlogEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling backlogEvent")
-				err := c.handleCheckedMsg(e.msg, e.src)
+				err := c.handleCheckedMsg(ctx, e.msg, e.src)
 				if err != nil {
 					c.logger.Error("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
+					c.logger.Debug("Finished handling backlogEvent with ERROR", "err", err)
 					continue
 				}
 
 				p, err := e.msg.Payload()
 				if err != nil {
 					c.logger.Error("core.handleConsensusEvents Get message payload failed", "err", err)
+					c.logger.Debug("Finished handling backlogEvent with ERROR", "err", err)
 					continue
 				}
-				c.backend.Gossip(c.valSet.Copy(), p)
+				c.backend.Gossip(ctx, c.valSet.Copy(), p)
 				c.logger.Debug("Finished handling backlogEvent")
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
@@ -153,11 +164,11 @@ func (c *core) handleConsensusEvents() {
 				c.logger.Debug("Started handling timeoutEvent")
 				switch timeoutE.step {
 				case msgProposal:
-					c.handleTimeoutPropose(timeoutE)
+					c.handleTimeoutPropose(ctx, timeoutE)
 				case msgPrevote:
-					c.handleTimeoutPrevote(timeoutE)
+					c.handleTimeoutPrevote(ctx, timeoutE)
 				case msgPrecommit:
-					c.handleTimeoutPrecommit(timeoutE)
+					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
 				c.logger.Debug("Finished handling timeoutEvent")
 			}
@@ -168,7 +179,7 @@ func (c *core) handleConsensusEvents() {
 			switch ev.Data.(type) {
 			case tendermint.CommitEvent:
 				c.logger.Debug("Started handling CommitEvent")
-				c.handleCommit()
+				c.handleCommit(ctx)
 				c.logger.Debug("Finished handling CommitEvent")
 			}
 		}
@@ -180,7 +191,7 @@ func (c *core) sendEvent(ev interface{}) {
 	c.backend.EventMux().Post(ev)
 }
 
-func (c *core) handleMsg(payload []byte) error {
+func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	logger := c.logger.New()
 
 	// Decode message and check its signature
@@ -199,10 +210,10 @@ func (c *core) handleMsg(payload []byte) error {
 		return tendermint.ErrUnauthorizedAddress
 	}
 
-	return c.handleCheckedMsg(msg, sender)
+	return c.handleCheckedMsg(ctx, msg, sender)
 }
 
-func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error {
+func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender tendermint.Validator) error {
 	logger := c.logger.New("address", c.address, "from", sender)
 
 	// Store the message if it's a future message
@@ -236,7 +247,7 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 
 			if totalFutureRoundMessages >= int64(c.valSet.F()) {
 				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
-				c.startRound(big.NewInt(msgRound))
+				c.startRound(ctx, big.NewInt(msgRound))
 			}
 
 		}
@@ -247,13 +258,13 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 	switch msg.Code {
 	case msgProposal:
 		logger.Debug("tendermint.MessageEvent: PROPOSAL")
-		return testBacklog(c.handleProposal(msg))
+		return testBacklog(c.handleProposal(ctx, msg))
 	case msgPrevote:
 		logger.Debug("tendermint.MessageEvent: PREVOTE")
-		return testBacklog(c.handlePrevote(msg))
+		return testBacklog(c.handlePrevote(ctx, msg))
 	case msgPrecommit:
 		logger.Debug("tendermint.MessageEvent: PRECOMMIT")
-		return testBacklog(c.handlePrecommit(msg))
+		return testBacklog(c.handlePrecommit(ctx, msg))
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}

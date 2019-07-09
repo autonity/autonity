@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"math/big"
 	"sync"
 	"time"
@@ -24,7 +25,15 @@ type timeoutEvent struct {
 type timeout struct {
 	timer   *time.Timer
 	started bool
+	step    Step
 	sync.Mutex
+}
+
+func newTimeout(s Step) timeout {
+	return timeout{
+		started: false,
+		step:    s,
+	}
 }
 
 // runAfterTimeout() will be run in a separate go routine, so values used inside the function needs to be managed separately
@@ -38,10 +47,98 @@ func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height
 	return t.timer
 }
 
-func (t *timeout) stopTimer() bool {
+func (t *timeout) timerStarted() bool {
 	t.Lock()
 	defer t.Unlock()
-	return t.timer.Stop()
+	return t.started
+}
+
+func (t *timeout) stopTimer() error {
+	t.Lock()
+	defer t.Unlock()
+	if t.started {
+		if stopped := t.timer.Stop(); !stopped {
+			switch t.step {
+			case propose:
+				return errNilPrevoteSent
+			case prevote:
+				return errNilPrecommitSent
+			case precommit:
+				return errMovedToNewRound
+			}
+		}
+	}
+	return nil
+}
+
+/////////////// On Timeout Functions ///////////////
+func (c *core) onTimeoutPropose(r int64, h int64) {
+	msg := timeoutEvent{
+		roundWhenCalled:  r,
+		heightWhenCalled: h,
+		step:             msgProposal,
+	}
+	c.logTimeoutEvent("TimeoutEvent(Propose): Sent", "Propose", msg)
+	c.sendEvent(msg)
+}
+
+func (c *core) onTimeoutPrevote(r int64, h int64) {
+	msg := timeoutEvent{
+		roundWhenCalled:  r,
+		heightWhenCalled: h,
+		step:             msgPrevote,
+	}
+	c.logTimeoutEvent("TimeoutEvent(Prevote): Sent", "Prevote", msg)
+	c.sendEvent(msg)
+
+}
+
+func (c *core) onTimeoutPrecommit(r int64, h int64) {
+	msg := timeoutEvent{
+		roundWhenCalled:  r,
+		heightWhenCalled: h,
+		step:             msgPrecommit,
+	}
+	c.logTimeoutEvent("TimeoutEvent(Precommit): Sent", "Precommit", msg)
+	c.sendEvent(msg)
+}
+
+/////////////// Handle Timeout Functions ///////////////
+func (c *core) handleTimeoutPropose(ctx context.Context, msg timeoutEvent) {
+	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == propose {
+		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
+		c.sendPrevote(ctx, true)
+		c.setStep(prevote)
+	}
+}
+
+func (c *core) handleTimeoutPrevote(ctx context.Context, msg timeoutEvent) {
+	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == prevote {
+		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
+		c.sendPrecommit(ctx, true)
+		c.setStep(precommit)
+	}
+}
+
+func (c *core) handleTimeoutPrecommit(ctx context.Context, msg timeoutEvent) {
+	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
+		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
+		c.startRound(ctx, new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
+	}
+}
+
+/////////////// Calculate Timeout Duration Functions ///////////////
+// The timeout may need to be changed depending on the Step
+func timeoutPropose(round int64) time.Duration {
+	return initialProposeTimeout + time.Duration(round)*time.Second
+}
+
+func timeoutPrevote(round int64) time.Duration {
+	return initialPrevoteTimeout + time.Duration(round)*time.Second
+}
+
+func timeoutPrecommit(round int64) time.Duration {
+	return initialPrecommitTimeout + time.Duration(round)*time.Second
 }
 
 func (c *core) logTimeoutEvent(message string, msgType string, timeout timeoutEvent) {
@@ -55,80 +152,4 @@ func (c *core) logTimeoutEvent(message string, msgType string, timeout timeoutEv
 		"currentStep", c.currentRoundState.Step(),
 		"msgStep", timeout.step,
 	)
-}
-
-func (c *core) onTimeoutPropose(r int64, h int64) {
-	msg := timeoutEvent{
-		roundWhenCalled:  r,
-		heightWhenCalled: h,
-		step:             msgProposal,
-	}
-
-	c.logTimeoutEvent("TimeoutEvent(Propose): Sent", "Propose", msg)
-
-	c.sendEvent(msg)
-}
-
-func (c *core) handleTimeoutPropose(msg timeoutEvent) {
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == StepAcceptProposal {
-		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
-
-		c.sendPrevote(true)
-		c.setStep(StepProposeDone)
-	}
-}
-
-func (c *core) onTimeoutPrevote(r int64, h int64) {
-	msg := timeoutEvent{
-		roundWhenCalled:  r,
-		heightWhenCalled: h,
-		step:             msgPrevote,
-	}
-
-	c.logTimeoutEvent("TimeoutEvent(Prevote): Sent", "Prevote", msg)
-
-	c.sendEvent(msg)
-
-}
-
-func (c *core) handleTimeoutPrevote(msg timeoutEvent) {
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == StepProposeDone {
-		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
-
-		c.sendPrecommit(true)
-		c.setStep(StepPrevoteDone)
-	}
-}
-
-func (c *core) onTimeoutPrecommit(r int64, h int64) {
-	msg := timeoutEvent{
-		roundWhenCalled:  r,
-		heightWhenCalled: h,
-		step:             msgPrecommit,
-	}
-
-	c.logTimeoutEvent("TimeoutEvent(Precommit): Sent", "Precommit", msg)
-
-	c.sendEvent(msg)
-}
-
-func (c *core) handleTimeoutPrecommit(msg timeoutEvent) {
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
-		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
-
-		c.startRound(new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
-	}
-}
-
-// The timeout may need to be changed depending on the Step
-func timeoutPropose(round int64) time.Duration {
-	return initialProposeTimeout + time.Duration(round)*time.Second
-}
-
-func timeoutPrevote(round int64) time.Duration {
-	return initialPrevoteTimeout + time.Duration(round)*time.Second
-}
-
-func timeoutPrecommit(round int64) time.Duration {
-	return initialPrecommitTimeout + time.Duration(round)*time.Second
 }

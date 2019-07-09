@@ -127,6 +127,8 @@ type Backend struct {
 	vmConfig          *vm.Config
 
 	resend chan messageToPeers
+
+	cancel context.CancelFunc
 }
 
 // Address implements tendermint.Backend.Address
@@ -144,9 +146,9 @@ func (sb *Backend) Validators(number uint64) tendermint.ValidatorSet {
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) error {
+func (sb *Backend) Broadcast(ctx context.Context, valSet tendermint.ValidatorSet, payload []byte) error {
 	// send to others
-	sb.Gossip(valSet, payload)
+	sb.Gossip(ctx, valSet, payload)
 	// send to self
 	msg := tendermint.MessageEvent{
 		Payload: payload,
@@ -163,7 +165,7 @@ const TTL = 10           //seconds
 const retryInterval = 50 //milliseconds
 
 // Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
+func (sb *Backend) Gossip(ctx context.Context, valSet tendermint.ValidatorSet, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
@@ -175,7 +177,7 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 	}
 
 	if sb.broadcaster != nil && len(targets) > 0 {
-		sb.trySend(messageToPeers{
+		sb.trySend(ctx, messageToPeers{
 			message{
 				hash,
 				payload,
@@ -246,7 +248,7 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 		m, _ = lru.NewARC(inmemoryMessages)
 	}
 
-	go func(p consensus.Peer, m *lru.ARCCache) {
+	go func(ctx context.Context, p consensus.Peer, m *lru.ARCCache) {
 		ticker := time.NewTicker(retryInterval * time.Millisecond)
 		defer ticker.Stop()
 
@@ -281,32 +283,46 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 		}
 
 		errCh <- err
-	}(p, m)
+	}(ctx, p, m)
 
 	return errCh
 }
 
-func (sb *Backend) ReSend(numberOfWorkers int) {
+func (sb *Backend) ReSend(ctx context.Context, numberOfWorkers int) {
 	workers := sync.WaitGroup{}
 	workers.Add(numberOfWorkers)
 
 	for i := 0; i < numberOfWorkers; i++ {
-		go func() {
-			sb.workerSendLoop()
+		go func(ctx context.Context) {
+			sb.workerSendLoop(ctx)
 			workers.Done()
-		}()
+		}(ctx)
 	}
 
 	workers.Wait()
 }
 
-func (sb *Backend) workerSendLoop() {
-	for msgToPeers := range sb.resend {
-		sb.trySend(msgToPeers)
+func (sb *Backend) workerSendLoop(ctx context.Context) {
+	for {
+		select {
+		case msgToPeers := <-sb.resend:
+			sb.trySend(ctx, msgToPeers)
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
-func (sb *Backend) trySend(msgToPeers messageToPeers) {
+func (sb *Backend) sendToResendCh(ctx context.Context, m messageToPeers) {
+	select {
+	case <-ctx.Done():
+		return
+	case sb.resend <- m:
+		//sent to channel
+	}
+}
+
+func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
 		sb.logger.Trace("worker loop. TTL expired", "msg", msgToPeers)
 		return
@@ -316,7 +332,7 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 		time.Since(msgToPeers.startTime).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) > retryInterval {
 
 		//too early for resend
-		sb.resend <- msgToPeers
+		sb.sendToResendCh(ctx, msgToPeers)
 
 		return
 	}
@@ -334,13 +350,14 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 			peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
 		}
 
-		sb.logger.Trace("worker loop. peers still not connected", "peers", peersStr)
+		sb.logger.Trace("worker loop. peers still not connected", "peers", peersStr, "msgHash", msgToPeers.msg.hash.String())
 	}
 
 	if sb.broadcaster != nil && len(ps) > 0 {
 		sb.logger.Trace("worker loop. resend to connected peers", "msg", msgToPeers.msg.hash.String(), "peers", peersToString(getPeerKeys(ps)))
 		var errChs []chan error
-		ctx, cancel := context.WithTimeout(context.Background(), TTL*time.Second)
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, TTL*time.Second)
 		defer cancel()
 
 		for addr, p := range ps {
@@ -364,6 +381,7 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 					}
 				}
 
+				close(errCh)
 				wg.Done()
 			}(errCh)
 		}
@@ -398,7 +416,7 @@ func (sb *Backend) trySend(msgToPeers messageToPeers) {
 			sb.logger.Trace("worker loop. peers not connected and errors while sending", "msg", msg.String())
 		}
 
-		sb.resend <- msg
+		sb.sendToResendCh(ctx, msg)
 	}
 }
 

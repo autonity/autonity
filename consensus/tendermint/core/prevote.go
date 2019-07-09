@@ -1,13 +1,14 @@
 package core
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func (c *core) sendPrevote(isNil bool) {
+func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	var prevote = &tendermint.Vote{
@@ -34,49 +35,49 @@ func (c *core) sendPrevote(isNil bool) {
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
 	c.sentPrevote = true
-	c.broadcast(&message{
+	c.broadcast(ctx, &message{
 		Code: msgPrevote,
 		Msg:  encodedVote,
 	})
 }
 
-func (c *core) handlePrevote(msg *message) error {
-	var prevote *tendermint.Vote
-	err := msg.Decode(&prevote)
+func (c *core) handlePrevote(ctx context.Context, msg *message) error {
+	var preVote *tendermint.Vote
+	err := msg.Decode(&preVote)
 	if err != nil {
 		return errFailedDecodePrevote
 	}
 
-	if err = c.checkMessage(prevote.Round, prevote.Height); err != nil {
+	if err = c.checkMessage(preVote.Round, preVote.Height); err != nil {
 		// We want to store old round messages for future rounds since it is required for validRound
 		if err == errOldRoundMessage {
 			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
 			// And we only process old rounds while future rounds messages are pushed on to the backlog
-			prevoteMS := c.currentHeightRoundsStates[prevote.Round.Int64()].Prevotes
-			if prevote.ProposedBlockHash == (common.Hash{}) {
+			prevoteMS := c.currentHeightRoundsStates[preVote.Round.Int64()].Prevotes
+			if preVote.ProposedBlockHash == (common.Hash{}) {
 				prevoteMS.AddNilVote(*msg)
 			} else {
-				prevoteMS.AddVote(prevote.ProposedBlockHash, *msg)
+				prevoteMS.AddVote(preVote.ProposedBlockHash, *msg)
 			}
 		}
 		return err
 	}
 
 	// After checking the message we know it is from the same height and round, so we should store it even if
-	// c.currentRoundState.Step() < StepProposeDone. The propose timeout which is started at the beginning of the round
-	// will update the step to at least StepProposeDone and when it handle its on prevote(nil), then it will also have
+	// c.currentRoundState.Step() < prevote. The propose timeout which is started at the beginning of the round
+	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
 	// votes from other nodes.
-	prevoteHash := prevote.ProposedBlockHash
+	prevoteHash := preVote.ProposedBlockHash
 	if prevoteHash == (common.Hash{}) {
 		c.currentRoundState.Prevotes.AddNilVote(*msg)
 	} else {
 		c.currentRoundState.Prevotes.AddVote(prevoteHash, *msg)
 	}
 
-	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, msg.Address.String(), c.address.String())
+	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", preVote, msg.Address.String(), c.address.String())
 
-	// Now we can add the prevote to our current round state
-	if c.currentRoundState.Step() >= StepProposeDone {
+	// Now we can add the preVote to our current round state
+	if c.currentRoundState.Step() >= prevote {
 		curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 		curR := c.currentRoundState.Round().Int64()
 		curH := c.currentRoundState.Height().Int64()
@@ -84,45 +85,38 @@ func (c *core) handlePrevote(msg *message) error {
 		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
 		if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Prevotes.VotesSize(curProposalHash)) && !c.setValidRoundAndValue {
 			// this piece of code should only run once
-			if err := c.stopPrevoteTimeout(); err != nil {
+			if err := c.prevoteTimeout.stopTimer(); err != nil {
 				return err
 			}
+			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 
-			if c.currentRoundState.Step() == StepProposeDone {
+			if c.currentRoundState.Step() == prevote {
 				c.lockedValue = c.currentRoundState.Proposal().ProposalBlock
 				c.lockedRound = big.NewInt(curR)
-				c.sendPrecommit(false)
-				c.setStep(StepPrevoteDone)
+				c.sendPrecommit(ctx, false)
+				c.setStep(precommit)
 			}
 			c.validValue = c.currentRoundState.Proposal().ProposalBlock
 			c.validRound = big.NewInt(curR)
 			c.setValidRoundAndValue = true
 			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.currentRoundState.Step() == StepProposeDone && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
-			if err := c.stopPrevoteTimeout(); err != nil {
+		} else if c.currentRoundState.Step() == prevote && c.quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
+			if err := c.prevoteTimeout.stopTimer(); err != nil {
 				return err
 			}
-			c.sendPrecommit(true)
-			c.setStep(StepPrevoteDone)
+			c.logger.Debug("Stopped Scheduled Prevote Timeout")
+
+			c.sendPrecommit(ctx, true)
+			c.setStep(precommit)
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.currentRoundState.Step() == StepProposeDone && !c.prevoteTimeout.started && !c.sentPrecommit && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {
+		} else if c.currentRoundState.Step() == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.quorum(c.currentRoundState.Prevotes.TotalSize()) {
 			timeoutDuration := timeoutPrevote(curR)
 			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
 			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
 		}
 	}
 
-	return nil
-}
-
-func (c *core) stopPrevoteTimeout() error {
-	if c.prevoteTimeout.started {
-		c.logger.Debug("Stopping Scheduled Prevote Timeout")
-		if stopped := c.prevoteTimeout.stopTimer(); !stopped {
-			return errNilPrecommitSent
-		}
-	}
 	return nil
 }
 
