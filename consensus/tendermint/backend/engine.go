@@ -491,7 +491,6 @@ func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	sb.coreStarted = true
 
 	sb.resend = make(chan messageToPeers, 1024)
-	sb.doneResending = false
 	go sb.ReSend(ctx, 10)
 
 	return nil
@@ -509,9 +508,7 @@ func (sb *Backend) Close() error {
 	}
 	sb.coreStarted = false
 
-	sb.doneResending = true
 	sb.cancel()
-	close(sb.resend)
 
 	return nil
 }

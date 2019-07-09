@@ -126,8 +126,7 @@ type Backend struct {
 	glienickeContract common.Address // Ethereum address of the white list contract
 	vmConfig          *vm.Config
 
-	resend        chan messageToPeers
-	doneResending bool
+	resend chan messageToPeers
 
 	cancel context.CancelFunc
 }
@@ -314,6 +313,15 @@ func (sb *Backend) workerSendLoop(ctx context.Context) {
 	}
 }
 
+func (sb *Backend) sendToResendCh(ctx context.Context, m messageToPeers) {
+	select {
+	case <-ctx.Done():
+		return
+	case sb.resend <- m:
+		//sent to channel
+	}
+}
+
 func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
 		sb.logger.Trace("worker loop. TTL expired", "msg", msgToPeers)
@@ -324,10 +332,7 @@ func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 		time.Since(msgToPeers.startTime).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) > retryInterval {
 
 		//too early for resend
-
-		if !sb.doneResending {
-			sb.resend <- msgToPeers
-		}
+		sb.sendToResendCh(ctx, msgToPeers)
 
 		return
 	}
@@ -345,7 +350,7 @@ func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 			peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
 		}
 
-		sb.logger.Trace("worker loop. peers still not connected", "peers", peersStr)
+		sb.logger.Trace("worker loop. peers still not connected", "peers", peersStr, "msgHash", msgToPeers.msg.hash.String())
 	}
 
 	if sb.broadcaster != nil && len(ps) > 0 {
@@ -411,9 +416,7 @@ func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 			sb.logger.Trace("worker loop. peers not connected and errors while sending", "msg", msg.String())
 		}
 
-		if !sb.doneResending {
-			sb.resend <- msg
-		}
+		sb.sendToResendCh(ctx, msg)
 	}
 }
 
