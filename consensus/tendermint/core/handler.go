@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"runtime/debug"
 
@@ -13,8 +12,6 @@ import (
 
 // Start implements core.Engine.Start
 func (c *core) Start() error {
-	log.Error("**********************************************************")
-
 	c.subscribeEvents()
 
 	// set currentRoundState before starting go routines

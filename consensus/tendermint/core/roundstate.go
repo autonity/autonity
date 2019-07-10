@@ -17,7 +17,6 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"sync"
 
@@ -28,8 +27,6 @@ import (
 // NewRoundState creates a new roundState instance with the given view and validatorSet
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
 func NewRoundState(r *big.Int, h *big.Int) *roundState {
-	log.Error("!!!! roundState.New", "height", h.String(), "round", r.String())
-
 	return &roundState{
 		round:      r,
 		height:     h,
@@ -54,8 +51,6 @@ type roundState struct {
 }
 
 func (s *roundState) Update(r *big.Int, h *big.Int) {
-	log.Error("!!!! roundState.Update", "height", h.String(), "round", r.String())
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.round = r
@@ -84,8 +79,6 @@ func (s *roundState) Proposal() *tendermint.Proposal {
 }
 
 func (s *roundState) SetRound(r *big.Int) {
-	log.Error("!!!! roundState.SetRound", "height", s.height.String(), "round", r.String())
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -100,8 +93,6 @@ func (s *roundState) Round() *big.Int {
 }
 
 func (s *roundState) SetHeight(height *big.Int) {
-	log.Error("!!!! roundState.SetHeight", "height", height.String(), "round", s.round.String())
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
