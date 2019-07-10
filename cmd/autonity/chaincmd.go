@@ -19,7 +19,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -225,14 +224,10 @@ func initGenesis(ctx *cli.Context) error {
 		}
 		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
 		if err != nil {
-			spew.Dump(genesis)
 			utils.Fatalf("Failed to write genesis block: %v", err)
 		}
 		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
 	}
-
-
-	spew.Dump(genesis)
 	return nil
 }
 
