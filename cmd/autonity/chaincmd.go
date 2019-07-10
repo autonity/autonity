@@ -19,6 +19,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -208,6 +209,13 @@ func initGenesis(ctx *cli.Context) error {
 
 	setupDefaults(genesis)
 
+	if genesis.Config != nil && (genesis.Config.Istanbul != nil || genesis.Config.Tendermint != nil) {
+		err := genesis.SetPoS()
+		if err != nil {
+			utils.Fatalf("invalid genesis file. cant setup PoS data: %v", err)
+		}
+	}
+
 	// Open an initialise both full and light databases
 	stack := makeFullNode(ctx)
 	for _, name := range []string{"chaindata", "lightchaindata"} {
@@ -217,10 +225,14 @@ func initGenesis(ctx *cli.Context) error {
 		}
 		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
 		if err != nil {
+			spew.Dump(genesis)
 			utils.Fatalf("Failed to write genesis block: %v", err)
 		}
 		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
 	}
+
+
+	spew.Dump(genesis)
 	return nil
 }
 

@@ -609,6 +609,12 @@ func (sb *Backend) LastCommittedProposal() (*types.Block, common.Address) {
 		}
 	}
 
+	if block == nil {
+		log.Error("!!! LastCommittedProposal", "block", "nil")
+	} else {
+		log.Error("!!! LastCommittedProposal", "block", block.Hash().String(), "number", block.Number().String())
+	}
+
 	// Return header only block here since we don't need block body
 	return block, proposer
 }

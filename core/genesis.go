@@ -278,7 +278,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	}
 
 	if g.Config != nil && (g.Config.Istanbul != nil || g.Config.Tendermint != nil) {
-		err := g.setPoS()
+		err := g.SetPoS()
 		if err != nil {
 			return nil, err
 		}
@@ -301,7 +301,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 }
 
 //setPoS sets default PoS(IBFT or Tendermint) config values
-func (g *Genesis) setPoS() error {
+func (g *Genesis) SetPoS() error {
 	if len(g.Validators) != 0 {
 		err := g.setPoSValidatorExtraData(g.Validators)
 		if err != nil {

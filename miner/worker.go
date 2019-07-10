@@ -268,6 +268,8 @@ func (w *worker) pendingBlock() *types.Block {
 func (w *worker) start() {
 	atomic.StoreInt32(&w.running, 1)
 	if pos, ok := w.engine.(consensus.PoS); ok {
+
+		log.Error("==== miner", "height", w.chain.CurrentHeader().Number.String(), "current_height", w.chain.CurrentBlock().Number().String(), "current", w.current.header.Number.String(), "fast", w.chain.CurrentFastBlock().Number().String())
 		err := pos.Start(w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
 		if err != nil {
 			log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)

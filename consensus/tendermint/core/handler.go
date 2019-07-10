@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"runtime/debug"
 
@@ -12,6 +13,8 @@ import (
 
 // Start implements core.Engine.Start
 func (c *core) Start() error {
+	log.Error("**********************************************************")
+
 	c.subscribeEvents()
 
 	// set currentRoundState before starting go routines
@@ -114,7 +117,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 
 	// Start a new round from last height + 1
 	// Do not want to block listening for events
-	go c.startRound(ctx, common.Big0)
+	c.startRound(ctx, common.Big0)
 
 	for {
 		select {

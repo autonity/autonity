@@ -10,13 +10,17 @@ RPC_ADDR=$(awk 'END{print $1}' /etc/hosts)
 RPC_API="tendermint,clique,console,eth,web3,admin,debug,miner,personal,txpool,net"
 
 # init the data directory
-echo "Autonity INIT $RPC_ADDR"
-$AUTONITY init --datadir $DATADIR genesis.json --verbosity 4
+if [ ! -d "$DATADIR/autonity/chaindata" ]; then
+  echo "Autonity INIT $RPC_ADDR $DATADIR\autonity\chaindata"
+  $AUTONITY init --datadir $DATADIR genesis.json --verbosity 4
+fi
 
 # start the node with the keystore and nodekey
 echo "Autonity START"
 $AUTONITY \
   --datadir $DATADIR \
+  --ethash.cachedir "$DATADIR/cache" \
+  --ethash.dagdir "$DATADIR/.ethash" \
   --nodekey $NODEKEY \
   --keystore $KEYSTORE \
   --rpc \
@@ -28,4 +32,4 @@ $AUTONITY \
   --mine \
   --miner.threads 1 \
   --verbosity 4 \
-  --debug
+  --debug 2>&1 | tee logs.log

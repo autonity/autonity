@@ -230,6 +230,7 @@ func (bc *BlockChain) loadLastState() error {
 	}
 	// Make sure the entire head block is available
 	currentBlock := bc.GetBlockByHash(head)
+	log.Error("+++++ loadLastState head", "head", head.String(), "currentBlock", currentBlock.Number().String())
 	if currentBlock == nil {
 		// Corrupt or empty database, init from scratch
 		log.Warn("Head block missing, resetting chain", "hash", head)
@@ -238,13 +239,14 @@ func (bc *BlockChain) loadLastState() error {
 	// Make sure the state associated with the block is available
 	if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
 		// Dangling block without a state associated, init from scratch
-		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
+		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "err", err.Error())
 		if err := bc.repair(&currentBlock); err != nil {
 			return err
 		}
 	}
 	// Everything seems to be fine, set as the head block
 	bc.currentBlock.Store(currentBlock)
+	log.Error("+++++ loadLastState block", "currentBlock", currentBlock.Number().String())
 
 	// Restore the last known head header
 	currentHeader := currentBlock.Header()
@@ -254,6 +256,8 @@ func (bc *BlockChain) loadLastState() error {
 		}
 	}
 	bc.hc.SetCurrentHeader(currentHeader)
+
+	log.Error("+++++ loadLastState header", "currentBlock", currentBlock.Number().String())
 
 	// Restore the last known head fast block
 	bc.currentFastBlock.Store(currentBlock)
@@ -449,10 +453,11 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 // This method only rolls back the current block. The current header and current
 // fast block are left intact.
 func (bc *BlockChain) repair(head **types.Block) error {
+	i := 0
 	for {
 		// Abort if we've rewound to a head block that does have associated state
 		if _, err := state.New((*head).Root(), bc.stateCache); err == nil {
-			log.Info("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash())
+			log.Info("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash(), "i", i)
 			return nil
 		}
 		// Otherwise rewind one block and recheck state availability there
@@ -461,6 +466,8 @@ func (bc *BlockChain) repair(head **types.Block) error {
 			return fmt.Errorf("missing block %d [%x]", (*head).NumberU64()-1, (*head).ParentHash())
 		}
 		(*head) = block
+
+		i++
 	}
 }
 
