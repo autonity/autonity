@@ -20,6 +20,7 @@ matrix:
         - sudo chown root:$USER /etc/fuse.conf
         - go run build/ci.go install
         - make lint-ci
+        - go test ./consensus/tendermint/... -race -v
         - go run build/ci.go test -coverage $TEST_PACKAGES
         - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
 notifications:
