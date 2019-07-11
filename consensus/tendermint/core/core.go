@@ -34,14 +34,9 @@ import (
 )
 
 var (
-	// errInconsistentSubject is returned when received subject is different from
-	// currentRoundState subject.
-	//errInconsistentSubject = errors.New("inconsistent subjects")
 	// errNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
-	// errIgnored is returned when a message was ignored.
-	//errIgnored = errors.New("message is ignored")
 	// errFutureHeightMessage is returned when currentRoundState view is earlier than the
 	// view of the received message.
 	errFutureHeightMessage = errors.New("future height message")
