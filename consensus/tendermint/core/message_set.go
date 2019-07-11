@@ -17,8 +17,6 @@
 package core
 
 import (
-	"sync"
-
 	"github.com/clearmatics/autonity/common"
 )
 
@@ -26,20 +24,15 @@ func newMessageSet() messageSet {
 	return messageSet{
 		votes:    map[common.Hash]map[common.Address]message{},
 		nilvotes: map[common.Address]message{},
-		mu:       new(sync.RWMutex),
 	}
 }
 
 type messageSet struct {
 	votes    map[common.Hash]map[common.Address]message // map[proposedBlockHash]map[validatorAddress]vote
 	nilvotes map[common.Address]message                 // map[validatorAddress]vote
-	mu       *sync.RWMutex
 }
 
 func (ms *messageSet) AddVote(blockHash common.Hash, msg message) {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-
 	var addressesMap map[common.Address]message
 	var ok bool
 
@@ -57,16 +50,12 @@ func (ms *messageSet) AddVote(blockHash common.Hash, msg message) {
 }
 
 func (ms *messageSet) AddNilVote(msg message) {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
 	if _, ok := ms.nilvotes[msg.Address]; !ok {
 		ms.nilvotes[msg.Address] = msg
 	}
 }
 
 func (ms *messageSet) VotesSize(h common.Hash) int {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
 	if m, ok := ms.votes[h]; ok {
 		return len(m)
 	}
@@ -74,16 +63,12 @@ func (ms *messageSet) VotesSize(h common.Hash) int {
 }
 
 func (ms *messageSet) NilVotesSize() int {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
 	return len(ms.nilvotes)
 }
 
 func (ms *messageSet) TotalSize() int {
 	total := ms.NilVotesSize()
 
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
 	for _, v := range ms.votes {
 		total = total + len(v)
 	}
@@ -92,9 +77,6 @@ func (ms *messageSet) TotalSize() int {
 }
 
 func (ms *messageSet) Values(blockHash common.Hash) []message {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-
 	if _, ok := ms.votes[blockHash]; !ok {
 		return nil
 	}
