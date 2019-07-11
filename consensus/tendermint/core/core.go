@@ -318,6 +318,7 @@ func (c *core) checkLatestPendingUnminedBlock(ctx context.Context) {
 	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
 	c.latestPendingUnminedBlockMu.RUnlock()
 
+	c.logger.Debug("Waiting for c.latestPendingUnminedBlockCh", "isMined?", isMined)
 	if isMined {
 		select {
 		case <-ctx.Done():
@@ -334,6 +335,7 @@ func (c *core) setLatestPendingUnminedBlock(b *types.Block) {
 	c.latestPendingUnminedBlock = b
 	c.latestPendingUnminedBlockMu.Unlock()
 
+	c.logger.Debug("Sending to c.latestPendingUnminedBlockCh", "wasNilOrDiffHeight?", wasNilOrDiffHeight)
 	if wasNilOrDiffHeight {
 		c.latestPendingUnminedBlockCh <- b
 	}
