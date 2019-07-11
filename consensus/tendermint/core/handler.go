@@ -113,8 +113,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 	}()
 
 	// Start a new round from last height + 1
-	// Do not want to block listening for events
-	go c.startRound(ctx, common.Big0)
+	c.startRound(ctx, common.Big0)
 
 	for {
 		select {
