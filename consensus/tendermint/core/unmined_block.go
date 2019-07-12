@@ -69,10 +69,11 @@ func (c *core) getUnminedBlock() *types.Block {
 
 	if ok {
 		return ub
-	} else {
-		c.isWaitingForUnminedBlock = true
-		return nil
 	}
+
+	c.isWaitingForUnminedBlock = true
+	return nil
+
 }
 
 // check request step
