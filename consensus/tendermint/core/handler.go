@@ -22,7 +22,6 @@ import (
 	"runtime/debug"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
@@ -100,19 +99,10 @@ func (c *core) handleNewUnminedBlockEvent() {
 
 	for e := range c.newUnminedBlockEventSub.Chan() {
 		c.logger.Debug("Started handling tendermint.NewUnminedBlockEvent")
+
 		newUnminedBlockEvent := e.Data.(tendermint.NewUnminedBlockEvent)
-
 		pb := &newUnminedBlockEvent.NewUnminedBlock
-
-		err := c.handleUnminedBlock(pb)
-		switch err {
-		case consensus.ErrFutureBlock:
-			c.storeUnminedBlockMsg(pb)
-		case nil:
-			//nothing to do
-		default:
-			c.logger.Error("core.handleNewUnminedBlockEvent Get message(NewUnminedBlockEvent) failed", "err", err)
-		}
+		c.storeUnminedBlockMsg(pb)
 
 		c.logger.Debug("Finished handling tendermint.NewUnminedBlockEvent")
 	}

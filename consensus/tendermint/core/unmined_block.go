@@ -19,25 +19,60 @@ package core
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core/types"
 )
 
-func (c *core) handleUnminedBlock(unminedBlock *types.Block) error {
+func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
+	c.logNewUnminedBlockEvent(unminedBlock)
 	if err := c.checkUnminedBlockMsg(unminedBlock); err != nil {
 		if err == errInvalidMessage {
-			c.logger.Warn("invalid unminedBlock")
-			return err
+			c.logger.Error("NewUnminedBlockEvent: invalid unminedBlock", "err", err)
+			return
 		}
-		c.logger.Warn("unexpected unminedBlock", "err", err, "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
-		return err
+
+		if err == errOldHeightMessage {
+			c.logger.Error("NewUnminedBlockEvent: old height unminedBlock", "err", err)
+			return
+		}
+	}
+	c.logger.Debug("NewUnminedBlockEvent: Storing unmined block", "number", unminedBlock.NumberU64(), "hash", unminedBlock.Hash())
+	c.updatePendingUnminedBlocks(unminedBlock)
+}
+
+func (c *core) updatePendingUnminedBlocks(unminedBlock *types.Block) {
+	c.pendingUnminedBlocksMu.Lock()
+	defer c.pendingUnminedBlocksMu.Unlock()
+
+	// Get all heights from c.pendingUnminedBlocks and remove previous height unmined blocks
+	var heights = make([]uint64, 0)
+	for h := range c.pendingUnminedBlocks {
+		heights = append(heights, h)
+	}
+	for _, ub := range heights {
+		if ub < uint64(c.currentRoundState.Height().Uint64()) {
+			delete(c.pendingUnminedBlocks, ub)
+		}
 	}
 
-	c.logNewUnminedBlockEvent(unminedBlock)
+	if c.isWaitingForUnminedBlock {
+		c.pendingUnminedBlockCh <- unminedBlock
+		c.isWaitingForUnminedBlock = false
+	}
+	c.pendingUnminedBlocks[unminedBlock.NumberU64()] = unminedBlock
+}
 
-	c.setLatestPendingUnminedBlock(unminedBlock)
+func (c *core) getUnminedBlock() *types.Block {
+	c.pendingUnminedBlocksMu.Lock()
+	defer c.pendingUnminedBlocksMu.Unlock()
 
-	return nil
+	ub, ok := c.pendingUnminedBlocks[c.currentRoundState.Height().Uint64()]
+
+	if ok {
+		return ub
+	} else {
+		c.isWaitingForUnminedBlock = true
+		return nil
+	}
 }
 
 // check request step
@@ -51,53 +86,11 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 
 	number := unminedBlock.Number()
 	if c := c.currentRoundState.Height().Cmp(number); c > 0 {
-		// TODO: probably delete this case?
 		return errOldHeightMessage
 	} else if c < 0 {
 		return consensus.ErrFutureBlock
 	} else {
 		return nil
-	}
-}
-
-func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
-	logger := c.logger.New("step", c.currentRoundState.Step())
-
-	logger.Debug("Store future unminedBlock", "number", unminedBlock.Number(), "hash", unminedBlock.Hash())
-
-	c.pendingUnminedBlocksMu.Lock()
-	defer c.pendingUnminedBlocksMu.Unlock()
-
-	c.pendingUnminedBlocks.Push(unminedBlock, float32(-unminedBlock.Number().Int64()))
-}
-
-func (c *core) processPendingUnminedBlock() {
-	c.pendingUnminedBlocksMu.Lock()
-	defer c.pendingUnminedBlocksMu.Unlock()
-
-	for !c.pendingUnminedBlocks.Empty() {
-		m, prio := c.pendingUnminedBlocks.Pop()
-		ub, ok := m.(*types.Block)
-		if !ok {
-			c.logger.Warn("Malformed request, skip", "msg", m)
-			continue
-		}
-		// Push back if it's a future message
-		err := c.checkUnminedBlockMsg(ub)
-		if err != nil {
-			if err == errFutureHeightMessage {
-				c.logger.Debug("Stop processing request", "number", ub.Number(), "hash", ub.Hash())
-				c.pendingUnminedBlocks.Push(m, prio)
-				break
-			}
-			c.logger.Debug("Skip the pending request", "number", ub.Number(), "hash", ub.Hash(), "err", err)
-			continue
-		}
-		c.logger.Debug("Post pending request", "number", ub.Number(), "hash", ub.Hash())
-
-		c.sendEvent(tendermint.NewUnminedBlockEvent{
-			NewUnminedBlock: *ub,
-		})
 	}
 }
 
