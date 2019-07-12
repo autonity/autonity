@@ -136,7 +136,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 
 				c.logger.Debug("Started handling tendermint.MessageEvent")
 				if err := c.handleMsg(ctx, e.Payload); err != nil {
-					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
+					c.logger.Debug("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
 					c.logger.Debug("Finished handling tendermint.MessageEvent with ERROR", "err", err)
 					continue
 				}
@@ -147,14 +147,14 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 				c.logger.Debug("Started handling backlogEvent")
 				err := c.handleCheckedMsg(ctx, e.msg, e.src)
 				if err != nil {
-					c.logger.Error("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
+					c.logger.Debug("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
 					c.logger.Debug("Finished handling backlogEvent with ERROR", "err", err)
 					continue
 				}
 
 				p, err := e.msg.Payload()
 				if err != nil {
-					c.logger.Error("core.handleConsensusEvents Get message payload failed", "err", err)
+					c.logger.Debug("core.handleConsensusEvents Get message payload failed", "err", err)
 					c.logger.Debug("Finished handling backlogEvent with ERROR", "err", err)
 					continue
 				}

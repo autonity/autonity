@@ -49,7 +49,7 @@ func (c *core) updatePendingUnminedBlocks(unminedBlock *types.Block) {
 		heights = append(heights, h)
 	}
 	for _, ub := range heights {
-		if ub < uint64(c.currentRoundState.Height().Uint64()) {
+		if ub < c.currentRoundState.Height().Uint64() {
 			delete(c.pendingUnminedBlocks, ub)
 		}
 	}
