@@ -8,12 +8,13 @@ contract Autonity {
     // enodesWhitelist - which nodes can connect to network
     string[] public enodesWhitelist;
     address public owner;
+    address public governanceOperatorAccount;
 
 
 
     // constructor get called at block #1 with msg.owner equal to Soma's deployer
     // configured in the genesis file.
-    constructor (address[] memory _validators, string[] memory _enodesWhitelist) public {
+    constructor (address[] memory _validators, string[] memory _enodesWhitelist,  address _governanceOperatorAccount) public {
         for (uint256 i = 0; i < _validators.length; i++) {
             validators.push(_validators[i]);
         }
@@ -22,6 +23,7 @@ contract Autonity {
             enodesWhitelist.push(_enodesWhitelist[i]);
         }
         owner = msg.sender;
+        governanceOperatorAccount = _governanceOperatorAccount;
     }
 
 
@@ -45,13 +47,13 @@ contract Autonity {
 
     }
 
-    function AddEnode(string memory  _enode) public {
+    function AddEnode(string memory  _enode) public onlyGovernanceOperator(msg.sender) {
         //Need to make sure we're not duplicating the entry
         enodesWhitelist.push(_enode);
     }
 
 
-    function RemoveEnode(string memory  _enode) public {
+    function RemoveEnode(string memory  _enode) public onlyGovernanceOperator(msg.sender) {
 
         require(enodesWhitelist.length > 1);
 
@@ -121,6 +123,11 @@ contract Autonity {
             }
         }
         require(present, "Voter is not a validator");
+        _;
+    }
+
+    modifier onlyGovernanceOperator(address _caller) {
+        require(governanceOperatorAccount == _caller, "Caller is not a operator");
         _;
     }
 
