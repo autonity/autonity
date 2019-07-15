@@ -3,11 +3,13 @@ pragma experimental ABIEncoderV2;
 
 contract Autonity {
 
-    // list of validators of network
+    // validators - list of validators of network
     address[] public validators;
     // enodesWhitelist - which nodes can connect to network
     string[] public enodesWhitelist;
+    // owner - owner of contract
     address public owner;
+    // governanceOperatorAccount - account who can manipulate enodesWhitelist
     address public governanceOperatorAccount;
 
 
@@ -34,10 +36,9 @@ contract Autonity {
 
 
     function RemoveValidator(address _validator) public onlyValidators(msg.sender) {
-
         require(validators.length > 1);
 
-        for (uint256 i = 0; i < validators.length; i++) {
+        for (uint256 i = 0; i < validators.length-1; i++) {
             if (validators[i] == _validator){
                 validators[i] = validators[validators.length - 1];
                 validators.length--;
@@ -54,10 +55,9 @@ contract Autonity {
 
 
     function RemoveEnode(string memory  _enode) public onlyGovernanceOperator(msg.sender) {
-
         require(enodesWhitelist.length > 1);
 
-        for (uint256 i = 0; i < enodesWhitelist.length; i++) {
+        for (uint256 i = 0; i < enodesWhitelist.length-1; i++) {
             if (compareStringsbyBytes(enodesWhitelist[i], _enode)) {
                 enodesWhitelist[i] = enodesWhitelist[enodesWhitelist.length - 1];
                 enodesWhitelist.length--;
@@ -126,9 +126,13 @@ contract Autonity {
         _;
     }
 
+    /*
+    * onlyGovernanceOperator
+    *
+    * Modifier that checks if the caller is a Governance Operator
+    */
     modifier onlyGovernanceOperator(address _caller) {
         require(governanceOperatorAccount == _caller, "Caller is not a operator");
         _;
     }
-
 }

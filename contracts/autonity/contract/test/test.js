@@ -34,6 +34,21 @@ contract('Autonity', function(accounts) {
         assert.deepEqual(getValidatorsResult, validatorsList)
     });
 
+
+    it('test non validator cant add validator', async function() {
+        const token = await Autonity.deployed();
+
+        try {
+            var r =await token.AddValidator(accounts[7], {from:accounts[6]})
+
+        } catch (e) {
+            //skip error
+        }
+
+        var getValidatorsResult = await token.GetValidators({from:accounts[0]});
+        assert.deepEqual(getValidatorsResult, validatorsList)
+    });
+
     it('test add validator and check that it is in get validator list', async function() {
         const token = await Autonity.deployed();
 
@@ -50,19 +65,7 @@ contract('Autonity', function(accounts) {
         assert.deepEqual(getValidatorsResult, validatorsList)
     });
 
-    it('test non validator cant add validator', async function() {
-        const token = await Autonity.deployed();
 
-        try {
-            var r =await token.AddValidator(accounts[7], {from:accounts[6]})
-
-        } catch (e) {
-            //skip error
-        }
-
-        var getValidatorsResult = await token.GetValidators({from:accounts[0]});
-        assert.deepEqual(getValidatorsResult, validatorsList)
-    });
 
 
     it('test non Governance operator cant add to whitelist', async function() {
@@ -98,7 +101,6 @@ contract('Autonity', function(accounts) {
         const token = await Autonity.deployed();
         var enode = "enode://testenode";
         await token.AddEnode(enode, {from:accounts[0]});
-        await token.AddEnode(enode+"_1", {from:accounts[0]});
 
         var getValidatorsResult = await token.getWhitelist({from:accounts[0]});
         var expected = whiteList;
@@ -106,8 +108,7 @@ contract('Autonity', function(accounts) {
         assert.deepEqual(getValidatorsResult, expected);
 
         await token.RemoveEnode(enode,{from:accounts[0]});
-        getValidatorsResult = await token.getWhitelist({from:accounts[0]});
-        console.log(getValidatorsResult);
+        var getValidatorsResult = await token.getWhitelist({from:accounts[1]});
         assert.deepEqual(getValidatorsResult, whiteList);
     });
 });
