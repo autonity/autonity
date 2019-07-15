@@ -73,15 +73,15 @@ type Engine interface {
 // New creates an Istanbul consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
-		config:                      config,
-		address:                     backend.Address(),
-		logger:                      log.New(),
-		backend:                     backend,
-		backlogs:                    make(map[tendermint.Validator]*prque.Prque),
-		pendingUnminedBlocks:        prque.New(),
-		latestPendingUnminedBlockCh: make(chan *types.Block),
-		valSet:                      new(validatorSet),
-		futureRoundsChange:          make(map[int64]int64),
+		config:                config,
+		address:               backend.Address(),
+		logger:                log.New(),
+		backend:               backend,
+		backlogs:              make(map[tendermint.Validator]*prque.Prque),
+		pendingUnminedBlocks:  make(map[uint64]*types.Block),
+		pendingUnminedBlockCh: make(chan *types.Block),
+		valSet:                new(validatorSet),
+		futureRoundsChange:    make(map[int64]int64),
 	}
 	return c
 }
@@ -107,8 +107,11 @@ type core struct {
 
 	currentRoundState *roundState
 
-	pendingUnminedBlocks   *prque.Prque
-	pendingUnminedBlocksMu sync.Mutex
+	// map[Height]UnminedBlock
+	pendingUnminedBlocks     map[uint64]*types.Block
+	pendingUnminedBlocksMu   sync.Mutex
+	pendingUnminedBlockCh    chan *types.Block
+	isWaitingForUnminedBlock bool
 
 	sentProposal          bool
 	sentPrevote           bool
@@ -121,10 +124,6 @@ type core struct {
 	validValue  *types.Block
 
 	currentHeightRoundsStates map[int64]roundState
-
-	latestPendingUnminedBlock   *types.Block
-	latestPendingUnminedBlockMu sync.RWMutex
-	latestPendingUnminedBlockCh chan *types.Block
 
 	proposeTimeout   timeout
 	prevoteTimeout   timeout
@@ -187,7 +186,7 @@ func (c *core) broadcast(ctx context.Context, msg *message) {
 }
 
 func (c *core) isProposer() bool {
-	return c.valSet.IsProposer(c.backend.Address())
+	return c.valSet.IsProposer(c.address)
 }
 
 func (c *core) commit() {
@@ -278,18 +277,19 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 
 	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
 
-	// Wait for c.handleNewUnminedBlockEvent() go routine to update c.latestPendingUnminedBlock
-	// Only wait for new unmined block if latestPendingUnminedBlock is nil or fo previous height
-	c.checkLatestPendingUnminedBlock(ctx)
-
 	var p *types.Block
 	if c.isProposer() {
 		if c.validValue != nil {
 			p = c.validValue
 		} else {
-			c.latestPendingUnminedBlockMu.RLock()
-			p = c.latestPendingUnminedBlock
-			c.latestPendingUnminedBlockMu.RUnlock()
+			p = c.getUnminedBlock()
+			if p == nil {
+				select {
+				case <-ctx.Done():
+					return
+				case p = <-c.pendingUnminedBlockCh:
+				}
+			}
 		}
 		c.sendProposal(ctx, p)
 	} else {
@@ -301,39 +301,7 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 
 func (c *core) setStep(step Step) {
 	c.currentRoundState.SetStep(step)
-
-	if step == propose {
-		c.processPendingUnminedBlock()
-	}
 	c.processBacklog()
-}
-
-func (c *core) checkLatestPendingUnminedBlock(ctx context.Context) {
-	c.latestPendingUnminedBlockMu.RLock()
-	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
-	c.latestPendingUnminedBlockMu.RUnlock()
-
-	c.logger.Debug("Waiting for c.latestPendingUnminedBlockCh", "isMined?", isMined)
-	if isMined {
-		select {
-		case <-ctx.Done():
-			return
-		case <-c.latestPendingUnminedBlockCh:
-			return
-		}
-	}
-}
-
-func (c *core) setLatestPendingUnminedBlock(b *types.Block) {
-	c.latestPendingUnminedBlockMu.Lock()
-	wasNilOrDiffHeight := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
-	c.latestPendingUnminedBlock = b
-	c.latestPendingUnminedBlockMu.Unlock()
-
-	c.logger.Debug("Sending to c.latestPendingUnminedBlockCh", "wasNilOrDiffHeight?", wasNilOrDiffHeight)
-	if wasNilOrDiffHeight {
-		c.latestPendingUnminedBlockCh <- b
-	}
 }
 
 func (c *core) stopFutureProposalTimer() {
