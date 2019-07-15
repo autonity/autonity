@@ -282,8 +282,7 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 		if c.validValue != nil {
 			p = c.validValue
 		} else {
-			unmineBlock := c.getUnminedBlock()
-			p = unmineBlock
+			p = c.getUnminedBlock()
 			if p == nil {
 				select {
 				case <-ctx.Done():
