@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/clearmatics/autonity/consensus/tendermint/wal"
 	"math"
 	"math/big"
 	"sync"
@@ -137,6 +138,8 @@ type core struct {
 
 	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
 	futureRoundsChange map[int64]int64
+
+	wal *wal.WAL
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -174,12 +177,18 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	return payload, nil
 }
 
-func (c *core) broadcast(ctx context.Context, msg *message) {
+func (c *core) broadcast(ctx context.Context, msg *message, height *big.Int, round *big.Int) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
 		logger.Error("Failed to finalize message", "msg", msg, "err", err)
+		return
+	}
+
+	err = c.wal.Store(&msgToStore{msg, height, round})
+	if err != nil {
+		logger.Error("Failed to store message in WAL", "msg", msg, "height", height.String(), "round", round.String(), "err", err)
 		return
 	}
 
@@ -269,7 +278,13 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 		// This is a shallow copy, should be fine for now
 		c.currentHeightRoundsStates[round.Int64()] = *c.currentRoundState
 	}
+
 	c.currentRoundState.Update(round, height)
+
+	err := c.wal.UpdateHeight(height)
+	if err != nil {
+		c.logger.Error("Starting new WAL", "Height", height, "Round", round, "err", err)
+	}
 
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())

@@ -78,25 +78,11 @@ func (s *roundState) Proposal() *tendermint.Proposal {
 	return nil
 }
 
-func (s *roundState) SetRound(r *big.Int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.round = big.NewInt(r.Int64())
-}
-
 func (s *roundState) Round() *big.Int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	return s.round
-}
-
-func (s *roundState) SetHeight(height *big.Int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.height = height
 }
 
 func (s *roundState) Height() *big.Int {

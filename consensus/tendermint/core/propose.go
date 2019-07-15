@@ -38,7 +38,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 		c.broadcast(ctx, &message{
 			Code: msgProposal,
 			Msg:  proposal,
-		})
+		}, c.currentRoundState.Height(), c.currentRoundState.Round())
 	}
 }
 

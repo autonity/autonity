@@ -8,43 +8,46 @@ import (
 	"math/big"
 	"os"
 	"path"
+	"sort"
 	"sync"
 )
 
-type wal struct {
-	db *ethdb.LDBDatabase
-	dbDir string
+type WAL struct {
+	db      *ethdb.LDBDatabase
+	dbDir   string
 	baseDir string
-	m sync.RWMutex
-	height *big.Int
+	m       sync.RWMutex
+	height  *big.Int
 }
 
 type Value interface {
 	Key() []byte
-	Value() []byte
+	Value() ([]byte, error)
 }
 
 var currentHeightKey = []byte("current_height")
+
 const keysPrefix = "height-"
 
-func New(basedir string, height *big.Int) *wal {
+func New(basedir string, height *big.Int) *WAL {
 	db, err := getDb(basedir, height)
 	if err != nil {
 		panic(err)
 	}
 
-	return &wal{db: db, dbDir: basedir, height: height}
+	log.Warn("WAL inited to", "dir", basedir)
+	return &WAL{db: db, dbDir: basedir, height: height}
 }
 
-func getDb(basedir string, height *big.Int) (*ethdb.LDBDatabase, error) {
+func getDb(basedir string, height fmt.Stringer) (*ethdb.LDBDatabase, error) {
 	return ethdb.NewLDBDatabase(getDir(basedir, height), 128, 1024)
 }
 
-func getDir(basedir string, height *big.Int) string {
+func getDir(basedir string, height fmt.Stringer) string {
 	return path.Join(basedir, height.String())
 }
 
-func (db *wal) UpdateHeight(height *big.Int) error {
+func (db *WAL) UpdateHeight(height *big.Int) error {
 	db.m.Lock()
 	defer db.m.Unlock()
 
@@ -84,13 +87,13 @@ func (db *wal) UpdateHeight(height *big.Int) error {
 	return nil
 }
 
-func (db *wal) Close() {
+func (db *WAL) Close() {
 	db.m.Lock()
 	db.db.Close()
 	db.m.Unlock()
 }
 
-func (db *wal) Height() (*big.Int, error) {
+func (db *WAL) Height() (*big.Int, error) {
 	db.m.RLock()
 	defer db.m.RUnlock()
 
@@ -103,7 +106,7 @@ func (db *wal) Height() (*big.Int, error) {
 }
 
 // thread unsafe
-func (db *wal) setHeight(height *big.Int) error {
+func (db *WAL) setHeight(height *big.Int) error {
 	err := db.db.Put(height.Bytes(), currentHeightKey)
 	if err != nil {
 		return err
@@ -114,27 +117,36 @@ func (db *wal) setHeight(height *big.Int) error {
 	return nil
 }
 
-func (db *wal) Store(msg Value) error {
+func (db *WAL) Store(msg Value) error {
+	log.Error("WAL: Get store")
+	defer log.Error("WAL: store end")
+
 	db.m.Lock()
 	defer db.m.Unlock()
 
-	return db.db.Put(keyPrefix(db.height, msg.Key()), msg.Value())
+	val, err := msg.Value()
+	if err != nil {
+		return err
+	}
+
+	return db.db.Put(keyPrefix(db.height, msg.Key()), val)
 }
 
-func (db *wal) Get(height *big.Int) error {
+func (db *WAL) Get(height *big.Int) ([][]byte, error) {
+	log.Error("WAL: Get start", "h", height.String())
+	defer log.Error("WAL: Get end", "h", height.String())
+
 	currentHeight, err := db.Height()
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 
 	if currentHeight.Cmp(height) != 0 {
-		return fmt.Errorf("WAL: trying to set old height. Current %v. Given %v", currentHeight.String(), height.String())
+		return nil, fmt.Errorf("WAL: trying to set old height. Current %v. Given %v", currentHeight.String(), height.String())
 	}
 
-
-	db.m.Lock()
-	defer db.m.Unlock()
-
+	db.m.RLock()
+	defer db.m.RUnlock()
 	iterator := db.db.NewIteratorWithPrefix(keyPrefix(height, nil))
 
 	var values []storedValue
@@ -144,7 +156,14 @@ func (db *wal) Get(height *big.Int) error {
 
 	iterator.Release()
 
-	return db.db.Put(msg.Key(), msg.Value())
+	sort.Slice(values, func(i, j int) bool { return bytes.Compare(values[i].key, values[j].key) == -1 })
+
+	vs := make([][]byte, 0, len(values))
+	for _, v := range values {
+		vs = append(vs, v.value)
+	}
+
+	return vs, nil
 }
 
 func keyPrefix(height *big.Int, key []byte) []byte {
@@ -153,7 +172,5 @@ func keyPrefix(height *big.Int, key []byte) []byte {
 
 type storedValue struct {
 	value []byte
-	key []byte
+	key   []byte
 }
-
-func sort() {}

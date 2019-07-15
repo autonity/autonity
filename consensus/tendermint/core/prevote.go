@@ -38,7 +38,7 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	c.broadcast(ctx, &message{
 		Code: msgPrevote,
 		Msg:  encodedVote,
-	})
+	}, prevote.Round, prevote.Height)
 }
 
 func (c *core) handlePrevote(ctx context.Context, msg *message) error {

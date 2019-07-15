@@ -38,7 +38,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	c.broadcast(ctx, &message{
 		Code: msgPrecommit,
 		Msg:  encodedVote,
-	})
+	}, precommit.Height, precommit.Round)
 }
 
 // TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper

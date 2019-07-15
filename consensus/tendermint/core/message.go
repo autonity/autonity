@@ -17,11 +17,13 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
-	"io"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/rlp"
+	"io"
+	"math/big"
+	"time"
 )
 
 const (
@@ -111,6 +113,32 @@ func (m *message) Decode(val interface{}) error {
 
 func (m *message) String() string {
 	return fmt.Sprintf("{Code: %v, Address: %v}", m.Code, m.Address.String())
+}
+
+type msgToStore struct {
+	m      *message
+	height *big.Int
+	round  *big.Int
+}
+
+func (msg *msgToStore) Key() []byte {
+	return []byte(fmt.Sprintf("message-%s-%s-%s-%d",
+		msg.height.String(),
+		msg.round.String(),
+		time.Now().String(),
+		msg.m.Code,
+	))
+}
+
+func (msg *msgToStore) Value() ([]byte, error) {
+	buf := bytes.NewBuffer(make([]byte, 0, 1024))
+
+	err := msg.m.EncodeRLP(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 // ==============================================

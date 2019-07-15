@@ -2,8 +2,10 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/consensus/tendermint/wal"
 	"math/big"
 	"runtime/debug"
+	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -19,6 +21,8 @@ func (c *core) Start() error {
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 	c.currentRoundState = NewRoundState(big.NewInt(0), height)
 
+	c.wal = wal.New(c.config.WALDir, height)
+
 	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent()
 
@@ -27,6 +31,8 @@ func (c *core) Start() error {
 
 	//We want to sequentially handle all the event which modify the current consensus state
 	go c.handleConsensusEvents(ctx)
+
+	go c.handleConsensusStuck(ctx)
 
 	return nil
 }
@@ -42,6 +48,9 @@ func (c *core) Stop() error {
 
 	// Make sure the handler goroutine exits
 	c.cancel()
+
+	c.wal.Close()
+
 	return nil
 }
 
@@ -182,6 +191,53 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 				c.handleCommit(ctx)
 				c.logger.Debug("Finished handling CommitEvent")
 			}
+		}
+	}
+}
+
+func (c *core) handleConsensusStuck(ctx context.Context) {
+	currentHeight := c.currentRoundState.Height()
+	currentRound := c.currentRoundState.Round()
+
+	ticker := time.NewTicker(time.Second*time.Duration(c.config.RequestTimeout/1000))
+	defer ticker.Stop()
+
+	// once in a while check height/round and if it's dont change - get messages from WAL and send them again
+	for {
+		select {
+		case <-ticker.C:
+			height := c.currentRoundState.Height()
+			round := c.currentRoundState.Round()
+
+			if height.Cmp(currentHeight) != 0 {
+				currentHeight.Set(height)
+				currentRound.Set(round)
+				continue
+			}
+
+			if round.Cmp(currentRound) != 0 {
+				currentRound.Set(round)
+				continue
+			}
+
+			pastMessages, err := c.wal.Get(height)
+			if err != nil {
+				c.logger.Error("WAL: cant get messages", "height", height.String(), "round", round.String(), "err", err.Error())
+				continue
+			}
+
+			c.logger.Warn("WAL: broadcasting", "height", height.String(), "round", round.String(), "msg", len(pastMessages))
+			for _, msg := range pastMessages {
+				c.logger.Debug("WAL: broadcasting message", "height", height.String(), "round", round.String(), "msg", msg)
+
+				if err = c.backend.Broadcast(ctx, c.valSet.Copy(), msg); err != nil {
+					c.logger.Error("WAL: failed to broadcast message", "height", height.String(), "round", round.String(), "msg", msg, "err", err)
+					continue
+				}
+			}
+
+		case <-ctx.Done():
+			return
 		}
 	}
 }
