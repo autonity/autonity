@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/clearmatics/autonity/consensus/tendermint/wal"
 	"math/big"
-	"runtime/debug"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -83,14 +82,6 @@ func (c *core) unsubscribeEvents() {
 // TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, timeoutEvent
 
 func (c *core) handleNewUnminedBlockEvent() {
-	defer func() {
-		if r := recover(); r != nil {
-			debug.PrintStack()
-
-			c.logger.Crit("panic in core.handleNewUnminedBlockEvent", "panic", r)
-		}
-	}()
-
 	for e := range c.newUnminedBlockEventSub.Chan() {
 		c.logger.Debug("Started handling tendermint.NewUnminedBlockEvent")
 		newUnminedBlockEvent := e.Data.(tendermint.NewUnminedBlockEvent)
@@ -112,15 +103,6 @@ func (c *core) handleNewUnminedBlockEvent() {
 }
 
 func (c *core) handleConsensusEvents(ctx context.Context) {
-	// Clear step
-	defer func() {
-		if r := recover(); r != nil {
-			debug.PrintStack()
-
-			c.logger.Crit("panic in core.handleConsensusEvents", "panic", r)
-		}
-	}()
-
 	// Start a new round from last height + 1
 	// Do not want to block listening for events
 	c.startRound(ctx, common.Big0)
@@ -196,11 +178,11 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 }
 
 func (c *core) handleConsensusStuck(ctx context.Context) {
-	currentHeight := c.currentRoundState.Height()
-	currentRound := c.currentRoundState.Round()
-
 	ticker := time.NewTicker(time.Second*time.Duration(c.config.RequestTimeout/1000))
 	defer ticker.Stop()
+
+	currentHeight := new(big.Int).Set(c.currentRoundState.Height())
+	currentRound := new(big.Int).Set(c.currentRoundState.Round())
 
 	// once in a while check height/round and if it's dont change - get messages from WAL and send them again
 	for {
@@ -208,6 +190,8 @@ func (c *core) handleConsensusStuck(ctx context.Context) {
 		case <-ticker.C:
 			height := c.currentRoundState.Height()
 			round := c.currentRoundState.Round()
+
+			c.logger.Error("WAL", "height", c.currentRoundState.Height().String(), "round", c.currentRoundState.Round().String(), "currentHeight", currentHeight.String(), "currentRound", currentRound.String())
 
 			if height.Cmp(currentHeight) != 0 {
 				currentHeight.Set(height)
@@ -226,7 +210,7 @@ func (c *core) handleConsensusStuck(ctx context.Context) {
 				continue
 			}
 
-			c.logger.Warn("WAL: broadcasting", "height", height.String(), "round", round.String(), "msg", len(pastMessages))
+			c.logger.Warn("WAL: broadcasting", "height", c.currentRoundState.Height().String(), "round", c.currentRoundState.Round().String(), "currentHeight", currentHeight.String(), "currentRound", currentRound.String(), "msg", len(pastMessages))
 			for _, msg := range pastMessages {
 				c.logger.Debug("WAL: broadcasting message", "height", height.String(), "round", round.String(), "msg", msg)
 

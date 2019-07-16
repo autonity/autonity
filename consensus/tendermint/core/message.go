@@ -23,7 +23,6 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 	"io"
 	"math/big"
-	"time"
 )
 
 const (
@@ -122,11 +121,11 @@ type msgToStore struct {
 }
 
 func (msg *msgToStore) Key() []byte {
-	return []byte(fmt.Sprintf("message-%s-%s-%s-%d",
+	return []byte(fmt.Sprintf("message-%s-%s-%d-%s",
 		msg.height.String(),
 		msg.round.String(),
-		time.Now().String(),
 		msg.m.Code,
+		msg.m.Address,
 	))
 }
 

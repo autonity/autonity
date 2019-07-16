@@ -283,7 +283,9 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 
 	err := c.wal.UpdateHeight(height)
 	if err != nil {
-		c.logger.Error("Starting new WAL", "Height", height, "Round", round, "err", err)
+		c.logger.Error("Starting new WAL with error", "Height", height, "Round", round, "err", err)
+	} else {
+		c.logger.Warn("Starting new WAL", "Height", height, "Round", round)
 	}
 
 	// Calculate new proposer
