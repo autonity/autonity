@@ -123,7 +123,7 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightRoundsStates map[int64]roundState
+	currentHeightOldRoundsStates map[int64]roundState
 
 	proposeTimeout   timeout
 	prevoteTimeout   timeout
@@ -235,7 +235,7 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 
 		// Assuming that round == 0 only when the node moves to a new height
 		// Therefore, resetting round related maps
-		c.currentHeightRoundsStates = make(map[int64]roundState)
+		c.currentHeightOldRoundsStates = make(map[int64]roundState)
 		c.futureRoundsChange = make(map[int64]int64)
 	}
 
@@ -263,7 +263,7 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 	// Which are processed when the step is set to propose
 	if round.Int64() > 0 {
 		// This is a shallow copy, should be fine for now
-		c.currentHeightRoundsStates[round.Int64()] = *c.currentRoundState
+		c.currentHeightOldRoundsStates[round.Int64()-1] = *c.currentRoundState
 	}
 	c.currentRoundState.Update(round, height)
 
