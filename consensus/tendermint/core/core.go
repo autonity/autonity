@@ -234,7 +234,9 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 		c.valSet.set(valSet)
 
 		// Assuming that round == 0 only when the node moves to a new height
+		// Therefore, resetting round related maps
 		c.currentHeightRoundsStates = make(map[int64]roundState)
+		c.futureRoundsChange = make(map[int64]int64)
 	}
 
 	// Reset all timeouts
