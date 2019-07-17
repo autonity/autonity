@@ -206,10 +206,14 @@ func initGenesis(ctx *cli.Context) error {
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
 
+	fmt.Println("@@@@@ setupDefaults")
 	setupDefaults(genesis)
+	fmt.Println("@@@@@ setupDefaults done")
 
 	if genesis.Config != nil && (genesis.Config.Istanbul != nil || genesis.Config.Tendermint != nil) {
+		fmt.Println("@@@@@ setPoS")
 		err := genesis.SetPoS()
+		fmt.Println("@@@@@ setPoS done", err)
 		if err != nil {
 			utils.Fatalf("invalid genesis file. cant setup PoS data: %v", err)
 		}

@@ -359,6 +359,8 @@ func (bc *BlockChain) GasLimit() uint64 {
 // CurrentBlock retrieves the current head block of the canonical chain. The
 // block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentBlock() *types.Block {
+	fmt.Println("^^^^^ START DEBUG BlockChain.CurrentBlock", bc.currentBlock.Load().(*types.Block).Number(), bc.currentFastBlock.Load().(*types.Block).Number())
+
 	return bc.currentBlock.Load().(*types.Block)
 }
 
