@@ -21,7 +21,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"math/big"
 	"sync"
 	"time"
 
@@ -580,11 +579,6 @@ func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byt
 		return types.ErrInvalidSignature
 	}
 	return nil
-}
-
-// HasPropsal implements tendermint.Backend.HashBlock
-func (sb *Backend) HasPropsal(hash common.Hash, number *big.Int) bool {
-	return sb.blockchain.GetHeader(hash, number.Uint64()) != nil
 }
 
 // GetProposer implements tendermint.Backend.GetProposer
