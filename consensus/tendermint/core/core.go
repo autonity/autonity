@@ -211,6 +211,7 @@ func (c *core) commit() {
 		}
 
 		if err := c.backend.Commit(*proposal.ProposalBlock, committedSeals); err != nil {
+			log.Error("Failed to Commit block", "err", err)
 			return
 		}
 	}
@@ -221,63 +222,21 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 	lastCommittedProposalBlock, lastCommittedProposalBlockProposer := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 
-	// Start of new height where round is 0
-	if round.Int64() == 0 {
-		// Set the shared round values to initial values
-		c.lockedRound = big.NewInt(-1)
-		c.lockedValue = nil
-		c.validRound = big.NewInt(-1)
-		c.validValue = nil
+	c.setCore(round, height, lastCommittedProposalBlockProposer)
 
-		// Set validator set for Height
-		valSet := c.backend.Validators(height.Uint64())
-		c.valSet.set(valSet)
-
-		// Assuming that round == 0 only when the node moves to a new height
-		// Therefore, resetting round related maps
-		c.currentHeightOldRoundsStates = make(map[int64]roundState)
-		c.futureRoundsChange = make(map[int64]int64)
-	}
-
-	// Reset all timeouts
-	_ = c.proposeTimeout.stopTimer()
-	_ = c.prevoteTimeout.stopTimer()
-	_ = c.precommitTimeout.stopTimer()
-	c.proposeTimeout = newTimeout(propose)
-	c.prevoteTimeout = newTimeout(prevote)
-	c.precommitTimeout = newTimeout(precommit)
-
-	// Get all rounds from c.futureRoundsChange and remove previous rounds
-	var i int64
-	for i = 0; i <= round.Int64(); i++ {
-		if _, ok := c.futureRoundsChange[i]; ok {
-			delete(c.futureRoundsChange, i)
-		}
-	}
-
-	// Update current round state and add a copy to c.currentHeightRoundsState
-	// We only add old round prevote messages to c.currentHeightRoundState, while future messages are sent to the backlog
-	// Which are processed when the step is set to propose
-	if round.Int64() > 0 {
-		// This is a shallow copy, should be fine for now
-		c.currentHeightOldRoundsStates[round.Int64()-1] = *c.currentRoundState
-	}
-	c.currentRoundState.Update(round, height)
-
-	// Calculate new proposer
-	c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
-
-	c.sentProposal = false
-	c.sentPrevote = false
-	c.sentPrecommit = false
-	c.setValidRoundAndValue = false
 	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setStep(propose)
 
 	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
 
-	var p *types.Block
+	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
+	// proposeTimeout is started, where the node waits for the proposal from the proposer of the current round.
 	if c.isProposer() {
+		// validValue and validRound represent a block they received a quorum of prevote and the round quorum was
+		// received, respectively. If the block is not committed in that round then the round is changed.
+		// The new proposer will chose the validValue, if present, from one of the previous rounds otherwise
+		// they propose a new block.
+		var p *types.Block
 		if c.validValue != nil {
 			p = c.validValue
 		} else {
@@ -296,6 +255,54 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 		c.proposeTimeout.scheduleTimeout(timeoutDuration, round.Int64(), height.Int64(), c.onTimeoutPropose)
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
+}
+
+func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
+	// Start of new h where r is 0
+	if r.Int64() == 0 {
+		// Set the shared r values to initial values
+		c.lockedRound = big.NewInt(-1)
+		c.lockedValue = nil
+		c.validRound = big.NewInt(-1)
+		c.validValue = nil
+
+		// Set validator set for Height
+		valSet := c.backend.Validators(h.Uint64())
+		c.valSet.set(valSet)
+
+		// Assuming that r == 0 only when the node moves to a new h
+		// Therefore, resetting r related maps
+		c.currentHeightOldRoundsStates = make(map[int64]roundState)
+		c.futureRoundsChange = make(map[int64]int64)
+	}
+	// Reset all timeouts
+	_ = c.proposeTimeout.stopTimer()
+	_ = c.prevoteTimeout.stopTimer()
+	_ = c.precommitTimeout.stopTimer()
+	c.proposeTimeout = newTimeout(propose)
+	c.prevoteTimeout = newTimeout(prevote)
+	c.precommitTimeout = newTimeout(precommit)
+	// Get all rounds from c.futureRoundsChange and remove previous rounds
+	var i int64
+	for i = 0; i <= r.Int64(); i++ {
+		if _, ok := c.futureRoundsChange[i]; ok {
+			delete(c.futureRoundsChange, i)
+		}
+	}
+	// Update current r state and add a copy to c.currentHeightRoundsState
+	// We only add old r prevote messages to c.currentHeightRoundState, while future messages are sent to the backlog
+	// Which are processed when the step is set to propose
+	if r.Int64() > 0 {
+		// This is a shallow copy, should be fine for now
+		c.currentHeightOldRoundsStates[r.Int64()-1] = *c.currentRoundState
+	}
+	c.currentRoundState.Update(r, h)
+	// Calculate new proposer
+	c.valSet.CalcProposer(lastProposer, r.Uint64())
+	c.sentProposal = false
+	c.sentPrevote = false
+	c.sentPrecommit = false
+	c.setValidRoundAndValue = false
 }
 
 func (c *core) setStep(step Step) {
