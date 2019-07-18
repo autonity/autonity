@@ -46,16 +46,17 @@ var errGenesisBadWhitelist = errors.New("whitelist badly formatted")
 // Genesis specifies the header fields, state of a genesis block. It also defines hard
 // fork switch-over blocks through the chain configuration.
 type Genesis struct {
-	Config     *params.ChainConfig `json:"config"`
-	Nonce      uint64              `json:"nonce"`
-	Timestamp  uint64              `json:"timestamp"`
-	ExtraData  []byte              `json:"extraData"`
-	GasLimit   uint64              `json:"gasLimit"   gencodec:"required"`
-	Difficulty *big.Int            `json:"difficulty" gencodec:"required"`
-	Mixhash    common.Hash         `json:"mixHash"`
-	Coinbase   common.Address      `json:"coinbase"`
-	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
-	Validators []string            `json:"validators"`
+	Config                 *params.ChainConfig `json:"config"`
+	Nonce                  uint64              `json:"nonce"`
+	Timestamp              uint64              `json:"timestamp"`
+	ExtraData              []byte              `json:"extraData"`
+	GasLimit               uint64              `json:"gasLimit"   gencodec:"required"`
+	Difficulty             *big.Int            `json:"difficulty" gencodec:"required"`
+	Mixhash                common.Hash         `json:"mixHash"`
+	Coinbase               common.Address      `json:"coinbase"`
+	Alloc                  GenesisAlloc        `json:"alloc"      gencodec:"required"`
+	Validators             []string            `json:"validators"`
+	AutonityContractConfig AutonityContract    `json:"autonityContract"`
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.

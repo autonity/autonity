@@ -203,6 +203,9 @@ func initGenesis(ctx *cli.Context) error {
 	if err := json.NewDecoder(file).Decode(genesis); err != nil {
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
+	if err := genesis.AutonityContractConfig.Validate(); err != nil {
+		return fmt.Errorf("Autonity contract section is invalid. error:%v", err.Error())
+	}
 	// Open an initialise both full and light databases
 	stack := makeFullNode(ctx)
 	for _, name := range []string{"chaindata", "lightchaindata"} {
