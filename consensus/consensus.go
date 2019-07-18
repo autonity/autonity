@@ -134,8 +134,8 @@ type PoW interface {
 	Hashrate() float64
 }
 
-// PoS is a consensus engine to avoid byzantine failure
-type PoS interface {
+// BFT is a consensus engine to avoid byzantine failure
+type BFT interface {
 	Engine
 
 	// Start starts the engine

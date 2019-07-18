@@ -112,7 +112,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 	}
 
 	// Ensure that the extra data format is satisfied
-	if _, err := types.ExtractPoSExtra(header); err != nil {
+	if _, err := types.ExtractBFTExtra(header); err != nil {
 		return errInvalidExtraDataFormat
 	}
 
@@ -121,7 +121,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 		return errInvalidNonce
 	}
 	// Ensure that the mix digest is zero as we don't have fork protection currently
-	if header.MixDigest != types.PoSDigest {
+	if header.MixDigest != types.BFTDigest {
 		return errInvalidMixDigest
 	}
 	// Ensure that the block doesn't contain any uncles which are meaningless in Istanbul
@@ -241,7 +241,7 @@ func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 	}
 	validators := validator.NewSet(validatorAddresses, sb.config.GetProposerPolicy())
 
-	extra, err := types.ExtractPoSExtra(header)
+	extra, err := types.ExtractBFTExtra(header)
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 	// unused fields, force to set to empty
 	header.Coinbase = sb.address
 	header.Nonce = emptyNonce
-	header.MixDigest = types.PoSDigest
+	header.MixDigest = types.BFTDigest
 
 	// copy the parent extra data as the header extra data
 	number := header.Number.Uint64()
@@ -466,7 +466,7 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
-// Start implements consensus.PoS.Start
+// Start implements consensus.BFT.Start
 func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
@@ -489,7 +489,7 @@ func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	return nil
 }
 
-// Stop implements consensus.PoS.Stop
+// Stop implements consensus.BFT.Stop
 func (sb *Backend) Close() error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
@@ -515,7 +515,7 @@ func (sb *Backend) retrieveSavedValidators(number uint64, chain consensus.ChainR
 		return nil, errUnknownBlock
 	}
 
-	istanbulExtra, err := types.ExtractPoSExtra(header)
+	istanbulExtra, err := types.ExtractBFTExtra(header)
 	if err != nil {
 		return nil, err
 	}
@@ -539,8 +539,8 @@ func (sb *Backend) retrieveValidators(header *types.Header, parents []*types.Hea
 
 	if len(parents) > 0 {
 		parent := parents[len(parents)-1]
-		var istanbulExtra *types.PoSExtra
-		istanbulExtra, err = types.ExtractPoSExtra(parent)
+		var istanbulExtra *types.BFTExtra
+		istanbulExtra, err = types.ExtractBFTExtra(parent)
 		if err == nil {
 			validators = istanbulExtra.Validators
 		}

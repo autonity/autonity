@@ -99,11 +99,11 @@ type headerMarshaling struct {
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *Header) Hash() common.Hash {
-	// If the mix digest is equivalent to the predefined PoS digest, use PoS
+	// If the mix digest is equivalent to the predefined BFT digest, use BFT
 	// specific hash calculation.
-	if h.MixDigest == PoSDigest {
+	if h.MixDigest == BFTDigest {
 		// Seal is reserved in extra-data. To prove block is signed by the proposer.
-		if posHeader := PoSFilteredHeader(h, true); posHeader != nil {
+		if posHeader := BFTFilteredHeader(h, true); posHeader != nil {
 			return rlpHash(posHeader)
 		}
 	}
