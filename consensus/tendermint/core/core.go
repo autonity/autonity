@@ -248,13 +248,10 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 	c.precommitTimeout = newTimeout(precommit)
 
 	// Get all rounds from c.futureRoundsChange and remove previous rounds
-	var rounds = make([]int64, 0)
-	for k := range c.futureRoundsChange {
-		rounds = append(rounds, k)
-	}
-	for _, r := range rounds {
-		if r <= round.Int64() {
-			delete(c.futureRoundsChange, r)
+	var i int64
+	for i = 0; i <= round.Int64(); i++ {
+		if _, ok := c.futureRoundsChange[i]; ok {
+			delete(c.futureRoundsChange, i)
 		}
 	}
 

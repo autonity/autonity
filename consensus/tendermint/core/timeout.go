@@ -37,14 +37,13 @@ func newTimeout(s Step) timeout {
 }
 
 // runAfterTimeout() will be run in a separate go routine, so values used inside the function needs to be managed separately
-func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height int64, runAfterTimeout func(r int64, h int64)) *time.Timer {
+func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height int64, runAfterTimeout func(r int64, h int64)) {
 	t.Lock()
 	defer t.Unlock()
 	t.started = true
 	t.timer = time.AfterFunc(stepTimeout, func() {
 		runAfterTimeout(round, height)
 	})
-	return t.timer
 }
 
 func (t *timeout) timerStarted() bool {
