@@ -70,7 +70,7 @@ type Engine interface {
 	Stop() error
 }
 
-// New creates an Istanbul consensus core
+// New creates an Tendermint consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
 		config:                config,

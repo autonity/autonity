@@ -121,7 +121,7 @@ func (c *core) processBacklog() {
 				if err == nil {
 					round, height = m.Round, m.Height
 				}
-				// for msgRoundChange, msgPrevote and msgPrecommit cases
+				// for msgPrevote and msgPrecommit cases
 			default:
 				var sub tendermint.Vote
 				err := msg.Decode(&sub)

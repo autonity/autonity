@@ -10,9 +10,12 @@ import (
 )
 
 const (
-	initialProposeTimeout   = 5 * time.Second
-	initialPrevoteTimeout   = 5 * time.Second
-	initialPrecommitTimeout = 5 * time.Second
+	initialProposeTimeout   = 3000 * time.Millisecond
+	proposeTimeoutDelta     = 500 * time.Millisecond
+	initialPrevoteTimeout   = 1000 * time.Millisecond
+	prevoteTimeoutDelta     = 500 * time.Millisecond
+	initialPrecommitTimeout = 1000 * time.Millisecond
+	precommitTimeoutDelta   = 500 * time.Millisecond
 )
 
 type timeoutEvent struct {
@@ -129,15 +132,15 @@ func (c *core) handleTimeoutPrecommit(ctx context.Context, msg timeoutEvent) {
 /////////////// Calculate Timeout Duration Functions ///////////////
 // The timeout may need to be changed depending on the Step
 func timeoutPropose(round int64) time.Duration {
-	return initialProposeTimeout + time.Duration(round)*time.Second
+	return initialProposeTimeout + time.Duration(round)*proposeTimeoutDelta
 }
 
 func timeoutPrevote(round int64) time.Duration {
-	return initialPrevoteTimeout + time.Duration(round)*time.Second
+	return initialPrevoteTimeout + time.Duration(round)*prevoteTimeoutDelta
 }
 
 func timeoutPrecommit(round int64) time.Duration {
-	return initialPrecommitTimeout + time.Duration(round)*time.Second
+	return initialPrecommitTimeout + time.Duration(round)*precommitTimeoutDelta
 }
 
 func (c *core) logTimeoutEvent(message string, msgType string, timeout timeoutEvent) {
