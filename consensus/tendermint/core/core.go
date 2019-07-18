@@ -230,11 +230,11 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
-	// proposeTimeout is started, where the node waits for the proposal from the proposer of the current round.
+	// proposeTimeout is started, where the node waits for a proposal from the proposer of the current round.
 	if c.isProposer() {
 		// validValue and validRound represent a block they received a quorum of prevote and the round quorum was
 		// received, respectively. If the block is not committed in that round then the round is changed.
-		// The new proposer will chose the validValue, if present, from one of the previous rounds otherwise
+		// The new proposer will chose the validValue, if present, which was set in one of the previous rounds otherwise
 		// they propose a new block.
 		var p *types.Block
 		if c.validValue != nil {
@@ -258,20 +258,20 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 }
 
 func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
-	// Start of new h where r is 0
+	// Start of new height where round is 0
 	if r.Int64() == 0 {
-		// Set the shared r values to initial values
+		// Set the shared round values to initial values
 		c.lockedRound = big.NewInt(-1)
 		c.lockedValue = nil
 		c.validRound = big.NewInt(-1)
 		c.validValue = nil
 
-		// Set validator set for Height
+		// Set validator set for height
 		valSet := c.backend.Validators(h.Uint64())
 		c.valSet.set(valSet)
 
-		// Assuming that r == 0 only when the node moves to a new h
-		// Therefore, resetting r related maps
+		// Assuming that round == 0 only when the node moves to a new height
+		// Therefore, resetting round related maps
 		c.currentHeightOldRoundsStates = make(map[int64]roundState)
 		c.futureRoundsChange = make(map[int64]int64)
 	}
@@ -289,9 +289,9 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 			delete(c.futureRoundsChange, i)
 		}
 	}
-	// Update current r state and add a copy to c.currentHeightRoundsState
-	// We only add old r prevote messages to c.currentHeightRoundState, while future messages are sent to the backlog
-	// Which are processed when the step is set to propose
+	// Add a copy of c.currentRoundState to c.currentHeightOldRoundsStates and then update c.currentRoundState
+	// We only add old round prevote messages to c.currentHeightOldRoundsStates, while future messages are sent to the
+	// backlog which are processed when the step is set to propose
 	if r.Int64() > 0 {
 		// This is a shallow copy, should be fine for now
 		c.currentHeightOldRoundsStates[r.Int64()-1] = *c.currentRoundState
