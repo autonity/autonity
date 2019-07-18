@@ -31,7 +31,7 @@ func TestHeaderHash(t *testing.T) {
 	expectedHash := common.HexToHash("0xcefefd3ade63a5955bca4562ed840b67f39e74df217f7e5f7241a6e9552cca70")
 
 	// for pos consensus
-	header := &Header{MixDigest: PoSDigest, Extra: expectedExtra}
+	header := &Header{MixDigest: BFTDigest, Extra: expectedExtra}
 	if !reflect.DeepEqual(header.Hash(), expectedHash) {
 		t.Errorf("expected: %v, but got: %v", expectedHash.Hex(), header.Hash().Hex())
 	}
@@ -44,18 +44,18 @@ func TestHeaderHash(t *testing.T) {
 	}
 }
 
-func TestExtractToPoS(t *testing.T) {
+func TestExtractToBFT(t *testing.T) {
 	testCases := []struct {
 		vanity         []byte
 		posRawData     []byte
-		expectedResult *PoSExtra
+		expectedResult *BFTExtra
 		expectedErr    error
 	}{
 		{
 			// normal case
-			bytes.Repeat([]byte{0x00}, PoSExtraVanity),
+			bytes.Repeat([]byte{0x00}, BFTExtraVanity),
 			hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0"),
-			&PoSExtra{
+			&BFTExtra{
 				Validators: []common.Address{
 					common.BytesToAddress(hexutil.MustDecode("0x44add0ec310f115a0e603b2d7db9f067778eaf8a")),
 					common.BytesToAddress(hexutil.MustDecode("0x294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212")),
@@ -69,20 +69,20 @@ func TestExtractToPoS(t *testing.T) {
 		},
 		{
 			// insufficient vanity
-			bytes.Repeat([]byte{0x00}, PoSExtraVanity-1),
+			bytes.Repeat([]byte{0x00}, BFTExtraVanity-1),
 			nil,
 			nil,
-			ErrInvalidPoSHeaderExtra,
+			ErrInvalidBFTHeaderExtra,
 		},
 	}
 	for _, test := range testCases {
 		h := &Header{Extra: append(test.vanity, test.posRawData...)}
-		posExtra, err := ExtractPoSExtra(h)
+		bftExtra, err := ExtractBFTExtra(h)
 		if err != test.expectedErr {
 			t.Errorf("expected: %v, but got: %v", test.expectedErr, err)
 		}
-		if !reflect.DeepEqual(posExtra, test.expectedResult) {
-			t.Errorf("expected: %v, but got: %v", test.expectedResult, posExtra)
+		if !reflect.DeepEqual(bftExtra, test.expectedResult) {
+			t.Errorf("expected: %v, but got: %v", test.expectedResult, bftExtra)
 		}
 	}
 }

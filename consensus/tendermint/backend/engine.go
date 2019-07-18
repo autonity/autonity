@@ -55,8 +55,8 @@ var (
 	errInvalidDifficulty = errors.New("invalid difficulty")
 	// errInvalidExtraDataFormat is returned when the extra data format is incorrect
 	errInvalidExtraDataFormat = errors.New("invalid extra data format")
-	// errInvalidMixDigest is returned if a block's mix digest is not PoS digest.
-	errInvalidMixDigest = errors.New("invalid PoS mix digest")
+	// errInvalidMixDigest is returned if a block's mix digest is not BFT digest.
+	errInvalidMixDigest = errors.New("invalid BFT mix digest")
 	// errInvalidNonce is returned if a block's nonce is invalid
 	errInvalidNonce = errors.New("invalid nonce")
 	// errInvalidUncleHash is returned if a block contains an non-empty uncle list.
@@ -107,7 +107,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 	}
 
 	// Ensure that the extra data format is satisfied
-	if _, err := types.ExtractPoSExtra(header); err != nil {
+	if _, err := types.ExtractBFTExtra(header); err != nil {
 		return errInvalidExtraDataFormat
 	}
 
@@ -116,10 +116,10 @@ func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 		return errInvalidNonce
 	}
 	// Ensure that the mix digest is zero as we don't have fork protection currently
-	if header.MixDigest != types.PoSDigest {
+	if header.MixDigest != types.BFTDigest {
 		return errInvalidMixDigest
 	}
-	// Ensure that the block doesn't contain any uncles which are meaningless in PoS
+	// Ensure that the block doesn't contain any uncles which are meaningless in BFT
 	if header.UncleHash != nilUncleHash {
 		return errInvalidUncleHash
 	}
@@ -236,7 +236,7 @@ func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 	}
 	validators := validator.NewSet(validatorAddresses, sb.config.GetProposerPolicy())
 
-	extra, err := types.ExtractPoSExtra(header)
+	extra, err := types.ExtractBFTExtra(header)
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 	// unused fields, force to set to empty
 	header.Coinbase = sb.address
 	header.Nonce = emptyNonce
-	header.MixDigest = types.PoSDigest
+	header.MixDigest = types.BFTDigest
 
 	// copy the parent extra data as the header extra data
 	number := header.Number.Uint64()
@@ -331,7 +331,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 		return nil, err
 	}
 
-	// No block rewards in PoS, so the state remains as is and uncles are dropped
+	// No block rewards in BFT, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 
@@ -420,7 +420,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 
 	sb.commitCh = results // results channel stays always the same
 
-	// post block into PoS engine
+	// post block into BFT engine
 	sb.postEvent(tendermint.NewUnminedBlockEvent{
 		NewUnminedBlock: *block,
 	})
@@ -525,7 +525,7 @@ func (sb *Backend) retrieveSavedValidators(number uint64, chain consensus.ChainR
 		return nil, errUnknownBlock
 	}
 
-	tendermintExtra, err := types.ExtractPoSExtra(header)
+	tendermintExtra, err := types.ExtractBFTExtra(header)
 	if err != nil {
 		return nil, err
 	}
@@ -549,8 +549,8 @@ func (sb *Backend) retrieveValidators(header *types.Header, parents []*types.Hea
 
 	if len(parents) > 0 {
 		parent := parents[len(parents)-1]
-		var tendermintExtra *types.PoSExtra
-		tendermintExtra, err = types.ExtractPoSExtra(parent)
+		var tendermintExtra *types.BFTExtra
+		tendermintExtra, err = types.ExtractBFTExtra(parent)
 		if err == nil {
 			validators = tendermintExtra.Validators
 		}

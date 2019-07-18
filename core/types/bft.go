@@ -30,18 +30,19 @@ import (
 )
 
 var (
-	// PoSDigest represents a hash of "PoS practical byzantine fault tolerance"
-	// to identify whether the block is from PoS consensus engine
-	PoSDigest = common.HexToHash("0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365")
+	// BFTDigest represents a hash of "Istanbul practical byzantine fault tolerance"
+	// to identify whether the block is from BFT consensus engine
+	//TODO differentiate the digest between IBFT and Tendermint
+	BFTDigest = common.HexToHash("0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365")
 
-	PoSExtraVanity = 32 // Fixed number of extra-data bytes reserved for validator vanity
-	PoSExtraSeal   = 65 // Fixed number of extra-data bytes reserved for validator seal
+	BFTExtraVanity = 32 // Fixed number of extra-data bytes reserved for validator vanity
+	BFTExtraSeal   = 65 // Fixed number of extra-data bytes reserved for validator seal
 
 	inmemoryAddresses  = 20 // Number of recent addresses from ecrecover
 	recentAddresses, _ = lru.NewARC(inmemoryAddresses)
 
-	// ErrInvalidPoSHeaderExtra is returned if the length of extra-data is less than 32 bytes
-	ErrInvalidPoSHeaderExtra = errors.New("invalid pos header extra-data")
+	// ErrInvalidBFTHeaderExtra is returned if the length of extra-data is less than 32 bytes
+	ErrInvalidBFTHeaderExtra = errors.New("invalid pos header extra-data")
 	// ErrInvalidSignature is returned when given signature is not signed by given address.
 	ErrInvalidSignature = errors.New("invalid signature")
 	// ErrInvalidCommittedSeals is returned if the committed seal is not signed by any of parent validators.
@@ -50,14 +51,14 @@ var (
 	ErrEmptyCommittedSeals = errors.New("zero committed seals")
 )
 
-type PoSExtra struct {
+type BFTExtra struct {
 	Validators    []common.Address
 	Seal          []byte
 	CommittedSeal [][]byte
 }
 
 // EncodeRLP serializes pos into the Ethereum RLP format.
-func (pos *PoSExtra) EncodeRLP(w io.Writer) error {
+func (pos *BFTExtra) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{
 		pos.Validators,
 		pos.Seal,
@@ -66,61 +67,61 @@ func (pos *PoSExtra) EncodeRLP(w io.Writer) error {
 }
 
 // DecodeRLP implements rlp.Decoder, and load the pos fields from a RLP stream.
-func (pos *PoSExtra) DecodeRLP(s *rlp.Stream) error {
-	var posExtra struct {
+func (pos *BFTExtra) DecodeRLP(s *rlp.Stream) error {
+	var bftExtra struct {
 		Validators    []common.Address
 		Seal          []byte
 		CommittedSeal [][]byte
 	}
-	if err := s.Decode(&posExtra); err != nil {
+	if err := s.Decode(&bftExtra); err != nil {
 		return err
 	}
-	pos.Validators, pos.Seal, pos.CommittedSeal = posExtra.Validators, posExtra.Seal, posExtra.CommittedSeal
+	pos.Validators, pos.Seal, pos.CommittedSeal = bftExtra.Validators, bftExtra.Seal, bftExtra.CommittedSeal
 	return nil
 }
 
-// ExtractPoSExtra extracts all values of the PoSExtra from the header. It returns an
+// ExtractBFTExtra extracts all values of the BFTExtra from the header. It returns an
 // error if the length of the given extra-data is less than 32 bytes or the extra-data can not
 // be decoded.
-func ExtractPoSExtra(h *Header) (*PoSExtra, error) {
-	if len(h.Extra) < PoSExtraVanity {
-		return nil, ErrInvalidPoSHeaderExtra
+func ExtractBFTExtra(h *Header) (*BFTExtra, error) {
+	if len(h.Extra) < BFTExtraVanity {
+		return nil, ErrInvalidBFTHeaderExtra
 	}
 
-	var posExtra *PoSExtra
-	err := rlp.DecodeBytes(h.Extra[PoSExtraVanity:], &posExtra)
+	var bftExtra *BFTExtra
+	err := rlp.DecodeBytes(h.Extra[BFTExtraVanity:], &bftExtra)
 	if err != nil {
 		return nil, err
 	}
-	return posExtra, nil
+	return bftExtra, nil
 }
 
-// PoSFilteredHeader returns a filtered header which some information (like seal, committed seals)
-// are clean to fulfill the PoS hash rules. It returns nil if the extra-data cannot be
+// BFTFilteredHeader returns a filtered header which some information (like seal, committed seals)
+// are clean to fulfill the BFT hash rules. It returns nil if the extra-data cannot be
 // decoded/encoded by rlp.
-func PoSFilteredHeader(h *Header, keepSeal bool) *Header {
+func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	newHeader := CopyHeader(h)
-	posExtra, err := ExtractPoSExtra(newHeader)
+	bftExtra, err := ExtractBFTExtra(newHeader)
 	if err != nil {
 		return nil
 	}
 
 	if !keepSeal {
-		posExtra.Seal = []byte{}
+		bftExtra.Seal = []byte{}
 	}
-	posExtra.CommittedSeal = [][]byte{}
+	bftExtra.CommittedSeal = [][]byte{}
 
-	payload, err := rlp.EncodeToBytes(&posExtra)
+	payload, err := rlp.EncodeToBytes(&bftExtra)
 	if err != nil {
 		return nil
 	}
 
-	newHeader.Extra = append(newHeader.Extra[:PoSExtraVanity], payload...)
+	newHeader.Extra = append(newHeader.Extra[:BFTExtraVanity], payload...)
 
 	return newHeader
 }
 
-// sigHash returns the hash which is used as input for the PoS
+// sigHash returns the hash which is used as input for the BFT
 // signing. It is the hash of the entire header apart from the 65 byte signature
 // contained at the end of the extra data.
 //
@@ -131,7 +132,7 @@ func SigHash(header *Header) (hash common.Hash) {
 	hasher := sha3.NewKeccak256()
 
 	// Clean seal is required for calculating proposer seal.
-	err := rlp.Encode(hasher, PoSFilteredHeader(header, false))
+	err := rlp.Encode(hasher, BFTFilteredHeader(header, false))
 	if err != nil {
 		log.Error("can't hash the header", "err", err, "header", header)
 		return common.Hash{}
@@ -148,12 +149,12 @@ func Ecrecover(header *Header) (common.Address, error) {
 	}
 
 	// Retrieve the signature from the header extra-data
-	posExtra, err := ExtractPoSExtra(header)
+	bftExtra, err := ExtractBFTExtra(header)
 	if err != nil {
 		return common.Address{}, err
 	}
 
-	addr, err := GetSignatureAddress(SigHash(header).Bytes(), posExtra.Seal)
+	addr, err := GetSignatureAddress(SigHash(header).Bytes(), bftExtra.Seal)
 	if err != nil {
 		return addr, err
 	}
@@ -165,13 +166,13 @@ func Ecrecover(header *Header) (common.Address, error) {
 func PrepareExtra(extraData *[]byte, vals []common.Address) ([]byte, error) {
 	var buf bytes.Buffer
 
-	// compensate the lack bytes if header.Extra is not enough PoSExtraVanity bytes.
-	if len(*extraData) < PoSExtraVanity {
-		*extraData = append(*extraData, bytes.Repeat([]byte{0x00}, PoSExtraVanity-len(*extraData))...)
+	// compensate the lack bytes if header.Extra is not enough BFTExtraVanity bytes.
+	if len(*extraData) < BFTExtraVanity {
+		*extraData = append(*extraData, bytes.Repeat([]byte{0x00}, BFTExtraVanity-len(*extraData))...)
 	}
-	buf.Write((*extraData)[:PoSExtraVanity])
+	buf.Write((*extraData)[:BFTExtraVanity])
 
-	pos := &PoSExtra{
+	pos := &BFTExtra{
 		Validators:    vals,
 		Seal:          []byte{},
 		CommittedSeal: [][]byte{},
@@ -187,22 +188,22 @@ func PrepareExtra(extraData *[]byte, vals []common.Address) ([]byte, error) {
 // WriteSeal writes the extra-data field of the given header with the given seals.
 // suggest to rename to writeSeal.
 func WriteSeal(h *Header, seal []byte) error {
-	if len(seal)%PoSExtraSeal != 0 { // TODO :  len(seal) != PoSExtraSeal
+	if len(seal)%BFTExtraSeal != 0 { // TODO :  len(seal) != BFTExtraSeal
 		return ErrInvalidSignature
 	}
 
-	posExtra, err := ExtractPoSExtra(h)
+	bftExtra, err := ExtractBFTExtra(h)
 	if err != nil {
 		return err
 	}
 
-	posExtra.Seal = seal
-	payload, err := rlp.EncodeToBytes(&posExtra)
+	bftExtra.Seal = seal
+	payload, err := rlp.EncodeToBytes(&bftExtra)
 	if err != nil {
 		return err
 	}
 
-	h.Extra = append(h.Extra[:PoSExtraVanity], payload...)
+	h.Extra = append(h.Extra[:BFTExtraVanity], payload...)
 	return nil
 }
 
@@ -213,24 +214,24 @@ func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
 	}
 
 	for _, seal := range committedSeals {
-		if len(seal) != PoSExtraSeal {
+		if len(seal) != BFTExtraSeal {
 			return ErrInvalidCommittedSeals
 		}
 	}
 
-	posExtra, err := ExtractPoSExtra(h)
+	bftExtra, err := ExtractBFTExtra(h)
 	if err != nil {
 		return err
 	}
-	posExtra.CommittedSeal = make([][]byte, len(committedSeals))
-	copy(posExtra.CommittedSeal, committedSeals)
+	bftExtra.CommittedSeal = make([][]byte, len(committedSeals))
+	copy(bftExtra.CommittedSeal, committedSeals)
 
-	payload, err := rlp.EncodeToBytes(&posExtra)
+	payload, err := rlp.EncodeToBytes(&bftExtra)
 	if err != nil {
 		return err
 	}
 
-	h.Extra = append(h.Extra[:PoSExtraVanity], payload...)
+	h.Extra = append(h.Extra[:BFTExtraVanity], payload...)
 	return nil
 }
 

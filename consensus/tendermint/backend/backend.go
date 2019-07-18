@@ -42,11 +42,11 @@ import (
 )
 
 const (
-	// fetcherID is the ID indicates the block is from PoS engine
+	// fetcherID is the ID indicates the block is from BFT engine
 	fetcherID = "tendermint"
 )
 
-// New creates an Ethereum Backend for PoS core engine.
+// New creates an Ethereum Backend for BFT core engine.
 func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
 	if chainConfig.Tendermint.Epoch != 0 {
 		config.Epoch = chainConfig.Tendermint.Epoch
@@ -492,7 +492,7 @@ func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
 	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
-		// the current blockchain state is synchronized with PoS's state
+		// the current blockchain state is synchronized with BFT's state
 		// and we know that the proposed block was mined by a valid validator
 		header := block.Header()
 		//We need at this point to process all the transactions in the block
@@ -527,7 +527,7 @@ func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
 				return 0, err
 			}
 		}
-		tendermintExtra, _ := types.ExtractPoSExtra(header)
+		tendermintExtra, _ := types.ExtractBFTExtra(header)
 
 		//Perform the actual comparison
 		if len(tendermintExtra.Validators) != len(validators) {

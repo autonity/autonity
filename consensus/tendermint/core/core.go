@@ -206,7 +206,7 @@ func (c *core) commit() {
 
 		committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
 		for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
-			committedSeals[i] = make([]byte, types.PoSExtraSeal)
+			committedSeals[i] = make([]byte, types.BFTExtraSeal)
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 
