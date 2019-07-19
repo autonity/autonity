@@ -70,17 +70,18 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		return err
 	}
 
+	// TODO: add verifyPrecommit to check that the commitseal signature and signature of the message is from the sender
+	if err := c.verifyPrecommit(*msg, preCommit); err != nil {
+		return nil
+	}
+
 	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
 	precommitHash := preCommit.ProposedBlockHash
 	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	curR := c.currentRoundState.Round().Int64()
 	curH := c.currentRoundState.Height().Int64()
 
-	if precommitHash == (common.Hash{}) {
-		c.currentRoundState.Precommits.AddNilVote(*msg)
-	} else {
-		c.currentRoundState.Precommits.AddVote(precommitHash, *msg)
-	}
+	c.acceptPrecommit(precommitHash, *msg)
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
@@ -106,6 +107,18 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	}
 
 	return nil
+}
+
+func (c *core) verifyPrecommit(m message, precommit tendermint.Vote) error {
+	return nil
+}
+
+func (c *core) acceptPrecommit(precommitHash common.Hash, msg message) {
+	if precommitHash == (common.Hash{}) {
+		c.currentRoundState.Precommits.AddNilVote(msg)
+	} else {
+		c.currentRoundState.Precommits.AddVote(precommitHash, msg)
+	}
 }
 
 func (c *core) handleCommit(ctx context.Context) {
