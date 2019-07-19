@@ -68,11 +68,18 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 }
 
 func (sb *Backend) ReSend(ctx context.Context, numberOfWorkers int) {
+	wg := sync.WaitGroup{}
+
 	for i := 0; i < numberOfWorkers; i++ {
+		wg.Add(1)
 		go func(ctx context.Context) {
+			wg.Done()
 			sb.workerSendLoop(ctx)
 		}(ctx)
 	}
+
+	// we want to be sure that all workers started
+	wg.Wait()
 }
 
 func (sb *Backend) workerSendLoop(ctx context.Context) {
@@ -136,8 +143,8 @@ func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 func (sb *Backend) sendToConnectedPeers(ctx context.Context, msgToPeers messageToPeers) []common.Address {
 	connectedPeers, notConnectedPeers := sb.getPeers(msgToPeers)
 
-	if sb.broadcaster == nil || len(connectedPeers) > 0 {
-		return nil
+	if sb.broadcaster == nil || len(connectedPeers) == 0 {
+		return notConnectedPeers
 	}
 
 	sb.logger.Trace("worker loop. resend to connected peers", "msg", msgToPeers.msg.hash.String(), "peers", peersToString(getPeerKeys(connectedPeers)))
@@ -221,6 +228,6 @@ type peerError struct {
 }
 
 func delayBeforeResendPassed(msgToPeers messageToPeers) bool {
-	return time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) < retryInterval &&
-		time.Since(msgToPeers.startTime).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) > retryInterval
+	return !(time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) < retryInterval &&
+		time.Since(msgToPeers.startTime).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) > retryInterval)
 }
