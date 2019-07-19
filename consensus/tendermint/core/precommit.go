@@ -17,7 +17,9 @@
 package core
 
 import (
+	"bytes"
 	"context"
+	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -57,7 +59,6 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	})
 }
 
-// TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
 func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	var preCommit tendermint.Vote
 	err := msg.Decode(&preCommit)
@@ -70,8 +71,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		return err
 	}
 
-	// TODO: add verifyPrecommit to check that the commitseal signature and signature of the message is from the sender
-	if err := c.verifyPrecommit(*msg, preCommit); err != nil {
+	if err := c.verifyPrecommitCommittedSeal(msg.Address, preCommit.ProposedBlockHash.Bytes(), msg.CommittedSeal); err != nil {
 		return err
 	}
 
@@ -109,7 +109,18 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	return nil
 }
 
-func (c *core) verifyPrecommit(m message, precommit tendermint.Vote) error {
+func (c *core) verifyPrecommitCommittedSeal(sender common.Address, proposedBlockHash []byte, committedSeal []byte) error {
+	signer, err := types.GetSignatureAddress(proposedBlockHash, committedSeal)
+
+	if err != nil {
+		c.logger.Error("Failed to get signer address", "err", err)
+		return err
+	}
+
+	if !bytes.Equal(signer.Bytes(), sender.Bytes()) {
+		return errInvalidSenderOfCommittedSeal
+	}
+
 	return nil
 }
 
