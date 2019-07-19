@@ -73,7 +73,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 
 	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 
-	if err := c.verifyPrecommitCommittedSeal(msg.Address, curProposalHash, preCommit.ProposedBlockHash.Bytes(), msg.CommittedSeal); err != nil {
+	if err := c.verifyPrecommitCommittedSeal(msg.Address, PrepareCommittedSeal(curProposalHash), PrepareCommittedSeal(preCommit.ProposedBlockHash), msg.CommittedSeal); err != nil {
 		return err
 	}
 
@@ -110,7 +110,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	return nil
 }
 
-func (c *core) verifyPrecommitCommittedSeal(sender common.Address, curProposalHash common.Hash, proposedBlockHash []byte, committedSeal []byte) error {
+func (c *core) verifyPrecommitCommittedSeal(sender common.Address, curProposalHash []byte, proposedBlockHash []byte, committedSeal []byte) error {
 	signer, err := types.GetSignatureAddress(proposedBlockHash, committedSeal)
 
 	if err != nil {
@@ -118,7 +118,7 @@ func (c *core) verifyPrecommitCommittedSeal(sender common.Address, curProposalHa
 		return err
 	}
 
-	if !bytes.Equal(PrepareCommittedSeal(curProposalHash), proposedBlockHash) {
+	if !bytes.Equal(curProposalHash, proposedBlockHash) {
 		return errInvalidCommittedSeal
 	}
 
