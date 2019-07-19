@@ -316,10 +316,6 @@ func (c *core) stopFutureProposalTimer() {
 	}
 }
 
-func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address, error) {
-	return tendermint.CheckValidatorSignature(c.valSet.Copy(), data, sig)
-}
-
 func (c *core) quorum(i int) bool {
 	return float64(i) >= math.Ceil(float64(2)/float64(3)*float64(c.valSet.Size()))
 }

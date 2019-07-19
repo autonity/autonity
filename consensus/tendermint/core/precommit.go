@@ -72,7 +72,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 
 	// TODO: add verifyPrecommit to check that the commitseal signature and signature of the message is from the sender
 	if err := c.verifyPrecommit(*msg, preCommit); err != nil {
-		return nil
+		return err
 	}
 
 	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
