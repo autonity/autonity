@@ -71,13 +71,14 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		return err
 	}
 
-	if err := c.verifyPrecommitCommittedSeal(msg.Address, preCommit.ProposedBlockHash.Bytes(), msg.CommittedSeal); err != nil {
+	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
+
+	if err := c.verifyPrecommitCommittedSeal(msg.Address, curProposalHash, preCommit.ProposedBlockHash.Bytes(), msg.CommittedSeal); err != nil {
 		return err
 	}
 
 	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
 	precommitHash := preCommit.ProposedBlockHash
-	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	curR := c.currentRoundState.Round().Int64()
 	curH := c.currentRoundState.Height().Int64()
 
@@ -109,12 +110,16 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	return nil
 }
 
-func (c *core) verifyPrecommitCommittedSeal(sender common.Address, proposedBlockHash []byte, committedSeal []byte) error {
+func (c *core) verifyPrecommitCommittedSeal(sender common.Address, curProposalHash common.Hash, proposedBlockHash []byte, committedSeal []byte) error {
 	signer, err := types.GetSignatureAddress(proposedBlockHash, committedSeal)
 
 	if err != nil {
 		c.logger.Error("Failed to get signer address", "err", err)
 		return err
+	}
+
+	if !bytes.Equal(PrepareCommittedSeal(curProposalHash), proposedBlockHash) {
+		return errInvalidCommittedSeal
 	}
 
 	if !bytes.Equal(signer.Bytes(), sender.Bytes()) {
