@@ -141,12 +141,13 @@ func (sb *Backend) sendToConnectedPeers(ctx context.Context, msgToPeers messageT
 	}
 
 	sb.logger.Trace("worker loop. resend to connected peers", "msg", msgToPeers.msg.hash.String(), "peers", peersToString(getPeerKeys(connectedPeers)))
-	var errChs []chan error
+	errChs := make([]chan error, len(connectedPeers))
 
 	// send to connected peers and collect errors
+	i := 0
 	for addr, p := range connectedPeers {
-		errCh := sb.sendToPeer(ctx, addr, msgToPeers.msg.hash, msgToPeers.msg.payload, p)
-		errChs = append(errChs, errCh)
+		errChs[i] = sb.sendToPeer(ctx, addr, msgToPeers.msg.hash, msgToPeers.msg.payload, p)
+		i++
 	}
 
 	wg := sync.WaitGroup{}
