@@ -68,17 +68,11 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 }
 
 func (sb *Backend) ReSend(ctx context.Context, numberOfWorkers int) {
-	workers := sync.WaitGroup{}
-	workers.Add(numberOfWorkers)
-
 	for i := 0; i < numberOfWorkers; i++ {
 		go func(ctx context.Context) {
 			sb.workerSendLoop(ctx)
-			workers.Done()
 		}(ctx)
 	}
-
-	workers.Wait()
 }
 
 func (sb *Backend) workerSendLoop(ctx context.Context) {
