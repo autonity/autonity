@@ -81,7 +81,7 @@ func (u User) Validate() error {
 }
 
 //GetParticipantUsers - returns list of participants
-func (ac AutonityContract) GetParticipantUsers() []User {
+func (ac *AutonityContract) GetParticipantUsers() []User {
 	var users []User
 	for i := range ac.Users {
 		if ac.Users[i].Type == UserParticipant {
@@ -92,7 +92,7 @@ func (ac AutonityContract) GetParticipantUsers() []User {
 }
 
 //GetGovernanceOperator - returns GovernanceOperator
-func (ac AutonityContract) GetGovernanceOperator() User {
+func (ac *AutonityContract) GetGovernanceOperator() User {
 	for i := range ac.Users {
 		if ac.Users[i].Type == UserGovernanceOperator {
 			return ac.Users[i]
