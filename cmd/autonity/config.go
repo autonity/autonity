@@ -29,7 +29,6 @@ import (
 	cli "gopkg.in/urfave/cli.v1"
 
 	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/dashboard"
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/params"
@@ -80,7 +79,6 @@ type autonityConfig struct {
 	Shh       whisper.Config
 	Node      node.Config
 	Ethstats  ethstatsConfig
-	Dashboard dashboard.Config
 }
 
 func loadConfig(file string, cfg *autonityConfig) error {
@@ -114,7 +112,6 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 		Eth:       eth.DefaultConfig,
 		Shh:       whisper.DefaultConfig,
 		Node:      defaultNodeConfig(),
-		Dashboard: dashboard.DefaultConfig,
 	}
 
 	// Load config file.
@@ -136,7 +133,6 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 	}
 
 	utils.SetShhConfig(ctx, stack, &cfg.Shh)
-	utils.SetDashboardConfig(ctx, &cfg.Dashboard)
 
 	return stack, cfg
 }
@@ -158,9 +154,6 @@ func makeFullNode(ctx *cli.Context) *node.Node {
 	}
 	utils.RegisterEthService(stack, &cfg.Eth)
 
-	if ctx.GlobalBool(utils.DashboardEnabledFlag.Name) {
-		utils.RegisterDashboardService(stack, &cfg.Dashboard, gitCommit)
-	}
 	// Whisper must be explicitly enabled by specifying at least 1 whisper flag or in dev mode
 	shhEnabled := enableWhisper(ctx)
 	shhAutoEnabled := !ctx.GlobalIsSet(utils.WhisperEnabledFlag.Name) && ctx.GlobalIsSet(utils.DeveloperFlag.Name)
