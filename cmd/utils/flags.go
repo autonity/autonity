@@ -839,10 +839,10 @@ func setIPC(ctx *cli.Context, cfg *node.Config) {
 func makeDatabaseHandles() int {
 	limit, err := fdlimit.Maximum()
 	if err != nil {
-		//Fatalf("Failed to retrieve file descriptor allowance: %v", err)
+		Fatalf("Failed to retrieve file descriptor allowance: %v", err)
 	}
 	if err := fdlimit.Raise(uint64(limit)); err != nil {
-		//Fatalf("Failed to raise file descriptor allowance: %v", err)
+		Fatalf("Failed to raise file descriptor allowance: %v", err)
 	}
 	return limit / 2 // Leave half for networking and other stuff
 }
