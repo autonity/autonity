@@ -11,13 +11,14 @@ import (
 const (
 	UserParticipant        UserType = "participant"
 	UserMember             UserType = "member"
+	UserValidator          UserType = "validator"
 	UserGovernanceOperator UserType = "GovernanceOperator"
 )
 
 type UserType string
 
 func (ut UserType) IsValid() bool {
-	if ut == UserMember || ut == UserParticipant || ut == UserGovernanceOperator {
+	if ut == UserMember || ut == UserParticipant || ut == UserGovernanceOperator || ut == UserValidator {
 		return true
 	}
 	return false
@@ -99,4 +100,15 @@ func (ac *AutonityContract) GetGovernanceOperator() User {
 		}
 	}
 	return User{}
+}
+
+//GetValidators - returns GetValidators
+func (ac *AutonityContract) GetValidators() []User {
+	var users []User
+	for i := range ac.Users {
+		if ac.Users[i].Type == UserValidator {
+			users = append(users, ac.Users[i])
+		}
+	}
+	return users
 }
