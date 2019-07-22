@@ -73,7 +73,8 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 
 	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 
-	if err := c.verifyPrecommitCommittedSeal(msg.Address, PrepareCommittedSeal(curProposalHash), PrepareCommittedSeal(preCommit.ProposedBlockHash), msg.CommittedSeal); err != nil {
+	// Don't want to decode twice, hence sending preCommit with message
+	if err := c.verifyPrecommitCommittedSeal(msg, preCommit); err != nil {
 		return err
 	}
 
@@ -110,19 +111,16 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	return nil
 }
 
-func (c *core) verifyPrecommitCommittedSeal(sender common.Address, curProposalHash []byte, proposedBlockHash []byte, committedSeal []byte) error {
-	signer, err := types.GetSignatureAddress(proposedBlockHash, committedSeal)
+func (c *core) verifyPrecommitCommittedSeal(m *message, precommit tendermint.Vote) error {
+	addressOfSignerOfCommittedSeal, err := types.GetSignatureAddress(PrepareCommittedSeal(precommit.ProposedBlockHash), m.CommittedSeal)
 
 	if err != nil {
 		c.logger.Error("Failed to get signer address", "err", err)
 		return err
 	}
 
-	if !bytes.Equal(curProposalHash, proposedBlockHash) {
-		return errInvalidCommittedSeal
-	}
-
-	if !bytes.Equal(signer.Bytes(), sender.Bytes()) {
+	// ensure sender signed the committed seal
+	if !bytes.Equal(addressOfSignerOfCommittedSeal.Bytes(), m.Address.Bytes()) {
 		return errInvalidSenderOfCommittedSeal
 	}
 

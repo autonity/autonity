@@ -51,8 +51,6 @@ var (
 	errInvalidMessage = errors.New("invalid message")
 	// errInvalidSenderOfCommittedSeal is returned when the committed seal is not from the sender of the message.
 	errInvalidSenderOfCommittedSeal = errors.New("invalid sender of committed seal")
-	// errInvalidCommittedSeal is returned when the committed seal is not the same as nodes current proposal block.
-	errInvalidCommittedSeal = errors.New("invalid committed seal")
 	// errFailedDecodeProposal is returned when the PROPOSAL message is malformed.
 	errFailedDecodeProposal = errors.New("failed to decode PROPOSAL")
 	// errFailedDecodePrevote is returned when the PREVOTE message is malformed.

@@ -17,6 +17,7 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	"io"
@@ -89,6 +90,11 @@ func (m *message) FromPayload(b []byte, valSet tendermint.ValidatorSet, validate
 	}
 
 	addr, err := validateFn(valSet, payload, m.Signature)
+
+	//ensure message was singed by the sender
+	if !bytes.Equal(m.Address.Bytes(), addr.Bytes()) {
+		return nil, tendermint.ErrUnauthorizedAddress
+	}
 
 	if err == nil {
 		_, v := valSet.GetByAddress(addr)
