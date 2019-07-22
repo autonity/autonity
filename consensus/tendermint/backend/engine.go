@@ -491,7 +491,7 @@ func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	sb.coreStarted = true
 
 	sb.resend = make(chan messageToPeers, 1024)
-	go sb.ReSend(ctx, 10)
+	sb.ReSend(ctx, 10)
 
 	return nil
 }
@@ -515,7 +515,6 @@ func (sb *Backend) Close() error {
 
 // retrieve list of validators for the block at height passed as parameter
 func (sb *Backend) retrieveSavedValidators(number uint64, chain consensus.ChainReader) ([]common.Address, error) {
-
 	if number == 0 {
 		number = 1
 	}
