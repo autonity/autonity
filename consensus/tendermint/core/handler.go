@@ -202,20 +202,13 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// Decode message and check its signature
 	msg := new(message)
 
-	if err := msg.FromPayload(payload, c.checkValidatorSignature); err != nil {
+	sender, err := msg.FromPayload(payload, c.valSet.Copy(), tendermint.CheckValidatorSignature)
+	if err != nil {
 		logger.Error("Failed to decode message from payload", "err", err)
 		return err
 	}
 
-	// Only accept message if the address is valid
-	// TODO: the check is already made in c.validateFn
-	_, sender := c.valSet.GetByAddress(msg.Address)
-	if sender == nil {
-		logger.Error("Invalid address in message", "msg", msg)
-		return tendermint.ErrUnauthorizedAddress
-	}
-
-	return c.handleCheckedMsg(ctx, msg, sender)
+	return c.handleCheckedMsg(ctx, msg, *sender)
 }
 
 func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender tendermint.Validator) error {

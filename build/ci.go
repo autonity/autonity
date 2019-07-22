@@ -60,7 +60,6 @@ import (
 
 	"github.com/clearmatics/autonity/internal/build"
 	"github.com/clearmatics/autonity/params"
-	sv "github.com/clearmatics/autonity/swarm/version"
 )
 
 var (
@@ -135,15 +134,8 @@ var (
 		Executables: debExecutables,
 	}
 
-	debSwarm = debPackage{
-		Name:        "ethereum-swarm",
-		Version:     sv.Version,
-		Executables: debSwarmExecutables,
-	}
-
 	// Debian meta packages to build and push to Ubuntu PPA
 	debPackages = []debPackage{
-		debSwarm,
 		debEthereum,
 	}
 
@@ -406,10 +398,7 @@ func doArchive(cmdline []string) {
 
 		baseautonity = archiveBasename(*arch, params.ArchiveVersion(env.Commit))
 		autonity     = "autonity-" + baseautonity + ext
-		alltools = "autonity-alltools-" + baseautonity + ext
-
-		baseswarm = archiveBasename(*arch, sv.ArchiveVersion(env.Commit))
-		swarm     = "swarm-" + baseswarm + ext
+		alltools     = "autonity-alltools-" + baseautonity + ext
 	)
 	maybeSkipArchive(env)
 	if err := build.WriteArchive(autonity, autonityArchiveFiles); err != nil {
@@ -418,10 +407,8 @@ func doArchive(cmdline []string) {
 	if err := build.WriteArchive(alltools, allToolsArchiveFiles); err != nil {
 		log.Fatal(err)
 	}
-	if err := build.WriteArchive(swarm, swarmArchiveFiles); err != nil {
-		log.Fatal(err)
-	}
-	for _, archive := range []string{autonity, alltools, swarm} {
+
+	for _, archive := range []string{autonity, alltools} {
 		if err := archiveUpload(archive, *upload, *signer); err != nil {
 			log.Fatal(err)
 		}
@@ -704,8 +691,8 @@ func doWindowsInstaller(cmdline []string) {
 
 	// Aggregate binaries that are included in the installer
 	var (
-		devTools []string
-		allTools []string
+		devTools     []string
+		allTools     []string
 		autonityTool string
 	)
 	for _, file := range allToolsArchiveFiles {
@@ -724,7 +711,7 @@ func doWindowsInstaller(cmdline []string) {
 	// first section contains the autonity binary, second section holds the dev tools.
 	templateData := map[string]interface{}{
 		"License":  "COPYING",
-		"autonity":     autonityTool,
+		"autonity": autonityTool,
 		"DevTools": devTools,
 	}
 	build.Render("build/nsis.autonity.nsi", filepath.Join(*workdir, "autonity.nsi"), 0644, nil)

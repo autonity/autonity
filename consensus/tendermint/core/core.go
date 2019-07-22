@@ -49,6 +49,8 @@ var (
 	errFutureRoundMessage = errors.New("same height but future round message")
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")
+	// errInvalidSenderOfCommittedSeal is returned when the committed seal is not from the sender of the message.
+	errInvalidSenderOfCommittedSeal = errors.New("invalid sender of committed seal")
 	// errFailedDecodeProposal is returned when the PROPOSAL message is malformed.
 	errFailedDecodeProposal = errors.New("failed to decode PROPOSAL")
 	// errFailedDecodePrevote is returned when the PREVOTE message is malformed.
@@ -314,10 +316,6 @@ func (c *core) stopFutureProposalTimer() {
 	if c.futureProposalTimer != nil {
 		c.futureProposalTimer.Stop()
 	}
-}
-
-func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address, error) {
-	return tendermint.CheckValidatorSignature(c.valSet.Copy(), data, sig)
 }
 
 func (c *core) quorum(i int) bool {
