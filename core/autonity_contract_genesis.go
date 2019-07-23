@@ -28,10 +28,11 @@ type AutonityContract struct {
 	// Address of the validator who deploys contract stored in bytecode
 	Deployer common.Address `json:"deployer" toml:",omitempty"`
 	// Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
-	Bytecode string `json:"bytecode" toml:",omitempty"`
+	Bytecode    string `json:"bytecode" toml:",omitempty"`
+	MinGasPrice uint64 `json:"minGasPrice" toml:",omitempty"`
 	// Json ABI of the contract
 	ABI   string `json:"abi "toml:",omitempty"`
-	Users []User `json:"users"`
+	Users []User `json:"users" "toml:",omitempty"`
 }
 
 func (ac *AutonityContract) Validate() error {
