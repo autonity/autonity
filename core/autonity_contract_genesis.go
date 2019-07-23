@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	UserParticipant        UserType = "participant"
 	UserMember             UserType = "member"
 	UserValidator          UserType = "validator"
 	UserGovernanceOperator UserType = "GovernanceOperator"
@@ -18,7 +17,7 @@ const (
 type UserType string
 
 func (ut UserType) IsValid() bool {
-	if ut == UserMember || ut == UserParticipant || ut == UserGovernanceOperator || ut == UserValidator {
+	if ut == UserMember || ut == UserGovernanceOperator || ut == UserValidator {
 		return true
 	}
 	return false
@@ -69,9 +68,6 @@ func (u User) Validate() error {
 	if !u.Type.IsValid() {
 		return errors.New("incorrect user type")
 	}
-	if u.Type == UserMember && u.Stake > 0 {
-		return fmt.Errorf("user %v has a stake, but shouldn't", u.Address)
-	}
 	if reflect.DeepEqual(u.Address, common.Address{}) {
 		return errors.New("account is empty")
 	}
@@ -82,10 +78,10 @@ func (u User) Validate() error {
 }
 
 //GetParticipantUsers - returns list of participants
-func (ac *AutonityContract) GetParticipantUsers() []User {
+func (ac *AutonityContract) GetValidatorUsers() []User {
 	var users []User
 	for i := range ac.Users {
-		if ac.Users[i].Type == UserParticipant {
+		if ac.Users[i].Type == UserValidator {
 			users = append(users, ac.Users[i])
 		}
 	}
@@ -100,15 +96,4 @@ func (ac *AutonityContract) GetGovernanceOperator() User {
 		}
 	}
 	return User{}
-}
-
-//GetValidators - returns GetValidators
-func (ac *AutonityContract) GetValidators() []User {
-	var users []User
-	for i := range ac.Users {
-		if ac.Users[i].Type == UserValidator {
-			users = append(users, ac.Users[i])
-		}
-	}
-	return users
 }
