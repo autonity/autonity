@@ -35,7 +35,6 @@ import (
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/p2p/nat"
 	"github.com/clearmatics/autonity/params"
-	whisper "github.com/clearmatics/autonity/whisper/whisperv6"
 )
 
 // NodeConfig represents the collection of configuration values to fine tune the Autonity
@@ -70,9 +69,6 @@ type NodeConfig struct {
 	//
 	// It has the form "nodename:secret@host:port"
 	EthereumNetStats string
-
-	// WhisperEnabled specifies whether the node should run the Whisper protocol.
-	WhisperEnabled bool
 
 	// Listening address of pprof server.
 	PprofAddress string
@@ -175,14 +171,6 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 			}); err != nil {
 				return nil, fmt.Errorf("netstats init: %v", err)
 			}
-		}
-	}
-	// Register the Whisper protocol if requested
-	if config.WhisperEnabled {
-		if err := rawStack.Register(func(*node.ServiceContext) (node.Service, error) {
-			return whisper.New(&whisper.DefaultConfig), nil
-		}); err != nil {
-			return nil, fmt.Errorf("whisper init: %v", err)
 		}
 	}
 	return &Node{rawStack}, nil
