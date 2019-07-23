@@ -65,16 +65,20 @@ type User struct {
 	Stake   uint64
 }
 
-func (u User) Validate() error {
+func (u *User) Validate() error {
 	if !u.Type.IsValid() {
 		return errors.New("incorrect user type")
 	}
-	if reflect.DeepEqual(u.Address, common.Address{}) {
-		return errors.New("account is empty")
-	}
-	if _, err := enode.ParseV4(u.Enode); err != nil {
+
+	n, err := enode.ParseV4(u.Enode)
+	if err != nil {
 		return fmt.Errorf("Fail to parse enode for account %v, error:%v", u.Address, err)
 	}
+
+	if reflect.DeepEqual(u.Address, common.Address{}) {
+		u.Address = EnodeToAddress(n)
+	}
+
 	return nil
 }
 
@@ -97,4 +101,9 @@ func (ac *AutonityContract) GetGovernanceOperator() User {
 		}
 	}
 	return User{}
+}
+
+func EnodeToAddress(n *enode.Node) common.Address {
+	addrByte := n.ID().Bytes()[12:]
+	return common.BytesToAddress(addrByte)
 }
