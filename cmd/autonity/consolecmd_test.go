@@ -43,8 +43,7 @@ func TestConsoleWelcome(t *testing.T) {
 	// Start a autonity console, make sure it's cleaned up and terminate the console
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--etherbase", coinbase, "--shh",
-		"console")
+		"--etherbase", coinbase, "console")
 
 	// Gather all the infos the welcome message needs to contain
 	autonity.SetTemplateFunc("goos", func() string { return runtime.GOOS })
@@ -81,11 +80,10 @@ func TestIPCAttachWelcome(t *testing.T) {
 		defer os.RemoveAll(ws)
 		ipc = filepath.Join(ws, "autonity.ipc")
 	}
-	// Note: we need --shh because testAttachWelcome checks for default
-	// list of ipc modules and shh is included there.
+
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--etherbase", coinbase, "--shh", "--ipcpath", ipc)
+		"--etherbase", coinbase, "--ipcpath", ipc)
 
 	time.Sleep(2 * time.Second) // Simple way to wait for the RPC endpoint to open
 	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs)
