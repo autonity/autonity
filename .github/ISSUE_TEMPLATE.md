@@ -1,26 +1,21 @@
-Hi there,
+# Problem
 
-please note that this is an issue tracker reserved for bug reports and feature requests.
+An overview of the background required to understand the problem.
+A problem description.
 
-For general questions please use the gitter channel or the Ethereum stack exchange at https://ethereum.stackexchange.com.
+# Implementation
 
-#### System information
+Known steps towards feature implementation.
+What needs further specifying and investigating.
 
-Autonity version: `autonity version`
-OS & Version: Windows/Linux/OSX
-Commit hash : (if `develop`)
+# Acceptance Criteria
 
-#### Expected behaviour
+Rules for the future PR to be accepted.
 
+# Notes
 
-#### Actual behaviour
+Random notes to keep in mind while implementing it. Mostly about related issues and future plans and thoughts.
 
+# Future Steps
 
-#### Steps to reproduce the behaviour
-
-
-#### Backtrace
-
-````
-[backtrace]
-````
+Steps which should be taken after this issue has been resolved.
