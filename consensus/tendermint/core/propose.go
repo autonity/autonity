@@ -79,6 +79,12 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 
 	// Verify the proposal we received
 	if duration, err := c.backend.Verify(*proposal.ProposalBlock); err != nil {
+		if err := c.proposeTimeout.stopTimer(); err != nil {
+			return err
+		}
+		c.logger.Debug("Stopped Scheduled Proposal Timeout")
+		c.sendPrevote(ctx, true)
+
 		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 		// if it's a future block, we will handle it again after the duration
 		// TIME FIELD OF HEADER CHECKED HERE - NOT HEIGHT
