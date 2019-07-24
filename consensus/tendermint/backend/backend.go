@@ -19,9 +19,7 @@ package backend
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
-	"math/big"
 	"sync"
 	"time"
 
@@ -43,11 +41,11 @@ import (
 )
 
 const (
-	// fetcherID is the ID indicates the block is from PoS engine
+	// fetcherID is the ID indicates the block is from BFT engine
 	fetcherID = "tendermint"
 )
 
-// New creates an Ethereum Backend for PoS core engine.
+// New creates an Ethereum Backend for BFT core engine.
 func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
 	if chainConfig.Tendermint.Epoch != 0 {
 		config.Epoch = chainConfig.Tendermint.Epoch
@@ -214,212 +212,6 @@ func peersToString(ps []common.Address) string {
 	return peersStr
 }
 
-func getPeerKeys(psMap map[common.Address]consensus.Peer) []common.Address {
-	ps := make([]common.Address, 0, len(psMap))
-	for k := range psMap {
-		ps = append(ps, k)
-	}
-	return ps
-}
-
-type message struct {
-	hash    common.Hash
-	payload []byte
-}
-
-type peerError struct {
-	error
-	addr common.Address
-}
-
-func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash common.Hash, payload []byte, p consensus.Peer) chan error {
-	ms, ok := sb.recentMessages.Get(addr)
-	errCh := make(chan error, 1)
-	var m *lru.ARCCache
-	if ok {
-		m, _ = ms.(*lru.ARCCache)
-		if _, k := m.Get(hash); k {
-			// This peer had this event, skip it
-			sb.logger.Trace("inner sender loop. message sent earlier", "peer", addr.Hex(), "msg", hash.Hex())
-			errCh <- nil
-			return errCh
-		}
-	} else {
-		m, _ = lru.NewARC(inmemoryMessages)
-	}
-
-	go func(ctx context.Context, p consensus.Peer, m *lru.ARCCache) {
-		ticker := time.NewTicker(retryInterval * time.Millisecond)
-		defer ticker.Stop()
-
-		var err error
-		var try int
-
-	SenderLoop:
-		for {
-			select {
-			case <-ticker.C:
-				try++
-
-				if err = p.Send(tendermintMsg, payload); err != nil {
-					err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + err.Error()), addr}
-
-					sb.logger.Trace("inner sender loop. error", "try", try, "peer", addr.Hex(), "msg", hash.Hex(), "err", err.Error())
-				} else {
-					err = nil
-
-					sb.logger.Trace("inner sender loop. success", "try", try, "peer", addr.Hex(), "msg", hash.Hex())
-					break SenderLoop
-				}
-			case <-ctx.Done():
-				err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + ctx.Err().Error()), addr}
-				break SenderLoop
-			}
-		}
-
-		if err == nil {
-			m.Add(hash, true)
-			sb.recentMessages.Add(addr, m)
-		}
-
-		errCh <- err
-	}(ctx, p, m)
-
-	return errCh
-}
-
-func (sb *Backend) ReSend(ctx context.Context, numberOfWorkers int) {
-	workers := sync.WaitGroup{}
-	workers.Add(numberOfWorkers)
-
-	for i := 0; i < numberOfWorkers; i++ {
-		go func(ctx context.Context) {
-			sb.workerSendLoop(ctx)
-			workers.Done()
-		}(ctx)
-	}
-
-	workers.Wait()
-}
-
-func (sb *Backend) workerSendLoop(ctx context.Context) {
-	for {
-		select {
-		case msgToPeers := <-sb.resend:
-			sb.trySend(ctx, msgToPeers)
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-func (sb *Backend) sendToResendCh(ctx context.Context, m messageToPeers) {
-	select {
-	case <-ctx.Done():
-		return
-	case sb.resend <- m:
-		//sent to channel
-	}
-}
-
-func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
-	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
-		sb.logger.Trace("worker loop. TTL expired", "msg", msgToPeers)
-		return
-	}
-
-	if time.Since(msgToPeers.lastTry).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) < retryInterval &&
-		time.Since(msgToPeers.startTime).Truncate(time.Millisecond).Nanoseconds()/int64(time.Millisecond) > retryInterval {
-
-		//too early for resend
-		sb.sendToResendCh(ctx, msgToPeers)
-
-		return
-	}
-
-	m := make(map[common.Address]struct{})
-	for _, p := range msgToPeers.peers {
-		m[p] = struct{}{}
-	}
-
-	ps, notConnected := sb.broadcaster.FindPeers(m)
-	notConnectedPeersBeforeSending := len(notConnected)
-	if len(notConnected) > 0 {
-		peersStr := fmt.Sprintf("peers %d: ", len(notConnected))
-		for _, p := range notConnected {
-			peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
-		}
-
-		sb.logger.Trace("worker loop. peers still not connected", "peers", peersStr, "msgHash", msgToPeers.msg.hash.String())
-	}
-
-	if sb.broadcaster != nil && len(ps) > 0 {
-		sb.logger.Trace("worker loop. resend to connected peers", "msg", msgToPeers.msg.hash.String(), "peers", peersToString(getPeerKeys(ps)))
-		var errChs []chan error
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, TTL*time.Second)
-		defer cancel()
-
-		for addr, p := range ps {
-			errCh := sb.sendToPeer(ctx, addr, msgToPeers.msg.hash, msgToPeers.msg.payload, p)
-			errChs = append(errChs, errCh)
-		}
-
-		wg := sync.WaitGroup{}
-		wg.Add(len(ps))
-		notConnectedCh := make(chan common.Address, len(ps))
-
-		for _, errCh := range errChs {
-			go func(errCh chan error) {
-				err := <-errCh
-				if err != nil {
-					pe, ok := err.(peerError)
-					if ok {
-						notConnectedCh <- pe.addr
-
-						sb.logger.Error(pe.Error(), "peer", pe.addr)
-					}
-				}
-
-				close(errCh)
-				wg.Done()
-			}(errCh)
-		}
-
-		wg.Wait()
-		close(notConnectedCh)
-
-		for addr := range notConnectedCh {
-			notConnected = append(notConnected, addr)
-		}
-	}
-
-	notConnectedPeersAfterSendingWithErrors := len(notConnected)
-
-	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
-		sb.logger.Trace("worker loop. TTL expired", "msg", msgToPeers)
-		return
-	}
-
-	if len(notConnected) > 0 {
-		msg := messageToPeers{
-			message{
-				msgToPeers.msg.hash,
-				msgToPeers.msg.payload,
-			},
-			notConnected,
-			msgToPeers.startTime,
-			time.Now(),
-		}
-
-		if notConnectedPeersBeforeSending != notConnectedPeersAfterSendingWithErrors {
-			sb.logger.Trace("worker loop. peers not connected and errors while sending", "msg", msg.String())
-		}
-
-		sb.sendToResendCh(ctx, msg)
-	}
-}
-
 // Commit implements tendermint.Backend.Commit
 func (sb *Backend) Commit(proposal types.Block, seals [][]byte) error {
 	// Check if the proposal is a valid block
@@ -493,7 +285,7 @@ func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
 	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
-		// the current blockchain state is synchronized with PoS's state
+		// the current blockchain state is synchronized with BFT's state
 		// and we know that the proposed block was mined by a valid validator
 		header := block.Header()
 		//We need at this point to process all the transactions in the block
@@ -528,7 +320,7 @@ func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
 				return 0, err
 			}
 		}
-		tendermintExtra, _ := types.ExtractPoSExtra(header)
+		tendermintExtra, _ := types.ExtractBFTExtra(header)
 
 		//Perform the actual comparison
 		if len(tendermintExtra.Validators) != len(validators) {
@@ -580,11 +372,6 @@ func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byt
 		return types.ErrInvalidSignature
 	}
 	return nil
-}
-
-// HasPropsal implements tendermint.Backend.HashBlock
-func (sb *Backend) HasPropsal(hash common.Hash, number *big.Int) bool {
-	return sb.blockchain.GetHeader(hash, number.Uint64()) != nil
 }
 
 // GetProposer implements tendermint.Backend.GetProposer

@@ -1,7 +1,25 @@
+// Copyright 2017 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+
 package core
 
 import (
+	"bytes"
 	"context"
+	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -41,7 +59,6 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	}, precommit.Height, precommit.Round)
 }
 
-// TODO: ensure to check the size of the committed seals as mentioned by Roberto in Correctness and Analysis of IBFT paper
 func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	var preCommit tendermint.Vote
 	err := msg.Decode(&preCommit)
@@ -54,17 +71,19 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		return err
 	}
 
+	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
+
+	// Don't want to decode twice, hence sending preCommit with message
+	if err := c.verifyPrecommitCommittedSeal(msg, preCommit); err != nil {
+		return err
+	}
+
 	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
 	precommitHash := preCommit.ProposedBlockHash
-	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	curR := c.currentRoundState.Round().Int64()
 	curH := c.currentRoundState.Height().Int64()
 
-	if precommitHash == (common.Hash{}) {
-		c.currentRoundState.Precommits.AddNilVote(*msg)
-	} else {
-		c.currentRoundState.Precommits.AddVote(precommitHash, *msg)
-	}
+	c.acceptPrecommit(precommitHash, *msg)
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
@@ -90,6 +109,30 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	}
 
 	return nil
+}
+
+func (c *core) verifyPrecommitCommittedSeal(m *message, precommit tendermint.Vote) error {
+	addressOfSignerOfCommittedSeal, err := types.GetSignatureAddress(PrepareCommittedSeal(precommit.ProposedBlockHash), m.CommittedSeal)
+
+	if err != nil {
+		c.logger.Error("Failed to get signer address", "err", err)
+		return err
+	}
+
+	// ensure sender signed the committed seal
+	if !bytes.Equal(addressOfSignerOfCommittedSeal.Bytes(), m.Address.Bytes()) {
+		return errInvalidSenderOfCommittedSeal
+	}
+
+	return nil
+}
+
+func (c *core) acceptPrecommit(precommitHash common.Hash, msg message) {
+	if precommitHash == (common.Hash{}) {
+		c.currentRoundState.Precommits.AddNilVote(msg)
+	} else {
+		c.currentRoundState.Precommits.AddVote(precommitHash, msg)
+	}
 }
 
 func (c *core) handleCommit(ctx context.Context) {

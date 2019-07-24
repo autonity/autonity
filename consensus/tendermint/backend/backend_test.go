@@ -133,7 +133,7 @@ func TestCommit(t *testing.T) {
 		{
 			// normal case
 			nil,
-			[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.PoSExtraSeal-1)...)},
+			[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-1)...)},
 			func() types.Block {
 				chain, engine := newBlockChain(1)
 				block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -312,7 +312,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
-	genesis.Mixhash = types.PoSDigest
+	genesis.Mixhash = types.BFTDigest
 
 	AppendValidators(genesis, addrs)
 	return genesis, nodeKeys
@@ -320,12 +320,12 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 
-	if len(genesis.ExtraData) < types.PoSExtraVanity {
-		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.PoSExtraVanity)...)
+	if len(genesis.ExtraData) < types.BFTExtraVanity {
+		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)...)
 	}
-	genesis.ExtraData = genesis.ExtraData[:types.PoSExtraVanity]
+	genesis.ExtraData = genesis.ExtraData[:types.BFTExtraVanity]
 
-	ist := &types.PoSExtra{
+	ist := &types.BFTExtra{
 		Validators:    addrs,
 		Seal:          []byte{},
 		CommittedSeal: [][]byte{},

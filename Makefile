@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity android ios autonity-cross swarm evm all test clean lint lint-deps mock-gen test-fast
+.PHONY: autonity android ios autonity-cross evm all test clean lint lint-deps mock-gen test-fast
 .PHONY: autonity-linux autonity-linux-386 autonity-linux-amd64 autonity-linux-mips64 autonity-linux-mips64le
 .PHONY: autonity-linux-arm autonity-linux-arm-5 autonity-linux-arm-6 autonity-linux-arm-7 autonity-linux-arm64
 .PHONY: autonity-darwin autonity-darwin-386 autonity-darwin-amd64
@@ -19,11 +19,6 @@ autonity:
 	build/env.sh go run build/ci.go install ./cmd/autonity
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/autonity\" to launch autonity."
-
-swarm:
-	build/env.sh go run build/ci.go install ./cmd/swarm
-	@echo "Done building."
-	@echo "Run \"$(GOBIN)/swarm\" to launch swarm."
 
 all:
 	build/env.sh go run build/ci.go install
@@ -95,9 +90,6 @@ devtools:
 	@type "npm" 2> /dev/null || echo 'Please install node.js and npm'
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
-
-swarm-devtools:
-	env GOBIN= go install ./cmd/swarm/mimegen
 
 # Cross Compilation Targets (xgo)
 

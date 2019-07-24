@@ -126,7 +126,7 @@ func TestCommit(t *testing.T) {
 		{
 			// normal case
 			nil,
-			[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.PoSExtraSeal-1)...)},
+			[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-1)...)},
 			func() *types.Block {
 				chain, engine := newBlockChain(1)
 				block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())

@@ -1,3 +1,19 @@
+// Copyright 2017 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -53,7 +69,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 		if err == errOldRoundMessage {
 			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
 			// And we only process old rounds while future rounds messages are pushed on to the backlog
-			prevoteMS := c.currentHeightRoundsStates[preVote.Round.Int64()].Prevotes
+			prevoteMS := c.currentHeightOldRoundsStates[preVote.Round.Int64()].Prevotes
 			if preVote.ProposedBlockHash == (common.Hash{}) {
 				prevoteMS.AddNilVote(*msg)
 			} else {
@@ -68,11 +84,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
 	// votes from other nodes.
 	prevoteHash := preVote.ProposedBlockHash
-	if prevoteHash == (common.Hash{}) {
-		c.currentRoundState.Prevotes.AddNilVote(*msg)
-	} else {
-		c.currentRoundState.Prevotes.AddVote(prevoteHash, *msg)
-	}
+	c.acceptPrevote(prevoteHash, *msg)
 
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", preVote, msg.Address.String(), c.address.String())
 
@@ -118,6 +130,14 @@ func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 	}
 
 	return nil
+}
+
+func (c *core) acceptPrevote(prevoteHash common.Hash, msg message) {
+	if prevoteHash == (common.Hash{}) {
+		c.currentRoundState.Prevotes.AddNilVote(msg)
+	} else {
+		c.currentRoundState.Prevotes.AddVote(prevoteHash, msg)
+	}
 }
 
 func (c *core) logPrevoteMessageEvent(message string, prevote tendermint.Vote, from, to string) {

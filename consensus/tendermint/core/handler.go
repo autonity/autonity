@@ -1,3 +1,19 @@
+// Copyright 2017 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -7,7 +23,6 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
@@ -84,19 +99,10 @@ func (c *core) unsubscribeEvents() {
 func (c *core) handleNewUnminedBlockEvent() {
 	for e := range c.newUnminedBlockEventSub.Chan() {
 		c.logger.Debug("Started handling tendermint.NewUnminedBlockEvent")
+
 		newUnminedBlockEvent := e.Data.(tendermint.NewUnminedBlockEvent)
-
 		pb := &newUnminedBlockEvent.NewUnminedBlock
-
-		err := c.handleUnminedBlock(pb)
-		switch err {
-		case consensus.ErrFutureBlock:
-			c.storeUnminedBlockMsg(pb)
-		case nil:
-			//nothing to do
-		default:
-			c.logger.Error("core.handleNewUnminedBlockEvent Get message(NewUnminedBlockEvent) failed", "err", err)
-		}
+		c.storeUnminedBlockMsg(pb)
 
 		c.logger.Debug("Finished handling tendermint.NewUnminedBlockEvent")
 	}
@@ -104,7 +110,10 @@ func (c *core) handleNewUnminedBlockEvent() {
 
 func (c *core) handleConsensusEvents(ctx context.Context) {
 	// Start a new round from last height + 1
+<<<<<<< HEAD
 	// Do not want to block listening for events
+=======
+>>>>>>> tendermint
 	c.startRound(ctx, common.Big0)
 
 	for {
@@ -122,7 +131,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 
 				c.logger.Debug("Started handling tendermint.MessageEvent")
 				if err := c.handleMsg(ctx, e.Payload); err != nil {
-					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
+					c.logger.Debug("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
 					c.logger.Debug("Finished handling tendermint.MessageEvent with ERROR", "err", err)
 					continue
 				}
@@ -133,14 +142,14 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 				c.logger.Debug("Started handling backlogEvent")
 				err := c.handleCheckedMsg(ctx, e.msg, e.src)
 				if err != nil {
-					c.logger.Error("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
+					c.logger.Debug("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
 					c.logger.Debug("Finished handling backlogEvent with ERROR", "err", err)
 					continue
 				}
 
 				p, err := e.msg.Payload()
 				if err != nil {
-					c.logger.Error("core.handleConsensusEvents Get message payload failed", "err", err)
+					c.logger.Debug("core.handleConsensusEvents Get message payload failed", "err", err)
 					c.logger.Debug("Finished handling backlogEvent with ERROR", "err", err)
 					continue
 				}
@@ -237,20 +246,13 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// Decode message and check its signature
 	msg := new(message)
 
-	if err := msg.FromPayload(payload, c.checkValidatorSignature); err != nil {
+	sender, err := msg.FromPayload(payload, c.valSet.Copy(), tendermint.CheckValidatorSignature)
+	if err != nil {
 		logger.Error("Failed to decode message from payload", "err", err)
 		return err
 	}
 
-	// Only accept message if the address is valid
-	// TODO: the check is already made in c.validateFn
-	_, sender := c.valSet.GetByAddress(msg.Address)
-	if sender == nil {
-		logger.Error("Invalid address in message", "msg", msg)
-		return tendermint.ErrUnauthorizedAddress
-	}
-
-	return c.handleCheckedMsg(ctx, msg, sender)
+	return c.handleCheckedMsg(ctx, msg, *sender)
 }
 
 func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender tendermint.Validator) error {

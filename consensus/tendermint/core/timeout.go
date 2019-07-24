@@ -10,9 +10,12 @@ import (
 )
 
 const (
-	initialProposeTimeout   = 10 * time.Second
-	initialPrevoteTimeout   = 10 * time.Second
-	initialPrecommitTimeout = 10 * time.Second
+	initialProposeTimeout   = 3000 * time.Millisecond
+	proposeTimeoutDelta     = 500 * time.Millisecond
+	initialPrevoteTimeout   = 1000 * time.Millisecond
+	prevoteTimeoutDelta     = 500 * time.Millisecond
+	initialPrecommitTimeout = 1000 * time.Millisecond
+	precommitTimeoutDelta   = 500 * time.Millisecond
 )
 
 type timeoutEvent struct {
@@ -37,14 +40,13 @@ func newTimeout(s Step) timeout {
 }
 
 // runAfterTimeout() will be run in a separate go routine, so values used inside the function needs to be managed separately
-func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height int64, runAfterTimeout func(r int64, h int64)) *time.Timer {
+func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height int64, runAfterTimeout func(r int64, h int64)) {
 	t.Lock()
 	defer t.Unlock()
 	t.started = true
 	t.timer = time.AfterFunc(stepTimeout, func() {
 		runAfterTimeout(round, height)
 	})
-	return t.timer
 }
 
 func (t *timeout) timerStarted() bool {
@@ -130,15 +132,15 @@ func (c *core) handleTimeoutPrecommit(ctx context.Context, msg timeoutEvent) {
 /////////////// Calculate Timeout Duration Functions ///////////////
 // The timeout may need to be changed depending on the Step
 func timeoutPropose(round int64) time.Duration {
-	return initialProposeTimeout + time.Duration(round)*time.Second
+	return initialProposeTimeout + time.Duration(round)*proposeTimeoutDelta
 }
 
 func timeoutPrevote(round int64) time.Duration {
-	return initialPrevoteTimeout + time.Duration(round)*time.Second
+	return initialPrevoteTimeout + time.Duration(round)*prevoteTimeoutDelta
 }
 
 func timeoutPrecommit(round int64) time.Duration {
-	return initialPrecommitTimeout + time.Duration(round)*time.Second
+	return initialPrecommitTimeout + time.Duration(round)*precommitTimeoutDelta
 }
 
 func (c *core) logTimeoutEvent(message string, msgType string, timeout timeoutEvent) {

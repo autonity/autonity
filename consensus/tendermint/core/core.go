@@ -35,14 +35,9 @@ import (
 )
 
 var (
-	// errInconsistentSubject is returned when received subject is different from
-	// currentRoundState subject.
-	//errInconsistentSubject = errors.New("inconsistent subjects")
 	// errNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
-	// errIgnored is returned when a message was ignored.
-	//errIgnored = errors.New("message is ignored")
 	// errFutureHeightMessage is returned when currentRoundState view is earlier than the
 	// view of the received message.
 	errFutureHeightMessage = errors.New("future height message")
@@ -55,6 +50,8 @@ var (
 	errFutureRoundMessage = errors.New("same height but future round message")
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")
+	// errInvalidSenderOfCommittedSeal is returned when the committed seal is not from the sender of the message.
+	errInvalidSenderOfCommittedSeal = errors.New("invalid sender of committed seal")
 	// errFailedDecodeProposal is returned when the PROPOSAL message is malformed.
 	errFailedDecodeProposal = errors.New("failed to decode PROPOSAL")
 	// errFailedDecodePrevote is returned when the PREVOTE message is malformed.
@@ -76,18 +73,18 @@ type Engine interface {
 	Stop() error
 }
 
-// New creates an Istanbul consensus core
+// New creates an Tendermint consensus core
 func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 	c := &core{
-		config:                      config,
-		address:                     backend.Address(),
-		logger:                      log.New(),
-		backend:                     backend,
-		backlogs:                    make(map[tendermint.Validator]*prque.Prque),
-		pendingUnminedBlocks:        prque.New(),
-		latestPendingUnminedBlockCh: make(chan *types.Block),
-		valSet:                      new(validatorSet),
-		futureRoundsChange:          make(map[int64]int64),
+		config:                config,
+		address:               backend.Address(),
+		logger:                log.New(),
+		backend:               backend,
+		backlogs:              make(map[tendermint.Validator]*prque.Prque),
+		pendingUnminedBlocks:  make(map[uint64]*types.Block),
+		pendingUnminedBlockCh: make(chan *types.Block),
+		valSet:                new(validatorSet),
+		futureRoundsChange:    make(map[int64]int64),
 	}
 	return c
 }
@@ -113,8 +110,11 @@ type core struct {
 
 	currentRoundState *roundState
 
-	pendingUnminedBlocks   *prque.Prque
-	pendingUnminedBlocksMu sync.Mutex
+	// map[Height]UnminedBlock
+	pendingUnminedBlocks     map[uint64]*types.Block
+	pendingUnminedBlocksMu   sync.Mutex
+	pendingUnminedBlockCh    chan *types.Block
+	isWaitingForUnminedBlock bool
 
 	sentProposal          bool
 	sentPrevote           bool
@@ -126,11 +126,7 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightRoundsStates map[int64]roundState
-
-	latestPendingUnminedBlock   *types.Block
-	latestPendingUnminedBlockMu sync.RWMutex
-	latestPendingUnminedBlockCh chan *types.Block
+	currentHeightOldRoundsStates map[int64]roundState
 
 	proposeTimeout   timeout
 	prevoteTimeout   timeout
@@ -201,7 +197,7 @@ func (c *core) broadcast(ctx context.Context, msg *message, height *big.Int, rou
 }
 
 func (c *core) isProposer() bool {
-	return c.valSet.IsProposer(c.backend.Address())
+	return c.valSet.IsProposer(c.address)
 }
 
 func (c *core) commit() {
@@ -221,11 +217,12 @@ func (c *core) commit() {
 
 		committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
 		for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
-			committedSeals[i] = make([]byte, types.PoSExtraSeal)
+			committedSeals[i] = make([]byte, types.BFTExtraSeal)
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
 
 		if err := c.backend.Commit(*proposal.ProposalBlock, committedSeals); err != nil {
+			log.Error("Failed to Commit block", "err", err)
 			return
 		}
 	}
@@ -236,22 +233,59 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 	lastCommittedProposalBlock, lastCommittedProposalBlockProposer := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 
+	c.setCore(round, height, lastCommittedProposalBlockProposer)
+
+	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
+	c.setStep(propose)
+
+	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
+
+	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
+	// proposeTimeout is started, where the node waits for a proposal from the proposer of the current round.
+	if c.isProposer() {
+		// validValue and validRound represent a block they received a quorum of prevote and the round quorum was
+		// received, respectively. If the block is not committed in that round then the round is changed.
+		// The new proposer will chose the validValue, if present, which was set in one of the previous rounds otherwise
+		// they propose a new block.
+		var p *types.Block
+		if c.validValue != nil {
+			p = c.validValue
+		} else {
+			p = c.getUnminedBlock()
+			if p == nil {
+				select {
+				case <-ctx.Done():
+					return
+				case p = <-c.pendingUnminedBlockCh:
+				}
+			}
+		}
+		c.sendProposal(ctx, p)
+	} else {
+		timeoutDuration := timeoutPropose(round.Int64())
+		c.proposeTimeout.scheduleTimeout(timeoutDuration, round.Int64(), height.Int64(), c.onTimeoutPropose)
+		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
+	}
+}
+
+func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 	// Start of new height where round is 0
-	if round.Int64() == 0 {
+	if r.Int64() == 0 {
 		// Set the shared round values to initial values
 		c.lockedRound = big.NewInt(-1)
 		c.lockedValue = nil
 		c.validRound = big.NewInt(-1)
 		c.validValue = nil
 
-		// Set validator set for Height
-		valSet := c.backend.Validators(height.Uint64())
+		// Set validator set for height
+		valSet := c.backend.Validators(h.Uint64())
 		c.valSet.set(valSet)
 
 		// Assuming that round == 0 only when the node moves to a new height
-		c.currentHeightRoundsStates = make(map[int64]roundState)
+		// Therefore, resetting round related maps
+		c.currentHeightOldRoundsStates = make(map[int64]roundState)
+		c.futureRoundsChange = make(map[int64]int64)
 	}
-
 	// Reset all timeouts
 	_ = c.proposeTimeout.stopTimer()
 	_ = c.prevoteTimeout.stopTimer()
@@ -259,25 +293,21 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 	c.proposeTimeout = newTimeout(propose)
 	c.prevoteTimeout = newTimeout(prevote)
 	c.precommitTimeout = newTimeout(precommit)
-
 	// Get all rounds from c.futureRoundsChange and remove previous rounds
-	var rounds = make([]int64, 0)
-	for k := range c.futureRoundsChange {
-		rounds = append(rounds, k)
-	}
-	for _, r := range rounds {
-		if r <= round.Int64() {
-			delete(c.futureRoundsChange, r)
+	var i int64
+	for i = 0; i <= r.Int64(); i++ {
+		if _, ok := c.futureRoundsChange[i]; ok {
+			delete(c.futureRoundsChange, i)
 		}
 	}
-
-	// Update current round state and add a copy to c.currentHeightRoundsState
-	// We only add old round prevote messages to c.currentHeightRoundState, while future messages are sent to the backlog
-	// Which are processed when the step is set to propose
-	if round.Int64() > 0 {
+	// Add a copy of c.currentRoundState to c.currentHeightOldRoundsStates and then update c.currentRoundState
+	// We only add old round prevote messages to c.currentHeightOldRoundsStates, while future messages are sent to the
+	// backlog which are processed when the step is set to propose
+	if r.Int64() > 0 {
 		// This is a shallow copy, should be fine for now
-		c.currentHeightRoundsStates[round.Int64()] = *c.currentRoundState
+		c.currentHeightOldRoundsStates[r.Int64()-1] = *c.currentRoundState
 	}
+<<<<<<< HEAD
 
 	c.currentRoundState.Update(round, height)
 
@@ -288,82 +318,26 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 		c.logger.Warn("Starting new WAL", "Height", height, "Round", round)
 	}
 
+=======
+	c.currentRoundState.Update(r, h)
+>>>>>>> tendermint
 	// Calculate new proposer
-	c.valSet.CalcProposer(lastCommittedProposalBlockProposer, round.Uint64())
-
+	c.valSet.CalcProposer(lastProposer, r.Uint64())
 	c.sentProposal = false
 	c.sentPrevote = false
 	c.sentPrecommit = false
 	c.setValidRoundAndValue = false
-	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
-	c.setStep(propose)
-
-	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
-
-	// Wait for c.handleNewUnminedBlockEvent() go routine to update c.latestPendingUnminedBlock
-	// Only wait for new unmined block if latestPendingUnminedBlock is nil or fo previous height
-	c.checkLatestPendingUnminedBlock(ctx)
-
-	var p *types.Block
-	if c.isProposer() {
-		if c.validValue != nil {
-			p = c.validValue
-		} else {
-			c.latestPendingUnminedBlockMu.RLock()
-			p = c.latestPendingUnminedBlock
-			c.latestPendingUnminedBlockMu.RUnlock()
-		}
-		c.sendProposal(ctx, p)
-	} else {
-		timeoutDuration := timeoutPropose(round.Int64())
-		c.proposeTimeout.scheduleTimeout(timeoutDuration, round.Int64(), height.Int64(), c.onTimeoutPropose)
-		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
-	}
 }
 
 func (c *core) setStep(step Step) {
 	c.currentRoundState.SetStep(step)
-
-	if step == propose {
-		c.processPendingUnminedBlock()
-	}
 	c.processBacklog()
-}
-
-func (c *core) checkLatestPendingUnminedBlock(ctx context.Context) {
-	c.latestPendingUnminedBlockMu.RLock()
-	isMined := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
-	c.latestPendingUnminedBlockMu.RUnlock()
-
-	if isMined {
-		select {
-		case <-ctx.Done():
-			return
-		case <-c.latestPendingUnminedBlockCh:
-			return
-		}
-	}
-}
-
-func (c *core) setLatestPendingUnminedBlock(b *types.Block) {
-	c.latestPendingUnminedBlockMu.Lock()
-	wasNilOrDiffHeight := c.latestPendingUnminedBlock == nil || c.latestPendingUnminedBlock.Number().Int64() != c.currentRoundState.Height().Int64()
-	c.latestPendingUnminedBlock = b
-	c.latestPendingUnminedBlockMu.Unlock()
-
-	if wasNilOrDiffHeight {
-		c.latestPendingUnminedBlockCh <- b
-	}
 }
 
 func (c *core) stopFutureProposalTimer() {
 	if c.futureProposalTimer != nil {
 		c.futureProposalTimer.Stop()
 	}
-}
-
-func (c *core) checkValidatorSignature(data []byte, sig []byte) (common.Address, error) {
-	return tendermint.CheckValidatorSignature(c.valSet.Copy(), data, sig)
 }
 
 func (c *core) quorum(i int) bool {

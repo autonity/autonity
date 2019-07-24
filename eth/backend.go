@@ -429,8 +429,8 @@ func (s *Ethereum) shouldPreserve(block *types.Block) bool {
 
 // SetEtherbase sets the mining reward address.
 func (s *Ethereum) SetEtherbase(etherbase common.Address) {
-	if _, ok := s.engine.(consensus.PoS); ok {
-		log.Error("Cannot set etherbase in PoS consensus")
+	if _, ok := s.engine.(consensus.BFT); ok {
+		log.Error("Cannot set etherbase in BFT consensus")
 		return
 	}
 
