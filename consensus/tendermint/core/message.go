@@ -19,16 +19,12 @@ package core
 import (
 	"bytes"
 	"fmt"
-<<<<<<< HEAD
-=======
-	"github.com/clearmatics/autonity/consensus/tendermint"
-	"io"
-
->>>>>>> tendermint
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/rlp"
 	"io"
 	"math/big"
+
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 const (

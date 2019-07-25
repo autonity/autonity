@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/clearmatics/autonity/consensus/tendermint/wal"
 	"math"
 	"math/big"
 	"sync"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/wal"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -307,20 +307,18 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		// This is a shallow copy, should be fine for now
 		c.currentHeightOldRoundsStates[r.Int64()-1] = *c.currentRoundState
 	}
-<<<<<<< HEAD
 
-	c.currentRoundState.Update(round, height)
+	c.currentRoundState.Update(r, h)
 
-	err := c.wal.UpdateHeight(height)
+	err := c.wal.UpdateHeight(h)
 	if err != nil {
-		c.logger.Error("Starting new WAL with error", "Height", height, "Round", round, "err", err)
+		c.logger.Error("Starting new WAL with error", "Height", h, "Round", r, "err", err)
 	} else {
-		c.logger.Warn("Starting new WAL", "Height", height, "Round", round)
+		c.logger.Warn("Starting new WAL", "Height", h, "Round", r)
 	}
 
-=======
 	c.currentRoundState.Update(r, h)
->>>>>>> tendermint
+
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, r.Uint64())
 	c.sentProposal = false

@@ -66,7 +66,7 @@ func testStatusMsgErrors(t *testing.T, protocol int) {
 			wantError: errResp(ErrNoStatusMsg, "first msg has code 2 (!= 0)"),
 		},
 		{
-			code: StatusMsg, data: statusData{10, DefaultConfig.NetworkId, td, head.Hash(), genesis.Hash()},
+			code: StatusMsg, data: statusData{10, DefaultConfig().NetworkId, td, head.Hash(), genesis.Hash()},
 			wantError: errResp(ErrProtocolVersionMismatch, "10 (!= %d)", protocol),
 		},
 		{
@@ -74,7 +74,7 @@ func testStatusMsgErrors(t *testing.T, protocol int) {
 			wantError: errResp(ErrNetworkIdMismatch, "999 (!= 1)"),
 		},
 		{
-			code: StatusMsg, data: statusData{uint32(protocol), DefaultConfig.NetworkId, td, head.Hash(), common.Hash{3}},
+			code: StatusMsg, data: statusData{uint32(protocol), DefaultConfig().NetworkId, td, head.Hash(), common.Hash{3}},
 			wantError: errResp(ErrGenesisBlockMismatch, "0300000000000000 (!= %x)", genesis.Hash().Bytes()[:8]),
 		},
 	}
@@ -161,7 +161,7 @@ func testSendTransactions(t *testing.T, protocol int) {
 
 	const txCount = 100
 	txAdded := make(chan []*types.Transaction, txCount)
-	pm, err := NewProtocolManager(config, downloader.FullSync, DefaultConfig.NetworkId, evmux, &testTxPool{added: txAdded}, pow, blockchain, db, nil, EthDefaultProtocol, DefaultConfig.OpenNetwork)
+	pm, err := NewProtocolManager(config, downloader.FullSync, DefaultConfig().NetworkId, evmux, &testTxPool{added: txAdded}, pow, blockchain, db, nil, EthDefaultProtocol, DefaultConfig().OpenNetwork)
 	if err != nil {
 		t.Fatalf("failed to start test protocol manager: %v", err)
 	}

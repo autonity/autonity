@@ -278,11 +278,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	}
 
 	if g.Config != nil && (g.Config.Istanbul != nil || g.Config.Tendermint != nil) {
-<<<<<<< HEAD
-		err := g.SetPoS()
-=======
-		err := g.setBFT()
->>>>>>> tendermint
+		err := g.SetBFT()
 		if err != nil {
 			return nil, err
 		}
@@ -304,13 +300,8 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	return block, nil
 }
 
-<<<<<<< HEAD
-//setPoS sets default PoS(IBFT or Tendermint) config values
-func (g *Genesis) SetPoS() error {
-=======
-//setBFT sets default BFT(IBFT or Tendermint) config values
-func (g *Genesis) setBFT() error {
->>>>>>> tendermint
+//SetBFT sets default BFT(IBFT or Tendermint) config values
+func (g *Genesis) SetBFT() error {
 	if len(g.Validators) != 0 {
 		err := g.setBFTValidatorExtraData(g.Validators)
 		if err != nil {

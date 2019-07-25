@@ -386,8 +386,6 @@ func (sb *Backend) GetProposer(number uint64) common.Address {
 func (sb *Backend) LastCommittedProposal() (*types.Block, common.Address) {
 	block := sb.currentBlock()
 
-	fmt.Println("^^^^^ START DEBUG LastCommittedProposal", block.Number().String(), block.Hash().String())
-
 	var proposer common.Address
 	if block.Number().Cmp(common.Big0) > 0 {
 		var err error

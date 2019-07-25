@@ -106,7 +106,7 @@ func makedag(ctx *cli.Context) error {
 	return nil
 }
 
-func version(ctx *cli.Context) error {
+func version(_ *cli.Context) error {
 	fmt.Println(strings.Title(clientIdentifier))
 	fmt.Println("Version:", params.VersionWithMeta)
 	if gitCommit != "" {
@@ -114,7 +114,7 @@ func version(ctx *cli.Context) error {
 	}
 	fmt.Println("Architecture:", runtime.GOARCH)
 	fmt.Println("Protocol Versions:", eth.EthDefaultProtocol.Versions)
-	fmt.Println("Network Id:", eth.DefaultConfig.NetworkId)
+	fmt.Println("Network Id:", eth.DefaultConfig().NetworkId)
 	fmt.Println("Go Version:", runtime.Version())
 	fmt.Println("Operating System:", runtime.GOOS)
 	fmt.Printf("GOPATH=%s\n", os.Getenv("GOPATH"))

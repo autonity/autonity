@@ -21,10 +21,12 @@ import (
 	"errors"
 	"fmt"
 	istanbulBackend "github.com/clearmatics/autonity/consensus/istanbul/backend"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
+	"path"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -117,10 +119,16 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	if !config.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
 	}
+	defaultConfig := DefaultConfig()
 	if config.MinerGasPrice == nil || config.MinerGasPrice.Cmp(common.Big0) <= 0 {
-		log.Warn("Sanitizing invalid miner gas price", "provided", config.MinerGasPrice, "updated", DefaultConfig.MinerGasPrice)
-		config.MinerGasPrice = new(big.Int).Set(DefaultConfig.MinerGasPrice)
+		log.Warn("Sanitizing invalid miner gas price", "provided", config.MinerGasPrice, "updated", defaultConfig.MinerGasPrice)
+		config.MinerGasPrice = new(big.Int).Set(defaultConfig.MinerGasPrice)
 	}
+
+	if config.Tendermint.WALDir == "" {
+		config.Tendermint.WALDir = path.Join(ctx.DataDir(), tendermint.DefaultConfig.WALDir)
+	}
+
 	// Assemble the Ethereum object
 	chainDb, err := CreateDB(ctx, config, "chaindata")
 	if err != nil {

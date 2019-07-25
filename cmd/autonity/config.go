@@ -107,7 +107,7 @@ func defaultNodeConfig() node.Config {
 func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 	// Load defaults.
 	cfg := autonityConfig{
-		Eth:  eth.DefaultConfig,
+		Eth:  eth.DefaultConfig(),
 		Node: defaultNodeConfig(),
 	}
 

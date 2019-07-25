@@ -73,6 +73,10 @@ func (ctx *ServiceContext) NodeKey() *ecdsa.PrivateKey {
 	return ctx.config.NodeKey()
 }
 
+func (ctx *ServiceContext) DataDir() string {
+	return ctx.config.DataDir
+}
+
 // ServiceConstructor is the function signature of the constructors needed to be
 // registered for service instantiation.
 type ServiceConstructor func(ctx *ServiceContext) (Service, error)

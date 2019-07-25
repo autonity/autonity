@@ -206,14 +206,10 @@ func initGenesis(ctx *cli.Context) error {
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
 
-	fmt.Println("@@@@@ setupDefaults")
 	setupDefaults(genesis)
-	fmt.Println("@@@@@ setupDefaults done")
 
 	if genesis.Config != nil && (genesis.Config.Istanbul != nil || genesis.Config.Tendermint != nil) {
-		fmt.Println("@@@@@ setPoS")
-		err := genesis.SetPoS()
-		fmt.Println("@@@@@ setPoS done", err)
+		err := genesis.SetBFT()
 		if err != nil {
 			utils.Fatalf("invalid genesis file. cant setup PoS data: %v", err)
 		}
@@ -281,6 +277,9 @@ func setupDefaults(genesis *core.Genesis) {
 		}
 		if len(genesis.Config.Tendermint.Deployer) == 0 || genesis.Config.Tendermint.Deployer == (common.Address{}) {
 			genesis.Config.Tendermint.Deployer = tendermint.DefaultConfig.Deployer
+		}
+		if genesis.Config.Tendermint.Epoch == 0 {
+			genesis.Config.Tendermint.Epoch = tendermint.DefaultConfig.Epoch
 		}
 		if genesis.Config.Tendermint.Epoch == 0 {
 			genesis.Config.Tendermint.Epoch = tendermint.DefaultConfig.Epoch

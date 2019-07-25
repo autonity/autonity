@@ -74,7 +74,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		panic(err)
 	}
 
-	pm, err := NewProtocolManager(gspec.Config, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx}, engine, blockchain, db, nil, EthDefaultProtocol, DefaultConfig.OpenNetwork)
+	pm, err := NewProtocolManager(gspec.Config, mode, DefaultConfig().NetworkId, evmux, &testTxPool{added: newtx}, engine, blockchain, db, nil, EthDefaultProtocol, DefaultConfig().OpenNetwork)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -195,7 +195,7 @@ func newTestP2PPeer(name string) *p2p.Peer {
 func (p *testPeer) handshake(t *testing.T, td *big.Int, head common.Hash, genesis common.Hash) {
 	msg := &statusData{
 		ProtocolVersion: uint32(p.version),
-		NetworkId:       DefaultConfig.NetworkId,
+		NetworkId:       DefaultConfig().NetworkId,
 		TD:              td,
 		CurrentBlock:    head,
 		GenesisBlock:    genesis,

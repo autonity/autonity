@@ -38,7 +38,7 @@ type Config struct {
 	Bytecode       string         `toml:",omitempty"` // Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
 	ABI            string         `toml:",omitempty"` // Json ABI of the contract
 
-	sync.RWMutex
+	m sync.RWMutex
 }
 
 var DefaultConfig = &Config{
@@ -52,13 +52,13 @@ var DefaultConfig = &Config{
 }
 
 func (cfg *Config) SetProposerPolicy(p ProposerPolicy) {
-	cfg.Lock()
+	cfg.m.Lock()
 	cfg.ProposerPolicy = p
-	cfg.Unlock()
+	cfg.m.Unlock()
 }
 
 func (cfg *Config) GetProposerPolicy() ProposerPolicy {
-	cfg.RLock()
-	defer cfg.RUnlock()
+	cfg.m.RLock()
+	defer cfg.m.RUnlock()
 	return cfg.ProposerPolicy
 }

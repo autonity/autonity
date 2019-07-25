@@ -17,8 +17,6 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/consensus/istanbul"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	"math/big"
 	"os"
 	"os/user"
@@ -29,6 +27,8 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus/ethash"
+	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/eth/gasprice"
@@ -36,31 +36,33 @@ import (
 )
 
 // DefaultConfig contains default settings for use on the Ethereum main net.
-var DefaultConfig = Config{
-	SyncMode: downloader.FastSync,
-	Ethash: ethash.Config{
-		CacheDir:       "ethash",
-		CachesInMem:    2,
-		CachesOnDisk:   3,
-		DatasetsInMem:  1,
-		DatasetsOnDisk: 2,
-	},
-	NetworkId:      1,
-	LightPeers:     100,
-	DatabaseCache:  512,
-	TrieCleanCache: 256,
-	TrieDirtyCache: 256,
-	TrieTimeout:    60 * time.Minute,
-	MinerGasFloor:  8000000,
-	MinerGasCeil:   8000000,
-	MinerGasPrice:  big.NewInt(params.GWei),
-	MinerRecommit:  3 * time.Second,
+func DefaultConfig() Config {
+	return Config{
+		SyncMode: downloader.FastSync,
+		Ethash: ethash.Config{
+			CacheDir:       "ethash",
+			CachesInMem:    2,
+			CachesOnDisk:   3,
+			DatasetsInMem:  1,
+			DatasetsOnDisk: 2,
+		},
+		NetworkId:      1,
+		LightPeers:     100,
+		DatabaseCache:  512,
+		TrieCleanCache: 256,
+		TrieDirtyCache: 256,
+		TrieTimeout:    60 * time.Minute,
+		MinerGasFloor:  8000000,
+		MinerGasCeil:   8000000,
+		MinerGasPrice:  big.NewInt(params.GWei),
+		MinerRecommit:  3 * time.Second,
 
-	TxPool: core.DefaultTxPoolConfig,
-	GPO: gasprice.Config{
-		Blocks:     20,
-		Percentile: 60,
-	},
+		TxPool: core.DefaultTxPoolConfig,
+		GPO: gasprice.Config{
+			Blocks:     20,
+			Percentile: 60,
+		},
+	}
 }
 
 func init() {
@@ -70,10 +72,11 @@ func init() {
 			home = user.HomeDir
 		}
 	}
+	config := DefaultConfig()
 	if runtime.GOOS == "windows" {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "AppData", "Ethash")
+		config.Ethash.DatasetDir = filepath.Join(home, "AppData", "Ethash")
 	} else {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, ".ethash")
+		config.Ethash.DatasetDir = filepath.Join(home, ".ethash")
 	}
 }
 

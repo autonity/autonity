@@ -18,12 +18,12 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/consensus/tendermint/wal"
 	"math/big"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/wal"
 )
 
 // Start implements core.Engine.Start
@@ -110,10 +110,7 @@ func (c *core) handleNewUnminedBlockEvent() {
 
 func (c *core) handleConsensusEvents(ctx context.Context) {
 	// Start a new round from last height + 1
-<<<<<<< HEAD
 	// Do not want to block listening for events
-=======
->>>>>>> tendermint
 	c.startRound(ctx, common.Big0)
 
 	for {
@@ -187,7 +184,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 }
 
 func (c *core) handleConsensusStuck(ctx context.Context) {
-	ticker := time.NewTicker(time.Second*time.Duration(c.config.RequestTimeout/1000))
+	ticker := time.NewTicker(time.Second * time.Duration(c.config.RequestTimeout/1000))
 	defer ticker.Stop()
 
 	currentHeight := new(big.Int).Set(c.currentRoundState.Height())
@@ -200,7 +197,7 @@ func (c *core) handleConsensusStuck(ctx context.Context) {
 			height := c.currentRoundState.Height()
 			round := c.currentRoundState.Round()
 
-			c.logger.Error("WAL", "height", c.currentRoundState.Height().String(), "round", c.currentRoundState.Round().String(), "currentHeight", currentHeight.String(), "currentRound", currentRound.String())
+			c.logger.Info("WAL", "height", c.currentRoundState.Height().String(), "round", c.currentRoundState.Round().String(), "currentHeight", currentHeight.String(), "currentRound", currentRound.String())
 
 			if height.Cmp(currentHeight) != 0 {
 				currentHeight.Set(height)
@@ -215,7 +212,7 @@ func (c *core) handleConsensusStuck(ctx context.Context) {
 
 			pastMessages, err := c.wal.Get(height)
 			if err != nil {
-				c.logger.Error("WAL: cant get messages", "height", height.String(), "round", round.String(), "err", err.Error())
+				c.logger.Info("WAL: cant get messages", "height", height.String(), "round", round.String(), "err", err.Error())
 				continue
 			}
 
