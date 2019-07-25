@@ -130,7 +130,7 @@ func (c *core) processBacklog() {
 				}
 			}
 			if round == nil || height == nil {
-				logger.Debug("Nil view", "msg", msg)
+				logger.Debug("Nil round or height", "msg", msg)
 				continue
 			}
 			// Push back if it's a future message
