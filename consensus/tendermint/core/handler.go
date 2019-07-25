@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+        "fmt"
 	"math/big"
 	"time"
 
@@ -227,7 +228,7 @@ func (c *core) handleRecoverConsensus(ctx context.Context) {
 	}
 }
 
-func (c *core) resendFromWAL(ctx context.Context, height *big.Int, round *big.Int) {
+func (c *core) resendFromWAL(ctx context.Context, height *big.Int, round fmt.Stringer) {
 	pastMessages, err := c.wal.Get(height)
 	if err != nil {
 		c.logger.Info("WAL: cant get messages", "height", height.String(), "round", round.String(), "err", err.Error())
