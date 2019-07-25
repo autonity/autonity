@@ -128,6 +128,7 @@ func (m *message) String() string {
 
 type msgToStore struct {
 	m      *message
+	payload []byte
 	height *big.Int
 	round  *big.Int
 }
@@ -141,15 +142,8 @@ func (msg *msgToStore) Key() []byte {
 	))
 }
 
-func (msg *msgToStore) Value() ([]byte, error) {
-	buf := bytes.NewBuffer(make([]byte, 0, 1024))
-
-	err := msg.m.EncodeRLP(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+func (msg *msgToStore) Value() []byte {
+	return msg.payload
 }
 
 // ==============================================

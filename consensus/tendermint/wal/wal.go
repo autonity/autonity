@@ -24,7 +24,7 @@ type WAL struct {
 
 type Value interface {
 	Key() []byte
-	Value() ([]byte, error)
+	Value() []byte
 }
 
 var currentHeightKey = []byte("current_height")
@@ -160,12 +160,8 @@ func (db *WAL) Store(msg Value) error {
 		return nil
 	}
 
-	val, err := msg.Value()
-	if err != nil {
-		return err
-	}
-
-	err = db.db.Put(msgKey, val)
+	val := msg.Value()
+	err := db.db.Put(msgKey, val)
 	if err != nil {
 		return err
 	}

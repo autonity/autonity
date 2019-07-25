@@ -182,7 +182,7 @@ func (c *core) broadcast(ctx context.Context, msg *message, height *big.Int, rou
 		return
 	}
 
-	err = c.wal.Store(&msgToStore{msg, height, round})
+	err = c.wal.Store(&msgToStore{msg, payload, height, round})
 	if err != nil {
 		logger.Error("Failed to store message in WAL", "msg", msg, "height", height.String(), "round", round.String(), "err", err)
 		return
