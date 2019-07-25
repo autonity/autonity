@@ -35,7 +35,9 @@ func (c *core) Start() error {
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 	c.currentRoundState = NewRoundState(big.NewInt(0), height)
 
-	c.wal = wal.New(c.config.WALDir, height)
+	if c.wal == nil {
+		c.wal = wal.New(c.config.WALDir, height)
+	}
 
 	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent()

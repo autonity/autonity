@@ -27,7 +27,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
-	"github.com/clearmatics/autonity/consensus/tendermint/wal"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -74,7 +73,7 @@ type Engine interface {
 }
 
 // New creates an Tendermint consensus core
-func New(backend tendermint.Backend, config *tendermint.Config) Engine {
+func New(backend tendermint.Backend, config *tendermint.Config, wal WAL) Engine {
 	c := &core{
 		config:                config,
 		address:               backend.Address(),
@@ -85,6 +84,7 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		pendingUnminedBlockCh: make(chan *types.Block),
 		valSet:                new(validatorSet),
 		futureRoundsChange:    make(map[int64]int64),
+		wal:                   wal,
 	}
 	return c
 }
@@ -135,7 +135,7 @@ type core struct {
 	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
 	futureRoundsChange map[int64]int64
 
-	wal *wal.WAL
+	wal WAL
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {

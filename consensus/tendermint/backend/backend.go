@@ -46,7 +46,7 @@ const (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
+func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config, wal tendermintCore.WAL) *Backend {
 	if chainConfig.Tendermint.Epoch != 0 {
 		config.Epoch = chainConfig.Tendermint.Epoch
 	}
@@ -85,7 +85,8 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
 	}
-	backend.core = tendermintCore.New(backend, backend.config)
+
+	backend.core = tendermintCore.New(backend, backend.config, wal)
 
 	return backend
 }

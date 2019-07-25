@@ -32,7 +32,6 @@ var currentHeightKey = []byte("current_height")
 const keysPrefix = "height-"
 
 func New(basedir string, height *big.Int) *WAL {
-	//basedir = path.Join("autonity-data", "wal")
 	db, err := getDb(basedir, height)
 	if err != nil {
 		panic(err)
