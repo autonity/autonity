@@ -127,10 +127,10 @@ func (m *message) String() string {
 }
 
 type msgToStore struct {
-	m      *message
+	m       *message
 	payload []byte
-	height *big.Int
-	round  *big.Int
+	height  *big.Int
+	round   *big.Int
 }
 
 func (msg *msgToStore) Key() []byte {
