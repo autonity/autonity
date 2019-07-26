@@ -84,6 +84,8 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 		}
 		c.logger.Debug("Stopped Scheduled Proposal Timeout")
 		c.sendPrevote(ctx, true)
+		// do not to accept another proposal in current round
+		c.setStep(prevote)
 
 		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 		// if it's a future block, we will handle it again after the duration
