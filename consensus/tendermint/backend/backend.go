@@ -255,8 +255,8 @@ func (sb *Backend) EventMux() *event.TypeMuxSilent {
 	return sb.eventMux
 }
 
-// Verify implements tendermint.Backend.Verify
-func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
+// VerifyProposal implements tendermint.Backend.VerifyProposal
+func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 	// Check if the proposal is a valid block
 	// TODO: fix always false statement and check for non nil
 	// TODO: use interface instead of type
