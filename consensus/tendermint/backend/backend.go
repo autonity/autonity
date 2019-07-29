@@ -271,20 +271,15 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		return 0, core.ErrBlacklistedHash
 	}
 
-	// check block body
-	txnHash := types.DeriveSha(block.Transactions())
-	uncleHash := types.CalcUncleHash(block.Uncles())
-	if txnHash != block.Header().TxHash {
-		return 0, errMismatchTxhashes
-	}
-	if uncleHash != nilUncleHash {
-		return 0, errInvalidUncleHash
-	}
-
 	// verify the header of proposed block
 	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
+		// Validate the body of the proposal
+		if err = sb.blockchain.Validator().ValidateBody(&proposal); err != nil {
+			return 0, err
+		}
+
 		// the current blockchain state is synchronized with BFT's state
 		// and we know that the proposed block was mined by a valid validator
 		header := block.Header()
