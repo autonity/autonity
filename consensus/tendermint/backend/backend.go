@@ -275,36 +275,45 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
-		// Validate the body of the proposal
-		if err = sb.blockchain.Validator().ValidateBody(&proposal); err != nil {
+		var (
+			receipts   types.Receipts
+			validators []common.Address
+
+			usedGas = new(uint64)
+			gp      = new(core.GasPool).AddGas(block.GasLimit())
+			header  = block.Header()
+			parent  = sb.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
+		)
+
+		// We need to process all of the transaction to get the latest state to get the latest validators
+		state, err := sb.blockchain.StateAt(parent.Root())
+		if err != nil {
 			return 0, err
 		}
 
-		// the current blockchain state is synchronized with BFT's state
-		// and we know that the proposed block was mined by a valid validator
-		header := block.Header()
-		//We need at this point to process all the transactions in the block
-		//in order to extract the list of the next validators and validate the extradata field
-		var validators []common.Address
-		if header.Number.Uint64() > 1 {
+		// Validate the body of the proposal
+		if err = sb.blockchain.Validator().ValidateBody(block); err != nil {
+			return 0, err
+		}
 
-			state, _ := sb.blockchain.State()
-			state = state.Copy() // copy the state, we don't want to save modifications
-			gp := new(core.GasPool).AddGas(block.GasLimit())
-			usedGas := new(uint64)
-			// blockchain.Processor().Process() would have been a better choice but it calls back Finalize()
-			for i, tx := range block.Transactions() {
-				state.Prepare(tx.Hash(), block.Hash(), i)
-				// Might be vulnerable to DoS Attack depending on gaslimit
-				// Todo : Double check
-				_, _, err = core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil,
-					gp, state, header, tx, usedGas, *sb.vmConfig)
-
-				if err != nil {
-					return 0, err
-				}
+		// sb.blockchain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
+		// Instead only the transactions are applied to the copied state
+		for i, tx := range block.Transactions() {
+			state.Prepare(tx.Hash(), block.Hash(), i)
+			// Might be vulnerable to DoS Attack depending on gaslimit
+			// Todo : Double check
+			receipt, _, err := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil, gp, state, header, tx, usedGas, *sb.vmConfig)
+			if err != nil {
+				return 0, err
 			}
+			receipts = append(receipts, receipt)
+		}
 
+		if header.Number.Uint64() > 1 {
+			//Validate the state of the proposal
+			if err = sb.blockchain.Validator().ValidateState(block, parent, state, receipts, *usedGas); err != nil {
+				return 0, err
+			}
 			validators, err = sb.contractGetValidators(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
@@ -315,9 +324,10 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 				return 0, err
 			}
 		}
+
 		tendermintExtra, _ := types.ExtractBFTExtra(header)
 
-		//Perform the actual comparison
+		// Verify the validator set by comparing the validators in extra data and Soma-contract
 		if len(tendermintExtra.Validators) != len(validators) {
 			sb.logger.Error("wrong validator set",
 				"extraLen", len(tendermintExtra.Validators),
