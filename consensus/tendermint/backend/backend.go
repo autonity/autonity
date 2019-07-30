@@ -325,9 +325,8 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			}
 		}
 
-		tendermintExtra, _ := types.ExtractBFTExtra(header)
-
 		// Verify the validator set by comparing the validators in extra data and Soma-contract
+		tendermintExtra, _ := types.ExtractBFTExtra(header)
 		if len(tendermintExtra.Validators) != len(validators) {
 			sb.logger.Error("wrong validator set",
 				"extraLen", len(tendermintExtra.Validators),
