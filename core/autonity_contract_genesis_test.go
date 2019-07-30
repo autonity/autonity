@@ -4,11 +4,20 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p/enode"
+	"net"
 	"reflect"
 	"testing"
 )
 
 func TestValidateAutonityContract(t *testing.T) {
+	key1, _ := crypto.GenerateKey()
+	addr1 := crypto.PubkeyToAddress(key1.PublicKey)
+	node1 := enode.NewV4(&key1.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
+
+	key2, _ := crypto.GenerateKey()
+	addr2 := crypto.PubkeyToAddress(key2.PublicKey)
+	node2 := enode.NewV4(&key2.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
+
 	contractConfig := AutonityContract{
 		Deployer:           common.HexToAddress("0xff"),
 		GovernanceOperator: common.HexToAddress("0xff"),
@@ -16,12 +25,14 @@ func TestValidateAutonityContract(t *testing.T) {
 		ABI:                "some abi",
 		Users: []User{
 			{
-				Enode: "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
-				Type:  UserMember,
+				Enode:   node1.String(),
+				Type:    UserMember,
+				Address: addr1,
 			},
 			{
-				Enode: "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
-				Type:  UserValidator,
+				Enode:   node2.String(),
+				Type:    UserValidator,
+				Address: addr2,
 			},
 		},
 	}
@@ -36,6 +47,7 @@ func TestValidateAutonityContract(t *testing.T) {
 		}
 	}
 }
+
 func TestValidateAutonityContract_ParticipantHaveStake_Fail(t *testing.T) {
 	contractConfig := AutonityContract{
 		Deployer:           common.HexToAddress("0xff"),
@@ -56,6 +68,7 @@ func TestValidateAutonityContract_ParticipantHaveStake_Fail(t *testing.T) {
 	}
 
 }
+
 func TestValidateAutonityContract_ByteCodeMissed_Fail(t *testing.T) {
 	contractConfig := AutonityContract{
 		Deployer:           common.HexToAddress("0xff"),
@@ -74,6 +87,27 @@ func TestValidateAutonityContract_ByteCodeMissed_Fail(t *testing.T) {
 		t.FailNow()
 	}
 }
+
+func TestValidateAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
+	contractConfig := AutonityContract{
+		Deployer:           common.HexToAddress("0xff"),
+		Bytecode:           "some code",
+		ABI:                "some abi",
+		GovernanceOperator: common.HexToAddress("0xff"),
+		Users: []User{
+			{
+				Address: common.HexToAddress("0x123"),
+				Enode:   "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
+				Type:    UserParticipant,
+			},
+		},
+	}
+	err := contractConfig.Validate()
+	if err == nil {
+		t.FailNow()
+	}
+}
+
 func TestValidateAutonityContract_GovernanceOperatorNotExisted_Fail(t *testing.T) {
 	contractConfig := AutonityContract{
 		Deployer: common.HexToAddress("0xff"),
