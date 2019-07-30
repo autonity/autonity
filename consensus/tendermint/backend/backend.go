@@ -286,9 +286,9 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		)
 
 		// We need to process all of the transaction to get the latest state to get the latest validators
-		state, err := sb.blockchain.StateAt(parent.Root())
-		if err != nil {
-			return 0, err
+		state, stateErr := sb.blockchain.StateAt(parent.Root())
+		if stateErr != nil {
+			return 0, stateErr
 		}
 
 		// Validate the body of the proposal
