@@ -9,15 +9,18 @@ import (
 )
 
 const (
-	UserMember             UserType = "member"
-	UserValidator          UserType = "validator"
-	UserGovernanceOperator UserType = "GovernanceOperator"
+	//participant: Authorized to operate a full node, is able to join the network, is not authorized to own stake.
+	UserParticipant UserType = "participant"
+	//member: Authorized to operate a full node, is able to join the network, authorized to own stake.
+	UserMember UserType = "member"
+	//validator: Authorized to operate a full node, is able to join the network, authorized to own stake, participate in consensus.
+	UserValidator UserType = "validator"
 )
 
 type UserType string
 
 func (ut UserType) IsValid() bool {
-	if ut == UserMember || ut == UserGovernanceOperator || ut == UserValidator {
+	if ut == UserMember || ut == UserValidator || ut == UserParticipant {
 		return true
 	}
 	return false
@@ -28,11 +31,12 @@ type AutonityContract struct {
 	// Address of the validator who deploys contract stored in bytecode
 	Deployer common.Address `json:"deployer" toml:",omitempty"`
 	// Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
-	Bytecode    string `json:"bytecode" toml:",omitempty"`
-	MinGasPrice uint64 `json:"minGasPrice" toml:",omitempty"`
+	Bytecode string `json:"bytecode" toml:",omitempty"`
 	// Json ABI of the contract
-	ABI   string `json:"abi "toml:",omitempty"`
-	Users []User `json:"users" "toml:",omitempty"`
+	ABI                string         `json:"abi "toml:",omitempty"`
+	MinGasPrice        uint64         `json:"minGasPrice" toml:",omitempty"`
+	GovernanceOperator common.Address `json:"governanceOperator" toml:",omitempty"`
+	Users              []User         `json:"users" "toml:",omitempty"`
 }
 
 func (ac *AutonityContract) Validate() error {
@@ -42,17 +46,13 @@ func (ac *AutonityContract) Validate() error {
 	if reflect.DeepEqual(ac.Deployer, common.Address{}) {
 		return errors.New("deployer is empty")
 	}
-	numOfGovernanceOperator := 0
+	if reflect.DeepEqual(ac.GovernanceOperator, common.Address{}) {
+		return errors.New("governance operator is empty")
+	}
 	for i := range ac.Users {
 		if err := ac.Users[i].Validate(); err != nil {
 			return err
 		}
-		if ac.Users[i].Type == UserGovernanceOperator {
-			numOfGovernanceOperator++
-		}
-	}
-	if numOfGovernanceOperator != 1 {
-		return errors.New("incorrect number of GovernanceOperators")
 	}
 	return nil
 }
@@ -70,13 +70,29 @@ func (u *User) Validate() error {
 		return errors.New("incorrect user type")
 	}
 
-	n, err := enode.ParseV4(u.Enode)
-	if err != nil {
-		return fmt.Errorf("Fail to parse enode for account %v, error:%v", u.Address, err)
+	if reflect.DeepEqual(u.Address, common.Address{}) && len(u.Enode) == 0 {
+		return errors.New("user.enode or user.address must be defined")
 	}
 
-	if reflect.DeepEqual(u.Address, common.Address{}) {
-		u.Address = EnodeToAddress(n)
+	if u.Type == UserParticipant && u.Stake > 0 {
+		return errors.New("user.stake must be nil or equal to 0 for users of type participant")
+	}
+
+	if u.Type == UserValidator && len(u.Enode) == 0 {
+		return errors.New("if user.type is validator then user.enode must be defined")
+	}
+	if len(u.Enode) > 0 {
+		n, err := enode.ParseV4(u.Enode)
+		if err != nil {
+			return fmt.Errorf("fail to parse enode for account %v, error:%v", u.Address, err)
+		}
+
+		addrFromEnode := EnodeToAddress(n)
+		if reflect.DeepEqual(u.Address, common.Address{}) {
+			u.Address = addrFromEnode
+		} else if !reflect.DeepEqual(u.Address, addrFromEnode) {
+			return errors.New("if both user.enode and user.address are defined, then the derived address from user.enode must be equal to user.address")
+		}
 	}
 
 	return nil
@@ -91,16 +107,6 @@ func (ac *AutonityContract) GetValidatorUsers() []User {
 		}
 	}
 	return users
-}
-
-//GetGovernanceOperator - returns GovernanceOperator
-func (ac *AutonityContract) GetGovernanceOperator() User {
-	for i := range ac.Users {
-		if ac.Users[i].Type == UserGovernanceOperator {
-			return ac.Users[i]
-		}
-	}
-	return User{}
 }
 
 func EnodeToAddress(n *enode.Node) common.Address {
