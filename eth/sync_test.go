@@ -58,3 +58,60 @@ func TestFastSyncDisabling(t *testing.T) {
 		t.Fatalf("fast sync not disabled after successful synchronisation")
 	}
 }
+
+// Tests that fast sync gets disabled as soon as a real block is successfully
+// imported into the blockchain.
+func TestFastSyncDisablingMany(t *testing.T) {
+	// Create a pristine protocol manager, check that fast sync is left enabled
+	p2pPeerEmpty := newTestP2PPeer("peerEmpty")
+	p2pPeerEmpty1 := newTestP2PPeer("peerEmpty1")
+	p2pPeerFull := newTestP2PPeer("peerFull")
+
+	pmEmpty, _ := newTestProtocolManagerMust(t, downloader.FastSync, 0, nil, nil, []string{p2pPeerEmpty.Info().Enode, p2pPeerFull.Info().Enode, p2pPeerEmpty1.Info().Enode})
+
+	if atomic.LoadUint32(&pmEmpty.fastSync) == 0 {
+		t.Fatalf("fast sync disabled on pristine blockchain")
+	}
+
+	pmEmpty1, _ := newTestProtocolManagerMust(t, downloader.FastSync, 0, nil, nil, []string{p2pPeerEmpty.Info().Enode, p2pPeerFull.Info().Enode, p2pPeerEmpty1.Info().Enode})
+
+	if atomic.LoadUint32(&pmEmpty1.fastSync) == 0 {
+		t.Fatalf("fast sync disabled on pristine blockchain 1")
+	}
+
+	// Create a full protocol manager, check that fast sync gets disabled
+	pmFull, _ := newTestProtocolManagerMust(t, downloader.FastSync, 1024, nil, nil, []string{p2pPeerEmpty.Info().Enode, p2pPeerFull.Info().Enode, p2pPeerEmpty1.Info().Enode})
+
+	if atomic.LoadUint32(&pmFull.fastSync) == 1 {
+		t.Fatalf("fast sync not disabled on non-empty blockchain")
+	}
+	// Sync up the two peers
+	// p2pPeerEmpty <-> p2pPeerFull
+	io1, io2 := p2p.MsgPipe()
+	go pmFull.handle(pmFull.newPeer(63, p2pPeerEmpty, io2))
+	go pmEmpty.handle(pmEmpty.newPeer(63, p2pPeerFull, io1))
+
+	// p2pPeerEmpty1 <-> p2pPeerFull
+	io3, io4 := p2p.MsgPipe()
+	go pmFull.handle(pmFull.newPeer(63, p2pPeerEmpty1, io3))
+	go pmEmpty1.handle(pmEmpty.newPeer(63, p2pPeerFull, io4))
+
+	// p2pPeerEmpty1 <-> p2pPeerEmpty
+	io5, io6 := p2p.MsgPipe()
+	go pmEmpty.handle(pmFull.newPeer(63, p2pPeerEmpty1, io5))
+	go pmEmpty1.handle(pmEmpty.newPeer(63, p2pPeerEmpty, io6))
+
+	time.Sleep(250 * time.Millisecond)
+	pmEmpty.synchronise(pmEmpty.peers.BestPeer())
+
+	// Check that fast sync was disabled
+	if atomic.LoadUint32(&pmEmpty.fastSync) == 1 {
+		t.Fatalf("fast sync not disabled after successful synchronisation")
+	}
+
+	pmEmpty1.synchronise(pmEmpty1.peers.BestPeer())
+	// Check that fast sync was disabled
+	if atomic.LoadUint32(&pmEmpty1.fastSync) == 1 {
+		t.Fatalf("fast sync not disabled after successful synchronisation")
+	}
+}
