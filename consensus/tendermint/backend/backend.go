@@ -302,9 +302,9 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			state.Prepare(tx.Hash(), block.Hash(), i)
 			// Might be vulnerable to DoS Attack depending on gaslimit
 			// Todo : Double check
-			receipt, _, err := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil, gp, state, header, tx, usedGas, *sb.vmConfig)
-			if err != nil {
-				return 0, err
+			receipt, _, receiptErr := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil, gp, state, header, tx, usedGas, *sb.vmConfig)
+			if receiptErr != nil {
+				return 0, receiptErr
 			}
 			receipts = append(receipts, receipt)
 		}
