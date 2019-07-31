@@ -3,8 +3,6 @@ package tendermint
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"github.com/clearmatics/autonity/consensus"
-	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -15,6 +13,8 @@ import (
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/fdlimit"
+	"github.com/clearmatics/autonity/consensus"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -47,14 +47,24 @@ func TestTendermint(t *testing.T) {
 		nodes  []*node.Node
 		enodes []*enode.Node
 	)
-	for _, sealer := range sealers {
+
+	for i, sealer := range sealers {
 		// Start the node and wait until it's up
-		node, err := makeSealer(genesis, func(basic consensus.Engine) consensus.Engine {
-			return tendermintCore.NewCoreQuorumAlwaysFalse(basic)
-		})
+
+		// We want only one mock node
+		var engineConstructor func(basic consensus.Engine) consensus.Engine
+		if i == 0 {
+			engineConstructor = func(basic consensus.Engine) consensus.Engine {
+				return tendermintCore.NewCoreQuorumAlwaysFalse(basic)
+			}
+		}
+
+		node, err := makeSealer(genesis, engineConstructor)
 		if err != nil {
 			panic(err)
 		}
+
+		//todo: aggregate into the single Stop function
 		defer func() {
 			_ = node.Stop()
 		}()
