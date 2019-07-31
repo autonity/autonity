@@ -83,13 +83,17 @@ func (pos *BFTExtra) DecodeRLP(s *rlp.Stream) error {
 // ExtractBFTExtra extracts all values of the BFTExtra from the header. It returns an
 // error if the length of the given extra-data is less than 32 bytes or the extra-data can not
 // be decoded.
-func ExtractBFTExtra(h *Header) (*BFTExtra, error) {
-	if len(h.Extra) < BFTExtraVanity {
+func ExtractBFTHeaderExtra(h *Header) (*BFTExtra, error) {
+	return ExtractBFTExtra(h.Extra)
+}
+
+func ExtractBFTExtra(extra []byte) (*BFTExtra, error) {
+	if len(extra) < BFTExtraVanity {
 		return nil, ErrInvalidBFTHeaderExtra
 	}
 
 	var bftExtra *BFTExtra
-	err := rlp.DecodeBytes(h.Extra[BFTExtraVanity:], &bftExtra)
+	err := rlp.DecodeBytes(extra[BFTExtraVanity:], &bftExtra)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +105,7 @@ func ExtractBFTExtra(h *Header) (*BFTExtra, error) {
 // decoded/encoded by rlp.
 func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	newHeader := CopyHeader(h)
-	bftExtra, err := ExtractBFTExtra(newHeader)
+	bftExtra, err := ExtractBFTHeaderExtra(newHeader)
 	if err != nil {
 		return nil
 	}
@@ -149,7 +153,7 @@ func Ecrecover(header *Header) (common.Address, error) {
 	}
 
 	// Retrieve the signature from the header extra-data
-	bftExtra, err := ExtractBFTExtra(header)
+	bftExtra, err := ExtractBFTHeaderExtra(header)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -192,7 +196,7 @@ func WriteSeal(h *Header, seal []byte) error {
 		return ErrInvalidSignature
 	}
 
-	bftExtra, err := ExtractBFTExtra(h)
+	bftExtra, err := ExtractBFTHeaderExtra(h)
 	if err != nil {
 		return err
 	}
@@ -219,7 +223,7 @@ func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
 		}
 	}
 
-	bftExtra, err := ExtractBFTExtra(h)
+	bftExtra, err := ExtractBFTHeaderExtra(h)
 	if err != nil {
 		return err
 	}

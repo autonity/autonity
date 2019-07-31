@@ -1,17 +1,19 @@
 package tendermint
 
 import (
-	"bytes"
 	"crypto/ecdsa"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
+	"net"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/fdlimit"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
@@ -28,7 +30,7 @@ import (
 )
 
 func TestTendermint(t *testing.T) {
-	t.SkipNow()
+	//t.SkipNow()
 
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_ = fdlimit.Raise(2048)
@@ -43,12 +45,33 @@ func TestTendermint(t *testing.T) {
 		sealers[i], _ = crypto.GenerateKey()
 	}
 	// Create a Clique network based off of the Rinkeby config
+
 	genesis := makeGenesis(faucets, sealers)
 
 	var (
 		nodes  []*node.Node
 		enodes []*enode.Node
 	)
+
+	// get enode addresses before node.Start()
+	addresses := make([]string, len(sealers))
+	ports := make([]int, len(sealers))
+	urls := make([]string, len(sealers))
+	for i, sealer := range sealers {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			panic(err)
+		}
+
+		addresses[i] = strings.Split(listener.Addr().String(), ":")[1]
+		ports[i], _ = strconv.Atoi(addresses[i])
+
+		listener.Close()
+
+		urls[i] = enode.V4URL(sealer.PublicKey, net.IPv4(127,0,0,1), ports[i], ports[i])
+	}
+
+	genesis.Config.EnodeWhitelist = urls
 
 	for i, sealer := range sealers {
 		// Start the node and wait until it's up
@@ -61,7 +84,7 @@ func TestTendermint(t *testing.T) {
 			}
 		}
 
-		node, err := makeSealer(genesis, engineConstructor)
+		node, err := makeSealer(genesis, addresses[i],  engineConstructor)
 		if err != nil {
 			panic(err)
 		}
@@ -93,18 +116,21 @@ func TestTendermint(t *testing.T) {
 		}
 	}
 	// Iterate over all the nodes and start signing with them
-	time.Sleep(3 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	for _, node := range nodes {
 		var ethereum *eth.Ethereum
 		if err := node.Service(&ethereum); err != nil {
 			panic(err)
 		}
+
+		// todo: check if we need it
 		if err := ethereum.StartMining(1); err != nil {
 			panic(err)
 		}
 	}
-	time.Sleep(3 * time.Second)
+
+	time.Sleep(10 * time.Second)
 
 	// Start injecting transactions from the faucet like crazy
 	nonces := make([]uint64, len(faucets))
@@ -133,16 +159,24 @@ func TestTendermint(t *testing.T) {
 	}
 }
 
-// makeGenesis creates a custom Clique genesis block based on some pre-defined
-// signer and faucet accounts.
-func makeGenesis(faucets []*ecdsa.PrivateKey, sealers []*ecdsa.PrivateKey) *core.Genesis {
-	// Create a Clique network based off of the Rinkeby config
-	genesis := core.DefaultRinkebyGenesisBlock()
-	genesis.GasLimit = 25000000
+var (
+	defaultDifficulty = big.NewInt(1)
+	nilUncleHash      = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
+	emptyNonce        = types.BlockNonce{}
+	now               = time.Now
+)
 
-	genesis.Config.ChainID = big.NewInt(18)
-	genesis.Config.Clique.Period = 1
-	genesis.Config.EIP150Hash = common.Hash{}
+func makeGenesis(faucets []*ecdsa.PrivateKey, sealers []*ecdsa.PrivateKey) *core.Genesis {
+	// generate genesis block
+	genesis := core.DefaultGenesisBlock()
+	genesis.Config = params.TestChainConfig
+
+	// force enable Istanbul engine
+	genesis.Config.Tendermint = &params.TendermintConfig{}
+	genesis.Config.Ethash = nil
+	genesis.Difficulty = defaultDifficulty
+	genesis.Nonce = emptyNonce.Uint64()
+	genesis.Mixhash = types.BFTDigest
 
 	genesis.Alloc = core.GenesisAlloc{}
 	for _, faucet := range faucets {
@@ -150,31 +184,29 @@ func makeGenesis(faucets []*ecdsa.PrivateKey, sealers []*ecdsa.PrivateKey) *core
 			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
 		}
 	}
-	// Sort the signers and embed into the extra-data section
-	signers := make([]common.Address, len(sealers))
-	for i, sealer := range sealers {
-		signers[i] = crypto.PubkeyToAddress(sealer.PublicKey)
+
+	validatorsAddresses := make([]string, len(sealers))
+	for i, validator := range sealers {
+		validatorsAddresses[i] = crypto.PubkeyToAddress(validator.PublicKey).String()
+		genesis.Config.EnodeWhitelist = append(genesis.Config.EnodeWhitelist, enode.PubkeyToIDV4(&validator.PublicKey).String())
 	}
-	for i := 0; i < len(signers); i++ {
-		for j := i + 1; j < len(signers); j++ {
-			if bytes.Compare(signers[i][:], signers[j][:]) > 0 {
-				signers[i], signers[j] = signers[j], signers[i]
-			}
-		}
-	}
-	genesis.ExtraData = make([]byte, 32+len(signers)*common.AddressLength+65)
-	for i, signer := range signers {
-		copy(genesis.ExtraData[32+i*common.AddressLength:], signer[:])
-	}
-	// Return the genesis block for initialization
+
+	genesis.Validators = validatorsAddresses
+	genesis.SetBFT()
+
 	return genesis
 }
 
-func makeSealer(genesis *core.Genesis, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) {
+
+func makeSealer(genesis *core.Genesis, listenAddr string, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) {
 	// Define the basic configurations for the Ethereum node
 	datadir, _ := ioutil.TempDir("", "")
 
-	config := &node.Config{
+	if listenAddr == "" {
+		listenAddr = "0.0.0.0:0"
+	}
+
+	configNode := &node.Config{
 		Name:    "autonity",
 		Version: params.Version,
 		DataDir: datadir,
@@ -186,7 +218,7 @@ func makeSealer(genesis *core.Genesis, cons func(basic consensus.Engine) consens
 		NoUSB: true,
 	}
 	// Start the node and configure a full Ethereum node on it
-	stack, err := node.New(config)
+	stack, err := node.New(configNode)
 	if err != nil {
 		return nil, err
 	}
@@ -198,11 +230,7 @@ func makeSealer(genesis *core.Genesis, cons func(basic consensus.Engine) consens
 			DatabaseCache:   256,
 			DatabaseHandles: 256,
 			TxPool:          core.DefaultTxPoolConfig,
-			GPO:             eth.DefaultConfig.GPO,
-			MinerGasFloor:   genesis.GasLimit * 9 / 10,
-			MinerGasCeil:    genesis.GasLimit * 11 / 10,
-			MinerGasPrice:   big.NewInt(1),
-			MinerRecommit:   time.Second,
+			Tendermint: 	 *config.DefaultConfig,
 		}, cons)
 	}); err != nil {
 		return nil, err

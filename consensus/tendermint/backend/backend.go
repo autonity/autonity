@@ -326,7 +326,7 @@ func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
 				return 0, err
 			}
 		}
-		tendermintExtra, _ := types.ExtractBFTExtra(header)
+		tendermintExtra, _ := types.ExtractBFTHeaderExtra(header)
 
 		//Perform the actual comparison
 		if len(tendermintExtra.Validators) != len(validators) {

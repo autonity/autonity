@@ -278,7 +278,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	}
 
 	if g.Config != nil && (g.Config.Istanbul != nil || g.Config.Tendermint != nil) {
-		err := g.setBFT()
+		err := g.SetBFT()
 		if err != nil {
 			return nil, err
 		}
@@ -301,7 +301,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 }
 
 //setBFT sets default BFT(IBFT or Tendermint) config values
-func (g *Genesis) setBFT() error {
+func (g *Genesis) SetBFT() error {
 	if len(g.Validators) != 0 {
 		err := g.setBFTValidatorExtraData(g.Validators)
 		if err != nil {

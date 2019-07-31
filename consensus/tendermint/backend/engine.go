@@ -110,7 +110,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 	}
 
 	// Ensure that the extra data format is satisfied
-	if _, err := types.ExtractBFTExtra(header); err != nil {
+	if _, err := types.ExtractBFTHeaderExtra(header); err != nil {
 		return errInvalidExtraDataFormat
 	}
 
@@ -239,7 +239,7 @@ func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 	}
 	validators := validator.NewSet(validatorAddresses, sb.config.GetProposerPolicy())
 
-	extra, err := types.ExtractBFTExtra(header)
+	extra, err := types.ExtractBFTHeaderExtra(header)
 	if err != nil {
 		return err
 	}
@@ -520,7 +520,7 @@ func (sb *Backend) retrieveSavedValidators(number uint64, chain consensus.ChainR
 		return nil, errUnknownBlock
 	}
 
-	tendermintExtra, err := types.ExtractBFTExtra(header)
+	tendermintExtra, err := types.ExtractBFTHeaderExtra(header)
 	if err != nil {
 		return nil, err
 	}
@@ -545,7 +545,7 @@ func (sb *Backend) retrieveValidators(header *types.Header, parents []*types.Hea
 	if len(parents) > 0 {
 		parent := parents[len(parents)-1]
 		var tendermintExtra *types.BFTExtra
-		tendermintExtra, err = types.ExtractBFTExtra(parent)
+		tendermintExtra, err = types.ExtractBFTHeaderExtra(parent)
 		if err == nil {
 			validators = tendermintExtra.Validators
 		}

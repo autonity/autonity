@@ -483,7 +483,7 @@ func TestWriteSeal(t *testing.T) {
 	}
 
 	// verify tendermint extra-data
-	istExtra, err := types.ExtractBFTExtra(h)
+	istExtra, err := types.ExtractBFTHeaderExtra(h)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
@@ -526,7 +526,7 @@ func TestWriteCommittedSeals(t *testing.T) {
 	}
 
 	// verify tendermint extra-data
-	istExtra, err := types.ExtractBFTExtra(h)
+	istExtra, err := types.ExtractBFTHeaderExtra(h)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
