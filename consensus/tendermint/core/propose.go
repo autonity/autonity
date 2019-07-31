@@ -78,7 +78,7 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 	}
 
 	// Verify the proposal we received
-	if duration, err := c.backend.Verify(*proposal.ProposalBlock); err != nil {
+	if duration, err := c.backend.VerifyProposal(*proposal.ProposalBlock); err != nil {
 		if timeoutErr := c.proposeTimeout.stopTimer(); timeoutErr != nil {
 			return timeoutErr
 		}
@@ -103,8 +103,6 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 		}
 		return err
 	}
-
-	// TODO: check for bad proposal using c.backed.HasBadProposal
 
 	// Here is about to accept the Proposal
 	if c.currentRoundState.Step() == propose {

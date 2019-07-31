@@ -46,9 +46,9 @@ type Backend interface {
 	// The delivered proposal will be put into blockchain.
 	Commit(proposalBlock types.Block, seals [][]byte) error
 
-	// Verify verifies the proposal. If a consensus.ErrFutureBlock error is returned,
+	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
-	Verify(types.Block) (time.Duration, error)
+	VerifyProposal(types.Block) (time.Duration, error)
 
 	// Sign signs input data with the backend's private key
 	Sign([]byte) ([]byte, error)
