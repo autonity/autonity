@@ -20,13 +20,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"math/big"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
@@ -42,6 +42,9 @@ const (
 	inmemoryPeers     = 40
 	inmemoryMessages  = 1024
 )
+
+// ErrStartedEngine is returned if the engine is already started
+var ErrStartedEngine = errors.New("started engine")
 
 var (
 	// errInvalidProposal is returned when a prposal is malformed.
@@ -421,7 +424,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	sb.commitCh = results // results channel stays always the same
 
 	// post block into BFT engine
-	sb.postEvent(tendermint.NewUnminedBlockEvent{
+	sb.postEvent(events.NewUnminedBlockEvent{
 		NewUnminedBlock: *block,
 	})
 
@@ -471,7 +474,7 @@ func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if sb.coreStarted {
-		return tendermint.ErrStartedEngine
+		return ErrStartedEngine
 	}
 
 	// clear previous data
@@ -483,10 +486,6 @@ func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types
 
 	var ctx context.Context
 	ctx, sb.cancel = context.WithCancel(context.Background())
-
-	if err := sb.core.Start(); err != nil {
-		return err
-	}
 
 	sb.coreStarted = true
 
@@ -501,10 +500,7 @@ func (sb *Backend) Close() error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if !sb.coreStarted {
-		return tendermint.ErrStoppedEngine
-	}
-	if err := sb.core.Stop(); err != nil {
-		return err
+		return ErrStoppedEngine
 	}
 	sb.coreStarted = false
 

@@ -19,16 +19,15 @@ package backend
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint"
-	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -38,6 +37,7 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
+	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -45,8 +45,16 @@ const (
 	fetcherID = "tendermint"
 )
 
+var (
+	// ErrUnauthorizedAddress is returned when given address cannot be found in
+	// current validator set.
+	ErrUnauthorizedAddress = errors.New("unauthorized address")
+	// ErrStoppedEngine is returned if the engine is stopped
+	ErrStoppedEngine = errors.New("stopped engine")
+)
+
 // New creates an Ethereum Backend for BFT core engine.
-func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
+func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
 	if chainConfig.Tendermint.Epoch != 0 {
 		config.Epoch = chainConfig.Tendermint.Epoch
 	}
@@ -66,7 +74,7 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
 
-	config.SetProposerPolicy(tendermint.ProposerPolicy(chainConfig.Tendermint.ProposerPolicy))
+	config.SetProposerPolicy(tendermintConfig.ProposerPolicy(chainConfig.Tendermint.ProposerPolicy))
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
@@ -85,7 +93,6 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
 	}
-	backend.core = tendermintCore.New(backend, backend.config)
 
 	return backend
 }
@@ -93,11 +100,10 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 // ----------------------------------------------------------------------------
 
 type Backend struct {
-	config       *tendermint.Config
+	config       *tendermintConfig.Config
 	eventMux     *event.TypeMuxSilent
 	privateKey   *ecdsa.PrivateKey
 	address      common.Address
-	core         tendermintCore.Engine
 	logger       log.Logger
 	db           ethdb.Database
 	blockchain   *core.BlockChain
@@ -134,7 +140,7 @@ func (sb *Backend) Address() common.Address {
 	return sb.address
 }
 
-func (sb *Backend) Validators(number uint64) tendermint.ValidatorSet {
+func (sb *Backend) Validators(number uint64) validator.Set {
 	validators, err := sb.retrieveSavedValidators(number, sb.blockchain)
 	proposerPolicy := sb.config.GetProposerPolicy()
 	if err != nil {
@@ -144,11 +150,11 @@ func (sb *Backend) Validators(number uint64) tendermint.ValidatorSet {
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(ctx context.Context, valSet tendermint.ValidatorSet, payload []byte) error {
+func (sb *Backend) Broadcast(ctx context.Context, valSet validator.Set, payload []byte) error {
 	// send to others
 	sb.Gossip(ctx, valSet, payload)
 	// send to self
-	msg := tendermint.MessageEvent{
+	msg := events.MessageEvent{
 		Payload: payload,
 	}
 	sb.postEvent(msg)
@@ -163,7 +169,7 @@ const TTL = 10           //seconds
 const retryInterval = 50 //milliseconds
 
 // Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, valSet tendermint.ValidatorSet, payload []byte) {
+func (sb *Backend) Gossip(ctx context.Context, valSet validator.Set, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 

@@ -88,18 +88,30 @@ func TestFastSyncDisablingMany(t *testing.T) {
 	// Sync up the two peers
 	// p2pPeerEmpty <-> p2pPeerFull
 	io1, io2 := p2p.MsgPipe()
-	go pmFull.handle(pmFull.newPeer(63, p2pPeerEmpty, io2))
-	go pmEmpty.handle(pmEmpty.newPeer(63, p2pPeerFull, io1))
+	go func() {
+		_ = pmFull.handle(pmFull.newPeer(63, p2pPeerEmpty, io2))
+	}()
+	go func() {
+		_ = pmEmpty.handle(pmEmpty.newPeer(63, p2pPeerFull, io1))
+	}()
 
 	// p2pPeerEmpty1 <-> p2pPeerFull
 	io3, io4 := p2p.MsgPipe()
-	go pmFull.handle(pmFull.newPeer(63, p2pPeerEmpty1, io3))
-	go pmEmpty1.handle(pmEmpty.newPeer(63, p2pPeerFull, io4))
+	go func() {
+		_ = pmFull.handle(pmFull.newPeer(63, p2pPeerEmpty1, io3))
+	}()
+	go func() {
+		_ = pmEmpty1.handle(pmEmpty.newPeer(63, p2pPeerFull, io4))
+	}()
 
 	// p2pPeerEmpty1 <-> p2pPeerEmpty
 	io5, io6 := p2p.MsgPipe()
-	go pmEmpty.handle(pmFull.newPeer(63, p2pPeerEmpty1, io5))
-	go pmEmpty1.handle(pmEmpty.newPeer(63, p2pPeerEmpty, io6))
+	go func() {
+		_ = pmEmpty.handle(pmFull.newPeer(63, p2pPeerEmpty1, io5))
+	}()
+	go func() {
+		_ = pmEmpty1.handle(pmEmpty.newPeer(63, p2pPeerEmpty, io6))
+	}()
 
 	time.Sleep(250 * time.Millisecond)
 	pmEmpty.synchronise(pmEmpty.peers.BestPeer())

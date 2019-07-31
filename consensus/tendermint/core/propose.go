@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core/types"
 )
 
@@ -31,7 +30,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.currentRoundState.Height().Int64() == p.Number().Int64() && c.isProposer() && !c.sentProposal {
-		proposalBlock := tendermint.NewProposal(c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound, p)
+		proposalBlock := NewProposal(c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound, p)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
@@ -59,7 +58,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 }
 
 func (c *core) handleProposal(ctx context.Context, msg *message) error {
-	var proposal tendermint.Proposal
+	var proposal Proposal
 	err := msg.Decode(&proposal)
 	if err != nil {
 		return errFailedDecodeProposal
@@ -129,7 +128,7 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 			}
 			c.setStep(prevote)
 			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if rs, ok := c.currentHeightOldRoundsStates[vr]; vr > -1 && vr < curR && ok && c.quorum(rs.Prevotes.VotesSize(h)) {
+		} else if rs, ok := c.currentHeightOldRoundsStates[vr]; vr > -1 && vr < curR && ok && c.Quorum(rs.Prevotes.VotesSize(h)) {
 			if c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash() {
 				c.sendPrevote(ctx, false)
 			} else {
@@ -142,7 +141,7 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 	return nil
 }
 
-func (c *core) logProposalMessageEvent(message string, proposal tendermint.Proposal, from, to string) {
+func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, to string) {
 	c.logger.Debug(message,
 		"type", "Proposal",
 		"from", from,

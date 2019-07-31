@@ -1,128 +1,129 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
 type validatorSet struct {
 	sync.RWMutex
-	tendermint.ValidatorSet
+	validator.Set
 }
 
-func (v *validatorSet) set(valSet tendermint.ValidatorSet) {
+func (v *validatorSet) set(valSet validator.Set) {
 	v.Lock()
-	v.ValidatorSet = valSet
+	v.Set = valSet
 	v.Unlock()
 }
 
 func (v *validatorSet) Size() int {
 	v.RLock()
 	defer v.RUnlock()
-	if v.ValidatorSet == nil {
+	if v.Set == nil {
 		return 0
 	}
-	size := v.ValidatorSet.Size()
+	size := v.Set.Size()
 	return size
 }
 
-func (v *validatorSet) List() []tendermint.Validator {
+func (v *validatorSet) List() []validator.Validator {
 	v.RLock()
 	defer v.RUnlock()
-	if v.ValidatorSet == nil {
+	if v.Set == nil {
 		return nil
 	}
 
-	list := v.ValidatorSet.List()
+	list := v.Set.List()
 	return list
 }
 
-func (v *validatorSet) GetByIndex(i uint64) tendermint.Validator {
+func (v *validatorSet) GetByIndex(i uint64) validator.Validator {
 	v.RLock()
 	defer v.RUnlock()
-	if v.ValidatorSet == nil {
+	if v.Set == nil {
 		return nil
 	}
-	val := v.ValidatorSet.GetByIndex(i)
+	val := v.Set.GetByIndex(i)
 	return val
 }
 
-func (v *validatorSet) GetByAddress(addr common.Address) (int, tendermint.Validator) {
+func (v *validatorSet) GetByAddress(addr common.Address) (int, validator.Validator) {
 	v.RLock()
 	defer v.RUnlock()
-	if v.ValidatorSet == nil {
+	if v.Set == nil {
 		return -1, nil
 	}
-	i, val := v.ValidatorSet.GetByAddress(addr)
+	i, val := v.Set.GetByAddress(addr)
 	return i, val
 }
 
-func (v *validatorSet) GetProposer() tendermint.Validator {
+func (v *validatorSet) GetProposer() validator.Validator {
 	v.RLock()
 	defer v.RUnlock()
-	if v.ValidatorSet == nil {
+	if v.Set == nil {
 		return nil
 	}
-	val := v.ValidatorSet.GetProposer()
+	val := v.Set.GetProposer()
 	return val
 }
 
-func (v *validatorSet) Copy() tendermint.ValidatorSet {
+func (v *validatorSet) Copy() validator.Set {
 	v.RLock()
 	defer v.RUnlock()
-	if v.ValidatorSet == nil {
+	if v.Set == nil {
 		return nil
 	}
-	valSet := v.ValidatorSet.Copy()
+	valSet := v.Set.Copy()
 	return valSet
 }
 
-func (v *validatorSet) Policy() tendermint.ProposerPolicy {
+func (v *validatorSet) Policy() config.ProposerPolicy {
 	v.RLock()
 	defer v.RUnlock()
-	if v.ValidatorSet == nil {
+	if v.Set == nil {
 		return 0
 	}
-	policy := v.ValidatorSet.Policy()
+	policy := v.Set.Policy()
 	return policy
 }
 
 func (v *validatorSet) CalcProposer(lastProposer common.Address, round uint64) {
 	v.RLock()
 	defer v.RUnlock()
-	if v.ValidatorSet == nil {
+	if v.Set == nil {
 		return
 	}
-	v.ValidatorSet.CalcProposer(lastProposer, round)
+	v.Set.CalcProposer(lastProposer, round)
 }
 
 func (v *validatorSet) IsProposer(address common.Address) bool {
 	v.RLock()
 	defer v.RUnlock()
-	if v.ValidatorSet == nil {
+	if v.Set == nil {
 		return false
 	}
 
-	return v.ValidatorSet.IsProposer(address)
+	return v.Set.IsProposer(address)
 }
 
 func (v *validatorSet) AddValidator(address common.Address) bool {
 	v.RLock()
 	defer v.RUnlock()
-	if v.ValidatorSet == nil {
+	if v.Set == nil {
 		return false
 	}
 
-	return v.ValidatorSet.AddValidator(address)
+	return v.Set.AddValidator(address)
 }
 
 func (v *validatorSet) RemoveValidator(address common.Address) bool {
 	v.RLock()
 	defer v.RUnlock()
-	if v.ValidatorSet == nil {
+	if v.Set == nil {
 		return false
 	}
-	return v.ValidatorSet.RemoveValidator(address)
+	return v.Set.RemoveValidator(address)
 }

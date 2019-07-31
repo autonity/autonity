@@ -18,8 +18,9 @@ package core
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"io"
 
 	"github.com/clearmatics/autonity/common"
@@ -66,11 +67,13 @@ func (m *message) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
+var ErrUnauthorizedAddress = errors.New("unauthorized address")
+
 // ==============================================
 //
 // define the functions that needs to be provided for core.
 
-func (m *message) FromPayload(b []byte, valSet tendermint.ValidatorSet, validateFn func(tendermint.ValidatorSet, []byte, []byte) (common.Address, error)) (*tendermint.Validator, error) {
+func (m *message) FromPayload(b []byte, valSet validator.Set, validateFn func(validator.Set, []byte, []byte) (common.Address, error)) (*validator.Validator, error) {
 	// Decode message
 	err := rlp.DecodeBytes(b, m)
 	if err != nil {
@@ -93,7 +96,7 @@ func (m *message) FromPayload(b []byte, valSet tendermint.ValidatorSet, validate
 
 	//ensure message was singed by the sender
 	if !bytes.Equal(m.Address.Bytes(), addr.Bytes()) {
-		return nil, tendermint.ErrUnauthorizedAddress
+		return nil, ErrUnauthorizedAddress
 	}
 
 	if err == nil {

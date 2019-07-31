@@ -18,7 +18,7 @@ package validator
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 )
 
 func New(addr common.Address) *defaultValidator {
@@ -27,7 +27,7 @@ func New(addr common.Address) *defaultValidator {
 	}
 }
 
-func NewSet(addrs []common.Address, policy tendermint.ProposerPolicy) *defaultSet {
+func NewSet(addrs []common.Address, policy config.ProposerPolicy) *defaultSet {
 	return newDefaultSet(addrs, policy)
 }
 

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tendermint
+package events
 
 import "github.com/clearmatics/autonity/core/types"
 
@@ -26,6 +26,10 @@ type NewUnminedBlockEvent struct {
 // MessageEvent is posted for Istanbul engine communication
 type MessageEvent struct {
 	Payload []byte
+}
+
+type Poster interface {
+	Post(interface{}) error
 }
 
 // CommitEvent is posted when a proposal is committed

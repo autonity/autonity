@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	crypto2 "github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/ethdb"
@@ -32,7 +34,7 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -86,7 +88,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
 		// CheckValidatorSignature should succeed
-		addr, err := tendermint.CheckValidatorSignature(vset, data, sig)
+		addr, err := crypto2.CheckValidatorSignature(vset, data, sig)
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
@@ -108,9 +110,9 @@ func TestCheckValidatorSignature(t *testing.T) {
 	}
 
 	// CheckValidatorSignature should return ErrUnauthorizedAddress
-	addr, err := tendermint.CheckValidatorSignature(vset, data, sig)
-	if err != tendermint.ErrUnauthorizedAddress {
-		t.Errorf("error mismatch: have %v, want %v", err, tendermint.ErrUnauthorizedAddress)
+	addr, err := crypto2.CheckValidatorSignature(vset, data, sig)
+	if err != ErrUnauthorizedAddress {
+		t.Errorf("error mismatch: have %v, want %v", err, ErrUnauthorizedAddress)
 	}
 	emptyAddr := common.Address{}
 	if addr != emptyAddr {
@@ -222,7 +224,7 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 	return crypto.HexToECDSA(key)
 }
 
-func newTestValidatorSet(n int) (tendermint.ValidatorSet, []*ecdsa.PrivateKey) {
+func newTestValidatorSet(n int) (validator.Set, []*ecdsa.PrivateKey) {
 	// generate validators
 	keys := make(Keys, n)
 	addrs := make([]common.Address, n)
@@ -231,7 +233,7 @@ func newTestValidatorSet(n int) (tendermint.ValidatorSet, []*ecdsa.PrivateKey) {
 		keys[i] = privateKey
 		addrs[i] = crypto.PubkeyToAddress(privateKey.PublicKey)
 	}
-	vset := validator.NewSet(addrs, tendermint.RoundRobin)
+	vset := validator.NewSet(addrs, config.RoundRobin)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
 	return vset, keys
 }
@@ -263,16 +265,18 @@ func newBackend() (b *Backend) {
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
-	config := tendermint.DefaultConfig
+	config := config.DefaultConfig
 	// Use the first key as private key
 	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
+	c := tendermintCore.New(b, config)
+
 	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil)
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, c, vm.Config{}, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	err = b.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	err = c.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
 	if err != nil {
 		panic(err)
 	}
@@ -292,6 +296,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 		}
 	}
 
+	// TODO: check if we need to return Core type as an Engine
 	return blockchain, b
 }
 
@@ -338,7 +343,7 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 	genesis.ExtraData = append(genesis.ExtraData, istPayload...)
 }
 
-func makeHeader(parent *types.Block, config *tendermint.Config) *types.Header {
+func makeHeader(parent *types.Block, config *config.Config) *types.Header {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),

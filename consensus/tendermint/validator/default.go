@@ -17,13 +17,13 @@
 package validator
 
 import (
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math"
 	"reflect"
 	"sort"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
 type defaultValidator struct {
@@ -41,15 +41,15 @@ func (val *defaultValidator) String() string {
 // ----------------------------------------------------------------------------
 
 type defaultSet struct {
-	validators tendermint.Validators
-	policy     tendermint.ProposerPolicy
+	validators Validators
+	policy     config.ProposerPolicy
 
-	proposer    tendermint.Validator
+	proposer    Validator
 	validatorMu sync.RWMutex
-	selector    tendermint.ProposalSelector
+	selector    ProposalSelector
 }
 
-func newDefaultSet(addrs []common.Address, policy tendermint.ProposerPolicy) *defaultSet {
+func newDefaultSet(addrs []common.Address, policy config.ProposerPolicy) *defaultSet {
 	valSet := &defaultSet{}
 
 	valSet.policy = policy
@@ -63,9 +63,9 @@ func newDefaultSet(addrs []common.Address, policy tendermint.ProposerPolicy) *de
 	}
 
 	switch policy {
-	case tendermint.Sticky:
+	case config.Sticky:
 		valSet.selector = stickyProposer
-	case tendermint.RoundRobin:
+	case config.RoundRobin:
 		valSet.selector = roundRobinProposer
 	default:
 		valSet.selector = roundRobinProposer
@@ -74,8 +74,8 @@ func newDefaultSet(addrs []common.Address, policy tendermint.ProposerPolicy) *de
 	return valSet
 }
 
-func makeValidators(addrs []common.Address) []tendermint.Validator {
-	validators := make([]tendermint.Validator, len(addrs))
+func makeValidators(addrs []common.Address) []Validator {
+	validators := make([]Validator, len(addrs))
 	for i, addr := range addrs {
 		validators[i] = New(addr)
 	}
@@ -83,8 +83,8 @@ func makeValidators(addrs []common.Address) []tendermint.Validator {
 	return validators
 }
 
-func copyValidators(validators []tendermint.Validator) []tendermint.Validator {
-	validatorsCopy := make([]tendermint.Validator, len(validators))
+func copyValidators(validators []Validator) []Validator {
+	validatorsCopy := make([]Validator, len(validators))
 	for i, val := range validators {
 		validatorsCopy[i] = New(val.Address())
 	}
@@ -98,14 +98,14 @@ func (valSet *defaultSet) Size() int {
 	return len(valSet.validators)
 }
 
-func (valSet *defaultSet) List() []tendermint.Validator {
+func (valSet *defaultSet) List() []Validator {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
 
 	return copyValidators(valSet.validators)
 }
 
-func (valSet *defaultSet) GetByIndex(i uint64) tendermint.Validator {
+func (valSet *defaultSet) GetByIndex(i uint64) Validator {
 	if i < uint64(valSet.Size()) {
 		valSet.validatorMu.RLock()
 		defer valSet.validatorMu.RUnlock()
@@ -116,7 +116,7 @@ func (valSet *defaultSet) GetByIndex(i uint64) tendermint.Validator {
 	return nil
 }
 
-func (valSet *defaultSet) GetByAddress(addr common.Address) (int, tendermint.Validator) {
+func (valSet *defaultSet) GetByAddress(addr common.Address) (int, Validator) {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
 
@@ -128,14 +128,14 @@ func (valSet *defaultSet) GetByAddress(addr common.Address) (int, tendermint.Val
 	return -1, nil
 }
 
-func (valSet *defaultSet) GetProposer() tendermint.Validator {
+func (valSet *defaultSet) GetProposer() Validator {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
 
 	return valSet.getProposer()
 }
 
-func (valSet *defaultSet) getProposer() tendermint.Validator {
+func (valSet *defaultSet) getProposer() Validator {
 	return New(valSet.proposer.Address())
 }
 
@@ -184,7 +184,7 @@ func (valSet *defaultSet) RemoveValidator(address common.Address) bool {
 	return false
 }
 
-func (valSet *defaultSet) Copy() tendermint.ValidatorSet {
+func (valSet *defaultSet) Copy() Set {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
 
@@ -197,4 +197,4 @@ func (valSet *defaultSet) Copy() tendermint.ValidatorSet {
 
 func (valSet *defaultSet) F() int { return int(math.Ceil(float64(valSet.Size())/3)) - 1 }
 
-func (valSet *defaultSet) Policy() tendermint.ProposerPolicy { return valSet.policy }
+func (valSet *defaultSet) Policy() config.ProposerPolicy { return valSet.policy }

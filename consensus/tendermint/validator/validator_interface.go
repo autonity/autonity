@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tendermint
+package validator
 
 import (
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"strings"
 
 	"github.com/clearmatics/autonity/common"
@@ -48,7 +49,7 @@ func (slice Validators) Swap(i, j int) {
 
 // ----------------------------------------------------------------------------
 
-type ValidatorSet interface {
+type Set interface {
 	// Calculate the proposer
 	CalcProposer(lastProposer common.Address, round uint64)
 	// Return the validator size
@@ -68,13 +69,13 @@ type ValidatorSet interface {
 	// Remove validator
 	RemoveValidator(address common.Address) bool
 	// Copy validator set
-	Copy() ValidatorSet
+	Copy() Set
 	// Get the maximum number of faulty nodes
 	F() int
 	// Get proposer policy
-	Policy() ProposerPolicy
+	Policy() config.ProposerPolicy
 }
 
 // ----------------------------------------------------------------------------
 
-type ProposalSelector func(ValidatorSet, common.Address, uint64) Validator
+type ProposalSelector func(Set, common.Address, uint64) Validator

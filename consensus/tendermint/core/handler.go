@@ -18,15 +18,24 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"runtime/debug"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
 // Start implements core.Engine.Start
-func (c *core) Start() error {
+func (c *core) Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+	err := c.backend.Start(chain, currentBlock, hasBadBlock)
+	if err != nil {
+		return err
+	}
+
 	c.subscribeEvents()
 
 	// set currentRoundState before starting go routines
@@ -48,6 +57,11 @@ func (c *core) Start() error {
 
 // Stop implements core.Engine.Stop
 func (c *core) Stop() error {
+	err := c.backend.Close()
+	if err != nil {
+		return err
+	}
+
 	c.stopFutureProposalTimer()
 	c.unsubscribeEvents()
 
@@ -63,18 +77,18 @@ func (c *core) Stop() error {
 func (c *core) subscribeEvents() {
 	c.messageEventSub = c.backend.EventMux().Subscribe(
 		// external messages
-		tendermint.MessageEvent{},
+		events.MessageEvent{},
 		// internal messages
 		backlogEvent{},
 	)
 	c.newUnminedBlockEventSub = c.backend.EventMux().Subscribe(
-		tendermint.NewUnminedBlockEvent{},
+		events.NewUnminedBlockEvent{},
 	)
 	c.timeoutEventSub = c.backend.EventMux().Subscribe(
-		timeoutEvent{},
+		TimeoutEvent{},
 	)
 	c.committedSub = c.backend.EventMux().Subscribe(
-		tendermint.CommitEvent{},
+		events.CommitEvent{},
 	)
 }
 
@@ -86,7 +100,7 @@ func (c *core) unsubscribeEvents() {
 	c.committedSub.Unsubscribe()
 }
 
-// TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, timeoutEvent
+// TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, TimeoutEvent
 
 func (c *core) handleNewUnminedBlockEvent() {
 	defer func() {
@@ -100,7 +114,7 @@ func (c *core) handleNewUnminedBlockEvent() {
 	for e := range c.newUnminedBlockEventSub.Chan() {
 		c.logger.Debug("Started handling tendermint.NewUnminedBlockEvent")
 
-		newUnminedBlockEvent := e.Data.(tendermint.NewUnminedBlockEvent)
+		newUnminedBlockEvent := e.Data.(events.NewUnminedBlockEvent)
 		pb := &newUnminedBlockEvent.NewUnminedBlock
 		c.storeUnminedBlockMsg(pb)
 
@@ -129,7 +143,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 			}
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
-			case tendermint.MessageEvent:
+			case events.MessageEvent:
 				if len(e.Payload) == 0 {
 					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) empty payload")
 				}
@@ -165,8 +179,8 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 			if !ok {
 				return
 			}
-			if timeoutE, ok := ev.Data.(timeoutEvent); ok {
-				c.logger.Debug("Started handling timeoutEvent")
+			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
+				c.logger.Debug("Started handling TimeoutEvent")
 				switch timeoutE.step {
 				case msgProposal:
 					c.handleTimeoutPropose(ctx, timeoutE)
@@ -175,14 +189,14 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 				case msgPrecommit:
 					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
-				c.logger.Debug("Finished handling timeoutEvent")
+				c.logger.Debug("Finished handling TimeoutEvent")
 			}
 		case ev, ok := <-c.committedSub.Chan():
 			if !ok {
 				return
 			}
 			switch ev.Data.(type) {
-			case tendermint.CommitEvent:
+			case events.CommitEvent:
 				c.logger.Debug("Started handling CommitEvent")
 				c.handleCommit(ctx)
 				c.logger.Debug("Finished handling CommitEvent")
@@ -202,7 +216,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// Decode message and check its signature
 	msg := new(message)
 
-	sender, err := msg.FromPayload(payload, c.valSet.Copy(), tendermint.CheckValidatorSignature)
+	sender, err := msg.FromPayload(payload, c.valSet.Copy(), crypto.CheckValidatorSignature)
 	if err != nil {
 		logger.Error("Failed to decode message from payload", "err", err)
 		return err
@@ -211,7 +225,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	return c.handleCheckedMsg(ctx, msg, *sender)
 }
 
-func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender tendermint.Validator) error {
+func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender validator.Validator) error {
 	logger := c.logger.New("address", c.address, "from", sender)
 
 	// Store the message if it's a future message
@@ -226,14 +240,14 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender tender
 			//We cannot move to a round in a new height without receiving a new block
 			var msgRound int64
 			if msg.Code == msgProposal {
-				var p tendermint.Proposal
+				var p Proposal
 				if e := msg.Decode(&p); e != nil {
 					return errFailedDecodeProposal
 				}
 				msgRound = p.Round.Int64()
 
 			} else {
-				var v tendermint.Vote
+				var v Vote
 				if e := msg.Decode(&v); e != nil {
 					return errFailedDecodeVote
 				}
@@ -247,7 +261,6 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender tender
 				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
 				c.startRound(ctx, big.NewInt(msgRound))
 			}
-
 		}
 
 		return err

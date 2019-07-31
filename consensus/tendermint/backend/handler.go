@@ -18,12 +18,12 @@ package backend
 
 import (
 	"errors"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 
 	"github.com/hashicorp/golang-lru"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/p2p"
 )
@@ -49,7 +49,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 
 	if msg.Code == tendermintMsg {
 		if !sb.coreStarted {
-			return true, tendermint.ErrStoppedEngine
+			return true, ErrStoppedEngine
 		}
 
 		var data []byte
@@ -76,7 +76,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		}
 		sb.knownMessages.Add(hash, true)
 
-		sb.postEvent(tendermint.MessageEvent{
+		sb.postEvent(events.MessageEvent{
 			Payload: data,
 		})
 
@@ -94,8 +94,8 @@ func (sb *Backend) NewChainHead() error {
 	sb.coreMu.RLock()
 	defer sb.coreMu.RUnlock()
 	if !sb.coreStarted {
-		return tendermint.ErrStoppedEngine
+		return ErrStoppedEngine
 	}
-	sb.postEvent(tendermint.CommitEvent{})
+	sb.postEvent(events.CommitEvent{})
 	return nil
 }

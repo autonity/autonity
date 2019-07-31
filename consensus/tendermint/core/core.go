@@ -20,13 +20,15 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/clearmatics/autonity/consensus"
 	"math"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -67,33 +69,75 @@ var (
 	errMovedToNewRound = errors.New("timer expired and new round started")
 )
 
-type Engine interface {
-	Start() error
-	Stop() error
+// Backend provides application specific functions for Istanbul core
+type Backend interface {
+	consensus.Engine
+	Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
+
+	// Address returns the owner's address
+	Address() common.Address
+
+	// Validators returns the validator set
+	Validators(number uint64) validator.Set
+
+	// EventMux returns the event mux in backend
+	EventMux() *event.TypeMuxSilent
+
+	// Broadcast sends a message to all validators (include self)
+	Broadcast(ctx context.Context, valSet validator.Set, payload []byte) error
+
+	// Gossip sends a message to all validators (exclude self)
+	Gossip(ctx context.Context, valSet validator.Set, payload []byte)
+
+	// Commit delivers an approved proposal to backend.
+	// The delivered proposal will be put into blockchain.
+	Commit(proposalBlock types.Block, seals [][]byte) error
+
+	// Verify verifies the proposal. If a consensus.ErrFutureBlock error is returned,
+	// the time difference of the proposal and current time is also returned.
+	Verify(types.Block) (time.Duration, error)
+
+	// Sign signs input data with the backend's private key
+	Sign([]byte) ([]byte, error)
+
+	// CheckSignature verifies the signature by checking if it's signed by
+	// the given validator
+	CheckSignature(data []byte, addr common.Address, sig []byte) error
+
+	// LastCommittedProposal retrieves latest committed proposal and the address of proposer
+	LastCommittedProposal() (*types.Block, common.Address)
+
+	// GetProposer returns the proposer of the given block height
+	GetProposer(number uint64) common.Address
+
+	// HasBadBlock returns whether the block with the hash is a bad block
+	HasBadProposal(hash common.Hash) bool
+
+	// Setter for proposed block hash
+	SetProposedBlockHash(hash common.Hash)
 }
 
 // New creates an Tendermint consensus core
-func New(backend tendermint.Backend, config *tendermint.Config) Engine {
-	c := &core{
+func New(backend Backend, config *config.Config) *core {
+	return &core{
 		config:                config,
 		address:               backend.Address(),
 		logger:                log.New(),
 		backend:               backend,
-		backlogs:              make(map[tendermint.Validator]*prque.Prque),
+		backlogs:              make(map[validator.Validator]*prque.Prque),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		valSet:                new(validatorSet),
 		futureRoundsChange:    make(map[int64]int64),
 	}
-	return c
 }
 
 type core struct {
-	config  *tendermint.Config
+	config  *config.Config
 	address common.Address
 	logger  log.Logger
 
-	backend tendermint.Backend
+	backend Backend
 	cancel  context.CancelFunc
 
 	messageEventSub         *event.TypeMuxSubscription
@@ -104,7 +148,7 @@ type core struct {
 
 	valSet *validatorSet
 
-	backlogs   map[tendermint.Validator]*prque.Prque
+	backlogs   map[validator.Validator]*prque.Prque
 	backlogsMu sync.Mutex
 
 	currentRoundState *roundState
@@ -318,7 +362,7 @@ func (c *core) stopFutureProposalTimer() {
 	}
 }
 
-func (c *core) quorum(i int) bool {
+func (c *core) Quorum(i int) bool {
 	return float64(i) >= math.Ceil(float64(2)/float64(3)*float64(c.valSet.Size()))
 }
 

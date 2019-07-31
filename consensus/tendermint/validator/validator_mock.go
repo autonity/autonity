@@ -2,12 +2,13 @@
 // Source: consensus/tendermint/validator.go
 
 // Package tendermint is a generated GoMock package.
-package tendermint
+package validator
 
 import (
-	common "github.com/clearmatics/autonity/common"
-	gomock "github.com/golang/mock/gomock"
-	reflect "reflect"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/golang/mock/gomock"
+	"reflect"
 )
 
 // MockValidator is a mock of Validator interface
@@ -61,7 +62,7 @@ func (mr *MockValidatorMockRecorder) String() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockValidator)(nil).String))
 }
 
-// MockValidatorSet is a mock of ValidatorSet interface
+// MockValidatorSet is a mock of Set interface
 type MockValidatorSet struct {
 	ctrl     *gomock.Controller
 	recorder *MockValidatorSetMockRecorder
@@ -210,10 +211,10 @@ func (mr *MockValidatorSetMockRecorder) RemoveValidator(address interface{}) *go
 }
 
 // Copy mocks base method
-func (m *MockValidatorSet) Copy() ValidatorSet {
+func (m *MockValidatorSet) Copy() Set {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Copy")
-	ret0, _ := ret[0].(ValidatorSet)
+	ret0, _ := ret[0].(Set)
 	return ret0
 }
 
@@ -238,10 +239,10 @@ func (mr *MockValidatorSetMockRecorder) F() *gomock.Call {
 }
 
 // Policy mocks base method
-func (m *MockValidatorSet) Policy() ProposerPolicy {
+func (m *MockValidatorSet) Policy() config.ProposerPolicy {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Policy")
-	ret0, _ := ret[0].(ProposerPolicy)
+	ret0, _ := ret[0].(config.ProposerPolicy)
 	return ret0
 }
 

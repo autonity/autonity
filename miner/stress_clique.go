@@ -22,6 +22,7 @@ package main
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"github.com/clearmatics/autonity/consensus"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -170,7 +171,7 @@ func makeGenesis(faucets []*ecdsa.PrivateKey, sealers []*ecdsa.PrivateKey) *core
 	return genesis
 }
 
-func makeSealer(genesis *core.Genesis) (*node.Node, error) {
+func makeSealer(genesis *core.Genesis, cons consensus.Engine) (*node.Node, error) {
 	// Define the basic configurations for the Ethereum node
 	datadir, _ := ioutil.TempDir("", "")
 
@@ -203,7 +204,7 @@ func makeSealer(genesis *core.Genesis) (*node.Node, error) {
 			MinerGasCeil:    genesis.GasLimit * 11 / 10,
 			MinerGasPrice:   big.NewInt(1),
 			MinerRecommit:   time.Second,
-		})
+		}, cons)
 	}); err != nil {
 		return nil, err
 	}

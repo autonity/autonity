@@ -18,6 +18,7 @@ package backend
 
 import (
 	"bytes"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"math/big"
 	"reflect"
 	"testing"
@@ -26,7 +27,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 )
@@ -56,10 +56,10 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	eventSub := engine.EventMux().Subscribe(tendermint.CommitEvent{})
+	eventSub := engine.EventMux().Subscribe(events.CommitEvent{})
 	eventLoop := func() {
 		ev := <-eventSub.Chan()
-		_, ok := ev.Data.(tendermint.CommitEvent)
+		_, ok := ev.Data.(events.CommitEvent)
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}

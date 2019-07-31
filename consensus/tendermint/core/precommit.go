@@ -23,13 +23,12 @@ import (
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
 func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
-	var precommit = tendermint.Vote{
+	var precommit = Vote{
 		Round:  big.NewInt(c.currentRoundState.Round().Int64()),
 		Height: big.NewInt(c.currentRoundState.Height().Int64()),
 	}
@@ -60,7 +59,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 }
 
 func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
-	var preCommit tendermint.Vote
+	var preCommit Vote
 	err := msg.Decode(&preCommit)
 	if err != nil {
 		return errFailedDecodePrecommit
@@ -88,7 +87,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
+	if curProposalHash != (common.Hash{}) && c.Quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
 		}
@@ -102,7 +101,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.timerStarted() && c.quorum(c.currentRoundState.Precommits.TotalSize()) {
+	} else if !c.precommitTimeout.timerStarted() && c.Quorum(c.currentRoundState.Precommits.TotalSize()) {
 		timeoutDuration := timeoutPrecommit(curR)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
@@ -111,7 +110,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	return nil
 }
 
-func (c *core) verifyPrecommitCommittedSeal(m *message, precommit tendermint.Vote) error {
+func (c *core) verifyPrecommitCommittedSeal(m *message, precommit Vote) error {
 	addressOfSignerOfCommittedSeal, err := types.GetSignatureAddress(PrepareCommittedSeal(precommit.ProposedBlockHash), m.CommittedSeal)
 
 	if err != nil {
@@ -140,7 +139,7 @@ func (c *core) handleCommit(ctx context.Context) {
 	c.startRound(ctx, common.Big0)
 }
 
-func (c *core) logPrecommitMessageEvent(message string, precommit tendermint.Vote, from, to string) {
+func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to string) {
 	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	c.logger.Debug(message,
 		"from", from,
@@ -157,8 +156,8 @@ func (c *core) logPrecommitMessageEvent(message string, precommit tendermint.Vot
 		"type", "Precommit",
 		"totalVotes", c.currentRoundState.Precommits.TotalSize(),
 		"totalNilVotes", c.currentRoundState.Precommits.NilVotesSize(),
-		"quorumReject", c.quorum(c.currentRoundState.Precommits.NilVotesSize()),
+		"quorumReject", c.Quorum(c.currentRoundState.Precommits.NilVotesSize()),
 		"totalNonNilVotes", c.currentRoundState.Precommits.VotesSize(currentProposalHash),
-		"quorumAccept", c.quorum(c.currentRoundState.Precommits.VotesSize(currentProposalHash)),
+		"quorumAccept", c.Quorum(c.currentRoundState.Precommits.VotesSize(currentProposalHash)),
 	)
 }

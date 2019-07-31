@@ -1,37 +1,20 @@
-// Copyright 2018 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
-// +build none
-
-// This file contains a miner stress test based on the Ethash consensus engine.
-package main
+package tendermint
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"github.com/clearmatics/autonity/consensus"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
-	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/fdlimit"
-	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -44,32 +27,37 @@ import (
 	"github.com/clearmatics/autonity/params"
 )
 
-func main() {
+func TestTendermint(t *testing.T) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-	fdlimit.Raise(2048)
+	_ = fdlimit.Raise(2048)
 
 	// Generate a batch of accounts to seal and fund with
 	faucets := make([]*ecdsa.PrivateKey, 128)
 	for i := 0; i < len(faucets); i++ {
 		faucets[i], _ = crypto.GenerateKey()
 	}
-	// Pre-generate the ethash mining DAG so we don't race
-	ethash.MakeDataset(1, filepath.Join(os.Getenv("HOME"), ".ethash"))
-
-	// Create an Ethash network based off of the Ropsten config
-	genesis := makeGenesis(faucets)
+	sealers := make([]*ecdsa.PrivateKey, 4)
+	for i := 0; i < len(sealers); i++ {
+		sealers[i], _ = crypto.GenerateKey()
+	}
+	// Create a Clique network based off of the Rinkeby config
+	genesis := makeGenesis(faucets, sealers)
 
 	var (
 		nodes  []*node.Node
 		enodes []*enode.Node
 	)
-	for i := 0; i < 4; i++ {
+	for _, sealer := range sealers {
 		// Start the node and wait until it's up
-		node, err := makeMiner(genesis)
+		node, err := makeSealer(genesis, func(basic consensus.Engine) consensus.Engine {
+			return tendermintCore.NewCoreQuorumAlwaysFalse(basic)
+		})
 		if err != nil {
 			panic(err)
 		}
-		defer node.Stop()
+		defer func() {
+			_ = node.Stop()
+		}()
 
 		for node.Server().NodeInfo().Ports.Listener == 0 {
 			time.Sleep(250 * time.Millisecond)
@@ -84,7 +72,11 @@ func main() {
 
 		// Inject the signer key and start sealing with it
 		store := node.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-		if _, err := store.NewAccount(""); err != nil {
+		signer, err := store.ImportECDSA(sealer, "")
+		if err != nil {
+			panic(err)
+		}
+		if err := store.Unlock(signer, ""); err != nil {
 			panic(err)
 		}
 	}
@@ -102,7 +94,7 @@ func main() {
 	}
 	time.Sleep(3 * time.Second)
 
-	// Start injecting transactions from the faucets like crazy
+	// Start injecting transactions from the faucet like crazy
 	nonces := make([]uint64, len(faucets))
 	for {
 		index := rand.Intn(len(faucets))
@@ -113,7 +105,7 @@ func main() {
 			panic(err)
 		}
 		// Create a self transaction and inject into the pool
-		tx, err := types.SignTx(types.NewTransaction(nonces[index], crypto.PubkeyToAddress(faucets[index].PublicKey), new(big.Int), 21000, big.NewInt(100000000000+rand.Int63n(65536)), nil), types.HomesteadSigner{}, faucets[index])
+		tx, err := types.SignTx(types.NewTransaction(nonces[index], crypto.PubkeyToAddress(faucets[index].PublicKey), new(big.Int), 21000, big.NewInt(100000000000), nil), types.HomesteadSigner{}, faucets[index])
 		if err != nil {
 			panic(err)
 		}
@@ -129,14 +121,15 @@ func main() {
 	}
 }
 
-// makeGenesis creates a custom Ethash genesis block based on some pre-defined
-// faucet accounts.
-func makeGenesis(faucets []*ecdsa.PrivateKey) *core.Genesis {
-	genesis := core.DefaultTestnetGenesisBlock()
-	genesis.Difficulty = params.MinimumDifficulty
+// makeGenesis creates a custom Clique genesis block based on some pre-defined
+// signer and faucet accounts.
+func makeGenesis(faucets []*ecdsa.PrivateKey, sealers []*ecdsa.PrivateKey) *core.Genesis {
+	// Create a Clique network based off of the Rinkeby config
+	genesis := core.DefaultRinkebyGenesisBlock()
 	genesis.GasLimit = 25000000
 
 	genesis.Config.ChainID = big.NewInt(18)
+	genesis.Config.Clique.Period = 1
 	genesis.Config.EIP150Hash = common.Hash{}
 
 	genesis.Alloc = core.GenesisAlloc{}
@@ -145,10 +138,27 @@ func makeGenesis(faucets []*ecdsa.PrivateKey) *core.Genesis {
 			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
 		}
 	}
+	// Sort the signers and embed into the extra-data section
+	signers := make([]common.Address, len(sealers))
+	for i, sealer := range sealers {
+		signers[i] = crypto.PubkeyToAddress(sealer.PublicKey)
+	}
+	for i := 0; i < len(signers); i++ {
+		for j := i + 1; j < len(signers); j++ {
+			if bytes.Compare(signers[i][:], signers[j][:]) > 0 {
+				signers[i], signers[j] = signers[j], signers[i]
+			}
+		}
+	}
+	genesis.ExtraData = make([]byte, 32+len(signers)*common.AddressLength+65)
+	for i, signer := range signers {
+		copy(genesis.ExtraData[32+i*common.AddressLength:], signer[:])
+	}
+	// Return the genesis block for initialization
 	return genesis
 }
 
-func makeMiner(genesis *core.Genesis) (*node.Node, error) {
+func makeSealer(genesis *core.Genesis, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) {
 	// Define the basic configurations for the Ethereum node
 	datadir, _ := ioutil.TempDir("", "")
 
@@ -161,8 +171,7 @@ func makeMiner(genesis *core.Genesis) (*node.Node, error) {
 			NoDiscovery: true,
 			MaxPeers:    25,
 		},
-		NoUSB:             true,
-		UseLightweightKDF: true,
+		NoUSB: true,
 	}
 	// Start the node and configure a full Ethereum node on it
 	stack, err := node.New(config)
@@ -178,12 +187,11 @@ func makeMiner(genesis *core.Genesis) (*node.Node, error) {
 			DatabaseHandles: 256,
 			TxPool:          core.DefaultTxPoolConfig,
 			GPO:             eth.DefaultConfig.GPO,
-			Ethash:          eth.DefaultConfig.Ethash,
 			MinerGasFloor:   genesis.GasLimit * 9 / 10,
 			MinerGasCeil:    genesis.GasLimit * 11 / 10,
 			MinerGasPrice:   big.NewInt(1),
 			MinerRecommit:   time.Second,
-		}, nil)
+		}, cons)
 	}); err != nil {
 		return nil, err
 	}
