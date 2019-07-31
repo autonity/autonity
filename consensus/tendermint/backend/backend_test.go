@@ -111,7 +111,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 
 	// CheckValidatorSignature should return ErrUnauthorizedAddress
 	addr, err := crypto2.CheckValidatorSignature(vset, data, sig)
-	if err != ErrUnauthorizedAddress {
+	if err.Error() != ErrUnauthorizedAddress.Error() {
 		t.Errorf("error mismatch: have %v, want %v", err, ErrUnauthorizedAddress)
 	}
 	emptyAddr := common.Address{}

@@ -28,6 +28,8 @@ import (
 )
 
 func TestTendermint(t *testing.T) {
+	t.SkipNow()
+
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_ = fdlimit.Raise(2048)
 
