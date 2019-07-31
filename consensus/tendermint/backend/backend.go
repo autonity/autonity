@@ -279,10 +279,11 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			receipts   types.Receipts
 			validators []common.Address
 
-			usedGas = new(uint64)
-			gp      = new(core.GasPool).AddGas(block.GasLimit())
-			header  = block.Header()
-			parent  = sb.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
+			usedGas        = new(uint64)
+			gp             = new(core.GasPool).AddGas(block.GasLimit())
+			header         = block.Header()
+			proposalNumber = header.Number.Uint64()
+			parent         = sb.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 		)
 
 		// We need to process all of the transaction to get the latest state to get the latest validators
@@ -309,11 +310,30 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			receipts = append(receipts, receipt)
 		}
 
-		if header.Number.Uint64() > 1 {
-			//Validate the state of the proposal
-			if err = sb.blockchain.Validator().ValidateState(block, parent, state, receipts, *usedGas); err != nil {
+		// Here the order of applying transaction matters
+		// We need to ensure that the block transactions applied before the soma and glenicke contract
+		if proposalNumber == 1 {
+			//Apply the same changes from consensus/tendermint/backend/engine.go:getValidator()349-369
+			log.Info("Soma Contract Deployer in test state", "Address", sb.config.Deployer)
+
+			_, err = sb.deployContract(sb.blockchain, header, state)
+			if err != nil {
 				return 0, err
 			}
+
+			// Deploy Glienicke network-permissioning contract
+			_, sb.glienickeContract, err = sb.blockchain.DeployGlienickeContract(state, header)
+			if err != nil {
+				return 0, err
+			}
+		}
+
+		//Validate the state of the proposal
+		if err = sb.blockchain.Validator().ValidateState(block, parent, state, receipts, *usedGas); err != nil {
+			return 0, err
+		}
+
+		if proposalNumber > 1 {
 			validators, err = sb.contractGetValidators(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
