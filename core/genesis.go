@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 
 	"github.com/clearmatics/autonity/common"
@@ -294,6 +295,8 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
+
+	sort.Strings(g.Config.EnodeWhitelist)
 
 	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, true))
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)

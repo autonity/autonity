@@ -34,6 +34,7 @@ ios:
 	@echo "Import \"$(GOBIN)/autonity.framework\" to use the library."
 
 test: all
+	git submodule update --init --recursive
 	build/env.sh go run build/ci.go test -coverage
 
 test-fast:
