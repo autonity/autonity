@@ -223,7 +223,9 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender tender
 		} else if err == errFutureRoundMessage {
 			logger.Debug("Storing future height message in backlog")
 			c.storeBacklog(msg, sender)
-			//We cannot move to a round in a new height without receiving a new block
+			//We cannot move to a round in a new height without receiving a new block.
+			//Optimisation can be done here by avoiding decoding again received future round messages,
+			//and doing instead in their handler function.
 			var msgRound int64
 			if msg.Code == msgProposal {
 				var p tendermint.Proposal
@@ -240,11 +242,13 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender tender
 				msgRound = v.Round.Int64()
 			}
 
-			c.futureRoundsChange[msgRound] = c.futureRoundsChange[msgRound] + 1
-			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
+			if _, ok := c.futureRoundsChange[msgRound]; !ok {
+				c.futureRoundsChange[msgRound] = make(map[common.Address]bool)
+			}
+			c.futureRoundsChange[msgRound][msg.Address] = true
 
-			if totalFutureRoundMessages > int64(c.valSet.F()) {
-				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
+			if len(c.futureRoundsChange[msgRound]) > c.valSet.F() {
+				logger.Debug("Received F + 1 messages for higher round", "New round", msgRound)
 				c.startRound(ctx, big.NewInt(msgRound))
 			}
 
