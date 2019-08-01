@@ -83,7 +83,7 @@ func New(backend tendermint.Backend, config *tendermint.Config) Engine {
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		valSet:                new(validatorSet),
-		futureRoundsChange:    make(map[int64]map[common.Address]bool),
+		futureRoundsChange:    make(map[int64]map[common.Address]struct{}),
 	}
 	return c
 }
@@ -132,7 +132,7 @@ type core struct {
 	precommitTimeout timeout
 
 	//map[futureRoundNumber][Address]RoundChangeReceived
-	futureRoundsChange map[int64]map[common.Address]bool
+	futureRoundsChange map[int64]map[common.Address]struct{}
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -275,7 +275,7 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		// Assuming that round == 0 only when the node moves to a new height
 		// Therefore, resetting round related maps
 		c.currentHeightRoundsState = make(map[int64]*roundState)
-		c.futureRoundsChange = make(map[int64]map[common.Address]bool)
+		c.futureRoundsChange = make(map[int64]map[common.Address]struct{})
 	}
 	// Reset all timeouts
 	_ = c.proposeTimeout.stopTimer()

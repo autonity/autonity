@@ -243,9 +243,9 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender tender
 			}
 
 			if _, ok := c.futureRoundsChange[msgRound]; !ok {
-				c.futureRoundsChange[msgRound] = make(map[common.Address]bool)
+				c.futureRoundsChange[msgRound] = make(map[common.Address]struct{})
 			}
-			c.futureRoundsChange[msgRound][msg.Address] = true
+			c.futureRoundsChange[msgRound][msg.Address] = struct{}{}
 
 			if len(c.futureRoundsChange[msgRound]) > c.valSet.F() {
 				logger.Debug("Received F + 1 messages for higher round", "New round", msgRound)
