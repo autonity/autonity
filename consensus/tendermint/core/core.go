@@ -125,7 +125,7 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightOldRoundsStates map[int64]roundState
+	currentHeightRoundsState map[int64]*roundState
 
 	proposeTimeout   timeout
 	prevoteTimeout   timeout
@@ -274,7 +274,7 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 
 		// Assuming that round == 0 only when the node moves to a new height
 		// Therefore, resetting round related maps
-		c.currentHeightOldRoundsStates = make(map[int64]roundState)
+		c.currentHeightRoundsState = make(map[int64]*roundState)
 		c.futureRoundsChange = make(map[int64]int64)
 	}
 	// Reset all timeouts
@@ -291,13 +291,11 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 			delete(c.futureRoundsChange, i)
 		}
 	}
-	// Add a copy of c.currentRoundState to c.currentHeightOldRoundsStates and then update c.currentRoundState
-	// We only add old round prevote messages to c.currentHeightOldRoundsStates, while future messages are sent to the
-	// backlog which are processed when the step is set to propose
-	if r.Int64() > 0 {
-		// This is a shallow copy, should be fine for now
-		c.currentHeightOldRoundsStates[r.Int64()-1] = *c.currentRoundState
-	}
+	// Add a reference of c.currentRoundState to c.currentHeightRoundsState and then update c.currentRoundState
+	// We keep old round messages in c.currentHeightRoundsState in case we need to decide for an old round proposal
+	// while future messages are sent to the backlog which are processed when the step is set to propose
+
+	c.currentHeightRoundsState[r.Int64()] = c.currentRoundState
 	c.currentRoundState.Update(r, h)
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, r.Uint64())

@@ -129,7 +129,7 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 			}
 			c.setStep(prevote)
 			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if rs, ok := c.currentHeightOldRoundsStates[vr]; vr > -1 && vr < curR && ok && c.quorum(rs.Prevotes.VotesSize(h)) {
+		} else if rs, ok := c.currentHeightRoundsState[vr]; vr > -1 && vr < curR && ok && c.quorum(rs.Prevotes.VotesSize(h)) {
 			if c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash() {
 				c.sendPrevote(ctx, false)
 			} else {

@@ -66,8 +66,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		return errFailedDecodePrecommit
 	}
 
-	if err := c.checkMessage(preCommit.Round, preCommit.Height); err != nil {
-		// We don't care about old round preCommit messages, otherwise we would not be in a new round rather a new height
+	if err := c.checkMessage(preCommit.Round, preCommit.Height); err != nil && err != errOldRoundMessage {
 		return err
 	}
 
@@ -80,15 +79,16 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 
 	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
 	precommitHash := preCommit.ProposedBlockHash
+	r := preCommit.Round.Int64()
 	curR := c.currentRoundState.Round().Int64()
 	curH := c.currentRoundState.Height().Int64()
 
-	c.acceptPrecommit(precommitHash, *msg)
+	c.acceptPrecommit(precommitHash, r, *msg)
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
+	if curProposalHash != (common.Hash{}) && c.quorum(c.currentHeightRoundsState[r].Precommits.VotesSize(curProposalHash)) {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
 		}
@@ -127,11 +127,11 @@ func (c *core) verifyPrecommitCommittedSeal(m *message, precommit tendermint.Vot
 	return nil
 }
 
-func (c *core) acceptPrecommit(precommitHash common.Hash, msg message) {
+func (c *core) acceptPrecommit(precommitHash common.Hash, round int64, msg message) {
 	if precommitHash == (common.Hash{}) {
-		c.currentRoundState.Precommits.AddNilVote(msg)
+		c.currentHeightRoundsState[round].Precommits.AddNilVote(msg)
 	} else {
-		c.currentRoundState.Precommits.AddVote(precommitHash, msg)
+		c.currentHeightRoundsState[round].Precommits.AddVote(precommitHash, msg)
 	}
 }
 
