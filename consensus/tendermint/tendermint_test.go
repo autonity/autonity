@@ -40,23 +40,16 @@ func TestTendermint(t *testing.T) {
 			"no malicious",
 			5,
 			5,
-			map[int]struct{}{},
 			nil,
 		},
 		{
 			"one node - always accepts blocks",
 			5,
 			5,
-			map[int]struct{}{
-				4: {},
-			},
-			func(index int) func(basic consensus.Engine) consensus.Engine {
-				if index == 4 {
-					return func(basic consensus.Engine) consensus.Engine {
-						return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
-					}
-				}
-				return nil
+			map[int]func(basic consensus.Engine) consensus.Engine{
+				4: func(basic consensus.Engine) consensus.Engine {
+					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
+				},
 			},
 		},
 	}
@@ -73,11 +66,8 @@ type testCase struct {
 	name           string
 	numPeers       int
 	numBlocks      int
-	maliciousPeers map[int]struct{}
-	newConsensus   consensusConstructor
+	maliciousPeers map[int]func(basic consensus.Engine) consensus.Engine
 }
-
-type consensusConstructor func(index int) func(basic consensus.Engine) consensus.Engine
 
 type testNode struct {
 	privateKey   *ecdsa.PrivateKey
@@ -133,8 +123,8 @@ func tunTest(t *testing.T, test testCase) {
 	genesis := makeGenesis(validators)
 	for i, validator := range validators {
 		var engineConstructor func(basic consensus.Engine) consensus.Engine
-		if test.newConsensus != nil {
-			engineConstructor = test.newConsensus(i)
+		if test.maliciousPeers != nil {
+			engineConstructor = test.maliciousPeers[i]
 		}
 
 		validator.listener.Close()
@@ -268,8 +258,10 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode) {
 		validator := validator
 
 		// skip malicious nodes
-		if _, ok := test.maliciousPeers[index]; ok {
-			continue
+		if test.maliciousPeers != nil {
+			if _, ok := test.maliciousPeers[index]; ok {
+				continue
+			}
 		}
 
 		wg.Go(func() error {
@@ -299,7 +291,7 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode) {
 					}
 
 					blocksPassed++
-					if blocksPassed >= test.numBlocks+3 {
+					if blocksPassed >= test.numBlocks+5 {
 						pending, queued := ethereum.TxPool().Stats()
 						if pending != 0 {
 							t.Fatal("after a new block it should be 0 pending transactions got", pending)
