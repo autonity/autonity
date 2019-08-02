@@ -65,7 +65,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 	}
 
 	if err = c.checkMessage(preVote.Round, preVote.Height); err != nil {
-		// We want to store old round messages for future rounds since it is required for validRound
+		// Store old round prevote messages for future rounds since it is required for validRound
 		if err == errOldRoundMessage {
 			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
 			// And we only process old rounds while future rounds messages are pushed on to the backlog
