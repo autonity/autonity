@@ -18,16 +18,15 @@ package core
 
 import (
 	"context"
+	"math/big"
+	"runtime/debug"
+
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
-	"math/big"
-	"runtime/debug"
-
-	"github.com/clearmatics/autonity/common"
 )
 
 // Start implements core.Engine.Start
@@ -104,22 +103,10 @@ func (c *core) unsubscribeEvents() {
 // TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, TimeoutEvent
 
 func (c *core) handleNewUnminedBlockEvent() {
-	defer func() {
-		if r := recover(); r != nil {
-			debug.PrintStack()
-
-			c.logger.Crit("panic in core.handleNewUnminedBlockEvent", "panic", r)
-		}
-	}()
-
 	for e := range c.newUnminedBlockEventSub.Chan() {
-		c.logger.Debug("Started handling tendermint.NewUnminedBlockEvent")
-
 		newUnminedBlockEvent := e.Data.(events.NewUnminedBlockEvent)
 		pb := &newUnminedBlockEvent.NewUnminedBlock
 		c.storeUnminedBlockMsg(pb)
-
-		c.logger.Debug("Finished handling tendermint.NewUnminedBlockEvent")
 	}
 }
 
@@ -134,7 +121,6 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 	}()
 
 	// Start a new round from last height + 1
-	log.Error("==== Before startRound handleConsensusEvents", "round", 0)
 	c.startRound(ctx, common.Big0)
 
 	for {
@@ -146,48 +132,37 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				log.Error("### handleConsensusEvents MessageEvent")
-
 				if len(e.Payload) == 0 {
 					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) empty payload")
 				}
 
-				c.logger.Debug("Started handling tendermint.MessageEvent")
 				if err := c.handleMsg(ctx, e.Payload); err != nil {
 					c.logger.Debug("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
-					c.logger.Debug("Finished handling tendermint.MessageEvent with ERROR", "err", err)
 					continue
 				}
 				c.backend.Gossip(ctx, c.valSet.Copy(), e.Payload)
-				c.logger.Debug("Finished handling tendermint.MessageEvent")
 			case backlogEvent:
-				log.Error("### handleConsensusEvents backlogEvent")
-
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling backlogEvent")
 				err := c.handleCheckedMsg(ctx, e.msg, e.src)
 				if err != nil {
 					c.logger.Debug("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
-					c.logger.Debug("Finished handling backlogEvent with ERROR", "err", err)
 					continue
 				}
 
 				p, err := e.msg.Payload()
 				if err != nil {
 					c.logger.Debug("core.handleConsensusEvents Get message payload failed", "err", err)
-					c.logger.Debug("Finished handling backlogEvent with ERROR", "err", err)
 					continue
 				}
+
 				c.backend.Gossip(ctx, c.valSet.Copy(), p)
-				c.logger.Debug("Finished handling backlogEvent")
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
-			log.Error("### handleConsensusEvents timeoutEventSub")
 			if !ok {
 				return
 			}
 			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
-				c.logger.Debug("Started handling TimeoutEvent")
 				switch timeoutE.step {
 				case msgProposal:
 					c.handleTimeoutPropose(ctx, timeoutE)
@@ -196,18 +171,14 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 				case msgPrecommit:
 					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
-				c.logger.Debug("Finished handling TimeoutEvent")
 			}
 		case ev, ok := <-c.committedSub.Chan():
-			log.Error("### handleConsensusEvents committedSub")
 			if !ok {
 				return
 			}
 			switch ev.Data.(type) {
 			case events.CommitEvent:
-				c.logger.Debug("Started handling CommitEvent")
 				c.handleCommit(ctx)
-				c.logger.Debug("Finished handling CommitEvent")
 			}
 		}
 	}
@@ -267,8 +238,6 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender valida
 
 			if totalFutureRoundMessages >= int64(c.valSet.F()) {
 				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
-
-				log.Error("==== Before startRound handleCheckedMsg", "round", msgRound)
 				c.startRound(ctx, big.NewInt(msgRound))
 			}
 		}

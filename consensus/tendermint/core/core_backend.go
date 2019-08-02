@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/p2p"
 	"math/big"
 	"time"
 
@@ -63,9 +64,26 @@ func (c *core) Close() error {
 	return c.Stop()
 }
 
+func (c *core) NewChainHead() error {
+	return c.backend.NewChainHead()
+}
+
+func (c *core) HandleMsg(address common.Address, data p2p.Msg) (bool, error) {
+	return c.backend.HandleMsg(address, data)
+}
+
+func (c *core) SetBroadcaster(b consensus.Broadcaster) {
+	c.backend.SetBroadcaster(b)
+}
+
+func (c *core) Protocol() (protocolName string, extraMsgCodes uint64) {
+	return c.backend.Protocol()
+}
+
 // Backend provides application specific functions for Istanbul core
 type Backend interface {
 	consensus.Engine
+	consensus.Handler
 	Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
 
 	// Address returns the owner's address

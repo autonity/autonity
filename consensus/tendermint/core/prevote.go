@@ -18,16 +18,12 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/log"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 )
 
 func (c *core) sendPrevote(ctx context.Context, isNil bool) {
-	log.Error("### sendPrevote START")
-	defer log.Error("### sendPrevote END")
-
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	var prevote = Vote{

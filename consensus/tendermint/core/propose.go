@@ -19,7 +19,6 @@ package core
 import (
 	"context"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/log"
 	"time"
 
 	"github.com/clearmatics/autonity/consensus"
@@ -27,9 +26,6 @@ import (
 )
 
 func (c *core) sendProposal(ctx context.Context, p *types.Block) {
-	log.Error("### sendProposal START")
-	defer log.Error("### sendProposal END")
-
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	// If I'm the proposer and I have the same height with the proposal

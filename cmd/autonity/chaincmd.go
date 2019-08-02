@@ -251,28 +251,30 @@ func setupDefaults(genesis *core.Genesis) {
 		}
 	}
 
+	defaultConfig := config.DefaultConfig()
+
 	if genesis.Config.Tendermint != nil {
 		if genesis.Config.Tendermint.Epoch == 0 {
-			genesis.Config.Tendermint.Epoch = config.DefaultConfig.Epoch
+			genesis.Config.Tendermint.Epoch = defaultConfig.Epoch
 		}
 		if genesis.Config.Tendermint.RequestTimeout == 0 {
-			genesis.Config.Tendermint.RequestTimeout = config.DefaultConfig.RequestTimeout
+			genesis.Config.Tendermint.RequestTimeout = defaultConfig.RequestTimeout
 		}
 		if genesis.Config.Tendermint.BlockPeriod == 0 {
-			genesis.Config.Tendermint.BlockPeriod = config.DefaultConfig.BlockPeriod
+			genesis.Config.Tendermint.BlockPeriod = defaultConfig.BlockPeriod
 		}
 
 		if len(genesis.Config.Tendermint.ABI) == 0 {
-			genesis.Config.Tendermint.ABI = config.DefaultConfig.ABI
+			genesis.Config.Tendermint.ABI = defaultConfig.ABI
 		}
 		if len(genesis.Config.Tendermint.Bytecode) == 0 {
-			genesis.Config.Tendermint.Bytecode = config.DefaultConfig.Bytecode
+			genesis.Config.Tendermint.Bytecode = defaultConfig.Bytecode
 		}
 		if len(genesis.Config.Tendermint.Deployer) == 0 || genesis.Config.Tendermint.Deployer == (common.Address{}) {
-			genesis.Config.Tendermint.Deployer = config.DefaultConfig.Deployer
+			genesis.Config.Tendermint.Deployer = defaultConfig.Deployer
 		}
 		if genesis.Config.Tendermint.Epoch == 0 {
-			genesis.Config.Tendermint.Epoch = config.DefaultConfig.Epoch
+			genesis.Config.Tendermint.Epoch = defaultConfig.Epoch
 		}
 	}
 }

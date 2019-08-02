@@ -166,9 +166,6 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 }
 
 func (c *core) broadcast(ctx context.Context, msg *message) {
-	log.Error("### broadcast START")
-	defer log.Error("### broadcast END")
-
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	payload, err := c.finalizeMessage(msg)
@@ -190,9 +187,6 @@ func (c *core) isProposer() bool {
 }
 
 func (c *core) commit() {
-	log.Error("### commit START")
-	defer log.Error("### commit END")
-
 	c.setStep(precommitDone)
 
 	proposal := c.currentRoundState.Proposal()
@@ -222,9 +216,6 @@ func (c *core) commit() {
 
 // startRound starts a new round. if round equals to 0, it means to starts a new height
 func (c *core) startRound(ctx context.Context, round *big.Int) {
-	log.Error("### round START")
-	defer log.Error("### round END")
-
 	lastCommittedProposalBlock, lastCommittedProposalBlockProposer := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 

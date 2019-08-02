@@ -46,10 +46,6 @@ func WriteCanonicalHash(db DatabaseWriter, hash common.Hash, number uint64) {
 
 // WriteEnodeWhitelist stores the list of permitted enodes
 func WriteEnodeWhitelist(db DatabaseWriter, whitelist *types.Nodes) {
-	for i, enode := range whitelist.List {
-		log.Error("333 WriteEnodeWhitelist", "i", i, "enode", enode.ID().String())
-	}
-
 	bytes, err := rlp.EncodeToBytes(whitelist.StrList)
 	if err != nil {
 		log.Crit("Failed to RLP encode enode whitelist", "err", err)

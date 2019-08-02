@@ -3,11 +3,8 @@ package tendermint
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/accounts"
-	"golang.org/x/sync/errgroup"
 	"io/ioutil"
 	"math/big"
-	"math/rand"
 	"net"
 	"os"
 	"strconv"
@@ -15,8 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/keystore"
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/fdlimit"
+	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
@@ -25,20 +25,82 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/eth/downloader"
+	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestTendermint(t *testing.T) {
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	cases := []testCase{
+		{
+			"no malicious",
+			5,
+			5,
+			map[int]struct{}{},
+			nil,
+		},
+		{
+			"one node - always accepts blocks",
+			5,
+			5,
+			map[int]struct{}{
+				4: {},
+			},
+			func(index int) func(basic consensus.Engine) consensus.Engine {
+				if index == 4 {
+					return func(basic consensus.Engine) consensus.Engine {
+						return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
+					}
+				}
+				return nil
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			tunTest(t, testCase)
+		})
+	}
+}
+
+type testCase struct {
+	name           string
+	numPeers       int
+	numBlocks      int
+	maliciousPeers map[int]struct{}
+	newConsensus   consensusConstructor
+}
+
+type consensusConstructor func(index int) func(basic consensus.Engine) consensus.Engine
+
+type testNode struct {
+	validator *ecdsa.PrivateKey
+	address string
+	ports int
+	url string
+	listener net.Listener
+	node *node.Node
+	enode *enode.Node
+	service *eth.Ethereum
+	eventChan chan core.ChainEvent
+	subscription event.Subscription
+}
+
+func tunTest(t *testing.T, test testCase) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_ = fdlimit.Raise(2048)
 
 	var err error
+
 	// Generate a batch of accounts to seal and fund with
-	validators := make([]*ecdsa.PrivateKey, 5)
+	validators := make([]*ecdsa.PrivateKey, test.numPeers)
+
 	for i := 0; i < len(validators); i++ {
 		validators[i], err = crypto.GenerateKey()
 		if err != nil {
@@ -46,12 +108,11 @@ func TestTendermint(t *testing.T) {
 		}
 	}
 
-	// get enode addresses before node.Start()
 	addresses := make([]string, len(validators))
 	ports := make([]int, len(validators))
 	urls := make([]string, len(validators))
-
 	listeners := make([]net.Listener, len(validators))
+
 	for i := range listeners {
 		listeners[i], err = net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
@@ -68,17 +129,12 @@ func TestTendermint(t *testing.T) {
 	}
 
 	genesis := makeGenesis(validators, urls)
-
 	nodes := make([]*node.Node, len(validators))
 	enodes := make([]*enode.Node, len(validators))
 	for i := range validators {
-		// Start the node and wait until it's up
-		// We want only one mock node
 		var engineConstructor func(basic consensus.Engine) consensus.Engine
-		if i == 10000 {
-			engineConstructor = func(basic consensus.Engine) consensus.Engine {
-				return tendermintCore.NewCoreQuorumAlwaysFalse(basic)
-			}
+		if test.newConsensus != nil {
+			engineConstructor = test.newConsensus(i)
 		}
 
 		listeners[i].Close()
@@ -125,13 +181,15 @@ func TestTendermint(t *testing.T) {
 	}
 
 	defer func() {
-		log.Error("STOPPING ALL NODES")
 		for _, node := range nodes {
-			_ = node.Stop()
+			err = node.Stop()
+			if err != nil {
+				panic(err)
+			}
 		}
 	}()
 
-	time.Sleep(5*time.Second)
+	//time.Sleep(2 * time.Second)
 
 	wg = &errgroup.Group{}
 	services := make([]*eth.Ethereum, len(nodes))
@@ -146,8 +204,7 @@ func TestTendermint(t *testing.T) {
 			}
 
 			for !ethereum.IsListening() {
-				log.Error("INIT: NODE IS WAITING - LISTENING!!!", "i", i)
-				time.Sleep(250 * time.Millisecond)
+				time.Sleep(50 * time.Millisecond)
 			}
 
 			if err = ethereum.StartMining(1); err != nil {
@@ -155,11 +212,10 @@ func TestTendermint(t *testing.T) {
 			}
 
 			for !ethereum.IsMining() {
-				log.Error("INIT: NODE IS WAITING - MINING!!!", "i", i)
-				time.Sleep(250 * time.Millisecond)
+				time.Sleep(50 * time.Millisecond)
 			}
-			log.Error("INIT: NODE DONE !!!", "i", i)
-			services[i] =ethereum
+
+			services[i] = ethereum
 
 			return nil
 		})
@@ -175,7 +231,7 @@ func TestTendermint(t *testing.T) {
 		i := i
 
 		wg.Go(func() error {
-			log.Error("******* peers", "i", i,
+			log.Debug("peers", "i", i,
 				"peers", len(node.Server().Peers()),
 				"staticPeers", len(node.Server().StaticNodes),
 				"trustedPeers", len(node.Server().TrustedNodes),
@@ -188,70 +244,129 @@ func TestTendermint(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Error("====================================================================")
-	time.Sleep(30 * time.Second)
-	log.Error("====================================================================")
+	chs := make([]chan core.ChainEvent, len(services))
+	subs := make([]event.Subscription, len(services))
+	for i, ethereum := range services {
+		chs[i] = make(chan core.ChainEvent, 1024)
+		subs[i] = ethereum.BlockChain().SubscribeChainEvent(chs[i])
+	}
 
-	// Start injecting transactions from the faucet like crazy
-	nonces := make([]uint64, len(validators))
-	i := 0
-	for {
-		i++
+	defer func() {
+		for _, sub := range subs {
+			sub.Unsubscribe()
+		}
+	}()
 
-		index := rand.Intn(len(validators))
 
-		log.Error("++++++ 1", "i", i)
+	// each peer sends one tx per block
+	sendTransactions(t, chs, test, services, validators, subs)
+}
 
-		// Fetch the accessor for the relevant signer
-		var ethereum *eth.Ethereum
-		if err := nodes[index%len(nodes)].Service(&ethereum); err != nil {
-			panic(err)
+func sendTransactions(t *testing.T, chs []chan core.ChainEvent, test testCase, services []*eth.Ethereum, validators []*ecdsa.PrivateKey, subs []event.Subscription) {
+	var err error
+
+	wg := &errgroup.Group{}
+	for index := range chs {
+		index := index
+
+		// skip malicious nodes
+		if _, ok := test.maliciousPeers[index]; ok {
+			continue
 		}
 
-		log.Error("++++++ 2", "i", i)
+		wg.Go(func() error {
+			var blocksPassed int
+			var lastBlock uint64
 
-		// Create a self transaction and inject into the pool
-		tx, err := types.SignTx(types.NewTransaction(nonces[index], crypto.PubkeyToAddress(validators[index].PublicKey), new(big.Int), 21000, big.NewInt(100000000000), nil), types.HomesteadSigner{}, validators[index])
-		if err != nil {
-			panic(err)
-		}
-		log.Error("++++++ 3", "i", i)
-		if err := ethereum.TxPool().AddLocal(tx); err != nil {
-			panic(err)
-		}
-		log.Error("++++++ 4", "i", i)
-		nonces[index]++
+			chainEvents := chs[index]
+			ethereum := services[index]
+			fromAddr := crypto.PubkeyToAddress(validators[index].PublicKey)
 
-		// Wait if we're too saturated
-		if pend, _ := ethereum.TxPool().Stats(); pend > 2048 {
-			time.Sleep(100 * time.Millisecond)
-		}
+			nextValidatorIndex := (index + 1) % len(validators)
+			toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].PublicKey)
+			from := validators[index]
 
-		log.Error("++++++ 5", "i", i)
+		wgLoop:
+			for {
+				select {
+				case ev := <-chainEvents:
+					currentBlock := ev.Block.Number().Uint64()
+					if currentBlock <= lastBlock {
+						return fmt.Errorf("expected next block %d got %d. Block %v", lastBlock+1, currentBlock, ev.Block)
+					}
+					lastBlock = currentBlock
+
+					if blocksPassed < test.numBlocks {
+						if innerErr := sendTx(ethereum, from, fromAddr, toAddr); innerErr != nil {
+							return innerErr
+						}
+					}
+
+					blocksPassed++
+					if blocksPassed >= test.numBlocks+3 {
+						pending, queued := ethereum.TxPool().Stats()
+						if pending != 0 {
+							t.Fatal("after a new block it should be 0 pending transactions got", pending)
+						}
+						if queued != 0 {
+							t.Fatal("after a new block it should be 0 queued transactions got", pending)
+						}
+
+						break wgLoop
+					}
+				case innerErr := <-subs[index].Err():
+					return fmt.Errorf("error in blockchain %q", innerErr)
+				}
+			}
+
+			return nil
+		})
+	}
+	err = wg.Wait()
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
-var (
-	defaultDifficulty = big.NewInt(1)
-	emptyNonce        = types.BlockNonce{}
-)
+func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) error {
+	nonce := service.TxPool().State().GetNonce(fromAddr)
+
+	tx, err := types.SignTx(
+		types.NewTransaction(
+			nonce,
+			toAddr,
+			big.NewInt(1),
+			210000000,
+			big.NewInt(100000000000),
+			nil,
+		),
+		types.HomesteadSigner{}, fromValidator)
+	if err != nil {
+		return err
+	}
+
+	return service.TxPool().AddLocal(tx)
+}
 
 func makeGenesis(validators []*ecdsa.PrivateKey, enodes []string) *core.Genesis {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
-	genesis.Config = params.TestChainConfig
+	genesis.ExtraData = nil
+	genesis.GasLimit = math.MaxUint64 - 1
+	genesis.GasUsed = 0
+	genesis.Difficulty = big.NewInt(1)
+	genesis.Timestamp = 0
+	genesis.Nonce = 0
+	genesis.Mixhash = types.BFTDigest
 
-	// force enable Istanbul engine
+	genesis.Config = params.TestChainConfig
 	genesis.Config.Tendermint = &params.TendermintConfig{}
 	genesis.Config.Ethash = nil
-	genesis.Difficulty = defaultDifficulty
-	genesis.Nonce = emptyNonce.Uint64()
-	genesis.Mixhash = types.BFTDigest
 
 	genesis.Alloc = core.GenesisAlloc{}
 	for _, sealer := range validators {
 		genesis.Alloc[crypto.PubkeyToAddress(sealer.PublicKey)] = core.GenesisAccount{
-			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(12), nil),
+			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
 		}
 	}
 
@@ -299,7 +414,6 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 		return nil, err
 	}
 	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		ctx.NodeKey()
 		return eth.New(ctx, &eth.Config{
 			Genesis:         genesis,
 			NetworkId:       genesis.Config.ChainID.Uint64(),
@@ -307,7 +421,7 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 			DatabaseCache:   256,
 			DatabaseHandles: 256,
 			TxPool:          core.DefaultTxPoolConfig,
-			Tendermint:      *config.DefaultConfig,
+			Tendermint:      *config.DefaultConfig(),
 		}, cons)
 	}); err != nil {
 		return nil, err

@@ -265,7 +265,7 @@ func newBackend() (b *Backend) {
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
-	config := config.DefaultConfig
+	config := config.DefaultConfig()
 	// Use the first key as private key
 	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 	c := tendermintCore.New(b, config)
@@ -296,7 +296,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 		}
 	}
 
-	// TODO: check if we need to return Core type as an Engine
+	// TODO: check if we need to return core type as an Engine
 	return blockchain, b
 }
 

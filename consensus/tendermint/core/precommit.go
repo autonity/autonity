@@ -20,16 +20,12 @@ import (
 	"bytes"
 	"context"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 )
 
 func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
-	log.Error("### sendPrecommit START")
-	defer log.Error("### sendPrecommit END")
-
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	var precommit = Vote{
@@ -140,7 +136,6 @@ func (c *core) acceptPrecommit(precommitHash common.Hash, msg message) {
 
 func (c *core) handleCommit(ctx context.Context) {
 	c.logger.Debug("Received a final committed proposal", "step", c.currentRoundState.Step())
-	log.Error("==== Before startRound handleCommit", "round", 0)
 	c.startRound(ctx, common.Big0)
 }
 
