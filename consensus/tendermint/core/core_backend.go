@@ -1,12 +1,17 @@
 package core
 
 import (
+	"context"
+	"math/big"
+	"time"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/rpc"
-	"math/big"
 )
 
 func (c *core) Author(header *types.Header) (common.Address, error) {
@@ -56,4 +61,52 @@ func (c *core) APIs(chain consensus.ChainReader) []rpc.API {
 
 func (c *core) Close() error {
 	return c.Stop()
+}
+
+// Backend provides application specific functions for Istanbul core
+type Backend interface {
+	consensus.Engine
+	Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
+
+	// Address returns the owner's address
+	Address() common.Address
+
+	// Validators returns the validator set
+	Validators(number uint64) validator.Set
+
+	// EventMux returns the event mux in backend
+	EventMux() *event.TypeMuxSilent
+
+	// Broadcast sends a message to all validators (include self)
+	Broadcast(ctx context.Context, valSet validator.Set, payload []byte) error
+
+	// Gossip sends a message to all validators (exclude self)
+	Gossip(ctx context.Context, valSet validator.Set, payload []byte)
+
+	// Commit delivers an approved proposal to backend.
+	// The delivered proposal will be put into blockchain.
+	Commit(proposalBlock types.Block, seals [][]byte) error
+
+	// Verify verifies the proposal. If a consensus.ErrFutureBlock error is returned,
+	// the time difference of the proposal and current time is also returned.
+	Verify(types.Block) (time.Duration, error)
+
+	// Sign signs input data with the backend's private key
+	Sign([]byte) ([]byte, error)
+
+	// CheckSignature verifies the signature by checking if it's signed by
+	// the given validator
+	CheckSignature(data []byte, addr common.Address, sig []byte) error
+
+	// LastCommittedProposal retrieves latest committed proposal and the address of proposer
+	LastCommittedProposal() (*types.Block, common.Address)
+
+	// GetProposer returns the proposer of the given block height
+	GetProposer(number uint64) common.Address
+
+	// HasBadBlock returns whether the block with the hash is a bad block
+	HasBadProposal(hash common.Hash) bool
+
+	// Setter for proposed block hash
+	SetProposedBlockHash(hash common.Hash)
 }

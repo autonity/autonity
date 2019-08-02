@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/log"
 	"io"
 
 	"github.com/clearmatics/autonity/common"
@@ -82,6 +83,7 @@ func (m *message) FromPayload(b []byte, valSet validator.Set, validateFn func(va
 
 	// Validate message (on a message without Signature)
 	if validateFn == nil {
+		log.Error("validateFn is not set")
 		return nil, nil
 	}
 
@@ -93,17 +95,17 @@ func (m *message) FromPayload(b []byte, valSet validator.Set, validateFn func(va
 	}
 
 	addr, err := validateFn(valSet, payload, m.Signature)
+	if err != nil {
+		return nil, err
+	}
 
 	//ensure message was singed by the sender
 	if !bytes.Equal(m.Address.Bytes(), addr.Bytes()) {
 		return nil, ErrUnauthorizedAddress
 	}
 
-	if err == nil {
-		_, v := valSet.GetByAddress(addr)
-		return &v, nil
-	}
-	return nil, err
+	_, v := valSet.GetByAddress(addr)
+	return &v, nil
 }
 
 func (m *message) Payload() ([]byte, error) {

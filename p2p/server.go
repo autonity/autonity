@@ -363,13 +363,14 @@ func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
 		if !found {
 			log.Info("Dropping no longer authorized peer", "enode", connectedPeer.Node().String())
 			src.RemovePeer(connectedPeer.Node())
+			src.RemoveTrustedPeer(connectedPeer.Node())
 		}
 	}
 
 	// Check for peers that needs to be connected
 	for _, whitelistedEnode := range enodes {
 		found := false
-		for _, oldEnode := range src.StaticNodes {
+		for _, oldEnode := range src.TrustedNodes {
 			if oldEnode.ID() == whitelistedEnode.ID() {
 				found = true
 				break
@@ -378,10 +379,12 @@ func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
 		if !found {
 			log.Info("Connecting to newly authorized peer", "enode", whitelistedEnode.String())
 			src.AddPeer(whitelistedEnode)
+			src.AddTrustedPeer(whitelistedEnode)
 		}
 	}
 
 	src.StaticNodes = enodes
+	src.TrustedNodes = enodes
 }
 
 // SubscribePeers subscribes the given channel to peer events

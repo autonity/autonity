@@ -2,6 +2,9 @@ package tendermint
 
 import (
 	"crypto/ecdsa"
+	"fmt"
+	"github.com/clearmatics/autonity/accounts"
+	"golang.org/x/sync/errgroup"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -9,7 +12,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -31,39 +33,33 @@ import (
 )
 
 func TestTendermint(t *testing.T) {
-	//t.SkipNow()
-
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_ = fdlimit.Raise(2048)
 
 	var err error
 	// Generate a batch of accounts to seal and fund with
-	sealers := make([]*ecdsa.PrivateKey, 4)
-	for i := 0; i < len(sealers); i++ {
-		sealers[i], err = crypto.GenerateKey()
+	validators := make([]*ecdsa.PrivateKey, 5)
+	for i := 0; i < len(validators); i++ {
+		validators[i], err = crypto.GenerateKey()
 		if err != nil {
 			t.Fatal("cant make pk", err)
 		}
 	}
-	// Create a Clique network based off of the Rinkeby config
-
-	genesis := makeGenesis(sealers)
 
 	// get enode addresses before node.Start()
-	addresses := make([]string, len(sealers))
-	ports := make([]int, len(sealers))
-	urls := make([]string, len(sealers))
+	addresses := make([]string, len(validators))
+	ports := make([]int, len(validators))
+	urls := make([]string, len(validators))
 
-	listeners := make([]net.Listener, len(sealers))
+	listeners := make([]net.Listener, len(validators))
 	for i := range listeners {
-		var err error
 		listeners[i], err = net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	for i, sealer := range sealers {
+	for i, sealer := range validators {
 		listener := listeners[i]
 		addresses[i] = listener.Addr().String()
 		port := strings.Split(listener.Addr().String(), ":")[1]
@@ -71,139 +67,176 @@ func TestTendermint(t *testing.T) {
 		urls[i] = enode.V4URL(sealer.PublicKey, net.IPv4(127, 0, 0, 1), ports[i], ports[i])
 	}
 
-	genesis.Config.EnodeWhitelist = urls
+	genesis := makeGenesis(validators, urls)
 
-	nodes := make([]*node.Node, len(sealers))
-	enodes := make([]*enode.Node, len(sealers))
-	for i := range sealers {
+	nodes := make([]*node.Node, len(validators))
+	enodes := make([]*enode.Node, len(validators))
+	for i := range validators {
 		// Start the node and wait until it's up
 		// We want only one mock node
 		var engineConstructor func(basic consensus.Engine) consensus.Engine
-		if i == 0 {
+		if i == 10000 {
 			engineConstructor = func(basic consensus.Engine) consensus.Engine {
 				return tendermintCore.NewCoreQuorumAlwaysFalse(basic)
 			}
 		}
 
 		listeners[i].Close()
-		nodes[i], err = makeSealer(genesis, sealers[i], addresses[i], engineConstructor)
+		nodes[i], err = makeValidator(genesis, validators[i], addresses[i], engineConstructor)
 		if err != nil {
 			t.Fatal("cant make a validator", i, err)
 		}
 	}
 
-	for _, sealer := range sealers {
-		//todo: me
-		crypto.PubkeyToAddress(sealer.PublicKey)
-	}
-
 	for i, node := range nodes {
 		// Inject the signer key and start sealing with it
 		store := node.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-		signer, err := store.ImportECDSA(sealers[i], "")
+
+		var signer accounts.Account
+		signer, err = store.ImportECDSA(validators[i], "")
 		if err != nil {
 			t.Fatal("import pk", i, err)
 		}
 
-		if err := store.Unlock(signer, ""); err != nil {
+		if err = store.Unlock(signer, ""); err != nil {
 			t.Fatal("cant unlock", i, err)
 		}
 	}
 
-	wg := &sync.WaitGroup{}
-	wg.Add(len(nodes))
-
+	wg := &errgroup.Group{}
 	for i := range nodes {
-		go func(node *node.Node, i int) {
+		node := nodes[i]
+		i := i
+
+		wg.Go(func() error {
 			err = node.Start()
 			if err != nil {
-				t.Fatal("cannot start a node", i, err)
+				return fmt.Errorf("cannot start a node %d %s", i, err)
 			}
 
 			// Start tracking the node and it's enode
 			enodes[i] = node.Server().Self()
-
-			for node.Server().NodeInfo().Ports.Listener == 0 {
-				time.Sleep(250 * time.Millisecond)
-			}
-			wg.Done()
-		}(nodes[i], i)
+			return nil
+		})
+	}
+	err = wg.Wait()
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	wg.Wait()
-
 	defer func() {
+		log.Error("STOPPING ALL NODES")
 		for _, node := range nodes {
 			_ = node.Stop()
 		}
 	}()
 
-	wg = &sync.WaitGroup{}
-	wg.Add(len(nodes))
-	for i := range nodes {
-		go func(node *node.Node) {
-			for _, n := range enodes {
-				node.Server().AddPeer(n)
-			}
-			wg.Done()
-		}(nodes[i])
-	}
-	wg.Wait()
+	time.Sleep(5*time.Second)
 
-	wg = &sync.WaitGroup{}
-	wg.Add(len(nodes))
+	wg = &errgroup.Group{}
+	services := make([]*eth.Ethereum, len(nodes))
 	for i := range nodes {
-		go func(node *node.Node) {
+		node := nodes[i]
+		i := i
+
+		wg.Go(func() error {
 			var ethereum *eth.Ethereum
 			if err = node.Service(&ethereum); err != nil {
-				t.Fatal("cant start a node", i, err)
+				return fmt.Errorf("cant start a node %d %s", i, err)
 			}
 
-			// todo: check if we need it
-			if err = ethereum.StartMining(1); err != nil {
-				t.Fatal("cant start mining", i, err)
+			for !ethereum.IsListening() {
+				log.Error("INIT: NODE IS WAITING - LISTENING!!!", "i", i)
+				time.Sleep(250 * time.Millisecond)
 			}
-			wg.Done()
-		}(nodes[i])
+
+			if err = ethereum.StartMining(1); err != nil {
+				return fmt.Errorf("cant start mining %d %s", i, err)
+			}
+
+			for !ethereum.IsMining() {
+				log.Error("INIT: NODE IS WAITING - MINING!!!", "i", i)
+				time.Sleep(250 * time.Millisecond)
+			}
+			log.Error("INIT: NODE DONE !!!", "i", i)
+			services[i] =ethereum
+
+			return nil
+		})
+	}
+	err = wg.Wait()
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	time.Sleep(20 * time.Second)
+	wg = &errgroup.Group{}
+	for i := range nodes {
+		node := nodes[i]
+		i := i
+
+		wg.Go(func() error {
+			log.Error("******* peers", "i", i,
+				"peers", len(node.Server().Peers()),
+				"staticPeers", len(node.Server().StaticNodes),
+				"trustedPeers", len(node.Server().TrustedNodes),
+				"nodes", len(nodes))
+			return nil
+		})
+	}
+	err = wg.Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	log.Error("====================================================================")
+	time.Sleep(30 * time.Second)
+	log.Error("====================================================================")
 
 	// Start injecting transactions from the faucet like crazy
-	nonces := make([]uint64, len(sealers))
+	nonces := make([]uint64, len(validators))
+	i := 0
 	for {
-		index := rand.Intn(len(sealers))
+		i++
+
+		index := rand.Intn(len(validators))
+
+		log.Error("++++++ 1", "i", i)
 
 		// Fetch the accessor for the relevant signer
 		var ethereum *eth.Ethereum
 		if err := nodes[index%len(nodes)].Service(&ethereum); err != nil {
 			panic(err)
 		}
+
+		log.Error("++++++ 2", "i", i)
+
 		// Create a self transaction and inject into the pool
-		tx, err := types.SignTx(types.NewTransaction(nonces[index], crypto.PubkeyToAddress(sealers[index].PublicKey), new(big.Int), 21000, big.NewInt(100000000000), nil), types.HomesteadSigner{}, sealers[index])
+		tx, err := types.SignTx(types.NewTransaction(nonces[index], crypto.PubkeyToAddress(validators[index].PublicKey), new(big.Int), 21000, big.NewInt(100000000000), nil), types.HomesteadSigner{}, validators[index])
 		if err != nil {
 			panic(err)
 		}
+		log.Error("++++++ 3", "i", i)
 		if err := ethereum.TxPool().AddLocal(tx); err != nil {
 			panic(err)
 		}
+		log.Error("++++++ 4", "i", i)
 		nonces[index]++
 
 		// Wait if we're too saturated
 		if pend, _ := ethereum.TxPool().Stats(); pend > 2048 {
 			time.Sleep(100 * time.Millisecond)
 		}
+
+		log.Error("++++++ 5", "i", i)
 	}
 }
 
 var (
 	defaultDifficulty = big.NewInt(1)
-	nilUncleHash      = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	emptyNonce        = types.BlockNonce{}
-	now               = time.Now
 )
 
-func makeGenesis(sealers []*ecdsa.PrivateKey) *core.Genesis {
+func makeGenesis(validators []*ecdsa.PrivateKey, enodes []string) *core.Genesis {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.Config = params.TestChainConfig
@@ -216,27 +249,33 @@ func makeGenesis(sealers []*ecdsa.PrivateKey) *core.Genesis {
 	genesis.Mixhash = types.BFTDigest
 
 	genesis.Alloc = core.GenesisAlloc{}
-	for _, sealer := range sealers {
+	for _, sealer := range validators {
 		genesis.Alloc[crypto.PubkeyToAddress(sealer.PublicKey)] = core.GenesisAccount{
-		Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
-	}
+			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(12), nil),
+		}
 	}
 
-	validatorsAddresses := make([]string, len(sealers))
-	for i, validator := range sealers {
+	validatorsAddresses := make([]string, len(validators))
+	for i, validator := range validators {
 		validatorsAddresses[i] = crypto.PubkeyToAddress(validator.PublicKey).String()
-		genesis.Config.EnodeWhitelist = append(genesis.Config.EnodeWhitelist, enode.PubkeyToIDV4(&validator.PublicKey).String())
 	}
+	genesis.Config.EnodeWhitelist = enodes
 
 	genesis.Validators = validatorsAddresses
-	genesis.SetBFT()
+	err := genesis.SetBFT()
+	if err != nil {
+		panic(err)
+	}
 
 	return genesis
 }
 
-func makeSealer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) {
+func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) {
 	// Define the basic configurations for the Ethereum node
-	datadir, _ := ioutil.TempDir("", "")
+	datadir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return nil, err
+	}
 
 	if listenAddr == "" {
 		listenAddr = "0.0.0.0:0"
@@ -250,7 +289,7 @@ func makeSealer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr str
 			ListenAddr:  listenAddr,
 			NoDiscovery: true,
 			MaxPeers:    25,
-			PrivateKey: nodekey,
+			PrivateKey:  nodekey,
 		},
 		NoUSB: true,
 	}
@@ -273,6 +312,7 @@ func makeSealer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr str
 	}); err != nil {
 		return nil, err
 	}
+
 	// Start the node and return if successful
 	return stack, nil
 }

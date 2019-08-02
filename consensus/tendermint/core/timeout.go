@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"sync"
 	"time"
@@ -125,6 +126,8 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
+
+		log.Error("==== Before startRound handleTimeoutPrecommit", "round", c.currentRoundState.Round().Uint64()+1)
 		c.startRound(ctx, new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
 	}
 }

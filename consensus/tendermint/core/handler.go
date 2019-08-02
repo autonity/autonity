@@ -23,6 +23,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"runtime/debug"
 
@@ -133,6 +134,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 	}()
 
 	// Start a new round from last height + 1
+	log.Error("==== Before startRound handleConsensusEvents", "round", 0)
 	c.startRound(ctx, common.Big0)
 
 	for {
@@ -144,6 +146,8 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
+				log.Error("### handleConsensusEvents MessageEvent")
+
 				if len(e.Payload) == 0 {
 					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) empty payload")
 				}
@@ -157,6 +161,8 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 				c.backend.Gossip(ctx, c.valSet.Copy(), e.Payload)
 				c.logger.Debug("Finished handling tendermint.MessageEvent")
 			case backlogEvent:
+				log.Error("### handleConsensusEvents backlogEvent")
+
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling backlogEvent")
 				err := c.handleCheckedMsg(ctx, e.msg, e.src)
@@ -176,6 +182,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 				c.logger.Debug("Finished handling backlogEvent")
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
+			log.Error("### handleConsensusEvents timeoutEventSub")
 			if !ok {
 				return
 			}
@@ -192,6 +199,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 				c.logger.Debug("Finished handling TimeoutEvent")
 			}
 		case ev, ok := <-c.committedSub.Chan():
+			log.Error("### handleConsensusEvents committedSub")
 			if !ok {
 				return
 			}
@@ -259,6 +267,8 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender valida
 
 			if totalFutureRoundMessages >= int64(c.valSet.F()) {
 				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
+
+				log.Error("==== Before startRound handleCheckedMsg", "round", msgRound)
 				c.startRound(ctx, big.NewInt(msgRound))
 			}
 		}
