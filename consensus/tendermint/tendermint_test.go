@@ -80,15 +80,15 @@ type testCase struct {
 type consensusConstructor func(index int) func(basic consensus.Engine) consensus.Engine
 
 type testNode struct {
-	validator *ecdsa.PrivateKey
-	address string
-	ports int
-	url string
-	listener net.Listener
-	node *node.Node
-	enode *enode.Node
-	service *eth.Ethereum
-	eventChan chan core.ChainEvent
+	privateKey   *ecdsa.PrivateKey
+	address      string
+	port         int
+	url          string
+	listener     net.Listener
+	node         *node.Node
+	enode        *enode.Node
+	service      *eth.Ethereum
+	eventChan    chan core.ChainEvent
 	subscription event.Subscription
 }
 
@@ -99,57 +99,58 @@ func tunTest(t *testing.T, test testCase) {
 	var err error
 
 	// Generate a batch of accounts to seal and fund with
-	validators := make([]*ecdsa.PrivateKey, test.numPeers)
+	validators := make([]*testNode, test.numPeers)
 
-	for i := 0; i < len(validators); i++ {
-		validators[i], err = crypto.GenerateKey()
+	for i := range validators {
+		validators[i] = new(testNode)
+		validators[i].privateKey, err = crypto.GenerateKey()
 		if err != nil {
 			t.Fatal("cant make pk", err)
 		}
 	}
 
-	addresses := make([]string, len(validators))
-	ports := make([]int, len(validators))
-	urls := make([]string, len(validators))
-	listeners := make([]net.Listener, len(validators))
-
-	for i := range listeners {
-		listeners[i], err = net.Listen("tcp", "127.0.0.1:0")
+	for i := range validators {
+		validators[i].listener, err = net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	for i, sealer := range validators {
-		listener := listeners[i]
-		addresses[i] = listener.Addr().String()
+	for _, validator := range validators {
+		listener := validator.listener
+		validator.address = listener.Addr().String()
 		port := strings.Split(listener.Addr().String(), ":")[1]
-		ports[i], _ = strconv.Atoi(port)
-		urls[i] = enode.V4URL(sealer.PublicKey, net.IPv4(127, 0, 0, 1), ports[i], ports[i])
+		validator.port, _ = strconv.Atoi(port)
+
+		validator.url = enode.V4URL(
+			validator.privateKey.PublicKey,
+			net.IPv4(127, 0, 0, 1),
+			validator.port,
+			validator.port,
+		)
 	}
 
-	genesis := makeGenesis(validators, urls)
-	nodes := make([]*node.Node, len(validators))
-	enodes := make([]*enode.Node, len(validators))
-	for i := range validators {
+	genesis := makeGenesis(validators)
+	for i, validator := range validators {
 		var engineConstructor func(basic consensus.Engine) consensus.Engine
 		if test.newConsensus != nil {
 			engineConstructor = test.newConsensus(i)
 		}
 
-		listeners[i].Close()
-		nodes[i], err = makeValidator(genesis, validators[i], addresses[i], engineConstructor)
+		validator.listener.Close()
+
+		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, engineConstructor)
 		if err != nil {
 			t.Fatal("cant make a validator", i, err)
 		}
 	}
 
-	for i, node := range nodes {
+	for i, validator := range validators {
 		// Inject the signer key and start sealing with it
-		store := node.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
+		store := validator.node.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 
 		var signer accounts.Account
-		signer, err = store.ImportECDSA(validators[i], "")
+		signer, err = store.ImportECDSA(validator.privateKey, "")
 		if err != nil {
 			t.Fatal("import pk", i, err)
 		}
@@ -160,18 +161,18 @@ func tunTest(t *testing.T, test testCase) {
 	}
 
 	wg := &errgroup.Group{}
-	for i := range nodes {
-		node := nodes[i]
+	for i, validator := range validators {
+		validator := validator
 		i := i
 
 		wg.Go(func() error {
-			err = node.Start()
+			err = validator.node.Start()
 			if err != nil {
 				return fmt.Errorf("cannot start a node %d %s", i, err)
 			}
 
 			// Start tracking the node and it's enode
-			enodes[i] = node.Server().Self()
+			validator.enode = validator.node.Server().Self()
 			return nil
 		})
 	}
@@ -181,8 +182,8 @@ func tunTest(t *testing.T, test testCase) {
 	}
 
 	defer func() {
-		for _, node := range nodes {
-			err = node.Stop()
+		for _, validator := range validators {
+			err = validator.node.Stop()
 			if err != nil {
 				panic(err)
 			}
@@ -192,14 +193,13 @@ func tunTest(t *testing.T, test testCase) {
 	//time.Sleep(2 * time.Second)
 
 	wg = &errgroup.Group{}
-	services := make([]*eth.Ethereum, len(nodes))
-	for i := range nodes {
-		node := nodes[i]
+	for i, validator := range validators {
+		validator := validator
 		i := i
 
 		wg.Go(func() error {
 			var ethereum *eth.Ethereum
-			if err = node.Service(&ethereum); err != nil {
+			if err = validator.node.Service(&ethereum); err != nil {
 				return fmt.Errorf("cant start a node %d %s", i, err)
 			}
 
@@ -215,7 +215,7 @@ func tunTest(t *testing.T, test testCase) {
 				time.Sleep(50 * time.Millisecond)
 			}
 
-			services[i] = ethereum
+			validator.service = ethereum
 
 			return nil
 		})
@@ -226,16 +226,16 @@ func tunTest(t *testing.T, test testCase) {
 	}
 
 	wg = &errgroup.Group{}
-	for i := range nodes {
-		node := nodes[i]
+	for i, validator := range validators {
+		validator := validator
 		i := i
 
 		wg.Go(func() error {
 			log.Debug("peers", "i", i,
-				"peers", len(node.Server().Peers()),
-				"staticPeers", len(node.Server().StaticNodes),
-				"trustedPeers", len(node.Server().TrustedNodes),
-				"nodes", len(nodes))
+				"peers", len(validator.node.Server().Peers()),
+				"staticPeers", len(validator.node.Server().StaticNodes),
+				"trustedPeers", len(validator.node.Server().TrustedNodes),
+				"nodes", len(validators))
 			return nil
 		})
 	}
@@ -244,30 +244,28 @@ func tunTest(t *testing.T, test testCase) {
 		t.Fatal(err)
 	}
 
-	chs := make([]chan core.ChainEvent, len(services))
-	subs := make([]event.Subscription, len(services))
-	for i, ethereum := range services {
-		chs[i] = make(chan core.ChainEvent, 1024)
-		subs[i] = ethereum.BlockChain().SubscribeChainEvent(chs[i])
+	for _, validator := range validators {
+		validator.eventChan = make(chan core.ChainEvent, 1024)
+		validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
 	}
 
 	defer func() {
-		for _, sub := range subs {
-			sub.Unsubscribe()
+		for _, validator := range validators {
+			validator.subscription.Unsubscribe()
 		}
 	}()
 
-
 	// each peer sends one tx per block
-	sendTransactions(t, chs, test, services, validators, subs)
+	sendTransactions(t, test, validators)
 }
 
-func sendTransactions(t *testing.T, chs []chan core.ChainEvent, test testCase, services []*eth.Ethereum, validators []*ecdsa.PrivateKey, subs []event.Subscription) {
+func sendTransactions(t *testing.T, test testCase, validators []*testNode) {
 	var err error
 
 	wg := &errgroup.Group{}
-	for index := range chs {
+	for index, validator := range validators {
 		index := index
+		validator := validator
 
 		// skip malicious nodes
 		if _, ok := test.maliciousPeers[index]; ok {
@@ -278,18 +276,16 @@ func sendTransactions(t *testing.T, chs []chan core.ChainEvent, test testCase, s
 			var blocksPassed int
 			var lastBlock uint64
 
-			chainEvents := chs[index]
-			ethereum := services[index]
-			fromAddr := crypto.PubkeyToAddress(validators[index].PublicKey)
+			ethereum := validator.service
+			fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 
 			nextValidatorIndex := (index + 1) % len(validators)
-			toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].PublicKey)
-			from := validators[index]
+			toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
 
 		wgLoop:
 			for {
 				select {
-				case ev := <-chainEvents:
+				case ev := <-validator.eventChan:
 					currentBlock := ev.Block.Number().Uint64()
 					if currentBlock <= lastBlock {
 						return fmt.Errorf("expected next block %d got %d. Block %v", lastBlock+1, currentBlock, ev.Block)
@@ -297,7 +293,7 @@ func sendTransactions(t *testing.T, chs []chan core.ChainEvent, test testCase, s
 					lastBlock = currentBlock
 
 					if blocksPassed < test.numBlocks {
-						if innerErr := sendTx(ethereum, from, fromAddr, toAddr); innerErr != nil {
+						if innerErr := sendTx(ethereum, validator.privateKey, fromAddr, toAddr); innerErr != nil {
 							return innerErr
 						}
 					}
@@ -314,7 +310,7 @@ func sendTransactions(t *testing.T, chs []chan core.ChainEvent, test testCase, s
 
 						break wgLoop
 					}
-				case innerErr := <-subs[index].Err():
+				case innerErr := <-validator.subscription.Err():
 					return fmt.Errorf("error in blockchain %q", innerErr)
 				}
 			}
@@ -348,7 +344,7 @@ func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr com
 	return service.TxPool().AddLocal(tx)
 }
 
-func makeGenesis(validators []*ecdsa.PrivateKey, enodes []string) *core.Genesis {
+func makeGenesis(validators []*testNode) *core.Genesis {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.ExtraData = nil
@@ -364,16 +360,22 @@ func makeGenesis(validators []*ecdsa.PrivateKey, enodes []string) *core.Genesis 
 	genesis.Config.Ethash = nil
 
 	genesis.Alloc = core.GenesisAlloc{}
-	for _, sealer := range validators {
-		genesis.Alloc[crypto.PubkeyToAddress(sealer.PublicKey)] = core.GenesisAccount{
+	for _, validator := range validators {
+		genesis.Alloc[crypto.PubkeyToAddress(validator.privateKey.PublicKey)] = core.GenesisAccount{
 			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
 		}
 	}
 
 	validatorsAddresses := make([]string, len(validators))
 	for i, validator := range validators {
-		validatorsAddresses[i] = crypto.PubkeyToAddress(validator.PublicKey).String()
+		validatorsAddresses[i] = crypto.PubkeyToAddress(validator.privateKey.PublicKey).String()
 	}
+
+	enodes := make([]string, len(validators))
+	for i, validator := range validators {
+		enodes[i] = validator.url
+	}
+
 	genesis.Config.EnodeWhitelist = enodes
 
 	genesis.Validators = validatorsAddresses
