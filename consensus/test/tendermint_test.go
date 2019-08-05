@@ -1,4 +1,4 @@
-package tendermint
+package test
 
 import (
 	"fmt"
