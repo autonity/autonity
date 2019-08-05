@@ -33,10 +33,10 @@ type AutonityContract struct {
 	// Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
 	Bytecode string `json:"bytecode" toml:",omitempty"`
 	// Json ABI of the contract
-	ABI                string         `json:"abi "toml:",omitempty"`
-	MinGasPrice        uint64         `json:"minGasPrice" toml:",omitempty"`
-	GovernanceOperator common.Address `json:"governanceOperator" toml:",omitempty"`
-	Users              []User         `json:"users" "toml:",omitempty"`
+	ABI         string         `json:"abi "toml:",omitempty"`
+	MinGasPrice uint64         `json:"minGasPrice" toml:",omitempty"`
+	Operator    common.Address `json:"operator" toml:",omitempty"`
+	Users       []User         `json:"users" "toml:",omitempty"`
 }
 
 func (ac *AutonityContract) Validate() error {
@@ -46,7 +46,7 @@ func (ac *AutonityContract) Validate() error {
 	if reflect.DeepEqual(ac.Deployer, common.Address{}) {
 		return errors.New("deployer is empty")
 	}
-	if reflect.DeepEqual(ac.GovernanceOperator, common.Address{}) {
+	if reflect.DeepEqual(ac.Operator, common.Address{}) {
 		return errors.New("governance operator is empty")
 	}
 	for i := range ac.Users {
@@ -82,7 +82,7 @@ func (u *User) Validate() error {
 		return errors.New("if user.type is validator then user.enode must be defined")
 	}
 	if len(u.Enode) > 0 {
-		n, err := enode.ParseV4(u.Enode)
+		n, err := enode.ParseV4WithResolve(u.Enode)
 		if err != nil {
 			return fmt.Errorf("fail to parse enode for account %v, error:%v", u.Address, err)
 		}
