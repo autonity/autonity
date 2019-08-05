@@ -26,7 +26,7 @@ func TestValidateAutonityContract(t *testing.T) {
 		Users: []User{
 			{
 				Enode:   node1.String(),
-				Type:    UserMember,
+				Type:    UserStakeHolder,
 				Address: addr1,
 			},
 			{

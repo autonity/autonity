@@ -12,7 +12,7 @@ const (
 	//participant: Authorized to operate a full node, is able to join the network, is not authorized to own stake.
 	UserParticipant UserType = "participant"
 	//member: Authorized to operate a full node, is able to join the network, authorized to own stake.
-	UserMember UserType = "member"
+	UserStakeHolder UserType = "stakeholder"
 	//validator: Authorized to operate a full node, is able to join the network, authorized to own stake, participate in consensus.
 	UserValidator UserType = "validator"
 )
@@ -20,7 +20,7 @@ const (
 type UserType string
 
 func (ut UserType) IsValid() bool {
-	if ut == UserMember || ut == UserValidator || ut == UserParticipant {
+	if ut == UserStakeHolder || ut == UserValidator || ut == UserParticipant {
 		return true
 	}
 	return false
