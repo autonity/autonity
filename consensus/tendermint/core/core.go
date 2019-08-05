@@ -302,6 +302,24 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 	c.setValidRoundAndValue = false
 }
 
+func (c *core) acceptVote(roundState *roundState, step Step, hash common.Hash, msg message) {
+	emptyHash := hash == (common.Hash{})
+	switch step {
+	case prevote:
+		if emptyHash {
+			roundState.Prevotes.AddNilVote(msg)
+		} else {
+			roundState.Prevotes.AddVote(hash, msg)
+		}
+	case precommit:
+		if emptyHash {
+			roundState.Precommits.AddNilVote(msg)
+		} else {
+			roundState.Precommits.AddVote(hash, msg)
+		}
+	}
+}
+
 func (c *core) setStep(step Step) {
 	c.currentRoundState.SetStep(step)
 	c.processBacklog()

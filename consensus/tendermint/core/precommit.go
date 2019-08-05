@@ -66,7 +66,26 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	}
 
 	if err := c.checkMessage(preCommit.Round, preCommit.Height); err != nil {
-		// We don't care about old round preCommit messages, otherwise we would not be in a new round rather a new height
+		// Store old precommits because if there is a quorum of precommits in the previous round we need to go to the next height
+		if err == errOldRoundMessage {
+			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
+			// And we only process old rounds while future rounds messages are pushed on to the backlog
+			oldRoundState := c.currentHeightOldRoundsStates[preCommit.Round.Int64()]
+			c.acceptVote(&oldRoundState, precommit, preCommit.ProposedBlockHash, *msg)
+
+			// Check for old round precommit quorum
+			if c.Quorum(oldRoundState.Precommits.VotesSize(oldRoundState.GetCurrentProposalHash())) {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+					c.commit()
+				}
+
+				return nil
+			}
+		}
+
 		return err
 	}
 
@@ -82,7 +101,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	curR := c.currentRoundState.Round().Int64()
 	curH := c.currentRoundState.Height().Int64()
 
-	c.acceptPrecommit(precommitHash, *msg)
+	c.acceptVote(c.currentRoundState, precommit, precommitHash, *msg)
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
@@ -124,14 +143,6 @@ func (c *core) verifyPrecommitCommittedSeal(m *message, precommit Vote) error {
 	}
 
 	return nil
-}
-
-func (c *core) acceptPrecommit(precommitHash common.Hash, msg message) {
-	if precommitHash == (common.Hash{}) {
-		c.currentRoundState.Precommits.AddNilVote(msg)
-	} else {
-		c.currentRoundState.Precommits.AddVote(precommitHash, msg)
-	}
 }
 
 func (c *core) handleCommit(ctx context.Context) {

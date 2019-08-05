@@ -236,7 +236,7 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender valida
 			c.futureRoundsChange[msgRound] = c.futureRoundsChange[msgRound] + 1
 			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
 
-			if totalFutureRoundMessages >= int64(c.valSet.F()) {
+			if totalFutureRoundMessages > int64(c.valSet.F()) {
 				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
 				c.startRound(ctx, big.NewInt(msgRound))
 			}

@@ -261,8 +261,8 @@ func (sb *Backend) EventMux() *event.TypeMuxSilent {
 	return sb.eventMux
 }
 
-// Verify implements tendermint.Backend.Verify
-func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
+// VerifyProposal implements tendermint.Backend.VerifyProposal
+func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 	// Check if the proposal is a valid block
 	// TODO: fix always false statement and check for non nil
 	// TODO: use interface instead of type
@@ -277,45 +277,69 @@ func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
 		return 0, core.ErrBlacklistedHash
 	}
 
-	// check block body
-	txnHash := types.DeriveSha(block.Transactions())
-	uncleHash := types.CalcUncleHash(block.Uncles())
-	if txnHash != block.Header().TxHash {
-		return 0, errMismatchTxhashes
-	}
-	if uncleHash != nilUncleHash {
-		return 0, errInvalidUncleHash
-	}
-
 	// verify the header of proposed block
 	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
-		// the current blockchain state is synchronized with BFT's state
-		// and we know that the proposed block was mined by a valid validator
-		header := block.Header()
-		//We need at this point to process all the transactions in the block
-		//in order to extract the list of the next validators and validate the extradata field
-		var validators []common.Address
-		if header.Number.Uint64() > 1 {
+		var (
+			receipts   types.Receipts
+			validators []common.Address
 
-			state, _ := sb.blockchain.State()
-			state = state.Copy() // copy the state, we don't want to save modifications
-			gp := new(core.GasPool).AddGas(block.GasLimit())
-			usedGas := new(uint64)
-			// blockchain.Processor().Process() would have been a better choice but it calls back Finalize()
-			for i, tx := range block.Transactions() {
-				state.Prepare(tx.Hash(), block.Hash(), i)
-				// Might be vulnerable to DoS Attack depending on gaslimit
-				// Todo : Double check
-				_, _, err = core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil,
-					gp, state, header, tx, usedGas, *sb.vmConfig)
+			usedGas        = new(uint64)
+			gp             = new(core.GasPool).AddGas(block.GasLimit())
+			header         = block.Header()
+			proposalNumber = header.Number.Uint64()
+			parent         = sb.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
+		)
 
-				if err != nil {
-					return 0, err
-				}
+		// We need to process all of the transaction to get the latest state to get the latest validators
+		state, stateErr := sb.blockchain.StateAt(parent.Root())
+		if stateErr != nil {
+			return 0, stateErr
+		}
+
+		// Validate the body of the proposal
+		if err = sb.blockchain.Validator().ValidateBody(block); err != nil {
+			return 0, err
+		}
+
+		// sb.blockchain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
+		// Instead only the transactions are applied to the copied state
+		for i, tx := range block.Transactions() {
+			state.Prepare(tx.Hash(), block.Hash(), i)
+			// Might be vulnerable to DoS Attack depending on gaslimit
+			// Todo : Double check
+			receipt, _, receiptErr := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil, gp, state, header, tx, usedGas, *sb.vmConfig)
+			if receiptErr != nil {
+				return 0, receiptErr
+			}
+			receipts = append(receipts, receipt)
+		}
+
+		// Here the order of applying transaction matters
+		// We need to ensure that the block transactions applied before the soma and glenicke contract
+		if proposalNumber == 1 {
+			//Apply the same changes from consensus/tendermint/backend/engine.go:getValidator()349-369
+			log.Info("Soma Contract Deployer in test state", "Address", sb.config.Deployer)
+
+			_, err = sb.deployContract(sb.blockchain, header, state)
+			if err != nil {
+				return 0, err
 			}
 
+			// Deploy Glienicke network-permissioning contract
+			_, sb.glienickeContract, err = sb.blockchain.DeployGlienickeContract(state, header)
+			if err != nil {
+				return 0, err
+			}
+		}
+
+		//Validate the state of the proposal
+		if err = sb.blockchain.Validator().ValidateState(block, parent, state, receipts, *usedGas); err != nil {
+			return 0, err
+		}
+
+		if proposalNumber > 1 {
 			validators, err = sb.contractGetValidators(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
@@ -326,6 +350,8 @@ func (sb *Backend) Verify(proposal types.Block) (time.Duration, error) {
 				return 0, err
 			}
 		}
+
+		// Verify the validator set by comparing the validators in extra data and Soma-contract
 		tendermintExtra, _ := types.ExtractBFTHeaderExtra(header)
 
 		//Perform the actual comparison
