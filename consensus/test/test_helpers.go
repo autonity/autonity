@@ -2,6 +2,7 @@ package test
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -43,13 +44,18 @@ type testNode struct {
 func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) error {
 	nonce := service.TxPool().State().GetNonce(fromAddr)
 
+	randEth, err := rand.Int(rand.Reader, big.NewInt(10000000))
+	if err != nil {
+		return err
+	}
+
 	tx, err := types.SignTx(
 		types.NewTransaction(
 			nonce,
 			toAddr,
 			big.NewInt(1),
 			210000000,
-			big.NewInt(100000000000),
+			big.NewInt(100000000000+int64(randEth.Uint64())),
 			nil,
 		),
 		types.HomesteadSigner{}, fromValidator)

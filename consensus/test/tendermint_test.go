@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,6 +30,15 @@ func TestTendermint(t *testing.T) {
 			"no malicious",
 			5,
 			5,
+			1,
+			nil,
+			nil,
+		},
+		{
+			"no malicious - 100 tx per second",
+			5,
+			10,
+			100,
 			nil,
 			nil,
 		},
@@ -35,6 +46,7 @@ func TestTendermint(t *testing.T) {
 			"no malicious, one slow node",
 			5,
 			5,
+			1,
 			nil,
 			map[int]networkRate{
 				4: {50 * 1024, 50 * 1024},
@@ -44,6 +56,7 @@ func TestTendermint(t *testing.T) {
 			"one node - always accepts blocks",
 			5,
 			5,
+			1,
 			map[int]func(basic consensus.Engine) consensus.Engine{
 				4: func(basic consensus.Engine) consensus.Engine {
 					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
@@ -65,6 +78,7 @@ type testCase struct {
 	name           string
 	numPeers       int
 	numBlocks      int
+	txPerPeer      int
 	maliciousPeers map[int]func(basic consensus.Engine) consensus.Engine
 	networkRates   map[int]networkRate
 }
@@ -233,11 +247,14 @@ func tunTest(t *testing.T, test testCase) {
 	}()
 
 	// each peer sends one tx per block
-	sendTransactions(t, test, validators)
+	sendTransactions(t, test, validators, test.txPerPeer, true)
 }
 
-func sendTransactions(t *testing.T, test testCase, validators []*testNode) {
+func sendTransactions(t *testing.T, test testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
 	var err error
+
+	txs := make(map[uint64]int) // blockNumber to count
+	txsMu := sync.Mutex{}
 
 	wg := &errgroup.Group{}
 	for index, validator := range validators {
@@ -258,9 +275,6 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode) {
 			ethereum := validator.service
 			fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 
-			nextValidatorIndex := (index + 1) % len(validators)
-			toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
-
 		wgLoop:
 			for {
 				select {
@@ -271,20 +285,34 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode) {
 					}
 					lastBlock = currentBlock
 
+					txsMu.Lock()
+					if _, ok := txs[currentBlock]; !ok {
+						txs[currentBlock] = ev.Block.Transactions().Len()
+					}
+					txsMu.Unlock()
+
 					if blocksPassed < test.numBlocks {
-						if innerErr := sendTx(ethereum, validator.privateKey, fromAddr, toAddr); innerErr != nil {
-							return innerErr
+
+						for i := 0; i < txPerPeer; i++ {
+							nextValidatorIndex := (index + i + 1) % len(validators)
+							toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
+
+							if innerErr := sendTx(ethereum, validator.privateKey, fromAddr, toAddr); innerErr != nil {
+								return innerErr
+							}
 						}
 					}
 
 					blocksPassed++
 					if blocksPassed >= test.numBlocks+5 {
 						pending, queued := ethereum.TxPool().Stats()
-						if pending != 0 {
-							t.Fatal("after a new block it should be 0 pending transactions got", pending)
-						}
-						if queued != 0 {
-							t.Fatal("after a new block it should be 0 queued transactions got", pending)
+						if errorOnTx {
+							if pending != 0 {
+								t.Fatal("after a new block it should be 0 pending transactions got", pending)
+							}
+							if queued != 0 {
+								t.Fatal("after a new block it should be 0 queued transactions got", pending)
+							}
 						}
 
 						break wgLoop
@@ -300,5 +328,17 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode) {
 	err = wg.Wait()
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	keys := make([]int, 0, len(txs))
+	for key := range txs {
+		keys = append(keys, int(key))
+	}
+	sort.Ints(keys)
+
+	fmt.Println("Transactions per block")
+	for _, key := range keys {
+		count := txs[uint64(key)]
+		fmt.Printf("Block %d has %d transactions\n", key, count)
 	}
 }

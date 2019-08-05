@@ -98,8 +98,9 @@ func (sb *Backend) contractGetValidators(chain consensus.ChainReader, header *ty
 	}
 
 	var addresses []common.Address
-	if err := somaAbi.Unpack(&addresses, "getValidators", ret); err != nil { // can't work with aliased types
-		log.Error("Could not unpack getValidators returned value")
+	if err := somaAbi.Unpack(&addresses, "getValidators", ret); err != nil {
+		// can't work with aliased types
+		log.Error("Could not unpack getValidators returned value", "err", err)
 		return nil, err
 	}
 
