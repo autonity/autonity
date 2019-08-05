@@ -17,13 +17,13 @@
 package validator
 
 import (
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math"
 	"reflect"
 	"sort"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 )
 
 type defaultValidator struct {

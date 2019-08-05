@@ -22,7 +22,6 @@ package main
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"github.com/clearmatics/autonity/consensus"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -32,6 +31,7 @@ import (
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/fdlimit"
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"

@@ -20,13 +20,6 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	crypto2 "github.com/clearmatics/autonity/consensus/tendermint/crypto"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rlp"
 	"math/big"
 	"sort"
 	"strings"
@@ -34,10 +27,17 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	crypto2 "github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 func TestSign(t *testing.T) {

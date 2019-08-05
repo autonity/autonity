@@ -19,7 +19,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -31,6 +30,7 @@ import (
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/console"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"

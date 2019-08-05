@@ -1,11 +1,11 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 )
 
 type validatorSet struct {

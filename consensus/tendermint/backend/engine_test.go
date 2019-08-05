@@ -18,7 +18,6 @@ package backend
 
 import (
 	"bytes"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"math/big"
 	"reflect"
 	"testing"
@@ -27,6 +26,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 )

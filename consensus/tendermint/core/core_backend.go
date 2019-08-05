@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/p2p"
 	"math/big"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rpc"
 )
 

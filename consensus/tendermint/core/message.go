@@ -20,11 +20,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
-	"github.com/clearmatics/autonity/log"
 	"io"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 )
 

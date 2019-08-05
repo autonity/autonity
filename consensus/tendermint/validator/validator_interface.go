@@ -17,10 +17,10 @@
 package validator
 
 import (
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"strings"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 )
 
 type Validator interface {

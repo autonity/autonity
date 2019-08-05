@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"math/big"
 	"time"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"

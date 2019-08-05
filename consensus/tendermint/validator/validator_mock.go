@@ -5,10 +5,11 @@
 package validator
 
 import (
+	"reflect"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/golang/mock/gomock"
-	"reflect"
 )
 
 // MockValidator is a mock of Validator interface

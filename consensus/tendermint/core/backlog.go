@@ -17,9 +17,9 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"math/big"
 
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
