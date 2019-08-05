@@ -80,7 +80,7 @@ contract('Autonity', function(accounts) {
             var r =await token.RemoveEnode(enode, {from:accounts[6]})
 
         } catch (e) {
-            var getWhitelistResult = await token.getWhitelist({from:governanceOperatorAccount});
+            var getWhitelistResult = await token.GetWhitelist({from:governanceOperatorAccount});
             assert.deepEqual(getWhitelistResult, whiteList);
             return
         }
@@ -98,7 +98,7 @@ contract('Autonity', function(accounts) {
 
         } catch (e) {
             //skip error
-            var getWhitelistResult = await token.getWhitelist({from:governanceOperatorAccount});
+            var getWhitelistResult = await token.GetWhitelist({from:governanceOperatorAccount});
             assert.deepEqual(getWhitelistResult, whiteList);
             return
         }
@@ -112,13 +112,13 @@ contract('Autonity', function(accounts) {
         var enode = "enode://testenode";
         await token.AddEnode(enode, {from:governanceOperatorAccount});
 
-        var getValidatorsResult = await token.getWhitelist({from:governanceOperatorAccount});
+        var getValidatorsResult = await token.GetWhitelist({from:governanceOperatorAccount});
         var expected = whiteList;
         expected.push(enode);
         assert.deepEqual(getValidatorsResult, expected);
 
         await token.RemoveEnode(enode,{from:governanceOperatorAccount});
-        getValidatorsResult = await token.getWhitelist({from:accounts[1]});
+        getValidatorsResult = await token.GetWhitelist({from:accounts[1]});
         assert.deepEqual(getValidatorsResult, whiteList);
     });
 
@@ -259,15 +259,15 @@ contract('Autonity', function(accounts) {
         getStakeResult = await token.GetStake(accounts[7], {from:accounts[7]});
         assert(100 == getStakeResult, "tokens are not minted");
 
-        await token.bonding(accounts[7], 30, {from:accounts[7]});
+        await token.Bonding(accounts[7], 30, {from:accounts[7]});
 
         getStakeResult = await token.GetStake(accounts[7], {from:accounts[7]});
         assert(70 == getStakeResult, "stake is incorrect");
 
-        getStakeResult = await token.Bonded(accounts[7], {from:accounts[7]});
+        getStakeResult = await token.GetBondedStake(accounts[7], {from:accounts[7]});
         assert(30 == getStakeResult, "bonded stake is incorrect");
 
-        getStakeResult = await token.getDelegatedBondedStake(accounts[7], {from:accounts[7]});
+        getStakeResult = await token.GetDelegatedBondedStake(accounts[7], {from:accounts[7]});
         assert(30 == getStakeResult, "getDelegatedBondedStake is incorrect");
 
     });
@@ -278,29 +278,26 @@ contract('Autonity', function(accounts) {
         var getStakeResult = await token.GetStake(accounts[7], {from:accounts[7]});
         assert(70 == getStakeResult, "unexpected tokens");
 
-        getStakeResult = await token.Bonded(accounts[7], {from:accounts[7]});
+        getStakeResult = await token.GetBondedStake(accounts[7], {from:accounts[7]});
         assert(30 == getStakeResult, "bonded stake is incorrect");
 
-        getStakeResult = await token.getDelegatedBondedStake(accounts[7], {from:accounts[7]});
+        getStakeResult = await token.GetDelegatedBondedStake(accounts[7], {from:accounts[7]});
         assert(30 == getStakeResult, "getDelegatedBondedStake is incorrect");
 
 
-        await token.unbonding(accounts[7], 15, {from:accounts[7]});
+        await token.Unbonding(accounts[7], 15, {from:accounts[7]});
 
         getStakeResult = await token.GetStake(accounts[7], {from:accounts[7]});
         assert(70 == getStakeResult, "stake is incorrect");
 
-        getStakeResult = await token.Bonded(accounts[7], {from:accounts[7]});
+        getStakeResult = await token.GetBondedStake(accounts[7], {from:accounts[7]});
         assert(15 == getStakeResult, "bonded stake is incorrect");
 
-        getStakeResult = await token.getDelegatedBondedStake(accounts[7], {from:accounts[7]});
+        getStakeResult = await token.GetDelegatedBondedStake(accounts[7], {from:accounts[7]});
         assert(15 == getStakeResult, "getDelegatedBondedStake is incorrect");
 
 
-        console.log(await token.getUnbondingStake(accounts[7], {from:accounts[7]}));
-
-
-
+        await token.GetUnbondingStake(accounts[7], {from:accounts[7]});
         await token.RemoveMember(accounts[7], {from:governanceOperatorAccount});
     });
 
