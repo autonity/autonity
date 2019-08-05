@@ -484,6 +484,11 @@ func (n *Node) Attach() (*rpc.Client, error) {
 	if n.server == nil {
 		return nil, ErrNodeStopped
 	}
+
+	if n.config.P2P.IsRated {
+		return rpc.DialInProcWithRate(n.inprocHandler, n.config.P2P.InRate, n.config.P2P.OutRate), nil
+	}
+
 	return rpc.DialInProc(n.inprocHandler), nil
 }
 

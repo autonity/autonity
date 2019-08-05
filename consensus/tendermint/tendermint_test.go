@@ -41,6 +41,16 @@ func TestTendermint(t *testing.T) {
 			5,
 			5,
 			nil,
+			nil,
+		},
+		{
+			"no malicious, one slow node",
+			5,
+			5,
+			nil,
+			map[int]networkRate{
+				4: {50 * 1024, 50 * 1024},
+			},
 		},
 		{
 			"one node - always accepts blocks",
@@ -51,6 +61,7 @@ func TestTendermint(t *testing.T) {
 					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
 				},
 			},
+			nil,
 		},
 	}
 
@@ -67,6 +78,12 @@ type testCase struct {
 	numPeers       int
 	numBlocks      int
 	maliciousPeers map[int]func(basic consensus.Engine) consensus.Engine
+	networkRates   map[int]networkRate
+}
+
+type networkRate struct {
+	in  int64
+	out int64
 }
 
 type testNode struct {
@@ -129,7 +146,9 @@ func tunTest(t *testing.T, test testCase) {
 
 		validator.listener.Close()
 
-		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, engineConstructor)
+		rates := test.networkRates[i]
+
+		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, rates.in, rates.out, engineConstructor)
 		if err != nil {
 			t.Fatal("cant make a validator", i, err)
 		}
@@ -379,7 +398,7 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 	return genesis
 }
 
-func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) {
+func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, inRate, outRate int64, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) {
 	// Define the basic configurations for the Ethereum node
 	datadir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -402,6 +421,13 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 		},
 		NoUSB: true,
 	}
+
+	if inRate != 0 || outRate != 0 {
+		configNode.P2P.IsRated = true
+		configNode.P2P.InRate = inRate
+		configNode.P2P.OutRate = outRate
+	}
+
 	// Start the node and configure a full Ethereum node on it
 	stack, err := node.New(configNode)
 	if err != nil {
