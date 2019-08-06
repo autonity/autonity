@@ -102,14 +102,6 @@ func TestTendermintLongRun(t *testing.T) {
 			nil,
 			nil,
 		},
-		{
-			"10 nodes, 20 blocks",
-			10,
-			20,
-			10,
-			nil,
-			nil,
-		},
 	}
 
 	for _, testCase := range cases {
@@ -325,7 +317,7 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode, txPer
 			for {
 				select {
 				case ev := <-validator.eventChan:
-					log.Error("peer", validator.address ,"block", ev.Block.Number().Uint64())
+					log.Error("peer", "address", validator.privateKey.Public(), "block", ev.Block.Number().Uint64())
 
 					currentBlock := ev.Block.Number().Uint64()
 					if currentBlock <= lastBlock {
