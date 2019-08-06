@@ -53,6 +53,28 @@ func TestTendermint(t *testing.T) {
 			},
 		},
 		{
+			"no malicious, all nodes are slow",
+			5,
+			5,
+			1,
+			nil,
+			map[int]networkRate{
+				0: {50 * 1024, 50 * 1024},
+				1: {50 * 1024, 50 * 1024},
+				2: {50 * 1024, 50 * 1024},
+				3: {50 * 1024, 50 * 1024},
+				4: {50 * 1024, 50 * 1024},
+			},
+		},
+		{
+			"10 nodes, 20 blocks",
+			10,
+			20,
+			10,
+			nil,
+			nil,
+		},
+		{
 			"one node - always accepts blocks",
 			5,
 			5,
@@ -292,7 +314,6 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode, txPer
 					txsMu.Unlock()
 
 					if blocksPassed < test.numBlocks {
-
 						for i := 0; i < txPerPeer; i++ {
 							nextValidatorIndex := (index + i + 1) % len(validators)
 							toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
