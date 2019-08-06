@@ -325,6 +325,8 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode, txPer
 			for {
 				select {
 				case ev := <-validator.eventChan:
+					log.Error("peer", validator.address ,"block", ev.Block.Number().Uint64())
+
 					currentBlock := ev.Block.Number().Uint64()
 					if currentBlock <= lastBlock {
 						return fmt.Errorf("expected next block %d got %d. Block %v", lastBlock+1, currentBlock, ev.Block)
