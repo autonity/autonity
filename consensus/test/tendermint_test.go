@@ -24,7 +24,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func TestTendermint(t *testing.T) {
+func TestTendermintSuccess(t *testing.T) {
 	cases := []testCase{
 		{
 			"no malicious",
@@ -35,13 +35,29 @@ func TestTendermint(t *testing.T) {
 			nil,
 		},
 		{
-			"no malicious - 100 tx per second",
+			"one node - always accepts blocks",
 			5,
-			10,
-			100,
-			nil,
+			5,
+			1,
+			map[int]func(basic consensus.Engine) consensus.Engine{
+				4: func(basic consensus.Engine) consensus.Engine {
+					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
+				},
+			},
 			nil,
 		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			tunTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintSlowConnections(t *testing.T) {
+	cases := []testCase{
 		{
 			"no malicious, one slow node",
 			5,
@@ -66,24 +82,32 @@ func TestTendermint(t *testing.T) {
 				4: {50 * 1024, 50 * 1024},
 			},
 		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			tunTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintLongRun(t *testing.T) {
+	cases := []testCase{
+		{
+			"no malicious - 100 tx per second",
+			5,
+			10,
+			100,
+			nil,
+			nil,
+		},
 		{
 			"10 nodes, 20 blocks",
 			10,
 			20,
 			10,
 			nil,
-			nil,
-		},
-		{
-			"one node - always accepts blocks",
-			5,
-			5,
-			1,
-			map[int]func(basic consensus.Engine) consensus.Engine{
-				4: func(basic consensus.Engine) consensus.Engine {
-					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
-				},
-			},
 			nil,
 		},
 	}
