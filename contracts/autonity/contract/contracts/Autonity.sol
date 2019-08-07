@@ -57,6 +57,13 @@ contract Autonity {
 
 
 
+    /*
+    * Ethereum transactions gas price must be greater or equal to the minimumGasPrice, a value set by the Governance operator.
+    * FM-REQ-5: The minimumGasPrice value is a Genesis file configuration, if ommitted it defaults to 0.
+    */
+    uint256 minGasPrice = 0;
+
+
 
     // constructor get called at block #1 with msg.owner equal to Soma's deployer
     // configured in the genesis file.
@@ -129,12 +136,22 @@ contract Autonity {
     }
 
     /*
-    ========================================================================================================================
-
-        Getters - extra values we may wish to return
-
-    ========================================================================================================================
+    * setMinimumGasPrice
+    * FM-REQ-4: The Autonity Contract implements the setMinimumGasPrice function that is restricted to the Governance Operator account.
+    * The function takes as an argument a positive integer and modify the value of minimumGasPrice
     */
+    function SetMinimumGasPrice(uint256  _value) public onlyGovernanceOperator(msg.sender) {
+        minGasPrice = _value;
+    }
+
+
+        /*
+        ========================================================================================================================
+
+            Getters - extra values we may wish to return
+
+        ========================================================================================================================
+        */
 
     /*
     * getValidators
@@ -312,6 +329,14 @@ contract Autonity {
     }
 
 
+
+    /*
+    * GetMinimumGasPrice
+    * Returns minimum gas price. Ethereum transactions gas price must be greater or equal to the minimumGasPrice.
+    */
+    function GetMinimumGasPrice() public view returns(uint256) {
+        return minGasPrice;
+    }
 
 
     /*
