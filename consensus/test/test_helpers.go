@@ -29,6 +29,8 @@ type networkRate struct {
 }
 
 type testNode struct {
+	isRunning    bool
+	isInited     bool
 	privateKey   *ecdsa.PrivateKey
 	address      string
 	port         int

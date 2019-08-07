@@ -140,7 +140,13 @@ func NewEventSystem(mux *event.TypeMux, backend Backend, lightMode bool) *EventS
 	// Make sure none of the subscriptions are empty
 	if m.txsSub == nil || m.logsSub == nil || m.rmLogsSub == nil || m.chainSub == nil ||
 		m.pendingLogSub.Closed() {
-		log.Crit("Subscribe for event system failed")
+		log.Crit("Subscribe for event system failed",
+			"txsSub", m.txsSub == nil,
+			"logsSub", m.logsSub == nil,
+			"rmLogsSub", m.rmLogsSub == nil,
+			"chainSub", m.chainSub == nil,
+			"pendingLogSub.Closed", m.pendingLogSub.Closed(),
+		)
 	}
 
 	go m.eventLoop()

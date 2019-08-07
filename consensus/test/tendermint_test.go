@@ -2,7 +2,9 @@ package test
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/accounts"
+	"github.com/clearmatics/autonity/accounts/keystore"
+	"github.com/clearmatics/autonity/event"
 	"net"
 	"os"
 	"sort"
@@ -12,12 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common/fdlimit"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/log"
@@ -26,7 +27,7 @@ import (
 )
 
 func TestTendermintSuccess(t *testing.T) {
-	cases := []testCase{
+	cases := []*testCase{
 		{
 			"no malicious",
 			5,
@@ -36,6 +37,8 @@ func TestTendermintSuccess(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			time.Time{},
+			time.Time{},
 		},
 		{
 			"one node - always accepts blocks",
@@ -50,6 +53,8 @@ func TestTendermintSuccess(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			time.Time{},
+			time.Time{},
 		},
 	}
 
@@ -62,7 +67,7 @@ func TestTendermintSuccess(t *testing.T) {
 }
 
 func TestTendermintSlowConnections(t *testing.T) {
-	cases := []testCase{
+	cases := []*testCase{
 		{
 			"no malicious, one slow node",
 			5,
@@ -74,6 +79,8 @@ func TestTendermintSlowConnections(t *testing.T) {
 			},
 			nil,
 			nil,
+			time.Time{},
+			time.Time{},
 		},
 		{
 			"no malicious, all nodes are slow",
@@ -90,6 +97,8 @@ func TestTendermintSlowConnections(t *testing.T) {
 			},
 			nil,
 			nil,
+			time.Time{},
+			time.Time{},
 		},
 	}
 
@@ -102,7 +111,7 @@ func TestTendermintSlowConnections(t *testing.T) {
 }
 
 func TestTendermintLongRun(t *testing.T) {
-	cases := []testCase{
+	cases := []*testCase{
 		{
 			"no malicious - 100 tx per second",
 			5,
@@ -112,6 +121,62 @@ func TestTendermintLongRun(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			time.Time{},
+			time.Time{},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			tunTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintStartStop(t *testing.T) {
+	cases := []*testCase{
+		{
+			"one node stops for 10 seconds",
+			5,
+			10,
+			1,
+			nil,
+			nil,
+			map[int]func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error{
+				4: func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+					if block.Number().Uint64() == 5 {
+						err := validator.stopNode()
+						if err != nil {
+							return err
+						}
+
+						tCase.stopTime = currentTime
+
+						return nil
+					}
+
+					return nil
+				},
+			},
+			map[int]func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error{
+				4: func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+
+					if block == nil && currentTime.Sub(tCase.stopTime).Seconds() >= 10 {
+						if err := validator.startNode(); err != nil {
+							return err
+						}
+
+						if err := validator.startService(); err != nil {
+							return err
+						}
+					}
+
+					return nil
+				},
+			},
+			time.Time{},
+			time.Time{},
 		},
 	}
 
@@ -128,14 +193,16 @@ type testCase struct {
 	numPeers       int
 	numBlocks      int
 	txPerPeer      int
-	maliciousPeers map[int]func(basic consensus.Engine) consensus.Engine       //map[validatorIndex]consensusConstructor
-	networkRates   map[int]networkRate                                         //map[validatorIndex]networkRate
-	beforeHooks    map[int]func(block *types.Block, validator *testNode) error //map[validatorIndex]beforeHook
-	afterHooks     map[int]func(block *types.Block, validator *testNode) error //map[validatorIndex]afterHook
+	maliciousPeers map[int]func(basic consensus.Engine) consensus.Engine                              //map[validatorIndex]consensusConstructor
+	networkRates   map[int]networkRate                                                                //map[validatorIndex]networkRate
+	beforeHooks    map[int]func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error //map[validatorIndex]beforeHook
+	afterHooks     map[int]func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error //map[validatorIndex]afterHook
+	startTime time.Time
+	stopTime time.Time
 }
 
-func tunTest(t *testing.T, test testCase) {
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+func tunTest(t *testing.T, test *testCase) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_ = fdlimit.Raise(2048)
 
 	var err error
@@ -189,35 +256,12 @@ func tunTest(t *testing.T, test testCase) {
 		}
 	}
 
-	for i, validator := range validators {
-		// Inject the signer key and start sealing with it
-		store := validator.node.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-
-		var signer accounts.Account
-		signer, err = store.ImportECDSA(validator.privateKey, "")
-		if err != nil {
-			t.Fatal("import pk", i, err)
-		}
-
-		if err = store.Unlock(signer, ""); err != nil {
-			t.Fatal("cant unlock", i, err)
-		}
-	}
-
 	wg := &errgroup.Group{}
-	for i, validator := range validators {
+	for _, validator := range validators {
 		validator := validator
-		i := i
 
 		wg.Go(func() error {
-			err = validator.node.Start()
-			if err != nil {
-				return fmt.Errorf("cannot start a node %d %s", i, err)
-			}
-
-			// Start tracking the node and it's enode
-			validator.enode = validator.node.Server().Self()
-			return nil
+			return validator.startNode()
 		})
 	}
 	err = wg.Wait()
@@ -227,39 +271,21 @@ func tunTest(t *testing.T, test testCase) {
 
 	defer func() {
 		for _, validator := range validators {
-			err = validator.node.Stop()
-			if err != nil {
-				panic(err)
+			if validator.isRunning {
+				err = validator.node.Stop()
+				if err != nil {
+					panic(err)
+				}
 			}
 		}
 	}()
 
 	wg = &errgroup.Group{}
-	for i, validator := range validators {
+	for _, validator := range validators {
 		validator := validator
-		i := i
 
 		wg.Go(func() error {
-			var ethereum *eth.Ethereum
-			if err = validator.node.Service(&ethereum); err != nil {
-				return fmt.Errorf("cant start a node %d %s", i, err)
-			}
-
-			for !ethereum.IsListening() {
-				time.Sleep(50 * time.Millisecond)
-			}
-
-			if err = ethereum.StartMining(1); err != nil {
-				return fmt.Errorf("cant start mining %d %s", i, err)
-			}
-
-			for !ethereum.IsMining() {
-				time.Sleep(50 * time.Millisecond)
-			}
-
-			validator.service = ethereum
-
-			return nil
+			return validator.startService()
 		})
 	}
 	err = wg.Wait()
@@ -286,11 +312,6 @@ func tunTest(t *testing.T, test testCase) {
 		t.Fatal(err)
 	}
 
-	for _, validator := range validators {
-		validator.eventChan = make(chan core.ChainEvent, 1024)
-		validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
-	}
-
 	defer func() {
 		for _, validator := range validators {
 			validator.subscription.Unsubscribe()
@@ -301,7 +322,82 @@ func tunTest(t *testing.T, test testCase) {
 	sendTransactions(t, test, validators, test.txPerPeer, true)
 }
 
-func sendTransactions(t *testing.T, test testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
+func (validator *testNode) startNode() error {
+	// Inject the signer key and start sealing with it
+	store := validator.node.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
+
+	var (
+		err error
+		signer accounts.Account
+	)
+
+	if !validator.isInited {
+		signer, err = store.ImportECDSA(validator.privateKey, "")
+		if err != nil {
+			return fmt.Errorf("import pk: %s", err)
+		}
+		validator.isInited = true
+	} else {
+		signer = store.Accounts()[0]
+	}
+
+	if err = store.Unlock(signer, ""); err != nil {
+		return fmt.Errorf("cant unlock: %s", err)
+	}
+
+	newMux := new(event.TypeMux)
+	*validator.node.EventMux() = *newMux
+
+	if err := validator.node.Start(); err != nil {
+		return fmt.Errorf("cannot start a node %s", err)
+	}
+
+	// Start tracking the node and it's enode
+	validator.enode = validator.node.Server().Self()
+	return nil
+}
+
+func (validator *testNode) stopNode() error {
+	if err := validator.node.Stop(); err != nil {
+		return fmt.Errorf("cannot stop a node %s", err)
+	}
+
+	validator.isRunning = false
+	return nil
+}
+
+func (validator *testNode) startService() error {
+	var ethereum *eth.Ethereum
+	if err := validator.node.Service(&ethereum); err != nil {
+		return fmt.Errorf("cant start a node %s", err)
+	}
+
+	for !ethereum.IsListening() {
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	if err := ethereum.StartMining(1); err != nil {
+		return fmt.Errorf("cant start mining %s", err)
+	}
+
+	for !ethereum.IsMining() {
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	validator.service = ethereum
+
+	if validator.eventChan == nil {
+		validator.eventChan = make(chan core.ChainEvent, 1024)
+	}
+
+	validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
+
+	validator.isRunning = true
+
+	return nil
+}
+
+func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
 	var err error
 
 	txs := make(map[uint64]int) // blockNumber to count
@@ -323,7 +419,6 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode, txPer
 			var blocksPassed int
 			var lastBlock uint64
 
-			ethereum := validator.service
 			fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 
 		wgLoop:
@@ -334,7 +429,7 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode, txPer
 					if test.beforeHooks != nil {
 						validatorBeforeHook, ok := test.beforeHooks[index]
 						if ok && validatorBeforeHook != nil {
-							err = validatorBeforeHook(ev.Block, validator)
+							err = validatorBeforeHook(ev.Block, validator, test, time.Now())
 							if err != nil {
 								return fmt.Errorf("error while executing before hook for validator index %d(%v) and block %v",
 									index, validator, ev.Block)
@@ -343,60 +438,78 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode, txPer
 					}
 
 					// actual forming and sending transaction
-					log.Error("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64())
+					log.Error("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64(), "isRunning", validator.isRunning)
 
-					currentBlock := ev.Block.Number().Uint64()
-					if currentBlock <= lastBlock {
-						return fmt.Errorf("expected next block %d got %d. Block %v", lastBlock+1, currentBlock, ev.Block)
-					}
-					lastBlock = currentBlock
+					if validator.isRunning {
+						currentBlock := ev.Block.Number().Uint64()
+						if currentBlock <= lastBlock {
+							return fmt.Errorf("expected next block %d got %d. Block %v", lastBlock+1, currentBlock, ev.Block)
+						}
+						lastBlock = currentBlock
 
-					txsMu.Lock()
-					if _, ok := txs[currentBlock]; !ok {
-						txs[currentBlock] = ev.Block.Transactions().Len()
-					}
-					txsMu.Unlock()
+						txsMu.Lock()
+						if _, ok := txs[currentBlock]; !ok {
+							txs[currentBlock] = ev.Block.Transactions().Len()
+						}
+						txsMu.Unlock()
 
-					if blocksPassed < test.numBlocks {
-						for i := 0; i < txPerPeer; i++ {
-							nextValidatorIndex := (index + i + 1) % len(validators)
-							toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
+						if blocksPassed < test.numBlocks {
+							for i := 0; i < txPerPeer; i++ {
+								nextValidatorIndex := (index + i + 1) % len(validators)
+								toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
 
-							if innerErr := sendTx(ethereum, validator.privateKey, fromAddr, toAddr); innerErr != nil {
-								return innerErr
+								if innerErr := sendTx(validator.service, validator.privateKey, fromAddr, toAddr); innerErr != nil {
+									return innerErr
+								}
 							}
 						}
 					}
 
-					// after hook
+					// after hook by time and by block number
 					if test.afterHooks != nil {
 						validatorAfterHook, ok := test.afterHooks[index]
 						if ok && validatorAfterHook != nil {
-							err = validatorAfterHook(ev.Block, validator)
+							err = validatorAfterHook(ev.Block, validator, test, time.Now())
 							if err != nil {
-								return fmt.Errorf("error while executing after hook for validator index %d(%v) and block %v",
-									index, validator, ev.Block)
+								return fmt.Errorf("error while executing after hook for validator index %d(%v) and block %v. err %q",
+									index, validator, ev.Block, err)
 							}
 						}
 					}
 
 					// check transactions status if all blocks are passed
 					blocksPassed++
-					if blocksPassed >= test.numBlocks+5 {
-						pending, queued := ethereum.TxPool().Stats()
+					if validator.isRunning && blocksPassed >= test.numBlocks+5 {
+						pending, queued := validator.service.TxPool().Stats()
 						if errorOnTx {
 							if pending != 0 {
 								t.Fatal("after a new block it should be 0 pending transactions got", pending)
 							}
 							if queued != 0 {
-								t.Fatal("after a new block it should be 0 queued transactions got", pending)
+								t.Fatal("after a new block it should be 0 queued transactions got", queued)
 							}
 						}
 
 						break wgLoop
 					}
 				case innerErr := <-validator.subscription.Err():
-					return fmt.Errorf("error in blockchain %q", innerErr)
+					if innerErr != nil {
+						return fmt.Errorf("error in blockchain %q", innerErr)
+					}
+
+					// after hook by time not by block number
+					if test.afterHooks != nil {
+						validatorAfterHook, ok := test.afterHooks[index]
+						if ok && validatorAfterHook != nil {
+							err = validatorAfterHook(nil, validator, test, time.Now())
+							if err != nil {
+								return fmt.Errorf("error while executing after hook for validator index %d(%v) and block %v. err %q",
+									index, validator, nil, err)
+							}
+						}
+					}
+
+					time.Sleep(50*time.Millisecond)
 				}
 			}
 
@@ -418,5 +531,16 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode, txPer
 	for _, key := range keys {
 		count := txs[uint64(key)]
 		fmt.Printf("Block %d has %d transactions\n", key, count)
+	}
+
+	//check that all nodes reached minimum height
+	lastBlock := uint64(keys[len(keys)-1])
+	for index, validator := range validators {
+		validatorBlock := validator.service.BlockChain().CurrentBlock().Number().Uint64()
+
+		if validatorBlock < lastBlock {
+			t.Fatalf("a validator is behind the network index %d(%v) and block %v - expected %d",
+				index, validator, validatorBlock, lastBlock)
+		}
 	}
 }
