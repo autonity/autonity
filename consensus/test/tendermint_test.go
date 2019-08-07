@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/core/types"
 	"net"
 	"os"
 	"sort"
@@ -33,6 +34,8 @@ func TestTendermintSuccess(t *testing.T) {
 			1,
 			nil,
 			nil,
+			nil,
+			nil,
 		},
 		{
 			"one node - always accepts blocks",
@@ -44,6 +47,8 @@ func TestTendermintSuccess(t *testing.T) {
 					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
 				},
 			},
+			nil,
+			nil,
 			nil,
 		},
 	}
@@ -67,6 +72,8 @@ func TestTendermintSlowConnections(t *testing.T) {
 			map[int]networkRate{
 				4: {50 * 1024, 50 * 1024},
 			},
+			nil,
+			nil,
 		},
 		{
 			"no malicious, all nodes are slow",
@@ -81,6 +88,8 @@ func TestTendermintSlowConnections(t *testing.T) {
 				3: {50 * 1024, 50 * 1024},
 				4: {50 * 1024, 50 * 1024},
 			},
+			nil,
+			nil,
 		},
 	}
 
@@ -101,6 +110,8 @@ func TestTendermintLongRun(t *testing.T) {
 			100,
 			nil,
 			nil,
+			nil,
+			nil,
 		},
 	}
 
@@ -119,6 +130,8 @@ type testCase struct {
 	txPerPeer      int
 	maliciousPeers map[int]func(basic consensus.Engine) consensus.Engine
 	networkRates   map[int]networkRate
+	beforeHooks    map[int]func(block *types.Block, validator *testNode) error
+	afterHooks     map[int]func(block *types.Block, validator *testNode) error
 }
 
 func tunTest(t *testing.T, test testCase) {
@@ -317,7 +330,20 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode, txPer
 			for {
 				select {
 				case ev := <-validator.eventChan:
-					log.Error("peer", "address", validator.privateKey.Public(), "block", ev.Block.Number().Uint64())
+					// before hook
+					if test.beforeHooks != nil {
+						validatorBeforeHook, ok := test.beforeHooks[index]
+						if ok && validatorBeforeHook != nil {
+							err = validatorBeforeHook(ev.Block, validator)
+							if err != nil {
+								return fmt.Errorf("error while executing before hook for validator index %d(%v) and block %v",
+									index, validator, ev.Block)
+							}
+						}
+					}
+
+					// actual forming and sending transaction
+					log.Error("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64())
 
 					currentBlock := ev.Block.Number().Uint64()
 					if currentBlock <= lastBlock {
@@ -342,6 +368,19 @@ func sendTransactions(t *testing.T, test testCase, validators []*testNode, txPer
 						}
 					}
 
+					// after hook
+					if test.afterHooks != nil {
+						validatorAfterHook, ok := test.afterHooks[index]
+						if ok && validatorAfterHook != nil {
+							err = validatorAfterHook(ev.Block, validator)
+							if err != nil {
+								return fmt.Errorf("error while executing after hook for validator index %d(%v) and block %v",
+									index, validator, ev.Block)
+							}
+						}
+					}
+
+					// check transactions status if all blocks are passed
 					blocksPassed++
 					if blocksPassed >= test.numBlocks+5 {
 						pending, queued := ethereum.TxPool().Stats()
