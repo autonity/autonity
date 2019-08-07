@@ -145,97 +145,6 @@ contract Autonity {
     }
 
 
-        /*
-        ========================================================================================================================
-
-            Getters - extra values we may wish to return
-
-        ========================================================================================================================
-        */
-
-    /*
-    * getValidators
-    *
-    * Returns the macro validator list
-    */
-
-    function GetValidators() public view returns (address[] memory) {
-        return validators;
-    }
-
-    /*
-    * getWhitelist
-    *
-    * Returns the macro participants list
-    */
-
-    function GetWhitelist() public view returns (string[] memory) {
-        return enodesWhitelist;
-    }
-
-
-    /*
-    * GetAccountStake
-    *
-    * Returns unbonded stake for account
-    */
-    function GetAccountStake(address _account) public view returns (uint256) {
-        return stake_token[_account];
-    }
-
-
-    /*
-    * CheckMember
-    *
-    * Returns is addres a member
-    */
-    function CheckMember(address _account) public view returns (bool) {
-        return members[_account];
-    }
-
-    /*
-    * GetStake
-    *
-    * Returns sender's unbonded stake
-    */
-    function GetStake() public view returns(uint256) {
-        return stake_token[msg.sender];
-    }
-
-    /*
-    * GetBondedStake
-    *
-    * Returns sender's ubonded stake
-    */
-    function GetBondedStake() public view returns(uint256) {
-        return bonded_stake_token[msg.sender];
-    }
-
-    /*
-    * GetDelegatedBondedStake
-    *
-    * Returns sender's deleagated to _account
-    */
-    function GetDelegatedBondedStake(address _account) public view returns(uint256) {
-        return delegated_stake_token[msg.sender][_account];
-    }
-
-
-    function getRate(address _account) public view returns(uint256) {
-        require(members[msg.sender] == true, "Account hasn't created");
-        return comission_rate[msg.sender];
-    }
-
-    /*
-    * GetUnbondingStake
-    *
-    * Returns sender's unbonding stake by account
-    */
-    function GetUnbondingStake(address _account) public view returns(unbondingStake[] memory ) {
-        return unbonding_stake_token[msg.sender][_account];
-    }
-
-
     /*
     * MintStake
     * function capable of creating new stake token and adding it to the recipient balance
@@ -327,6 +236,99 @@ contract Autonity {
         comission_rate[msg.sender] = rate;
         return true;
     }
+
+
+
+    /*
+    ========================================================================================================================
+
+        Getters - extra values we may wish to return
+
+    ========================================================================================================================
+    */
+
+    /*
+    * getValidators
+    *
+    * Returns the macro validator list
+    */
+
+    function GetValidators() public view returns (address[] memory) {
+        return validators;
+    }
+
+    /*
+    * getWhitelist
+    *
+    * Returns the macro participants list
+    */
+
+    function GetWhitelist() public view returns (string[] memory) {
+        return enodesWhitelist;
+    }
+
+
+    /*
+    * GetAccountStake
+    *
+    * Returns unbonded stake for account
+    */
+    function GetAccountStake(address _account) public view returns (uint256) {
+        return stake_token[_account];
+    }
+
+
+    /*
+    * CheckMember
+    *
+    * Returns is addres a member
+    */
+    function CheckMember(address _account) public view returns (bool) {
+        return members[_account];
+    }
+
+    /*
+    * GetStake
+    *
+    * Returns sender's unbonded stake
+    */
+    function GetStake() public view returns(uint256) {
+        return stake_token[msg.sender];
+    }
+
+    /*
+    * GetBondedStake
+    *
+    * Returns sender's ubonded stake
+    */
+    function GetBondedStake() public view returns(uint256) {
+        return bonded_stake_token[msg.sender];
+    }
+
+    /*
+    * GetDelegatedBondedStake
+    *
+    * Returns sender's deleagated to _account
+    */
+    function GetDelegatedBondedStake(address _account) public view returns(uint256) {
+        return delegated_stake_token[msg.sender][_account];
+    }
+
+
+    function getRate(address _account) public view returns(uint256) {
+        require(members[msg.sender] == true, "Account hasn't created");
+        return comission_rate[msg.sender];
+    }
+
+    /*
+    * GetUnbondingStake
+    *
+    * Returns sender's unbonding stake by account
+    */
+    function GetUnbondingStake(address _account) public view returns(unbondingStake[] memory ) {
+        return unbonding_stake_token[msg.sender][_account];
+    }
+
 
 
 
