@@ -128,10 +128,10 @@ type testCase struct {
 	numPeers       int
 	numBlocks      int
 	txPerPeer      int
-	maliciousPeers map[int]func(basic consensus.Engine) consensus.Engine
-	networkRates   map[int]networkRate
-	beforeHooks    map[int]func(block *types.Block, validator *testNode) error
-	afterHooks     map[int]func(block *types.Block, validator *testNode) error
+	maliciousPeers map[int]func(basic consensus.Engine) consensus.Engine       //map[validatorIndex]consensusConstructor
+	networkRates   map[int]networkRate                                         //map[validatorIndex]networkRate
+	beforeHooks    map[int]func(block *types.Block, validator *testNode) error //map[validatorIndex]beforeHook
+	afterHooks     map[int]func(block *types.Block, validator *testNode) error //map[validatorIndex]afterHook
 }
 
 func tunTest(t *testing.T, test testCase) {
