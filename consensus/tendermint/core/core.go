@@ -193,7 +193,7 @@ func (c *core) commit() {
 
 	if proposal != nil {
 		if proposal.ProposalBlock != nil {
-			log.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash(), "block", proposal.ProposalBlock)
+			log.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 		} else {
 			log.Error("commit a NIL block",
 				"block", proposal.ProposalBlock,

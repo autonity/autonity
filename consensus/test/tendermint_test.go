@@ -235,7 +235,7 @@ func (test *testCase) getAfterHook(index int) hook {
 type hook func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error
 
 func tunTest(t *testing.T, test *testCase) {
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_ = fdlimit.Raise(2048)
 
 	var err error
