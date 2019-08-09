@@ -14,6 +14,8 @@ GO ?= latest
 autonity:
 	build/env.sh go run build/ci.go install ./cmd/autonity
 	@echo "Done building."
+	@echo "Run \"$(GOBIN)/geth\" to launch geth."
+
 	@echo "Run \"$(GOBIN)/autonity\" to launch autonity."
 
 all:
