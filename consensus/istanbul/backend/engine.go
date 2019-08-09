@@ -406,7 +406,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	}
 	block, err := sb.updateBlock(block)
 	if err != nil {
-		sb.logger.Error("Error updateBlock", err, err.Error())
+		sb.logger.Error("seal error updateBlock", "err", err.Error())
 		return err
 	}
 

@@ -486,11 +486,12 @@ func TestPrepareExtra(t *testing.T) {
 	}
 
 	payload, err := types.PrepareExtra(h.Extra, validators)
+	//panic(fmt.Sprint(len(payload), len(expectedResult)))
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want: nil", err)
 	}
 	if !reflect.DeepEqual(payload, expectedResult) {
-		t.Errorf("payload mismatch: have %v, want %v", payload, expectedResult)
+		t.Errorf("payload mismatch: have %v(%d)\n, want %v(%d)", payload, len(payload), expectedResult, len(expectedResult))
 	}
 
 	// append useless information to extra-data

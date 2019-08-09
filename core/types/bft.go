@@ -94,6 +94,7 @@ func ExtractBFTExtra(extra []byte) (*BFTExtra, error) {
 	var bftExtra *BFTExtra
 	err := rlp.DecodeBytes(extra[BFTExtraVanity:], &bftExtra)
 	if err != nil {
+		log.Error("!!!!! 2", "bftExtra", bftExtra, "bytes", extra, "err", err)
 		return nil, err
 	}
 	return bftExtra, nil
@@ -169,21 +170,6 @@ func Ecrecover(header *Header) (common.Address, error) {
 func PrepareExtra(extraData []byte, vals []common.Address) ([]byte, error) {
 	extraDataCopy := append([]byte{}, extraData...)
 
-	// trim old validators list
-	ex, err := ExtractBFTExtra(extraDataCopy)
-	if err == nil {
-		var oldPayload []byte
-		oldPayload, err = rlp.EncodeToBytes(&ex)
-		if err != nil {
-			return extraDataCopy, err
-		}
-
-		validatorsIndex := bytes.LastIndex(extraDataCopy, oldPayload)
-		if validatorsIndex != -1 {
-			extraDataCopy = extraDataCopy[:validatorsIndex]
-		}
-	}
-
 	pos := &BFTExtra{
 		Validators:    vals,
 		Seal:          []byte{},
@@ -195,18 +181,16 @@ func PrepareExtra(extraData []byte, vals []common.Address) ([]byte, error) {
 		return extraDataCopy, err
 	}
 
-	var buf bytes.Buffer
 	// compensate the lack bytes if header.Extra is not enough BFTExtraVanity bytes.
 	if len(extraDataCopy) < BFTExtraVanity {
-		buf.Write(bytes.Repeat([]byte{0x00}, BFTExtraVanity-len(extraData)))
+		extraDataCopy = append(extraDataCopy, bytes.Repeat([]byte{0x00}, BFTExtraVanity-len(extraDataCopy))...)
 	}
 
-	_, err = buf.Write(extraDataCopy)
-	if err != nil {
-		return extraDataCopy, err
+	if len(extraDataCopy) > BFTExtraVanity {
+		extraDataCopy = extraDataCopy[:BFTExtraVanity]
 	}
 
-	return append(buf.Bytes(), payload...), nil
+	return append(extraDataCopy, payload...), nil
 }
 
 // WriteSeal writes the extra-data field of the given header with the given seals.
@@ -224,6 +208,7 @@ func WriteSeal(h *Header, seal []byte) error {
 	bftExtra.Seal = seal
 	payload, err := rlp.EncodeToBytes(&bftExtra)
 	if err != nil {
+		panic(3)
 		return err
 	}
 
