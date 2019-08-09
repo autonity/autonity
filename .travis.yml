@@ -21,7 +21,7 @@ matrix:
         - go run build/ci.go install
         - make lint-ci
         - go test ./consensus/tendermint/... -race -v -parallel 1
-        - go run build/ci.go test -coverage $TEST_PACKAGES
+        - travis_wait 40 go run build/ci.go test -coverage $TEST_PACKAGES
         - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
 notifications:
   slack:

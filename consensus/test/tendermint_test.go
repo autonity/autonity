@@ -431,6 +431,7 @@ func (validator *testNode) startService() error {
 
 func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
 	var err error
+	const blocksToWait = 10
 
 	txs := make(map[uint64]int) // blockNumber to count
 	txsMu := sync.Mutex{}
@@ -464,7 +465,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					}
 
 					// actual forming and sending transaction
-					log.Error("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64(), "isRunning", validator.isRunning)
+					log.Debug("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64(), "isRunning", validator.isRunning)
 
 					if validator.isRunning {
 						currentBlock := ev.Block.Number().Uint64()
@@ -479,7 +480,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						}
 						txsMu.Unlock()
 
-						if blocksPassed < test.numBlocks {
+						if blocksPassed <= test.numBlocks {
 							for i := 0; i < txPerPeer; i++ {
 								nextValidatorIndex := (index + i + 1) % len(validators)
 								toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
@@ -499,7 +500,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 					// check transactions status if all blocks are passed
 					blocksPassed++
-					if validator.isRunning && blocksPassed >= test.numBlocks+5 {
+					if validator.isRunning && blocksPassed >= test.numBlocks+blocksToWait {
 						pending, queued := validator.service.TxPool().Stats()
 						if errorOnTx {
 							if pending != 0 {
