@@ -26,6 +26,10 @@ import (
 )
 
 func TestTendermintSuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
 	cases := []*testCase{
 		{
 			"no malicious",
@@ -66,6 +70,10 @@ func TestTendermintSuccess(t *testing.T) {
 }
 
 func TestTendermintSlowConnections(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
 	cases := []*testCase{
 		{
 			"no malicious, one slow node",
@@ -110,6 +118,10 @@ func TestTendermintSlowConnections(t *testing.T) {
 }
 
 func TestTendermintLongRun(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
 	cases := []*testCase{
 		{
 			"no malicious - 100 tx per second",
@@ -134,6 +146,10 @@ func TestTendermintLongRun(t *testing.T) {
 }
 
 func TestTendermintStartStop(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
 	cases := []*testCase{
 		{
 			"one node stops for 10 seconds",
@@ -553,7 +569,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	for index, validator := range validators {
 		validatorBlock := validator.service.BlockChain().CurrentBlock().Number().Uint64()
 
-		if validatorBlock < lastBlock {
+		if validatorBlock < lastBlock-blocksToWait/2 {
 			t.Fatalf("a validator is behind the network index %d(%v) and block %v - expected %d",
 				index, validator, validatorBlock, lastBlock)
 		}
