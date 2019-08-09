@@ -88,16 +88,16 @@ func (bc *BlockChain) getEVM(header *types.Header, origin common.Address, stated
 // deployContract deploys the contract contained within the genesis field bytecode
 func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *types.Header) (*types.Nodes, common.Address, error) {
 	//if bytecode or abi is missing use default one
-	glienickeByteCode := bc.chainConfig.GlienickeBytecode
-	glienickeABI := bc.chainConfig.GlienickeABI
-	if bc.chainConfig.GlienickeBytecode == "" || bc.chainConfig.GlienickeABI == "" {
+	glienickeByteCode := bc.chainConfig.GetGlienickeBytecode()
+	glienickeABI := bc.chainConfig.GetGlienickeABI()
+	if glienickeByteCode == "" || glienickeABI == "" {
 		glienickeByteCode = params.GlienickeDefaultBytecode
 		glienickeABI = params.GlienickeDefaultABI
 	}
-	bc.chainConfig.GlienickeABI = glienickeABI
+	bc.chainConfig.SetGlienickeABI(glienickeABI)
 
 	//Same for deployer
-	glienickeDeployer := bc.chainConfig.GlienickeDeployer
+	glienickeDeployer := bc.chainConfig.GetGlienickeDeployer()
 	if glienickeDeployer == (common.Address{}) {
 		glienickeDeployer = params.GlienickeDefaultDeployer
 	}
@@ -138,13 +138,13 @@ func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *type
 
 func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
 	// Needs to be refactored somehow
-	glienickeDeployer := bc.chainConfig.GlienickeDeployer
+	glienickeDeployer := bc.chainConfig.GetGlienickeDeployer()
 	if glienickeDeployer == (common.Address{}) {
 		glienickeDeployer = params.GlienickeDefaultDeployer
 	}
 
-	glienickeABI := bc.chainConfig.GlienickeABI
-	if bc.chainConfig.GlienickeABI == "" {
+	glienickeABI := bc.chainConfig.GetGlienickeABI()
+	if glienickeABI == "" {
 		glienickeABI = params.GlienickeDefaultABI
 	}
 

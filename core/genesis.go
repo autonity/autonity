@@ -23,8 +23,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sort"
 	"strings"
+	"sync"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
@@ -63,6 +63,8 @@ type Genesis struct {
 	Number     uint64      `json:"number"`
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
+
+	mu sync.RWMutex
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -251,7 +253,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		Nonce:      types.EncodeNonce(g.Nonce),
 		Time:       new(big.Int).SetUint64(g.Timestamp),
 		ParentHash: g.ParentHash,
-		Extra:      g.ExtraData,
+		Extra:      g.GetExtraData(),
 		GasLimit:   g.GasLimit,
 		GasUsed:    g.GasUsed,
 		Difficulty: g.Difficulty,
@@ -274,18 +276,33 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
+	//g.mu.Lock()
+
 	if g.Config == nil {
 		g.Config = params.AllEthashProtocolChanges
 	}
 
 	if g.Config != nil && (g.Config.Istanbul != nil || g.Config.Tendermint != nil) {
+		//g.mu.Unlock()
 		err := g.SetBFT()
+		//g.mu.Lock()
+
 		if err != nil {
 			return nil, err
 		}
+
+		//res := "!!!!!!!!!!"
+		//ex, _ := types.ExtractBFTExtra(g.ExtraData)
+		//for _, val := range ex.Validators {
+		//	res += val.String() + "\n"
+		//}
+		//fmt.Println(res)
 	}
 
+	//g.mu.Unlock()
 	block := g.ToBlock(db)
+	//g.mu.Lock()
+
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")
 	}
@@ -296,25 +313,30 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	sort.Strings(g.Config.EnodeWhitelist)
+	g.Config.SortEnodeWhitelist()
 
-	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, true))
+	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.GetEnodeWhitelist(), true))
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }
 
-//setBFT sets default BFT(IBFT or Tendermint) config values
+// SetBFT sets default BFT(IBFT or Tendermint) config values
 func (g *Genesis) SetBFT() error {
 	if len(g.Validators) != 0 {
-		err := g.setBFTValidatorExtraData(g.Validators)
+		extraData, err := g.bftValidatorExtraData(g.Validators)
 		if err != nil {
 			return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
 		}
+
+		g.SetExtraData(extraData)
 	}
-	log.Info("starting BFT consensus", "extraData", common.Bytes2Hex(g.ExtraData))
+
+	log.Info("starting BFT consensus", "extraData", common.Bytes2Hex(g.GetExtraData()))
 
 	// we have to use '1' to have TD == BlockNumber for xBFT consensus
+	g.mu.Lock()
 	g.Difficulty = big.NewInt(1)
+	g.mu.Unlock()
 
 	return nil
 }
@@ -329,19 +351,28 @@ func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
 	return block
 }
 
-// setBFTValidatorExtraData updates Genesis ExtraData field with a new list of validators
-func (g *Genesis) setBFTValidatorExtraData(addressList []string) error {
+// bftValidatorExtraData updates Genesis ExtraData field with a new list of validators
+func (g *Genesis) bftValidatorExtraData(addressList []string) ([]byte, error) {
 	var validators []common.Address
 	for _, address := range addressList {
 		validators = append(validators, common.HexToAddress(address))
 	}
 
-	var err error
-	if g.ExtraData, err = types.PrepareExtra(&g.ExtraData, validators); err != nil {
-		return err
-	}
+	return types.PrepareExtra(g.GetExtraData(), validators)
+}
 
-	return nil
+func (g *Genesis) GetExtraData() []byte {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	return append([]byte{}, g.ExtraData...)
+}
+
+func (g *Genesis) SetExtraData(extraData []byte) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	g.ExtraData = extraData
 }
 
 // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.

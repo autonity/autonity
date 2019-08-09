@@ -337,7 +337,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	header.UncleHash = nilUncleHash
 
 	// add validators to extraData's validators section
-	if header.Extra, err = types.PrepareExtra(&header.Extra, validators); err != nil {
+	if header.Extra, err = types.PrepareExtra(header.Extra, validators); err != nil {
 		return nil, err
 	}
 
@@ -375,7 +375,7 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 
 		if sb.glienickeContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GlienickeDeployer, 0)
+			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GetGlienickeDeployer(), 0)
 		}
 
 		validators, err = sb.contractGetValidators(chain, header, state)
@@ -419,7 +419,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 		return nil
 	}
 
-	sb.commitCh = results // results channel stays always the same
+	sb.setResultChan(results)
 
 	// post block into BFT engine
 	sb.postEvent(events.NewUnminedBlockEvent{
@@ -427,6 +427,27 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	})
 
 	return nil
+}
+
+func (sb *Backend) setResultChan(results chan<- *types.Block) {
+	sb.coreMu.Lock()
+	defer sb.coreMu.Unlock()
+
+	sb.commitCh = results
+}
+
+func (sb *Backend) sendResultChan(block *types.Block) {
+	sb.coreMu.Lock()
+	defer sb.coreMu.Unlock()
+
+	sb.commitCh <- block
+}
+
+func (sb *Backend) isResultChanNil() bool {
+	sb.coreMu.RLock()
+	defer sb.coreMu.RUnlock()
+
+	return sb.commitCh == nil
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty

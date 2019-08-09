@@ -55,6 +55,10 @@ var (
 
 // New creates an Ethereum Backend for BFT core engine.
 func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
+	log.Warn("new backend with public key",
+		"backAddress", crypto.PubkeyToAddress(privateKey.PublicKey).String(),
+	)
+
 	if chainConfig.Tendermint.Epoch != 0 {
 		config.Epoch = chainConfig.Tendermint.Epoch
 	}
@@ -244,9 +248,9 @@ func (sb *Backend) Commit(proposal types.Block, seals [][]byte) error {
 	// -- if success, the ChainHeadEvent event will be broadcasted, try to build
 	//    the next block and the previous Seal() will be stopped.
 	// -- otherwise, a error will be returned and a round change event will be fired.
-	if sb.proposedBlockHash == block.Hash() && sb.commitCh != nil {
+	if sb.proposedBlockHash == block.Hash() && !sb.isResultChanNil() {
 		// feed block hash to Seal() and wait the Seal() result
-		sb.commitCh <- block
+		sb.sendResultChan(block)
 		return nil
 	}
 

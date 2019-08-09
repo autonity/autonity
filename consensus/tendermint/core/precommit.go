@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -130,8 +131,9 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 }
 
 func (c *core) verifyPrecommitCommittedSeal(m *message, precommit Vote) error {
-	addressOfSignerOfCommittedSeal, err := types.GetSignatureAddress(PrepareCommittedSeal(precommit.ProposedBlockHash), m.CommittedSeal)
+	committedSeal := PrepareCommittedSeal(precommit.ProposedBlockHash)
 
+	addressOfSignerOfCommittedSeal, err := types.GetSignatureAddress(committedSeal, m.CommittedSeal)
 	if err != nil {
 		c.logger.Error("Failed to get signer address", "err", err)
 		return err
@@ -139,6 +141,8 @@ func (c *core) verifyPrecommitCommittedSeal(m *message, precommit Vote) error {
 
 	// ensure sender signed the committed seal
 	if !bytes.Equal(addressOfSignerOfCommittedSeal.Bytes(), m.Address.Bytes()) {
+		log.Error("seal error", "got", m.Address.String(), "expected", addressOfSignerOfCommittedSeal.String())
+
 		return errInvalidSenderOfCommittedSeal
 	}
 

@@ -18,15 +18,13 @@ package core
 
 import (
 	"context"
-	"math/big"
-	"runtime/debug"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
+	"math/big"
 )
 
 // Start implements core.Engine.Start
@@ -111,15 +109,6 @@ func (c *core) handleNewUnminedBlockEvent() {
 }
 
 func (c *core) handleConsensusEvents(ctx context.Context) {
-	// Clear step
-	defer func() {
-		if r := recover(); r != nil {
-			debug.PrintStack()
-
-			c.logger.Crit("panic in core.handleConsensusEvents", "panic", r)
-		}
-	}()
-
 	// Start a new round from last height + 1
 	c.startRound(ctx, common.Big0)
 

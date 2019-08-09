@@ -590,10 +590,10 @@ func updateValidators(ctx *cli.Context) error {
 			utils.Fatalf("invalid genesis: %v", err)
 		}
 
-		extraData = genesis.ExtraData
+		extraData = genesis.GetExtraData()
 	}
 
-	if extraData, err = types.PrepareExtra(&extraData, validators); err != nil {
+	if extraData, err = types.PrepareExtra(extraData, validators); err != nil {
 		utils.Fatalf("error while updating extraData field: %v", err)
 	}
 

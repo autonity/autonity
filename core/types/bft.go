@@ -19,14 +19,13 @@ package types
 import (
 	"bytes"
 	"errors"
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/crypto/sha3"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/rlp"
 	lru "github.com/hashicorp/golang-lru"
 	"io"
-
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto/sha3"
-	"github.com/clearmatics/autonity/rlp"
 )
 
 var (
@@ -167,14 +166,23 @@ func Ecrecover(header *Header) (common.Address, error) {
 }
 
 // PrepareExtra returns a extra-data of the given header and validators
-func PrepareExtra(extraData *[]byte, vals []common.Address) ([]byte, error) {
-	var buf bytes.Buffer
+func PrepareExtra(extraData []byte, vals []common.Address) ([]byte, error) {
+	extraDataCopy := append([]byte{}, extraData...)
 
-	// compensate the lack bytes if header.Extra is not enough BFTExtraVanity bytes.
-	if len(*extraData) < BFTExtraVanity {
-		*extraData = append(*extraData, bytes.Repeat([]byte{0x00}, BFTExtraVanity-len(*extraData))...)
+	// trim old validators list
+	ex, err := ExtractBFTExtra(extraDataCopy)
+	if err == nil {
+		var oldPayload []byte
+		oldPayload, err = rlp.EncodeToBytes(&ex)
+		if err != nil {
+			return extraDataCopy, err
+		}
+
+		validatorsIndex := bytes.LastIndex(extraDataCopy, oldPayload)
+		if validatorsIndex != -1 {
+			extraDataCopy = extraDataCopy[:validatorsIndex]
+		}
 	}
-	buf.Write((*extraData)[:BFTExtraVanity])
 
 	pos := &BFTExtra{
 		Validators:    vals,
@@ -184,8 +192,20 @@ func PrepareExtra(extraData *[]byte, vals []common.Address) ([]byte, error) {
 
 	payload, err := rlp.EncodeToBytes(&pos)
 	if err != nil {
-		return nil, err
+		return extraDataCopy, err
 	}
+
+	var buf bytes.Buffer
+	// compensate the lack bytes if header.Extra is not enough BFTExtraVanity bytes.
+	if len(extraDataCopy) < BFTExtraVanity {
+		buf.Write(bytes.Repeat([]byte{0x00}, BFTExtraVanity-len(extraData)))
+	}
+
+	_, err = buf.Write(extraDataCopy)
+	if err != nil {
+		return extraDataCopy, err
+	}
+
 	return append(buf.Bytes(), payload...), nil
 }
 

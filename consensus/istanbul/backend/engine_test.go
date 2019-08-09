@@ -485,7 +485,7 @@ func TestPrepareExtra(t *testing.T) {
 		Extra: vanity,
 	}
 
-	payload, err := types.PrepareExtra(&h.Extra, validators)
+	payload, err := types.PrepareExtra(h.Extra, validators)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want: nil", err)
 	}
@@ -496,7 +496,10 @@ func TestPrepareExtra(t *testing.T) {
 	// append useless information to extra-data
 	h.Extra = append(vanity, make([]byte, 15)...)
 
-	payload, err = types.PrepareExtra(&h.Extra, validators)
+	payload, err = types.PrepareExtra(h.Extra, validators)
+	if err != nil {
+		t.Errorf("error PrepareExtra: have %v, want: nil", err)
+	}
 	if !reflect.DeepEqual(payload, expectedResult) {
 		t.Errorf("payload mismatch: have %v, want %v", payload, expectedResult)
 	}

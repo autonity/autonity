@@ -337,7 +337,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	header.UncleHash = nilUncleHash
 
 	// add validators to extraData's validators section
-	if header.Extra, err = types.PrepareExtra(&header.Extra, validators); err != nil {
+	if header.Extra, err = types.PrepareExtra(header.Extra, validators); err != nil {
 		return nil, err
 	}
 
@@ -374,7 +374,7 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 
 		if sb.glienickeContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GlienickeDeployer, 0)
+			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GetGlienickeDeployer(), 0)
 		}
 
 		validators, err = sb.contractGetValidators(chain, header, state)

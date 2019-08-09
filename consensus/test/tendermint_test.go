@@ -2,9 +2,6 @@ package test
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/event"
 	"net"
 	"os"
 	"sort"
@@ -14,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity/accounts"
+	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common/fdlimit"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
@@ -38,7 +37,7 @@ func TestTendermintSuccess(t *testing.T) {
 			nil,
 			nil,
 			time.Time{},
-			time.Time{},
+			sync.RWMutex{},
 		},
 		{
 			"one node - always accepts blocks",
@@ -54,7 +53,7 @@ func TestTendermintSuccess(t *testing.T) {
 			nil,
 			nil,
 			time.Time{},
-			time.Time{},
+			sync.RWMutex{},
 		},
 	}
 
@@ -80,7 +79,7 @@ func TestTendermintSlowConnections(t *testing.T) {
 			nil,
 			nil,
 			time.Time{},
-			time.Time{},
+			sync.RWMutex{},
 		},
 		{
 			"no malicious, all nodes are slow",
@@ -98,7 +97,7 @@ func TestTendermintSlowConnections(t *testing.T) {
 			nil,
 			nil,
 			time.Time{},
-			time.Time{},
+			sync.RWMutex{},
 		},
 	}
 
@@ -122,7 +121,7 @@ func TestTendermintLongRun(t *testing.T) {
 			nil,
 			nil,
 			time.Time{},
-			time.Time{},
+			sync.RWMutex{},
 		},
 	}
 
@@ -143,7 +142,7 @@ func TestTendermintStartStop(t *testing.T) {
 			1,
 			nil,
 			nil,
-			map[int]func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error{
+			map[int]hook{
 				4: func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 					if block.Number().Uint64() == 5 {
 						err := validator.stopNode()
@@ -159,7 +158,7 @@ func TestTendermintStartStop(t *testing.T) {
 					return nil
 				},
 			},
-			map[int]func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error{
+			map[int]hook{
 				4: func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 
 					if block == nil && currentTime.Sub(tCase.stopTime).Seconds() >= 10 {
@@ -176,7 +175,7 @@ func TestTendermintStartStop(t *testing.T) {
 				},
 			},
 			time.Time{},
-			time.Time{},
+			sync.RWMutex{},
 		},
 	}
 
@@ -193,13 +192,47 @@ type testCase struct {
 	numPeers       int
 	numBlocks      int
 	txPerPeer      int
-	maliciousPeers map[int]func(basic consensus.Engine) consensus.Engine                              //map[validatorIndex]consensusConstructor
-	networkRates   map[int]networkRate                                                                //map[validatorIndex]networkRate
-	beforeHooks    map[int]func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error //map[validatorIndex]beforeHook
-	afterHooks     map[int]func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error //map[validatorIndex]afterHook
-	startTime time.Time
-	stopTime time.Time
+	maliciousPeers map[int]func(basic consensus.Engine) consensus.Engine //map[validatorIndex]consensusConstructor
+	networkRates   map[int]networkRate                                   //map[validatorIndex]networkRate
+	beforeHooks    map[int]hook                                          //map[validatorIndex]beforeHook
+	afterHooks     map[int]hook                                          //map[validatorIndex]afterHook
+	stopTime       time.Time
+	mu             sync.RWMutex
 }
+
+func (test *testCase) getBeforeHook(index int) hook {
+	test.mu.Lock()
+	defer test.mu.Unlock()
+
+	if test.beforeHooks == nil {
+		return nil
+	}
+
+	validatorHook, ok := test.beforeHooks[index]
+	if !ok || validatorHook == nil {
+		return nil
+	}
+
+	return validatorHook
+}
+
+func (test *testCase) getAfterHook(index int) hook {
+	test.mu.Lock()
+	defer test.mu.Unlock()
+
+	if test.afterHooks == nil {
+		return nil
+	}
+
+	validatorHook, ok := test.afterHooks[index]
+	if !ok || validatorHook == nil {
+		return nil
+	}
+
+	return validatorHook
+}
+
+type hook func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error
 
 func tunTest(t *testing.T, test *testCase) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
@@ -327,7 +360,7 @@ func (validator *testNode) startNode() error {
 	store := validator.node.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 
 	var (
-		err error
+		err    error
 		signer accounts.Account
 	)
 
@@ -345,8 +378,7 @@ func (validator *testNode) startNode() error {
 		return fmt.Errorf("cant unlock: %s", err)
 	}
 
-	newMux := new(event.TypeMux)
-	*validator.node.EventMux() = *newMux
+	validator.node.ResetEventMux()
 
 	if err := validator.node.Start(); err != nil {
 		return fmt.Errorf("cannot start a node %s", err)
@@ -426,15 +458,9 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 				select {
 				case ev := <-validator.eventChan:
 					// before hook
-					if test.beforeHooks != nil {
-						validatorBeforeHook, ok := test.beforeHooks[index]
-						if ok && validatorBeforeHook != nil {
-							err = validatorBeforeHook(ev.Block, validator, test, time.Now())
-							if err != nil {
-								return fmt.Errorf("error while executing before hook for validator index %d(%v) and block %v",
-									index, validator, ev.Block)
-							}
-						}
+					err = runHook(test.getBeforeHook(index), test, ev.Block, validator, index)
+					if err != nil {
+						return err
 					}
 
 					// actual forming and sending transaction
@@ -465,16 +491,10 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						}
 					}
 
-					// after hook by time and by block number
-					if test.afterHooks != nil {
-						validatorAfterHook, ok := test.afterHooks[index]
-						if ok && validatorAfterHook != nil {
-							err = validatorAfterHook(ev.Block, validator, test, time.Now())
-							if err != nil {
-								return fmt.Errorf("error while executing after hook for validator index %d(%v) and block %v. err %q",
-									index, validator, ev.Block, err)
-							}
-						}
+					// after hook
+					err = runHook(test.getAfterHook(index), test, ev.Block, validator, index)
+					if err != nil {
+						return err
 					}
 
 					// check transactions status if all blocks are passed
@@ -483,10 +503,10 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						pending, queued := validator.service.TxPool().Stats()
 						if errorOnTx {
 							if pending != 0 {
-								t.Fatal("after a new block it should be 0 pending transactions got", pending)
+								return fmt.Errorf("after a new block it should be 0 pending transactions got %d. block %d", pending, ev.Block.Number().Uint64())
 							}
 							if queued != 0 {
-								t.Fatal("after a new block it should be 0 queued transactions got", queued)
+								return fmt.Errorf("after a new block it should be 0 queued transactions got %d. block %d", queued, ev.Block.Number().Uint64())
 							}
 						}
 
@@ -497,19 +517,13 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						return fmt.Errorf("error in blockchain %q", innerErr)
 					}
 
-					// after hook by time not by block number
-					if test.afterHooks != nil {
-						validatorAfterHook, ok := test.afterHooks[index]
-						if ok && validatorAfterHook != nil {
-							err = validatorAfterHook(nil, validator, test, time.Now())
-							if err != nil {
-								return fmt.Errorf("error while executing after hook for validator index %d(%v) and block %v. err %q",
-									index, validator, nil, err)
-							}
-						}
-					}
+					time.Sleep(500 * time.Millisecond)
 
-					time.Sleep(50*time.Millisecond)
+					// after hook
+					err = runHook(test.getAfterHook(index), test, nil, validator, index)
+					if err != nil {
+						return err
+					}
 				}
 			}
 
@@ -543,4 +557,18 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 				index, validator, validatorBlock, lastBlock)
 		}
 	}
+}
+
+func runHook(validatorHook hook, test *testCase, block *types.Block, validator *testNode, index int) error {
+	if validatorHook == nil {
+		return nil
+	}
+
+	err := validatorHook(block, validator, test, time.Now())
+	if err != nil {
+		return fmt.Errorf("error while executing before hook for validator index %d(%v) and block %v",
+			index, validator, block)
+	}
+
+	return nil
 }

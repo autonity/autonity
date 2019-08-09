@@ -75,7 +75,7 @@ func TestCommit(t *testing.T) {
 	backend := newBackend()
 
 	commitCh := make(chan *types.Block, 1)
-	backend.commitCh = commitCh
+	backend.setResultChan(commitCh)
 
 	// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
 	testCases := []struct {
@@ -247,11 +247,12 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 }
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
+	extraData := genesis.GetExtraData()
 
-	if len(genesis.ExtraData) < types.BFTExtraVanity {
-		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)...)
+	if len(extraData) < types.BFTExtraVanity {
+		extraData = append(extraData, bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)...)
 	}
-	genesis.ExtraData = genesis.ExtraData[:types.BFTExtraVanity]
+	extraData = extraData[:types.BFTExtraVanity]
 
 	ist := &types.BFTExtra{
 		Validators:    addrs,
@@ -263,7 +264,9 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 	if err != nil {
 		panic("failed to encode tendermint extra")
 	}
-	genesis.ExtraData = append(genesis.ExtraData, istPayload...)
+	extraData = append(extraData, istPayload...)
+
+	genesis.SetExtraData(extraData)
 }
 
 func makeHeader(parent *types.Block, config *config.Config) *types.Header {
