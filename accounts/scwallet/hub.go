@@ -238,7 +238,7 @@ func (hub *Hub) refreshWallets() {
 		wallet := NewWallet(hub, card)
 		if err = wallet.connect(); err != nil {
 			log.Debug("Failed to connect to smart card", "reader", reader, "err", err)
-			card.Disconnect(pcsc.LeaveCard)
+			_ = card.Disconnect(pcsc.LeaveCard)
 			continue
 		}
 		// Card connected, start tracking in amongs the wallets

@@ -171,12 +171,13 @@ func TestParseNodeWithDomainResolution(t *testing.T) {
 			} else if !reflect.DeepEqual(n, test.wantResult) {
 				t.Errorf("test %q:\n result mismatch:\n" +
 					"got PubKey: %#v\nwant: %#v\n\n" +
-					"got IP: %#v\nwant: %#v\n\n" +
+					"got IP: %#v\nwant: %#v(equal %v)\n\n" +
 					"got TCP: %#v\nwant: %#v\n\n" +
 					"got UPD: %#v\nwant: %#v\n",
 					test.rawurl,
 					n.Pubkey(), test.wantResult.Pubkey(),
 					n.IP().String(), test.wantResult.IP().String(),
+					n.IP().Equal(test.wantResult.IP()),
 					n.TCP(), test.wantResult.TCP(),
 					n.UDP(), test.wantResult.UDP())
 			}
