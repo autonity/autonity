@@ -8,12 +8,25 @@ contract Autonity {
 
     // validators - list of validators of network
     address[] public validators;
+    //array of members who are able to use stacking
+    address[] private stakeholders;
     // enodesWhitelist - which nodes can connect to network
-    string[] public enodesWhitelist;
+    address[] public enodesWhitelist;
     // owner - owner of contract
     address public owner;
-    // governanceOperatorAccount - account who can manipulate enodesWhitelist
-    address public governanceOperatorAccount;
+    // operatorAccount - account who can manipulate enodesWhitelist
+    address public operatorAccount;
+
+    enum UserType { Participant, Stakeholder, Validator}
+
+    struct User {
+        address addr;
+        UserType userType;
+        uint256 stake;
+        string[] enode;
+    }
+
+    mapping (address => User) private users;
 
     /*
     * The bonding period (BP) is specified by the Autonity System Architecture as an integer representing an interval of blocks.
@@ -27,12 +40,9 @@ contract Autonity {
     * A member can’t have multiple commission rates depending on the member
     * The commission rate MUST be by default 0 and MUST remain unchanged if not updated.
     */
-    mapping (address => uint256) private comission_rate;
+    mapping (address => uint256) private commission_rate;
 
-    /*
-    * mapping of members who are able to use stacking
-    */
-    mapping (address => bool) private members;
+
 
     /*
     * unbonded stake token balance
@@ -67,16 +77,42 @@ contract Autonity {
 
     // constructor get called at block #1 with msg.owner equal to Soma's deployer
     // configured in the genesis file.
-    constructor (address[] memory _validators, string[] memory _enodesWhitelist,  address _governanceOperatorAccount) public {
-        for (uint256 i = 0; i < _validators.length; i++) {
-            validators.push(_validators[i]);
+    constructor (address[] memory _participantAddress,
+        string[] memory _participantEnode,
+        uint256[] memory _participantType,
+        uint256[] memory _participantStake,
+        address _operatorAccount,
+        uint256 _minGasPrice) public {
+
+        require(_participantAddress.length == _participantEnode.length ==
+            _participantType.length == _participantStake.length,
+            "Account hasn't created");
+
+
+        for (uint256 i = 0; i < _participantAddress.length; i++) {
+            UserType _userType = UserType(_participantType[i]);
+            require(_participantAddress[i] != address(0), "Addresses must be defined");
+            User storage u = User({addr: _participantAddress[i],
+                enode: _participantEnode[i],
+                userType: _userType,
+                stake: _participantStake[i]
+                });
+            users[u.addr] = u;
+
+            if (u.userType == UserType.Stakeholder){
+                stakeholders.push(u.addr);
+            } else if(u.userType == UserType.Validator){
+                validators.push(u.addr);
+            }
+
+            if(!bytes(u.enode).length == 0){
+                enodesWhitelist.push(u.addr);
+            }
         }
 
-        for (uint256 i = 0; i < _enodesWhitelist.length; i++) {
-            enodesWhitelist.push(_enodesWhitelist[i]);
-        }
         owner = msg.sender;
-        governanceOperatorAccount = _governanceOperatorAccount;
+        operatorAccount = _operatorAccount;
+        minGasPrice = _minGasPrice;
     }
 
 
@@ -84,7 +120,15 @@ contract Autonity {
     * AddValidator
     * Add validator to validators list. Could be
     */
-    function AddValidator(address _validator) public onlyValidators(msg.sender) {
+    function AddValidator(address _address, uint256 _stake, string memory _enode) public onlyOperator(msg.sender)
+    {
+        if(users[_address].addr != address(0)){
+            //user already present, we need to update
+            require(users[_address].userType != Validator, "Already a validator");
+
+        }else{
+            //user need to be created
+        }
         //Need to make sure we're duplicating the entry
         validators.push(_validator);
     }
@@ -112,7 +156,7 @@ contract Autonity {
     * add enode to permission list
     * function MUST be restricted to the Authority Account.
     */
-    function AddEnode(string memory  _enode) public onlyGovernanceOperator(msg.sender) {
+    function AddEnode(string memory  _enode) public onlyOperator(msg.sender) {
         //Need to make sure we're not duplicating the entry
         enodesWhitelist.push(_enode);
     }
@@ -122,7 +166,7 @@ contract Autonity {
     * remove enode from permission list
     * function MUST be restricted to the Authority Account.
     */
-    function RemoveEnode(string memory  _enode) public onlyGovernanceOperator(msg.sender) {
+    function RemoveEnode(string memory  _enode) public onlyOperator(msg.sender) {
         require(enodesWhitelist.length > 1);
 
         for (uint256 i = 0; i < enodesWhitelist.length-1; i++) {
@@ -140,7 +184,7 @@ contract Autonity {
     * FM-REQ-4: The Autonity Contract implements the setMinimumGasPrice function that is restricted to the Governance Operator account.
     * The function takes as an argument a positive integer and modify the value of minimumGasPrice
     */
-    function SetMinimumGasPrice(uint256  _value) public onlyGovernanceOperator(msg.sender) {
+    function SetMinimumGasPrice(uint256  _value) public onlyOperator(msg.sender) {
         minGasPrice = _value;
     }
 
@@ -150,7 +194,7 @@ contract Autonity {
     * function capable of creating new stake token and adding it to the recipient balance
     * function MUST be restricted to theAuthority Account.
     */
-    function MintStake(address _account, uint256 _amount) public onlyGovernanceOperator(msg.sender) {
+    function MintStake(address _account, uint256 _amount) public onlyOperator(msg.sender) {
         require(members[_account] == true, "Account hasn't created");
         stake_token[_account] = stake_token[_account].add(_amount);
     }
@@ -160,7 +204,7 @@ contract Autonity {
     * Decrease unbonded stake
     * The redeemStake(amount, recipient) function MUST be restricted to the Authority Account.
     */
-    function RedeemStake(address _account, uint256 _amount) public onlyGovernanceOperator(msg.sender) {
+    function RedeemStake(address _account, uint256 _amount) public onlyOperator(msg.sender) {
         require(members[_account] == true, "Account hasn't created");
         stake_token[_account] =  stake_token[_account].sub(_amount, "Redeem stake amount exceeds balance");
     }
@@ -171,7 +215,7 @@ contract Autonity {
     * Add not nil account to members list
     * function MUST be restricted to the Authority Account.
     */
-    function AddNewMember(address _account) public onlyGovernanceOperator(msg.sender) {
+    function AddNewMember(address _account) public onlyOperator(msg.sender) {
         require(_account != address(0), "Account is empty");
         require(members[_account] == false, "Account has already created");
         members[_account] = true;
@@ -183,7 +227,7 @@ contract Autonity {
     * Remove account from members list
     * function MUST be restricted to the Authority Account.
     */
-    function RemoveMember(address _account) public onlyGovernanceOperator(msg.sender) {
+    function RemoveMember(address _account) public onlyOperator(msg.sender) {
         require(members[_account] == true, "Account hasn't created");
         members[_account] = false;
     }
@@ -368,12 +412,12 @@ contract Autonity {
     }
 
     /*
-    * onlyGovernanceOperator
+    * onlyOperator
     *
     * Modifier that checks if the caller is a Governance Operator
     */
-    modifier onlyGovernanceOperator(address _caller) {
-        require(governanceOperatorAccount == _caller, "Caller is not a operator");
+    modifier onlyOperator(address _caller) {
+        require(operatorAccount == _caller, "Caller is not a operator");
         _;
     }
 
