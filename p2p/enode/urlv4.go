@@ -180,7 +180,7 @@ func parseComplete(rawurl string, resolve bool) (*Node, error) {
 			return nil, errors.New("invalid domain or IP address")
 		}
 		if len(hostIPs) > 0 {
-			ip = hostIPs[0]
+			ip = hostIPs[len(hostIPs) - 1]
 		}
 	}
 	// Parse the port numbers.
