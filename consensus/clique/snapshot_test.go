@@ -401,6 +401,8 @@ func TestClique(t *testing.T) {
 		for j, signer := range signers {
 			copy(genesis.ExtraData[extraVanity+j*common.AddressLength:], signer[:])
 		}
+		genesis.Config = new(params.ChainConfig)
+		*genesis.Config = *params.AllCliqueProtocolChanges
 		genesis.Config.EnodeWhitelist = []string{"enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"}
 		// Create a pristine blockchain with the genesis injected
 		db := rawdb.NewMemoryDatabase()
