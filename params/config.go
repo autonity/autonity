@@ -177,6 +177,8 @@ type ChainConfig struct {
 	GlienickeDeployer common.Address `json:"glienickeDeployer,omitempty"`
 	GlienickeBytecode string         `json:"glienickeBytecode,omitempty"`
 	GlienickeABI      string         `json:"glienickeABI,omitempty"`
+
+	AutonityContractConfig *AutonityContract   `json:"autonityContract"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.

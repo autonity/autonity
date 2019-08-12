@@ -86,13 +86,14 @@ func (bc *BlockChain) getEVM(header *types.Header, origin common.Address, stated
 }
 
 // deployContract deploys the contract contained within the genesis field bytecode
-func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *types.Header) (*types.Nodes, common.Address, error) {
+func (bc *BlockChain) DeployAutonityContract(state *state.StateDB, header *types.Header) (*types.Nodes, common.Address, error) {
 	//if bytecode or abi is missing use default one
-	glienickeByteCode := bc.chainConfig.GlienickeBytecode
-	glienickeABI := bc.chainConfig.GlienickeABI
+	autonityConfig := bc.chainConfig.AutonityContractConfig
+	autonityByteCode := autonityConfig.Bytecode
+	autonityABI := autonityConfig.ABI
 	if bc.chainConfig.GlienickeBytecode == "" || bc.chainConfig.GlienickeABI == "" {
-		glienickeByteCode = params.GlienickeDefaultBytecode
-		glienickeABI = params.GlienickeDefaultABI
+		autonityByteCode = params.GlienickeDefaultBytecode
+		autonityABI = params.GlienickeDefaultABI
 	}
 	bc.chainConfig.GlienickeABI = glienickeABI
 
