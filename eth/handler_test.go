@@ -501,7 +501,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 		}
 	}
 	// Create a checkpoint aware protocol manager
-	blockchain, err := core.NewBlockChain(db, nil, config, ethash.NewFaker(), vm.Config{}, nil)
+	blockchain, err = core.NewBlockChain(db, nil, config, ethash.NewFaker(), vm.Config{}, nil)
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}

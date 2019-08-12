@@ -510,7 +510,7 @@ func NewTestPeer(name string, caps []Cap) (*Peer, error) {
 
 	c.transport = NewTestTransport(&privkey.PublicKey, fd)
 
-	peer := newPeer(c, nil)
+	peer := newPeer(log.Root(), c, nil)
 
 	close(peer.closed) // ensures Disconnect doesn't block
 

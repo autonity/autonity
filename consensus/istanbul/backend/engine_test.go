@@ -121,7 +121,7 @@ func makeHeader(parent *types.Block, config *istanbul.Config) *types.Header {
 		GasLimit:   core.CalcGasLimit(parent, 8000000, 8000000),
 		GasUsed:    0,
 		Extra:      parent.Extra(),
-		Time:       new(big.Int).Add(parent.Time(), new(big.Int).SetUint64(config.BlockPeriod)),
+		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(config.BlockPeriod)),
 		Difficulty: defaultDifficulty,
 	}
 	return header
@@ -143,10 +143,10 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types
 	header := makeHeader(parent, engine.config)
 	engine.Prepare(chain, header)
 	state, err := chain.StateAt(parent.Root())
-	block, _ := engine.Finalize(chain, header, state, nil, nil, nil)
+	engine.Finalize(chain, header, state, nil, nil)
 
 	// Write state changes to db
-	root, err := state.Commit(chain.Config().IsEIP158(block.Header().Number))
+	root, err := state.Commit(chain.Config().IsEIP158(header.Number))
 	if err != nil {
 		return nil, fmt.Errorf("state write error: %v", err)
 	}
@@ -154,7 +154,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types
 		return nil, fmt.Errorf("trie write error: %v", err)
 	}
 
-	return block, nil
+	return types.NewBlockWithHeader(header), nil
 }
 
 func TestPrepare(t *testing.T) {

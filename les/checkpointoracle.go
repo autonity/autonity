@@ -20,12 +20,12 @@ import (
 	"encoding/binary"
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/contracts/checkpointoracle"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/accounts/abi/bind"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/contracts/checkpointoracle"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/params"
 )
 
 // checkpointOracle is responsible for offering the latest stable checkpoint

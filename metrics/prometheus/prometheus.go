@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/metrics"
 )
 
 // Handler returns an HTTP handler which dump metrics in Prometheus format.

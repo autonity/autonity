@@ -22,11 +22,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/light"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/accounts/abi/bind"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/light"
+	"github.com/clearmatics/autonity/params"
 )
 
 // Test light syncing which will download all headers from genesis.

@@ -34,7 +34,9 @@ const (
 	eth63 = 63
 )
 
-// TODO (screwyprof) remove these two variable below
+// protocolName is the official short name of the protocol used during capability negotiation.
+const protocolName = "eth"
+
 // ProtocolVersions are the supported versions of the eth protocol (first is primary).
 var ProtocolVersions = []uint{eth63}
 
@@ -56,7 +58,7 @@ var EthDefaultProtocol = Protocol{
 	Name: "eth",
 
 	// ProtocolVersions are the supported versions of the eth protocol (first is primary).
-	Versions: []uint{eth63, eth62},
+	Versions: []uint{eth63},
 
 	// ProtocolLengths are the number of implemented message corresponding to different protocol versions.
 	Lengths: []uint64{17, 8},

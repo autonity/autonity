@@ -22,11 +22,11 @@ import (
 
 	"net"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/p2p/enode"
 )
 
 func TestFetcherULCPeerSelector(t *testing.T) {

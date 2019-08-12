@@ -23,10 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/p2p/discover"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/p2p/discover"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/params"
 	"gopkg.in/urfave/cli.v1"
 )
 

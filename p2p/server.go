@@ -513,7 +513,7 @@ func (srv *Server) Start() (err error) {
 		if err := srv.setupDiscovery(); err != nil {
 			return err
 		}
-		dialer = newDialState(srv.localnode.ID(), srv.StaticNodes, srv.BootstrapNodes, srv.ntab, dynPeers, srv.NetRestrict)
+		dialer = newDialState(srv.localnode.ID(), srv.ntab, dynPeers, &srv.Config)
 		log.Info("Open-network mode enabled.")
 	} else {
 		// Discovery protocol is disabled for consortium chains.
@@ -522,12 +522,8 @@ func (srv *Server) Start() (err error) {
 		log.Info("Private-network mode enabled.")
 		srv.NoDiscovery = true
 		srv.StaticNodes = nil
-		dialer = newDialState(srv.localnode.ID(), nil, nil, nil, 0, srv.NetRestrict)
+		dialer = newDialState(srv.localnode.ID(), nil, 0, &Config{NetRestrict:srv.Config.NetRestrict})
 	}
-
-	// TODO (screwyprof) add srv.NetRestrict to srv.Config
-	//dynPeers := srv.maxDialedConns()
-	//dialer := newDialState(srv.localnode.ID(), srv.ntab, dynPeers, &srv.Config)
 	srv.loopWG.Add(1)
 	go srv.run(dialer)
 	return nil

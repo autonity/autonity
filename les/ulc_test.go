@@ -25,12 +25,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/light"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/light"
+	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/p2p/enode"
 )
 
 func TestULCSyncWithOnePeer(t *testing.T) {

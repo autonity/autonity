@@ -23,11 +23,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/ethdb/leveldb"
-	"github.com/ethereum/go-ethereum/ethdb/memorydb"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/ethdb/leveldb"
+	"github.com/clearmatics/autonity/ethdb/memorydb"
+	"github.com/clearmatics/autonity/log"
 	"github.com/olekukonko/tablewriter"
 )
 

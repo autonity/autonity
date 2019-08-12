@@ -23,17 +23,17 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/les/flowcontrol"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/les/flowcontrol"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 // requestBenchmark is an interface for different randomized request generators

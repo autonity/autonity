@@ -20,11 +20,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/les/flowcontrol"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/clearmatics/autonity/les/flowcontrol"
+	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 const (

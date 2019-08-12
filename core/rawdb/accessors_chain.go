@@ -57,7 +57,7 @@ func WriteCanonicalHash(db ethdb.KeyValueWriter, hash common.Hash, number uint64
 }
 
 // WriteEnodeWhitelist stores the list of permitted enodes
-func WriteEnodeWhitelist(db DatabaseWriter, whitelist *types.Nodes) {
+func WriteEnodeWhitelist(db ethdb.KeyValueWriter, whitelist *types.Nodes) {
 	bytes, err := rlp.EncodeToBytes(whitelist.StrList)
 	if err != nil {
 		log.Crit("Failed to RLP encode enode whitelist", "err", err)
@@ -68,7 +68,7 @@ func WriteEnodeWhitelist(db DatabaseWriter, whitelist *types.Nodes) {
 }
 
 // ReadEnodeWhitelist retrieve the list of permitted enodes
-func ReadEnodeWhitelist(db DatabaseReader, openNetwork bool) *types.Nodes {
+func ReadEnodeWhitelist(db ethdb.KeyValueReader, openNetwork bool) *types.Nodes {
 	var strList []string
 	nodes := &types.Nodes{List: make([]*enode.Node, 0)}
 

@@ -170,7 +170,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		chainDb:        chainDb,
 		eventMux:       ctx.EventMux,
 		accountManager: ctx.AccountManager,
-		engine:         CreateConsensusEngine(ctx, chainConfig, &config.Ethash, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig),
+		engine:         CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig),
 		shutdownChan:   make(chan bool),
 		networkID:      config.NetworkId,
 		gasPrice:       config.Miner.GasPrice,
@@ -188,10 +188,10 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	if h, ok := eth.engine.(consensus.Handler); ok {
 		protocolName, extraMsgCodes := h.Protocol()
 		eth.protocol.Name = protocolName
-		eth.protocol.Versions = EthDefaultProtocol.Versions
-		eth.protocol.Lengths = make([]uint64, len(EthDefaultProtocol.Lengths))
+		eth.protocol.Versions = ProtocolVersions
+		eth.protocol.Lengths = make([]uint64, len(protocolLengths))
 		for i := range eth.protocol.Lengths {
-			eth.protocol.Lengths[i] = EthDefaultProtocol.Lengths[i] + extraMsgCodes
+			eth.protocol.Lengths[i] = protocolLengths[uint(i)] + extraMsgCodes
 		}
 	} else {
 		eth.protocol = EthDefaultProtocol

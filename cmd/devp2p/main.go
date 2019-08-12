@@ -21,8 +21,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/internal/debug"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/internal/debug"
+	"github.com/clearmatics/autonity/params"
 	"gopkg.in/urfave/cli.v1"
 )
 

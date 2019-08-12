@@ -19,9 +19,9 @@ package simulations
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/simulations/adapters"
+	"github.com/clearmatics/autonity/node"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/p2p/simulations/adapters"
 )
 
 func newTestNetwork(t *testing.T, nodeCount int) (*Network, []enode.ID) {

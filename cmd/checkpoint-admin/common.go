@@ -19,15 +19,15 @@ package main
 import (
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/external"
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/contracts/checkpointoracle"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/clearmatics/autonity/accounts"
+	"github.com/clearmatics/autonity/accounts/abi/bind"
+	"github.com/clearmatics/autonity/accounts/external"
+	"github.com/clearmatics/autonity/cmd/utils"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/contracts/checkpointoracle"
+	"github.com/clearmatics/autonity/ethclient"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/rpc"
 	"gopkg.in/urfave/cli.v1"
 )
 

@@ -20,9 +20,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/signer/core"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/signer/core"
 )
 
 func mixAddr(a string) (*common.MixedcaseAddress, error) {
