@@ -25,6 +25,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/istanbul"
 	"github.com/clearmatics/autonity/consensus/istanbul/validator"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/event"
@@ -291,7 +292,7 @@ func (t *testSystem) stop(core bool) {
 
 func (t *testSystem) NewBackend(id uint64) *testSystemBackend {
 	// assume always success
-	ethDB := ethdb.NewMemDatabase()
+	ethDB := rawdb.NewMemoryDatabase()
 	backend := &testSystemBackend{
 		id:     id,
 		sys:    t,

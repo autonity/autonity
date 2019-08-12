@@ -352,6 +352,10 @@ func TestClientNotificationStorm(t *testing.T) {
 
 		// Process each notification, try to run a call in between each of them.
 		for i := 0; i < count; i++ {
+			if wantError && i == count-1 {
+				cancel()
+			}
+
 			select {
 			case val := <-nc:
 				if val != i {
@@ -379,8 +383,8 @@ func TestClientNotificationStorm(t *testing.T) {
 		}
 	}
 
-	doTest(8000, false)
-	doTest(21000, true)
+	doTest(100, false)
+	doTest(100, true)
 }
 
 func TestClientHTTP(t *testing.T) {

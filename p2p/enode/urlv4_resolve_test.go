@@ -19,7 +19,7 @@ var parseNodeWithResolveTests = []struct {
 	},
 	{
 		rawurl:    "enode://01010101@123.124.125.126:3",
-		wantError: `invalid node ID (wrong length, want 128 hex chars)`,
+		wantError: `invalid public key (wrong length, want 128 hex chars)`,
 	},
 	// Complete nodes with IP address.
 	{
@@ -126,11 +126,11 @@ var parseNodeWithResolveTests = []struct {
 	// Invalid URLs
 	{
 		rawurl:    "01010101",
-		wantError: `invalid node ID (wrong length, want 128 hex chars)`,
+		wantError: `invalid public key (wrong length, want 128 hex chars)`,
 	},
 	{
 		rawurl:    "enode://01010101",
-		wantError: `invalid node ID (wrong length, want 128 hex chars)`,
+		wantError: `invalid public key (wrong length, want 128 hex chars)`,
 	},
 	{
 		// This test checks that errors from url.Parse are handled.

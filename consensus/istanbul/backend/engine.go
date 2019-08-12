@@ -327,8 +327,6 @@ func (sb *backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 
 func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 uncles []*types.Header) {
-//func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-//	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 
 	if sb.blockchain == nil {
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
@@ -343,9 +341,6 @@ uncles []*types.Header) {
 	if header.Extra, err = types.PrepareExtra(&header.Extra, validators); err != nil {
 		return
 	}
-
-	// Assemble and return the final block for sealing
-	//return types.NewBlock(header, txs, nil, receipts), nil
 }
 
 func (sb *backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,

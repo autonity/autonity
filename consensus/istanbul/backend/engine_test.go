@@ -30,10 +30,10 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/istanbul"
 	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -43,7 +43,7 @@ import (
 // other fake events to process Istanbul.
 func newBlockChain(n int) (*core.BlockChain, *backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
-	memDB := ethdb.NewMemDatabase()
+	memDB := rawdb.NewMemoryDatabase()
 	config := istanbul.DefaultConfig
 	// Use the first key as private key
 	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{}).(*backend)
@@ -143,10 +143,11 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types
 	header := makeHeader(parent, engine.config)
 	engine.Prepare(chain, header)
 	state, err := chain.StateAt(parent.Root())
-	engine.Finalize(chain, header, state, nil, nil)
+
+	block, _ := engine.FinalizeAndAssemble(chain, header, state, nil, nil, nil)
 
 	// Write state changes to db
-	root, err := state.Commit(chain.Config().IsEIP158(header.Number))
+	root, err := state.Commit(chain.Config().IsEIP158(block.Header().Number))
 	if err != nil {
 		return nil, fmt.Errorf("state write error: %v", err)
 	}
@@ -154,7 +155,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types
 		return nil, fmt.Errorf("trie write error: %v", err)
 	}
 
-	return types.NewBlockWithHeader(header), nil
+	return block, nil
 }
 
 func TestPrepare(t *testing.T) {
