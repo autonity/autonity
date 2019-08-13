@@ -97,7 +97,7 @@ type Ethereum struct {
 	lock     sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 	protocol Protocol
 
-	AutonityContractCh  chan core.AutonityContractEvent
+	AutonityContractCh  chan core.WhitelistEvent
 	AutonityContractSub event.Subscription
 }
 
@@ -153,7 +153,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		etherbase:      config.Etherbase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
-		AutonityContractCh:    make(chan core.AutonityContractEvent),
+		AutonityContractCh:    make(chan core.WhitelistEvent),
 	}
 
 	// force to set the istanbul etherbase to node key address

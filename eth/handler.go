@@ -101,7 +101,7 @@ type ProtocolManager struct {
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
-	AutonityContractCh         chan core.AutonityContractEvent
+	AutonityContractCh         chan core.WhitelistEvent
 	AutonityContractSub        event.Subscription
 	enodesWhitelist     []*enode.Node
 	enodesWhitelistLock sync.RWMutex
@@ -132,7 +132,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		quitSync:    make(chan struct{}),
 		engine:      engine,
 		openNetwork: openNetwork,
-		AutonityContractCh: make(chan core.AutonityContractEvent, 64),
+		AutonityContractCh: make(chan core.WhitelistEvent, 64),
 	}
 
 	if handler, ok := manager.engine.(consensus.Handler); ok {

@@ -203,10 +203,11 @@ func initGenesis(ctx *cli.Context) error {
 	if err := json.NewDecoder(file).Decode(genesis); err != nil {
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
-	if genesis.AutonityContractConfig != nil {
-		if err := genesis.AutonityContractConfig.Validate(); err != nil {
-			return fmt.Errorf("Autonity contract section is invalid. error:%v", err.Error())
-		}
+	if genesis.Config.AutonityContractConfig != nil {
+		utils.Fatalf("Autonity Contract Config is mandatory")
+	}
+	if err := genesis.Config.AutonityContractConfig .Validate(); err != nil {
+		utils.Fatalf("Autonity contract section is invalid. error: %v", err)
 	}
 	// Open an initialise both full and light databases
 	stack := makeFullNode(ctx)

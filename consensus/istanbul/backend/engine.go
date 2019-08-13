@@ -31,8 +31,6 @@ import (
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rpc"
 )
 
@@ -331,6 +329,15 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
 
+
+	if header.Number.Int64() == 1 {
+		var err error
+		sb.autonityContract, err = sb.blockchain.DeployAutonityContract(state, header)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	validators, err := sb.getValidators(header, chain, state)
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
@@ -350,37 +357,9 @@ func (sb *backend) getValidators(header *types.Header, chain consensus.ChainRead
 	var err error
 
 	if header.Number.Int64() == 1 {
-		// Deploy Soma on-blockchain governance contract
-		log.Info("Soma Contract Deployer", "Address", sb.config.Deployer)
-		contractAddress, err := sb.deployContract(chain, header, state)
-		if err != nil {
-			return nil, err
-		}
-		sb.somaContract = contractAddress
 		validators, err = sb.retrieveSavedValidators(1, chain)
-		if err != nil {
-			return nil, err
-		}
-
-		// Deploy Glienicke network-permissioning contract
-		_, sb.glienickeContract, err = sb.blockchain.DeployGlienickeContract(state, header)
-		if err != nil {
-			return nil, err
-		}
-
 	} else {
-		if sb.somaContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.somaContract = crypto.CreateAddress(sb.config.Deployer, 0)
-		}
-
-		if sb.glienickeContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GlienickeDeployer, 0)
-		}
-
-		validators, err = sb.contractGetValidators(chain, header, state)
-		if err != nil {
-			return nil, err
-		}
+		validators, err = sb.blockchain.ACgetValidators(state, header)
 	}
 
 	return validators, err

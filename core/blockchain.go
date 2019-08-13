@@ -1735,6 +1735,6 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) SubscribeWhitelistEvent(ch chan<-whitelistEvent) event.Subscription {
+func (bc *BlockChain) SubscribeWhitelistEvent(ch chan<-WhitelistEvent) event.Subscription {
 	return bc.scope.Track(bc.autonityContractFeed.Subscribe(ch))
 }

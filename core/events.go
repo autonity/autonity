@@ -49,4 +49,4 @@ type ChainSideEvent struct {
 type ChainHeadEvent struct{ Block *types.Block }
 
 // whitelistEvent is posted when the list of authorized enodes is updated.
-type whitelistEvent struct{ Whitelist []*enode.Node}
+type WhitelistEvent struct{ Whitelist []*enode.Node}

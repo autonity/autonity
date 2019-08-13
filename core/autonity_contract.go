@@ -44,7 +44,7 @@ func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.B
 	}
 
 	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-	go bc.autonityContractFeed.Send(whitelistEvent{Whitelist: newWhitelist.List})
+	go bc.autonityContractFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
 
 	return nil
 }
@@ -87,7 +87,7 @@ func (bc *BlockChain) getEVM(header *types.Header, origin common.Address, stated
 }
 
 // deployContract deploys the contract contained within the genesis field bytecode
-func (bc *BlockChain) DeployAutonityContract(state *state.StateDB, header *types.Header) (*types.Nodes, common.Address, error) {
+func (bc *BlockChain) DeployAutonityContract(state *state.StateDB, header *types.Header) (common.Address, error) {
 	//if bytecode or abi is missing use default one
 	autonityConfig := bc.chainConfig.AutonityContractConfig
 	autonityByteCode := autonityConfig.Bytecode
@@ -121,7 +121,7 @@ func (bc *BlockChain) DeployAutonityContract(state *state.StateDB, header *types
 
 	autonityAbi, err := abi.JSON(strings.NewReader(autonityABI))
 	if err != nil {
-		return nil, common.Address{}, err
+		return common.Address{}, err
 	}
 
 	constructorParams, err := autonityAbi.Pack("",
@@ -133,7 +133,7 @@ func (bc *BlockChain) DeployAutonityContract(state *state.StateDB, header *types
 		autonityConfig.MinGasPrice)
 
 	if err != nil {
-		return nil, common.Address{}, err
+		return common.Address{}, err
 	}
 
 	data := append(contractBytecode, constructorParams...)
@@ -144,14 +144,12 @@ func (bc *BlockChain) DeployAutonityContract(state *state.StateDB, header *types
 	_, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract deployment")
-		return nil, common.Address{}, vmerr
+		return common.Address{}, vmerr
 	}
 
 	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
 
-	enodesWhitelist := rawdb.ReadEnodeWhitelist(bc.db, false)
-
-	return enodesWhitelist, contractAddress, nil
+	return contractAddress, nil
 }
 
 func (bc *BlockChain) AutonityContractCall(state *state.StateDB, header *types.Header, function string, result interface{}) error {
