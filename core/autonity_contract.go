@@ -33,17 +33,17 @@ import (
 	"github.com/clearmatics/autonity/params"
 )
 
-var GlienickeContractError = errors.New("could not call Glienicke contract")
+var AutonityContractError = errors.New("could not call Autonity contract")
 
 func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
 	newWhitelist, err := bc.GetWhitelist(block, state)
 	if err != nil {
-		log.Error("could not call Glienicke contract", "err", err)
-		return GlienickeContractError
+		log.Error("could not call Autonity contract", "err", err)
+		return AutonityContractError
 	}
 
 	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-	go bc.glienickeFeed.Send(GlienickeEvent{Whitelist: newWhitelist.List})
+	go bc.autonityFeed.Send(AutonityEvent{Whitelist: newWhitelist.List})
 
 	return nil
 }
@@ -59,7 +59,7 @@ func (bc *BlockChain) GetWhitelist(block *types.Block, db *state.StateDB) (*type
 		newWhitelist = rawdb.ReadEnodeWhitelist(bc.db, false)
 	} else {
 		// call retrieveWhitelist contract function
-		newWhitelist, err = bc.callGlienickeContract(db, block.Header())
+		newWhitelist, err = bc.callAutonityContract(db, block.Header())
 	}
 
 	return newWhitelist, err
@@ -91,69 +91,86 @@ func (bc *BlockChain) DeployAutonityContract(state *state.StateDB, header *types
 	autonityConfig := bc.chainConfig.AutonityContractConfig
 	autonityByteCode := autonityConfig.Bytecode
 	autonityABI := autonityConfig.ABI
-	if bc.chainConfig.GlienickeBytecode == "" || bc.chainConfig.GlienickeABI == "" {
-		autonityByteCode = params.GlienickeDefaultBytecode
-		autonityABI = params.GlienickeDefaultABI
+	if autonityConfig.Bytecode == "" || autonityConfig.ABI == "" {
+		autonityByteCode = params.AutonityDefaultBytecode
+		autonityABI = params.AutonityDefaultABI
 	}
-	bc.chainConfig.GlienickeABI = glienickeABI
-
 	//Same for deployer
-	glienickeDeployer := bc.chainConfig.GlienickeDeployer
-	if glienickeDeployer == (common.Address{}) {
-		glienickeDeployer = params.GlienickeDefaultDeployer
+	autonityDeployer := autonityConfig.Deployer
+	if autonityDeployer == (common.Address{}) {
+		autonityDeployer = params.AutonityDefaultDeployer
 	}
 
 	// Convert the contract bytecode from hex into bytes
-	contractBytecode := common.Hex2Bytes(glienickeByteCode)
-	evm := bc.getEVM(header, glienickeDeployer, state)
-	sender := vm.AccountRef(glienickeDeployer)
+	contractBytecode := common.Hex2Bytes(autonityByteCode)
+	evm := bc.getEVM(header, autonityDeployer, state)
+	sender := vm.AccountRef(autonityDeployer)
 
 	enodesWhitelist := rawdb.ReadEnodeWhitelist(bc.db, false)
 
-	glienickeAbi, err := abi.JSON(strings.NewReader(glienickeABI))
+	participantAddress := make([]common.Address, len(autonityConfig.Users))
+	participantEnode := make([]string, len(autonityConfig.Users))
+	participantType := make([]uint64, len(autonityConfig.Users))
+	participantStake := make([]uint64, len(autonityConfig.Users))
+
+	for i, user := range autonityConfig.Users {
+		participantAddress[i] = user.Address
+		participantEnode[i] = user.Enode
+		participantType[i] = user.Type.Uint()
+		participantStake[i] = user.Stake
+	}
+
+	autonityAbi, err := abi.JSON(strings.NewReader(autonityABI))
 	if err != nil {
 		return nil, common.Address{}, err
 	}
 
 	sort.Strings(enodesWhitelist.StrList)
-	constructorParams, err := glienickeAbi.Pack("", enodesWhitelist.StrList)
+	constructorParams, err := autonityAbi.Pack("",
+		participantAddress,
+		participantEnode,
+		participantType,
+		participantStake,
+		autonityConfig.Operator,
+		autonityConfig.MinGasPrice)
+
 	if err != nil {
 		return nil, common.Address{}, err
 	}
 
 	data := append(contractBytecode, constructorParams...)
-	gas := uint64(0xFFFFFFFF)
+	gas := uint64(-1)
 	value := new(big.Int).SetUint64(0x00)
 
-	// Deploy the Glienicke validator governance contract
+	// Deploy the Autonity validator governance contract
 	_, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
 	if vmerr != nil {
-		log.Error("Error Glienicke Contract deployment")
+		log.Error("Error Autonity Contract deployment")
 		return nil, common.Address{}, vmerr
 	}
 
-	log.Info("Deployed Glienicke Contract", "Address", contractAddress.String())
+	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
 
 	return enodesWhitelist, contractAddress, nil
 }
 
-func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
+func (bc *BlockChain) callAutonityContract(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
 	// Needs to be refactored somehow
-	glienickeDeployer := bc.chainConfig.GlienickeDeployer
-	if glienickeDeployer == (common.Address{}) {
-		glienickeDeployer = params.GlienickeDefaultDeployer
+	autonityDeployer := bc.chainConfig.AutonityDeployer
+	if autonityDeployer == (common.Address{}) {
+		autonityDeployer = params.AutonityDefaultDeployer
 	}
 
-	glienickeABI := bc.chainConfig.GlienickeABI
-	if bc.chainConfig.GlienickeABI == "" {
-		glienickeABI = params.GlienickeDefaultABI
+	autonityABI := bc.chainConfig.AutonityABI
+	if bc.chainConfig.AutonityABI == "" {
+		autonityABI = params.AutonityDefaultABI
 	}
 
-	sender := vm.AccountRef(glienickeDeployer)
+	sender := vm.AccountRef(autonityDeployer)
 	gas := uint64(0xFFFFFFFF)
-	evm := bc.getEVM(header, glienickeDeployer, state)
+	evm := bc.getEVM(header, autonityDeployer, state)
 
-	ABI, err := abi.JSON(strings.NewReader(glienickeABI))
+	ABI, err := abi.JSON(strings.NewReader(autonityABI))
 	if err != nil {
 		return nil, err
 	}
@@ -163,11 +180,11 @@ func (bc *BlockChain) callGlienickeContract(state *state.StateDB, header *types.
 		return nil, err
 	}
 
-	glienickeAddress := crypto.CreateAddress(glienickeDeployer, 0)
+	autonityAddress := crypto.CreateAddress(autonityDeployer, 0)
 
-	ret, gas, vmerr := evm.StaticCall(sender, glienickeAddress, input, gas)
+	ret, gas, vmerr := evm.StaticCall(sender, autonityAddress, input, gas)
 	if vmerr != nil {
-		log.Error("Error Glienicke Contract getWhitelist()")
+		log.Error("Error Autonity Contract getWhitelist()")
 		return nil, vmerr
 	}
 
