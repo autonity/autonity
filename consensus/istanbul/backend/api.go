@@ -53,27 +53,18 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 	return addresses, nil
 }
 
-// Get Soma contract address
-func (api *API) GetSomaContractAddress() common.Address {
-	return api.istanbul.somaContract
+
+// Get AutonityContract contract address
+func (api *API) GetAutonityContractAddress() common.Address {
+	return api.istanbul.autonityContract
 }
 
-// Get Soma contract ABI
-func (api *API) GetSomaContractABI() string {
-	return api.istanbul.config.ABI
-}
-
-// Get Glienicke contract address
-func (api *API) GetGlienickeContractAddress() common.Address {
-	return api.istanbul.glienickeContract
-}
-
-// Get Glienicke contract ABI
-func (api *API) GetGlienickeContractABI() string {
-	return api.istanbul.blockchain.Config().GlienickeABI
+// Get AutonityContract contract ABI
+func (api *API) GetAutonityContractABI() string {
+	return api.istanbul.blockchain.Config().AutonityContractConfig.ABI
 }
 
 // Get current white list
-func (api *API) GetWhitelist() []string {
+func (api *API) GetWhiteList() []string {
 	return api.istanbul.WhiteList()
 }

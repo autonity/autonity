@@ -296,7 +296,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, true))
+	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.AutonityContractConfig.GetEnodes(), true))
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }

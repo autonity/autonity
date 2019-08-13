@@ -99,15 +99,15 @@ type BlockChain struct {
 	triegc *prque.Prque   // Priority queue mapping block numbers to tries to gc
 	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
 
-	hc            *HeaderChain
-	rmLogsFeed    event.Feed
-	chainFeed     event.Feed
-	chainSideFeed event.Feed
-	chainHeadFeed event.Feed
-	logsFeed      event.Feed
-	glienickeFeed event.Feed
-	scope         event.SubscriptionScope
-	genesisBlock  *types.Block
+	hc                   *HeaderChain
+	rmLogsFeed           event.Feed
+	chainFeed            event.Feed
+	chainSideFeed        event.Feed
+	chainHeadFeed        event.Feed
+	logsFeed             event.Feed
+	autonityContractFeed event.Feed
+	scope                event.SubscriptionScope
+	genesisBlock         *types.Block
 
 	mu      sync.RWMutex // global mutex for locking chain operations
 	chainmu sync.RWMutex // blockchain insertion lock
@@ -138,7 +138,7 @@ type BlockChain struct {
 	badBlocks      *lru.Cache              // Bad block cache
 	shouldPreserve func(*types.Block) bool // Function used to determine whether should preserve the given block.
 
-	openNetwork bool // True if we should disable Glienicke contract deployment
+	openNetwork bool // True if we should disable network permissioning - NOT IMPLEMENTED YET
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -951,7 +951,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	// Call network permissioning logic before committing the state
 	if bc.chainConfig.Istanbul != nil {
 		err = bc.updateEnodesWhitelist(state, block)
-		if err != nil && err != GlienickeContractError {
+		if err != nil && err != AutonityContractError {
 			return NonStatTy, err
 		}
 	}
@@ -1735,6 +1735,6 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) SubscribeGlienickeEvent(ch chan<-GlienickeEvent) event.Subscription {
-	return bc.scope.Track(bc.glienickeFeed.Subscribe(ch))
+func (bc *BlockChain) SubscribeWhitelistEvent(ch chan<-whitelistEvent) event.Subscription {
+	return bc.scope.Track(bc.autonityContractFeed.Subscribe(ch))
 }

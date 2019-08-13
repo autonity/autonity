@@ -101,8 +101,8 @@ type ProtocolManager struct {
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
-	glienickeCh         chan core.GlienickeEvent
-	glienickeSub        event.Subscription
+	AutonityContractCh         chan core.AutonityContractEvent
+	AutonityContractSub        event.Subscription
 	enodesWhitelist     []*enode.Node
 	enodesWhitelistLock sync.RWMutex
 	// wait group is used for graceful shutdowns during downloading
@@ -132,7 +132,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		quitSync:    make(chan struct{}),
 		engine:      engine,
 		openNetwork: openNetwork,
-		glienickeCh: make(chan core.GlienickeEvent, 64),
+		AutonityContractCh: make(chan core.AutonityContractEvent, 64),
 	}
 
 	if handler, ok := manager.engine.(consensus.Handler); ok {
@@ -244,8 +244,8 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	// update peers whitelist
 	if !pm.openNetwork {
-		pm.glienickeSub = pm.blockchain.SubscribeGlienickeEvent(pm.glienickeCh)
-		go pm.glienickeEventLoop()
+		pm.AutonityContractSub = pm.blockchain.SubscribeWhitelistEvent(pm.AutonityContractCh)
+		go pm.AutonityContractEventLoop()
 	}
 
 	// start sync handlers
@@ -259,7 +259,7 @@ func (pm *ProtocolManager) Stop() {
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 	if !pm.openNetwork {
-		pm.glienickeSub.Unsubscribe() // quits glienickeEventLoop
+		pm.AutonityContractSub.Unsubscribe() // quits AutonityContractEventLoop
 	}
 
 	// Quit the sync loop.
@@ -282,15 +282,15 @@ func (pm *ProtocolManager) Stop() {
 }
 
 // Whitelist updating loop.
-func (s *ProtocolManager) glienickeEventLoop() {
+func (s *ProtocolManager) AutonityContractEventLoop() {
 	for {
 		select {
-		case event := <-s.glienickeCh:
+		case event := <-s.AutonityContractCh:
 			s.enodesWhitelistLock.Lock()
 			s.enodesWhitelist = event.Whitelist
 			s.enodesWhitelistLock.Unlock()
 		// Err() channel will be closed when unsubscribing.
-		case <-s.glienickeSub.Err():
+		case <-s.AutonityContractSub.Err():
 			return
 		}
 	}

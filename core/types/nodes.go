@@ -1,6 +1,7 @@
 package types
 
 import (
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -84,6 +85,7 @@ func filterNodes(n *Nodes, openNetwork bool) *Nodes {
 		}
 	}
 
+	sort.Strings(filtered.StrList)
 	return filtered
 }
 

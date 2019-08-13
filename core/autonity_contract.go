@@ -18,6 +18,7 @@ package core
 
 import (
 	"errors"
+	"github.com/clearmatics/autonity/common/math"
 	"math/big"
 	"sort"
 	"strings"
@@ -43,7 +44,7 @@ func (bc *BlockChain) updateEnodesWhitelist(state *state.StateDB, block *types.B
 	}
 
 	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-	go bc.autonityFeed.Send(AutonityEvent{Whitelist: newWhitelist.List})
+	go bc.autonityContractFeed.Send(whitelistEvent{Whitelist: newWhitelist.List})
 
 	return nil
 }
@@ -59,7 +60,7 @@ func (bc *BlockChain) GetWhitelist(block *types.Block, db *state.StateDB) (*type
 		newWhitelist = rawdb.ReadEnodeWhitelist(bc.db, false)
 	} else {
 		// call retrieveWhitelist contract function
-		newWhitelist, err = bc.callAutonityContract(db, block.Header())
+		newWhitelist, err = bc.ACgetWhitelist(db, block.Header())
 	}
 
 	return newWhitelist, err
@@ -106,8 +107,6 @@ func (bc *BlockChain) DeployAutonityContract(state *state.StateDB, header *types
 	evm := bc.getEVM(header, autonityDeployer, state)
 	sender := vm.AccountRef(autonityDeployer)
 
-	enodesWhitelist := rawdb.ReadEnodeWhitelist(bc.db, false)
-
 	participantAddress := make([]common.Address, len(autonityConfig.Users))
 	participantEnode := make([]string, len(autonityConfig.Users))
 	participantType := make([]uint64, len(autonityConfig.Users))
@@ -125,7 +124,6 @@ func (bc *BlockChain) DeployAutonityContract(state *state.StateDB, header *types
 		return nil, common.Address{}, err
 	}
 
-	sort.Strings(enodesWhitelist.StrList)
 	constructorParams, err := autonityAbi.Pack("",
 		participantAddress,
 		participantEnode,
@@ -139,10 +137,10 @@ func (bc *BlockChain) DeployAutonityContract(state *state.StateDB, header *types
 	}
 
 	data := append(contractBytecode, constructorParams...)
-	gas := uint64(-1)
+	gas := uint64(math.MaxUint64)
 	value := new(big.Int).SetUint64(0x00)
 
-	// Deploy the Autonity validator governance contract
+	// Deploy the Autonity contract
 	_, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract deployment")
@@ -151,48 +149,70 @@ func (bc *BlockChain) DeployAutonityContract(state *state.StateDB, header *types
 
 	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
 
+	enodesWhitelist := rawdb.ReadEnodeWhitelist(bc.db, false)
+
 	return enodesWhitelist, contractAddress, nil
 }
 
-func (bc *BlockChain) callAutonityContract(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
-	// Needs to be refactored somehow
-	autonityDeployer := bc.chainConfig.AutonityDeployer
+func (bc *BlockChain) AutonityContractCall(state *state.StateDB, header *types.Header, function string, result interface{}) error {
+	autonityConfig := bc.chainConfig.AutonityContractConfig
+	autonityDeployer := autonityConfig.Deployer
 	if autonityDeployer == (common.Address{}) {
 		autonityDeployer = params.AutonityDefaultDeployer
 	}
 
-	autonityABI := bc.chainConfig.AutonityABI
-	if bc.chainConfig.AutonityABI == "" {
+	autonityABI := autonityConfig.ABI
+	if autonityABI == "" {
 		autonityABI = params.AutonityDefaultABI
 	}
 
 	sender := vm.AccountRef(autonityDeployer)
-	gas := uint64(0xFFFFFFFF)
+	gas := uint64(math.MaxUint64)
 	evm := bc.getEVM(header, autonityDeployer, state)
 
 	ABI, err := abi.JSON(strings.NewReader(autonityABI))
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	input, err := ABI.Pack("getWhitelist")
-	if err != nil {
-		return nil, err
-	}
-
 	autonityAddress := crypto.CreateAddress(autonityDeployer, 0)
+
+	input, err := ABI.Pack(function)
+	if err != nil {
+		return err
+	}
 
 	ret, gas, vmerr := evm.StaticCall(sender, autonityAddress, input, gas)
 	if vmerr != nil {
-		log.Error("Error Autonity Contract getWhitelist()")
-		return nil, vmerr
+		log.Error("Error Autonity Contract", "function", function)
+		return vmerr
 	}
+
+	if err := ABI.Unpack(result, function, ret); err != nil { // can't work with aliased types
+		log.Error("Could not unpack returned value", "function", function)
+		return  err
+	}
+
+	return nil
+}
+
+func (bc *BlockChain) ACgetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
 
 	var returnedEnodes []string
-	if err := ABI.Unpack(&returnedEnodes, "getWhitelist", ret); err != nil { // can't work with aliased types
-		log.Error("Could not unpack getWhitelist returned value")
+	err := bc.AutonityContractCall(state, header, "GetWhitelist", &returnedEnodes)
+	if err != nil {
 		return nil, err
 	}
-
 	return types.NewNodes(returnedEnodes, false), nil
+}
+
+func (bc *BlockChain) ACgetValidators(statedb *state.StateDB, header *types.Header) ([]common.Address, error) {
+
+	var addresses []common.Address
+	err := bc.AutonityContractCall(statedb, header, "GetValidators", &addresses)
+	if err != nil {
+		return nil, err
+	}
+	sortableAddresses := common.Addresses(addresses)
+	sort.Sort(sortableAddresses)
+	return sortableAddresses, nil
 }
