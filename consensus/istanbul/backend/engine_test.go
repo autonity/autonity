@@ -45,6 +45,7 @@ func newBlockChain(n int) (*core.BlockChain, *backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
 	config := istanbul.DefaultConfig
+
 	// Use the first key as private key
 	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{}).(*backend)
 	genesis.MustCommit(memDB)
@@ -84,11 +85,15 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis := core.DefaultGenesisBlock()
 	genesis.Config = params.TestChainConfig
 	// force enable Istanbul engine
-	genesis.Config.Istanbul = &params.IstanbulConfig{}
+	genesis.Config.Istanbul = &params.IstanbulConfig{
+		Bytecode:istanbul.DefaultConfig.Bytecode,
+		ABI:istanbul.DefaultConfig.ABI,
+	}
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.IstanbulDigest
+	genesis.AutonityContractConfig=&core.AutonityContractGenesis{}
 
 	AppendValidators(genesis, addrs)
 	return genesis, nodeKeys
@@ -132,15 +137,20 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*t
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println("consensus/istanbul/backend/engine_test.go:138 make block")
 	resultCh := make(chan *types.Block)
 	engine.Seal(chain, block, resultCh, nil)
+	fmt.Println("seal")
 
 	return <-resultCh, nil
 }
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
+	istanbulExtra, err := types.ExtractIstanbulExtra(parent.Header())
+	fmt.Println(err,"consensus/istanbul/backend/engine_test.go:152 makeBlockWithoutSeal extra", istanbulExtra)
+
+
 	engine.Prepare(chain, header)
 	state, err := chain.StateAt(parent.Root())
 	block, _ := engine.Finalize(chain, header, state, nil, nil, nil)
@@ -153,6 +163,10 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types
 	if err := state.Database().TrieDB().Commit(root, false); err != nil {
 		return nil, fmt.Errorf("trie write error: %v", err)
 	}
+
+	istanbulExtra, err = types.ExtractIstanbulExtra(block.Header())
+	fmt.Println(err,"consensus/istanbul/backend/engine_test.go:163 makeBlockWithoutSeal extra", istanbulExtra)
+
 
 	return block, nil
 }

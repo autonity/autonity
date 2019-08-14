@@ -46,17 +46,16 @@ var errGenesisBadWhitelist = errors.New("whitelist badly formatted")
 // Genesis specifies the header fields, state of a genesis block. It also defines hard
 // fork switch-over blocks through the chain configuration.
 type Genesis struct {
-	Config                 *params.ChainConfig `json:"config"`
-	Nonce                  uint64              `json:"nonce"`
-	Timestamp              uint64              `json:"timestamp"`
-	ExtraData              []byte              `json:"extraData"`
-	GasLimit               uint64              `json:"gasLimit"   gencodec:"required"`
-	Difficulty             *big.Int            `json:"difficulty" gencodec:"required"`
-	Mixhash                common.Hash         `json:"mixHash"`
-	Coinbase               common.Address      `json:"coinbase"`
-	Alloc                  GenesisAlloc        `json:"alloc"      gencodec:"required"`
-	Validators             []string            `json:"validators"`
-	AutonityContractConfig *AutonityContract   `json:"autonityContract"`
+	Config                 *params.ChainConfig      `json:"config"`
+	Nonce                  uint64                   `json:"nonce"`
+	Timestamp              uint64                   `json:"timestamp"`
+	ExtraData              []byte                   `json:"extraData"`
+	GasLimit               uint64                   `json:"gasLimit"   gencodec:"required"`
+	Difficulty             *big.Int                 `json:"difficulty" gencodec:"required"`
+	Mixhash                common.Hash              `json:"mixHash"`
+	Coinbase               common.Address           `json:"coinbase"`
+	Alloc                  GenesisAlloc             `json:"alloc"      gencodec:"required"`
+	AutonityContractConfig *AutonityContractGenesis `json:"autonityContract"`
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
@@ -296,18 +295,35 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.EnodeWhitelist, true))
+	if g.AutonityContractConfig != nil {
+		enodes := []string{}
+		for _, v := range g.AutonityContractConfig.Users {
+			if v.Enode != "" {
+				enodes = append(enodes, v.Enode)
+			}
+		}
+
+		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodes, true))
+	}
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }
 
 //setIstanbul sets default Istanbul config values
 func (g *Genesis) setIstanbul() error {
-	if len(g.Validators) != 0 {
-		err := g.UpdateValidators(g.Validators)
-		if err != nil {
-			return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
+	if g.AutonityContractConfig != nil {
+		var validators []string
+		for _, v := range g.AutonityContractConfig.Users {
+			validators = append(validators, v.Address.String())
 		}
+
+		if len(validators) != 0 {
+			err := g.UpdateValidators(validators)
+			if err != nil {
+				return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
+			}
+		}
+
 	}
 	log.Info("starting Istanbul consensus", "extraData", common.Bytes2Hex(g.ExtraData))
 
@@ -333,7 +349,7 @@ func (g *Genesis) UpdateValidators(addressList []string) error {
 	for _, address := range addressList {
 		validators = append(validators, common.HexToAddress(address))
 	}
-
+	fmt.Println("core/genesis.go:352 UpdateValidators ", validators)
 	var err error
 	if g.ExtraData, err = types.PrepareExtra(&g.ExtraData, validators); err != nil {
 		return err

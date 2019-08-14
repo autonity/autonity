@@ -118,16 +118,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
 
@@ -171,12 +171,6 @@ type ChainConfig struct {
 	Ethash   *EthashConfig   `json:"ethash,omitempty"`
 	Clique   *CliqueConfig   `json:"clique,omitempty"`
 	Istanbul *IstanbulConfig `json:"istanbul,omitempty"`
-
-	// Network Permissioning
-	EnodeWhitelist    []string       `json:"enodeWhitelist,omitempty"`
-	GlienickeDeployer common.Address `json:"glienickeDeployer,omitempty"`
-	GlienickeBytecode string         `json:"glienickeBytecode,omitempty"`
-	GlienickeABI      string         `json:"glienickeABI,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.
@@ -198,16 +192,15 @@ func (c *CliqueConfig) String() string {
 	return "clique"
 }
 
-// IstanbulConfig is the consensus engine configs for Istanbul based sealing.
+//// IstanbulConfig is the consensus engine configs for Istanbul based sealing.
 type IstanbulConfig struct {
-	Epoch          uint64         `json:"epoch"`             // Epoch length to reset votes and checkpoint
-	ProposerPolicy uint64         `json:"policy"`            // The policy for proposer selection
-	Deployer       common.Address `json:"contract-deployer"` // Address of the validator who deploys contract stored in bytecode
-	Bytecode       string         `json:"bytecode"`          // Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
-	ABI            string         `json:"abi"`               // Bytecode of validators contract // ABI of the said contract
+	Epoch          uint64 `json:"epoch"`    // Epoch length to reset votes and checkpoint
+	ProposerPolicy uint64 `json:"policy"`   // The policy for proposer selection
+	Bytecode       string `json:"bytecode"` // Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
+	ABI            string `json:"abi"`      // Bytecode of validators contract // ABI of the said contract
 }
 
-// String implements the stringer interface, returning the consensus engine details.
+//String implements the stringer interface, returning the consensus engine details.
 func (c *IstanbulConfig) String() string {
 	return "istanbul"
 }

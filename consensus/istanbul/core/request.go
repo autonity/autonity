@@ -16,7 +16,9 @@
 
 package core
 
-import "github.com/clearmatics/autonity/consensus/istanbul"
+import (
+	"github.com/clearmatics/autonity/consensus/istanbul"
+)
 
 func (c *core) handleRequest(request *istanbul.Request) error {
 	logger := c.logger.New("state", c.state, "seq", c.current.sequence)

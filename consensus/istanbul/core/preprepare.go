@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/clearmatics/autonity/consensus"
@@ -48,7 +49,7 @@ func (c *core) sendPreprepare(request *istanbul.Request) {
 
 func (c *core) handlePreprepare(msg *message, src istanbul.Validator) error {
 	logger := c.logger.New("from", src, "state", c.state)
-
+	fmt.Println("consensus/istanbul/core/preprepare.go:53 handle prepare")
 	// Decode PRE-PREPARE
 	var preprepare *istanbul.Preprepare
 	err := msg.Decode(&preprepare)

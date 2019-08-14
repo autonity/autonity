@@ -399,10 +399,20 @@ func TestClique(t *testing.T) {
 		var (
 			db      = ethdb.NewMemDatabase()
 			config  = params.TestChainConfig
-			genSpec = &core.Genesis{Config: config}
+			genSpec = &core.Genesis{
+				Config: config,
+				AutonityContractConfig:&core.AutonityContractGenesis{
+					Users:[]core.User{
+						{
+							Enode:"enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
+							Type:core.UserValidator,
+
+						},
+					},
+				},
+			}
 		)
 		genSpec.ExtraData = make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal)
-		genSpec.Config.EnodeWhitelist = []string{"enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"}
 		for j, signer := range signers {
 			copy(genSpec.ExtraData[extraVanity+j*common.AddressLength:], signer[:])
 		}

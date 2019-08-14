@@ -27,7 +27,7 @@ func (ut UserType) IsValid() bool {
 }
 
 // Autonity contract config. It'is used for deployment.
-type AutonityContract struct {
+type AutonityContractGenesis struct {
 	// Address of the validator who deploys contract stored in bytecode
 	Deployer common.Address `json:"deployer" toml:",omitempty"`
 	// Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
@@ -39,7 +39,7 @@ type AutonityContract struct {
 	Users       []User         `json:"users" "toml:",omitempty"`
 }
 
-func (ac *AutonityContract) Validate() error {
+func (ac *AutonityContractGenesis) Validate() error {
 	if len(ac.Bytecode) == 0 || len(ac.ABI) == 0 {
 		return errors.New("autonity contract is empty")
 	}
@@ -59,10 +59,10 @@ func (ac *AutonityContract) Validate() error {
 
 //User - is used to put predefined accounts to genesis
 type User struct {
-	Address common.Address
-	Enode   string
-	Type    UserType
-	Stake   uint64
+	Address common.Address `json:"address"`
+	Enode   string         `json:"enode"`
+	Type    UserType       `json:"type"`
+	Stake   uint64         `json:"stake"`
 }
 
 func (u *User) Validate() error {
@@ -99,7 +99,7 @@ func (u *User) Validate() error {
 }
 
 //GetParticipantUsers - returns list of participants
-func (ac *AutonityContract) GetValidatorUsers() []User {
+func (ac *AutonityContractGenesis) GetValidatorUsers() []User {
 	var users []User
 	for i := range ac.Users {
 		if ac.Users[i].Type == UserValidator {

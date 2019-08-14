@@ -18,6 +18,7 @@ package backend
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -112,8 +113,7 @@ type backend struct {
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
 
-	somaContract      common.Address // Ethereum address of the governance contract
-	glienickeContract common.Address // Ethereum address of the white list contract
+	autonityContractAddress common.Address // Ethereum address of the autonity contract
 	vmConfig          *vm.Config
 }
 
@@ -277,12 +277,14 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 				}
 			}
 
-			validators, err = sb.contractGetValidators(sb.blockchain, header, state)
+			validators, err = sb.blockchain.AutonityContract.ContractGetValidators(sb.blockchain, header, state)
+			fmt.Println("consensus/istanbul/backend/backend.go:281 setval1", err)
 			if err != nil {
 				return 0, err
 			}
 		} else {
 			validators, err = sb.retrieveSavedValidators(1, sb.blockchain) //genesis block and block #1 have the same validators
+			fmt.Println("consensus/istanbul/backend/backend.go:281 setval2", err, validators)
 		}
 		istanbulExtra, _ := types.ExtractIstanbulExtra(header)
 
@@ -371,7 +373,7 @@ func (sb *backend) WhiteList() []string {
 		return nil
 	}
 
-	enodes, err := sb.blockchain.GetWhitelist(sb.blockchain.CurrentBlock(), db)
+	enodes, err := sb.blockchain.AutonityContract.GetWhitelist(sb.blockchain.CurrentBlock(), db)
 	if err != nil {
 		sb.logger.Error("Failed to get block white list", "err", err)
 		return nil
