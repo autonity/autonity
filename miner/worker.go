@@ -24,7 +24,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	mapset "github.com/deckarep/golang-set"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/misc"
@@ -34,6 +33,7 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
+	mapset "github.com/deckarep/golang-set"
 )
 
 const (
@@ -267,10 +267,10 @@ func (w *worker) pendingBlock() *types.Block {
 // start sets the running status as 1 and triggers new work submitting.
 func (w *worker) start() {
 	atomic.StoreInt32(&w.running, 1)
-	if istanbul, ok := w.engine.(consensus.Istanbul); ok {
-		err := istanbul.Start(w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
+	if pos, ok := w.engine.(consensus.BFT); ok {
+		err := pos.Start(w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
 		if err != nil {
-			log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock())
+			log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)
 		}
 	}
 
@@ -280,10 +280,10 @@ func (w *worker) start() {
 // stop sets the running status as 0.
 func (w *worker) stop() {
 	atomic.StoreInt32(&w.running, 0)
-	if istanbul, ok := w.engine.(consensus.Istanbul); ok {
-		err := istanbul.Close()
+	if pos, ok := w.engine.(consensus.BFT); ok {
+		err := pos.Close()
 		if err != nil {
-			log.Error("Error stopping Consensus Engine")
+			log.Error("Error stopping Consensus Engine", "error", err)
 		}
 	}
 }
@@ -919,7 +919,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	commitUncles(w.localUncles)
 	commitUncles(w.remoteUncles)
 
-	if !noempty && w.config.Istanbul == nil {
+	if !noempty && (w.config.Istanbul == nil && w.config.Tendermint == nil) {
 		// Create an empty block based on temporary copied state for sealing in advance without waiting block
 		// execution finished.
 		w.commit(uncles, nil, false, tstart)
@@ -932,7 +932,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		return
 	}
 	// Short circuit if there is no available pending transactions
-	if len(pending) == 0 && w.config.Istanbul == nil {
+	if len(pending) == 0 && (w.config.Istanbul == nil && w.config.Tendermint == nil) {
 		w.updateSnapshot()
 		return
 	}

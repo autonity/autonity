@@ -58,7 +58,7 @@ func testPreprepare(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 
-	// if block is encoded/decoded by rlp, we cannot to compare interface data type using reflect.DeepEqual. (like istanbul.Proposal)
+	// if block is encoded/decoded by rlp, we cannot to compare interface data type using reflect.DeepEqual. (like istanbul.ProposalBlock)
 	// so individual comparison here.
 	if !reflect.DeepEqual(pp.Proposal.Hash(), decodedPP.Proposal.Hash()) {
 		t.Errorf("proposal hash mismatch: have %v, want %v", decodedPP.Proposal.Hash(), pp.Proposal.Hash())

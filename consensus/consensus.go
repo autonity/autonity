@@ -134,8 +134,8 @@ type PoW interface {
 	Hashrate() float64
 }
 
-// Istanbul is a consensus engine to avoid byzantine failure
-type Istanbul interface {
+// BFT is a consensus engine to avoid byzantine failure
+type BFT interface {
 	Engine
 
 	// Start starts the engine

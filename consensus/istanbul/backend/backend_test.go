@@ -117,7 +117,7 @@ func TestCommit(t *testing.T) {
 	commitCh := make(chan *types.Block, 1)
 	backend.commitCh = commitCh
 
-	// Case: it's a proposer, so the backend.commit will receive channel result from backend.Commit function
+	// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
 	testCases := []struct {
 		expectedErr       error
 		expectedSignature [][]byte
@@ -126,14 +126,14 @@ func TestCommit(t *testing.T) {
 		{
 			// normal case
 			nil,
-			[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.IstanbulExtraSeal-1)...)},
+			[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-1)...)},
 			func() *types.Block {
 				chain, engine := newBlockChain(1)
 				block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 				if err != nil {
 					t.Fatal(err)
 				}
-				expectedBlock, _ := engine.updateBlock(engine.blockchain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
+				expectedBlock, _ := engine.updateBlock(block)
 				return expectedBlock
 			},
 		},
@@ -147,7 +147,7 @@ func TestCommit(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				expectedBlock, _ := engine.updateBlock(engine.blockchain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
+				expectedBlock, _ := engine.updateBlock(block)
 				return expectedBlock
 			},
 		},
@@ -239,7 +239,7 @@ func (slice Keys) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
-func newBackend() (b *backend) {
+func newBackend() (b *Backend) {
 	_, b = newBlockChain(4)
 	key, _ := generatePrivateKey()
 	b.privateKey = key

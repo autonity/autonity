@@ -29,6 +29,8 @@ import (
 
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/console"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
@@ -203,6 +205,9 @@ func initGenesis(ctx *cli.Context) error {
 	if err := json.NewDecoder(file).Decode(genesis); err != nil {
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
+
+	setupDefaults(genesis)
+
 	// Open an initialise both full and light databases
 	stack := makeFullNode(ctx)
 	for _, name := range []string{"chaindata", "lightchaindata"} {
@@ -217,6 +222,59 @@ func initGenesis(ctx *cli.Context) error {
 		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
 	}
 	return nil
+}
+
+func setupDefaults(genesis *core.Genesis) {
+	if genesis == nil || genesis.Config == nil {
+		return
+	}
+
+	if genesis.Config.Istanbul != nil {
+		if genesis.Config.Istanbul.Epoch == 0 {
+			genesis.Config.Istanbul.Epoch = istanbul.DefaultConfig.Epoch
+		}
+		if genesis.Config.Istanbul.RequestTimeout == 0 {
+			genesis.Config.Istanbul.RequestTimeout = istanbul.DefaultConfig.RequestTimeout
+		}
+		if genesis.Config.Istanbul.BlockPeriod == 0 {
+			genesis.Config.Istanbul.BlockPeriod = istanbul.DefaultConfig.BlockPeriod
+		}
+
+		if len(genesis.Config.Istanbul.ABI) == 0 {
+			genesis.Config.Istanbul.ABI = istanbul.DefaultConfig.ABI
+		}
+		if len(genesis.Config.Istanbul.Bytecode) == 0 {
+			genesis.Config.Istanbul.Bytecode = istanbul.DefaultConfig.Bytecode
+		}
+		if len(genesis.Config.Istanbul.Deployer) == 0 || genesis.Config.Istanbul.Deployer == (common.Address{}) {
+			genesis.Config.Istanbul.Deployer = istanbul.DefaultConfig.Deployer
+		}
+	}
+
+	if genesis.Config.Tendermint != nil {
+		if genesis.Config.Tendermint.Epoch == 0 {
+			genesis.Config.Tendermint.Epoch = tendermint.DefaultConfig.Epoch
+		}
+		if genesis.Config.Tendermint.RequestTimeout == 0 {
+			genesis.Config.Tendermint.RequestTimeout = tendermint.DefaultConfig.RequestTimeout
+		}
+		if genesis.Config.Tendermint.BlockPeriod == 0 {
+			genesis.Config.Tendermint.BlockPeriod = tendermint.DefaultConfig.BlockPeriod
+		}
+
+		if len(genesis.Config.Tendermint.ABI) == 0 {
+			genesis.Config.Tendermint.ABI = tendermint.DefaultConfig.ABI
+		}
+		if len(genesis.Config.Tendermint.Bytecode) == 0 {
+			genesis.Config.Tendermint.Bytecode = tendermint.DefaultConfig.Bytecode
+		}
+		if len(genesis.Config.Tendermint.Deployer) == 0 || genesis.Config.Tendermint.Deployer == (common.Address{}) {
+			genesis.Config.Tendermint.Deployer = tendermint.DefaultConfig.Deployer
+		}
+		if genesis.Config.Tendermint.Epoch == 0 {
+			genesis.Config.Tendermint.Epoch = tendermint.DefaultConfig.Epoch
+		}
+	}
 }
 
 func importChain(ctx *cli.Context) error {

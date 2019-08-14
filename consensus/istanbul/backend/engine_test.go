@@ -41,12 +41,12 @@ import (
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
-func newBlockChain(n int) (*core.BlockChain, *backend) {
+func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
 	config := istanbul.DefaultConfig
 	// Use the first key as private key
-	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{}).(*backend)
+	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil)
 	if err != nil {
@@ -88,7 +88,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
-	genesis.Mixhash = types.IstanbulDigest
+	genesis.Mixhash = types.BFTDigest
 
 	AppendValidators(genesis, addrs)
 	return genesis, nodeKeys
@@ -96,12 +96,12 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 
-	if len(genesis.ExtraData) < types.IstanbulExtraVanity {
-		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)...)
+	if len(genesis.ExtraData) < types.BFTExtraVanity {
+		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)...)
 	}
-	genesis.ExtraData = genesis.ExtraData[:types.IstanbulExtraVanity]
+	genesis.ExtraData = genesis.ExtraData[:types.BFTExtraVanity]
 
-	ist := &types.IstanbulExtra{
+	ist := &types.BFTExtra{
 		Validators:    addrs,
 		Seal:          []byte{},
 		CommittedSeal: [][]byte{},
@@ -127,7 +127,7 @@ func makeHeader(parent *types.Block, config *istanbul.Config) *types.Header {
 	return header
 }
 
-func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
+func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
 	block, err := makeBlockWithoutSeal(chain, engine, parent)
 	if err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*t
 	return <-resultCh, nil
 }
 
-func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
+func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
 	engine.Prepare(chain, header)
 	state, err := chain.StateAt(parent.Root())
@@ -213,7 +213,7 @@ func TestSealCommitted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedBlock, _ := engine.updateBlock(engine.blockchain.GetHeader(block.ParentHash(), block.NumberU64()-1), block)
+	expectedBlock, _ := engine.updateBlock(block)
 
 	resultCh := make(chan *types.Block)
 	err = engine.Seal(chain, block, resultCh, nil)
@@ -234,7 +234,7 @@ func TestVerifyHeader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	block, _ = engine.updateBlock(chain.Genesis().Header(), block)
+	block, _ = engine.updateBlock(block)
 	err = engine.VerifyHeader(chain, block.Header(), false)
 	if err != types.ErrEmptyCommittedSeals {
 		t.Errorf("error mismatch: have %v, want %v", err, types.ErrEmptyCommittedSeals)
@@ -380,7 +380,7 @@ func TestVerifyHeaders(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		b, _ = engine.updateBlock(engine.blockchain.GetHeader(b.ParentHash(), b.NumberU64()-1), b)
+		b, _ = engine.updateBlock(b)
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
@@ -478,7 +478,7 @@ func TestPrepareExtra(t *testing.T) {
 	validators[2] = common.BytesToAddress(hexutil.MustDecode("0x6beaaed781d2d2ab6350f5c4566a2c6eaac407a6"))
 	validators[3] = common.BytesToAddress(hexutil.MustDecode("0x8be76812f765c24641ec63dc2852b378aba2b440"))
 
-	vanity := make([]byte, types.IstanbulExtraVanity)
+	vanity := make([]byte, types.BFTExtraVanity)
 	expectedResult := append(vanity, hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0")...)
 
 	h := &types.Header{
@@ -503,10 +503,10 @@ func TestPrepareExtra(t *testing.T) {
 }
 
 func TestWriteSeal(t *testing.T) {
-	vanity := bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)
+	vanity := bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)
 	istRawData := hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0")
-	expectedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.IstanbulExtraSeal-3)...)
-	expectedIstExtra := &types.IstanbulExtra{
+	expectedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-3)...)
+	expectedIstExtra := &types.BFTExtra{
 		Validators: []common.Address{
 			common.BytesToAddress(hexutil.MustDecode("0x44add0ec310f115a0e603b2d7db9f067778eaf8a")),
 			common.BytesToAddress(hexutil.MustDecode("0x294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212")),
@@ -529,7 +529,7 @@ func TestWriteSeal(t *testing.T) {
 	}
 
 	// verify istanbul extra-data
-	istExtra, err := types.ExtractIstanbulExtra(h)
+	istExtra, err := types.ExtractBFTExtra(h)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
@@ -546,10 +546,10 @@ func TestWriteSeal(t *testing.T) {
 }
 
 func TestWriteCommittedSeals(t *testing.T) {
-	vanity := bytes.Repeat([]byte{0x00}, types.IstanbulExtraVanity)
+	vanity := bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)
 	istRawData := hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0")
-	expectedCommittedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.IstanbulExtraSeal-3)...)
-	expectedIstExtra := &types.IstanbulExtra{
+	expectedCommittedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-3)...)
+	expectedIstExtra := &types.BFTExtra{
 		Validators: []common.Address{
 			common.BytesToAddress(hexutil.MustDecode("0x44add0ec310f115a0e603b2d7db9f067778eaf8a")),
 			common.BytesToAddress(hexutil.MustDecode("0x294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212")),
@@ -572,7 +572,7 @@ func TestWriteCommittedSeals(t *testing.T) {
 	}
 
 	// verify istanbul extra-data
-	istExtra, err := types.ExtractIstanbulExtra(h)
+	istExtra, err := types.ExtractBFTExtra(h)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}

@@ -18,6 +18,7 @@ package eth
 
 import (
 	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"math/big"
 	"os"
 	"os/user"
@@ -60,8 +61,6 @@ var DefaultConfig = Config{
 		Blocks:     20,
 		Percentile: 60,
 	},
-	Istanbul:    *istanbul.DefaultConfig,
-	OpenNetwork: false,
 }
 
 func init() {
@@ -120,6 +119,9 @@ type Config struct {
 
 	// Istanbul options
 	Istanbul istanbul.Config
+
+	// Tendermint options
+	Tendermint tendermint.Config
 
 	// Transaction pool options
 	TxPool core.TxPoolConfig

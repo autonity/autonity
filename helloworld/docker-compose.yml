@@ -95,29 +95,6 @@ services:
     networks:
       chainnet:
         ipv4_address: 172.25.0.15
-  connector:
-    links:
-      - node1
-      - node2
-      - node3
-      - node4
-      - node5
-    depends_on:
-      - node1
-      - node2
-      - node3
-      - node4
-      - node5
-    build:
-      context: ../
-      dockerfile: ./helloworld/Dockerfile
-    image: autonity:helloworld
-    volumes:
-      - ./autonity-connect.sh:/autonity-connect.sh:ro
-    container_name: nodes-connector
-    command: ["./autonity-connect.sh"]
-    networks:
-      - chainnet
 
 networks:
   chainnet:
