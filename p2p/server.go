@@ -520,6 +520,7 @@ func (srv *Server) Start() (err error) {
 		log.Info("Private-network mode enabled.")
 		srv.NoDiscovery = true
 		srv.StaticNodes = nil
+		srv.TrustedNodes = nil
 		dialer = newDialState(srv.localnode.ID(), nil, nil, nil, 0, srv.NetRestrict)
 	}
 	srv.loopWG.Add(1)
