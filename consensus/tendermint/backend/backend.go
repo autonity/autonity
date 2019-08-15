@@ -466,7 +466,7 @@ func (sb *Backend) WhiteList() []string {
 
 func (sb *Backend) GetPrivateKey() *ecdsa.PrivateKey {
 	sb.privateKeyMu.RLock()
-	defer sb.privateKeyMu.RLock()
+	defer sb.privateKeyMu.RUnlock()
 
 	pk := sb.privateKey.PublicKey
 	d := big.NewInt(0).Set(sb.privateKey.D)
