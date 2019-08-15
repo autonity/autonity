@@ -470,7 +470,7 @@ func (sb *Backend) GetPrivateKey() *ecdsa.PrivateKey {
 
 	pk := sb.privateKey.PublicKey
 	d := big.NewInt(0).Set(sb.privateKey.D)
-	return &ecdsa.PrivateKey{pk, d}
+	return &ecdsa.PrivateKey{PublicKey: pk, D: d}
 }
 
 func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
