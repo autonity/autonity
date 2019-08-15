@@ -294,7 +294,7 @@ func (sb *Backend) VerifySeal(chain consensus.ChainReader, header *types.Header)
 // rules of a particular engine. The changes are executed inline.
 func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) error {
 	// unused fields, force to set to empty
-	header.Coinbase = sb.address
+	header.Coinbase = sb.Address()
 	header.Nonce = emptyNonce
 	header.MixDigest = types.BFTDigest
 
@@ -395,7 +395,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	number := header.Number.Uint64()
 
 	// Bail out if we're unauthorized to sign a block
-	if _, v := sb.Validators(number).GetByAddress(sb.address); v == nil {
+	if _, v := sb.Validators(number).GetByAddress(sb.Address()); v == nil {
 		sb.logger.Error("Error validator")
 		return errUnauthorized
 	}

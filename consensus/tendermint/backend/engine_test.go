@@ -234,7 +234,8 @@ func TestVerifySeal(t *testing.T) {
 	}
 
 	// unauthorized users but still can get correct signer address
-	engine.privateKey, _ = crypto.GenerateKey()
+	privateKey, _ := crypto.GenerateKey()
+	engine.SetPrivateKey(privateKey)
 	err = engine.VerifySeal(chain, block.Header())
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)

@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -107,6 +108,7 @@ type Backend struct {
 	config       *tendermintConfig.Config
 	eventMux     *event.TypeMuxSilent
 	privateKey   *ecdsa.PrivateKey
+	privateKeyMu sync.RWMutex
 	address      common.Address
 	logger       log.Logger
 	db           ethdb.Database
@@ -141,6 +143,8 @@ type Backend struct {
 
 // Address implements tendermint.Backend.Address
 func (sb *Backend) Address() common.Address {
+	sb.privateKeyMu.RLock()
+	defer sb.privateKeyMu.RUnlock()
 	return sb.address
 }
 
@@ -393,7 +397,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 // Sign implements tendermint.Backend.Sign
 func (sb *Backend) Sign(data []byte) ([]byte, error) {
 	hashData := crypto.Keccak256(data)
-	return crypto.Sign(hashData, sb.privateKey)
+	return crypto.Sign(hashData, sb.GetPrivateKey())
 }
 
 // CheckSignature implements tendermint.Backend.CheckSignature
@@ -458,4 +462,21 @@ func (sb *Backend) WhiteList() []string {
 	}
 
 	return enodes.StrList
+}
+
+func (sb *Backend) GetPrivateKey() *ecdsa.PrivateKey {
+	sb.privateKeyMu.RLock()
+	defer sb.privateKeyMu.RLock()
+
+	pk := sb.privateKey.PublicKey
+	d := big.NewInt(0).Set(sb.privateKey.D)
+	return &ecdsa.PrivateKey{pk, d}
+}
+
+func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
+	sb.privateKeyMu.Lock()
+	defer sb.privateKeyMu.Unlock()
+
+	sb.privateKey = key
+	sb.address = crypto.PubkeyToAddress(key.PublicKey)
 }

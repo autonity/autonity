@@ -178,7 +178,7 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 func newBackend() (b *Backend) {
 	_, b = newBlockChain(4)
 	key, _ := generatePrivateKey()
-	b.privateKey = key
+	b.SetPrivateKey(key)
 	return
 }
 
@@ -214,8 +214,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	for _, key := range nodeKeys {
 		addr := crypto.PubkeyToAddress(key.PublicKey)
 		if addr.String() == proposerAddr.String() {
-			b.privateKey = key
-			b.address = addr
+			b.SetPrivateKey(key)
 		}
 	}
 
