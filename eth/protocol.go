@@ -41,7 +41,7 @@ const protocolName = "eth"
 var ProtocolVersions = []uint{eth63}
 
 // protocolLengths are the number of implemented message corresponding to different protocol versions.
-var protocolLengths = map[uint]uint64{eth63: 17, eth62: 8}
+var protocolLengths = map[uint]uint64{eth63: 18, eth62: 8}
 
 // Protocol defines the protocol of the consensus
 type Protocol struct {
