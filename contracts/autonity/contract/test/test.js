@@ -59,7 +59,7 @@ contract('Autonity', function(accounts) {
     it('test add validator and check that it is in get validator list', async function() {
         const token = await Autonity.deployed();
 
-        token.AddValidator(accounts[7], {from:governanceOperatorAccount});
+        token.AddValidator(accounts[7], 100, "not nil enode", {from:governanceOperatorAccount});
 
         var getValidatorsResult = await token.GetValidators({from:governanceOperatorAccount});
 

@@ -13,5 +13,21 @@ module.exports = function(deployer) {
         "enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@172.25.0.13:30303",
         "enode://438a5c2cd8fdc2ecbc508bf7362e41c0f0c3754ba1d3267127a3756324caf45e6546b02140e2144b205aeb372c96c5df9641485f721dc7c5b27eb9e35f5d887b@172.25.0.14:30303",
         "enode://3ce6c053cb563bfd94f4e0e248510a07ccee1bc836c9784da1816dba4b10564e7be1ba42e0bd8d73c8f6274f8e9878dc13814adb381c823264265c06048b4b59@172.25.0.15:30303"
-    ],"0x627306090abaB3A6e1400e9345bC60c78a8BEf57");
+    ],
+    [
+        2,
+        2,
+        2,
+        2,
+        2
+    ],
+    [
+        100,
+        100,
+        100,
+        100,
+        100
+    ],
+    "0x627306090abaB3A6e1400e9345bC60c78a8BEf57",
+        0);
 };
