@@ -22,7 +22,6 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 	"math/big"
-
 	"github.com/clearmatics/autonity/common"
 )
 

@@ -94,7 +94,6 @@ func ExtractBFTExtra(extra []byte) (*BFTExtra, error) {
 	var bftExtra *BFTExtra
 	err := rlp.DecodeBytes(extra[BFTExtraVanity:], &bftExtra)
 	if err != nil {
-		log.Error("!!!!! 2", "bftExtra", bftExtra, "bytes", extra, "err", err)
 		return nil, err
 	}
 	return bftExtra, nil

@@ -20,13 +20,18 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"math/big"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	tendermintCrypto "github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
@@ -68,6 +73,51 @@ func TestCheckSignature(t *testing.T) {
 	err = b.CheckSignature(data, a, sig)
 	if err != types.ErrInvalidSignature {
 		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidSignature)
+	}
+}
+
+func TestCheckValidatorSignature(t *testing.T) {
+	vset, keys := newTestValidatorSet(5)
+
+	// 1. Positive test: sign with validator's key should succeed
+	data := []byte("dummy data")
+	hashData := crypto.Keccak256(data)
+	for i, k := range keys {
+		// Sign
+		sig, err := crypto.Sign(hashData, k)
+		if err != nil {
+			t.Errorf("error mismatch: have %v, want nil", err)
+		}
+		// CheckValidatorSignature should succeed
+		addr, err := tendermintCrypto.CheckValidatorSignature(vset, data, sig)
+		if err != nil {
+			t.Errorf("error mismatch: have %v, want nil", err)
+		}
+		validator := vset.GetByIndex(uint64(i))
+		if addr != validator.Address() {
+			t.Errorf("validator address mismatch: have %v, want %v", addr, validator.Address())
+		}
+	}
+
+	// 2. Negative test: sign with any key other than validator's key should return error
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Errorf("error mismatch: have %v, want nil", err)
+	}
+	// Sign
+	sig, err := crypto.Sign(hashData, key)
+	if err != nil {
+		t.Errorf("error mismatch: have %v, want nil", err)
+	}
+
+	// CheckValidatorSignature should return ErrUnauthorizedAddress
+	addr, err := tendermintCrypto.CheckValidatorSignature(vset, data, sig)
+	if err != tendermintCrypto.ErrUnauthorizedAddress {
+		t.Errorf("error mismatch: have %v, want %v", err, tendermint.ErrUnauthorizedAddress)
+	}
+	emptyAddr := common.Address{}
+	if addr != emptyAddr {
+		t.Errorf("address mismatch: have %v, want %v", addr, emptyAddr)
 	}
 }
 
@@ -175,6 +225,34 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 	return crypto.HexToECDSA(key)
 }
 
+func newTestValidatorSet(n int) (validator.Set, []*ecdsa.PrivateKey) {
+	// generate validators
+	keys := make(Keys, n)
+	addrs := make([]common.Address, n)
+	for i := 0; i < n; i++ {
+		privateKey, _ := crypto.GenerateKey()
+		keys[i] = privateKey
+		addrs[i] = crypto.PubkeyToAddress(privateKey.PublicKey)
+	}
+	vset := validator.NewSet(addrs, config.RoundRobin)
+	sort.Sort(keys) //Keys need to be sorted by its public key address
+	return vset, keys
+}
+
+type Keys []*ecdsa.PrivateKey
+
+func (slice Keys) Len() int {
+	return len(slice)
+}
+
+func (slice Keys) Less(i, j int) bool {
+	return strings.Compare(crypto.PubkeyToAddress(slice[i].PublicKey).String(), crypto.PubkeyToAddress(slice[j].PublicKey).String()) < 0
+}
+
+func (slice Keys) Swap(i, j int) {
+	slice[i], slice[j] = slice[j], slice[i]
+}
+
 func newBackend() (b *Backend) {
 	_, b = newBlockChain(4)
 	key, _ := generatePrivateKey()
@@ -218,7 +296,6 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 		}
 	}
 
-	// TODO: check if we need to return core type as an Engine
 	return blockchain, b
 }
 
