@@ -170,7 +170,7 @@ func (sb *Backend) Broadcast(ctx context.Context, valSet validator.Set, payload 
 }
 
 func (sb *Backend) postEvent(event interface{}) {
-	go sb.eventMux.Post(event)
+	go sb.Post(event)
 }
 
 const TTL = 10           //seconds
@@ -264,9 +264,12 @@ func (sb *Backend) Commit(proposal types.Block, seals [][]byte) error {
 	return nil
 }
 
-// EventMux implements tendermint.Backend.EventMux
-func (sb *Backend) EventMux() *event.TypeMuxSilent {
-	return sb.eventMux
+func (sb *Backend) Post(ev interface{}) {
+	sb.eventMux.Post(ev)
+}
+
+func (sb *Backend) Subscribe(types ...interface{}) *event.TypeMuxSubscription {
+	return sb.eventMux.Subscribe(types...)
 }
 
 // VerifyProposal implements tendermint.Backend.VerifyProposal

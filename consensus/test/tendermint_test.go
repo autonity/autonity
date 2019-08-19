@@ -466,8 +466,8 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		wg.Go(func() error {
 			var (
 				blocksPassed int
-				lastBlock uint64
-				err error
+				lastBlock    uint64
+				err          error
 			)
 
 			fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)

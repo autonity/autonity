@@ -81,8 +81,8 @@ func (t *timeout) set(timeoutNew *timeout) bool {
 
 	err := t.stopTimer()
 	if err != nil {
+		// log error and reset timer
 		log.Error("cant stop timer", "err", err)
-		return false
 	}
 
 	t.Lock()
@@ -92,6 +92,7 @@ func (t *timeout) set(timeoutNew *timeout) bool {
 	t.timer = timeoutNew.timer
 	return true
 }
+
 /////////////// On Timeout Functions ///////////////
 func (c *core) onTimeoutPropose(r int64, h int64) {
 	msg := TimeoutEvent{

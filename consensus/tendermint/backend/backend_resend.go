@@ -51,7 +51,7 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 					break SenderLoop
 				}
 			case <-ctx.Done():
-				err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + ctx.Err().Error()), addr}
+				err = peerError{errors.New("error while sending tendermintMsg message to the peer(context done): " + ctx.Err().Error()), addr}
 				break SenderLoop
 			}
 		}

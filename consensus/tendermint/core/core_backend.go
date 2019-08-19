@@ -92,8 +92,9 @@ type Backend interface {
 	// Validators returns the validator set
 	Validators(number uint64) validator.Set
 
-	// EventMux returns the event mux in backend
-	EventMux() *event.TypeMuxSilent
+	Subscribe(types ...interface{}) *event.TypeMuxSubscription
+
+	Post(ev interface{})
 
 	// Broadcast sends a message to all validators (include self)
 	Broadcast(ctx context.Context, valSet validator.Set, payload []byte) error

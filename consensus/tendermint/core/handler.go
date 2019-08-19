@@ -55,17 +55,17 @@ func (c *core) Start(chain consensus.ChainReader, currentBlock func() *types.Blo
 
 // Stop implements core.Engine.Stop
 func (c *core) Stop() error {
-	err := c.backend.Close()
-	if err != nil {
-		return err
-	}
+	_ = c.proposeTimeout.stopTimer()
+	_ = c.prevoteTimeout.stopTimer()
+	_ = c.precommitTimeout.stopTimer()
 
 	c.stopFutureProposalTimer()
 	c.unsubscribeEvents()
 
-	_ = c.proposeTimeout.stopTimer()
-	_ = c.prevoteTimeout.stopTimer()
-	_ = c.precommitTimeout.stopTimer()
+	err := c.backend.Close()
+	if err != nil {
+		return err
+	}
 
 	// Make sure the handler goroutine exits
 	c.cancel()
@@ -73,19 +73,19 @@ func (c *core) Stop() error {
 }
 
 func (c *core) subscribeEvents() {
-	c.messageEventSub = c.backend.EventMux().Subscribe(
+	c.messageEventSub = c.backend.Subscribe(
 		// external messages
 		events.MessageEvent{},
 		// internal messages
 		backlogEvent{},
 	)
-	c.newUnminedBlockEventSub = c.backend.EventMux().Subscribe(
+	c.newUnminedBlockEventSub = c.backend.Subscribe(
 		events.NewUnminedBlockEvent{},
 	)
-	c.timeoutEventSub = c.backend.EventMux().Subscribe(
+	c.timeoutEventSub = c.backend.Subscribe(
 		TimeoutEvent{},
 	)
-	c.committedSub = c.backend.EventMux().Subscribe(
+	c.committedSub = c.backend.Subscribe(
 		events.CommitEvent{},
 	)
 }
@@ -175,7 +175,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 
 // sendEvent sends event to mux
 func (c *core) sendEvent(ev interface{}) {
-	c.backend.EventMux().Post(ev)
+	c.backend.Post(ev)
 }
 
 func (c *core) handleMsg(ctx context.Context, payload []byte) error {
