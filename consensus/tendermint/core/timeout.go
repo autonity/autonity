@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"sync"
 	"time"
@@ -32,8 +33,8 @@ type timeout struct {
 	sync.Mutex
 }
 
-func newTimeout(s Step) timeout {
-	return timeout{
+func newTimeout(s Step) *timeout {
+	return &timeout{
 		started: false,
 		step:    s,
 	}
@@ -59,7 +60,7 @@ func (t *timeout) stopTimer() error {
 	t.Lock()
 	defer t.Unlock()
 	if t.started {
-		if stopped := t.timer.Stop(); !stopped {
+		if t.started = !t.timer.Stop(); t.started {
 			switch t.step {
 			case propose:
 				return errNilPrevoteSent
@@ -73,6 +74,24 @@ func (t *timeout) stopTimer() error {
 	return nil
 }
 
+func (t *timeout) set(timeoutNew *timeout) bool {
+	if t == nil {
+		return false
+	}
+
+	err := t.stopTimer()
+	if err != nil {
+		log.Error("cant stop timer", "err", err)
+		return false
+	}
+
+	t.Lock()
+	defer t.Unlock()
+	t.started = timeoutNew.started
+	t.step = timeoutNew.step
+	t.timer = timeoutNew.timer
+	return true
+}
 /////////////// On Timeout Functions ///////////////
 func (c *core) onTimeoutPropose(r int64, h int64) {
 	msg := TimeoutEvent{

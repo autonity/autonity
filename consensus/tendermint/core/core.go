@@ -122,9 +122,9 @@ type core struct {
 
 	currentHeightOldRoundsStates map[int64]roundState
 
-	proposeTimeout   timeout
-	prevoteTimeout   timeout
-	precommitTimeout timeout
+	proposeTimeout   *timeout
+	prevoteTimeout   *timeout
+	precommitTimeout *timeout
 
 	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
 	futureRoundsChange map[int64]int64
@@ -273,12 +273,18 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		c.futureRoundsChange = make(map[int64]int64)
 	}
 	// Reset all timeouts
-	_ = c.proposeTimeout.stopTimer()
-	_ = c.prevoteTimeout.stopTimer()
-	_ = c.precommitTimeout.stopTimer()
-	c.proposeTimeout = newTimeout(propose)
-	c.prevoteTimeout = newTimeout(prevote)
-	c.precommitTimeout = newTimeout(precommit)
+	proposeTime := newTimeout(propose)
+	if ok := c.proposeTimeout.set(proposeTime); !ok {
+		c.proposeTimeout = proposeTime
+	}
+	prevoteTime := newTimeout(prevote)
+	if ok := c.prevoteTimeout.set(prevoteTime); !ok {
+		c.prevoteTimeout = prevoteTime
+	}
+	precommitTime := newTimeout(precommit)
+	if ok := c.precommitTimeout.set(precommitTime); !ok {
+		c.precommitTimeout = precommitTime
+	}
 	// Get all rounds from c.futureRoundsChange and remove previous rounds
 	var i int64
 	for i = 0; i <= r.Int64(); i++ {
