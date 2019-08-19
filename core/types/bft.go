@@ -207,7 +207,6 @@ func WriteSeal(h *Header, seal []byte) error {
 	bftExtra.Seal = seal
 	payload, err := rlp.EncodeToBytes(&bftExtra)
 	if err != nil {
-		panic(3)
 		return err
 	}
 
