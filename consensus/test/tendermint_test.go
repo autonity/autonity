@@ -446,7 +446,6 @@ func (validator *testNode) startService() error {
 }
 
 func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
-	var err error
 	const blocksToWait = 10
 
 	txs := make(map[uint64]int) // blockNumber to count
@@ -465,8 +464,11 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		}
 
 		wg.Go(func() error {
-			var blocksPassed int
-			var lastBlock uint64
+			var (
+				blocksPassed int
+				lastBlock uint64
+				err error
+			)
 
 			fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 
@@ -547,8 +549,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			return nil
 		})
 	}
-	err = wg.Wait()
-	if err != nil {
+	if err := wg.Wait(); err != nil {
 		t.Fatal(err)
 	}
 
