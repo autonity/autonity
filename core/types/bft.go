@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/log"
 	lru "github.com/hashicorp/golang-lru"
 	"io"
 
@@ -29,18 +30,19 @@ import (
 )
 
 var (
-	// IstanbulDigest represents a hash of "Istanbul practical byzantine fault tolerance"
-	// to identify whether the block is from Istanbul consensus engine
-	IstanbulDigest = common.HexToHash("0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365")
+	// BFTDigest represents a hash of "Istanbul practical byzantine fault tolerance"
+	// to identify whether the block is from BFT consensus engine
+	//TODO differentiate the digest between IBFT and Tendermint
+	BFTDigest = common.HexToHash("0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365")
 
-	IstanbulExtraVanity = 32 // Fixed number of extra-data bytes reserved for validator vanity
-	IstanbulExtraSeal   = 65 // Fixed number of extra-data bytes reserved for validator seal
+	BFTExtraVanity = 32 // Fixed number of extra-data bytes reserved for validator vanity
+	BFTExtraSeal   = 65 // Fixed number of extra-data bytes reserved for validator seal
 
 	inmemoryAddresses  = 20 // Number of recent addresses from ecrecover
 	recentAddresses, _ = lru.NewARC(inmemoryAddresses)
 
-	// ErrInvalidIstanbulHeaderExtra is returned if the length of extra-data is less than 32 bytes
-	ErrInvalidIstanbulHeaderExtra = errors.New("invalid istanbul header extra-data")
+	// ErrInvalidBFTHeaderExtra is returned if the length of extra-data is less than 32 bytes
+	ErrInvalidBFTHeaderExtra = errors.New("invalid pos header extra-data")
 	// ErrInvalidSignature is returned when given signature is not signed by given address.
 	ErrInvalidSignature = errors.New("invalid signature")
 	// ErrInvalidCommittedSeals is returned if the committed seal is not signed by any of parent validators.
@@ -49,77 +51,77 @@ var (
 	ErrEmptyCommittedSeals = errors.New("zero committed seals")
 )
 
-type IstanbulExtra struct {
+type BFTExtra struct {
 	Validators    []common.Address
 	Seal          []byte
 	CommittedSeal [][]byte
 }
 
-// EncodeRLP serializes ist into the Ethereum RLP format.
-func (ist *IstanbulExtra) EncodeRLP(w io.Writer) error {
+// EncodeRLP serializes pos into the Ethereum RLP format.
+func (pos *BFTExtra) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{
-		ist.Validators,
-		ist.Seal,
-		ist.CommittedSeal,
+		pos.Validators,
+		pos.Seal,
+		pos.CommittedSeal,
 	})
 }
 
-// DecodeRLP implements rlp.Decoder, and load the istanbul fields from a RLP stream.
-func (ist *IstanbulExtra) DecodeRLP(s *rlp.Stream) error {
-	var istanbulExtra struct {
+// DecodeRLP implements rlp.Decoder, and load the pos fields from a RLP stream.
+func (pos *BFTExtra) DecodeRLP(s *rlp.Stream) error {
+	var bftExtra struct {
 		Validators    []common.Address
 		Seal          []byte
 		CommittedSeal [][]byte
 	}
-	if err := s.Decode(&istanbulExtra); err != nil {
+	if err := s.Decode(&bftExtra); err != nil {
 		return err
 	}
-	ist.Validators, ist.Seal, ist.CommittedSeal = istanbulExtra.Validators, istanbulExtra.Seal, istanbulExtra.CommittedSeal
+	pos.Validators, pos.Seal, pos.CommittedSeal = bftExtra.Validators, bftExtra.Seal, bftExtra.CommittedSeal
 	return nil
 }
 
-// ExtractIstanbulExtra extracts all values of the IstanbulExtra from the header. It returns an
+// ExtractBFTExtra extracts all values of the BFTExtra from the header. It returns an
 // error if the length of the given extra-data is less than 32 bytes or the extra-data can not
 // be decoded.
-func ExtractIstanbulExtra(h *Header) (*IstanbulExtra, error) {
-	if len(h.Extra) < IstanbulExtraVanity {
-		return nil, ErrInvalidIstanbulHeaderExtra
+func ExtractBFTExtra(h *Header) (*BFTExtra, error) {
+	if len(h.Extra) < BFTExtraVanity {
+		return nil, ErrInvalidBFTHeaderExtra
 	}
 
-	var istanbulExtra *IstanbulExtra
-	err := rlp.DecodeBytes(h.Extra[IstanbulExtraVanity:], &istanbulExtra)
+	var bftExtra *BFTExtra
+	err := rlp.DecodeBytes(h.Extra[BFTExtraVanity:], &bftExtra)
 	if err != nil {
 		return nil, err
 	}
-	return istanbulExtra, nil
+	return bftExtra, nil
 }
 
-// IstanbulFilteredHeader returns a filtered header which some information (like seal, committed seals)
-// are clean to fulfill the Istanbul hash rules. It returns nil if the extra-data cannot be
+// BFTFilteredHeader returns a filtered header which some information (like seal, committed seals)
+// are clean to fulfill the BFT hash rules. It returns nil if the extra-data cannot be
 // decoded/encoded by rlp.
-func IstanbulFilteredHeader(h *Header, keepSeal bool) *Header {
+func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	newHeader := CopyHeader(h)
-	istanbulExtra, err := ExtractIstanbulExtra(newHeader)
+	bftExtra, err := ExtractBFTExtra(newHeader)
 	if err != nil {
 		return nil
 	}
 
 	if !keepSeal {
-		istanbulExtra.Seal = []byte{}
+		bftExtra.Seal = []byte{}
 	}
-	istanbulExtra.CommittedSeal = [][]byte{}
+	bftExtra.CommittedSeal = [][]byte{}
 
-	payload, err := rlp.EncodeToBytes(&istanbulExtra)
+	payload, err := rlp.EncodeToBytes(&bftExtra)
 	if err != nil {
 		return nil
 	}
 
-	newHeader.Extra = append(newHeader.Extra[:IstanbulExtraVanity], payload...)
+	newHeader.Extra = append(newHeader.Extra[:BFTExtraVanity], payload...)
 
 	return newHeader
 }
 
-// sigHash returns the hash which is used as input for the Istanbul
+// sigHash returns the hash which is used as input for the BFT
 // signing. It is the hash of the entire header apart from the 65 byte signature
 // contained at the end of the extra data.
 //
@@ -130,7 +132,11 @@ func SigHash(header *Header) (hash common.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
 
 	// Clean seal is required for calculating proposer seal.
-	rlp.Encode(hasher, IstanbulFilteredHeader(header, false))
+	err := rlp.Encode(hasher, BFTFilteredHeader(header, false))
+	if err != nil {
+		log.Error("can't hash the header", "err", err, "header", header)
+		return common.Hash{}
+	}
 	hasher.Sum(hash[:0])
 	return hash
 }
@@ -143,12 +149,12 @@ func Ecrecover(header *Header) (common.Address, error) {
 	}
 
 	// Retrieve the signature from the header extra-data
-	istanbulExtra, err := ExtractIstanbulExtra(header)
+	bftExtra, err := ExtractBFTExtra(header)
 	if err != nil {
 		return common.Address{}, err
 	}
 
-	addr, err := GetSignatureAddress(SigHash(header).Bytes(), istanbulExtra.Seal)
+	addr, err := GetSignatureAddress(SigHash(header).Bytes(), bftExtra.Seal)
 	if err != nil {
 		return addr, err
 	}
@@ -160,19 +166,19 @@ func Ecrecover(header *Header) (common.Address, error) {
 func PrepareExtra(extraData *[]byte, vals []common.Address) ([]byte, error) {
 	var buf bytes.Buffer
 
-	// compensate the lack bytes if header.Extra is not enough IstanbulExtraVanity bytes.
-	if len(*extraData) < IstanbulExtraVanity {
-		*extraData = append(*extraData, bytes.Repeat([]byte{0x00}, IstanbulExtraVanity-len(*extraData))...)
+	// compensate the lack bytes if header.Extra is not enough BFTExtraVanity bytes.
+	if len(*extraData) < BFTExtraVanity {
+		*extraData = append(*extraData, bytes.Repeat([]byte{0x00}, BFTExtraVanity-len(*extraData))...)
 	}
-	buf.Write((*extraData)[:IstanbulExtraVanity])
+	buf.Write((*extraData)[:BFTExtraVanity])
 
-	ist := &IstanbulExtra{
+	pos := &BFTExtra{
 		Validators:    vals,
 		Seal:          []byte{},
 		CommittedSeal: [][]byte{},
 	}
 
-	payload, err := rlp.EncodeToBytes(&ist)
+	payload, err := rlp.EncodeToBytes(&pos)
 	if err != nil {
 		return nil, err
 	}
@@ -182,22 +188,22 @@ func PrepareExtra(extraData *[]byte, vals []common.Address) ([]byte, error) {
 // WriteSeal writes the extra-data field of the given header with the given seals.
 // suggest to rename to writeSeal.
 func WriteSeal(h *Header, seal []byte) error {
-	if len(seal)%IstanbulExtraSeal != 0 { // TODO :  len(seal) != IstanbulExtraSeal
+	if len(seal)%BFTExtraSeal != 0 { // TODO :  len(seal) != BFTExtraSeal
 		return ErrInvalidSignature
 	}
 
-	istanbulExtra, err := ExtractIstanbulExtra(h)
+	bftExtra, err := ExtractBFTExtra(h)
 	if err != nil {
 		return err
 	}
 
-	istanbulExtra.Seal = seal
-	payload, err := rlp.EncodeToBytes(&istanbulExtra)
+	bftExtra.Seal = seal
+	payload, err := rlp.EncodeToBytes(&bftExtra)
 	if err != nil {
 		return err
 	}
 
-	h.Extra = append(h.Extra[:IstanbulExtraVanity], payload...)
+	h.Extra = append(h.Extra[:BFTExtraVanity], payload...)
 	return nil
 }
 
@@ -208,24 +214,24 @@ func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
 	}
 
 	for _, seal := range committedSeals {
-		if len(seal) != IstanbulExtraSeal {
+		if len(seal) != BFTExtraSeal {
 			return ErrInvalidCommittedSeals
 		}
 	}
 
-	istanbulExtra, err := ExtractIstanbulExtra(h)
+	bftExtra, err := ExtractBFTExtra(h)
 	if err != nil {
 		return err
 	}
-	istanbulExtra.CommittedSeal = make([][]byte, len(committedSeals))
-	copy(istanbulExtra.CommittedSeal, committedSeals)
+	bftExtra.CommittedSeal = make([][]byte, len(committedSeals))
+	copy(bftExtra.CommittedSeal, committedSeals)
 
-	payload, err := rlp.EncodeToBytes(&istanbulExtra)
+	payload, err := rlp.EncodeToBytes(&bftExtra)
 	if err != nil {
 		return err
 	}
 
-	h.Extra = append(h.Extra[:IstanbulExtraVanity], payload...)
+	h.Extra = append(h.Extra[:BFTExtraVanity], payload...)
 	return nil
 }
 
@@ -247,4 +253,3 @@ func GetSignatureAddress(data []byte, sig []byte) (common.Address, error) {
 	}
 	return crypto.PubkeyToAddress(*pubkey), nil
 }
-

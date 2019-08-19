@@ -214,16 +214,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
 
@@ -295,9 +295,10 @@ type ChainConfig struct {
 	EWASMBlock          *big.Int `json:"ewasmBlock,omitempty"`          // EWASM switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
-	Ethash   *EthashConfig   `json:"ethash,omitempty"`
-	Clique   *CliqueConfig   `json:"clique,omitempty"`
-	Istanbul *IstanbulConfig `json:"istanbul,omitempty"`
+	Ethash     *EthashConfig     `json:"ethash,omitempty"`
+	Clique     *CliqueConfig     `json:"clique,omitempty"`
+	Istanbul   *IstanbulConfig   `json:"istanbul,omitempty"`
+	Tendermint *TendermintConfig `json:"tendermint,omitempty"`
 
 	// Network Permissioning
 	EnodeWhitelist    []string       `json:"enodeWhitelist,omitempty"`
@@ -332,11 +333,29 @@ type IstanbulConfig struct {
 	Deployer       common.Address `json:"contract-deployer"` // Address of the validator who deploys contract stored in bytecode
 	Bytecode       string         `json:"bytecode"`          // Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
 	ABI            string         `json:"abi"`               // Bytecode of validators contract // ABI of the said contract
+	BlockPeriod    uint64         `json:"block-period"`
+	RequestTimeout uint64         `json:"request-timeout"`
 }
 
 // String implements the stringer interface, returning the consensus engine details.
 func (c *IstanbulConfig) String() string {
 	return "istanbul"
+}
+
+// TendermintConfig is the consensus engine configs for Tendermint based sealing.
+type TendermintConfig struct {
+	Epoch          uint64         `json:"epoch"`             // Epoch length to reset votes and checkpoint
+	ProposerPolicy uint64         `json:"policy"`            // The policy for proposer selection
+	Deployer       common.Address `json:"contract-deployer"` // Address of the validator who deploys contract stored in bytecode
+	Bytecode       string         `json:"bytecode"`          // Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
+	ABI            string         `json:"abi"`               // Bytecode of validators contract // ABI of the said contract
+	BlockPeriod    uint64         `json:"block-period"`
+	RequestTimeout uint64         `json:"request-timeout"`
+}
+
+// String implements the stringer interface, returning the consensus engine details.
+func (c *TendermintConfig) String() string {
+	return "tendermint"
 }
 
 // String implements the fmt.Stringer interface.
@@ -349,6 +368,8 @@ func (c *ChainConfig) String() string {
 		engine = c.Clique
 	case c.Istanbul != nil:
 		engine = c.Istanbul
+	case c.Tendermint != nil:
+		engine = c.Tendermint
 	default:
 		engine = "unknown"
 	}

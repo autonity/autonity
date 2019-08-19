@@ -17,7 +17,7 @@ type Nodes struct {
 const (
 	maxParseTries     = 300
 	delayBetweenTries = time.Second
-	defaultTTL        = 20
+	defaultTTL        = 120
 )
 
 func NewNodes(strList []string, openNetwork bool) *Nodes {
@@ -36,7 +36,7 @@ func NewNodes(strList []string, openNetwork bool) *Nodes {
 		wg.Add(1)
 
 		go func(enodeStr string) {
-			log.Error("performing", "node", enodeStr)
+			log.Debug("performing", "node", enodeStr)
 			newEnode, err := cache.Get(enodeStr, getEnode)
 			if err != nil {
 				errCh <- err

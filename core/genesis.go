@@ -289,8 +289,8 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 		g.Config = params.AllEthashProtocolChanges
 	}
 
-	if g.Config != nil && g.Config.Istanbul != nil {
-		err := g.setIstanbul()
+	if g.Config != nil && (g.Config.Istanbul != nil || g.Config.Tendermint != nil) {
+		err := g.setBFT()
 		if err != nil {
 			return nil, err
 		}
@@ -313,15 +313,15 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	return block, nil
 }
 
-//setIstanbul sets default Istanbul config values
-func (g *Genesis) setIstanbul() error {
+//setBFT sets default BFT(IBFT or Tendermint) config values
+func (g *Genesis) setBFT() error {
 	if len(g.Validators) != 0 {
-		err := g.UpdateValidators(g.Validators)
+		err := g.setBFTValidatorExtraData(g.Validators)
 		if err != nil {
 			return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
 		}
 	}
-	log.Info("starting Istanbul consensus", "extraData", common.Bytes2Hex(g.ExtraData))
+	log.Info("starting BFT consensus", "extraData", common.Bytes2Hex(g.ExtraData))
 
 	// we have to use '1' to have TD == BlockNumber for xBFT consensus
 	g.Difficulty = big.NewInt(1)
@@ -339,8 +339,8 @@ func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
 	return block
 }
 
-// UpdateValidators updates Genesis ExtraData field with a new list of validators
-func (g *Genesis) UpdateValidators(addressList []string) error {
+// setBFTValidatorExtraData updates Genesis ExtraData field with a new list of validators
+func (g *Genesis) setBFTValidatorExtraData(addressList []string) error {
 	var validators []common.Address
 	for _, address := range addressList {
 		validators = append(validators, common.HexToAddress(address))

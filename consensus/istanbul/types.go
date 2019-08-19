@@ -26,7 +26,7 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
-// Proposal supports retrieving height and serialized block to be used during Istanbul consensus.
+// ProposalBlock supports retrieving height and serialized block to be used during Istanbul consensus.
 type Proposal interface {
 	// Number retrieves the sequence number of this proposal.
 	Number() *big.Int

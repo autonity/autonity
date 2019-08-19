@@ -315,15 +315,15 @@ func (pm *ProtocolManager) Stop() {
 }
 
 // Whitelist updating loop.
-func (s *ProtocolManager) glienickeEventLoop() {
+func (pm *ProtocolManager) glienickeEventLoop() {
 	for {
 		select {
-		case event := <-s.glienickeCh:
-			s.enodesWhitelistLock.Lock()
-			s.enodesWhitelist = event.Whitelist
-			s.enodesWhitelistLock.Unlock()
+		case event := <-pm.glienickeCh:
+			pm.enodesWhitelistLock.Lock()
+			pm.enodesWhitelist = event.Whitelist
+			pm.enodesWhitelistLock.Unlock()
 		// Err() channel will be closed when unsubscribing.
-		case <-s.glienickeSub.Err():
+		case <-pm.glienickeSub.Err():
 			return
 		}
 	}
@@ -901,19 +901,27 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	}
 }
 
-func (self *ProtocolManager) FindPeers(targets map[common.Address]bool) map[common.Address]consensus.Peer {
+func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) (map[common.Address]consensus.Peer, []common.Address) {
 	m := make(map[common.Address]consensus.Peer)
-	for _, p := range self.peers.Peers() {
+
+	for _, p := range pm.peers.Peers() {
 		pubKey := p.Node().Pubkey()
 		if pubKey == nil {
 			continue
 		}
 		addr := crypto.PubkeyToAddress(*pubKey)
-		if targets[addr] {
+		if _, ok := targets[addr]; ok {
 			m[addr] = p
 		}
 	}
-	return m
+
+	var notConnected []common.Address
+	for addr := range targets {
+		if _, ok := m[addr]; !ok {
+			notConnected = append(notConnected, addr)
+		}
+	}
+	return m, notConnected
 }
 
 // NodeInfo represents a short summary of the Ethereum sub-protocol metadata

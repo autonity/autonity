@@ -9,6 +9,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/eth/gasprice"
@@ -42,6 +43,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		Miner                   miner.Config
 		Ethash                  ethash.Config
 		Istanbul                istanbul.Config
+		Tendermint              tendermint.Config
 		TxPool                  core.TxPoolConfig
 		GPO                     gasprice.Config
 		EnablePreimageRecording bool
@@ -51,6 +53,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		RPCGasCap               *big.Int                       `toml:",omitempty"`
 		Checkpoint              *params.TrustedCheckpoint      `toml:",omitempty"`
 		CheckpointOracle        *params.CheckpointOracleConfig `toml:",omitempty"`
+		OpenNetwork             bool
 	}
 	var enc Config
 	enc.Genesis = c.Genesis
@@ -76,6 +79,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.Miner = c.Miner
 	enc.Ethash = c.Ethash
 	enc.Istanbul = c.Istanbul
+	enc.Tendermint = c.Tendermint
 	enc.TxPool = c.TxPool
 	enc.GPO = c.GPO
 	enc.EnablePreimageRecording = c.EnablePreimageRecording
@@ -85,6 +89,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.RPCGasCap = c.RPCGasCap
 	enc.Checkpoint = c.Checkpoint
 	enc.CheckpointOracle = c.CheckpointOracle
+	enc.OpenNetwork = c.OpenNetwork
 	return &enc, nil
 }
 
@@ -114,6 +119,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		Miner                   *miner.Config
 		Ethash                  *ethash.Config
 		Istanbul                *istanbul.Config
+		Tendermint              *tendermint.Config
 		TxPool                  *core.TxPoolConfig
 		GPO                     *gasprice.Config
 		EnablePreimageRecording *bool
@@ -123,6 +129,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		RPCGasCap               *big.Int                       `toml:",omitempty"`
 		Checkpoint              *params.TrustedCheckpoint      `toml:",omitempty"`
 		CheckpointOracle        *params.CheckpointOracleConfig `toml:",omitempty"`
+		OpenNetwork             *bool
 	}
 	var dec Config
 	if err := unmarshal(&dec); err != nil {
@@ -194,6 +201,12 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	if dec.Ethash != nil {
 		c.Ethash = *dec.Ethash
 	}
+	if dec.Istanbul != nil {
+		c.Istanbul = *dec.Istanbul
+	}
+	if dec.Tendermint != nil {
+		c.Tendermint = *dec.Tendermint
+	}
 	if dec.TxPool != nil {
 		c.TxPool = *dec.TxPool
 	}
@@ -221,8 +234,8 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	if dec.CheckpointOracle != nil {
 		c.CheckpointOracle = dec.CheckpointOracle
 	}
-	if dec.Istanbul != nil {
-		c.Istanbul = *dec.Istanbul
+	if dec.OpenNetwork != nil {
+		c.OpenNetwork = *dec.OpenNetwork
 	}
 	return nil
 }
