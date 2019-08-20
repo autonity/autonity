@@ -411,6 +411,8 @@ func (validator *testNode) stopNode() error {
 		return fmt.Errorf("cannot stop a node %s", err)
 	}
 
+	validator.node.Wait()
+
 	validator.isRunning = false
 	return nil
 }
