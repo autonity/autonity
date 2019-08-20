@@ -137,8 +137,6 @@ type Backend struct {
 	vmConfig          *vm.Config
 
 	resend chan messageToPeers
-
-	cancel context.CancelFunc
 }
 
 // Address implements tendermint.Backend.Address

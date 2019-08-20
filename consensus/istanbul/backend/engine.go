@@ -18,6 +18,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"math/big"
 	"time"
@@ -395,7 +396,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 
 	// Bail out if we're unauthorized to sign a block
 	if _, v := sb.Validators(number).GetByAddress(sb.address); v == nil {
-		sb.logger.Error("Error validator")
+		sb.logger.Error("error validator errUnauthorized", "addr", sb.address.String())
 		return errUnauthorized
 	}
 
@@ -467,7 +468,7 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 }
 
 // Start implements consensus.BFT.Start
-func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+func (sb *Backend) Start(_ context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if sb.coreStarted {

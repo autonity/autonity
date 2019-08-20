@@ -89,10 +89,8 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		return err
 	}
 
-	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
-
 	// Don't want to decode twice, hence sending preCommit with message
-	if err := c.verifyPrecommitCommittedSeal(msg, preCommit); err != nil {
+	if err := c.verifyPrecommitCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash); err != nil {
 		return err
 	}
 
@@ -106,6 +104,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
+	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	if curProposalHash != (common.Hash{}) && c.Quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
@@ -129,18 +128,18 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	return nil
 }
 
-func (c *core) verifyPrecommitCommittedSeal(m *message, precommit Vote) error {
-	committedSeal := PrepareCommittedSeal(precommit.ProposedBlockHash)
+func (c *core) verifyPrecommitCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash) error {
+	committedSeal := PrepareCommittedSeal(proposedBlockHash)
 
-	addressOfSignerOfCommittedSeal, err := types.GetSignatureAddress(committedSeal, m.CommittedSeal)
+	addressOfSignerOfCommittedSeal, err := types.GetSignatureAddress(committedSeal, committedSealMsg)
 	if err != nil {
 		c.logger.Error("Failed to get signer address", "err", err)
 		return err
 	}
 
 	// ensure sender signed the committed seal
-	if !bytes.Equal(addressOfSignerOfCommittedSeal.Bytes(), m.Address.Bytes()) {
-		log.Error("seal error", "got", m.Address.String(), "expected", addressOfSignerOfCommittedSeal.String())
+	if !bytes.Equal(addressOfSignerOfCommittedSeal.Bytes(), addressMsg.Bytes()) {
+		log.Error("precommit message. seal error", "got", addressMsg.String(), "expected", addressOfSignerOfCommittedSeal.String())
 
 		return errInvalidSenderOfCommittedSeal
 	}

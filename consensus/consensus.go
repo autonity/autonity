@@ -18,6 +18,7 @@
 package consensus
 
 import (
+	"context"
 	"github.com/clearmatics/autonity/p2p"
 	"math/big"
 
@@ -139,5 +140,5 @@ type BFT interface {
 	Engine
 
 	// Start starts the engine
-	Start(chain ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
+	Start(ctx context.Context, chain ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
 }

@@ -390,13 +390,20 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
 func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+	sb.coreMu.RLock()
+	isStarted := sb.coreStarted
+	sb.coreMu.RUnlock()
+	if !isStarted {
+		return ErrStoppedEngine
+	}
+
 	// update the block header and signature and propose the block to core engine
 	header := block.Header()
 	number := header.Number.Uint64()
 
 	// Bail out if we're unauthorized to sign a block
 	if _, v := sb.Validators(number).GetByAddress(sb.Address()); v == nil {
-		sb.logger.Error("Error validator")
+		sb.logger.Error("error validator errUnauthorized", "addr", sb.address.String())
 		return errUnauthorized
 	}
 
@@ -489,7 +496,7 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 }
 
 // Start implements consensus.tendermint.Start
-func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if sb.coreStarted {
@@ -502,9 +509,6 @@ func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	sb.blockchain = chain.(*core.BlockChain)
 	sb.currentBlock = currentBlock
 	sb.hasBadBlock = hasBadBlock
-
-	var ctx context.Context
-	ctx, sb.cancel = context.WithCancel(context.Background())
 
 	sb.coreStarted = true
 
@@ -522,8 +526,6 @@ func (sb *Backend) Close() error {
 		return ErrStoppedEngine
 	}
 	sb.coreStarted = false
-
-	sb.cancel()
 
 	return nil
 }

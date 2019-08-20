@@ -18,6 +18,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
@@ -52,7 +53,12 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	if err != nil {
 		panic(err)
 	}
-	b.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+
+	err = b.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	if err != nil {
+		panic(err)
+	}
+
 	validators := b.Validators(0)
 	if validators.Size() == 0 {
 		panic("failed to get validators")

@@ -28,8 +28,10 @@ import (
 )
 
 // Start implements core.Engine.Start
-func (c *core) Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
-	err := c.backend.Start(chain, currentBlock, hasBadBlock)
+func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+	ctx, c.cancel = context.WithCancel(ctx)
+
+	err := c.backend.Start(ctx, chain, currentBlock, hasBadBlock)
 	if err != nil {
 		return err
 	}
@@ -44,9 +46,6 @@ func (c *core) Start(chain consensus.ChainReader, currentBlock func() *types.Blo
 	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent()
 
-	var ctx context.Context
-	ctx, c.cancel = context.WithCancel(context.Background())
-
 	//We want to sequentially handle all the event which modify the current consensus state
 	go c.handleConsensusEvents(ctx)
 
@@ -55,6 +54,11 @@ func (c *core) Start(chain consensus.ChainReader, currentBlock func() *types.Blo
 
 // Stop implements core.Engine.Stop
 func (c *core) Stop() error {
+	c.logger.Error("stopping tendermint.core", "addr", c.address.String())
+
+	// Make sure the handler and backend goroutine exits
+	c.cancel()
+
 	_ = c.proposeTimeout.stopTimer()
 	_ = c.prevoteTimeout.stopTimer()
 	_ = c.precommitTimeout.stopTimer()
@@ -67,27 +71,21 @@ func (c *core) Stop() error {
 		return err
 	}
 
-	// Make sure the handler goroutine exits
-	c.cancel()
 	return nil
 }
 
 func (c *core) subscribeEvents() {
-	c.messageEventSub = c.backend.Subscribe(
-		// external messages
-		events.MessageEvent{},
-		// internal messages
-		backlogEvent{},
-	)
-	c.newUnminedBlockEventSub = c.backend.Subscribe(
-		events.NewUnminedBlockEvent{},
-	)
-	c.timeoutEventSub = c.backend.Subscribe(
-		TimeoutEvent{},
-	)
-	c.committedSub = c.backend.Subscribe(
-		events.CommitEvent{},
-	)
+	s := c.backend.Subscribe(events.MessageEvent{}, backlogEvent{})
+	c.messageEventSub = s
+
+	s1 := c.backend.Subscribe(events.NewUnminedBlockEvent{})
+	c.newUnminedBlockEventSub = s1
+
+	s2 := c.backend.Subscribe(TimeoutEvent{})
+	c.timeoutEventSub = s2
+
+	s3 := c.backend.Subscribe(events.CommitEvent{})
+	c.committedSub = s3
 }
 
 // Unsubscribe all messageEventSub

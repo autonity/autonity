@@ -84,7 +84,7 @@ func (c *core) Protocol() (protocolName string, extraMsgCodes uint64) {
 type Backend interface {
 	consensus.Engine
 	consensus.Handler
-	Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
+	Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
 
 	// Address returns the owner's address
 	Address() common.Address

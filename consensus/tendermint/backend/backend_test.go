@@ -18,6 +18,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/clearmatics/autonity/consensus/tendermint"
@@ -277,7 +278,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 		panic(err)
 	}
 
-	err = c.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	err = c.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
 	if err != nil {
 		panic(err)
 	}
