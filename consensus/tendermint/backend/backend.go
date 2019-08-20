@@ -481,3 +481,34 @@ func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
 	sb.privateKey = key
 	sb.address = crypto.PubkeyToAddress(key.PublicKey)
 }
+
+// Synchronize new connected peer with current height state
+func (sb* Backend) SyncPeer(address common.Address) {
+	if sb.broadcaster != nil && sb.core.IsValidator(address){
+		sb.logger.Info("Syncing", "peer", address)
+		ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
+		for _, msg := range sb.core.GetCurrentHeightMessages(){
+			payload, err := msg.Payload()
+			sb.logger.Info("Sending", "code", msg.Code, "sig", msg.Signature)
+			if err != nil {
+				continue
+			}
+			hash := types.RLPHash(payload)
+			sb.trySend(ctx, messageToPeers{
+				message{hash:hash, payload:payload},
+				[]common.Address{address},
+				time.Now(),
+				time.Now(),
+			})
+		}
+	}
+}
+
+func (sb* Backend) ResetPeerCache(address common.Address) {
+	ms, ok := sb.recentMessages.Get(address)
+	var m *lru.ARCCache
+	if ok {
+		m, _ = ms.(*lru.ARCCache)
+		m.Purge()
+	}
+}

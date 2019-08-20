@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/crypto"
 	"math"
@@ -363,6 +364,12 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// after this will be sent via broadcasts.
 	pm.syncTransactions(p)
 
+	if pm.blockchain.Config().Tendermint != nil {
+		tdm := pm.blockchain.Engine().(tendermint.Backend)
+		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
+		tdm.ResetPeerCache(address)
+		tdm.SyncPeer(address)
+	}
 	// If we're DAO hard-fork aware, validate any remote peer with regard to the hard-fork
 	if daoBlock := pm.chainconfig.DAOForkBlock; daoBlock != nil {
 		// Request the peer's DAO fork header for extra-data validation

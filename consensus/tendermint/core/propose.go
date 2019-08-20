@@ -113,7 +113,7 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 		c.logger.Debug("Stopped Scheduled Proposal Timeout")
 
 		// Set the proposal for the current round
-		c.currentRoundState.SetProposal(&proposal)
+		c.currentRoundState.SetProposal(&proposal, msg)
 
 		c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 

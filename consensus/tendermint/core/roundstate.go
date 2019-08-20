@@ -44,6 +44,7 @@ type roundState struct {
 	step   Step
 
 	proposal   *Proposal
+	proposalMsg *message
 	Prevotes   messageSet
 	Precommits messageSet
 	mu         *sync.RWMutex
@@ -55,14 +56,15 @@ func (s *roundState) Update(r *big.Int, h *big.Int) {
 	s.round = r
 	s.height = h
 	s.proposal = new(Proposal)
+	s.proposalMsg = nil
 	s.Prevotes = newMessageSet()
 	s.Precommits = newMessageSet()
 }
 
-func (s *roundState) SetProposal(proposal *Proposal) {
+func (s *roundState) SetProposal(proposal *Proposal, msg *message) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
+	s.proposalMsg = msg
 	s.proposal = proposal
 }
 
@@ -128,4 +130,16 @@ func (s *roundState) GetCurrentProposalHash() common.Hash {
 	}
 
 	return common.Hash{}
+}
+
+func (s *roundState) GetMessages() []*message {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]*message,0)
+	if s.proposalMsg != nil {
+		result = append(result, s.proposalMsg)
+	}
+	result = append(result, s.Prevotes.GetMessages() ...)
+	result = append(result, s.Precommits.GetMessages() ...)
+	return result
 }
