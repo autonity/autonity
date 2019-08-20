@@ -64,7 +64,7 @@ func TestTendermintSuccess(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			tunTest(t, testCase)
+			runTest(t, testCase)
 		})
 	}
 }
@@ -112,7 +112,7 @@ func TestTendermintSlowConnections(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			tunTest(t, testCase)
+			runTest(t, testCase)
 		})
 	}
 }
@@ -140,7 +140,7 @@ func TestTendermintLongRun(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			tunTest(t, testCase)
+			runTest(t, testCase)
 		})
 	}
 }
@@ -198,7 +198,7 @@ func TestTendermintStartStop(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			tunTest(t, testCase)
+			runTest(t, testCase)
 		})
 	}
 }
@@ -250,11 +250,12 @@ func (test *testCase) getAfterHook(index int) hook {
 
 type hook func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error
 
-func tunTest(t *testing.T, test *testCase) {
+func runTest(t *testing.T, test *testCase) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-	_ = fdlimit.Raise(2048)
-
-	var err error
+	err := fdlimit.Raise(512 * uint64(test.numPeers))
+	if err != nil {
+		t.Log("can't rise file description limit. errors are possible")
+	}
 
 	// Generate a batch of accounts to seal and fund with
 	validators := make([]*testNode, test.numPeers)

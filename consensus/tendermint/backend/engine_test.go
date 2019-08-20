@@ -56,7 +56,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	eventSub := engine.EventMux().Subscribe(events.CommitEvent{})
+	eventSub := engine.Subscribe(events.CommitEvent{})
 	eventLoop := func() {
 		ev := <-eventSub.Chan()
 		_, ok := ev.Data.(events.CommitEvent)

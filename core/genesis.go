@@ -276,32 +276,19 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
-	//g.mu.Lock()
 
 	if g.Config == nil {
 		g.Config = params.AllEthashProtocolChanges
 	}
 
 	if g.Config != nil && (g.Config.Istanbul != nil || g.Config.Tendermint != nil) {
-		//g.mu.Unlock()
 		err := g.SetBFT()
-		//g.mu.Lock()
-
 		if err != nil {
 			return nil, err
 		}
-
-		//res := "!!!!!!!!!!"
-		//ex, _ := types.ExtractBFTExtra(g.ExtraData)
-		//for _, val := range ex.Validators {
-		//	res += val.String() + "\n"
-		//}
-		//fmt.Println(res)
 	}
 
-	//g.mu.Unlock()
 	block := g.ToBlock(db)
-	//g.mu.Lock()
 
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")

@@ -486,7 +486,6 @@ func TestPrepareExtra(t *testing.T) {
 	}
 
 	payload, err := types.PrepareExtra(h.Extra, validators)
-	//panic(fmt.Sprint(len(payload), len(expectedResult)))
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want: nil", err)
 	}

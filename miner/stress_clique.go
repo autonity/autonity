@@ -66,7 +66,7 @@ func main() {
 	)
 	for _, sealer := range sealers {
 		// Start the node and wait until it's up
-		node, err := makeSealer(genesis)
+		node, err := makeSealer(genesis, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -171,7 +171,7 @@ func makeGenesis(faucets []*ecdsa.PrivateKey, sealers []*ecdsa.PrivateKey) *core
 	return genesis
 }
 
-func makeSealer(genesis *core.Genesis, cons consensus.Engine) (*node.Node, error) {
+func makeSealer(genesis *core.Genesis, _ consensus.Engine) (*node.Node, error) {
 	// Define the basic configurations for the Ethereum node
 	datadir, _ := ioutil.TempDir("", "")
 
@@ -204,7 +204,7 @@ func makeSealer(genesis *core.Genesis, cons consensus.Engine) (*node.Node, error
 			MinerGasCeil:    genesis.GasLimit * 11 / 10,
 			MinerGasPrice:   big.NewInt(1),
 			MinerRecommit:   time.Second,
-		}, cons)
+		}, nil)
 	}); err != nil {
 		return nil, err
 	}
