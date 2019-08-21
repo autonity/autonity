@@ -47,6 +47,7 @@ import (
 
 const (
 	clientIdentifier = "autonity" // Client identifier to advertise over the network
+	lightSyncMode    = "light"
 )
 
 var (
@@ -231,7 +232,7 @@ func init() {
 			return err
 		}
 		// If we're a full node on mainnet without --cache specified, bump default cache allowance
-		if ctx.GlobalString(utils.SyncModeFlag.Name) != "light" && !ctx.GlobalIsSet(utils.CacheFlag.Name) && !ctx.GlobalIsSet(utils.NetworkIdFlag.Name) {
+		if ctx.GlobalString(utils.SyncModeFlag.Name) != lightSyncMode && !ctx.GlobalIsSet(utils.CacheFlag.Name) && !ctx.GlobalIsSet(utils.NetworkIdFlag.Name) {
 			// Make sure we're not on any supported preconfigured testnet either
 			if !ctx.GlobalIsSet(utils.TestnetFlag.Name) && !ctx.GlobalIsSet(utils.RinkebyFlag.Name) && !ctx.GlobalIsSet(utils.GoerliFlag.Name) && !ctx.GlobalIsSet(utils.DeveloperFlag.Name) {
 				// Nope, we're really on mainnet. Bump that cache up!
@@ -240,7 +241,7 @@ func init() {
 			}
 		}
 		// If we're running a light client on any network, drop the cache to some meaningfully low amount
-		if ctx.GlobalString(utils.SyncModeFlag.Name) == "light" && !ctx.GlobalIsSet(utils.CacheFlag.Name) {
+		if ctx.GlobalString(utils.SyncModeFlag.Name) == lightSyncMode && !ctx.GlobalIsSet(utils.CacheFlag.Name) {
 			log.Info("Dropping default light client cache", "provided", ctx.GlobalInt(utils.CacheFlag.Name), "updated", 128)
 			_ = ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(128))
 		}
@@ -335,7 +336,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 	}
 	// Set contract backend for les service if local node is
 	// running as a light client.
-	if ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
+	if ctx.GlobalString(utils.SyncModeFlag.Name) == lightSyncMode {
 		var lesService *les.LightEthereum
 		if err := stack.Service(&lesService); err != nil {
 			utils.Fatalf("Failed to retrieve light ethereum service: %v", err)
@@ -403,7 +404,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
 		// Mining only makes sense if a full Ethereum node is running
-		if ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
+		if ctx.GlobalString(utils.SyncModeFlag.Name) == lightSyncMode {
 			utils.Fatalf("Light clients do not support mining")
 		}
 		var ethereum *eth.Ethereum

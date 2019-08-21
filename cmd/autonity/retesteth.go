@@ -50,6 +50,10 @@ import (
 	cli "gopkg.in/urfave/cli.v1"
 )
 
+const (
+	NoReward = "NoReward"
+)
+
 var (
 	rpcPortFlag = cli.IntFlag{
 		Name:  "rpcport",
@@ -376,7 +380,7 @@ func (api *RetestethAPI) SetChainParams(ctx context.Context, chainParams ChainPa
 
 	var inner consensus.Engine
 	switch chainParams.SealEngine {
-	case "NoProof", "NoReward":
+	case "NoProof", NoReward:
 		inner = ethash.NewFaker()
 	case "Ethash":
 		inner = ethash.New(ethash.Config{
@@ -389,7 +393,7 @@ func (api *RetestethAPI) SetChainParams(ctx context.Context, chainParams ChainPa
 	default:
 		return false, fmt.Errorf("unrecognised seal engine: %s", chainParams.SealEngine)
 	}
-	engine := &NoRewardEngine{inner: inner, rewardsOn: chainParams.SealEngine != "NoReward"}
+	engine := &NoRewardEngine{inner: inner, rewardsOn: chainParams.SealEngine != NoReward}
 
 	blockchain, err := core.NewBlockChain(ethDb, nil, chainConfig, engine, vm.Config{}, nil)
 	if err != nil {
