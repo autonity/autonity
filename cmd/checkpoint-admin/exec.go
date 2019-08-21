@@ -251,7 +251,7 @@ func ecrecover(sighash []byte, sig []byte) common.Address {
 func publish(ctx *cli.Context) error {
 	// Print the checkpoint oracle's current status to make sure we're interacting
 	// with the correct network and contract.
-	status(ctx)
+	_ = status(ctx)
 
 	// Gather the signatures from the CLI
 	var sigs [][]byte

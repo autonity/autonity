@@ -560,7 +560,7 @@ func confirmAndRemoveDB(database string, kind string) {
 		log.Info("Database deletion skipped", "path", database)
 	default:
 		start := time.Now()
-		filepath.Walk(database, func(path string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(database, func(path string, info os.FileInfo, err error) error {
 			// If we're at the top level folder, recurse into
 			if path == database {
 				return nil

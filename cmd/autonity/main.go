@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elastic/gosigar"
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/cmd/utils"
@@ -42,6 +41,7 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/node"
+	"github.com/elastic/gosigar"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
@@ -236,13 +236,13 @@ func init() {
 			if !ctx.GlobalIsSet(utils.TestnetFlag.Name) && !ctx.GlobalIsSet(utils.RinkebyFlag.Name) && !ctx.GlobalIsSet(utils.GoerliFlag.Name) && !ctx.GlobalIsSet(utils.DeveloperFlag.Name) {
 				// Nope, we're really on mainnet. Bump that cache up!
 				log.Info("Bumping default cache on mainnet", "provided", ctx.GlobalInt(utils.CacheFlag.Name), "updated", 4096)
-				ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(4096))
+				_ = ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(4096))
 			}
 		}
 		// If we're running a light client on any network, drop the cache to some meaningfully low amount
 		if ctx.GlobalString(utils.SyncModeFlag.Name) == "light" && !ctx.GlobalIsSet(utils.CacheFlag.Name) {
 			log.Info("Dropping default light client cache", "provided", ctx.GlobalInt(utils.CacheFlag.Name), "updated", 128)
-			ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(128))
+			_ = ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(128))
 		}
 		// Cap the cache allowance and tune the garbage collector
 		var mem gosigar.Mem
@@ -253,7 +253,7 @@ func init() {
 				allowance := int(mem.Total / 1024 / 1024 / 3)
 				if cache := ctx.GlobalInt(utils.CacheFlag.Name); cache > allowance {
 					log.Warn("Sanitizing cache to Go's GC limits", "provided", cache, "updated", allowance)
-					ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(allowance))
+					_ = ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(allowance))
 				}
 			}
 		}
@@ -394,7 +394,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 				if timestamp := time.Unix(int64(done.Latest.Time), 0); time.Since(timestamp) < 10*time.Minute {
 					log.Info("Synchronisation completed", "latestnum", done.Latest.Number, "latesthash", done.Latest.Hash(),
 						"age", common.PrettyAge(timestamp))
-					stack.Stop()
+					_ = stack.Stop()
 				}
 			}
 		}()

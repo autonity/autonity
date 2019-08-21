@@ -101,8 +101,8 @@ func (s *SecureChannelSession) Pair(pairingPassword []byte) error {
 	}
 
 	md := sha256.New()
-	md.Write(secretHash[:])
-	md.Write(challenge)
+	_, _ = md.Write(secretHash[:])
+	_, _ = md.Write(challenge)
 
 	expectedCryptogram := md.Sum(nil)
 	cardCryptogram := response.Data[:32]
@@ -113,16 +113,16 @@ func (s *SecureChannelSession) Pair(pairingPassword []byte) error {
 	}
 
 	md.Reset()
-	md.Write(secretHash[:])
-	md.Write(cardChallenge)
+	_, _ = md.Write(secretHash[:])
+	_, _ = md.Write(cardChallenge)
 	response, err = s.pair(pairP1LastStep, md.Sum(nil))
 	if err != nil {
 		return err
 	}
 
 	md.Reset()
-	md.Write(secretHash[:])
-	md.Write(response.Data[1:])
+	_, _ = md.Write(secretHash[:])
+	_, _ = md.Write(response.Data[1:])
 	s.PairingKey = md.Sum(nil)
 	s.PairingIndex = response.Data[0]
 
@@ -159,9 +159,9 @@ func (s *SecureChannelSession) Open() error {
 	// Generate the encryption/mac key by hashing our shared secret,
 	// pairing key, and the first bytes returned from the Open APDU.
 	md := sha512.New()
-	md.Write(s.secret)
-	md.Write(s.PairingKey)
-	md.Write(response.Data[:scSecretLength])
+	_, _ = md.Write(s.secret)
+	_, _ = md.Write(s.PairingKey)
+	_, _ = md.Write(response.Data[:scSecretLength])
 	keyData := md.Sum(nil)
 	s.sessionEncKey = keyData[:scSecretLength]
 	s.sessionMacKey = keyData[scSecretLength : scSecretLength*2]
@@ -265,7 +265,7 @@ func (s *SecureChannelSession) transmitEncrypted(cla, ins, p1, p2 byte, data []b
 	}
 
 	rapdu := &responseAPDU{}
-	rapdu.deserialize(plainData)
+	_ = rapdu.deserialize(plainData)
 
 	if rapdu.Sw1 != sw1Ok {
 		return nil, fmt.Errorf("Unexpected response status Cla=0x%x, Ins=0x%x, Sw=0x%x%x", cla, ins, rapdu.Sw1, rapdu.Sw2)

@@ -913,7 +913,7 @@ func (s *Session) initialize(seed []byte) error {
 
 	// HMAC the seed to produce the private key and chain code
 	mac := hmac.New(sha512.New, []byte("Bitcoin seed"))
-	mac.Write(seed)
+	_, _ = mac.Write(seed)
 	seed = mac.Sum(nil)
 
 	key, err := crypto.ToECDSA(seed[:32])
