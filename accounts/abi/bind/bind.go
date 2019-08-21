@@ -528,9 +528,8 @@ loop:
 	}
 	if s, exist := structs[embedded]; exist {
 		return prefix + s.Name
-	} else {
-		return arg.Type.String()
 	}
+	return arg.Type.String()
 }
 
 // formatMethod transforms raw method representation into a user friendly one.

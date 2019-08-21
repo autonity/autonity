@@ -246,13 +246,13 @@ func (e *NoRewardEngine) FinalizeAndAssemble(chain consensus.ChainReader, header
 	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	if e.rewardsOn {
 		return e.inner.FinalizeAndAssemble(chain, header, statedb, txs, uncles, receipts)
-	} else {
-		e.accumulateRewards(chain.Config(), statedb, header, uncles)
-		header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-
-		// Header seems complete, assemble into a block and return
-		return types.NewBlock(header, txs, uncles, receipts), nil
 	}
+
+	e.accumulateRewards(chain.Config(), statedb, header, uncles)
+	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+
+	// Header seems complete, assemble into a block and return
+	return types.NewBlock(header, txs, uncles, receipts), nil
 }
 
 func (e *NoRewardEngine) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
@@ -310,9 +310,9 @@ func (api *RetestethAPI) SetChainParams(ctx context.Context, chainParams ChainPa
 			}
 		}
 	}
-	chainId := big.NewInt(1)
+	chainID := big.NewInt(1)
 	if chainParams.Params.ChainID != nil {
-		chainId.Set((*big.Int)(chainParams.Params.ChainID))
+		chainID.Set((*big.Int)(chainParams.Params.ChainID))
 	}
 	var (
 		homesteadBlock      *big.Int
@@ -351,7 +351,7 @@ func (api *RetestethAPI) SetChainParams(ctx context.Context, chainParams ChainPa
 	}
 	genesis := &core.Genesis{
 		Config: &params.ChainConfig{
-			ChainID:             chainId,
+			ChainID:             chainID,
 			HomesteadBlock:      homesteadBlock,
 			DAOForkBlock:        daoForkBlock,
 			DAOForkSupport:      false,
@@ -583,13 +583,13 @@ func (api *RetestethAPI) GetLogHash(ctx context.Context, txHash common.Hash) (co
 	receipt, _, _, _ := rawdb.ReadReceipt(api.ethDb, txHash, api.chainConfig)
 	if receipt == nil {
 		return emptyListHash, nil
-	} else {
-		if logListRlp, err := rlp.EncodeToBytes(receipt.Logs); err != nil {
-			return common.Hash{}, err
-		} else {
-			return common.BytesToHash(crypto.Keccak256(logListRlp)), nil
-		}
 	}
+
+	logListRlp, err := rlp.EncodeToBytes(receipt.Logs)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return common.BytesToHash(crypto.Keccak256(logListRlp)), nil
 }
 
 func (api *RetestethAPI) BlockNumber(ctx context.Context) (uint64, error) {
@@ -839,33 +839,33 @@ func retesteth(ctx *cli.Context) error {
 		extapiURL string
 	)
 	apiImpl := &RetestethAPI{}
-	var testApi RetestethTestAPI = apiImpl
-	var ethApi RetestethEthAPI = apiImpl
-	var debugApi RetestethDebugAPI = apiImpl
-	var web3Api RetestWeb3API = apiImpl
+	var testAPI RetestethTestAPI = apiImpl
+	var ethAPI RetestethEthAPI = apiImpl
+	var debugAPI RetestethDebugAPI = apiImpl
+	var web3API RetestWeb3API = apiImpl
 	rpcAPI := []rpc.API{
 		{
 			Namespace: "test",
 			Public:    true,
-			Service:   testApi,
+			Service:   testAPI,
 			Version:   "1.0",
 		},
 		{
 			Namespace: "eth",
 			Public:    true,
-			Service:   ethApi,
+			Service:   ethAPI,
 			Version:   "1.0",
 		},
 		{
 			Namespace: "debug",
 			Public:    true,
-			Service:   debugApi,
+			Service:   debugAPI,
 			Version:   "1.0",
 		},
 		{
 			Namespace: "web3",
 			Public:    true,
-			Service:   web3Api,
+			Service:   web3API,
 			Version:   "1.0",
 		},
 	}

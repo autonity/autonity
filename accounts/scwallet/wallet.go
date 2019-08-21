@@ -167,7 +167,7 @@ func transmit(card *pcsc.Card, command *commandAPDU) (*responseAPDU, error) {
 	}
 
 	if response.Sw1 != sw1Ok {
-		return nil, fmt.Errorf("Unexpected insecure response status Cla=0x%x, Ins=0x%x, Sw=0x%x%x", command.Cla, command.Ins, response.Sw1, response.Sw2)
+		return nil, fmt.Errorf("unexpected insecure response status Cla=0x%x, Ins=0x%x, Sw=0x%x%x", command.Cla, command.Ins, response.Sw1, response.Sw2)
 	}
 
 	return response, nil
@@ -252,7 +252,7 @@ func (w *Wallet) release() error {
 // with the wallet.
 func (w *Wallet) pair(puk []byte) error {
 	if w.session.paired() {
-		return fmt.Errorf("Wallet already paired")
+		return fmt.Errorf("wallet already paired")
 	}
 	pairing, err := w.session.pair(puk)
 	if err != nil {
@@ -773,12 +773,12 @@ func (w *Wallet) findAccountPath(account accounts.Account) (accounts.DerivationP
 
 	// Look for the path in the URL
 	if account.URL.Scheme != w.Hub.scheme {
-		return nil, fmt.Errorf("Scheme %s does not match wallet scheme %s", account.URL.Scheme, w.Hub.scheme)
+		return nil, fmt.Errorf("scheme %s does not match wallet scheme %s", account.URL.Scheme, w.Hub.scheme)
 	}
 
 	parts := strings.SplitN(account.URL.Path, "/", 2)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("Invalid URL format: %s", account.URL)
+		return nil, fmt.Errorf("invalid URL format: %s", account.URL)
 	}
 
 	if parts[0] != fmt.Sprintf("%x", w.PublicKey[1:3]) {
@@ -813,7 +813,7 @@ func (s *Session) pair(secret []byte) (smartcardPairing, error) {
 // unpair deletes an existing pairing.
 func (s *Session) unpair() error {
 	if !s.verified {
-		return fmt.Errorf("Unpair requires that the PIN be verified")
+		return fmt.Errorf("unpair requires that the PIN be verified")
 	}
 	return s.Channel.Unpair()
 }
@@ -850,7 +850,7 @@ func (s *Session) paired() bool {
 // authenticate uses an existing pairing to establish a secure channel.
 func (s *Session) authenticate(pairing smartcardPairing) error {
 	if !bytes.Equal(s.Wallet.PublicKey, pairing.PublicKey) {
-		return fmt.Errorf("Cannot pair using another wallet's pairing; %x != %x", s.Wallet.PublicKey, pairing.PublicKey)
+		return fmt.Errorf("cannot pair using another wallet's pairing; %x != %x", s.Wallet.PublicKey, pairing.PublicKey)
 	}
 	s.Channel.PairingKey = pairing.PairingKey
 	s.Channel.PairingIndex = pairing.PairingIndex
