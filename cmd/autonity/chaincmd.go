@@ -19,6 +19,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -203,8 +204,9 @@ func initGenesis(ctx *cli.Context) error {
 	if err := json.NewDecoder(file).Decode(genesis); err != nil {
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
-	if genesis.AutonityContractConfig != nil {
-		if err := genesis.AutonityContractConfig.Validate(); err != nil {
+	if genesis.Config.Istanbul != nil && genesis.Config.Istanbul.AutonityContractConfig != nil {
+		if err := genesis.Config.Istanbul.AutonityContractConfig.AddDefault().Validate(); err != nil {
+			spew.Dump(genesis.Config.Istanbul.AutonityContractConfig)
 			return fmt.Errorf("Autonity contract section is invalid. error:%v", err.Error())
 		}
 	}

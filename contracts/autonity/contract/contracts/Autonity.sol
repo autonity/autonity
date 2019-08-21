@@ -107,7 +107,7 @@ contract Autonity {
                 validators.push(u.addr);
             }
 
-            if(bytes(u.enode).length != 0){
+            if(bytes(u.enode).length != 0) {
                 enodesWhitelist.push(u.enode);
             }
 
@@ -370,9 +370,9 @@ contract Autonity {
     *
     * Returns sender's unbonding stake by account
     */
-    function GetUnbondingStake(address _account) public view returns(unbondingStake[] memory ) {
-        return unbonding_stake_token[msg.sender][_account];
-    }
+//    function GetUnbondingStake(address _account) public view returns(unbondingStake[] memory ) {
+//        return unbonding_stake_token[msg.sender][_account];
+//    }
 
 
 

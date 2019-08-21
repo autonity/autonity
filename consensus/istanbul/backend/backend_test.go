@@ -19,7 +19,6 @@ package backend
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -180,16 +179,11 @@ func TestCommit(t *testing.T) {
 
 func TestGetProposer(t *testing.T) {
 	chain, engine := newBlockChain(1)
-	fmt.Println("1")
-
-	istanbulExtra, err := types.ExtractIstanbulExtra(chain.Genesis().Header())
-	fmt.Println(err," genesis extra", istanbulExtra)
 
 	block, err := makeBlock(chain, engine, chain.Genesis())
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println("2")
 	_, err =chain.InsertChain(types.Blocks{block})
 	if err!=nil {
 		t.Fatal(err)

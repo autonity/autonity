@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"math/big"
 	"reflect"
 	"testing"
@@ -83,19 +84,23 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
+	//genesis.Alloc=make(core.GenesisAlloc)
 	genesis.Config = params.TestChainConfig
+
 	// force enable Istanbul engine
 	genesis.Config.Istanbul = &params.IstanbulConfig{
-		Bytecode:istanbul.DefaultConfig.Bytecode,
-		ABI:istanbul.DefaultConfig.ABI,
+		AutonityContractConfig:&params.AutonityContractGenesis{},
 	}
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.IstanbulDigest
-	genesis.AutonityContractConfig=&core.AutonityContractGenesis{}
 
 	AppendValidators(genesis, addrs)
+	err:=genesis.Config.Istanbul.AutonityContractConfig.AddDefault().Validate()
+	if err!=nil {
+		fmt.Println("consensus/istanbul/backend/engine_test.go:102 ", err)
+	}
 	return genesis, nodeKeys
 }
 
@@ -117,16 +122,29 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 		panic("failed to encode istanbul extra")
 	}
 	genesis.ExtraData = append(genesis.ExtraData, istPayload...)
+
+	for i:=range addrs {
+		genesis.Config.Istanbul.AutonityContractConfig.Users=append(
+			genesis.Config.Istanbul.AutonityContractConfig.Users,
+			params.User{
+				Address:addrs[i],
+				Type:params.UserValidator,
+				Enode:ENODE_STUB,
+				Stake:100,
+
+			})
+	}
+
 }
 
-func makeHeader(parent *types.Block, config *istanbul.Config) *types.Header {
+func makeHeader(parent *types.Block, blockPeriod uint64) *types.Header {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, 8000000, 8000000),
 		GasUsed:    0,
 		Extra:      parent.Extra(),
-		Time:       new(big.Int).Add(parent.Time(), new(big.Int).SetUint64(config.BlockPeriod)),
+		Time:       new(big.Int).Add(parent.Time(), new(big.Int).SetUint64(blockPeriod)),
 		Difficulty: defaultDifficulty,
 	}
 	return header
@@ -137,19 +155,15 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*t
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("consensus/istanbul/backend/engine_test.go:138 make block")
+
 	resultCh := make(chan *types.Block)
 	engine.Seal(chain, block, resultCh, nil)
-	fmt.Println("seal")
 
 	return <-resultCh, nil
 }
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
-	header := makeHeader(parent, engine.config)
-	istanbulExtra, err := types.ExtractIstanbulExtra(parent.Header())
-	fmt.Println(err,"consensus/istanbul/backend/engine_test.go:152 makeBlockWithoutSeal extra", istanbulExtra)
-
+	header := makeHeader(parent, engine.config.BlockPeriod)
 
 	engine.Prepare(chain, header)
 	state, err := chain.StateAt(parent.Root())
@@ -164,16 +178,12 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types
 		return nil, fmt.Errorf("trie write error: %v", err)
 	}
 
-	istanbulExtra, err = types.ExtractIstanbulExtra(block.Header())
-	fmt.Println(err,"consensus/istanbul/backend/engine_test.go:163 makeBlockWithoutSeal extra", istanbulExtra)
-
-
 	return block, nil
 }
 
 func TestPrepare(t *testing.T) {
 	chain, engine := newBlockChain(1)
-	header := makeHeader(chain.Genesis(), engine.config)
+	header := makeHeader(chain.Genesis(), engine.config.BlockPeriod)
 	err := engine.Prepare(chain, header)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -599,5 +609,29 @@ func TestWriteCommittedSeals(t *testing.T) {
 	err = types.WriteCommittedSeals(h, [][]byte{unexpectedCommittedSeal})
 	if err != types.ErrInvalidCommittedSeals {
 		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidCommittedSeals)
+	}
+}
+
+const ENODE_STUB  = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
+func TestValidatorsSaved(t *testing.T)  {
+	chain, _ := newBlockChain(1)
+	h:=makeHeader(chain.Genesis(), 10)
+	sdb,err:=chain.State()
+	if err!=nil {
+		t.Fatal(err)
+	}
+	_, err:=chain.AutonityContract.DeployAutonityContract(chain,h, sdb)
+	if err!=nil {
+		t.Log(string(autonity.Sl.Output()))
+		t.Fatal(err)
+	}
+
+	res, err:=chain.AutonityContract.ContractGetValidators(chain, h,sdb)
+	if err!=nil {
+		t.Log(string(autonity.Sl.Output()))
+		t.Fatal(err)
+	}
+	if len(res)==0 {
+		t.FailNow()
 	}
 }

@@ -360,9 +360,8 @@ func (sb *backend) getValidators(header *types.Header, chain consensus.ChainRead
 	var validators []common.Address
 	var err error
 
-	fmt.Println("consensus/istanbul/backend/engine.go:363 header num", header.Number.String())
 	if header.Number.Int64() == 1 {
-		log.Info("Autonity Contract Deployer", "Address", sb.config.Deployer)
+		log.Info("Autonity Contract Deployer", "Address", chain.Config().Istanbul.AutonityContractConfig.Deployer)
 
 		sb.blockchain.AutonityContract.SavedValidatorsRetriever = func(i uint64) (addresses []common.Address, e error) {
 			chain:=chain
@@ -370,27 +369,25 @@ func (sb *backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 		contractAddress, err := sb.blockchain.AutonityContract.DeployAutonityContract(chain, header, state)
 		if err != nil {
-			fmt.Println("q1")
+			fmt.Println("consensus/istanbul/backend/engine.go:372 Deploy err", err)
 			return nil, err
 		}
 		sb.autonityContractAddress = contractAddress
 		validators, err = sb.retrieveSavedValidators(1, chain)
 		if err != nil {
-			fmt.Println("q2")
+			fmt.Println("consensus/istanbul/backend/engine.go:378 retrieve err", err)
 			return nil, err
 		}
 	} else {
 		if sb.autonityContractAddress == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.autonityContractAddress = crypto.CreateAddress(sb.config.Deployer, 0)
+			sb.autonityContractAddress = crypto.CreateAddress(chain.Config().Istanbul.AutonityContractConfig.Deployer, 0)
 		}
-		fmt.Println("consensus/istanbul/backend/engine.go:386 ContractGetValidators")
 		validators, err = sb.blockchain.AutonityContract.ContractGetValidators(chain, header, state)
 		if err != nil {
-			fmt.Println("q3")
+			fmt.Println("consensus/istanbul/backend/engine.go:387 ContractGetValidators err", err)
 			return nil, err
 		}
 	}
-	fmt.Println("consensus/istanbul/backend/engine.go:386 returned validators", validators)
 	return validators, err
 }
 

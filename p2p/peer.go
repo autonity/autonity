@@ -240,6 +240,7 @@ loop:
 	}
 
 	close(p.closed)
+	fmt.Println("p2p/peer.go:243 p.rw.close(reason)", reason)
 	p.rw.close(reason)
 	p.wg.Wait()
 	return remoteRequested, err

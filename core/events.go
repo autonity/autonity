@@ -48,5 +48,5 @@ type ChainSideEvent struct {
 
 type ChainHeadEvent struct{ Block *types.Block }
 
-// GlienickeEvent is posted when the list of authorized enodes is updated.
-type GlienickeEvent struct{ Whitelist []*enode.Node}
+// WhitelistEvent is posted when the list of authorized enodes is updated.
+type WhitelistEvent struct{ Whitelist []*enode.Node}

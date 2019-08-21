@@ -18,7 +18,6 @@ package backend
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -48,14 +47,6 @@ const (
 func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) consensus.Istanbul {
 	if chainConfig.Istanbul.Epoch != 0 {
 		config.Epoch = chainConfig.Istanbul.Epoch
-	}
-
-	if chainConfig.Istanbul.Bytecode != "" && chainConfig.Istanbul.ABI != "" {
-		config.Bytecode = chainConfig.Istanbul.Bytecode
-		config.ABI = chainConfig.Istanbul.ABI
-		log.Info("Default Validator smart contract set")
-	} else {
-		log.Info("User specified Validator smart contract set")
 	}
 
 	config.SetProposerPolicy(istanbul.ProposerPolicy(chainConfig.Istanbul.ProposerPolicy))
@@ -278,13 +269,11 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 			}
 
 			validators, err = sb.blockchain.AutonityContract.ContractGetValidators(sb.blockchain, header, state)
-			fmt.Println("consensus/istanbul/backend/backend.go:281 setval1", err)
 			if err != nil {
 				return 0, err
 			}
 		} else {
 			validators, err = sb.retrieveSavedValidators(1, sb.blockchain) //genesis block and block #1 have the same validators
-			fmt.Println("consensus/istanbul/backend/backend.go:281 setval2", err, validators)
 		}
 		istanbulExtra, _ := types.ExtractIstanbulExtra(header)
 

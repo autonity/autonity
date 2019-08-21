@@ -36,6 +36,7 @@ contract('Autonity', function(accounts) {
         const token = await Autonity.deployed();
         var getValidatorsResult = await token.GetValidators({from:accounts[7]});
 
+        console.log(getValidatorsResult);
         assert.deepEqual(getValidatorsResult, validatorsList)
     });
 

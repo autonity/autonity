@@ -222,6 +222,7 @@ func (p *MsgPipeRW) Close() error {
 func ExpectMsg(r MsgReader, code uint64, content interface{}) error {
 	msg, err := r.ReadMsg()
 	if err != nil {
+		fmt.Println("p2p/message.go:225 err",err)
 		return err
 	}
 	if msg.Code != code {
@@ -234,6 +235,7 @@ func ExpectMsg(r MsgReader, code uint64, content interface{}) error {
 	if err != nil {
 		panic("content encode error: " + err.Error())
 	}
+
 	if int(msg.Size) != len(contentEnc) {
 		return fmt.Errorf("message size mismatch: got %d, want %d", msg.Size, len(contentEnc))
 	}
@@ -244,6 +246,8 @@ func ExpectMsg(r MsgReader, code uint64, content interface{}) error {
 	if !bytes.Equal(actualContent, contentEnc) {
 		return fmt.Errorf("message payload mismatch:\ngot:  %x\nwant: %x", actualContent, contentEnc)
 	}
+	fmt.Println("p2p/message.go:247 ExpectMsg returns nil")
+
 	return nil
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
 	"math/big"
@@ -32,6 +31,7 @@ func NewAutonityContract(
 		GetHashFn:   GetHashFn,
 		//SavedValidatorsRetriever: SavedValidatorsRetriever,
 
+
 	}
 }
 
@@ -52,9 +52,6 @@ type Blockchainer interface {
 }
 
 type AutonityContract struct {
-	ByteCode                 string
-	ABI                      string
-	Deployer                 common.Address
 	Address                  common.Address
 	bc                       Blockchainer
 	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
@@ -64,6 +61,9 @@ type AutonityContract struct {
 	GetHashFn   func(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 }
 
+var Sl = vm.NewStructLogger(&vm.LogConfig{
+	Debug:true,
+})
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
 func (ac *AutonityContract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
 
@@ -80,36 +80,52 @@ func (ac *AutonityContract) getEVM(header *types.Header, origin common.Address, 
 		Difficulty:  header.Difficulty,
 		GasPrice:    new(big.Int).SetUint64(0x0),
 	}
-	evm := vm.NewEVM(evmContext, statedb, ac.bc.Config(), *ac.bc.GetVMConfig())
+	vmConfig:=*ac.bc.GetVMConfig()
+	vmConfig.Debug=true
+	vmConfig.Tracer= Sl
+	evm := vm.NewEVM(evmContext, statedb, ac.bc.Config(), vmConfig)
 	return evm
 }
 
 // deployContract deploys the contract contained within the genesis field bytecode
 func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error) {
 	// Convert the contract bytecode from hex into bytes
-	contractBytecode := common.Hex2Bytes(ac.ByteCode)
-	evm := ac.getEVM(header, ac.Deployer, statedb)
-	sender := vm.AccountRef(ac.Deployer)
+	contractBytecode := common.Hex2Bytes(chain.Config().Istanbul.AutonityContractConfig.Bytecode)
+	evm := ac.getEVM(header, chain.Config().Istanbul.AutonityContractConfig.Deployer, statedb)
+	sender := vm.AccountRef(chain.Config().Istanbul.AutonityContractConfig.Deployer)
 
-	var validators common.Addresses
-	var err error
-	validators, err = ac.SavedValidatorsRetriever(1)
-	sort.Sort(validators)
-	fmt.Println("contracts/autonity/autonity.go:101 DeployAutonityContract", err, validators)
+	//todo do we need it?
+	//validators, err = ac.SavedValidatorsRetriever(1)
+	//sort.Sort(validators)
+
 	//We need to append to data the constructor's parameters
 	//That should always be genesis validators
 
-	fmt.Println("ac.ABI", ac.ABI)
-	contractABI, err := abi.JSON(strings.NewReader(ac.ABI))
+	contractABI, err := abi.JSON(strings.NewReader(chain.Config().Istanbul.AutonityContractConfig.ABI))
 	if err != nil {
-		fmt.Println("ABI", ac.ABI)
-		fmt.Println("a1", err)
 		return common.Address{}, err
 	}
 
-	constructorParams, err := contractABI.Pack("", validators)
+	ln:=len(chain.Config().Istanbul.AutonityContractConfig.GetValidatorUsers())
+	validators:=make(common.Addresses, 0, ln)
+	enodes:=make([]string, 0, ln)
+	accTypes:=make([]*big.Int, 0, ln)
+	participantStake:=make([]*big.Int, 0, ln)
+	for _,v:=range chain.Config().Istanbul.AutonityContractConfig.GetValidatorUsers() {
+		validators=append(validators, v.Address)
+		enodes=append(enodes, v.Enode)
+		accTypes=append(accTypes, big.NewInt(int64(v.Type)))
+		participantStake=append(participantStake, big.NewInt(int64(v.Stake)))
+	}
+
+	constructorParams, err := contractABI.Pack("",
+		validators,
+		enodes,
+		accTypes,
+		participantStake,
+		chain.Config().Istanbul.AutonityContractConfig.Operator,
+		big.NewInt(chain.Config().Istanbul.AutonityContractConfig.MinGasPrice))
 	if err != nil {
-		fmt.Println("a2", err)
 		return common.Address{}, err
 	}
 
@@ -120,27 +136,24 @@ func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, 
 	// Deploy the Soma validator governance contract
 	_, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
 	if vmerr != nil {
-		fmt.Println("contracts/autonity/autonity.go:127 deployment err", err)
 		return contractAddress, vmerr
 	}
-
-	fmt.Println("Successful deployment")
+	ac.Address=contractAddress
 	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
 
 	return contractAddress, nil
 }
 
 func (ac *AutonityContract) ContractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
-	sender := vm.AccountRef(ac.Deployer)
+	sender := vm.AccountRef(chain.Config().Istanbul.AutonityContractConfig.Deployer)
 	gas := uint64(0xFFFFFFFF)
-	evm := ac.getEVM(header, ac.Deployer, statedb)
-
-	somaAbi, err := abi.JSON(strings.NewReader(ac.ABI))
+	evm := ac.getEVM(header, chain.Config().Istanbul.AutonityContractConfig.Deployer, statedb)
+	contractABI, err := abi.JSON(strings.NewReader(chain.Config().Istanbul.AutonityContractConfig.ABI))
 	if err != nil {
 		return nil, err
 	}
 
-	input, err := somaAbi.Pack("getValidators")
+	input, err := contractABI.Pack("GetValidators")
 	if err != nil {
 		return nil, err
 	}
@@ -149,14 +162,13 @@ func (ac *AutonityContract) ContractGetValidators(chain consensus.ChainReader, h
 	//A standard call is issued - we leave the possibility to modify the state
 	ret, gas, vmerr := evm.Call(sender, ac.Address, input, gas, value)
 	if vmerr != nil {
-		log.Error("Error Soma Governance Contract GetValidators()")
+		log.Error("Error Contract GetValidators()")
 		return nil, vmerr
 	}
 
 	var addresses []common.Address
-	fmt.Println("ret", ret)
-	if err := somaAbi.Unpack(&addresses, "getValidators", ret); err != nil { // can't work with aliased types
-		log.Error("Could not unpack getValidators returned value")
+	if err := contractABI.Unpack(&addresses, "GetValidators", ret); err != nil { // can't work with aliased types
+		log.Error("Could not unpack getValidators returned value", err)
 		return nil, err
 	}
 
@@ -165,13 +177,15 @@ func (ac *AutonityContract) ContractGetValidators(chain consensus.ChainReader, h
 	return sortableAddresses, nil
 }
 
-var GlienickeContractError = errors.New("could not call Glienicke contract")
+var AutonityContractError = errors.New("could not call Autonity contract")
 
 func (ac *AutonityContract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
+	fmt.Println("contracts/autonity/autonity.go:183 UpdateEnodesWhitelist")
 	newWhitelist, err := ac.GetWhitelist(block, state)
+	fmt.Println("contracts/autonity/autonity.go:183 UpdateEnodesWhitelist", newWhitelist, err)
 	if err != nil {
-		log.Error("could not call Glienicke contract", "err", err)
-		return GlienickeContractError
+		log.Error("could not call contract", "err", err)
+		return AutonityContractError
 	}
 
 	ac.bc.UpdateEnodeWhitelist(newWhitelist)
@@ -179,6 +193,7 @@ func (ac *AutonityContract) UpdateEnodesWhitelist(state *state.StateDB, block *t
 }
 
 func (ac *AutonityContract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
+	fmt.Println("contracts/autonity/autonity.go:194 GetWhitelist")
 	var (
 		newWhitelist *types.Nodes
 		err          error
@@ -189,7 +204,7 @@ func (ac *AutonityContract) GetWhitelist(block *types.Block, db *state.StateDB) 
 		newWhitelist = ac.bc.ReadEnodeWhitelist(false)
 	} else {
 		// call retrieveWhitelist contract function
-		newWhitelist, err = ac.callContract(db, block.Header())
+		newWhitelist, err = ac.callGetWhitelist(db, block.Header())
 	}
 
 	return newWhitelist, err
@@ -197,17 +212,11 @@ func (ac *AutonityContract) GetWhitelist(block *types.Block, db *state.StateDB) 
 
 //blockchain
 
-func (ac *AutonityContract) callContract(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
+func (ac *AutonityContract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
+	fmt.Println("contracts/autonity/autonity.go:213 callGetWhitelist")
 	// Needs to be refactored somehow
-	deployer := ac.Deployer
-	if deployer == (common.Address{}) {
-		deployer = params.GlienickeDefaultDeployer
-	}
-
-	var contractABI = ac.ABI
-	if contractABI == "" {
-		contractABI = params.GlienickeDefaultABI
-	}
+	deployer := ac.bc.Config().Istanbul.AutonityContractConfig.Deployer
+	var contractABI = ac.bc.Config().Istanbul.AutonityContractConfig.ABI
 
 	sender := vm.AccountRef(deployer)
 	gas := uint64(0xFFFFFFFF)
@@ -223,11 +232,9 @@ func (ac *AutonityContract) callContract(state *state.StateDB, header *types.Hea
 		return nil, err
 	}
 
-	glienickeAddress := crypto.CreateAddress(deployer, 0)
-
-	ret, gas, vmerr := evm.StaticCall(sender, glienickeAddress, input, gas)
+	ret, gas, vmerr := evm.StaticCall(sender, ac.Address, input, gas)
 	if vmerr != nil {
-		log.Error("Error Glienicke Contract getWhitelist()")
+		log.Error("Error Autonity Contract getWhitelist()")
 		return nil, vmerr
 	}
 
@@ -236,77 +243,6 @@ func (ac *AutonityContract) callContract(state *state.StateDB, header *types.Hea
 		log.Error("Could not unpack getWhitelist returned value")
 		return nil, err
 	}
-
+	fmt.Println("contracts/autonity/autonity.go:243", returnedEnodes)
 	return types.NewNodes(returnedEnodes, false), nil
 }
-
-// Instantiates a new EVM object which is required when creating or calling a deployed contract
-//func (sb *AutonityContract) getEVM(chain consensus.ChainReader, header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
-//
-//	coinbase, _ := sb.Author(header)
-//	evmContext := vm.Context{
-//		CanTransfer: core.CanTransfer,
-//		Transfer:    core.Transfer,
-//		GetHash:     core.GetHashFn(header, chain),
-//		Origin:      origin,
-//		Coinbase:    coinbase,
-//		BlockNumber: header.Number,
-//		Time:        header.Time,
-//		GasLimit:    header.GasLimit,
-//		Difficulty:  header.Difficulty,
-//		GasPrice:    new(big.Int).SetUint64(0x0),
-//	}
-//	evm := vm.NewEVM(evmContext, statedb, chain.Config(), *sb.vmConfig)
-//	return evm
-//}
-
-//deployContract deploys the contract contained within the genesis field bytecode
-//func (bc *AutonityContract) DeployGlienickeContract(state *state.StateDB, header *types.Header) (*types.Nodes, common.Address, error) {
-//	//if bytecode or abi is missing use default one
-//	glienickeByteCode := bc.chainConfig.GlienickeBytecode
-//	glienickeABI := bc.chainConfig.GlienickeABI
-//	if bc.chainConfig.GlienickeBytecode == "" || bc.chainConfig.GlienickeABI == "" {
-//		glienickeByteCode = params.GlienickeDefaultBytecode
-//		glienickeABI = params.GlienickeDefaultABI
-//	}
-//	bc.chainConfig.GlienickeABI = glienickeABI
-//
-//	//Same for deployer
-//	glienickeDeployer := bc.chainConfig.GlienickeDeployer
-//	if glienickeDeployer == (common.Address{}) {
-//		glienickeDeployer = params.GlienickeDefaultDeployer
-//	}
-//
-//	// Convert the contract bytecode from hex into bytes
-//	contractBytecode := common.Hex2Bytes(glienickeByteCode)
-//	evm := bc.getEVM(header, glienickeDeployer, state)
-//	sender := vm.AccountRef(glienickeDeployer)
-//
-//	enodesWhitelist := rawdb.ReadEnodeWhitelist(bc.db, false)
-//
-//	glienickeAbi, err := abi.JSON(strings.NewReader(glienickeABI))
-//	if err != nil {
-//		return nil, common.Address{}, err
-//	}
-//
-//	sort.Strings(enodesWhitelist.StrList)
-//	constructorParams, err := glienickeAbi.Pack("", enodesWhitelist.StrList)
-//	if err != nil {
-//		return nil, common.Address{}, err
-//	}
-//
-//	data := append(contractBytecode, constructorParams...)
-//	gas := uint64(0xFFFFFFFF)
-//	value := new(big.Int).SetUint64(0x00)
-//
-//	// Deploy the Glienicke validator governance contract
-//	_, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
-//	if vmerr != nil {
-//		log.Error("Error Glienicke Contract deployment")
-//		return nil, common.Address{}, vmerr
-//	}
-//
-//	log.Info("Deployed Glienicke Contract", "Address", contractAddress.String())
-//
-//	return enodesWhitelist, contractAddress, nil
-//}

@@ -22,6 +22,7 @@ package eth
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"sort"
 	"sync"
@@ -59,8 +60,27 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
 		}
 	)
+	gspec.Config.Istanbul = &params.IstanbulConfig{
+		AutonityContractConfig:&params.AutonityContractGenesis{
+			Users:[]params.User{
+			},
+		},
+	}
 
-	gspec.Config.EnodeWhitelist = peers
+	for i := range peers {
+		gspec.Config.Istanbul.AutonityContractConfig.Users=append(
+			gspec.Config.Istanbul.AutonityContractConfig.Users,
+			params.User{
+				Enode:peers[i],
+				Type:params.UserValidator,
+				Stake:100,
+			},
+		)
+	}
+	err:=gspec.Config.Istanbul.AutonityContractConfig.AddDefault().Validate()
+	if err!=nil {
+		return nil, nil, err
+	}
 
 	genesis := gspec.MustCommit(db)
 
@@ -185,8 +205,10 @@ func newTestP2PPeer(name string) *p2p.Peer {
 	// Generate a random id and create the peer
 	var id enode.ID
 	rand.Read(id[:])
-	peer, _ := p2p.NewTestPeer(name, []p2p.Cap{})
-
+	peer, err := p2p.NewTestPeer(name, []p2p.Cap{})
+	if err!=nil {
+		fmt.Println("eth/helper_test.go:206 ",err)
+	}
 	return peer
 }
 
@@ -211,5 +233,6 @@ func (p *testPeer) handshake(t *testing.T, td *big.Int, head common.Hash, genesi
 // close terminates the local side of the peer, notifying the remote protocol
 // manager of termination.
 func (p *testPeer) close() {
+	fmt.Println("eth/helper_test.go:236 close")
 	p.app.Close()
 }

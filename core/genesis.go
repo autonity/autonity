@@ -55,7 +55,6 @@ type Genesis struct {
 	Mixhash                common.Hash              `json:"mixHash"`
 	Coinbase               common.Address           `json:"coinbase"`
 	Alloc                  GenesisAlloc             `json:"alloc"      gencodec:"required"`
-	AutonityContractConfig *AutonityContractGenesis `json:"autonityContract"`
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
@@ -119,7 +118,6 @@ func (h *storageJSON) UnmarshalText(text []byte) error {
 	}
 	offset := len(h) - len(text)/2 // pad on the left
 	if _, err := hex.Decode(h[offset:], text); err != nil {
-		fmt.Println(err)
 		return fmt.Errorf("invalid hex storage key/value %q", text)
 	}
 	return nil
@@ -295,9 +293,10 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	if g.AutonityContractConfig != nil {
+
+	if g.Config.Istanbul!=nil && g.Config.Istanbul.AutonityContractConfig != nil {
 		enodes := []string{}
-		for _, v := range g.AutonityContractConfig.Users {
+		for _, v := range g.Config.Istanbul.AutonityContractConfig.Users {
 			if v.Enode != "" {
 				enodes = append(enodes, v.Enode)
 			}
@@ -311,9 +310,9 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 
 //setIstanbul sets default Istanbul config values
 func (g *Genesis) setIstanbul() error {
-	if g.AutonityContractConfig != nil {
+	if g.Config.Istanbul!=nil && g.Config.Istanbul.AutonityContractConfig != nil {
 		var validators []string
-		for _, v := range g.AutonityContractConfig.Users {
+		for _, v := range g.Config.Istanbul.AutonityContractConfig.Users {
 			validators = append(validators, v.Address.String())
 		}
 
@@ -349,7 +348,7 @@ func (g *Genesis) UpdateValidators(addressList []string) error {
 	for _, address := range addressList {
 		validators = append(validators, common.HexToAddress(address))
 	}
-	fmt.Println("core/genesis.go:352 UpdateValidators ", validators)
+
 	var err error
 	if g.ExtraData, err = types.PrepareExtra(&g.ExtraData, validators); err != nil {
 		return err

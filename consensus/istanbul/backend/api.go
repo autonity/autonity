@@ -53,19 +53,14 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 	return addresses, nil
 }
 
-// Get Soma contract address
-func (api *API) GetSomaContractAddress() common.Address {
-	return api.istanbul.autonityContractAddress
-}
-
 // Get Soma contract ABI
 func (api *API) GetContractABI() string {
-	return api.istanbul.config.ABI
+	return api.chain.Config().Istanbul.AutonityContractConfig.ABI
 }
 
-// Get Glienicke contract address
+// Get Autonity contract address
 func (api *API) GetContractAddress() common.Address {
-	return api.istanbul.autonityContractAddress
+	return api.istanbul.blockchain.AutonityContract.Address
 }
 
 
