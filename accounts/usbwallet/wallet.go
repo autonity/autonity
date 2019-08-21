@@ -29,7 +29,6 @@ import (
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/karalabe/usb"
 )
@@ -514,13 +513,13 @@ func (w *wallet) SelfDerive(bases []accounts.DerivationPath, chain ethereum.Chai
 
 // signHash implements accounts.Wallet, however signing arbitrary data is not
 // supported for hardware wallets, so this method will always return an error.
-func (w *wallet) signHash(account accounts.Account, hash []byte) ([]byte, error) {
+func (w *wallet) signHash() ([]byte, error) {
 	return nil, accounts.ErrNotSupported
 }
 
 // SignData signs keccak256(data). The mimetype parameter describes the type of data being signed
 func (w *wallet) SignData(account accounts.Account, mimeType string, data []byte) ([]byte, error) {
-	return w.signHash(account, crypto.Keccak256(data))
+	return w.signHash()
 }
 
 // SignDataWithPassphrase implements accounts.Wallet, attempting to sign the given
@@ -531,7 +530,7 @@ func (w *wallet) SignDataWithPassphrase(account accounts.Account, passphrase, mi
 }
 
 func (w *wallet) SignText(account accounts.Account, text []byte) ([]byte, error) {
-	return w.signHash(account, accounts.TextHash(text))
+	return w.signHash()
 }
 
 // SignTx implements accounts.Wallet. It sends the transaction over to the Ledger

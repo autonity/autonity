@@ -816,7 +816,7 @@ func (s *Session) unpair() error {
 
 // verifyPin unlocks a wallet with the provided pin.
 func (s *Session) verifyPin(pin []byte) error {
-	if _, err := s.Channel.transmitEncrypted(claSCWallet, insVerifyPin, 0, 0, pin); err != nil {
+	if _, err := s.Channel.transmitEncrypted(insVerifyPin, 0, 0, pin); err != nil {
 		return err
 	}
 	s.verified = true
@@ -826,7 +826,7 @@ func (s *Session) verifyPin(pin []byte) error {
 // unblockPin unblocks a wallet with the provided puk and resets the pin to the
 // new one specified.
 func (s *Session) unblockPin(pukpin []byte) error {
-	if _, err := s.Channel.transmitEncrypted(claSCWallet, insUnblockPin, 0, 0, pukpin); err != nil {
+	if _, err := s.Channel.transmitEncrypted(insUnblockPin, 0, 0, pukpin); err != nil {
 		return err
 	}
 	s.verified = true
@@ -862,7 +862,7 @@ type walletStatus struct {
 
 // walletStatus fetches the wallet's status from the card.
 func (s *Session) walletStatus() (*walletStatus, error) {
-	response, err := s.Channel.transmitEncrypted(claSCWallet, insStatus, statusP1WalletStatus, 0, nil)
+	response, err := s.Channel.transmitEncrypted(insStatus, statusP1WalletStatus, 0, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -918,7 +918,7 @@ func (s *Session) initialize(seed []byte) error {
 	// Nasty hack to force the top-level struct tag to be context-specific
 	data[0] = 0xA1
 
-	_, err = s.Channel.transmitEncrypted(claSCWallet, insLoadKey, 0x02, 0, data)
+	_, err = s.Channel.transmitEncrypted(insLoadKey, 0x02, 0, data)
 	return err
 }
 
@@ -948,12 +948,12 @@ func (s *Session) derive(path accounts.DerivationPath) (accounts.Account, error)
 		}
 	}
 
-	_, err = s.Channel.transmitEncrypted(claSCWallet, insDeriveKey, p1, 0, data.Bytes())
+	_, err = s.Channel.transmitEncrypted(insDeriveKey, p1, 0, data.Bytes())
 	if err != nil {
 		return accounts.Account{}, err
 	}
 
-	response, err := s.Channel.transmitEncrypted(claSCWallet, insSign, 0, 0, DerivationSignatureHash[:])
+	response, err := s.Channel.transmitEncrypted(insSign, 0, 0, DerivationSignatureHash[:])
 	if err != nil {
 		return accounts.Account{}, err
 	}
@@ -997,7 +997,7 @@ func (s *Session) sign(path accounts.DerivationPath, hash []byte) ([]byte, error
 	}
 	deriveTime := time.Now()
 
-	response, err := s.Channel.transmitEncrypted(claSCWallet, insSign, signP1PrecomputedHash, signP2OnlyBlock, hash)
+	response, err := s.Channel.transmitEncrypted(insSign, signP1PrecomputedHash, signP2OnlyBlock, hash)
 	if err != nil {
 		return nil, err
 	}

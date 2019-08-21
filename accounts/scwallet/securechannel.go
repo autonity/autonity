@@ -135,7 +135,7 @@ func (s *SecureChannelSession) Unpair() error {
 		return fmt.Errorf("cannot unpair: not paired")
 	}
 
-	_, err := s.transmitEncrypted(claSCWallet, insUnpair, s.PairingIndex, 0, []byte{})
+	_, err := s.transmitEncrypted(insUnpair, s.PairingIndex, 0, []byte{})
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (s *SecureChannelSession) mutuallyAuthenticate() error {
 		return err
 	}
 
-	response, err := s.transmitEncrypted(claSCWallet, insMutuallyAuthenticate, 0, 0, data)
+	response, err := s.transmitEncrypted(insMutuallyAuthenticate, 0, 0, data)
 	if err != nil {
 		return err
 	}
@@ -220,7 +220,7 @@ func (s *SecureChannelSession) pair(p1 uint8, data []byte) (*responseAPDU, error
 }
 
 // transmitEncrypted sends an encrypted message, and decrypts and returns the response.
-func (s *SecureChannelSession) transmitEncrypted(cla, ins, p1, p2 byte, data []byte) (*responseAPDU, error) {
+func (s *SecureChannelSession) transmitEncrypted(ins, p1, p2 byte, data []byte) (*responseAPDU, error) {
 	if s.iv == nil {
 		return nil, fmt.Errorf("channel not open")
 	}
@@ -229,7 +229,7 @@ func (s *SecureChannelSession) transmitEncrypted(cla, ins, p1, p2 byte, data []b
 	if err != nil {
 		return nil, err
 	}
-	meta := [16]byte{cla, ins, p1, p2, byte(len(data) + scBlockSize)}
+	meta := [16]byte{claSCWallet, ins, p1, p2, byte(len(data) + scBlockSize)}
 	if err = s.updateIV(meta[:], data); err != nil {
 		return nil, err
 	}
@@ -239,7 +239,7 @@ func (s *SecureChannelSession) transmitEncrypted(cla, ins, p1, p2 byte, data []b
 	copy(fulldata[len(s.iv):], data)
 
 	response, err := transmit(s.card, &commandAPDU{
-		Cla:  cla,
+		Cla:  claSCWallet,
 		Ins:  ins,
 		P1:   p1,
 		P2:   p2,
@@ -268,7 +268,7 @@ func (s *SecureChannelSession) transmitEncrypted(cla, ins, p1, p2 byte, data []b
 	_ = rapdu.deserialize(plainData)
 
 	if rapdu.Sw1 != sw1Ok {
-		return nil, fmt.Errorf("unexpected response status Cla=0x%x, Ins=0x%x, Sw=0x%x%x", cla, ins, rapdu.Sw1, rapdu.Sw2)
+		return nil, fmt.Errorf("unexpected response status Cla=0x%x, Ins=0x%x, Sw=0x%x%x", claSCWallet, ins, rapdu.Sw1, rapdu.Sw2)
 	}
 
 	return rapdu, nil
