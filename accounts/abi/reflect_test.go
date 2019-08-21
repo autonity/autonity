@@ -170,6 +170,7 @@ var reflectTests = []reflectTest{
 
 func TestReflectNameToStruct(t *testing.T) {
 	for _, test := range reflectTests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			m, err := mapArgNamesToStructFields(test.args, reflect.ValueOf(test.struc))
 			if len(test.err) > 0 {
