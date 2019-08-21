@@ -191,7 +191,7 @@ func (hub *Hub) refreshWallets() {
 
 	var (
 		wallets = make([]accounts.Wallet, 0, len(devices))
-		events  []accounts.WalletEvent
+		events  = make([]accounts.WalletEvent, 0, len(devices))
 	)
 
 	for _, device := range devices {

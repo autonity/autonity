@@ -107,8 +107,8 @@ func (api *Signer) Close() error {
 }
 
 func (api *Signer) Accounts() []accounts.Account {
-	var accnts []accounts.Account
 	res, err := api.listAccounts()
+	accnts := make([]accounts.Account, 0, len(res))
 	if err != nil {
 		log.Error("account listing failed", "error", err)
 		return accnts

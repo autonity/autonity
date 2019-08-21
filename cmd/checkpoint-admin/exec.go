@@ -85,7 +85,7 @@ var commandPublish = cli.Command{
 // the network where the connected node is located.
 func deploy(ctx *cli.Context) error {
 	// Gather all the addresses that should be permitted to sign
-	var addrs []common.Address
+	addrs := make([]common.Address, 0, 100)
 	for _, account := range strings.Split(ctx.String(signersFlag.Name), ",") {
 		if trimmed := strings.TrimSpace(account); !common.IsHexAddress(trimmed) {
 			utils.Fatalf("Invalid account in --signers: '%s'", trimmed)
