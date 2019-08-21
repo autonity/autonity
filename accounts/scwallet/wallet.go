@@ -85,7 +85,6 @@ const (
 
 	insVerifyPin  = 0x20
 	insUnblockPin = 0x22
-	insExportKey  = 0xC2
 	insSign       = 0xC0
 	insLoadKey    = 0xD0
 	insDeriveKey  = 0xD1
@@ -98,11 +97,8 @@ const (
 	P1DeriveKeyFromParent  = uint8(0x01)
 	P1DeriveKeyFromCurrent = uint8(0x10)
 	statusP1WalletStatus   = uint8(0x00)
-	statusP1Path           = uint8(0x01)
 	signP1PrecomputedHash  = uint8(0x01)
 	signP2OnlyBlock        = uint8(0x81)
-	exportP1Any            = uint8(0x00)
-	exportP2Pubkey         = uint8(0x01)
 )
 
 // Minimum time to wait between self derivation attempts, even it the user is
@@ -878,17 +874,6 @@ func (s *Session) walletStatus() (*walletStatus, error) {
 	return status, nil
 }
 
-// derivationPath fetches the wallet's current derivation path from the card.
-func (s *Session) derivationPath() (accounts.DerivationPath, error) {
-	response, err := s.Channel.transmitEncrypted(claSCWallet, insStatus, statusP1Path, 0, nil)
-	if err != nil {
-		return nil, err
-	}
-	buf := bytes.NewReader(response.Data)
-	path := make(accounts.DerivationPath, len(response.Data)/4)
-	return path, binary.Read(buf, binary.BigEndian, &path)
-}
-
 // initializeData contains data needed to initialize the smartcard wallet.
 type initializeData struct {
 	PublicKey  []byte `asn1:"tag:0"`
@@ -990,25 +975,6 @@ func (s *Session) derive(path accounts.DerivationPath) (accounts.Account, error)
 		return accounts.Account{}, err
 	}
 	return s.Wallet.makeAccount(crypto.PubkeyToAddress(*pub), path), nil
-}
-
-// keyExport contains information on an exported keypair.
-type keyExport struct {
-	PublicKey  []byte `asn1:"tag:0"`
-	PrivateKey []byte `asn1:"tag:1,optional"`
-}
-
-// publicKey returns the public key for the current derivation path.
-func (s *Session) publicKey() ([]byte, error) {
-	response, err := s.Channel.transmitEncrypted(claSCWallet, insExportKey, exportP1Any, exportP2Pubkey, nil)
-	if err != nil {
-		return nil, err
-	}
-	keys := new(keyExport)
-	if _, err := asn1.UnmarshalWithParams(response.Data, keys, "tag:1"); err != nil {
-		return nil, err
-	}
-	return keys.PublicKey, nil
 }
 
 // signatureData contains information on a signature - the signature itself and
