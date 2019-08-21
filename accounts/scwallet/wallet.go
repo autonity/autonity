@@ -577,7 +577,7 @@ func (w *Wallet) Accounts() []accounts.Account {
 		for address, path := range pairing.Accounts {
 			ret = append(ret, w.makeAccount(address, path))
 		}
-		sort.Sort(accounts.AccountsByURL(ret))
+		sort.Sort(accounts.ByURL(ret))
 		return ret
 	}
 	return nil
