@@ -505,7 +505,7 @@ func (api *RetestethAPI) mineBlock() error {
 				statedb.Prepare(tx.Hash(), common.Hash{}, txCount)
 				snap := statedb.Snapshot()
 
-				receipt, _, err := core.ApplyTransaction(
+				receipt, _, txErr := core.ApplyTransaction(
 					api.chainConfig,
 					api.blockchain,
 					&api.author,
@@ -513,7 +513,7 @@ func (api *RetestethAPI) mineBlock() error {
 					statedb,
 					header, tx, &header.GasUsed, *api.blockchain.GetVMConfig(),
 				)
-				if err != nil {
+				if txErr != nil {
 					statedb.RevertToSnapshot(snap)
 					break
 				}
@@ -577,7 +577,7 @@ func (api *RetestethAPI) RewindToBlock(ctx context.Context, newHead uint64) (boo
 	return true, nil
 }
 
-var emptyListHash common.Hash = common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347")
+var emptyListHash = common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347")
 
 func (api *RetestethAPI) GetLogHash(ctx context.Context, txHash common.Hash) (common.Hash, error) {
 	receipt, _, _, _ := rawdb.ReadReceipt(api.ethDb, txHash, api.chainConfig)
@@ -654,8 +654,8 @@ func (api *RetestethAPI) AccountRange(ctx context.Context,
 			context := core.NewEVMContext(msg, block.Header(), api.blockchain, nil)
 			// Not yet the searched for transaction, execute on top of the current state
 			vmenv := vm.NewEVM(context, statedb, api.blockchain.Config(), vm.Config{})
-			if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
-				return AccountRangeResult{}, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
+			if _, _, _, msgErr := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); msgErr != nil {
+				return AccountRangeResult{}, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), msgErr)
 			}
 			// Ensure any modifications are committed to the state
 			// Only delete empty objects if EIP158/161 (a.k.a Spurious Dragon) is in effect
@@ -767,8 +767,8 @@ func (api *RetestethAPI) StorageRangeAt(ctx context.Context,
 			context := core.NewEVMContext(msg, block.Header(), api.blockchain, nil)
 			// Not yet the searched for transaction, execute on top of the current state
 			vmenv := vm.NewEVM(context, statedb, api.blockchain.Config(), vm.Config{})
-			if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
-				return StorageRangeResult{}, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
+			if _, _, _, msgErr := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); msgErr != nil {
+				return StorageRangeResult{}, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), msgErr)
 			}
 			// Ensure any modifications are committed to the state
 			// Only delete empty objects if EIP158/161 (a.k.a Spurious Dragon) is in effect

@@ -958,8 +958,8 @@ func (s *Session) derive(path accounts.DerivationPath) (accounts.Account, error)
 
 	data := new(bytes.Buffer)
 	for _, segment := range path {
-		if err := binary.Write(data, binary.BigEndian, segment); err != nil {
-			return accounts.Account{}, err
+		if writeErr := binary.Write(data, binary.BigEndian, segment); writeErr != nil {
+			return accounts.Account{}, writeErr
 		}
 	}
 
@@ -974,16 +974,16 @@ func (s *Session) derive(path accounts.DerivationPath) (accounts.Account, error)
 	}
 
 	sigdata := new(signatureData)
-	if _, err := asn1.UnmarshalWithParams(response.Data, sigdata, "tag:0"); err != nil {
-		return accounts.Account{}, err
+	if _, unmarshalErr := asn1.UnmarshalWithParams(response.Data, sigdata, "tag:0"); unmarshalErr != nil {
+		return accounts.Account{}, unmarshalErr
 	}
 	rbytes, sbytes := sigdata.Signature.R.Bytes(), sigdata.Signature.S.Bytes()
 	sig := make([]byte, 65)
 	copy(sig[32-len(rbytes):32], rbytes)
 	copy(sig[64-len(sbytes):64], sbytes)
 
-	if err := confirmPublicKey(sig, sigdata.PublicKey); err != nil {
-		return accounts.Account{}, err
+	if pkErr := confirmPublicKey(sig, sigdata.PublicKey); pkErr != nil {
+		return accounts.Account{}, pkErr
 	}
 	pub, err := crypto.UnmarshalPubkey(sigdata.PublicKey)
 	if err != nil {
@@ -1036,8 +1036,8 @@ func (s *Session) sign(path accounts.DerivationPath, hash []byte) ([]byte, error
 		return nil, err
 	}
 	sigdata := new(signatureData)
-	if _, err := asn1.UnmarshalWithParams(response.Data, sigdata, "tag:0"); err != nil {
-		return nil, err
+	if _, unmarshalErr := asn1.UnmarshalWithParams(response.Data, sigdata, "tag:0"); unmarshalErr != nil {
+		return nil, unmarshalErr
 	}
 	// Serialize the signature
 	rbytes, sbytes := sigdata.Signature.R.Bytes(), sigdata.Signature.S.Bytes()

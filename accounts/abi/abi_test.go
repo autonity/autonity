@@ -708,8 +708,8 @@ func TestUnpackEventIntoMap(t *testing.T) {
 		"amount": big.NewInt(1),
 		"memo":   []byte{88},
 	}
-	if err := abi.UnpackIntoMap(receivedMap, "received", data); err != nil {
-		t.Error(err)
+	if unpackErr := abi.UnpackIntoMap(receivedMap, "received", data); unpackErr != nil {
+		t.Error(unpackErr)
 	}
 	if len(receivedMap) != 3 {
 		t.Error("unpacked `received` map expected to have length 3")

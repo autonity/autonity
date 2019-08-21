@@ -225,7 +225,7 @@ func toGoType(index int, t Type, output []byte, ABIv2Hack bool) (interface{}, er
 	switch t.T {
 	case TupleTy:
 		if isDynamicType(t) {
-			begin, err := tuplePointsTo(index, output)
+			begin, err = tuplePointsTo(index, output)
 			if err != nil {
 				return nil, err
 			}
