@@ -78,6 +78,11 @@ func New(backend Backend, config *config.Config) *core {
 		backlogs:              make(map[validator.Validator]*prque.Prque),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
+		stopped:               make(chan struct{}, 3),
+		isStarting:            new(uint32),
+		isStarted:             new(uint32),
+		isStopping:            new(uint32),
+		isStopped:             new(uint32),
 		valSet:                new(validatorSet),
 		futureRoundsChange:    make(map[int64]int64),
 	}
@@ -96,6 +101,11 @@ type core struct {
 	committedSub            *event.TypeMuxSubscription
 	timeoutEventSub         *event.TypeMuxSubscription
 	futureProposalTimer     *time.Timer
+	stopped                 chan struct{}
+	isStarted               *uint32
+	isStarting              *uint32
+	isStopping              *uint32
+	isStopped               *uint32
 
 	valSet *validatorSet
 

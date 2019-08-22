@@ -386,6 +386,16 @@ func (validator *testNode) startNode() error {
 		if err != nil {
 			return fmt.Errorf("import pk: %s", err)
 		}
+
+		for {
+			// wait until the private key is imported
+			_, err = validator.node.AccountManager().Find(signer)
+			if err == nil {
+				break
+			}
+			time.Sleep(50 * time.Microsecond)
+		}
+
 		validator.isInited = true
 	} else {
 		signer = store.Accounts()[0]

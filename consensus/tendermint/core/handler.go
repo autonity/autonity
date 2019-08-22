@@ -18,17 +18,33 @@ package core
 
 import (
 	"context"
+	"math/big"
+	"sync/atomic"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
-	"math/big"
+	"github.com/clearmatics/autonity/log"
 )
 
 // Start implements core.Engine.Start
 func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+	// prevent double start
+	if atomic.LoadUint32(c.isStarted) == 1 {
+		return nil
+	}
+	if !atomic.CompareAndSwapUint32(c.isStarting, 0, 1) {
+		return nil
+	}
+	defer func() {
+		atomic.StoreUint32(c.isStarting, 0)
+		atomic.StoreUint32(c.isStopped, 0)
+		atomic.StoreUint32(c.isStarted, 1)
+	}()
+
 	ctx, c.cancel = context.WithCancel(ctx)
 
 	err := c.backend.Start(ctx, chain, currentBlock, hasBadBlock)
@@ -44,7 +60,7 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 	c.currentRoundState = NewRoundState(big.NewInt(0), height)
 
 	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
-	go c.handleNewUnminedBlockEvent()
+	go c.handleNewUnminedBlockEvent(ctx)
 
 	//We want to sequentially handle all the event which modify the current consensus state
 	go c.handleConsensusEvents(ctx)
@@ -54,17 +70,32 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 
 // Stop implements core.Engine.Stop
 func (c *core) Stop() error {
-	c.logger.Error("stopping tendermint.core", "addr", c.address.String())
+	// prevent double stop
+	if atomic.LoadUint32(c.isStopped) == 1 {
+		return nil
+	}
+	if !atomic.CompareAndSwapUint32(c.isStopping, 0, 1) {
+		return nil
+	}
+	defer func() {
+		atomic.StoreUint32(c.isStopping, 0)
+		atomic.StoreUint32(c.isStopped, 1)
+		atomic.StoreUint32(c.isStarted, 0)
+	}()
 
-	// Make sure the handler and backend goroutine exits
-	c.cancel()
+	c.logger.Error("stopping tendermint.core", "addr", c.address.String())
 
 	_ = c.proposeTimeout.stopTimer()
 	_ = c.prevoteTimeout.stopTimer()
 	_ = c.precommitTimeout.stopTimer()
 
+	c.cancel()
+
 	c.stopFutureProposalTimer()
 	c.unsubscribeEvents()
+
+	<-c.stopped
+	<-c.stopped
 
 	err := c.backend.Close()
 	if err != nil {
@@ -98,23 +129,36 @@ func (c *core) unsubscribeEvents() {
 
 // TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, TimeoutEvent
 
-func (c *core) handleNewUnminedBlockEvent() {
-	for e := range c.newUnminedBlockEventSub.Chan() {
-		newUnminedBlockEvent := e.Data.(events.NewUnminedBlockEvent)
-		pb := &newUnminedBlockEvent.NewUnminedBlock
-		c.storeUnminedBlockMsg(pb)
+func (c *core) handleNewUnminedBlockEvent(ctx context.Context) {
+eventLoop:
+	for {
+		select {
+		case e, ok := <-c.newUnminedBlockEventSub.Chan():
+			if !ok {
+				break eventLoop
+			}
+			newUnminedBlockEvent := e.Data.(events.NewUnminedBlockEvent)
+			pb := &newUnminedBlockEvent.NewUnminedBlock
+			c.storeUnminedBlockMsg(pb)
+		case <-ctx.Done():
+			log.Error("handleNewUnminedBlockEvent is stopped", "event", ctx.Err())
+			break eventLoop
+		}
 	}
+
+	c.stopped <- struct{}{}
 }
 
 func (c *core) handleConsensusEvents(ctx context.Context) {
 	// Start a new round from last height + 1
 	c.startRound(ctx, common.Big0)
 
+eventLoop:
 	for {
 		select {
 		case ev, ok := <-c.messageEventSub.Chan():
 			if !ok {
-				return
+				break eventLoop
 			}
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
@@ -147,7 +191,7 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
-				return
+				break eventLoop
 			}
 			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
 				switch timeoutE.step {
@@ -161,14 +205,19 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 			}
 		case ev, ok := <-c.committedSub.Chan():
 			if !ok {
-				return
+				break eventLoop
 			}
 			switch ev.Data.(type) {
 			case events.CommitEvent:
 				c.handleCommit(ctx)
 			}
+		case <-ctx.Done():
+			log.Error("handleConsensusEvents is stopped", "event", ctx.Err())
+			break eventLoop
 		}
 	}
+
+	c.stopped <- struct{}{}
 }
 
 // sendEvent sends event to mux
