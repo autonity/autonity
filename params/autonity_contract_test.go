@@ -89,6 +89,7 @@ func TestValidateAutonityContract_ByteCodeMissed_Fail(t *testing.T) {
 }
 
 func TestValidateAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
+	t.Skip("Do we need it?")
 	contractConfig := AutonityContractGenesis{
 		Deployer: common.HexToAddress("0xff"),
 		Bytecode: "some code",
