@@ -36,7 +36,7 @@ type AutonityContractGenesis struct {
 	Bytecode string `json:"bytecode" toml:",omitempty"`
 	// Json ABI of the contract
 	ABI         string         `json:"abi "toml:",omitempty"`
-	MinGasPrice int64         `json:"minGasPrice" toml:",omitempty"`
+	MinGasPrice int64          `json:"minGasPrice" toml:",omitempty"`
 	Operator    common.Address `json:"operator" toml:",omitempty"`
 	Users       []User         `json:"users" "toml:",omitempty"`
 }
@@ -44,23 +44,23 @@ type AutonityContractGenesis struct {
 func (ac *AutonityContractGenesis) AddDefault() *AutonityContractGenesis {
 	if len(ac.Bytecode) == 0 || len(ac.ABI) == 0 {
 		log.Info("Default Validator smart contract set")
-		ac.ABI=DefaultABI
-		ac.Bytecode=DefaultBytecode
+		ac.ABI = DefaultABI
+		ac.Bytecode = DefaultBytecode
 	} else {
 		log.Info("User specified Validator smart contract set")
 	}
 	if reflect.DeepEqual(ac.Deployer, common.Address{}) {
-		ac.Deployer=DefaultDeployer
+		ac.Deployer = DefaultDeployer
 	}
 
 	if reflect.DeepEqual(ac.Operator, common.Address{}) {
-		ac.Operator=DefaultGovernance
+		ac.Operator = DefaultGovernance
 	}
 
-	for i:=range ac.Users {
+	for i := range ac.Users {
 		n, err := enode.ParseV4WithResolve(ac.Users[i].Enode)
-		if reflect.DeepEqual(ac.Users[i].Address, common.Address{})==true && err!=nil {
-			ac.Users[i].Address=EnodeToAddress(n)
+		if reflect.DeepEqual(ac.Users[i].Address, common.Address{}) == true && err != nil {
+			ac.Users[i].Address = EnodeToAddress(n)
 		}
 	}
 	return ac

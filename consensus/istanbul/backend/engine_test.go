@@ -89,7 +89,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 
 	// force enable Istanbul engine
 	genesis.Config.Istanbul = &params.IstanbulConfig{
-		AutonityContractConfig:&params.AutonityContractGenesis{},
+		AutonityContractConfig: &params.AutonityContractGenesis{},
 	}
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
@@ -97,8 +97,8 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Mixhash = types.IstanbulDigest
 
 	AppendValidators(genesis, addrs)
-	err:=genesis.Config.Istanbul.AutonityContractConfig.AddDefault().Validate()
-	if err!=nil {
+	err := genesis.Config.Istanbul.AutonityContractConfig.AddDefault().Validate()
+	if err != nil {
 		fmt.Println("consensus/istanbul/backend/engine_test.go:102 ", err)
 	}
 	return genesis, nodeKeys
@@ -123,15 +123,14 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 	}
 	genesis.ExtraData = append(genesis.ExtraData, istPayload...)
 
-	for i:=range addrs {
-		genesis.Config.Istanbul.AutonityContractConfig.Users=append(
+	for i := range addrs {
+		genesis.Config.Istanbul.AutonityContractConfig.Users = append(
 			genesis.Config.Istanbul.AutonityContractConfig.Users,
 			params.User{
-				Address:addrs[i],
-				Type:params.UserValidator,
-				Enode:ENODE_STUB,
-				Stake:100,
-
+				Address: addrs[i],
+				Type:    params.UserValidator,
+				Enode:   ENODE_STUB,
+				Stake:   100,
 			})
 	}
 
@@ -612,26 +611,27 @@ func TestWriteCommittedSeals(t *testing.T) {
 	}
 }
 
-const ENODE_STUB  = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
-func TestValidatorsSaved(t *testing.T)  {
+const ENODE_STUB = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
+
+func TestValidatorsSaved(t *testing.T) {
 	chain, _ := newBlockChain(1)
-	h:=makeHeader(chain.Genesis(), 10)
-	sdb,err:=chain.State()
-	if err!=nil {
+	h := makeHeader(chain.Genesis(), 10)
+	sdb, err := chain.State()
+	if err != nil {
 		t.Fatal(err)
 	}
-	_, err:=chain.AutonityContract.DeployAutonityContract(chain,h, sdb)
-	if err!=nil {
+	_, err := chain.AutonityContract.DeployAutonityContract(chain, h, sdb)
+	if err != nil {
 		t.Log(string(autonity.Sl.Output()))
 		t.Fatal(err)
 	}
 
-	res, err:=chain.AutonityContract.ContractGetValidators(chain, h,sdb)
-	if err!=nil {
+	res, err := chain.AutonityContract.ContractGetValidators(chain, h, sdb)
+	if err != nil {
 		t.Log(string(autonity.Sl.Output()))
 		t.Fatal(err)
 	}
-	if len(res)==0 {
+	if len(res) == 0 {
 		t.FailNow()
 	}
 }

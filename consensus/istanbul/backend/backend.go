@@ -105,7 +105,7 @@ type backend struct {
 	knownMessages  *lru.ARCCache // the cache of self messages
 
 	autonityContractAddress common.Address // Ethereum address of the autonity contract
-	vmConfig          *vm.Config
+	vmConfig                *vm.Config
 }
 
 // Address implements istanbul.Backend.Address

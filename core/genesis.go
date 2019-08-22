@@ -46,15 +46,15 @@ var errGenesisBadWhitelist = errors.New("whitelist badly formatted")
 // Genesis specifies the header fields, state of a genesis block. It also defines hard
 // fork switch-over blocks through the chain configuration.
 type Genesis struct {
-	Config                 *params.ChainConfig      `json:"config"`
-	Nonce                  uint64                   `json:"nonce"`
-	Timestamp              uint64                   `json:"timestamp"`
-	ExtraData              []byte                   `json:"extraData"`
-	GasLimit               uint64                   `json:"gasLimit"   gencodec:"required"`
-	Difficulty             *big.Int                 `json:"difficulty" gencodec:"required"`
-	Mixhash                common.Hash              `json:"mixHash"`
-	Coinbase               common.Address           `json:"coinbase"`
-	Alloc                  GenesisAlloc             `json:"alloc"      gencodec:"required"`
+	Config     *params.ChainConfig `json:"config"`
+	Nonce      uint64              `json:"nonce"`
+	Timestamp  uint64              `json:"timestamp"`
+	ExtraData  []byte              `json:"extraData"`
+	GasLimit   uint64              `json:"gasLimit"   gencodec:"required"`
+	Difficulty *big.Int            `json:"difficulty" gencodec:"required"`
+	Mixhash    common.Hash         `json:"mixHash"`
+	Coinbase   common.Address      `json:"coinbase"`
+	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
@@ -293,8 +293,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-
-	if g.Config.Istanbul!=nil && g.Config.Istanbul.AutonityContractConfig != nil {
+	if g.Config.Istanbul != nil && g.Config.Istanbul.AutonityContractConfig != nil {
 		enodes := []string{}
 		for _, v := range g.Config.Istanbul.AutonityContractConfig.Users {
 			if v.Enode != "" {
@@ -310,7 +309,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 
 //setIstanbul sets default Istanbul config values
 func (g *Genesis) setIstanbul() error {
-	if g.Config.Istanbul!=nil && g.Config.Istanbul.AutonityContractConfig != nil {
+	if g.Config.Istanbul != nil && g.Config.Istanbul.AutonityContractConfig != nil {
 		var validators []string
 		for _, v := range g.Config.Istanbul.AutonityContractConfig.Users {
 			validators = append(validators, v.Address.String())

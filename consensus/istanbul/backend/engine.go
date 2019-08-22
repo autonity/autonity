@@ -38,9 +38,9 @@ import (
 )
 
 const (
-	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
-	inmemoryPeers      = 40
-	inmemoryMessages   = 1024
+	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
+	inmemoryPeers     = 40
+	inmemoryMessages  = 1024
 )
 
 var (
@@ -333,7 +333,7 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	}
 
 	validators, err := sb.getValidators(header, chain, state)
-	if err!=nil {
+	if err != nil {
 		fmt.Println("consensus/istanbul/backend/engine.go:337 getValidators err", err)
 	}
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
@@ -364,7 +364,7 @@ func (sb *backend) getValidators(header *types.Header, chain consensus.ChainRead
 		log.Info("Autonity Contract Deployer", "Address", chain.Config().Istanbul.AutonityContractConfig.Deployer)
 
 		sb.blockchain.AutonityContract.SavedValidatorsRetriever = func(i uint64) (addresses []common.Address, e error) {
-			chain:=chain
+			chain := chain
 			return sb.retrieveSavedValidators(i, chain)
 		}
 		contractAddress, err := sb.blockchain.AutonityContract.DeployAutonityContract(chain, header, state)

@@ -333,7 +333,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		}
 		fmt.Println("whitelisted", whitelisted)
 		pm.enodesWhitelistLock.RUnlock()
-		if !whitelisted && p.td.Uint64() <= head.Number.Uint64() + 1 {
+		if !whitelisted && p.td.Uint64() <= head.Number.Uint64()+1 {
 			fmt.Println()
 			p.Log().Info("Dropping unauthorized peer with old TD.", "enode", p.Node().ID())
 			return errUnauthaurizedPeer

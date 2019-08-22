@@ -61,24 +61,23 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		}
 	)
 	gspec.Config.Istanbul = &params.IstanbulConfig{
-		AutonityContractConfig:&params.AutonityContractGenesis{
-			Users:[]params.User{
-			},
+		AutonityContractConfig: &params.AutonityContractGenesis{
+			Users: []params.User{},
 		},
 	}
 
 	for i := range peers {
-		gspec.Config.Istanbul.AutonityContractConfig.Users=append(
+		gspec.Config.Istanbul.AutonityContractConfig.Users = append(
 			gspec.Config.Istanbul.AutonityContractConfig.Users,
 			params.User{
-				Enode:peers[i],
-				Type:params.UserValidator,
-				Stake:100,
+				Enode: peers[i],
+				Type:  params.UserValidator,
+				Stake: 100,
 			},
 		)
 	}
-	err:=gspec.Config.Istanbul.AutonityContractConfig.AddDefault().Validate()
-	if err!=nil {
+	err := gspec.Config.Istanbul.AutonityContractConfig.AddDefault().Validate()
+	if err != nil {
 		return nil, nil, err
 	}
 
@@ -206,8 +205,8 @@ func newTestP2PPeer(name string) *p2p.Peer {
 	var id enode.ID
 	rand.Read(id[:])
 	peer, err := p2p.NewTestPeer(name, []p2p.Cap{})
-	if err!=nil {
-		fmt.Println("eth/helper_test.go:206 ",err)
+	if err != nil {
+		fmt.Println("eth/helper_test.go:206 ", err)
 	}
 	return peer
 }

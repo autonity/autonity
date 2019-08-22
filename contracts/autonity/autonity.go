@@ -31,7 +31,6 @@ func NewAutonityContract(
 		GetHashFn:   GetHashFn,
 		//SavedValidatorsRetriever: SavedValidatorsRetriever,
 
-
 	}
 }
 
@@ -62,8 +61,9 @@ type AutonityContract struct {
 }
 
 var Sl = vm.NewStructLogger(&vm.LogConfig{
-	Debug:true,
+	Debug: true,
 })
+
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
 func (ac *AutonityContract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
 
@@ -80,9 +80,9 @@ func (ac *AutonityContract) getEVM(header *types.Header, origin common.Address, 
 		Difficulty:  header.Difficulty,
 		GasPrice:    new(big.Int).SetUint64(0x0),
 	}
-	vmConfig:=*ac.bc.GetVMConfig()
-	vmConfig.Debug=true
-	vmConfig.Tracer= Sl
+	vmConfig := *ac.bc.GetVMConfig()
+	vmConfig.Debug = true
+	vmConfig.Tracer = Sl
 	evm := vm.NewEVM(evmContext, statedb, ac.bc.Config(), vmConfig)
 	return evm
 }
@@ -106,16 +106,16 @@ func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, 
 		return common.Address{}, err
 	}
 
-	ln:=len(chain.Config().Istanbul.AutonityContractConfig.GetValidatorUsers())
-	validators:=make(common.Addresses, 0, ln)
-	enodes:=make([]string, 0, ln)
-	accTypes:=make([]*big.Int, 0, ln)
-	participantStake:=make([]*big.Int, 0, ln)
-	for _,v:=range chain.Config().Istanbul.AutonityContractConfig.GetValidatorUsers() {
-		validators=append(validators, v.Address)
-		enodes=append(enodes, v.Enode)
-		accTypes=append(accTypes, big.NewInt(int64(v.Type)))
-		participantStake=append(participantStake, big.NewInt(int64(v.Stake)))
+	ln := len(chain.Config().Istanbul.AutonityContractConfig.GetValidatorUsers())
+	validators := make(common.Addresses, 0, ln)
+	enodes := make([]string, 0, ln)
+	accTypes := make([]*big.Int, 0, ln)
+	participantStake := make([]*big.Int, 0, ln)
+	for _, v := range chain.Config().Istanbul.AutonityContractConfig.GetValidatorUsers() {
+		validators = append(validators, v.Address)
+		enodes = append(enodes, v.Enode)
+		accTypes = append(accTypes, big.NewInt(int64(v.Type)))
+		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
 	}
 
 	constructorParams, err := contractABI.Pack("",
@@ -138,7 +138,7 @@ func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, 
 	if vmerr != nil {
 		return contractAddress, vmerr
 	}
-	ac.Address=contractAddress
+	ac.Address = contractAddress
 	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
 
 	return contractAddress, nil

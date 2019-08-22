@@ -475,24 +475,24 @@ func testDAOChallenge(t *testing.T, localForked, remoteForked bool, timeout bool
 	}
 	// Create a DAO aware protocol manager
 	var (
-		evmux   = new(event.TypeMux)
-		pow     = ethash.NewFaker()
-		db      = ethdb.NewMemDatabase()
-		config  = &params.ChainConfig{DAOForkBlock: big.NewInt(1), DAOForkSupport: localForked}
-		gspec   = &core.Genesis{Config: config}
+		evmux  = new(event.TypeMux)
+		pow    = ethash.NewFaker()
+		db     = ethdb.NewMemDatabase()
+		config = &params.ChainConfig{DAOForkBlock: big.NewInt(1), DAOForkSupport: localForked}
+		gspec  = &core.Genesis{Config: config}
 	)
 	p2pPeer := newTestP2PPeer("peer")
 	config.Istanbul = &params.IstanbulConfig{
-		AutonityContractConfig:&params.AutonityContractGenesis{
-			Users:[]params.User{
+		AutonityContractConfig: &params.AutonityContractGenesis{
+			Users: []params.User{
 				{
-					Enode:	p2pPeer.Info().Enode,
-					Type: params.UserValidator,
+					Enode: p2pPeer.Info().Enode,
+					Type:  params.UserValidator,
 				},
 			},
 		},
 	}
-	if err:=config.Istanbul.AutonityContractConfig.AddDefault().Validate(); err!=nil {
+	if err := config.Istanbul.AutonityContractConfig.AddDefault().Validate(); err != nil {
 		t.Fatal(err)
 	}
 	//append(config.EnodeWhitelist, p2pPeer.Info().Enode)
@@ -573,30 +573,29 @@ func TestBroadcastBlock(t *testing.T) {
 
 func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	var (
-		evmux   = new(event.TypeMux)
-		pow     = ethash.NewFaker()
-		db      = ethdb.NewMemDatabase()
-		config  = &params.ChainConfig{}
-		gspec   = &core.Genesis{Config: config}
+		evmux  = new(event.TypeMux)
+		pow    = ethash.NewFaker()
+		db     = ethdb.NewMemDatabase()
+		config = &params.ChainConfig{}
+		gspec  = &core.Genesis{Config: config}
 	)
 	config.Istanbul = &params.IstanbulConfig{
-		AutonityContractConfig:&params.AutonityContractGenesis{},
+		AutonityContractConfig: &params.AutonityContractGenesis{},
 	}
 
-
-	p2pPeers:= make([]*p2p.Peer, totalPeers)
+	p2pPeers := make([]*p2p.Peer, totalPeers)
 	for i := 0; i < totalPeers; i++ {
 		p2pPeers[i] = newTestP2PPeer(fmt.Sprintf("peer %d", i))
-		config.Istanbul.AutonityContractConfig.Users=append(
+		config.Istanbul.AutonityContractConfig.Users = append(
 			config.Istanbul.AutonityContractConfig.Users,
 			params.User{
-				Enode:p2pPeers[i].Info().Enode,
-				Type:params.UserValidator,
-				Stake:100,
+				Enode: p2pPeers[i].Info().Enode,
+				Type:  params.UserValidator,
+				Stake: 100,
 			},
 		)
 	}
-	if err:=config.Istanbul.AutonityContractConfig.AddDefault().Validate(); err!=nil {
+	if err := config.Istanbul.AutonityContractConfig.AddDefault().Validate(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -616,7 +615,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	for i := 0; i < totalPeers; i++ {
 		peer, errc := newTestPeer(p2pPeers[i], eth63, pm, true)
 		go func() {
-			for err:=range errc {
+			for err := range errc {
 				fmt.Println(fmt.Println("testPeerErr", err))
 			}
 
