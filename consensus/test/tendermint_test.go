@@ -124,10 +124,10 @@ func TestTendermintLongRun(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			"no malicious - 100 tx per second",
+			"no malicious - 30 tx per second",
 			5,
 			10,
-			100,
+			30,
 			nil,
 			nil,
 			nil,
