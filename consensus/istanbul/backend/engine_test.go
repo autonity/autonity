@@ -620,7 +620,7 @@ func TestValidatorsSaved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err := chain.AutonityContract.DeployAutonityContract(chain, h, sdb)
+	_, err = chain.AutonityContract.DeployAutonityContract(chain, h, sdb)
 	if err != nil {
 		t.Log(string(autonity.Sl.Output()))
 		t.Fatal(err)
