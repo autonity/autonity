@@ -19,10 +19,10 @@ package core
 import (
 	"bytes"
 	"context"
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 	"math/big"
-	"github.com/clearmatics/autonity/common"
 )
 
 func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
@@ -139,7 +139,7 @@ func (c *core) verifyPrecommitCommittedSeal(addressMsg common.Address, committed
 
 	// ensure sender signed the committed seal
 	if !bytes.Equal(addressOfSignerOfCommittedSeal.Bytes(), addressMsg.Bytes()) {
-		log.Error("precommit message. seal error", "got", addressMsg.String(), "expected", addressOfSignerOfCommittedSeal.String())
+		log.Error("verify precommit seal error", "got", addressMsg.String(), "expected", addressOfSignerOfCommittedSeal.String())
 
 		return errInvalidSenderOfCommittedSeal
 	}
