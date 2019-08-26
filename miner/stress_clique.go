@@ -31,7 +31,6 @@ import (
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/fdlimit"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -66,7 +65,7 @@ func main() {
 	)
 	for _, sealer := range sealers {
 		// Start the node and wait until it's up
-		node, err := makeSealer(genesis, nil)
+		node, err := makeSealer(genesis)
 		if err != nil {
 			panic(err)
 		}
@@ -171,7 +170,7 @@ func makeGenesis(faucets []*ecdsa.PrivateKey, sealers []*ecdsa.PrivateKey) *core
 	return genesis
 }
 
-func makeSealer(genesis *core.Genesis, _ consensus.Engine) (*node.Node, error) {
+func makeSealer(genesis *core.Genesis) (*node.Node, error) {
 	// Define the basic configurations for the Ethereum node
 	datadir, _ := ioutil.TempDir("", "")
 
