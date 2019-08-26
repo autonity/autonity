@@ -2,13 +2,14 @@ package crypto
 
 import (
 	"crypto/ecdsa"
+	"sort"
+	"strings"
+	"testing"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/crypto"
-	"sort"
-	"strings"
-	"testing"
 )
 
 func TestCheckValidatorSignature(t *testing.T) {
@@ -28,9 +29,9 @@ func TestCheckValidatorSignature(t *testing.T) {
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
-		validator := vset.GetByIndex(uint64(i))
-		if addr != validator.Address() {
-			t.Errorf("validator address mismatch: have %v, want %v", addr, validator.Address())
+		val := vset.GetByIndex(uint64(i))
+		if addr != val.Address() {
+			t.Errorf("validator address mismatch: have %v, want %v", addr, val.Address())
 		}
 	}
 
@@ -78,9 +79,9 @@ func TestCheckValidatorSignatureInvalid(t *testing.T) {
 			t.Errorf("check error mismatch: have %v, want ErrUnauthorizedAddress", err)
 		}
 
-		validator := vset.GetByIndex(uint64(i))
-		if addr == validator.Address() {
-			t.Errorf("validator address match: have %v, want != %v", addr, validator.Address())
+		val := vset.GetByIndex(uint64(i))
+		if addr == val.Address() {
+			t.Errorf("validator address match: have %v, want != %v", addr, val.Address())
 		}
 	}
 
@@ -132,9 +133,9 @@ func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
 			t.Errorf("check error mismatch: have %v, want ErrUnauthorizedAddress", err)
 		}
 
-		validator := vset.GetByIndex(uint64(i))
-		if addr == validator.Address() {
-			t.Errorf("validator address match: have %v, want != %v", addr, validator.Address())
+		val := vset.GetByIndex(uint64(i))
+		if addr == val.Address() {
+			t.Errorf("validator address match: have %v, want != %v", addr, val.Address())
 		}
 	}
 
