@@ -32,7 +32,7 @@ var Modules = map[string]string{
 	"swarmfs":    SWARMFS_JS,
 	"txpool":     TxPool_JS,
 	"istanbul":   Istanbul_JS,
-	"tendermint": Tendermint_JS,
+	"tendermint": TendermintJs,
 }
 
 const Chequebook_JS = `
@@ -751,7 +751,7 @@ web3._extend({
 });
 `
 
-const Tendermint_JS = `
+const TendermintJs = `
 web3._extend({
 	property: 'tendermint',
 	methods:
