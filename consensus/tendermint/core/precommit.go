@@ -52,11 +52,22 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
+	msg := &message{
+		Code:          msgPrecommit,
+		Msg:           encodedVote,
+		Address:       c.address,
+		CommittedSeal: []byte{},
+	}
+
+	// Assign the CommittedSeal if it's a COMMIT message and proposal is not nil
+	seal := PrepareCommittedSeal(precommit.ProposedBlockHash)
+	msg.CommittedSeal, err = c.backend.Sign(seal)
+	if err != nil {
+		c.logger.Error("core.sendPrecommit error while signing committed seal", "err", err)
+	}
+
 	c.sentPrecommit = true
-	c.broadcast(ctx, &message{
-		Code: msgPrecommit,
-		Msg:  encodedVote,
-	})
+	c.broadcast(ctx, msg)
 }
 
 func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
