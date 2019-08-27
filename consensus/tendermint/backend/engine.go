@@ -26,8 +26,8 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
@@ -42,6 +42,9 @@ const (
 	inmemoryPeers     = 40
 	inmemoryMessages  = 1024
 )
+
+// ErrStartedEngine is returned if the engine is already started
+var ErrStartedEngine = errors.New("started engine")
 
 var (
 	// errInvalidProposal is returned when a prposal is malformed.
@@ -105,7 +108,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 	}
 
 	// Ensure that the extra data format is satisfied
-	if _, err := types.ExtractBFTExtra(header); err != nil {
+	if _, err := types.ExtractBFTHeaderExtra(header); err != nil {
 		return errInvalidExtraDataFormat
 	}
 
@@ -234,7 +237,7 @@ func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 	}
 	validators := validator.NewSet(validatorAddresses, sb.config.GetProposerPolicy())
 
-	extra, err := types.ExtractBFTExtra(header)
+	extra, err := types.ExtractBFTHeaderExtra(header)
 	if err != nil {
 		return err
 	}
@@ -291,7 +294,7 @@ func (sb *Backend) VerifySeal(chain consensus.ChainReader, header *types.Header)
 // rules of a particular engine. The changes are executed inline.
 func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) error {
 	// unused fields, force to set to empty
-	header.Coinbase = sb.address
+	header.Coinbase = sb.Address()
 	header.Nonce = emptyNonce
 	header.MixDigest = types.BFTDigest
 
@@ -334,7 +337,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	header.UncleHash = nilUncleHash
 
 	// add validators to extraData's validators section
-	if header.Extra, err = types.PrepareExtra(&header.Extra, validators); err != nil {
+	if header.Extra, err = types.PrepareExtra(header.Extra, validators); err != nil {
 		return nil, err
 	}
 
@@ -372,7 +375,7 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 
 		if sb.glienickeContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GlienickeDeployer, 0)
+			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GetGlienickeDeployer(), 0)
 		}
 
 		validators, err = sb.contractGetValidators(chain, header, state)
@@ -387,13 +390,20 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
 func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+	sb.coreMu.RLock()
+	isStarted := sb.coreStarted
+	sb.coreMu.RUnlock()
+	if !isStarted {
+		return ErrStoppedEngine
+	}
+
 	// update the block header and signature and propose the block to core engine
 	header := block.Header()
 	number := header.Number.Uint64()
 
 	// Bail out if we're unauthorized to sign a block
-	if _, v := sb.Validators(number).GetByAddress(sb.address); v == nil {
-		sb.logger.Error("Error validator")
+	if _, v := sb.Validators(number).GetByAddress(sb.Address()); v == nil {
+		sb.logger.Error("error validator errUnauthorized", "addr", sb.address.String())
 		return errUnauthorized
 	}
 
@@ -404,7 +414,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	}
 	block, err := sb.updateBlock(block)
 	if err != nil {
-		sb.logger.Error("Error updateBlock", err, err.Error())
+		sb.logger.Error("seal error updateBlock", "err", err.Error())
 		return err
 	}
 
@@ -416,14 +426,35 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 		return nil
 	}
 
-	sb.commitCh = results // results channel stays always the same
+	sb.setResultChan(results)
 
 	// post block into BFT engine
-	sb.postEvent(tendermint.NewUnminedBlockEvent{
+	sb.postEvent(events.NewUnminedBlockEvent{
 		NewUnminedBlock: *block,
 	})
 
 	return nil
+}
+
+func (sb *Backend) setResultChan(results chan<- *types.Block) {
+	sb.coreMu.Lock()
+	defer sb.coreMu.Unlock()
+
+	sb.commitCh = results
+}
+
+func (sb *Backend) sendResultChan(block *types.Block) {
+	sb.coreMu.Lock()
+	defer sb.coreMu.Unlock()
+
+	sb.commitCh <- block
+}
+
+func (sb *Backend) isResultChanNil() bool {
+	sb.coreMu.RLock()
+	defer sb.coreMu.RUnlock()
+
+	return sb.commitCh == nil
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
@@ -465,11 +496,11 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 }
 
 // Start implements consensus.tendermint.Start
-func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if sb.coreStarted {
-		return tendermint.ErrStartedEngine
+		return ErrStartedEngine
 	}
 
 	// clear previous data
@@ -478,13 +509,6 @@ func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	sb.blockchain = chain.(*core.BlockChain)
 	sb.currentBlock = currentBlock
 	sb.hasBadBlock = hasBadBlock
-
-	var ctx context.Context
-	ctx, sb.cancel = context.WithCancel(context.Background())
-
-	if err := sb.core.Start(); err != nil {
-		return err
-	}
 
 	sb.coreStarted = true
 
@@ -499,14 +523,9 @@ func (sb *Backend) Close() error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if !sb.coreStarted {
-		return tendermint.ErrStoppedEngine
-	}
-	if err := sb.core.Stop(); err != nil {
-		return err
+		return ErrStoppedEngine
 	}
 	sb.coreStarted = false
-
-	sb.cancel()
 
 	return nil
 }
@@ -522,7 +541,7 @@ func (sb *Backend) retrieveSavedValidators(number uint64, chain consensus.ChainR
 		return nil, errUnknownBlock
 	}
 
-	tendermintExtra, err := types.ExtractBFTExtra(header)
+	tendermintExtra, err := types.ExtractBFTHeaderExtra(header)
 	if err != nil {
 		return nil, err
 	}
@@ -547,7 +566,7 @@ func (sb *Backend) retrieveValidators(header *types.Header, parents []*types.Hea
 	if len(parents) > 0 {
 		parent := parents[len(parents)-1]
 		var tendermintExtra *types.BFTExtra
-		tendermintExtra, err = types.ExtractBFTExtra(parent)
+		tendermintExtra, err = types.ExtractBFTHeaderExtra(parent)
 		if err == nil {
 			validators = tendermintExtra.Validators
 		}

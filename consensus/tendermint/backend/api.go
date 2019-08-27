@@ -70,7 +70,7 @@ func (api *API) GetGlienickeContractAddress() common.Address {
 
 // Get Glienicke contract ABI
 func (api *API) GetGlienickeContractABI() string {
-	return api.tendermint.blockchain.Config().GlienickeABI
+	return api.tendermint.blockchain.Config().GetGlienickeABI()
 }
 
 // Get current white list

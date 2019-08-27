@@ -293,7 +293,7 @@ func (sb *Backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 		} else {
 			validators, err = sb.retrieveSavedValidators(1, sb.blockchain) //genesis block and block #1 have the same validators
 		}
-		istanbulExtra, _ := types.ExtractBFTExtra(header)
+		istanbulExtra, _ := types.ExtractBFTHeaderExtra(header)
 
 		//Perform the actual comparison
 		if len(istanbulExtra.Validators) != len(validators) {

@@ -53,7 +53,7 @@ func testNewValidatorSet(t *testing.T) {
 		b = append(b, val.Address().Bytes()...)
 	}
 
-	// Create ValidatorSet
+	// Create Set
 	valSet := NewSet(ExtractValidators(b), istanbul.RoundRobin)
 	if valSet == nil {
 		t.Errorf("the validator byte array cannot be parsed")

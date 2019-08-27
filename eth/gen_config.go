@@ -3,6 +3,7 @@
 package eth
 
 import (
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math/big"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/consensus/istanbul"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/eth/gasprice"
@@ -44,7 +44,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		MinerNoverify           bool
 		Ethash                  ethash.Config
 		Istanbul                istanbul.Config
-		Tendermint              tendermint.Config
+		Tendermint              config.Config
 		TxPool                  core.TxPoolConfig
 		GPO                     gasprice.Config
 		EnablePreimageRecording bool
@@ -116,7 +116,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		MinerNoverify           *bool
 		Ethash                  *ethash.Config
 		Istanbul                *istanbul.Config
-		Tendermint              *tendermint.Config
+		Tendermint              *config.Config
 		TxPool                  *core.TxPoolConfig
 		GPO                     *gasprice.Config
 		EnablePreimageRecording *bool

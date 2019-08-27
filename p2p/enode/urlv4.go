@@ -236,6 +236,20 @@ func (n *Node) v4URL() string {
 	return u.String()
 }
 
+func V4URL(key ecdsa.PublicKey, ip net.IP, tcp, udp int) string {
+	nodeid := fmt.Sprintf("%x", crypto.FromECDSAPub(&key)[1:])
+
+	u := url.URL{Scheme: "enode"}
+
+	addr := net.TCPAddr{IP: ip, Port: tcp}
+	u.User = url.User(nodeid)
+	u.Host = addr.String()
+	if udp != tcp {
+		u.RawQuery = "discport=" + strconv.Itoa(udp)
+	}
+	return u.String()
+}
+
 // PubkeyToIDV4 derives the v4 node address from the given public key.
 func PubkeyToIDV4(key *ecdsa.PublicKey) ID {
 	e := make([]byte, 64)

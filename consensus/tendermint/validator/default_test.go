@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/crypto"
 )
 
@@ -40,7 +40,7 @@ func TestValidatorSet(t *testing.T) {
 }
 
 func testNewValidatorSet(t *testing.T) {
-	var validators []tendermint.Validator
+	var validators []Validator
 	const ValCnt = 100
 
 	// Create 100 validators with random addresses
@@ -53,8 +53,8 @@ func testNewValidatorSet(t *testing.T) {
 		b = append(b, val.Address().Bytes()...)
 	}
 
-	// Create ValidatorSet
-	valSet := NewSet(ExtractValidators(b), tendermint.RoundRobin)
+	// Create Set
+	valSet := NewSet(ExtractValidators(b), config.RoundRobin)
 	if valSet == nil {
 		t.Error("the validator byte array cannot be parsed")
 		t.FailNow()
@@ -92,7 +92,7 @@ func testNormalValSet(t *testing.T) {
 	val1 := New(addr1)
 	val2 := New(addr2)
 
-	valSet := newDefaultSet([]common.Address{addr1, addr2}, tendermint.RoundRobin)
+	valSet := newDefaultSet([]common.Address{addr1, addr2}, config.RoundRobin)
 	if valSet == nil {
 		t.Errorf("the format of validator set is invalid")
 		t.FailNow()
@@ -142,14 +142,14 @@ func testNormalValSet(t *testing.T) {
 }
 
 func testEmptyValSet(t *testing.T) {
-	valSet := NewSet(ExtractValidators([]byte{}), tendermint.RoundRobin)
+	valSet := NewSet(ExtractValidators([]byte{}), config.RoundRobin)
 	if valSet == nil {
 		t.Errorf("validator set should not be nil")
 	}
 }
 
 func testAddAndRemoveValidator(t *testing.T) {
-	valSet := NewSet(ExtractValidators([]byte{}), tendermint.RoundRobin)
+	valSet := NewSet(ExtractValidators([]byte{}), config.RoundRobin)
 	if !valSet.AddValidator(common.BytesToAddress([]byte(string(2)))) {
 		t.Error("the validator should be added")
 	}
@@ -196,7 +196,7 @@ func testStickyProposer(t *testing.T) {
 	val1 := New(addr1)
 	val2 := New(addr2)
 
-	valSet := newDefaultSet([]common.Address{addr1, addr2}, tendermint.Sticky)
+	valSet := newDefaultSet([]common.Address{addr1, addr2}, config.Sticky)
 
 	// test get proposer
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val1) {

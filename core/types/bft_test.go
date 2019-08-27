@@ -77,7 +77,7 @@ func TestExtractToBFT(t *testing.T) {
 	}
 	for _, test := range testCases {
 		h := &Header{Extra: append(test.vanity, test.posRawData...)}
-		bftExtra, err := ExtractBFTExtra(h)
+		bftExtra, err := ExtractBFTHeaderExtra(h)
 		if err != test.expectedErr {
 			t.Errorf("expected: %v, but got: %v", test.expectedErr, err)
 		}

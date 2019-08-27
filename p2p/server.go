@@ -151,6 +151,15 @@ type Config struct {
 
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:",omitempty"`
+
+	// IsRated if network rates limitations set
+	IsRated bool `toml:",omitempty"`
+
+	// InRate ingress network rate in Bytes
+	InRate int64 `toml:",omitempty"`
+
+	// OutRate egress network rate in Bytes
+	OutRate int64 `toml:",omitempty"`
 }
 
 // Server manages all peer connections.
@@ -363,13 +372,14 @@ func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
 		if !found {
 			log.Info("Dropping no longer authorized peer", "enode", connectedPeer.Node().String())
 			src.RemovePeer(connectedPeer.Node())
+			src.RemoveTrustedPeer(connectedPeer.Node())
 		}
 	}
 
 	// Check for peers that needs to be connected
 	for _, whitelistedEnode := range enodes {
 		found := false
-		for _, oldEnode := range src.StaticNodes {
+		for _, oldEnode := range src.TrustedNodes {
 			if oldEnode.ID() == whitelistedEnode.ID() {
 				found = true
 				break
@@ -378,10 +388,12 @@ func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
 		if !found {
 			log.Info("Connecting to newly authorized peer", "enode", whitelistedEnode.String())
 			src.AddPeer(whitelistedEnode)
+			src.AddTrustedPeer(whitelistedEnode)
 		}
 	}
 
 	src.StaticNodes = enodes
+	src.TrustedNodes = enodes
 }
 
 // SubscribePeers subscribes the given channel to peer events
@@ -508,6 +520,7 @@ func (srv *Server) Start() (err error) {
 		log.Info("Private-network mode enabled.")
 		srv.NoDiscovery = true
 		srv.StaticNodes = nil
+		srv.TrustedNodes = nil
 		dialer = newDialState(srv.localnode.ID(), nil, nil, nil, 0, srv.NetRestrict)
 	}
 	srv.loopWG.Add(1)

@@ -21,7 +21,6 @@ import (
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
 // NewRoundState creates a new roundState instance with the given view and validatorSet
@@ -31,7 +30,7 @@ func NewRoundState(r *big.Int, h *big.Int) *roundState {
 		round:      r,
 		height:     h,
 		step:       propose,
-		proposal:   new(tendermint.Proposal),
+		proposal:   new(Proposal),
 		Prevotes:   newMessageSet(),
 		Precommits: newMessageSet(),
 		mu:         new(sync.RWMutex),
@@ -44,7 +43,7 @@ type roundState struct {
 	height *big.Int
 	step   Step
 
-	proposal   *tendermint.Proposal
+	proposal   *Proposal
 	Prevotes   messageSet
 	Precommits messageSet
 	mu         *sync.RWMutex
@@ -55,19 +54,19 @@ func (s *roundState) Update(r *big.Int, h *big.Int) {
 	defer s.mu.Unlock()
 	s.round = r
 	s.height = h
-	s.proposal = new(tendermint.Proposal)
+	s.proposal = new(Proposal)
 	s.Prevotes = newMessageSet()
 	s.Precommits = newMessageSet()
 }
 
-func (s *roundState) SetProposal(proposal *tendermint.Proposal) {
+func (s *roundState) SetProposal(proposal *Proposal) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.proposal = proposal
 }
 
-func (s *roundState) Proposal() *tendermint.Proposal {
+func (s *roundState) Proposal() *Proposal {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

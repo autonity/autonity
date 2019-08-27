@@ -19,12 +19,12 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/rlp"
 )
 

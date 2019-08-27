@@ -2,10 +2,9 @@ package validator
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func roundRobinProposer(valSet tendermint.ValidatorSet, proposer common.Address, round uint64) tendermint.Validator {
+func roundRobinProposer(valSet Set, proposer common.Address, round uint64) Validator {
 	size := valSet.Size()
 	if size == 0 {
 		return nil

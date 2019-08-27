@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/golang/mock/gomock"
 )
 
@@ -69,7 +68,7 @@ func TestRoundRobinProposerZeroSize(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("validator is zero address, round %d", testCase.round), func(t *testing.T) {
-			validatorSet := tendermint.NewMockValidatorSet(ctrl)
+			validatorSet := NewMockValidatorSet(ctrl)
 
 			validatorSet.EXPECT().
 				Size().
@@ -209,7 +208,7 @@ func TestRoundRobinProposer(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			validatorSet := tendermint.NewMockValidatorSet(ctrl)
+			validatorSet := NewMockValidatorSet(ctrl)
 
 			validatorSet.EXPECT().
 				Size().
@@ -217,13 +216,13 @@ func TestRoundRobinProposer(t *testing.T) {
 
 			if testCase.proposer != proposerZeroAddress {
 				index := 1
-				validator := tendermint.NewMockValidator(ctrl)
+				validator := NewMockValidator(ctrl)
 				validatorSet.EXPECT().
 					GetByAddress(gomock.Eq(testCase.proposer)).
 					Return(index, validator)
 			}
 
-			expectedValidator := tendermint.NewMockValidator(ctrl)
+			expectedValidator := NewMockValidator(ctrl)
 			validatorSet.EXPECT().
 				GetByIndex(gomock.Eq(testCase.pick)).
 				Return(expectedValidator)

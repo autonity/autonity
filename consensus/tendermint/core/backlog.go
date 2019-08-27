@@ -19,7 +19,7 @@ package core
 import (
 	"math/big"
 
-	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -34,7 +34,7 @@ var (
 )
 
 type backlogEvent struct {
-	src tendermint.Validator
+	src validator.Validator
 	msg *message
 }
 
@@ -60,7 +60,7 @@ func (c *core) checkMessage(round *big.Int, height *big.Int) error {
 	return nil
 }
 
-func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
+func (c *core) storeBacklog(msg *message, src validator.Validator) {
 	logger := c.logger.New("from", src, "step", c.currentRoundState.Step())
 
 	if src.Address() == c.address {
@@ -79,14 +79,14 @@ func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
 	}
 	switch msg.Code {
 	case msgProposal:
-		var p tendermint.Proposal
+		var p Proposal
 		err := msg.Decode(&p)
 		if err == nil {
 			backlogPrque.Push(msg, toPriority(msg.Code, p.Round, p.Height))
 		}
 		// for msgPrevote and msgPrecommit cases
 	default:
-		var p tendermint.Vote
+		var p Vote
 		err := msg.Decode(&p)
 		if err == nil {
 			backlogPrque.Push(msg, toPriority(msg.Code, p.Round, p.Height))
@@ -116,14 +116,14 @@ func (c *core) processBacklog() {
 			var round, height *big.Int
 			switch msg.Code {
 			case msgProposal:
-				var m tendermint.Proposal
+				var m Proposal
 				err := msg.Decode(&m)
 				if err == nil {
 					round, height = m.Round, m.Height
 				}
 				// for msgPrevote and msgPrecommit cases
 			default:
-				var sub tendermint.Vote
+				var sub Vote
 				err := msg.Decode(&sub)
 				if err == nil {
 					round, height = sub.Round, sub.Height

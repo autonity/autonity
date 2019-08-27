@@ -146,7 +146,7 @@ func TestParseNodeWithDomainResolution(t *testing.T) {
 			if err == nil {
 				t.Errorf("test %q:\n  got nil error, expected %#q", test.rawurl, test.wantError)
 				continue
-			} else if err.Error() != test.wantError {
+			} else if !strings.Contains(err.Error(), test.wantError) {
 				t.Errorf("test %q:\n  got error %#q, expected %#q\n%v", test.rawurl, err.Error(), test.wantError, n)
 				continue
 			}
