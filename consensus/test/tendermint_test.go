@@ -167,8 +167,6 @@ func TestTendermintStartStop(t *testing.T) {
 						}
 
 						tCase.stopTime = currentTime
-
-						return nil
 					}
 
 					return nil
@@ -176,7 +174,6 @@ func TestTendermintStartStop(t *testing.T) {
 			},
 			map[int]hook{
 				4: func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-
 					if block == nil && currentTime.Sub(tCase.stopTime).Seconds() >= 10 {
 						if err := validator.startNode(); err != nil {
 							return err
@@ -432,6 +429,8 @@ func (validator *testNode) startService() error {
 	if err := validator.node.Service(&ethereum); err != nil {
 		return fmt.Errorf("cant start a node %s", err)
 	}
+
+	time.Sleep(100 * time.Millisecond)
 
 	if err := ethereum.StartMining(1); err != nil {
 		return fmt.Errorf("cant start mining %s", err)
