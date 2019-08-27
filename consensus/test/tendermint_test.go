@@ -433,10 +433,6 @@ func (validator *testNode) startService() error {
 		return fmt.Errorf("cant start a node %s", err)
 	}
 
-	for !ethereum.IsListening() {
-		time.Sleep(50 * time.Millisecond)
-	}
-
 	if err := ethereum.StartMining(1); err != nil {
 		return fmt.Errorf("cant start mining %s", err)
 	}
