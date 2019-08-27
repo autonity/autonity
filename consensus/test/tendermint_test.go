@@ -32,14 +32,14 @@ func TestTendermintSuccess(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name: "no malicious",
-			numPeers: 5,
+			name:      "no malicious",
+			numPeers:  5,
 			numBlocks: 5,
 			txPerPeer: 1,
 		},
 		{
-			name: "one node - always accepts blocks",
-			numPeers: 5,
+			name:      "one node - always accepts blocks",
+			numPeers:  5,
 			numBlocks: 5,
 			txPerPeer: 1,
 			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
@@ -65,8 +65,8 @@ func TestTendermintSlowConnections(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name: "no malicious, one slow node",
-			numPeers: 5,
+			name:      "no malicious, one slow node",
+			numPeers:  5,
 			numBlocks: 5,
 			txPerPeer: 1,
 			networkRates: map[int]networkRate{
@@ -74,8 +74,8 @@ func TestTendermintSlowConnections(t *testing.T) {
 			},
 		},
 		{
-			name: "no malicious, all nodes are slow",
-			numPeers: 5,
+			name:      "no malicious, all nodes are slow",
+			numPeers:  5,
 			numBlocks: 5,
 			txPerPeer: 1,
 			networkRates: map[int]networkRate{
@@ -103,8 +103,8 @@ func TestTendermintLongRun(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name: "no malicious - 30 tx per second",
-			numPeers: 5,
+			name:      "no malicious - 30 tx per second",
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 30,
 		},
@@ -125,9 +125,9 @@ func TestTendermintStartStop(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name: "one node stops for 5 seconds",
+			name:      "one node stops for 5 seconds",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -139,9 +139,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "one node stops for 10 seconds",
+			name:      "one node stops for 10 seconds",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -153,9 +153,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "one node stops for 20 seconds",
+			name:      "one node stops for 20 seconds",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -167,9 +167,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "f node stop for 5 seconds at the same block",
+			name:      "f node stop for 5 seconds at the same block",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -183,9 +183,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "f node stop for 5 seconds at different blocks",
+			name:      "f node stop for 5 seconds at different blocks",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -199,9 +199,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "f+1 node stop for 5 seconds at the same block",
+			name:      "f+1 node stop for 5 seconds at the same block",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -217,9 +217,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "f+1 node stop for 5 seconds at different blocks",
+			name:      "f+1 node stop for 5 seconds at different blocks",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -235,9 +235,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "f node stop for 10 seconds at the same block",
+			name:      "f node stop for 10 seconds at the same block",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -251,9 +251,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "f node stop for 10 seconds at different blocks",
+			name:      "f node stop for 10 seconds at different blocks",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -267,9 +267,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:"f+1 node stop for 10 seconds at the same block",
+			name:      "f+1 node stop for 10 seconds at the same block",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -285,9 +285,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "f+1 node stop for 10 seconds at different blocks",
+			name:      "f+1 node stop for 10 seconds at different blocks",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -303,9 +303,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "f node stop for 20 seconds at the same block",
+			name:      "f node stop for 20 seconds at the same block",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -319,9 +319,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "f node stop for 20 seconds at different blocks",
+			name:      "f node stop for 20 seconds at different blocks",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -335,9 +335,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "f+1 node stop for 20 seconds at the same block",
+			name:      "f+1 node stop for 20 seconds at the same block",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -353,9 +353,9 @@ func TestTendermintStartStop(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name: "f+1 node stop for 20 seconds at different blocks",
+			name:      "f+1 node stop for 20 seconds at different blocks",
 			isSkipped: true,
-			numPeers: 5,
+			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
@@ -424,6 +424,20 @@ func (test *testCase) getAfterHook(index int) hook {
 	}
 
 	return validatorHook
+}
+
+func (test *testCase) setStopTime(index int, stopTime time.Time) {
+	test.mu.Lock()
+	test.stopTime[index] = stopTime
+	test.mu.Unlock()
+}
+
+func (test *testCase) getStopTime(index int) time.Time {
+	test.mu.RLock()
+	currentTime := test.stopTime[index]
+	test.mu.RUnlock()
+
+	return currentTime
 }
 
 type hook func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error
@@ -792,9 +806,7 @@ func hookStopNode(nodeIndex int, blockNum uint64) hook {
 				return err
 			}
 
-			tCase.mu.Lock()
-			tCase.stopTime[nodeIndex] = currentTime
-			tCase.mu.Unlock()
+			tCase.setStopTime(nodeIndex, currentTime)
 		}
 
 		return nil
@@ -803,10 +815,7 @@ func hookStopNode(nodeIndex int, blockNum uint64) hook {
 
 func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-		tCase.mu.RLock()
-		stopTime := tCase.stopTime[nodeIndex]
-		tCase.mu.RUnlock()
-
+		stopTime := tCase.getStopTime(nodeIndex)
 		if block == nil && currentTime.Sub(stopTime).Seconds() >= durationAfterStop {
 			if err := validator.startNode(); err != nil {
 				return err
