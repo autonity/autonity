@@ -51,8 +51,10 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", *proposalBlock, c.address.String(), "broadcast")
 
 		c.broadcast(ctx, &message{
-			Code: msgProposal,
-			Msg:  proposal,
+			Code:          msgProposal,
+			Msg:           proposal,
+			Address:       c.address,
+			CommittedSeal: []byte{},
 		})
 	}
 }

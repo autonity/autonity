@@ -142,19 +142,6 @@ type core struct {
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	var err error
-	// Add sender address
-	msg.Address = c.address
-
-	// Add proof of consensus
-	msg.CommittedSeal = []byte{}
-	// Assign the CommittedSeal if it's a COMMIT message and proposal is not nil
-	if msg.Code == msgPrecommit && c.currentRoundState.Proposal() != nil {
-		seal := PrepareCommittedSeal(c.currentRoundState.GetCurrentProposalHash())
-		msg.CommittedSeal, err = c.backend.Sign(seal)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	// Sign message
 	data, err := msg.PayloadNoSig()

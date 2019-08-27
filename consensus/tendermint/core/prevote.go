@@ -51,8 +51,10 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 
 	c.sentPrevote = true
 	c.broadcast(ctx, &message{
-		Code: msgPrevote,
-		Msg:  encodedVote,
+		Code:          msgPrevote,
+		Msg:           encodedVote,
+		Address:       c.address,
+		CommittedSeal: []byte{},
 	})
 }
 
