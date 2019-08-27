@@ -59,7 +59,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 		CommittedSeal: []byte{},
 	}
 
-	// Assign the CommittedSeal if it's a COMMIT message and proposal is not nil
+	// Create committed seal
 	seal := PrepareCommittedSeal(precommit.ProposedBlockHash)
 	msg.CommittedSeal, err = c.backend.Sign(seal)
 	if err != nil {
