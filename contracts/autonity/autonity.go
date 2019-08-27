@@ -2,7 +2,6 @@ package autonity
 
 import (
 	"errors"
-	"fmt"
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -15,8 +14,6 @@ import (
 	"sort"
 	"strings"
 )
-
-//go:generate abigen --sol contract/autonity/contract/contracts/Autonity.sol --exc contract/autonity/contract/contracts/SafeMath.sol:SafeMath --pkg autonity --out contract/autonity2.go
 
 func NewAutonityContract(
 	bc Blockchainer,
@@ -100,7 +97,6 @@ func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, 
 
 	//We need to append to data the constructor's parameters
 	//That should always be genesis validators
-
 	contractABI, err := abi.JSON(strings.NewReader(chain.Config().Istanbul.AutonityContractConfig.ABI))
 	if err != nil {
 		return common.Address{}, err
@@ -180,9 +176,7 @@ func (ac *AutonityContract) ContractGetValidators(chain consensus.ChainReader, h
 var AutonityContractError = errors.New("could not call Autonity contract")
 
 func (ac *AutonityContract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
-	fmt.Println("contracts/autonity/autonity.go:183 UpdateEnodesWhitelist")
 	newWhitelist, err := ac.GetWhitelist(block, state)
-	fmt.Println("contracts/autonity/autonity.go:183 UpdateEnodesWhitelist", newWhitelist, err)
 	if err != nil {
 		log.Error("could not call contract", "err", err)
 		return AutonityContractError
@@ -193,7 +187,6 @@ func (ac *AutonityContract) UpdateEnodesWhitelist(state *state.StateDB, block *t
 }
 
 func (ac *AutonityContract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
-	fmt.Println("contracts/autonity/autonity.go:194 GetWhitelist")
 	var (
 		newWhitelist *types.Nodes
 		err          error
@@ -213,7 +206,6 @@ func (ac *AutonityContract) GetWhitelist(block *types.Block, db *state.StateDB) 
 //blockchain
 
 func (ac *AutonityContract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
-	fmt.Println("contracts/autonity/autonity.go:213 callGetWhitelist")
 	// Needs to be refactored somehow
 	deployer := ac.bc.Config().Istanbul.AutonityContractConfig.Deployer
 	var contractABI = ac.bc.Config().Istanbul.AutonityContractConfig.ABI
@@ -243,6 +235,6 @@ func (ac *AutonityContract) callGetWhitelist(state *state.StateDB, header *types
 		log.Error("Could not unpack getWhitelist returned value")
 		return nil, err
 	}
-	fmt.Println("contracts/autonity/autonity.go:243", returnedEnodes)
+
 	return types.NewNodes(returnedEnodes, false), nil
 }

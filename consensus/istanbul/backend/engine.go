@@ -369,13 +369,12 @@ func (sb *backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 		contractAddress, err := sb.blockchain.AutonityContract.DeployAutonityContract(chain, header, state)
 		if err != nil {
-			fmt.Println("consensus/istanbul/backend/engine.go:372 Deploy err", err)
+			log.Error("Deploy autonity contract error", "error", err)
 			return nil, err
 		}
 		sb.autonityContractAddress = contractAddress
 		validators, err = sb.retrieveSavedValidators(1, chain)
 		if err != nil {
-			fmt.Println("consensus/istanbul/backend/engine.go:378 retrieve err", err)
 			return nil, err
 		}
 	} else {
@@ -384,7 +383,7 @@ func (sb *backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 		validators, err = sb.blockchain.AutonityContract.ContractGetValidators(chain, header, state)
 		if err != nil {
-			fmt.Println("consensus/istanbul/backend/engine.go:387 ContractGetValidators err", err)
+			log.Error("ContractGetValidators error", "error", err)
 			return nil, err
 		}
 	}

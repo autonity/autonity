@@ -495,7 +495,6 @@ func testDAOChallenge(t *testing.T, localForked, remoteForked bool, timeout bool
 	if err := config.Istanbul.AutonityContractConfig.AddDefault().Validate(); err != nil {
 		t.Fatal(err)
 	}
-	//append(config.EnodeWhitelist, p2pPeer.Info().Enode)
 
 	genesis := gspec.MustCommit(db)
 
@@ -631,10 +630,9 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	for _, peer := range peers {
 		go func(p *testPeer) {
 			if err := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: big.NewInt(131073)}); err != nil {
-				fmt.Println("eth/handler_test.go:635 p2p.ExpectMsg err", err)
+				t.Log("eth/handler_test.go:635 p2p.ExpectMsg err", err)
 				errCh <- err
 			} else {
-				fmt.Println("eth/handler_test.go:637 else")
 				doneCh <- struct{}{}
 			}
 		}(peer)
@@ -656,7 +654,6 @@ outer:
 		}
 	}
 	for _, peer := range peers {
-		fmt.Println("eth/handler_test.go:659 peer", peer.id, "peer.app.Close()")
 		peer.app.Close()
 	}
 	if err != nil {

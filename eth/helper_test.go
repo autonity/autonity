@@ -37,6 +37,7 @@ import (
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
@@ -206,7 +207,7 @@ func newTestP2PPeer(name string) *p2p.Peer {
 	rand.Read(id[:])
 	peer, err := p2p.NewTestPeer(name, []p2p.Cap{})
 	if err != nil {
-		fmt.Println("eth/helper_test.go:206 ", err)
+		log.Error("newTestP2PPeer err", "error", err)
 	}
 	return peer
 }
@@ -232,6 +233,5 @@ func (p *testPeer) handshake(t *testing.T, td *big.Int, head common.Hash, genesi
 // close terminates the local side of the peer, notifying the remote protocol
 // manager of termination.
 func (p *testPeer) close() {
-	fmt.Println("eth/helper_test.go:236 close")
 	p.app.Close()
 }
