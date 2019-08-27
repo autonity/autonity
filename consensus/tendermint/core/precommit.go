@@ -19,10 +19,11 @@ package core
 import (
 	"bytes"
 	"context"
+	"math/big"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
-	"math/big"
 )
 
 func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
