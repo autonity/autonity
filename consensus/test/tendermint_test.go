@@ -32,32 +32,21 @@ func TestTendermintSuccess(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			"no malicious",
-			5,
-			5,
-			1,
-			nil,
-			nil,
-			nil,
-			nil,
-			time.Time{},
-			sync.RWMutex{},
+			name:      "no malicious",
+			numPeers:  5,
+			numBlocks: 5,
+			txPerPeer: 1,
 		},
 		{
-			"one node - always accepts blocks",
-			5,
-			5,
-			1,
-			map[int]func(basic consensus.Engine) consensus.Engine{
+			name:      "one node - always accepts blocks",
+			numPeers:  5,
+			numBlocks: 5,
+			txPerPeer: 1,
+			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
 				4: func(basic consensus.Engine) consensus.Engine {
 					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
 				},
 			},
-			nil,
-			nil,
-			nil,
-			time.Time{},
-			sync.RWMutex{},
 		},
 	}
 
@@ -76,36 +65,26 @@ func TestTendermintSlowConnections(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			"no malicious, one slow node",
-			5,
-			5,
-			1,
-			nil,
-			map[int]networkRate{
+			name:      "no malicious, one slow node",
+			numPeers:  5,
+			numBlocks: 5,
+			txPerPeer: 1,
+			networkRates: map[int]networkRate{
 				4: {50 * 1024, 50 * 1024},
 			},
-			nil,
-			nil,
-			time.Time{},
-			sync.RWMutex{},
 		},
 		{
-			"no malicious, all nodes are slow",
-			5,
-			5,
-			1,
-			nil,
-			map[int]networkRate{
+			name:      "no malicious, all nodes are slow",
+			numPeers:  5,
+			numBlocks: 5,
+			txPerPeer: 1,
+			networkRates: map[int]networkRate{
 				0: {50 * 1024, 50 * 1024},
 				1: {50 * 1024, 50 * 1024},
 				2: {50 * 1024, 50 * 1024},
 				3: {50 * 1024, 50 * 1024},
 				4: {50 * 1024, 50 * 1024},
 			},
-			nil,
-			nil,
-			time.Time{},
-			sync.RWMutex{},
 		},
 	}
 
@@ -124,16 +103,10 @@ func TestTendermintLongRun(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			"no malicious - 30 tx per second",
-			5,
-			10,
-			30,
-			nil,
-			nil,
-			nil,
-			nil,
-			time.Time{},
-			sync.RWMutex{},
+			name:      "no malicious - 30 tx per second",
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 30,
 		},
 	}
 
@@ -152,43 +125,250 @@ func TestTendermintStartStop(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			"one node stops for 10 seconds",
-			5,
-			10,
-			1,
-			nil,
-			nil,
-			map[int]hook{
-				4: func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-					if block.Number().Uint64() == 5 {
-						err := validator.stopNode()
-						if err != nil {
-							return err
-						}
-
-						tCase.stopTime = currentTime
-					}
-
-					return nil
-				},
+			name:      "one node stops for 5 seconds",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				4: hookStopNode(4, 5),
 			},
-			map[int]hook{
-				4: func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-					if block == nil && currentTime.Sub(tCase.stopTime).Seconds() >= 10 {
-						if err := validator.startNode(); err != nil {
-							return err
-						}
-
-						if err := validator.startService(); err != nil {
-							return err
-						}
-					}
-
-					return nil
-				},
+			afterHooks: map[int]hook{
+				4: hookStartNode(4, 5),
 			},
-			time.Time{},
-			sync.RWMutex{},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "one node stops for 10 seconds",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				4: hookStopNode(4, 5),
+			},
+			afterHooks: map[int]hook{
+				4: hookStartNode(4, 10),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "one node stops for 20 seconds",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				4: hookStopNode(4, 5),
+			},
+			afterHooks: map[int]hook{
+				4: hookStartNode(4, 20),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f node stop for 5 seconds at the same block",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 5),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 5),
+				4: hookStartNode(4, 5),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f node stop for 5 seconds at different blocks",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 6),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 5),
+				4: hookStartNode(4, 5),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f+1 node stop for 5 seconds at the same block",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				2: hookStopNode(2, 5),
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 5),
+			},
+			afterHooks: map[int]hook{
+				2: hookStartNode(2, 5),
+				3: hookStartNode(3, 5),
+				4: hookStartNode(4, 5),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f+1 node stop for 5 seconds at different blocks",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				2: hookStopNode(2, 4),
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 7),
+			},
+			afterHooks: map[int]hook{
+				2: hookStartNode(2, 5),
+				3: hookStartNode(3, 5),
+				4: hookStartNode(4, 5),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f node stop for 10 seconds at the same block",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 5),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 10),
+				4: hookStartNode(4, 10),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f node stop for 10 seconds at different blocks",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 6),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 10),
+				4: hookStartNode(4, 10),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f+1 node stop for 10 seconds at the same block",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				2: hookStopNode(2, 5),
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 5),
+			},
+			afterHooks: map[int]hook{
+				2: hookStartNode(2, 10),
+				3: hookStartNode(3, 10),
+				4: hookStartNode(4, 10),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f+1 node stop for 10 seconds at different blocks",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				2: hookStopNode(2, 4),
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 7),
+			},
+			afterHooks: map[int]hook{
+				2: hookStartNode(2, 10),
+				3: hookStartNode(3, 10),
+				4: hookStartNode(4, 10),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f node stop for 20 seconds at the same block",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 5),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 20),
+				4: hookStartNode(4, 20),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f node stop for 20 seconds at different blocks",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 6),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 20),
+				4: hookStartNode(4, 20),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f+1 node stop for 20 seconds at the same block",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				2: hookStopNode(2, 5),
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 5),
+			},
+			afterHooks: map[int]hook{
+				2: hookStartNode(2, 20),
+				3: hookStartNode(3, 20),
+				4: hookStartNode(4, 20),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f+1 node stop for 20 seconds at different blocks",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				2: hookStopNode(2, 4),
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 7),
+			},
+			afterHooks: map[int]hook{
+				2: hookStartNode(2, 20),
+				3: hookStartNode(3, 20),
+				4: hookStartNode(4, 20),
+			},
+			stopTime: make(map[int]time.Time),
 		},
 	}
 
@@ -202,6 +382,7 @@ func TestTendermintStartStop(t *testing.T) {
 
 type testCase struct {
 	name           string
+	isSkipped      bool
 	numPeers       int
 	numBlocks      int
 	txPerPeer      int
@@ -209,7 +390,7 @@ type testCase struct {
 	networkRates   map[int]networkRate                                   //map[validatorIndex]networkRate
 	beforeHooks    map[int]hook                                          //map[validatorIndex]beforeHook
 	afterHooks     map[int]hook                                          //map[validatorIndex]afterHook
-	stopTime       time.Time
+	stopTime       map[int]time.Time
 	mu             sync.RWMutex
 }
 
@@ -245,9 +426,27 @@ func (test *testCase) getAfterHook(index int) hook {
 	return validatorHook
 }
 
+func (test *testCase) setStopTime(index int, stopTime time.Time) {
+	test.mu.Lock()
+	test.stopTime[index] = stopTime
+	test.mu.Unlock()
+}
+
+func (test *testCase) getStopTime(index int) time.Time {
+	test.mu.RLock()
+	currentTime := test.stopTime[index]
+	test.mu.RUnlock()
+
+	return currentTime
+}
+
 type hook func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error
 
 func runTest(t *testing.T, test *testCase) {
+	if test.isSkipped {
+		t.SkipNow()
+	}
+
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	err := fdlimit.Raise(512 * uint64(test.numPeers))
 	if err != nil {
@@ -597,4 +796,36 @@ func runHook(validatorHook hook, test *testCase, block *types.Block, validator *
 	}
 
 	return nil
+}
+
+func hookStopNode(nodeIndex int, blockNum uint64) hook {
+	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+		if block.Number().Uint64() == blockNum {
+			err := validator.stopNode()
+			if err != nil {
+				return err
+			}
+
+			tCase.setStopTime(nodeIndex, currentTime)
+		}
+
+		return nil
+	}
+}
+
+func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
+	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+		stopTime := tCase.getStopTime(nodeIndex)
+		if block == nil && currentTime.Sub(stopTime).Seconds() >= durationAfterStop {
+			if err := validator.startNode(); err != nil {
+				return err
+			}
+
+			if err := validator.startService(); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
 }
