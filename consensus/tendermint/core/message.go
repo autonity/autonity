@@ -51,6 +51,14 @@ func (m *message) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{m.Code, m.Msg, m.Address, m.Signature, m.CommittedSeal})
 }
 
+func (m *message) GetCode() uint64 {
+	return m.Code
+}
+
+func (m *message) GetSignature() []byte {
+	return m.Signature
+}
+
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
 func (m *message) DecodeRLP(s *rlp.Stream) error {
 	var msg struct {

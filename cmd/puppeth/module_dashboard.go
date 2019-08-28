@@ -615,7 +615,7 @@ func deployDashboard(client *sshClient, network string, conf *config, config *da
 		"ExplorerPage":     config.explorer,
 		"WalletPage":       config.wallet,
 		"FaucetPage":       config.faucet,
-		"AutonityGenesis":      network + ".json",
+		"AutonityGenesis":  network + ".json",
 		"Bootnodes":        conf.bootnodes,
 		"BootnodesFlat":    strings.Join(conf.bootnodes, ","),
 		"Ethstats":         statsLogin,

@@ -24,8 +24,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/clearmatics/autonity/core"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Tests autonity to Aleth chainspec conversion for the Stureby testnet.

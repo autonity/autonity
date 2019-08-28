@@ -25,14 +25,14 @@ func newMessageSet() messageSet {
 	return messageSet{
 		votes:    map[common.Hash]map[common.Address]message{},
 		nilvotes: map[common.Address]message{},
-		messages: make([]*message,0),
+		messages: make([]*message, 0),
 	}
 }
 
 type messageSet struct {
-	votes    map[common.Hash]map[common.Address]message // map[proposedBlockHash]map[validatorAddress]vote
-	nilvotes map[common.Address]message                 // map[validatorAddress]vote
-	messages []*message
+	votes      map[common.Hash]map[common.Address]message // map[proposedBlockHash]map[validatorAddress]vote
+	nilvotes   map[common.Address]message                 // map[validatorAddress]vote
+	messages   []*message
 	messagesMu sync.RWMutex
 }
 
@@ -66,7 +66,7 @@ func (ms *messageSet) AddNilVote(msg message) {
 	}
 }
 
-func (ms *messageSet) GetMessages() []*message{
+func (ms *messageSet) GetMessages() []*message {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
 	result := make([]*message, len(ms.messages))

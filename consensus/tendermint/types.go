@@ -27,6 +27,12 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
+type CoreMessage interface {
+	Payload() ([]byte, error)
+	GetCode() uint64
+	GetSignature() []byte
+}
+
 type Proposal struct {
 	Round      *big.Int
 	Height     *big.Int

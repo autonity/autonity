@@ -68,8 +68,4 @@ type Backend interface {
 
 	// Setter for proposed block hash
 	SetProposedBlockHash(hash common.Hash)
-
-	SyncPeer(address common.Address)
-
-	ResetPeerCache(address common.Address)
 }

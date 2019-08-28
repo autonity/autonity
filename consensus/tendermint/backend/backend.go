@@ -27,6 +27,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
@@ -483,19 +484,19 @@ func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
 }
 
 // Synchronize new connected peer with current height state
-func (sb* Backend) SyncPeer(address common.Address) {
-	if sb.broadcaster != nil && sb.core.IsValidator(address){
+func (sb *Backend) SyncPeer(address common.Address, messages []tendermint.CoreMessage) {
+	if sb.broadcaster != nil {
 		sb.logger.Info("Syncing", "peer", address)
 		ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
-		for _, msg := range sb.core.GetCurrentHeightMessages(){
+		for _, msg := range messages {
 			payload, err := msg.Payload()
-			sb.logger.Info("Sending", "code", msg.Code, "sig", msg.Signature)
+			sb.logger.Info("Sending", "code", msg.GetCode(), "sig", msg.GetSignature())
 			if err != nil {
 				continue
 			}
 			hash := types.RLPHash(payload)
 			sb.trySend(ctx, messageToPeers{
-				message{hash:hash, payload:payload},
+				message{hash: hash, payload: payload},
 				[]common.Address{address},
 				time.Now(),
 				time.Now(),
@@ -504,7 +505,7 @@ func (sb* Backend) SyncPeer(address common.Address) {
 	}
 }
 
-func (sb* Backend) ResetPeerCache(address common.Address) {
+func (sb *Backend) ResetPeerCache(address common.Address) {
 	ms, ok := sb.recentMessages.Get(address)
 	var m *lru.ARCCache
 	if ok {

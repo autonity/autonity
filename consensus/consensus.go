@@ -142,3 +142,9 @@ type BFT interface {
 	// Start starts the engine
 	Start(ctx context.Context, chain ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
 }
+
+type TDM interface {
+	SyncPeer(address common.Address)
+
+	ResetPeerCache(address common.Address)
+}

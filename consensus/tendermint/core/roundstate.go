@@ -43,11 +43,11 @@ type roundState struct {
 	height *big.Int
 	step   Step
 
-	proposal   *Proposal
+	proposal    *Proposal
 	proposalMsg *message
-	Prevotes   messageSet
-	Precommits messageSet
-	mu         *sync.RWMutex
+	Prevotes    messageSet
+	Precommits  messageSet
+	mu          *sync.RWMutex
 }
 
 func (s *roundState) Update(r *big.Int, h *big.Int) {
@@ -135,11 +135,11 @@ func (s *roundState) GetCurrentProposalHash() common.Hash {
 func (s *roundState) GetMessages() []*message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	result := make([]*message,0)
+	result := make([]*message, 0)
 	if s.proposalMsg != nil {
 		result = append(result, s.proposalMsg)
 	}
-	result = append(result, s.Prevotes.GetMessages() ...)
-	result = append(result, s.Precommits.GetMessages() ...)
+	result = append(result, s.Prevotes.GetMessages()...)
+	result = append(result, s.Precommits.GetMessages()...)
 	return result
 }

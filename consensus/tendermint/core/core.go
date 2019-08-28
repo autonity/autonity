@@ -137,7 +137,7 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightOldRoundsStates map[int64]roundState
+	currentHeightOldRoundsStates   map[int64]roundState
 	currentHeightOldRoundsStatesMu sync.RWMutex
 
 	proposeTimeout   *timeout
@@ -148,14 +148,14 @@ type core struct {
 	futureRoundsChange map[int64]int64
 }
 
-func (c *core) GetCurrentHeightMessages() []*message{
+func (c *core) GetCurrentHeightMessages() []*message {
 	c.currentHeightOldRoundsStatesMu.RLock()
 	defer c.currentHeightOldRoundsStatesMu.RUnlock()
-	result := make([]*message,0)
+	result := make([]*message, 0)
 	for _, state := range c.currentHeightOldRoundsStates {
-		result = append(result, state.GetMessages() ...)
+		result = append(result, state.GetMessages()...)
 	}
-	result = append(result, c.currentRoundState.GetMessages() ...)
+	result = append(result, c.currentRoundState.GetMessages()...)
 	return result
 }
 

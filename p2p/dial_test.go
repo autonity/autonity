@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/p2p/enr"
 	"github.com/clearmatics/autonity/p2p/netutil"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func init() {

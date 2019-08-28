@@ -126,7 +126,7 @@ func TestTendermintStartStop(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:      "one node stops for 5 seconds",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -140,7 +140,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "one node stops for 10 seconds",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -154,7 +154,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "one node stops for 20 seconds",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -168,7 +168,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f node stop for 5 seconds at the same block",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -184,7 +184,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f node stop for 5 seconds at different blocks",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -200,7 +200,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f+1 node stop for 5 seconds at the same block",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -218,7 +218,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f+1 node stop for 5 seconds at different blocks",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -236,7 +236,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f node stop for 10 seconds at the same block",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -252,7 +252,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f node stop for 10 seconds at different blocks",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -268,7 +268,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f+1 node stop for 10 seconds at the same block",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -286,7 +286,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f+1 node stop for 10 seconds at different blocks",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -304,7 +304,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f node stop for 20 seconds at the same block",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -320,7 +320,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f node stop for 20 seconds at different blocks",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -336,7 +336,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f+1 node stop for 20 seconds at the same block",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -354,7 +354,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "f+1 node stop for 20 seconds at different blocks",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,

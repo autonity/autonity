@@ -31,12 +31,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/crypto/ecies"
 	"github.com/clearmatics/autonity/crypto/sha3"
 	"github.com/clearmatics/autonity/p2p/simulations/pipes"
 	"github.com/clearmatics/autonity/rlp"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestSharedSecret(t *testing.T) {

@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/crypto"
 	"math"
@@ -365,7 +364,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	pm.syncTransactions(p)
 
 	if pm.blockchain.Config().Tendermint != nil {
-		tdm := pm.blockchain.Engine().(tendermint.Backend)
+		tdm := pm.blockchain.Engine().(consensus.TDM)
 		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
 		tdm.ResetPeerCache(address)
 		tdm.SyncPeer(address)
