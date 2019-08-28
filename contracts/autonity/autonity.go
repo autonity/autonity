@@ -124,7 +124,7 @@ func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, 
 		accTypes,
 		participantStake,
 		chain.Config().Istanbul.AutonityContractConfig.Operator,
-		big.NewInt(chain.Config().Istanbul.AutonityContractConfig.MinGasPrice))
+		new(big.Int).SetUint64(chain.Config().Istanbul.AutonityContractConfig.MinGasPrice))
 	if err != nil {
 		return common.Address{}, err
 	}
