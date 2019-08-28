@@ -121,9 +121,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Broadcast transactions", "count", len(txs))
 
 		case prop := <-p.queuedProps:
-			fmt.Println("eth/peer.go:124 p.SendNewBlock", prop.td)
 			if err := p.SendNewBlock(prop.block, prop.td); err != nil {
-				fmt.Println("eth/peer.go:125 Err", err)
 				return
 			}
 			p.Log().Trace("Propagated block", "number", prop.block.Number(), "hash", prop.block.Hash(), "td", prop.td)
@@ -258,13 +256,10 @@ func (p *peer) SendNewBlock(block *types.Block, td *big.Int) error {
 // AsyncSendNewBlock queues an entire block for propagation to a remote peer. If
 // the peer's broadcast queue is full, the event is silently dropped.
 func (p *peer) AsyncSendNewBlock(block *types.Block, td *big.Int) {
-	fmt.Println("AsyncSendNewBlock", block.Number().String())
 	select {
 	case p.queuedProps <- &propEvent{block: block, td: td}:
-		fmt.Println("eth/peer.go:263 propEvent")
 		p.knownBlocks.Add(block.Hash())
 	default:
-		fmt.Println("eth/peer.go:266default")
 		p.Log().Debug("Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash())
 	}
 }
