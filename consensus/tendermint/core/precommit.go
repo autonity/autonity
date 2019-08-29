@@ -82,20 +82,22 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		if err == errOldRoundMessage {
 			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
 			// And we only process old rounds while future rounds messages are pushed on to the backlog
-			oldRoundState := c.currentHeightOldRoundsStates[preCommit.Round.Int64()]
-			c.acceptVote(&oldRoundState, precommit, preCommit.ProposedBlockHash, *msg)
+			oldRoundState := c.getOrCreateOldRoundState(preCommit.Round)
+			if err := c.verifyPrecommitCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash); err != nil {
+				return err
+			}
+			c.acceptVote(oldRoundState, precommit, preCommit.ProposedBlockHash, *msg)
 
 			// Check for old round precommit quorum
-			if c.Quorum(oldRoundState.Precommits.VotesSize(oldRoundState.GetCurrentProposalHash())) {
+			if c.CanDecide(oldRoundState) {
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
 				default:
-					c.commit()
+					c.commit(oldRoundState)
 				}
-
-				return nil
 			}
+			return nil
 		}
 
 		return err
@@ -116,8 +118,8 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
-	if curProposalHash != (common.Hash{}) && c.Quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
+
+	if c.CanDecide(c.currentRoundState) {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
 		}
@@ -127,7 +129,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			c.commit()
+			c.commit(c.currentRoundState)
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus

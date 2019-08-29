@@ -49,7 +49,9 @@ func (c *core) checkMessage(round *big.Int, height *big.Int) error {
 
 	if height.Cmp(c.currentRoundState.Height()) > 0 {
 		return errFutureHeightMessage
-	} else if height.Cmp(c.currentRoundState.Height()) < 0 {
+	} else if height.Cmp(c.currentRoundState.Height()) < 0 || c.currentRoundState.step == precommitDone {
+		// if the current step is precommitDone it means that a block proposal is
+		// currently in the fetcher pipeline soon to be inserted
 		return errOldHeightMessage
 	} else if round.Cmp(c.currentRoundState.Round()) > 0 {
 		return errFutureRoundMessage

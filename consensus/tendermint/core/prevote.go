@@ -68,10 +68,8 @@ func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 	if err = c.checkMessage(preVote.Round, preVote.Height); err != nil {
 		// Store old round prevote messages for future rounds since it is required for validRound
 		if err == errOldRoundMessage {
-			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
-			// And we only process old rounds while future rounds messages are pushed on to the backlog
-			oldRoundState := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
-			c.acceptVote(&oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
+			oldRoundState := c.getOrCreateOldRoundState(preVote.Round)
+			c.acceptVote(oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
 		}
 		return err
 	}

@@ -54,14 +54,6 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 
 	c.subscribeEvents()
 
-	// set currentRoundState before starting go routines
-	lastCommittedProposalBlock, _ := c.backend.LastCommittedProposal()
-	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
-	c.currentRoundState = NewRoundState(big.NewInt(0), height)
-
-	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
-	go c.handleNewUnminedBlockEvent(ctx)
-
 	//We want to sequentially handle all the event which modify the current consensus state
 	go c.handleConsensusEvents(ctx)
 
@@ -152,6 +144,9 @@ eventLoop:
 func (c *core) handleConsensusEvents(ctx context.Context) {
 	// Start a new round from last height + 1
 	c.startRound(ctx, common.Big0)
+
+	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
+	go c.handleNewUnminedBlockEvent(ctx)
 
 eventLoop:
 	for {

@@ -66,20 +66,41 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 		return errFailedDecodeProposal
 	}
 
+	oldRoundProposal := false
+	valSet := c.valSet
+	state := c.currentRoundState
 	// Ensure we have the same view with the Proposal message
 	if err := c.checkMessage(proposal.Round, proposal.Height); err != nil {
-		// We don't care about old proposals so they are ignored
-		return err
+		if err == errOldRoundMessage {
+			c.logger.Warn("Old round propose message received","round",proposal.Round.Uint64())
+			state = c.getOrCreateOldRoundState(proposal.Round)
+			//if we already had a proposal for this round, nothing should happen
+			//this should never happen in presence of honest validators
+			if state.proposal != nil {
+				c.logger.Warn("Processing already received propose message for this round")
+				return err
+			}
+			// check if the proposal was coming from the correct old round proposer
+			valSet = new(validatorSet)
+			valSet.set(c.valSet.Copy())
+			valSet.CalcProposer(c.lastProposer, proposal.Round.Uint64())
+			oldRoundProposal = true
+		} else {
+			return err
+		}
 	}
 
 	// Check if the message comes from currentRoundState proposer
-	if !c.valSet.IsProposer(msg.Address) {
+	if !valSet.IsProposer(msg.Address) {
 		c.logger.Warn("Ignore proposal messages from non-proposer")
 		return errNotFromProposer
 	}
 
 	// Verify the proposal we received
 	if duration, err := c.backend.VerifyProposal(*proposal.ProposalBlock); err != nil {
+		if oldRoundProposal {
+			return err
+		}
 		if timeoutErr := c.proposeTimeout.stopTimer(); timeoutErr != nil {
 			return timeoutErr
 		}
@@ -95,7 +116,7 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				_, sender := c.valSet.GetByAddress(msg.Address)
+				_, sender := valSet.GetByAddress(msg.Address)
 				c.sendEvent(backlogEvent{
 					src: sender,
 					msg: msg,
@@ -105,6 +126,18 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 		return err
 	}
 
+	if oldRoundProposal {
+		state.SetProposal(&proposal, msg)
+		if c.CanDecide(state) {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				c.commit(state)
+			}
+			return nil
+		}
+	}
 	// Here is about to accept the Proposal
 	if c.currentRoundState.Step() == propose {
 		if err := c.proposeTimeout.stopTimer(); err != nil {

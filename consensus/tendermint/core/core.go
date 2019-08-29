@@ -137,8 +137,9 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightOldRoundsStates   map[int64]roundState
+	currentHeightOldRoundsStates   map[int64]*roundState
 	currentHeightOldRoundsStatesMu sync.RWMutex
+	lastProposer                   common.Address
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -157,6 +158,16 @@ func (c *core) GetCurrentHeightMessages() []*message {
 	}
 	result = append(result, c.currentRoundState.GetMessages()...)
 	return result
+}
+
+func (c *core) getOrCreateOldRoundState(round *big.Int) *roundState {
+	state, ok := c.currentHeightOldRoundsStates[round.Int64()]
+	if ok {
+		return state
+	}
+	state = NewRoundState(c.currentRoundState.Height(), round)
+	c.currentHeightOldRoundsStates[round.Int64()] = state
+	return state
 }
 
 func (c *core) IsValidator(address common.Address) bool {
@@ -207,10 +218,10 @@ func (c *core) isProposer() bool {
 	return c.valSet.IsProposer(c.address)
 }
 
-func (c *core) commit() {
+func (c *core) commit(state *roundState) {
 	c.setStep(precommitDone)
 
-	proposal := c.currentRoundState.Proposal()
+	proposal := state.Proposal()
 
 	if proposal != nil {
 		if proposal.ProposalBlock != nil {
@@ -218,12 +229,12 @@ func (c *core) commit() {
 		} else {
 			log.Error("commit a NIL block",
 				"block", proposal.ProposalBlock,
-				"height", c.currentRoundState.height.String(),
-				"round", c.currentRoundState.round.String())
+				"height", state.height.String(),
+				"round", state.round.String())
 		}
 
-		committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
-		for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
+		committedSeals := make([][]byte, state.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
+		for i, v := range state.Precommits.Values(proposal.ProposalBlock.Hash()) {
 			committedSeals[i] = make([]byte, types.BFTExtraSeal)
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
@@ -290,7 +301,7 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 
 		// Assuming that round == 0 only when the node moves to a new height
 		// Therefore, resetting round related maps
-		c.currentHeightOldRoundsStates = make(map[int64]roundState)
+		c.currentHeightOldRoundsStates = make(map[int64]*roundState)
 		c.futureRoundsChange = make(map[int64]int64)
 	}
 	// Reset all timeouts
@@ -316,13 +327,11 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 	// Add a copy of c.currentRoundState to c.currentHeightOldRoundsStates and then update c.currentRoundState
 	// We only add old round prevote messages to c.currentHeightOldRoundsStates, while future messages are sent to the
 	// backlog which are processed when the step is set to propose
-	if r.Int64() > 0 {
-		// This is a shallow copy, should be fine for now
-		c.currentHeightOldRoundsStates[r.Int64()-1] = *c.currentRoundState
-	}
-	c.currentRoundState.Update(r, h)
+	c.currentRoundState = NewRoundState(r, h)
+	c.currentHeightOldRoundsStates[r.Int64()] = c.currentRoundState
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, r.Uint64())
+	c.lastProposer = lastProposer
 	c.sentProposal = false
 	c.sentPrevote = false
 	c.sentPrecommit = false
@@ -360,6 +369,13 @@ func (c *core) stopFutureProposalTimer() {
 
 func (c *core) Quorum(i int) bool {
 	return float64(i) >= math.Ceil(float64(2)/float64(3)*float64(c.valSet.Size()))
+}
+
+func (c *core) CanDecide(state *roundState) bool {
+	if state.proposal.ProposalBlock == nil {
+		return false
+	}
+	return c.Quorum(state.Precommits.VotesSize(state.GetCurrentProposalHash()))
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash
