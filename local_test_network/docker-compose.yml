@@ -6,6 +6,8 @@ services:
       dockerfile: "./local_test_network/Dockerfile"
     image: autonity:local_test_network
     volumes:
+      - ./autonity-data1/:/autonity-data
+      - ./logs1.log:/logs.log
       - ./nodekey1:/nodekey:ro
       - ./keystore:/keystore:ro
       - ./genesis.json:/genesis.json:ro
@@ -25,6 +27,8 @@ services:
       dockerfile: "./local_test_network/Dockerfile"
     image: autonity:local_test_network
     volumes:
+      - ./autonity-data1/:/autonity-data
+      - ./logs1.log:/logs.log
       - ./nodekey2:/nodekey:ro
       - ./keystore:/keystore:ro
       - ./genesis.json:/genesis.json:ro
@@ -44,6 +48,8 @@ services:
       dockerfile: "./local_test_network/Dockerfile"
     image: autonity:local_test_network
     volumes:
+      - ./autonity-data1/:/autonity-data
+      - ./logs1.log:/logs.log
       - ./nodekey3:/nodekey:ro
       - ./keystore:/keystore:ro
       - ./genesis.json:/genesis.json:ro
@@ -63,6 +69,8 @@ services:
       dockerfile: "./local_test_network/Dockerfile"
     image: autonity:local_test_network
     volumes:
+      - ./autonity-data1/:/autonity-data
+      - ./logs1.log:/logs.log
       - ./nodekey4:/nodekey:ro
       - ./keystore:/keystore:ro
       - ./genesis.json:/genesis.json:ro
@@ -82,6 +90,8 @@ services:
       dockerfile: "./local_test_network/Dockerfile"
     image: autonity:local_test_network
     volumes:
+      - ./autonity-data1/:/autonity-data
+      - ./logs1.log:/logs.log
       - ./nodekey5:/nodekey:ro
       - ./keystore:/keystore:ro
       - ./genesis.json:/genesis.json:ro
