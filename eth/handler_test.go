@@ -482,17 +482,16 @@ func testDAOChallenge(t *testing.T, localForked, remoteForked bool, timeout bool
 		gspec  = &core.Genesis{Config: config}
 	)
 	p2pPeer := newTestP2PPeer("peer")
-	config.Istanbul = &params.IstanbulConfig{
-		AutonityContractConfig: &params.AutonityContractGenesis{
-			Users: []params.User{
-				{
-					Enode: p2pPeer.Info().Enode,
-					Type:  params.UserValidator,
-				},
+	config.AutonityContractConfig = &params.AutonityContractGenesis{
+		Users: []params.User{
+			{
+				Enode: p2pPeer.Info().Enode,
+				Type:  params.UserValidator,
 			},
 		},
 	}
-	if err := config.Istanbul.AutonityContractConfig.AddDefault().Validate(); err != nil {
+
+	if err := config.AutonityContractConfig.AddDefault().Validate(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -578,15 +577,14 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		config = &params.ChainConfig{}
 		gspec  = &core.Genesis{Config: config}
 	)
-	config.Istanbul = &params.IstanbulConfig{
-		AutonityContractConfig: &params.AutonityContractGenesis{},
-	}
+	config.AutonityContractConfig = &params.AutonityContractGenesis{}
+	config.Istanbul = &params.IstanbulConfig{}
 
 	p2pPeers := make([]*p2p.Peer, totalPeers)
 	for i := 0; i < totalPeers; i++ {
 		p2pPeers[i] = newTestP2PPeer(fmt.Sprintf("peer %d", i))
-		config.Istanbul.AutonityContractConfig.Users = append(
-			config.Istanbul.AutonityContractConfig.Users,
+		config.AutonityContractConfig.Users = append(
+			config.AutonityContractConfig.Users,
 			params.User{
 				Enode: p2pPeers[i].Info().Enode,
 				Type:  params.UserValidator,
@@ -594,7 +592,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 			},
 		)
 	}
-	if err := config.Istanbul.AutonityContractConfig.AddDefault().Validate(); err != nil {
+	if err := config.AutonityContractConfig.AddDefault().Validate(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -629,7 +627,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	doneCh := make(chan struct{}, totalPeers)
 	for _, peer := range peers {
 		go func(p *testPeer) {
-			if err := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: new(big.Int).Add(genesis.Difficulty(),chain[0].Difficulty())}); err != nil {
+			if err := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: new(big.Int).Add(genesis.Difficulty(), chain[0].Difficulty())}); err != nil {
 				t.Log("eth/handler_test.go:635 p2p.ExpectMsg err", err)
 				errCh <- err
 			} else {

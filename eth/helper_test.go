@@ -60,15 +60,13 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
 		}
 	)
-	gspec.Config.Istanbul = &params.IstanbulConfig{
-		AutonityContractConfig: &params.AutonityContractGenesis{
-			Users: []params.User{},
-		},
+	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{
+		Users: []params.User{},
 	}
 
 	for i := range peers {
-		gspec.Config.Istanbul.AutonityContractConfig.Users = append(
-			gspec.Config.Istanbul.AutonityContractConfig.Users,
+		gspec.Config.AutonityContractConfig.Users = append(
+			gspec.Config.AutonityContractConfig.Users,
 			params.User{
 				Enode: peers[i],
 				Type:  params.UserValidator,
@@ -76,7 +74,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			},
 		)
 	}
-	err := gspec.Config.Istanbul.AutonityContractConfig.AddDefault().Validate()
+	err := gspec.Config.AutonityContractConfig.AddDefault().Validate()
 	if err != nil {
 		return nil, nil, err
 	}

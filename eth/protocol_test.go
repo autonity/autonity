@@ -143,17 +143,15 @@ func testSendTransactions(t *testing.T, protocol int) {
 		config = &params.ChainConfig{}
 		gspec  = &core.Genesis{Config: config}
 	)
-	config.Istanbul = &params.IstanbulConfig{
-		AutonityContractConfig: &params.AutonityContractGenesis{},
-	}
+	config.AutonityContractConfig = &params.AutonityContractGenesis{}
 
 	totalPeers := 3
 	var p2pPeers []*p2p.Peer
 	for i := 0; i < totalPeers; i++ {
 		p2pPeers = append(p2pPeers, newTestP2PPeer(fmt.Sprintf("peer %d", i)))
 
-		config.Istanbul.AutonityContractConfig.Users = append(
-			config.Istanbul.AutonityContractConfig.Users,
+		config.AutonityContractConfig.Users = append(
+			config.AutonityContractConfig.Users,
 			params.User{
 				Enode: p2pPeers[i].Info().Enode,
 				Type:  params.UserValidator,
@@ -161,7 +159,7 @@ func testSendTransactions(t *testing.T, protocol int) {
 			},
 		)
 	}
-	err := gspec.Config.Istanbul.AutonityContractConfig.AddDefault().Validate()
+	err := gspec.Config.AutonityContractConfig.AddDefault().Validate()
 	if err != nil {
 		t.Fatal(err)
 	}
