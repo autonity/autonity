@@ -120,7 +120,7 @@ func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, 
 		accTypes,
 		participantStake,
 		chain.Config().AutonityContractConfig.Operator,
-		big.NewInt(chain.Config().AutonityContractConfig.MinGasPrice))
+		new(big.Int).SetUint64(chain.Config().AutonityContractConfig.MinGasPrice))
 	if err != nil {
 		return common.Address{}, err
 	}

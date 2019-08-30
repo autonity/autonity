@@ -36,7 +36,7 @@ type AutonityContractGenesis struct {
 	Bytecode string `json:"bytecode" toml:",omitempty"`
 	// Json ABI of the contract
 	ABI         string         `json:"abi "toml:",omitempty"`
-	MinGasPrice int64          `json:"minGasPrice" toml:",omitempty"`
+	MinGasPrice uint64          `json:"minGasPrice" toml:",omitempty"`
 	Operator    common.Address `json:"operator" toml:",omitempty"`
 	Users       []User         `json:"users" "toml:",omitempty"`
 }
