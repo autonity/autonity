@@ -87,9 +87,9 @@ func (ac *AutonityContract) getEVM(header *types.Header, origin common.Address, 
 // deployContract deploys the contract contained within the genesis field bytecode
 func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error) {
 	// Convert the contract bytecode from hex into bytes
-	contractBytecode := common.Hex2Bytes(chain.Config().Istanbul.AutonityContractConfig.Bytecode)
-	evm := ac.getEVM(header, chain.Config().Istanbul.AutonityContractConfig.Deployer, statedb)
-	sender := vm.AccountRef(chain.Config().Istanbul.AutonityContractConfig.Deployer)
+	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
+	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
+	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
 
 	//todo do we need it?
 	//validators, err = ac.SavedValidatorsRetriever(1)
@@ -97,17 +97,17 @@ func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, 
 
 	//We need to append to data the constructor's parameters
 	//That should always be genesis validators
-	contractABI, err := abi.JSON(strings.NewReader(chain.Config().Istanbul.AutonityContractConfig.ABI))
+	contractABI, err := abi.JSON(strings.NewReader(chain.Config().AutonityContractConfig.ABI))
 	if err != nil {
 		return common.Address{}, err
 	}
 
-	ln := len(chain.Config().Istanbul.AutonityContractConfig.GetValidatorUsers())
+	ln := len(chain.Config().AutonityContractConfig.GetValidatorUsers())
 	validators := make(common.Addresses, 0, ln)
 	enodes := make([]string, 0, ln)
 	accTypes := make([]*big.Int, 0, ln)
 	participantStake := make([]*big.Int, 0, ln)
-	for _, v := range chain.Config().Istanbul.AutonityContractConfig.GetValidatorUsers() {
+	for _, v := range chain.Config().AutonityContractConfig.GetValidatorUsers() {
 		validators = append(validators, v.Address)
 		enodes = append(enodes, v.Enode)
 		accTypes = append(accTypes, big.NewInt(int64(v.Type)))
@@ -119,8 +119,8 @@ func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, 
 		enodes,
 		accTypes,
 		participantStake,
-		chain.Config().Istanbul.AutonityContractConfig.Operator,
-		big.NewInt(chain.Config().Istanbul.AutonityContractConfig.MinGasPrice))
+		chain.Config().AutonityContractConfig.Operator,
+		big.NewInt(chain.Config().AutonityContractConfig.MinGasPrice))
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -141,10 +141,10 @@ func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, 
 }
 
 func (ac *AutonityContract) ContractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
-	sender := vm.AccountRef(chain.Config().Istanbul.AutonityContractConfig.Deployer)
+	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
 	gas := uint64(0xFFFFFFFF)
-	evm := ac.getEVM(header, chain.Config().Istanbul.AutonityContractConfig.Deployer, statedb)
-	contractABI, err := abi.JSON(strings.NewReader(chain.Config().Istanbul.AutonityContractConfig.ABI))
+	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
+	contractABI, err := abi.JSON(strings.NewReader(chain.Config().AutonityContractConfig.ABI))
 	if err != nil {
 		return nil, err
 	}
@@ -207,8 +207,8 @@ func (ac *AutonityContract) GetWhitelist(block *types.Block, db *state.StateDB) 
 
 func (ac *AutonityContract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
 	// Needs to be refactored somehow
-	deployer := ac.bc.Config().Istanbul.AutonityContractConfig.Deployer
-	var contractABI = ac.bc.Config().Istanbul.AutonityContractConfig.ABI
+	deployer := ac.bc.Config().AutonityContractConfig.Deployer
+	var contractABI = ac.bc.Config().AutonityContractConfig.ABI
 
 	sender := vm.AccountRef(deployer)
 	gas := uint64(0xFFFFFFFF)

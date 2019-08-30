@@ -55,7 +55,7 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 
 // Get Soma contract ABI
 func (api *API) GetContractABI() string {
-	return api.chain.Config().Istanbul.AutonityContractConfig.ABI
+	return api.chain.Config().AutonityContractConfig.ABI
 }
 
 // Get Autonity contract address

@@ -293,9 +293,9 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	if g.Config.Istanbul != nil && g.Config.Istanbul.AutonityContractConfig != nil {
+	if g.Config.AutonityContractConfig != nil {
 		enodes := []string{}
-		for _, v := range g.Config.Istanbul.AutonityContractConfig.Users {
+		for _, v := range g.Config.AutonityContractConfig.Users {
 			if v.Enode != "" {
 				enodes = append(enodes, v.Enode)
 			}
@@ -309,9 +309,9 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 
 //setIstanbul sets default Istanbul config values
 func (g *Genesis) setIstanbul() error {
-	if g.Config.Istanbul != nil && g.Config.Istanbul.AutonityContractConfig != nil {
+	if g.Config.Istanbul != nil && g.Config.AutonityContractConfig != nil {
 		var validators []string
-		for _, v := range g.Config.Istanbul.AutonityContractConfig.Users {
+		for _, v := range g.Config.AutonityContractConfig.Users {
 			validators = append(validators, v.Address.String())
 		}
 

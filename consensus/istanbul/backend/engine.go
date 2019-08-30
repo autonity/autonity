@@ -361,7 +361,7 @@ func (sb *backend) getValidators(header *types.Header, chain consensus.ChainRead
 	var err error
 
 	if header.Number.Int64() == 1 {
-		log.Info("Autonity Contract Deployer", "Address", chain.Config().Istanbul.AutonityContractConfig.Deployer)
+		log.Info("Autonity Contract Deployer", "Address", chain.Config().AutonityContractConfig.Deployer)
 
 		sb.blockchain.AutonityContract.SavedValidatorsRetriever = func(i uint64) (addresses []common.Address, e error) {
 			chain := chain
@@ -379,7 +379,7 @@ func (sb *backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 	} else {
 		if sb.autonityContractAddress == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.autonityContractAddress = crypto.CreateAddress(chain.Config().Istanbul.AutonityContractConfig.Deployer, 0)
+			sb.autonityContractAddress = crypto.CreateAddress(chain.Config().AutonityContractConfig.Deployer, 0)
 		}
 		validators, err = sb.blockchain.AutonityContract.ContractGetValidators(chain, header, state)
 		if err != nil {
