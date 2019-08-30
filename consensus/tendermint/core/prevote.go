@@ -55,7 +55,7 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 		Msg:           encodedVote,
 		Address:       c.address,
 		CommittedSeal: []byte{},
-	})
+	}, prevote.Height, prevote.Round)
 }
 
 func (c *core) handlePrevote(ctx context.Context, msg *message) error {

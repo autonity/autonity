@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/clearmatics/autonity/consensus/tendermint/wal"
 	"math"
 	"math/big"
 	"sync"
@@ -78,7 +79,7 @@ func New(backend Backend, config *config.Config) *core {
 		backlogs:              make(map[validator.Validator]*prque.Prque),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
-		stopped:               make(chan struct{}, 3),
+		stopped:               make(chan struct{}, 4),
 		isStarting:            new(uint32),
 		isStarted:             new(uint32),
 		isStopping:            new(uint32),
@@ -138,6 +139,8 @@ type core struct {
 
 	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
 	futureRoundsChange map[int64]int64
+
+	wal *wal.WAL
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
@@ -162,12 +165,19 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	return payload, nil
 }
 
-func (c *core) broadcast(ctx context.Context, msg *message) {
+func (c *core) broadcast(ctx context.Context, msg *message, h *big.Int, r *big.Int) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
 		logger.Error("Failed to finalize message", "msg", msg, "err", err)
+		return
+	}
+
+	// store message into wal
+	err = c.wal.Store(&walMessage{msg, payload, h, r})
+	if err != nil {
+		logger.Error("Failed to store message in WAL", "msg", msg, "height", h.String(), "round", r.String(), "err", err)
 		return
 	}
 
@@ -296,7 +306,16 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		// This is a shallow copy, should be fine for now
 		c.currentHeightOldRoundsStates[r.Int64()-1] = *c.currentRoundState
 	}
+
 	c.currentRoundState.Update(r, h)
+
+	err := c.wal.UpdateHeight(h)
+	if err != nil {
+		c.logger.Error("Starting new WAL with error", "Height", h, "Round", r, "err", err)
+	} else {
+		c.logger.Warn("Starting new WAL", "Height", h, "Round", r)
+	}
+
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, r.Uint64())
 	c.sentProposal = false

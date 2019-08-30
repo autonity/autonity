@@ -55,7 +55,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 			Msg:           proposal,
 			Address:       c.address,
 			CommittedSeal: []byte{},
-		})
+		}, c.currentRoundState.Height(), c.currentRoundState.Round())
 	}
 }
 

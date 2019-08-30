@@ -18,14 +18,17 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync/atomic"
+	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/consensus/tendermint/wal"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 )
@@ -59,11 +62,17 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 	c.currentRoundState = NewRoundState(big.NewInt(0), height)
 
-	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
+	// set wal
+	c.wal = wal.New("wal", height)
+
+	// We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent(ctx)
 
-	//We want to sequentially handle all the event which modify the current consensus state
+	// We want to sequentially handle all the event which modify the current consensus state
 	go c.handleConsensusEvents(ctx)
+
+	// We also want a separate routine to handle the resending of messages from wal
+	go c.handleRecoverConsensusFromWal(ctx)
 
 	return nil
 }
@@ -91,9 +100,12 @@ func (c *core) Stop() error {
 
 	c.cancel()
 
+	c.wal.Close()
+
 	c.stopFutureProposalTimer()
 	c.unsubscribeEvents()
 
+	<-c.stopped
 	<-c.stopped
 	<-c.stopped
 
@@ -218,6 +230,68 @@ eventLoop:
 	}
 
 	c.stopped <- struct{}{}
+}
+
+func (c *core) handleRecoverConsensusFromWal(ctx context.Context) {
+	ticker := time.NewTicker(time.Second * time.Duration(c.config.RequestTimeout/1000))
+	defer ticker.Stop()
+
+	currentHeight := new(big.Int).Set(c.currentRoundState.Height())
+	currentRound := new(big.Int).Set(c.currentRoundState.Round())
+
+	firstRun := make(chan struct{}, 1)
+	firstRun <- struct{}{}
+
+	// once in a while check height/round and if it's dont change - get messages from WAL and send them again
+	for {
+		select {
+		case <-ctx.Done():
+			c.stopped <- struct{}{}
+			return
+
+		case <-firstRun:
+		case <-ticker.C:
+		}
+
+		// firstRun and ticker cases
+		height := c.currentRoundState.Height()
+		round := c.currentRoundState.Round()
+
+		c.logger.Info("WAL", "height", c.currentRoundState.Height().String(), "round", c.currentRoundState.Round().String(), "currentHeight", currentHeight.String(), "currentRound", currentRound.String())
+		if height.Cmp(currentHeight) != 0 {
+			// if height is changing the consensus is running
+			currentHeight.Set(height)
+			currentRound.Set(round)
+			continue
+		}
+
+		if round.Cmp(currentRound) != 0 {
+			// if round is changing the consensus is running
+			currentRound.Set(round)
+			continue
+		}
+
+		c.resendFromWAL(ctx, height, round)
+	}
+}
+
+func (c *core) resendFromWAL(ctx context.Context, height *big.Int, round fmt.Stringer) {
+	pastMessages, err := c.wal.Get(height)
+	if err != nil {
+		c.logger.Info("WAL: cant get messages", "height", height.String(), "round", round.String(), "err", err.Error())
+		return
+	}
+
+	c.logger.Warn("WAL: broadcasting", "height", c.currentRoundState.Height().String(), "round", c.currentRoundState.Round().String(), "currentHeight", height.String(), "currentRound", round.String(), "msg", len(pastMessages))
+
+	for _, msg := range pastMessages {
+		c.logger.Debug("WAL: broadcasting message", "height", height.String(), "round", round.String(), "msg", msg)
+
+		if err = c.backend.Broadcast(ctx, c.valSet.Copy(), msg); err != nil {
+			c.logger.Error("WAL: failed to broadcast message", "height", height.String(), "round", round.String(), "msg", msg, "err", err)
+			continue
+		}
+	}
 }
 
 // sendEvent sends event to mux

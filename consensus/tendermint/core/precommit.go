@@ -67,7 +67,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	}
 
 	c.sentPrecommit = true
-	c.broadcast(ctx, msg)
+	c.broadcast(ctx, msg, precommit.Height, precommit.Round)
 }
 
 func (c *core) handlePrecommit(ctx context.Context, msg *message) error {

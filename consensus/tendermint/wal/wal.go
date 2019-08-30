@@ -32,7 +32,7 @@ var currentHeightKey = []byte("current_height")
 const keysPrefix = "height-"
 
 func New(basedir string, height *big.Int) *WAL {
-	db, err := getDB(basedir, height)
+	db, err := getDb(basedir, height)
 	if err != nil {
 		panic(err)
 	}
@@ -48,7 +48,7 @@ func New(basedir string, height *big.Int) *WAL {
 	return wal
 }
 
-func getDB(basedir string, height fmt.Stringer) (*ethdb.LDBDatabase, error) {
+func getDb(basedir string, height fmt.Stringer) (*ethdb.LDBDatabase, error) {
 	return ethdb.NewLDBDatabase(getDir(basedir, height), 128, 1024)
 }
 
@@ -85,14 +85,14 @@ func (db *WAL) UpdateHeight(height *big.Int) error {
 
 	log.Info("WAL: get height", "base", db.baseDir, "asked", height.String(), "current", db.height.String())
 
-	newDB, err := getDB(db.baseDir, height)
+	newDB, err := getDb(db.baseDir, height)
 	if err != nil {
 		return err
 	}
 
-	//close old db
-	db.db.Close()
+	// close old db
 	db.m.Lock()
+	db.db.Close()
 
 	db.db = newDB
 	db.cache = make(map[string]struct{})
