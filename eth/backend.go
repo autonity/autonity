@@ -20,12 +20,8 @@ package eth
 import (
 	"errors"
 	"fmt"
-	istanbulBackend "github.com/clearmatics/autonity/consensus/istanbul/backend"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
+	"path"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -36,11 +32,16 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/clique"
 	"github.com/clearmatics/autonity/consensus/ethash"
+	istanbulBackend "github.com/clearmatics/autonity/consensus/istanbul/backend"
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/bloombits"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/eth/filters"
 	"github.com/clearmatics/autonity/eth/gasprice"
@@ -51,6 +52,7 @@ import (
 	"github.com/clearmatics/autonity/miner"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/clearmatics/autonity/rpc"
@@ -122,6 +124,11 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 		log.Warn("Sanitizing invalid miner gas price", "provided", config.MinerGasPrice, "updated", DefaultConfig.MinerGasPrice)
 		config.MinerGasPrice = new(big.Int).Set(DefaultConfig.MinerGasPrice)
 	}
+
+	if config.Tendermint.WALDir == "" {
+		config.Tendermint.WALDir = path.Join(ctx.DataDir(), tendermintConfig.DefaultConfig().WALDir)
+	}
+
 	// Assemble the Ethereum object
 	chainDb, err := CreateDB(ctx, config, "chaindata")
 	if err != nil {
@@ -266,7 +273,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 	}
 	if chainConfig.Tendermint != nil {
 		back := tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, chainConfig, vmConfig)
-		return tendermintCore.New(back, &config.Tendermint)
+		return tendermintCore.New(back, &config.Tendermint, nil)
 	}
 
 	// Otherwise assume proof-of-work

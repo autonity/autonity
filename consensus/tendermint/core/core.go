@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/clearmatics/autonity/consensus/tendermint/wal"
 	"math"
 	"math/big"
 	"sync"
@@ -70,7 +69,7 @@ var (
 )
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config) *core {
+func New(backend Backend, config *config.Config, wal WAL) *core {
 	return &core{
 		config:                config,
 		address:               backend.Address(),
@@ -86,6 +85,7 @@ func New(backend Backend, config *config.Config) *core {
 		isStopped:             new(uint32),
 		valSet:                new(validatorSet),
 		futureRoundsChange:    make(map[int64]int64),
+		wal:                   wal,
 	}
 }
 
@@ -140,7 +140,7 @@ type core struct {
 	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
 	futureRoundsChange map[int64]int64
 
-	wal *wal.WAL
+	wal WAL
 }
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {

@@ -62,8 +62,9 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 	c.currentRoundState = NewRoundState(big.NewInt(0), height)
 
-	// set wal
-	c.wal = wal.New("wal", height)
+	if c.wal == nil {
+		c.wal = wal.New(c.config.WALDir, height)
+	}
 
 	// We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent(ctx)
