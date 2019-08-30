@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"math/big"
 	"reflect"
 	"testing"
@@ -36,26 +37,31 @@ import (
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
+	"github.com/pkg/errors"
 )
 
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
-func newBlockChain(n int) (*core.BlockChain, *backend) {
-	genesis, nodeKeys := getGenesisAndKeys(n)
+func newBlockChain(n int) (*core.BlockChain, *backend, error) {
+	genesis, nodeKeys, err := getGenesisAndKeys(n)
+	if err != nil {
+		return nil, nil, err
+	}
 	memDB := ethdb.NewMemDatabase()
 	config := istanbul.DefaultConfig
+
 	// Use the first key as private key
 	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{}).(*backend)
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 	b.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
 	validators := b.Validators(0)
 	if validators.Size() == 0 {
-		panic("failed to get validators")
+		return nil, nil, errors.New("failed to get validators")
 	}
 	proposerAddr := validators.GetProposer().Address()
 
@@ -68,10 +74,10 @@ func newBlockChain(n int) (*core.BlockChain, *backend) {
 		}
 	}
 
-	return blockchain, b
+	return blockchain, b, nil
 }
 
-func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
+func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, error) {
 	// Setup validators
 	var nodeKeys = make([]*ecdsa.PrivateKey, n)
 	var addrs = make([]common.Address, n)
@@ -83,15 +89,21 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.Config = params.TestChainConfig
+
 	// force enable Istanbul engine
 	genesis.Config.Istanbul = &params.IstanbulConfig{}
+	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.IstanbulDigest
 
 	AppendValidators(genesis, addrs)
-	return genesis, nodeKeys
+	err := genesis.Config.AutonityContractConfig.AddDefault().Validate()
+	if err != nil {
+		return nil, nil, err
+	}
+	return genesis, nodeKeys, nil
 }
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
@@ -112,16 +124,28 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 		panic("failed to encode istanbul extra")
 	}
 	genesis.ExtraData = append(genesis.ExtraData, istPayload...)
+
+	for i := range addrs {
+		genesis.Config.AutonityContractConfig.Users = append(
+			genesis.Config.AutonityContractConfig.Users,
+			params.User{
+				Address: addrs[i],
+				Type:    params.UserValidator,
+				Enode:   ENODE_STUB,
+				Stake:   100,
+			})
+	}
+
 }
 
-func makeHeader(parent *types.Block, config *istanbul.Config) *types.Header {
+func makeHeader(parent *types.Block, blockPeriod uint64) *types.Header {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, 8000000, 8000000),
 		GasUsed:    0,
 		Extra:      parent.Extra(),
-		Time:       new(big.Int).Add(parent.Time(), new(big.Int).SetUint64(config.BlockPeriod)),
+		Time:       new(big.Int).Add(parent.Time(), new(big.Int).SetUint64(blockPeriod)),
 		Difficulty: defaultDifficulty,
 	}
 	return header
@@ -140,7 +164,8 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*t
 }
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
-	header := makeHeader(parent, engine.config)
+	header := makeHeader(parent, engine.config.BlockPeriod)
+
 	engine.Prepare(chain, header)
 	state, err := chain.StateAt(parent.Root())
 	block, _ := engine.Finalize(chain, header, state, nil, nil, nil)
@@ -158,9 +183,12 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types
 }
 
 func TestPrepare(t *testing.T) {
-	chain, engine := newBlockChain(1)
-	header := makeHeader(chain.Genesis(), engine.config)
-	err := engine.Prepare(chain, header)
+	chain, engine, err := newBlockChain(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	header := makeHeader(chain.Genesis(), engine.config.BlockPeriod)
+	err = engine.Prepare(chain, header)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
@@ -172,8 +200,10 @@ func TestPrepare(t *testing.T) {
 }
 
 func TestSealCommittedOtherHash(t *testing.T) {
-	chain, engine := newBlockChain(4)
-
+	chain, engine, err := newBlockChain(4)
+	if err != nil {
+		t.Fatal(err)
+	}
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	if err != nil {
 		t.Fatal(err)
@@ -208,7 +238,10 @@ func TestSealCommittedOtherHash(t *testing.T) {
 }
 
 func TestSealCommitted(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine, err := newBlockChain(1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	if err != nil {
 		t.Fatal(err)
@@ -227,7 +260,10 @@ func TestSealCommitted(t *testing.T) {
 }
 
 func TestVerifyHeader(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine, err := newBlockChain(1)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// errEmptyCommittedSeals case
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -329,10 +365,13 @@ func TestVerifyHeader(t *testing.T) {
 }
 
 func TestVerifySeal(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine, err := newBlockChain(1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	genesis := chain.Genesis()
 	// cannot verify genesis
-	err := engine.VerifySeal(chain, genesis.Header())
+	err = engine.VerifySeal(chain, genesis.Header())
 	if err != errUnknownBlock {
 		t.Errorf("error mismatch: have %v, want %v", err, errUnknownBlock)
 	}
@@ -361,14 +400,16 @@ func TestVerifySeal(t *testing.T) {
 
 /* The logic of this needs to change with respect of Soma */
 func TestVerifyHeaders(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine, err := newBlockChain(1)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// success case
 	headers := []*types.Header{}
 	blocks := []*types.Block{}
 	size := 100
 
-	var err error
 	for i := 0; i < size; i++ {
 		var b *types.Block
 		if i == 0 {
@@ -585,5 +626,33 @@ func TestWriteCommittedSeals(t *testing.T) {
 	err = types.WriteCommittedSeals(h, [][]byte{unexpectedCommittedSeal})
 	if err != types.ErrInvalidCommittedSeals {
 		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidCommittedSeals)
+	}
+}
+
+const ENODE_STUB = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
+
+func TestValidatorsSaved(t *testing.T) {
+	chain, _, err := newBlockChain(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := makeHeader(chain.Genesis(), 10)
+	sdb, err := chain.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = chain.AutonityContract.DeployAutonityContract(chain, h, sdb)
+	if err != nil {
+		t.Log(string(autonity.Sl.Output()))
+		t.Fatal(err)
+	}
+
+	res, err := chain.AutonityContract.ContractGetValidators(chain, h, sdb)
+	if err != nil {
+		t.Log(string(autonity.Sl.Output()))
+		t.Fatal(err)
+	}
+	if len(res) == 0 {
+		t.FailNow()
 	}
 }

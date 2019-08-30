@@ -504,7 +504,7 @@ func (srv *Server) Start() (err error) {
 	} else {
 		// Discovery protocol is disabled for consortium chains.
 		// Bootnodes are disabled.
-		// Static nodes logic is used to handle the Glienicke returned Whitelist and will be populated via the eth service.
+		// Static nodes logic is used to handle returned Whitelist and will be populated via the eth service.
 		log.Info("Private-network mode enabled.")
 		srv.NoDiscovery = true
 		srv.StaticNodes = nil

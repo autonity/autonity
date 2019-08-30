@@ -137,21 +137,34 @@ func TestSendTransactions63(t *testing.T) { testSendTransactions(t, 63) }
 
 func testSendTransactions(t *testing.T, protocol int) {
 	var (
-		evmux   = new(event.TypeMux)
-		pow     = ethash.NewFaker()
-		db      = ethdb.NewMemDatabase()
-		config  = &params.ChainConfig{}
-		gspec   = &core.Genesis{Config: config}
+		evmux  = new(event.TypeMux)
+		pow    = ethash.NewFaker()
+		db     = ethdb.NewMemDatabase()
+		config = &params.ChainConfig{}
+		gspec  = &core.Genesis{Config: config}
 	)
-
-	var p2pPeers []*p2p.Peer
-	var enodes []string
-	for i := 0; i < 3; i++ {
-		p2pPeers = append(p2pPeers, newTestP2PPeer(fmt.Sprintf("peer #%d", i)))
-		enodes = append(enodes, p2pPeers[i].Info().Enode)
+	config.Istanbul = &params.IstanbulConfig{
+		AutonityContractConfig: &params.AutonityContractGenesis{},
 	}
 
-	gspec.Config.EnodeWhitelist = enodes
+	totalPeers := 3
+	var p2pPeers []*p2p.Peer
+	for i := 0; i < totalPeers; i++ {
+		p2pPeers = append(p2pPeers, newTestP2PPeer(fmt.Sprintf("peer %d", i)))
+
+		config.Istanbul.AutonityContractConfig.Users = append(
+			config.Istanbul.AutonityContractConfig.Users,
+			params.User{
+				Enode: p2pPeers[i].Info().Enode,
+				Type:  params.UserValidator,
+				Stake: 100,
+			},
+		)
+	}
+	err := gspec.Config.Istanbul.AutonityContractConfig.AddDefault().Validate()
+	if err != nil {
+		t.Fatal(err)
+	}
 	gspec.MustCommit(db)
 
 	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{}, nil)

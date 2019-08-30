@@ -1,23 +1,24 @@
-package core
+package params
 
 import (
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"reflect"
 )
 
 const (
 	//participant: Authorized to operate a full node, is able to join the network, is not authorized to own stake.
-	UserParticipant UserType = "participant"
+	UserParticipant UserType = iota
 	//member: Authorized to operate a full node, is able to join the network, authorized to own stake.
-	UserStakeHolder UserType = "stakeholder"
+	UserStakeHolder
 	//validator: Authorized to operate a full node, is able to join the network, authorized to own stake, participate in consensus.
-	UserValidator UserType = "validator"
+	UserValidator
 )
 
-type UserType string
+type UserType int
 
 func (ut UserType) IsValid() bool {
 	if ut == UserStakeHolder || ut == UserValidator || ut == UserParticipant {
@@ -27,19 +28,45 @@ func (ut UserType) IsValid() bool {
 }
 
 // Autonity contract config. It'is used for deployment.
-type AutonityContract struct {
+type AutonityContractGenesis struct {
 	// Address of the validator who deploys contract stored in bytecode
 	Deployer common.Address `json:"deployer" toml:",omitempty"`
-	// Bytecode of validators contract // would like this type to be []byte but the unmarshalling is not working
+	// Bytecode of validators contract
+	// would like this type to be []byte but the unmarshalling is not working
 	Bytecode string `json:"bytecode" toml:",omitempty"`
 	// Json ABI of the contract
 	ABI         string         `json:"abi "toml:",omitempty"`
-	MinGasPrice uint64         `json:"minGasPrice" toml:",omitempty"`
+	MinGasPrice uint64          `json:"minGasPrice" toml:",omitempty"`
 	Operator    common.Address `json:"operator" toml:",omitempty"`
 	Users       []User         `json:"users" "toml:",omitempty"`
 }
 
-func (ac *AutonityContract) Validate() error {
+func (ac *AutonityContractGenesis) AddDefault() *AutonityContractGenesis {
+	if len(ac.Bytecode) == 0 || len(ac.ABI) == 0 {
+		log.Info("Default Validator smart contract set")
+		ac.ABI = DefaultABI
+		ac.Bytecode = DefaultBytecode
+	} else {
+		log.Info("User specified Validator smart contract set")
+	}
+	if reflect.DeepEqual(ac.Deployer, common.Address{}) {
+		ac.Deployer = DefaultDeployer
+	}
+
+	if reflect.DeepEqual(ac.Operator, common.Address{}) {
+		ac.Operator = DefaultGovernance
+	}
+
+	for i := range ac.Users {
+		n, err := enode.ParseV4WithResolve(ac.Users[i].Enode)
+		if reflect.DeepEqual(ac.Users[i].Address, common.Address{}) == true && err != nil {
+			ac.Users[i].Address = EnodeToAddress(n)
+		}
+	}
+	return ac
+}
+
+func (ac *AutonityContractGenesis) Validate() error {
 	if len(ac.Bytecode) == 0 || len(ac.ABI) == 0 {
 		return errors.New("autonity contract is empty")
 	}
@@ -59,10 +86,10 @@ func (ac *AutonityContract) Validate() error {
 
 //User - is used to put predefined accounts to genesis
 type User struct {
-	Address common.Address
-	Enode   string
-	Type    UserType
-	Stake   uint64
+	Address common.Address `json:"address"`
+	Enode   string         `json:"enode"`
+	Type    UserType       `json:"type"`
+	Stake   uint64         `json:"stake"`
 }
 
 func (u *User) Validate() error {
@@ -82,24 +109,22 @@ func (u *User) Validate() error {
 		return errors.New("if user.type is validator then user.enode must be defined")
 	}
 	if len(u.Enode) > 0 {
-		n, err := enode.ParseV4WithResolve(u.Enode)
+		_, err := enode.ParseV4WithResolve(u.Enode)
 		if err != nil {
 			return fmt.Errorf("fail to parse enode for account %v, error:%v", u.Address, err)
 		}
 
-		addrFromEnode := EnodeToAddress(n)
-		if reflect.DeepEqual(u.Address, common.Address{}) {
-			u.Address = addrFromEnode
-		} else if !reflect.DeepEqual(u.Address, addrFromEnode) {
-			return errors.New("if both user.enode and user.address are defined, then the derived address from user.enode must be equal to user.address")
-		}
+		//todo do we need this check?
+		//if reflect.DeepEqual(u.Address, common.Address{}) {
+		//	return errors.New("if both user.enode and user.address are defined, then the derived address from user.enode must be equal to user.address")
+		//}
 	}
 
 	return nil
 }
 
 //GetParticipantUsers - returns list of participants
-func (ac *AutonityContract) GetValidatorUsers() []User {
+func (ac *AutonityContractGenesis) GetValidatorUsers() []User {
 	var users []User
 	for i := range ac.Users {
 		if ac.Users[i].Type == UserValidator {

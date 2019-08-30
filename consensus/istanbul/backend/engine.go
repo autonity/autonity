@@ -19,6 +19,7 @@ package backend
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -37,9 +38,9 @@ import (
 )
 
 const (
-	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
-	inmemoryPeers      = 40
-	inmemoryMessages   = 1024
+	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
+	inmemoryPeers     = 40
+	inmemoryMessages  = 1024
 )
 
 var (
@@ -332,6 +333,9 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	}
 
 	validators, err := sb.getValidators(header, chain, state)
+	if err != nil {
+		fmt.Println("consensus/istanbul/backend/engine.go:337 getValidators err", err)
+	}
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
@@ -345,44 +349,44 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	return types.NewBlock(header, txs, nil, receipts), nil
 }
 
+type AutonityContractor interface {
+	DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error)
+	ContractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error)
+	UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error
+	GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error)
+}
+
 func (sb *backend) getValidators(header *types.Header, chain consensus.ChainReader, state *state.StateDB) ([]common.Address, error) {
 	var validators []common.Address
 	var err error
 
 	if header.Number.Int64() == 1 {
-		// Deploy Soma on-blockchain governance contract
-		log.Info("Soma Contract Deployer", "Address", sb.config.Deployer)
-		contractAddress, err := sb.deployContract(chain, header, state)
+		log.Info("Autonity Contract Deployer", "Address", chain.Config().AutonityContractConfig.Deployer)
+
+		sb.blockchain.AutonityContract.SavedValidatorsRetriever = func(i uint64) (addresses []common.Address, e error) {
+			chain := chain
+			return sb.retrieveSavedValidators(i, chain)
+		}
+		contractAddress, err := sb.blockchain.AutonityContract.DeployAutonityContract(chain, header, state)
 		if err != nil {
+			log.Error("Deploy autonity contract error", "error", err)
 			return nil, err
 		}
-		sb.somaContract = contractAddress
+		sb.autonityContractAddress = contractAddress
 		validators, err = sb.retrieveSavedValidators(1, chain)
 		if err != nil {
 			return nil, err
 		}
-
-		// Deploy Glienicke network-permissioning contract
-		_, sb.glienickeContract, err = sb.blockchain.DeployGlienickeContract(state, header)
-		if err != nil {
-			return nil, err
-		}
-
 	} else {
-		if sb.somaContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.somaContract = crypto.CreateAddress(sb.config.Deployer, 0)
+		if sb.autonityContractAddress == common.HexToAddress("0000000000000000000000000000000000000000") {
+			sb.autonityContractAddress = crypto.CreateAddress(chain.Config().AutonityContractConfig.Deployer, 0)
 		}
-
-		if sb.glienickeContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GlienickeDeployer, 0)
-		}
-
-		validators, err = sb.contractGetValidators(chain, header, state)
+		validators, err = sb.blockchain.AutonityContract.ContractGetValidators(chain, header, state)
 		if err != nil {
+			log.Error("ContractGetValidators error", "error", err)
 			return nil, err
 		}
 	}
-
 	return validators, err
 }
 

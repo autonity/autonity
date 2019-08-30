@@ -49,14 +49,6 @@ func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Databas
 		config.Epoch = chainConfig.Istanbul.Epoch
 	}
 
-	if chainConfig.Istanbul.Bytecode != "" && chainConfig.Istanbul.ABI != "" {
-		config.Bytecode = chainConfig.Istanbul.Bytecode
-		config.ABI = chainConfig.Istanbul.ABI
-		log.Info("Default Validator smart contract set")
-	} else {
-		log.Info("User specified Validator smart contract set")
-	}
-
 	config.SetProposerPolicy(istanbul.ProposerPolicy(chainConfig.Istanbul.ProposerPolicy))
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
@@ -112,9 +104,8 @@ type backend struct {
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
 
-	somaContract      common.Address // Ethereum address of the governance contract
-	glienickeContract common.Address // Ethereum address of the white list contract
-	vmConfig          *vm.Config
+	autonityContractAddress common.Address // Ethereum address of the autonity contract
+	vmConfig                *vm.Config
 }
 
 // Address implements istanbul.Backend.Address
@@ -277,7 +268,7 @@ func (sb *backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 				}
 			}
 
-			validators, err = sb.contractGetValidators(sb.blockchain, header, state)
+			validators, err = sb.blockchain.AutonityContract.ContractGetValidators(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
 			}
@@ -371,7 +362,7 @@ func (sb *backend) WhiteList() []string {
 		return nil
 	}
 
-	enodes, err := sb.blockchain.GetWhitelist(sb.blockchain.CurrentBlock(), db)
+	enodes, err := sb.blockchain.AutonityContract.GetWhitelist(sb.blockchain.CurrentBlock(), db)
 	if err != nil {
 		sb.logger.Error("Failed to get block white list", "err", err)
 		return nil

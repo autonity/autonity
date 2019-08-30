@@ -20,6 +20,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"io"
 	"math/big"
 	mrand "math/rand"
@@ -105,7 +106,7 @@ type BlockChain struct {
 	chainSideFeed event.Feed
 	chainHeadFeed event.Feed
 	logsFeed      event.Feed
-	glienickeFeed event.Feed
+	autonityFeed  event.Feed
 	scope         event.SubscriptionScope
 	genesisBlock  *types.Block
 
@@ -138,7 +139,8 @@ type BlockChain struct {
 	badBlocks      *lru.Cache              // Bad block cache
 	shouldPreserve func(*types.Block) bool // Function used to determine whether should preserve the given block.
 
-	openNetwork bool // True if we should disable Glienicke contract deployment
+	AutonityContract *autonity.AutonityContract
+	openNetwork      bool // True if we should disable permissioning
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -191,6 +193,10 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
+	bc.AutonityContract = autonity.NewAutonityContract(bc, CanTransfer, Transfer, func(ref *types.Header, chain autonity.ChainContext) func(n uint64) common.Hash {
+		return GetHashFn(ref, chain)
+	})
+
 	// Check the current state of the block hashes and make sure that we do not have any of the bad blocks in our chain
 	for hash := range BadHashes {
 		if header := bc.GetHeaderByHash(hash); header != nil {
@@ -950,8 +956,8 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 
 	// Call network permissioning logic before committing the state
 	if bc.chainConfig.Istanbul != nil {
-		err = bc.updateEnodesWhitelist(state, block)
-		if err != nil && err != GlienickeContractError {
+		err = bc.AutonityContract.UpdateEnodesWhitelist(state, block)
+		if err != nil && err != autonity.AutonityContractError {
 			return NonStatTy, err
 		}
 	}
@@ -1735,6 +1741,15 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) SubscribeGlienickeEvent(ch chan<-GlienickeEvent) event.Subscription {
-	return bc.scope.Track(bc.glienickeFeed.Subscribe(ch))
+func (bc *BlockChain) SubscribeAutonityEvents(ch chan<- WhitelistEvent) event.Subscription {
+	return bc.scope.Track(bc.autonityFeed.Subscribe(ch))
+}
+
+func (bc *BlockChain) UpdateEnodeWhitelist(newWhitelist *types.Nodes) {
+	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
+	go bc.autonityFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
+}
+
+func (bc *BlockChain) ReadEnodeWhitelist(openNetwork bool) *types.Nodes {
+	return rawdb.ReadEnodeWhitelist(bc.db, openNetwork)
 }

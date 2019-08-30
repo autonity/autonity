@@ -101,8 +101,8 @@ type ProtocolManager struct {
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
-	glienickeCh         chan core.GlienickeEvent
-	glienickeSub        event.Subscription
+	whitelistCh         chan core.WhitelistEvent
+	whitelistSub        event.Subscription
 	enodesWhitelist     []*enode.Node
 	enodesWhitelistLock sync.RWMutex
 	// wait group is used for graceful shutdowns during downloading
@@ -132,7 +132,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		quitSync:    make(chan struct{}),
 		engine:      engine,
 		openNetwork: openNetwork,
-		glienickeCh: make(chan core.GlienickeEvent, 64),
+		whitelistCh: make(chan core.WhitelistEvent, 64),
 	}
 
 	if handler, ok := manager.engine.(consensus.Handler); ok {
@@ -244,7 +244,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	// update peers whitelist
 	if !pm.openNetwork {
-		pm.glienickeSub = pm.blockchain.SubscribeGlienickeEvent(pm.glienickeCh)
+		pm.whitelistSub = pm.blockchain.SubscribeAutonityEvents(pm.whitelistCh)
 		go pm.glienickeEventLoop()
 	}
 
@@ -259,7 +259,7 @@ func (pm *ProtocolManager) Stop() {
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 	if !pm.openNetwork {
-		pm.glienickeSub.Unsubscribe() // quits glienickeEventLoop
+		pm.whitelistSub.Unsubscribe() // quits glienickeEventLoop
 	}
 
 	// Quit the sync loop.
@@ -285,12 +285,12 @@ func (pm *ProtocolManager) Stop() {
 func (s *ProtocolManager) glienickeEventLoop() {
 	for {
 		select {
-		case event := <-s.glienickeCh:
+		case event := <-s.whitelistCh:
 			s.enodesWhitelistLock.Lock()
 			s.enodesWhitelist = event.Whitelist
 			s.enodesWhitelistLock.Unlock()
 		// Err() channel will be closed when unsubscribing.
-		case <-s.glienickeSub.Err():
+		case <-s.whitelistSub.Err():
 			return
 		}
 	}
@@ -331,8 +331,9 @@ func (pm *ProtocolManager) handle(p *peer) error {
 				break
 			}
 		}
+
 		pm.enodesWhitelistLock.RUnlock()
-		if !whitelisted && p.td.Uint64() <= head.Number.Uint64() + 1 {
+		if !whitelisted && p.td.Uint64() <= head.Number.Uint64()+1 {
 			p.Log().Info("Dropping unauthorized peer with old TD.", "enode", p.Node().ID())
 			return errUnauthaurizedPeer
 		}

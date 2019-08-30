@@ -27,7 +27,10 @@ import (
 )
 
 func TestIstanbulMessage(t *testing.T) {
-	_, backend := newBlockChain(1)
+	_, backend, err := newBlockChain(1)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// generate one msg
 	data := []byte("data1")
@@ -47,7 +50,7 @@ func TestIstanbulMessage(t *testing.T) {
 	}
 
 	// 2. this message should be in cache after we handle it
-	_, err := backend.HandleMsg(addr, msg)
+	_, err = backend.HandleMsg(addr, msg)
 	if err != nil {
 		t.Fatalf("handle message failed: %v", err)
 	}

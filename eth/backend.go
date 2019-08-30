@@ -97,7 +97,7 @@ type Ethereum struct {
 	lock     sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 	protocol Protocol
 
-	glienickeCh  chan core.GlienickeEvent
+	glienickeCh  chan core.WhitelistEvent
 	glienickeSub event.Subscription
 }
 
@@ -153,7 +153,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		etherbase:      config.Etherbase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
-		glienickeCh:    make(chan core.GlienickeEvent),
+		glienickeCh:    make(chan core.WhitelistEvent),
 	}
 
 	// force to set the istanbul etherbase to node key address
@@ -526,8 +526,8 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 func (s *Ethereum) Start(srvr *p2p.Server) error {
 
 	if !srvr.OpenNetwork {
-		// Subscribe to Glienicke updates events
-		s.glienickeSub = s.blockchain.SubscribeGlienickeEvent(s.glienickeCh)
+		// Subscribe to Autonity updates events
+		s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
 		savedList := rawdb.ReadEnodeWhitelist(s.chainDb, srvr.OpenNetwork)
 		log.Info("Reading Whitelist", "list", savedList.StrList)
 		go s.glienickeEventLoop(srvr)
@@ -561,7 +561,7 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 	for {
 		select {
 		case event := <-s.glienickeCh:
-			whitelist := append([]*enode.Node{}, event.Whitelist ...)
+			whitelist := append([]*enode.Node{}, event.Whitelist...)
 			// Filter the list of need to be dropped peers depending on TD.
 			for _, connectedPeer := range s.protocolManager.peers.Peers() {
 				found := false

@@ -234,6 +234,7 @@ func ExpectMsg(r MsgReader, code uint64, content interface{}) error {
 	if err != nil {
 		panic("content encode error: " + err.Error())
 	}
+
 	if int(msg.Size) != len(contentEnc) {
 		return fmt.Errorf("message size mismatch: got %d, want %d", msg.Size, len(contentEnc))
 	}
@@ -244,6 +245,7 @@ func ExpectMsg(r MsgReader, code uint64, content interface{}) error {
 	if !bytes.Equal(actualContent, contentEnc) {
 		return fmt.Errorf("message payload mismatch:\ngot:  %x\nwant: %x", actualContent, contentEnc)
 	}
+
 	return nil
 }
 

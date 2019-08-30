@@ -142,7 +142,7 @@ type Config struct {
 	// Constantinople block override (TODO: remove after the fork)
 	ConstantinopleOverride *big.Int
 
-	// Disable Glienicke
+	// Disable private network
 	OpenNetwork bool
 }
 
