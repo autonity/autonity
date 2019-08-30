@@ -21,8 +21,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"math/big"
 	"sort"
 	"strings"
@@ -33,6 +31,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	tendermintCrypto "github.com/clearmatics/autonity/consensus/tendermint/crypto"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
@@ -94,9 +93,9 @@ func TestCheckValidatorSignature(t *testing.T) {
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
-		validator := vset.GetByIndex(uint64(i))
-		if addr != validator.Address() {
-			t.Errorf("validator address mismatch: have %v, want %v", addr, validator.Address())
+		val := vset.GetByIndex(uint64(i))
+		if addr != val.Address() {
+			t.Errorf("validator address mismatch: have %v, want %v", addr, val.Address())
 		}
 	}
 
@@ -114,7 +113,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 	// CheckValidatorSignature should return ErrUnauthorizedAddress
 	addr, err := tendermintCrypto.CheckValidatorSignature(vset, data, sig)
 	if err != tendermintCrypto.ErrUnauthorizedAddress {
-		t.Errorf("error mismatch: have %v, want %v", err, tendermint.ErrUnauthorizedAddress)
+		t.Errorf("error mismatch: have %v, want %v", err, ErrUnauthorizedAddress)
 	}
 	emptyAddr := common.Address{}
 	if addr != emptyAddr {
@@ -267,10 +266,10 @@ func newBackend() (b *Backend) {
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
-	config := config.DefaultConfig()
+	cfg := config.DefaultConfig()
 	// Use the first key as private key
-	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
-	c := tendermintCore.New(b, config)
+	b := New(cfg, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
+	c := tendermintCore.New(b, cfg)
 
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, c, vm.Config{}, nil)
