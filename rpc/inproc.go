@@ -19,6 +19,8 @@ package rpc
 import (
 	"context"
 	"net"
+
+	"github.com/clearmatics/autonity/common/ratelimit"
 )
 
 // DialInProc attaches an in-process connection to the given RPC server.
@@ -26,6 +28,21 @@ func DialInProc(handler *Server) *Client {
 	initctx := context.Background()
 	c, _ := newClient(initctx, func(context.Context) (net.Conn, error) {
 		p1, p2 := net.Pipe()
+		go handler.ServeCodec(NewJSONCodec(p1), OptionMethodInvocation|OptionSubscriptions)
+		return p2, nil
+	})
+	return c
+}
+
+func DialInProcWithRate(handler *Server, rate, capacity int64) *Client {
+	return DialInProcWithRateClock(handler, rate, capacity, nil)
+}
+
+func DialInProcWithRateClock(handler *Server, rate, capacity int64, clock ratelimit.Clock) *Client {
+	initctx := context.Background()
+	c, _ := newClient(initctx, func(context.Context) (net.Conn, error) {
+		p1, p2 := ratelimit.NewPipesWithClock(float64(rate), capacity, clock)
+
 		go handler.ServeCodec(NewJSONCodec(p1), OptionMethodInvocation|OptionSubscriptions)
 		return p2, nil
 	})

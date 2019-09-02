@@ -5,19 +5,29 @@ addons:
   apt:
     packages:
       - libc-dev
+before_script:
+  - make test-deps
 matrix:
   include:
-  - if: branch = master OR type = pull_request
-    os: linux
-    dist: trusty
-    sudo: required
-    go: 1.12.1
-    script:
-    - sudo modprobe fuse
-    - sudo chmod 666 /dev/fuse
-    - sudo chown root:$USER /etc/fuse.conf
-    - go run build/ci.go install
-    - go run build/ci.go test -coverage $TEST_PACKAGES
+    - if: branch = master OR type = pull_request
+      os: linux
+      dist: trusty
+      sudo: required
+      go: 1.12.5
+      script:
+        - sudo modprobe fuse
+        - sudo chmod 666 /dev/fuse
+        - sudo chown root:$USER /etc/fuse.conf
+        - go run build/ci.go install
+        - make lint-ci
+        - go test ./consensus/tendermint/... -race -v -parallel 1
+        - go run build/ci.go test -coverage $TEST_PACKAGES
+        - travis_wait 30 go test ./consensus/test/... -v -timeout 30m -covermode=atomic -cover -coverprofile=coverage_e2e.out
+        - echo "$(tail -n +2 coverage_e2e.out)" > coverage_e2e.out && cat coverage.out coverage_e2e.out > coverage_all.out
+        - $HOME/gopath/bin/goveralls -coverprofile=coverage_all.out -service=travis-ci -repotoken $COVERALLS_TOKEN
 notifications:
   slack:
     secure: GKYSUbw82VHxUw9JsCgxPfAN5bBE3JZs8YvKEABADDeioMI+3m90HKhuA7F7AtFCK1okIDAGSauX3NqcrAMNk0GnsgTGcvutpSnSL4Jprrff2SkTOfdQCyMdhAmZWBBGOUJx85Ei7lSCSRNRemI3E2jhLPDaQlQGuvUXN1+YM4iFK15dYIrWyDL2ZIMcCThcBft0P7h9Z6LX1bMf5SE9IATjgijzDXeJVUsgpt14p2suflU+jGq+EXqpCSW1uuwlEktiTxOpIpAmP6SdR/ltaMQ9khLCzvf7xkddIuE0AR4/PC+ug+pmsSyqhfW/5w0uGCeRXnQKomhkgzo9BV/uWeRZqAc/tMGXkYAUdwBvzbde9pXEdAoXg89BurCqQVIvUqVrnVONR8WI3pUa+03fFYpt34lF6SaFdluGQzwd6TTGSceEWaAuA8Ng7mSQrQD12857kFtq+WmetTkKKGZ3KW0i9Iz35/l6V22OfkEWb+ARiJuKAo5vQlQLRIJlWD+PiB66YASXyMN5xYtzQHZpxH+J8cWrvBmZSwBvZh0ZxAEgUtZUM5eFuKKymNaBBEj7uLiY/1M2RLNa8ZsOSsGi1nsd8UEd4sKJttrXgR5r4Y4oXQtlX2UPPMtR7VOfDEB7pnjSrfPBD5DrVMHpUU2F1rISXfjRLZvSgRq717NZUsI=
+env:
+  global:
+    secure: NMIZV/aApl67zepAKpE57cQUBsav8QE3YSrgRKiz+Sm12bSdEsFvLfewrLL5gifKqUdadJOtAsl66LAkm3JURrP4rxa1cZrBgYAlFOunr9o6jjNCFmdQOA1fr2VGDX073wI8PaN2HnD3SvWlueBQZ6T6YHxYSYUcIJZS5bPIN7WCbi7pJ3zsbnwSvUxGNHEkbpz8Q6ujK7Lp+YIGBKQS8cJTGRVe8kmMwQTZSagXj/QPwTla+TYf2hfi62ydt/r5CXnZXq12qUUmLE2Rh/p0/VK7DbeAX1reERh6o5O19OHi2V58CADDBM+NEIrKLJSIkNzg8BS2Nq9rtsdBamsuxJEK+ihYIKKVj9qnzsxUqhz31KHqqXUexRA/jZ4a5+aFOM9mlL4N6rnogxa5x8gS5XgOC8MiU0TjP4W7yNfoHGIAnUKXLPveYVYVgoeem04uUpMYr3SpzGsHkt8hyLdcY6v8YG10zy/rtEVTaPYmuxOGh5ZPCk35NpniWsX/1CwtlzSftGcZwZiS4dKB1+B73h3YX4Ib6Z4nbaQgNgwbJza7KR4JxbuQMbrOFkiyIie9ZuT+HkpASnd2PTYy0Yok4k8gLAPCeuDLq8679++TbELgFkN7RV32TVTuxFBsSZMuvOwA6TSAuEONDTf9725lTxLPwX3yJ1wYHDgqOIXUwpc=

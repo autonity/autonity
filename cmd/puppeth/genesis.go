@@ -140,7 +140,7 @@ func newAlethGenesisSpec(network string, genesis *core.Genesis) (*alethGenesisSp
 	spec.Genesis.Author = genesis.Coinbase
 	spec.Genesis.Timestamp = (hexutil.Uint64)(genesis.Timestamp)
 	spec.Genesis.ParentHash = genesis.ParentHash
-	spec.Genesis.ExtraData = (hexutil.Bytes)(genesis.ExtraData)
+	spec.Genesis.ExtraData = (hexutil.Bytes)(genesis.GetExtraData())
 	spec.Genesis.GasLimit = (hexutil.Uint64)(genesis.GasLimit)
 
 	for address, account := range genesis.Alloc {
@@ -363,7 +363,7 @@ func newParityChainSpec(network string, genesis *core.Genesis, bootnodes []strin
 	spec.Genesis.Author = genesis.Coinbase
 	spec.Genesis.Timestamp = (hexutil.Uint64)(genesis.Timestamp)
 	spec.Genesis.ParentHash = genesis.ParentHash
-	spec.Genesis.ExtraData = (hexutil.Bytes)(genesis.ExtraData)
+	spec.Genesis.ExtraData = (hexutil.Bytes)(genesis.GetExtraData())
 	spec.Genesis.GasLimit = (hexutil.Uint64)(genesis.GasLimit)
 
 	spec.Accounts = make(map[common.UnprefixedAddress]*parityChainSpecAccount)
@@ -460,7 +460,7 @@ func newPyEthereumGenesisSpec(network string, genesis *core.Genesis) (*pyEthereu
 	}
 	spec := &pyEthereumGenesisSpec{
 		Timestamp:  (hexutil.Uint64)(genesis.Timestamp),
-		ExtraData:  genesis.ExtraData,
+		ExtraData:  genesis.GetExtraData(),
 		GasLimit:   (hexutil.Uint64)(genesis.GasLimit),
 		Difficulty: (*hexutil.Big)(genesis.Difficulty),
 		Mixhash:    genesis.Mixhash,

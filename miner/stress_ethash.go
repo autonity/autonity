@@ -183,7 +183,7 @@ func makeMiner(genesis *core.Genesis) (*node.Node, error) {
 			MinerGasCeil:    genesis.GasLimit * 11 / 10,
 			MinerGasPrice:   big.NewInt(1),
 			MinerRecommit:   time.Second,
-		})
+		}, nil)
 	}); err != nil {
 		return nil, err
 	}

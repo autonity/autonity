@@ -484,6 +484,11 @@ func (n *Node) Attach() (*rpc.Client, error) {
 	if n.server == nil {
 		return nil, ErrNodeStopped
 	}
+
+	if n.config.P2P.IsRated {
+		return rpc.DialInProcWithRate(n.inprocHandler, n.config.P2P.InRate, n.config.P2P.OutRate), nil
+	}
+
 	return rpc.DialInProc(n.inprocHandler), nil
 }
 
@@ -573,6 +578,10 @@ func (n *Node) WSEndpoint() string {
 // the current protocol stack.
 func (n *Node) EventMux() *event.TypeMux {
 	return n.eventmux
+}
+
+func (n *Node) ResetEventMux() {
+	n.eventmux = &event.TypeMux{}
 }
 
 // OpenDatabase opens an existing database with the given name (or creates one if no

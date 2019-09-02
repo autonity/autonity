@@ -159,6 +159,12 @@
 			"revisionTime": "2017-07-10T16:04:46Z"
 		},
 		{
+			"checksumSHA1": "RBaxTzsPJwhrGAw2SDgL2+jLJ68=",
+			"path": "github.com/golang/mock/gomock",
+			"revision": "d74b93584564161b2de771089ee697f07d8bd5b5",
+			"revisionTime": "2019-05-08T16:21:24Z"
+		},
+		{
 			"checksumSHA1": "yqF125xVSkmfLpIVGrLlfE05IUk=",
 			"path": "github.com/golang/protobuf/proto",
 			"revision": "748d386b5c1ea99658fd69fe9f03991ce86a90c1",
@@ -753,6 +759,12 @@
 			"path": "golang.org/x/net/websocket",
 			"revision": "b4690f45fa1cafc47b1c280c2e75116efe40cc13",
 			"revisionTime": "2017-02-15T08:41:58Z"
+		},
+		{
+			"checksumSHA1": "iEK5hCRfrkdc1JOJsaiWuymHmeQ=",
+			"path": "golang.org/x/sync/errgroup",
+			"revision": "56d357773e8497dfd526f0727e187720d1093757",
+			"revisionTime": "2019-04-12T04:58:03Z"
 		},
 		{
 			"checksumSHA1": "4TEYFKrAUuwBMqExjQBsnf/CgjQ=",

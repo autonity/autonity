@@ -30,6 +30,8 @@ import (
 
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/console"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
@@ -210,6 +212,9 @@ func initGenesis(ctx *cli.Context) error {
 			return fmt.Errorf("Autonity contract section is invalid. error:%v", err.Error())
 		}
 	}
+
+	setupDefaults(genesis)
+
 	// Open an initialise both full and light databases
 	stack := makeFullNode(ctx)
 	for _, name := range []string{"chaindata", "lightchaindata"} {
@@ -224,6 +229,42 @@ func initGenesis(ctx *cli.Context) error {
 		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
 	}
 	return nil
+}
+
+func setupDefaults(genesis *core.Genesis) {
+	if genesis == nil || genesis.Config == nil {
+		return
+	}
+
+	if genesis.Config.Istanbul != nil {
+		if genesis.Config.Istanbul.Epoch == 0 {
+			genesis.Config.Istanbul.Epoch = istanbul.DefaultConfig.Epoch
+		}
+		if genesis.Config.Istanbul.RequestTimeout == 0 {
+			genesis.Config.Istanbul.RequestTimeout = istanbul.DefaultConfig.RequestTimeout
+		}
+		if genesis.Config.Istanbul.BlockPeriod == 0 {
+			genesis.Config.Istanbul.BlockPeriod = istanbul.DefaultConfig.BlockPeriod
+		}
+	}
+
+	defaultConfig := config.DefaultConfig()
+
+	if genesis.Config.Tendermint != nil {
+		if genesis.Config.Tendermint.Epoch == 0 {
+			genesis.Config.Tendermint.Epoch = defaultConfig.Epoch
+		}
+		if genesis.Config.Tendermint.RequestTimeout == 0 {
+			genesis.Config.Tendermint.RequestTimeout = defaultConfig.RequestTimeout
+		}
+		if genesis.Config.Tendermint.BlockPeriod == 0 {
+			genesis.Config.Tendermint.BlockPeriod = defaultConfig.BlockPeriod
+		}
+
+		if genesis.Config.Tendermint.Epoch == 0 {
+			genesis.Config.Tendermint.Epoch = defaultConfig.Epoch
+		}
+	}
 }
 
 func importChain(ctx *cli.Context) error {
@@ -537,10 +578,10 @@ func updateValidators(ctx *cli.Context) error {
 			utils.Fatalf("invalid genesis: %v", err)
 		}
 
-		extraData = genesis.ExtraData
+		extraData = genesis.GetExtraData()
 	}
 
-	if extraData, err = types.PrepareExtra(&extraData, validators); err != nil {
+	if extraData, err = types.PrepareExtra(extraData, validators); err != nil {
 		utils.Fatalf("error while updating extraData field: %v", err)
 	}
 

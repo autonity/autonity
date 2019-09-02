@@ -3,6 +3,7 @@
 package eth
 
 import (
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math/big"
 	"time"
 
@@ -24,10 +25,11 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		NetworkId               uint64
 		SyncMode                downloader.SyncMode
 		NoPruning               bool
-		LightServ               int  `toml:",omitempty"`
-		LightPeers              int  `toml:",omitempty"`
-		SkipBcVersionCheck      bool `toml:"-"`
-		DatabaseHandles         int  `toml:"-"`
+		Whitelist               map[uint64]common.Hash `toml:"-"`
+		LightServ               int                    `toml:",omitempty"`
+		LightPeers              int                    `toml:",omitempty"`
+		SkipBcVersionCheck      bool                   `toml:"-"`
+		DatabaseHandles         int                    `toml:"-"`
 		DatabaseCache           int
 		TrieCleanCache          int
 		TrieDirtyCache          int
@@ -42,18 +44,22 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		MinerNoverify           bool
 		Ethash                  ethash.Config
 		Istanbul                istanbul.Config
+		Tendermint              config.Config
 		TxPool                  core.TxPoolConfig
 		GPO                     gasprice.Config
 		EnablePreimageRecording bool
 		DocRoot                 string `toml:"-"`
 		EWASMInterpreter        string
 		EVMInterpreter          string
+		ConstantinopleOverride  *big.Int
+		OpenNetwork             bool
 	}
 	var enc Config
 	enc.Genesis = c.Genesis
 	enc.NetworkId = c.NetworkId
 	enc.SyncMode = c.SyncMode
 	enc.NoPruning = c.NoPruning
+	enc.Whitelist = c.Whitelist
 	enc.LightServ = c.LightServ
 	enc.LightPeers = c.LightPeers
 	enc.SkipBcVersionCheck = c.SkipBcVersionCheck
@@ -72,12 +78,15 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.MinerNoverify = c.MinerNoverify
 	enc.Ethash = c.Ethash
 	enc.Istanbul = c.Istanbul
+	enc.Tendermint = c.Tendermint
 	enc.TxPool = c.TxPool
 	enc.GPO = c.GPO
 	enc.EnablePreimageRecording = c.EnablePreimageRecording
 	enc.DocRoot = c.DocRoot
 	enc.EWASMInterpreter = c.EWASMInterpreter
 	enc.EVMInterpreter = c.EVMInterpreter
+	enc.ConstantinopleOverride = c.ConstantinopleOverride
+	enc.OpenNetwork = c.OpenNetwork
 	return &enc, nil
 }
 
@@ -88,10 +97,11 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		NetworkId               *uint64
 		SyncMode                *downloader.SyncMode
 		NoPruning               *bool
-		LightServ               *int  `toml:",omitempty"`
-		LightPeers              *int  `toml:",omitempty"`
-		SkipBcVersionCheck      *bool `toml:"-"`
-		DatabaseHandles         *int  `toml:"-"`
+		Whitelist               map[uint64]common.Hash `toml:"-"`
+		LightServ               *int                   `toml:",omitempty"`
+		LightPeers              *int                   `toml:",omitempty"`
+		SkipBcVersionCheck      *bool                  `toml:"-"`
+		DatabaseHandles         *int                   `toml:"-"`
 		DatabaseCache           *int
 		TrieCleanCache          *int
 		TrieDirtyCache          *int
@@ -106,12 +116,15 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		MinerNoverify           *bool
 		Ethash                  *ethash.Config
 		Istanbul                *istanbul.Config
+		Tendermint              *config.Config
 		TxPool                  *core.TxPoolConfig
 		GPO                     *gasprice.Config
 		EnablePreimageRecording *bool
 		DocRoot                 *string `toml:"-"`
 		EWASMInterpreter        *string
 		EVMInterpreter          *string
+		ConstantinopleOverride  *big.Int
+		OpenNetwork             *bool
 	}
 	var dec Config
 	if err := unmarshal(&dec); err != nil {
@@ -128,6 +141,9 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	}
 	if dec.NoPruning != nil {
 		c.NoPruning = *dec.NoPruning
+	}
+	if dec.Whitelist != nil {
+		c.Whitelist = dec.Whitelist
 	}
 	if dec.LightServ != nil {
 		c.LightServ = *dec.LightServ
@@ -180,6 +196,12 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	if dec.Ethash != nil {
 		c.Ethash = *dec.Ethash
 	}
+	if dec.Istanbul != nil {
+		c.Istanbul = *dec.Istanbul
+	}
+	if dec.Tendermint != nil {
+		c.Tendermint = *dec.Tendermint
+	}
 	if dec.TxPool != nil {
 		c.TxPool = *dec.TxPool
 	}
@@ -198,8 +220,11 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	if dec.EVMInterpreter != nil {
 		c.EVMInterpreter = *dec.EVMInterpreter
 	}
-	if dec.Istanbul != nil {
-		c.Istanbul = *dec.Istanbul
+	if dec.ConstantinopleOverride != nil {
+		c.ConstantinopleOverride = dec.ConstantinopleOverride
+	}
+	if dec.OpenNetwork != nil {
+		c.OpenNetwork = *dec.OpenNetwork
 	}
 	return nil
 }

@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity android ios autonity-cross swarm evm all test clean
+.PHONY: autonity android ios autonity-cross evm all test clean lint lint-deps mock-gen test-fast
 .PHONY: autonity-linux autonity-linux-386 autonity-linux-amd64 autonity-linux-mips64 autonity-linux-mips64le
 .PHONY: autonity-linux-arm autonity-linux-arm-5 autonity-linux-arm-6 autonity-linux-arm-7 autonity-linux-arm64
 .PHONY: autonity-darwin autonity-darwin-386 autonity-darwin-amd64
@@ -10,16 +10,15 @@
 
 GOBIN = $(shell pwd)/build/bin
 GO ?= latest
+LATEST_COMMIT ?= $(shell git log -n 1 origin/master --pretty=format:"%H")
+ifeq ($(LATEST_COMMIT),)
+LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
+endif
 
 autonity:
 	build/env.sh go run build/ci.go install ./cmd/autonity
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/autonity\" to launch autonity."
-
-swarm:
-	build/env.sh go run build/ci.go install ./cmd/swarm
-	@echo "Done building."
-	@echo "Run \"$(GOBIN)/swarm\" to launch swarm."
 
 all:
 	build/env.sh go run build/ci.go install
@@ -35,13 +34,44 @@ ios:
 	@echo "Import \"$(GOBIN)/autonity.framework\" to use the library."
 
 test: all
+	build/env.sh go run build/ci.go test -coverage
+
+test-fast:
 	build/env.sh go run build/ci.go test
 
 test-race: all
 	build/env.sh go run build/ci.go test -race
 
-lint: ## Run linters.
-	build/env.sh go run build/ci.go lint
+mock-gen:
+	mockgen -source=consensus/tendermint/validator.go -package=tendermint -destination=consensus/tendermint/validator_mock.go
+
+lint:
+	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
+	@./build/bin/golangci-lint run \
+	    --new-from-rev=$(LATEST_COMMIT) \
+	    --config ./.golangci/step1.yml \
+	    --exclude "which can be annoying to use"
+
+	@./build/bin/golangci-lint run \
+	    --new-from-rev=$(LATEST_COMMIT) \
+	    --config ./.golangci/step2.yml
+
+	@./build/bin/golangci-lint run \
+	    --new-from-rev=$(LATEST_COMMIT) \
+	    --config ./.golangci/step3.yml
+
+	@./build/bin/golangci-lint run \
+	    --new-from-rev=$(LATEST_COMMIT) \
+	    --config ./.golangci/step4.yml
+
+lint-ci: lint-deps lint
+
+test-deps:
+	go get golang.org/x/tools/cmd/cover
+	go get github.com/mattn/goveralls
+
+lint-deps:
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.16.0
 
 clean:
 	./build/clean_go_build_cache.sh
@@ -51,6 +81,7 @@ clean:
 # You need to put $GOBIN (or $GOPATH/bin) in your PATH to use 'go generate'.
 
 devtools:
+	go get -u github.com/golang/mock/mockgen
 	env GOBIN= go get -u golang.org/x/tools/cmd/stringer
 	env GOBIN= go get -u github.com/kevinburke/go-bindata/go-bindata
 	env GOBIN= go get -u github.com/fjl/gencodec
@@ -59,9 +90,6 @@ devtools:
 	@type "npm" 2> /dev/null || echo 'Please install node.js and npm'
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
-
-swarm-devtools:
-	env GOBIN= go install ./cmd/swarm/mimegen
 
 # Cross Compilation Targets (xgo)
 

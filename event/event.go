@@ -20,6 +20,7 @@ package event
 import (
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/log"
 	"reflect"
 	"sync"
 	"time"
@@ -36,8 +37,6 @@ type TypeMuxEvent struct {
 // called after mux is stopped will return ErrMuxClosed.
 //
 // The zero value is ready to use.
-//
-// Deprecated: use Feed
 type TypeMux struct {
 	mutex   sync.RWMutex
 	subm    map[reflect.Type][]*TypeMuxSubscription
@@ -126,6 +125,22 @@ func (mux *TypeMux) del(s *TypeMuxSubscription) {
 		}
 	}
 	s.mux.mutex.Unlock()
+}
+
+type TypeMuxSilent struct {
+	*TypeMux
+	logger log.Logger
+}
+
+func NewTypeMuxSilent(l log.Logger) *TypeMuxSilent {
+	return &TypeMuxSilent{new(TypeMux), l}
+}
+
+func (mux *TypeMuxSilent) Post(ev interface{}) {
+	err := mux.TypeMux.Post(ev)
+	if err != nil {
+		mux.logger.Error("mux error while posting message", "err", err)
+	}
 }
 
 func find(slice []*TypeMuxSubscription, item *TypeMuxSubscription) int {

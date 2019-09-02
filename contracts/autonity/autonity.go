@@ -2,6 +2,7 @@ package autonity
 
 import (
 	"errors"
+	"fmt"
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -146,11 +147,13 @@ func (ac *AutonityContract) ContractGetValidators(chain consensus.ChainReader, h
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
 	contractABI, err := abi.JSON(strings.NewReader(chain.Config().AutonityContractConfig.ABI))
 	if err != nil {
+		fmt.Print("11")
 		return nil, err
 	}
 
 	input, err := contractABI.Pack("GetValidators")
 	if err != nil {
+		fmt.Print("22")
 		return nil, err
 	}
 
@@ -159,12 +162,14 @@ func (ac *AutonityContract) ContractGetValidators(chain consensus.ChainReader, h
 	ret, gas, vmerr := evm.Call(sender, ac.Address, input, gas, value)
 	if vmerr != nil {
 		log.Error("Error Contract GetValidators()")
+		fmt.Print("33")
 		return nil, vmerr
 	}
 
 	var addresses []common.Address
 	if err := contractABI.Unpack(&addresses, "GetValidators", ret); err != nil { // can't work with aliased types
 		log.Error("Could not unpack getValidators returned value", err)
+		fmt.Print("44")
 		return nil, err
 	}
 

@@ -49,7 +49,8 @@
         }
       ]
     },
-    "chainId": 1991
+    "chainId": 1991,
+    "opennetwork": false
   },
   "nonce": "0x0",
   "timestamp": "0x0",

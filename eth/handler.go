@@ -282,15 +282,15 @@ func (pm *ProtocolManager) Stop() {
 }
 
 // Whitelist updating loop.
-func (s *ProtocolManager) glienickeEventLoop() {
+func (pm *ProtocolManager) glienickeEventLoop() {
 	for {
 		select {
-		case event := <-s.whitelistCh:
-			s.enodesWhitelistLock.Lock()
-			s.enodesWhitelist = event.Whitelist
-			s.enodesWhitelistLock.Unlock()
+		case event := <-pm.whitelistCh:
+			pm.enodesWhitelistLock.Lock()
+			pm.enodesWhitelist = event.Whitelist
+			pm.enodesWhitelistLock.Unlock()
 		// Err() channel will be closed when unsubscribing.
-		case <-s.whitelistSub.Err():
+		case <-pm.whitelistSub.Err():
 			return
 		}
 	}
@@ -334,7 +334,13 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 		pm.enodesWhitelistLock.RUnlock()
 		if !whitelisted && p.td.Uint64() <= head.Number.Uint64()+1 {
-			p.Log().Info("Dropping unauthorized peer with old TD.", "enode", p.Node().ID())
+			p.Log().Info("dropping unauthorized peer with old TD",
+				"whitelisted", whitelisted,
+				"enode", p.Node().ID(),
+				"peersTD", p.td.Uint64(),
+				"currentTD", head.Number.Uint64()+1,
+			)
+
 			return errUnauthaurizedPeer
 		}
 		// Todo : pause relaying if not whitelisted until full sync
@@ -874,19 +880,27 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	}
 }
 
-func (self *ProtocolManager) FindPeers(targets map[common.Address]bool) map[common.Address]consensus.Peer {
+func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) (map[common.Address]consensus.Peer, []common.Address) {
 	m := make(map[common.Address]consensus.Peer)
-	for _, p := range self.peers.Peers() {
+
+	for _, p := range pm.peers.Peers() {
 		pubKey := p.Node().Pubkey()
 		if pubKey == nil {
 			continue
 		}
 		addr := crypto.PubkeyToAddress(*pubKey)
-		if targets[addr] {
+		if _, ok := targets[addr]; ok {
 			m[addr] = p
 		}
 	}
-	return m
+
+	var notConnected []common.Address
+	for addr := range targets {
+		if _, ok := m[addr]; !ok {
+			notConnected = append(notConnected, addr)
+		}
+	}
+	return m, notConnected
 }
 
 // NodeInfo represents a short summary of the Ethereum sub-protocol metadata
