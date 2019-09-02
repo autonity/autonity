@@ -2,10 +2,9 @@ package validator
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 )
 
-func stickyProposer(valSet tendermint.ValidatorSet, proposer common.Address, round uint64) tendermint.Validator {
+func stickyProposer(valSet Set, proposer common.Address, round uint64) Validator {
 	size := valSet.Size()
 	if size == 0 {
 		return nil
@@ -20,7 +19,7 @@ func stickyProposer(valSet tendermint.ValidatorSet, proposer common.Address, rou
 	return valSet.GetByIndex(pick)
 }
 
-func calcSeed(valSet tendermint.ValidatorSet, proposer common.Address, round uint64) uint64 {
+func calcSeed(valSet Set, proposer common.Address, round uint64) uint64 {
 	offset := 0
 	if idx, val := valSet.GetByAddress(proposer); val != nil {
 		offset = idx

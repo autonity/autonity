@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"sync"
 	"time"
@@ -18,7 +19,7 @@ const (
 	precommitTimeoutDelta   = 500 * time.Millisecond
 )
 
-type timeoutEvent struct {
+type TimeoutEvent struct {
 	roundWhenCalled  int64
 	heightWhenCalled int64
 	// message type: msgProposal msgPrevote	msgPrecommit
@@ -32,8 +33,8 @@ type timeout struct {
 	sync.Mutex
 }
 
-func newTimeout(s Step) timeout {
-	return timeout{
+func newTimeout(s Step) *timeout {
+	return &timeout{
 		started: false,
 		step:    s,
 	}
@@ -59,7 +60,7 @@ func (t *timeout) stopTimer() error {
 	t.Lock()
 	defer t.Unlock()
 	if t.started {
-		if stopped := t.timer.Stop(); !stopped {
+		if t.started = !t.timer.Stop(); t.started {
 			switch t.step {
 			case propose:
 				return errNilPrevoteSent
@@ -73,9 +74,28 @@ func (t *timeout) stopTimer() error {
 	return nil
 }
 
+func (t *timeout) set(timeoutNew *timeout) bool {
+	if t == nil {
+		return false
+	}
+
+	err := t.stopTimer()
+	if err != nil {
+		// log error and reset timer
+		log.Error("cant stop timer", "err", err)
+	}
+
+	t.Lock()
+	defer t.Unlock()
+	t.started = timeoutNew.started
+	t.step = timeoutNew.step
+	t.timer = timeoutNew.timer
+	return true
+}
+
 /////////////// On Timeout Functions ///////////////
 func (c *core) onTimeoutPropose(r int64, h int64) {
-	msg := timeoutEvent{
+	msg := TimeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
 		step:             msgProposal,
@@ -85,7 +105,7 @@ func (c *core) onTimeoutPropose(r int64, h int64) {
 }
 
 func (c *core) onTimeoutPrevote(r int64, h int64) {
-	msg := timeoutEvent{
+	msg := TimeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
 		step:             msgPrevote,
@@ -96,7 +116,7 @@ func (c *core) onTimeoutPrevote(r int64, h int64) {
 }
 
 func (c *core) onTimeoutPrecommit(r int64, h int64) {
-	msg := timeoutEvent{
+	msg := TimeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
 		step:             msgPrecommit,
@@ -106,7 +126,7 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 }
 
 /////////////// Handle Timeout Functions ///////////////
-func (c *core) handleTimeoutPropose(ctx context.Context, msg timeoutEvent) {
+func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 		c.sendPrevote(ctx, true)
@@ -114,7 +134,7 @@ func (c *core) handleTimeoutPropose(ctx context.Context, msg timeoutEvent) {
 	}
 }
 
-func (c *core) handleTimeoutPrevote(ctx context.Context, msg timeoutEvent) {
+func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 		c.sendPrecommit(ctx, true)
@@ -122,9 +142,10 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg timeoutEvent) {
 	}
 }
 
-func (c *core) handleTimeoutPrecommit(ctx context.Context, msg timeoutEvent) {
+func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
+
 		c.startRound(ctx, new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
 	}
 }
@@ -143,7 +164,7 @@ func timeoutPrecommit(round int64) time.Duration {
 	return initialPrecommitTimeout + time.Duration(round)*precommitTimeoutDelta
 }
 
-func (c *core) logTimeoutEvent(message string, msgType string, timeout timeoutEvent) {
+func (c *core) logTimeoutEvent(message string, msgType string, timeout TimeoutEvent) {
 	c.logger.Debug(message,
 		"from", c.address.String(),
 		"type", msgType,

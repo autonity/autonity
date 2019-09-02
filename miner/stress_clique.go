@@ -205,7 +205,7 @@ func makeSealer(genesis *core.Genesis) (*node.Node, error) {
 				GasPrice: big.NewInt(1),
 				Recommit: time.Second,
 			},
-		})
+		}, nil)
 	}); err != nil {
 		return nil, err
 	}

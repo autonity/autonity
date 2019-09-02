@@ -18,6 +18,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"math/big"
 	"time"
@@ -112,7 +113,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 	}
 
 	// Ensure that the extra data format is satisfied
-	if _, err := types.ExtractBFTExtra(header); err != nil {
+	if _, err := types.ExtractBFTHeaderExtra(header); err != nil {
 		return errInvalidExtraDataFormat
 	}
 
@@ -241,7 +242,7 @@ func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 	}
 	validators := validator.NewSet(validatorAddresses, sb.config.GetProposerPolicy())
 
-	extra, err := types.ExtractBFTExtra(header)
+	extra, err := types.ExtractBFTHeaderExtra(header)
 	if err != nil {
 		return err
 	}
@@ -336,7 +337,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	header.UncleHash = nilUncleHash
 
 	// add validators to extraData's validators section
-	if header.Extra, err = types.PrepareExtra(&header.Extra, validators); err != nil {
+	if header.Extra, err = types.PrepareExtra(header.Extra, validators); err != nil {
 		return
 	}
 }
@@ -353,7 +354,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	header.UncleHash = nilUncleHash
 
 	// add validators to extraData's validators section
-	if header.Extra, err = types.PrepareExtra(&header.Extra, validators); err != nil {
+	if header.Extra, err = types.PrepareExtra(header.Extra, validators); err != nil {
 		return nil, err
 	}
 
@@ -390,7 +391,7 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 
 		if sb.glienickeContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GlienickeDeployer, 0)
+			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GetGlienickeDeployer(), 0)
 		}
 
 		validators, err = sb.contractGetValidators(chain, header, state)
@@ -411,7 +412,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 
 	// Bail out if we're unauthorized to sign a block
 	if _, v := sb.Validators(number).GetByAddress(sb.address); v == nil {
-		sb.logger.Error("Error validator")
+		sb.logger.Error("error validator errUnauthorized", "addr", sb.address.String())
 		return errUnauthorized
 	}
 
@@ -422,7 +423,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	}
 	block, err := sb.updateBlock(block)
 	if err != nil {
-		sb.logger.Error("Error updateBlock", err, err.Error())
+		sb.logger.Error("seal error updateBlock", "err", err.Error())
 		return err
 	}
 
@@ -483,7 +484,7 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 }
 
 // Start implements consensus.BFT.Start
-func (sb *Backend) Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+func (sb *Backend) Start(_ context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if sb.coreStarted {
@@ -531,7 +532,7 @@ func (sb *Backend) retrieveSavedValidators(number uint64, chain consensus.ChainR
 		return nil, errUnknownBlock
 	}
 
-	istanbulExtra, err := types.ExtractBFTExtra(header)
+	istanbulExtra, err := types.ExtractBFTHeaderExtra(header)
 	if err != nil {
 		return nil, err
 	}
@@ -556,7 +557,7 @@ func (sb *Backend) retrieveValidators(header *types.Header, parents []*types.Hea
 	if len(parents) > 0 {
 		parent := parents[len(parents)-1]
 		var istanbulExtra *types.BFTExtra
-		istanbulExtra, err = types.ExtractBFTExtra(parent)
+		istanbulExtra, err = types.ExtractBFTHeaderExtra(parent)
 		if err == nil {
 			validators = istanbulExtra.Validators
 		}

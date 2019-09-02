@@ -26,7 +26,8 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -67,33 +68,32 @@ var (
 	errMovedToNewRound = errors.New("timer expired and new round started")
 )
 
-type Engine interface {
-	Start() error
-	Stop() error
-}
-
 // New creates an Tendermint consensus core
-func New(backend tendermint.Backend, config *tendermint.Config) Engine {
-	c := &core{
+func New(backend Backend, config *config.Config) *core {
+	return &core{
 		config:                config,
 		address:               backend.Address(),
 		logger:                log.New(),
 		backend:               backend,
-		backlogs:              make(map[tendermint.Validator]*prque.Prque),
+		backlogs:              make(map[validator.Validator]*prque.Prque),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
+		stopped:               make(chan struct{}, 3),
+		isStarting:            new(uint32),
+		isStarted:             new(uint32),
+		isStopping:            new(uint32),
+		isStopped:             new(uint32),
 		valSet:                new(validatorSet),
 		futureRoundsChange:    make(map[int64]int64),
 	}
-	return c
 }
 
 type core struct {
-	config  *tendermint.Config
+	config  *config.Config
 	address common.Address
 	logger  log.Logger
 
-	backend tendermint.Backend
+	backend Backend
 	cancel  context.CancelFunc
 
 	messageEventSub         *event.TypeMuxSubscription
@@ -101,10 +101,15 @@ type core struct {
 	committedSub            *event.TypeMuxSubscription
 	timeoutEventSub         *event.TypeMuxSubscription
 	futureProposalTimer     *time.Timer
+	stopped                 chan struct{}
+	isStarted               *uint32
+	isStarting              *uint32
+	isStopping              *uint32
+	isStopped               *uint32
 
 	valSet *validatorSet
 
-	backlogs   map[tendermint.Validator]*prque.Prque
+	backlogs   map[validator.Validator]*prque.Prque
 	backlogsMu sync.Mutex
 
 	currentRoundState *roundState
@@ -127,9 +132,9 @@ type core struct {
 
 	currentHeightOldRoundsStates map[int64]roundState
 
-	proposeTimeout   timeout
-	prevoteTimeout   timeout
-	precommitTimeout timeout
+	proposeTimeout   *timeout
+	prevoteTimeout   *timeout
+	precommitTimeout *timeout
 
 	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
 	futureRoundsChange map[int64]int64
@@ -137,19 +142,6 @@ type core struct {
 
 func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	var err error
-	// Add sender address
-	msg.Address = c.address
-
-	// Add proof of consensus
-	msg.CommittedSeal = []byte{}
-	// Assign the CommittedSeal if it's a COMMIT message and proposal is not nil
-	if msg.Code == msgPrecommit && c.currentRoundState.Proposal() != nil {
-		seal := PrepareCommittedSeal(c.currentRoundState.GetCurrentProposalHash())
-		msg.CommittedSeal, err = c.backend.Sign(seal)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	// Sign message
 	data, err := msg.PayloadNoSig()
@@ -198,7 +190,7 @@ func (c *core) commit() {
 
 	if proposal != nil {
 		if proposal.ProposalBlock != nil {
-			log.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash(), "block", proposal.ProposalBlock)
+			log.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 		} else {
 			log.Error("commit a NIL block",
 				"block", proposal.ProposalBlock,
@@ -278,12 +270,18 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		c.futureRoundsChange = make(map[int64]int64)
 	}
 	// Reset all timeouts
-	_ = c.proposeTimeout.stopTimer()
-	_ = c.prevoteTimeout.stopTimer()
-	_ = c.precommitTimeout.stopTimer()
-	c.proposeTimeout = newTimeout(propose)
-	c.prevoteTimeout = newTimeout(prevote)
-	c.precommitTimeout = newTimeout(precommit)
+	proposeTime := newTimeout(propose)
+	if ok := c.proposeTimeout.set(proposeTime); !ok {
+		c.proposeTimeout = proposeTime
+	}
+	prevoteTime := newTimeout(prevote)
+	if ok := c.prevoteTimeout.set(prevoteTime); !ok {
+		c.prevoteTimeout = prevoteTime
+	}
+	precommitTime := newTimeout(precommit)
+	if ok := c.precommitTimeout.set(precommitTime); !ok {
+		c.precommitTimeout = precommitTime
+	}
 	// Get all rounds from c.futureRoundsChange and remove previous rounds
 	var i int64
 	for i = 0; i <= r.Int64(); i++ {
@@ -336,7 +334,7 @@ func (c *core) stopFutureProposalTimer() {
 	}
 }
 
-func (c *core) quorum(i int) bool {
+func (c *core) Quorum(i int) bool {
 	return float64(i) >= math.Ceil(float64(2)/float64(3)*float64(c.valSet.Size()))
 }
 

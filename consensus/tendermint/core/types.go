@@ -14,16 +14,16 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tendermint
+package core
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/log"
 	"io"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 )
 

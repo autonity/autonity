@@ -31,7 +31,7 @@ import (
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/istanbul"
-	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/console"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -274,28 +274,30 @@ func setupDefaults(genesis *core.Genesis) {
 		}
 	}
 
+	defaultConfig := config.DefaultConfig()
+
 	if genesis.Config.Tendermint != nil {
 		if genesis.Config.Tendermint.Epoch == 0 {
-			genesis.Config.Tendermint.Epoch = tendermint.DefaultConfig.Epoch
+			genesis.Config.Tendermint.Epoch = defaultConfig.Epoch
 		}
 		if genesis.Config.Tendermint.RequestTimeout == 0 {
-			genesis.Config.Tendermint.RequestTimeout = tendermint.DefaultConfig.RequestTimeout
+			genesis.Config.Tendermint.RequestTimeout = defaultConfig.RequestTimeout
 		}
 		if genesis.Config.Tendermint.BlockPeriod == 0 {
-			genesis.Config.Tendermint.BlockPeriod = tendermint.DefaultConfig.BlockPeriod
+			genesis.Config.Tendermint.BlockPeriod = defaultConfig.BlockPeriod
 		}
 
 		if len(genesis.Config.Tendermint.ABI) == 0 {
-			genesis.Config.Tendermint.ABI = tendermint.DefaultConfig.ABI
+			genesis.Config.Tendermint.ABI = defaultConfig.ABI
 		}
 		if len(genesis.Config.Tendermint.Bytecode) == 0 {
-			genesis.Config.Tendermint.Bytecode = tendermint.DefaultConfig.Bytecode
+			genesis.Config.Tendermint.Bytecode = defaultConfig.Bytecode
 		}
 		if len(genesis.Config.Tendermint.Deployer) == 0 || genesis.Config.Tendermint.Deployer == (common.Address{}) {
-			genesis.Config.Tendermint.Deployer = tendermint.DefaultConfig.Deployer
+			genesis.Config.Tendermint.Deployer = defaultConfig.Deployer
 		}
 		if genesis.Config.Tendermint.Epoch == 0 {
-			genesis.Config.Tendermint.Epoch = tendermint.DefaultConfig.Epoch
+			genesis.Config.Tendermint.Epoch = defaultConfig.Epoch
 		}
 	}
 }
@@ -675,10 +677,10 @@ func updateValidators(ctx *cli.Context) error {
 			utils.Fatalf("invalid genesis: %v", err)
 		}
 
-		extraData = genesis.ExtraData
+		extraData = genesis.GetExtraData()
 	}
 
-	if extraData, err = types.PrepareExtra(&extraData, validators); err != nil {
+	if extraData, err = types.PrepareExtra(extraData, validators); err != nil {
 		utils.Fatalf("error while updating extraData field: %v", err)
 	}
 

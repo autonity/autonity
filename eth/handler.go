@@ -365,8 +365,14 @@ func (pm *ProtocolManager) handle(p *peer) error {
 			}
 		}
 		pm.enodesWhitelistLock.RUnlock()
-		if !whitelisted && p.td.Uint64() <= head.Number.Uint64() + 1 {
-			p.Log().Info("Dropping unauthorized peer with old TD.", "enode", p.Node().ID())
+		if !whitelisted && p.td.Uint64() <= head.Number.Uint64()+1 {
+			p.Log().Info("dropping unauthorized peer with old TD",
+				"whitelisted", whitelisted,
+				"enode", p.Node().ID(),
+				"peersTD", p.td.Uint64(),
+				"currentTD", head.Number.Uint64()+1,
+			)
+
 			return errUnauthaurizedPeer
 		}
 		// Todo : pause relaying if not whitelisted until full sync

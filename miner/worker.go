@@ -18,6 +18,7 @@ package miner
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"math/big"
 	"sync"
@@ -266,7 +267,7 @@ func (w *worker) pendingBlock() *types.Block {
 func (w *worker) start() {
 	atomic.StoreInt32(&w.running, 1)
 	if pos, ok := w.engine.(consensus.BFT); ok {
-		err := pos.Start(w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
+		err := pos.Start(context.Background(), w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
 		if err != nil {
 			log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)
 		}

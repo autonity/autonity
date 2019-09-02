@@ -18,6 +18,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
@@ -52,7 +53,12 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	if err != nil {
 		panic(err)
 	}
-	b.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+
+	err = b.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	if err != nil {
+		panic(err)
+	}
+
 	validators := b.Validators(0)
 	if validators.Size() == 0 {
 		panic("failed to get validators")
@@ -486,18 +492,21 @@ func TestPrepareExtra(t *testing.T) {
 		Extra: vanity,
 	}
 
-	payload, err := types.PrepareExtra(&h.Extra, validators)
+	payload, err := types.PrepareExtra(h.Extra, validators)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want: nil", err)
 	}
 	if !reflect.DeepEqual(payload, expectedResult) {
-		t.Errorf("payload mismatch: have %v, want %v", payload, expectedResult)
+		t.Errorf("payload mismatch: have %v(%d)\n, want %v(%d)", payload, len(payload), expectedResult, len(expectedResult))
 	}
 
 	// append useless information to extra-data
 	h.Extra = append(vanity, make([]byte, 15)...)
 
-	payload, err = types.PrepareExtra(&h.Extra, validators)
+	payload, err = types.PrepareExtra(h.Extra, validators)
+	if err != nil {
+		t.Errorf("error PrepareExtra: have %v, want: nil", err)
+	}
 	if !reflect.DeepEqual(payload, expectedResult) {
 		t.Errorf("payload mismatch: have %v, want %v", payload, expectedResult)
 	}
@@ -530,7 +539,7 @@ func TestWriteSeal(t *testing.T) {
 	}
 
 	// verify istanbul extra-data
-	istExtra, err := types.ExtractBFTExtra(h)
+	istExtra, err := types.ExtractBFTHeaderExtra(h)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
@@ -573,7 +582,7 @@ func TestWriteCommittedSeals(t *testing.T) {
 	}
 
 	// verify istanbul extra-data
-	istExtra, err := types.ExtractBFTExtra(h)
+	istExtra, err := types.ExtractBFTHeaderExtra(h)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}

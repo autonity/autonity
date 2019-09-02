@@ -19,16 +19,16 @@ package backend
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint"
-	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -38,6 +38,7 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
+	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -45,8 +46,20 @@ const (
 	fetcherID = "tendermint"
 )
 
+var (
+	// ErrUnauthorizedAddress is returned when given address cannot be found in
+	// current validator set.
+	ErrUnauthorizedAddress = errors.New("unauthorized address")
+	// ErrStoppedEngine is returned if the engine is stopped
+	ErrStoppedEngine = errors.New("stopped engine")
+)
+
 // New creates an Ethereum Backend for BFT core engine.
-func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
+func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
+	log.Warn("new backend with public key",
+		"backAddress", crypto.PubkeyToAddress(privateKey.PublicKey).String(),
+	)
+
 	if chainConfig.Tendermint.Epoch != 0 {
 		config.Epoch = chainConfig.Tendermint.Epoch
 	}
@@ -66,7 +79,7 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
 
-	config.SetProposerPolicy(tendermint.ProposerPolicy(chainConfig.Tendermint.ProposerPolicy))
+	config.SetProposerPolicy(tendermintConfig.ProposerPolicy(chainConfig.Tendermint.ProposerPolicy))
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
@@ -85,7 +98,6 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
 	}
-	backend.core = tendermintCore.New(backend, backend.config)
 
 	return backend
 }
@@ -93,11 +105,11 @@ func New(config *tendermint.Config, privateKey *ecdsa.PrivateKey, db ethdb.Datab
 // ----------------------------------------------------------------------------
 
 type Backend struct {
-	config       *tendermint.Config
+	config       *tendermintConfig.Config
 	eventMux     *event.TypeMuxSilent
 	privateKey   *ecdsa.PrivateKey
+	privateKeyMu sync.RWMutex
 	address      common.Address
-	core         tendermintCore.Engine
 	logger       log.Logger
 	db           ethdb.Database
 	blockchain   *core.BlockChain
@@ -125,16 +137,16 @@ type Backend struct {
 	vmConfig          *vm.Config
 
 	resend chan messageToPeers
-
-	cancel context.CancelFunc
 }
 
 // Address implements tendermint.Backend.Address
 func (sb *Backend) Address() common.Address {
+	sb.privateKeyMu.RLock()
+	defer sb.privateKeyMu.RUnlock()
 	return sb.address
 }
 
-func (sb *Backend) Validators(number uint64) tendermint.ValidatorSet {
+func (sb *Backend) Validators(number uint64) validator.Set {
 	validators, err := sb.retrieveSavedValidators(number, sb.blockchain)
 	proposerPolicy := sb.config.GetProposerPolicy()
 	if err != nil {
@@ -144,11 +156,11 @@ func (sb *Backend) Validators(number uint64) tendermint.ValidatorSet {
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(ctx context.Context, valSet tendermint.ValidatorSet, payload []byte) error {
+func (sb *Backend) Broadcast(ctx context.Context, valSet validator.Set, payload []byte) error {
 	// send to others
 	sb.Gossip(ctx, valSet, payload)
 	// send to self
-	msg := tendermint.MessageEvent{
+	msg := events.MessageEvent{
 		Payload: payload,
 	}
 	sb.postEvent(msg)
@@ -156,14 +168,14 @@ func (sb *Backend) Broadcast(ctx context.Context, valSet tendermint.ValidatorSet
 }
 
 func (sb *Backend) postEvent(event interface{}) {
-	go sb.eventMux.Post(event)
+	go sb.Post(event)
 }
 
 const TTL = 10           //seconds
 const retryInterval = 50 //milliseconds
 
 // Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, valSet tendermint.ValidatorSet, payload []byte) {
+func (sb *Backend) Gossip(ctx context.Context, valSet validator.Set, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
@@ -238,9 +250,9 @@ func (sb *Backend) Commit(proposal types.Block, seals [][]byte) error {
 	// -- if success, the ChainHeadEvent event will be broadcasted, try to build
 	//    the next block and the previous Seal() will be stopped.
 	// -- otherwise, a error will be returned and a round change event will be fired.
-	if sb.proposedBlockHash == block.Hash() && sb.commitCh != nil {
+	if sb.proposedBlockHash == block.Hash() && !sb.isResultChanNil() {
 		// feed block hash to Seal() and wait the Seal() result
-		sb.commitCh <- block
+		sb.sendResultChan(block)
 		return nil
 	}
 
@@ -250,9 +262,12 @@ func (sb *Backend) Commit(proposal types.Block, seals [][]byte) error {
 	return nil
 }
 
-// EventMux implements tendermint.Backend.EventMux
-func (sb *Backend) EventMux() *event.TypeMuxSilent {
-	return sb.eventMux
+func (sb *Backend) Post(ev interface{}) {
+	sb.eventMux.Post(ev)
+}
+
+func (sb *Backend) Subscribe(types ...interface{}) *event.TypeMuxSubscription {
+	return sb.eventMux.Subscribe(types...)
 }
 
 // VerifyProposal implements tendermint.Backend.VerifyProposal
@@ -346,7 +361,9 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		// Verify the validator set by comparing the validators in extra data and Soma-contract
-		tendermintExtra, _ := types.ExtractBFTExtra(header)
+		tendermintExtra, _ := types.ExtractBFTHeaderExtra(header)
+
+		//Perform the actual comparison
 		if len(tendermintExtra.Validators) != len(validators) {
 			sb.logger.Error("wrong validator set",
 				"extraLen", len(tendermintExtra.Validators),
@@ -381,7 +398,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 // Sign implements tendermint.Backend.Sign
 func (sb *Backend) Sign(data []byte) ([]byte, error) {
 	hashData := crypto.Keccak256(data)
-	return crypto.Sign(hashData, sb.privateKey)
+	return crypto.Sign(hashData, sb.GetPrivateKey())
 }
 
 // CheckSignature implements tendermint.Backend.CheckSignature
@@ -446,4 +463,21 @@ func (sb *Backend) WhiteList() []string {
 	}
 
 	return enodes.StrList
+}
+
+func (sb *Backend) GetPrivateKey() *ecdsa.PrivateKey {
+	sb.privateKeyMu.RLock()
+	defer sb.privateKeyMu.RUnlock()
+
+	pk := sb.privateKey.PublicKey
+	d := big.NewInt(0).Set(sb.privateKey.D)
+	return &ecdsa.PrivateKey{PublicKey: pk, D: d}
+}
+
+func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
+	sb.privateKeyMu.Lock()
+	defer sb.privateKeyMu.Unlock()
+
+	sb.privateKey = key
+	sb.address = crypto.PubkeyToAddress(key.PublicKey)
 }

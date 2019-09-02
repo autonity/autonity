@@ -20,6 +20,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"sort"
+	"sync"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/crypto"
@@ -214,16 +216,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil, nil, sync.RWMutex{}, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, nil, sync.RWMutex{}, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil, nil, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil, nil, sync.RWMutex{}, nil, GlienickeDefaultDeployer, GlienickeDefaultBytecode, GlienickeDefaultABI}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
 
@@ -301,6 +303,7 @@ type ChainConfig struct {
 	Tendermint *TendermintConfig `json:"tendermint,omitempty"`
 
 	// Network Permissioning
+	mu                sync.RWMutex
 	EnodeWhitelist    []string       `json:"enodeWhitelist,omitempty"`
 	GlienickeDeployer common.Address `json:"glienickeDeployer,omitempty"`
 	GlienickeBytecode string         `json:"glienickeBytecode,omitempty"`
@@ -507,6 +510,64 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 		return newCompatError("ewasm fork block", c.EWASMBlock, newcfg.EWASMBlock)
 	}
 	return nil
+}
+
+func (c *ChainConfig) GetEnodeWhitelist() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.EnodeWhitelist
+}
+func (c *ChainConfig) SetEnodeWhitelist(l []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.EnodeWhitelist = l
+}
+func (c *ChainConfig) SortEnodeWhitelist() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	sort.Strings(c.EnodeWhitelist)
+}
+
+func (c *ChainConfig) GetGlienickeDeployer() common.Address {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.GlienickeDeployer
+}
+func (c *ChainConfig) SetGlienickeDeployer(a common.Address) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.GlienickeDeployer = a
+}
+
+func (c *ChainConfig) GetGlienickeBytecode() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.GlienickeBytecode
+}
+func (c *ChainConfig) SetGlienickeBytecode(s string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.GlienickeBytecode = s
+}
+
+func (c *ChainConfig) GetGlienickeABI() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.GlienickeABI
+}
+func (c *ChainConfig) SetGlienickeABI(s string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.GlienickeABI = s
 }
 
 // isForkIncompatible returns true if a fork scheduled at s1 cannot be rescheduled to

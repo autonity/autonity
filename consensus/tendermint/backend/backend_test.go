@@ -18,13 +18,9 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rlp"
 	"math/big"
 	"sort"
 	"strings"
@@ -32,10 +28,18 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	tendermintCrypto "github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 func TestSign(t *testing.T) {
@@ -86,13 +90,13 @@ func TestCheckValidatorSignature(t *testing.T) {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
 		// CheckValidatorSignature should succeed
-		addr, err := tendermint.CheckValidatorSignature(vset, data, sig)
+		addr, err := tendermintCrypto.CheckValidatorSignature(vset, data, sig)
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
-		validator := vset.GetByIndex(uint64(i))
-		if addr != validator.Address() {
-			t.Errorf("validator address mismatch: have %v, want %v", addr, validator.Address())
+		val := vset.GetByIndex(uint64(i))
+		if addr != val.Address() {
+			t.Errorf("validator address mismatch: have %v, want %v", addr, val.Address())
 		}
 	}
 
@@ -108,9 +112,9 @@ func TestCheckValidatorSignature(t *testing.T) {
 	}
 
 	// CheckValidatorSignature should return ErrUnauthorizedAddress
-	addr, err := tendermint.CheckValidatorSignature(vset, data, sig)
-	if err != tendermint.ErrUnauthorizedAddress {
-		t.Errorf("error mismatch: have %v, want %v", err, tendermint.ErrUnauthorizedAddress)
+	addr, err := tendermintCrypto.CheckValidatorSignature(vset, data, sig)
+	if err != tendermintCrypto.ErrUnauthorizedAddress {
+		t.Errorf("error mismatch: have %v, want %v", err, ErrUnauthorizedAddress)
 	}
 	emptyAddr := common.Address{}
 	if addr != emptyAddr {
@@ -122,7 +126,7 @@ func TestCommit(t *testing.T) {
 	backend := newBackend()
 
 	commitCh := make(chan *types.Block, 1)
-	backend.commitCh = commitCh
+	backend.setResultChan(commitCh)
 
 	// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
 	testCases := []struct {
@@ -222,7 +226,7 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 	return crypto.HexToECDSA(key)
 }
 
-func newTestValidatorSet(n int) (tendermint.ValidatorSet, []*ecdsa.PrivateKey) {
+func newTestValidatorSet(n int) (validator.Set, []*ecdsa.PrivateKey) {
 	// generate validators
 	keys := make(Keys, n)
 	addrs := make([]common.Address, n)
@@ -231,7 +235,7 @@ func newTestValidatorSet(n int) (tendermint.ValidatorSet, []*ecdsa.PrivateKey) {
 		keys[i] = privateKey
 		addrs[i] = crypto.PubkeyToAddress(privateKey.PublicKey)
 	}
-	vset := validator.NewSet(addrs, tendermint.RoundRobin)
+	vset := validator.NewSet(addrs, config.RoundRobin)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
 	return vset, keys
 }
@@ -253,7 +257,7 @@ func (slice Keys) Swap(i, j int) {
 func newBackend() (b *Backend) {
 	_, b = newBlockChain(4)
 	key, _ := generatePrivateKey()
-	b.privateKey = key
+	b.SetPrivateKey(key)
 	return
 }
 
@@ -263,16 +267,18 @@ func newBackend() (b *Backend) {
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := rawdb.NewMemoryDatabase()
-	config := tendermint.DefaultConfig
+	config := tendermint.DefaultConfig()
 	// Use the first key as private key
 	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
+	c := tendermintCore.New(b, config)
+
 	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil)
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, c, vm.Config{}, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	err = b.Start(blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	err = c.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
 	if err != nil {
 		panic(err)
 	}
@@ -287,8 +293,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	for _, key := range nodeKeys {
 		addr := crypto.PubkeyToAddress(key.PublicKey)
 		if addr.String() == proposerAddr.String() {
-			b.privateKey = key
-			b.address = addr
+			b.SetPrivateKey(key)
 		}
 	}
 
@@ -319,11 +324,12 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 }
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
+	extraData := genesis.GetExtraData()
 
-	if len(genesis.ExtraData) < types.BFTExtraVanity {
-		genesis.ExtraData = append(genesis.ExtraData, bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)...)
+	if len(extraData) < types.BFTExtraVanity {
+		extraData = append(extraData, bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)...)
 	}
-	genesis.ExtraData = genesis.ExtraData[:types.BFTExtraVanity]
+	extraData = extraData[:types.BFTExtraVanity]
 
 	ist := &types.BFTExtra{
 		Validators:    addrs,
@@ -335,10 +341,12 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 	if err != nil {
 		panic("failed to encode tendermint extra")
 	}
-	genesis.ExtraData = append(genesis.ExtraData, istPayload...)
+	extraData = append(extraData, istPayload...)
+
+	genesis.SetExtraData(extraData)
 }
 
-func makeHeader(parent *types.Block, config *tendermint.Config) *types.Header {
+func makeHeader(parent *types.Block, config *config.Config) *types.Header {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),

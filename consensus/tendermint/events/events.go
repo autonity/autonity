@@ -14,16 +14,24 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package tendermint
+package events
 
-import "errors"
+import "github.com/clearmatics/autonity/core/types"
 
-var (
-	// ErrUnauthorizedAddress is returned when given address cannot be found in
-	// current validator set.
-	ErrUnauthorizedAddress = errors.New("unauthorized address")
-	// ErrStoppedEngine is returned if the engine is stopped
-	ErrStoppedEngine = errors.New("stopped engine")
-	// ErrStartedEngine is returned if the engine is already started
-	ErrStartedEngine = errors.New("started engine")
-)
+// NewUnminedBlockEvent is posted to propose a proposal
+type NewUnminedBlockEvent struct {
+	NewUnminedBlock types.Block
+}
+
+// MessageEvent is posted for Istanbul engine communication
+type MessageEvent struct {
+	Payload []byte
+}
+
+type Poster interface {
+	Post(interface{}) error
+}
+
+// CommitEvent is posted when a proposal is committed
+type CommitEvent struct {
+}

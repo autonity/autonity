@@ -19,17 +19,17 @@ package core
 import (
 	"bytes"
 	"context"
-	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
 )
 
 func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
-	var precommit = tendermint.Vote{
+	var precommit = Vote{
 		Round:  big.NewInt(c.currentRoundState.Round().Int64()),
 		Height: big.NewInt(c.currentRoundState.Height().Int64()),
 	}
@@ -52,15 +52,26 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
+	msg := &message{
+		Code:          msgPrecommit,
+		Msg:           encodedVote,
+		Address:       c.address,
+		CommittedSeal: []byte{},
+	}
+
+	// Create committed seal
+	seal := PrepareCommittedSeal(precommit.ProposedBlockHash)
+	msg.CommittedSeal, err = c.backend.Sign(seal)
+	if err != nil {
+		c.logger.Error("core.sendPrecommit error while signing committed seal", "err", err)
+	}
+
 	c.sentPrecommit = true
-	c.broadcast(ctx, &message{
-		Code: msgPrecommit,
-		Msg:  encodedVote,
-	})
+	c.broadcast(ctx, msg)
 }
 
 func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
-	var preCommit tendermint.Vote
+	var preCommit Vote
 	err := msg.Decode(&preCommit)
 	if err != nil {
 		return errFailedDecodePrecommit
@@ -75,7 +86,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 			c.acceptVote(&oldRoundState, precommit, preCommit.ProposedBlockHash, *msg)
 
 			// Check for old round precommit quorum
-			if c.quorum(oldRoundState.Precommits.VotesSize(oldRoundState.GetCurrentProposalHash())) {
+			if c.Quorum(oldRoundState.Precommits.VotesSize(oldRoundState.GetCurrentProposalHash())) {
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
@@ -90,10 +101,8 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		return err
 	}
 
-	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
-
 	// Don't want to decode twice, hence sending preCommit with message
-	if err := c.verifyPrecommitCommittedSeal(msg, preCommit); err != nil {
+	if err := c.verifyPrecommitCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash); err != nil {
 		return err
 	}
 
@@ -107,7 +116,8 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	if curProposalHash != (common.Hash{}) && c.quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
+	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
+	if curProposalHash != (common.Hash{}) && c.Quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
 		}
@@ -121,7 +131,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.timerStarted() && c.quorum(c.currentRoundState.Precommits.TotalSize()) {
+	} else if !c.precommitTimeout.timerStarted() && c.Quorum(c.currentRoundState.Precommits.TotalSize()) {
 		timeoutDuration := timeoutPrecommit(curR)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
@@ -130,16 +140,19 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 	return nil
 }
 
-func (c *core) verifyPrecommitCommittedSeal(m *message, precommit tendermint.Vote) error {
-	addressOfSignerOfCommittedSeal, err := types.GetSignatureAddress(PrepareCommittedSeal(precommit.ProposedBlockHash), m.CommittedSeal)
+func (c *core) verifyPrecommitCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash) error {
+	committedSeal := PrepareCommittedSeal(proposedBlockHash)
 
+	addressOfSignerOfCommittedSeal, err := types.GetSignatureAddress(committedSeal, committedSealMsg)
 	if err != nil {
 		c.logger.Error("Failed to get signer address", "err", err)
 		return err
 	}
 
 	// ensure sender signed the committed seal
-	if !bytes.Equal(addressOfSignerOfCommittedSeal.Bytes(), m.Address.Bytes()) {
+	if !bytes.Equal(addressOfSignerOfCommittedSeal.Bytes(), addressMsg.Bytes()) {
+		log.Error("verify precommit seal error", "got", addressMsg.String(), "expected", addressOfSignerOfCommittedSeal.String())
+
 		return errInvalidSenderOfCommittedSeal
 	}
 
@@ -151,7 +164,7 @@ func (c *core) handleCommit(ctx context.Context) {
 	c.startRound(ctx, common.Big0)
 }
 
-func (c *core) logPrecommitMessageEvent(message string, precommit tendermint.Vote, from, to string) {
+func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to string) {
 	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
 	c.logger.Debug(message,
 		"from", from,
@@ -168,8 +181,8 @@ func (c *core) logPrecommitMessageEvent(message string, precommit tendermint.Vot
 		"type", "Precommit",
 		"totalVotes", c.currentRoundState.Precommits.TotalSize(),
 		"totalNilVotes", c.currentRoundState.Precommits.NilVotesSize(),
-		"quorumReject", c.quorum(c.currentRoundState.Precommits.NilVotesSize()),
+		"quorumReject", c.Quorum(c.currentRoundState.Precommits.NilVotesSize()),
 		"totalNonNilVotes", c.currentRoundState.Precommits.VotesSize(currentProposalHash),
-		"quorumAccept", c.quorum(c.currentRoundState.Precommits.VotesSize(currentProposalHash)),
+		"quorumAccept", c.Quorum(c.currentRoundState.Precommits.VotesSize(currentProposalHash)),
 	)
 }

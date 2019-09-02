@@ -26,7 +26,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 )
@@ -56,10 +56,10 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	eventSub := engine.EventMux().Subscribe(tendermint.CommitEvent{})
+	eventSub := engine.Subscribe(events.CommitEvent{})
 	eventLoop := func() {
 		ev := <-eventSub.Chan()
-		_, ok := ev.Data.(tendermint.CommitEvent)
+		_, ok := ev.Data.(events.CommitEvent)
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
@@ -234,7 +234,8 @@ func TestVerifySeal(t *testing.T) {
 	}
 
 	// unauthorized users but still can get correct signer address
-	engine.privateKey, _ = crypto.GenerateKey()
+	privateKey, _ := crypto.GenerateKey()
+	engine.SetPrivateKey(privateKey)
 	err = engine.VerifySeal(chain, block.Header())
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -436,7 +437,7 @@ func TestPrepareExtra(t *testing.T) {
 		Extra: vanity,
 	}
 
-	payload, err := types.PrepareExtra(&h.Extra, validators)
+	payload, err := types.PrepareExtra(h.Extra, validators)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want: nil", err)
 	}
@@ -447,7 +448,7 @@ func TestPrepareExtra(t *testing.T) {
 	// append useless information to extra-data
 	h.Extra = append(vanity, make([]byte, 15)...)
 
-	payload, err = types.PrepareExtra(&h.Extra, validators)
+	payload, err = types.PrepareExtra(h.Extra, validators)
 	if err != nil {
 		t.Errorf("error PrepareExtra: have %v", err)
 	}
@@ -483,7 +484,7 @@ func TestWriteSeal(t *testing.T) {
 	}
 
 	// verify tendermint extra-data
-	istExtra, err := types.ExtractBFTExtra(h)
+	istExtra, err := types.ExtractBFTHeaderExtra(h)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
@@ -526,7 +527,7 @@ func TestWriteCommittedSeals(t *testing.T) {
 	}
 
 	// verify tendermint extra-data
-	istExtra, err := types.ExtractBFTExtra(h)
+	istExtra, err := types.ExtractBFTHeaderExtra(h)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}

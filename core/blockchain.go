@@ -2200,6 +2200,6 @@ func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscr
 	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) SubscribeGlienickeEvent(ch chan<-GlienickeEvent) event.Subscription {
+func (bc *BlockChain) SubscribeGlienickeEvent(ch chan<- GlienickeEvent) event.Subscription {
 	return bc.scope.Track(bc.glienickeFeed.Subscribe(ch))
 }
