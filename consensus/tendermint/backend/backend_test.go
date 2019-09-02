@@ -37,7 +37,6 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -267,10 +266,10 @@ func newBackend() (b *Backend) {
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := rawdb.NewMemoryDatabase()
-	config := tendermint.DefaultConfig()
+	cfg := config.DefaultConfig()
 	// Use the first key as private key
-	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
-	c := tendermintCore.New(b, config)
+	b := New(cfg, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
+	c := tendermintCore.New(b, cfg)
 
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, c, vm.Config{}, nil)
