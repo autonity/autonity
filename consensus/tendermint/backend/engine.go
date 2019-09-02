@@ -327,7 +327,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
 
-	validators, err := sb.blockchain.AutonityContract.ContractGetValidators(chain, header, state)
+	validators, err := sb.getValidators(header, chain, state)
 	if err != nil {
 		return nil, err
 	}
