@@ -329,7 +329,7 @@ func doTest(cmdline []string) {
 	gotest := goTool("test", buildFlags(env)...)
 	gotest.Args = append(gotest.Args, "-p", "1", "-timeout", "30m", "-short")
 	if *coverage {
-		gotest.Args = append(gotest.Args, "-covermode=atomic", "-cover", "-coverpkg=./...", "-test.coverprofile=coverage.out")
+		gotest.Args = append(gotest.Args, "-covermode=atomic", "-cover", "-test.coverprofile=coverage.out")
 	}
 	if *race {
 		gotest.Args = append(gotest.Args, "-race")
