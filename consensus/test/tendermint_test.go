@@ -108,6 +108,12 @@ func TestTendermintLongRun(t *testing.T) {
 			numBlocks: 10,
 			txPerPeer: 30,
 		},
+		{
+			name:      "no malicious - 100 blocks",
+			numPeers:  5,
+			numBlocks: 100,
+			txPerPeer: 5,
+		},
 	}
 
 	for _, testCase := range cases {
