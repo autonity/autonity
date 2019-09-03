@@ -364,10 +364,10 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	pm.syncTransactions(p)
 
 	if pm.blockchain.Config().Tendermint != nil {
-		tdm := pm.blockchain.Engine().(consensus.TDM)
+		tdm := pm.blockchain.Engine().(consensus.Handler)
 		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
 		tdm.ResetPeerCache(address)
-		tdm.SyncPeer(address)
+		tdm.SyncPeer(address, nil)
 	}
 	// If we're DAO hard-fork aware, validate any remote peer with regard to the hard-fork
 	if daoBlock := pm.chainconfig.DAOForkBlock; daoBlock != nil {

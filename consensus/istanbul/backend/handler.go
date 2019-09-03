@@ -98,3 +98,7 @@ func (sb *Backend) NewChainHead() error {
 	go sb.istanbulEventMux.Post(istanbul.FinalCommittedEvent{})
 	return nil
 }
+
+func (sb *Backend) SyncPeer(address common.Address) {}
+
+func (sb *Backend) ResetPeerCache(address common.Address) {}

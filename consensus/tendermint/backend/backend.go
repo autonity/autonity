@@ -27,8 +27,8 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
@@ -484,13 +484,15 @@ func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
 }
 
 // Synchronize new connected peer with current height state
-func (sb *Backend) SyncPeer(address common.Address, messages []tendermint.CoreMessage) {
+func (sb *Backend) SyncPeer(address common.Address, messages []interface{}) {
 	if sb.broadcaster != nil {
 		sb.logger.Info("Syncing", "peer", address)
 		ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
 		for _, msg := range messages {
-			payload, err := msg.Payload()
-			sb.logger.Info("Sending", "code", msg.GetCode(), "sig", msg.GetSignature())
+			// cast messages to tendermintCore.Message
+			m := msg.(*tendermintCore.Message)
+			payload, err := m.Payload()
+			sb.logger.Info("Sending", "code", m.GetCode(), "sig", m.GetSignature())
 			if err != nil {
 				continue
 			}

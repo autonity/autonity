@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	"math/big"
 	"time"
 
@@ -82,15 +81,14 @@ func (c *core) Protocol() (protocolName string, extraMsgCodes uint64) {
 }
 
 // Synchronize new connected peer with current height state
-func (c *core) SyncPeer(address common.Address) {
+func (c *core) SyncPeer(address common.Address, _ []interface{}) {
+	ms := c.GetCurrentHeightMessages()
+	messages := make([]interface{}, len(ms))
+	for i, _ := range ms {
+		messages[i] = ms[i]
+	}
 	if c.IsValidator(address) {
-		currentHeightMessages := c.GetCurrentHeightMessages()
-		coreMessages := make([]tendermint.CoreMessage, len(currentHeightMessages))
-		for i := range currentHeightMessages {
-			//cast to tendermint.Message, ugly but fine for now
-			coreMessages[i] = currentHeightMessages[i]
-		}
-		c.backend.SyncPeer(address, coreMessages)
+		c.backend.SyncPeer(address, messages)
 	}
 }
 
@@ -146,8 +144,4 @@ type Backend interface {
 
 	// Setter for proposed block hash
 	SetProposedBlockHash(hash common.Hash)
-
-	SyncPeer(address common.Address, messages []tendermint.CoreMessage)
-
-	ResetPeerCache(address common.Address)
 }
