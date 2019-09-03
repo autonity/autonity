@@ -111,6 +111,12 @@ func TestTendermintLongRun(t *testing.T) {
 			numBlocks: 10,
 			txPerPeer: 30,
 		},
+		{
+			name:      "no malicious - 100 blocks",
+			numPeers:  5,
+			numBlocks: 100,
+			txPerPeer: 5,
+		},
 	}
 
 	for _, testCase := range cases {
@@ -372,6 +378,50 @@ func TestTendermintStartStop(t *testing.T) {
 				2: hookStartNode(2, 20),
 				3: hookStartNode(3, 20),
 				4: hookStartNode(4, 20),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "all nodes stop for 120 seconds at different blocks",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				0: hookStopNode(0, 4),
+				1: hookStopNode(1, 4),
+				2: hookStopNode(2, 5),
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 7),
+			},
+			afterHooks: map[int]hook{
+				0: hookStartNode(0, 120),
+				1: hookStartNode(1, 120),
+				2: hookStartNode(2, 120),
+				3: hookStartNode(3, 120),
+				4: hookStartNode(4, 120),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "all nodes stop for 120 seconds at the same block",
+			isSkipped: true,
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				0: hookStopNode(0, 4),
+				1: hookStopNode(1, 4),
+				2: hookStopNode(2, 4),
+				3: hookStopNode(3, 4),
+				4: hookStopNode(4, 4),
+			},
+			afterHooks: map[int]hook{
+				0: hookStartNode(0, 120),
+				1: hookStartNode(1, 120),
+				2: hookStartNode(2, 120),
+				3: hookStartNode(3, 120),
+				4: hookStartNode(4, 120),
 			},
 			stopTime: make(map[int]time.Time),
 		},
