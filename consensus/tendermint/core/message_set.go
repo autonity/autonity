@@ -18,7 +18,6 @@ package core
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"sync"
 )
 
 func newMessageSet() messageSet {
@@ -30,10 +29,9 @@ func newMessageSet() messageSet {
 }
 
 type messageSet struct {
-	votes      map[common.Hash]map[common.Address]Message // map[proposedBlockHash]map[validatorAddress]vote
-	nilvotes   map[common.Address]Message                 // map[validatorAddress]vote
-	messages   []*Message
-	messagesMu sync.RWMutex
+	votes    map[common.Hash]map[common.Address]Message // map[proposedBlockHash]map[validatorAddress]vote
+	nilvotes map[common.Address]Message                 // map[validatorAddress]vote
+	messages []*Message
 }
 
 func (ms *messageSet) AddVote(blockHash common.Hash, msg Message) {
@@ -52,23 +50,17 @@ func (ms *messageSet) AddVote(blockHash common.Hash, msg Message) {
 
 	addressesMap[msg.Address] = msg
 
-	ms.messagesMu.Lock()
 	ms.messages = append(ms.messages, &msg)
-	ms.messagesMu.Unlock()
 }
 
 func (ms *messageSet) AddNilVote(msg Message) {
 	if _, ok := ms.nilvotes[msg.Address]; !ok {
 		ms.nilvotes[msg.Address] = msg
-		ms.messagesMu.Lock()
 		ms.messages = append(ms.messages, &msg)
-		ms.messagesMu.Unlock()
 	}
 }
 
 func (ms *messageSet) GetMessages() []*Message {
-	ms.messagesMu.RLock()
-	defer ms.messagesMu.RUnlock()
 	result := make([]*Message, len(ms.messages))
 	copy(result, ms.messages)
 	return result

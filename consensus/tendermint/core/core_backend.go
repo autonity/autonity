@@ -84,7 +84,7 @@ func (c *core) Protocol() (protocolName string, extraMsgCodes uint64) {
 func (c *core) SyncPeer(address common.Address, _ []interface{}) {
 	ms := c.GetCurrentHeightMessages()
 	messages := make([]interface{}, len(ms))
-	for i, _ := range ms {
+	for i := range ms {
 		messages[i] = ms[i]
 	}
 	if c.IsValidator(address) {
