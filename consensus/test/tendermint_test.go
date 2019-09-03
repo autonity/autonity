@@ -378,7 +378,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "all nodes stop for 120 seconds at different blocks",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -400,7 +400,7 @@ func TestTendermintStartStop(t *testing.T) {
 		},
 		{
 			name:      "all nodes stop for 120 seconds at the same block",
-			isSkipped: true,
+			isSkipped: false,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
