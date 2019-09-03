@@ -484,15 +484,13 @@ func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
 }
 
 // Synchronize new connected peer with current height state
-func (sb *Backend) SyncPeer(address common.Address, messages []interface{}) {
+func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.Message) {
 	if sb.broadcaster != nil {
 		sb.logger.Info("Syncing", "peer", address)
 		ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
 		for _, msg := range messages {
-			// cast messages to tendermintCore.Message
-			m := msg.(*tendermintCore.Message)
-			payload, err := m.Payload()
-			sb.logger.Info("Sending", "code", m.GetCode(), "sig", m.GetSignature())
+			payload, err := msg.Payload()
+			sb.logger.Info("Sending", "code", msg.GetCode(), "sig", msg.GetSignature())
 			if err != nil {
 				continue
 			}

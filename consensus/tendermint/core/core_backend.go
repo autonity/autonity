@@ -81,14 +81,9 @@ func (c *core) Protocol() (protocolName string, extraMsgCodes uint64) {
 }
 
 // Synchronize new connected peer with current height state
-func (c *core) SyncPeer(address common.Address, _ []interface{}) {
-	ms := c.GetCurrentHeightMessages()
-	messages := make([]interface{}, len(ms))
-	for i := range ms {
-		messages[i] = ms[i]
-	}
+func (c *core) SyncPeer(address common.Address) {
 	if c.IsValidator(address) {
-		c.backend.SyncPeer(address, messages)
+		c.backend.SyncPeer(address, c.GetCurrentHeightMessages())
 	}
 }
 
@@ -144,4 +139,8 @@ type Backend interface {
 
 	// Setter for proposed block hash
 	SetProposedBlockHash(hash common.Hash)
+
+	SyncPeer(address common.Address, messages []*Message)
+
+	ResetPeerCache(address common.Address)
 }

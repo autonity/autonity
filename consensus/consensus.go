@@ -125,10 +125,6 @@ type Handler interface {
 
 	//msgCodes returns the number of extra implemented msgCodes by this consensus algorithm
 	Protocol() (protocolName string, extraMsgCodes uint64)
-
-	SyncPeer(address common.Address, messages []interface{})
-
-	ResetPeerCache(address common.Address)
 }
 
 // PoW is a consensus engine based on proof-of-work.
@@ -145,4 +141,10 @@ type BFT interface {
 
 	// Start starts the engine
 	Start(ctx context.Context, chain ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
+}
+
+type TDM interface {
+	SyncPeer(address common.Address)
+
+	ResetPeerCache(address common.Address)
 }
