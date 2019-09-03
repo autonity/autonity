@@ -487,6 +487,8 @@ func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
 func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.Message) {
 	if sb.broadcaster != nil {
 		sb.logger.Info("Syncing", "peer", address)
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
 		for _, msg := range messages {
 			payload, err := msg.Payload()
 			sb.logger.Info("Sending", "code", msg.GetCode(), "sig", msg.GetSignature())
@@ -494,7 +496,7 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 				continue
 			}
 			hash := types.RLPHash(payload)
-			sb.trySend(context.Background(), messageToPeers{
+			sb.trySend(ctx, messageToPeers{
 				message{hash: hash, payload: payload},
 				[]common.Address{address},
 				time.Now(),
