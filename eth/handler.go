@@ -364,7 +364,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	pm.syncTransactions(p)
 
 	if pm.blockchain.Config().Tendermint != nil {
-		tdm := pm.blockchain.Engine().(consensus.TDM)
+		tdm := pm.blockchain.Engine().(consensus.Syncer)
 		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
 		tdm.ResetPeerCache(address)
 		tdm.SyncPeer(address)

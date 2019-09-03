@@ -143,7 +143,7 @@ type BFT interface {
 	Start(ctx context.Context, chain ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
 }
 
-type TDM interface {
+type Syncer interface {
 	SyncPeer(address common.Address)
 
 	ResetPeerCache(address common.Address)
