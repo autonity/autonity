@@ -21,6 +21,7 @@ matrix:
         - go run build/ci.go install
         - make lint-ci
         - go test ./consensus/tendermint/... -race -v -parallel 1
+        - travis_wait 30 go test -race -tags=integration ./consensus/test/... -run="TestTendermintDataRace" -v -timeout 10m
         - go run build/ci.go test -coverage $TEST_PACKAGES
         - travis_wait 30 go test ./consensus/test/... -v -timeout 30m -covermode=atomic -cover -coverprofile=coverage_e2e.out
         - echo "$(tail -n +2 coverage_e2e.out)" > coverage_e2e.out && cat coverage.out coverage_e2e.out > coverage_all.out

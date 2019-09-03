@@ -52,6 +52,7 @@ func TestTendermintSuccess(t *testing.T) {
 
 	for _, testCase := range cases {
 		testCase := testCase
+
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
 			runTest(t, testCase)
 		})
@@ -90,6 +91,7 @@ func TestTendermintSlowConnections(t *testing.T) {
 
 	for _, testCase := range cases {
 		testCase := testCase
+
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
 			runTest(t, testCase)
 		})
@@ -112,6 +114,7 @@ func TestTendermintLongRun(t *testing.T) {
 
 	for _, testCase := range cases {
 		testCase := testCase
+
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
 			runTest(t, testCase)
 		})
@@ -374,6 +377,7 @@ func TestTendermintStartStop(t *testing.T) {
 
 	for _, testCase := range cases {
 		testCase := testCase
+
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
 			runTest(t, testCase)
 		})
