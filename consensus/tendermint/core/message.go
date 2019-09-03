@@ -34,7 +34,7 @@ const (
 	msgPrecommit
 )
 
-type message struct {
+type Message struct {
 	Code          uint64
 	Msg           []byte
 	Address       common.Address
@@ -47,20 +47,20 @@ type message struct {
 // define the functions that needs to be provided for rlp Encoder/Decoder.
 
 // EncodeRLP serializes m into the Ethereum RLP format.
-func (m *message) EncodeRLP(w io.Writer) error {
+func (m *Message) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{m.Code, m.Msg, m.Address, m.Signature, m.CommittedSeal})
 }
 
-func (m *message) GetCode() uint64 {
+func (m *Message) GetCode() uint64 {
 	return m.Code
 }
 
-func (m *message) GetSignature() []byte {
+func (m *Message) GetSignature() []byte {
 	return m.Signature
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (m *message) DecodeRLP(s *rlp.Stream) error {
+func (m *Message) DecodeRLP(s *rlp.Stream) error {
 	var msg struct {
 		Code          uint64
 		Msg           []byte
@@ -82,7 +82,7 @@ var ErrUnauthorizedAddress = errors.New("unauthorized address")
 //
 // define the functions that needs to be provided for core.
 
-func (m *message) FromPayload(b []byte, valSet validator.Set, validateFn func(validator.Set, []byte, []byte) (common.Address, error)) (*validator.Validator, error) {
+func (m *Message) FromPayload(b []byte, valSet validator.Set, validateFn func(validator.Set, []byte, []byte) (common.Address, error)) (*validator.Validator, error) {
 	// Decode message
 	err := rlp.DecodeBytes(b, m)
 	if err != nil {
@@ -116,12 +116,12 @@ func (m *message) FromPayload(b []byte, valSet validator.Set, validateFn func(va
 	return &v, nil
 }
 
-func (m *message) Payload() ([]byte, error) {
+func (m *Message) Payload() ([]byte, error) {
 	return rlp.EncodeToBytes(m)
 }
 
-func (m *message) PayloadNoSig() ([]byte, error) {
-	return rlp.EncodeToBytes(&message{
+func (m *Message) PayloadNoSig() ([]byte, error) {
+	return rlp.EncodeToBytes(&Message{
 		Code:          m.Code,
 		Msg:           m.Msg,
 		Address:       m.Address,
@@ -130,11 +130,11 @@ func (m *message) PayloadNoSig() ([]byte, error) {
 	})
 }
 
-func (m *message) Decode(val interface{}) error {
+func (m *Message) Decode(val interface{}) error {
 	return rlp.DecodeBytes(m.Msg, val)
 }
 
-func (m *message) String() string {
+func (m *Message) String() string {
 	return fmt.Sprintf("{Code: %v, Address: %v}", m.Code, m.Address.String())
 }
 

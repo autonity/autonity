@@ -52,7 +52,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
-	msg := &message{
+	msg := &Message{
 		Code:          msgPrecommit,
 		Msg:           encodedVote,
 		Address:       c.address,
@@ -70,7 +70,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	c.broadcast(ctx, msg)
 }
 
-func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
+func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 	var preCommit Vote
 	err := msg.Decode(&preCommit)
 	if err != nil {

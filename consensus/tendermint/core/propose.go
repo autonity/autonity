@@ -50,7 +50,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 
 		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", *proposalBlock, c.address.String(), "broadcast")
 
-		c.broadcast(ctx, &message{
+		c.broadcast(ctx, &Message{
 			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       c.address,
@@ -59,7 +59,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 	}
 }
 
-func (c *core) handleProposal(ctx context.Context, msg *message) error {
+func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	var proposal Proposal
 	err := msg.Decode(&proposal)
 	if err != nil {

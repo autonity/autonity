@@ -71,7 +71,7 @@ var (
 type Engine interface {
 	Start() error
 	Stop() error
-	GetCurrentHeightMessages() []*message
+	GetCurrentHeightMessages() []*Message
 	IsValidator(address common.Address) bool
 }
 
@@ -148,10 +148,10 @@ type core struct {
 	futureRoundsChange map[int64]int64
 }
 
-func (c *core) GetCurrentHeightMessages() []*message {
+func (c *core) GetCurrentHeightMessages() []*Message {
 	c.currentHeightOldRoundsStatesMu.RLock()
 	defer c.currentHeightOldRoundsStatesMu.RUnlock()
-	result := make([]*message, 0)
+	result := make([]*Message, 0)
 	for _, state := range c.currentHeightOldRoundsStates {
 		result = append(result, state.GetMessages()...)
 	}
@@ -164,7 +164,7 @@ func (c *core) IsValidator(address common.Address) bool {
 	return val != nil
 }
 
-func (c *core) finalizeMessage(msg *message) ([]byte, error) {
+func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 	var err error
 
 	// Sign message
@@ -186,7 +186,7 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	return payload, nil
 }
 
-func (c *core) broadcast(ctx context.Context, msg *message) {
+func (c *core) broadcast(ctx context.Context, msg *Message) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	payload, err := c.finalizeMessage(msg)
@@ -329,7 +329,7 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 	c.setValidRoundAndValue = false
 }
 
-func (c *core) acceptVote(roundState *roundState, step Step, hash common.Hash, msg message) {
+func (c *core) acceptVote(roundState *roundState, step Step, hash common.Hash, msg Message) {
 	emptyHash := hash == (common.Hash{})
 	switch step {
 	case prevote:
