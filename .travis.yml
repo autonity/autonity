@@ -20,8 +20,8 @@ matrix:
         - sudo chown root:$USER /etc/fuse.conf
         - go run build/ci.go install
         - make lint-ci
-        - travis_wait 30 go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m
-        - travis_wait 30 go test -race -v -tags=integration ./consensus/test/... -run="TestTendermintDataRace" -count=1 -timeout 30m
+        - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m
+        - go test -race -v -tags=integration ./consensus/test/... -run="TestTendermintDataRace" -count=1 -timeout 30m
         - go run build/ci.go test -coverage $TEST_PACKAGES
         - travis_wait 30 go test ./consensus/test/... -v -timeout 30m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_e2e.out
         - echo "$(tail -n +2 coverage_e2e.out)" > coverage_e2e.out && cat coverage.out coverage_e2e.out | grep -v "_generated\|_mock.go" > coverage_all.out
