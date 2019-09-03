@@ -68,13 +68,6 @@ var (
 	errMovedToNewRound = errors.New("timer expired and new round started")
 )
 
-type Engine interface {
-	Start() error
-	Stop() error
-	GetCurrentHeightMessages() []*Message
-	IsValidator(address common.Address) bool
-}
-
 // New creates an Tendermint consensus core
 func New(backend Backend, config *config.Config) *core {
 	return &core{
@@ -137,8 +130,7 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightOldRoundsStates   map[int64]roundState
-	currentHeightOldRoundsStatesMu sync.RWMutex
+	currentHeightOldRoundsStates map[int64]roundState
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -149,8 +141,6 @@ type core struct {
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
-	c.currentHeightOldRoundsStatesMu.RLock()
-	defer c.currentHeightOldRoundsStatesMu.RUnlock()
 	result := make([]*Message, 0)
 	for _, state := range c.currentHeightOldRoundsStates {
 		result = append(result, state.GetMessages()...)
