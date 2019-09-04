@@ -885,7 +885,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	}
 }
 
-func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) (map[common.Address]consensus.Peer, []common.Address) {
+func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) map[common.Address]consensus.Peer {
 	m := make(map[common.Address]consensus.Peer)
 
 	for _, p := range pm.peers.Peers() {
@@ -899,13 +899,7 @@ func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) (map[c
 		}
 	}
 
-	var notConnected []common.Address
-	for addr := range targets {
-		if _, ok := m[addr]; !ok {
-			notConnected = append(notConnected, addr)
-		}
-	}
-	return m, notConnected
+	return m
 }
 
 // NodeInfo represents a short summary of the Ethereum sub-protocol metadata

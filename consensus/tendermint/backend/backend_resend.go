@@ -3,7 +3,6 @@ package backend
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	lru "github.com/hashicorp/golang-lru"
@@ -117,21 +116,21 @@ func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 	ctx, cancel := context.WithTimeout(ctx, TTL*time.Second)
 	defer cancel()
 
-	notConnectedPeers := sb.sendToConnectedPeers(ctx, msgToPeers)
+	errPeers := sb.sendToConnectedPeers(ctx, msgToPeers)
 
 	if int(time.Since(msgToPeers.startTime).Seconds()) > TTL {
 		sb.logger.Trace("worker loop. TTL expired", "msg", msgToPeers)
 		return
 	}
 
-	if len(notConnectedPeers) > 0 {
+	if len(errPeers) > 0 {
 		// send messages to the channel to further tries for error and not connected at the current time peers
 		msg := messageToPeers{
 			message{
 				msgToPeers.msg.hash,
 				msgToPeers.msg.payload,
 			},
-			notConnectedPeers,
+			errPeers,
 			msgToPeers.startTime,
 			time.Now(),
 		}
@@ -141,10 +140,11 @@ func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 }
 
 func (sb *Backend) sendToConnectedPeers(ctx context.Context, msgToPeers messageToPeers) []common.Address {
-	connectedPeers, notConnectedPeers := sb.getPeers(msgToPeers)
+	var errConnectedPeers []common.Address
+	connectedPeers := sb.getPeers(msgToPeers)
 
 	if sb.broadcaster == nil || len(connectedPeers) == 0 {
-		return notConnectedPeers
+		return errConnectedPeers
 	}
 
 	sb.logger.Trace("worker loop. resend to connected peers", "msg", msgToPeers.msg.hash.String(), "peers", peersToString(getPeerKeys(connectedPeers)))
@@ -160,7 +160,7 @@ func (sb *Backend) sendToConnectedPeers(ctx context.Context, msgToPeers messageT
 	wg := sync.WaitGroup{}
 	wg.Add(len(connectedPeers))
 
-	notConnectedCh := make(chan common.Address, len(connectedPeers))
+	errConnectedCh := make(chan common.Address, len(connectedPeers))
 
 	// collect peers that haven't received the message
 	for _, errCh := range errChs {
@@ -169,7 +169,7 @@ func (sb *Backend) sendToConnectedPeers(ctx context.Context, msgToPeers messageT
 			if err != nil {
 				pe, ok := err.(peerError)
 				if ok {
-					notConnectedCh <- pe.addr
+					errConnectedCh <- pe.addr
 
 					sb.logger.Error(pe.Error(), "peer", pe.addr)
 				}
@@ -181,31 +181,22 @@ func (sb *Backend) sendToConnectedPeers(ctx context.Context, msgToPeers messageT
 	}
 
 	wg.Wait()
-	close(notConnectedCh)
+	close(errConnectedCh)
 
-	for addr := range notConnectedCh {
-		notConnectedPeers = append(notConnectedPeers, addr)
+	for addr := range errConnectedCh {
+		errConnectedPeers = append(errConnectedPeers, addr)
 	}
 
-	return notConnectedPeers
+	return errConnectedPeers
 }
 
-func (sb *Backend) getPeers(msgToPeers messageToPeers) (connectedPeers map[common.Address]consensus.Peer, notConnectedPeers []common.Address) {
+func (sb *Backend) getPeers(msgToPeers messageToPeers) (connectedPeers map[common.Address]consensus.Peer) {
 	m := make(map[common.Address]struct{})
 	for _, p := range msgToPeers.peers {
 		m[p] = struct{}{}
 	}
 
-	connectedPeers, notConnectedPeers = sb.broadcaster.FindPeers(m)
-
-	if len(notConnectedPeers) > 0 {
-		peersStr := fmt.Sprintf("peers %d: ", len(notConnectedPeers))
-		for _, p := range notConnectedPeers {
-			peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
-		}
-
-		sb.logger.Trace("worker loop. peers still not connected", "peers", peersStr, "msgHash", msgToPeers.msg.hash.String())
-	}
+	connectedPeers = sb.broadcaster.FindPeers(m)
 	return
 }
 
