@@ -45,7 +45,7 @@ test-race-all: all
 
 test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
-	go test -race -v -tags=integration ./consensus/test/... -run="TestTendermintDataRace" -timeout 30m
+	go test -race -v ./consensus/test/... -timeout 30m
 
 mock-gen:
 	mockgen -source=consensus/tendermint/validator.go -package=tendermint -destination=consensus/tendermint/validator_mock.go
