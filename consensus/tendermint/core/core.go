@@ -130,7 +130,8 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightOldRoundsStates map[int64]roundState
+	currentHeightOldRoundsStates   map[int64]roundState
+	currentHeightOldRoundsStatesMu sync.RWMutex
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -141,6 +142,8 @@ type core struct {
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
+	c.currentHeightOldRoundsStatesMu.RLock()
+	defer c.currentHeightOldRoundsStatesMu.RUnlock()
 	result := make([]*Message, 0)
 	for _, state := range c.currentHeightOldRoundsStates {
 		result = append(result, state.GetMessages()...)
@@ -280,7 +283,9 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 
 		// Assuming that round == 0 only when the node moves to a new height
 		// Therefore, resetting round related maps
+		c.currentHeightOldRoundsStatesMu.Lock()
 		c.currentHeightOldRoundsStates = make(map[int64]roundState)
+		c.currentHeightOldRoundsStatesMu.Unlock()
 		c.futureRoundsChange = make(map[int64]int64)
 	}
 	// Reset all timeouts
@@ -308,7 +313,9 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 	// backlog which are processed when the step is set to propose
 	if r.Int64() > 0 {
 		// This is a shallow copy, should be fine for now
+		c.currentHeightOldRoundsStatesMu.Lock()
 		c.currentHeightOldRoundsStates[r.Int64()-1] = *c.currentRoundState
+		c.currentHeightOldRoundsStatesMu.Unlock()
 	}
 	c.currentRoundState.Update(r, h)
 	// Calculate new proposer
