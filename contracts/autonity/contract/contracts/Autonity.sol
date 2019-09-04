@@ -115,12 +115,8 @@ contract Autonity {
         if (!(bytes(u.enode).length == 0)) {
             for (uint256 i = 0; i < enodesWhitelist.length; i++) {
                 if (compareStringsbyBytes(enodesWhitelist[i], u.enode)) {
-                    if (i==enodesWhitelist.length-1) {
-                        enodesWhitelist.length--;
-                    } else {
-                        enodesWhitelist[i] = enodesWhitelist[enodesWhitelist.length - 1];
-                        enodesWhitelist.length--;
-                    }
+                    enodesWhitelist[i] = enodesWhitelist[enodesWhitelist.length - 1];
+                    enodesWhitelist.length--;
                     break;
                 }
             }
