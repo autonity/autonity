@@ -344,7 +344,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		//Validate the state of the proposal
-		if err = sb.blockchain.Validator().ValidateState(block, parent, state, receipts, *usedGas); err != nil {
+		if err = sb.blockchain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
 			return 0, err
 		}
 
@@ -390,7 +390,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 
 		return 0, nil
 	} else if err == consensus.ErrFutureBlock {
-		return time.Unix(block.Header().Time.Int64(), 0).Sub(now()), consensus.ErrFutureBlock
+		return time.Unix(int64(block.Header().Time), 0).Sub(now()), consensus.ErrFutureBlock
 	}
 	return 0, err
 }

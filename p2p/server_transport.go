@@ -5,7 +5,7 @@ import (
 	"net"
 
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/crypto/sha3"
+	"golang.org/x/crypto/sha3"
 )
 
 type testTransport struct {
@@ -20,8 +20,8 @@ func NewTestTransport(rpub *ecdsa.PublicKey, fd net.Conn) transport {
 	wrapped.rw = newRLPXFrameRW(fd, secrets{
 		MAC:        zero16,
 		AES:        zero16,
-		IngressMAC: sha3.NewKeccak256(),
-		EgressMAC:  sha3.NewKeccak256(),
+		IngressMAC: sha3.NewLegacyKeccak256(),
+		EgressMAC:  sha3.NewLegacyKeccak256(),
 	})
 	return &testTransport{rpub: rpub, rlpx: wrapped}
 }

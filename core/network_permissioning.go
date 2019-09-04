@@ -76,7 +76,7 @@ func (bc *BlockChain) getEVM(header *types.Header, origin common.Address, stated
 		Origin:      origin,
 		Coinbase:    coinbase,
 		BlockNumber: header.Number,
-		Time:        header.Time,
+		Time:        big.NewInt(int64(header.Time)),
 		GasLimit:    header.GasLimit,
 		Difficulty:  header.Difficulty,
 		GasPrice:    new(big.Int).SetUint64(0x0),

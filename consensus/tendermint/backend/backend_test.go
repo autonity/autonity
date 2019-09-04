@@ -35,8 +35,8 @@ import (
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -265,7 +265,7 @@ func newBackend() (b *Backend) {
 // other fake events to process Istanbul.
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
-	memDB := ethdb.NewMemDatabase()
+	memDB := rawdb.NewMemoryDatabase()
 	cfg := config.DefaultConfig()
 	// Use the first key as private key
 	b := New(cfg, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
@@ -352,7 +352,7 @@ func makeHeader(parent *types.Block, config *config.Config) *types.Header {
 		GasLimit:   core.CalcGasLimit(parent, 8000000, 8000000),
 		GasUsed:    0,
 		Extra:      parent.Extra(),
-		Time:       new(big.Int).Add(parent.Time(), new(big.Int).SetUint64(config.BlockPeriod)),
+		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(config.BlockPeriod)).Uint64(),
 		Difficulty: defaultDifficulty,
 	}
 	return header
@@ -382,7 +382,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 		return nil, err
 	}
 
-	block, _ := engine.Finalize(chain, header, state, nil, nil, nil)
+	block, _ := engine.FinalizeAndAssemble(chain, header, state, nil, nil, nil)
 
 	// Write state changes to db
 	root, err := state.Commit(chain.Config().IsEIP158(block.Header().Number))

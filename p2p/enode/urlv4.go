@@ -79,7 +79,7 @@ func parseV4(rawurl string, resolve bool) (*Node, error) {
 	if m := incompleteNodeURL.FindStringSubmatch(rawurl); m != nil {
 		id, err := parsePubkey(m[1])
 		if err != nil {
-			return nil, fmt.Errorf("invalid node ID (%v)", err)
+			return nil, fmt.Errorf("invalid public key (%v)", err)
 		}
 		return NewV4(id, nil, 0, 0), nil
 	}
@@ -116,7 +116,7 @@ func ParseV4WithResolve(rawurl string) (*Node, error) {
 // contained in the node has a zero-length signature.
 func NewV4(pubkey *ecdsa.PublicKey, ip net.IP, tcp, udp int) *Node {
 	var r enr.Record
-	if ip != nil {
+	if len(ip) > 0 {
 		r.Set(enr.IP(ip))
 	}
 	if udp != 0 {
@@ -131,6 +131,12 @@ func NewV4(pubkey *ecdsa.PublicKey, ip net.IP, tcp, udp int) *Node {
 		panic(err)
 	}
 	return n
+}
+
+// isNewV4 returns true for nodes created by NewV4.
+func isNewV4(n *Node) bool {
+	var k s256raw
+	return n.r.IdentityScheme() == "" && n.r.Load(&k) == nil && len(n.r.Signature()) == 0
 }
 
 func parseComplete(rawurl string, resolve bool) (*Node, error) {
@@ -151,7 +157,7 @@ func parseComplete(rawurl string, resolve bool) (*Node, error) {
 		return nil, errors.New("does not contain node ID")
 	}
 	if id, err = parsePubkey(u.User.String()); err != nil {
-		return nil, fmt.Errorf("invalid node ID (%v)", err)
+		return nil, fmt.Errorf("invalid public key (%v)", err)
 	}
 	if strings.LastIndex(u.Host, ":") == -1 {
 		//set default port
@@ -174,12 +180,8 @@ func parseComplete(rawurl string, resolve bool) (*Node, error) {
 			return nil, errors.New("invalid domain or IP address")
 		}
 		if len(hostIPs) > 0 {
-			ip = hostIPs[0]
+			ip = hostIPs[len(hostIPs)-1]
 		}
-	}
-	// Ensure the IP is 4 bytes long for IPv4 addresses.
-	if ipv4 := ip.To4(); ipv4 != nil {
-		ip = ipv4
 	}
 	// Parse the port numbers.
 	if tcpPort, err = strconv.ParseUint(port, 10, 16); err != nil {
@@ -208,7 +210,7 @@ func parsePubkey(in string) (*ecdsa.PublicKey, error) {
 	return crypto.UnmarshalPubkey(b)
 }
 
-func (n *Node) v4URL() string {
+func (n *Node) URLv4() string {
 	var (
 		scheme enr.ID
 		nodeid string
