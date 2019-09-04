@@ -139,8 +139,8 @@ type BlockChain struct {
 	badBlocks      *lru.Cache              // Bad block cache
 	shouldPreserve func(*types.Block) bool // Function used to determine whether should preserve the given block.
 
-	AutonityContract *autonity.AutonityContract
-	openNetwork      bool // True if we should disable permissioning
+	AutonityContract *autonity.Contract
+	//openNetwork      bool // True if we should disable permissioning
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -957,7 +957,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	// Call network permissioning logic before committing the state
 	if bc.chainConfig.Istanbul != nil || bc.chainConfig.Tendermint != nil {
 		err = bc.AutonityContract.UpdateEnodesWhitelist(state, block)
-		if err != nil && err != autonity.AutonityContractError {
+		if err != nil && err != autonity.ErrAutonityContract {
 			return NonStatTy, err
 		}
 	}

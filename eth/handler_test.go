@@ -627,9 +627,9 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	doneCh := make(chan struct{}, totalPeers)
 	for _, peer := range peers {
 		go func(p *testPeer) {
-			if err := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: new(big.Int).Add(genesis.Difficulty(), chain[0].Difficulty())}); err != nil {
-				t.Log("eth/handler_test.go:635 p2p.ExpectMsg err", err)
-				errCh <- err
+			if expectErr := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: new(big.Int).Add(genesis.Difficulty(), chain[0].Difficulty())}); expectErr != nil {
+				t.Log("eth/handler_test.go:635 p2p.ExpectMsg err", expectErr)
+				errCh <- expectErr
 			} else {
 				doneCh <- struct{}{}
 			}

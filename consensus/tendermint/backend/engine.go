@@ -347,7 +347,6 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 
 func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainReader, state *state.StateDB) ([]common.Address, error) {
 	var validators []common.Address
-	var err error
 
 	if header.Number.Int64() == 1 {
 		sb.blockchain.AutonityContract.SavedValidatorsRetriever = func(i uint64) (addresses []common.Address, e error) {
@@ -370,13 +369,14 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 			sb.autonityContractAddress = crypto.CreateAddress(sb.blockchain.Config().AutonityContractConfig.Deployer, 0)
 		}
 
+		var err error
 		validators, err = sb.blockchain.AutonityContract.ContractGetValidators(chain, header, state)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return validators, err
+	return validators, nil
 }
 
 // Seal generates a new block for the given input block with the local miner's

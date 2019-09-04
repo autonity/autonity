@@ -320,15 +320,15 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Mixhash = types.BFTDigest
 
 	AppendValidators(genesis, addrs)
-	err:=genesis.Config.AutonityContractConfig.AddDefault().Validate()
-	if err!=nil {
+	err := genesis.Config.AutonityContractConfig.AddDefault().Validate()
+	if err != nil {
 		panic(err)
 	}
 
 	return genesis, nodeKeys
 }
 
-const ENODE_STUB = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
+const EnodeStub = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 	extraData := genesis.GetExtraData()
@@ -358,7 +358,7 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 			params.User{
 				Address: addrs[i],
 				Type:    params.UserValidator,
-				Enode:   ENODE_STUB,
+				Enode:   EnodeStub,
 				Stake:   100,
 			})
 	}
@@ -398,13 +398,11 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 
 	state, err := chain.StateAt(parent.Root())
 	if err != nil {
-		fmt.Println(1)
 		return nil, err
 	}
 
 	block, err := engine.Finalize(chain, header, state, nil, nil, nil)
-	if err!=nil {
-		fmt.Println(2)
+	if err != nil {
 		return nil, err
 	}
 
