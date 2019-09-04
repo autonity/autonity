@@ -110,6 +110,7 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 			Stake:   100,
 		}
 	}
+	genesis.Config.AutonityContractConfig.Users=users
 	err:=genesis.Config.AutonityContractConfig.AddDefault().Validate()
 	if err != nil {
 		panic(err)
