@@ -79,8 +79,6 @@ func (ac *AutonityContract) getEVM(header *types.Header, origin common.Address, 
 		GasPrice:    new(big.Int).SetUint64(0x0),
 	}
 	vmConfig := *ac.bc.GetVMConfig()
-	vmConfig.Debug = true
-	vmConfig.Tracer = Sl
 	evm := vm.NewEVM(evmContext, statedb, ac.bc.Config(), vmConfig)
 	return evm
 }
@@ -224,7 +222,7 @@ func (ac *AutonityContract) callGetWhitelist(state *state.StateDB, header *types
 		return nil, err
 	}
 
-	input, err := ABI.Pack("getWhitelist")
+	input, err := ABI.Pack("GetWhitelist")
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +234,7 @@ func (ac *AutonityContract) callGetWhitelist(state *state.StateDB, header *types
 	}
 
 	var returnedEnodes []string
-	if err := ABI.Unpack(&returnedEnodes, "getWhitelist", ret); err != nil { // can't work with aliased types
+	if err := ABI.Unpack(&returnedEnodes, "GetWhitelist", ret); err != nil { // can't work with aliased types
 		log.Error("Could not unpack getWhitelist returned value")
 		return nil, err
 	}
