@@ -140,8 +140,8 @@ func (sb *Backend) trySend(ctx context.Context, msgToPeers messageToPeers) {
 }
 
 func (sb *Backend) sendToConnectedPeers(ctx context.Context, msgToPeers messageToPeers) []common.Address {
-	var errConnectedPeers = make([]common.Address, 0)
 	connectedPeers := sb.getPeers(msgToPeers)
+	var errConnectedPeers = make([]common.Address, 0, len(connectedPeers))
 
 	if sb.broadcaster == nil || len(connectedPeers) == 0 {
 		return errConnectedPeers
