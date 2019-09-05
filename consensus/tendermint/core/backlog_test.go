@@ -2,6 +2,7 @@ package core
 
 import (
 	"math/big"
+	"reflect"
 	"testing"
 
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
@@ -80,13 +81,19 @@ func TestCheckMessage(t *testing.T) {
 
 func TestStoreBacklog(t *testing.T) {
 	t.Run("backlog from self", func(t *testing.T) {
+		addr := common.HexToAddress("0x0987654321")
 		c := &core{
 			logger:            log.New("backend", "test", "id", 0),
-			address:           common.HexToAddress("0x1234567890"),
+			address:           addr,
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
 		}
 
-		c.storeBacklog(nil, validator.New(common.HexToAddress("0x1234567890")))
+		val := validator.New(addr)
+		c.storeBacklog(nil, val)
+
+		if c.backlogs[val] != nil {
+			t.Fatal("Backlog must be empty!")
+		}
 	})
 
 	t.Run("vote message received", func(t *testing.T) {
@@ -109,7 +116,15 @@ func TestStoreBacklog(t *testing.T) {
 			Msg:  votePayload,
 		}
 
-		c.storeBacklog(msg, validator.New(common.HexToAddress("0x0987654321")))
+		val := validator.New(common.HexToAddress("0x0987654321"))
+		c.storeBacklog(msg, val)
+
+		pque := c.backlogs[val]
+
+		savedMsg, _ := pque.Pop()
+		if !reflect.DeepEqual(msg, savedMsg) {
+			t.Fatalf("Expected message %+v, but got %+v", msg, savedMsg)
+		}
 	})
 
 	t.Run("proposal message received", func(t *testing.T) {
@@ -134,6 +149,14 @@ func TestStoreBacklog(t *testing.T) {
 			Msg:  proposalPayload,
 		}
 
-		c.storeBacklog(msg, validator.New(common.HexToAddress("0x0987654321")))
+		val := validator.New(common.HexToAddress("0x0987654321"))
+
+		c.storeBacklog(msg, val)
+		pque := c.backlogs[val]
+
+		savedMsg, _ := pque.Pop()
+		if !reflect.DeepEqual(msg, savedMsg) {
+			t.Fatalf("Expected message %+v, but got %+v", msg, savedMsg)
+		}
 	})
 }
