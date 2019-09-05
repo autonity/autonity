@@ -35,10 +35,10 @@ type AutonityContractGenesis struct {
 	// would like this type to be []byte but the unmarshalling is not working
 	Bytecode string `json:"bytecode" toml:",omitempty"`
 	// Json ABI of the contract
-	ABI         string         `json:"abi "toml:",omitempty"`
-	MinGasPrice uint64          `json:"minGasPrice" toml:",omitempty"`
+	ABI         string         `json:"abi" toml:",omitempty"`
+	MinGasPrice uint64         `json:"minGasPrice" toml:",omitempty"`
 	Operator    common.Address `json:"operator" toml:",omitempty"`
-	Users       []User         `json:"users" "toml:",omitempty"`
+	Users       []User         `json:"users" toml:",omitempty"`
 }
 
 func (ac *AutonityContractGenesis) AddDefault() *AutonityContractGenesis {
@@ -59,7 +59,7 @@ func (ac *AutonityContractGenesis) AddDefault() *AutonityContractGenesis {
 
 	for i := range ac.Users {
 		n, err := enode.ParseV4WithResolve(ac.Users[i].Enode)
-		if reflect.DeepEqual(ac.Users[i].Address, common.Address{}) == true && err != nil {
+		if reflect.DeepEqual(ac.Users[i].Address, common.Address{}) && err != nil {
 			ac.Users[i].Address = EnodeToAddress(n)
 		}
 	}

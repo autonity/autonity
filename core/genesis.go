@@ -330,16 +330,6 @@ func (g *Genesis) SetBFT() error {
 			g.SetExtraData(extraData)
 		}
 	}
-	/*
-		if len(g.Validators) != 0 {
-			extraData, err := g.bftValidatorExtraData(g.Validators)
-			if err != nil {
-				return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
-			}
-
-			g.SetExtraData(extraData)
-		}
-	 */
 
 	log.Info("starting BFT consensus", "extraData", common.Bytes2Hex(g.GetExtraData()))
 
