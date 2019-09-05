@@ -27,7 +27,6 @@ import (
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/internal/ethapi"
 	"github.com/clearmatics/autonity/log"
-	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
