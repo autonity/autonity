@@ -69,6 +69,7 @@ lint-ci: lint-deps lint
 test-deps:
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/mattn/goveralls
+	cd tests/testdata && git checkout 6b85703b568f4456582a00665d8a3e5c3b20b484
 
 lint-deps:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.16.0

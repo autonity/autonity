@@ -25,10 +25,10 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/params"
 )
 
@@ -81,7 +81,7 @@ func (ap *testerAccountPool) sign(header *types.Header, signer string) {
 		ap.accounts[signer], _ = crypto.GenerateKey()
 	}
 	// Sign the header and embed the signature in extra data
-	sig, _ := crypto.Sign(sigHash(header).Bytes(), ap.accounts[signer])
+	sig, _ := crypto.Sign(SealHash(header).Bytes(), ap.accounts[signer])
 	copy(header.Extra[len(header.Extra)-extraSeal:], sig)
 }
 
@@ -394,37 +394,37 @@ func TestClique(t *testing.T) {
 				}
 			}
 		}
-
 		// Create the genesis block with the initial set of signers
-		var (
-			db      = ethdb.NewMemDatabase()
-			config  = params.TestChainConfig
-			genSpec = &core.Genesis{Config: config}
-		)
-		genSpec.ExtraData = make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal)
-		genSpec.Config.EnodeWhitelist = []string{"enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"}
-		for j, signer := range signers {
-			copy(genSpec.ExtraData[extraVanity+j*common.AddressLength:], signer[:])
+		genesis := &core.Genesis{
+			ExtraData: make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal),
 		}
+		for j, signer := range signers {
+			copy(genesis.ExtraData[extraVanity+j*common.AddressLength:], signer[:])
+		}
+		genesis.Config = new(params.ChainConfig)
+		*genesis.Config = *params.AllCliqueProtocolChanges
+		genesis.Config.EnodeWhitelist = []string{"enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"}
+		// Create a pristine blockchain with the genesis injected
+		db := rawdb.NewMemoryDatabase()
+		genesis.Commit(db)
 
+		// Assemble a chain of headers from the cast votes
+		config := *params.TestChainConfig
 		config.Clique = &params.CliqueConfig{
 			Period: 1,
 			Epoch:  tt.epoch,
 		}
-
-		genesis := genSpec.MustCommit(db)
-
 		// Assemble a chain of headers from the cast votes
 		engine := New(config.Clique, db)
 		engine.fakeDiff = true
 
-		chain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil)
+		chain, err := core.NewBlockChain(db, nil, &config, engine, vm.Config{}, nil)
 		if err != nil {
 			t.Fatalf("test %d: failed to create test chain: %v", i, err)
 			continue
 		}
 
-		blocks, _ := core.GenerateChain(genSpec.Config, genesis, engine, db, len(tt.votes), func(j int, gen *core.BlockGen) {
+		blocks, _ := core.GenerateChain(&config, genesis.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen) {
 			// Cast the vote contained in this block
 			gen.SetCoinbase(accounts.address(tt.votes[j].voted))
 			if tt.votes[j].auth {
@@ -433,7 +433,6 @@ func TestClique(t *testing.T) {
 				gen.SetNonce(nonce)
 			}
 		})
-
 		// Iterate through the blocks and seal them individually
 		for j, block := range blocks {
 			// Autonity the header and prepare it for signing
@@ -452,7 +451,6 @@ func TestClique(t *testing.T) {
 			accounts.sign(header, tt.votes[j].signer)
 			blocks[j] = block.WithSeal(header)
 		}
-
 		// Split the blocks up into individual import batches (cornercase testing)
 		batches := [][]*types.Block{nil}
 		for j, block := range blocks {
@@ -461,7 +459,6 @@ func TestClique(t *testing.T) {
 			}
 			batches[len(batches)-1] = append(batches[len(batches)-1], block)
 		}
-
 		// Pass all the headers through clique and ensure tallying succeeds
 		failed := false
 		for j := 0; j < len(batches)-1; j++ {
@@ -472,7 +469,6 @@ func TestClique(t *testing.T) {
 				break
 			}
 		}
-
 		if failed {
 			continue
 		}

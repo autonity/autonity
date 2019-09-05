@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
@@ -71,7 +71,7 @@ func testStatusMsgErrors(t *testing.T, protocol int) {
 		},
 		{
 			code: StatusMsg, data: statusData{uint32(protocol), 999, td, head.Hash(), genesis.Hash()},
-			wantError: errResp(ErrNetworkIdMismatch, "999 (!= 1)"),
+			wantError: errResp(ErrNetworkIdMismatch, "999 (!= %d)", DefaultConfig.NetworkId),
 		},
 		{
 			code: StatusMsg, data: statusData{uint32(protocol), DefaultConfig.NetworkId, td, head.Hash(), common.Hash{3}},
@@ -137,11 +137,11 @@ func TestSendTransactions63(t *testing.T) { testSendTransactions(t, 63) }
 
 func testSendTransactions(t *testing.T, protocol int) {
 	var (
-		evmux  = new(event.TypeMux)
-		pow    = ethash.NewFaker()
-		db     = ethdb.NewMemDatabase()
-		config = &params.ChainConfig{}
-		gspec  = &core.Genesis{Config: config}
+		evmux   = new(event.TypeMux)
+		pow     = ethash.NewFaker()
+		db      = rawdb.NewMemoryDatabase()
+		config  = &params.ChainConfig{}
+		gspec   = &core.Genesis{Config: config}
 	)
 
 	var p2pPeers []*p2p.Peer
@@ -161,7 +161,7 @@ func testSendTransactions(t *testing.T, protocol int) {
 
 	const txCount = 100
 	txAdded := make(chan []*types.Transaction, txCount)
-	pm, err := NewProtocolManager(config, downloader.FullSync, DefaultConfig.NetworkId, evmux, &testTxPool{added: txAdded}, pow, blockchain, db, nil, EthDefaultProtocol, DefaultConfig.OpenNetwork)
+	pm, err := NewProtocolManager(config, nil, downloader.FullSync, DefaultConfig.NetworkId, evmux, &testTxPool{added: txAdded}, pow, blockchain, db, 1, nil, DefaultConfig.OpenNetwork)
 	if err != nil {
 		t.Fatalf("failed to start test protocol manager: %v", err)
 	}

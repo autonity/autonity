@@ -108,7 +108,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 	}
 
 	// Don't waste time checking blocks from the future
-	if header.Time.Cmp(big.NewInt(now().Unix())) > 0 {
+	if big.NewInt(int64(header.Time)).Cmp(big.NewInt(now().Unix())) > 0 {
 		return consensus.ErrFutureBlock
 	}
 
@@ -157,7 +157,7 @@ func (sb *Backend) verifyCascadingFields(chain consensus.ChainReader, header *ty
 	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
-	if parent.Time.Uint64()+sb.config.BlockPeriod > header.Time.Uint64() {
+	if parent.Time+sb.config.BlockPeriod > header.Time {
 		return errInvalidTimestamp
 	}
 
@@ -313,9 +313,9 @@ func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 	header.Difficulty = defaultDifficulty
 
 	// set header's timestamp
-	header.Time = new(big.Int).Add(parent.Time, new(big.Int).SetUint64(sb.config.BlockPeriod))
-	if header.Time.Int64() < time.Now().Unix() {
-		header.Time = big.NewInt(time.Now().Unix())
+	header.Time = new(big.Int).Add(big.NewInt(int64(parent.Time)), new(big.Int).SetUint64(sb.config.BlockPeriod)).Uint64()
+	if int64(header.Time) < time.Now().Unix() {
+		header.Time = uint64(time.Now().Unix())
 	}
 	return nil
 }
@@ -326,8 +326,7 @@ func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 // Note, the block header and state database might be updated to reflect any
 // consensus rules that happen at finalization (e.g. block rewards).
 func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
-
+	uncles []*types.Header) {
 	if sb.blockchain == nil {
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
@@ -335,6 +334,23 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	validators, err := sb.getValidators(header, chain, state)
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	header.UncleHash = nilUncleHash
+
+	// add validators to extraData's validators section
+	if header.Extra, err = types.PrepareExtra(header.Extra, validators); err != nil {
+		return
+	}
+}
+
+func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
+	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+	if sb.blockchain == nil {
+		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
+	}
+
+	validators, err := sb.getValidators(header, chain, statedb)
+	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
+	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 
 	// add validators to extraData's validators section
@@ -412,7 +428,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	}
 
 	// wait for the timestamp of header, use this to adjust the block period
-	delay := time.Unix(block.Header().Time.Int64(), 0).Sub(now())
+	delay := time.Unix(int64(block.Header().Time), 0).Sub(now())
 	select {
 	case <-time.After(delay):
 	case <-stop:

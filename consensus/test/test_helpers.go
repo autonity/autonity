@@ -44,13 +44,20 @@ type testNode struct {
 }
 
 func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) error {
-	nonce := service.TxPool().State().GetNonce(fromAddr)
+	nonce := service.TxPool().Nonce(fromAddr)
 
+	err := txWithNonce(fromAddr, nonce, toAddr, fromValidator, service)
+	if err != nil {
+		return txWithNonce(fromAddr, nonce+1, toAddr, fromValidator, service)
+	}
+	return nil
+}
+
+func txWithNonce(fromAddr common.Address, nonce uint64, toAddr common.Address, fromValidator *ecdsa.PrivateKey, service *eth.Ethereum) error {
 	randEth, err := rand.Int(rand.Reader, big.NewInt(10000000))
 	if err != nil {
 		return err
 	}
-
 	tx, err := types.SignTx(
 		types.NewTransaction(
 			nonce,
@@ -64,7 +71,6 @@ func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr com
 	if err != nil {
 		return err
 	}
-
 	return service.TxPool().AddLocal(tx)
 }
 

@@ -19,7 +19,7 @@ var parseNodeWithResolveTests = []struct {
 	},
 	{
 		rawurl:    "enode://01010101@123.124.125.126:3",
-		wantError: `invalid node ID (wrong length, want 128 hex chars)`,
+		wantError: `invalid public key (wrong length, want 128 hex chars)`,
 	},
 	// Complete nodes with IP address.
 	{
@@ -126,11 +126,11 @@ var parseNodeWithResolveTests = []struct {
 	// Invalid URLs
 	{
 		rawurl:    "01010101",
-		wantError: `invalid node ID (wrong length, want 128 hex chars)`,
+		wantError: `invalid public key (wrong length, want 128 hex chars)`,
 	},
 	{
 		rawurl:    "enode://01010101",
-		wantError: `invalid node ID (wrong length, want 128 hex chars)`,
+		wantError: `invalid public key (wrong length, want 128 hex chars)`,
 	},
 	{
 		// This test checks that errors from url.Parse are handled.
@@ -169,14 +169,15 @@ func TestParseNodeWithDomainResolution(t *testing.T) {
 					t.Errorf("got wrong host. got: %#v\nwant: %#v\n", hosts[0], test.host)
 				}
 			} else if !reflect.DeepEqual(n, test.wantResult) {
-				t.Errorf("test %q:\n result mismatch:\n"+
-					"got PubKey: %#v\nwant: %#v\n\n"+
-					"got IP: %#v\nwant: %#v\n\n"+
-					"got TCP: %#v\nwant: %#v\n\n"+
+				t.Errorf("test %q:\n result mismatch:\n" +
+					"got PubKey: %#v\nwant: %#v\n\n" +
+					"got IP: %#v\nwant: %#v(equal %v)\n\n" +
+					"got TCP: %#v\nwant: %#v\n\n" +
 					"got UPD: %#v\nwant: %#v\n",
 					test.rawurl,
 					n.Pubkey(), test.wantResult.Pubkey(),
 					n.IP().String(), test.wantResult.IP().String(),
+					n.IP().Equal(test.wantResult.IP()),
 					n.TCP(), test.wantResult.TCP(),
 					n.UDP(), test.wantResult.UDP())
 			}

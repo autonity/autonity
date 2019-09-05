@@ -40,8 +40,13 @@ func (c *core) Prepare(chain consensus.ChainReader, header *types.Header) error 
 }
 
 func (c *core) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+	uncles []*types.Header) {
+	c.backend.Finalize(chain, header, state, txs, uncles)
+}
+
+func (c *core) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
-	return c.backend.Finalize(chain, header, state, txs, uncles, receipts)
+	return c.backend.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
 }
 
 func (c *core) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
