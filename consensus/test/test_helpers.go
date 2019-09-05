@@ -101,8 +101,8 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 		enodes[i] = validator.url
 	}
 
-	users:=make([]params.User, len(validators))
-	for i:=range validators {
+	users := make([]params.User, len(validators))
+	for i := range validators {
 		users[i] = params.User{
 			Address: validatorsAddresses[i],
 			Enode:   enodes[i],
@@ -110,7 +110,8 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 			Stake:   100,
 		}
 	}
-	err:=genesis.Config.AutonityContractConfig.AddDefault().Validate()
+	genesis.Config.AutonityContractConfig.Users=users
+	err := genesis.Config.AutonityContractConfig.AddDefault().Validate()
 	if err != nil {
 		panic(err)
 	}

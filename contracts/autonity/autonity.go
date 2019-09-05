@@ -2,7 +2,6 @@ package autonity
 
 import (
 	"errors"
-	"fmt"
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -21,8 +20,8 @@ func NewAutonityContract(
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool,
 	transfer func(db vm.StateDB, sender, recipient common.Address, amount *big.Int),
 	GetHashFn func(ref *types.Header, chain ChainContext) func(n uint64) common.Hash,
-) *AutonityContract {
-	return &AutonityContract{
+) *Contract {
+	return &Contract{
 		bc:          bc,
 		canTransfer: canTransfer,
 		transfer:    transfer,
@@ -48,7 +47,7 @@ type Blockchainer interface {
 	ReadEnodeWhitelist(openNetwork bool) *types.Nodes
 }
 
-type AutonityContract struct {
+type Contract struct {
 	Address                  common.Address
 	bc                       Blockchainer
 	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
@@ -63,7 +62,7 @@ var Sl = vm.NewStructLogger(&vm.LogConfig{
 })
 
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
-func (ac *AutonityContract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
+func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
 
 	coinbase, _ := types.Ecrecover(header)
 	evmContext := vm.Context{
@@ -79,14 +78,12 @@ func (ac *AutonityContract) getEVM(header *types.Header, origin common.Address, 
 		GasPrice:    new(big.Int).SetUint64(0x0),
 	}
 	vmConfig := *ac.bc.GetVMConfig()
-	vmConfig.Debug = true
-	vmConfig.Tracer = Sl
 	evm := vm.NewEVM(evmContext, statedb, ac.bc.Config(), vmConfig)
 	return evm
 }
 
 // deployContract deploys the contract contained within the genesis field bytecode
-func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error) {
+func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error) {
 	// Convert the contract bytecode from hex into bytes
 	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
@@ -131,7 +128,7 @@ func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, 
 	value := new(big.Int).SetUint64(0x00)
 
 	// Deploy the Soma validator governance contract
-	_, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
+	_, contractAddress, _, vmerr := evm.Create(sender, data, gas, value)
 	if vmerr != nil {
 		return contractAddress, vmerr
 	}
@@ -141,35 +138,30 @@ func (ac *AutonityContract) DeployAutonityContract(chain consensus.ChainReader, 
 	return contractAddress, nil
 }
 
-func (ac *AutonityContract) ContractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
+func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
 	contractABI, err := abi.JSON(strings.NewReader(chain.Config().AutonityContractConfig.ABI))
 	if err != nil {
-		fmt.Print("11")
 		return nil, err
 	}
 
 	input, err := contractABI.Pack("GetValidators")
 	if err != nil {
-		fmt.Print("22")
 		return nil, err
 	}
 
 	value := new(big.Int).SetUint64(0x00)
 	//A standard call is issued - we leave the possibility to modify the state
-	ret, gas, vmerr := evm.Call(sender, ac.Address, input, gas, value)
+	ret, _, vmerr := evm.Call(sender, ac.Address, input, gas, value)
 	if vmerr != nil {
-		log.Error("Error Contract GetValidators()")
-		fmt.Print("33")
 		return nil, vmerr
 	}
 
 	var addresses []common.Address
 	if err := contractABI.Unpack(&addresses, "GetValidators", ret); err != nil { // can't work with aliased types
 		log.Error("Could not unpack getValidators returned value", err)
-		fmt.Print("44")
 		return nil, err
 	}
 
@@ -178,20 +170,20 @@ func (ac *AutonityContract) ContractGetValidators(chain consensus.ChainReader, h
 	return sortableAddresses, nil
 }
 
-var AutonityContractError = errors.New("could not call Autonity contract")
+var ErrAutonityContract = errors.New("could not call Autonity contract")
 
-func (ac *AutonityContract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
+func (ac *Contract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
 	newWhitelist, err := ac.GetWhitelist(block, state)
 	if err != nil {
 		log.Error("could not call contract", "err", err)
-		return AutonityContractError
+		return ErrAutonityContract
 	}
 
 	ac.bc.UpdateEnodeWhitelist(newWhitelist)
 	return nil
 }
 
-func (ac *AutonityContract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
+func (ac *Contract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
 	var (
 		newWhitelist *types.Nodes
 		err          error
@@ -210,7 +202,7 @@ func (ac *AutonityContract) GetWhitelist(block *types.Block, db *state.StateDB) 
 
 //blockchain
 
-func (ac *AutonityContract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
+func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
 	// Needs to be refactored somehow
 	deployer := ac.bc.Config().AutonityContractConfig.Deployer
 	var contractABI = ac.bc.Config().AutonityContractConfig.ABI
@@ -224,19 +216,19 @@ func (ac *AutonityContract) callGetWhitelist(state *state.StateDB, header *types
 		return nil, err
 	}
 
-	input, err := ABI.Pack("getWhitelist")
+	input, err := ABI.Pack("GetWhitelist")
 	if err != nil {
 		return nil, err
 	}
 
-	ret, gas, vmerr := evm.StaticCall(sender, ac.Address, input, gas)
+	ret, _, vmerr := evm.StaticCall(sender, ac.Address, input, gas)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract getWhitelist()")
 		return nil, vmerr
 	}
 
 	var returnedEnodes []string
-	if err := ABI.Unpack(&returnedEnodes, "getWhitelist", ret); err != nil { // can't work with aliased types
+	if err := ABI.Unpack(&returnedEnodes, "GetWhitelist", ret); err != nil { // can't work with aliased types
 		log.Error("Could not unpack getWhitelist returned value")
 		return nil, err
 	}

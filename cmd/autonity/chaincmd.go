@@ -209,7 +209,7 @@ func initGenesis(ctx *cli.Context) error {
 	if genesis.Config.AutonityContractConfig != nil {
 		if err := genesis.Config.AutonityContractConfig.AddDefault().Validate(); err != nil {
 			spew.Dump(genesis.Config.AutonityContractConfig)
-			return fmt.Errorf("Autonity contract section is invalid. error:%v", err.Error())
+			return fmt.Errorf("autonity contract section is invalid. error:%v", err.Error())
 		}
 	}
 

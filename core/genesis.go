@@ -316,7 +316,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 
 // SetBFT sets default BFT(IBFT or Tendermint) config values
 func (g *Genesis) SetBFT() error {
-	if g.Config.Istanbul != nil && g.Config.AutonityContractConfig != nil {
+	if g.Config.Istanbul != nil || g.Config.Tendermint!=nil && g.Config.AutonityContractConfig != nil {
 		var validators []string
 		for _, v := range g.Config.AutonityContractConfig.Users {
 			validators = append(validators, v.Address.String())
@@ -330,16 +330,6 @@ func (g *Genesis) SetBFT() error {
 			g.SetExtraData(extraData)
 		}
 	}
-	/*
-		if len(g.Validators) != 0 {
-			extraData, err := g.bftValidatorExtraData(g.Validators)
-			if err != nil {
-				return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
-			}
-
-			g.SetExtraData(extraData)
-		}
-	 */
 
 	log.Info("starting BFT consensus", "extraData", common.Bytes2Hex(g.GetExtraData()))
 

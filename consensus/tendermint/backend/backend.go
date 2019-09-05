@@ -125,7 +125,7 @@ type Backend struct {
 	knownMessages  *lru.ARCCache // the cache of self messages
 
 	autonityContractAddress common.Address // Ethereum address of the white list contract
-	vmConfig        *vm.Config
+	vmConfig                *vm.Config
 
 	resend chan messageToPeers
 }

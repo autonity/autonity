@@ -359,7 +359,6 @@ type AutonityContractor interface {
 
 func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainReader, state *state.StateDB) ([]common.Address, error) {
 	var validators []common.Address
-	var err error
 
 	if header.Number.Int64() == 1 {
 		log.Info("Autonity Contract Deployer", "Address", chain.Config().AutonityContractConfig.Deployer)
@@ -382,13 +381,14 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		if sb.autonityContractAddress == common.HexToAddress("0000000000000000000000000000000000000000") {
 			sb.autonityContractAddress = crypto.CreateAddress(chain.Config().AutonityContractConfig.Deployer, 0)
 		}
+		var err error
 		validators, err = sb.blockchain.AutonityContract.ContractGetValidators(chain, header, state)
 		if err != nil {
 			log.Error("ContractGetValidators error", "error", err)
 			return nil, err
 		}
 	}
-	return validators, err
+	return validators, nil
 }
 
 // Seal generates a new block for the given input block with the local miner's

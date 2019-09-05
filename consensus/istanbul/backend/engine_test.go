@@ -137,7 +137,7 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 			params.User{
 				Address: addrs[i],
 				Type:    params.UserValidator,
-				Enode:   ENODE_STUB,
+				Enode:   EnodeStub,
 				Stake:   100,
 			})
 	}
@@ -638,7 +638,7 @@ func TestWriteCommittedSeals(t *testing.T) {
 	}
 }
 
-const ENODE_STUB = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
+const EnodeStub = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
 
 func TestValidatorsSaved(t *testing.T) {
 	chain, _, err := newBlockChain(1)
