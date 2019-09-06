@@ -499,11 +499,12 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 			continue
 		}
 		hash := types.RLPHash(payload)
+		now := time.Now()
 		sb.trySend(ctx, messageToPeers{
 			message{hash: hash, payload: payload},
 			[]common.Address{address},
-			time.Now(),
-			time.Now(),
+			now,
+			now,
 		})
 	}
 }
