@@ -109,7 +109,10 @@ func TestStoreBacklog(t *testing.T) {
 			Height: big.NewInt(2),
 		}
 
-		votePayload, _ := Encode(vote)
+		votePayload, err := Encode(vote)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
 
 		msg := &message{
 			Code: msgPrevote,
@@ -142,7 +145,10 @@ func TestStoreBacklog(t *testing.T) {
 			ProposalBlock: types.NewBlockWithHeader(&types.Header{}),
 		}
 
-		proposalPayload, _ := Encode(proposal)
+		proposalPayload, err := Encode(proposal)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
 
 		msg := &message{
 			Code: msgProposal,
