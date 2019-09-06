@@ -15,6 +15,7 @@ import (
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common/fdlimit"
 	"github.com/clearmatics/autonity/consensus"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -59,6 +60,105 @@ Bizantine network cases:
 - 5 nodes, 1 tx per node per block, network produces 10 blocks, all nodes stop for 120 seconds at different blocks (4, 4, 5, 5 and 7)
 */
 
+func TestTendermintSuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cases := []*testCase{
+		{
+			name:      "no malicious",
+			numPeers:  5,
+			numBlocks: 5,
+			txPerPeer: 1,
+		},
+		{
+			name:      "one node - always accepts blocks",
+			numPeers:  5,
+			numBlocks: 5,
+			txPerPeer: 1,
+			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
+				4: func(basic consensus.Engine) consensus.Engine {
+					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
+				},
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintSlowConnections(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cases := []*testCase{
+		{
+			name:      "no malicious, one slow node",
+			numPeers:  5,
+			numBlocks: 5,
+			txPerPeer: 1,
+			networkRates: map[int]networkRate{
+				4: {50 * 1024, 50 * 1024},
+			},
+		},
+		{
+			name:      "no malicious, all nodes are slow",
+			numPeers:  5,
+			numBlocks: 5,
+			txPerPeer: 1,
+			networkRates: map[int]networkRate{
+				0: {50 * 1024, 50 * 1024},
+				1: {50 * 1024, 50 * 1024},
+				2: {50 * 1024, 50 * 1024},
+				3: {50 * 1024, 50 * 1024},
+				4: {50 * 1024, 50 * 1024},
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintLongRun(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cases := []*testCase{
+		{
+			name:      "no malicious - 30 tx per second",
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 30,
+		},
+		{
+			name:      "no malicious - 100 blocks",
+			numPeers:  5,
+			numBlocks: 100,
+			txPerPeer: 5,
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
 func TestTendermintStartStop(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -67,7 +167,6 @@ func TestTendermintStartStop(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:      "all nodes stop for 120 seconds at different blocks",
-			isSkipped: true,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
