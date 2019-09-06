@@ -173,14 +173,14 @@ func TestCheckFeeRedirection(t *testing.T) {
 		},
 		{
 			name:      "no malicious - 10 tx per second",
-			numPeers:  10,
+			numPeers:  6,
 			numBlocks: 10,
 			txPerPeer: 10,
 			beforeHooks: map[int]hook{
-				3: case2Before,
+				5: case2Before,
 			},
 			afterHooks: map[int]hook{
-				3: case2After,
+				5: case2After,
 			},
 		},
 		{
