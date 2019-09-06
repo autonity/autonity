@@ -18,6 +18,8 @@ package core
 
 import (
 	"context"
+	"fmt"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -72,8 +74,24 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 			// And we only process old rounds while future rounds messages are pushed on to the backlog
 
 			c.currentHeightOldRoundsStatesMu.Lock()
-			oldRoundState := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
-			c.acceptVote(&oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
+			oldRoundState, ok := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
+			if !ok {
+				//fixme "The roundstate must exist as every roundstate" - but it's not. we can't trust it.
+
+				log.Error("handlePrevote. unknown round",
+					"proposalHeight", preVote.Height.Uint64(),
+					"proposalRound", preVote.Round.Uint64(),
+					"currentHeight", c.currentRoundState.height.Uint64(),
+					"currentRound", c.currentRoundState.round,
+				)
+
+				return fmt.Errorf("handlePrevote. vote height %d, round %d, current height, %d round %d",
+					preVote.Height.Uint64(), preVote.Round.Uint64(),
+					c.currentRoundState.height.Uint64(), c.currentRoundState.round,
+					)
+			} else {
+				c.acceptVote(&oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
+			}
 			c.currentHeightOldRoundsStatesMu.Unlock()
 		}
 		return err
