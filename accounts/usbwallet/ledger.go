@@ -257,7 +257,7 @@ func (w *ledgerDriver) ledgerDerive(derivationPath []uint32) (common.Address, er
 
 	// Decode the hex sting into an Ethereum address and return
 	var address common.Address
-	hex.Decode(address[:], hexstr)
+	hex.Decode(address[:], hexstr) //nolint
 	return address, nil
 }
 

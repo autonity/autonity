@@ -212,7 +212,7 @@ func init() {
 			allowance := int(mem.Total / 1024 / 1024 / 3)
 			if cache := ctx.GlobalInt(utils.CacheFlag.Name); cache > allowance {
 				log.Warn("Sanitizing cache to Go's GC limits", "provided", cache, "updated", allowance)
-				ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(allowance))
+				ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(allowance)) //nolint
 			}
 		}
 		// Ensure Go's GC ignores the database cache for trigger percentage
@@ -233,14 +233,14 @@ func init() {
 
 	app.After = func(ctx *cli.Context) error {
 		debug.Exit()
-		console.Stdin.Close() // Resets terminal mode.
+		console.Stdin.Close() // nolint Resets terminal mode.
 		return nil
 	}
 }
 
 func main() {
 	if err := app.Run(os.Args); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, err) //nolint
 		os.Exit(1)
 	}
 }
