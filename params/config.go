@@ -582,18 +582,18 @@ func (c *ChainConfig) Copy() *ChainConfig {
 		GlienickeBytecode: c.GlienickeBytecode,
 		GlienickeABI:      c.GlienickeABI,
 	}
-        if c.Ethash != nil {
-            cfg.Ethash = &(*c.Ethash)
-        }
-        if c.Clique != nil {
-            cfg.Clique = &(*c.Clique)
-        }
-        if c.Istanbul != nil {
-            cfg.Istanbul = &(*c.Istanbul)
-        }
-        if c.Tendermint != nil {
-            cfg.Tendermint = &(*c.Tendermint)
-        }
+	if c.Ethash != nil {
+		cfg.Ethash = &(*c.Ethash)
+	}
+	if c.Clique != nil {
+		cfg.Clique = &(*c.Clique)
+	}
+	if c.Istanbul != nil {
+		cfg.Istanbul = &(*c.Istanbul)
+	}
+	if c.Tendermint != nil {
+		cfg.Tendermint = &(*c.Tendermint)
+	}
 	if c.ChainID != nil {
 		cfg.ChainID = big.NewInt(0).Set(c.ChainID)
 	}
