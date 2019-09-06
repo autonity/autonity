@@ -1215,7 +1215,12 @@ var lastWrite uint64
 // but does not write any state. This is used to construct competing side forks
 // up to the point where they exceed the canonical total difficulty.
 func (bc *BlockChain) writeBlockWithoutState(block *types.Block, td *big.Int) (err error) {
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return
+	}
+	bc.chainmu.Lock()
 	bc.wg.Add(1)
+	bc.chainmu.Unlock()
 	defer bc.wg.Done()
 
 	if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), td); err != nil {
@@ -1229,7 +1234,12 @@ func (bc *BlockChain) writeBlockWithoutState(block *types.Block, td *big.Int) (e
 // writeKnownBlock updates the head block flag with a known block
 // and introduces chain reorg if necessary.
 func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return nil
+	}
+	bc.chainmu.Lock()
 	bc.wg.Add(1)
+	bc.chainmu.Unlock()
 	defer bc.wg.Done()
 
 	current := bc.CurrentBlock()
@@ -1257,7 +1267,12 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 // writeBlockWithState writes the block and all associated state to the database,
 // but is expects the chain mutex to be held.
 func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB) (status WriteStatus, err error) {
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return
+	}
+	bc.chainmu.Lock()
 	bc.wg.Add(1)
+	bc.chainmu.Unlock()
 	defer bc.wg.Done()
 
 	// Calculate the total difficulty of the block
@@ -1438,8 +1453,11 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		}
 	}
 	// Pre-checks passed, start the full block imports
-	bc.wg.Add(1)
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return 0, nil
+	}
 	bc.chainmu.Lock()
+	bc.wg.Add(1)
 	n, events, logs, err := bc.insertChain(chain, true)
 	bc.chainmu.Unlock()
 	bc.wg.Done()
