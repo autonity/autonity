@@ -322,8 +322,10 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 
 	g.Config.SortEnodeWhitelist()
 
-	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.GetEnodeWhitelist(), true))
-	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
+	config := g.Config.Copy()
+
+	rawdb.WriteEnodeWhitelist(db, types.NewNodes(config.GetEnodeWhitelist(), true))
+	rawdb.WriteChainConfig(db, block.Hash(), config)
 	return block, nil
 }
 
