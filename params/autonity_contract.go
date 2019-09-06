@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"reflect"
@@ -82,6 +83,13 @@ func (ac *AutonityContractGenesis) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (ac *AutonityContractGenesis) GetContractAddress() (common.Address, error) {
+	if reflect.DeepEqual(ac.Deployer, common.Address{})==true {
+		return common.Address{}, errors.New("deployer must be not nil")
+	}
+	return crypto.CreateAddress(ac.Deployer, 0), nil
 }
 
 //User - is used to put predefined accounts to genesis
