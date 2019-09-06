@@ -88,10 +88,10 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 				return fmt.Errorf("handlePrevote. vote height %d, round %d, current height, %d round %d",
 					preVote.Height.Uint64(), preVote.Round.Uint64(),
 					c.currentRoundState.height.Uint64(), c.currentRoundState.round,
-					)
-			} else {
-				c.acceptVote(&oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
+				)
 			}
+
+			c.acceptVote(&oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
 			c.currentHeightOldRoundsStatesMu.Unlock()
 		}
 		return err
