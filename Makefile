@@ -39,8 +39,13 @@ test: all
 test-fast:
 	build/env.sh go run build/ci.go test
 
-test-race: all
+test-race-all: all
 	build/env.sh go run build/ci.go test -race
+	make test-race
+
+test-race:
+	go test -race -v ./consensus/tendermint/... -parallel 1
+	go test -race -v ./consensus/test/... -timeout 30m
 
 mock-gen:
 	mockgen -source=consensus/tendermint/validator.go -package=tendermint -destination=consensus/tendermint/validator_mock.go
