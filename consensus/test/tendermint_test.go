@@ -167,6 +167,7 @@ func TestTendermintStartStop(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:      "all nodes stop for 120 seconds at different blocks",
+			isSkipped: true,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
