@@ -1218,9 +1218,7 @@ func (bc *BlockChain) writeBlockWithoutState(block *types.Block, td *big.Int) (e
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 		return
 	}
-	bc.chainmu.Lock()
 	bc.wg.Add(1)
-	bc.chainmu.Unlock()
 	defer bc.wg.Done()
 
 	if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), td); err != nil {
@@ -1237,9 +1235,7 @@ func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 		return nil
 	}
-	bc.chainmu.Lock()
 	bc.wg.Add(1)
-	bc.chainmu.Unlock()
 	defer bc.wg.Done()
 
 	current := bc.CurrentBlock()
@@ -1270,9 +1266,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 		return
 	}
-	bc.chainmu.Lock()
 	bc.wg.Add(1)
-	bc.chainmu.Unlock()
 	defer bc.wg.Done()
 
 	// Calculate the total difficulty of the block
@@ -1456,8 +1450,8 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 		return 0, nil
 	}
-	bc.chainmu.Lock()
 	bc.wg.Add(1)
+	bc.chainmu.Lock()
 	n, events, logs, err := bc.insertChain(chain, true)
 	bc.chainmu.Unlock()
 	bc.wg.Done()
