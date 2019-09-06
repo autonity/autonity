@@ -230,7 +230,7 @@ func bindUnnestedTypeGo(stringKind string) (int, string) {
 		return len("bool"), "bool"
 
 	case strings.HasPrefix(stringKind, "string"):
-		return len("string"), "string"
+		return len("string"), "string" //nolint
 
 	default:
 		return len(stringKind), stringKind
@@ -274,7 +274,7 @@ func bindUnnestedTypeJava(stringKind string) (int, string) {
 		if len(parts) != 2 {
 			return len(stringKind), stringKind
 		}
-		return len(parts[0]), "byte[]"
+		return len(parts[0]), "byte[]" //nolint
 
 	case strings.HasPrefix(stringKind, "int") || strings.HasPrefix(stringKind, "uint"):
 		//Note that uint and int (without digits) are also matched,
@@ -298,10 +298,10 @@ func bindUnnestedTypeJava(stringKind string) (int, string) {
 		return len(parts[0]), namedSize
 
 	case strings.HasPrefix(stringKind, "bool"):
-		return len("bool"), "boolean"
+		return len("bool"), "boolean" //nolint
 
 	case strings.HasPrefix(stringKind, "string"):
-		return len("string"), "String"
+		return len("string"), "String" //nolint
 
 	default:
 		return len(stringKind), stringKind

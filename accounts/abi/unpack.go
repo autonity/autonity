@@ -157,9 +157,9 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 
 	for i, j := start, 0; j < size; i, j = i+elemSize, j+1 {
 		var inter interface{}
-		var	err error
-		if t.T == SliceTy && t.Elem.T == StringTy{
-			offset := binary.BigEndian.Uint64(output[i + 32 -8  :i + 32])
+		var err error
+		if t.T == SliceTy && t.Elem.T == StringTy {
+			offset := binary.BigEndian.Uint64(output[i+32-8 : i+32])
 			stringStart := start + int(offset)
 			inter, err = toGoType(stringStart, *t.Elem, output, true)
 		} else {
@@ -195,7 +195,7 @@ func toGoType(index int, t Type, output []byte, ABIv2Hack bool) (interface{}, er
 		if ABIv2Hack {
 			begin = index + 32
 			end = int(big.NewInt(0).SetBytes(output[index : index+32]).Uint64())
-		}else{
+		} else {
 			begin, end, err = lengthPrefixPointsTo(index, output)
 		}
 
