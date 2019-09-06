@@ -262,7 +262,10 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	root := statedb.IntermediateRoot(false)
 
 	g.mu.RLock()
-	diff := big.NewInt(g.Difficulty.Int64())
+	if g.Difficulty == nil {
+		g.Difficulty = big.NewInt(0).Set(params.GenesisDifficulty)
+	}
+	diff := big.NewInt(0).Set(g.Difficulty)
 	g.mu.RUnlock()
 
 	head := &types.Header{
@@ -280,9 +283,6 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
-	}
-	if diff == nil {
-		head.Difficulty = params.GenesisDifficulty
 	}
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)

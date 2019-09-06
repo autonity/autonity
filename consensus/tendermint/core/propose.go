@@ -127,8 +127,15 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 		if vr == -1 {
 			// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
-			isValidRound := c.lockedRound.Int64() == vr
-			isLockedHash := h == c.lockedValue.Hash()
+			var isValidRound bool
+			if c.lockedRound != nil {
+				isValidRound = c.lockedRound.Int64() == vr
+			}
+
+			var isLockedHash bool
+			if c.lockedValue != nil {
+				isLockedHash = h == c.lockedValue.Hash()
+			}
 
 			isVoteForProposal := isValidRound || isLockedHash
 			c.sendPrevote(ctx, !isVoteForProposal)
@@ -148,8 +155,15 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		}
 
 		if vr < curR && ok && c.Quorum(rs.Prevotes.VotesSize(h)) {
-			isValidRound := c.lockedRound.Int64() <= vr
-			isLockedHash := h == c.lockedValue.Hash()
+			var isValidRound bool
+			if c.lockedRound != nil {
+				isValidRound = c.lockedRound.Int64() <= vr
+			}
+
+			var isLockedHash bool
+			if c.lockedValue != nil {
+				isLockedHash = h == c.lockedValue.Hash()
+			}
 
 			isVoteForProposal := isValidRound || !isLockedHash
 			c.sendPrevote(ctx, !isVoteForProposal)
