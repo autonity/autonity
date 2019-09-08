@@ -421,7 +421,7 @@ func TestTendermintStartStop(t *testing.T) {
 		{
 			name:      "all nodes stop for 30 seconds at the same block",
 			numPeers:  5,
-			numBlocks: 40,
+			numBlocks: 10,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				0: hookStopNode(0, 3),
