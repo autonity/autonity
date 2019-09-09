@@ -57,7 +57,7 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 	// set currentRoundState before starting go routines
 	lastCommittedProposalBlock, _ := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
-	c.currentRoundState = NewRoundState(big.NewInt(0), height)
+	c.updateRoundState(big.NewInt(0), height)
 
 	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent(ctx)

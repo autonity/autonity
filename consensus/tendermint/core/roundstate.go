@@ -50,17 +50,6 @@ type roundState struct {
 	mu          *sync.RWMutex
 }
 
-func (s *roundState) Update(r *big.Int, h *big.Int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.round = r
-	s.height = h
-	s.proposal = new(Proposal)
-	s.proposalMsg = nil
-	s.Prevotes = newMessageSet()
-	s.Precommits = newMessageSet()
-}
-
 func (s *roundState) SetProposal(proposal *Proposal, msg *Message) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
