@@ -88,7 +88,7 @@ contract Autonity {
 
 
     /*
-    * AddValidator
+    * addValidator
     * Add validator to validators list.
     */
     function addValidator(address _address, uint256 _stake, string memory _enode) public onlyOperator(msg.sender) {
@@ -108,7 +108,7 @@ contract Autonity {
 
     /*
     * removeUser
-    * Remove user. function MUST be restricted to the Authority Account.
+    * remove user. function MUST be restricted to the Authority Account.
     */
     function removeUser(address _address) public onlyOperator(msg.sender) {
         require(_address != address(0), "address must be defined");
@@ -148,7 +148,7 @@ contract Autonity {
 
 
     /*
-    * MintStake
+    * mintStake
     * function capable of creating new stake token and adding it to the recipient balance
     * function MUST be restricted to theAuthority Account.
     */
@@ -158,7 +158,7 @@ contract Autonity {
     }
 
     /*
-    * RedeemStake
+    * redeemStake
     * Decrease unbonded stake
     * The redeemStake(amount, recipient) function MUST be restricted to the Authority Account.
     */
@@ -223,7 +223,7 @@ contract Autonity {
 
 
     /*
-    * GetAccountStake
+    * getAccountStake
     *
     * Returns unbonded stake for account
     */
@@ -233,7 +233,7 @@ contract Autonity {
 
 
     /*
-    * GetStake
+    * getStake
     *
     * Returns sender's unbonded stake
     */
