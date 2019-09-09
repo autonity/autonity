@@ -135,6 +135,7 @@ type Backend struct {
 
 	somaContract      common.Address // Ethereum address of the governance contract
 	glienickeContract common.Address // Ethereum address of the white list contract
+	contractsMu       sync.RWMutex
 	vmConfig          *vm.Config
 
 	resend chan messageToPeers
@@ -338,7 +339,9 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			}
 
 			// Deploy Glienicke network-permissioning contract
-			_, sb.glienickeContract, err = sb.blockchain.DeployGlienickeContract(state, header)
+			var glienickeAddr common.Address
+			_, glienickeAddr, err = sb.blockchain.DeployGlienickeContract(state, header)
+			sb.setGlienickeContract(glienickeAddr)
 			if err != nil {
 				return 0, err
 			}
