@@ -312,6 +312,7 @@ func TestProcessBacklog(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 		valSet := newTestValidatorSet(1)
 		val := valSet.GetByIndex(0)
@@ -348,6 +349,7 @@ func TestProcessBacklog(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 		valSet := newTestValidatorSet(2)
 		val := valSet.GetByIndex(0)
