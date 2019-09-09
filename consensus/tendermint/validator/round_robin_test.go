@@ -68,7 +68,7 @@ func TestRoundRobinProposerZeroSize(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("validator is zero address, round %d", testCase.round), func(t *testing.T) {
-			validatorSet := NewMockValidatorSet(ctrl)
+			validatorSet := NewMockSet(ctrl)
 
 			validatorSet.EXPECT().
 				Size().
@@ -208,7 +208,7 @@ func TestRoundRobinProposer(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			validatorSet := NewMockValidatorSet(ctrl)
+			validatorSet := NewMockSet(ctrl)
 
 			validatorSet.EXPECT().
 				Size().
