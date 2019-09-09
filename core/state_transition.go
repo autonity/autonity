@@ -222,14 +222,14 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		}
 	}
 	st.refundGas()
-	address:=st.evm.Coinbase
+	address := st.evm.Coinbase
 
-	if st.evm.ChainConfig().AutonityContractConfig!=nil && st.evm.ChainConfig().Istanbul!=nil || st.evm.ChainConfig().Tendermint!=nil {
-		addr,err:=st.evm.ChainConfig().AutonityContractConfig.GetContractAddress()
-		if err!=nil {
+	if st.evm.ChainConfig().AutonityContractConfig != nil && (st.evm.ChainConfig().Istanbul != nil || st.evm.ChainConfig().Tendermint != nil) {
+		addr, err := st.evm.ChainConfig().AutonityContractConfig.GetContractAddress()
+		if err != nil {
 			return nil, 0, true, err
 		}
-		address=addr
+		address = addr
 	}
 	st.state.AddBalance(address, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
