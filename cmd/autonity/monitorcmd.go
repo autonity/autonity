@@ -316,13 +316,13 @@ func updateChart(metric string, data []float64, base *int, chart *termui.LineCha
 	if err != nil {
 		chart.LineColor = termui.ColorRed | termui.AttrBold
 	}
-	return
+	return realign
 }
 
 // createChart creates an empty line chart with the default configs.
 func createChart(height int) *termui.LineChart {
 	chart := termui.NewLineChart()
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" { //nolint
 		chart.Mode = "dot"
 	}
 	chart.DataLabels = []string{""}

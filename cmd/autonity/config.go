@@ -160,7 +160,14 @@ func dumpConfig(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	io.WriteString(os.Stdout, comment)
-	os.Stdout.Write(out)
+	_, err = io.WriteString(os.Stdout, comment)
+	if err != nil {
+		return err
+	}
+	_, err = os.Stdout.Write(out)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

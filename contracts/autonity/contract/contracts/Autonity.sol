@@ -10,8 +10,8 @@ contract Autonity {
     address[] public validators;
     // enodesWhitelist - which nodes can connect to network
     string[] public enodesWhitelist;
-    // owner - owner of contract
-    address public owner;
+    // deployer - deployer of contract
+    address public deployer;
     // operatorAccount - account who can manipulate enodesWhitelist
     address public operatorAccount;
 
@@ -32,33 +32,6 @@ contract Autonity {
 
     //array of members who are able to use stacking
     address[] private stakeholders;
-    /*
-    * mapping of members who are able to use stacking
-    */
-    mapping (address => bool) private members;
-
-    /*
-    * unbonded stake token balance
-    */
-    mapping (address => uint256) private stake_token;
-    /*
-    * bonded stake token balance
-    */
-    mapping (address => uint256) private bonded_stake_token;
-    /*
-    * delegated stake token balance.
-    * map[owner address][delegator address] stake
-    */
-    mapping(address => mapping(address => uint)) delegated_stake_token;
-
-
-    struct unbondingStake {
-        uint256 amount;
-        uint256 block_number;
-    }
-    mapping (address => mapping(address => unbondingStake[])) private unbonding_stake_token;
-
-
 
     enum UserType { Participant, Stakeholder, Validator}
 
@@ -79,7 +52,7 @@ contract Autonity {
 
 
 
-    // constructor get called at block #1 with msg.owner equal to Soma's deployer
+    // constructor get called at block #1
     // configured in the genesis file.
     constructor (address[] memory _participantAddress,
         string[] memory _participantEnode,
@@ -96,88 +69,59 @@ contract Autonity {
 
 
         for (uint256 i = 0; i < _participantAddress.length; i++) {
-            UserType _userType = UserType(_participantType[i]);
             require(_participantAddress[i] != address(0), "Addresses must be defined");
-            User memory u = User(_participantAddress[i], _userType, _participantStake[i], _participantEnode[i]);
-            users[u.addr] = u;
-
-            if (u.userType == UserType.Stakeholder){
-                stakeholders.push(u.addr);
-            } else if(u.userType == UserType.Validator){
-                validators.push(u.addr);
-            }
-
-            if(bytes(u.enode).length != 0) {
-                enodesWhitelist.push(u.enode);
-            }
-
-            owner = msg.sender;
-            operatorAccount = _operatorAccount;
-            minGasPrice = _minGasPrice;
+            UserType _userType = UserType(_participantType[i]);
+            _createUser(_participantAddress[i], _participantEnode[i], _userType, _participantStake[i]);
         }
-
+        deployer = msg.sender;
+        operatorAccount = _operatorAccount;
+        minGasPrice = _minGasPrice;
     }
-        /*
-        * AddValidator
-        * Add validator to validators list. Could be
-        */
+
+
+    /*
+    * AddValidator
+    * Add validator to validators list.
+    */
     function AddValidator(address _address, uint256 _stake, string memory _enode) public onlyOperator(msg.sender) {
-        if(users[_address].addr != address(0)){
-        //user already present, we need to update
-        require(users[_address].userType != UserType.Validator, "Already a validator");
-
-        }else{
-            //user need to be created
-            users[_address]=User(_address, UserType.Validator, _stake, _enode);
-        }
-        //Need to make sure we're duplicating the entry
-        validators.push(_address);
+        _createUser(_address,_enode, UserType.Validator, _stake);
     }
 
+    function AddStakeholder(address _address, string  memory _enode, uint256 _stake) public onlyOperator(msg.sender) {
+        _createUser(_address, _enode, UserType.Stakeholder, _stake);
+    }
+
+    function AddParticipant(address _address, string memory _enode) public onlyOperator(msg.sender) {
+        _createUser(_address, _enode, UserType.Participant, 0);
+    }
 
     /*
-    * RemoveValidator
-    * Remove validator from validators list. function MUST be restricted to the Authority Account.
+    * removeUser
+    * Remove user. function MUST be restricted to the Authority Account.
     */
-    function RemoveValidator(address _validator) public onlyValidators(msg.sender) {
-        require(validators.length > 1);
+    function RemoveUser(address _address) public onlyOperator(msg.sender) {
+        require(_address != address(0), "address must be defined");
+        require(users[_address].addr != address(0), "user must exists");
+        User storage u = users[_address];
 
-        for (uint256 i = 0; i < validators.length-1; i++) {
-            if (validators[i] == _validator){
-                validators[i] = validators[validators.length - 1];
-                validators.length--;
-                break;
+        if(u.userType == UserType.Validator || u.userType == UserType.Stakeholder){
+            _removeFromArray(u.addr, stakeholders);
+        }
+
+        if(u.userType == UserType.Validator){
+            _removeFromArray(u.addr, validators);
+        }
+
+        if (!(bytes(u.enode).length == 0)) {
+            for (uint256 i = 0; i < enodesWhitelist.length; i++) {
+                if (compareStringsbyBytes(enodesWhitelist[i], u.enode)) {
+                    enodesWhitelist[i] = enodesWhitelist[enodesWhitelist.length - 1];
+                    enodesWhitelist.length--;
+                    break;
+                }
             }
         }
-
-    }
-
-    /*
-    * AddEnode
-    * add enode to permission list
-    * function MUST be restricted to the Authority Account.
-    */
-    function AddEnode(string memory  _enode) public onlyOperator(msg.sender) {
-        //Need to make sure we're not duplicating the entry
-        enodesWhitelist.push(_enode);
-    }
-
-    /*
-    * RemoveEnode
-    * remove enode from permission list
-    * function MUST be restricted to the Authority Account.
-    */
-    function RemoveEnode(string memory  _enode) public onlyOperator(msg.sender) {
-        require(enodesWhitelist.length > 1);
-
-        for (uint256 i = 0; i < enodesWhitelist.length-1; i++) {
-            if (compareStringsbyBytes(enodesWhitelist[i], _enode)) {
-                enodesWhitelist[i] = enodesWhitelist[enodesWhitelist.length - 1];
-                enodesWhitelist.length--;
-                break;
-            }
-        }
-
+        delete users[_address];
     }
 
     /*
@@ -195,9 +139,8 @@ contract Autonity {
     * function capable of creating new stake token and adding it to the recipient balance
     * function MUST be restricted to theAuthority Account.
     */
-    function MintStake(address _account, uint256 _amount) public onlyOperator(msg.sender) {
-        require(members[_account] == true, "Account hasn't created");
-        stake_token[_account] = stake_token[_account].add(_amount);
+    function MintStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
+        users[_account].stake = users[_account].stake.add(_amount);
     }
 
     /*
@@ -205,33 +148,10 @@ contract Autonity {
     * Decrease unbonded stake
     * The redeemStake(amount, recipient) function MUST be restricted to the Authority Account.
     */
-    function RedeemStake(address _account, uint256 _amount) public onlyOperator(msg.sender) {
-        require(members[_account] == true, "Account hasn't created");
-        stake_token[_account] =  stake_token[_account].sub(_amount, "Redeem stake amount exceeds balance");
+    function RedeemStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
+        users[_account].stake = users[_account].stake.sub(_amount, "Redeem stake amount exceeds balance");
     }
 
-
-    /*
-    * AddNewMember
-    * Add not nil account to members list
-    * function MUST be restricted to the Authority Account.
-    */
-    function AddNewMember(address _account) public onlyOperator(msg.sender) {
-        require(_account != address(0), "Account is empty");
-        require(members[_account] == false, "Account has already created");
-        members[_account] = true;
-    }
-
-
-    /*
-    * RemoveMember
-    * Remove account from members list
-    * function MUST be restricted to the Authority Account.
-    */
-    function RemoveMember(address _account) public onlyOperator(msg.sender) {
-        require(members[_account] == true, "Account hasn't created");
-        members[_account] = false;
-    }
 
 
 
@@ -244,40 +164,15 @@ contract Autonity {
     * Emits a {Transfer} event.
     */
     function send(address _recipient, uint256 _amount) external returns (bool) {
-        require(members[msg.sender] == true, "Account hasn't created");
-        require(members[_recipient] == true, "Account hasn't created");
         _transfer(msg.sender, _recipient, _amount);
         return true;
     }
 
 
-    // The Autonity Contract MUST implements the bondStake(amount, recipient) function capable of delegating stake token.
-    function Bonding(address _recipient, uint256 amount) public returns (bool){
-        require(members[msg.sender] == true, "Account hasn't created");
-        require(members[_recipient] == true, "Account hasn't created");
-
-        stake_token[msg.sender] = stake_token[msg.sender].sub(amount);
-        bonded_stake_token[_recipient] = bonded_stake_token[_recipient].add(amount);
-        delegated_stake_token[msg.sender][_recipient] = delegated_stake_token[msg.sender][_recipient].add(amount);
-    }
-
-
-
-
-    function Unbonding(address _recipient, uint256 _amount) public returns (bool){
-        require(members[msg.sender] == true, "Account hasn't created");
-        require(members[_recipient] == true, "Account hasn't created");
-
-        bonded_stake_token[_recipient] = bonded_stake_token[_recipient].sub(_amount);
-        delegated_stake_token[msg.sender][_recipient] = delegated_stake_token[msg.sender][_recipient].sub(_amount);
-        unbonding_stake_token[msg.sender][_recipient].push(unbondingStake(_amount,  block.number + bonding_period));
-    }
-
 
     //    The Autonity Contract MUST implements the setCommissionRate(rate)
     //    function capable of fixing the caller commission rate for the next bonding period.
-    function SetCommissionRate(uint256 rate) public returns(bool)  {
-        require(members[msg.sender] == true, "Account hasn't created");
+    function SetCommissionRate(uint256 rate) public canUseStake(msg.sender) returns(bool)   {
         commission_rate[msg.sender] = rate;
         return true;
     }
@@ -318,73 +213,37 @@ contract Autonity {
     *
     * Returns unbonded stake for account
     */
-    function GetAccountStake(address _account) public view returns (uint256) {
-        return stake_token[_account];
+    function GetAccountStake(address _account) public view canUseStake(_account) returns (uint256) {
+        return users[_account].stake;
     }
 
-
-    /*
-    * CheckMember
-    *
-    * Returns is addres a member
-    */
-    function CheckMember(address _account) public view returns (bool) {
-        return members[_account];
-    }
 
     /*
     * GetStake
     *
     * Returns sender's unbonded stake
     */
-    function GetStake() public view returns(uint256) {
-        return stake_token[msg.sender];
+    function GetStake() public view canUseStake(msg.sender) returns(uint256)  {
+        return users[msg.sender].stake;
     }
-
-    /*
-    * GetBondedStake
-    *
-    * Returns sender's ubonded stake
-    */
-    function GetBondedStake() public view returns(uint256) {
-        return bonded_stake_token[msg.sender];
-    }
-
-    /*
-    * GetDelegatedBondedStake
-    *
-    * Returns sender's deleagated to _account
-    */
-    function GetDelegatedBondedStake(address _account) public view returns(uint256) {
-        return delegated_stake_token[msg.sender][_account];
-    }
-
 
     function getRate(address _account) public view returns(uint256) {
-        require(members[msg.sender] == true, "Account hasn't created");
-        return commission_rate[msg.sender];
+        return commission_rate[_account];
     }
 
-    /*
-    * GetUnbondingStake
-    *
-    * Returns sender's unbonding stake by account
-    */
-//    function GetUnbondingStake(address _account) public view returns(unbondingStake[] memory ) {
-//        return unbonding_stake_token[msg.sender][_account];
-//    }
-
-
 
 
     /*
-    * GetMinimumGasPrice
+    * getMinimumGasPrice
     * Returns minimum gas price. Ethereum transactions gas price must be greater or equal to the minimumGasPrice.
     */
-    function GetMinimumGasPrice() public view returns(uint256) {
+    function getMinimumGasPrice() public view returns(uint256) {
         return minGasPrice;
     }
 
+    function CheckMember(address _account) public view returns (bool) {
+        return  users[_account].addr == _account;
+    }
 
     /*
     ========================================================================================================================
@@ -393,24 +252,6 @@ contract Autonity {
 
     ========================================================================================================================
     */
-
-    /*
-    * onlyValidators
-    *
-    * Modifier that checks if the voter is an active validator
-    */
-
-    modifier onlyValidators(address _voter) {
-        bool present = false;
-        for (uint256 i = 0; i < validators.length; i++) {
-            if(validators[i] == _voter){
-                present = true;
-                break;
-            }
-        }
-        require(present, "Voter is not a validator");
-        _;
-    }
 
     /*
     * onlyOperator
@@ -422,7 +263,18 @@ contract Autonity {
         _;
     }
 
-
+    /*
+   * canUseStake
+   *
+   * Modifier that checks if the adress can use stake.
+   */
+    modifier canUseStake(address _address) {
+        require(_address != address(0), "address must be defined");
+        require(users[_address].userType == UserType.Stakeholder ||
+        users[_address].userType ==  UserType.Validator, "address not allowed to use stake");
+        require(users[_address].addr != address(0), "address must be defined");
+        _;
+    }
 
     /*
     ========================================================================================================================
@@ -443,14 +295,9 @@ contract Autonity {
     ========================================================================================================================
     */
 
-
-
-    function _transfer(address sender, address recipient, uint256 amount) internal {
-        require(sender != address(0), "Transfer from the zero address");
-        require(recipient != address(0), "Transfer to the zero address");
-
-        stake_token[sender] = stake_token[sender].sub(amount, "Transfer amount exceeds balance");
-        stake_token[recipient] = stake_token[recipient].add(amount);
+    function _transfer(address sender, address recipient, uint256 amount) internal canUseStake(sender) canUseStake(recipient) {
+        users[sender].stake = users[sender].stake.sub(amount, "Transfer amount exceeds balance");
+        users[recipient].stake = users[recipient].stake.add(amount);
         emit Transfer(sender, recipient, amount);
     }
 
@@ -459,4 +306,33 @@ contract Autonity {
         return keccak256(abi.encodePacked(s1)) == keccak256(abi.encodePacked(s2));
     }
 
+    function _createUser(address _address, string memory _enode, UserType _userType, uint256 _stake) internal {
+        require(_address != address(0), "Addresses must be defined");
+        User memory u = User(_address, _userType, _stake, _enode);
+        users[u.addr] = u;
+
+        if (u.userType == UserType.Stakeholder){
+            stakeholders.push(u.addr);
+        } else if(u.userType == UserType.Validator){
+            validators.push(u.addr);
+            stakeholders.push(u.addr);
+        }
+
+        if(bytes(u.enode).length != 0) {
+            enodesWhitelist.push(u.enode);
+        }
+    }
+
+
+    function _removeFromArray(address _address, address[] storage _array) internal {
+        require(_array.length > 0);
+
+        for (uint256 i = 0; i < _array.length; i++) {
+            if (_array[i] == _address) {
+                _array[i] = _array[_array.length - 1];
+                _array.length--;
+                break;
+            }
+        }
+    }
 }

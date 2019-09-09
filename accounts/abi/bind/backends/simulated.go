@@ -45,7 +45,7 @@ import (
 // This nil assignment ensures compile time that SimulatedBackend implements bind.ContractBackend.
 var _ bind.ContractBackend = (*SimulatedBackend)(nil)
 
-var errBlockNumberUnsupported = errors.New("SimulatedBackend cannot access blocks other than the latest block")
+var errBlockNumberUnsupported = errors.New("simulatedBackend cannot access blocks other than the latest block")
 var errGasEstimationFailed = errors.New("gas required exceeds allowance or always failing transaction")
 
 // SimulatedBackend implements bind.ContractBackend, simulating a blockchain in
