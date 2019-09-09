@@ -349,7 +349,7 @@ func TestProcessBacklog(t *testing.T) {
 
 		backendMock := NewMockBackend(ctrl)
 
-		valSet := newTestValidatorSet(1)
+		valSet := newTestValidatorSet(2)
 		val := valSet.GetByIndex(0)
 
 		c := &core{
