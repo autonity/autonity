@@ -4,7 +4,9 @@ import (
 	"math/big"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/golang/mock/gomock"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 
 	"github.com/clearmatics/autonity/common"
@@ -164,5 +166,201 @@ func TestStoreBacklog(t *testing.T) {
 		if !reflect.DeepEqual(msg, savedMsg) {
 			t.Fatalf("Expected message %+v, but got %+v", msg, savedMsg)
 		}
+	})
+}
+
+func TestProcessBacklog(t *testing.T) {
+	t.Run("valid proposal received", func(t *testing.T) {
+		proposal := &Proposal{
+			Round:         big.NewInt(1),
+			Height:        big.NewInt(2),
+			ValidRound:    big.NewInt(1),
+			ProposalBlock: types.NewBlockWithHeader(&types.Header{}),
+		}
+
+		proposalPayload, err := Encode(proposal)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+
+		msg := &message{
+			Code: msgProposal,
+			Msg:  proposalPayload,
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		valSet := newTestValidatorSet(1)
+		val := valSet.GetByIndex(0)
+
+		expected := backlogEvent{
+			src: val,
+			msg: msg,
+		}
+
+		evChan := make(chan interface{}, 1)
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Post(expected).Do(func(ev interface{}) {
+			evChan <- ev
+		})
+
+		c := &core{
+			logger:            log.New("backend", "test", "id", 0),
+			backend:           backendMock,
+			address:           common.HexToAddress("0x1234567890"),
+			backlogs:          make(map[validator.Validator]*prque.Prque),
+			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
+		}
+
+		c.storeBacklog(msg, val)
+		c.processBacklog()
+
+		timeout := time.NewTimer(2 * time.Second)
+		select {
+		case ev := <-evChan:
+			e, ok := ev.(backlogEvent)
+			if !ok {
+				t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev))
+			}
+			if e.msg.Code != msg.Code {
+				t.Errorf("message code mismatch: have %v, want %v", e.msg.Code, msg.Code)
+			}
+		case <-timeout.C:
+			t.Error("unexpected timeout occurs")
+		}
+	})
+
+	t.Run("valid vote received", func(t *testing.T) {
+		vote := &Vote{
+			Round:  big.NewInt(1),
+			Height: big.NewInt(2),
+		}
+
+		votePayload, err := Encode(vote)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+
+		msg := &message{
+			Code: msgPrevote,
+			Msg:  votePayload,
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		valSet := newTestValidatorSet(1)
+		val := valSet.GetByIndex(0)
+
+		expected := backlogEvent{
+			src: val,
+			msg: msg,
+		}
+
+		evChan := make(chan interface{}, 1)
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Post(expected).Do(func(ev interface{}) {
+			evChan <- ev
+		})
+
+		c := &core{
+			logger:            log.New("backend", "test", "id", 0),
+			backend:           backendMock,
+			address:           common.HexToAddress("0x1234567890"),
+			backlogs:          make(map[validator.Validator]*prque.Prque),
+			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
+		}
+
+		c.storeBacklog(msg, val)
+		c.processBacklog()
+
+		timeout := time.NewTimer(2 * time.Second)
+		select {
+		case ev := <-evChan:
+			e, ok := ev.(backlogEvent)
+			if !ok {
+				t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev))
+			}
+			if e.msg.Code != msg.Code {
+				t.Errorf("message code mismatch: have %v, want %v", e.msg.Code, msg.Code)
+			}
+		case <-timeout.C:
+			t.Error("unexpected timeout occurs")
+		}
+	})
+
+	t.Run("same height, but old round", func(t *testing.T) {
+		nilRoundVote := &Vote{
+			Round:  big.NewInt(0),
+			Height: big.NewInt(0),
+		}
+
+		nilRoundVotePayload, err := Encode(nilRoundVote)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+
+		msg := &message{
+			Code: msgPrevote,
+			Msg:  nilRoundVotePayload,
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+
+		valSet := newTestValidatorSet(1)
+		val := valSet.GetByIndex(0)
+
+		c := &core{
+			logger:            log.New("backend", "test", "id", 0),
+			backend:           backendMock,
+			address:           common.HexToAddress("0x1234567890"),
+			backlogs:          make(map[validator.Validator]*prque.Prque),
+			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(0)),
+		}
+
+		c.storeBacklog(msg, val)
+		c.processBacklog()
+	})
+
+	t.Run("future message", func(t *testing.T) {
+		nilRoundVote := &Vote{
+			Round:  big.NewInt(2),
+			Height: big.NewInt(4),
+		}
+
+		nilRoundVotePayload, err := Encode(nilRoundVote)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+
+		msg := &message{
+			Code: msgPrevote,
+			Msg:  nilRoundVotePayload,
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+
+		valSet := newTestValidatorSet(1)
+		val := valSet.GetByIndex(0)
+
+		c := &core{
+			logger:            log.New("backend", "test", "id", 0),
+			backend:           backendMock,
+			address:           common.HexToAddress("0x1234567890"),
+			backlogs:          make(map[validator.Validator]*prque.Prque),
+			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
+		}
+
+		c.storeBacklog(msg, val)
+		c.processBacklog()
 	})
 }
