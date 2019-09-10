@@ -389,10 +389,10 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		// Deploy Glienicke network-permissioning contract
 		var glienickeAddr common.Address
 		_, glienickeAddr, err = sb.blockchain.DeployGlienickeContract(state, header)
-		sb.setGlienickeContract(glienickeAddr)
 		if err != nil {
 			return nil, err
 		}
+		sb.setGlienickeContract(glienickeAddr)
 
 	} else {
 		if sb.getSomaContract() == common.HexToAddress("0000000000000000000000000000000000000000") {
