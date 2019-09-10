@@ -27,7 +27,7 @@ func TestStoreUnminedBlockMsg(t *testing.T) {
 		}
 	})
 
-	t.Run("lalalal", func(t *testing.T) {
+	t.Run("valid block given, block is stored", func(t *testing.T) {
 		c := &core{
 			logger:               log.New("backend", "test", "id", 0),
 			currentRoundState:    NewRoundState(big.NewInt(2), big.NewInt(3)),
