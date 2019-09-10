@@ -29,13 +29,13 @@ func TestStoreUnminedBlockMsg(t *testing.T) {
 
 	t.Run("lalalal", func(t *testing.T) {
 		c := &core{
-			logger:            log.New("backend", "test", "id", 0),
-			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
-			pendingUnminedBlocks:make(map[uint64]*types.Block),
-			valSet:            new(validatorSet),
+			logger:               log.New("backend", "test", "id", 0),
+			currentRoundState:    NewRoundState(big.NewInt(2), big.NewInt(3)),
+			pendingUnminedBlocks: make(map[uint64]*types.Block),
+			valSet:               new(validatorSet),
 		}
 
-		unminedBlock := types.NewBlockWithHeader(&types.Header{Number:big.NewInt(3)})
+		unminedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
 		c.storeUnminedBlockMsg(unminedBlock)
 
 		if s := len(c.pendingUnminedBlocks); s != 1 {
@@ -46,16 +46,16 @@ func TestStoreUnminedBlockMsg(t *testing.T) {
 
 func TestUpdatePendingUnminedBlocks(t *testing.T) {
 	t.Run("old pending blocks removed, new block added", func(t *testing.T) {
-		anOldBlock := types.NewBlockWithHeader(&types.Header{Number:big.NewInt(1)})
+		anOldBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})
 
 		unminedBlocks := make(map[uint64]*types.Block)
 		unminedBlocks[anOldBlock.NumberU64()] = anOldBlock
 
 		c := &core{
-			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
-			pendingUnminedBlocks:unminedBlocks,
+			currentRoundState:    NewRoundState(big.NewInt(2), big.NewInt(3)),
+			pendingUnminedBlocks: unminedBlocks,
 		}
-		unminedBlock := types.NewBlockWithHeader(&types.Header{Number:big.NewInt(3)})
+		unminedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
 		c.updatePendingUnminedBlocks(unminedBlock)
 
 		if s := len(c.pendingUnminedBlocks); s != 1 {
@@ -64,15 +64,15 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 	})
 
 	t.Run("wait for unmined block, new block added", func(t *testing.T) {
-		pendingUnminedBlockCh  := make(chan *types.Block, 1)
+		pendingUnminedBlockCh := make(chan *types.Block, 1)
 
 		c := &core{
-			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
-			pendingUnminedBlocks:make(map[uint64]*types.Block),
-			pendingUnminedBlockCh: pendingUnminedBlockCh,
+			currentRoundState:        NewRoundState(big.NewInt(2), big.NewInt(3)),
+			pendingUnminedBlocks:     make(map[uint64]*types.Block),
+			pendingUnminedBlockCh:    pendingUnminedBlockCh,
 			isWaitingForUnminedBlock: true,
 		}
-		unminedBlock := types.NewBlockWithHeader(&types.Header{Number:big.NewInt(3)})
+		unminedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
 		go func() {
 			c.updatePendingUnminedBlocks(unminedBlock)
 		}()
@@ -95,13 +95,13 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 
 func TestGetUnminedBlock(t *testing.T) {
 	t.Run("block exists", func(t *testing.T) {
-		expectedBlock := types.NewBlockWithHeader(&types.Header{Number:big.NewInt(1)})
+		expectedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})
 
 		unminedBlocks := make(map[uint64]*types.Block)
 		unminedBlocks[expectedBlock.NumberU64()] = expectedBlock
 		c := &core{
-			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(1)),
-			pendingUnminedBlocks:unminedBlocks,
+			currentRoundState:    NewRoundState(big.NewInt(1), big.NewInt(1)),
+			pendingUnminedBlocks: unminedBlocks,
 		}
 
 		block := c.getUnminedBlock()
@@ -112,8 +112,8 @@ func TestGetUnminedBlock(t *testing.T) {
 
 	t.Run("block does not exist", func(t *testing.T) {
 		c := &core{
-			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(1)),
-			pendingUnminedBlocks:make(map[uint64]*types.Block),
+			currentRoundState:    NewRoundState(big.NewInt(1), big.NewInt(1)),
+			pendingUnminedBlocks: make(map[uint64]*types.Block),
 		}
 
 		block := c.getUnminedBlock()
@@ -129,7 +129,7 @@ func TestCheckUnminedBlockMsg(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
 		}
 
-		block := types.NewBlockWithHeader(&types.Header{Number:big.NewInt(2)})
+		block := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(2)})
 		err := c.checkUnminedBlockMsg(block)
 		if err != nil {
 			t.Fatalf("want <nil>, got %v", err)
@@ -150,7 +150,7 @@ func TestCheckUnminedBlockMsg(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
 		}
 
-		oldBLock := types.NewBlockWithHeader(&types.Header{Number:big.NewInt(1)})
+		oldBLock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})
 		err := c.checkUnminedBlockMsg(oldBLock)
 		if err != errOldHeightMessage {
 			t.Fatalf("want %v, got %v", errOldHeightMessage, err)
@@ -162,7 +162,7 @@ func TestCheckUnminedBlockMsg(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(1)),
 		}
 
-		futureBlock := types.NewBlockWithHeader(&types.Header{Number:big.NewInt(2)})
+		futureBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(2)})
 		err := c.checkUnminedBlockMsg(futureBlock)
 		if err != consensus.ErrFutureBlock {
 			t.Fatalf("want %v, got %v", consensus.ErrFutureBlock, err)

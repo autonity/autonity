@@ -2,12 +2,13 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/golang/mock/gomock"
 	"math/big"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 )
 
