@@ -18,6 +18,8 @@ package core
 
 import (
 	"context"
+	"fmt"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -68,20 +70,29 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 	if err = c.checkMessage(preVote.Round, preVote.Height); err != nil {
 		// Store old round prevote messages for future rounds since it is required for validRound
 		if err == errOldRoundMessage {
-			// We only process old rounds while future rounds messages are pushed on to the backlog
-			c.currentHeightRoundStatesMu.Lock()
-			oldRoundState, ok := c.currentHeightRoundStates[preVote.Round.Int64()]
+			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
+			// And we only process old rounds while future rounds messages are pushed on to the backlog
+
+			c.currentHeightOldRoundsStatesMu.Lock()
+			oldRoundState, ok := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
 			if !ok {
-				oldRoundState = NewRoundState(
-					big.NewInt(preVote.Round.Int64()),
-					big.NewInt(c.currentRoundState.Height().Int64()),
+				//fixme "The roundstate must exist as every roundstate" - but it's not. we can't trust it.
+
+				log.Error("handlePrevote. unknown round",
+					"proposalHeight", preVote.Height.Uint64(),
+					"proposalRound", preVote.Round.Uint64(),
+					"currentHeight", c.currentRoundState.height.Uint64(),
+					"currentRound", c.currentRoundState.round,
 				)
 
-				c.currentHeightRoundStates[preVote.Round.Int64()] = oldRoundState
+				return fmt.Errorf("handlePrevote. vote height %d, round %d, current height, %d round %d",
+					preVote.Height.Uint64(), preVote.Round.Uint64(),
+					c.currentRoundState.height.Uint64(), c.currentRoundState.round,
+				)
 			}
 
-			c.acceptVote(oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
-			c.currentHeightRoundStatesMu.Unlock()
+			c.acceptVote(&oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
+			c.currentHeightOldRoundsStatesMu.Unlock()
 		}
 		return err
 	}

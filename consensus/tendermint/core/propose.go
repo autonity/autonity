@@ -122,8 +122,8 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		h := proposal.ProposalBlock.Hash()
 		curR := c.currentRoundState.Round().Int64()
 
-		c.currentHeightRoundStatesMu.RLock()
-		defer c.currentHeightRoundStatesMu.RUnlock()
+		c.currentHeightOldRoundsStatesMu.RLock()
+		defer c.currentHeightOldRoundsStatesMu.RUnlock()
 
 		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
 		if vr == -1 {
@@ -137,7 +137,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			return nil
 		}
 
-		rs, ok := c.currentHeightRoundStates[vr]
+		rs, ok := c.currentHeightOldRoundsStates[vr]
 		if !ok {
 			log.Error("handleProposal. unknown old round",
 				"proposalHeight", h,

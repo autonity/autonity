@@ -71,23 +71,23 @@ var (
 // New creates an Tendermint consensus core
 func New(backend Backend, config *config.Config) *core {
 	return &core{
-		config:                   config,
-		address:                  backend.Address(),
-		logger:                   log.New(),
-		backend:                  backend,
-		backlogs:                 make(map[validator.Validator]*prque.Prque),
-		pendingUnminedBlocks:     make(map[uint64]*types.Block),
-		pendingUnminedBlockCh:    make(chan *types.Block),
-		stopped:                  make(chan struct{}, 3),
-		isStarting:               new(uint32),
-		isStarted:                new(uint32),
-		isStopping:               new(uint32),
-		isStopped:                new(uint32),
-		valSet:                   new(validatorSet),
-		futureRoundsChange:       make(map[int64]int64),
-		currentHeightRoundStates: make(map[int64]*roundState),
-		lockedRound:              big.NewInt(-1),
-		validRound:               big.NewInt(-1),
+		config:                       config,
+		address:                      backend.Address(),
+		logger:                       log.New(),
+		backend:                      backend,
+		backlogs:                     make(map[validator.Validator]*prque.Prque),
+		pendingUnminedBlocks:         make(map[uint64]*types.Block),
+		pendingUnminedBlockCh:        make(chan *types.Block),
+		stopped:                      make(chan struct{}, 3),
+		isStarting:                   new(uint32),
+		isStarted:                    new(uint32),
+		isStopping:                   new(uint32),
+		isStopped:                    new(uint32),
+		valSet:                       new(validatorSet),
+		futureRoundsChange:           make(map[int64]int64),
+		currentHeightOldRoundsStates: make(map[int64]roundState),
+		lockedRound:                  big.NewInt(-1),
+		validRound:                   big.NewInt(-1),
 	}
 }
 
@@ -133,8 +133,8 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightRoundStates   map[int64]*roundState
-	currentHeightRoundStatesMu sync.RWMutex
+	currentHeightOldRoundsStates   map[int64]roundState
+	currentHeightOldRoundsStatesMu sync.RWMutex
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -145,14 +145,12 @@ type core struct {
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
-	c.currentHeightRoundStatesMu.RLock()
-	defer c.currentHeightRoundStatesMu.RUnlock()
+	c.currentHeightOldRoundsStatesMu.RLock()
+	defer c.currentHeightOldRoundsStatesMu.RUnlock()
 	result := make([]*Message, 0)
-	for _, state := range c.currentHeightRoundStates {
+	for _, state := range c.currentHeightOldRoundsStates {
 		result = append(result, state.GetMessages()...)
 	}
-
-	//TODO: remove this since c.currentHeightROundStates has refernce to current round state
 	result = append(result, c.currentRoundState.GetMessages()...)
 	return result
 }
@@ -288,9 +286,9 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 
 		// Assuming that round == 0 only when the node moves to a new height
 		// Therefore, resetting round related maps
-		c.currentHeightRoundStatesMu.Lock()
-		c.currentHeightRoundStates = make(map[int64]*roundState)
-		c.currentHeightRoundStatesMu.Unlock()
+		c.currentHeightOldRoundsStatesMu.Lock()
+		c.currentHeightOldRoundsStates = make(map[int64]roundState)
+		c.currentHeightOldRoundsStatesMu.Unlock()
 		c.futureRoundsChange = make(map[int64]int64)
 	}
 	// Reset all timeouts
@@ -313,29 +311,22 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 			delete(c.futureRoundsChange, i)
 		}
 	}
-
+	// Add a copy of c.currentRoundState to c.currentHeightOldRoundsStates and then update c.currentRoundState
+	// We only add old round prevote messages to c.currentHeightOldRoundsStates, while future messages are sent to the
+	// backlog which are processed when the step is set to propose
 	if r.Int64() > 0 {
-		c.updateRoundState(r, h)
+		// This is a shallow copy, should be fine for now
+		c.currentHeightOldRoundsStatesMu.Lock()
+		c.currentHeightOldRoundsStates[r.Int64()-1] = *c.currentRoundState
+		c.currentHeightOldRoundsStatesMu.Unlock()
 	}
-
+	c.currentRoundState.Update(r, h)
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, r.Uint64())
 	c.sentProposal = false
 	c.sentPrevote = false
 	c.sentPrecommit = false
 	c.setValidRoundAndValue = false
-}
-
-func (c *core) updateRoundState(r *big.Int, h *big.Int) {
-	c.currentHeightRoundStatesMu.Lock()
-	defer c.currentHeightRoundStatesMu.Unlock()
-
-	rs, ok := c.currentHeightRoundStates[r.Int64()]
-	if !ok {
-		rs = NewRoundState(r, h)
-		c.currentHeightRoundStates[r.Int64()] = rs
-	}
-	c.currentRoundState = rs
 }
 
 func (c *core) acceptVote(roundState *roundState, step Step, hash common.Hash, msg Message) {

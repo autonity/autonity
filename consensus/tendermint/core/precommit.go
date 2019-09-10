@@ -82,7 +82,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 		//if err == errOldRoundMessage {
 		//	// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
 		//	// And we only process old rounds while future rounds messages are pushed on to the backlog
-		//	oldRoundState := c.currentHeightRoundStates[preCommit.Round.Int64()]
+		//	oldRoundState := c.currentHeightOldRoundsStates[preCommit.Round.Int64()]
 		//	c.acceptVote(&oldRoundState, precommit, preCommit.ProposedBlockHash, *msg)
 		//
 		//	// Check for old round precommit quorum
