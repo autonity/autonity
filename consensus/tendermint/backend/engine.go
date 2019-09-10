@@ -349,13 +349,17 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
 
-	validators, _ := sb.getValidators(header, chain, statedb)
+	validators, err := sb.getValidators(header, chain, statedb)
+	if err != nil {
+		log.Error("FinalizeAndAssemble. after getValidators", "err", err.Error())
+		return nil, err
+	}
+
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 
 	// add validators to extraData's validators section
-	var err error
 	if header.Extra, err = types.PrepareExtra(header.Extra, validators); err != nil {
 		return nil, err
 	}

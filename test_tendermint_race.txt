@@ -1,0 +1,677 @@
+=== RUN   TestTendermintStartStop
+=== RUN   TestTendermintStartStop/test_case_all_nodes_stop_for_120_seconds_at_different_blocks
+[31mERROR[0m[09-06|18:37:59.899] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:37:59.899] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:37:59.899] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:37:59.899] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:37:59.899] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:38:02.755] stopping tendermint.core                 [31maddr[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:38:02.755] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:38:02.756] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:38:02.756] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:38:02.756] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:38:02.757] handleConsensusEvents is stopped         [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:38:02.783] stopping tendermint.core                 [31maddr[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:38:02.784] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:38:02.784] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:38:02.785] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:38:02.785] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:38:12.743] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:38:12.751] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:40:15.414] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:40:15.534] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:40:25.368] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:40:25.370] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:40:25.371] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:40:25.489] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:40:25.491] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:40:25.493] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:40:35.369] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:40:35.370] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:40:35.372] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:40:35.422] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:40:35.490] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:40:35.491] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:40:35.494] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:40:35.540] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:40:35.541] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:40:37.752] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:40:37.752] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:40:37.752] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:40:37.753] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:40:37.753] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:40:37.754] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:40:37.754] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:40:37.754] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:40:37.809] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:40:37.809] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:40:38.207] stopping tendermint.core                 [31maddr[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:40:38.207] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:40:38.207] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:40:38.207] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:40:38.207] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:40:38.208] handleConsensusEvents is stopped         [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:40:38.239] stopping tendermint.core                 [31maddr[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:40:38.243] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:40:38.244] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:40:48.191] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:40:48.196] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:42:52.413] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:42:52.432] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:43:02.367] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:43:02.369] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:43:02.369] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:43:02.387] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:02.387] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:02.387] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:12.368] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:43:12.369] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:43:12.369] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:43:12.388] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:12.388] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:12.388] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:12.419] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:43:12.438] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:12.438] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:22.368] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:43:22.370] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:43:22.388] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:22.389] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:22.535] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:22.535] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:43:22.535] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:43:22.536] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:23.643] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:23.643] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:43:23.643] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:23.696] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:23.697] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:43:23.697] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:23.698] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:23.698] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:43:23.698] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:23.802] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:43:23.802] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:23.804] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:43:23.804] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:24.969] stopping tendermint.core                 [31maddr[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:43:24.970] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:43:24.970] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:43:24.971] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:43:24.971] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:43:34.946] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:43:34.948] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:43:37.334] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:43:37.334] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:37.388] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:43:37.388] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:37.388] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:37.388] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:37.388] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:43:37.388] cant stop timer                          [31merr[0m="timer expired and nil precommit sent"
+[31mERROR[0m[09-06|18:43:37.389] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:37.389] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:42.266] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:42.266] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:42.310] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:42.311] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:42.312] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:42.312] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:42.318] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:42.318] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:48.856] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:48.856] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:48.857] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:48.857] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:48.862] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:48.862] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:48.913] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:48.913] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:55.990] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:55.990] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:55.994] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:55.994] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:55.995] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:55.995] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:43:56.000] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:43:56.000] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:02.877] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:02.877] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:02.884] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:02.884] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:02.888] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:02.888] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:02.922] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:02.922] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:09.847] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:09.847] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:09.896] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:09.896] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:09.898] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:09.898] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:09.898] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:09.898] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:16.853] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:16.853] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:16.854] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:16.854] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:16.859] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:16.859] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:16.859] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:16.859] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:23.850] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:23.850] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:23.852] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:23.852] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:23.854] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:23.854] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:23.861] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:23.861] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:30.854] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:30.854] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:30.855] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:30.855] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:30.856] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:30.856] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:30.900] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:30.901] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:37.804] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:37.804] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:37.848] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:37.848] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:37.851] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:37.852] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:37.853] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:37.853] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:44.850] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:44.850] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:44.851] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:44.851] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:44.852] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:44.853] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:44.853] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:44.853] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:51.807] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:51.807] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:51.856] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:51.856] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:51.858] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:51.858] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:51.861] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:51.861] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:58.852] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:58.852] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:58.853] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:58.853] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:58.861] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:58.861] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:44:58.862] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:44:58.862] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:05.802] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:05.803] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:05.852] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:05.852] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:05.854] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:05.854] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:05.855] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:05.855] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:12.806] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:12.806] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:12.853] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:12.853] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:12.854] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:12.854] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:12.857] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:12.857] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:19.846] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:19.846] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:19.848] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:19.848] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:19.854] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:19.854] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:19.856] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:19.856] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:26.803] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:26.803] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:26.808] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:26.809] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:26.854] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:26.854] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:26.861] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:26.861] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:33.865] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:33.865] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:33.866] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:33.866] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:33.866] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:33.866] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:33.909] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:45:33.909] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:45:36.432] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:45:46.380] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:46.381] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:46.385] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:46.387] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:46.388] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:46.389] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:46.390] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:46.390] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.383] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.383] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.386] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.388] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.388] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.389] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.390] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.392] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.431] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.432] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.435] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:45:56.440] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:06.385] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:06.388] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:06.389] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:06.390] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:06.391] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:06.433] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:06.439] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:06.439] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:06.441] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:06.443] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:09.385] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:09.388] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:09.395] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:16.388] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:16.389] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:16.389] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:16.391] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:16.391] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:19.386] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:19.390] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:19.397] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:19.435] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:19.439] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:26.333] stopping tendermint.core                 [31maddr[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:26.334] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:46:26.389] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:26.390] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:26.390] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:26.438] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:26.440] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:27.426] stopping tendermint.core                 [31maddr[0m=0xA86d61A57854979AF38E676253cEaf8103119245
+[31mERROR[0m[09-06|18:46:27.426] handleConsensusEvents is stopped         [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:46:27.426] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:46:27.436] stopping tendermint.core                 [31maddr[0m=0x829286783c81BB2edf16509CE36d9e3fD7415474
+[31mERROR[0m[09-06|18:46:27.441] handleConsensusEvents is stopped         [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:46:27.441] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:46:27.456] stopping tendermint.core                 [31maddr[0m=0x2A07296d77e31b653ad51211E3EC19962B6633b9
+[31mERROR[0m[09-06|18:46:27.456] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:46:27.456] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:27.456] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:27.457] handleConsensusEvents is stopped         [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:46:27.468] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:46:36.337] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:36.340] stopping tendermint.core                 [31maddr[0m=0x4F9662A1F593Fb6477dB2e04c78bb8Ab59CA03Fe
+[31mERROR[0m[09-06|18:46:36.340] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:46:36.340] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:36.450] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:46.451] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:56.451] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:56.455] stopping tendermint.core                 [31maddr[0m=0x3ceef77E2C828e0A887b53f74D273c94118d853c
+[31mERROR[0m[09-06|18:46:56.455] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+==================
+WARNING: DATA RACE
+Write at 0x00c0938a50a0 by goroutine 209:
+  github.com/clearmatics/autonity/eth/downloader.(*Downloader).Cancel()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/downloader/downloader.go:577 +0x68
+  github.com/clearmatics/autonity/eth/downloader.(*Downloader).Terminate()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/downloader/downloader.go:594 +0xa5
+  github.com/clearmatics/autonity/eth.(*ProtocolManager).syncer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/sync.go:158 +0x2f3
+
+Previous write at 0x00c0938a50a0 by goroutine 67:
+  ??()
+      -:0 +0xffffffffffffffff
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/cache.(*mBucket).get()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/cache/cache.go:99 +0x154
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/cache.(*Cache).Get()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/cache/cache.go:377 +0x148
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/table.(*Reader).readBlockCached()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/cache/cache.go:58 +0x2ee
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/table.(*Reader).getDataIter()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/table/reader.go:765 +0x6e
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/table.(*Reader).find()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/table/reader.go:861 +0x356
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*tOps).find()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/table/reader.go:918 +0x15d
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*version).get.func1()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/version.go:179 +0x764
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*version).walkOverlapping()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/version.go:119 +0x3dc
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*version).get()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/version.go:163 +0x30d
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*DB).get()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:779 +0x444
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*DB).Get()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:845 +0x15e
+  github.com/clearmatics/autonity/ethdb/leveldb.(*Database).Get()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/ethdb/leveldb/leveldb.go:151 +0x90
+  github.com/clearmatics/autonity/core/rawdb.(*freezerdb).Get()
+      <autogenerated>:1 +0x96
+  github.com/clearmatics/autonity/core/rawdb.ReadHeaderNumber()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/core/rawdb/accessors_chain.go:114 +0x163
+  github.com/clearmatics/autonity/core.(*HeaderChain).GetBlockNumber()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/core/headerchain.go:119 +0x206
+  github.com/clearmatics/autonity/core.(*HeaderChain).GetHeaderByHash()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/core/headerchain.go:423 +0x7e
+  github.com/clearmatics/autonity/core.(*BlockChain).GetHeaderByHash()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/core/blockchain.go:2145 +0x7f
+  github.com/clearmatics/autonity/eth/downloader.(*Downloader).findAncestor()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/downloader/downloader.go:876 +0x21b6
+  github.com/clearmatics/autonity/eth/downloader.(*Downloader).syncWithPeer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/downloader/downloader.go:443 +0x497
+  github.com/clearmatics/autonity/eth/downloader.(*Downloader).synchronise()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/downloader/downloader.go:411 +0x584
+  github.com/clearmatics/autonity/eth/downloader.(*Downloader).Synchronise()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/downloader/downloader.go:323 +0xb5
+  github.com/clearmatics/autonity/eth.(*ProtocolManager).synchronise()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/sync.go:190 +0x37a
+
+Goroutine 209 (running) created at:
+  github.com/clearmatics/autonity/eth.(*ProtocolManager).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/handler.go:285 +0x292
+  github.com/clearmatics/autonity/eth.(*Ethereum).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/backend.go:601 +0x241
+  github.com/clearmatics/autonity/node.(*Node).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/node/node.go:227 +0xfe7
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*DB).checkAndCleanFiles()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db_util.go:52 +0x2e1
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.openDB()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:130 +0x9f9
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x286
+  fmt.(*ss).doScanf()
+      /snap/go/current/src/fmt/scan.go:1193 +0x377
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*DB).recoverJournal()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:476 +0xc5
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.openDB()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:125 +0x9d5
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.Open()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:197 +0x1b0
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).GetMeta.func1()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:666 +0x83c
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).GetMeta.func2()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:356 +0xcc
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).GetMeta()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:407 +0x74a
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*session).recover()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/session.go:140 +0xde
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.Open()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:183 +0xda
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.OpenFile()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:219 +0xa6
+  github.com/clearmatics/autonity/p2p/enode.newPersistentDB()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/p2p/enode/nodedb.go:95 +0xd2
+  github.com/clearmatics/autonity/p2p/enode.OpenDB()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/p2p/enode/nodedb.go:79 +0x9a
+  github.com/clearmatics/autonity/p2p.(*Server).setupLocalNode()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/p2p/server.go:555 +0x567
+  github.com/clearmatics/autonity/p2p.(*Server).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/p2p/server.go:512 +0x735
+  github.com/clearmatics/autonity/node.(*Node).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/node/node.go:220 +0xea0
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*DB).checkAndCleanFiles()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db_util.go:52 +0x2e1
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.openDB()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:130 +0x9f9
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x286
+  fmt.(*ss).doScanf()
+      /snap/go/current/src/fmt/scan.go:1193 +0x377
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  fmt.Fscanf()
+      /snap/go/current/src/fmt/scan.go:143 +0xcf
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).List()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:458 +0x2b3
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*DB).recoverJournal()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:476 +0xc5
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.openDB()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:125 +0x9d5
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.Open()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:197 +0x1b0
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.fsParseName()
+      /snap/go/current/src/fmt/scan.go:114 +0x193
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).GetMeta.func1()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:666 +0x83c
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).GetMeta.func2()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:356 +0xcc
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage.(*fileStorage).GetMeta()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/storage/file_storage.go:407 +0x74a
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.(*session).recover()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/session.go:140 +0xde
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.Open()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:183 +0xda
+  github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb.OpenFile()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/github.com/syndtr/goleveldb/leveldb/db.go:219 +0xa6
+  github.com/clearmatics/autonity/ethdb/leveldb.New()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/ethdb/leveldb/leveldb.go:94 +0x3b8
+  github.com/clearmatics/autonity/core/rawdb.NewLevelDBDatabaseWithFreezer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/core/rawdb/database.go:210 +0x86
+  github.com/clearmatics/autonity/node.(*ServiceContext).OpenDatabaseWithFreezer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/node/service.go:69 +0x31b
+  github.com/clearmatics/autonity/eth.New()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/backend.go:145 +0x435
+  github.com/clearmatics/autonity/consensus/test.makeValidator.func1()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/test/test_helpers.go:156 +0x3b6
+  github.com/clearmatics/autonity/node.(*Node).Start()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/node/node.go:206 +0x727
+  github.com/clearmatics/autonity/consensus/test.(*testNode).startNode()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/test/tendermint_test.go:343 +0x505
+  github.com/clearmatics/autonity/consensus/test.hookStartNode.func1()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/test/tendermint_test.go:557 +0xab
+  github.com/clearmatics/autonity/consensus/test.runHook()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/test/tendermint_test.go:529 +0xa5
+  github.com/clearmatics/autonity/consensus/test.sendTransactions.func1()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/consensus/test/tendermint_test.go:486 +0x34d
+  github.com/clearmatics/autonity/vendor/golang.org/x/sync/errgroup.(*Group).Go.func1()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/vendor/golang.org/x/sync/errgroup/errgroup.go:57 +0x64
+
+Goroutine 67 (finished) created at:
+  github.com/clearmatics/autonity/eth.(*ProtocolManager).syncer()
+      /mnt/sdb/go/src/github.com/clearmatics/autonity/eth/sync.go:155 +0x2e3
+==================
+=== RUN   TestTendermintStartStop/test_case_all_nodes_stop_for_120_seconds_at_the_same_block
+[31mERROR[0m[09-06|18:47:49.888] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:47:49.889] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:47:49.889] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:47:49.889] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:47:49.889] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:47:52.562] stopping tendermint.core                 [31maddr[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:47:52.564] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xE584d7d61F3F152766d72f61C1F69158650E7214
+[31mERROR[0m[09-06|18:47:52.565] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:47:52.565] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xC5182331288f755e24Ada027E80CD86C193ccE16
+[31mERROR[0m[09-06|18:47:52.566] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x35eFdA87bbF364294bb9eE10aBfCA684EAC9beEE
+[31mERROR[0m[09-06|18:47:52.566] handleConsensusEvents is stopped         [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:47:52.596] stopping tendermint.core                 [31maddr[0m=0xb815096a97592cb16A43d4aA73a2124d7587771c
+[31mERROR[0m[09-06|18:47:52.596] stopping tendermint.core                 [31maddr[0m=0xC5182331288f755e24Ada027E80CD86C193ccE16
+[31mERROR[0m[09-06|18:47:52.597] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x35eFdA87bbF364294bb9eE10aBfCA684EAC9beEE
+[31mERROR[0m[09-06|18:47:52.598] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xE584d7d61F3F152766d72f61C1F69158650E7214
+[31mERROR[0m[09-06|18:47:52.599] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:47:52.599] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xE584d7d61F3F152766d72f61C1F69158650E7214
+[31mERROR[0m[09-06|18:47:52.599] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x35eFdA87bbF364294bb9eE10aBfCA684EAC9beEE
+[31mERROR[0m[09-06|18:47:52.599] stopping tendermint.core                 [31maddr[0m=0xE584d7d61F3F152766d72f61C1F69158650E7214
+[31mERROR[0m[09-06|18:47:52.597] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:47:52.600] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:47:52.600] handleConsensusEvents is stopped         [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:47:52.607] stopping tendermint.core                 [31maddr[0m=0x35eFdA87bbF364294bb9eE10aBfCA684EAC9beEE
+[31mERROR[0m[09-06|18:47:52.608] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:47:52.608] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:47:52.609] Could not unpack getValidators returned value [31merr[0m="abi: unmarshalling empty output"
+[31mERROR[0m[09-06|18:50:11.677] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:50:11.713] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:50:11.718] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:50:11.738] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:50:11.826] mining                                   [31mn[0m=1
+[31mERROR[0m[09-06|18:50:21.804] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:50:21.807] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:50:21.809] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:50:21.813] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:50:24.482] NewUnminedBlockEvent: old height unminedBlock [31merr[0m="old height message"
+[31mERROR[0m[09-06|18:50:28.854] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:28.854] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:28.854] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:28.854] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:28.871] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:28.871] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:28.902] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:28.903] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:35.904] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:35.904] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:35.907] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:35.907] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:35.915] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:35.915] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:35.919] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:35.919] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:42.802] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:42.802] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:42.804] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:42.804] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:42.848] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:42.848] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:42.850] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:42.850] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:49.858] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:49.858] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:49.863] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:49.863] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:49.865] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:49.865] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:49.912] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:49.912] cant stop timer                          [31merr[0m="timer expired and new round started"
+[31mERROR[0m[09-06|18:50:50.861] stopping tendermint.core                 [31maddr[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:50:50.864] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:50:51.187] stopping tendermint.core                 [31maddr[0m=0x35eFdA87bbF364294bb9eE10aBfCA684EAC9beEE
+[31mERROR[0m[09-06|18:50:51.188] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xb815096a97592cb16A43d4aA73a2124d7587771c
+[31mERROR[0m[09-06|18:50:51.188] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:50:51.188] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xC5182331288f755e24Ada027E80CD86C193ccE16
+[31mERROR[0m[09-06|18:50:51.188] handleConsensusEvents is stopped         [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:50:51.194] stopping tendermint.core                 [31maddr[0m=0xC5182331288f755e24Ada027E80CD86C193ccE16
+[31mERROR[0m[09-06|18:50:51.194] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:50:51.194] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xb815096a97592cb16A43d4aA73a2124d7587771c
+[31mERROR[0m[09-06|18:50:51.194] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0x35eFdA87bbF364294bb9eE10aBfCA684EAC9beEE
+[31mERROR[0m[09-06|18:50:51.196] cant stop timer                          [31merr[0m="timer expired and nil prevote sent"
+[31mERROR[0m[09-06|18:50:51.200] stopping tendermint.core                 [31maddr[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:50:51.201] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:50:51.204] stopping tendermint.core                 [31maddr[0m=0xb815096a97592cb16A43d4aA73a2124d7587771c
+[31mERROR[0m[09-06|18:50:51.204] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:50:51.204] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:50:51.205] error while sending tendermintMsg message to the peer(context done): context canceled [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:51:00.954] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:51:01.121] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:51:10.954] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:51:20.955] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:51:30.956] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:51:40.956] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:51:50.902] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:51:50.903] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:51:50.903] error while sending tendermintMsg message to the peer(context done): context deadline exceeded [31mpeer[0m=0xa6982Bb9721895b577746571B2cc13A130d56019
+[31mERROR[0m[09-06|18:51:50.906] stopping tendermint.core                 [31maddr[0m=0xE584d7d61F3F152766d72f61C1F69158650E7214
+[31mERROR[0m[09-06|18:51:50.906] handleNewUnminedBlockEvent is stopped    [31mevent[0m="context canceled"
+[31mERROR[0m[09-06|18:51:50.906] handleConsensusEvents is stopped         [31mevent[0m="context canceled"
+--- FAIL: TestTendermintStartStop (871.38s)
+    --- FAIL: TestTendermintStartStop/test_case_all_nodes_stop_for_120_seconds_at_different_blocks (576.93s)
+        tendermint_test.go:497: after a new block it should be 0 pending transactions got 4. block 20
+        testing.go:809: race detected during execution of test
+    --- FAIL: TestTendermintStartStop/test_case_all_nodes_stop_for_120_seconds_at_the_same_block (294.45s)
+        tendermint_test.go:497: after a new block it should be 0 pending transactions got 7. block 20
+    testing.go:809: race detected during execution of test
+FAIL
+FAIL	github.com/clearmatics/autonity/consensus/test	872.044s
