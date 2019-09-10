@@ -145,7 +145,7 @@ func TestCheckFeeRedirection(t *testing.T) {
 			}
 			contractBalance:=st.GetBalance(autonityContractAddress)
 			if block.NumberU64()>1 && block.NumberU64() <= uint64(tCase.numBlocks) {
-				if contractBalance.Uint64() <= prevBlockBalance {
+				if contractBalance.Uint64() < prevBlockBalance {
 					t.Fatal("Balance must be increased")
 				}
 			}
