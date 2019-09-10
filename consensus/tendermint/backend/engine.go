@@ -561,9 +561,6 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 
 	sb.coreStarted = true
 
-	sb.resend = make(chan messageToPeers, 1024)
-	sb.ReSend(ctx, 10)
-
 	return nil
 }
 

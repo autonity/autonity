@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -722,7 +723,8 @@ func (validator *testNode) startService() error {
 }
 
 func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
-	const blocksToWait = 10
+	const blocksToWait = 30
+	var finishedCounter uint64
 
 	txs := make(map[uint64]int) // blockNumber to count
 	txsMu := sync.Mutex{}
@@ -744,11 +746,11 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 				blocksPassed int
 				lastBlock    uint64
 				err          error
+				hasFinished	 bool
 			)
 
 			fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 
-		wgLoop:
 			for {
 				select {
 				case ev := <-validator.eventChan:
@@ -757,7 +759,6 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					if err != nil {
 						return err
 					}
-
 					// actual forming and sending transaction
 					log.Debug("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64(), "isRunning", validator.isRunning)
 
@@ -766,6 +767,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						if currentBlock <= lastBlock {
 							return fmt.Errorf("expected next block %d got %d. Block %v", lastBlock+1, currentBlock, ev.Block)
 						}
+						//fmt.Printf("%d - Block %d \n", index, currentBlock)
 						lastBlock = currentBlock
 
 						txsMu.Lock()
@@ -794,7 +796,11 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 					// check transactions status if all blocks are passed
 					blocksPassed++
-					if validator.isRunning && blocksPassed >= test.numBlocks+blocksToWait {
+					if !hasFinished && validator.isRunning && blocksPassed >= test.numBlocks+blocksToWait {
+						atomic.AddUint64(&finishedCounter, 1)
+						hasFinished = true
+					}
+					if hasFinished && atomic.LoadUint64(&finishedCounter) == uint64(len(validators)) {
 						pending, queued := validator.service.TxPool().Stats()
 						if errorOnTx {
 							if pending != 0 {
@@ -804,8 +810,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 								return fmt.Errorf("after a new block it should be 0 queued transactions got %d. block %d", queued, ev.Block.Number().Uint64())
 							}
 						}
-
-						break wgLoop
+						return nil
 					}
 				case innerErr := <-validator.subscription.Err():
 					if innerErr != nil {
@@ -819,10 +824,10 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					if err != nil {
 						return err
 					}
-				}
-			}
 
-			return nil
+				}
+
+			}
 		})
 	}
 	if err := wg.Wait(); err != nil {
@@ -860,8 +865,9 @@ func runHook(validatorHook hook, test *testCase, block *types.Block, validator *
 
 	err := validatorHook(block, validator, test, time.Now())
 	if err != nil {
-		return fmt.Errorf("error while executing before hook for validator index %d(%v) and block %v",
-			index, validator, block)
+
+		return fmt.Errorf("error while executing before hook for validator index %d(%v) and block %v: %s",
+			index, validator, block, err.Error())
 	}
 
 	return nil

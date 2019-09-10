@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -138,7 +137,6 @@ type Backend struct {
 	contractsMu       sync.RWMutex
 	vmConfig          *vm.Config
 
-	resend chan messageToPeers
 }
 
 // Address implements tendermint.Backend.Address
@@ -181,49 +179,34 @@ func (sb *Backend) Gossip(ctx context.Context, valSet validator.Set, payload []b
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
-	var targets []common.Address
+	targets := make(map[common.Address]struct{})
 	for _, val := range valSet.List() {
 		if val.Address() != sb.Address() {
-			targets = append(targets, val.Address())
+			targets[val.Address()] = struct{}{}
 		}
 	}
 
 	if sb.broadcaster != nil && len(targets) > 0 {
-		sb.trySend(ctx, messageToPeers{
-			message{
-				hash,
-				payload,
-			},
-			targets,
-			time.Now(),
-			time.Now(),
-		})
+		ps := sb.broadcaster.FindPeers(targets)
+		for addr, p := range ps {
+			ms, ok := sb.recentMessages.Get(addr)
+			var m *lru.ARCCache
+			if ok {
+				m, _ = ms.(*lru.ARCCache)
+				if _, k := m.Get(hash); k {
+					// This peer had this event, skip it
+					continue
+				}
+			} else {
+				m, _ = lru.NewARC(inmemoryMessages)
+			}
+
+			m.Add(hash, true)
+			sb.recentMessages.Add(addr, m)
+
+			go p.Send(tendermintMsg, payload)
+		}
 	}
-}
-
-type messageToPeers struct {
-	msg       message
-	peers     []common.Address
-	startTime time.Time
-	lastTry   time.Time
-}
-
-func (m messageToPeers) String() string {
-	msg := fmt.Sprintf("msg hash %s   length %d", m.msg.hash.String(), len(m.msg.payload))
-	t := fmt.Sprintf("time %s", m.startTime.String())
-
-	peers := peersToString(m.peers)
-
-	return fmt.Sprintf("%s %s %s", msg, t, peers)
-}
-
-func peersToString(ps []common.Address) string {
-	peersStr := fmt.Sprintf("peers %d: ", len(ps))
-	for _, p := range ps {
-		peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
-	}
-
-	return peersStr
 }
 
 // Commit implements tendermint.Backend.Commit
@@ -491,8 +474,12 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 	}
 
 	sb.logger.Info("Syncing", "peer", address)
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+	targets := map[common.Address]struct{}{address : {}}
+	ps := sb.broadcaster.FindPeers(targets)
+	p, connected :=  ps[address]
+	if !connected {
+		return
+	}
 	for _, msg := range messages {
 		payload, err := msg.Payload()
 		if err != nil {
@@ -500,13 +487,22 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 			continue
 		}
 		hash := types.RLPHash(payload)
-		now := time.Now()
-		sb.trySend(ctx, messageToPeers{
-			message{hash: hash, payload: payload},
-			[]common.Address{address},
-			now,
-			now,
-		})
+		ms, ok := sb.recentMessages.Get(address)
+		var m *lru.ARCCache
+		if ok {
+			m, _ = ms.(*lru.ARCCache)
+			if _, k := m.Get(hash); k {
+				// This peer had this event, skip it
+				continue
+			}
+		} else {
+			m, _ = lru.NewARC(inmemoryMessages)
+		}
+
+		m.Add(hash, true)
+		sb.recentMessages.Add(address, m)
+
+		go p.Send(tendermintMsg, payload)
 	}
 }
 
