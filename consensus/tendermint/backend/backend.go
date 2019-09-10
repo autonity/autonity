@@ -339,9 +339,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			}
 
 			// Deploy Glienicke network-permissioning contract
-			var glienickeAddr common.Address
-			_, glienickeAddr, err = sb.blockchain.DeployGlienickeContract(state, header)
-			sb.setGlienickeContract(glienickeAddr)
+			_, _, err = sb.blockchain.DeployGlienickeContract(state, header)
 			if err != nil {
 				return 0, err
 			}
