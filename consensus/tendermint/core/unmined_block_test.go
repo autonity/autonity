@@ -75,7 +75,7 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 		unminedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
 
 		c.updatePendingUnminedBlocks(unminedBlock)
-		
+
 		timeout := time.NewTimer(2 * time.Second)
 		select {
 		case block := <-pendingUnminedBlockCh:
