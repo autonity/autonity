@@ -91,7 +91,7 @@ func (sb *Backend) contractGetValidators(chain consensus.ChainReader, header *ty
 
 	value := new(big.Int).SetUint64(0x00)
 	//A standard call is issued - we leave the possibility to modify the state
-	ret, _, vmerr := evm.Call(sender, sb.somaContract, input, gas, value)
+	ret, _, vmerr := evm.Call(sender, sb.getSomaContract(), input, gas, value)
 	if vmerr != nil {
 		log.Error("Error Soma Governance Contract GetValidators()")
 		return nil, vmerr

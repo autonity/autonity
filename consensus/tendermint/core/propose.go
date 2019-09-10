@@ -125,28 +125,21 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		c.currentHeightOldRoundsStatesMu.RLock()
 		defer c.currentHeightOldRoundsStatesMu.RUnlock()
 
+		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
 		if vr == -1 {
-			// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
-			var isValidRound bool
-			if c.lockedRound != nil {
-				isValidRound = c.lockedRound.Int64() == vr
-			}
-
-			var isLockedHash bool
+			var voteForProposal = false
 			if c.lockedValue != nil {
-				isLockedHash = h == c.lockedValue.Hash()
-			}
+				voteForProposal = c.lockedRound.Int64() == -1 || h == c.lockedValue.Hash()
 
-			isVoteForProposal := isValidRound || isLockedHash
-			c.sendPrevote(ctx, !isVoteForProposal)
+			}
+			c.sendPrevote(ctx, voteForProposal)
 			c.setStep(prevote)
-			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 			return nil
 		}
 
 		rs, ok := c.currentHeightOldRoundsStates[vr]
 		if !ok {
-			log.Error("handleProposal. unknown round",
+			log.Error("handleProposal. unknown old round",
 				"proposalHeight", h,
 				"proposalRound", vr,
 				"currentHeight", c.currentRoundState.height.Uint64(),
@@ -154,19 +147,14 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			)
 		}
 
-		if vr < curR && ok && c.Quorum(rs.Prevotes.VotesSize(h)) {
-			var isValidRound bool
-			if c.lockedRound != nil {
-				isValidRound = c.lockedRound.Int64() <= vr
-			}
-
-			var isLockedHash bool
+		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
+		if ok && vr < curR && c.Quorum(rs.Prevotes.VotesSize(h)) {
+			var voteForProposal = false
 			if c.lockedValue != nil {
-				isLockedHash = h == c.lockedValue.Hash()
-			}
+				voteForProposal = c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash()
 
-			isVoteForProposal := isValidRound || !isLockedHash
-			c.sendPrevote(ctx, !isVoteForProposal)
+			}
+			c.sendPrevote(ctx, voteForProposal)
 			c.setStep(prevote)
 		}
 	}

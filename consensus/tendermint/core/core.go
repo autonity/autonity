@@ -71,20 +71,23 @@ var (
 // New creates an Tendermint consensus core
 func New(backend Backend, config *config.Config) *core {
 	return &core{
-		config:                config,
-		address:               backend.Address(),
-		logger:                log.New(),
-		backend:               backend,
-		backlogs:              make(map[validator.Validator]*prque.Prque),
-		pendingUnminedBlocks:  make(map[uint64]*types.Block),
-		pendingUnminedBlockCh: make(chan *types.Block),
-		stopped:               make(chan struct{}, 3),
-		isStarting:            new(uint32),
-		isStarted:             new(uint32),
-		isStopping:            new(uint32),
-		isStopped:             new(uint32),
-		valSet:                new(validatorSet),
-		futureRoundsChange:    make(map[int64]int64),
+		config:                       config,
+		address:                      backend.Address(),
+		logger:                       log.New(),
+		backend:                      backend,
+		backlogs:                     make(map[validator.Validator]*prque.Prque),
+		pendingUnminedBlocks:         make(map[uint64]*types.Block),
+		pendingUnminedBlockCh:        make(chan *types.Block),
+		stopped:                      make(chan struct{}, 3),
+		isStarting:                   new(uint32),
+		isStarted:                    new(uint32),
+		isStopping:                   new(uint32),
+		isStopped:                    new(uint32),
+		valSet:                       new(validatorSet),
+		futureRoundsChange:           make(map[int64]int64),
+		currentHeightOldRoundsStates: make(map[int64]roundState),
+		lockedRound:                  big.NewInt(-1),
+		validRound:                   big.NewInt(-1),
 	}
 }
 
