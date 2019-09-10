@@ -114,7 +114,7 @@ func TestStoreBacklog(t *testing.T) {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &message{
+		msg := &Message{
 			Code: msgPrevote,
 			Msg:  votePayload,
 		}
@@ -150,7 +150,7 @@ func TestStoreBacklog(t *testing.T) {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &message{
+		msg := &Message{
 			Code: msgProposal,
 			Msg:  proposalPayload,
 		}

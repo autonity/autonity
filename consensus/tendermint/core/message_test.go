@@ -14,7 +14,7 @@ import (
 )
 
 func TestMessageEncodeDecode(t *testing.T) {
-	msg := &message{
+	msg := &Message{
 		Code:          msgProposal,
 		Msg:           []byte{0x1},
 		Address:       common.HexToAddress("0x1234567890"),
@@ -30,7 +30,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 
 	s := rlp.NewStream(buf, 0)
 
-	decMsg := &message{}
+	decMsg := &Message{}
 	err = decMsg.DecodeRLP(s)
 	if err != nil {
 		t.Fatalf("have %v, want nil", err)
@@ -42,7 +42,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 }
 
 func TestMessageString(t *testing.T) {
-	msg := &message{
+	msg := &Message{
 		Code:    msgProposal,
 		Address: common.HexToAddress("0x1234567890"),
 	}
@@ -55,14 +55,14 @@ func TestMessageString(t *testing.T) {
 
 func TestMessageFromPayload(t *testing.T) {
 	t.Run("nil validator function given, nil validator returned", func(t *testing.T) {
-		msg := &message{
+		msg := &Message{
 			Code:    msgProposal,
 			Address: common.HexToAddress("0x1234567890"),
 		}
 
 		payload, _ := msg.Payload()
 
-		decMsg := &message{}
+		decMsg := &Message{}
 		val, err := decMsg.FromPayload(payload, nil, nil)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
@@ -74,7 +74,7 @@ func TestMessageFromPayload(t *testing.T) {
 	})
 
 	t.Run("validator function fails, nil returned", func(t *testing.T) {
-		msg := &message{
+		msg := &Message{
 			Code:    msgProposal,
 			Address: common.HexToAddress("0x1234567890"),
 		}
@@ -86,7 +86,7 @@ func TestMessageFromPayload(t *testing.T) {
 			return common.Address{}, wantErr
 		}
 
-		decMsg := &message{}
+		decMsg := &Message{}
 		_, err := decMsg.FromPayload(payload, nil, validateFn)
 		if err != wantErr {
 			t.Fatalf("want error %v, got %v", wantErr, err)
@@ -94,7 +94,7 @@ func TestMessageFromPayload(t *testing.T) {
 	})
 
 	t.Run("unauthorized address given, error returned", func(t *testing.T) {
-		msg := &message{
+		msg := &Message{
 			Code:    msgProposal,
 			Address: common.HexToAddress("0x1234567890"),
 		}
@@ -105,7 +105,7 @@ func TestMessageFromPayload(t *testing.T) {
 			return common.Address{}, nil
 		}
 
-		decMsg := &message{}
+		decMsg := &Message{}
 		_, err := decMsg.FromPayload(payload, nil, validateFn)
 		if err != ErrUnauthorizedAddress {
 			t.Fatalf("have %v, want %v", err, ErrUnauthorizedAddress)
@@ -114,7 +114,7 @@ func TestMessageFromPayload(t *testing.T) {
 
 	t.Run("valid params given, valid validator returned", func(t *testing.T) {
 		authorizedAddress := common.HexToAddress("0x1234567890")
-		msg := &message{
+		msg := &Message{
 			Code:    msgProposal,
 			Address: authorizedAddress,
 		}
@@ -127,7 +127,7 @@ func TestMessageFromPayload(t *testing.T) {
 			return authorizedAddress, nil
 		}
 
-		decMsg := &message{}
+		decMsg := &Message{}
 		newVal, err := decMsg.FromPayload(payload, valSet, validateFn)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
@@ -151,7 +151,7 @@ func TestMessageDecode(t *testing.T) {
 		t.Fatalf("have %v, want nil", err)
 	}
 
-	msg := &message{
+	msg := &Message{
 		Code:    msgProposal,
 		Msg:     payload,
 		Address: common.HexToAddress("0x1234567890"),
