@@ -74,6 +74,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 			// And we only process old rounds while future rounds messages are pushed on to the backlog
 
 			c.currentHeightOldRoundsStatesMu.Lock()
+			defer c.currentHeightOldRoundsStatesMu.Unlock()
 			oldRoundState, ok := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
 			if !ok {
 				//fixme "The roundstate must exist as every roundstate" - but it's not. we can't trust it.
@@ -92,7 +93,6 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 			}
 
 			c.acceptVote(&oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
-			c.currentHeightOldRoundsStatesMu.Unlock()
 		}
 		return err
 	}
