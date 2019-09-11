@@ -269,7 +269,7 @@ func (sb *Backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 				// Might be vulnerable to DoS Attack depending on gaslimit
 				// Todo : Double check
 				_, _, err := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil,
-					gp, state, header, tx, usedGas, *sb.vmConfig)
+					gp, state, header, tx, usedGas, *sb.vmConfig, sb.blockchain.AutonityContract)
 
 				if err != nil {
 					return 0, err

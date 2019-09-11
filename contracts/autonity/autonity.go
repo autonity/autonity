@@ -235,3 +235,46 @@ func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header)
 
 	return types.NewNodes(returnedEnodes, false), nil
 }
+
+func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (uint64, error) {
+	if block.Number().Uint64() == 1 {
+		// use genesis block whitelist
+		return ac.bc.Config().AutonityContractConfig.MinGasPrice, nil
+	}
+
+	return ac.callGetMinimumGasPrice(db, block.Header())
+}
+
+func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.Header) (uint64, error) {
+	// Needs to be refactored somehow
+	deployer := ac.bc.Config().AutonityContractConfig.Deployer
+	var contractABI = ac.bc.Config().AutonityContractConfig.ABI
+
+	sender := vm.AccountRef(deployer)
+	gas := uint64(0xFFFFFFFF)
+	evm := ac.getEVM(header, deployer, state)
+
+	ABI, err := abi.JSON(strings.NewReader(contractABI))
+	if err != nil {
+		return 0, err
+	}
+
+	input, err := ABI.Pack("GetMinimumGasPrice")
+	if err != nil {
+		return 0, err
+	}
+
+	ret, _, vmerr := evm.StaticCall(sender, ac.Address, input, gas)
+	if vmerr != nil {
+		log.Error("Error Autonity Contract GetMinimumGasPrice()")
+		return 0, vmerr
+	}
+
+	var minGasPrice uint64
+	if err := ABI.Unpack(&minGasPrice, "GetMinimumGasPrice", ret); err != nil { // can't work with aliased types
+		log.Error("Could not unpack minGasPrice returned value")
+		return 0, err
+	}
+
+	return minGasPrice, nil
+}

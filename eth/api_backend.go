@@ -18,6 +18,7 @@ package eth
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"math/big"
 
 	"github.com/clearmatics/autonity/accounts"
@@ -211,6 +212,10 @@ func (b *EthAPIBackend) EventMux() *event.TypeMux {
 
 func (b *EthAPIBackend) AccountManager() *accounts.Manager {
 	return b.eth.AccountManager()
+}
+
+func (b *EthAPIBackend) AutonityContract() *autonity.Contract {
+	return b.eth.blockchain.AutonityContract
 }
 
 func (b *EthAPIBackend) BloomStatus() (uint64, uint64) {

@@ -119,7 +119,6 @@ func TestTendermintLongRun(t *testing.T) {
 }
 
 func TestCheckFeeRedirection(t *testing.T) {
-
 	hookGenerator := func() (hook, hook) {
 		prevBlockBalance := uint64(0)
 		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
@@ -193,6 +192,66 @@ func TestCheckFeeRedirection(t *testing.T) {
 			},
 			afterHooks: map[int]hook{
 				1: case3After,
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+
+		})
+	}
+}
+func TestCheckBlockWithSmallFee(t *testing.T) {
+	hookGenerator := func() (hook, hook) {
+		prevBlockBalance := uint64(0)
+		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+			addr, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
+			if err != nil {
+				t.Fatal(err)
+			}
+			st, _ := validator.service.BlockChain().State()
+			if block.NumberU64() == 1 && st.GetBalance(addr).Uint64() != 0 {
+				t.Fatal("incorrect balance on the first block")
+			}
+			return nil
+		}
+		fAfter := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+			autonityContractAddress, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
+			if err != nil {
+				t.Fatal(err)
+			}
+			st, _ := validator.service.BlockChain().State()
+
+			if block.NumberU64() == 1 && prevBlockBalance != 0 {
+				t.Fatal("incorrect balance on the first block")
+			}
+			contractBalance := st.GetBalance(autonityContractAddress)
+			if block.NumberU64() > 1 && block.NumberU64() <= uint64(tCase.numBlocks) {
+				if contractBalance.Uint64() < prevBlockBalance {
+					t.Fatal("Balance must be increased")
+				}
+			}
+			prevBlockBalance = contractBalance.Uint64()
+			return nil
+		}
+		return fBefore, fAfter
+	}
+
+	case1Before, case1After := hookGenerator()
+	cases := []*testCase{
+		{
+			name:      "no malicious - 1 tx per second",
+			numPeers:  5,
+			numBlocks: 5,
+			txPerPeer: 3,
+			beforeHooks: map[int]hook{
+				3: case1Before,
+			},
+			afterHooks: map[int]hook{
+				3: case1After,
 			},
 		},
 	}

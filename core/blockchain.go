@@ -179,7 +179,8 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		badBlocks:      badBlocks,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
-	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
+	sp:=NewStateProcessor(chainConfig, bc, engine)
+	bc.SetProcessor(sp)
 
 	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
@@ -193,9 +194,12 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
-	bc.AutonityContract = autonity.NewAutonityContract(bc, CanTransfer, Transfer, func(ref *types.Header, chain autonity.ChainContext) func(n uint64) common.Hash {
-		return GetHashFn(ref, chain)
-	})
+	if (chainConfig.Tendermint!=nil || chainConfig.Istanbul!=nil) && chainConfig.AutonityContractConfig!=nil {
+		bc.AutonityContract = autonity.NewAutonityContract(bc, CanTransfer, Transfer, func(ref *types.Header, chain autonity.ChainContext) func(n uint64) common.Hash {
+			return GetHashFn(ref, chain)
+		})
+		sp.SetAutonityContract(bc.AutonityContract)
+	}
 
 	// Check the current state of the block hashes and make sure that we do not have any of the bad blocks in our chain
 	for hash := range BadHashes {
