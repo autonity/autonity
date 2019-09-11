@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net"
+	"sync"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
@@ -29,34 +30,38 @@ type networkRate struct {
 }
 
 type testNode struct {
-	isRunning    bool
-	isInited     bool
-	privateKey   *ecdsa.PrivateKey
-	address      string
-	port         int
-	url          string
-	listener     net.Listener
-	node         *node.Node
-	enode        *enode.Node
-	service      *eth.Ethereum
-	eventChan    chan core.ChainEvent
-	subscription event.Subscription
+	isRunning      bool
+	isInited       bool
+	privateKey     *ecdsa.PrivateKey
+	address        string
+	port           int
+	url            string
+	listener       net.Listener
+	node           *node.Node
+	enode          *enode.Node
+	service        *eth.Ethereum
+	eventChan      chan core.ChainEvent
+	subscription   event.Subscription
+	transactions   map[common.Hash]struct{}
+	transactionsMu sync.Mutex
+	blocks         map[uint64]common.Hash
+	lastBlock      uint64
 }
 
-func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) error {
+func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error) {
 	nonce := service.TxPool().Nonce(fromAddr)
 
-	err := txWithNonce(fromAddr, nonce, toAddr, fromValidator, service)
+	tx, err := txWithNonce(fromAddr, nonce, toAddr, fromValidator, service)
 	if err != nil {
 		return txWithNonce(fromAddr, nonce+1, toAddr, fromValidator, service)
 	}
-	return nil
+	return tx, nil
 }
 
-func txWithNonce(fromAddr common.Address, nonce uint64, toAddr common.Address, fromValidator *ecdsa.PrivateKey, service *eth.Ethereum) error {
+func txWithNonce(_ common.Address, nonce uint64, toAddr common.Address, fromValidator *ecdsa.PrivateKey, service *eth.Ethereum) (*types.Transaction, error) {
 	randEth, err := rand.Int(rand.Reader, big.NewInt(10000000))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx, err := types.SignTx(
 		types.NewTransaction(
@@ -69,9 +74,9 @@ func txWithNonce(fromAddr common.Address, nonce uint64, toAddr common.Address, f
 		),
 		types.HomesteadSigner{}, fromValidator)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return service.TxPool().AddLocal(tx)
+	return tx, service.TxPool().AddLocal(tx)
 }
 
 func makeGenesis(validators []*testNode) *core.Genesis {
