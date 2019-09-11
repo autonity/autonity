@@ -737,6 +737,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		// skip malicious nodes
 		if test.maliciousPeers != nil {
 			if _, ok := test.maliciousPeers[index]; ok {
+				atomic.AddUint64(&finishedCounter, 1)
 				continue
 			}
 		}
