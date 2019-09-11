@@ -1332,12 +1332,12 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 				} else {
 					// If we're exceeding limits but haven't reached a large enough memory gap,
 					// warn the user that the system is becoming unstable.
-					if chosen < lastWrite+TriesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
-						log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastWrite)/TriesInMemory)
+					if chosen < atomic.LoadUint64(&lastWrite)+TriesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
+						log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-atomic.LoadUint64(&lastWrite))/TriesInMemory)
 					}
 					// Flush an entire trie and restart the counters
 					triedb.Commit(header.Root, true)
-					lastWrite = chosen
+					atomic.StoreUint64(&lastWrite, chosen)
 					bc.gcproc = 0
 				}
 			}
