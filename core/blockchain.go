@@ -221,7 +221,9 @@ func (bc *BlockChain) getProcInterrupt() bool {
 
 // GetVMConfig returns the block chain VM config.
 func (bc *BlockChain) GetVMConfig() *vm.Config {
-	return &bc.vmConfig
+	cp:=bc.vmConfig
+	cp.Debug=false
+	return &cp
 }
 
 // loadLastState loads the last known chain state from the database. This method
