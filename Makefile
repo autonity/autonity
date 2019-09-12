@@ -48,8 +48,8 @@ test-race:
 	go test -race -v ./consensus/test/... -timeout 30m
 
 mock-gen:
-	mockgen -source=consensus/tendermint/validator.go -package=tendermint -destination=consensus/tendermint/validator_mock.go
-
+	mockgen -source=consensus/tendermint/validator/validator_interface.go -package=validator -destination=consensus/tendermint/validator/validator_mock.go
+	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go
 lint:
 	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
 	@./build/bin/golangci-lint run \
