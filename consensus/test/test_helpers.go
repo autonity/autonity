@@ -32,7 +32,7 @@ type networkRate struct {
 type testNode struct {
 	isRunning      bool
 	isInited       bool
-	wasStopped     bool  //fixme should be removed
+	wasStopped     bool //fixme should be removed
 	privateKey     *ecdsa.PrivateKey
 	address        string
 	port           int
@@ -53,7 +53,7 @@ type testNode struct {
 
 type block struct {
 	hash common.Hash
-	txs int
+	txs  int
 }
 
 func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error) {
