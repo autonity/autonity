@@ -32,6 +32,7 @@ type networkRate struct {
 type testNode struct {
 	isRunning      bool
 	isInited       bool
+	wasStopped     bool  //fixme should be removed
 	privateKey     *ecdsa.PrivateKey
 	address        string
 	port           int

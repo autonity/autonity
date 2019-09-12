@@ -936,7 +936,7 @@ func (validator *testNode) stopNode() error {
 	//remove pending transactions
 	addr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 
-	ticker := time.NewTicker(50*time.Millisecond)
+	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -972,6 +972,7 @@ func (validator *testNode) stopNode() error {
 	}
 	validator.node.Wait()
 	validator.isRunning = false
+	validator.wasStopped = true
 
 	return nil
 }
@@ -1146,13 +1147,20 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 								}
 
 								//fixme an error should be returned
-								log.Error("error", "err", fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
-									index,
-									pendingTransactions, ev.Block.Number().Uint64(),
-									atomic.LoadInt64(validator.txsSendCount), txsChainCount))
+								if validator.wasStopped {
+									log.Error("error", "err", fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
+										index,
+										pendingTransactions, ev.Block.Number().Uint64(),
+										atomic.LoadInt64(validator.txsSendCount), txsChainCount))
 
-								if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-									atomic.AddUint32(validatorsCanBeStopped, 1)
+									if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+										atomic.AddUint32(validatorsCanBeStopped, 1)
+									}
+								} else {
+									return fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
+										index,
+										pendingTransactions, ev.Block.Number().Uint64(),
+										atomic.LoadInt64(validator.txsSendCount), txsChainCount)
 								}
 							}
 						}
