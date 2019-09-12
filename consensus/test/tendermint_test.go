@@ -1083,7 +1083,6 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					log.Debug("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64(), "isRunning", validator.isRunning)
 
 					if validator.isRunning {
-						atomic.AddInt64(validator.txsChainCount, int64(ev.Block.Transactions().Len()))
 						txsMu.Lock()
 						if _, ok := txs[validator.lastBlock]; !ok {
 							txs[validator.lastBlock] = ev.Block.Transactions().Len()
@@ -1093,6 +1092,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						for _, tx := range ev.Block.Transactions() {
 							validator.transactionsMu.Lock()
 							if _, ok := validator.transactions[tx.Hash()]; ok {
+								atomic.AddInt64(validator.txsChainCount, int64(ev.Block.Transactions().Len()))
 								delete(validator.transactions, tx.Hash())
 							}
 							validator.transactionsMu.Unlock()
