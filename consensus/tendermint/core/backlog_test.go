@@ -183,7 +183,7 @@ func TestProcessBacklog(t *testing.T) {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &message{
+		msg := &Message{
 			Code: msgProposal,
 			Msg:  proposalPayload,
 		}
@@ -243,7 +243,7 @@ func TestProcessBacklog(t *testing.T) {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &message{
+		msg := &Message{
 			Code: msgPrevote,
 			Msg:  votePayload,
 		}
@@ -303,7 +303,7 @@ func TestProcessBacklog(t *testing.T) {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &message{
+		msg := &Message{
 			Code: msgPrevote,
 			Msg:  nilRoundVotePayload,
 		}
@@ -340,7 +340,7 @@ func TestProcessBacklog(t *testing.T) {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &message{
+		msg := &Message{
 			Code: msgPrevote,
 			Msg:  nilRoundVotePayload,
 		}

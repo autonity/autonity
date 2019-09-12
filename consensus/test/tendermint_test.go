@@ -278,9 +278,8 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:      "f nodes stop for 5 seconds at the same block",
-			isSkipped:true,
 			numPeers:  7,
-			numBlocks: 10,
+			numBlocks: 20,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -293,10 +292,9 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f node stop for 5 seconds at different blocks",
-			isSkipped:true,
+			name:      "f nodes stop for 5 seconds at different blocks",
 			numPeers:  7,
-			numBlocks: 10,
+			numBlocks: 20,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -309,10 +307,9 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f node stop for 10 seconds at the same block",
-			isSkipped:true,
+			name:      "f nodes stop for 10 seconds at the same block",
 			numPeers:  7,
-			numBlocks: 10,
+			numBlocks: 20,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -325,10 +322,9 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f node stop for 10 seconds at different blocks",
-			isSkipped:true,
+			name:      "f nodes stop for 10 seconds at different blocks",
 			numPeers:  7,
-			numBlocks: 10,
+			numBlocks: 20,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -341,7 +337,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f node stop for 20 seconds at the same block",
+			name:      "f nodes stop for 20 seconds at the same block",
 			numPeers:  7,
 			numBlocks: 30,
 			txPerPeer: 1,
@@ -356,7 +352,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f node stop for 20 seconds at different blocks",
+			name:      "f nodes stop for 20 seconds at different blocks",
 			numPeers:  7,
 			numBlocks: 30,
 			txPerPeer: 1,
@@ -1150,9 +1146,9 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 									txsChainCount += txsBlockCount
 								}
 
-								//fixme an error should be returned
 								if validator.wasStopped {
-									log.Error("error", "err", fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
+									//fixme an error should be returned
+									log.Error("test error!!!", "err", fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
 										index,
 										pendingTransactions, ev.Block.Number().Uint64(),
 										atomic.LoadInt64(validator.txsSendCount), txsChainCount))

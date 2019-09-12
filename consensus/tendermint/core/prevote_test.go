@@ -40,7 +40,7 @@ func TestSendPrevote(t *testing.T) {
 			types.NewBlockWithHeader(&types.Header{}))
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
-		curRoundState.SetProposal(proposal)
+		curRoundState.SetProposal(proposal, nil)
 
 		addr := common.HexToAddress("0x0123456789")
 
@@ -55,7 +55,7 @@ func TestSendPrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		expectedMsg := &message{
+		expectedMsg := &Message{
 			Code:          msgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
