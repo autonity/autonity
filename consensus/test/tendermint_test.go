@@ -1028,7 +1028,7 @@ func (validator *testNode) startService() error {
 }
 
 func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
-	const blocksToWait = 10
+	const blocksToWait = 50
 
 	txs := make(map[uint64]int) // blockNumber to count
 	txsMu := sync.Mutex{}
