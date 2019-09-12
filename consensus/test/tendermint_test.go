@@ -278,6 +278,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:      "f nodes stop for 5 seconds at the same block",
+			isSkipped:true,
 			numPeers:  7,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -293,6 +294,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		},
 		{
 			name:      "f node stop for 5 seconds at different blocks",
+			isSkipped:true,
 			numPeers:  7,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -308,6 +310,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		},
 		{
 			name:      "f node stop for 10 seconds at the same block",
+			isSkipped:true,
 			numPeers:  7,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -323,6 +326,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		},
 		{
 			name:      "f node stop for 10 seconds at different blocks",
+			isSkipped:true,
 			numPeers:  7,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -339,7 +343,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f node stop for 20 seconds at the same block",
 			numPeers:  7,
-			numBlocks: 10,
+			numBlocks: 30,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -354,7 +358,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f node stop for 20 seconds at different blocks",
 			numPeers:  7,
-			numBlocks: 10,
+			numBlocks: 30,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -1011,7 +1015,7 @@ func (validator *testNode) startService() error {
 }
 
 func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
-	const blocksToWait = 30
+	const blocksToWait = 15
 
 	txs := make(map[uint64]int) // blockNumber to count
 	txsMu := sync.Mutex{}
