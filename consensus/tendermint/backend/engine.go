@@ -349,11 +349,11 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 	var validators []common.Address
 
 	if header.Number.Int64() == 1 {
-		sb.blockchain.AutonityContract.SavedValidatorsRetriever = func(i uint64) (addresses []common.Address, e error) {
+		sb.blockchain.GetAutonityContract().SavedValidatorsRetriever = func(i uint64) (addresses []common.Address, e error) {
 			chain := chain
 			return sb.retrieveSavedValidators(i, chain)
 		}
-		contractAddress, err := sb.blockchain.AutonityContract.DeployAutonityContract(chain, header, state)
+		contractAddress, err := sb.blockchain.GetAutonityContract().DeployAutonityContract(chain, header, state)
 		if err != nil {
 			log.Error("Deploy autonity contract error", "error", err)
 			return nil, err
@@ -370,7 +370,7 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 
 		var err error
-		validators, err = sb.blockchain.AutonityContract.ContractGetValidators(chain, header, state)
+		validators, err = sb.blockchain.GetAutonityContract().ContractGetValidators(chain, header, state)
 		if err != nil {
 			return nil, err
 		}

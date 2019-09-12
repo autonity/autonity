@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"math"
 	"math/big"
 	"sort"
@@ -119,6 +120,8 @@ type blockChain interface {
 	StateAt(root common.Hash) (*state.StateDB, error)
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
+	GetAutonityContract() *autonity.Contract
+	Config() *params.ChainConfig
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -602,6 +605,18 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("intrGas", intrGas, tx.Gas())
+	fmt.Println("pool.chain.GetAutonityContract", pool.chain.GetAutonityContract() == nil)
+	if pool.chain.GetAutonityContract()!=nil {
+		if gp, err:= pool.chain.GetAutonityContract().GetMinimumGasPrice(pool.chain.CurrentBlock(), pool.currentState); err==nil {
+			if new(big.Int).SetUint64(gp).Cmp(tx.GasPrice()) > 0 {
+				return errors.New("too low gas price from autonity config")
+			}
+		} else {
+			fmt.Println("gp, err", err)
+		}
+	}
+
 	if tx.Gas() < intrGas {
 		return ErrIntrinsicGas
 	}

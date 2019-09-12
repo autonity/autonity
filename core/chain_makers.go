@@ -99,7 +99,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
 	var ac *autonity.Contract
 	if bc!=nil {
-		ac = bc.AutonityContract
+		ac = bc.GetAutonityContract()
 	}
 	receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{}, ac)
 	if err != nil {

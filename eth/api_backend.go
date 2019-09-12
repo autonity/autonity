@@ -215,7 +215,7 @@ func (b *EthAPIBackend) AccountManager() *accounts.Manager {
 }
 
 func (b *EthAPIBackend) AutonityContract() *autonity.Contract {
-	return b.eth.blockchain.AutonityContract
+	return b.eth.blockchain.GetAutonityContract()
 }
 
 func (b *EthAPIBackend) BloomStatus() (uint64, uint64) {

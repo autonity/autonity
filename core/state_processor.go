@@ -17,6 +17,7 @@
 package core
 
 import (
+	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/misc"
@@ -82,11 +83,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
-		//if contractMinGasPrice.Uint64()!=0 {
-		//	if tx.GasPrice().Cmp(contractMinGasPrice) <1 {
-		//		return nil, nil, 0, errors.New("Gas price must be greater minGasPrice")
-		//	}
-		//}
+		if contractMinGasPrice.Uint64()!=0 {
+			if tx.GasPrice().Cmp(contractMinGasPrice) <1 {
+				return nil, nil, 0, errors.New("Gas price must be greater minGasPrice")
+			}
+		}
 
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg, p.autonityContract)

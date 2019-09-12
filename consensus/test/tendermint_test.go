@@ -1,7 +1,10 @@
 package test
 
 import (
+	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/common"
+	"math/big"
 	"net"
 	"os"
 	"sort"
@@ -24,6 +27,8 @@ import (
 	"github.com/clearmatics/autonity/p2p/enode"
 	"golang.org/x/sync/errgroup"
 )
+
+const DefaultTestGasPrice  = 100000000000
 
 func TestTendermintSuccess(t *testing.T) {
 	if testing.Short() {
@@ -205,6 +210,7 @@ func TestCheckFeeRedirection(t *testing.T) {
 	}
 }
 func TestCheckBlockWithSmallFee(t *testing.T) {
+
 	hookGenerator := func() (hook, hook) {
 		prevBlockBalance := uint64(0)
 		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
@@ -247,11 +253,60 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 			numPeers:  5,
 			numBlocks: 5,
 			txPerPeer: 3,
+			sendTransactionHooks: map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) error{
+				3: func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) error {
+					nonce := service.TxPool().State().GetNonce(fromAddr)
+
+					//step 1 invalid transaction. It must return error.
+					tx, err := types.SignTx(
+						types.NewTransaction(
+							nonce,
+							toAddr,
+							big.NewInt(1),
+							210000000,
+							big.NewInt(DefaultTestGasPrice - 200),
+							nil,
+						),
+						types.HomesteadSigner{}, key)
+					if err != nil {
+						return err
+					}
+					err = service.TxPool().AddLocal(tx)
+					if err == nil {
+						t.Fatal(err)
+					}
+
+					//step 2 valid transaction
+					tx, err = types.SignTx(
+						types.NewTransaction(
+							nonce,
+							toAddr,
+							big.NewInt(1),
+							210000000,
+							big.NewInt(DefaultTestGasPrice + 200),
+							nil,
+						),
+						types.HomesteadSigner{}, key)
+					if err != nil {
+						return err
+					}
+					err = service.TxPool().AddLocal(tx)
+					if err != nil {
+						return err
+					}
+
+					return nil
+				},
+			},
 			beforeHooks: map[int]hook{
 				3: case1Before,
 			},
 			afterHooks: map[int]hook{
 				3: case1After,
+			},
+			genesisHook: func(g *core.Genesis) *core.Genesis {
+				g.Config.AutonityContractConfig.MinGasPrice=DefaultTestGasPrice - 100
+				return g
 			},
 		},
 	}
@@ -260,7 +315,6 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
 			runTest(t, testCase)
-
 		})
 	}
 }
@@ -528,17 +582,19 @@ func TestTendermintStartStop(t *testing.T) {
 }
 
 type testCase struct {
-	name           string
-	isSkipped      bool
-	numPeers       int
-	numBlocks      int
-	txPerPeer      int
-	maliciousPeers map[int]func(basic consensus.Engine) consensus.Engine //map[validatorIndex]consensusConstructor
-	networkRates   map[int]networkRate                                   //map[validatorIndex]networkRate
-	beforeHooks    map[int]hook                                          //map[validatorIndex]beforeHook
-	afterHooks     map[int]hook                                          //map[validatorIndex]afterHook
-	stopTime       map[int]time.Time
-	mu             sync.RWMutex
+	name                 string
+	isSkipped            bool
+	numPeers             int
+	numBlocks            int
+	txPerPeer            int
+	maliciousPeers       map[int]func(basic consensus.Engine) consensus.Engine //map[validatorIndex]consensusConstructor
+	networkRates         map[int]networkRate                                   //map[validatorIndex]networkRate
+	beforeHooks          map[int]hook                                          //map[validatorIndex]beforeHook
+	afterHooks           map[int]hook                                          //map[validatorIndex]afterHook
+	sendTransactionHooks map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) error
+	stopTime             map[int]time.Time
+	genesisHook			 func(g *core.Genesis) *core.Genesis
+	mu                   sync.RWMutex
 }
 
 func (test *testCase) getBeforeHook(index int) hook {
@@ -633,6 +689,9 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	genesis := makeGenesis(validators)
+	if test.genesisHook!=nil {
+		genesis = test.genesisHook(genesis)
+	}
 	for i, validator := range validators {
 		var engineConstructor func(basic consensus.Engine) consensus.Engine
 		if test.maliciousPeers != nil {
@@ -857,8 +916,15 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 								nextValidatorIndex := (index + i + 1) % len(validators)
 								toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
 
-								if innerErr := sendTx(validator.service, validator.privateKey, fromAddr, toAddr); innerErr != nil {
-									return innerErr
+								if f, ok := test.sendTransactionHooks[nextValidatorIndex]; ok {
+									if innerErr := f(validator.service, validator.privateKey, fromAddr, toAddr); innerErr != nil {
+										return innerErr
+									}
+								} else {
+									if innerErr := sendTx(validator.service, validator.privateKey, fromAddr, toAddr, generateRandomTx); innerErr != nil {
+										return innerErr
+									}
+
 								}
 							}
 						}
