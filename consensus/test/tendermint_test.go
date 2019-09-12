@@ -29,41 +29,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-/*
-Normal network cases:
-- 5 nodes, 1 tx per node per block, network produces 5 blocks
-- 5 nodes, 1 tx per node per block, network produces 100 blocks
-- 5 nodes, 30 txs per node per block, network produces 10 blocks
-
-Slow network cases:
-- 4 normal nodes, 1 node with slow connection 50kb/s, 1 tx per node per block, network produces 5 blocks
-- 5 nodes with slow connection 50kb/s, 1 tx per node per block, network produces 5 blocks
-
-Crash fault tolerance cases:
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, 1 node stops for 5 blocks at the block 5
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, 1 node stops for 10 blocks at the block 5
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f(1/3) nodes stop for 5 blocks at the block 5
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f(1/3) nodes stop for 10 blocks at the block 5
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f(1/3) nodes stop for 20 blocks at the block 5
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f(1/3) nodes stop for 5 blocks at different blocks (5 and 6)
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f(1/3) nodes stop for 10 blocks at different blocks (5 and 6)
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f(1/3) nodes stop for 20 blocks at different blocks (5 and 6)
-
-Bizantine network cases:
-- 4 normal nodes, 1 bizantine node that accepts any block , 1 per node per block, network produces 5 blocks
-
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f+1(1/3+1) nodes stop for 5 blocks at the block 5
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f+1(1/3+1) nodes stop for 10 blocks at the block 5
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f+1(1/3+1) nodes stop for 20 blocks at the block 5
-
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f+1(1/3+1) nodes stop for 5 blocks at different blocks (4, 5 and 6)
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f+1(1/3+1) nodes stop for 10 blocks at different blocks (4, 5 and 6)
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, f+1(1/3+1) nodes stop for 20 blocks at different blocks (4, 5 and 6)
-
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, all nodes stop for 120 seconds at the block 5
-- 5 nodes, 1 tx per node per block, network produces 10 blocks, all nodes stop for 120 seconds at different blocks (4, 4, 5, 5 and 7)
-*/
-
 func TestTendermintSuccess(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -1092,7 +1057,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						for _, tx := range ev.Block.Transactions() {
 							validator.transactionsMu.Lock()
 							if _, ok := validator.transactions[tx.Hash()]; ok {
-								atomic.AddInt64(validator.txsChainCount, int64(ev.Block.Transactions().Len()))
+								atomic.AddInt64(validator.txsChainCount, 1)
 								delete(validator.transactions, tx.Hash())
 							}
 							validator.transactionsMu.Unlock()
