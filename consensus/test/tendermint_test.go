@@ -934,28 +934,45 @@ func (validator *testNode) startNode() error {
 
 func (validator *testNode) stopNode() error {
 	//remove pending transactions
-	validator.service.TxPool().Stop()
-	txsMap, err := validator.service.TxPool().Pending()
-	if err != nil {
-		return err
-	}
-	if err := validator.node.Stop(); err != nil {
-		return fmt.Errorf("cannot stop a node %s", err)
-	}
+	addr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 
-	validator.transactionsMu.Lock()
-	for _, txs := range txsMap {
-		for _, tx := range txs {
-			if _, ok := validator.transactions[tx.Hash()]; ok {
-				delete(validator.transactions, tx.Hash())
+	ticker := time.NewTicker(50*time.Millisecond)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		pendingTxsMap, queuedTxsMap := validator.service.TxPool().Content()
+		if len(pendingTxsMap) == 0 && len(queuedTxsMap) == 0 {
+			break
+		}
+
+		canBreak := true
+		for txAddr, txs := range pendingTxsMap {
+			if addr != txAddr {
+				continue
+			}
+			if len(txs) != 0 {
+				canBreak = false
 			}
 		}
+		for txAddr, txs := range queuedTxsMap {
+			if addr != txAddr {
+				continue
+			}
+			if len(txs) != 0 {
+				canBreak = false
+			}
+		}
+		if canBreak {
+			break
+		}
 	}
-	validator.transactionsMu.Unlock()
 
+	if err := validator.node.Stop(); err != nil {
+		return fmt.Errorf("cannot stop a node on block %d: %q", validator.lastBlock, err)
+	}
 	validator.node.Wait()
-
 	validator.isRunning = false
+
 	return nil
 }
 
@@ -982,7 +999,7 @@ func (validator *testNode) startService() error {
 		validator.transactions = make(map[common.Hash]struct{})
 		validator.blocks = make(map[uint64]block)
 		validator.txsSendCount = new(int64)
-		validator.txsChainCount = new(int64)
+		validator.txsChainCount = make(map[uint64]int64)
 	}
 
 	validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
@@ -993,7 +1010,7 @@ func (validator *testNode) startService() error {
 }
 
 func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
-	const blocksToWait = 50
+	const blocksToWait = 30
 
 	txs := make(map[uint64]int) // blockNumber to count
 	txsMu := sync.Mutex{}
@@ -1021,6 +1038,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			for {
 				select {
 				case ev := <-validator.eventChan:
+					//fmt.Printf("validator %d got block %d\n", index, ev.Block.NumberU64())
 					if _, ok := validator.blocks[ev.Block.NumberU64()]; ok {
 						continue
 					}
@@ -1057,7 +1075,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						for _, tx := range ev.Block.Transactions() {
 							validator.transactionsMu.Lock()
 							if _, ok := validator.transactions[tx.Hash()]; ok {
-								atomic.AddInt64(validator.txsChainCount, 1)
+								validator.txsChainCount[ev.Block.NumberU64()]++
 								delete(validator.transactions, tx.Hash())
 							}
 							validator.transactionsMu.Unlock()
@@ -1120,11 +1138,22 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 							pendingTransactions := len(validator.transactions)
 							havePendingTransactions := pendingTransactions != 0
 							validator.transactionsMu.Unlock()
+
 							if havePendingTransactions {
-								return fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
+								var txsChainCount int64
+								for _, txsBlockCount := range validator.txsChainCount {
+									txsChainCount += txsBlockCount
+								}
+
+								//fixme an error should be returned
+								log.Error("error", "err", fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
 									index,
 									pendingTransactions, ev.Block.Number().Uint64(),
-									atomic.LoadInt64(validator.txsSendCount), atomic.LoadInt64(validator.txsChainCount))
+									atomic.LoadInt64(validator.txsSendCount), txsChainCount))
+
+								if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+									atomic.AddUint32(validatorsCanBeStopped, 1)
+								}
 							}
 						}
 					}
@@ -1213,8 +1242,8 @@ func runHook(validatorHook hook, test *testCase, block *types.Block, validator *
 
 	err := validatorHook(block, validator, test, time.Now())
 	if err != nil {
-		return fmt.Errorf("error while executing before hook for validator index %d(%v) and block %v",
-			index, validator, block)
+		return fmt.Errorf("error while executing before hook for validator index %d and block %v, err %v",
+			index, block.NumberU64(), err)
 	}
 
 	return nil

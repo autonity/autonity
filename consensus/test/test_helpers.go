@@ -47,7 +47,7 @@ type testNode struct {
 	blocks         map[uint64]block
 	lastBlock      uint64
 	txsSendCount   *int64
-	txsChainCount  *int64
+	txsChainCount  map[uint64]int64
 }
 
 type block struct {
