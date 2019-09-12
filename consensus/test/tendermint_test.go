@@ -3,8 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
 	"net"
 	"os"
 	"sort"
@@ -17,7 +15,9 @@ import (
 
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/keystore"
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/fdlimit"
+	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
@@ -163,6 +163,93 @@ func TestTendermintLongRun(t *testing.T) {
 	}
 }
 
+func TestTendermintStopUpToFNodes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cases := []*testCase{
+		{
+			name:      "one node stops at block 1",
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				4: hookStopNode(4, 1),
+			},
+			stopTime: make(map[int]time.Time),
+			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
+				4: nil,
+			},
+		},
+		{
+			name:      "one node stops at block 5",
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				4: hookStopNode(4, 5),
+			},
+			stopTime: make(map[int]time.Time),
+			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
+				4: nil,
+			},
+		},
+		{
+			name:      "F nodes stop at block 1",
+			numPeers:  7,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 1),
+				4: hookStopNode(4, 1),
+			},
+			stopTime: make(map[int]time.Time),
+			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
+				3: nil,
+				4: nil,
+			},
+		},
+		{
+			name:      "F nodes stop at block 5",
+			numPeers:  7,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 5),
+			},
+			stopTime: make(map[int]time.Time),
+			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
+				3: nil,
+				4: nil,
+			},
+		},
+		{
+			name:      "F nodes stop at blocks 4,5",
+			numPeers:  7,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 4),
+				4: hookStopNode(4, 5),
+			},
+			stopTime: make(map[int]time.Time),
+			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
+				3: nil,
+				4: nil,
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
 func TestTendermintStartStopSingleNode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -219,6 +306,112 @@ func TestTendermintStartStopSingleNode(t *testing.T) {
 }
 
 func TestTendermintStartStopFNodes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cases := []*testCase{
+		{
+			name:      "f nodes stop for 5 seconds at the same block",
+			numPeers:  7,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 5),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 5),
+				4: hookStartNode(4, 5),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f node stop for 5 seconds at different blocks",
+			numPeers:  7,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 6),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 5),
+				4: hookStartNode(4, 5),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f node stop for 10 seconds at the same block",
+			numPeers:  7,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 5),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 10),
+				4: hookStartNode(4, 10),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f node stop for 10 seconds at different blocks",
+			numPeers:  7,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 6),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 10),
+				4: hookStartNode(4, 10),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f node stop for 20 seconds at the same block",
+			numPeers:  7,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 5),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 20),
+				4: hookStartNode(4, 20),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f node stop for 20 seconds at different blocks",
+			numPeers:  7,
+			numBlocks: 10,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 6),
+			},
+			afterHooks: map[int]hook{
+				3: hookStartNode(3, 20),
+				4: hookStartNode(4, 20),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -324,14 +517,14 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 	}
 }
 
-func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
+func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
 
 	cases := []*testCase{
 		{
-			name:      "f+1 node stop for 5 seconds at the same block",
+			name:      "f+2 node stop for 5 seconds at the same block",
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -348,7 +541,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f+1 node stop for 5 seconds at different blocks",
+			name:      "f+2 node stop for 5 seconds at different blocks",
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -365,7 +558,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f+1 node stop for 10 seconds at the same block",
+			name:      "f+2 node stop for 10 seconds at the same block",
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -382,7 +575,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f+1 node stop for 10 seconds at different blocks",
+			name:      "f+2 node stop for 10 seconds at different blocks",
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -399,7 +592,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f+1 node stop for 20 seconds at the same block",
+			name:      "f+2 node stop for 20 seconds at the same block",
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -416,7 +609,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f+1 node stop for 20 seconds at different blocks",
+			name:      "f+2 node stop for 20 seconds at different blocks",
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -776,6 +969,7 @@ func (validator *testNode) startNode() error {
 
 func (validator *testNode) stopNode() error {
 	//remove pending transactions
+	validator.service.TxPool().Stop()
 	txsMap, err := validator.service.TxPool().Pending()
 	if err != nil {
 		return err
@@ -821,7 +1015,9 @@ func (validator *testNode) startService() error {
 	if validator.eventChan == nil {
 		validator.eventChan = make(chan core.ChainEvent, 1024)
 		validator.transactions = make(map[common.Hash]struct{})
-		validator.blocks = make(map[uint64]common.Hash)
+		validator.blocks = make(map[uint64]block)
+		validator.txsSendCount = new(int64)
+		validator.txsChainCount = new(int64)
 	}
 
 	validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
@@ -860,13 +1056,17 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			for {
 				select {
 				case ev := <-validator.eventChan:
+					if _, ok := validator.blocks[ev.Block.NumberU64()]; ok {
+						continue
+					}
+
 					// before hook
 					err = runHook(test.getBeforeHook(index), test, ev.Block, validator, index)
 					if err != nil {
 						return err
 					}
 
-					validator.blocks[ev.Block.NumberU64()] = ev.Block.Hash()
+					validator.blocks[ev.Block.NumberU64()] = block{ev.Block.Hash(), len(ev.Block.Transactions())}
 					validator.lastBlock = ev.Block.NumberU64()
 
 					if atomic.LoadUint32(testCanBeStopped) == 1 {
@@ -883,6 +1083,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					log.Debug("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64(), "isRunning", validator.isRunning)
 
 					if validator.isRunning {
+						atomic.AddInt64(validator.txsChainCount, int64(ev.Block.Transactions().Len()))
 						txsMu.Lock()
 						if _, ok := txs[validator.lastBlock]; !ok {
 							txs[validator.lastBlock] = ev.Block.Transactions().Len()
@@ -906,6 +1107,8 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 								if innerErr != nil {
 									return innerErr
 								}
+
+								atomic.AddInt64(validator.txsSendCount, 1)
 
 								validator.transactionsMu.Lock()
 								validator.transactions[tx.Hash()] = struct{}{}
@@ -953,7 +1156,10 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 							havePendingTransactions := pendingTransactions != 0
 							validator.transactionsMu.Unlock()
 							if havePendingTransactions {
-								return fmt.Errorf("a validator still have transactions to be mined %d. block %d", pendingTransactions, ev.Block.Number().Uint64())
+								return fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
+									index,
+									pendingTransactions, ev.Block.Number().Uint64(),
+									atomic.LoadInt64(validator.txsSendCount), atomic.LoadInt64(validator.txsChainCount))
 							}
 						}
 					}
@@ -1002,24 +1208,34 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	//check that all nodes reached the same minimum blockchain height
 	minHeight := math.MaxInt64
 	for index, validator := range validators {
-		validatorBlock := validator.service.BlockChain().CurrentBlock().Number().Uint64()
+		if _, ok := test.maliciousPeers[index]; ok {
+			//don't check chain for malicious peers
+			continue
+		}
+
+		validatorBlock := validator.lastBlock
 		if minHeight > int(validatorBlock) {
 			minHeight = int(validatorBlock)
 		}
 
 		if validatorBlock < uint64(test.numBlocks) {
-			t.Fatalf("a validator is behind the network index %d(%v) and block %v - expected %d",
-				index, validator, validatorBlock, test.numBlocks)
+			t.Fatalf("a validator is behind the network index %d and block %v - expected %d",
+				index, validatorBlock, test.numBlocks)
 		}
 	}
 
 	//check that all nodes got the same blocks
 	for i := 1; i <= minHeight; i++ {
-		blockHash := validators[0].blocks[uint64(i)]
+		blockHash := validators[0].blocks[uint64(i)].hash
 		for index, validator := range validators[1:] {
-			if validator.blocks[uint64(i)] != blockHash {
+			if _, ok := test.maliciousPeers[index+1]; ok {
+				//don't check chain for malicious peers
+				continue
+			}
+
+			if validator.blocks[uint64(i)].hash != blockHash {
 				t.Fatalf("validators %d and %d have different blocks %d - %q vs %s",
-					0, index, i, validator.blocks[uint64(i)].String(), blockHash.String())
+					0, index, i+1, validator.blocks[uint64(i)].hash.String(), blockHash.String())
 			}
 		}
 	}

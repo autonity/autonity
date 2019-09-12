@@ -44,8 +44,15 @@ type testNode struct {
 	subscription   event.Subscription
 	transactions   map[common.Hash]struct{}
 	transactionsMu sync.Mutex
-	blocks         map[uint64]common.Hash
+	blocks         map[uint64]block
 	lastBlock      uint64
+	txsSendCount   *int64
+	txsChainCount  *int64
+}
+
+type block struct {
+	hash common.Hash
+	txs int
 }
 
 func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error) {
