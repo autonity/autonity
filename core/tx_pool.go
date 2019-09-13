@@ -605,8 +605,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("intrGas", intrGas, tx.Gas())
-	fmt.Println("pool.chain.GetAutonityContract", pool.chain.GetAutonityContract() == nil)
+
 	if pool.chain.GetAutonityContract()!=nil {
 		if gp, err:= pool.chain.GetAutonityContract().GetMinimumGasPrice(pool.chain.CurrentBlock(), pool.currentState); err==nil {
 			if new(big.Int).SetUint64(gp).Cmp(tx.GasPrice()) > 0 {
