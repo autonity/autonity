@@ -485,7 +485,7 @@ func (p *Peer) Info() *PeerInfo {
 func NewTestPeer(name string, caps []Cap) (*Peer, error) {
 	fd, _ := net.Pipe()
 	c := &conn{
-		fd: fd,
+		fd:   fd,
 		caps: caps,
 		name: name,
 	}

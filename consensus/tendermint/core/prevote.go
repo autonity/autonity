@@ -50,7 +50,7 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
 	c.sentPrevote = true
-	c.broadcast(ctx, &message{
+	c.broadcast(ctx, &Message{
 		Code:          msgPrevote,
 		Msg:           encodedVote,
 		Address:       c.address,
@@ -58,7 +58,7 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	})
 }
 
-func (c *core) handlePrevote(ctx context.Context, msg *message) error {
+func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 	var preVote Vote
 	err := msg.Decode(&preVote)
 	if err != nil {
@@ -68,9 +68,17 @@ func (c *core) handlePrevote(ctx context.Context, msg *message) error {
 	if err = c.checkMessage(preVote.Round, preVote.Height); err != nil {
 		// Store old round prevote messages for future rounds since it is required for validRound
 		if err == errOldRoundMessage {
-			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
-			// And we only process old rounds while future rounds messages are pushed on to the backlog
-			oldRoundState := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
+			// We only process old rounds while future rounds messages are pushed on to the backlog
+			c.currentHeightOldRoundsStatesMu.Lock()
+			defer c.currentHeightOldRoundsStatesMu.Unlock()
+			oldRoundState, ok := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
+			if !ok {
+				oldRoundState = *NewRoundState(
+					big.NewInt(preVote.Round.Int64()),
+					big.NewInt(c.currentRoundState.Height().Int64()),
+				)
+				c.currentHeightOldRoundsStates[preVote.Round.Int64()] = oldRoundState
+			}
 			c.acceptVote(&oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
 		}
 		return err

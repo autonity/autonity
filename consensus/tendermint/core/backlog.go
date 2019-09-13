@@ -35,7 +35,7 @@ var (
 
 type backlogEvent struct {
 	src validator.Validator
-	msg *message
+	msg *Message
 }
 
 // checkMessage checks the message step
@@ -60,7 +60,7 @@ func (c *core) checkMessage(round *big.Int, height *big.Int) error {
 	return nil
 }
 
-func (c *core) storeBacklog(msg *message, src validator.Validator) {
+func (c *core) storeBacklog(msg *Message, src validator.Validator) {
 	logger := c.logger.New("from", src, "step", c.currentRoundState.Step())
 
 	if src.Address() == c.address {
@@ -112,7 +112,7 @@ func (c *core) processBacklog() {
 		//   2. The first message in queue is a future message
 		for !(backlog.Empty() || isFuture) {
 			m, prio := backlog.Pop()
-			msg := m.(*message)
+			msg := m.(*Message)
 			var round, height *big.Int
 			switch msg.Code {
 			case msgProposal:

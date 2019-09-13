@@ -85,6 +85,17 @@ func (c *core) Protocol() (protocolName string, extraMsgCodes uint64) {
 	return c.backend.Protocol()
 }
 
+// Synchronize new connected peer with current height state
+func (c *core) SyncPeer(address common.Address) {
+	if c.IsValidator(address) {
+		c.backend.SyncPeer(address, c.GetCurrentHeightMessages())
+	}
+}
+
+func (c *core) ResetPeerCache(address common.Address) {
+	c.backend.ResetPeerCache(address)
+}
+
 // Backend provides application specific functions for Istanbul core
 type Backend interface {
 	consensus.Engine
@@ -133,4 +144,8 @@ type Backend interface {
 
 	// Setter for proposed block hash
 	SetProposedBlockHash(hash common.Hash)
+
+	SyncPeer(address common.Address, messages []*Message)
+
+	ResetPeerCache(address common.Address)
 }

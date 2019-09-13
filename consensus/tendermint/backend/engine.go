@@ -350,6 +350,11 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	}
 
 	validators, err := sb.getValidators(header, chain, statedb)
+	if err != nil {
+		log.Error("FinalizeAndAssemble. after getValidators", "err", err.Error())
+		return nil, err
+	}
+
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
@@ -375,25 +380,27 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		if err != nil {
 			return nil, err
 		}
-		sb.somaContract = contractAddress
+		sb.setSomaContract(contractAddress)
 		validators, err = sb.retrieveSavedValidators(1, chain)
 		if err != nil {
 			return nil, err
 		}
 
 		// Deploy Glienicke network-permissioning contract
-		_, sb.glienickeContract, err = sb.blockchain.DeployGlienickeContract(state, header)
+		var glienickeAddr common.Address
+		_, glienickeAddr, err = sb.blockchain.DeployGlienickeContract(state, header)
 		if err != nil {
 			return nil, err
 		}
+		sb.setGlienickeContract(glienickeAddr)
 
 	} else {
-		if sb.somaContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.somaContract = crypto.CreateAddress(sb.config.Deployer, 0)
+		if sb.getSomaContract() == common.HexToAddress("0000000000000000000000000000000000000000") {
+			sb.setSomaContract(crypto.CreateAddress(sb.config.Deployer, 0))
 		}
 
-		if sb.glienickeContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GetGlienickeDeployer(), 0)
+		if sb.getGlienickeContract() == common.HexToAddress("0000000000000000000000000000000000000000") {
+			sb.setGlienickeContract(crypto.CreateAddress(sb.blockchain.Config().GetGlienickeDeployer(), 0))
 		}
 
 		validators, err = sb.contractGetValidators(chain, header, state)
@@ -403,6 +410,30 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 	}
 
 	return validators, err
+}
+
+func (sb *Backend) getSomaContract() common.Address {
+	sb.contractsMu.RLock()
+	defer sb.contractsMu.RUnlock()
+	return sb.somaContract
+}
+
+func (sb *Backend) setSomaContract(addr common.Address) {
+	sb.contractsMu.Lock()
+	defer sb.contractsMu.Unlock()
+	sb.somaContract = addr
+}
+
+func (sb *Backend) getGlienickeContract() common.Address {
+	sb.contractsMu.RLock()
+	defer sb.contractsMu.RUnlock()
+	return sb.glienickeContract
+}
+
+func (sb *Backend) setGlienickeContract(addr common.Address) {
+	sb.contractsMu.Lock()
+	defer sb.contractsMu.Unlock()
+	sb.glienickeContract = addr
 }
 
 // Seal generates a new block for the given input block with the local miner's

@@ -260,6 +260,16 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		}
 	}
 	root := statedb.IntermediateRoot(false)
+
+	g.mu.RLock()
+	diff := big.NewInt(0)
+	if g.Difficulty == nil {
+		diff.Set(params.GenesisDifficulty)
+	} else {
+		diff.Set(g.Difficulty)
+	}
+	g.mu.RUnlock()
+
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
@@ -268,16 +278,13 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		Extra:      g.GetExtraData(),
 		GasLimit:   g.GasLimit,
 		GasUsed:    g.GasUsed,
-		Difficulty: g.Difficulty,
+		Difficulty: diff,
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
 		Root:       root,
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
-	}
-	if g.Difficulty == nil {
-		head.Difficulty = params.GenesisDifficulty
 	}
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
@@ -317,8 +324,10 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 
 	g.Config.SortEnodeWhitelist()
 
-	rawdb.WriteEnodeWhitelist(db, types.NewNodes(g.Config.GetEnodeWhitelist(), true))
-	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
+	config := g.Config.Copy()
+
+	rawdb.WriteEnodeWhitelist(db, types.NewNodes(config.GetEnodeWhitelist(), true))
+	rawdb.WriteChainConfig(db, block.Hash(), config)
 	return block, nil
 }
 

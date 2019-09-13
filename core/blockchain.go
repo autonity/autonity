@@ -1215,6 +1215,9 @@ var lastWrite uint64
 // but does not write any state. This is used to construct competing side forks
 // up to the point where they exceed the canonical total difficulty.
 func (bc *BlockChain) writeBlockWithoutState(block *types.Block, td *big.Int) (err error) {
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return
+	}
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -1229,6 +1232,9 @@ func (bc *BlockChain) writeBlockWithoutState(block *types.Block, td *big.Int) (e
 // writeKnownBlock updates the head block flag with a known block
 // and introduces chain reorg if necessary.
 func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return nil
+	}
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -1257,6 +1263,9 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 // writeBlockWithState writes the block and all associated state to the database,
 // but is expects the chain mutex to be held.
 func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB) (status WriteStatus, err error) {
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return
+	}
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -1323,12 +1332,12 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 				} else {
 					// If we're exceeding limits but haven't reached a large enough memory gap,
 					// warn the user that the system is becoming unstable.
-					if chosen < lastWrite+TriesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
-						log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastWrite)/TriesInMemory)
+					if chosen < atomic.LoadUint64(&lastWrite)+TriesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
+						log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-atomic.LoadUint64(&lastWrite))/TriesInMemory)
 					}
 					// Flush an entire trie and restart the counters
 					triedb.Commit(header.Root, true)
-					lastWrite = chosen
+					atomic.StoreUint64(&lastWrite, chosen)
 					bc.gcproc = 0
 				}
 			}
@@ -1438,6 +1447,9 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		}
 	}
 	// Pre-checks passed, start the full block imports
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return 0, nil
+	}
 	bc.wg.Add(1)
 	bc.chainmu.Lock()
 	n, events, logs, err := bc.insertChain(chain, true)

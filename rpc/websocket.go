@@ -27,8 +27,9 @@ import (
 	"sync"
 
 	mapset "github.com/deckarep/golang-set"
-	"github.com/clearmatics/autonity/log"
 	"github.com/gorilla/websocket"
+
+	"github.com/clearmatics/autonity/log"
 )
 
 const (

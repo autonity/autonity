@@ -18,26 +18,31 @@ package core
 
 import (
 	"github.com/clearmatics/autonity/common"
+	"sync"
 )
 
 func newMessageSet() messageSet {
 	return messageSet{
-		votes:    map[common.Hash]map[common.Address]message{},
-		nilvotes: map[common.Address]message{},
+		votes:      map[common.Hash]map[common.Address]Message{},
+		nilvotes:   map[common.Address]Message{},
+		messages:   make([]*Message, 0),
+		messagesMu: new(sync.RWMutex),
 	}
 }
 
 type messageSet struct {
-	votes    map[common.Hash]map[common.Address]message // map[proposedBlockHash]map[validatorAddress]vote
-	nilvotes map[common.Address]message                 // map[validatorAddress]vote
+	votes      map[common.Hash]map[common.Address]Message // map[proposedBlockHash]map[validatorAddress]vote
+	nilvotes   map[common.Address]Message                 // map[validatorAddress]vote
+	messages   []*Message
+	messagesMu *sync.RWMutex
 }
 
-func (ms *messageSet) AddVote(blockHash common.Hash, msg message) {
-	var addressesMap map[common.Address]message
+func (ms *messageSet) AddVote(blockHash common.Hash, msg Message) {
+	var addressesMap map[common.Address]Message
 	var ok bool
 
 	if _, ok = ms.votes[blockHash]; !ok {
-		ms.votes[blockHash] = make(map[common.Address]message)
+		ms.votes[blockHash] = make(map[common.Address]Message)
 	}
 
 	addressesMap = ms.votes[blockHash]
@@ -47,12 +52,27 @@ func (ms *messageSet) AddVote(blockHash common.Hash, msg message) {
 	}
 
 	addressesMap[msg.Address] = msg
+
+	ms.messagesMu.Lock()
+	ms.messages = append(ms.messages, &msg)
+	ms.messagesMu.Unlock()
 }
 
-func (ms *messageSet) AddNilVote(msg message) {
+func (ms *messageSet) AddNilVote(msg Message) {
 	if _, ok := ms.nilvotes[msg.Address]; !ok {
 		ms.nilvotes[msg.Address] = msg
+		ms.messagesMu.Lock()
+		ms.messages = append(ms.messages, &msg)
+		ms.messagesMu.Unlock()
 	}
+}
+
+func (ms *messageSet) GetMessages() []*Message {
+	ms.messagesMu.RLock()
+	defer ms.messagesMu.RUnlock()
+	result := make([]*Message, len(ms.messages))
+	copy(result, ms.messages)
+	return result
 }
 
 func (ms *messageSet) VotesSize(h common.Hash) int {
@@ -76,12 +96,12 @@ func (ms *messageSet) TotalSize() int {
 	return total
 }
 
-func (ms *messageSet) Values(blockHash common.Hash) []message {
+func (ms *messageSet) Values(blockHash common.Hash) []Message {
 	if _, ok := ms.votes[blockHash]; !ok {
 		return nil
 	}
 
-	var messages = make([]message, 0)
+	var messages = make([]Message, 0)
 	for _, v := range ms.votes[blockHash] {
 		messages = append(messages, v)
 	}

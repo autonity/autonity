@@ -570,6 +570,64 @@ func (c *ChainConfig) SetGlienickeABI(s string) {
 	c.GlienickeABI = s
 }
 
+func (c *ChainConfig) Copy() *ChainConfig {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	cfg := &ChainConfig{
+		DAOForkSupport:    c.DAOForkSupport,
+		EIP150Hash:        c.EIP150Hash,
+		EnodeWhitelist:    append([]string(nil), c.EnodeWhitelist...),
+		GlienickeDeployer: c.GlienickeDeployer,
+		GlienickeBytecode: c.GlienickeBytecode,
+		GlienickeABI:      c.GlienickeABI,
+	}
+	if c.Ethash != nil {
+		cfg.Ethash = &(*c.Ethash)
+	}
+	if c.Clique != nil {
+		cfg.Clique = &(*c.Clique)
+	}
+	if c.Istanbul != nil {
+		cfg.Istanbul = &(*c.Istanbul)
+	}
+	if c.Tendermint != nil {
+		cfg.Tendermint = &(*c.Tendermint)
+	}
+	if c.ChainID != nil {
+		cfg.ChainID = big.NewInt(0).Set(c.ChainID)
+	}
+	if c.HomesteadBlock != nil {
+		cfg.HomesteadBlock = big.NewInt(0).Set(c.HomesteadBlock)
+	}
+	if c.DAOForkBlock != nil {
+		cfg.DAOForkBlock = big.NewInt(0).Set(c.DAOForkBlock)
+	}
+	if c.EIP150Block != nil {
+		cfg.EIP150Block = big.NewInt(0).Set(c.EIP150Block)
+	}
+	if c.EIP155Block != nil {
+		cfg.EIP155Block = big.NewInt(0).Set(c.EIP155Block)
+	}
+	if c.EIP158Block != nil {
+		cfg.EIP158Block = big.NewInt(0).Set(c.EIP158Block)
+	}
+	if c.ByzantiumBlock != nil {
+		cfg.ByzantiumBlock = big.NewInt(0).Set(c.ByzantiumBlock)
+	}
+	if c.ConstantinopleBlock != nil {
+		cfg.ConstantinopleBlock = big.NewInt(0).Set(c.ConstantinopleBlock)
+	}
+	if c.PetersburgBlock != nil {
+		cfg.PetersburgBlock = big.NewInt(0).Set(c.PetersburgBlock)
+	}
+	if c.EWASMBlock != nil {
+		cfg.EWASMBlock = big.NewInt(0).Set(c.EWASMBlock)
+	}
+
+	return cfg
+}
+
 // isForkIncompatible returns true if a fork scheduled at s1 cannot be rescheduled to
 // block s2 because head is already past the fork.
 func isForkIncompatible(s1, s2, head *big.Int) bool {

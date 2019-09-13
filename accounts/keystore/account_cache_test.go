@@ -28,9 +28,9 @@ import (
 	"time"
 
 	"github.com/cespare/cp"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/common"
+	"github.com/davecgh/go-spew/spew"
 )
 
 var (

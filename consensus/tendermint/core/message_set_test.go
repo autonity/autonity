@@ -8,7 +8,7 @@ import (
 
 func TestMessageSetAddVote(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
-	msg := message{Address: common.BytesToAddress([]byte("987654321"))}
+	msg := Message{Address: common.BytesToAddress([]byte("987654321"))}
 
 	ms := newMessageSet()
 	ms.AddVote(blockHash, msg)
@@ -29,7 +29,7 @@ func TestMessageSetVotesSize(t *testing.T) {
 }
 
 func TestMessageSetAddNilVote(t *testing.T) {
-	msg := message{Address: common.BytesToAddress([]byte("987654321"))}
+	msg := Message{Address: common.BytesToAddress([]byte("987654321"))}
 
 	ms := newMessageSet()
 	ms.AddNilVote(msg)
@@ -42,7 +42,7 @@ func TestMessageSetAddNilVote(t *testing.T) {
 
 func TestMessageSetTotalSize(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
-	msg := message{Address: common.BytesToAddress([]byte("987654321"))}
+	msg := Message{Address: common.BytesToAddress([]byte("987654321"))}
 
 	ms := newMessageSet()
 	ms.AddVote(blockHash, msg)
@@ -68,7 +68,7 @@ func TestMessageSetValues(t *testing.T) {
 
 	t.Run("known hash given, message returned", func(t *testing.T) {
 		blockHash := common.BytesToHash([]byte("123456789"))
-		msg := message{Address: common.BytesToAddress([]byte("987654321"))}
+		msg := Message{Address: common.BytesToAddress([]byte("987654321"))}
 
 		ms := newMessageSet()
 		ms.AddVote(blockHash, msg)

@@ -25,7 +25,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/docker/docker/pkg/reexec"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/node"
@@ -33,6 +32,7 @@ import (
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/p2p/enr"
 	"github.com/clearmatics/autonity/rpc"
+	"github.com/docker/docker/pkg/reexec"
 )
 
 // Node represents a node in a simulation network which is created by a

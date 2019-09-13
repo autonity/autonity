@@ -19,6 +19,7 @@ package core
 import (
 	"context"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/log"
 	"time"
 
 	"github.com/clearmatics/autonity/consensus"
@@ -50,7 +51,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 
 		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", *proposalBlock, c.address.String(), "broadcast")
 
-		c.broadcast(ctx, &message{
+		c.broadcast(ctx, &Message{
 			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       c.address,
@@ -59,7 +60,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 	}
 }
 
-func (c *core) handleProposal(ctx context.Context, msg *message) error {
+func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	var proposal Proposal
 	err := msg.Decode(&proposal)
 	if err != nil {
@@ -113,7 +114,7 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 		c.logger.Debug("Stopped Scheduled Proposal Timeout")
 
 		// Set the proposal for the current round
-		c.currentRoundState.SetProposal(&proposal)
+		c.currentRoundState.SetProposal(&proposal, msg)
 
 		c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 
@@ -121,21 +122,39 @@ func (c *core) handleProposal(ctx context.Context, msg *message) error {
 		h := proposal.ProposalBlock.Hash()
 		curR := c.currentRoundState.Round().Int64()
 
+		c.currentHeightOldRoundsStatesMu.RLock()
+		defer c.currentHeightOldRoundsStatesMu.RUnlock()
+
+		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
 		if vr == -1 {
-			// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
-			if c.lockedRound.Int64() == vr || h == c.lockedValue.Hash() {
-				c.sendPrevote(ctx, false)
-			} else {
-				c.sendPrevote(ctx, true)
+			var voteForProposal = false
+			if c.lockedValue != nil {
+				voteForProposal = c.lockedRound.Int64() == -1 || h == c.lockedValue.Hash()
+
 			}
+			c.sendPrevote(ctx, voteForProposal)
 			c.setStep(prevote)
-			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if rs, ok := c.currentHeightOldRoundsStates[vr]; vr > -1 && vr < curR && ok && c.Quorum(rs.Prevotes.VotesSize(h)) {
-			if c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash() {
-				c.sendPrevote(ctx, false)
-			} else {
-				c.sendPrevote(ctx, true)
+			return nil
+		}
+
+		rs, ok := c.currentHeightOldRoundsStates[vr]
+		if !ok {
+			log.Error("handleProposal. unknown old round",
+				"proposalHeight", h,
+				"proposalRound", vr,
+				"currentHeight", c.currentRoundState.height.Uint64(),
+				"currentRound", c.currentRoundState.round,
+			)
+		}
+
+		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
+		if ok && vr < curR && c.Quorum(rs.Prevotes.VotesSize(h)) {
+			var voteForProposal = false
+			if c.lockedValue != nil {
+				voteForProposal = c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash()
+
 			}
+			c.sendPrevote(ctx, voteForProposal)
 			c.setStep(prevote)
 		}
 	}

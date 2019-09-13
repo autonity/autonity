@@ -25,6 +25,7 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/consensus"

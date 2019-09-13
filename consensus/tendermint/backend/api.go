@@ -55,7 +55,7 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 
 // Get Soma contract address
 func (api *API) GetSomaContractAddress() common.Address {
-	return api.tendermint.somaContract
+	return api.tendermint.getSomaContract()
 }
 
 // Get Soma contract ABI
@@ -65,7 +65,7 @@ func (api *API) GetSomaContractABI() string {
 
 // Get Glienicke contract address
 func (api *API) GetGlienickeContractAddress() common.Address {
-	return api.tendermint.glienickeContract
+	return api.tendermint.getGlienickeContract()
 }
 
 // Get Glienicke contract ABI

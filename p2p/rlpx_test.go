@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/crypto/ecies"
 	"github.com/clearmatics/autonity/p2p/simulations/pipes"

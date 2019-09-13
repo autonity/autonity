@@ -378,7 +378,10 @@ func (s *Service) login(conn *websocket.Conn) error {
 		protocol = fmt.Sprintf("eth/%d", eth.ProtocolVersions[0])
 	} else if info := infos.Protocols["istanbul"]; info != nil {
 		network = fmt.Sprintf("%d", info.(*eth.NodeInfo).Network)
-		protocol = fmt.Sprintf("eth/%d", eth.ProtocolVersions[0])
+		protocol = fmt.Sprintf("ibft/%d", eth.ProtocolVersions[0])
+	} else if info := infos.Protocols["tendermint"]; info != nil {
+		network = fmt.Sprintf("%d", info.(*eth.NodeInfo).Network)
+		protocol = fmt.Sprintf("tdm/%d", eth.ProtocolVersions[0])
 	} else {
 		network = fmt.Sprintf("%d", infos.Protocols["les"].(*les.NodeInfo).Network)
 		protocol = fmt.Sprintf("les/%d", les.ClientProtocolVersions[0])
@@ -394,7 +397,7 @@ func (s *Service) login(conn *websocket.Conn) error {
 			API:      "No",
 			Os:       runtime.GOOS,
 			OsVer:    runtime.GOARCH,
-			Client:   "0.1.1",
+			Client:   "0.1.6",
 			History:  true,
 		},
 		Secret: s.pass,

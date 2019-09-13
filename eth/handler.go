@@ -396,6 +396,13 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// after this will be sent via broadcasts.
 	pm.syncTransactions(p)
 
+	if pm.blockchain.Config().Tendermint != nil {
+		syncer := pm.blockchain.Engine().(consensus.Syncer)
+		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
+		syncer.ResetPeerCache(address)
+		syncer.SyncPeer(address)
+	}
+
 	// If we have a trusted CHT, reject all peers below that (avoid fast sync eclipse)
 	if pm.checkpointHash != (common.Hash{}) {
 		// Request the peer's checkpoint header for chain height/weight validation
@@ -907,7 +914,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	}
 }
 
-func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) (map[common.Address]consensus.Peer, []common.Address) {
+func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) map[common.Address]consensus.Peer {
 	m := make(map[common.Address]consensus.Peer)
 
 	for _, p := range pm.peers.Peers() {
@@ -921,13 +928,7 @@ func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) (map[c
 		}
 	}
 
-	var notConnected []common.Address
-	for addr := range targets {
-		if _, ok := m[addr]; !ok {
-			notConnected = append(notConnected, addr)
-		}
-	}
-	return m, notConnected
+	return m
 }
 
 // NodeInfo represents a short summary of the Ethereum sub-protocol metadata
