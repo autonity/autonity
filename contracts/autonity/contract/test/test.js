@@ -27,14 +27,14 @@ contract('Autonity', function (accounts) {
     it('test validator can get validator list', async function () {
         const token = await Autonity.deployed();
 
-        var getValidatorsResult = await token.GetValidators({from: governanceOperatorAccount});
+        var getValidatorsResult = await token.getValidators({from: governanceOperatorAccount});
         assert.deepEqual(getValidatorsResult, validatorsList);
     });
 
 
     it('test non validator can get validator list', async function () {
         const token = await Autonity.deployed();
-        var getValidatorsResult = await token.GetValidators({from: accounts[7]});
+        var getValidatorsResult = await token.getValidators({from: accounts[7]});
 
         assert.deepEqual(getValidatorsResult, validatorsList)
     });
@@ -44,10 +44,10 @@ contract('Autonity', function (accounts) {
         const token = await Autonity.deployed();
 
         try {
-            var r = await token.AddValidator(accounts[7], {from: accounts[6]})
+            var r = await token.addValidator(accounts[7], {from: accounts[6]})
 
         } catch (e) {
-            var getValidatorsResult = await token.GetValidators({from: governanceOperatorAccount});
+            var getValidatorsResult = await token.getValidators({from: governanceOperatorAccount});
             assert.deepEqual(getValidatorsResult, validatorsList);
             return
         }
@@ -60,13 +60,13 @@ contract('Autonity', function (accounts) {
         const token = await Autonity.deployed();
         let expected = validatorsList.slice();
         expected.push(accounts[7]);
-        await token.AddValidator(accounts[7], 100, "not nil enode", {from: governanceOperatorAccount});
+        await token.addValidator(accounts[7], 100, "not nil enode", {from: governanceOperatorAccount});
 
-        var getValidatorsResult = await token.GetValidators({from: governanceOperatorAccount});
+        var getValidatorsResult = await token.getValidators({from: governanceOperatorAccount});
         assert.deepEqual(expected, getValidatorsResult);
 
-        await token.RemoveUser(accounts[7], {from: governanceOperatorAccount});
-        getValidatorsResult = await token.GetValidators({from: governanceOperatorAccount});
+        await token.removeUser(accounts[7], {from: governanceOperatorAccount});
+        getValidatorsResult = await token.getValidators({from: governanceOperatorAccount});
         assert.deepEqual(validatorsList, getValidatorsResult)
     });
 
@@ -75,11 +75,11 @@ contract('Autonity', function (accounts) {
         const token = await Autonity.deployed();
         var enode = whiteList[0];
         try {
-            let r = await token.RemoveUser(accounts[2], {from: accounts[6]});
+            let r = await token.removeUser(accounts[2], {from: accounts[6]});
             assert.fail('Expected throw not received', r);
 
         } catch (e) {
-            var getWhitelistResult = await token.GetWhitelist({from: governanceOperatorAccount});
+            var getWhitelistResult = await token.getWhitelist({from: governanceOperatorAccount});
             assert.deepEqual(getWhitelistResult, whiteList);
         }
     });
@@ -88,12 +88,12 @@ contract('Autonity', function (accounts) {
         const token = await Autonity.deployed();
         var enode = "enode://testenode";
         try {
-            var r = await token.AddValidator(accounts[6], 20, enode, {from: accounts[6]});
+            var r = await token.addValidator(accounts[6], 20, enode, {from: accounts[6]});
             assert.fail('Expected throw not received');
 
         } catch (e) {
             //skip error
-            var getWhitelistResult = await token.GetWhitelist({from: governanceOperatorAccount});
+            var getWhitelistResult = await token.getWhitelist({from: governanceOperatorAccount});
             assert.deepEqual(getWhitelistResult, whiteList);
         }
     });
@@ -102,15 +102,15 @@ contract('Autonity', function (accounts) {
     it('test Governance operator can add/remove to whitelist', async function () {
         const token = await Autonity.deployed();
         var enode = "enode://testenode";
-        await token.AddValidator(accounts[6], 20, enode, {from: governanceOperatorAccount});
+        await token.addValidator(accounts[6], 20, enode, {from: governanceOperatorAccount});
 
-        var getValidatorsResult = await token.GetWhitelist({from: governanceOperatorAccount});
+        var getValidatorsResult = await token.getWhitelist({from: governanceOperatorAccount});
         let expected = whiteList.slice();
         expected.push(enode);
         assert.deepEqual(getValidatorsResult, expected);
 
-        await token.RemoveUser(accounts[6], {from: governanceOperatorAccount});
-        getValidatorsResult = await token.GetWhitelist({from: accounts[1]});
+        await token.removeUser(accounts[6], {from: governanceOperatorAccount});
+        getValidatorsResult = await token.getWhitelist({from: accounts[1]});
         assert.deepEqual(getValidatorsResult, whiteList);
     });
 
@@ -118,13 +118,13 @@ contract('Autonity', function (accounts) {
     it('test create participant account check it and remove it', async function () {
         const token = await Autonity.deployed();
 
-        await token.AddParticipant(accounts[9], "some enode", {from: governanceOperatorAccount});
-        var addMemberResult = await token.CheckMember(accounts[9]);
+        await token.addParticipant(accounts[9], "some enode", {from: governanceOperatorAccount});
+        var addMemberResult = await token.checkMember(accounts[9]);
 
         assert(true == addMemberResult);
 
-        await token.RemoveUser(accounts[9], {from: governanceOperatorAccount});
-        var removeMemberResult = await token.CheckMember(accounts[9]);
+        await token.removeUser(accounts[9], {from: governanceOperatorAccount});
+        var removeMemberResult = await token.checkMember(accounts[9]);
 
         assert(false == removeMemberResult);
     });
@@ -133,38 +133,38 @@ contract('Autonity', function (accounts) {
     it('test create account, add stake, check that it is added, remove stake', async function () {
         const token = await Autonity.deployed();
 
-        await token.AddStakeholder(accounts[7], "some enode", 0, {from: governanceOperatorAccount});
-        var getStakeResult = await token.GetStake({from: accounts[7]});
+        await token.addStakeholder(accounts[7], "some enode", 0, {from: governanceOperatorAccount});
+        var getStakeResult = await token.getStake({from: accounts[7]});
         assert(0 == getStakeResult, "unexpected tokens");
 
-        await token.MintStake(accounts[7], 100, {from: governanceOperatorAccount});
+        await token.mintStake(accounts[7], 100, {from: governanceOperatorAccount});
 
-        getStakeResult = await token.GetStake({from: accounts[7]});
+        getStakeResult = await token.getStake({from: accounts[7]});
         assert(100 == getStakeResult, "tokens are not minted");
 
-        await token.RedeemStake(accounts[7], 100, {from: governanceOperatorAccount});
+        await token.redeemStake(accounts[7], 100, {from: governanceOperatorAccount});
 
-        getStakeResult = await token.GetStake({from: accounts[7]});
+        getStakeResult = await token.getStake({from: accounts[7]});
         assert(0 == getStakeResult, "unexpected tokens");
 
-        await token.RemoveUser(accounts[7], {from: governanceOperatorAccount});
+        await token.removeUser(accounts[7], {from: governanceOperatorAccount});
     });
 
 
     it('test create account, get error when redeem empty stake', async function () {
         const token = await Autonity.deployed();
 
-        await token.AddStakeholder(accounts[7], "some enode", 0, {from: governanceOperatorAccount});
-        var getStakeResult = await token.GetStake({from: accounts[7]});
+        await token.addStakeholder(accounts[7], "some enode", 0, {from: governanceOperatorAccount});
+        var getStakeResult = await token.getStake({from: accounts[7]});
         assert(0 == getStakeResult, "unexpected tokens not minted");
 
         try {
-            await token.RedeemStake(accounts[7], 100, {from: governanceOperatorAccount});
+            await token.redeemStake(accounts[7], 100, {from: governanceOperatorAccount});
             assert.fail('Expected throw not received');
         } catch (e) {
-            getStakeResult = await token.GetStake({from: accounts[7]});
+            getStakeResult = await token.getStake({from: accounts[7]});
             assert(0 == getStakeResult, "unexpected tokens");
-            await token.RemoveUser(accounts[7], {from: governanceOperatorAccount});
+            await token.removeUser(accounts[7], {from: governanceOperatorAccount});
         }
     });
 
@@ -174,30 +174,30 @@ contract('Autonity', function (accounts) {
         var errorOnRemoveMember = false;
 
         try {
-            await token.AddParticipant(accounts[8], "some enode", {from: accounts[7]});
+            await token.addParticipant(accounts[8], "some enode", {from: accounts[7]});
         } catch (e) {
             errorOnAddNewMember = true
         }
-        var addMemberResult = await token.CheckMember(accounts[8]);
+        var addMemberResult = await token.checkMember(accounts[8]);
         assert(false == addMemberResult);
 
-        await token.AddParticipant(accounts[8], "some enode", {from: governanceOperatorAccount});
+        await token.addParticipant(accounts[8], "some enode", {from: governanceOperatorAccount});
 
-        addMemberResult = await token.CheckMember(accounts[8]);
+        addMemberResult = await token.checkMember(accounts[8]);
         assert(true == addMemberResult);
 
 
         try {
-            await token.RemoveUser(accounts[8], {from: accounts[7]});
+            await token.removeUser(accounts[8], {from: accounts[7]});
         } catch (e) {
             errorOnRemoveMember = true
         }
 
-        var removeMemberResult = await token.CheckMember(accounts[8]);
+        var removeMemberResult = await token.checkMember(accounts[8]);
         assert(true == removeMemberResult);
-        await token.RemoveUser(accounts[8], {from: governanceOperatorAccount});
+        await token.removeUser(accounts[8], {from: governanceOperatorAccount});
 
-        removeMemberResult = await token.CheckMember(accounts[8]);
+        removeMemberResult = await token.checkMember(accounts[8]);
         assert(false == removeMemberResult);
 
         assert(true == errorOnAddNewMember);
@@ -208,30 +208,30 @@ contract('Autonity', function (accounts) {
     it('test transfer stake', async function () {
         const token = await Autonity.deployed();
 
-        await token.AddStakeholder(accounts[7], "some enode", 0, {from: governanceOperatorAccount});
-        var getStakeResult = await token.GetStake({from: accounts[7]});
+        await token.addStakeholder(accounts[7], "some enode", 0, {from: governanceOperatorAccount});
+        var getStakeResult = await token.getStake({from: accounts[7]});
         assert(0 == getStakeResult, "unexpected tokens");
 
-        await token.AddStakeholder(accounts[5], "some enode", 0, {from: governanceOperatorAccount});
-        var getStakeResult = await token.GetStake({from: accounts[5]});
+        await token.addStakeholder(accounts[5], "some enode", 0, {from: governanceOperatorAccount});
+        var getStakeResult = await token.getStake({from: accounts[5]});
         assert(0 == getStakeResult, "unexpected tokens");
 
-        await token.MintStake(accounts[7], 100, {from: governanceOperatorAccount});
+        await token.mintStake(accounts[7], 100, {from: governanceOperatorAccount});
 
-        getStakeResult = await token.GetStake({from: accounts[7]});
+        getStakeResult = await token.getStake({from: accounts[7]});
         assert(100 == getStakeResult, "tokens are not minted");
 
         await token.send(accounts[5], 50, {from: accounts[7]});
 
-        getStakeResult = await token.GetStake({from: accounts[7]});
+        getStakeResult = await token.getStake({from: accounts[7]});
         assert(50 == getStakeResult, "unexpected tokens");
 
-        getStakeResult = await token.GetStake({from: accounts[5]});
+        getStakeResult = await token.getStake({from: accounts[5]});
         assert(50 == getStakeResult, "unexpected tokens");
 
-        await token.RedeemStake(accounts[7], 50, {from: governanceOperatorAccount});
-        await token.RedeemStake(accounts[5], 50, {from: governanceOperatorAccount});
-        await token.RemoveUser(accounts[7], {from: governanceOperatorAccount});
-        await token.RemoveUser(accounts[5], {from: governanceOperatorAccount});
+        await token.redeemStake(accounts[7], 50, {from: governanceOperatorAccount});
+        await token.redeemStake(accounts[5], 50, {from: governanceOperatorAccount});
+        await token.removeUser(accounts[7], {from: governanceOperatorAccount});
+        await token.removeUser(accounts[5], {from: governanceOperatorAccount});
     });
 });
