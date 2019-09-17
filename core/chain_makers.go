@@ -18,6 +18,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -96,7 +97,11 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 		b.SetCoinbase(common.Address{})
 	}
 	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
-	receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
+	var ac *autonity.Contract
+	if bc!=nil {
+		ac = bc.GetAutonityContract()
+	}
+	receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{}, ac)
 	if err != nil {
 		panic(err)
 	}

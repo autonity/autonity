@@ -235,3 +235,81 @@ func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header)
 
 	return types.NewNodes(returnedEnodes, false), nil
 }
+
+func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (uint64, error) {
+	if block.Number().Uint64() <= 1 {
+		return ac.bc.Config().AutonityContractConfig.MinGasPrice, nil
+	}
+
+	return ac.callGetMinimumGasPrice(db, block.Header())
+}
+
+func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, price *big.Int) (error) {
+	if block.Number().Uint64() <= 1 {
+		return nil
+	}
+
+	return ac.callSetMinimumGasPrice(db, block.Header(), price)
+}
+
+func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.Header) (uint64, error) {
+	// Needs to be refactored somehow
+	deployer := ac.bc.Config().AutonityContractConfig.Deployer
+	var contractABI = ac.bc.Config().AutonityContractConfig.ABI
+
+	sender := vm.AccountRef(deployer)
+	gas := uint64(0xFFFFFFFF)
+	evm := ac.getEVM(header, deployer, state)
+
+	ABI, err := abi.JSON(strings.NewReader(contractABI))
+	if err != nil {
+		return 0, err
+	}
+
+	input, err := ABI.Pack("getMinimumGasPrice")
+	if err != nil {
+		return 0, err
+	}
+
+	value := new(big.Int).SetUint64(0x00)
+	ret, _, vmerr := evm.Call(sender, ac.Address, input, gas, value)
+	if vmerr != nil {
+		log.Error("Error Autonity Contract getMinimumGasPrice()")
+		return 0, vmerr
+	}
+
+	minGasPrice:=new(big.Int)
+	if err := ABI.Unpack(&minGasPrice, "getMinimumGasPrice", ret); err != nil { // can't work with aliased types
+		log.Error("Could not unpack minGasPrice returned value", "err",err, "header.num",header.Number.Uint64())
+		return 0, err
+	}
+
+	return minGasPrice.Uint64(), nil
+}
+
+func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) (error) {
+	// Needs to be refactored somehow
+	deployer := ac.bc.Config().AutonityContractConfig.Deployer
+	var contractABI = ac.bc.Config().AutonityContractConfig.ABI
+
+	sender := vm.AccountRef(deployer)
+	gas := uint64(0xFFFFFFFF)
+	evm := ac.getEVM(header, deployer, state)
+
+	ABI, err := abi.JSON(strings.NewReader(contractABI))
+	if err != nil {
+		return  err
+	}
+
+	input, err := ABI.Pack("setMinimumGasPrice")
+	if err != nil {
+		return err
+	}
+
+	_, _, vmerr := evm.Call(sender, ac.Address, input, gas, price)
+	if vmerr != nil {
+		log.Error("Error Autonity Contract getMinimumGasPrice()")
+		return vmerr
+	}
+	return nil
+}

@@ -18,6 +18,7 @@ package les
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"math/big"
 
 	"github.com/clearmatics/autonity/accounts"
@@ -185,6 +186,10 @@ func (b *LesApiBackend) EventMux() *event.TypeMux {
 
 func (b *LesApiBackend) AccountManager() *accounts.Manager {
 	return b.eth.accountManager
+}
+func (b *LesApiBackend) AutonityContract() *autonity.Contract {
+	//todo add autonity contract integration to LES
+	return nil
 }
 
 func (b *LesApiBackend) BloomStatus() (uint64, uint64) {

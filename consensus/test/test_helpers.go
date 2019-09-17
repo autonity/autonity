@@ -43,15 +43,13 @@ type testNode struct {
 	subscription event.Subscription
 }
 
-func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) error {
-	nonce := service.TxPool().State().GetNonce(fromAddr)
-
+func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error) {
 	randEth, err := rand.Int(rand.Reader, big.NewInt(10000000))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	tx, err := types.SignTx(
+	return types.SignTx(
 		types.NewTransaction(
 			nonce,
 			toAddr,
@@ -60,7 +58,13 @@ func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr com
 			big.NewInt(100000000000+int64(randEth.Uint64())),
 			nil,
 		),
-		types.HomesteadSigner{}, fromValidator)
+		types.HomesteadSigner{}, key)
+}
+
+func sendTx(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address, transactionGenerator func(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error)) error {
+	nonce := service.TxPool().State().GetNonce(fromAddr)
+
+	tx,err:=transactionGenerator(nonce, toAddr, key)
 	if err != nil {
 		return err
 	}

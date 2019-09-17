@@ -269,14 +269,14 @@ func (sb *Backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 				// Might be vulnerable to DoS Attack depending on gaslimit
 				// Todo : Double check
 				_, _, err := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil,
-					gp, state, header, tx, usedGas, *sb.vmConfig)
+					gp, state, header, tx, usedGas, *sb.vmConfig, sb.blockchain.GetAutonityContract())
 
 				if err != nil {
 					return 0, err
 				}
 			}
 
-			validators, err = sb.blockchain.AutonityContract.ContractGetValidators(sb.blockchain, header, state)
+			validators, err = sb.blockchain.GetAutonityContract().ContractGetValidators(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
 			}
@@ -370,7 +370,7 @@ func (sb *Backend) WhiteList() []string {
 		return nil
 	}
 
-	enodes, err := sb.blockchain.AutonityContract.GetWhitelist(sb.blockchain.CurrentBlock(), db)
+	enodes, err := sb.blockchain.GetAutonityContract().GetWhitelist(sb.blockchain.CurrentBlock(), db)
 	if err != nil {
 		sb.logger.Error("Failed to get block white list", "err", err)
 		return nil

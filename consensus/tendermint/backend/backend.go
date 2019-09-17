@@ -309,7 +309,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			state.Prepare(tx.Hash(), block.Hash(), i)
 			// Might be vulnerable to DoS Attack depending on gaslimit
 			// Todo : Double check
-			receipt, _, receiptErr := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil, gp, state, header, tx, usedGas, *sb.vmConfig)
+			receipt, _, receiptErr := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil, gp, state, header, tx, usedGas, *sb.vmConfig, sb.blockchain.GetAutonityContract())
 			if receiptErr != nil {
 				return 0, receiptErr
 			}
@@ -322,7 +322,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			//Apply the same changes from consensus/tendermint/backend/engine.go:getValidator()349-369
 			log.Info("Soma Contract Deployer in test state", "Address", sb.blockchain.Config().AutonityContractConfig.Deployer)
 
-			_, err = sb.blockchain.AutonityContract.DeployAutonityContract(sb.blockchain, header, state)
+			_, err = sb.blockchain.GetAutonityContract().DeployAutonityContract(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
 			}
@@ -334,7 +334,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		if proposalNumber > 1 {
-			validators, err = sb.blockchain.AutonityContract.ContractGetValidators(sb.blockchain, header, state)
+			validators, err = sb.blockchain.GetAutonityContract().ContractGetValidators(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
 			}
@@ -441,7 +441,7 @@ func (sb *Backend) WhiteList() []string {
 		return nil
 	}
 
-	enodes, err := sb.blockchain.AutonityContract.GetWhitelist(sb.blockchain.CurrentBlock(), db)
+	enodes, err := sb.blockchain.GetAutonityContract().GetWhitelist(sb.blockchain.CurrentBlock(), db)
 	if err != nil {
 		sb.logger.Error("Failed to get block white list", "err", err)
 		return nil
