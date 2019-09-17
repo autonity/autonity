@@ -9,7 +9,7 @@ addons:
       - libc-dev
 git:
   depth: 1
-go: 1.12.5
+go: 1.12.9
 before_script:
   - make test-deps
 jobs:
