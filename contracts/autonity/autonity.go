@@ -147,7 +147,7 @@ func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *t
 		return nil, err
 	}
 
-	input, err := contractABI.Pack("GetValidators")
+	input, err := contractABI.Pack("getValidators")
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *t
 	}
 
 	var addresses []common.Address
-	if err := contractABI.Unpack(&addresses, "GetValidators", ret); err != nil { // can't work with aliased types
+	if err := contractABI.Unpack(&addresses, "getValidators", ret); err != nil { // can't work with aliased types
 		log.Error("Could not unpack getValidators returned value", err)
 		return nil, err
 	}
@@ -216,7 +216,7 @@ func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header)
 		return nil, err
 	}
 
-	input, err := ABI.Pack("GetWhitelist")
+	input, err := ABI.Pack("getWhitelist")
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +228,7 @@ func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header)
 	}
 
 	var returnedEnodes []string
-	if err := ABI.Unpack(&returnedEnodes, "GetWhitelist", ret); err != nil { // can't work with aliased types
+	if err := ABI.Unpack(&returnedEnodes, "getWhitelist", ret); err != nil { // can't work with aliased types
 		log.Error("Could not unpack getWhitelist returned value")
 		return nil, err
 	}

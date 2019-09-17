@@ -50,7 +50,15 @@ contract Autonity {
     */
     uint256 minGasPrice = 0;
 
-
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event AddValidator(address _address, uint256 _stake);
+    event AddStakeholder(address _address, uint256 _stake);
+    event AddParticipant(address _address, uint256 _stake);
+    event RemoveUser(address _address, UserType _type);
+    event SetMinimumGasPrice(uint256 _gasPrice);
+    event SetCommissionRate(address _address, uint256 _value);
+    event MintStake(address _address, uint256 _amount);
+    event RedeemStake(address _address, uint256 _amount);
 
     // constructor get called at block #1
     // configured in the genesis file.
@@ -80,26 +88,29 @@ contract Autonity {
 
 
     /*
-    * AddValidator
+    * addValidator
     * Add validator to validators list.
     */
-    function AddValidator(address _address, uint256 _stake, string memory _enode) public onlyOperator(msg.sender) {
+    function addValidator(address _address, uint256 _stake, string memory _enode) public onlyOperator(msg.sender) {
         _createUser(_address,_enode, UserType.Validator, _stake);
+        emit AddValidator(_address, _stake);
     }
 
-    function AddStakeholder(address _address, string  memory _enode, uint256 _stake) public onlyOperator(msg.sender) {
+    function addStakeholder(address _address, string  memory _enode, uint256 _stake) public onlyOperator(msg.sender) {
         _createUser(_address, _enode, UserType.Stakeholder, _stake);
+        emit AddStakeholder(_address, _stake);
     }
 
-    function AddParticipant(address _address, string memory _enode) public onlyOperator(msg.sender) {
+    function addParticipant(address _address, string memory _enode) public onlyOperator(msg.sender) {
         _createUser(_address, _enode, UserType.Participant, 0);
+        emit AddParticipant(_address, 0);
     }
 
     /*
     * removeUser
-    * Remove user. function MUST be restricted to the Authority Account.
+    * remove user. function MUST be restricted to the Authority Account.
     */
-    function RemoveUser(address _address) public onlyOperator(msg.sender) {
+    function removeUser(address _address) public onlyOperator(msg.sender) {
         require(_address != address(0), "address must be defined");
         require(users[_address].addr != address(0), "user must exists");
         User storage u = users[_address];
@@ -122,6 +133,7 @@ contract Autonity {
             }
         }
         delete users[_address];
+        emit RemoveUser(_address, u.userType);
     }
 
     /*
@@ -129,30 +141,31 @@ contract Autonity {
     * FM-REQ-4: The Autonity Contract implements the setMinimumGasPrice function that is restricted to the Governance Operator account.
     * The function takes as an argument a positive integer and modify the value of minimumGasPrice
     */
-    function SetMinimumGasPrice(uint256  _value) public onlyOperator(msg.sender) {
+    function setMinimumGasPrice(uint256  _value) public onlyOperator(msg.sender) {
         minGasPrice = _value;
+        emit SetMinimumGasPrice(_value);
     }
 
 
     /*
-    * MintStake
+    * mintStake
     * function capable of creating new stake token and adding it to the recipient balance
     * function MUST be restricted to theAuthority Account.
     */
-    function MintStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
+    function mintStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
         users[_account].stake = users[_account].stake.add(_amount);
+        emit MintStake(_account, _amount);
     }
 
     /*
-    * RedeemStake
+    * redeemStake
     * Decrease unbonded stake
     * The redeemStake(amount, recipient) function MUST be restricted to the Authority Account.
     */
-    function RedeemStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
+    function redeemStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
         users[_account].stake = users[_account].stake.sub(_amount, "Redeem stake amount exceeds balance");
+        emit RedeemStake(_account, _amount);
     }
-
-
 
 
     /*
@@ -172,8 +185,9 @@ contract Autonity {
 
     //    The Autonity Contract MUST implements the setCommissionRate(rate)
     //    function capable of fixing the caller commission rate for the next bonding period.
-    function SetCommissionRate(uint256 rate) public canUseStake(msg.sender) returns(bool)   {
+    function setCommissionRate(uint256 rate) public canUseStake(msg.sender) returns(bool)   {
         commission_rate[msg.sender] = rate;
+        emit SetCommissionRate(msg.sender, rate);
         return true;
     }
 
@@ -193,7 +207,7 @@ contract Autonity {
     * Returns the macro validator list
     */
 
-    function GetValidators() public view returns (address[] memory) {
+    function getValidators() public view returns (address[] memory) {
         return validators;
     }
 
@@ -203,27 +217,27 @@ contract Autonity {
     * Returns the macro participants list
     */
 
-    function GetWhitelist() public view returns (string[] memory) {
+    function getWhitelist() public view returns (string[] memory) {
         return enodesWhitelist;
     }
 
 
     /*
-    * GetAccountStake
+    * getAccountStake
     *
     * Returns unbonded stake for account
     */
-    function GetAccountStake(address _account) public view canUseStake(_account) returns (uint256) {
+    function getAccountStake(address _account) public view canUseStake(_account) returns (uint256) {
         return users[_account].stake;
     }
 
 
     /*
-    * GetStake
+    * getStake
     *
     * Returns sender's unbonded stake
     */
-    function GetStake() public view canUseStake(msg.sender) returns(uint256)  {
+    function getStake() public view canUseStake(msg.sender) returns(uint256)  {
         return users[msg.sender].stake;
     }
 
@@ -241,7 +255,7 @@ contract Autonity {
         return minGasPrice;
     }
 
-    function CheckMember(address _account) public view returns (bool) {
+    function checkMember(address _account) public view returns (bool) {
         return  users[_account].addr == _account;
     }
 
@@ -275,16 +289,6 @@ contract Autonity {
         require(users[_address].addr != address(0), "address must be defined");
         _;
     }
-
-    /*
-    ========================================================================================================================
-
-        Events
-
-    ========================================================================================================================
-    */
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
 
 
     /*
