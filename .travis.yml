@@ -19,8 +19,6 @@ jobs:
         name: "build"
         script:
           - go run build/ci.go install
-        after_success:
-          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
       - <<: *build
         name: "linters"
         script:
@@ -36,11 +34,11 @@ jobs:
       - <<: *tendermint
         name: "Tendermint data race - unit tests"
         script:
-          - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m
+          - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "Tendermint data race - E2E"
         script:
-          - travis_wait 60 go test ./consensus/test/... -v -race -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - travis_wait 60 go test ./consensus/test/... -run="TestTendermintSuccess" -race -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintSuccess"
         script:
@@ -82,9 +80,12 @@ jobs:
 notifications:
   slack:
     secure: GKYSUbw82VHxUw9JsCgxPfAN5bBE3JZs8YvKEABADDeioMI+3m90HKhuA7F7AtFCK1okIDAGSauX3NqcrAMNk0GnsgTGcvutpSnSL4Jprrff2SkTOfdQCyMdhAmZWBBGOUJx85Ei7lSCSRNRemI3E2jhLPDaQlQGuvUXN1+YM4iFK15dYIrWyDL2ZIMcCThcBft0P7h9Z6LX1bMf5SE9IATjgijzDXeJVUsgpt14p2suflU+jGq+EXqpCSW1uuwlEktiTxOpIpAmP6SdR/ltaMQ9khLCzvf7xkddIuE0AR4/PC+ug+pmsSyqhfW/5w0uGCeRXnQKomhkgzo9BV/uWeRZqAc/tMGXkYAUdwBvzbde9pXEdAoXg89BurCqQVIvUqVrnVONR8WI3pUa+03fFYpt34lF6SaFdluGQzwd6TTGSceEWaAuA8Ng7mSQrQD12857kFtq+WmetTkKKGZ3KW0i9Iz35/l6V22OfkEWb+ARiJuKAo5vQlQLRIJlWD+PiB66YASXyMN5xYtzQHZpxH+J8cWrvBmZSwBvZh0ZxAEgUtZUM5eFuKKymNaBBEj7uLiY/1M2RLNa8ZsOSsGi1nsd8UEd4sKJttrXgR5r4Y4oXQtlX2UPPMtR7VOfDEB7pnjSrfPBD5DrVMHpUU2F1rISXfjRLZvSgRq717NZUsI=
+  notifications:
+    webhooks: https://coveralls.io/webhook
 env:
   global:
     secure: NMIZV/aApl67zepAKpE57cQUBsav8QE3YSrgRKiz+Sm12bSdEsFvLfewrLL5gifKqUdadJOtAsl66LAkm3JURrP4rxa1cZrBgYAlFOunr9o6jjNCFmdQOA1fr2VGDX073wI8PaN2HnD3SvWlueBQZ6T6YHxYSYUcIJZS5bPIN7WCbi7pJ3zsbnwSvUxGNHEkbpz8Q6ujK7Lp+YIGBKQS8cJTGRVe8kmMwQTZSagXj/QPwTla+TYf2hfi62ydt/r5CXnZXq12qUUmLE2Rh/p0/VK7DbeAX1reERh6o5O19OHi2V58CADDBM+NEIrKLJSIkNzg8BS2Nq9rtsdBamsuxJEK+ihYIKKVj9qnzsxUqhz31KHqqXUexRA/jZ4a5+aFOM9mlL4N6rnogxa5x8gS5XgOC8MiU0TjP4W7yNfoHGIAnUKXLPveYVYVgoeem04uUpMYr3SpzGsHkt8hyLdcY6v8YG10zy/rtEVTaPYmuxOGh5ZPCk35NpniWsX/1CwtlzSftGcZwZiS4dKB1+B73h3YX4Ib6Z4nbaQgNgwbJza7KR4JxbuQMbrOFkiyIie9ZuT+HkpASnd2PTYy0Yok4k8gLAPCeuDLq8679++TbELgFkN7RV32TVTuxFBsSZMuvOwA6TSAuEONDTf9725lTxLPwX3yJ1wYHDgqOIXUwpc=
+    - COVERALLS_PARALLEL=true
 cache:
   directories:
     - ./tests/testdata/
