@@ -15,7 +15,7 @@ before_script:
 jobs:
   include:
       - &build
-        stage: build and basic checks
+        stage: "Build the code and run lintes"
         name: "build"
         script:
           - go run build/ci.go install
@@ -25,24 +25,26 @@ jobs:
         name: "linters"
         script:
             - make lint-ci
-      - <<: *build
+      - &tendermint
+        stage: "Tests"
         name: "unit tests"
         install: true
         script:
           - go run build/ci.go test -coverage $TEST_PACKAGES
-      - <<: *build
+        after_success:
+          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+      - <<: *tendermint
         name: "Tendermint data race - unit tests"
         script:
           - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m
-      - <<: *build
+      - <<: *tendermint
         name: "Tendermint data race - E2E"
         script:
-          - go test ./consensus/test/... -v -race -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-      - &tendermint
-        stage: Tendermint E2E tests
+          - travis_wait 60 go test ./consensus/test/... -v -race -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+      - <<: *tendermint
         name: "TestTendermintSuccess"
         script:
-          travis_wait 60 go test ./consensus/test/... -run="TestTendermintSuccess" -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - travis_wait 60 go test ./consensus/test/... -run="TestTendermintSuccess" -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
         after_success:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
       - <<: *tendermint
