@@ -155,7 +155,7 @@ func (sb *Backend) Gossip(valSet istanbul.ValidatorSet, payload []byte) error {
 	}
 
 	if sb.broadcaster != nil && len(targets) > 0 {
-		ps, _ := sb.broadcaster.FindPeers(targets)
+		ps := sb.broadcaster.FindPeers(targets)
 		for addr, p := range ps {
 			ms, ok := sb.recentMessages.Get(addr)
 			var m *lru.ARCCache
@@ -299,7 +299,7 @@ func (sb *Backend) Verify(proposal istanbul.Proposal) (time.Duration, error) {
 
 		return 0, nil
 	} else if err == consensus.ErrFutureBlock {
-		return time.Unix(block.Header().Time.Int64(), 0).Sub(now()), consensus.ErrFutureBlock
+		return time.Unix(int64(block.Header().Time), 0).Sub(now()), consensus.ErrFutureBlock
 	}
 	return 0, err
 }

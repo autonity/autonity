@@ -39,11 +39,17 @@ test: all
 test-fast:
 	build/env.sh go run build/ci.go test
 
-test-race: all
+test-race-all: all
 	build/env.sh go run build/ci.go test -race
+	make test-race
+
+test-race:
+	go test -race -v ./consensus/tendermint/... -parallel 1
+	go test -race -v ./consensus/test/... -timeout 30m
 
 mock-gen:
-	mockgen -source=consensus/tendermint/validator.go -package=tendermint -destination=consensus/tendermint/validator_mock.go
+	mockgen -source=consensus/tendermint/validator/validator_interface.go -package=validator -destination=consensus/tendermint/validator/validator_mock.go
+	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go
 
 lint:
 	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
@@ -69,6 +75,7 @@ lint-ci: lint-deps lint
 test-deps:
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/mattn/goveralls
+	cd tests/testdata && git checkout 6b85703b568f4456582a00665d8a3e5c3b20b484
 
 lint-deps:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.16.0

@@ -19,7 +19,7 @@ var parseNodeWithResolveTests = []struct {
 	},
 	{
 		rawurl:    "enode://01010101@123.124.125.126:3",
-		wantError: `invalid node ID (wrong length, want 128 hex chars)`,
+		wantError: `invalid public key (wrong length, want 128 hex chars)`,
 	},
 	// Complete nodes with IP address.
 	{
@@ -35,7 +35,7 @@ var parseNodeWithResolveTests = []struct {
 		wantError: `invalid discport in query`,
 	},
 	{
-		rawurl:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
+		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
 		wantResult: NewV4(
 			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 			net.IP{0x7f, 0x0, 0x0, 0x1},
@@ -44,7 +44,7 @@ var parseNodeWithResolveTests = []struct {
 		),
 	},
 	{
-		rawurl:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost",
+		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost",
 		wantResult: NewV4(
 			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 			net.IP{0x7f, 0x0, 0x0, 0x1},
@@ -53,7 +53,7 @@ var parseNodeWithResolveTests = []struct {
 		),
 	},
 	{
-		rawurl:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@gdns.oogle.com:3",
+		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@gdns.oogle.com:3",
 		wantResult: NewV4(
 			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 			net.IP{0xd8, 0xef, 0x20, 0x3b},
@@ -63,7 +63,7 @@ var parseNodeWithResolveTests = []struct {
 		host: "any-in-",
 	},
 	{
-		rawurl:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@dns.google.com",
+		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@dns.google.com",
 		wantResult: NewV4(
 			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
 			net.IP{0xd8, 0xef, 0x20, 0x3b},
@@ -126,11 +126,11 @@ var parseNodeWithResolveTests = []struct {
 	// Invalid URLs
 	{
 		rawurl:    "01010101",
-		wantError: `invalid node ID (wrong length, want 128 hex chars)`,
+		wantError: `invalid public key (wrong length, want 128 hex chars)`,
 	},
 	{
 		rawurl:    "enode://01010101",
-		wantError: `invalid node ID (wrong length, want 128 hex chars)`,
+		wantError: `invalid public key (wrong length, want 128 hex chars)`,
 	},
 	{
 		// This test checks that errors from url.Parse are handled.
@@ -171,12 +171,13 @@ func TestParseNodeWithDomainResolution(t *testing.T) {
 			} else if !reflect.DeepEqual(n, test.wantResult) {
 				t.Errorf("test %q:\n result mismatch:\n" +
 					"got PubKey: %#v\nwant: %#v\n\n" +
-					"got IP: %#v\nwant: %#v\n\n" +
+					"got IP: %#v\nwant: %#v(equal %v)\n\n" +
 					"got TCP: %#v\nwant: %#v\n\n" +
 					"got UPD: %#v\nwant: %#v\n",
 					test.rawurl,
 					n.Pubkey(), test.wantResult.Pubkey(),
 					n.IP().String(), test.wantResult.IP().String(),
+					n.IP().Equal(test.wantResult.IP()),
 					n.TCP(), test.wantResult.TCP(),
 					n.UDP(), test.wantResult.UDP())
 			}

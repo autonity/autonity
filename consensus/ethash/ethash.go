@@ -33,13 +33,13 @@ import (
 	"time"
 	"unsafe"
 
-	mmap "github.com/edsrzf/mmap-go"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/rpc"
+	mmap "github.com/edsrzf/mmap-go"
 	"github.com/hashicorp/golang-lru/simplelru"
 )
 

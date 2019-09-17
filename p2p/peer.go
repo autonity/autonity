@@ -92,12 +92,14 @@ const (
 // PeerEvent is an event emitted when peers are either added or dropped from
 // a p2p.Server or when a message is sent or received on a peer connection
 type PeerEvent struct {
-	Type     PeerEventType `json:"type"`
-	Peer     enode.ID      `json:"peer"`
-	Error    string        `json:"error,omitempty"`
-	Protocol string        `json:"protocol,omitempty"`
-	MsgCode  *uint64       `json:"msg_code,omitempty"`
-	MsgSize  *uint32       `json:"msg_size,omitempty"`
+	Type          PeerEventType `json:"type"`
+	Peer          enode.ID      `json:"peer"`
+	Error         string        `json:"error,omitempty"`
+	Protocol      string        `json:"protocol,omitempty"`
+	MsgCode       *uint64       `json:"msg_code,omitempty"`
+	MsgSize       *uint32       `json:"msg_size,omitempty"`
+	LocalAddress  string        `json:"local,omitempty"`
+	RemoteAddress string        `json:"remote,omitempty"`
 }
 
 // Peer represents a connected remote node.
@@ -121,7 +123,7 @@ func NewPeer(id enode.ID, name string, caps []Cap) *Peer {
 	pipe, _ := net.Pipe()
 	node := enode.SignNull(new(enr.Record), id)
 	conn := &conn{fd: pipe, transport: nil, node: node, caps: caps, name: name}
-	peer := newPeer(conn, nil)
+	peer := newPeer(log.Root(), conn, nil)
 	close(peer.closed) // ensures Disconnect doesn't block
 	return peer
 }
@@ -177,7 +179,7 @@ func (p *Peer) Inbound() bool {
 	return p.rw.is(inboundConn)
 }
 
-func newPeer(conn *conn, protocols []Protocol) *Peer {
+func newPeer(log log.Logger, conn *conn, protocols []Protocol) *Peer {
 	protomap := matchProtocols(protocols, conn.caps, conn)
 	p := &Peer{
 		rw:       conn,
@@ -355,7 +357,7 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error)
 		proto.werr = writeErr
 		var rw MsgReadWriter = proto
 		if p.events != nil {
-			rw = newMsgEventer(rw, p.events, p.ID(), proto.Name)
+			rw = newMsgEventer(rw, p.events, p.ID(), proto.Name, p.Info().Network.RemoteAddress, p.Info().Network.LocalAddress)
 		}
 		p.log.Trace(fmt.Sprintf("Starting protocol %s/%d", proto.Name, proto.Version))
 		go func() {
@@ -426,10 +428,11 @@ func (rw *protoRW) ReadMsg() (Msg, error) {
 // peer. Sub-protocol independent fields are contained and initialized here, with
 // protocol specifics delegated to all connected sub-protocols.
 type PeerInfo struct {
-	Enode   string   `json:"enode"` // Node URL
-	ID      string   `json:"id"`    // Unique node identifier
-	Name    string   `json:"name"`  // Name of the node, including client type, version, OS, custom data
-	Caps    []string `json:"caps"`  // Protocols advertised by this peer
+	ENR     string   `json:"enr,omitempty"` // Ethereum Node Record
+	Enode   string   `json:"enode"`         // Node URL
+	ID      string   `json:"id"`            // Unique node identifier
+	Name    string   `json:"name"`          // Name of the node, including client type, version, OS, custom data
+	Caps    []string `json:"caps"`          // Protocols advertised by this peer
 	Network struct {
 		LocalAddress  string `json:"localAddress"`  // Local endpoint of the TCP data connection
 		RemoteAddress string `json:"remoteAddress"` // Remote endpoint of the TCP data connection
@@ -449,11 +452,14 @@ func (p *Peer) Info() *PeerInfo {
 	}
 	// Assemble the generic peer metadata
 	info := &PeerInfo{
-		Enode:     p.Node().String(),
+		Enode:     p.Node().URLv4(),
 		ID:        p.ID().String(),
 		Name:      p.Name(),
 		Caps:      caps,
 		Protocols: make(map[string]interface{}),
+	}
+	if p.Node().Seq() > 0 {
+		info.ENR = p.Node().String()
 	}
 	info.Network.LocalAddress = p.LocalAddr().String()
 	info.Network.RemoteAddress = p.RemoteAddr().String()
@@ -479,7 +485,7 @@ func (p *Peer) Info() *PeerInfo {
 func NewTestPeer(name string, caps []Cap) (*Peer, error) {
 	fd, _ := net.Pipe()
 	c := &conn{
-		fd: fd,
+		fd:   fd,
 		caps: caps,
 		name: name,
 	}
@@ -504,7 +510,7 @@ func NewTestPeer(name string, caps []Cap) (*Peer, error) {
 
 	c.transport = NewTestTransport(&privkey.PublicKey, fd)
 
-	peer := newPeer(c, nil)
+	peer := newPeer(log.Root(), c, nil)
 
 	close(peer.closed) // ensures Disconnect doesn't block
 

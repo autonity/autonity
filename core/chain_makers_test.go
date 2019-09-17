@@ -21,10 +21,10 @@ import (
 	"math/big"
 
 	"github.com/clearmatics/autonity/consensus/ethash"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/params"
 )
 
@@ -36,7 +36,7 @@ func ExampleGenerateChain() {
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
 		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
 		addr3   = crypto.PubkeyToAddress(key3.PublicKey)
-		db      = ethdb.NewMemDatabase()
+		db      = rawdb.NewMemoryDatabase()
 	)
 
 	// Ensure that key1 has some funds in the genesis block.

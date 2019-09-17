@@ -28,6 +28,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
@@ -125,6 +126,7 @@ type Backend struct {
 	knownMessages  *lru.ARCCache // the cache of self messages
 
 	autonityContractAddress common.Address // Ethereum address of the white list contract
+	contractsMu       sync.RWMutex
 	vmConfig                *vm.Config
 
 	resend chan messageToPeers
@@ -329,7 +331,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		//Validate the state of the proposal
-		if err = sb.blockchain.Validator().ValidateState(block, parent, state, receipts, *usedGas); err != nil {
+		if err = sb.blockchain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
 			return 0, err
 		}
 
@@ -375,7 +377,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 
 		return 0, nil
 	} else if err == consensus.ErrFutureBlock {
-		return time.Unix(block.Header().Time.Int64(), 0).Sub(now()), consensus.ErrFutureBlock
+		return time.Unix(int64(block.Header().Time), 0).Sub(now()), consensus.ErrFutureBlock
 	}
 	return 0, err
 }
@@ -465,4 +467,39 @@ func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
 
 	sb.privateKey = key
 	sb.address = crypto.PubkeyToAddress(key.PublicKey)
+}
+
+// Synchronize new connected peer with current height state
+func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.Message) {
+	if sb.broadcaster == nil {
+		return
+	}
+
+	sb.logger.Info("Syncing", "peer", address)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	for _, msg := range messages {
+		payload, err := msg.Payload()
+		if err != nil {
+			sb.logger.Error("Sending", "code", msg.GetCode(), "sig", msg.GetSignature(), "err", err)
+			continue
+		}
+		hash := types.RLPHash(payload)
+		now := time.Now()
+		sb.trySend(ctx, messageToPeers{
+			message{hash: hash, payload: payload},
+			[]common.Address{address},
+			now,
+			now,
+		})
+	}
+}
+
+func (sb *Backend) ResetPeerCache(address common.Address) {
+	ms, ok := sb.recentMessages.Get(address)
+	var m *lru.ARCCache
+	if ok {
+		m, _ = ms.(*lru.ARCCache)
+		m.Purge()
+	}
 }

@@ -43,7 +43,7 @@ func TestCalcSeedNotFoundProposer(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			validatorSet := NewMockValidatorSet(ctrl)
+			validatorSet := NewMockSet(ctrl)
 			validatorSet.EXPECT().
 				GetByAddress(gomock.Eq(proposerAddress)).
 				Return(testCase.validatorIndex, nil)
@@ -157,7 +157,7 @@ func TestCalcSeedWithProposer(t *testing.T) {
 			defer ctrl.Finish()
 
 			validator := NewMockValidator(ctrl)
-			validatorSet := NewMockValidatorSet(ctrl)
+			validatorSet := NewMockSet(ctrl)
 			validatorSet.EXPECT().
 				GetByAddress(gomock.Eq(proposerAddress)).
 				Return(testCase.validatorIndex, validator)
@@ -228,7 +228,7 @@ func TestStickyProposerZeroSize(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("validator is zero address, round %d", testCase.round), func(t *testing.T) {
-			validatorSet := NewMockValidatorSet(ctrl)
+			validatorSet := NewMockSet(ctrl)
 
 			validatorSet.EXPECT().
 				Size().
@@ -367,7 +367,7 @@ func TestStickyProposer(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("validator set size %d, proposer address %s, round %d", testCase.size, testCase.proposer.String(), testCase.round), func(t *testing.T) {
-			validatorSet := NewMockValidatorSet(ctrl)
+			validatorSet := NewMockSet(ctrl)
 
 			validatorSet.EXPECT().
 				Size().

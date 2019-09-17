@@ -40,8 +40,13 @@ func (c *core) Prepare(chain consensus.ChainReader, header *types.Header) error 
 }
 
 func (c *core) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+	uncles []*types.Header) {
+	c.backend.Finalize(chain, header, state, txs, uncles)
+}
+
+func (c *core) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
-	return c.backend.Finalize(chain, header, state, txs, uncles, receipts)
+	return c.backend.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
 }
 
 func (c *core) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
@@ -78,6 +83,17 @@ func (c *core) SetBroadcaster(b consensus.Broadcaster) {
 
 func (c *core) Protocol() (protocolName string, extraMsgCodes uint64) {
 	return c.backend.Protocol()
+}
+
+// Synchronize new connected peer with current height state
+func (c *core) SyncPeer(address common.Address) {
+	if c.IsValidator(address) {
+		c.backend.SyncPeer(address, c.GetCurrentHeightMessages())
+	}
+}
+
+func (c *core) ResetPeerCache(address common.Address) {
+	c.backend.ResetPeerCache(address)
 }
 
 // Backend provides application specific functions for Istanbul core
@@ -128,4 +144,8 @@ type Backend interface {
 
 	// Setter for proposed block hash
 	SetProposedBlockHash(hash common.Hash)
+
+	SyncPeer(address common.Address, messages []*Message)
+
+	ResetPeerCache(address common.Address)
 }

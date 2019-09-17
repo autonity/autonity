@@ -52,7 +52,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
-	msg := &message{
+	msg := &Message{
 		Code:          msgPrecommit,
 		Msg:           encodedVote,
 		Address:       c.address,
@@ -70,7 +70,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	c.broadcast(ctx, msg)
 }
 
-func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
+func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 	var preCommit Vote
 	err := msg.Decode(&preCommit)
 	if err != nil {
@@ -79,24 +79,24 @@ func (c *core) handlePrecommit(ctx context.Context, msg *message) error {
 
 	if err := c.checkMessage(preCommit.Round, preCommit.Height); err != nil {
 		// Store old precommits because if there is a quorum of precommits in the previous round we need to go to the next height
-		if err == errOldRoundMessage {
-			// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
-			// And we only process old rounds while future rounds messages are pushed on to the backlog
-			oldRoundState := c.currentHeightOldRoundsStates[preCommit.Round.Int64()]
-			c.acceptVote(&oldRoundState, precommit, preCommit.ProposedBlockHash, *msg)
-
-			// Check for old round precommit quorum
-			if c.Quorum(oldRoundState.Precommits.VotesSize(oldRoundState.GetCurrentProposalHash())) {
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
-					c.commit()
-				}
-
-				return nil
-			}
-		}
+		//if err == errOldRoundMessage {
+		//	// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
+		//	// And we only process old rounds while future rounds messages are pushed on to the backlog
+		//	oldRoundState := c.currentHeightOldRoundsStates[preCommit.Round.Int64()]
+		//	c.acceptVote(&oldRoundState, precommit, preCommit.ProposedBlockHash, *msg)
+		//
+		//	// Check for old round precommit quorum
+		//	if c.Quorum(oldRoundState.Precommits.VotesSize(oldRoundState.GetCurrentProposalHash())) {
+		//		select {
+		//		case <-ctx.Done():
+		//			return ctx.Err()
+		//		default:
+		//			c.commit()
+		//		}
+		//
+		//		return nil
+		//	}
+		//}
 
 		return err
 	}

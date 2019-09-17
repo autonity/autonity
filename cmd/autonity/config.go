@@ -20,8 +20,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io"
-	"math/big"
 	"os"
 	"reflect"
 	"unicode"
@@ -97,7 +95,7 @@ func loadConfig(file string, cfg *autonityConfig) error {
 func defaultNodeConfig() node.Config {
 	cfg := node.DefaultConfig
 	cfg.Name = clientIdentifier
-	cfg.Version = params.VersionWithCommit(gitCommit)
+	cfg.Version = params.VersionWithCommit(gitCommit, gitDate)
 	cfg.HTTPModules = append(cfg.HTTPModules, "eth")
 	cfg.WSModules = append(cfg.WSModules, "eth")
 	cfg.IPCPath = "autonity.ipc"
@@ -134,10 +132,12 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 
 func makeFullNode(ctx *cli.Context) *node.Node {
 	stack, cfg := makeConfigNode(ctx)
-	if ctx.GlobalIsSet(utils.ConstantinopleOverrideFlag.Name) {
-		cfg.Eth.ConstantinopleOverride = new(big.Int).SetUint64(ctx.GlobalUint64(utils.ConstantinopleOverrideFlag.Name))
-	}
 	utils.RegisterEthService(stack, &cfg.Eth)
+
+	// Configure GraphQL if requested
+	if ctx.GlobalIsSet(utils.GraphQLEnabledFlag.Name) {
+		utils.RegisterGraphQLService(stack, cfg.Node.GraphQLEndpoint(), cfg.Node.GraphQLCors, cfg.Node.GraphQLVirtualHosts, cfg.Node.HTTPTimeouts)
+	}
 
 	// Add the Ethereum Stats daemon if requested.
 	if cfg.Ethstats.URL != "" {
@@ -160,14 +160,25 @@ func dumpConfig(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = io.WriteString(os.Stdout, comment)
+
+	dump := os.Stdout
+	if ctx.NArg() > 0 {
+		dump, err = os.OpenFile(ctx.Args().Get(0), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			return err
+		}
+		defer dump.Close()
+	}
+	_, err = dump.WriteString(comment)
 	if err != nil {
 		return err
 	}
-	_, err = os.Stdout.Write(out)
+
+	_, err = dump.Write(out)
 	if err != nil {
 		return err
 	}
+
 
 	return nil
 }

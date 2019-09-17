@@ -38,6 +38,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/crypto"
@@ -97,9 +98,9 @@ func (ks keyStorePassphrase) GetKey(addr common.Address, filename, auth string) 
 }
 
 // StoreKey generates a key, encrypts with 'auth' and stores in the given directory
-func StoreKey(dir, auth string, scryptN, scryptP int) (common.Address, error) {
+func StoreKey(dir, auth string, scryptN, scryptP int) (accounts.Account, error) {
 	_, a, err := storeNewKey(&keyStorePassphrase{dir, scryptN, scryptP, false}, rand.Reader, auth)
-	return a.Address, err
+	return a, err
 }
 
 func (ks keyStorePassphrase) StoreKey(filename string, key *Key, auth string) error {

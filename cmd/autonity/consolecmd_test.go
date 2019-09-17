@@ -49,7 +49,7 @@ func TestConsoleWelcome(t *testing.T) {
 	autonity.SetTemplateFunc("goos", func() string { return runtime.GOOS })
 	autonity.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	autonity.SetTemplateFunc("gover", runtime.Version)
-	autonity.SetTemplateFunc("autonityver", func() string { return params.VersionWithMeta })
+	autonity.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
 	autonity.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
 	autonity.SetTemplateFunc("apis", func() string { return ipcAPIs })
 
@@ -131,7 +131,7 @@ func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis stri
 	attach.SetTemplateFunc("goos", func() string { return runtime.GOOS })
 	attach.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	attach.SetTemplateFunc("gover", runtime.Version)
-	attach.SetTemplateFunc("autonityver", func() string { return params.VersionWithMeta })
+	attach.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
 	attach.SetTemplateFunc("etherbase", func() string { return autonity.Etherbase })
 	attach.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
 	attach.SetTemplateFunc("ipc", func() bool { return strings.HasPrefix(endpoint, "ipc") })

@@ -22,20 +22,20 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/trie"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestNodeIterator(t *testing.T) {
 	var (
-		fulldb  = ethdb.NewMemDatabase()
-		lightdb = ethdb.NewMemDatabase()
+		fulldb  = rawdb.NewMemoryDatabase()
+		lightdb = rawdb.NewMemoryDatabase()
 		gspec   = core.Genesis{Alloc: core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}}}
 		genesis = gspec.MustCommit(fulldb)
 	)

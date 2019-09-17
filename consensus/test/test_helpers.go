@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net"
+	"sync"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
@@ -29,19 +30,59 @@ type networkRate struct {
 }
 
 type testNode struct {
-	isRunning    bool
-	isInited     bool
-	privateKey   *ecdsa.PrivateKey
-	address      string
-	port         int
-	url          string
-	listener     net.Listener
-	node         *node.Node
-	enode        *enode.Node
-	service      *eth.Ethereum
-	eventChan    chan core.ChainEvent
-	subscription event.Subscription
+	isRunning      bool
+	isInited       bool
+	wasStopped     bool //fixme should be removed
+	privateKey     *ecdsa.PrivateKey
+	address        string
+	port           int
+	url            string
+	listener       net.Listener
+	node           *node.Node
+	enode          *enode.Node
+	service        *eth.Ethereum
+	eventChan      chan core.ChainEvent
+	subscription   event.Subscription
+	transactions   map[common.Hash]struct{}
+	transactionsMu sync.Mutex
+	blocks         map[uint64]block
+	lastBlock      uint64
+	txsSendCount   *int64
+	txsChainCount  map[uint64]int64
 }
+
+type block struct {
+	hash common.Hash
+	txs  int
+}
+
+
+func sendTx(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address, transactionGenerator func(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error)) (*types.Transaction, error) {
+	nonce := service.TxPool().Nonce(fromAddr)
+
+	var tx *types.Transaction
+	var err error
+
+	for stop:=10; stop>0; stop-- {
+		tx,err = transactionGenerator(nonce, toAddr, key)
+		if err==nil {
+			break
+		}
+	}
+	if err!=nil {
+		return nil, err
+	}
+	return tx, service.TxPool().AddLocal(tx)
+}
+//func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error) {
+//	nonce := service.TxPool().Nonce(fromAddr)
+//
+//	tx, err := txWithNonce(fromAddr, nonce, toAddr, fromValidator, service)
+//	if err != nil {
+//		return txWithNonce(fromAddr, nonce+1, toAddr, fromValidator, service)
+//	}
+//	return tx, nil
+//}
 
 func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error) {
 	randEth, err := rand.Int(rand.Reader, big.NewInt(10000000))
@@ -61,16 +102,15 @@ func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey
 		types.HomesteadSigner{}, key)
 }
 
-func sendTx(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address, transactionGenerator func(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error)) error {
-	nonce := service.TxPool().State().GetNonce(fromAddr)
-
-	tx,err:=transactionGenerator(nonce, toAddr, key)
+func txWithNonce(_ common.Address, nonce uint64, toAddr common.Address, fromValidator *ecdsa.PrivateKey, service *eth.Ethereum) (*types.Transaction, error) {
+	tx,err:=generateRandomTx(nonce, toAddr, fromValidator)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	return service.TxPool().AddLocal(tx)
+	return tx, service.TxPool().AddLocal(tx)
 }
+
+
 
 func makeGenesis(validators []*testNode) *core.Genesis {
 	// generate genesis block

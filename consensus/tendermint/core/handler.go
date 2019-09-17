@@ -229,7 +229,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	logger := c.logger.New()
 
 	// Decode message and check its signature
-	msg := new(message)
+	msg := new(Message)
 
 	sender, err := msg.FromPayload(payload, c.valSet.Copy(), crypto.CheckValidatorSignature)
 	if err != nil {
@@ -240,7 +240,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	return c.handleCheckedMsg(ctx, msg, *sender)
 }
 
-func (c *core) handleCheckedMsg(ctx context.Context, msg *message, sender validator.Validator) error {
+func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender validator.Validator) error {
 	logger := c.logger.New("address", c.address, "from", sender)
 
 	// Store the message if it's a future message

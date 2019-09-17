@@ -72,7 +72,7 @@ func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb 
 		Origin:      origin,
 		Coinbase:    coinbase,
 		BlockNumber: header.Number,
-		Time:        header.Time,
+		Time:        new(big.Int).SetUint64(header.Time),
 		GasLimit:    header.GasLimit,
 		Difficulty:  header.Difficulty,
 		GasPrice:    new(big.Int).SetUint64(0x0),

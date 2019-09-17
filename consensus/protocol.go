@@ -26,8 +26,8 @@ import (
 type Broadcaster interface {
 	// Enqueue add a block into fetcher queue
 	Enqueue(id string, block *types.Block)
-	// FindPeers retrives peers by addresses
-	FindPeers(map[common.Address]struct{}) (map[common.Address]Peer, []common.Address)
+	// FindPeers retrives connected peers by addresses
+	FindPeers(map[common.Address]struct{}) map[common.Address]Peer
 }
 
 // Peer defines the interface to communicate with peer

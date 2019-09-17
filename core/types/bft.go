@@ -19,13 +19,14 @@ package types
 import (
 	"bytes"
 	"errors"
+	"io"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/crypto/sha3"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 	lru "github.com/hashicorp/golang-lru"
-	"io"
+	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -132,7 +133,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 // panics. This is done to avoid accidentally using both forms (signature present
 // or not), which could be abused to produce different hashes for the same header.
 func SigHash(header *Header) (hash common.Hash) {
-	hasher := sha3.NewKeccak256()
+	hasher := sha3.NewLegacyKeccak256()
 
 	// Clean seal is required for calculating proposer seal.
 	err := rlp.Encode(hasher, BFTFilteredHeader(header, false))
@@ -243,7 +244,7 @@ func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
 }
 
 func RLPHash(v interface{}) (h common.Hash) {
-	hw := sha3.NewKeccak256()
+	hw := sha3.NewLegacyKeccak256()
 	rlp.Encode(hw, v)
 	hw.Sum(h[:0])
 	return h

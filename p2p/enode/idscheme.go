@@ -23,9 +23,9 @@ import (
 
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/crypto/sha3"
 	"github.com/clearmatics/autonity/p2p/enr"
 	"github.com/clearmatics/autonity/rlp"
+	"golang.org/x/crypto/sha3"
 )
 
 // List of known secure identity schemes.
@@ -48,7 +48,7 @@ func SignV4(r *enr.Record, privkey *ecdsa.PrivateKey) error {
 	cpy.Set(enr.ID("v4"))
 	cpy.Set(Secp256k1(privkey.PublicKey))
 
-	h := sha3.NewKeccak256()
+	h := sha3.NewLegacyKeccak256()
 	rlp.Encode(h, cpy.AppendElements(nil))
 	sig, err := crypto.Sign(h.Sum(nil), privkey)
 	if err != nil {
@@ -69,7 +69,7 @@ func (V4ID) Verify(r *enr.Record, sig []byte) error {
 		return fmt.Errorf("invalid public key")
 	}
 
-	h := sha3.NewKeccak256()
+	h := sha3.NewLegacyKeccak256()
 	rlp.Encode(h, r.AppendElements(nil))
 	if !crypto.VerifySignature(entry, h.Sum(nil), sig) {
 		return enr.ErrInvalidSig

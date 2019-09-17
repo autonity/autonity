@@ -71,20 +71,23 @@ var (
 // New creates an Tendermint consensus core
 func New(backend Backend, config *config.Config) *core {
 	return &core{
-		config:                config,
-		address:               backend.Address(),
-		logger:                log.New(),
-		backend:               backend,
-		backlogs:              make(map[validator.Validator]*prque.Prque),
-		pendingUnminedBlocks:  make(map[uint64]*types.Block),
-		pendingUnminedBlockCh: make(chan *types.Block),
-		stopped:               make(chan struct{}, 3),
-		isStarting:            new(uint32),
-		isStarted:             new(uint32),
-		isStopping:            new(uint32),
-		isStopped:             new(uint32),
-		valSet:                new(validatorSet),
-		futureRoundsChange:    make(map[int64]int64),
+		config:                       config,
+		address:                      backend.Address(),
+		logger:                       log.New(),
+		backend:                      backend,
+		backlogs:                     make(map[validator.Validator]*prque.Prque),
+		pendingUnminedBlocks:         make(map[uint64]*types.Block),
+		pendingUnminedBlockCh:        make(chan *types.Block),
+		stopped:                      make(chan struct{}, 3),
+		isStarting:                   new(uint32),
+		isStarted:                    new(uint32),
+		isStopping:                   new(uint32),
+		isStopped:                    new(uint32),
+		valSet:                       new(validatorSet),
+		futureRoundsChange:           make(map[int64]int64),
+		currentHeightOldRoundsStates: make(map[int64]roundState),
+		lockedRound:                  big.NewInt(-1),
+		validRound:                   big.NewInt(-1),
 	}
 }
 
@@ -130,7 +133,8 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightOldRoundsStates map[int64]roundState
+	currentHeightOldRoundsStates   map[int64]roundState
+	currentHeightOldRoundsStatesMu sync.RWMutex
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -140,7 +144,23 @@ type core struct {
 	futureRoundsChange map[int64]int64
 }
 
-func (c *core) finalizeMessage(msg *message) ([]byte, error) {
+func (c *core) GetCurrentHeightMessages() []*Message {
+	c.currentHeightOldRoundsStatesMu.RLock()
+	defer c.currentHeightOldRoundsStatesMu.RUnlock()
+	result := make([]*Message, 0)
+	for _, state := range c.currentHeightOldRoundsStates {
+		result = append(result, state.GetMessages()...)
+	}
+	result = append(result, c.currentRoundState.GetMessages()...)
+	return result
+}
+
+func (c *core) IsValidator(address common.Address) bool {
+	_, val := c.valSet.GetByAddress(address)
+	return val != nil
+}
+
+func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 	var err error
 
 	// Sign message
@@ -162,7 +182,7 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 	return payload, nil
 }
 
-func (c *core) broadcast(ctx context.Context, msg *message) {
+func (c *core) broadcast(ctx context.Context, msg *Message) {
 	logger := c.logger.New("step", c.currentRoundState.Step())
 
 	payload, err := c.finalizeMessage(msg)
@@ -266,7 +286,9 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 
 		// Assuming that round == 0 only when the node moves to a new height
 		// Therefore, resetting round related maps
+		c.currentHeightOldRoundsStatesMu.Lock()
 		c.currentHeightOldRoundsStates = make(map[int64]roundState)
+		c.currentHeightOldRoundsStatesMu.Unlock()
 		c.futureRoundsChange = make(map[int64]int64)
 	}
 	// Reset all timeouts
@@ -294,7 +316,9 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 	// backlog which are processed when the step is set to propose
 	if r.Int64() > 0 {
 		// This is a shallow copy, should be fine for now
+		c.currentHeightOldRoundsStatesMu.Lock()
 		c.currentHeightOldRoundsStates[r.Int64()-1] = *c.currentRoundState
+		c.currentHeightOldRoundsStatesMu.Unlock()
 	}
 	c.currentRoundState.Update(r, h)
 	// Calculate new proposer
@@ -305,7 +329,7 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 	c.setValidRoundAndValue = false
 }
 
-func (c *core) acceptVote(roundState *roundState, step Step, hash common.Hash, msg message) {
+func (c *core) acceptVote(roundState *roundState, step Step, hash common.Hash, msg Message) {
 	emptyHash := hash == (common.Hash{})
 	switch step {
 	case prevote:
