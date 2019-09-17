@@ -41,10 +41,6 @@ jobs:
         after_failure:
           - travis_terminate 1
       - <<: *tendermint
-        name: "Tendermint data race - E2E"
-        script:
-          - travis_wait 60 go test ./consensus/test/... -race -v -run="TestTendermintSuccess" -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-      - <<: *tendermint
         name: "TestTendermintSuccess"
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run="TestTendermintSuccess" -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
