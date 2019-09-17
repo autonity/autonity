@@ -41,6 +41,22 @@ func TestTendermintSuccess(t *testing.T) {
 			numBlocks: 5,
 			txPerPeer: 1,
 		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintOneMalicious(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cases := []*testCase{
 		{
 			name:      "one node - always accepts blocks",
 			numPeers:  5,

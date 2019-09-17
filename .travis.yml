@@ -26,7 +26,7 @@ jobs:
       - <<: *build
         name: "Tendermint data race - unit tests"
         script:
-          - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage.out
+          - go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage.out
         after_success:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
         after_failure:
@@ -48,6 +48,10 @@ jobs:
         name: "TestTendermintSuccess"
         script:
           - travis_wait 60 go test ./consensus/test/... -run="TestTendermintSuccess" -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+      - <<: *tendermint
+        name: "TestTendermintOneMalicious"
+        script:
+          - travis_wait 60 go test ./consensus/test/... -run="TestTendermintOneMalicious" -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintSlowConnections"
         script:
