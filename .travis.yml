@@ -41,33 +41,21 @@ jobs:
         after_failure:
           - travis_terminate 1
       - <<: *tendermint
-        name: "TestTendermintSuccess"
+        name: "TestTendermintSuccess,TestTendermintOneMalicious"
         script:
-          - travis_wait 60 go test ./consensus/test/... -v -run="TestTendermintSuccess" -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - travis_wait 60 go test ./consensus/test/... -v -run="TestTendermintSuccess|TestTendermintOneMalicious" -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
-        name: "TestTendermintOneMalicious"
+        name: "TestTendermintSlowConnections,TestTendermintLongRun"
         script:
-          - travis_wait 60 go test ./consensus/test/... -v -run="TestTendermintOneMalicious" -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-      - <<: *tendermint
-        name: "TestTendermintSlowConnections"
-        script:
-          - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintSlowConnections' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-      - <<: *tendermint
-        name: "TestTendermintLongRun"
-        script:
-          - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintLongRun' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintSlowConnections|TestTendermintLongRun' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintStopUpToFNodes"
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStopUpToFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
-        name: "TestTendermintStartStopSingleNode"
+        name: "TestTendermintStartStopSingleNode,TestTendermintStartStopFNodes"
         script:
-          - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopSingleNode' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-      - <<: *tendermint
-        name: "TestTendermintStartStopFNodes"
-        script:
-          - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopSingleNode|TestTendermintStartStopFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintStartStopFPlusOneNodes"
         script:
