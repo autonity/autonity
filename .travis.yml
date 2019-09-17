@@ -28,9 +28,11 @@ jobs:
         name: "unit tests"
         install: true
         script:
-          - go run build/ci.go test -coverage $TEST_PACKAGES
+          - go run build/ci.go test -coverage $TEST_PACKAGES || travis_terminate 1
         after_success:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+        after_failure:
+          - travis_terminate 1
       - <<: *tendermint
         name: "Tendermint data race - unit tests"
         script:
@@ -43,8 +45,6 @@ jobs:
         name: "TestTendermintSuccess"
         script:
           - travis_wait 60 go test ./consensus/test/... -run="TestTendermintSuccess" -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-        after_success:
-          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
       - <<: *tendermint
         name: "TestTendermintSlowConnections"
         script:
