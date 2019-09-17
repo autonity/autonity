@@ -10,7 +10,6 @@ addons:
 git:
   depth: 1
 go: 1.12.5
-install: true
 before_script:
   - make test-deps
 jobs:
@@ -18,63 +17,77 @@ jobs:
       - &build
         stage: build and basic checks
         name: "build"
+        install: skip
         script:
           - go run build/ci.go install
         after_success:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
       - <<: *build
         name: "linters"
+        install: skip
         script:
             - make lint-ci
       - <<: *build
         name: "unit tests"
+        install: true
         script:
           - go run build/ci.go test -coverage $TEST_PACKAGES
       - <<: *build
         name: "Tendermint data race - unit tests"
+        install: skip
         script:
           - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m
       - <<: *build
         name: "Tendermint data race - E2E"
+        install: skip
         script:
           - go test ./consensus/test/... -v -race -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - &tendermint
         stage: Tendermint E2E tests
         name: "TestTendermintSuccess"
+        install: skip
         script:
           travis_wait 60 go test ./consensus/test/... -run="TestTendermintSuccess" -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
         after_success:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
       - <<: *tendermint
         name: "TestTendermintSlowConnections"
+        install: skip
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintSlowConnections' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintLongRun"
+        install: skip
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintLongRun' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintStopUpToFNodes"
+        install: skip
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStopUpToFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintStartStopSingleNode"
+        install: skip
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopSingleNode' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintStartStopFNodes"
+        install: skip
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintStartStopFPlusOneNodes"
+        install: skip
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintStartStopFPlusTwoNodes"
+        install: skip
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintStartStopAllNodes"
+        install: skip
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
 notifications:
