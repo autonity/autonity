@@ -171,7 +171,7 @@ func (sb *Backend) sendToConnectedPeers(ctx context.Context, msgToPeers messageT
 				if ok {
 					errConnectedCh <- pe.addr
 
-					sb.logger.Error(pe.Error(), "peer", pe.addr)
+					sb.logger.Info(pe.Error(), "peer", pe.addr)
 				}
 			}
 
