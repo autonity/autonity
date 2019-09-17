@@ -23,20 +23,23 @@ jobs:
         name: "linters"
         script:
             - make lint-ci
+      - <<: *build
+        name: "Tendermint data race - unit tests"
+        script:
+          - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage.out
+        after_success:
+          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+        after_failure:
+          - travis_terminate 1
       - &tendermint
         stage: "Tests"
         name: "unit tests"
-        install: true
         script:
           - go run build/ci.go test -coverage $TEST_PACKAGES || travis_terminate 1
         after_success:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
         after_failure:
           - travis_terminate 1
-      - <<: *tendermint
-        name: "Tendermint data race - unit tests"
-        script:
-          - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "Tendermint data race - E2E"
         script:
