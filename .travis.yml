@@ -30,15 +30,12 @@ jobs:
         name: "unit tests"
         script:
           - go run build/ci.go test -coverage $TEST_PACKAGES
-      - &racetests
-        stage: Tendermint data race tests
-        name: "unit tests"
+      - <<: *build
+        name: "Tendermint data race - unit tests"
         script:
           - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m
-        after_success:
-          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
-      - <<: *racetests
-        name: "E2E"
+      - <<: *build
+        name: "Tendermint data race - E2E"
         script:
           - go test ./consensus/test/... -v -race -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - &tendermint
