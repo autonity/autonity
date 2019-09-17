@@ -15,7 +15,6 @@ before_script:
   - make test-deps
 matrix:
   include:
-    - if: branch = master OR type = pull_request
       script:
         - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m
         - go run build/ci.go test -coverage $TEST_PACKAGES
@@ -24,12 +23,13 @@ matrix:
         - $HOME/gopath/bin/goveralls -coverprofile=coverage_all.out -service=travis-ci -repotoken $COVERALLS_TOKEN
 jobs:
   include:
-    - if: branch = master OR type = pull_request
     - &build
       stage: build and linters
+      name: "build"
       script:
         - go run build/ci.go install
     - <<: *build
+      name: "linters"
       script:
           - make lint-ci
 notifications:
