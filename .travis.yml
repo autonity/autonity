@@ -36,18 +36,18 @@ jobs:
         script:
           - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m
         after_success:
-          - goveralls -coverprofile=coverage.out
+          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
       - <<: *racetests
         name: "E2E"
         script:
-          - travis_wait 60 go test ./consensus/test/... -v -race -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - go test ./consensus/test/... -v -race -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - &tendermint
         stage: Tendermint E2E tests
         name: "TestTendermintSuccess"
         script:
-          travis_wait 60 go test ./consensus/test/... -run="TestTendermintSuccess" -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_e2e.out
+          travis_wait 60 go test ./consensus/test/... -run="TestTendermintSuccess" -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
         after_success:
-          - goveralls -coverprofile=coverage.out
+          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
       - <<: *tendermint
         name: "TestTendermintSlowConnections"
         script:
