@@ -35,7 +35,7 @@ jobs:
         stage: "Tests"
         name: "unit tests"
         script:
-          - go run build/ci.go test -coverage $TEST_PACKAGES || travis_terminate 1
+          - go run build/ci.go test -coverage $TEST_PACKAGES
         after_success:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
         after_failure:
@@ -43,15 +43,15 @@ jobs:
       - <<: *tendermint
         name: "Tendermint data race - E2E"
         script:
-          - travis_wait 60 go test ./consensus/test/... -run="TestTendermintSuccess" -race -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - travis_wait 60 go test ./consensus/test/... -race -v -run="TestTendermintSuccess" -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintSuccess"
         script:
-          - travis_wait 60 go test ./consensus/test/... -run="TestTendermintSuccess" -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - travis_wait 60 go test ./consensus/test/... -v -run="TestTendermintSuccess" -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintOneMalicious"
         script:
-          - travis_wait 60 go test ./consensus/test/... -run="TestTendermintOneMalicious" -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - travis_wait 60 go test ./consensus/test/... -v -run="TestTendermintOneMalicious" -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintSlowConnections"
         script:
