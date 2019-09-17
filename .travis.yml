@@ -1,25 +1,24 @@
 language: go
 go_import_path: github.com/clearmatics/autonity
 sudo: false
+os: linux
+dist: trusty
 addons:
   apt:
     packages:
       - libc-dev
+git:
+  depth: 1
+go: 1.12.5
+install: true
 before_script:
   - make test-deps
+  - go run build/ci.go install
+  - make lint-ci
 matrix:
   include:
     - if: branch = master OR type = pull_request
-      os: linux
-      dist: trusty
-      sudo: required
-      go: 1.12.5
       script:
-        - sudo modprobe fuse
-        - sudo chmod 666 /dev/fuse
-        - sudo chown root:$USER /etc/fuse.conf
-        - go run build/ci.go install
-        - make lint-ci
         - go test -race -v ./consensus/tendermint/... -count=1 -parallel 1 -timeout 30m
         - go run build/ci.go test -coverage $TEST_PACKAGES
         - travis_wait 60 go test ./consensus/test/... -v -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_e2e.out
