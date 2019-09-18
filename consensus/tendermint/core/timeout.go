@@ -82,7 +82,7 @@ func (t *timeout) set(timeoutNew *timeout) bool {
 	err := t.stopTimer()
 	if err != nil {
 		// log error and reset timer
-		log.Error("cant stop timer", "err", err)
+		log.Info("cant stop timer", "err", err)
 	}
 
 	t.Lock()

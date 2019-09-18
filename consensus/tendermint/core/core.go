@@ -147,11 +147,21 @@ type core struct {
 func (c *core) GetCurrentHeightMessages() []*Message {
 	c.currentHeightOldRoundsStatesMu.RLock()
 	defer c.currentHeightOldRoundsStatesMu.RUnlock()
-	result := make([]*Message, 0)
-	for _, state := range c.currentHeightOldRoundsStates {
-		result = append(result, state.GetMessages()...)
+
+	msgs := make([][]*Message, len(c.currentHeightOldRoundsStates)+1)
+	var totalLen int
+	for i, state := range c.currentHeightOldRoundsStates {
+		msgs[i] = state.GetMessages()
+		totalLen += len(msgs[i])
 	}
-	result = append(result, c.currentRoundState.GetMessages()...)
+	msgs[len(msgs)-1] = c.currentRoundState.GetMessages()
+	totalLen += len(msgs[len(msgs)-1])
+
+	result := make([]*Message, 0, totalLen)
+	for _, ms := range msgs {
+		result = append(result, ms...)
+	}
+
 	return result
 }
 
