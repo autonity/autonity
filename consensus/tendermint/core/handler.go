@@ -83,7 +83,7 @@ func (c *core) Stop() error {
 		atomic.StoreUint32(c.isStarted, 0)
 	}()
 
-	c.logger.Error("stopping tendermint.core", "addr", c.address.String())
+	c.logger.Info("stopping tendermint.core", "addr", c.address.String())
 
 	_ = c.proposeTimeout.stopTimer()
 	_ = c.prevoteTimeout.stopTimer()
@@ -141,7 +141,7 @@ eventLoop:
 			pb := &newUnminedBlockEvent.NewUnminedBlock
 			c.storeUnminedBlockMsg(pb)
 		case <-ctx.Done():
-			log.Error("handleNewUnminedBlockEvent is stopped", "event", ctx.Err())
+			log.Info("handleNewUnminedBlockEvent is stopped", "event", ctx.Err())
 			break eventLoop
 		}
 	}
@@ -212,7 +212,7 @@ eventLoop:
 				c.handleCommit(ctx)
 			}
 		case <-ctx.Done():
-			log.Error("handleConsensusEvents is stopped", "event", ctx.Err())
+			log.Info("handleConsensusEvents is stopped", "event", ctx.Err())
 			break eventLoop
 		}
 	}
