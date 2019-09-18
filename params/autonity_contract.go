@@ -86,7 +86,7 @@ func (ac *AutonityContractGenesis) Validate() error {
 }
 
 func (ac *AutonityContractGenesis) GetContractAddress() (common.Address, error) {
-	if reflect.DeepEqual(ac.Deployer, common.Address{})==true {
+	if reflect.DeepEqual(ac.Deployer, common.Address{}) {
 		return common.Address{}, errors.New("deployer must be not nil")
 	}
 	return crypto.CreateAddress(ac.Deployer, 0), nil

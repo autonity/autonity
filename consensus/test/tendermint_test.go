@@ -1,8 +1,8 @@
 package test
 
 import (
-	"crypto/ecdsa"
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"net"
@@ -31,7 +31,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const DefaultTestGasPrice  = 100000000000
+const DefaultTestGasPrice = 100000000000
 
 func TestTendermintSuccess(t *testing.T) {
 	if testing.Short() {
@@ -349,7 +349,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 			numPeers:  5,
 			numBlocks: 5,
 			txPerPeer: 3,
-			sendTransactionHooks: map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction,error){
+			sendTransactionHooks: map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error){
 				3: func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error) {
 					nonce := service.TxPool().Nonce(fromAddr)
 
@@ -360,7 +360,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 							toAddr,
 							big.NewInt(1),
 							210000000,
-							big.NewInt(DefaultTestGasPrice - 200),
+							big.NewInt(DefaultTestGasPrice-200),
 							nil,
 						),
 						types.HomesteadSigner{}, key)
@@ -379,7 +379,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 							toAddr,
 							big.NewInt(1),
 							210000000,
-							big.NewInt(DefaultTestGasPrice + 200),
+							big.NewInt(DefaultTestGasPrice+200),
 							nil,
 						),
 						types.HomesteadSigner{}, key)
@@ -401,7 +401,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 				3: case1After,
 			},
 			genesisHook: func(g *core.Genesis) *core.Genesis {
-				g.Config.AutonityContractConfig.MinGasPrice=DefaultTestGasPrice - 100
+				g.Config.AutonityContractConfig.MinGasPrice = DefaultTestGasPrice - 100
 				return g
 			},
 		},
@@ -912,7 +912,7 @@ type testCase struct {
 	afterHooks           map[int]hook                                          //map[validatorIndex]afterHook
 	sendTransactionHooks map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error)
 	stopTime             map[int]time.Time
-	genesisHook			 func(g *core.Genesis) *core.Genesis
+	genesisHook          func(g *core.Genesis) *core.Genesis
 	mu                   sync.RWMutex
 }
 
@@ -1008,7 +1008,7 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	genesis := makeGenesis(validators)
-	if test.genesisHook!=nil {
+	if test.genesisHook != nil {
 		genesis = test.genesisHook(genesis)
 	}
 	for i, validator := range validators {
@@ -1294,7 +1294,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 								var tx *types.Transaction
 								var innerErr error
 								if f, ok := test.sendTransactionHooks[nextValidatorIndex]; ok {
-									if tx,innerErr = f(validator.service, validator.privateKey, fromAddr, toAddr); innerErr != nil {
+									if tx, innerErr = f(validator.service, validator.privateKey, fromAddr, toAddr); innerErr != nil {
 										return innerErr
 									}
 								} else {
