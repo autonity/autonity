@@ -21,6 +21,7 @@ jobs:
           - go run build/ci.go install
       - <<: *build
         name: "linters"
+        install: git pull origin master:master --depth=1
         script:
             - make lint-ci
       - <<: *build
