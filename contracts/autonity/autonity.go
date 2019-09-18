@@ -244,7 +244,7 @@ func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (u
 	return ac.callGetMinimumGasPrice(db, block.Header())
 }
 
-func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, price *big.Int) (error) {
+func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, price *big.Int) error {
 	if block.Number().Uint64() <= 1 {
 		return nil
 	}
@@ -278,16 +278,16 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 		return 0, vmerr
 	}
 
-	minGasPrice:=new(big.Int)
+	minGasPrice := new(big.Int)
 	if err := ABI.Unpack(&minGasPrice, "getMinimumGasPrice", ret); err != nil { // can't work with aliased types
-		log.Error("Could not unpack minGasPrice returned value", "err",err, "header.num",header.Number.Uint64())
+		log.Error("Could not unpack minGasPrice returned value", "err", err, "header.num", header.Number.Uint64())
 		return 0, err
 	}
 
 	return minGasPrice.Uint64(), nil
 }
 
-func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) (error) {
+func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) error {
 	// Needs to be refactored somehow
 	deployer := ac.bc.Config().AutonityContractConfig.Deployer
 	var contractABI = ac.bc.Config().AutonityContractConfig.ABI
@@ -298,7 +298,7 @@ func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.H
 
 	ABI, err := abi.JSON(strings.NewReader(contractABI))
 	if err != nil {
-		return  err
+		return err
 	}
 
 	input, err := ABI.Pack("setMinimumGasPrice")

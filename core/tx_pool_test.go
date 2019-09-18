@@ -69,14 +69,13 @@ func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) even
 	return bc.chainHeadFeed.Subscribe(ch)
 }
 
-func (bc *testBlockChain) Config() (*params.ChainConfig) {
+func (bc *testBlockChain) Config() *params.ChainConfig {
 	return params.TestnetChainConfig
 }
 
-func (bc *testBlockChain) GetAutonityContract() (*autonity.Contract) {
+func (bc *testBlockChain) GetAutonityContract() *autonity.Contract {
 	return nil
 }
-
 
 func transaction(nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Transaction {
 	return pricedTransaction(nonce, gaslimit, big.NewInt(1), key)

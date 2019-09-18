@@ -35,9 +35,9 @@ import (
 //
 // StateProcessor implements Processor.
 type StateProcessor struct {
-	config *params.ChainConfig // Chain configuration options
-	bc     *BlockChain         // Canonical block chain
-	engine consensus.Engine    // Consensus engine used for block rewards
+	config           *params.ChainConfig // Chain configuration options
+	bc               *BlockChain         // Canonical block chain
+	engine           consensus.Engine    // Consensus engine used for block rewards
 	autonityContract *autonity.Contract
 }
 
@@ -50,8 +50,8 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 	}
 }
 
-func (p *StateProcessor) SetAutonityContract(contract *autonity.Contract)  {
-	p.autonityContract=contract
+func (p *StateProcessor) SetAutonityContract(contract *autonity.Contract) {
+	p.autonityContract = contract
 }
 
 // Process processes the state changes according to the Ethereum rules by running
@@ -75,17 +75,17 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 
 	var contractMinGasPrice = new(big.Int)
-	if p.autonityContract!=nil {
-		minGasPrice, err:=p.autonityContract.GetMinimumGasPrice(block, statedb)
-		if err!=nil {
+	if p.autonityContract != nil {
+		minGasPrice, err := p.autonityContract.GetMinimumGasPrice(block, statedb)
+		if err != nil {
 			contractMinGasPrice.SetUint64(minGasPrice)
 		}
 	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
-		if contractMinGasPrice.Uint64()!=0 {
-			if tx.GasPrice().Cmp(contractMinGasPrice) <1 {
-				return nil, nil, 0, errors.New("Gas price must be greater minGasPrice")
+		if contractMinGasPrice.Uint64() != 0 {
+			if tx.GasPrice().Cmp(contractMinGasPrice) < 1 {
+				return nil, nil, 0, errors.New("gas price must be greater minGasPrice")
 			}
 		}
 

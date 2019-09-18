@@ -56,24 +56,31 @@ type block struct {
 	txs  int
 }
 
-
 func sendTx(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address, transactionGenerator func(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error)) (*types.Transaction, error) {
 	nonce := service.TxPool().Nonce(fromAddr)
 
 	var tx *types.Transaction
 	var err error
 
-	for stop:=10; stop>0; stop-- {
-		tx,err = transactionGenerator(nonce, toAddr, key)
-		if err==nil {
+	for stop := 10; stop > 0; stop-- {
+		tx, err = transactionGenerator(nonce, toAddr, key)
+		if err != nil {
+			nonce++
+			continue
+		}
+		err = service.TxPool().AddLocal(tx)
+		if err == nil {
 			break
 		}
+		nonce++
+
 	}
-	if err!=nil {
+	if err != nil {
 		return nil, err
 	}
-	return tx, service.TxPool().AddLocal(tx)
+	return tx, nil
 }
+
 //func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error) {
 //	nonce := service.TxPool().Nonce(fromAddr)
 //
@@ -101,16 +108,6 @@ func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey
 		),
 		types.HomesteadSigner{}, key)
 }
-
-func txWithNonce(_ common.Address, nonce uint64, toAddr common.Address, fromValidator *ecdsa.PrivateKey, service *eth.Ethereum) (*types.Transaction, error) {
-	tx,err:=generateRandomTx(nonce, toAddr, fromValidator)
-	if err != nil {
-		return nil, err
-	}
-	return tx, service.TxPool().AddLocal(tx)
-}
-
-
 
 func makeGenesis(validators []*testNode) *core.Genesis {
 	// generate genesis block
@@ -154,7 +151,7 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 			Stake:   100,
 		}
 	}
-	genesis.Config.AutonityContractConfig.Users=users
+	genesis.Config.AutonityContractConfig.Users = users
 	err := genesis.Config.AutonityContractConfig.AddDefault().Validate()
 	if err != nil {
 		panic(err)

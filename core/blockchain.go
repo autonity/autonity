@@ -235,7 +235,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
-	if (chainConfig.Tendermint!=nil || chainConfig.Istanbul!=nil) && chainConfig.AutonityContractConfig!=nil {
+	if (chainConfig.Tendermint != nil || chainConfig.Istanbul != nil) && chainConfig.AutonityContractConfig != nil {
 		bc.autonityContract = autonity.NewAutonityContract(bc, CanTransfer, Transfer, func(ref *types.Header, chain autonity.ChainContext) func(n uint64) common.Hash {
 			return GetHashFn(ref, chain)
 		})
@@ -304,8 +304,8 @@ func (bc *BlockChain) getProcInterrupt() bool {
 
 // GetVMConfig returns the block chain VM config.
 func (bc *BlockChain) GetVMConfig() *vm.Config {
-	cp:=bc.vmConfig
-	cp.Debug=false
+	cp := bc.vmConfig
+	cp.Debug = false
 	return &cp
 }
 
@@ -2188,7 +2188,7 @@ func (bc *BlockChain) GetHeaderByNumber(number uint64) *types.Header {
 }
 
 // Config retrieves the chain's fork configuration.
-func (bc *BlockChain) Config() *params.ChainConfig { return bc.chainConfig }
+func (bc *BlockChain) Config() *params.ChainConfig             { return bc.chainConfig }
 func (bc *BlockChain) GetAutonityContract() *autonity.Contract { return bc.autonityContract }
 
 // Engine retrieves the blockchain's consensus engine.
@@ -2231,6 +2231,7 @@ func (bc *BlockChain) UpdateEnodeWhitelist(newWhitelist *types.Nodes) {
 func (bc *BlockChain) ReadEnodeWhitelist(openNetwork bool) *types.Nodes {
 	return rawdb.ReadEnodeWhitelist(bc.db, openNetwork)
 }
+
 // SubscribeBlockProcessingEvent registers a subscription of bool where true means
 // block processing has started while false means it has stopped.
 func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscription {

@@ -410,7 +410,10 @@ func TestClique(t *testing.T) {
 		genSpec.Config = new(params.ChainConfig)
 		*genSpec.Config = *params.AllCliqueProtocolChanges
 		// Create a pristine blockchain with the genesis injected
-		genSpec.Commit(db)
+		_, err := genSpec.Commit(db)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		// Assemble a chain of headers from the cast votes
 		config.Clique = &params.CliqueConfig{
@@ -421,13 +424,13 @@ func TestClique(t *testing.T) {
 		engine := New(config.Clique, db)
 		engine.fakeDiff = true
 
-		chain, err := core.NewBlockChain(db, nil, &config, engine, vm.Config{}, nil)
+		chain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil)
 		if err != nil {
 			t.Fatalf("test %d: failed to create test chain: %v", i, err)
 			continue
 		}
 
-		blocks, _ := core.GenerateChain(&config, genesis.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen) {
+		blocks, _ := core.GenerateChain(config, genSpec.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen) {
 			// Cast the vote contained in this block
 			gen.SetCoinbase(accounts.address(tt.votes[j].voted))
 			if tt.votes[j].auth {
