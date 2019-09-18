@@ -1055,7 +1055,6 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			for {
 				select {
 				case ev := <-validator.eventChan:
-					//fmt.Printf("validator %d got block %d\n", index, ev.Block.NumberU64())
 					if _, ok := validator.blocks[ev.Block.NumberU64()]; ok {
 						continue
 					}
