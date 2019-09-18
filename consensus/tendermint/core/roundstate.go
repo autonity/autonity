@@ -135,11 +135,16 @@ func (s *roundState) GetCurrentProposalHash() common.Hash {
 func (s *roundState) GetMessages() []*Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	result := make([]*Message, 0)
+
+	prevoteMsgs := s.Prevotes.GetMessages()
+	precommitMsgs := s.Precommits.GetMessages()
+
+	result := make([]*Message, 0, len(prevoteMsgs)+len(precommitMsgs)+1)
 	if s.proposalMsg != nil {
 		result = append(result, s.proposalMsg)
 	}
-	result = append(result, s.Prevotes.GetMessages()...)
-	result = append(result, s.Precommits.GetMessages()...)
+
+	result = append(result, prevoteMsgs...)
+	result = append(result, precommitMsgs...)
 	return result
 }
