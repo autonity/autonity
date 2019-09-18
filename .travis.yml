@@ -32,8 +32,7 @@ jobs:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
         after_failure:
           - travis_terminate 1
-      - &tendermint
-        stage: "Tests"
+      - <<: *build
         name: "unit tests"
         script:
           - go run build/ci.go test -coverage $TEST_PACKAGES
@@ -41,14 +40,23 @@ jobs:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
         after_failure:
           - travis_terminate 1
-      - <<: *tendermint
+      - &tendermint
+        stage: "Tests"
         name: "TestTendermintSuccess,TestTendermintOneMalicious,TestTendermintSlowConnections,TestTendermintLongRun,TestTendermintStartStopSingleNode,TestTendermintStopUpToFNodes"
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+        after_success:
+          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+        after_failure:
+          - travis_terminate 1
       - <<: *tendermint
-        name: "TestTendermintStartStopFNodes,TestTendermintStartStopFPlusOneNodes"
+        name: "TestTendermintStartStopFNodes"
         script:
-          - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes|TestTendermintStartStopFPlusOneNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+      - <<: *tendermint
+        name: "TestTendermintStartStopFPlusOneNodes"
+        script:
+          - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tendermint
         name: "TestTendermintStartStopFPlusTwoNodes"
         script:
