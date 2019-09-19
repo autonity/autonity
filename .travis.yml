@@ -26,8 +26,10 @@ jobs:
             - make lint-ci
       - <<: *build
         name: "Tendermint data race - unit tests"
+        env:
+          - GORACE="history_size=2"
         script:
-          - GORACE="history_size=2" go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage.out
+          - go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage.out
         after_success:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
         after_failure:
@@ -42,8 +44,10 @@ jobs:
           - travis_terminate 1
       - <<: *build
         name: "TestTendermintSuccess race"
+        env:
+          - GORACE="history_size=2"
         script:
-          - travis_wait 60 GORACE="history_size=2" go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
         after_success:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
         after_failure:
