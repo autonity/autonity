@@ -31,7 +31,7 @@ echo "Running TestTendermintStartStopFPlusOneNodes..."
 GORACE="history_size=7" go test ./... -run=TestTendermintStartStopFPlusOneNodes -v -race -timeout=60m >  $TESTDIR/start-stop-f-plus-one-nodes-race.txt
 
 echo "Running TestTendermintStartStopFPlusTwoNodes..."
-GORACE="history_size=7" go test ./... -run=TestTendermintStartStopFPlusTwoNodes -v -race -timeout=60m >  $TESTDIR/start-stop-plus-two-nodes-race.txt
+GORACE="history_size=7" go test ./... -run=TestTendermintStartStopFPlusTwoNodes -v -race -timeout=60m >  $TESTDIR/start-stop-f-plus-two-nodes-race.txt
 
 echo "Running TestTendermintStartStopAllNodes..."
 GORACE="history_size=7" go test ./... -run=TestTendermintStartStopAllNodes      -v -race -timeout=60m >  $TESTDIR/start-stop-all-nodes-race.txt
