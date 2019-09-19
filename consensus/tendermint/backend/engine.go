@@ -369,6 +369,8 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 }
 
 func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainReader, state *state.StateDB) ([]common.Address, error) {
+	sb.contractsMu.Lock()
+	defer sb.contractsMu.Unlock()
 	var validators []common.Address
 
 	if header.Number.Int64() == 1 {
