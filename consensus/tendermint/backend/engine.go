@@ -354,6 +354,14 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 		log.Error("FinalizeAndAssemble. after getValidators", "err", err.Error())
 		return nil, err
 	}
+	ac:=sb.blockchain.GetAutonityContract()
+	if ac!=nil && header.Number.Uint64()>1 {
+		err:=ac.AppplyPerformRedistribution(txs, receipts, header, statedb)
+		if err != nil {
+			log.Error("AppplyPerformRedistribution", "err", err.Error())
+			return nil, err
+		}
+	}
 
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
@@ -398,6 +406,7 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		var err error
 		validators, err = sb.blockchain.GetAutonityContract().ContractGetValidators(chain, header, state)
 		if err != nil {
+			log.Error("ContractGetValidators returns err","err",err)
 			return nil, err
 		}
 	}

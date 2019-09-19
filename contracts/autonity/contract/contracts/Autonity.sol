@@ -36,7 +36,7 @@ contract Autonity {
     enum UserType { Participant, Stakeholder, Validator}
 
     struct User {
-        address addr;
+        address payable addr;
         UserType userType;
         uint256 stake;
         string enode;
@@ -44,6 +44,7 @@ contract Autonity {
 
     mapping (address => User) private users;
 
+    uint256 totalStake = 0;
     /*
     * Ethereum transactions gas price must be greater or equal to the minimumGasPrice, a value set by the Governance operator.
     * FM-REQ-5: The minimumGasPrice value is a Genesis file configuration, if ommitted it defaults to 0.
@@ -79,7 +80,8 @@ contract Autonity {
         for (uint256 i = 0; i < _participantAddress.length; i++) {
             require(_participantAddress[i] != address(0), "Addresses must be defined");
             UserType _userType = UserType(_participantType[i]);
-            _createUser(_participantAddress[i], _participantEnode[i], _userType, _participantStake[i]);
+            address payable addr = address(uint160(_participantAddress[i]));
+            _createUser(addr, _participantEnode[i], _userType, _participantStake[i]);
         }
         deployer = msg.sender;
         operatorAccount = _operatorAccount;
@@ -91,17 +93,17 @@ contract Autonity {
     * addValidator
     * Add validator to validators list.
     */
-    function addValidator(address _address, uint256 _stake, string memory _enode) public onlyOperator(msg.sender) {
+    function addValidator(address payable _address, uint256 _stake, string memory _enode) public onlyOperator(msg.sender) {
         _createUser(_address,_enode, UserType.Validator, _stake);
         emit AddValidator(_address, _stake);
     }
 
-    function addStakeholder(address _address, string  memory _enode, uint256 _stake) public onlyOperator(msg.sender) {
+    function addStakeholder(address payable _address, string  memory _enode, uint256 _stake) public onlyOperator(msg.sender) {
         _createUser(_address, _enode, UserType.Stakeholder, _stake);
         emit AddStakeholder(_address, _stake);
     }
 
-    function addParticipant(address _address, string memory _enode) public onlyOperator(msg.sender) {
+    function addParticipant(address payable _address, string memory _enode) public onlyOperator(msg.sender) {
         _createUser(_address, _enode, UserType.Participant, 0);
         emit AddParticipant(_address, 0);
     }
@@ -211,6 +213,10 @@ contract Autonity {
         return validators;
     }
 
+    function getStakeholders() public view returns (address[] memory) {
+        return stakeholders;
+    }
+
     /*
     * getWhitelist
     *
@@ -259,6 +265,18 @@ contract Autonity {
         return  users[_account].addr == _account;
     }
 
+    function performRedistribution(uint256 _amount) public onlyDeployer(msg.sender) {
+        require(address(this).balance >= _amount, "not enough funds to perform redistribution");
+        require(stakeholders.length > 0, "there must be stack holders");
+        uint256 stakeSupply =_amount.div(stakeholders.length);
+
+        for (uint256 i = 0; i < stakeholders.length; i++) {
+            User storage _user = users[stakeholders[i]];
+            //temp basic strategy. should be rewritten after
+            _user.addr.transfer(stakeSupply);
+        }
+    }
+
     /*
     ========================================================================================================================
 
@@ -274,6 +292,11 @@ contract Autonity {
     */
     modifier onlyOperator(address _caller) {
         require(operatorAccount == _caller, "Caller is not a operator");
+        _;
+    }
+
+    modifier onlyDeployer(address _caller) {
+        require(deployer == _caller, "Caller is not a operator");
         _;
     }
 
@@ -310,7 +333,7 @@ contract Autonity {
         return keccak256(abi.encodePacked(s1)) == keccak256(abi.encodePacked(s2));
     }
 
-    function _createUser(address _address, string memory _enode, UserType _userType, uint256 _stake) internal {
+    function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake) internal {
         require(_address != address(0), "Addresses must be defined");
         User memory u = User(_address, _userType, _stake, _enode);
         users[u.addr] = u;
@@ -338,5 +361,9 @@ contract Autonity {
                 break;
             }
         }
+    }
+
+    // @notice Will receive any eth sent to the contract
+    function () external payable {
     }
 }

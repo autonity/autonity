@@ -328,7 +328,13 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			if err != nil {
 				return 0, err
 			}
+		} else if proposalNumber>1 {
+			err:=sb.blockchain.GetAutonityContract().AppplyPerformRedistribution(block.Transactions(), receipts,block.Header(), state)
+			if err != nil {
+				return 0, err
+			}
 		}
+
 
 		//Validate the state of the proposal
 		if err = sb.blockchain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {

@@ -336,6 +336,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	if err != nil {
 		fmt.Println("consensus/istanbul/backend/engine.go:337 getValidators err", err)
 	}
+
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
