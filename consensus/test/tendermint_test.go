@@ -235,9 +235,11 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 	}
 }
 
-func TestCheckFeeRedirection(t *testing.T) {
+func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 	hookGenerator := func() (hook, hook) {
 		prevBlockBalance := uint64(0)
+		prevSTBalance := new(big.Int)
+
 		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 			addr, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
 			if err != nil {
@@ -266,6 +268,16 @@ func TestCheckFeeRedirection(t *testing.T) {
 				}
 			}
 			prevBlockBalance = contractBalance.Uint64()
+
+			if block.NumberU64() > 1 && block.NumberU64() <= uint64(tCase.numBlocks) {
+				sh := validator.service.BlockChain().Config().AutonityContractConfig.GetStakeHolderUsers()[0]
+				stakeHolderBalance := st.GetBalance(sh.Address)
+				if stakeHolderBalance.Cmp(prevSTBalance) != 1 {
+					t.Fatal("Balance must be increased")
+				}
+				prevSTBalance = stakeHolderBalance
+			}
+
 			return nil
 		}
 		return fBefore, fAfter
@@ -347,15 +359,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 				t.Fatal("incorrect balance on the first block")
 			}
 			contractBalance := st.GetBalance(autonityContractAddress)
-			if block.NumberU64() > 1 && block.NumberU64() <= uint64(tCase.numBlocks) {
-				if contractBalance.Uint64() < prevBlockBalance {
-					t.Fatal("Balance must be increased")
-				}
-			}
-			t.Log("contract balance", contractBalance.Uint64())
-			sh := validator.service.BlockChain().Config().AutonityContractConfig.GetStakeHolderUsers()[0]
 
-			t.Log("sh balance", st.GetBalance(sh.Address))
 			prevBlockBalance = contractBalance.Uint64()
 			return nil
 		}
