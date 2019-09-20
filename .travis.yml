@@ -22,10 +22,9 @@ jobs:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
         after_failure:
           - travis_terminate 1
-      - <<: *tests
         name: "build and linters"
-        install: git fetch origin master --depth=1
         script:
+          - git fetch origin master --depth=1
           - go run build/ci.go install
           - make lint-ci
       - <<: *tests
