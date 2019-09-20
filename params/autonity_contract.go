@@ -131,11 +131,22 @@ func (u *User) Validate() error {
 	return nil
 }
 
-//GetParticipantUsers - returns list of participants
+//GetValidatorUsers - returns list of validators
 func (ac *AutonityContractGenesis) GetValidatorUsers() []User {
 	var users []User
 	for i := range ac.Users {
 		if ac.Users[i].Type == UserValidator {
+			users = append(users, ac.Users[i])
+		}
+	}
+	return users
+}
+
+//GetStakeHolderUsers - returns list of stakeholders
+func (ac *AutonityContractGenesis) GetStakeHolderUsers() []User {
+	var users []User
+	for i := range ac.Users {
+		if ac.Users[i].Type == UserStakeHolder {
 			users = append(users, ac.Users[i])
 		}
 	}

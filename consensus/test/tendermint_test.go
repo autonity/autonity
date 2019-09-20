@@ -352,6 +352,10 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 					t.Fatal("Balance must be increased")
 				}
 			}
+			t.Log("contract balance", contractBalance.Uint64())
+			sh := validator.service.BlockChain().Config().AutonityContractConfig.GetStakeHolderUsers()[0]
+
+			t.Log("sh balance", st.GetBalance(sh.Address))
 			prevBlockBalance = contractBalance.Uint64()
 			return nil
 		}

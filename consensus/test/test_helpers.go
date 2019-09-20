@@ -3,6 +3,7 @@ package test
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
+	"github.com/clearmatics/autonity/log"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -151,8 +152,18 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 			Stake:   100,
 		}
 	}
+	//generate one sh
+	shKey, err := crypto.GenerateKey()
+	if err != nil {
+		log.Error("Make genesis error", "err", err)
+	}
+	users = append(users, params.User{
+		Address: crypto.PubkeyToAddress(shKey.PublicKey),
+		Type:    params.UserStakeHolder,
+		Stake:   200,
+	})
 	genesis.Config.AutonityContractConfig.Users = users
-	err := genesis.Config.AutonityContractConfig.AddDefault().Validate()
+	err = genesis.Config.AutonityContractConfig.AddDefault().Validate()
 	if err != nil {
 		panic(err)
 	}
