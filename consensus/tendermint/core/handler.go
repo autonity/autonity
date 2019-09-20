@@ -121,10 +121,18 @@ func (c *core) subscribeEvents() {
 
 // Unsubscribe all messageEventSub
 func (c *core) unsubscribeEvents() {
-	c.messageEventSub.Unsubscribe()
-	c.newUnminedBlockEventSub.Unsubscribe()
-	c.timeoutEventSub.Unsubscribe()
-	c.committedSub.Unsubscribe()
+	if c.messageEventSub != nil {
+		c.messageEventSub.Unsubscribe()
+	}
+	if c.newUnminedBlockEventSub != nil {
+		c.newUnminedBlockEventSub.Unsubscribe()
+	}
+	if c.timeoutEventSub != nil {
+		c.timeoutEventSub.Unsubscribe()
+	}
+	if c.committedSub != nil {
+		c.committedSub.Unsubscribe()
+	}
 }
 
 // TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, TimeoutEvent
