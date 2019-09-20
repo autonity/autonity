@@ -875,25 +875,6 @@ func runTest(t *testing.T, test *testCase) {
 		t.Fatal(err)
 	}
 
-	wg = &errgroup.Group{}
-	for i, validator := range validators {
-		validator := validator
-		i := i
-
-		wg.Go(func() error {
-			log.Debug("peers", "i", i,
-				"peers", len(validator.node.Server().Peers()),
-				//"staticPeers", len(validator.node.Server().StaticNodes),
-				//"trustedPeers", len(validator.node.Server().TrustedNodes),
-				"nodes", len(validators))
-			return nil
-		})
-	}
-	err = wg.Wait()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	defer func() {
 		for _, validator := range validators {
 			validator.subscription.Unsubscribe()
