@@ -179,6 +179,5 @@ func dumpConfig(ctx *cli.Context) error {
 		return err
 	}
 
-
 	return nil
 }
