@@ -883,8 +883,8 @@ func runTest(t *testing.T, test *testCase) {
 		wg.Go(func() error {
 			log.Debug("peers", "i", i,
 				"peers", len(validator.node.Server().Peers()),
-				"staticPeers", len(validator.node.Server().StaticNodes),
-				"trustedPeers", len(validator.node.Server().TrustedNodes),
+				//"staticPeers", len(validator.node.Server().StaticNodes),
+				//"trustedPeers", len(validator.node.Server().TrustedNodes),
 				"nodes", len(validators))
 			return nil
 		})
