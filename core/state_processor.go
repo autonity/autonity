@@ -97,8 +97,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
-	if p.autonityContract!=nil {
-		err:=p.autonityContract.AppplyPerformRedistribution(block.Transactions(), receipts, block.Header(), statedb)
+	if p.autonityContract != nil {
+		err := p.autonityContract.AppplyPerformRedistribution(block.Transactions(), receipts, block.Header(), statedb)
 		if err != nil {
 			return nil, nil, 0, err
 		}

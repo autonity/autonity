@@ -354,9 +354,9 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 		log.Error("FinalizeAndAssemble. after getValidators", "err", err.Error())
 		return nil, err
 	}
-	ac:=sb.blockchain.GetAutonityContract()
-	if ac!=nil && header.Number.Uint64()>1 {
-		err:=ac.AppplyPerformRedistribution(txs, receipts, header, statedb)
+	ac := sb.blockchain.GetAutonityContract()
+	if ac != nil && header.Number.Uint64() > 1 {
+		err := ac.AppplyPerformRedistribution(txs, receipts, header, statedb)
 		if err != nil {
 			log.Error("AppplyPerformRedistribution", "err", err.Error())
 			return nil, err
@@ -406,7 +406,7 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		var err error
 		validators, err = sb.blockchain.GetAutonityContract().ContractGetValidators(chain, header, state)
 		if err != nil {
-			log.Error("ContractGetValidators returns err","err",err)
+			log.Error("ContractGetValidators returns err", "err", err)
 			return nil, err
 		}
 	}
