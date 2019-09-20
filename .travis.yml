@@ -14,66 +14,52 @@ before_script:
   - make test-deps
 jobs:
   include:
-      - &build
+      - &tests
         stage: "Build the code and run lintes"
-        name: "build"
+        name: "tests"
         script:
           - go run build/ci.go install
-      - <<: *build
+        env:
+          - GORACE="history_size=7"
+        after_success:
+          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+        after_failure:
+          - travis_terminate 1
+      - <<: *tests
         name: "linters"
         install: git fetch origin master --depth=1
         script:
-            - make lint-ci
-      - <<: *build
+          - echo $GORACE
+          - make lint-ci
+      - <<: *tests
         name: "Tendermint data race - unit tests"
-        env:
-          - GORACE="history_size=7"
         script:
           - go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage.out
-        after_success:
-          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
-        after_failure:
-          - travis_terminate 1
-      - <<: *build
+      - <<: *tests
         name: "unit tests"
         script:
           - go run build/ci.go test -coverage $TEST_PACKAGES
-        after_success:
-          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
-        after_failure:
-          - travis_terminate 1
-      - <<: *build
+      - <<: *tests
         name: "TestTendermintSuccess race"
-        env:
-          - GORACE="history_size=7"
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-        after_success:
-          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
-        after_failure:
-          - travis_terminate 1
-      - &tendermint
-        stage: "Tests"
+      - <<: *tests
         name: "TestTendermintSuccess,TestTendermintOneMalicious,TestTendermintSlowConnections,TestTendermintLongRun,TestTendermintStartStopSingleNode,TestTendermintStopUpToFNodes"
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-        after_success:
-          - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
-        after_failure:
-          - travis_terminate 1
-      - <<: *tendermint
+      - <<: *tests
         name: "TestTendermintStartStopFNodes"
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-      - <<: *tendermint
+      - <<: *tests
         name: "TestTendermintStartStopFPlusOneNodes"
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-      - <<: *tendermint
+      - <<: *tests
         name: "TestTendermintStartStopFPlusTwoNodes"
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-      - <<: *tendermint
+      - <<: *tests
         name: "TestTendermintStartStopAllNodes"
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
