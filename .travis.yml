@@ -15,10 +15,7 @@ before_script:
 jobs:
   include:
       - &tests
-        stage: "Build the code and run lintes"
-        name: "tests"
-        script:
-          - go run build/ci.go install
+        stage: "Build, linters and tests"
         env:
           - GORACE="history_size=7"
         after_success:
@@ -26,10 +23,10 @@ jobs:
         after_failure:
           - travis_terminate 1
       - <<: *tests
-        name: "linters"
+        name: "build and linters"
         install: git fetch origin master --depth=1
         script:
-          - echo $GORACE
+          - go run build/ci.go install
           - make lint-ci
       - <<: *tests
         name: "Tendermint data race - unit tests"
