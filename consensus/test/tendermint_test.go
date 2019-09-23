@@ -1285,7 +1285,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						return err
 					}
 				case <-time.NewTicker(time.Second).C:
-					// after hook
+					// time hook
 					err = runHook(test.getTimeHook(index), test, nil, validator, index)
 					if err != nil {
 						return err
