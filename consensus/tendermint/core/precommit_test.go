@@ -3,13 +3,13 @@ package core
 import (
 	"context"
 	"errors"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"math/big"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/crypto/secp256k1"
@@ -237,6 +237,7 @@ func TestHandlePrecommit(t *testing.T) {
 			big.NewInt(2),
 			big.NewInt(1),
 			types.NewBlockWithHeader(&types.Header{}))
+		proposal.ProposalBlock.Hash()
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -275,8 +276,7 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		backendMock := NewMockBackend(ctrl)
-		//backendMock.EXPECT().Commit(*proposal.ProposalBlock, gomock.Any()).Return(nil)
-		backendMock.EXPECT().Commit(gomock.Any(), gomock.Any()).Return(nil)
+		backendMock.EXPECT().Commit(*proposal.ProposalBlock, gomock.Any()).Return(nil)
 
 		c := &core{
 			address:           addr,
