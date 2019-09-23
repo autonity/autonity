@@ -715,6 +715,78 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 		})
 	}
 }
+func TestTendermintStopBlockchain(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cases := []*testCase{
+		{
+			name:      "all nodes stop at different blocks(2+2+1)",
+			numPeers:  5,
+			numBlocks: 30,
+			beforeHooks: map[int]hook{
+				0: hookStopNode(0, 3),
+				1: hookStopNode(1, 3),
+				2: hookStopNode(2, 5),
+				3: hookStopNode(3, 5),
+				4: hookStopNode(4, 5),
+			},
+			timeHooks: map[int]hook{
+				0: hookStoppedChain(6),
+				1: hookStoppedChain(6),
+				2: hookStoppedChain(6),
+				3: hookStoppedChain(6),
+				4: hookStoppedChain(6),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "all nodes stop at the same block",
+			numPeers:  5,
+			numBlocks: 30,
+			beforeHooks: map[int]hook{
+				0: hookStopNode(0, 3),
+				1: hookStopNode(1, 3),
+				2: hookStopNode(2, 3),
+				3: hookStopNode(3, 3),
+				4: hookStopNode(4, 3),
+			},
+			timeHooks: map[int]hook{
+				0: hookStoppedChain(4),
+				1: hookStoppedChain(4),
+				2: hookStoppedChain(4),
+				3: hookStoppedChain(4),
+				4: hookStoppedChain(4),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:      "f+1 nodes stop at the same block",
+			numPeers:  5,
+			numBlocks: 30,
+			beforeHooks: map[int]hook{
+				3: hookStopNode(3, 3),
+				4: hookStopNode(4, 3),
+			},
+			timeHooks: map[int]hook{
+				0: hookStoppedChain(4),
+				1: hookStoppedChain(4),
+				2: hookStoppedChain(4),
+				3: hookStoppedChain(4),
+				4: hookStoppedChain(4),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
 
 type testCase struct {
 	name           string
@@ -726,6 +798,7 @@ type testCase struct {
 	networkRates   map[int]networkRate                                   //map[validatorIndex]networkRate
 	beforeHooks    map[int]hook                                          //map[validatorIndex]beforeHook
 	afterHooks     map[int]hook                                          //map[validatorIndex]afterHook
+	timeHooks      map[int]hook                                          //map[validatorIndex]timeHooks
 	stopTime       map[int]time.Time
 	mu             sync.RWMutex
 }
@@ -755,6 +828,22 @@ func (test *testCase) getAfterHook(index int) hook {
 	}
 
 	validatorHook, ok := test.afterHooks[index]
+	if !ok || validatorHook == nil {
+		return nil
+	}
+
+	return validatorHook
+}
+
+func (test *testCase) getTimeHook(index int) hook {
+	test.mu.Lock()
+	defer test.mu.Unlock()
+
+	if test.timeHooks == nil {
+		return nil
+	}
+
+	validatorHook, ok := test.timeHooks[index]
 	if !ok || validatorHook == nil {
 		return nil
 	}
@@ -1039,10 +1128,10 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		validator := validator
 
 		// skip malicious nodes
+		var isMalicious bool
 		if test.maliciousPeers != nil {
-			if _, ok := test.maliciousPeers[index]; ok {
+			if _, isMalicious = test.maliciousPeers[index]; isMalicious {
 				atomic.AddUint32(validatorsCanBeStopped, 1)
-				continue
 			}
 		}
 
@@ -1097,7 +1186,8 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 							validator.transactionsMu.Unlock()
 						}
 
-						if int(validator.lastBlock) <= test.numBlocks {
+						if !isMalicious && int(validator.lastBlock) <= test.numBlocks {
+							// we dont want transactions for negative tests
 							for i := 0; i < txPerPeer; i++ {
 								nextValidatorIndex := (index + i + 1) % len(validators)
 								toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
@@ -1189,6 +1279,12 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 					// after hook
 					err = runHook(test.getAfterHook(index), test, nil, validator, index)
+					if err != nil {
+						return err
+					}
+				case <-time.NewTicker(time.Second).C:
+					// after hook
+					err = runHook(test.getTimeHook(index), test, nil, validator, index)
 					if err != nil {
 						return err
 					}
@@ -1297,6 +1393,20 @@ func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
 
 			if err := validator.startService(); err != nil {
 				return err
+			}
+		}
+
+		return nil
+	}
+}
+
+func hookStoppedChain(stoppedAfter uint64) hook {
+	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+		if validator.lastBlock > stoppedAfter {
+			block, ok := validator.blocks[validator.lastBlock]
+			if ok && block.hash != (common.Hash{}) {
+				return fmt.Errorf("should be stopped after %d blocks, got %d %s",
+					validator.lastBlock, stoppedAfter, block.hash.String())
 			}
 		}
 
