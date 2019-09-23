@@ -59,7 +59,7 @@ jobs:
         name: "TestTendermintStartStopAllNodes"
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-      - <<: *tendermint
+      - <<: *tests
         name: "TestTendermintStopBlockchain"
         script:
           - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStopBlockchain' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
