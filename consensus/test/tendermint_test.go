@@ -1135,6 +1135,8 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			}
 		}
 
+		var attempt int
+
 		wg.Go(func() error {
 			var err error
 			testCanBeStopped := new(uint32)
@@ -1287,6 +1289,11 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					err = runHook(test.getTimeHook(index), test, nil, validator, index)
 					if err != nil {
 						return err
+					}
+					if attempt >= test.numBlocks+blocksToWait {
+						if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+							atomic.AddUint32(validatorsCanBeStopped, 1)
+						}
 					}
 				case <-ctx.Done():
 					return ctx.Err()
