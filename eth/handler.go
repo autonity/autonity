@@ -292,7 +292,7 @@ func (pm *ProtocolManager) Stop() {
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 	if !pm.openNetwork {
-		pm.whitelistSub.Unsubscribe() // quits glienickeEventLoop
+		pm.whitelistSub.Unsubscribe() // quits autonityEventLoop
 	}
 
 	// Quit the sync loop.

@@ -176,7 +176,7 @@ type Server struct {
 	newPeerHook  func(*Peer)
 	listenFunc   func(network, addr string) (net.Listener, error)
 
-	lock    sync.Mutex // protects running
+	Lock    sync.Mutex // protects running
 	running bool
 
 	nodedb       *enode.DB
@@ -390,12 +390,14 @@ func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
 	// Check for peers that needs to be connected
 	for _, whitelistedEnode := range enodes {
 		found := false
+		src.Lock.Lock()
 		for _, oldEnode := range src.TrustedNodes {
 			if oldEnode.ID() == whitelistedEnode.ID() {
 				found = true
 				break
 			}
 		}
+		src.Lock.Unlock()
 		if !found {
 			log.Info("Connecting to newly authorized peer", "enode", whitelistedEnode.String())
 			src.AddPeer(whitelistedEnode)
@@ -403,8 +405,10 @@ func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
 		}
 	}
 
+	src.Lock.Lock()
 	src.StaticNodes = enodes
 	src.TrustedNodes = enodes
+	src.Lock.Unlock()
 }
 
 // SubscribePeers subscribes the given channel to peer events
@@ -414,9 +418,9 @@ func (srv *Server) SubscribeEvents(ch chan *PeerEvent) event.Subscription {
 
 // Self returns the local node's endpoint information.
 func (srv *Server) Self() *enode.Node {
-	srv.lock.Lock()
+	srv.Lock.Lock()
 	ln := srv.localnode
-	srv.lock.Unlock()
+	srv.Lock.Unlock()
 
 	if ln == nil {
 		return enode.NewV4(&srv.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
@@ -427,9 +431,9 @@ func (srv *Server) Self() *enode.Node {
 // Stop terminates the server and all active peer connections.
 // It blocks until all active connections have been closed.
 func (srv *Server) Stop() {
-	srv.lock.Lock()
+	srv.Lock.Lock()
 	if !srv.running {
-		srv.lock.Unlock()
+		srv.Lock.Unlock()
 		return
 	}
 	srv.running = false
@@ -438,7 +442,7 @@ func (srv *Server) Stop() {
 		srv.listener.Close()
 	}
 	close(srv.quit)
-	srv.lock.Unlock()
+	srv.Lock.Unlock()
 	srv.loopWG.Wait()
 }
 
@@ -471,8 +475,8 @@ func (s *sharedUDPConn) Close() error {
 // Start starts running the server.
 // Servers can not be re-used after stopping.
 func (srv *Server) Start() (err error) {
-	srv.lock.Lock()
-	defer srv.lock.Unlock()
+	srv.Lock.Lock()
+	defer srv.Lock.Unlock()
 	if srv.running {
 		return errors.New("server already running")
 	}
@@ -984,9 +988,9 @@ func (srv *Server) SetupConn(fd net.Conn, flags connFlag, dialDest *enode.Node) 
 
 func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) error {
 	// Prevent leftover pending conns from entering the handshake.
-	srv.lock.Lock()
+	srv.Lock.Lock()
 	running := srv.running
-	srv.lock.Unlock()
+	srv.Lock.Unlock()
 	if !running {
 		return errServerStopped
 	}

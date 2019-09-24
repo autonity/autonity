@@ -104,8 +104,8 @@ type Ethereum struct {
 	lock     sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 	protocol Protocol
 
-	glienickeCh  chan core.WhitelistEvent
-	glienickeSub event.Subscription
+	autonityCh  chan core.WhitelistEvent
+	autonitySub event.Subscription
 }
 
 func (s *Ethereum) AddLesServer(ls LesServer) {
@@ -184,7 +184,7 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 		etherbase:      config.Miner.Etherbase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
-		glienickeCh:    make(chan core.WhitelistEvent),
+		autonityCh:     make(chan core.WhitelistEvent),
 	}
 
 	// force to set the istanbul etherbase to node key address
@@ -575,10 +575,10 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 func (s *Ethereum) Start(srvr *p2p.Server) error {
 	if !srvr.OpenNetwork {
 		// Subscribe to Autonity updates events
-		s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
+		s.autonitySub = s.blockchain.SubscribeAutonityEvents(s.autonityCh)
 		savedList := rawdb.ReadEnodeWhitelist(s.chainDb, srvr.OpenNetwork)
 		log.Info("Reading Whitelist", "list", savedList.StrList)
-		go s.glienickeEventLoop(srvr)
+		go s.autonityEventLoop(srvr)
 		srvr.UpdateWhitelist(savedList.List)
 	}
 	s.startEthEntryUpdate(srvr.LocalNode())
@@ -607,10 +607,10 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 
 // Whitelist updating loop. Act as a relay between state processing logic and DevP2P
 // for updating the list of authorized enodes
-func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
+func (s *Ethereum) autonityEventLoop(server *p2p.Server) {
 	for {
 		select {
-		case event := <-s.glienickeCh:
+		case event := <-s.autonityCh:
 			whitelist := append([]*enode.Node{}, event.Whitelist...)
 			// Filter the list of need to be dropped peers depending on TD.
 			for _, connectedPeer := range s.protocolManager.peers.Peers() {
@@ -634,7 +634,7 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 			}
 			server.UpdateWhitelist(whitelist)
 		// Err() channel will be closed when unsubscribing.
-		case <-s.glienickeSub.Err():
+		case <-s.autonitySub.Err():
 			return
 		}
 	}
@@ -644,7 +644,7 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 // Ethereum protocol.
 func (s *Ethereum) Stop() error {
 	s.bloomIndexer.Close()
-	s.glienickeSub.Unsubscribe()
+	s.autonitySub.Unsubscribe()
 	s.blockchain.Stop()
 	s.engine.Close()
 	s.protocolManager.Stop()

@@ -1086,11 +1086,13 @@ func runTest(t *testing.T, test *testCase) {
 		i := i
 
 		wg.Go(func() error {
+			validator.node.Server().Lock.Lock()
 			log.Debug("peers", "i", i,
 				"peers", len(validator.node.Server().Peers()),
 				"staticPeers", len(validator.node.Server().StaticNodes),
 				"trustedPeers", len(validator.node.Server().TrustedNodes),
 				"nodes", len(validators))
+			validator.node.Server().Lock.Unlock()
 			return nil
 		})
 	}
