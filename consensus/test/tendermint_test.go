@@ -715,6 +715,7 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 		})
 	}
 }
+
 func TestTendermintStopBlockchain(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -1293,6 +1294,10 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					if attempt >= test.numBlocks+blocksToWait {
 						if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
 							atomic.AddUint32(validatorsCanBeStopped, 1)
+						}
+
+						if atomic.LoadUint32(validatorsCanBeStopped) == uint32(len(validators)) {
+							break wgLoop
 						}
 					}
 				case <-ctx.Done():
