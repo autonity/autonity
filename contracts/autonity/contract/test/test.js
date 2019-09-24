@@ -41,7 +41,7 @@ contract('Autonity', function (accounts) {
     ];
 
     const governanceOperatorAccount = accounts[0];
-    const deployer = accounts[7];
+    const deployer = accounts[8];
 
     it('test validator can get validator list', async function () {
         const token = await Autonity.deployed();
@@ -104,6 +104,7 @@ contract('Autonity', function (accounts) {
             let check = web3.utils.toBN(balancesAfter[i])
                 .sub(web3.utils.toBN(balances[i]))
                 .eq(web3.utils.toBN(stackholdersPart));
+
             assert(check, "not equal")
         }
 

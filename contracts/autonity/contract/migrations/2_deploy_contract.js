@@ -7,11 +7,6 @@ module.exports = function(deployer, network, accounts) {
             accounts[3],
             accounts[4],
             accounts[5],
-        // '0x627306090abaB3A6e1400e9345bC60c78a8BEf57',
-        // '0xf17f52151EbEF6C7334FAD080c5704D77216b732',
-        // '0xC5fdf4076b8F3A5357c5E395ab970B5B54098Fef',
-        // '0x821aEa9a577a9b44299B9c15c88cf3087F3b5544',
-        // '0x0d1d4e623D10F9FBA5Db95830F7d3839406C6AF2'
     ],[
         "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
         "enode://1f207dfb3bcbbd338fbc991ec13e40d204b58fe7275cea48cfeb53c2c24e1071e1b4ef2959325fe48a5893de8ff37c73a24a412f367e505e5dec832813da546a@172.25.0.12:30303",
@@ -34,5 +29,5 @@ module.exports = function(deployer, network, accounts) {
         100
     ], accounts[0],
     0,
-    { from:accounts[7]});
+    { from:accounts[8]});
 };

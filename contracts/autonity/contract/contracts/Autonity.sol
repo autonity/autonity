@@ -15,6 +15,7 @@ contract Autonity {
     // operatorAccount - account who can manipulate enodesWhitelist
     address public operatorAccount;
 
+    uint256 private stakeSupply;
 
     /*
     * The bonding period (BP) is specified by the Autonity System Architecture as an integer representing an interval of blocks.
@@ -134,6 +135,8 @@ contract Autonity {
                 }
             }
         }
+        stakeSupply = stakeSupply.sub(u.stake);
+
         delete users[_address];
         emit RemoveUser(_address, u.userType);
     }
@@ -156,6 +159,7 @@ contract Autonity {
     */
     function mintStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
         users[_account].stake = users[_account].stake.add(_amount);
+        stakeSupply = stakeSupply.add(_amount);
         emit MintStake(_account, _amount);
     }
 
@@ -166,6 +170,7 @@ contract Autonity {
     */
     function redeemStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
         users[_account].stake = users[_account].stake.sub(_amount, "Redeem stake amount exceeds balance");
+        stakeSupply = stakeSupply.sub(_amount);
         emit RedeemStake(_account, _amount);
     }
 
@@ -268,13 +273,15 @@ contract Autonity {
     function performRedistribution(uint256 _amount) public onlyDeployer(msg.sender) {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
         require(stakeholders.length > 0, "there must be stack holders");
-        uint256 stakeSupply =_amount.div(stakeholders.length);
 
         for (uint256 i = 0; i < stakeholders.length; i++) {
             User storage _user = users[stakeholders[i]];
-            //temp basic strategy. should be rewritten after
-            _user.addr.transfer(stakeSupply);
+            _user.addr.transfer(_user.stake.mul(_amount).div(stakeSupply));
         }
+    }
+
+    function totalSupply() public view returns (uint) {
+        return stakeSupply;
     }
 
     /*
@@ -344,6 +351,7 @@ contract Autonity {
             validators.push(u.addr);
             stakeholders.push(u.addr);
         }
+        stakeSupply = stakeSupply.add(_stake);
 
         if(bytes(u.enode).length != 0) {
             enodesWhitelist.push(u.enode);
