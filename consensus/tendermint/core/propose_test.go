@@ -204,8 +204,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		var decProposal Proposal
-		if err := msg.Decode(&decProposal); err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
+		if decErr := msg.Decode(&decProposal); decErr != nil {
+			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
 
 		var prevote = Vote{
@@ -298,8 +298,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		var decProposal Proposal
-		if err := msg.Decode(&decProposal); err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
+		if decErr := msg.Decode(&decProposal); decErr != nil {
+			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
 
 		backendMock := NewMockBackend(ctrl)
@@ -362,8 +362,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		var decProposal Proposal
-		if err := msg.Decode(&decProposal); err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
+		if decErr := msg.Decode(&decProposal); decErr != nil {
+			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
 
 		var prevote = Vote{
@@ -458,8 +458,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		var decProposal Proposal
-		if err := msg.Decode(&decProposal); err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
+		if decErr := msg.Decode(&decProposal); decErr != nil {
+			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
 
 		var prevote = Vote{
