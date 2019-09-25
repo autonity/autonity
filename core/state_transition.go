@@ -120,7 +120,6 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, contract *autonit
 		value:    msg.Value(),
 		data:     msg.Data(),
 		state:    evm.StateDB,
-		autonityContract:contract,
 	}
 }
 
