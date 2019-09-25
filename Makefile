@@ -45,7 +45,7 @@ test-race-all: all
 
 test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
-	go test -race -v ./consensus/test/... -timeout 10m
+	go test -race -v ./consensus/test/... -timeout 30m
 
 mock-gen:
 	mockgen -source=consensus/tendermint/validator/validator_interface.go -package=validator -destination=consensus/tendermint/validator/validator_mock.go
