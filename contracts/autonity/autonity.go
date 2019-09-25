@@ -100,6 +100,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	//That should always be genesis validators
 	contractABI, err := abi.JSON(strings.NewReader(chain.Config().AutonityContractConfig.ABI))
 	if err != nil {
+		log.Error("abi.JSON returns err", "err", err)
 		return common.Address{}, err
 	}
 
@@ -108,7 +109,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	enodes := make([]string, 0, ln)
 	accTypes := make([]*big.Int, 0, ln)
 	participantStake := make([]*big.Int, 0, ln)
-	for _, v := range chain.Config().AutonityContractConfig.GetValidatorUsers() {
+	for _, v := range chain.Config().AutonityContractConfig.Users {
 		validators = append(validators, v.Address)
 		enodes = append(enodes, v.Enode)
 		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
@@ -123,6 +124,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		chain.Config().AutonityContractConfig.Operator,
 		new(big.Int).SetUint64(chain.Config().AutonityContractConfig.MinGasPrice))
 	if err != nil {
+		log.Error("contractABI.Pack returns err", "err", err)
 		return common.Address{}, err
 	}
 
@@ -133,6 +135,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	// Deploy the Soma validator governance contract
 	_, contractAddress, _, vmerr := evm.Create(sender, data, gas, value)
 	if vmerr != nil {
+		log.Error("evm.Create returns err", "err", vmerr)
 		return contractAddress, vmerr
 	}
 	ac.Lock()
@@ -144,6 +147,9 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 }
 
 func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
+	if header.Number.Cmp(big.NewInt(1)) == 0 {
+		return ac.SavedValidatorsRetriever(1)
+	}
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
@@ -166,7 +172,7 @@ func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *t
 
 	var addresses []common.Address
 	if err := contractABI.Unpack(&addresses, "getValidators", ret); err != nil { // can't work with aliased types
-		log.Error("Could not unpack getValidators returned value", err)
+		log.Error("Could not unpack getValidators returned value", "err", err)
 		return nil, err
 	}
 
@@ -317,6 +323,60 @@ func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.H
 		return vmerr
 	}
 	return nil
+}
+
+func (ac *Contract) PerformRedistribution(header *types.Header, db *state.StateDB, gasUsed *big.Int) error {
+	if header.Number.Uint64() <= 1 {
+		return nil
+	}
+	return ac.callPerformRedistribution(db, header, gasUsed)
+}
+
+func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *types.Header, blockGas *big.Int) error {
+	// Needs to be refactored somehow
+	deployer := ac.bc.Config().AutonityContractConfig.Deployer
+	var contractABI = ac.bc.Config().AutonityContractConfig.ABI
+
+	sender := vm.AccountRef(deployer)
+	gas := uint64(0xFFFFFFFF)
+	evm := ac.getEVM(header, deployer, state)
+
+	ABI, err := abi.JSON(strings.NewReader(contractABI))
+	if err != nil {
+		return err
+	}
+
+	input, err := ABI.Pack("performRedistribution", blockGas)
+	if err != nil {
+		log.Error("Error Autonity Contract callPerformRedistribution()", "err", err)
+		return err
+	}
+
+	value := new(big.Int).SetUint64(0x00)
+
+	_, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
+	if vmerr != nil {
+		log.Error("Error Autonity Contract callPerformRedistribution()", "err", err)
+		return vmerr
+	}
+	return nil
+}
+
+func (ac *Contract) AppplyPerformRedistribution(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) error {
+	log.Error("AppplyPerformRedistribution", "header", header.Number.Uint64())
+	if header.Number.Cmp(big.NewInt(1)) < 1 {
+		return nil
+	}
+	blockGas := new(big.Int)
+	for i, tx := range transactions {
+		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
+	}
+	log.Error("execution start AppplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
+	if blockGas.Cmp(new(big.Int)) == 0 {
+		log.Error("execution start AppplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64())
+		return nil
+	}
+	return ac.PerformRedistribution(header, statedb, blockGas)
 }
 
 func (ac *Contract) Address() common.Address {
