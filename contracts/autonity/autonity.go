@@ -354,7 +354,7 @@ func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *type
 
 	value := new(big.Int).SetUint64(0x00)
 
-	_, _, vmerr := evm.Call(sender, ac.Address, input, gas, value)
+	_, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract callPerformRedistribution()", "err", err)
 		return vmerr
@@ -371,9 +371,9 @@ func (ac *Contract) AppplyPerformRedistribution(transactions types.Transactions,
 	for i, tx := range transactions {
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
-	log.Error("execution start AppplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
+	log.Error("execution start AppplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
 	if blockGas.Cmp(new(big.Int)) == 0 {
-		log.Error("execution start AppplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address), "block", header.Number.Uint64())
+		log.Error("execution start AppplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64())
 		return nil
 	}
 	return ac.PerformRedistribution(header, statedb, blockGas)
