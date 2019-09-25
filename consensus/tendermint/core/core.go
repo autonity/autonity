@@ -88,6 +88,9 @@ func New(backend Backend, config *config.Config) *core {
 		currentHeightOldRoundsStates: make(map[int64]roundState),
 		lockedRound:                  big.NewInt(-1),
 		validRound:                   big.NewInt(-1),
+		proposeTimeout:               newTimeout(propose),
+		prevoteTimeout:               newTimeout(prevote),
+		precommitTimeout:             newTimeout(precommit),
 	}
 }
 
@@ -302,18 +305,10 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		c.futureRoundsChange = make(map[int64]int64)
 	}
 	// Reset all timeouts
-	proposeTime := newTimeout(propose)
-	if ok := c.proposeTimeout.set(proposeTime); !ok {
-		c.proposeTimeout = proposeTime
-	}
-	prevoteTime := newTimeout(prevote)
-	if ok := c.prevoteTimeout.set(prevoteTime); !ok {
-		c.prevoteTimeout = prevoteTime
-	}
-	precommitTime := newTimeout(precommit)
-	if ok := c.precommitTimeout.set(precommitTime); !ok {
-		c.precommitTimeout = precommitTime
-	}
+	c.proposeTimeout.reset(propose)
+	c.prevoteTimeout.reset(prevote)
+	c.precommitTimeout.reset(precommit)
+
 	// Get all rounds from c.futureRoundsChange and remove previous rounds
 	var i int64
 	for i = 0; i <= r.Int64(); i++ {

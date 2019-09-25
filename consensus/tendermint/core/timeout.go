@@ -74,23 +74,17 @@ func (t *timeout) stopTimer() error {
 	return nil
 }
 
-func (t *timeout) set(timeoutNew *timeout) bool {
-	if t == nil {
-		return false
-	}
-
+func (t *timeout) reset(s Step) {
 	err := t.stopTimer()
 	if err != nil {
-		// log error and reset timer
 		log.Info("cant stop timer", "err", err)
 	}
 
 	t.Lock()
 	defer t.Unlock()
-	t.started = timeoutNew.started
-	t.step = timeoutNew.step
-	t.timer = timeoutNew.timer
-	return true
+	t.timer = nil
+	t.started = false
+	t.step = s
 }
 
 /////////////// On Timeout Functions ///////////////
