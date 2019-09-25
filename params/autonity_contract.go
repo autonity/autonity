@@ -19,10 +19,10 @@ const (
 	UserValidator = "validator"
 )
 
-var userTypeID = map[UserType] int {
-	UserParticipant:0,
-	UserStakeHolder:1,
-	UserValidator:2,
+var userTypeID = map[UserType]int{
+	UserParticipant: 0,
+	UserStakeHolder: 1,
+	UserValidator:   2,
 }
 
 type UserType string

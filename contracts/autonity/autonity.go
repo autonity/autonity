@@ -381,8 +381,8 @@ func (ac *Contract) AppplyPerformRedistribution(transactions types.Transactions,
 
 func (ac *Contract) Address() common.Address {
 	if reflect.DeepEqual(ac.address, common.Address{}) {
-		addr,err:=ac.bc.Config().AutonityContractConfig.GetContractAddress()
-		if err!=nil {
+		addr, err := ac.bc.Config().AutonityContractConfig.GetContractAddress()
+		if err != nil {
 			log.Error("Cant get contract address", "err", err)
 		}
 		return addr
