@@ -1,6 +1,8 @@
 package core
 
 import (
+	"crypto/ecdsa"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
@@ -18,4 +20,13 @@ func generateValidators(n int) []common.Address {
 
 func newTestValidatorSet(n int) validator.Set {
 	return validator.NewSet(generateValidators(n), config.RoundRobin)
+}
+
+func generatePrivateKey() (*ecdsa.PrivateKey, error) {
+	key := "bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1"
+	return crypto.HexToECDSA(key)
+}
+
+func getAddress() common.Address {
+	return common.HexToAddress("0x70524d664ffe731100208a0154e556f9bb679ae6")
 }
