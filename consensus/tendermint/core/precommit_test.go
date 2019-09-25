@@ -486,6 +486,9 @@ func TestHandleCommit(t *testing.T) {
 		backend:           backendMock,
 		currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
 		logger:            log.New("backend", "test", "id", 0),
+		proposeTimeout:    newTimeout(propose),
+		prevoteTimeout:    newTimeout(prevote),
+		precommitTimeout:  newTimeout(precommit),
 		valSet:            new(validatorSet),
 	}
 	c.handleCommit(context.Background())
