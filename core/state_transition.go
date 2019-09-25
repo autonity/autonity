@@ -59,7 +59,6 @@ type StateTransition struct {
 	data       []byte
 	state      vm.StateDB
 	evm        *vm.EVM
-	autonityContract *autonity.Contract
 }
 
 // Message represents a message sent to a contract.
