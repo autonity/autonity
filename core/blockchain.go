@@ -177,7 +177,7 @@ type BlockChain struct {
 	terminateInsert func(common.Hash, uint64) bool // Testing hook used to terminate ancient receipt chain insertion.
 
 	autonityContract *autonity.Contract
-	//openNetwork      bool // True if we should disable permissioning
+	openNetwork      bool // True if we should disable permissioning
 }
 
 // NewBlockChain returns a fully initialised block chain using information

@@ -55,7 +55,7 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 
 // Get Autonity contract address
 func (api *API) GetContractAddress() common.Address {
-	return api.tendermint.blockchain.GetAutonityContract().Address
+	return api.tendermint.blockchain.GetAutonityContract().Address()
 }
 
 // Get Autonity contract ABI
