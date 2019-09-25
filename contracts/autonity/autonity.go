@@ -147,7 +147,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 }
 
 func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
-	if header.Number.Cmp(big.NewInt(1)) == 0 && ac.SavedValidatorsRetriever!=nil {
+	if header.Number.Cmp(big.NewInt(1)) == 0 && ac.SavedValidatorsRetriever != nil {
 		return ac.SavedValidatorsRetriever(1)
 	}
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
