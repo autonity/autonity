@@ -60,7 +60,7 @@ func (api *API) GetContractABI() string {
 
 // Get Autonity contract address
 func (api *API) GetContractAddress() common.Address {
-	return api.istanbul.blockchain.GetAutonityContract().Address
+	return api.istanbul.blockchain.GetAutonityContract().Address()
 }
 
 // Get current white list

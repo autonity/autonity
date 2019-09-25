@@ -12,20 +12,30 @@ import (
 
 const (
 	//participant: Authorized to operate a full node, is able to join the network, is not authorized to own stake.
-	UserParticipant UserType = iota
+	UserParticipant = "participant"
 	//member: Authorized to operate a full node, is able to join the network, authorized to own stake.
-	UserStakeHolder
+	UserStakeHolder = "stakeholder"
 	//validator: Authorized to operate a full node, is able to join the network, authorized to own stake, participate in consensus.
-	UserValidator
+	UserValidator = "validator"
 )
 
-type UserType int
+var userTypeID = map[UserType] int {
+	UserParticipant:0,
+	UserStakeHolder:1,
+	UserValidator:2,
+}
+
+type UserType string
 
 func (ut UserType) IsValid() bool {
 	if ut == UserStakeHolder || ut == UserValidator || ut == UserParticipant {
 		return true
 	}
 	return false
+}
+
+func (ut UserType) GetID() int {
+	return userTypeID[ut]
 }
 
 // Autonity contract config. It'is used for deployment.

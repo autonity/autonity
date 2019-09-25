@@ -11,8 +11,10 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
 	"math/big"
+	"reflect"
 	"sort"
 	"strings"
+	"sync"
 )
 
 func NewAutonityContract(
@@ -48,13 +50,14 @@ type Blockchainer interface {
 }
 
 type Contract struct {
-	Address                  common.Address
+	address                  common.Address
 	bc                       Blockchainer
 	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
 
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool
 	transfer    func(db vm.StateDB, sender, recipient common.Address, amount *big.Int)
 	GetHashFn   func(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
+	sync.RWMutex
 }
 
 var Sl = vm.NewStructLogger(&vm.LogConfig{
@@ -109,7 +112,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	for _, v := range chain.Config().AutonityContractConfig.Users {
 		validators = append(validators, v.Address)
 		enodes = append(enodes, v.Enode)
-		accTypes = append(accTypes, big.NewInt(int64(v.Type)))
+		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
 		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
 	}
 
@@ -135,8 +138,10 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		log.Error("evm.Create returns err", "err", vmerr)
 		return contractAddress, vmerr
 	}
-	ac.Address = contractAddress
-	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
+	ac.Lock()
+	ac.address = contractAddress
+	ac.Unlock()
+	log.Error("Deployed Autonity Contract", "Address", contractAddress.String())
 
 	return contractAddress, nil
 }
@@ -160,7 +165,7 @@ func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *t
 
 	value := new(big.Int).SetUint64(0x00)
 	//A standard call is issued - we leave the possibility to modify the state
-	ret, _, vmerr := evm.Call(sender, ac.Address, input, gas, value)
+	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
 	if vmerr != nil {
 		return nil, vmerr
 	}
@@ -227,7 +232,7 @@ func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header)
 		return nil, err
 	}
 
-	ret, _, vmerr := evm.StaticCall(sender, ac.Address, input, gas)
+	ret, _, vmerr := evm.StaticCall(sender, ac.Address(), input, gas)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract getWhitelist()")
 		return nil, vmerr
@@ -278,7 +283,7 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 	}
 
 	value := new(big.Int).SetUint64(0x00)
-	ret, _, vmerr := evm.Call(sender, ac.Address, input, gas, value)
+	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract getMinimumGasPrice()")
 		return 0, vmerr
@@ -312,7 +317,7 @@ func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.H
 		return err
 	}
 
-	_, _, vmerr := evm.Call(sender, ac.Address, input, gas, price)
+	_, _, vmerr := evm.Call(sender, ac.Address(), input, gas, price)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract getMinimumGasPrice()")
 		return vmerr
@@ -372,4 +377,15 @@ func (ac *Contract) AppplyPerformRedistribution(transactions types.Transactions,
 		return nil
 	}
 	return ac.PerformRedistribution(header, statedb, blockGas)
+}
+
+func (ac *Contract) Address() common.Address {
+	if reflect.DeepEqual(ac.address, common.Address{}) {
+		addr,err:=ac.bc.Config().AutonityContractConfig.GetContractAddress()
+		if err!=nil {
+			log.Error("Cant get contract address", "err", err)
+		}
+		return addr
+	}
+	return ac.address
 }
