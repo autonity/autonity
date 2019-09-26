@@ -21,7 +21,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"math/big"
 	"reflect"
 	"testing"
@@ -653,13 +652,11 @@ func TestValidatorsSaved(t *testing.T) {
 	}
 	_, err = chain.GetAutonityContract().DeployAutonityContract(chain, h, sdb)
 	if err != nil {
-		t.Log(string(autonity.Sl.Output()))
 		t.Fatal(err)
 	}
 
 	res, err := chain.GetAutonityContract().ContractGetValidators(chain, h, sdb)
 	if err != nil {
-		t.Log(string(autonity.Sl.Output()))
 		t.Fatal(err)
 	}
 	if len(res) == 0 {

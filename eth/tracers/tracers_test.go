@@ -181,7 +181,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to prepare transaction for tracing: %v", err)
 	}
-	st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()), nil)
+	st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
 	if _, _, _, err = st.TransitionDb(); err != nil {
 		t.Fatalf("failed to execute transaction: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestCallTracer(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to prepare transaction for tracing: %v", err)
 			}
-			st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()), nil)
+			st := core.NewStateTransition(evm, msg, new(core.GasPool).AddGas(tx.Gas()))
 			if _, _, _, err = st.TransitionDb(); err != nil {
 				t.Fatalf("failed to execute transaction: %v", err)
 			}

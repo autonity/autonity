@@ -60,13 +60,8 @@ type Contract struct {
 	sync.RWMutex
 }
 
-var Sl = vm.NewStructLogger(&vm.LogConfig{
-	Debug: true,
-})
-
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
 func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
-
 	coinbase, _ := types.Ecrecover(header)
 	evmContext := vm.Context{
 		CanTransfer: ac.canTransfer,
@@ -363,7 +358,7 @@ func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *type
 }
 
 func (ac *Contract) AppplyPerformRedistribution(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) error {
-	log.Error("AppplyPerformRedistribution", "header", header.Number.Uint64())
+	log.Info("AppplyPerformRedistribution", "header", header.Number.Uint64())
 	if header.Number.Cmp(big.NewInt(1)) < 1 {
 		return nil
 	}
@@ -371,7 +366,7 @@ func (ac *Contract) AppplyPerformRedistribution(transactions types.Transactions,
 	for i, tx := range transactions {
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
-	log.Error("execution start AppplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
+	log.Info("execution start AppplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
 	if blockGas.Cmp(new(big.Int)) == 0 {
 		log.Error("execution start AppplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64())
 		return nil

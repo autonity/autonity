@@ -18,7 +18,6 @@ package core
 
 import (
 	"errors"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"math"
 	"math/big"
 
@@ -110,7 +109,7 @@ func IntrinsicGas(data []byte, contractCreation, homestead bool) (uint64, error)
 }
 
 // NewStateTransition initialises and returns a new state transition object.
-func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, contract *autonity.Contract) *StateTransition {
+func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition {
 	return &StateTransition{
 		gp:       gp,
 		evm:      evm,
@@ -129,8 +128,8 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, contract *autonit
 // the gas used (which includes gas refunds) and an error if it failed. An error always
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
-func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, contract *autonity.Contract) ([]byte, uint64, bool, error) {
-	return NewStateTransition(evm, msg, gp, contract).TransitionDb()
+func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) ([]byte, uint64, bool, error) {
+	return NewStateTransition(evm, msg, gp).TransitionDb()
 }
 
 // to returns the recipient of the message.

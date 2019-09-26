@@ -367,13 +367,6 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	return types.NewBlock(header, txs, nil, receipts), nil
 }
 
-type AutonityContractor interface {
-	DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error)
-	ContractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error)
-	UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error
-	GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error)
-}
-
 func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainReader, state *state.StateDB) ([]common.Address, error) {
 	var validators []common.Address
 
