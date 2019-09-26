@@ -242,7 +242,7 @@ func TestVerifySeal(t *testing.T) {
 	}
 }
 
-/* The logic of this needs to change with respect of Soma */
+/* The logic of this needs to change with respect of Autonity contact */
 func TestVerifyHeaders(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
@@ -299,7 +299,7 @@ OUT1:
 	}
 }
 
-/* The logic of this needs to change with respect of Soma */
+/* The logic of this needs to change with respect of Autonity contact */
 func TestVerifyHeadersAbortValidation(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
@@ -360,7 +360,7 @@ OUT2:
 	}
 }
 
-/* The logic of this needs to change with respect of Soma */
+/* The logic of this needs to change with respect of Autonity contact */
 func TestVerifyErrorHeaders(t *testing.T) {
 	chain, engine := newBlockChain(1)
 

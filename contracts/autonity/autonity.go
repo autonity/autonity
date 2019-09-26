@@ -127,7 +127,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	gas := uint64(0xFFFFFFFF)
 	value := new(big.Int).SetUint64(0x00)
 
-	// Deploy the Soma validator governance contract
+	// Deploy the Autonity contract
 	_, contractAddress, _, vmerr := evm.Create(sender, data, gas, value)
 	if vmerr != nil {
 		log.Error("evm.Create returns err", "err", vmerr)

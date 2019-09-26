@@ -17,7 +17,6 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"sync/atomic"
 
 	"github.com/clearmatics/autonity/common"

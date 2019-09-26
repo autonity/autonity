@@ -404,7 +404,7 @@ func TestVerifySeal(t *testing.T) {
 	}
 }
 
-/* The logic of this needs to change with respect of Soma */
+/* The logic of this needs to change with respect of Autonity contact */
 func TestVerifyHeaders(t *testing.T) {
 	chain, engine, err := newBlockChain(1)
 	if err != nil {

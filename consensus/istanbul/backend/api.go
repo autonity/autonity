@@ -53,7 +53,7 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 	return addresses, nil
 }
 
-// Get Soma contract ABI
+// Get Autonity contract ABI
 func (api *API) GetContractABI() string {
 	return api.chain.Config().AutonityContractConfig.ABI
 }

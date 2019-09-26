@@ -319,10 +319,10 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		// Here the order of applying transaction matters
-		// We need to ensure that the block transactions applied before the soma and glenicke contract
+		// We need to ensure that the block transactions applied before the Autonity contract
 		if proposalNumber == 1 {
 			//Apply the same changes from consensus/tendermint/backend/engine.go:getValidator()349-369
-			log.Info("Soma Contract Deployer in test state", "Address", sb.blockchain.Config().AutonityContractConfig.Deployer)
+			log.Info("Autonity Contract Deployer in test state", "Address", sb.blockchain.Config().AutonityContractConfig.Deployer)
 
 			_, err = sb.blockchain.GetAutonityContract().DeployAutonityContract(sb.blockchain, header, state)
 			if err != nil {
