@@ -357,8 +357,8 @@ func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *type
 	return nil
 }
 
-func (ac *Contract) AppplyPerformRedistribution(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) error {
-	log.Info("AppplyPerformRedistribution", "header", header.Number.Uint64())
+func (ac *Contract) ApplyPerformRedistribution(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) error {
+	log.Info("ApplyPerformRedistribution", "header", header.Number.Uint64())
 	if header.Number.Cmp(big.NewInt(1)) < 1 {
 		return nil
 	}
@@ -366,9 +366,9 @@ func (ac *Contract) AppplyPerformRedistribution(transactions types.Transactions,
 	for i, tx := range transactions {
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
-	log.Info("execution start AppplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
+	log.Info("execution start ApplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
 	if blockGas.Cmp(new(big.Int)) == 0 {
-		log.Error("execution start AppplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64())
+		log.Error("execution start ApplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64())
 		return nil
 	}
 	return ac.PerformRedistribution(header, statedb, blockGas)

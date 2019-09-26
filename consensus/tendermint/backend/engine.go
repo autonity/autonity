@@ -356,9 +356,9 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	}
 	ac := sb.blockchain.GetAutonityContract()
 	if ac != nil && header.Number.Uint64() > 1 {
-		err = ac.AppplyPerformRedistribution(txs, receipts, header, statedb)
+		err = ac.ApplyPerformRedistribution(txs, receipts, header, statedb)
 		if err != nil {
-			log.Error("AppplyPerformRedistribution", "err", err.Error())
+			log.Error("ApplyPerformRedistribution", "err", err.Error())
 			return nil, err
 		}
 	}
