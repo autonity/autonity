@@ -272,7 +272,7 @@ contract Autonity {
 
     function performRedistribution(uint256 _amount) public onlyDeployer(msg.sender) {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
-        require(stakeholders.length > 0, "there must be stack holders");
+        require(stakeholders.length > 0, "there must be stake holders");
 
         for (uint256 i = 0; i < stakeholders.length; i++) {
             User storage _user = users[stakeholders[i]];
