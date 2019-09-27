@@ -16,8 +16,8 @@ jobs:
   include:
       - &tests
         stage: "Build, linters and tests"
-        env:
-          - GORACE="history_size=7"
+#        env:
+#          - GORACE="history_size=7"
         after_success:
           - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
         after_failure:
