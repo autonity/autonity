@@ -382,6 +382,8 @@ func (ac *Contract) Address() common.Address {
 }
 
 func (ac *Contract) abi() (*abi.ABI, error) {
+	ac.Lock()
+	defer ac.Unlock()
 	if ac.contractABI != nil {
 		return ac.contractABI, nil
 	}
@@ -389,9 +391,7 @@ func (ac *Contract) abi() (*abi.ABI, error) {
 	if err != nil {
 		return nil, err
 	}
-	ac.Lock()
 	ac.contractABI = &ABI
-	ac.Unlock()
 	return ac.contractABI, nil
 
 }
