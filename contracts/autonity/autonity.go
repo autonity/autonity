@@ -368,7 +368,7 @@ func (ac *Contract) ApplyPerformRedistribution(transactions types.Transactions, 
 	}
 	log.Info("execution start ApplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
 	if blockGas.Cmp(new(big.Int)) == 0 {
-		log.Error("execution start ApplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64())
+		log.Info("execution start ApplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64())
 		return nil
 	}
 	return ac.PerformRedistribution(header, statedb, blockGas)
