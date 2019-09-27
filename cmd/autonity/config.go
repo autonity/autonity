@@ -169,8 +169,15 @@ func dumpConfig(ctx *cli.Context) error {
 		}
 		defer dump.Close()
 	}
-	_, _ = dump.WriteString(comment)
-	_, _ = dump.Write(out)
+	_, err = dump.WriteString(comment)
+	if err != nil {
+		return err
+	}
+
+	_, err = dump.Write(out)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

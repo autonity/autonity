@@ -98,8 +98,8 @@ type ProtocolManager struct {
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
-	glienickeCh         chan core.GlienickeEvent
-	glienickeSub        event.Subscription
+	whitelistCh         chan core.WhitelistEvent
+	whitelistSub        event.Subscription
 	enodesWhitelist     []*enode.Node
 	enodesWhitelistLock sync.RWMutex
 	// wait group is used for graceful shutdowns during downloading
@@ -128,7 +128,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		quitSync:    make(chan struct{}),
 		engine:      engine,
 		openNetwork: openNetwork,
-		glienickeCh: make(chan core.GlienickeEvent, 64),
+		whitelistCh: make(chan core.WhitelistEvent, 64),
 	}
 
 	if handler, ok := manager.engine.(consensus.Handler); ok {
@@ -277,7 +277,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	// update peers whitelist
 	if !pm.openNetwork {
-		pm.glienickeSub = pm.blockchain.SubscribeGlienickeEvent(pm.glienickeCh)
+		pm.whitelistSub = pm.blockchain.SubscribeAutonityEvents(pm.whitelistCh)
 		go pm.glienickeEventLoop()
 	}
 
@@ -292,7 +292,7 @@ func (pm *ProtocolManager) Stop() {
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 	if !pm.openNetwork {
-		pm.glienickeSub.Unsubscribe() // quits glienickeEventLoop
+		pm.whitelistSub.Unsubscribe() // quits glienickeEventLoop
 	}
 
 	// Quit the sync loop.
@@ -318,12 +318,12 @@ func (pm *ProtocolManager) Stop() {
 func (pm *ProtocolManager) glienickeEventLoop() {
 	for {
 		select {
-		case event := <-pm.glienickeCh:
+		case event := <-pm.whitelistCh:
 			pm.enodesWhitelistLock.Lock()
 			pm.enodesWhitelist = event.Whitelist
 			pm.enodesWhitelistLock.Unlock()
 		// Err() channel will be closed when unsubscribing.
-		case <-pm.glienickeSub.Err():
+		case <-pm.whitelistSub.Err():
 			return
 		}
 	}
@@ -364,6 +364,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 				break
 			}
 		}
+
 		pm.enodesWhitelistLock.RUnlock()
 		if !whitelisted && p.td.Uint64() <= head.Number.Uint64()+1 {
 			p.Log().Info("dropping unauthorized peer with old TD",

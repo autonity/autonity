@@ -65,14 +65,6 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		config.Epoch = chainConfig.Tendermint.Epoch
 	}
 
-	if chainConfig.Tendermint.Bytecode != "" && chainConfig.Tendermint.ABI != "" {
-		config.Bytecode = chainConfig.Tendermint.Bytecode
-		config.ABI = chainConfig.Tendermint.ABI
-		log.Info("Default Validator smart contract set")
-	} else {
-		log.Info("User specified Validator smart contract set")
-	}
-
 	if chainConfig.Tendermint.RequestTimeout != 0 {
 		config.RequestTimeout = chainConfig.Tendermint.RequestTimeout
 	}
@@ -133,10 +125,9 @@ type Backend struct {
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
 
-	somaContract      common.Address // Ethereum address of the governance contract
-	glienickeContract common.Address // Ethereum address of the white list contract
-	contractsMu       sync.RWMutex
-	vmConfig          *vm.Config
+	autonityContractAddress common.Address // Ethereum address of the white list contract
+	contractsMu             sync.RWMutex
+	vmConfig                *vm.Config
 
 	resend chan messageToPeers
 }
@@ -328,18 +319,17 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		// Here the order of applying transaction matters
-		// We need to ensure that the block transactions applied before the soma and glenicke contract
+		// We need to ensure that the block transactions applied before the Autonity contract
 		if proposalNumber == 1 {
 			//Apply the same changes from consensus/tendermint/backend/engine.go:getValidator()349-369
-			log.Info("Soma Contract Deployer in test state", "Address", sb.config.Deployer)
+			log.Info("Autonity Contract Deployer in test state", "Address", sb.blockchain.Config().AutonityContractConfig.Deployer)
 
-			_, err = sb.deployContract(sb.blockchain, header, state)
+			_, err = sb.blockchain.GetAutonityContract().DeployAutonityContract(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
 			}
-
-			// Deploy Glienicke network-permissioning contract
-			_, _, err = sb.blockchain.DeployGlienickeContract(state, header)
+		} else if proposalNumber > 1 {
+			err = sb.blockchain.GetAutonityContract().ApplyPerformRedistribution(block.Transactions(), receipts, block.Header(), state)
 			if err != nil {
 				return 0, err
 			}
@@ -351,7 +341,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		if proposalNumber > 1 {
-			validators, err = sb.contractGetValidators(sb.blockchain, header, state)
+			validators, err = sb.blockchain.GetAutonityContract().ContractGetValidators(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
 			}
@@ -458,7 +448,7 @@ func (sb *Backend) WhiteList() []string {
 		return nil
 	}
 
-	enodes, err := sb.blockchain.GetWhitelist(sb.blockchain.CurrentBlock(), db)
+	enodes, err := sb.blockchain.GetAutonityContract().GetWhitelist(sb.blockchain.CurrentBlock(), db)
 	if err != nil {
 		sb.logger.Error("Failed to get block white list", "err", err)
 		return nil

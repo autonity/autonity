@@ -395,21 +395,27 @@ func TestClique(t *testing.T) {
 			}
 		}
 		// Create the genesis block with the initial set of signers
-		genesis := &core.Genesis{
-			ExtraData: make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal),
+		var (
+			db     = rawdb.NewMemoryDatabase()
+			config = params.TestChainConfig
+		)
+		genSpec := &core.Genesis{
+			Config: config,
 		}
+
+		genSpec.ExtraData = make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal)
 		for j, signer := range signers {
-			copy(genesis.ExtraData[extraVanity+j*common.AddressLength:], signer[:])
+			copy(genSpec.ExtraData[extraVanity+j*common.AddressLength:], signer[:])
 		}
-		genesis.Config = new(params.ChainConfig)
-		*genesis.Config = *params.AllCliqueProtocolChanges
-		genesis.Config.EnodeWhitelist = []string{"enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"}
+		genSpec.Config = new(params.ChainConfig)
+		*genSpec.Config = *params.AllCliqueProtocolChanges
 		// Create a pristine blockchain with the genesis injected
-		db := rawdb.NewMemoryDatabase()
-		genesis.Commit(db)
+		_, err := genSpec.Commit(db)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		// Assemble a chain of headers from the cast votes
-		config := *params.TestChainConfig
 		config.Clique = &params.CliqueConfig{
 			Period: 1,
 			Epoch:  tt.epoch,
@@ -418,13 +424,13 @@ func TestClique(t *testing.T) {
 		engine := New(config.Clique, db)
 		engine.fakeDiff = true
 
-		chain, err := core.NewBlockChain(db, nil, &config, engine, vm.Config{}, nil)
+		chain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil)
 		if err != nil {
 			t.Fatalf("test %d: failed to create test chain: %v", i, err)
 			continue
 		}
 
-		blocks, _ := core.GenerateChain(&config, genesis.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen) {
+		blocks, _ := core.GenerateChain(config, genSpec.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen) {
 			// Cast the vote contained in this block
 			gen.SetCoinbase(accounts.address(tt.votes[j].voted))
 			if tt.votes[j].auth {

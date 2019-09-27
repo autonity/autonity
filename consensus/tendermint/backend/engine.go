@@ -354,6 +354,14 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 		log.Error("FinalizeAndAssemble. after getValidators", "err", err.Error())
 		return nil, err
 	}
+	ac := sb.blockchain.GetAutonityContract()
+	if ac != nil && header.Number.Uint64() > 1 {
+		err = ac.ApplyPerformRedistribution(txs, receipts, header, statedb)
+		if err != nil {
+			log.Error("ApplyPerformRedistribution", "err", err.Error())
+			return nil, err
+		}
+	}
 
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
@@ -369,71 +377,40 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 }
 
 func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainReader, state *state.StateDB) ([]common.Address, error) {
+	sb.contractsMu.Lock()
+	defer sb.contractsMu.Unlock()
 	var validators []common.Address
-	var err error
 
 	if header.Number.Int64() == 1 {
-		// Deploy Soma on-blockchain governance contract
-		log.Info("Soma Contract Deployer", "Address", sb.config.Deployer)
-		var contractAddress common.Address
-		contractAddress, err = sb.deployContract(chain, header, state)
+		sb.blockchain.GetAutonityContract().SavedValidatorsRetriever = func(i uint64) (addresses []common.Address, e error) {
+			chain := chain
+			return sb.retrieveSavedValidators(i, chain)
+		}
+		contractAddress, err := sb.blockchain.GetAutonityContract().DeployAutonityContract(chain, header, state)
 		if err != nil {
+			log.Error("Deploy autonity contract error", "error", err)
 			return nil, err
 		}
-		sb.setSomaContract(contractAddress)
+		sb.autonityContractAddress = contractAddress
 		validators, err = sb.retrieveSavedValidators(1, chain)
 		if err != nil {
 			return nil, err
 		}
 
-		// Deploy Glienicke network-permissioning contract
-		var glienickeAddr common.Address
-		_, glienickeAddr, err = sb.blockchain.DeployGlienickeContract(state, header)
-		if err != nil {
-			return nil, err
-		}
-		sb.setGlienickeContract(glienickeAddr)
-
 	} else {
-		if sb.getSomaContract() == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.setSomaContract(crypto.CreateAddress(sb.config.Deployer, 0))
+		if sb.autonityContractAddress == common.HexToAddress("0000000000000000000000000000000000000000") {
+			sb.autonityContractAddress = crypto.CreateAddress(sb.blockchain.Config().AutonityContractConfig.Deployer, 0)
 		}
 
-		if sb.getGlienickeContract() == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.setGlienickeContract(crypto.CreateAddress(sb.blockchain.Config().GetGlienickeDeployer(), 0))
-		}
-
-		validators, err = sb.contractGetValidators(chain, header, state)
+		var err error
+		validators, err = sb.blockchain.GetAutonityContract().ContractGetValidators(chain, header, state)
 		if err != nil {
+			log.Error("ContractGetValidators returns err", "err", err)
 			return nil, err
 		}
 	}
 
-	return validators, err
-}
-
-func (sb *Backend) getSomaContract() common.Address {
-	sb.contractsMu.RLock()
-	defer sb.contractsMu.RUnlock()
-	return sb.somaContract
-}
-
-func (sb *Backend) setSomaContract(addr common.Address) {
-	sb.contractsMu.Lock()
-	defer sb.contractsMu.Unlock()
-	sb.somaContract = addr
-}
-
-func (sb *Backend) getGlienickeContract() common.Address {
-	sb.contractsMu.RLock()
-	defer sb.contractsMu.RUnlock()
-	return sb.glienickeContract
-}
-
-func (sb *Backend) setGlienickeContract(addr common.Address) {
-	sb.contractsMu.Lock()
-	defer sb.contractsMu.Unlock()
-	sb.glienickeContract = addr
+	return validators, nil
 }
 
 // Seal generates a new block for the given input block with the local miner's

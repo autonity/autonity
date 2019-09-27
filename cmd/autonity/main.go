@@ -237,7 +237,7 @@ func init() {
 			if !ctx.GlobalIsSet(utils.TestnetFlag.Name) && !ctx.GlobalIsSet(utils.RinkebyFlag.Name) && !ctx.GlobalIsSet(utils.GoerliFlag.Name) && !ctx.GlobalIsSet(utils.DeveloperFlag.Name) {
 				// Nope, we're really on mainnet. Bump that cache up!
 				log.Info("Bumping default cache on mainnet", "provided", ctx.GlobalInt(utils.CacheFlag.Name), "updated", 4096)
-				_ = ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(4096))
+				_ = ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(1024))
 			}
 		}
 		// If we're running a light client on any network, drop the cache to some meaningfully low amount
@@ -276,14 +276,14 @@ func init() {
 
 	app.After = func(ctx *cli.Context) error {
 		debug.Exit()
-		console.Stdin.Close() // Resets terminal mode.
+		console.Stdin.Close() // nolint Resets terminal mode.
 		return nil
 	}
 }
 
 func main() {
 	if err := app.Run(os.Args); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, err) //nolint
 		os.Exit(1)
 	}
 }

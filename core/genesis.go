@@ -56,7 +56,6 @@ type Genesis struct {
 	Mixhash    common.Hash         `json:"mixHash"`
 	Coinbase   common.Address      `json:"coinbase"`
 	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
-	Validators []string            `json:"validators"`
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
@@ -122,7 +121,6 @@ func (h *storageJSON) UnmarshalText(text []byte) error {
 	}
 	offset := len(h) - len(text)/2 // pad on the left
 	if _, err := hex.Decode(h[offset:], text); err != nil {
-		fmt.Println(err)
 		return fmt.Errorf("invalid hex storage key/value %q", text)
 	}
 	return nil
@@ -322,24 +320,35 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadFastBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	g.Config.SortEnodeWhitelist()
+	if g.Config.AutonityContractConfig != nil {
+		enodes := []string{}
+		for _, v := range g.Config.AutonityContractConfig.Users {
+			if v.Enode != "" {
+				enodes = append(enodes, v.Enode)
+			}
+		}
 
-	config := g.Config.Copy()
-
-	rawdb.WriteEnodeWhitelist(db, types.NewNodes(config.GetEnodeWhitelist(), true))
-	rawdb.WriteChainConfig(db, block.Hash(), config)
+		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodes, true))
+	}
+	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }
 
 // SetBFT sets default BFT(IBFT or Tendermint) config values
 func (g *Genesis) SetBFT() error {
-	if len(g.Validators) != 0 {
-		extraData, err := g.bftValidatorExtraData(g.Validators)
-		if err != nil {
-			return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
+	if g.Config.Istanbul != nil || g.Config.Tendermint != nil && g.Config.AutonityContractConfig != nil {
+		var validators []string
+		for _, v := range g.Config.AutonityContractConfig.Users {
+			validators = append(validators, v.Address.String())
 		}
 
-		g.SetExtraData(extraData)
+		if len(validators) != 0 {
+			extraData, err := g.bftValidatorExtraData(validators)
+			if err != nil {
+				return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
+			}
+			g.SetExtraData(extraData)
+		}
 	}
 
 	log.Info("starting BFT consensus", "extraData", common.Bytes2Hex(g.GetExtraData()))

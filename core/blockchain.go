@@ -20,6 +20,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"io"
 	"math/big"
 	mrand "math/rand"
@@ -143,6 +144,7 @@ type BlockChain struct {
 	logsFeed      event.Feed
 	blockProcFeed event.Feed
 	glienickeFeed event.Feed
+	autonityFeed  event.Feed
 	scope         event.SubscriptionScope
 	genesisBlock  *types.Block
 
@@ -174,7 +176,8 @@ type BlockChain struct {
 	shouldPreserve  func(*types.Block) bool        // Function used to determine whether should preserve the given block.
 	terminateInsert func(common.Hash, uint64) bool // Testing hook used to terminate ancient receipt chain insertion.
 
-	openNetwork bool // True if we should disable Glienicke contract deployment
+	autonityContract *autonity.Contract
+	//openNetwork      bool // True if we should disable permissioning
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -232,6 +235,13 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
+	if (chainConfig.Tendermint != nil || chainConfig.Istanbul != nil) && chainConfig.AutonityContractConfig != nil {
+		bc.autonityContract = autonity.NewAutonityContract(bc, CanTransfer, Transfer, func(ref *types.Header, chain autonity.ChainContext) func(n uint64) common.Hash {
+			return GetHashFn(ref, chain)
+		})
+		bc.processor.SetAutonityContract(bc.autonityContract)
+	}
+
 	// The first thing the node will do is reconstruct the verification data for
 	// the head block (ethash cache or clique voting snapshot). Might as well do
 	// it in advance.
@@ -294,7 +304,9 @@ func (bc *BlockChain) getProcInterrupt() bool {
 
 // GetVMConfig returns the block chain VM config.
 func (bc *BlockChain) GetVMConfig() *vm.Config {
-	return &bc.vmConfig
+	cp := bc.vmConfig
+	cp.Debug = false
+	return &cp
 }
 
 // empty returns an indicator whether the blockchain is empty.
@@ -1286,8 +1298,8 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 
 	// Call network permissioning logic before committing the state
 	if bc.chainConfig.Istanbul != nil || bc.chainConfig.Tendermint != nil {
-		err = bc.updateEnodesWhitelist(state, block)
-		if err != nil && err != GlienickeContractError {
+		err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
+		if err != nil && err != autonity.ErrAutonityContract {
 			return NonStatTy, err
 		}
 	}
@@ -2176,7 +2188,8 @@ func (bc *BlockChain) GetHeaderByNumber(number uint64) *types.Header {
 }
 
 // Config retrieves the chain's fork configuration.
-func (bc *BlockChain) Config() *params.ChainConfig { return bc.chainConfig }
+func (bc *BlockChain) Config() *params.ChainConfig             { return bc.chainConfig }
+func (bc *BlockChain) GetAutonityContract() *autonity.Contract { return bc.autonityContract }
 
 // Engine retrieves the blockchain's consensus engine.
 func (bc *BlockChain) Engine() consensus.Engine { return bc.engine }
@@ -2206,12 +2219,25 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
+func (bc *BlockChain) SubscribeAutonityEvents(ch chan<- WhitelistEvent) event.Subscription {
+	return bc.scope.Track(bc.autonityFeed.Subscribe(ch))
+}
+
+func (bc *BlockChain) UpdateEnodeWhitelist(newWhitelist *types.Nodes) {
+	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
+	go bc.autonityFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
+}
+
+func (bc *BlockChain) ReadEnodeWhitelist(openNetwork bool) *types.Nodes {
+	return rawdb.ReadEnodeWhitelist(bc.db, openNetwork)
+}
+
 // SubscribeBlockProcessingEvent registers a subscription of bool where true means
 // block processing has started while false means it has stopped.
 func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscription {
 	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) SubscribeGlienickeEvent(ch chan<- GlienickeEvent) event.Subscription {
-	return bc.scope.Track(bc.glienickeFeed.Subscribe(ch))
-}
+//func (bc *BlockChain) SubscribeGlienickeEvent(ch chan<- GlienickeEvent) event.Subscription {
+//	return bc.scope.Track(bc.glienickeFeed.Subscribe(ch))
+//}

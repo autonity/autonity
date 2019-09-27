@@ -37,6 +37,7 @@ import (
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
@@ -60,8 +61,25 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
 		}
 	)
+	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{
+		Users: []params.User{},
+	}
 
-	gspec.Config.EnodeWhitelist = peers
+	for i := range peers {
+		gspec.Config.AutonityContractConfig.Users = append(
+			gspec.Config.AutonityContractConfig.Users,
+			params.User{
+				Enode: peers[i],
+				Type:  params.UserValidator,
+				Stake: 100,
+			},
+		)
+	}
+	err := gspec.Config.AutonityContractConfig.AddDefault().Validate()
+	if err != nil {
+		return nil, nil, err
+	}
+
 	genesis := gspec.MustCommit(db)
 	blockchain, err := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{}, nil)
 	if err != nil {
@@ -183,8 +201,10 @@ func newTestP2PPeer(name string) *p2p.Peer {
 	// Generate a random id and create the peer
 	var id enode.ID
 	rand.Read(id[:])
-	peer, _ := p2p.NewTestPeer(name, []p2p.Cap{})
-
+	peer, err := p2p.NewTestPeer(name, []p2p.Cap{})
+	if err != nil {
+		log.Error("newTestP2PPeer err", "error", err)
+	}
 	return peer
 }
 

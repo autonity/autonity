@@ -53,24 +53,14 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 	return addresses, nil
 }
 
-// Get Soma contract address
-func (api *API) GetSomaContractAddress() common.Address {
-	return api.tendermint.getSomaContract()
+// Get Autonity contract address
+func (api *API) GetContractAddress() common.Address {
+	return api.tendermint.blockchain.GetAutonityContract().Address()
 }
 
-// Get Soma contract ABI
-func (api *API) GetSomaContractABI() string {
-	return api.tendermint.config.ABI
-}
-
-// Get Glienicke contract address
-func (api *API) GetGlienickeContractAddress() common.Address {
-	return api.tendermint.getGlienickeContract()
-}
-
-// Get Glienicke contract ABI
-func (api *API) GetGlienickeContractABI() string {
-	return api.tendermint.blockchain.Config().GetGlienickeABI()
+// Get Autonity contract ABI
+func (api *API) GetContractABI() string {
+	return api.tendermint.blockchain.Config().AutonityContractConfig.ABI
 }
 
 // Get current white list

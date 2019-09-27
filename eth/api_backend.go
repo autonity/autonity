@@ -24,6 +24,7 @@ import (
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/bloombits"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -226,6 +227,10 @@ func (b *EthAPIBackend) EventMux() *event.TypeMux {
 
 func (b *EthAPIBackend) AccountManager() *accounts.Manager {
 	return b.eth.AccountManager()
+}
+
+func (b *EthAPIBackend) AutonityContract() *autonity.Contract {
+	return b.eth.blockchain.GetAutonityContract()
 }
 
 func (b *EthAPIBackend) ExtRPCEnabled() bool {

@@ -17,14 +17,17 @@
 package core
 
 import (
+	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/misc"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
+	"math/big"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -32,9 +35,10 @@ import (
 //
 // StateProcessor implements Processor.
 type StateProcessor struct {
-	config *params.ChainConfig // Chain configuration options
-	bc     *BlockChain         // Canonical block chain
-	engine consensus.Engine    // Consensus engine used for block rewards
+	config           *params.ChainConfig // Chain configuration options
+	bc               *BlockChain         // Canonical block chain
+	engine           consensus.Engine    // Consensus engine used for block rewards
+	autonityContract *autonity.Contract
 }
 
 // NewStateProcessor initialises a new StateProcessor.
@@ -44,6 +48,10 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 		bc:     bc,
 		engine: engine,
 	}
+}
+
+func (p *StateProcessor) SetAutonityContract(contract *autonity.Contract) {
+	p.autonityContract = contract
 }
 
 // Process processes the state changes according to the Ethereum rules by running
@@ -65,8 +73,22 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
+
+	var contractMinGasPrice = new(big.Int)
+	if p.autonityContract != nil {
+		minGasPrice, err := p.autonityContract.GetMinimumGasPrice(block, statedb)
+		if err == nil {
+			contractMinGasPrice.SetUint64(minGasPrice)
+		}
+	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
+		if contractMinGasPrice.Uint64() != 0 {
+			if tx.GasPrice().Cmp(contractMinGasPrice) == -1 {
+				return nil, nil, 0, errors.New("gas price must be greater minGasPrice")
+			}
+		}
+
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
 		if err != nil {
@@ -74,6 +96,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
+	}
+	if p.autonityContract != nil {
+		err := p.autonityContract.ApplyPerformRedistribution(block.Transactions(), receipts, block.Header(), statedb)
+		if err != nil {
+			return nil, nil, 0, err
+		}
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())

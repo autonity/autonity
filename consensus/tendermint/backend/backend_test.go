@@ -311,6 +311,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.Config = params.TestChainConfig
+	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	// force enable Istanbul engine
 	genesis.Config.Tendermint = &params.TendermintConfig{}
 	genesis.Config.Ethash = nil
@@ -319,8 +320,15 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Mixhash = types.BFTDigest
 
 	AppendValidators(genesis, addrs)
+	err := genesis.Config.AutonityContractConfig.AddDefault().Validate()
+	if err != nil {
+		panic(err)
+	}
+
 	return genesis, nodeKeys
 }
+
+const EnodeStub = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 	extraData := genesis.GetExtraData()
@@ -343,6 +351,17 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 	extraData = append(extraData, istPayload...)
 
 	genesis.SetExtraData(extraData)
+
+	for i := range addrs {
+		genesis.Config.AutonityContractConfig.Users = append(
+			genesis.Config.AutonityContractConfig.Users,
+			params.User{
+				Address: addrs[i],
+				Type:    params.UserValidator,
+				Enode:   EnodeStub,
+				Stake:   100,
+			})
+	}
 }
 
 func makeHeader(parent *types.Block, config *config.Config) *types.Header {
@@ -382,7 +401,10 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 		return nil, err
 	}
 
-	block, _ := engine.FinalizeAndAssemble(chain, header, state, nil, nil, nil)
+	block, err := engine.FinalizeAndAssemble(chain, header, state, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	// Write state changes to db
 	root, err := state.Commit(chain.Config().IsEIP158(block.Header().Number))

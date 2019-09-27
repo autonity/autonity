@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"math/big"
 	"strings"
 	"time"
@@ -538,6 +539,10 @@ func (s *PublicBlockChainAPI) ChainId() *hexutil.Big {
 func (s *PublicBlockChainAPI) BlockNumber() hexutil.Uint64 {
 	header, _ := s.b.HeaderByNumber(context.Background(), rpc.LatestBlockNumber) // latest header should always be available
 	return hexutil.Uint64(header.Number.Uint64())
+}
+
+func (s *PublicBlockChainAPI) AutonityContract() *autonity.Contract {
+	return s.b.AutonityContract()
 }
 
 // GetBalance returns the amount of wei for the given address in the state of the

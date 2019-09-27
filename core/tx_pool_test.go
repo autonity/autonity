@@ -19,6 +19,7 @@ package core
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -66,6 +67,14 @@ func (bc *testBlockChain) StateAt(common.Hash) (*state.StateDB, error) {
 
 func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription {
 	return bc.chainHeadFeed.Subscribe(ch)
+}
+
+func (bc *testBlockChain) Config() *params.ChainConfig {
+	return params.TestnetChainConfig
+}
+
+func (bc *testBlockChain) GetAutonityContract() *autonity.Contract {
+	return nil
 }
 
 func transaction(nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Transaction {

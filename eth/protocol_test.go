@@ -143,15 +143,26 @@ func testSendTransactions(t *testing.T, protocol int) {
 		config  = &params.ChainConfig{}
 		gspec   = &core.Genesis{Config: config}
 	)
+	config.AutonityContractConfig = &params.AutonityContractGenesis{}
 
+	totalPeers := 3
 	var p2pPeers []*p2p.Peer
-	var enodes []string
-	for i := 0; i < 3; i++ {
-		p2pPeers = append(p2pPeers, newTestP2PPeer(fmt.Sprintf("peer #%d", i)))
-		enodes = append(enodes, p2pPeers[i].Info().Enode)
-	}
+	for i := 0; i < totalPeers; i++ {
+		p2pPeers = append(p2pPeers, newTestP2PPeer(fmt.Sprintf("peer %d", i)))
 
-	gspec.Config.EnodeWhitelist = enodes
+		config.AutonityContractConfig.Users = append(
+			config.AutonityContractConfig.Users,
+			params.User{
+				Enode: p2pPeers[i].Info().Enode,
+				Type:  params.UserValidator,
+				Stake: 100,
+			},
+		)
+	}
+	err := gspec.Config.AutonityContractConfig.AddDefault().Validate()
+	if err != nil {
+		t.Fatal(err)
+	}
 	gspec.MustCommit(db)
 
 	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{}, nil)

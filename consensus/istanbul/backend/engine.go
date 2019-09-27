@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -332,6 +333,10 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	}
 
 	validators, err := sb.getValidators(header, chain, state)
+	if err != nil {
+		fmt.Println("consensus/istanbul/backend/engine.go:337 getValidators err", err)
+	}
+
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
@@ -364,43 +369,36 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 
 func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainReader, state *state.StateDB) ([]common.Address, error) {
 	var validators []common.Address
-	var err error
 
 	if header.Number.Int64() == 1 {
-		// Deploy Soma on-blockchain governance contract
-		log.Info("Soma Contract Deployer", "Address", sb.config.Deployer)
-		contractAddress, err := sb.deployContract(chain, header, state)
+		log.Info("Autonity Contract Deployer", "Address", chain.Config().AutonityContractConfig.Deployer)
+
+		sb.blockchain.GetAutonityContract().SavedValidatorsRetriever = func(i uint64) (addresses []common.Address, e error) {
+			chain := chain
+			return sb.retrieveSavedValidators(i, chain)
+		}
+		contractAddress, err := sb.blockchain.GetAutonityContract().DeployAutonityContract(chain, header, state)
 		if err != nil {
+			log.Error("Deploy autonity contract error", "error", err)
 			return nil, err
 		}
-		sb.somaContract = contractAddress
+		sb.autonityContractAddress = contractAddress
 		validators, err = sb.retrieveSavedValidators(1, chain)
 		if err != nil {
 			return nil, err
 		}
-
-		// Deploy Glienicke network-permissioning contract
-		_, sb.glienickeContract, err = sb.blockchain.DeployGlienickeContract(state, header)
-		if err != nil {
-			return nil, err
-		}
-
 	} else {
-		if sb.somaContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.somaContract = crypto.CreateAddress(sb.config.Deployer, 0)
+		if sb.autonityContractAddress == common.HexToAddress("0000000000000000000000000000000000000000") {
+			sb.autonityContractAddress = crypto.CreateAddress(chain.Config().AutonityContractConfig.Deployer, 0)
 		}
-
-		if sb.glienickeContract == common.HexToAddress("0000000000000000000000000000000000000000") {
-			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GetGlienickeDeployer(), 0)
-		}
-
-		validators, err = sb.contractGetValidators(chain, header, state)
+		var err error
+		validators, err = sb.blockchain.GetAutonityContract().ContractGetValidators(chain, header, state)
 		if err != nil {
+			log.Error("ContractGetValidators error", "error", err)
 			return nil, err
 		}
 	}
-
-	return validators, err
+	return validators, nil
 }
 
 // Seal generates a new block for the given input block with the local miner's

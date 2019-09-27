@@ -19,6 +19,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -225,6 +226,12 @@ func initGenesis(ctx *cli.Context) error {
 	if err := json.NewDecoder(file).Decode(genesis); err != nil {
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
+	if genesis.Config.AutonityContractConfig != nil {
+		if err := genesis.Config.AutonityContractConfig.AddDefault().Validate(); err != nil {
+			spew.Dump(genesis.Config.AutonityContractConfig)
+			return fmt.Errorf("autonity contract section is invalid. error:%v", err.Error())
+		}
+	}
 
 	setupDefaults(genesis)
 
@@ -262,16 +269,6 @@ func setupDefaults(genesis *core.Genesis) {
 		if genesis.Config.Istanbul.BlockPeriod == 0 {
 			genesis.Config.Istanbul.BlockPeriod = istanbul.DefaultConfig.BlockPeriod
 		}
-
-		if len(genesis.Config.Istanbul.ABI) == 0 {
-			genesis.Config.Istanbul.ABI = istanbul.DefaultConfig.ABI
-		}
-		if len(genesis.Config.Istanbul.Bytecode) == 0 {
-			genesis.Config.Istanbul.Bytecode = istanbul.DefaultConfig.Bytecode
-		}
-		if len(genesis.Config.Istanbul.Deployer) == 0 || genesis.Config.Istanbul.Deployer == (common.Address{}) {
-			genesis.Config.Istanbul.Deployer = istanbul.DefaultConfig.Deployer
-		}
 	}
 
 	defaultConfig := config.DefaultConfig()
@@ -287,15 +284,6 @@ func setupDefaults(genesis *core.Genesis) {
 			genesis.Config.Tendermint.BlockPeriod = defaultConfig.BlockPeriod
 		}
 
-		if len(genesis.Config.Tendermint.ABI) == 0 {
-			genesis.Config.Tendermint.ABI = defaultConfig.ABI
-		}
-		if len(genesis.Config.Tendermint.Bytecode) == 0 {
-			genesis.Config.Tendermint.Bytecode = defaultConfig.Bytecode
-		}
-		if len(genesis.Config.Tendermint.Deployer) == 0 || genesis.Config.Tendermint.Deployer == (common.Address{}) {
-			genesis.Config.Tendermint.Deployer = defaultConfig.Deployer
-		}
 		if genesis.Config.Tendermint.Epoch == 0 {
 			genesis.Config.Tendermint.Epoch = defaultConfig.Epoch
 		}

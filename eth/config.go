@@ -163,6 +163,6 @@ type Config struct {
 	// CheckpointOracle is the configuration for checkpoint oracle.
 	CheckpointOracle *params.CheckpointOracleConfig `toml:",omitempty"`
 
-	// Disable Glienicke
+	// Disable private network
 	OpenNetwork bool
 }

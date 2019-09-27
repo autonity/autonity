@@ -3,6 +3,7 @@ package test
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
+	"github.com/clearmatics/autonity/log"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -56,22 +57,48 @@ type block struct {
 	txs  int
 }
 
-func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error) {
+func sendTx(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address, transactionGenerator func(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error)) (*types.Transaction, error) {
 	nonce := service.TxPool().Nonce(fromAddr)
 
-	tx, err := txWithNonce(fromAddr, nonce, toAddr, fromValidator, service)
+	var tx *types.Transaction
+	var err error
+
+	for stop := 10; stop > 0; stop-- {
+		tx, err = transactionGenerator(nonce, toAddr, key)
+		if err != nil {
+			nonce++
+			continue
+		}
+		err = service.TxPool().AddLocal(tx)
+		if err == nil {
+			break
+		}
+		nonce++
+
+	}
 	if err != nil {
-		return txWithNonce(fromAddr, nonce+1, toAddr, fromValidator, service)
+		return nil, err
 	}
 	return tx, nil
 }
 
-func txWithNonce(_ common.Address, nonce uint64, toAddr common.Address, fromValidator *ecdsa.PrivateKey, service *eth.Ethereum) (*types.Transaction, error) {
+//func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error) {
+//	nonce := service.TxPool().Nonce(fromAddr)
+//
+//	tx, err := txWithNonce(fromAddr, nonce, toAddr, fromValidator, service)
+//	if err != nil {
+//		return txWithNonce(fromAddr, nonce+1, toAddr, fromValidator, service)
+//	}
+//	return tx, nil
+//}
+
+func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error) {
 	randEth, err := rand.Int(rand.Reader, big.NewInt(10000000))
 	if err != nil {
 		return nil, err
 	}
-	tx, err := types.SignTx(
+
+	return types.SignTx(
 		types.NewTransaction(
 			nonce,
 			toAddr,
@@ -80,11 +107,7 @@ func txWithNonce(_ common.Address, nonce uint64, toAddr common.Address, fromVali
 			big.NewInt(100000000000+int64(randEth.Uint64())),
 			nil,
 		),
-		types.HomesteadSigner{}, fromValidator)
-	if err != nil {
-		return nil, err
-	}
-	return tx, service.TxPool().AddLocal(tx)
+		types.HomesteadSigner{}, key)
 }
 
 func makeGenesis(validators []*testNode) *core.Genesis {
@@ -101,6 +124,7 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 	genesis.Config = params.TestChainConfig
 	genesis.Config.Tendermint = &params.TendermintConfig{}
 	genesis.Config.Ethash = nil
+	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 
 	genesis.Alloc = core.GenesisAlloc{}
 	for _, validator := range validators {
@@ -109,9 +133,9 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 		}
 	}
 
-	validatorsAddresses := make([]string, len(validators))
+	validatorsAddresses := make([]common.Address, len(validators))
 	for i, validator := range validators {
-		validatorsAddresses[i] = crypto.PubkeyToAddress(validator.privateKey.PublicKey).String()
+		validatorsAddresses[i] = crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 	}
 
 	enodes := make([]string, len(validators))
@@ -119,10 +143,32 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 		enodes[i] = validator.url
 	}
 
-	genesis.Config.EnodeWhitelist = enodes
+	users := make([]params.User, len(validators))
+	for i := range validators {
+		users[i] = params.User{
+			Address: validatorsAddresses[i],
+			Enode:   enodes[i],
+			Type:    params.UserValidator,
+			Stake:   100,
+		}
+	}
+	//generate one sh
+	shKey, err := crypto.GenerateKey()
+	if err != nil {
+		log.Error("Make genesis error", "err", err)
+	}
+	users = append(users, params.User{
+		Address: crypto.PubkeyToAddress(shKey.PublicKey),
+		Type:    params.UserStakeHolder,
+		Stake:   200,
+	})
+	genesis.Config.AutonityContractConfig.Users = users
+	err = genesis.Config.AutonityContractConfig.AddDefault().Validate()
+	if err != nil {
+		panic(err)
+	}
 
-	genesis.Validators = validatorsAddresses
-	err := genesis.SetBFT()
+	err = genesis.SetBFT()
 	if err != nil {
 		panic(err)
 	}
