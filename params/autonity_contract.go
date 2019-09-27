@@ -70,7 +70,7 @@ func (ac *AutonityContractGenesis) AddDefault() *AutonityContractGenesis {
 
 	for i := range ac.Users {
 		n, err := enode.ParseV4WithResolve(ac.Users[i].Enode)
-		if reflect.DeepEqual(ac.Users[i].Address, common.Address{}) && err != nil {
+		if reflect.DeepEqual(ac.Users[i].Address, common.Address{}) && err == nil {
 			ac.Users[i].Address = EnodeToAddress(n)
 		}
 	}

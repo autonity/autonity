@@ -121,6 +121,24 @@ func TestValidateAutonityContract_GovernanceOperatorNotExisted_Fail(t *testing.T
 		t.FailNow()
 	}
 }
+func TestValidateAutonityContract_AddDefaulTest_Success(t *testing.T) {
+	contractConfig := &AutonityContractGenesis{
+		Deployer: common.HexToAddress("0xff"),
+		Bytecode: "some code",
+		ABI:      "some abi",
+		Users: []User{
+			{
+				Enode: "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
+				Type:  UserValidator,
+				Stake: 1,
+			},
+		},
+	}
+	contractConfig = contractConfig.AddDefault()
+	if reflect.DeepEqual(contractConfig.Users[0].Address, common.Address{}) {
+		t.Fatal("Failed to parse enode")
+	}
+}
 
 func TestUsePartOfEnodeAsAddress(t *testing.T) {
 	k, err := crypto.GenerateKey()
