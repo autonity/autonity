@@ -77,14 +77,14 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	var contractMinGasPrice = new(big.Int)
 	if p.autonityContract != nil {
 		minGasPrice, err := p.autonityContract.GetMinimumGasPrice(block, statedb)
-		if err != nil {
+		if err == nil {
 			contractMinGasPrice.SetUint64(minGasPrice)
 		}
 	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		if contractMinGasPrice.Uint64() != 0 {
-			if tx.GasPrice().Cmp(contractMinGasPrice) < 1 {
+			if tx.GasPrice().Cmp(contractMinGasPrice) == -1 {
 				return nil, nil, 0, errors.New("gas price must be greater minGasPrice")
 			}
 		}

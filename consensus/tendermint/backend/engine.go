@@ -400,7 +400,6 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 	} else {
 		if sb.autonityContractAddress == common.HexToAddress("0000000000000000000000000000000000000000") {
 			sb.autonityContractAddress = crypto.CreateAddress(sb.blockchain.Config().AutonityContractConfig.Deployer, 0)
-			//sb.setGlienickeContract(crypto.CreateAddress(sb.blockchain.Config().GetGlienickeDeployer(), 0))
 		}
 
 		var err error
@@ -413,30 +412,6 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 
 	return validators, nil
 }
-
-//func (sb *Backend) getSomaContract() common.Address {
-//	sb.contractsMu.RLock()
-//	defer sb.contractsMu.RUnlock()
-//	return sb.somaContract
-//}
-//
-//func (sb *Backend) setSomaContract(addr common.Address) {
-//	sb.contractsMu.Lock()
-//	defer sb.contractsMu.Unlock()
-//	sb.somaContract = addr
-//}
-//
-//func (sb *Backend) getGlienickeContract() common.Address {
-//	sb.contractsMu.RLock()
-//	defer sb.contractsMu.RUnlock()
-//	return sb.glienickeContract
-//}
-//
-//func (sb *Backend) setGlienickeContract(addr common.Address) {
-//	sb.contractsMu.Lock()
-//	defer sb.contractsMu.Unlock()
-//	sb.glienickeContract = addr
-//}
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
