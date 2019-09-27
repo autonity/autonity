@@ -51,6 +51,7 @@ type Blockchainer interface {
 
 type Contract struct {
 	address                  common.Address
+	contractABI              *abi.ABI
 	bc                       Blockchainer
 	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
 
@@ -93,7 +94,9 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 
 	//We need to append to data the constructor's parameters
 	//That should always be genesis validators
-	contractABI, err := abi.JSON(strings.NewReader(chain.Config().AutonityContractConfig.ABI))
+
+	contractABI, err := ac.abi()
+
 	if err != nil {
 		log.Error("abi.JSON returns err", "err", err)
 		return common.Address{}, err
@@ -148,7 +151,7 @@ func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *t
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
-	contractABI, err := abi.JSON(strings.NewReader(chain.Config().AutonityContractConfig.ABI))
+	contractABI, err := ac.abi()
 	if err != nil {
 		return nil, err
 	}
@@ -211,13 +214,11 @@ func (ac *Contract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.
 func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
 	// Needs to be refactored somehow
 	deployer := ac.bc.Config().AutonityContractConfig.Deployer
-	var contractABI = ac.bc.Config().AutonityContractConfig.ABI
-
 	sender := vm.AccountRef(deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.getEVM(header, deployer, state)
 
-	ABI, err := abi.JSON(strings.NewReader(contractABI))
+	ABI, err := ac.abi()
 	if err != nil {
 		return nil, err
 	}
@@ -261,13 +262,11 @@ func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, pr
 func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.Header) (uint64, error) {
 	// Needs to be refactored somehow
 	deployer := ac.bc.Config().AutonityContractConfig.Deployer
-	var contractABI = ac.bc.Config().AutonityContractConfig.ABI
-
 	sender := vm.AccountRef(deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.getEVM(header, deployer, state)
 
-	ABI, err := abi.JSON(strings.NewReader(contractABI))
+	ABI, err := ac.abi()
 	if err != nil {
 		return 0, err
 	}
@@ -296,13 +295,11 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) error {
 	// Needs to be refactored somehow
 	deployer := ac.bc.Config().AutonityContractConfig.Deployer
-	var contractABI = ac.bc.Config().AutonityContractConfig.ABI
-
 	sender := vm.AccountRef(deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.getEVM(header, deployer, state)
 
-	ABI, err := abi.JSON(strings.NewReader(contractABI))
+	ABI, err := ac.abi()
 	if err != nil {
 		return err
 	}
@@ -330,13 +327,12 @@ func (ac *Contract) PerformRedistribution(header *types.Header, db *state.StateD
 func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *types.Header, blockGas *big.Int) error {
 	// Needs to be refactored somehow
 	deployer := ac.bc.Config().AutonityContractConfig.Deployer
-	var contractABI = ac.bc.Config().AutonityContractConfig.ABI
 
 	sender := vm.AccountRef(deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.getEVM(header, deployer, state)
 
-	ABI, err := abi.JSON(strings.NewReader(contractABI))
+	ABI, err := ac.abi()
 	if err != nil {
 		return err
 	}
@@ -383,4 +379,19 @@ func (ac *Contract) Address() common.Address {
 		return addr
 	}
 	return ac.address
+}
+
+func (ac *Contract) abi() (*abi.ABI, error) {
+	if ac.contractABI != nil {
+		return ac.contractABI, nil
+	}
+	ABI, err := abi.JSON(strings.NewReader(ac.bc.Config().AutonityContractConfig.ABI))
+	if err != nil {
+		return nil, err
+	}
+	ac.Lock()
+	ac.contractABI = &ABI
+	ac.Unlock()
+	return ac.contractABI, nil
+
 }
