@@ -259,7 +259,13 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 
 	ticker := time.NewTicker(freezerRecheckInterval)
 	defer ticker.Stop()
-	<-ticker.C
+
+	select {
+	case <-f.closeCh:
+		return
+	case <-ticker.C:
+	}
+
 	for {
 		select {
 		case <-f.closeCh:

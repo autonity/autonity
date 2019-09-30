@@ -87,6 +87,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		db:             db,
 		recents:        recents,
 		coreStarted:    false,
+		stopped:        make(chan struct{}, 1),
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
@@ -113,6 +114,7 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
+	stopped           chan struct{}
 	coreMu            sync.RWMutex
 
 	// Snapshots for recent block to speed up reorgs

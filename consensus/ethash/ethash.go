@@ -489,9 +489,9 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 		workCh:       make(chan *sealTask),
 		fetchWorkCh:  make(chan *sealWork),
 		submitWorkCh: make(chan *mineResult),
-		fetchRateCh:  make(chan chan uint64),
+		fetchRateCh:  make(chan chan uint64, 1),
 		submitRateCh: make(chan *hashrate),
-		exitCh:       make(chan chan error),
+		exitCh:       make(chan chan error, 1),
 	}
 	go ethash.remote(notify, noverify)
 	return ethash
@@ -511,7 +511,7 @@ func NewTester(notify []string, noverify bool) *Ethash {
 		submitWorkCh: make(chan *mineResult),
 		fetchRateCh:  make(chan chan uint64),
 		submitRateCh: make(chan *hashrate),
-		exitCh:       make(chan chan error),
+		exitCh:       make(chan chan error, 1),
 	}
 	go ethash.remote(notify, noverify)
 	return ethash
@@ -544,6 +544,7 @@ func NewFakeFailer(fail uint64) *Ethash {
 // accepts all blocks as valid, but delays verifications by some time, though
 // they still have to conform to the Ethereum consensus rules.
 func NewFakeDelayer(delay time.Duration) *Ethash {
+	fmt.Println("DDDDDDDDDDDDDDDDD")
 	return &Ethash{
 		config: Config{
 			PowMode: ModeFake,
@@ -555,6 +556,7 @@ func NewFakeDelayer(delay time.Duration) *Ethash {
 // NewFullFaker creates an ethash consensus engine with a full fake scheme that
 // accepts all blocks as valid, without checking any consensus rules whatsoever.
 func NewFullFaker() *Ethash {
+	fmt.Println("FFFFFFFFFFFFFFF")
 	return &Ethash{
 		config: Config{
 			PowMode: ModeFullFake,
@@ -565,11 +567,13 @@ func NewFullFaker() *Ethash {
 // NewShared creates a full sized ethash PoW shared between all requesters running
 // in the same process.
 func NewShared() *Ethash {
+	fmt.Println("SSSSSSSSSSSSSS")
 	return &Ethash{shared: sharedEthash}
 }
 
 // Close closes the exit channel to notify all backend threads exiting.
 func (ethash *Ethash) Close() error {
+	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	var err error
 	ethash.closeOnce.Do(func() {
 		// Short circuit if the exit channel is not allocated.

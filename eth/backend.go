@@ -645,6 +645,7 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Ethereum protocol.
 func (s *Ethereum) Stop() error {
+	fmt.Println("EEEEEEEEEEEEEEEEEEEEEEEEEEE")
 	s.bloomIndexer.Close()
 	s.glienickeSub.Unsubscribe()
 	s.blockchain.Stop()
