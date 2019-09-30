@@ -416,7 +416,7 @@ func (f *freezer) repair() error {
 }
 
 func (f *freezer) sleep(d time.Duration) error {
-	t := time.NewTimer(freezerRecheckInterval)
+	t := time.NewTimer(d)
 	defer t.Stop()
 	select {
 	case <-t.C:
