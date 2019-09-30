@@ -1074,7 +1074,7 @@ func runTest(t *testing.T, test *testCase) {
 	defer func() {
 		for _, validator := range validators {
 			if validator.isRunning {
-				err = validator.node.Stop()
+				err = validator.node.Close()
 				if err != nil {
 					panic(err)
 				}

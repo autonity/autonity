@@ -69,7 +69,7 @@ func NewManager(config *Config, backends ...Backend) *Manager {
 		updaters: subs,
 		updates:  updates,
 		wallets:  wallets,
-		quit:     make(chan chan error),
+		quit:     make(chan chan error, 1),
 	}
 	for _, backend := range backends {
 		kind := reflect.TypeOf(backend)
