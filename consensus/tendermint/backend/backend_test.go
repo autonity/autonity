@@ -272,7 +272,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	c := tendermintCore.New(b, cfg)
 
 	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, c, vm.Config{}, nil)
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, c, vm.Config{}, nil, core.NewTxSenderCacher())
 	if err != nil {
 		panic(err)
 	}

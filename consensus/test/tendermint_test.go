@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"go.uber.org/goleak"
 	"math/big"
 	"net"
 	"os"
@@ -37,6 +38,8 @@ func TestTendermintSuccess(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	defer goleak.VerifyNone(t)
 
 	cases := []*testCase{
 		{
@@ -1072,13 +1075,32 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	defer func() {
+		wg := &errgroup.Group{}
 		for _, validator := range validators {
-			if validator.isRunning {
+			validator := validator
+			wg.Go(func() error {
+				if !validator.isRunning {
+					return nil
+				}
+
+				err = validator.node.Stop()
+				if err != nil {
+					return fmt.Errorf("error on node stop %v", err)
+				}
 				err = validator.node.Close()
 				if err != nil {
-					panic(err)
+					return fmt.Errorf("error on node close %v", err)
 				}
-			}
+
+				validator.node.Wait()
+
+				return nil
+			})
+		}
+
+		err = wg.Wait()
+		if err != nil {
+			t.Fatal(err)
 		}
 	}()
 

@@ -545,6 +545,12 @@
 			"revisionTime": "2016-12-11T03:23:59Z"
 		},
 		{
+			"checksumSHA1": "gDWyH6deDwb4de/P4SL0fqKjhFs=",
+			"path": "go.uber.org/goleak",
+			"revision": "227bd74c34825787d52452ecf0916929863b787c",
+			"revisionTime": "2019-08-23T23:21:12Z"
+		},
+		{
 			"checksumSHA1": "TT1rac6kpQp2vz24m5yDGUNQ/QQ=",
 			"path": "golang.org/x/crypto/cast5",
 			"revision": "ff983b9c42bc9fbf91556e191cc8efb585c16908",
