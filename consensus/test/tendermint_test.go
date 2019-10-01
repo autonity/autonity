@@ -1102,6 +1102,8 @@ func runTest(t *testing.T, test *testCase) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		time.Sleep(time.Second) //level DB needs a second to close
 	}()
 
 	wg = &errgroup.Group{}
