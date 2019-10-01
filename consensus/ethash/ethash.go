@@ -49,8 +49,8 @@ var (
 	// two256 is a big integer representing 2^256
 	two256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 
-	// sharedEthash is a full instance that can be shared between multiple users.
-	sharedEthash = New(Config{"", 3, 0, "", 1, 0, ModeNormal}, nil, false)
+	// sharedEthashOnce is a full instance that can be shared between multiple users.
+	sharedEthashOnce = &sync.Once{}
 
 	// algorithmRevision is the data structure version used for file naming.
 	algorithmRevision = 23
@@ -388,7 +388,6 @@ type Mode uint
 
 const (
 	ModeNormal Mode = iota
-	ModeShared
 	ModeTest
 	ModeFake
 	ModeFullFake
@@ -562,9 +561,15 @@ func NewFullFaker() *Ethash {
 	}
 }
 
+var sharedEthash *Ethash
+
 // NewShared creates a full sized ethash PoW shared between all requesters running
 // in the same process.
 func NewShared() *Ethash {
+	sharedEthashOnce.Do(func() {
+		sharedEthash = New(Config{"", 3, 0, "", 1, 0, ModeNormal}, nil, false)
+	})
+
 	return &Ethash{shared: sharedEthash}
 }
 

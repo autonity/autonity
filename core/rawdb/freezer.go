@@ -275,7 +275,7 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 			hash := ReadHeadBlockHash(nfdb)
 			if hash == (common.Hash{}) {
 				log.Debug("Current full block hash unavailable") // new chain, empty database
-				if err := f.sleep(freezerRecheckInterval); err != nil {
+				if err := f.sleep(); err != nil {
 					return
 				}
 				continue
@@ -284,21 +284,21 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 			switch {
 			case number == nil:
 				log.Error("Current full block number unavailable", "hash", hash)
-				if err := f.sleep(freezerRecheckInterval); err != nil {
+				if err := f.sleep(); err != nil {
 					return
 				}
 				continue
 
 			case *number < params.ImmutabilityThreshold:
 				log.Debug("Current full block not old enough", "number", *number, "hash", hash, "delay", params.ImmutabilityThreshold)
-				if err := f.sleep(freezerRecheckInterval); err != nil {
+				if err := f.sleep(); err != nil {
 					return
 				}
 				continue
 
 			case *number-params.ImmutabilityThreshold <= f.frozen:
 				log.Debug("Ancient blocks frozen already", "number", *number, "hash", hash, "frozen", f.frozen)
-				if err := f.sleep(freezerRecheckInterval); err != nil {
+				if err := f.sleep(); err != nil {
 					return
 				}
 				continue
@@ -306,7 +306,7 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 			head := ReadHeader(nfdb, hash, *number)
 			if head == nil {
 				log.Error("Current full block unavailable", "number", *number, "hash", hash)
-				if err := f.sleep(freezerRecheckInterval); err != nil {
+				if err := f.sleep(); err != nil {
 					return
 				}
 				continue
@@ -395,7 +395,7 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 
 			// Avoid database thrashing with tiny writes
 			if f.frozen-first < freezerBatchLimit {
-				if err := f.sleep(freezerRecheckInterval); err != nil {
+				if err := f.sleep(); err != nil {
 					return
 				}
 			}
@@ -421,8 +421,8 @@ func (f *freezer) repair() error {
 	return nil
 }
 
-func (f *freezer) sleep(d time.Duration) error {
-	t := time.NewTimer(d)
+func (f *freezer) sleep() error {
+	t := time.NewTimer(freezerRecheckInterval)
 	defer t.Stop()
 	select {
 	case <-t.C:
@@ -430,6 +430,4 @@ func (f *freezer) sleep(d time.Duration) error {
 	case <-f.closeCh:
 		return errors.New("stopped")
 	}
-
-	return nil
 }

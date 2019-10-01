@@ -58,7 +58,7 @@ func (eb *Backend) Subscribe(sink chan<- accounts.WalletEvent) event.Subscriptio
 	})
 }
 
-func(eb *Backend) Close() {
+func (eb *Backend) Close() {
 	for _, w := range eb.signers {
 		w.Close()
 	}

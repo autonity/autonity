@@ -495,7 +495,6 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 		t.Fatal(err)
 	}
 
-	blockchain, err := core.NewBlockChain(db, nil, config, ethash.NewFaker(), vm.Config{}, nil, core.NewTxSenderCacher())
 	(&core.Genesis{Config: config}).MustCommit(db) // Commit genesis block
 	// If checkpointing is enabled, create and inject a fake CHT and the corresponding
 	// chllenge response.
@@ -512,7 +511,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 		}
 	}
 	// Create a checkpoint aware protocol manager
-	blockchain, err = core.NewBlockChain(db, nil, config, ethash.NewFaker(), vm.Config{}, nil, core.NewTxSenderCacher())
+	blockchain, err := core.NewBlockChain(db, nil, config, ethash.NewFaker(), vm.Config{}, nil, core.NewTxSenderCacher())
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
@@ -593,11 +592,11 @@ func TestBroadcastBlock(t *testing.T) {
 
 func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	var (
-		evmux   = new(event.TypeMux)
-		pow     = ethash.NewFaker()
-		db      = rawdb.NewMemoryDatabase()
-		config  = &params.ChainConfig{}
-		gspec   = &core.Genesis{Config: config}
+		evmux  = new(event.TypeMux)
+		pow    = ethash.NewFaker()
+		db     = rawdb.NewMemoryDatabase()
+		config = &params.ChainConfig{}
+		gspec  = &core.Genesis{Config: config}
 	)
 	config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	config.Istanbul = &params.IstanbulConfig{}

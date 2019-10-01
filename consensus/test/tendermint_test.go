@@ -1075,10 +1075,10 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	defer func() {
-		wg := &errgroup.Group{}
+		wgClose := &errgroup.Group{}
 		for _, validator := range validators {
 			validator := validator
-			wg.Go(func() error {
+			wgClose.Go(func() error {
 				if !validator.isRunning {
 					return nil
 				}
@@ -1098,7 +1098,7 @@ func runTest(t *testing.T, test *testCase) {
 			})
 		}
 
-		err = wg.Wait()
+		err = wgClose.Wait()
 		if err != nil {
 			t.Fatal(err)
 		}

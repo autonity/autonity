@@ -303,9 +303,6 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 	case ethash.ModeTest:
 		log.Warn("Ethash used in test mode")
 		return ethash.NewTester(nil, noverify)
-	case ethash.ModeShared:
-		log.Warn("Ethash used in shared mode")
-		return ethash.NewShared()
 	default:
 		engine := ethash.New(ethash.Config{
 			CacheDir:       ctx.ResolvePath(ethConfig.CacheDir),
