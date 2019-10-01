@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"go.uber.org/goleak"
 	"math/big"
 	"net"
 	"os"
@@ -29,6 +28,7 @@ import (
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
+	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -63,6 +63,8 @@ func TestTendermintOneMalicious(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
+	defer goleak.VerifyNone(t)
+
 	cases := []*testCase{
 		{
 			name:      "one node - always accepts blocks",
@@ -89,6 +91,8 @@ func TestTendermintSlowConnections(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	defer goleak.VerifyNone(t)
 
 	cases := []*testCase{
 		{
@@ -128,6 +132,8 @@ func TestTendermintLongRun(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
+	defer goleak.VerifyNone(t)
+
 	cases := []*testCase{
 		{
 			name:      "no malicious - 30 tx per second",
@@ -155,6 +161,8 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	defer goleak.VerifyNone(t)
 
 	cases := []*testCase{
 		{
@@ -242,6 +250,8 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	defer goleak.VerifyNone(t)
 
 	hookGenerator := func() (hook, hook) {
 		prevBlockBalance := uint64(0)
@@ -344,6 +354,8 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	defer goleak.VerifyNone(t)
 
 	hookGenerator := func() (hook, hook) {
 		prevBlockBalance := uint64(0)
