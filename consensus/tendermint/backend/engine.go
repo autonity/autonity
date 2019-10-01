@@ -532,6 +532,8 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 		return ErrStartedEngine
 	}
 
+	sb.stopped = make(chan struct{})
+
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
 
