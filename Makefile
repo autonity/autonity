@@ -47,6 +47,9 @@ test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 	go test -race -v ./consensus/test/... -timeout 30m
 
+test-contracts:
+	cd contracts/autonity/contract/ && truffle test && cd -
+
 mock-gen:
 	mockgen -source=consensus/tendermint/validator/validator_interface.go -package=validator -destination=consensus/tendermint/validator/validator_mock.go
 	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go
