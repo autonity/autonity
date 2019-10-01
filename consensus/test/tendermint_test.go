@@ -1089,22 +1089,18 @@ func runTest(t *testing.T, test *testCase) {
 	defer func() {
 		wgClose := &errgroup.Group{}
 		for _, validator := range validators {
-			validator := validator
+			validatorInner := validator
 			wgClose.Go(func() error {
-				if !validator.isRunning {
+				if !validatorInner.isRunning {
 					return nil
 				}
 
-				err = validator.node.Stop()
-				if err != nil {
-					return fmt.Errorf("error on node stop %v", err)
-				}
-				err = validator.node.Close()
-				if err != nil {
+				errInner := validatorInner.node.Close()
+				if errInner != nil {
 					return fmt.Errorf("error on node close %v", err)
 				}
 
-				validator.node.Wait()
+				validatorInner.node.Wait()
 
 				return nil
 			})
