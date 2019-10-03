@@ -10,18 +10,6 @@ git:
 
 matrix:
   include:
-    - language: node_js
-      node_js: 9
-      before_script:
-        - npm install -g truffle
-      jobs:
-        - include:
-            - name: "Contract tests"
-              script:
-                - make test-contracts
-
-
-
     - language: go
       go_import_path: github.com/clearmatics/autonity
       go: 1.12.9
@@ -74,6 +62,19 @@ matrix:
             name: "TestTendermintStartStopAllNodes"
             script:
               - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+
+    - language: node_js
+      node_js: 9
+      before_script:
+        - npm install -g truffle
+      jobs:
+        - include:
+            - name: "Contract tests"
+              script:
+                - make test-contracts
+
+
+
 
 notifications:
   slack:
