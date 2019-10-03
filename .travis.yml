@@ -8,73 +8,66 @@ addons:
 git:
   depth: 1
 
-matrix:
+language: go
+go_import_path: github.com/clearmatics/autonity
+go: 1.12.9
+before_script:
+  - nvm install 9
+  - make test-deps
+  - npm install -g truffle
+
+jobs:
   include:
-    - language: go
-      go_import_path: github.com/clearmatics/autonity
-      go: 1.12.9
-      before_script:
-        - make test-deps
-      jobs:
-        include:
-          - &tests
-            stage: "Build, linters and tests"
-            env:
-              - GORACE="history_size=7"
-            after_success:
-              - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
-            after_failure:
-              - travis_terminate 1
-            name: "build and linters"
-            script:
-              - git fetch origin master --depth=1
-              - go run build/ci.go install
-              - make lint-ci
-          - <<: *tests
-            name: "unit tests"
-            script:
-              - go run build/ci.go test -coverage $TEST_PACKAGES
-          - <<: *tests
-            name: "Tendermint data race - unit tests"
-            script:
-              - go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage.out
-          - <<: *tests
-            name: "TestTendermintSuccess race"
-            script:
-              - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-          - <<: *tests
-            name: "TestTendermintSuccess,TestTendermintOneMalicious,TestTendermintSlowConnections,TestTendermintLongRun,TestTendermintStartStopSingleNode,TestTendermintStopUpToFNodes"
-            script:
-              - travis_wait 60 go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-          - <<: *tests
-            name: "TestTendermintStartStopFNodes"
-            script:
-              - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-          - <<: *tests
-            name: "TestTendermintStartStopFPlusOneNodes"
-            script:
-              - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-          - <<: *tests
-            name: "TestTendermintStartStopFPlusTwoNodes"
-            script:
-              - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-          - <<: *tests
-            name: "TestTendermintStartStopAllNodes"
-            script:
-              - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+    - &tests
+      stage: "Build, linters and tests"
+      env:
+        - GORACE="history_size=7"
+      after_success:
+        - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+      after_failure:
+        - travis_terminate 1
+      name: "build and linters"
+      script:
+        - git fetch origin master --depth=1
+        - go run build/ci.go install
+        - make lint-ci
+    - <<: *tests
+      name: "unit tests"
+      script:
+        - go run build/ci.go test -coverage $TEST_PACKAGES
+    - <<: *tests
+      name: "Tendermint data race - unit tests"
+      script:
+        - go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage.out
+    - <<: *tests
+      name: "TestTendermintSuccess race"
+      script:
+        - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+    - <<: *tests
+      name: "TestTendermintSuccess,TestTendermintOneMalicious,TestTendermintSlowConnections,TestTendermintLongRun,TestTendermintStartStopSingleNode,TestTendermintStopUpToFNodes"
+      script:
+        - travis_wait 60 go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+    - <<: *tests
+      name: "TestTendermintStartStopFNodes"
+      script:
+        - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+    - <<: *tests
+      name: "TestTendermintStartStopFPlusOneNodes"
+      script:
+        - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+    - <<: *tests
+      name: "TestTendermintStartStopFPlusTwoNodes"
+      script:
+        - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+    - <<: *tests
+      name: "TestTendermintStartStopAllNodes"
+      script:
+        - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
 
-    - language: node_js
-      node_js: 9
-      before_script:
-        - npm install -g truffle
-      jobs:
-        - include:
-            - name: "Contract tests"
-              script:
-                - make test-contracts
-
-
-
+    - <<: *tests
+      name: "Contract tests"
+      script:
+        - make test-contracts
 
 notifications:
   slack:
