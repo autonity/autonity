@@ -1,3 +1,6 @@
+language: go
+go_import_path: github.com/clearmatics/autonity
+go: 1.12.9
 sudo: false
 os: linux
 dist: trusty
@@ -8,9 +11,6 @@ addons:
 git:
   depth: 1
 
-language: go
-go_import_path: github.com/clearmatics/autonity
-go: 1.12.9
 before_script:
   - nvm install 9
   - make test-deps
@@ -63,7 +63,6 @@ jobs:
       name: "TestTendermintStartStopAllNodes"
       script:
         - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
-
     - <<: *tests
       name: "Contract tests"
       script:
