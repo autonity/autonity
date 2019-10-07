@@ -139,12 +139,13 @@ contract('Autonity', function (accounts) {
         const token = await Autonity.deployed();
         let expected = validatorsList.slice();
         expected.push(accounts[7]);
-        await token.addValidator(accounts[7], 100, "not nil enode", {from: governanceOperatorAccount});
-
+        let tx = await token.addValidator(accounts[7], 100, "not nil enode", {from: governanceOperatorAccount});
+        console.log("\tGas used to add new validator = " + tx.receipt.gasUsed.toString() + " gas");
         var getValidatorsResult = await token.getValidators({from: governanceOperatorAccount});
         assert.deepEqual(expected, getValidatorsResult);
 
-        await token.removeUser(accounts[7], {from: governanceOperatorAccount});
+        tx = await token.removeUser(accounts[7], {from: governanceOperatorAccount});
+        console.log("\tGas used to remove validator = " + tx.receipt.gasUsed.toString() + " gas");
         getValidatorsResult = await token.getValidators({from: governanceOperatorAccount});
         assert.deepEqual(validatorsList, getValidatorsResult)
     });
@@ -181,14 +182,15 @@ contract('Autonity', function (accounts) {
     it('test Governance operator can add/remove to whitelist', async function () {
         const token = await Autonity.deployed();
         var enode = "enode://testenode";
-        await token.addValidator(accounts[8], 20, enode, {from: governanceOperatorAccount});
-
+        let tx = await token.addValidator(accounts[8], 20, enode, {from: governanceOperatorAccount});
+        console.log("\tGas used to add validator to whitelist = " + tx.receipt.gasUsed.toString() + " gas");
         var getValidatorsResult = await token.getWhitelist({from: governanceOperatorAccount});
         let expected = whiteList.slice();
         expected.push(enode);
         assert.deepEqual(getValidatorsResult, expected);
 
-        await token.removeUser(accounts[8], {from: governanceOperatorAccount});
+        tx = await token.removeUser(accounts[8], {from: governanceOperatorAccount});
+        console.log("\tGas used to remove val from whitelist = " + tx.receipt.gasUsed.toString() + " gas");
         getValidatorsResult = await token.getWhitelist({from: accounts[1]});
         assert.deepEqual(getValidatorsResult, whiteList);
     });
@@ -197,12 +199,15 @@ contract('Autonity', function (accounts) {
     it('test create participant account check it and remove it', async function () {
         const token = await Autonity.deployed();
 
-        await token.addParticipant(accounts[9], "some enode", {from: governanceOperatorAccount});
+        let tx = await token.addParticipant(accounts[9], "some enode", {from: governanceOperatorAccount});
+        console.log("\tGas used to add participant = " + tx.receipt.gasUsed.toString() + " gas");
+        
         var addMemberResult = await token.checkMember(accounts[9]);
 
         assert(true == addMemberResult);
 
-        await token.removeUser(accounts[9], {from: governanceOperatorAccount});
+        tx = await token.removeUser(accounts[9], {from: governanceOperatorAccount});
+        console.log("\tGas used to remove participant = " + tx.receipt.gasUsed.toString() + " gas");
         var removeMemberResult = await token.checkMember(accounts[9]);
 
         assert(false == removeMemberResult);
@@ -216,12 +221,15 @@ contract('Autonity', function (accounts) {
         var getStakeResult = await token.getStake({from: accounts[7]});
         assert(0 == getStakeResult, "unexpected tokens");
 
-        await token.mintStake(accounts[7], 100, {from: governanceOperatorAccount});
+        let tx = await token.mintStake(accounts[7], 100, {from: governanceOperatorAccount});
+        console.log("\tGas used to mint stake = " + tx.receipt.gasUsed.toString() + " gas");
 
         getStakeResult = await token.getStake({from: accounts[7]});
         assert(100 == getStakeResult, "tokens are not minted");
 
-        await token.redeemStake(accounts[7], 100, {from: governanceOperatorAccount});
+        tx = await token.redeemStake(accounts[7], 100, {from: governanceOperatorAccount});
+
+        console.log("\tGas used to redeem stake = " + tx.receipt.gasUsed.toString() + " gas");
 
         getStakeResult = await token.getStake({from: accounts[7]});
         assert(0 == getStakeResult, "unexpected tokens");
@@ -300,7 +308,8 @@ contract('Autonity', function (accounts) {
         getStakeResult = await token.getStake({from: accounts[7]});
         assert(100 == getStakeResult, "tokens are not minted");
 
-        await token.send(accounts[5], 50, {from: accounts[7]});
+        let tx = await token.send(accounts[5], 50, {from: accounts[7]});
+        console.log("\tGas used to send state token = " + tx.receipt.gasUsed.toString() + " gas");
 
         getStakeResult = await token.getStake({from: accounts[7]});
         assert(50 == getStakeResult, "unexpected tokens");
