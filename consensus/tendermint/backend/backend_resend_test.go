@@ -20,7 +20,7 @@ func TestSendToConnectedPeers(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		var errConnectedPeers = make([]common.Address, 0, 0)
+		errConnectedPeers := make([]common.Address, 0)
 
 		broadcaster := consensus.NewMockBroadcaster(ctrl)
 		broadcaster.EXPECT().FindPeers(make(map[common.Address]struct{}))
@@ -39,7 +39,7 @@ func TestSendToConnectedPeers(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		var errConnectedPeers = make([]common.Address, 0, 0)
+		errConnectedPeers := make([]common.Address, 0)
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
 		msg := messageToPeers{
@@ -85,7 +85,7 @@ func TestSendToConnectedPeers(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		var errConnectedPeers = make([]common.Address, 0, 0)
+		errConnectedPeers := make([]common.Address, 0)
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
 		msg := messageToPeers{
@@ -138,7 +138,7 @@ func TestSendToConnectedPeers(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		var errConnectedPeers = make([]common.Address, 0, 0)
+		errConnectedPeers := make([]common.Address, 0)
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
 		msg := messageToPeers{
@@ -186,8 +186,7 @@ func TestSendToConnectedPeers(t *testing.T) {
 		defer ctrl.Finish()
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
-		var errConnectedPeers = make([]common.Address, 0, 1)
-		errConnectedPeers = append(errConnectedPeers, peerAddr1)
+		errConnectedPeers := []common.Address{peerAddr1}
 
 		msg := messageToPeers{
 			msg: message{},
@@ -261,8 +260,6 @@ func TestTrySend(t *testing.T) {
 		defer ctrl.Finish()
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
-		var errConnectedPeers = make([]common.Address, 0, 1)
-		errConnectedPeers = append(errConnectedPeers, peerAddr1)
 
 		msg := messageToPeers{
 			msg: message{},
