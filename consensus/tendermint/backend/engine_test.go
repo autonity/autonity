@@ -542,3 +542,47 @@ func TestWriteCommittedSeals(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidCommittedSeals)
 	}
 }
+
+func TestAPIs(t *testing.T) {
+	b := &Backend{}
+
+	APIS := b.APIs(nil)
+	if len(APIS) < 1 {
+		t.Fatalf("expected non empty slice")
+	}
+
+	if APIS[0].Namespace != "tendermint" {
+		t.Fatalf("expected 'tendermint', got %v", APIS[0].Namespace)
+	}
+}
+
+func TestClose(t *testing.T) {
+	t.Run("engine is not running, error returned", func(t *testing.T) {
+		b := &Backend{}
+
+		err := b.Close()
+		if err != ErrStoppedEngine {
+			t.Fatalf("expected %v, got %v", ErrStoppedEngine, err)
+		}
+	})
+
+	t.Run("engine is running, no errors", func(t *testing.T) {
+		b := &Backend{
+			coreStarted: true,
+		}
+
+		err := b.Close()
+		if err != nil {
+			t.Fatalf("expected <nil>, got %v", err)
+		}
+	})
+}
+
+func TestBackendSealHash(t *testing.T) {
+	b := &Backend{}
+
+	res := b.SealHash(&types.Header{})
+	if res.Hex() == "" {
+		t.Fatalf("expected not empty string")
+	}
+}
