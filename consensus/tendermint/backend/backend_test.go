@@ -21,22 +21,27 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	lru "github.com/hashicorp/golang-lru"
 	"math/big"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	tendermintCrypto "github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -204,6 +209,55 @@ func TestGetProposer(t *testing.T) {
 	if actual != expected {
 		t.Errorf("proposer mismatch: have %v, want %v", actual.Hex(), expected.Hex())
 	}
+}
+
+func TestSyncPeer(t *testing.T) {
+	t.Run("no broadcaster set, nothing done", func(t *testing.T) {
+		b := &Backend{}
+		b.SyncPeer(common.HexToAddress("0x0123456789"), nil)
+	})
+
+	t.Run("valid params given, messages sent", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		peerAddr1 := common.HexToAddress("0x0123456789")
+		messages := []*tendermintCore.Message{
+			{
+				Address: peerAddr1,
+			},
+		}
+
+		peersAddrMap := make(map[common.Address]struct{})
+		peersAddrMap[peerAddr1] = struct{}{}
+
+		payload, err := messages[0].Payload()
+		if err != nil {
+			t.Fatalf("Expected <nil>, got %v", err)
+		}
+
+		peer1Mock := consensus.NewMockPeer(ctrl)
+		peer1Mock.EXPECT().Send(uint64(tendermintMsg), payload)
+
+		peers := make(map[common.Address]consensus.Peer)
+		peers[peerAddr1] = peer1Mock
+
+		broadcaster := consensus.NewMockBroadcaster(ctrl)
+		broadcaster.EXPECT().FindPeers(peersAddrMap).Return(peers)
+
+		recentMessages, err := lru.NewARC(inmemoryPeers)
+		if err != nil {
+			t.Fatalf("Expected <nil>, got %v", err)
+		}
+
+		b := &Backend{
+			logger:         log.New("backend", "test", "id", 0),
+			recentMessages: recentMessages,
+		}
+		b.SetBroadcaster(broadcaster)
+
+		b.SyncPeer(peerAddr1, messages)
+	})
 }
 
 /**
