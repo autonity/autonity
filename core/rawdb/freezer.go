@@ -257,15 +257,6 @@ func (f *freezer) Sync() error {
 func (f *freezer) freeze(db ethdb.KeyValueStore) {
 	nfdb := &nofreezedb{KeyValueStore: db}
 
-	ticker := time.NewTicker(freezerRecheckInterval)
-	defer ticker.Stop()
-
-	select {
-	case <-f.closeCh:
-		return
-	case <-ticker.C:
-	}
-
 	for {
 		select {
 		case <-f.closeCh:
