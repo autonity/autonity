@@ -52,9 +52,10 @@ func TestGossip(t *testing.T) {
 	defer ctrl.Finish()
 
 	valSet, _ := newTestValidatorSet(5)
+	validators := valSet.List()
 
-	var peers []common.Address
-	for _, val := range valSet.List() {
+	peers := make([]common.Address, 0, len(validators))
+	for _, val := range validators {
 		peers = append(peers, val.Address())
 	}
 
