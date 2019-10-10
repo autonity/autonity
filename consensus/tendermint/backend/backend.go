@@ -440,6 +440,14 @@ func (sb *Backend) HasBadProposal(hash common.Hash) bool {
 	return sb.hasBadBlock(hash)
 }
 
+func (sb *Backend) GetContractAddress() common.Address {
+	return sb.blockchain.GetAutonityContract().Address()
+}
+
+func (sb *Backend) GetContractABI() string {
+	return sb.blockchain.Config().AutonityContractConfig.ABI
+}
+
 // Whitelist for the current block
 func (sb *Backend) WhiteList() []string {
 	db, err := sb.blockchain.State()

@@ -448,3 +448,39 @@ func (m *MockBackend) ResetPeerCache(address common.Address) {
 func (mr *MockBackendMockRecorder) ResetPeerCache(address interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetPeerCache", reflect.TypeOf((*MockBackend)(nil).ResetPeerCache), address)
 }
+
+// GetContractAddress mocks base method
+func (m *MockBackend) GetContractAddress() common.Address {
+	ret := m.ctrl.Call(m, "GetContractAddress")
+	ret0, _ := ret[0].(common.Address)
+	return ret0
+}
+
+// GetContractAddress indicates an expected call of GetContractAddress
+func (mr *MockBackendMockRecorder) GetContractAddress() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractAddress", reflect.TypeOf((*MockBackend)(nil).GetContractAddress))
+}
+
+// GetContractABI mocks base method
+func (m *MockBackend) GetContractABI() string {
+	ret := m.ctrl.Call(m, "GetContractABI")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetContractABI indicates an expected call of GetContractABI
+func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
+}
+
+// WhiteList mocks base method
+func (m *MockBackend) WhiteList() []string {
+	ret := m.ctrl.Call(m, "WhiteList")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// WhiteList indicates an expected call of WhiteList
+func (mr *MockBackendMockRecorder) WhiteList() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WhiteList", reflect.TypeOf((*MockBackend)(nil).WhiteList))
+}

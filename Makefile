@@ -51,6 +51,7 @@ mock-gen:
 	mockgen -source=consensus/tendermint/validator/validator_interface.go -package=validator -destination=consensus/tendermint/validator/validator_mock.go
 	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go
 	mockgen -source=consensus/protocol.go -package=consensus -destination=consensus/protocol_mock.go
+	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 
 lint:
 	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
