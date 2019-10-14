@@ -1535,11 +1535,13 @@ func runHook(validatorHook hook, test *testCase, block *types.Block, validator *
 func hookStopNode(nodeIndex int, blockNum uint64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		if block.Number().Uint64() == blockNum {
+			fmt.Printf("+++ Validator %d is being stopped at %d\n", nodeIndex, blockNum)
+	
 			err := validator.stopNode()
 			if err != nil {
 				return err
 			}
-
+			fmt.Printf("+++ Validator %d is stopped at %d\n", nodeIndex, blockNum)
 			tCase.setStopTime(nodeIndex, currentTime)
 		}
 
@@ -1551,6 +1553,8 @@ func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		stopTime := tCase.getStopTime(nodeIndex)
 		if block == nil && currentTime.Sub(stopTime).Seconds() >= durationAfterStop {
+			fmt.Printf("--- Validator %d is being stopped at %d\n", nodeIndex, currentTime.Sub(stopTime).Seconds())
+
 			if err := validator.startNode(); err != nil {
 				return err
 			}
@@ -1558,6 +1562,8 @@ func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
 			if err := validator.startService(); err != nil {
 				return err
 			}
+			fmt.Printf("--- Validator %d is stopped at %d\n", nodeIndex, currentTime.Sub(stopTime).Seconds())
+
 		}
 
 		return nil
