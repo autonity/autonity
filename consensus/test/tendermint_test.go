@@ -1350,7 +1350,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 						if int(validator.lastBlock) <= test.numBlocks {
 							log.Error("test info", "err", fmt.Errorf("validator last height: %d, testcase define height: %d", validator.lastBlock, test.numBlocks))
-							iif int(validator.lastBlock) <= test.numBlocks {
+							//iif int(validator.lastBlock) <= test.numBlocks {
 							for i := 0; i < txPerPeer; i++ {
 								nextValidatorIndex := (index + i + 1) % len(validators)
 								toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
