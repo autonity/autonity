@@ -931,6 +931,37 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 	}
 }
 
+func TestTendermint3of6Crashed1or2Recovered(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cases := []*testCase{
+		{
+			name:      "3 of 6 crashed, then 1 node recover, consensus engine should not on-hold.",
+			numPeers:  6,
+			numBlocks: 120,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				0: hookStopNode(0, 30),
+				1: hookStopNode(1, 40),
+				2: hookStopNode(2, 60),
+			},
+			afterHooks: map[int]hook{
+				0: hookStartNode(0, 120),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
 type testCase struct {
 	name                 string
 	isSkipped            bool
