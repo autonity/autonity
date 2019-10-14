@@ -433,11 +433,11 @@ func (srv *Server) Stop() {
 		return
 	}
 	srv.running = false
+	close(srv.quit)
 	if srv.listener != nil {
 		// this unblocks listener Accept
 		srv.listener.Close()
 	}
-	close(srv.quit)
 	srv.lock.Unlock()
 	srv.loopWG.Wait()
 }
@@ -535,7 +535,7 @@ func (srv *Server) Start() (err error) {
 		srv.NoDiscovery = true
 		srv.StaticNodes = nil
 		srv.TrustedNodes = nil
-		dialer = newDialState(srv.localnode.ID(), nil, 0, &Config{NetRestrict:srv.Config.NetRestrict})
+		dialer = newDialState(srv.localnode.ID(), nil, 0, &Config{NetRestrict: srv.Config.NetRestrict})
 	}
 	srv.loopWG.Add(1)
 	go srv.run(dialer)
@@ -716,7 +716,21 @@ func (srv *Server) run(dialstate dialer) {
 		for ; len(runningTasks) < maxActiveDialTasks && i < len(ts); i++ {
 			t := ts[i]
 			srv.log.Trace("New dial task", "task", t)
-			go func() { t.Do(srv); taskdone <- t }()
+
+			go func() {
+				select {
+				case <-srv.quit:
+					return
+				default:
+					t.Do(srv)
+				}
+
+				select {
+				case <-srv.quit:
+					return
+				case taskdone <- t:
+				}
+			}()
 			runningTasks = append(runningTasks, t)
 		}
 		return ts[i:]

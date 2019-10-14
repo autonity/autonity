@@ -28,6 +28,7 @@ import (
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
+	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -37,6 +38,8 @@ func TestTendermintSuccess(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	defer goleak.VerifyNone(t)
 
 	cases := []*testCase{
 		{
@@ -59,6 +62,8 @@ func TestTendermintOneMalicious(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	defer goleak.VerifyNone(t)
 
 	cases := []*testCase{
 		{
@@ -86,6 +91,8 @@ func TestTendermintSlowConnections(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	defer goleak.VerifyNone(t)
 
 	cases := []*testCase{
 		{
@@ -125,6 +132,8 @@ func TestTendermintLongRun(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
+	defer goleak.VerifyNone(t)
+
 	cases := []*testCase{
 		{
 			name:      "no malicious - 30 tx per second",
@@ -152,6 +161,8 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	defer goleak.VerifyNone(t)
 
 	cases := []*testCase{
 		{
@@ -239,6 +250,8 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	defer goleak.VerifyNone(t)
 
 	hookGenerator := func() (hook, hook) {
 		prevBlockBalance := uint64(0)
@@ -341,6 +354,8 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	defer goleak.VerifyNone(t)
 
 	hookGenerator := func() (hook, hook) {
 		prevBlockBalance := uint64(0)
@@ -510,7 +525,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f nodes stop for 5 seconds at the same block",
 			numPeers:  7,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -525,7 +540,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f nodes stop for 5 seconds at different blocks",
 			numPeers:  7,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -540,7 +555,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f nodes stop for 10 seconds at the same block",
 			numPeers:  7,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -555,7 +570,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f nodes stop for 10 seconds at different blocks",
 			numPeers:  7,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -570,7 +585,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f nodes stop for 20 seconds at the same block",
 			numPeers:  7,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -585,7 +600,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f nodes stop for 20 seconds at different blocks",
 			numPeers:  7,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -616,7 +631,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		{
 			name:      "f+1 nodes stop for 5 seconds at the same block",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -631,7 +646,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		{
 			name:      "f+1 nodes stop for 5 seconds at different blocks",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -646,7 +661,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		{
 			name:      "f+1 nodes stop for 10 seconds at the same block",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -661,7 +676,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		{
 			name:      "f+1 nodes stop for 10 seconds at different blocks",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -676,7 +691,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		{
 			name:      "f+1 nodes stop for 20 seconds at the same block",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -691,7 +706,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		{
 			name:      "f+1 nodes stop for 20 seconds at different blocks",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -722,7 +737,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		{
 			name:      "f+2 nodes stop for 5 seconds at the same block",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				2: hookStopNode(2, 5),
@@ -739,7 +754,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		{
 			name:      "f+2 nodes stop for 5 seconds at different blocks",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				2: hookStopNode(2, 4),
@@ -756,7 +771,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		{
 			name:      "f+2 nodes stop for 10 seconds at the same block",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				2: hookStopNode(2, 5),
@@ -773,7 +788,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		{
 			name:      "f+2 nodes stop for 10 seconds at different blocks",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				2: hookStopNode(2, 4),
@@ -790,7 +805,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		{
 			name:      "f+2 nodes stop for 20 seconds at the same block",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				2: hookStopNode(2, 5),
@@ -807,7 +822,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		{
 			name:      "f+2 nodes stop for 20 seconds at different blocks",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 40,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				2: hookStopNode(2, 4),
@@ -840,7 +855,7 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 		{
 			name:      "all nodes stop for 60 seconds at different blocks(2+2+1)",
 			numPeers:  5,
-			numBlocks: 30,
+			numBlocks: 50,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				0: hookStopNode(0, 3),
@@ -882,7 +897,7 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 		{
 			name:      "all nodes stop for 30 seconds at the same block",
 			numPeers:  5,
-			numBlocks: 10,
+			numBlocks: 50,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				0: hookStopNode(0, 3),
@@ -903,7 +918,7 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 		{
 			name:      "all nodes stop for 60 seconds at the same block",
 			numPeers:  5,
-			numBlocks: 10,
+			numBlocks: 50,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				0: hookStopNode(0, 3),
@@ -1072,14 +1087,31 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	defer func() {
+		wgClose := &errgroup.Group{}
 		for _, validator := range validators {
-			if validator.isRunning {
-				err = validator.node.Stop()
-				if err != nil {
-					panic(err)
+			validatorInner := validator
+			wgClose.Go(func() error {
+				if !validatorInner.isRunning {
+					return nil
 				}
-			}
+
+				errInner := validatorInner.node.Close()
+				if errInner != nil {
+					return fmt.Errorf("error on node close %v", err)
+				}
+
+				validatorInner.node.Wait()
+
+				return nil
+			})
 		}
+
+		err = wgClose.Wait()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		time.Sleep(time.Second) //level DB needs a second to close
 	}()
 
 	wg = &errgroup.Group{}

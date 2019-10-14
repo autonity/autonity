@@ -165,7 +165,7 @@ func testSendTransactions(t *testing.T, protocol int) {
 	}
 	gspec.MustCommit(db)
 
-	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{}, nil)
+	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{}, nil, core.NewTxSenderCacher())
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
