@@ -83,7 +83,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		eventMux:       event.NewTypeMuxSilent(logger),
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:         log.New(),
+		logger:         logger,
 		db:             db,
 		recents:        recents,
 		coreStarted:    false,

@@ -132,7 +132,7 @@ func (u *User) Validate() error {
 	if len(u.Enode) > 0 {
 		n, err := enode.ParseV4WithResolve(u.Enode)
 		if n == nil {
-			return fmt.Errorf("fail to parse enode for account %v, error:%v", u.Address, err)
+			return fmt.Errorf("fail to parse enode for account %v, error: %v", u.Address, err)
 		}
 
 		//todo do we need this check?

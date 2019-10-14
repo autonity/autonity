@@ -1568,7 +1568,7 @@ func hookStopNode(nodeIndex int, blockNum uint64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		if block.Number().Uint64() == blockNum {
 			fmt.Printf("+++ Validator %d is being stopped at %d\n", nodeIndex, blockNum)
-	
+
 			err := validator.stopNode()
 			if err != nil {
 				return err

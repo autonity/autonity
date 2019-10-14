@@ -125,6 +125,15 @@ func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 		c.sendPrevote(ctx, true)
 		c.setStep(prevote)
+	} else {
+		c.logger.Error("got old timeout propose message",
+			"Propose", msg,
+			"msgHeight", msg.heightWhenCalled,
+			"currentHeight", c.currentRoundState.Height().Int64(),
+			"msgRound", msg.roundWhenCalled,
+			"currentRound", c.currentRoundState.Round().Int64(),
+			"currentRoundStep", c.currentRoundState.Step(),
+		)
 	}
 }
 
@@ -133,6 +142,15 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 		c.sendPrecommit(ctx, true)
 		c.setStep(precommit)
+	} else {
+		c.logger.Error("got old timeout prevote message",
+			"Prevote", msg,
+			"msgHeight", msg.heightWhenCalled,
+			"currentHeight", c.currentRoundState.Height().Int64(),
+			"msgRound", msg.roundWhenCalled,
+			"currentRound", c.currentRoundState.Round().Int64(),
+			"currentRoundStep", c.currentRoundState.Step(),
+		)
 	}
 }
 
@@ -141,6 +159,15 @@ func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 
 		c.startRound(ctx, new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
+	} else {
+		c.logger.Error("got old timeout preCommit message",
+			"PreCommit", msg,
+			"msgHeight", msg.heightWhenCalled,
+			"currentHeight", c.currentRoundState.Height().Int64(),
+			"msgRound", msg.roundWhenCalled,
+			"currentRound", c.currentRoundState.Round().Int64(),
+			"currentRoundStep", c.currentRoundState.Step(),
+		)
 	}
 }
 
