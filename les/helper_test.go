@@ -184,7 +184,8 @@ func newTestProtocolManager(lightSync bool, blocks int, odr *LesOdr, indexers []
 		peers = newPeerSet()
 	}
 	// create a simulation backend and pre-commit several customized block to the database.
-	simulation := backends.NewSimulatedBackendWithDatabase(db, gspec.Alloc, 100000000)
+	cacher := core.NewTxSenderCacher()
+	simulation := backends.NewSimulatedBackendWithDatabase(db, gspec.Alloc, 100000000, cacher)
 	prepareTestchain(blocks, simulation)
 
 	// initialize empty chain for light client or pre-committed chain for server.
@@ -194,7 +195,7 @@ func newTestProtocolManager(lightSync bool, blocks int, odr *LesOdr, indexers []
 		chain = simulation.Blockchain()
 		config := core.DefaultTxPoolConfig
 		config.Journal = ""
-		pool = core.NewTxPool(config, gspec.Config, simulation.Blockchain())
+		pool = core.NewTxPool(config, gspec.Config, simulation.Blockchain(), cacher)
 	}
 
 	// Create contract registrar

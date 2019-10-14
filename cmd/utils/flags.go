@@ -59,7 +59,7 @@ import (
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rpc"
 	pcsclite "github.com/gballet/go-libpcsclite"
-	cli "gopkg.in/urfave/cli.v1"
+	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -1662,7 +1662,8 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 		cache.TrieDirtyLimit = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
 	}
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
-	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg, nil)
+	senderCacher := core.NewTxSenderCacher()
+	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg, nil, senderCacher)
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
 	}
