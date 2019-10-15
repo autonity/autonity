@@ -1420,10 +1420,15 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						}
 
 						if int(validator.lastBlock) <= test.numBlocks {
-							log.Error("test info", "err", fmt.Errorf("validator last height: %d, testcase define height: %d", validator.lastBlock, test.numBlocks))
-							//iif int(validator.lastBlock) <= test.numBlocks {
+							log.Error("test info", "lastHeight", validator.lastBlock, "maxHeight", test.numBlocks)
+
 							for i := 0; i < txPerPeer; i++ {
 								nextValidatorIndex := (index + i + 1) % len(validators)
+
+								if !validators[nextValidatorIndex].isRunning {
+									continue
+								}
+
 								toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
 								var tx *types.Transaction
 								var innerErr error
@@ -1624,7 +1629,7 @@ func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		stopTime := tCase.getStopTime(nodeIndex)
 		if block == nil && currentTime.Sub(stopTime).Seconds() >= durationAfterStop {
-			fmt.Printf("--- Validator %d is being stopped at %f\n", nodeIndex, currentTime.Sub(stopTime).Seconds())
+			fmt.Printf("--- Validator %d is being started at %f\n", nodeIndex, currentTime.Sub(stopTime).Seconds())
 
 			if err := validator.startNode(); err != nil {
 				return err
@@ -1633,7 +1638,7 @@ func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
 			if err := validator.startService(); err != nil {
 				return err
 			}
-			fmt.Printf("--- Validator %d is stopped at %f\n", nodeIndex, currentTime.Sub(stopTime).Seconds())
+			fmt.Printf("--- Validator %d is started at %f\n", nodeIndex, currentTime.Sub(stopTime).Seconds())
 
 		}
 
