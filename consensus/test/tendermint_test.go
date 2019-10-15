@@ -41,21 +41,16 @@ func TestTendermintSuccess(t *testing.T) {
 
 	defer goleak.VerifyNone(t)
 
-	cases := []*testCase{
-		{
-			name:      "no malicious",
-			numPeers:  5,
-			numBlocks: 5,
-			txPerPeer: 1,
-		},
+	testCase := &testCase{
+		name:      "no malicious",
+		numPeers:  5,
+		numBlocks: 5,
+		txPerPeer: 1,
 	}
 
-	for _, testCase := range cases {
-		testCase := testCase
-		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
-		})
-	}
+	t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+		runTest(t, testCase)
+	})
 }
 
 func TestTendermintOneMalicious(t *testing.T) {
@@ -65,26 +60,21 @@ func TestTendermintOneMalicious(t *testing.T) {
 
 	defer goleak.VerifyNone(t)
 
-	cases := []*testCase{
-		{
-			name:      "one node - always accepts blocks",
-			numPeers:  5,
-			numBlocks: 5,
-			txPerPeer: 1,
-			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
-				4: func(basic consensus.Engine) consensus.Engine {
-					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
-				},
+	testCase := &testCase{
+		name:      "one node - always accepts blocks",
+		numPeers:  5,
+		numBlocks: 5,
+		txPerPeer: 1,
+		maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
+			4: func(basic consensus.Engine) consensus.Engine {
+				return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
 			},
 		},
 	}
 
-	for _, testCase := range cases {
-		testCase := testCase
-		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
-		})
-	}
+	t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+		runTest(t, testCase)
+	})
 }
 
 func TestTendermintSlowConnections(t *testing.T) {
@@ -167,6 +157,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:      "one node stops at block 1",
+			isSkipped:true,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -186,6 +177,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		},
 		{
 			name:      "one node stops at block 5",
+			isSkipped:true,
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 1,
@@ -221,6 +213,8 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				0: {},
 				1: {},
 				2: {},
+				5: {},
+				6: {},
 			},
 		},
 		{
@@ -241,6 +235,8 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				0: {},
 				1: {},
 				2: {},
+				5: {},
+				6: {},
 			},
 		},
 		{
@@ -261,6 +257,8 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				0: {},
 				1: {},
 				2: {},
+				5: {},
+				6: {},
 			},
 		},
 	}
@@ -1080,7 +1078,7 @@ func runTest(t *testing.T, test *testCase) {
 		t.SkipNow()
 	}
 
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlWarn, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numPeers))
 	if err != nil {
 		t.Log("can't rise file description limit. errors are possible")
@@ -1354,7 +1352,10 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	if test.runningValidators != nil {
 		validatorsToBeStopped = uint32(len(test.runningValidators))
 	}
-	wg, ctx := errgroup.WithContext(context.Background())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	wg, ctx := errgroup.WithContext(ctx)
 
 	for index, validator := range validators {
 		index := index
@@ -1369,7 +1370,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			for {
 				select {
 				case ev := <-validator.eventChan:
-					if !validator.isRunning && validator.wasStopped {
+					if atomic.LoadUint32(validatorsCanBeStopped) == validatorsToBeStopped {
 						// the validator is stopped until the end of the test
 						if _, ok := test.runningValidators[index]; test.runningValidators != nil && !ok {
 							break wgLoop
@@ -1391,9 +1392,11 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 					if atomic.LoadUint32(testCanBeStopped) == 1 {
 						if atomic.LoadUint32(validatorsCanBeStopped) == validatorsToBeStopped {
+							cancel()
 							break wgLoop
 						}
 						if atomic.LoadUint32(validatorsCanBeStopped) > validatorsToBeStopped {
+							cancel()
 							return fmt.Errorf("something is wrong. %d of %d validators are ready to be stopped", atomic.LoadUint32(validatorsCanBeStopped), validatorsToBeStopped)
 						}
 						continue
@@ -1463,13 +1466,17 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						if errorOnTx {
 							validator.transactionsMu.Lock()
 							if len(validator.transactions) == 0 {
+								log.Error("peer is checking about to be stopped 1", "index", index, "url", validator.enode.String(), "toStop", validatorsToBeStopped)
 								if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+									log.Error("peer is set to be stopped 1", "index", index, "url", validator.enode.String(), "toStop", validatorsToBeStopped)
 									atomic.AddUint32(validatorsCanBeStopped, 1)
 								}
 							}
 							validator.transactionsMu.Unlock()
 						} else {
+							log.Error("peer is checking about to be stopped 2", "index", index, "url", validator.enode.String(), "toStop", validatorsToBeStopped)
 							if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+								log.Error("peer is set to be stopped 2", "index", index, "url", validator.enode.String(), "toStop", validatorsToBeStopped)
 								atomic.AddUint32(validatorsCanBeStopped, 1)
 							}
 						}
@@ -1504,7 +1511,9 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 											pendingTransactions, ev.Block.Number().Uint64(),
 											atomic.LoadInt64(validator.txsSendCount), txsChainCount))
 
+										log.Error("peer is checking about to be stopped 3", "index", index, "url", validator.enode.String(), "toStop", validatorsToBeStopped)
 										if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+											log.Error("peer is set to be stopped 3", "index", index, "url", validator.enode.String(), "toStop", validatorsToBeStopped)
 											atomic.AddUint32(validatorsCanBeStopped, 1)
 										}
 									}
