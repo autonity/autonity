@@ -77,10 +77,10 @@ func TestTendermintOneMalicious(t *testing.T) {
 				},
 			},
 			runningValidators: map[int]struct{}{
-				0: struct{}{},
-				1: struct{}{},
-				2: struct{}{},
-				3: struct{}{},
+				0: {},
+				1: {},
+				2: {},
+				3: {},
 			},
 		},
 	}
@@ -184,10 +184,10 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				4: nil,
 			},
 			runningValidators: map[int]struct{}{
-				0: struct{}{},
-				1: struct{}{},
-				2: struct{}{},
-				3: struct{}{},
+				0: {},
+				1: {},
+				2: {},
+				3: {},
 			},
 		},
 		{
@@ -203,10 +203,10 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				4: nil,
 			},
 			runningValidators: map[int]struct{}{
-				0: struct{}{},
-				1: struct{}{},
-				2: struct{}{},
-				3: struct{}{},
+				0: {},
+				1: {},
+				2: {},
+				3: {},
 			},
 		},
 		{
@@ -224,9 +224,9 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				4: nil,
 			},
 			runningValidators: map[int]struct{}{
-				0: struct{}{},
-				1: struct{}{},
-				2: struct{}{},
+				0: {},
+				1: {},
+				2: {},
 			},
 		},
 		{
@@ -244,9 +244,9 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				4: nil,
 			},
 			runningValidators: map[int]struct{}{
-				0: struct{}{},
-				1: struct{}{},
-				2: struct{}{},
+				0: {},
+				1: {},
+				2: {},
 			},
 		},
 		{
@@ -264,9 +264,9 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				4: nil,
 			},
 			runningValidators: map[int]struct{}{
-				0: struct{}{},
-				1: struct{}{},
-				2: struct{}{},
+				0: {},
+				1: {},
+				2: {},
 			},
 		},
 	}
@@ -999,10 +999,10 @@ func TestTendermint3of6Crashed1or2Recovered(t *testing.T) {
 				0: hookStartNode(0, 120),
 			},
 			runningValidators: map[int]struct{}{
-				0: struct{}{},
-				3: struct{}{},
-				4: struct{}{},
-				5: struct{}{},
+				0: {},
+				3: {},
+				4: {},
+				5: {},
 			},
 			stopTime: make(map[int]time.Time),
 		},
