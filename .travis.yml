@@ -50,7 +50,7 @@ jobs:
       - <<: *tests
         name: "TestTendermint3of6Crashed1or2Recovered"
         script:
-          - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermint3of6Crashed1or2Recovered' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+          - go test ./consensus/test/... -v -run 'TestTendermint3of6Crashed1or2Recovered' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
       - <<: *tests
         name: "TestTendermintStartStopFPlusOneNodes"
         script:
