@@ -1497,7 +1497,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 									txsChainCount += txsBlockCount
 								}
 
-								if validator.wasStopped {
+								if _, ok := test.runningValidators[index]; ok && validator.wasStopped {
 									//fixme an error should be returned
 									log.Error("test error!!!", "err", fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
 										index,
