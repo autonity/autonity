@@ -76,12 +76,6 @@ func TestTendermintOneMalicious(t *testing.T) {
 					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
 				},
 			},
-			runningValidators: map[int]struct{}{
-				0: {},
-				1: {},
-				2: {},
-				3: {},
-			},
 		},
 	}
 
@@ -1356,6 +1350,10 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	txsMu := sync.Mutex{}
 
 	validatorsCanBeStopped := new(uint32)
+	validatorsToBeStopped := uint32(len(validators))
+	if test.runningValidators != nil {
+		validatorsToBeStopped = uint32(len(test.runningValidators))
+	}
 	wg, ctx := errgroup.WithContext(context.Background())
 
 	for index, validator := range validators {
@@ -1373,7 +1371,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 				case ev := <-validator.eventChan:
 					if !validator.isRunning && validator.wasStopped {
 						// the validator is stopped until the end of the test
-						if _, ok := test.runningValidators[index]; !ok {
+						if _, ok := test.runningValidators[index]; test.runningValidators != nil && !ok {
 							break wgLoop
 						}
 					}
@@ -1392,11 +1390,11 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					validator.lastBlock = ev.Block.NumberU64()
 
 					if atomic.LoadUint32(testCanBeStopped) == 1 {
-						if atomic.LoadUint32(validatorsCanBeStopped) == uint32(len(test.runningValidators)) {
+						if atomic.LoadUint32(validatorsCanBeStopped) == validatorsToBeStopped {
 							break wgLoop
 						}
-						if atomic.LoadUint32(validatorsCanBeStopped) > uint32(len(test.runningValidators)) {
-							return fmt.Errorf("something is wrong. %d of %d validators are ready to be stopped", atomic.LoadUint32(validatorsCanBeStopped), uint32(len(test.runningValidators)))
+						if atomic.LoadUint32(validatorsCanBeStopped) > validatorsToBeStopped {
+							return fmt.Errorf("something is wrong. %d of %d validators are ready to be stopped", atomic.LoadUint32(validatorsCanBeStopped), validatorsToBeStopped)
 						}
 						continue
 					}
@@ -1498,15 +1496,17 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 									txsChainCount += txsBlockCount
 								}
 
-								if _, ok := test.runningValidators[index]; ok && validator.wasStopped {
-									//fixme an error should be returned
-									log.Error("test error!!!", "err", fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
-										index,
-										pendingTransactions, ev.Block.Number().Uint64(),
-										atomic.LoadInt64(validator.txsSendCount), txsChainCount))
+								if validator.wasStopped {
+									if _, ok := test.runningValidators[index]; test.runningValidators != nil && ok {
+										//fixme an error should be returned
+										log.Error("test error!!!", "err", fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
+											index,
+											pendingTransactions, ev.Block.Number().Uint64(),
+											atomic.LoadInt64(validator.txsSendCount), txsChainCount))
 
-									if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-										atomic.AddUint32(validatorsCanBeStopped, 1)
+										if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+											atomic.AddUint32(validatorsCanBeStopped, 1)
+										}
 									}
 								} else {
 									return fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
