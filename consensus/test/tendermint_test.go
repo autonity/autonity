@@ -1611,13 +1611,13 @@ func runHook(validatorHook hook, test *testCase, block *types.Block, validator *
 func hookStopNode(nodeIndex int, blockNum uint64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		if block.Number().Uint64() == blockNum {
-			fmt.Printf("+++ Validator %d is being stopped at %d\n", nodeIndex, blockNum)
+			fmt.Printf("+++ Validator %d is being stopped at %d. Address %s\n", nodeIndex, blockNum, validator.address)
 
 			err := validator.stopNode()
 			if err != nil {
 				return err
 			}
-			fmt.Printf("+++ Validator %d is stopped at %d\n", nodeIndex, blockNum)
+			fmt.Printf("+++ Validator %d is stopped at %d. Address %s\n", nodeIndex, blockNum, validator.address)
 			tCase.setStopTime(nodeIndex, currentTime)
 		}
 
@@ -1629,7 +1629,7 @@ func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		stopTime := tCase.getStopTime(nodeIndex)
 		if block == nil && currentTime.Sub(stopTime).Seconds() >= durationAfterStop {
-			fmt.Printf("--- Validator %d is being started at %f\n", nodeIndex, currentTime.Sub(stopTime).Seconds())
+			fmt.Printf("--- Validator %d is being started at %f. Address %s\n", nodeIndex, currentTime.Sub(stopTime).Seconds(), validator.address)
 
 			if err := validator.startNode(); err != nil {
 				return err
@@ -1638,7 +1638,7 @@ func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
 			if err := validator.startService(); err != nil {
 				return err
 			}
-			fmt.Printf("--- Validator %d is started at %f\n", nodeIndex, currentTime.Sub(stopTime).Seconds())
+			fmt.Printf("--- Validator %d is started at %f. Address %s\n", nodeIndex, currentTime.Sub(stopTime).Seconds(), validator.address)
 
 		}
 
