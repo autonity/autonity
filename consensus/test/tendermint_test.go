@@ -1357,11 +1357,6 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	validatorsCanBeStopped := new(uint32)
 	wg, ctx := errgroup.WithContext(context.Background())
 
-	// skip malicious nodes
-	if test.runningValidators != nil {
-		atomic.AddUint32(validatorsCanBeStopped, uint32(len(validators)-len(test.runningValidators)))
-	}
-
 	for index, validator := range validators {
 		index := index
 		validator := validator
