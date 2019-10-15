@@ -1002,6 +1002,7 @@ func TestTendermint3of6Crashed1or2Recovered(t *testing.T) {
 				0: struct{}{},
 				3: struct{}{},
 				4: struct{}{},
+				5: struct{}{},
 			},
 			stopTime: make(map[int]time.Time),
 		},
