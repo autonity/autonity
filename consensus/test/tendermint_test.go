@@ -1372,7 +1372,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 				case ev := <-validator.eventChan:
 					if !validator.isRunning && validator.wasStopped {
 						// the validator is stopped until the end of the test
-						if _, ok := test.runningValidators[index]; ok {
+						if _, ok := test.runningValidators[index]; !ok {
 							break wgLoop
 						}
 					}
