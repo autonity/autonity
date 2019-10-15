@@ -1566,9 +1566,11 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			//don't check chain for malicious peers
 			continue
 		}
-		if _, ok := test.runningValidators[index]; !ok {
-			//don't check chain for stopped peers
-			continue
+		if test.runningValidators != nil {
+			if _, ok := test.runningValidators[index+1]; !ok {
+				//don't check chain for stopped peers
+				continue
+			}
 		}
 
 		validatorBlock := validator.lastBlock
@@ -1590,9 +1592,11 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 				//don't check chain for malicious peers
 				continue
 			}
-			if _, ok := test.runningValidators[index+1]; !ok {
-				//don't check chain for stopped peers
-				continue
+			if test.runningValidators != nil {
+				if _, ok := test.runningValidators[index+1]; !ok {
+					//don't check chain for stopped peers
+					continue
+				}
 			}
 
 			if validator.blocks[uint64(i)].hash != blockHash {
