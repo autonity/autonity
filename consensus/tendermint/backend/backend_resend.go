@@ -55,7 +55,7 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 				} else {
 					err = nil
 
-					sb.logger.Warn("inner sender loop. success",
+					sb.logger.Info("inner sender loop. success",
 						"try", try,
 						"peer", addr.Hex(),
 						"msg", hash.Hex(),
