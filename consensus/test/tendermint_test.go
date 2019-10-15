@@ -76,6 +76,12 @@ func TestTendermintOneMalicious(t *testing.T) {
 					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
 				},
 			},
+			runningValidators: map[int]struct{}{
+				0: struct{}{},
+				1: struct{}{},
+				2: struct{}{},
+				3: struct{}{},
+			},
 		},
 	}
 
@@ -177,6 +183,12 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
 				4: nil,
 			},
+			runningValidators: map[int]struct{}{
+				0: struct{}{},
+				1: struct{}{},
+				2: struct{}{},
+				3: struct{}{},
+			},
 		},
 		{
 			name:      "one node stops at block 5",
@@ -189,6 +201,12 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
 				4: nil,
+			},
+			runningValidators: map[int]struct{}{
+				0: struct{}{},
+				1: struct{}{},
+				2: struct{}{},
+				3: struct{}{},
 			},
 		},
 		{
@@ -205,6 +223,11 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				3: nil,
 				4: nil,
 			},
+			runningValidators: map[int]struct{}{
+				0: struct{}{},
+				1: struct{}{},
+				2: struct{}{},
+			},
 		},
 		{
 			name:      "F nodes stop at block 5",
@@ -220,6 +243,11 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				3: nil,
 				4: nil,
 			},
+			runningValidators: map[int]struct{}{
+				0: struct{}{},
+				1: struct{}{},
+				2: struct{}{},
+			},
 		},
 		{
 			name:      "F nodes stop at blocks 4,5",
@@ -234,6 +262,11 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
 				3: nil,
 				4: nil,
+			},
+			runningValidators: map[int]struct{}{
+				0: struct{}{},
+				1: struct{}{},
+				2: struct{}{},
 			},
 		},
 	}
@@ -965,6 +998,11 @@ func TestTendermint3of6Crashed1or2Recovered(t *testing.T) {
 			afterHooks: map[int]hook{
 				0: hookStartNode(0, 120),
 			},
+			runningValidators: map[int]struct{}{
+				0: struct{}{},
+				3: struct{}{},
+				4: struct{}{},
+			},
 			stopTime: make(map[int]time.Time),
 		},
 	}
@@ -987,6 +1025,7 @@ type testCase struct {
 	networkRates         map[int]networkRate                                   //map[validatorIndex]networkRate
 	beforeHooks          map[int]hook                                          //map[validatorIndex]beforeHook
 	afterHooks           map[int]hook                                          //map[validatorIndex]afterHook
+	runningValidators    map[int]struct{}
 	sendTransactionHooks map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error)
 	stopTime             map[int]time.Time
 	genesisHook          func(g *core.Genesis) *core.Genesis
@@ -1317,17 +1356,15 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 	validatorsCanBeStopped := new(uint32)
 	wg, ctx := errgroup.WithContext(context.Background())
+
+	// skip malicious nodes
+	if test.runningValidators != nil {
+		atomic.AddUint32(validatorsCanBeStopped, uint32(len(validators)-len(test.runningValidators)))
+	}
+
 	for index, validator := range validators {
 		index := index
 		validator := validator
-
-		// skip malicious nodes
-		if test.maliciousPeers != nil {
-			if _, ok := test.maliciousPeers[index]; ok {
-				atomic.AddUint32(validatorsCanBeStopped, 1)
-				continue
-			}
-		}
 
 		wg.Go(func() error {
 			var err error
@@ -1338,6 +1375,13 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			for {
 				select {
 				case ev := <-validator.eventChan:
+					if !validator.isRunning && validator.wasStopped {
+						// the validator is stopped until the end of the test
+						if _, ok := test.runningValidators[index]; ok {
+							break wgLoop
+						}
+					}
+
 					if _, ok := validator.blocks[ev.Block.NumberU64()]; ok {
 						continue
 					}
@@ -1352,11 +1396,11 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					validator.lastBlock = ev.Block.NumberU64()
 
 					if atomic.LoadUint32(testCanBeStopped) == 1 {
-						if atomic.LoadUint32(validatorsCanBeStopped) == uint32(len(validators)) {
+						if atomic.LoadUint32(validatorsCanBeStopped) == uint32(len(test.runningValidators)) {
 							break wgLoop
 						}
-						if atomic.LoadUint32(validatorsCanBeStopped) > uint32(len(validators)) {
-							return fmt.Errorf("something is wrong. %d of %d validators are ready to be stopped", atomic.LoadUint32(validatorsCanBeStopped), uint32(len(validators)))
+						if atomic.LoadUint32(validatorsCanBeStopped) > uint32(len(test.runningValidators)) {
+							return fmt.Errorf("something is wrong. %d of %d validators are ready to be stopped", atomic.LoadUint32(validatorsCanBeStopped), uint32(len(test.runningValidators)))
 						}
 						continue
 					}
