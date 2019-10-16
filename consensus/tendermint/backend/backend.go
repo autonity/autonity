@@ -128,7 +128,6 @@ type Backend struct {
 	autonityContractAddress common.Address // Ethereum address of the white list contract
 	contractsMu             sync.RWMutex
 	vmConfig                *vm.Config
-
 }
 
 // Address implements tendermint.Backend.Address
@@ -161,6 +160,31 @@ func (sb *Backend) Broadcast(ctx context.Context, valSet validator.Set, payload 
 
 func (sb *Backend) postEvent(event interface{}) {
 	go sb.Post(event)
+}
+
+func (sb *Backend) AskSync(valSet validator.Set) {
+	sb.logger.Info("Broadcasting consensus sync-me")
+
+	targets := make(map[common.Address]struct{})
+	for _, val := range valSet.List() {
+		if val.Address() != sb.Address() {
+			targets[val.Address()] = struct{}{}
+		}
+	}
+
+	if sb.broadcaster != nil && len(targets) > 0 {
+		ps := sb.broadcaster.FindPeers(targets)
+		count := 0
+		for addr, p := range ps {
+			//ask to quorum nodes to sync, 1 must then be honest and updated
+			if count == valSet.Quorum() {
+				break
+			}
+			log.Info("Asking sync to", "addr", addr)
+			p.Send(tendermintSyncMsg, []byte{})
+			count += 1
+		}
+	}
 }
 
 // Broadcast implements tendermint.Backend.Gossip
@@ -470,9 +494,9 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 	}
 
 	sb.logger.Info("Syncing", "peer", address)
-	targets := map[common.Address]struct{}{address : {}}
+	targets := map[common.Address]struct{}{address: {}}
 	ps := sb.broadcaster.FindPeers(targets)
-	p, connected :=  ps[address]
+	p, connected := ps[address]
 	if !connected {
 		return
 	}

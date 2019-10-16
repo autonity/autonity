@@ -149,7 +149,11 @@ type Backend interface {
 
 	ResetPeerCache(address common.Address)
 
+	AskSync(set validator.Set)
+
 	GetContractAddress() common.Address
+
 	GetContractABI() string
+
 	WhiteList() []string
 }
