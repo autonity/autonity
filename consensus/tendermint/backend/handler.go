@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	tendermintMsg = 0x11
+	tendermintMsg     = 0x11
+	tendermintSyncMsg = 0x12
 )
 
 var (
@@ -38,7 +39,7 @@ var (
 
 // Protocol implements consensus.Handler.Protocol
 func (sb *Backend) Protocol() (protocolName string, extraMsgCodes uint64) {
-	return "tendermint", 1
+	return "tendermint", 2
 }
 
 // HandleMsg implements consensus.Handler.HandleMsg
@@ -81,6 +82,17 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 
 		return true, nil
 	}
+
+	if msg.Code == tendermintSyncMsg {
+		if !sb.coreStarted {
+			sb.logger.Error("Consensus core stopped - can't process sync messages")
+			return true, ErrStoppedEngine
+		}
+		sb.logger.Info("Received sync message", "from", addr)
+		sb.postEvent(events.SyncEvent{Addr: addr})
+		return true, nil
+	}
+
 	return false, nil
 }
 

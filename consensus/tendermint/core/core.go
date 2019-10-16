@@ -106,6 +106,7 @@ type core struct {
 	newUnminedBlockEventSub *event.TypeMuxSubscription
 	committedSub            *event.TypeMuxSubscription
 	timeoutEventSub         *event.TypeMuxSubscription
+	syncEventSub            *event.TypeMuxSubscription
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
 	isStarted               *uint32
@@ -136,7 +137,7 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightOldRoundsStates   map[int64]roundState
+	currentHeightOldRoundsStates   map[int64]*roundState
 	currentHeightOldRoundsStatesMu sync.RWMutex
 
 	proposeTimeout   *timeout
