@@ -329,7 +329,7 @@ func TestProcessBacklog(t *testing.T) {
 		c.processBacklog()
 	})
 
-	t.Run("future message", func(t *testing.T) {
+	t.Run("future height message are not processed", func(t *testing.T) {
 		nilRoundVote := &Vote{
 			Round:  big.NewInt(2),
 			Height: big.NewInt(4),
@@ -349,7 +349,7 @@ func TestProcessBacklog(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
 		valSet := newTestValidatorSet(2)
 		val := valSet.GetByIndex(0)
@@ -364,5 +364,85 @@ func TestProcessBacklog(t *testing.T) {
 
 		c.storeBacklog(msg, val)
 		c.processBacklog()
+	})
+
+	t.Run("future height message are processed when height change", func(t *testing.T) {
+		nilRoundVote := &Vote{
+			Round:  big.NewInt(2),
+			Height: big.NewInt(4),
+		}
+
+		nilRoundVotePayload, err := Encode(nilRoundVote)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+
+		msg := &Message{
+			Code: msgPrevote,
+			Msg:  nilRoundVotePayload,
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Post(gomock.Any()).Times(1)
+
+		valSet := newTestValidatorSet(2)
+		val := valSet.GetByIndex(0)
+
+		c := &core{
+			logger:            log.New("backend", "test", "id", 0),
+			backend:           backendMock,
+			address:           common.HexToAddress("0x1234567890"),
+			backlogs:          make(map[validator.Validator]*prque.Prque),
+			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
+		}
+		c.storeBacklog(msg, val)
+		c.processBacklog()
+		c.currentRoundState = NewRoundState(big.NewInt(2), big.NewInt(4))
+		c.processBacklog()
+		timeout := time.NewTimer(2 * time.Second)
+		<-timeout.C
+	})
+
+	t.Run("future round message are processed when round change", func(t *testing.T) {
+		nilRoundVote := &Vote{
+			Round:  big.NewInt(2),
+			Height: big.NewInt(4),
+		}
+
+		nilRoundVotePayload, err := Encode(nilRoundVote)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+
+		msg := &Message{
+			Code: msgPrevote,
+			Msg:  nilRoundVotePayload,
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Post(gomock.Any()).Times(1)
+
+		valSet := newTestValidatorSet(2)
+		val := valSet.GetByIndex(0)
+
+		c := &core{
+			logger:            log.New("backend", "test", "id", 0),
+			backend:           backendMock,
+			address:           common.HexToAddress("0x1234567890"),
+			backlogs:          make(map[validator.Validator]*prque.Prque),
+			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(4)),
+		}
+		c.storeBacklog(msg, val)
+		c.processBacklog()
+		c.currentRoundState = NewRoundState(big.NewInt(2), big.NewInt(4))
+		c.processBacklog()
+		timeout := time.NewTimer(2 * time.Second)
+		<-timeout.C
 	})
 }

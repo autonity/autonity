@@ -148,7 +148,7 @@ func TestHandlePrevote(t *testing.T) {
 		c := &core{
 			address:                      addr,
 			currentRoundState:            curRoundState,
-			currentHeightOldRoundsStates: make(map[int64]roundState),
+			currentHeightOldRoundsStates: make(map[int64]*roundState),
 			logger:                       log.New("backend", "test", "id", 0),
 			valSet:                       new(validatorSet),
 		}

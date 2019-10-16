@@ -484,3 +484,13 @@ func (m *MockBackend) WhiteList() []string {
 func (mr *MockBackendMockRecorder) WhiteList() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WhiteList", reflect.TypeOf((*MockBackend)(nil).WhiteList))
 }
+
+// AskSync mocks base method
+func (m *MockBackend) AskSync(set validator.Set) {
+	m.ctrl.Call(m, "AskSync", set)
+}
+
+// AskSync indicates an expected call of AskSync
+func (mr *MockBackendMockRecorder) AskSync(set interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), set)
+}
