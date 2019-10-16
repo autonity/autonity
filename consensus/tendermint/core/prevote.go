@@ -73,13 +73,13 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 			defer c.currentHeightOldRoundsStatesMu.Unlock()
 			oldRoundState, ok := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
 			if !ok {
-				oldRoundState = *NewRoundState(
+				oldRoundState = NewRoundState(
 					big.NewInt(preVote.Round.Int64()),
 					big.NewInt(c.currentRoundState.Height().Int64()),
 				)
 				c.currentHeightOldRoundsStates[preVote.Round.Int64()] = oldRoundState
 			}
-			c.acceptVote(&oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
+			c.acceptVote(oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
 		}
 		return err
 	}
