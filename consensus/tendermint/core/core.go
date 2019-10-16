@@ -159,7 +159,10 @@ func (c *core) GetCurrentHeightMessages() []*Message {
 		msgs[i] = state.GetMessages()
 		totalLen += len(msgs[i])
 	}
+	c.currentRoundStateMu.RLock()
 	msgs[len(msgs)-1] = c.currentRoundState.GetMessages()
+	c.currentRoundStateMu.RUnlock()
+
 	totalLen += len(msgs[len(msgs)-1])
 
 	result := make([]*Message, 0, totalLen)
