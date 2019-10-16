@@ -181,8 +181,8 @@ func (sb *Backend) AskSync(valSet validator.Set) {
 				break
 			}
 			log.Info("Asking sync to", "addr", addr)
-			p.Send(tendermintSyncMsg, []byte{})
-			count += 1
+			go p.Send(tendermintSyncMsg, []byte{}) //nolint
+			count++
 		}
 	}
 }
@@ -217,7 +217,7 @@ func (sb *Backend) Gossip(ctx context.Context, valSet validator.Set, payload []b
 			m.Add(hash, true)
 			sb.recentMessages.Add(addr, m)
 
-			go p.Send(tendermintMsg, payload)
+			go p.Send(tendermintMsg, payload) //nolint
 		}
 	}
 }
@@ -522,7 +522,7 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 		m.Add(hash, true)
 		sb.recentMessages.Add(address, m)
 
-		go p.Send(tendermintMsg, payload)
+		go p.Send(tendermintMsg, payload) //nolint
 	}
 }
 
