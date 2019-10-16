@@ -409,6 +409,7 @@ func TestCore_Close(t *testing.T) {
 		newUnminedBlockEventSub := evmux.Subscribe(events.NewUnminedBlockEvent{})
 		committedSub := evmux.Subscribe(events.CommitEvent{})
 		timeoutEventSub := evmux.Subscribe(TimeoutEvent{})
+		syncEventSub := evmux.Subscribe(events.SyncEvent{})
 
 		stopped := make(chan struct{}, 2)
 		stopped <- struct{}{}
@@ -429,6 +430,7 @@ func TestCore_Close(t *testing.T) {
 			prevoteTimeout:          newTimeout(prevote),
 			precommitTimeout:        newTimeout(precommit),
 			timeoutEventSub:         timeoutEventSub,
+			syncEventSub:            syncEventSub,
 			stopped:                 stopped,
 		}
 
@@ -455,6 +457,7 @@ func TestCore_Close(t *testing.T) {
 		newUnminedBlockEventSub := evmux.Subscribe(events.NewUnminedBlockEvent{})
 		committedSub := evmux.Subscribe(events.CommitEvent{})
 		timeoutEventSub := evmux.Subscribe(TimeoutEvent{})
+		syncEventSub := evmux.Subscribe(events.SyncEvent{})
 
 		stopped := make(chan struct{}, 2)
 		stopped <- struct{}{}
@@ -475,6 +478,7 @@ func TestCore_Close(t *testing.T) {
 			prevoteTimeout:          newTimeout(prevote),
 			precommitTimeout:        newTimeout(precommit),
 			timeoutEventSub:         timeoutEventSub,
+			syncEventSub:            syncEventSub,
 			stopped:                 stopped,
 		}
 
