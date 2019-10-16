@@ -121,6 +121,8 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 
 /////////////// Handle Timeout Functions ///////////////
 func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
+	c.currentRoundStateMu.RLock()
+	defer c.currentRoundStateMu.RUnlock()
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 		c.sendPrevote(ctx, true)
@@ -129,6 +131,8 @@ func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 }
 
 func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
+	c.currentRoundStateMu.RLock()
+	defer c.currentRoundStateMu.RUnlock()
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 		c.sendPrecommit(ctx, true)
@@ -137,6 +141,8 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 }
 
 func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
+	c.currentRoundStateMu.RLock()
+	defer c.currentRoundStateMu.RUnlock()
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 

@@ -85,7 +85,7 @@ func New(backend Backend, config *config.Config) *core {
 		isStopped:                    new(uint32),
 		valSet:                       new(validatorSet),
 		futureRoundsChange:           make(map[int64]int64),
-		currentHeightOldRoundsStates: make(map[int64]roundState),
+		currentHeightOldRoundsStates: make(map[int64]*roundState),
 		lockedRound:                  big.NewInt(-1),
 		validRound:                   big.NewInt(-1),
 		proposeTimeout:               newTimeout(propose),
@@ -119,7 +119,8 @@ type core struct {
 	backlogs   map[validator.Validator]*prque.Prque
 	backlogsMu sync.Mutex
 
-	currentRoundState *roundState
+	currentRoundStateMu sync.RWMutex
+	currentRoundState   *roundState
 
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
@@ -301,7 +302,7 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		// Assuming that round == 0 only when the node moves to a new height
 		// Therefore, resetting round related maps
 		c.currentHeightOldRoundsStatesMu.Lock()
-		c.currentHeightOldRoundsStates = make(map[int64]roundState)
+		c.currentHeightOldRoundsStates = make(map[int64]*roundState)
 		c.currentHeightOldRoundsStatesMu.Unlock()
 		c.futureRoundsChange = make(map[int64]int64)
 	}
@@ -323,10 +324,12 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 	if r.Int64() > 0 {
 		// This is a shallow copy, should be fine for now
 		c.currentHeightOldRoundsStatesMu.Lock()
-		c.currentHeightOldRoundsStates[r.Int64()-1] = *c.currentRoundState
+		c.currentHeightOldRoundsStates[r.Int64()-1] = c.currentRoundState
 		c.currentHeightOldRoundsStatesMu.Unlock()
 	}
-	c.currentRoundState.Update(r, h)
+	c.currentRoundStateMu.Lock()
+	c.currentRoundState = NewRoundState(r, h)
+	c.currentRoundStateMu.Unlock()
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, r.Uint64())
 	c.sentProposal = false
