@@ -212,6 +212,20 @@ func (mr *MockSetMockRecorder) F() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "F", reflect.TypeOf((*MockSet)(nil).F))
 }
 
+// Quorum mocks base method
+func (m *MockSet) Quorum() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Quorum")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Quorum indicates an expected call of Quorum
+func (mr *MockSetMockRecorder) Quorum() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Quorum", reflect.TypeOf((*MockSet)(nil).Quorum))
+}
+
 // Policy mocks base method
 func (m *MockSet) Policy() config.ProposerPolicy {
 	ret := m.ctrl.Call(m, "Policy")

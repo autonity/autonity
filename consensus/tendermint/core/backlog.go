@@ -136,7 +136,7 @@ func (c *core) processBacklog() {
 			// Push back if it's a future message
 			err := c.checkMessage(round, height)
 			if err != nil {
-				if err == errFutureHeightMessage {
+				if err == errFutureHeightMessage || err == errFutureRoundMessage {
 					logger.Debug("Stop processing backlog", "msg", msg)
 					backlog.Push(msg, prio)
 					isFuture = true

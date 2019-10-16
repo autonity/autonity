@@ -499,8 +499,8 @@ func TestHandleProposal(t *testing.T) {
 			address:           addr,
 			backend:           backendMock,
 			currentRoundState: curRoundState,
-			currentHeightOldRoundsStates: map[int64]roundState{
-				0: *curRoundState,
+			currentHeightOldRoundsStates: map[int64]*roundState{
+				0: curRoundState,
 			},
 			lockedRound:    big.NewInt(-1),
 			lockedValue:    types.NewBlockWithHeader(&types.Header{}),

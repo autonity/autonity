@@ -294,7 +294,7 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender valida
 			logger.Debug("Storing future height message in backlog")
 			c.storeBacklog(msg, sender)
 		} else if err == errFutureRoundMessage {
-			logger.Debug("Storing future height message in backlog")
+			logger.Debug("Storing future round message in backlog")
 			c.storeBacklog(msg, sender)
 			//We cannot move to a round in a new height without receiving a new block
 			var msgRound int64
