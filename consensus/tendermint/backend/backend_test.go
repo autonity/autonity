@@ -22,24 +22,107 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	tendermintCrypto "github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
+
+func TestGossip(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	valSet, _ := newTestValidatorSet(5)
+	validators := valSet.List()
+
+	peers := make([]common.Address, 0, len(validators))
+	for _, val := range validators {
+		peers = append(peers, val.Address())
+	}
+
+	m := make(map[common.Address]struct{})
+	for _, p := range peers {
+		m[p] = struct{}{}
+	}
+
+	broadcaster := consensus.NewMockBroadcaster(ctrl)
+	broadcaster.EXPECT().FindPeers(m)
+
+	knownMessages, err := lru.NewARC(inmemoryMessages)
+	if err != nil {
+		t.Fatalf("Expected <nil>, got %v", err)
+	}
+
+	b := &Backend{
+		knownMessages: knownMessages,
+	}
+	b.SetBroadcaster(broadcaster)
+
+	b.Gossip(context.Background(), valSet, nil)
+}
+
+func TestResetPeerCache(t *testing.T) {
+	addr := common.HexToAddress("0x01234567890")
+	msgCache, err := lru.NewARC(inmemoryMessages)
+	if err != nil {
+		t.Fatalf("Expected <nil>, got %v", err)
+	}
+	msgCache.Add(addr, addr)
+
+	recentMessages, err := lru.NewARC(inmemoryMessages)
+	if err != nil {
+		t.Fatalf("Expected <nil>, got %v", err)
+	}
+	recentMessages.Add(addr, msgCache)
+
+	b := &Backend{
+		recentMessages: recentMessages,
+	}
+
+	b.ResetPeerCache(addr)
+	if msgCache.Contains(addr) {
+		t.Fatalf("expected empty cache")
+	}
+}
+
+func TestHasBadProposal(t *testing.T) {
+	t.Run("callback is not set, false returned", func(t *testing.T) {
+		b := &Backend{}
+		if b.HasBadProposal(common.HexToHash("0x01234567890")) {
+			t.Fatalf("expected <false>, got <true>")
+		}
+	})
+
+	t.Run("callback is set, true returned", func(t *testing.T) {
+		b := &Backend{
+			hasBadBlock: func(hash common.Hash) bool {
+				return true
+			},
+		}
+		if !b.HasBadProposal(common.HexToHash("0x01234567890")) {
+			t.Fatalf("expected <true>, got <false>")
+		}
+	})
+}
 
 func TestSign(t *testing.T) {
 	b := newBackend()
@@ -122,69 +205,103 @@ func TestCheckValidatorSignature(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
-	backend := newBackend()
+	t.Run("broadcaster is not set", func(t *testing.T) {
+		backend := newBackend()
 
-	commitCh := make(chan *types.Block, 1)
-	backend.setResultChan(commitCh)
+		commitCh := make(chan *types.Block, 1)
+		backend.setResultChan(commitCh)
 
-	// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
-	testCases := []struct {
-		expectedErr       error
-		expectedSignature [][]byte
-		expectedBlock     func() types.Block
-	}{
-		{
-			// normal case
-			nil,
-			[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-1)...)},
-			func() types.Block {
-				chain, engine := newBlockChain(1)
-				block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-				if err != nil {
-					t.Fatal(err)
-				}
-				expectedBlock, _ := engine.updateBlock(block)
-				return *expectedBlock
+		// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
+		testCases := []struct {
+			expectedErr       error
+			expectedSignature [][]byte
+			expectedBlock     func() types.Block
+		}{
+			{
+				// normal case
+				nil,
+				[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-1)...)},
+				func() types.Block {
+					chain, engine := newBlockChain(1)
+					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+					if err != nil {
+						t.Fatal(err)
+					}
+					expectedBlock, _ := engine.updateBlock(block)
+					return *expectedBlock
+				},
 			},
-		},
-		{
-			// invalid signature
-			types.ErrInvalidCommittedSeals,
-			nil,
-			func() types.Block {
-				chain, engine := newBlockChain(1)
-				block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-				if err != nil {
-					t.Fatal(err)
-				}
-				expectedBlock, _ := engine.updateBlock(block)
-				return *expectedBlock
+			{
+				// invalid signature
+				types.ErrInvalidCommittedSeals,
+				nil,
+				func() types.Block {
+					chain, engine := newBlockChain(1)
+					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+					if err != nil {
+						t.Fatal(err)
+					}
+					expectedBlock, _ := engine.updateBlock(block)
+					return *expectedBlock
+				},
 			},
-		},
-	}
-
-	for _, test := range testCases {
-		expBlock := test.expectedBlock()
-
-		backend.proposedBlockHash = expBlock.Hash()
-		if err := backend.Commit(expBlock, test.expectedSignature); err != nil {
-			if err != test.expectedErr {
-				t.Errorf("error mismatch: have %v, want %v", err, test.expectedErr)
-			}
 		}
 
-		if test.expectedErr == nil {
-			// to avoid race condition is occurred by goroutine
-			select {
-			case result := <-commitCh:
-				if result.Hash() != expBlock.Hash() {
-					t.Errorf("hash mismatch: have %v, want %v", result.Hash(), expBlock.Hash())
+		for _, test := range testCases {
+			expBlock := test.expectedBlock()
+
+			backend.proposedBlockHash = expBlock.Hash()
+			if err := backend.Commit(expBlock, test.expectedSignature); err != nil {
+				if err != test.expectedErr {
+					t.Errorf("error mismatch: have %v, want %v", err, test.expectedErr)
 				}
-			case <-time.After(10 * time.Second):
-				t.Fatal("timeout")
+			}
+
+			if test.expectedErr == nil {
+				// to avoid race condition is occurred by goroutine
+				select {
+				case result := <-commitCh:
+					if result.Hash() != expBlock.Hash() {
+						t.Errorf("hash mismatch: have %v, want %v", result.Hash(), expBlock.Hash())
+					}
+				case <-time.After(10 * time.Second):
+					t.Fatal("timeout")
+				}
 			}
 		}
-	}
+	})
+
+	t.Run("broadcaster is set", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		blockFactory := func() types.Block {
+			chain, engine := newBlockChain(1)
+			block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedBlock, _ := engine.updateBlock(block)
+			return *expectedBlock
+		}
+
+		newBlock := blockFactory()
+		seals := [][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-1)...)}
+
+		broadcaster := consensus.NewMockBroadcaster(ctrl)
+		broadcaster.EXPECT().Enqueue(fetcherID, gomock.Any())
+
+		b := &Backend{
+			broadcaster: broadcaster,
+			logger:      log.New("backend", "test", "id", 0),
+		}
+		b.SetBroadcaster(broadcaster)
+
+		err := b.Commit(newBlock, seals)
+		if err != nil {
+			t.Fatalf("expected <nil>, got %v", err)
+		}
+	})
 }
 
 func TestGetProposer(t *testing.T) {
@@ -204,6 +321,91 @@ func TestGetProposer(t *testing.T) {
 	if actual != expected {
 		t.Errorf("proposer mismatch: have %v, want %v", actual.Hex(), expected.Hex())
 	}
+}
+
+func TestSyncPeer(t *testing.T) {
+	t.Run("no broadcaster set, nothing done", func(t *testing.T) {
+		b := &Backend{}
+		b.SyncPeer(common.HexToAddress("0x0123456789"), nil)
+	})
+
+	t.Run("valid params given, messages sent", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		peerAddr1 := common.HexToAddress("0x0123456789")
+		messages := []*tendermintCore.Message{
+			{
+				Address: peerAddr1,
+			},
+		}
+
+		peersAddrMap := make(map[common.Address]struct{})
+		peersAddrMap[peerAddr1] = struct{}{}
+
+		payload, err := messages[0].Payload()
+		if err != nil {
+			t.Fatalf("Expected <nil>, got %v", err)
+		}
+
+		peer1Mock := consensus.NewMockPeer(ctrl)
+		peer1Mock.EXPECT().Send(uint64(tendermintMsg), payload)
+
+		peers := make(map[common.Address]consensus.Peer)
+		peers[peerAddr1] = peer1Mock
+
+		broadcaster := consensus.NewMockBroadcaster(ctrl)
+		broadcaster.EXPECT().FindPeers(peersAddrMap).Return(peers)
+
+		recentMessages, err := lru.NewARC(inmemoryPeers)
+		if err != nil {
+			t.Fatalf("Expected <nil>, got %v", err)
+		}
+
+		b := &Backend{
+			logger:         log.New("backend", "test", "id", 0),
+			recentMessages: recentMessages,
+		}
+		b.SetBroadcaster(broadcaster)
+
+		b.SyncPeer(peerAddr1, messages)
+	})
+}
+
+func TestBackendLastCommittedProposal(t *testing.T) {
+	t.Run("block number 0, block returned", func(t *testing.T) {
+		block := types.NewBlockWithHeader(&types.Header{})
+
+		b := &Backend{
+			currentBlock: func() *types.Block {
+				return block
+			},
+			logger: log.New("backend", "test", "id", 0),
+		}
+
+		bl, _ := b.LastCommittedProposal()
+		if !reflect.DeepEqual(bl, block) {
+			t.Fatalf("expected %v, got %v", block, bl)
+		}
+	})
+
+	t.Run("block number is greater than 0, empty block returned", func(t *testing.T) {
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
+		})
+
+		b := &Backend{
+			currentBlock: func() *types.Block {
+				return block
+			},
+			logger: log.New("backend", "test", "id", 0),
+		}
+
+		bl, _ := b.LastCommittedProposal()
+		if !reflect.DeepEqual(bl, &types.Block{}) {
+			t.Fatalf("expected empty block, got %v", bl)
+		}
+	})
 }
 
 /**

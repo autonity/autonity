@@ -17,10 +17,12 @@
 package backend
 
 import (
-	"github.com/clearmatics/autonity/core/types"
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/hashicorp/golang-lru"
@@ -64,6 +66,41 @@ func TestTendermintMessage(t *testing.T) {
 	if _, ok := backend.knownMessages.Get(hash); !ok {
 		t.Fatalf("the cache of messages cannot be found")
 	}
+}
+
+func TestProtocol(t *testing.T) {
+	b := &Backend{}
+
+	name, code := b.Protocol()
+	if name != "tendermint" {
+		t.Fatalf("expected 'tendermint', got %v", name)
+	}
+	if code != 1 {
+		t.Fatalf("expected 1, got %v", code)
+	}
+}
+
+func TestNewChainHead(t *testing.T) {
+	t.Run("engine not started, error returned", func(t *testing.T) {
+		b := &Backend{}
+
+		err := b.NewChainHead()
+		if err != ErrStoppedEngine {
+			t.Fatalf("expected %v, got %v", ErrStoppedEngine, err)
+		}
+	})
+
+	t.Run("engine is running, no errors", func(t *testing.T) {
+		b := &Backend{
+			coreStarted: true,
+			eventMux:    event.NewTypeMuxSilent(log.New("backend", "test", "id", 0)),
+		}
+
+		err := b.NewChainHead()
+		if err != nil {
+			t.Fatalf("expected <nil>, got %v", err)
+		}
+	})
 }
 
 func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
