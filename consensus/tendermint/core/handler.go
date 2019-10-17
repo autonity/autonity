@@ -66,6 +66,8 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 	//We want to sequentially handle all the event which modify the current consensus state
 	go c.handleConsensusEvents(ctx)
 
+	go c.backend.HandleUnhandledMsgs()
+
 	return nil
 }
 
@@ -233,8 +235,10 @@ func (c *core) syncLoop(ctx context.Context) {
 		and to process sync queries events.
 	*/
 	timer := time.NewTimer(10 * time.Second)
+	c.currentRoundStateMu.RLock()
 	round := c.currentRoundState.Round()
 	height := c.currentRoundState.Height()
+	c.currentRoundStateMu.RUnlock()
 
 	// Ask for sync when the engine starts
 	c.backend.AskSync(c.valSet.Copy())
@@ -242,8 +246,10 @@ func (c *core) syncLoop(ctx context.Context) {
 	for {
 		select {
 		case <-timer.C:
+			c.currentRoundStateMu.RLock()
 			currentRound := c.currentRoundState.Round()
 			currentHeight := c.currentRoundState.Height()
+			c.currentRoundStateMu.RUnlock()
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound.Cmp(round) == 0 {
 				c.backend.AskSync(c.valSet.Copy())

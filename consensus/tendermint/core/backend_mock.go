@@ -494,3 +494,15 @@ func (m *MockBackend) AskSync(set validator.Set) {
 func (mr *MockBackendMockRecorder) AskSync(set interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), set)
 }
+
+// HandleUnhandledMsgs mocks base method
+func (m *MockBackend) HandleUnhandledMsgs() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "HandleUnhandledMsgs")
+}
+
+// HandleUnhandledMsgs indicates an expected call of HandleUnhandledMsgs
+func (mr *MockBackendMockRecorder) HandleUnhandledMsgs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleUnhandledMsgs", reflect.TypeOf((*MockBackend)(nil).HandleUnhandledMsgs))
+}

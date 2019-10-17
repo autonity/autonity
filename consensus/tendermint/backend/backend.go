@@ -39,6 +39,7 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
 	"github.com/hashicorp/golang-lru"
+	"github.com/zfjagann/golang-ring"
 )
 
 const (
@@ -90,7 +91,8 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
 	}
-
+	// we set the ring buffer to be able to handle at maximum 10 rounds, 20 validators and 3 messages types
+	backend.pendingMessages.SetCapacity(10 * 20 * 3)
 	return backend
 }
 
@@ -117,6 +119,9 @@ type Backend struct {
 
 	// Snapshots for recent block to speed up reorgs
 	recents *lru.ARCCache
+
+	// we save the last received p2p.messages in the ring buffer
+	pendingMessages ring.Ring
 
 	// event subscription for ChainHeadEvent event
 	broadcaster consensus.Broadcaster
@@ -506,22 +511,7 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 			sb.logger.Debug("Sending", "code", msg.GetCode(), "sig", msg.GetSignature(), "err", err)
 			continue
 		}
-		hash := types.RLPHash(payload)
-		ms, ok := sb.recentMessages.Get(address)
-		var m *lru.ARCCache
-		if ok {
-			m, _ = ms.(*lru.ARCCache)
-			if _, k := m.Get(hash); k {
-				// This peer had this event, skip it
-				continue
-			}
-		} else {
-			m, _ = lru.NewARC(inmemoryMessages)
-		}
-
-		m.Add(hash, true)
-		sb.recentMessages.Add(address, m)
-
+		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
 		go p.Send(tendermintMsg, payload) //nolint
 	}
 }

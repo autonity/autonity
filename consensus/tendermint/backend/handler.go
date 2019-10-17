@@ -18,7 +18,6 @@ package backend
 
 import (
 	"errors"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
@@ -32,6 +31,11 @@ const (
 	tendermintSyncMsg = 0x12
 )
 
+type UnhandledMsg struct {
+	addr common.Address
+	msg  p2p.Msg
+}
+
 var (
 	// errDecodeFailed is returned when decode message fails
 	errDecodeFailed = errors.New("fail to decode tendermint message")
@@ -42,6 +46,14 @@ func (sb *Backend) Protocol() (protocolName string, extraMsgCodes uint64) {
 	return "tendermint", 2
 }
 
+func (sb *Backend) HandleUnhandledMsgs() {
+	for unhandled := sb.pendingMessages.Dequeue(); unhandled != nil; unhandled = sb.pendingMessages.Dequeue() {
+		addr := unhandled.(UnhandledMsg).addr
+		msg := unhandled.(UnhandledMsg).msg
+		_, _ = sb.HandleMsg(addr, msg)
+	}
+}
+
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	sb.coreMu.Lock()
@@ -49,7 +61,8 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 
 	if msg.Code == tendermintMsg {
 		if !sb.coreStarted {
-			return true, ErrStoppedEngine
+			sb.pendingMessages.Enqueue(UnhandledMsg{addr: addr, msg: msg})
+			return true, nil //return nil to avoid shutting down connection during block sync.
 		}
 
 		var data []byte
@@ -85,8 +98,8 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 
 	if msg.Code == tendermintSyncMsg {
 		if !sb.coreStarted {
-			sb.logger.Error("Consensus core stopped - can't process sync messages")
-			return true, ErrStoppedEngine
+			sb.logger.Info("Sync message received but core not running")
+			return true, nil // we return nil as we don't want to shutdown the connection if core is stopped
 		}
 		sb.logger.Info("Received sync message", "from", addr)
 		sb.postEvent(events.SyncEvent{Addr: addr})
