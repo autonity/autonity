@@ -569,6 +569,7 @@ func TestClose(t *testing.T) {
 	t.Run("engine is running, no errors", func(t *testing.T) {
 		b := &Backend{
 			coreStarted: true,
+			stopped:     make(chan struct{}),
 		}
 
 		err := b.Close()
