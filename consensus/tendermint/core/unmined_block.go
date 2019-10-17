@@ -81,6 +81,9 @@ func (c *core) getUnminedBlock() *types.Block {
 // return errFutureHeightMessage if the height of proposal is larger than currentRoundState height
 // return errOldHeightMessage if the height of proposal is smaller than currentRoundState height
 func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
+	c.currentRoundStateMu.RLock()
+	defer c.currentRoundStateMu.RUnlock()
+
 	if unminedBlock == nil {
 		return errInvalidMessage
 	}
@@ -96,6 +99,8 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 }
 
 func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
+	c.currentRoundStateMu.RLock()
+	defer c.currentRoundStateMu.RUnlock()
 	c.logger.Debug("NewUnminedBlockEvent: Received",
 		"from", c.address.String(),
 		"type", "New Unmined Block",

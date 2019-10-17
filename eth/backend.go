@@ -101,8 +101,7 @@ type Ethereum struct {
 	networkID     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	lock     sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
-	protocol Protocol
+	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 
 	glienickeCh  chan core.WhitelistEvent
 	glienickeSub event.Subscription
@@ -190,18 +189,6 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	// force to set the istanbul etherbase to node key address
 	if chainConfig.Istanbul != nil || chainConfig.Tendermint != nil {
 		eth.etherbase = crypto.PubkeyToAddress(ctx.NodeKey().PublicKey)
-	}
-
-	if h, ok := eth.engine.(consensus.Handler); ok {
-		protocolName, extraMsgCodes := h.Protocol()
-		eth.protocol.Name = protocolName
-		eth.protocol.Versions = ProtocolVersions
-		eth.protocol.Lengths = make([]uint64, len(protocolLengths))
-		for i := range eth.protocol.Lengths {
-			eth.protocol.Lengths[i] = protocolLengths[uint(i)] + extraMsgCodes
-		}
-	} else {
-		eth.protocol = EthDefaultProtocol
 	}
 
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)

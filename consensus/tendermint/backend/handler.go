@@ -43,7 +43,7 @@ var (
 
 // Protocol implements consensus.Handler.Protocol
 func (sb *Backend) Protocol() (protocolName string, extraMsgCodes uint64) {
-	return "tendermint", 2
+	return "tendermint", 2 //nolint
 }
 
 func (sb *Backend) HandleUnhandledMsgs() {
