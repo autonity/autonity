@@ -151,6 +151,8 @@ type Backend interface {
 
 	AskSync(set validator.Set)
 
+	HandleUnhandledMsgs()
+
 	GetContractAddress() common.Address
 
 	GetContractABI() string

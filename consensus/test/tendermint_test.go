@@ -1511,7 +1511,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 			if validator.blocks[uint64(i)].hash != blockHash {
 				t.Fatalf("validators %d and %d have different blocks %d - %q vs %s",
-					0, index, i+1, validator.blocks[uint64(i)].hash.String(), blockHash.String())
+					0, index+1, i+1, validator.blocks[uint64(i)].hash.String(), blockHash.String())
 			}
 		}
 	}
