@@ -369,6 +369,9 @@ func TestSyncPeer(t *testing.T) {
 		b.SetBroadcaster(broadcaster)
 
 		b.SyncPeer(peerAddr1, messages)
+
+		wait := time.NewTimer(time.Second)
+		<-wait.C
 	})
 }
 

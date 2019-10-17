@@ -1253,14 +1253,6 @@ func (validator *testNode) startService() error {
 
 	time.Sleep(100 * time.Millisecond)
 
-	if err := ethereum.StartMining(1); err != nil {
-		return fmt.Errorf("cant start mining %s", err)
-	}
-
-	for !ethereum.IsMining() {
-		time.Sleep(50 * time.Millisecond)
-	}
-
 	validator.service = ethereum
 
 	if validator.eventChan == nil {
@@ -1273,13 +1265,21 @@ func (validator *testNode) startService() error {
 
 	validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
 
+	if err := ethereum.StartMining(1); err != nil {
+		return fmt.Errorf("cant start mining %s", err)
+	}
+
+	for !ethereum.IsMining() {
+		time.Sleep(50 * time.Millisecond)
+	}
+
 	validator.isRunning = true
 
 	return nil
 }
 
 func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
-	const blocksToWait = 30
+	const blocksToWait = 15
 
 	txs := make(map[uint64]int) // blockNumber to count
 	txsMu := sync.Mutex{}
@@ -1319,7 +1319,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 					validator.blocks[ev.Block.NumberU64()] = block{ev.Block.Hash(), len(ev.Block.Transactions())}
 					validator.lastBlock = ev.Block.NumberU64()
-
+					log.Error("last mined block", "validator", index, "num", validator.lastBlock, "hash", validator.blocks[ev.Block.NumberU64()].hash)
 					if atomic.LoadUint32(testCanBeStopped) == 1 {
 						if atomic.LoadUint32(validatorsCanBeStopped) == uint32(len(validators)) {
 							break wgLoop
@@ -1511,7 +1511,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 			if validator.blocks[uint64(i)].hash != blockHash {
 				t.Fatalf("validators %d and %d have different blocks %d - %q vs %s",
-					0, index+1, i+1, validator.blocks[uint64(i)].hash.String(), blockHash.String())
+					0, index+1, i, validator.blocks[uint64(i)].hash.String(), blockHash.String())
 			}
 		}
 	}

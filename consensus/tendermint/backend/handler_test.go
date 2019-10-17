@@ -75,7 +75,7 @@ func TestProtocol(t *testing.T) {
 	if name != "tendermint" {
 		t.Fatalf("expected 'tendermint', got %v", name)
 	}
-	if code != 1 {
+	if code != 2 {
 		t.Fatalf("expected 1, got %v", code)
 	}
 }
