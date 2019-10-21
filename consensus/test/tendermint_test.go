@@ -281,7 +281,7 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 			contractBalance := st.GetBalance(autonityContractAddress)
 			if block.NumberU64() > 1 && len(block.Transactions()) > 0 && block.NumberU64() <= uint64(tCase.numBlocks) {
 				if contractBalance.Uint64() < prevBlockBalance {
-					return fmt.Errorf("Balance must be increased")
+					return fmt.Errorf("balance must be increased")
 				}
 			}
 			prevBlockBalance = contractBalance.Uint64()
@@ -290,7 +290,7 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 				sh := validator.service.BlockChain().Config().AutonityContractConfig.GetStakeHolderUsers()[0]
 				stakeHolderBalance := st.GetBalance(sh.Address)
 				if stakeHolderBalance.Cmp(prevSTBalance) != 1 {
-					return fmt.Errorf("Balance must be increased")
+					return fmt.Errorf("balance must be increased")
 				}
 				prevSTBalance = stakeHolderBalance
 			}
@@ -415,7 +415,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 					}
 					err = service.TxPool().AddLocal(tx)
 					if err == nil {
-						t.Fatal(err)
+						return nil, err
 					}
 
 					//step 2 valid transaction
@@ -1261,6 +1261,18 @@ func (validator *testNode) startService() error {
 		validator.blocks = make(map[uint64]block)
 		validator.txsSendCount = new(int64)
 		validator.txsChainCount = make(map[uint64]int64)
+	} else { //validator is restarting
+		// we need to retrieve missed block events since last stop as we're not subscribing fast enough
+		curBlock := validator.service.BlockChain().CurrentBlock().Number().Uint64()
+		for blockNum := validator.lastBlock + 1; blockNum <= curBlock; blockNum++ {
+			block := validator.service.BlockChain().GetBlockByNumber(blockNum)
+			event := core.ChainEvent{
+				Block: block,
+				Hash:  block.Hash(),
+				Logs:  nil,
+			}
+			validator.eventChan <- event
+		}
 	}
 
 	validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
@@ -1315,7 +1327,6 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					if err != nil {
 						return err
 					}
-
 					validator.blocks[ev.Block.NumberU64()] = block{ev.Block.Hash(), len(ev.Block.Transactions())}
 					validator.lastBlock = ev.Block.NumberU64()
 					log.Error("last mined block", "validator", index,
