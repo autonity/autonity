@@ -562,10 +562,9 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	if !srvr.OpenNetwork {
 		// Subscribe to Autonity updates events
 		s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
-		savedList := rawdb.ReadEnodeWhitelist(s.chainDb, srvr.OpenNetwork)
-		log.Info("Reading Whitelist", "list", savedList.StrList)
+
 		go s.glienickeEventLoop(srvr)
-		srvr.UpdateWhitelist(savedList.List)
+
 	}
 	s.startEthEntryUpdate(srvr.LocalNode())
 
@@ -594,6 +593,11 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 // Whitelist updating loop. Act as a relay between state processing logic and DevP2P
 // for updating the list of authorized enodes
 func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
+
+	savedList := rawdb.ReadEnodeWhitelist(s.chainDb, server.OpenNetwork)
+	log.Info("Reading Whitelist", "list", savedList.StrList)
+	server.UpdateWhitelist(savedList.List)
+
 	for {
 		select {
 		case event := <-s.glienickeCh:

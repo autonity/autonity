@@ -42,6 +42,8 @@ func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
 func (c *core) updatePendingUnminedBlocks(unminedBlock *types.Block) {
 	c.pendingUnminedBlocksMu.Lock()
 	defer c.pendingUnminedBlocksMu.Unlock()
+	c.currentRoundStateMu.RLock()
+	defer c.currentRoundStateMu.RUnlock()
 
 	// Get all heights from c.pendingUnminedBlocks and remove previous height unmined blocks
 	var heights = make([]uint64, 0)

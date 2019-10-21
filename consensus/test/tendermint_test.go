@@ -260,37 +260,37 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 			addr, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
 			if err != nil {
-				t.Fatal(err)
+				return err
 			}
 			st, _ := validator.service.BlockChain().State()
 			if block.NumberU64() == 1 && st.GetBalance(addr).Uint64() != 0 {
-				t.Fatal("incorrect balance on the first block")
+				return fmt.Errorf("incorrect balance on the first block")
 			}
 			return nil
 		}
 		fAfter := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 			autonityContractAddress, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
 			if err != nil {
-				t.Fatal(err)
+				return err
 			}
 			st, _ := validator.service.BlockChain().State()
 
 			if block.NumberU64() == 1 && prevBlockBalance != 0 {
-				t.Fatal("incorrect balance on the first block")
+				return fmt.Errorf("incorrect balance on the first block")
 			}
 			contractBalance := st.GetBalance(autonityContractAddress)
-			if block.NumberU64() > 1 && block.NumberU64() <= uint64(tCase.numBlocks) {
+			if block.NumberU64() > 1 && len(block.Transactions()) > 0 && block.NumberU64() <= uint64(tCase.numBlocks) {
 				if contractBalance.Uint64() < prevBlockBalance {
-					t.Fatal("Balance must be increased")
+					return fmt.Errorf("Balance must be increased")
 				}
 			}
 			prevBlockBalance = contractBalance.Uint64()
 
-			if block.NumberU64() > 1 && block.NumberU64() <= uint64(tCase.numBlocks) {
+			if block.NumberU64() > 1 && len(block.Transactions()) > 0 && block.NumberU64() <= uint64(tCase.numBlocks) {
 				sh := validator.service.BlockChain().Config().AutonityContractConfig.GetStakeHolderUsers()[0]
 				stakeHolderBalance := st.GetBalance(sh.Address)
 				if stakeHolderBalance.Cmp(prevSTBalance) != 1 {
-					t.Fatal("Balance must be increased")
+					return fmt.Errorf("Balance must be increased")
 				}
 				prevSTBalance = stakeHolderBalance
 			}
@@ -1135,8 +1135,8 @@ func runTest(t *testing.T, test *testCase) {
 		wg.Go(func() error {
 			log.Debug("peers", "i", i,
 				"peers", len(validator.node.Server().Peers()),
-				"staticPeers", len(validator.node.Server().StaticNodes),
-				"trustedPeers", len(validator.node.Server().TrustedNodes),
+				//RACE			"staticPeers", len(validator.node.Server().StaticNodes),
+				//RACE			"trustedPeers", len(validator.node.Server().TrustedNodes),
 				"nodes", len(validators))
 			return nil
 		})
@@ -1302,7 +1302,6 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			var err error
 			testCanBeStopped := new(uint32)
 			fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
-
 		wgLoop:
 			for {
 				select {
@@ -1319,7 +1318,9 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 					validator.blocks[ev.Block.NumberU64()] = block{ev.Block.Hash(), len(ev.Block.Transactions())}
 					validator.lastBlock = ev.Block.NumberU64()
-					log.Error("last mined block", "validator", index, "num", validator.lastBlock, "hash", validator.blocks[ev.Block.NumberU64()].hash)
+					log.Error("last mined block", "validator", index,
+						"num", validator.lastBlock, "hash", validator.blocks[ev.Block.NumberU64()].hash,
+						"txCount", validator.blocks[ev.Block.NumberU64()].txs)
 					if atomic.LoadUint32(testCanBeStopped) == 1 {
 						if atomic.LoadUint32(validatorsCanBeStopped) == uint32(len(validators)) {
 							break wgLoop
