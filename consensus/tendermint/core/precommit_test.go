@@ -37,11 +37,14 @@ func TestSendPrecommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
+		logger := log.New("backend", "test", "id", 0)
+
 		proposal := NewProposal(
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}))
+			types.NewBlockWithHeader(&types.Header{}),
+			logger)
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -86,7 +89,7 @@ func TestSendPrecommit(t *testing.T) {
 		c := &core{
 			backend:           backendMock,
 			address:           addr,
-			logger:            log.New("backend", "test", "id", 0),
+			logger:            logger,
 			valSet:            new(validatorSet),
 			currentRoundState: curRoundState,
 		}
@@ -98,11 +101,14 @@ func TestSendPrecommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
+		logger := log.New("backend", "test", "id", 0)
+
 		proposal := NewProposal(
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}))
+			types.NewBlockWithHeader(&types.Header{}),
+			logger)
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -147,7 +153,7 @@ func TestSendPrecommit(t *testing.T) {
 		c := &core{
 			backend:           backendMock,
 			address:           addr,
-			logger:            log.New("backend", "test", "id", 0),
+			logger:            logger,
 			valSet:            new(validatorSet),
 			currentRoundState: curRoundState,
 		}
@@ -232,11 +238,14 @@ func TestHandlePrecommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
+		logger := log.New("backend", "test", "id", 0)
+
 		proposal := NewProposal(
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}))
+			types.NewBlockWithHeader(&types.Header{}),
+			logger)
 		proposal.ProposalBlock.Hash()
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
@@ -282,9 +291,9 @@ func TestHandlePrecommit(t *testing.T) {
 			address:           addr,
 			backend:           backendMock,
 			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
+			logger:            logger,
 			valSet:            new(validatorSet),
-			precommitTimeout:  newTimeout(precommit),
+			precommitTimeout:  newTimeout(precommit, logger),
 		}
 
 		err = c.handlePrecommit(context.Background(), expectedMsg)
@@ -294,11 +303,14 @@ func TestHandlePrecommit(t *testing.T) {
 	})
 
 	t.Run("pre-commit given with no errors, commit cancelled", func(t *testing.T) {
+		logger := log.New("backend", "test", "id", 0)
+
 		proposal := NewProposal(
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}))
+			types.NewBlockWithHeader(&types.Header{}),
+			logger)
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -339,9 +351,9 @@ func TestHandlePrecommit(t *testing.T) {
 		c := &core{
 			address:           addr,
 			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
+			logger:            logger,
 			valSet:            new(validatorSet),
-			precommitTimeout:  newTimeout(precommit),
+			precommitTimeout:  newTimeout(precommit, logger),
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -387,12 +399,14 @@ func TestHandlePrecommit(t *testing.T) {
 			Signature:     []byte{0x1},
 		}
 
+		logger := log.New("backend", "test", "id", 0)
+
 		c := &core{
 			address:           addr,
 			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
+			logger:            logger,
 			valSet:            new(validatorSet),
-			precommitTimeout:  newTimeout(precommit),
+			precommitTimeout:  newTimeout(precommit, logger),
 		}
 
 		err = c.handlePrecommit(context.Background(), expectedMsg)
@@ -469,6 +483,8 @@ func TestHandleCommit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	logger := log.New("backend", "test", "id", 0)
+
 	block := types.NewBlockWithHeader(&types.Header{})
 	addr := common.HexToAddress("0x0123456789")
 
@@ -485,10 +501,10 @@ func TestHandleCommit(t *testing.T) {
 		address:           addr,
 		backend:           backendMock,
 		currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
-		logger:            log.New("backend", "test", "id", 0),
-		proposeTimeout:    newTimeout(propose),
-		prevoteTimeout:    newTimeout(prevote),
-		precommitTimeout:  newTimeout(precommit),
+		logger:            logger,
+		proposeTimeout:    newTimeout(propose, logger),
+		prevoteTimeout:    newTimeout(prevote, logger),
+		precommitTimeout:  newTimeout(precommit, logger),
 		valSet:            new(validatorSet),
 	}
 	c.handleCommit(context.Background())

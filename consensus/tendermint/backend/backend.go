@@ -57,10 +57,6 @@ var (
 
 // New creates an Ethereum Backend for BFT core engine.
 func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
-	log.Warn("new backend with public key",
-		"backAddress", crypto.PubkeyToAddress(privateKey.PublicKey).String(),
-	)
-
 	if chainConfig.Tendermint.Epoch != 0 {
 		config.Epoch = chainConfig.Tendermint.Epoch
 	}
@@ -77,13 +73,18 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
-	logger := log.New()
+
+	pub := crypto.PubkeyToAddress(privateKey.PublicKey).String()
+	logger := log.New(pub)
+
+	log.Warn("new backend with public key", "backAddress", pub)
+
 	backend := &Backend{
 		config:         config,
 		eventMux:       event.NewTypeMuxSilent(logger),
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:         log.New(),
+		logger:         logger,
 		db:             db,
 		recents:        recents,
 		coreStarted:    false,
@@ -185,7 +186,7 @@ func (sb *Backend) AskSync(valSet validator.Set) {
 			if count == valSet.Quorum() {
 				break
 			}
-			log.Info("Asking sync to", "addr", addr)
+			sb.logger.Info("Asking sync to", "addr", addr)
 			go p.Send(tendermintSyncMsg, []byte{}) //nolint
 			count++
 		}
@@ -332,7 +333,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		// We need to ensure that the block transactions applied before the Autonity contract
 		if proposalNumber == 1 {
 			//Apply the same changes from consensus/tendermint/backend/engine.go:getValidator()349-369
-			log.Info("Autonity Contract Deployer in test state", "Address", sb.blockchain.Config().AutonityContractConfig.Deployer)
+			sb.logger.Info("Autonity Contract Deployer in test state", "Address", sb.blockchain.Config().AutonityContractConfig.Deployer)
 
 			_, err = sb.blockchain.GetAutonityContract().DeployAutonityContract(sb.blockchain, header, state)
 			if err != nil {
@@ -407,7 +408,7 @@ func (sb *Backend) Sign(data []byte) ([]byte, error) {
 func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byte) error {
 	signer, err := types.GetSignatureAddress(data, sig)
 	if err != nil {
-		log.Error("Failed to get signer address", "err", err)
+		sb.logger.Error("Failed to get signer address", "err", err)
 		return err
 	}
 	// Compare derived addresses

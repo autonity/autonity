@@ -19,7 +19,6 @@ package core
 import (
 	"context"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/log"
 	"time"
 
 	"github.com/clearmatics/autonity/consensus"
@@ -31,7 +30,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.currentRoundState.Height().Int64() == p.Number().Int64() && c.isProposer() && !c.sentProposal {
-		proposalBlock := NewProposal(c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound, p)
+		proposalBlock := NewProposal(c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound, p, c.logger)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
@@ -139,7 +138,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 		rs, ok := c.currentHeightOldRoundsStates[vr]
 		if !ok {
-			log.Error("handleProposal. unknown old round",
+			c.logger.Error("handleProposal. unknown old round",
 				"proposalHeight", h,
 				"proposalRound", vr,
 				"currentHeight", c.currentRoundState.height.Uint64(),

@@ -28,7 +28,6 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
 )
 
 // Start implements core.Engine.Start
@@ -148,7 +147,7 @@ eventLoop:
 			pb := &newUnminedBlockEvent.NewUnminedBlock
 			c.storeUnminedBlockMsg(pb)
 		case <-ctx.Done():
-			log.Info("handleNewUnminedBlockEvent is stopped", "event", ctx.Err())
+			c.logger.Info("handleNewUnminedBlockEvent is stopped", "event", ctx.Err())
 			break eventLoop
 		}
 	}
@@ -221,7 +220,7 @@ eventLoop:
 				c.handleCommit(ctx)
 			}
 		case <-ctx.Done():
-			log.Info("handleConsensusEvents is stopped", "event", ctx.Err())
+			c.logger.Info("handleConsensusEvents is stopped", "event", ctx.Err())
 			break eventLoop
 		}
 	}
@@ -262,7 +261,7 @@ func (c *core) syncLoop(ctx context.Context) {
 				return
 			}
 			event := ev.Data.(events.SyncEvent)
-			log.Info("Processing sync message", "from", event.Addr)
+			c.logger.Info("Processing sync message", "from", event.Addr)
 			c.SyncPeer(event.Addr)
 		case <-ctx.Done():
 			return
