@@ -70,7 +70,7 @@ var (
 
 // New creates an Tendermint consensus core
 func New(backend Backend, config *config.Config) *core {
-	logger := log.New(backend.Address().String())
+	logger := log.New("addr", backend.Address().String())
 	return &core{
 		config:                       config,
 		address:                      backend.Address(),
