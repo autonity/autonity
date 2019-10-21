@@ -75,9 +75,9 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
 
 	pub := crypto.PubkeyToAddress(privateKey.PublicKey).String()
-	logger := log.New(pub)
+	logger := log.New("addr", pub)
 
-	log.Warn("new backend with public key", "backAddress", pub)
+	logger.Warn("new backend with public key")
 
 	backend := &Backend{
 		config:         config,

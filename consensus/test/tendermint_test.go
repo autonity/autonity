@@ -1302,6 +1302,8 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		index := index
 		validator := validator
 
+		logger := log.New("addr", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String())
+
 		// skip malicious nodes
 		if test.maliciousPeers != nil {
 			if _, ok := test.maliciousPeers[index]; ok {
@@ -1329,7 +1331,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					}
 					validator.blocks[ev.Block.NumberU64()] = block{ev.Block.Hash(), len(ev.Block.Transactions())}
 					validator.lastBlock = ev.Block.NumberU64()
-					log.Error("last mined block", "validator", index,
+					logger.Error("last mined block", "validator", index,
 						"num", validator.lastBlock, "hash", validator.blocks[ev.Block.NumberU64()].hash,
 						"txCount", validator.blocks[ev.Block.NumberU64()].txs)
 					if atomic.LoadUint32(testCanBeStopped) == 1 {
@@ -1343,7 +1345,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					}
 
 					// actual forming and sending transaction
-					log.Debug("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64(), "isRunning", validator.isRunning)
+					logger.Debug("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64(), "isRunning", validator.isRunning)
 
 					if validator.isRunning {
 						txsMu.Lock()
@@ -1434,7 +1436,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 								if validator.wasStopped {
 									//fixme an error should be returned
-									log.Error("test error!!!", "err", fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
+									logger.Error("test error!!!", "err", fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
 										index,
 										pendingTransactions, ev.Block.Number().Uint64(),
 										atomic.LoadInt64(validator.txsSendCount), txsChainCount))
