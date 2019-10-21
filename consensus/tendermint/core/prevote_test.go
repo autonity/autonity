@@ -34,11 +34,14 @@ func TestSendPrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
+		logger := log.New("backend", "test", "id", 0)
+
 		proposal := NewProposal(
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}))
+			types.NewBlockWithHeader(&types.Header{}),
+			logger)
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -77,7 +80,7 @@ func TestSendPrevote(t *testing.T) {
 		c := &core{
 			backend:           backendMock,
 			address:           addr,
-			logger:            log.New("backend", "test", "id", 0),
+			logger:            logger,
 			valSet:            new(validatorSet),
 			currentRoundState: curRoundState,
 		}
@@ -167,11 +170,14 @@ func TestHandlePrevote(t *testing.T) {
 	})
 
 	t.Run("pre-vote given with no errors, pre-vote added", func(t *testing.T) {
+		logger := log.New("backend", "test", "id", 0)
+
 		proposal := NewProposal(
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}))
+			types.NewBlockWithHeader(&types.Header{}),
+			logger)
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -200,7 +206,7 @@ func TestHandlePrevote(t *testing.T) {
 		c := &core{
 			address:           addr,
 			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
+			logger:            logger,
 			valSet:            new(validatorSet),
 		}
 
@@ -218,11 +224,14 @@ func TestHandlePrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
+		logger := log.New("backend", "test", "id", 0)
+
 		proposal := NewProposal(
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}))
+			types.NewBlockWithHeader(&types.Header{}),
+			logger)
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -282,8 +291,8 @@ func TestHandlePrevote(t *testing.T) {
 			address:           addr,
 			backend:           backendMock,
 			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
-			prevoteTimeout:    newTimeout(prevote),
+			logger:            logger,
+			prevoteTimeout:    newTimeout(prevote, logger),
 			valSet:            new(validatorSet),
 		}
 
@@ -358,12 +367,14 @@ func TestHandlePrevote(t *testing.T) {
 
 		backendMock.EXPECT().Broadcast(context.Background(), gomock.Any(), payload)
 
+		logger := log.New("backend", "test", "id", 0)
+
 		c := &core{
 			address:           addr,
 			backend:           backendMock,
 			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
-			prevoteTimeout:    newTimeout(prevote),
+			logger:            logger,
+			prevoteTimeout:    newTimeout(prevote, logger),
 			valSet:            new(validatorSet),
 		}
 
@@ -377,11 +388,14 @@ func TestHandlePrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
+		logger := log.New("backend", "test", "id", 0)
+
 		proposal := NewProposal(
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}))
+			types.NewBlockWithHeader(&types.Header{}),
+			logger)
 
 		addr := common.HexToAddress("0x0123456789")
 
@@ -410,11 +424,11 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().Return(addr)
+		backendMock.EXPECT().Address().AnyTimes().Return(addr)
 
 		c := New(backendMock, nil)
 		c.currentRoundState = curRoundState
-		c.prevoteTimeout = newTimeout(prevote)
+		c.prevoteTimeout = newTimeout(prevote, logger)
 		c.valSet = &validatorSet{
 			Set: newTestValidatorSet(2),
 		}

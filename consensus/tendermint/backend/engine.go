@@ -33,7 +33,6 @@ import (
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rpc"
 )
 
@@ -328,7 +327,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 
 	validators, err := sb.getValidators(header, chain, state)
 	if err != nil {
-		log.Error("finalize. after getValidators", "err", err.Error())
+		sb.logger.Error("finalize. after getValidators", "err", err.Error())
 		return
 	}
 
@@ -338,7 +337,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 
 	// add validators to extraData's validators section
 	if header.Extra, err = types.PrepareExtra(header.Extra, validators); err != nil {
-		log.Error("finalize. after PrepareExtra", "err", err.Error())
+		sb.logger.Error("finalize. after PrepareExtra", "err", err.Error())
 		return
 	}
 }
@@ -351,14 +350,14 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 
 	validators, err := sb.getValidators(header, chain, statedb)
 	if err != nil {
-		log.Error("FinalizeAndAssemble. after getValidators", "err", err.Error())
+		sb.logger.Error("FinalizeAndAssemble. after getValidators", "err", err.Error())
 		return nil, err
 	}
 	ac := sb.blockchain.GetAutonityContract()
 	if ac != nil && header.Number.Uint64() > 1 {
 		err = ac.ApplyPerformRedistribution(txs, receipts, header, statedb)
 		if err != nil {
-			log.Error("ApplyPerformRedistribution", "err", err.Error())
+			sb.logger.Error("ApplyPerformRedistribution", "err", err.Error())
 			return nil, err
 		}
 	}
@@ -388,7 +387,7 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 		contractAddress, err := sb.blockchain.GetAutonityContract().DeployAutonityContract(chain, header, state)
 		if err != nil {
-			log.Error("Deploy autonity contract error", "error", err)
+			sb.logger.Error("Deploy autonity contract error", "error", err)
 			return nil, err
 		}
 		sb.autonityContractAddress = contractAddress
@@ -405,7 +404,7 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		var err error
 		validators, err = sb.blockchain.GetAutonityContract().ContractGetValidators(chain, header, state)
 		if err != nil {
-			log.Error("ContractGetValidators returns err", "err", err)
+			sb.logger.Error("ContractGetValidators returns err", "err", err)
 			return nil, err
 		}
 	}

@@ -70,10 +70,11 @@ var (
 
 // New creates an Tendermint consensus core
 func New(backend Backend, config *config.Config) *core {
+	logger := log.New(backend.Address().String())
 	return &core{
 		config:                       config,
 		address:                      backend.Address(),
-		logger:                       log.New(),
+		logger:                       logger,
 		backend:                      backend,
 		backlogs:                     make(map[validator.Validator]*prque.Prque),
 		pendingUnminedBlocks:         make(map[uint64]*types.Block),
@@ -88,9 +89,9 @@ func New(backend Backend, config *config.Config) *core {
 		currentHeightOldRoundsStates: make(map[int64]*roundState),
 		lockedRound:                  big.NewInt(-1),
 		validRound:                   big.NewInt(-1),
-		proposeTimeout:               newTimeout(propose),
-		prevoteTimeout:               newTimeout(prevote),
-		precommitTimeout:             newTimeout(precommit),
+		proposeTimeout:               newTimeout(propose, logger),
+		prevoteTimeout:               newTimeout(prevote, logger),
+		precommitTimeout:             newTimeout(precommit, logger),
 	}
 }
 
@@ -228,9 +229,9 @@ func (c *core) commit() {
 
 	if proposal != nil {
 		if proposal.ProposalBlock != nil {
-			log.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
+			c.logger.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 		} else {
-			log.Error("commit a NIL block",
+			c.logger.Error("commit a NIL block",
 				"block", proposal.ProposalBlock,
 				"height", c.currentRoundState.height.String(),
 				"round", c.currentRoundState.round.String())
@@ -243,7 +244,7 @@ func (c *core) commit() {
 		}
 
 		if err := c.backend.Commit(*proposal.ProposalBlock, committedSeals); err != nil {
-			log.Error("Failed to Commit block", "err", err)
+			c.logger.Error("Failed to Commit block", "err", err)
 			return
 		}
 	}
