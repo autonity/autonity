@@ -18,15 +18,15 @@ package backend
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/rpc"
 	"github.com/clearmatics/autonity/params"
+	blockchain "github.com/clearmatics/autonity/core"
 )
 
 // API is a user facing RPC API to dump BFT state
 type API struct {
-	chain      consensus.ChainReader
+	chain      blockchain.BlockChain
 	tendermint core.Backend
 }
 
@@ -71,8 +71,13 @@ func (api *API) GetWhitelist() []string {
 }
 
 // Get minimum gas price
-func (api *API) GetMinGasPrice() uint64 {
-	return api.chain.Config().AutonityContractConfig.MinGasPrice
+func (api *API) GetMinGasPrice() (uint64, error) {
+	currentBlock := api.chain.CurrentBlock()
+	state, err := api.chain.State()
+	if err != nil {
+		return 0, err
+	}
+	return api.chain.GetAutonityContract().GetMinimumGasPrice(currentBlock, state)
 }
 
 // Get System Operator Address

@@ -516,10 +516,15 @@ func (sb *Backend) updateBlock(block *types.Block) (*types.Block, error) {
 
 // APIs returns the RPC APIs this consensus engine provides.
 func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
+	blockchain, ok := chain.(*core.BlockChain)
+	if !ok {
+		log.Info("API Error: ChainReader cast was not successful.")
+		return nil
+	}
 	return []rpc.API{{
 		Namespace: "autonity",
 		Version:   "1.0",
-		Service:   &API{chain: chain, tendermint: sb},
+		Service:   &API{chain: *blockchain, tendermint: sb},
 		Public:    true,
 	}}
 }
