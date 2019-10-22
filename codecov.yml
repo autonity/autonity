@@ -4,11 +4,11 @@ coverage:
   status:
     project:
       default:
-        target: 80%
+        target: 50%
         threshold: null
       tendermint:
         flags: tendermint
-        target: 80%
+        target: 70%
 flags:
   tendermint:
     paths:
