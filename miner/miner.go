@@ -20,6 +20,7 @@ package miner
 import (
 	"fmt"
 	"math/big"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -58,6 +59,7 @@ type Miner struct {
 	mux      *event.TypeMux
 	worker   *worker
 	coinbase common.Address
+	coinbaseMu sync.RWMutex
 	eth      Backend
 	engine   consensus.Engine
 	exitCh   chan struct{}
@@ -108,7 +110,7 @@ func (self *Miner) update() {
 				atomic.StoreInt32(&self.canStart, 1)
 				atomic.StoreInt32(&self.shouldStart, 0)
 				if shouldStart {
-					self.Start(self.coinbase)
+					self.Start(self.Coinbase())
 				}
 				// stop immediately and ignore all further pending events
 				return
@@ -180,6 +182,18 @@ func (self *Miner) PendingBlock() *types.Block {
 }
 
 func (self *Miner) SetEtherbase(addr common.Address) {
-	self.coinbase = addr
+	self.SetCoinbase(addr)
 	self.worker.setEtherbase(addr)
+}
+
+func (self *Miner) Coinbase() common.Address {
+	self.coinbaseMu.RLock()
+	defer self.coinbaseMu.RUnlock()
+	return self.coinbase
+}
+
+func (self *Miner) SetCoinbase(addr common.Address) {
+	self.coinbaseMu.Lock()
+	self.coinbase = addr
+	self.coinbaseMu.Unlock()
 }
