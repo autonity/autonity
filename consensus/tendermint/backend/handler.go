@@ -61,6 +61,8 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 
+	defer msg.Discard()
+
 	if msg.Code == tendermintMsg {
 		if !sb.coreStarted {
 			buffer := new(bytes.Buffer)

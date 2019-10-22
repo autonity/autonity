@@ -448,7 +448,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	if msg.Size > protocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
-	defer msg.Discard()
+	if msg.Code != 0x11 || msg.Code != 0x12 {
+		defer msg.Discard()
+	}
 
 	if handler, ok := pm.engine.(consensus.Handler); ok {
 		pubKey := p.Node().Pubkey()
