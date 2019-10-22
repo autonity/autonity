@@ -19,9 +19,9 @@ package backend
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
-	"github.com/clearmatics/autonity/rpc"
-	"github.com/clearmatics/autonity/params"
 	blockchain "github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/rpc"
 )
 
 // API is a user facing RPC API to dump BFT state
@@ -99,4 +99,3 @@ func (api *API) GetValidatorsInfo() []params.User {
 func (api *API) GetStakeholdersInfo() []params.User {
 	return api.chain.Config().AutonityContractConfig.GetStakeHolderUsers()
 }
-
