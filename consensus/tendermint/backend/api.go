@@ -21,6 +21,7 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/rpc"
+	"github.com/clearmatics/autonity/params"
 )
 
 // API is a user facing RPC API to dump BFT state
@@ -68,3 +69,29 @@ func (api *API) GetContractABI() string {
 func (api *API) GetWhitelist() []string {
 	return api.tendermint.WhiteList()
 }
+
+// Get minimum gas price
+func (api *API) GetMinGasPrice() uint64 {
+	return api.chain.Config().AutonityContractConfig.MinGasPrice
+}
+
+// Get System Operator Address
+func (api *API) GetSystemOperator() common.Address {
+	return api.chain.Config().AutonityContractConfig.Operator
+}
+
+// Get information from Autonity Users
+func (api *API) GetUsersInfo() []params.User {
+	return api.chain.Config().AutonityContractConfig.Users
+}
+
+// Get information from Autonity Validators
+func (api *API) GetValidatorsInfo() []params.User {
+	return api.chain.Config().AutonityContractConfig.GetValidatorUsers()
+}
+
+// Get information from Autonity Validators
+func (api *API) GetStakeholdersInfo() []params.User {
+	return api.chain.Config().AutonityContractConfig.GetStakeHolderUsers()
+}
+

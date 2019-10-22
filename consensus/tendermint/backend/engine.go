@@ -517,7 +517,7 @@ func (sb *Backend) updateBlock(block *types.Block) (*types.Block, error) {
 // APIs returns the RPC APIs this consensus engine provides.
 func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
-		Namespace: "tendermint",
+		Namespace: "autonity",
 		Version:   "1.0",
 		Service:   &API{chain: chain, tendermint: sb},
 		Public:    true,
