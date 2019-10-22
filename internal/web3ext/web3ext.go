@@ -33,8 +33,7 @@ var Modules = map[string]string{
 	"swarmfs":    SwarmfsJs,
 	"txpool":     TxpoolJs,
 	"les":        LESJs,
-	"istanbul":   Istanbul_JS,
-	"tendermint": TendermintJs,
+	"autonity":   AutonityJs,
 }
 
 const ChequebookJs = `
@@ -809,90 +808,61 @@ web3._extend({
 });
 `
 
-const Istanbul_JS = `
+const AutonityJs = `
 web3._extend({
-	property: 'istanbul',
+	property: 'autonity',
 	methods:
 	[
 		new web3._extend.Method({
 			name: 'getValidators',
-			call: 'istanbul_getValidators',
+			call: 'autonity_getValidators',
 			params: 1
 		}),
 		new web3._extend.Method({
 			name: 'getValidatorsAtHash',
-			call: 'istanbul_getValidatorsAtHash',
+			call: 'autonity_getValidatorsAtHash',
 			params: 1
-		}),
-		new web3._extend.Method({
-			name: 'getSomaContractAddress',
-			call: 'istanbul_getSomaContractAddress',
-			params: 0
-		}),
-		new web3._extend.Method({
-			name: 'getSomaContractABI',
-			call: 'istanbul_getSomaContractABI',
-			params: 0
-		}),
-		new web3._extend.Method({
-			name: 'getGlienickeContractAddress',
-			call: 'istanbul_getGlienickeContractAddress',
-			params: 0
-		}),
-		new web3._extend.Method({
-			name: 'getGlienickeContractABI',
-			call: 'istanbul_getGlienickeContractABI',
-			params: 0
 		}),
 		new web3._extend.Method({
 			name: 'getWhitelist',
-			call: 'istanbul_getWhitelist',
-			params: 0
-		})
-	]
-});
-`
-
-const TendermintJs = `
-web3._extend({
-	property: 'tendermint',
-	methods:
-	[
-		new web3._extend.Method({
-			name: 'getValidators',
-			call: 'tendermint_getValidators',
-			params: 1
-		}),
-		new web3._extend.Method({
-			name: 'getValidatorsAtHash',
-			call: 'tendermint_getValidatorsAtHash',
-			params: 1
-		}),
-		new web3._extend.Method({
-			name: 'getSomaContractAddress',
-			call: 'tendermint_getSomaContractAddress',
+			call: 'autonity_getWhitelist',
 			params: 0
 		}),
 		new web3._extend.Method({
-			name: 'getSomaContractABI',
-			call: 'tendermint_getSomaContractABI',
+			name: 'getContractAddress',
+			call: 'autonity_getContractAddress',
 			params: 0
 		}),
 		new web3._extend.Method({
-			name: 'getGlienickeContractAddress',
-			call: 'tendermint_getGlienickeContractAddress',
+			name: 'getContractABI',
+			call: 'autonity_getContractABI',
 			params: 0
 		}),
 		new web3._extend.Method({
-			name: 'getGlienickeContractABI',
-			call: 'tendermint_getGlienickeContractABI',
+			name: 'getMinGasPrice',
+			call: 'autonity_getMinGasPrice',
 			params: 0
 		}),
 		new web3._extend.Method({
-			name: 'getWhitelist',
-			call: 'tendermint_getWhitelist',
+			name: 'getSystemOperator',
+			call: 'autonity_getSystemOperator',
 			params: 0
-		})
+		}),
+		new web3._extend.Method({
+			name: 'getUsersInfo',
+			call: 'autonity_getUsersInfo',
+			params: 0
+		}),
+		new web3._extend.Method({
+			name: 'getValidatorsInfo',
+			call: 'autonity_getValidatorsInfo',
+			params: 0
+		}),
+		new web3._extend.Method({
+			name: 'getStakeholdersInfo',
+			call: 'autonity_getStakeholdersInfo',
+			params: 0
+		}),
 	]
 });
 `
