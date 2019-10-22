@@ -123,7 +123,6 @@ type core struct {
 	backlogs   map[validator.Validator]*prque.Prque
 	backlogsMu sync.Mutex
 
-	currentRoundStateMu sync.RWMutex
 	currentRoundState   *roundState
 
 	// map[Height]UnminedBlock
@@ -163,9 +162,7 @@ func (c *core) GetCurrentHeightMessages() []*Message {
 		msgs[i] = state.GetMessages()
 		totalLen += len(msgs[i])
 	}
-	c.currentRoundStateMu.RLock()
 	msgs[len(msgs)-1] = c.currentRoundState.GetMessages()
-	c.currentRoundStateMu.RUnlock()
 
 	totalLen += len(msgs[len(msgs)-1])
 
@@ -334,9 +331,8 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		c.currentHeightOldRoundsStates[r.Int64()-1] = c.currentRoundState
 		c.currentHeightOldRoundsStatesMu.Unlock()
 	}
-	c.currentRoundStateMu.Lock()
-	c.currentRoundState = NewRoundState(r, h)
-	c.currentRoundStateMu.Unlock()
+	c.currentRoundState.Update(r, h)
+
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, r.Uint64())
 	c.sentProposal = false

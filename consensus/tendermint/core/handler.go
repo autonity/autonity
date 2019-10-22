@@ -57,7 +57,7 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 	// set currentRoundState before starting go routines
 	lastCommittedProposalBlock, _ := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
-	c.currentRoundState = NewRoundState(big.NewInt(0), height)
+	c.currentRoundState.Update(big.NewInt(0), height)
 
 	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent(ctx)
@@ -234,10 +234,9 @@ func (c *core) syncLoop(ctx context.Context) {
 		and to process sync queries events.
 	*/
 	timer := time.NewTimer(10 * time.Second)
-	c.currentRoundStateMu.RLock()
+
 	round := c.currentRoundState.Round()
 	height := c.currentRoundState.Height()
-	c.currentRoundStateMu.RUnlock()
 
 	// Ask for sync when the engine starts
 	c.backend.AskSync(c.valSet.Copy())
@@ -245,10 +244,9 @@ func (c *core) syncLoop(ctx context.Context) {
 	for {
 		select {
 		case <-timer.C:
-			c.currentRoundStateMu.RLock()
 			currentRound := c.currentRoundState.Round()
 			currentHeight := c.currentRoundState.Height()
-			c.currentRoundStateMu.RUnlock()
+
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound.Cmp(round) == 0 {
 				c.backend.AskSync(c.valSet.Copy())
