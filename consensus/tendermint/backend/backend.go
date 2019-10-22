@@ -45,6 +45,8 @@ import (
 const (
 	// fetcherID is the ID indicates the block is from BFT engine
 	fetcherID = "tendermint"
+	// ring buffer to be able to handle at maximum 10 rounds, 20 validators and 3 messages types
+	ringCapacity = 10 * 20 * 3
 )
 
 var (
@@ -92,8 +94,8 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
 	}
-	// we set the ring buffer to be able to handle at maximum 10 rounds, 20 validators and 3 messages types
-	backend.pendingMessages.SetCapacity(10 * 20 * 3)
+
+	backend.pendingMessages.SetCapacity(ringCapacity)
 	return backend
 }
 

@@ -17,6 +17,9 @@
 package backend
 
 import (
+	"github.com/clearmatics/autonity/consensus"
+	"math/big"
+	"reflect"
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
@@ -27,6 +30,55 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/hashicorp/golang-lru"
 )
+
+func TestUnhandledMsgs(t *testing.T) {
+	t.Run("core not running, unhandled messages are saved", func(t *testing.T) {
+		blockchain, backend := newBlockChain(1)
+		engine := blockchain.Engine().(consensus.BFT)
+		// we close the engine for enabling cache storing
+		if err := engine.Close(); err != nil {
+			t.Fatalf("can't stop the engine")
+		}
+		//we generate a bunch of messages until we reach max capacity
+		for i := int64(0); i < 2*ringCapacity; i++ {
+			counter := big.NewInt(i).Bytes()
+			msg := makeMsg(tendermintMsg, append(counter, []byte("data")...))
+			addr := common.BytesToAddress(append(counter, []byte("addr")...))
+			if result, err := backend.HandleMsg(addr, msg); !result || err != nil {
+				t.Fatalf("handleMsg should have been successful")
+			}
+		}
+
+		for i := int64(0); i < ringCapacity; i++ {
+			counter := big.NewInt(i + ringCapacity).Bytes() // messages i < ringCapacity should have been discarded
+			savedMsg := backend.pendingMessages.Dequeue()
+			if savedMsg == nil {
+				t.Fatalf("missing message")
+			}
+			addr := savedMsg.(UnhandledMsg).addr
+			expectedAddr := common.BytesToAddress(append(counter, []byte("addr")...))
+			if savedMsg.(UnhandledMsg).msg.Code != tendermintMsg {
+				t.Fatalf("wrong msg code")
+			}
+			var payload []byte
+			if err := savedMsg.(UnhandledMsg).msg.Decode(&payload); err != nil {
+				t.Fatalf("couldnt decode payload")
+			}
+			expectedPayload := append(counter, []byte("data")...)
+			if !reflect.DeepEqual(addr, expectedAddr) || !reflect.DeepEqual(payload, expectedPayload) {
+				t.Fatalf("message lost or not expected")
+			}
+		}
+		//ring should be empty at this point
+		for i := int64(0); i < 2*ringCapacity; i++ {
+			payload := backend.pendingMessages.Dequeue()
+			if payload != nil {
+				t.Fatalf("ring not empty")
+			}
+		}
+
+	})
+}
 
 func TestTendermintMessage(t *testing.T) {
 	_, backend := newBlockChain(1)
@@ -76,7 +128,7 @@ func TestProtocol(t *testing.T) {
 		t.Fatalf("expected 'tendermint', got %v", name)
 	}
 	if code != 2 {
-		t.Fatalf("expected 1, got %v", code)
+		t.Fatalf("expected 2, got %v", code)
 	}
 }
 
