@@ -92,7 +92,7 @@ func New(backend Backend, config *config.Config) *core {
 		currentHeightOldRoundsStates: make(map[int64]*roundState),
 		lockedRound:                  big.NewInt(-1),
 		validRound:                   big.NewInt(-1),
-		currentRoundState:			  new(roundState),
+		currentRoundState:            new(roundState),
 		proposeTimeout:               newTimeout(propose, logger),
 		prevoteTimeout:               newTimeout(prevote, logger),
 		precommitTimeout:             newTimeout(precommit, logger),
@@ -124,7 +124,7 @@ type core struct {
 	backlogs   map[validator.Validator]*prque.Prque
 	backlogsMu sync.Mutex
 
-	currentRoundState   *roundState
+	currentRoundState *roundState
 
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
