@@ -18,6 +18,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -48,8 +49,15 @@ func (sb *Backend) Protocol() (protocolName string, extraMsgCodes uint64) {
 	return "tendermint", 2 //nolint
 }
 
-func (sb *Backend) HandleUnhandledMsgs() {
+func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 	for unhandled := sb.pendingMessages.Dequeue(); unhandled != nil; unhandled = sb.pendingMessages.Dequeue() {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			// nothing to do
+		}
+
 		addr := unhandled.(UnhandledMsg).addr
 		msg := unhandled.(UnhandledMsg).msg
 		_, _ = sb.HandleMsg(addr, msg)

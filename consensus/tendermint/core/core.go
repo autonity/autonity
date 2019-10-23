@@ -92,6 +92,7 @@ func New(backend Backend, config *config.Config) *core {
 		currentHeightOldRoundsStates: make(map[int64]*roundState),
 		lockedRound:                  big.NewInt(-1),
 		validRound:                   big.NewInt(-1),
+		currentRoundState:			  new(roundState),
 		proposeTimeout:               newTimeout(propose, logger),
 		prevoteTimeout:               newTimeout(prevote, logger),
 		precommitTimeout:             newTimeout(precommit, logger),

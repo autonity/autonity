@@ -65,7 +65,7 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 	//We want to sequentially handle all the event which modify the current consensus state
 	go c.handleConsensusEvents(ctx)
 
-	go c.backend.HandleUnhandledMsgs()
+	go c.backend.HandleUnhandledMsgs(ctx)
 
 	return nil
 }

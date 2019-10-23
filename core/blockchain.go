@@ -2126,7 +2126,7 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	defer bc.chainmu.Unlock()
 
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
-		return i, nil
+		return 0, nil
 	}
 	bc.wg.Add(1)
 	defer bc.wg.Done()
