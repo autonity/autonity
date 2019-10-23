@@ -15,6 +15,12 @@
 			"revisionTime": "2019-06-28T22:37:48Z"
 		},
 		{
+			"checksumSHA1": "NPB77hNhrU3ewPaLAr59/2mh5/g=",
+			"path": "github.com/JekaMas/notify",
+			"revision": "ddd46d8a47e82fd6246c08cd97445aae512de038",
+			"revisionTime": "2019-10-01T09:44:35Z"
+		},
+		{
 			"checksumSHA1": "QC55lHNOv1+UAL2xtIHw17MJ8J8=",
 			"path": "github.com/StackExchange/wmi",
 			"revision": "5d049714c4a64225c3c79a7cf7d02f7fb5b96338",
@@ -365,12 +371,6 @@
 			"revisionTime": "2019-04-02T12:16:29Z"
 		},
 		{
-			"checksumSHA1": "lU41NL1TEDtsrr0yUdp3SMB4Y9o=",
-			"path": "github.com/rjeczalik/notify",
-			"revision": "0f065fa99b48b842c3fd3e2c8b194c6f2b69f6b8",
-			"revisionTime": "2018-08-27T19:31:19Z"
-		},
-		{
 			"checksumSHA1": "5uqO4ITTDMklKi3uNaE/D9LQ5nM=",
 			"path": "github.com/robertkrimen/otto",
 			"revision": "6a77b7cbc37d0c39f7d5fa5766826e541df31fd5",
@@ -543,6 +543,12 @@
 			"path": "github.com/wsddn/go-ecdh",
 			"revision": "48726bab92085232373de4ec5c51ce7b441c63a0",
 			"revisionTime": "2016-12-11T03:23:59Z"
+		},
+		{
+			"checksumSHA1": "gDWyH6deDwb4de/P4SL0fqKjhFs=",
+			"path": "go.uber.org/goleak",
+			"revision": "227bd74c34825787d52452ecf0916929863b787c",
+			"revisionTime": "2019-08-23T23:21:12Z"
 		},
 		{
 			"checksumSHA1": "TT1rac6kpQp2vz24m5yDGUNQ/QQ=",

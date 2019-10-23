@@ -39,7 +39,7 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/rpc"
-	mmap "github.com/edsrzf/mmap-go"
+	"github.com/edsrzf/mmap-go"
 	"github.com/hashicorp/golang-lru/simplelru"
 )
 
@@ -49,8 +49,8 @@ var (
 	// two256 is a big integer representing 2^256
 	two256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 
-	// sharedEthash is a full instance that can be shared between multiple users.
-	sharedEthash = New(Config{"", 3, 0, "", 1, 0, ModeNormal}, nil, false)
+	// sharedEthashOnce is a full instance that can be shared between multiple users.
+	sharedEthashOnce = &sync.Once{}
 
 	// algorithmRevision is the data structure version used for file naming.
 	algorithmRevision = 23
@@ -388,7 +388,6 @@ type Mode uint
 
 const (
 	ModeNormal Mode = iota
-	ModeShared
 	ModeTest
 	ModeFake
 	ModeFullFake
@@ -489,9 +488,9 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 		workCh:       make(chan *sealTask),
 		fetchWorkCh:  make(chan *sealWork),
 		submitWorkCh: make(chan *mineResult),
-		fetchRateCh:  make(chan chan uint64),
+		fetchRateCh:  make(chan chan uint64, 1),
 		submitRateCh: make(chan *hashrate),
-		exitCh:       make(chan chan error),
+		exitCh:       make(chan chan error, 1),
 	}
 	go ethash.remote(notify, noverify)
 	return ethash
@@ -511,7 +510,7 @@ func NewTester(notify []string, noverify bool) *Ethash {
 		submitWorkCh: make(chan *mineResult),
 		fetchRateCh:  make(chan chan uint64),
 		submitRateCh: make(chan *hashrate),
-		exitCh:       make(chan chan error),
+		exitCh:       make(chan chan error, 1),
 	}
 	go ethash.remote(notify, noverify)
 	return ethash
@@ -562,9 +561,15 @@ func NewFullFaker() *Ethash {
 	}
 }
 
+var sharedEthash *Ethash
+
 // NewShared creates a full sized ethash PoW shared between all requesters running
 // in the same process.
 func NewShared() *Ethash {
+	sharedEthashOnce.Do(func() {
+		sharedEthash = New(Config{"", 3, 0, "", 1, 0, ModeNormal}, nil, false)
+	})
+
 	return &Ethash{shared: sharedEthash}
 }
 

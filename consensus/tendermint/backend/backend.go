@@ -113,6 +113,7 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
+	stopped           chan struct{}
 	coreMu            sync.RWMutex
 
 	// Snapshots for recent block to speed up reorgs
@@ -438,6 +439,14 @@ func (sb *Backend) HasBadProposal(hash common.Hash) bool {
 		return false
 	}
 	return sb.hasBadBlock(hash)
+}
+
+func (sb *Backend) GetContractAddress() common.Address {
+	return sb.blockchain.GetAutonityContract().Address()
+}
+
+func (sb *Backend) GetContractABI() string {
+	return sb.blockchain.Config().AutonityContractConfig.ABI
 }
 
 // Whitelist for the current block

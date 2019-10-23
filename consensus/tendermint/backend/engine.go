@@ -448,6 +448,9 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	delay := time.Unix(int64(block.Header().Time), 0).Sub(now())
 	select {
 	case <-time.After(delay):
+		// nothing to do
+	case <-sb.stopped:
+		return nil
 	case <-stop:
 		return nil
 	}
@@ -529,6 +532,8 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 		return ErrStartedEngine
 	}
 
+	sb.stopped = make(chan struct{})
+
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
 
@@ -552,6 +557,8 @@ func (sb *Backend) Close() error {
 		return ErrStoppedEngine
 	}
 	sb.coreStarted = false
+
+	close(sb.stopped)
 
 	return nil
 }

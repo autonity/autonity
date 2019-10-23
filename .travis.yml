@@ -24,6 +24,8 @@ jobs:
         - GORACE="history_size=7"
       after_success:
         - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+        - bash <(curl https://codecov.io/bash) -f coverage_tendermint.out -F tendermint
+        - bash <(curl https://codecov.io/bash) -f coverage.out -F default
       after_failure:
         - travis_terminate 1
       name: "build and linters"
@@ -39,6 +41,7 @@ jobs:
       name: "Tendermint data race - unit tests"
       script:
         - go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage.out
+        - cat coverage_tendermint.out >> coverage.out
     - <<: *tests
       name: "TestTendermintSuccess race"
       script:
@@ -63,6 +66,14 @@ jobs:
       name: "TestTendermintStartStopAllNodes"
       script:
         - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+    - <<: *tests
+      name: "TestCheckBlockWithSmallFee"
+      script:
+        - travis_wait 60 go test ./consensus/test/... -v -run 'TestCheckBlockWithSmallFee' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+    - <<: *tests
+      name: "TestCheckFeeRedirectionAndRedistribution"
+      script:
+        - travis_wait 60 go test ./consensus/test/... -v -run 'TestCheckFeeRedirectionAndRedistribution' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "Contract tests"
       script:

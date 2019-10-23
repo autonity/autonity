@@ -136,6 +136,7 @@ func (self *Miner) Stop() {
 }
 
 func (self *Miner) Close() {
+	self.worker.stop()
 	self.worker.close()
 	close(self.exitCh)
 }
