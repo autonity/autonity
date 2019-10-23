@@ -17,6 +17,7 @@
 package backend
 
 import (
+	"bytes"
 	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -24,6 +25,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/hashicorp/golang-lru"
+	"io"
 )
 
 const (
@@ -61,7 +63,13 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 
 	if msg.Code == tendermintMsg {
 		if !sb.coreStarted {
-			sb.pendingMessages.Enqueue(UnhandledMsg{addr: addr, msg: msg})
+			buffer := new(bytes.Buffer)
+			if _, err := io.Copy(buffer, msg.Payload); err != nil {
+				return true, errDecodeFailed
+			}
+			savedMsg := msg
+			savedMsg.Payload = buffer
+			sb.pendingMessages.Enqueue(UnhandledMsg{addr: addr, msg: savedMsg})
 			return true, nil //return nil to avoid shutting down connection during block sync.
 		}
 
