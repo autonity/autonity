@@ -1,0 +1,15 @@
+ignore:
+  - "**/*_mock.go"  # ignore mock files
+coverage:
+  status:
+    project:
+      default:
+        target: 50%
+        threshold: null
+      tendermint:
+        flags: tendermint
+        target: 70%
+flags:
+  tendermint:
+    paths:
+      - consensus/tendermint
