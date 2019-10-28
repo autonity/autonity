@@ -65,7 +65,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 		return errFailedDecodePrevote
 	}
 
-	if err = c.checkMessage(preVote.Round, preVote.Height); err != nil {
+	if err = c.checkMessage(preVote.Round, preVote.Height, prevote); err != nil {
 		// Store old round prevote messages for future rounds since it is required for validRound
 		if err == errOldRoundMessage {
 			// We only process old rounds while future rounds messages are pushed on to the backlog

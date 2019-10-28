@@ -76,7 +76,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 		return errFailedDecodePrecommit
 	}
 
-	if err := c.checkMessage(preCommit.Round, preCommit.Height); err != nil {
+	if err := c.checkMessage(preCommit.Round, preCommit.Height, precommit); err != nil {
 		// Store old precommits because if there is a quorum of precommits in the previous round we need to go to the next height
 		//if err == errOldRoundMessage {
 		//	// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound

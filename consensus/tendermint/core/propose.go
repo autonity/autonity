@@ -67,7 +67,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	}
 
 	// Ensure we have the same view with the Proposal message
-	if err := c.checkMessage(proposal.Round, proposal.Height); err != nil {
+	if err := c.checkMessage(proposal.Round, proposal.Height, propose); err != nil {
 		// We don't care about old proposals so they are ignored
 		return err
 	}

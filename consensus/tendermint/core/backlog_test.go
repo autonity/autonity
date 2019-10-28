@@ -21,7 +21,7 @@ func TestCheckMessage(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
 		}
 
-		err := c.checkMessage(big.NewInt(1), big.NewInt(2))
+		err := c.checkMessage(big.NewInt(1), big.NewInt(2), propose)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
@@ -30,7 +30,7 @@ func TestCheckMessage(t *testing.T) {
 	t.Run("given nil round, error returned", func(t *testing.T) {
 		c := &core{}
 
-		err := c.checkMessage(nil, big.NewInt(2))
+		err := c.checkMessage(nil, big.NewInt(2), propose)
 		if err != errInvalidMessage {
 			t.Fatalf("have %v, want %v", err, errInvalidMessage)
 		}
@@ -41,7 +41,7 @@ func TestCheckMessage(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
 		}
 
-		err := c.checkMessage(big.NewInt(2), big.NewInt(4))
+		err := c.checkMessage(big.NewInt(2), big.NewInt(4), propose)
 		if err != errFutureHeightMessage {
 			t.Fatalf("have %v, want %v", err, errFutureHeightMessage)
 		}
@@ -52,7 +52,7 @@ func TestCheckMessage(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
 		}
 
-		err := c.checkMessage(big.NewInt(2), big.NewInt(2))
+		err := c.checkMessage(big.NewInt(2), big.NewInt(2), propose)
 		if err != errOldHeightMessage {
 			t.Fatalf("have %v, want %v", err, errOldHeightMessage)
 		}
@@ -63,7 +63,7 @@ func TestCheckMessage(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
 		}
 
-		err := c.checkMessage(big.NewInt(3), big.NewInt(3))
+		err := c.checkMessage(big.NewInt(3), big.NewInt(3), propose)
 		if err != errFutureRoundMessage {
 			t.Fatalf("have %v, want %v", err, errFutureRoundMessage)
 		}
@@ -74,7 +74,7 @@ func TestCheckMessage(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(2)),
 		}
 
-		err := c.checkMessage(big.NewInt(1), big.NewInt(2))
+		err := c.checkMessage(big.NewInt(1), big.NewInt(2), propose)
 		if err != errOldRoundMessage {
 			t.Fatalf("have %v, want %v", err, errOldRoundMessage)
 		}
