@@ -325,6 +325,9 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender valida
 				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
 				c.startRound(ctx, big.NewInt(msgRound))
 			}
+		} else if err == errFutureStepMessage {
+			logger.Debug("Storing future step message in backlog")
+			c.storeBacklog(msg, sender)
 		}
 
 		return err
