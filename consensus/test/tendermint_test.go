@@ -622,6 +622,30 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 	}
 }
 
+func TestTendermintTC7(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+	test := &testCase{
+		name:      "3 nodes stop, 1 recover and sync blocks and state",
+		numPeers:  6,
+		numBlocks: 30,
+		txPerPeer: 1,
+		beforeHooks: map[int]hook{
+			3: hookStopNode(3, 10),
+			4: hookStopNode(4, 15),
+			5: hookStopNode(5, 20),
+		},
+		afterHooks: map[int]hook{
+			3: hookStartNode(3, 40),
+		},
+		stopTime: make(map[int]time.Time),
+	}
+	for i := 0; i < 20; i++ {
+		runTest(t, test)
+	}
+}
+
 func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -947,19 +971,20 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 }
 
 type testCase struct {
-	name                 string
-	isSkipped            bool
-	numPeers             int
-	numBlocks            int
-	txPerPeer            int
-	maliciousPeers       map[int]func(basic consensus.Engine) consensus.Engine //map[validatorIndex]consensusConstructor
-	networkRates         map[int]networkRate                                   //map[validatorIndex]networkRate
-	beforeHooks          map[int]hook                                          //map[validatorIndex]beforeHook
-	afterHooks           map[int]hook                                          //map[validatorIndex]afterHook
-	sendTransactionHooks map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error)
-	stopTime             map[int]time.Time
-	genesisHook          func(g *core.Genesis) *core.Genesis
-	mu                   sync.RWMutex
+	name                   string
+	isSkipped              bool
+	numPeers               int
+	numBlocks              int
+	txPerPeer              int
+	validatorsCanBeStopped *int64
+	maliciousPeers         map[int]func(basic consensus.Engine) consensus.Engine //map[validatorIndex]consensusConstructor
+	networkRates           map[int]networkRate                                   //map[validatorIndex]networkRate
+	beforeHooks            map[int]hook                                          //map[validatorIndex]beforeHook
+	afterHooks             map[int]hook                                          //map[validatorIndex]afterHook
+	sendTransactionHooks   map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error)
+	stopTime               map[int]time.Time
+	genesisHook            func(g *core.Genesis) *core.Genesis
+	mu                     sync.RWMutex
 }
 
 func (test *testCase) getBeforeHook(index int) hook {
@@ -1015,7 +1040,7 @@ func runTest(t *testing.T, test *testCase) {
 		t.SkipNow()
 	}
 
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numPeers))
 	if err != nil {
 		t.Log("can't rise file description limit. errors are possible")
@@ -1296,18 +1321,20 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	txs := make(map[uint64]int) // blockNumber to count
 	txsMu := sync.Mutex{}
 
-	validatorsCanBeStopped := new(uint32)
+	test.validatorsCanBeStopped = new(int64)
 	wg, ctx := errgroup.WithContext(context.Background())
+	stopch := make(chan struct{})
+	stopOnce := sync.Once{}
 	for index, validator := range validators {
 		index := index
 		validator := validator
 
-		logger := log.New("addr", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String())
+		logger := log.New("addr", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "idx", index)
 
 		// skip malicious nodes
 		if test.maliciousPeers != nil {
 			if _, ok := test.maliciousPeers[index]; ok {
-				atomic.AddUint32(validatorsCanBeStopped, 1)
+				atomic.AddInt64(test.validatorsCanBeStopped, 1)
 				continue
 			}
 		}
@@ -1335,11 +1362,11 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						"num", validator.lastBlock, "hash", validator.blocks[ev.Block.NumberU64()].hash,
 						"txCount", validator.blocks[ev.Block.NumberU64()].txs)
 					if atomic.LoadUint32(testCanBeStopped) == 1 {
-						if atomic.LoadUint32(validatorsCanBeStopped) == uint32(len(validators)) {
+						if atomic.LoadInt64(test.validatorsCanBeStopped) == int64(len(validators)) {
 							break wgLoop
 						}
-						if atomic.LoadUint32(validatorsCanBeStopped) > uint32(len(validators)) {
-							return fmt.Errorf("something is wrong. %d of %d validators are ready to be stopped", atomic.LoadUint32(validatorsCanBeStopped), uint32(len(validators)))
+						if atomic.LoadInt64(test.validatorsCanBeStopped) > int64(len(validators)) {
+							return fmt.Errorf("something is wrong. %d of %d validators are ready to be stopped", atomic.LoadInt64(test.validatorsCanBeStopped), uint32(len(validators)))
 						}
 						continue
 					}
@@ -1402,13 +1429,13 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 							validator.transactionsMu.Lock()
 							if len(validator.transactions) == 0 {
 								if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-									atomic.AddUint32(validatorsCanBeStopped, 1)
+									atomic.AddInt64(test.validatorsCanBeStopped, 1)
 								}
 							}
 							validator.transactionsMu.Unlock()
 						} else {
 							if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-								atomic.AddUint32(validatorsCanBeStopped, 1)
+								atomic.AddInt64(test.validatorsCanBeStopped, 1)
 							}
 						}
 					}
@@ -1442,7 +1469,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 										atomic.LoadInt64(validator.txsSendCount), txsChainCount))
 
 									if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-										atomic.AddUint32(validatorsCanBeStopped, 1)
+										atomic.AddInt64(test.validatorsCanBeStopped, 1)
 									}
 								} else {
 									return fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
@@ -1465,11 +1492,15 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					if err != nil {
 						return err
 					}
+				case <-stopch:
+					return nil
 				case <-ctx.Done():
 					return ctx.Err()
 				}
 			}
-
+			stopOnce.Do(func() {
+				close(stopch)
+			})
 			return nil
 		})
 	}
@@ -1498,8 +1529,8 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	//check that all nodes reached the same minimum blockchain height
 	minHeight := math.MaxInt64
 	for index, validator := range validators {
-		if _, ok := test.maliciousPeers[index]; ok {
-			//don't check chain for malicious peers
+		if _, ok := test.maliciousPeers[index]; ok || !validator.isRunning {
+			//don't check chain for malicious or non running peers
 			continue
 		}
 
@@ -1518,7 +1549,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	for i := 1; i <= minHeight; i++ {
 		blockHash := validators[0].blocks[uint64(i)].hash
 		for index, validator := range validators[1:] {
-			if _, ok := test.maliciousPeers[index+1]; ok {
+			if _, ok := test.maliciousPeers[index+1]; ok || !validator.isRunning {
 				//don't check chain for malicious peers
 				continue
 			}
@@ -1552,7 +1583,8 @@ func hookStopNode(nodeIndex int, blockNum uint64) hook {
 			if err != nil {
 				return err
 			}
-
+			atomic.AddInt64(tCase.validatorsCanBeStopped, 1)
+			fmt.Printf("Stopping node (ValCanStop + 1): %d \n", atomic.LoadInt64(tCase.validatorsCanBeStopped))
 			tCase.setStopTime(nodeIndex, currentTime)
 		}
 
@@ -1571,6 +1603,8 @@ func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
 			if err := validator.startService(); err != nil {
 				return err
 			}
+			atomic.AddInt64(tCase.validatorsCanBeStopped, -1)
+			fmt.Printf("Starting node (ValCanStop - 1): %d \n", atomic.LoadInt64(tCase.validatorsCanBeStopped))
 		}
 
 		return nil
