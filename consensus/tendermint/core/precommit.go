@@ -160,7 +160,14 @@ func (c *core) verifyPrecommitCommittedSeal(addressMsg common.Address, committed
 
 func (c *core) handleCommit(ctx context.Context) {
 	c.logger.Debug("Received a final committed proposal", "step", c.currentRoundState.Step())
-	c.startRound(ctx, common.Big0)
+	lastBlock, _ := c.backend.LastCommittedProposal()
+	height := new(big.Int).Add(lastBlock.Number(), common.Big1).Uint64()
+	if height == c.currentRoundState.Height().Uint64() {
+		c.logger.Debug("Discarding event as core is at the same height", "state_height", c.currentRoundState.Height().Uint64())
+	} else {
+		c.logger.Debug("Received proposal is ahead", "state_height", c.currentRoundState.Height().Uint64(), "block_height", height)
+		c.startRound(ctx, common.Big0)
+	}
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to string) {
