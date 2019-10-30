@@ -18,6 +18,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -48,8 +49,15 @@ func (sb *Backend) Protocol() (protocolName string, extraMsgCodes uint64) {
 	return "tendermint", 2 //nolint
 }
 
-func (sb *Backend) HandleUnhandledMsgs() {
+func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 	for unhandled := sb.pendingMessages.Dequeue(); unhandled != nil; unhandled = sb.pendingMessages.Dequeue() {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			// nothing to do
+		}
+
 		addr := unhandled.(UnhandledMsg).addr
 		msg := unhandled.(UnhandledMsg).msg
 		_, _ = sb.HandleMsg(addr, msg)
@@ -58,10 +66,15 @@ func (sb *Backend) HandleUnhandledMsgs() {
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
+	if msg.Code != tendermintMsg && msg.Code != tendermintSyncMsg {
+		return false, nil
+	}
+
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 
-	if msg.Code == tendermintMsg {
+	switch msg.Code {
+	case tendermintMsg:
 		if !sb.coreStarted {
 			buffer := new(bytes.Buffer)
 			if _, err := io.Copy(buffer, msg.Payload); err != nil {
@@ -100,21 +113,18 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		sb.postEvent(events.MessageEvent{
 			Payload: data,
 		})
-
-		return true, nil
-	}
-
-	if msg.Code == tendermintSyncMsg {
+	case tendermintSyncMsg:
 		if !sb.coreStarted {
 			sb.logger.Info("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shutdown the connection if core is stopped
 		}
 		sb.logger.Info("Received sync message", "from", addr)
 		sb.postEvent(events.SyncEvent{Addr: addr})
-		return true, nil
+	default:
+		return false, nil
 	}
 
-	return false, nil
+	return true, nil
 }
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster

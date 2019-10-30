@@ -958,6 +958,9 @@ type numberHash struct {
 func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain []types.Receipts, ancientLimit uint64) (int, error) {
 	// We don't require the chainMu here since we want to maximize the
 	// concurrency of header insertion and receipt insertion.
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return 0, nil
+	}
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -2122,6 +2125,9 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	bc.chainmu.Lock()
 	defer bc.chainmu.Unlock()
 
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return 0, nil
+	}
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 

@@ -319,11 +319,12 @@ func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 //
 // Note, the block header and state database might be updated to reflect any
 // consensus rules that happen at finalization (e.g. block rewards).
-func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header) {
+func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) {
+	sb.blockchainInitMu.Lock()
 	if sb.blockchain == nil {
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
+	sb.blockchainInitMu.Unlock()
 
 	validators, err := sb.getValidators(header, chain, state)
 	if err != nil {
@@ -344,9 +345,12 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 
 func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+
+	sb.blockchainInitMu.Lock()
 	if sb.blockchain == nil {
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
+	sb.blockchainInitMu.Unlock()
 
 	validators, err := sb.getValidators(header, chain, statedb)
 	if err != nil {
@@ -536,7 +540,10 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
 
-	sb.blockchain = chain.(*core.BlockChain)
+	sb.blockchainInitMu.Lock()
+	sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
+	sb.blockchainInitMu.Unlock()
+
 	sb.currentBlock = currentBlock
 	sb.hasBadBlock = hasBadBlock
 
