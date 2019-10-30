@@ -102,16 +102,17 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 // ----------------------------------------------------------------------------
 
 type Backend struct {
-	config       *tendermintConfig.Config
-	eventMux     *event.TypeMuxSilent
-	privateKey   *ecdsa.PrivateKey
-	privateKeyMu sync.RWMutex
-	address      common.Address
-	logger       log.Logger
-	db           ethdb.Database
-	blockchain   *core.BlockChain
-	currentBlock func() *types.Block
-	hasBadBlock  func(hash common.Hash) bool
+	config           *tendermintConfig.Config
+	eventMux         *event.TypeMuxSilent
+	privateKey       *ecdsa.PrivateKey
+	privateKeyMu     sync.RWMutex
+	address          common.Address
+	logger           log.Logger
+	db               ethdb.Database
+	blockchain       *core.BlockChain
+	blockchainInitMu sync.Mutex
+	currentBlock     func() *types.Block
+	hasBadBlock      func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
