@@ -136,6 +136,7 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
+	wal                            *WAL
 	currentHeightOldRoundsStates   map[int64]roundState
 	currentHeightOldRoundsStatesMu sync.RWMutex
 
@@ -326,6 +327,11 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		c.currentHeightOldRoundsStatesMu.Unlock()
 	}
 	c.currentRoundState.Update(r, h)
+	err := c.wal.UpdateHeight(h)
+	if err != nil {
+		log.Error("WAL UpdateHeight", "err", err)
+	}
+
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, r.Uint64())
 	c.sentProposal = false

@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common"
@@ -59,7 +61,6 @@ import (
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rpc"
 	pcsclite "github.com/gballet/go-libpcsclite"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -723,6 +724,13 @@ var (
 		EnvVar: "AUTONITY_VALIDATORS",
 		Usage:  "a new list of validators",
 	}
+
+	//Tendermint settings
+	TDWALDIrFlag = cli.StringFlag{
+		Name:  "tendermint.wal_dir",
+		Usage: "WAL dir",
+		Value: "",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1260,6 +1268,12 @@ func setIstanbul(ctx *cli.Context, cfg *eth.Config) {
 	}
 }
 
+func setTendermint(ctx *cli.Context, cfg *eth.Config) {
+	if ctx.GlobalIsSet(TDWALDIrFlag.Name) {
+		cfg.Tendermint.WALDir = ctx.GlobalString(TDWALDIrFlag.Name)
+	}
+}
+
 func setEthash(ctx *cli.Context, cfg *eth.Config) {
 	if ctx.GlobalIsSet(EthashCacheDirFlag.Name) {
 		cfg.Ethash.CacheDir = ctx.GlobalString(EthashCacheDirFlag.Name)
@@ -1395,6 +1409,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	setEthash(ctx, cfg)
 	setMiner(ctx, &cfg.Miner)
 	setIstanbul(ctx, cfg)
+	setTendermint(ctx, cfg)
 	setWhitelist(ctx, cfg)
 	setLes(ctx, cfg)
 

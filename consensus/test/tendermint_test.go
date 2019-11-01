@@ -946,6 +946,67 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 	}
 }
 
+func TestWALTendermintSuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	//defer goleak.VerifyNone(t)
+
+	cases := []*testCase{
+		{
+			name:      "no malicious",
+			numPeers:  5,
+			numBlocks: 5,
+			txPerPeer: 1,
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintWAL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cases := []*testCase{
+		{
+			name:      "all nodes stop for 30 seconds at the same block",
+			numPeers:  5,
+			numBlocks: 50,
+			txPerPeer: 1,
+			beforeHooks: map[int]hook{
+				0: hookStopNode(0, 3),
+				1: hookStopNode(1, 3),
+				2: hookStopNode(2, 3),
+				3: hookStopNode(3, 3),
+				4: hookStopNode(4, 3),
+			},
+			afterHooks: map[int]hook{
+				0: hookStartNode(0, 30),
+				1: hookStartNode(1, 30),
+				2: hookStartNode(2, 30),
+				3: hookStartNode(3, 30),
+				4: hookStartNode(4, 30),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
 type testCase struct {
 	name                 string
 	isSkipped            bool

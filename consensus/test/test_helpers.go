@@ -3,11 +3,12 @@ package test
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
-	"github.com/clearmatics/autonity/log"
 	"io/ioutil"
 	"math/big"
 	"net"
 	"sync"
+
+	"github.com/clearmatics/autonity/log"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
@@ -212,6 +213,9 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 		return nil, err
 	}
 	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
+		tdConfig := *config.DefaultConfig()
+		tdConfig.WALDir = datadir + "/wal/"
+
 		return eth.New(ctx, &eth.Config{
 			Genesis:         genesis,
 			NetworkId:       genesis.Config.ChainID.Uint64(),
@@ -219,7 +223,7 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 			DatabaseCache:   256,
 			DatabaseHandles: 256,
 			TxPool:          core.DefaultTxPoolConfig,
-			Tendermint:      *config.DefaultConfig(),
+			Tendermint:      tdConfig,
 		}, cons)
 	}); err != nil {
 		return nil, err

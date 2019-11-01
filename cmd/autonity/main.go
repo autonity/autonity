@@ -146,6 +146,7 @@ var (
 		utils.EVMInterpreterFlag,
 		utils.IstanbulRequestTimeoutFlag,
 		utils.IstanbulBlockPeriodFlag,
+		utils.TDWALDIrFlag,
 		configFileFlag,
 	}
 
