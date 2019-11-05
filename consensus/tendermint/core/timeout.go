@@ -31,7 +31,7 @@ type timeout struct {
 	started bool
 	step    Step
 	// start will be refreshed on each new schedule, it is used for metric collection of tendermint timeout.
-	start   time.Time
+	start time.Time
 	sync.Mutex
 }
 

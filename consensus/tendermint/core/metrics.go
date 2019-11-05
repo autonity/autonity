@@ -24,6 +24,6 @@ var (
 	tendermintHeightChangeMeter = metrics.NewRegisteredMeter("tendermint/height/change", nil)
 	tendermintRoundChangeMeter  = metrics.NewRegisteredMeter("tendermint/round/change", nil)
 	tendermintProposeTimer      = metrics.NewRegisteredTimer("tendermint/timer/propose", nil)
-	tendermintPrevoteTimer 		= metrics.NewRegisteredTimer("tendermint/timer/prevote", nil)
-	tendermintPrecommitTimer 	= metrics.NewRegisteredTimer("tendermint/timer/precommit", nil)
+	tendermintPrevoteTimer      = metrics.NewRegisteredTimer("tendermint/timer/prevote", nil)
+	tendermintPrecommitTimer    = metrics.NewRegisteredTimer("tendermint/timer/precommit", nil)
 )
