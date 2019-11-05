@@ -246,6 +246,13 @@ func (c *core) commit() {
 
 // startRound starts a new round. if round equals to 0, it means to starts a new height
 func (c *core) startRound(ctx context.Context, round *big.Int) {
+
+	// Metric collection of round change and height change.
+	if round == common.Big0 {
+		tendermintHeightChangeMeter.Mark(1)
+	} else {
+		tendermintRoundChangeMeter.Mark(1)
+	}
 	lastCommittedProposalBlock, lastCommittedProposalBlockProposer := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 

@@ -30,6 +30,8 @@ type timeout struct {
 	timer   *time.Timer
 	started bool
 	step    Step
+	// start will be refreshed on each new schedule, it is used for metric collection of tendermint timeout.
+	start   time.Time
 	sync.Mutex
 }
 
@@ -37,6 +39,7 @@ func newTimeout(s Step) *timeout {
 	return &timeout{
 		started: false,
 		step:    s,
+		start:   time.Now(),
 	}
 }
 
@@ -45,6 +48,7 @@ func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height
 	t.Lock()
 	defer t.Unlock()
 	t.started = true
+	t.start = time.Now()
 	t.timer = time.AfterFunc(stepTimeout, func() {
 		runAfterTimeout(round, height)
 	})
@@ -70,8 +74,23 @@ func (t *timeout) stopTimer() error {
 				return errMovedToNewRound
 			}
 		}
+		t.measureMetricsOnStopTimer()
 	}
 	return nil
+}
+
+func (t *timeout) measureMetricsOnStopTimer() {
+	switch t.step {
+	case propose:
+		tendermintProposeTimer.UpdateSince(t.start)
+		return
+	case prevote:
+		tendermintPrevoteTimer.UpdateSince(t.start)
+		return
+	case precommit:
+		tendermintPrecommitTimer.UpdateSince(t.start)
+		return
+	}
 }
 
 func (t *timeout) reset(s Step) {
@@ -85,6 +104,7 @@ func (t *timeout) reset(s Step) {
 	t.timer = nil
 	t.started = false
 	t.step = s
+	t.start = time.Now()
 }
 
 /////////////// On Timeout Functions ///////////////
@@ -96,6 +116,9 @@ func (c *core) onTimeoutPropose(r int64, h int64) {
 	}
 	c.logTimeoutEvent("TimeoutEvent(Propose): Sent", "Propose", msg)
 	c.sendEvent(msg)
+	// Metering timeout metric of propose.
+	duration := timeoutPropose(r)
+	tendermintProposeTimer.Update(duration)
 }
 
 func (c *core) onTimeoutPrevote(r int64, h int64) {
@@ -106,7 +129,9 @@ func (c *core) onTimeoutPrevote(r int64, h int64) {
 	}
 	c.logTimeoutEvent("TimeoutEvent(Prevote): Sent", "Prevote", msg)
 	c.sendEvent(msg)
-
+	// Metering timeout metric of prevote.
+	duration := timeoutPrevote(r)
+	tendermintPrevoteTimer.Update(duration)
 }
 
 func (c *core) onTimeoutPrecommit(r int64, h int64) {
@@ -117,6 +142,9 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 	}
 	c.logTimeoutEvent("TimeoutEvent(Precommit): Sent", "Precommit", msg)
 	c.sendEvent(msg)
+	// Metering timeout metric of precommit.
+	duration := timeoutPrecommit(r)
+	tendermintPrecommitTimer.Update(duration)
 }
 
 /////////////// Handle Timeout Functions ///////////////
