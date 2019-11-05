@@ -1323,6 +1323,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 	test.validatorsCanBeStopped = new(int64)
 	parentCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	wg, ctx := errgroup.WithContext(parentCtx)
 
 	for index, validator := range validators {
@@ -1495,9 +1496,8 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 				case <-ctx.Done():
 					if ctx.Err() == context.Canceled {
 						return nil
-					} else {
-						return ctx.Err()
 					}
+					return ctx.Err()
 				}
 			}
 			cancel()
