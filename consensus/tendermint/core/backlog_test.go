@@ -232,7 +232,7 @@ func TestProcessBacklog(t *testing.T) {
 		}
 	})
 
-	t.Run("valid vote received", func(t *testing.T) {
+	t.Run("valid vote received, processed at prevote step", func(t *testing.T) {
 		vote := &Vote{
 			Round:  big.NewInt(1),
 			Height: big.NewInt(2),
@@ -273,11 +273,20 @@ func TestProcessBacklog(t *testing.T) {
 			backlogs:          make(map[validator.Validator]*prque.Prque),
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
 		}
-
 		c.storeBacklog(msg, val)
 		c.processBacklog()
 
 		timeout := time.NewTimer(2 * time.Second)
+		//vote should not be processed at propose step
+		select {
+		case ev := <-evChan:
+			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev))
+		case <-timeout.C:
+		}
+		c.setStep(prevote)
+		c.processBacklog()
+
+		timeout = time.NewTimer(2 * time.Second)
 		select {
 		case ev := <-evChan:
 			e, ok := ev.(backlogEvent)
@@ -381,12 +390,15 @@ func TestProcessBacklog(t *testing.T) {
 			Code: msgPrevote,
 			Msg:  nilRoundVotePayload,
 		}
-
+		msg2 := &Message{
+			Code: msgPrecommit,
+			Msg:  nilRoundVotePayload,
+		}
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Post(gomock.Any()).Times(1)
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
 		valSet := newTestValidatorSet(2)
 		val := valSet.GetByIndex(0)
@@ -399,8 +411,13 @@ func TestProcessBacklog(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
 		}
 		c.storeBacklog(msg, val)
+		c.storeBacklog(msg2, val)
+		c.setStep(prevote)
 		c.processBacklog()
 		c.currentRoundState = NewRoundState(big.NewInt(2), big.NewInt(4))
+
+		backendMock.EXPECT().Post(gomock.Any()).Times(2)
+		c.setStep(prevote)
 		c.processBacklog()
 		timeout := time.NewTimer(2 * time.Second)
 		<-timeout.C
@@ -426,7 +443,7 @@ func TestProcessBacklog(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Post(gomock.Any()).Times(1)
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
 		valSet := newTestValidatorSet(2)
 		val := valSet.GetByIndex(0)
@@ -440,7 +457,9 @@ func TestProcessBacklog(t *testing.T) {
 		}
 		c.storeBacklog(msg, val)
 		c.processBacklog()
+		backendMock.EXPECT().Post(gomock.Any()).Times(1)
 		c.currentRoundState = NewRoundState(big.NewInt(2), big.NewInt(4))
+		c.setStep(prevote)
 		c.processBacklog()
 		timeout := time.NewTimer(2 * time.Second)
 		<-timeout.C

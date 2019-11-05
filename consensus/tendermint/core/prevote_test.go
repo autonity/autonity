@@ -170,6 +170,9 @@ func TestHandlePrevote(t *testing.T) {
 	})
 
 	t.Run("pre-vote given with no errors, pre-vote added", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
 		logger := log.New("backend", "test", "id", 0)
 
 		proposal := NewProposal(
@@ -181,7 +184,7 @@ func TestHandlePrevote(t *testing.T) {
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
-
+		curRoundState.SetStep(prevote)
 		addr := common.HexToAddress("0x0123456789")
 
 		var preVote = Vote{
@@ -202,14 +205,16 @@ func TestHandlePrevote(t *testing.T) {
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
 		}
-
+		backendMock := NewMockBackend(ctrl)
 		c := &core{
 			address:           addr,
 			currentRoundState: curRoundState,
 			logger:            logger,
 			valSet:            new(validatorSet),
+			prevoteTimeout:    newTimeout(prevote, logger),
+			backend:           backendMock,
 		}
-
+		c.valSet.set(newTestValidatorSet(4))
 		err = c.handlePrevote(context.Background(), expectedMsg)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)

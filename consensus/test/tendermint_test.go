@@ -1040,7 +1040,7 @@ func runTest(t *testing.T, test *testCase) {
 		t.SkipNow()
 	}
 
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numPeers))
 	if err != nil {
 		t.Log("can't rise file description limit. errors are possible")

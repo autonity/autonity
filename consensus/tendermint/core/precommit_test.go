@@ -227,7 +227,7 @@ func TestHandlePrecommit(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			valSet:            new(validatorSet),
 		}
-
+		c.setStep(precommit)
 		err = c.handlePrecommit(context.Background(), expectedMsg)
 		if err != secp256k1.ErrInvalidSignatureLen {
 			t.Fatalf("Expected %v, got %v", secp256k1.ErrInvalidSignatureLen, err)
@@ -250,7 +250,7 @@ func TestHandlePrecommit(t *testing.T) {
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
-
+		curRoundState.SetStep(precommit)
 		addr := getAddress()
 
 		var preCommit = Vote{
@@ -314,6 +314,7 @@ func TestHandlePrecommit(t *testing.T) {
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
+		curRoundState.SetStep(prevote)
 
 		addr := getAddress()
 
@@ -366,6 +367,7 @@ func TestHandlePrecommit(t *testing.T) {
 
 	t.Run("pre-commit given with no errors, pre-commit timeout triggered", func(t *testing.T) {
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState.SetStep(precommit)
 		addr := getAddress()
 
 		var preCommit = Vote{
@@ -489,7 +491,7 @@ func TestHandleCommit(t *testing.T) {
 	addr := common.HexToAddress("0x0123456789")
 
 	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().LastCommittedProposal().Return(block, addr)
+	backendMock.EXPECT().LastCommittedProposal().MinTimes(1).Return(block, addr)
 
 	valSet := validator.NewMockSet(ctrl)
 	valSet.EXPECT().CalcProposer(addr, uint64(0))
