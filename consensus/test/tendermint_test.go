@@ -1322,9 +1322,9 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	txsMu := sync.Mutex{}
 
 	test.validatorsCanBeStopped = new(int64)
-	wg, ctx := errgroup.WithContext(context.Background())
-	stopch := make(chan struct{})
-	stopOnce := sync.Once{}
+	parentCtx, cancel := context.WithCancel(context.Background())
+	wg, ctx := errgroup.WithContext(parentCtx)
+
 	for index, validator := range validators {
 		index := index
 		validator := validator
@@ -1492,15 +1492,15 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					if err != nil {
 						return err
 					}
-				case <-stopch:
-					return nil
 				case <-ctx.Done():
-					return ctx.Err()
+					if ctx.Err() == context.Canceled {
+						return nil
+					} else {
+						return ctx.Err()
+					}
 				}
 			}
-			stopOnce.Do(func() {
-				close(stopch)
-			})
+			cancel()
 			return nil
 		})
 	}
