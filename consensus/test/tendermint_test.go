@@ -39,8 +39,6 @@ func TestTendermintSuccess(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	defer goleak.VerifyNone(t)
-
 	cases := []*testCase{
 		{
 			name:      "no malicious",
@@ -62,8 +60,6 @@ func TestTendermintOneMalicious(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-
-	defer goleak.VerifyNone(t)
 
 	cases := []*testCase{
 		{
@@ -91,8 +87,6 @@ func TestTendermintSlowConnections(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-
-	defer goleak.VerifyNone(t)
 
 	cases := []*testCase{
 		{
@@ -132,8 +126,6 @@ func TestTendermintLongRun(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	defer goleak.VerifyNone(t)
-
 	cases := []*testCase{
 		{
 			name:      "no malicious - 30 tx per second",
@@ -161,8 +153,6 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-
-	defer goleak.VerifyNone(t)
 
 	cases := []*testCase{
 		{
@@ -250,8 +240,6 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-
-	defer goleak.VerifyNone(t)
 
 	hookGenerator := func() (hook, hook) {
 		prevBlockBalance := uint64(0)
@@ -354,8 +342,6 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-
-	defer goleak.VerifyNone(t)
 
 	hookGenerator := func() (hook, hook) {
 		prevBlockBalance := uint64(0)
@@ -619,30 +605,6 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
 			runTest(t, testCase)
 		})
-	}
-}
-
-func TestTendermintTC7(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode")
-	}
-	test := &testCase{
-		name:      "3 nodes stop, 1 recover and sync blocks and state",
-		numPeers:  6,
-		numBlocks: 30,
-		txPerPeer: 1,
-		beforeHooks: map[int]hook{
-			3: hookStopNode(3, 10),
-			4: hookStopNode(4, 15),
-			5: hookStopNode(5, 20),
-		},
-		afterHooks: map[int]hook{
-			3: hookStartNode(3, 40),
-		},
-		stopTime: make(map[int]time.Time),
-	}
-	for i := 0; i < 20; i++ {
-		runTest(t, test)
 	}
 }
 
@@ -970,6 +932,38 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 	}
 }
 
+func TestTendermintTC7(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	test := &testCase{
+		name:      "3 nodes stop, 1 recover and sync blocks and state",
+		numPeers:  6,
+		numBlocks: 40,
+		txPerPeer: 1,
+		beforeHooks: map[int]hook{
+			3: hookStopNode(3, 10),
+			4: hookStopNode(4, 15),
+			5: hookStopNode(5, 20),
+		},
+		afterHooks: map[int]hook{
+			3: hookStartNode(3, 40),
+		},
+		maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
+			4: nil,
+			5: nil,
+		},
+		stopTime: make(map[int]time.Time),
+	}
+
+	for i := 0; i < 20; i++ {
+		t.Run(fmt.Sprintf("test case %s - %d", test.name, i), func(t *testing.T) {
+			runTest(t, test)
+		})
+	}
+}
+
 type testCase struct {
 	name                   string
 	isSkipped              bool
@@ -1039,6 +1033,8 @@ func runTest(t *testing.T, test *testCase) {
 	if test.isSkipped {
 		t.SkipNow()
 	}
+
+	defer goleak.VerifyNone(t)
 
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numPeers))
@@ -1160,8 +1156,6 @@ func runTest(t *testing.T, test *testCase) {
 		wg.Go(func() error {
 			log.Debug("peers", "i", i,
 				"peers", len(validator.node.Server().Peers()),
-				//RACE			"staticPeers", len(validator.node.Server().StaticNodes),
-				//RACE			"trustedPeers", len(validator.node.Server().TrustedNodes),
 				"nodes", len(validators))
 			return nil
 		})
@@ -1286,7 +1280,8 @@ func (validator *testNode) startService() error {
 		validator.blocks = make(map[uint64]block)
 		validator.txsSendCount = new(int64)
 		validator.txsChainCount = make(map[uint64]int64)
-	} else { //validator is restarting
+	} else {
+		// validator is restarting
 		// we need to retrieve missed block events since last stop as we're not subscribing fast enough
 		curBlock := validator.service.BlockChain().CurrentBlock().Number().Uint64()
 		for blockNum := validator.lastBlock + 1; blockNum <= curBlock; blockNum++ {
@@ -1322,9 +1317,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	txsMu := sync.Mutex{}
 
 	test.validatorsCanBeStopped = new(int64)
-	parentCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	wg, ctx := errgroup.WithContext(parentCtx)
+	wg, ctx := errgroup.WithContext(context.Background())
 
 	for index, validator := range validators {
 		index := index
@@ -1344,6 +1337,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			var err error
 			testCanBeStopped := new(uint32)
 			fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
+
 		wgLoop:
 			for {
 				select {
@@ -1357,11 +1351,14 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					if err != nil {
 						return err
 					}
+
 					validator.blocks[ev.Block.NumberU64()] = block{ev.Block.Hash(), len(ev.Block.Transactions())}
 					validator.lastBlock = ev.Block.NumberU64()
+
 					logger.Error("last mined block", "validator", index,
 						"num", validator.lastBlock, "hash", validator.blocks[ev.Block.NumberU64()].hash,
 						"txCount", validator.blocks[ev.Block.NumberU64()].txs)
+
 					if atomic.LoadUint32(testCanBeStopped) == 1 {
 						if atomic.LoadInt64(test.validatorsCanBeStopped) == int64(len(validators)) {
 							break wgLoop
@@ -1494,13 +1491,10 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						return err
 					}
 				case <-ctx.Done():
-					if ctx.Err() == context.Canceled {
-						return nil
-					}
 					return ctx.Err()
 				}
 			}
-			cancel()
+
 			return nil
 		})
 	}
@@ -1529,8 +1523,8 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	//check that all nodes reached the same minimum blockchain height
 	minHeight := math.MaxInt64
 	for index, validator := range validators {
-		if _, ok := test.maliciousPeers[index]; ok || !validator.isRunning {
-			//don't check chain for malicious or non running peers
+		if _, ok := test.maliciousPeers[index]; ok {
+			//don't check chain for malicious peers
 			continue
 		}
 
@@ -1549,17 +1543,18 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	for i := 1; i <= minHeight; i++ {
 		blockHash := validators[0].blocks[uint64(i)].hash
 		for index, validator := range validators[1:] {
-			if _, ok := test.maliciousPeers[index+1]; ok || !validator.isRunning {
+			if _, ok := test.maliciousPeers[index+1]; ok {
 				//don't check chain for malicious peers
 				continue
 			}
 
 			if validator.blocks[uint64(i)].hash != blockHash {
 				t.Fatalf("validators %d and %d have different blocks %d - %q vs %s",
-					0, index+1, i, validator.blocks[uint64(i)].hash.String(), blockHash.String())
+					0, index, i+1, validator.blocks[uint64(i)].hash.String(), blockHash.String())
 			}
 		}
 	}
+	fmt.Println("\nTransactions OK")
 }
 
 func runHook(validatorHook hook, test *testCase, block *types.Block, validator *testNode, index int) error {
@@ -1583,8 +1578,7 @@ func hookStopNode(nodeIndex int, blockNum uint64) hook {
 			if err != nil {
 				return err
 			}
-			atomic.AddInt64(tCase.validatorsCanBeStopped, 1)
-			fmt.Printf("Stopping node (ValCanStop + 1): %d \n", atomic.LoadInt64(tCase.validatorsCanBeStopped))
+
 			tCase.setStopTime(nodeIndex, currentTime)
 		}
 
@@ -1603,8 +1597,6 @@ func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
 			if err := validator.startService(); err != nil {
 				return err
 			}
-			atomic.AddInt64(tCase.validatorsCanBeStopped, -1)
-			fmt.Printf("Starting node (ValCanStop - 1): %d \n", atomic.LoadInt64(tCase.validatorsCanBeStopped))
 		}
 
 		return nil
