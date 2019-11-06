@@ -17,10 +17,13 @@
 package backend
 
 import (
+	"context"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"math/big"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -39,7 +42,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		if err := engine.Close(); err != nil {
 			t.Fatalf("can't stop the engine")
 		}
-		//we generate a bunch of messages until we reach max capacity
+		//we generate a bunch of messages overflowing max capacity
 		for i := int64(0); i < 2*ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
 			msg := makeMsg(tendermintMsg, append(counter, []byte("data")...))
@@ -77,6 +80,56 @@ func TestUnhandledMsgs(t *testing.T) {
 			}
 		}
 
+	})
+
+	t.Run("core running, unhandled messages are processed", func(t *testing.T) {
+		blockchain, backend := newBlockChain(1)
+		engine := blockchain.Engine().(consensus.BFT)
+		// we close the engine for enabling cache storing
+		if err := engine.Close(); err != nil {
+			t.Fatalf("can't stop the engine")
+		}
+		for i := int64(0); i < ringCapacity; i++ {
+			counter := big.NewInt(i).Bytes()
+			msg := makeMsg(tendermintMsg, append(counter, []byte("data")...))
+			addr := common.BytesToAddress(append(counter, []byte("addr")...))
+			if result, err := backend.HandleMsg(addr, msg); !result || err != nil {
+				t.Fatalf("handleMsg should have been successful")
+			}
+		}
+		sub := backend.eventMux.Subscribe(events.MessageEvent{})
+		if err := backend.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock); err != nil {
+			t.Fatalf("could not restart core")
+		}
+		backend.HandleUnhandledMsgs(context.Background())
+		timer := time.NewTimer(time.Second)
+		i := 0
+		var received [ringCapacity]bool
+		// events can come out of order so we track them using an array.
+	LOOP:
+		for {
+			select {
+			case eve := <-sub.Chan():
+				payload := eve.Data.(events.MessageEvent).Payload
+				if !reflect.DeepEqual(payload[len(payload)-4:], []byte("data")) {
+					t.Fatalf("message not expected")
+				}
+				i++
+				received[new(big.Int).SetBytes(payload[:len(payload)-4]).Uint64()] = true
+
+			case <-timer.C:
+				if i == ringCapacity {
+					break LOOP
+				}
+				t.Fatalf("timeout receiving events")
+			}
+		}
+
+		for _, msg := range received {
+			if !msg {
+				t.Fatalf("message lost")
+			}
+		}
 	})
 }
 
@@ -118,6 +171,50 @@ func TestTendermintMessage(t *testing.T) {
 	if _, ok := backend.knownMessages.Get(hash); !ok {
 		t.Fatalf("the cache of messages cannot be found")
 	}
+}
+
+func TestSynchronisationMessage(t *testing.T) {
+	t.Run("engine not running, ignored", func(t *testing.T) {
+		eventMux := event.NewTypeMuxSilent(log.New("backend", "test", "id", 0))
+		sub := eventMux.Subscribe(events.SyncEvent{})
+		b := &Backend{
+			coreStarted: false,
+			logger:      log.New("backend", "test", "id", 0),
+			eventMux:    eventMux,
+		}
+		msg := makeMsg(tendermintSyncMsg, []byte{})
+		addr := common.BytesToAddress([]byte("address"))
+		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
+			t.Fatalf("HandleMsg unexpected return")
+		}
+		timer := time.NewTimer(2 * time.Second)
+		select {
+		case <-sub.Chan():
+			t.Fatalf("not expected message")
+		case <-timer.C:
+		}
+	})
+
+	t.Run("engine running, sync returned", func(t *testing.T) {
+		eventMux := event.NewTypeMuxSilent(log.New("backend", "test", "id", 0))
+		sub := eventMux.Subscribe(events.SyncEvent{})
+		b := &Backend{
+			coreStarted: true,
+			logger:      log.New("backend", "test", "id", 0),
+			eventMux:    eventMux,
+		}
+		msg := makeMsg(tendermintSyncMsg, []byte{})
+		addr := common.BytesToAddress([]byte("address"))
+		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
+			t.Fatalf("HandleMsg unexpected return")
+		}
+		timer := time.NewTimer(2 * time.Second)
+		select {
+		case <-timer.C:
+			t.Fatalf("sync message not posted")
+		case <-sub.Chan():
+		}
+	})
 }
 
 func TestProtocol(t *testing.T) {
