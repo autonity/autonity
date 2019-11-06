@@ -108,6 +108,23 @@ func (t *timeout) reset(s Step) {
 }
 
 /////////////// On Timeout Functions ///////////////
+func (c *core) measureMetricsOnTimeOut(step uint64, r int64) {
+	switch step {
+	case msgProposal:
+		duration := timeoutPropose(r)
+		tendermintProposeTimer.Update(duration)
+		return
+	case msgPrevote:
+		duration := timeoutPrevote(r)
+		tendermintPrevoteTimer.Update(duration)
+		return
+	case msgPrecommit:
+		duration := timeoutPrecommit(r)
+		tendermintPrecommitTimer.Update(duration)
+		return
+	}
+}
+
 func (c *core) onTimeoutPropose(r int64, h int64) {
 	msg := TimeoutEvent{
 		roundWhenCalled:  r,
@@ -115,10 +132,8 @@ func (c *core) onTimeoutPropose(r int64, h int64) {
 		step:             msgProposal,
 	}
 	c.logTimeoutEvent("TimeoutEvent(Propose): Sent", "Propose", msg)
+	c.measureMetricsOnTimeOut(msg.step, r)
 	c.sendEvent(msg)
-	// Metering timeout metric of propose.
-	duration := timeoutPropose(r)
-	tendermintProposeTimer.Update(duration)
 }
 
 func (c *core) onTimeoutPrevote(r int64, h int64) {
@@ -128,10 +143,8 @@ func (c *core) onTimeoutPrevote(r int64, h int64) {
 		step:             msgPrevote,
 	}
 	c.logTimeoutEvent("TimeoutEvent(Prevote): Sent", "Prevote", msg)
+	c.measureMetricsOnTimeOut(msg.step, r)
 	c.sendEvent(msg)
-	// Metering timeout metric of prevote.
-	duration := timeoutPrevote(r)
-	tendermintPrevoteTimer.Update(duration)
 }
 
 func (c *core) onTimeoutPrecommit(r int64, h int64) {
@@ -141,10 +154,8 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 		step:             msgPrecommit,
 	}
 	c.logTimeoutEvent("TimeoutEvent(Precommit): Sent", "Precommit", msg)
+	c.measureMetricsOnTimeOut(msg.step, r)
 	c.sendEvent(msg)
-	// Metering timeout metric of precommit.
-	duration := timeoutPrecommit(r)
-	tendermintPrecommitTimer.Update(duration)
 }
 
 /////////////// Handle Timeout Functions ///////////////
