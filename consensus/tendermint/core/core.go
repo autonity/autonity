@@ -246,7 +246,6 @@ func (c *core) commit() {
 
 // Metric collecton of round change and height change.
 func (c *core) measureHeightRoundMetrics(round *big.Int) {
-	// Metric collection of round change and height change.
 	if round == common.Big0 {
 		tendermintHeightChangeMeter.Mark(1)
 	} else {
