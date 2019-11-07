@@ -50,7 +50,7 @@ const keysPrefix = "height-"
 
 func NewWal(logger log.Logger, basedir string, sub *event.TypeMuxSubscription) *WAL {
 
-	logger.Error("WAL initialised to", "dir", basedir)
+	logger.Warn("WAL initialised to", "dir", basedir)
 	wal := &WAL{
 		logger:  logger,
 		baseDir: basedir,
