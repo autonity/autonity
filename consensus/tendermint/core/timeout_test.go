@@ -17,7 +17,6 @@ func TestCore_measureMetricsOnStopTimer(t *testing.T) {
 			start:   time.Now(),
 			Mutex:   sync.Mutex{},
 		}
-		time.Sleep(1)
 		tm.measureMetricsOnStopTimer()
 		if m := metrics.Get("tendermint/timer/propose"); m == nil {
 			t.Fatalf("test case failed.")
@@ -32,7 +31,6 @@ func TestCore_measureMetricsOnStopTimer(t *testing.T) {
 			start:   time.Now(),
 			Mutex:   sync.Mutex{},
 		}
-		time.Sleep(1)
 		tm.measureMetricsOnStopTimer()
 		if m := metrics.Get("tendermint/timer/prevote"); m == nil {
 			t.Fatalf("test case failed.")
@@ -47,7 +45,6 @@ func TestCore_measureMetricsOnStopTimer(t *testing.T) {
 			start:   time.Now(),
 			Mutex:   sync.Mutex{},
 		}
-		time.Sleep(1)
 		tm.measureMetricsOnStopTimer()
 		if m := metrics.Get("tendermint/timer/precommit"); m == nil {
 			t.Fatalf("test case failed.")
