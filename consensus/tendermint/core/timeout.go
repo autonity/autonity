@@ -83,13 +83,13 @@ func (t *timeout) measureMetricsOnStopTimer() {
 	switch t.step {
 	case propose:
 		tendermintProposeTimer.UpdateSince(t.start)
-		return
+		break
 	case prevote:
 		tendermintPrevoteTimer.UpdateSince(t.start)
-		return
+		break
 	case precommit:
 		tendermintPrecommitTimer.UpdateSince(t.start)
-		return
+		break
 	}
 }
 
