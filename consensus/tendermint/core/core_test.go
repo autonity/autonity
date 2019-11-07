@@ -3,6 +3,7 @@ package core
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/metrics"
 	"math/big"
 	"testing"
 )
@@ -18,6 +19,9 @@ func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(0), big.NewInt(1)),
 		}
 		c.measureHeightRoundMetrics(common.Big0)
+		if m := metrics.Get("tendermint/height/change"); m == nil {
+			t.Fatalf("test case failed.")
+		}
 	})
 
 	t.Run("measure metrics of new round", func(t *testing.T) {
@@ -30,6 +34,9 @@ func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(0), big.NewInt(1)),
 		}
 		c.measureHeightRoundMetrics(common.Big1)
+		if m := metrics.Get("tendermint/round/change"); m == nil {
+			t.Fatalf("test case failed.")
+		}
 	})
 }
 
@@ -44,6 +51,9 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(0), big.NewInt(1)),
 		}
 		c.measureMetricsOnTimeOut(msgProposal, 2)
+		if m := metrics.Get("tendermint/timer/propose"); m == nil {
+			t.Fatalf("test case failed.")
+		}
 	})
 
 	t.Run("measure metrics on timeout of prevote", func(t *testing.T) {
@@ -56,6 +66,9 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(0), big.NewInt(1)),
 		}
 		c.measureMetricsOnTimeOut(msgPrevote, 2)
+		if m := metrics.Get("tendermint/timer/prevote"); m == nil {
+			t.Fatalf("test case failed.")
+		}
 	})
 
 	t.Run("measure metrics on timeout of precommit", func(t *testing.T) {
@@ -68,5 +81,8 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(0), big.NewInt(1)),
 		}
 		c.measureMetricsOnTimeOut(msgPrecommit, 2)
+		if m := metrics.Get("tendermint/timer/precommit"); m == nil {
+			t.Fatalf("test case failed.")
+		}
 	})
 }
