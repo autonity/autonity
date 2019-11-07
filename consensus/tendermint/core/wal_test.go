@@ -27,11 +27,14 @@ func TestWalUpdateHeight(t *testing.T) {
 	sub := eventMux.Subscribe(events.MessageEvent{}, backlogEvent{}, events.CommitEvent{})
 
 	wal := NewWal(log.Root(), dir, sub)
-	defer os.RemoveAll(dir)
+	defer os.RemoveAll(dir) //nolint
 	defer wal.Close()
 
 	wal.Start()
-	wal.UpdateHeight(big.NewInt(1))
+	err := wal.UpdateHeight(big.NewInt(1))
+	if err != nil {
+		t.Fatal(err)
+	}
 	time.Sleep(time.Millisecond)
 	h, err := wal.Height()
 	if err != nil {
@@ -56,7 +59,10 @@ func TestWalAdd(t *testing.T) {
 	defer wal.Close()
 
 	wal.Start()
-	wal.UpdateHeight(big.NewInt(1))
+	err := wal.UpdateHeight(big.NewInt(1))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	proposal := Proposal{
 		Round:           big.NewInt(1),
@@ -84,7 +90,7 @@ func TestWalAdd(t *testing.T) {
 	}
 
 	eventMux.Post(events.MessageEvent{
-		encodedProposalMsg,
+		Payload: encodedProposalMsg,
 	})
 
 	var preVote = Vote{
@@ -106,12 +112,12 @@ func TestWalAdd(t *testing.T) {
 			CommittedSeal: []byte{},
 		}
 		prevotes = append(prevotes, msg)
-		encMsg, err := rlp.EncodeToBytes(&msg)
-		if err != nil {
-			t.Fatal(err)
+		encMsg, innerErr := rlp.EncodeToBytes(&msg)
+		if innerErr != nil {
+			t.Fatal(innerErr)
 		}
 		eventMux.Post(events.MessageEvent{
-			encMsg,
+			Payload: encMsg,
 		})
 
 	}
@@ -135,12 +141,12 @@ func TestWalAdd(t *testing.T) {
 			CommittedSeal: []byte{},
 		}
 		precommits = append(precommits, msg)
-		encMsg, err := rlp.EncodeToBytes(&msg)
-		if err != nil {
-			t.Fatal(err)
+		encMsg, innerErr := rlp.EncodeToBytes(&msg)
+		if innerErr != nil {
+			t.Fatal(innerErr)
 		}
 		eventMux.Post(events.MessageEvent{
-			encMsg,
+			Payload: encMsg,
 		})
 
 	}
@@ -150,7 +156,11 @@ func TestWalAdd(t *testing.T) {
 	allMsgs = append(allMsgs, proposalMsg)
 	allMsgs = append(allMsgs, prevotes...)
 	allMsgs = append(allMsgs, precommits...)
-	if reflect.DeepEqual(wal.Get(big.NewInt(1))) {
+	resp, err := wal.Get(big.NewInt(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reflect.DeepEqual(resp, allMsgs) {
 		t.FailNow()
 	}
 }
@@ -163,11 +173,14 @@ func TestWalDebugOrig(t *testing.T) {
 
 	wal := NewWal(log.Root(), dir, sub)
 
-	defer os.RemoveAll(dir)
+	defer os.RemoveAll(dir) //nolint
 	defer wal.Close()
 
 	wal.Start()
-	wal.UpdateHeight(big.NewInt(1))
+	err := wal.UpdateHeight(big.NewInt(1))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	proposal := Proposal{
 		Round:           big.NewInt(1),
@@ -195,7 +208,7 @@ func TestWalDebugOrig(t *testing.T) {
 	}
 
 	eventMux.Post(events.MessageEvent{
-		encodedProposalMsg,
+		Payload: encodedProposalMsg,
 	})
 	time.Sleep(time.Second)
 	fmt.Println("--------after propose---------")
@@ -221,12 +234,12 @@ func TestWalDebugOrig(t *testing.T) {
 			CommittedSeal: []byte{},
 		}
 		prevotes = append(prevotes, msg)
-		encMsg, err := rlp.EncodeToBytes(&msg)
-		if err != nil {
-			t.Fatal(err)
+		encMsg, innerErr := rlp.EncodeToBytes(&msg)
+		if innerErr != nil {
+			t.Fatal(innerErr)
 		}
 		eventMux.Post(events.MessageEvent{
-			encMsg,
+			Payload: encMsg,
 		})
 
 	}
@@ -255,12 +268,12 @@ func TestWalDebugOrig(t *testing.T) {
 			CommittedSeal: []byte{},
 		}
 		precommits = append(precommits, msg)
-		encMsg, err := rlp.EncodeToBytes(&msg)
-		if err != nil {
-			t.Fatal(err)
+		encMsg, innerErr := rlp.EncodeToBytes(&msg)
+		if innerErr != nil {
+			t.Fatal(innerErr)
 		}
 		eventMux.Post(events.MessageEvent{
-			encMsg,
+			Payload: encMsg,
 		})
 
 	}
@@ -270,4 +283,15 @@ func TestWalDebugOrig(t *testing.T) {
 	fmt.Println("--------after precommit---------")
 	spew.Dump(wal.Get(big.NewInt(1)))
 	fmt.Println("-----------------")
+
+	allMsgs := make([]Message, 0, len(prevotes)+len(precommits))
+	allMsgs = append(allMsgs, prevotes...)
+	allMsgs = append(allMsgs, precommits...)
+	resp, err := wal.Get(big.NewInt(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reflect.DeepEqual(resp, allMsgs) {
+		t.FailNow()
+	}
 }

@@ -19,7 +19,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -28,6 +27,9 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
+	"gopkg.in/urfave/cli.v1"
 
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
@@ -42,7 +44,6 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/trie"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -271,7 +272,7 @@ func setupDefaults(genesis *core.Genesis) {
 		}
 	}
 
-	defaultConfig := config.DefaultConfig()
+	defaultConfig := config.DefaultConfig("")
 
 	if genesis.Config.Tendermint != nil {
 		if genesis.Config.Tendermint.Epoch == 0 {

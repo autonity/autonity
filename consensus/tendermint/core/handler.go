@@ -60,12 +60,14 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 			c.backend.Subscribe(events.MessageEvent{}, backlogEvent{}, events.CommitEvent{}),
 		)
 		c.wal.Start()
+	} else {
+		c.wal = NewWalStub()
 	}
 
 	// set currentRoundState before starting go routines
 	lastCommittedProposalBlock, _ := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
-	c.wal.UpdateHeight(height)
+	err = c.wal.UpdateHeight(height)
 	if err != nil {
 		log.Error("WAL UpdateHeight", "err", err)
 	}

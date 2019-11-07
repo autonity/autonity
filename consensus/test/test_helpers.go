@@ -213,8 +213,7 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 		return nil, err
 	}
 	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		tdConfig := *config.DefaultConfig()
-		tdConfig.WALDir = datadir + "/wal/"
+		tdConfig := config.DefaultConfig(datadir + "/wal/")
 
 		return eth.New(ctx, &eth.Config{
 			Genesis:         genesis,

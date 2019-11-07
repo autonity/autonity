@@ -725,7 +725,7 @@ var (
 		Usage:  "a new list of validators",
 	}
 
-	//Tendermint settings
+	//TDWALDIrFlag - Tendermint settings
 	TDWALDIrFlag = cli.StringFlag{
 		Name:  "tendermint.wal_dir",
 		Usage: "WAL dir",

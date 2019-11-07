@@ -136,7 +136,7 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	wal                            *WAL
+	wal                            WALService
 	currentHeightOldRoundsStates   map[int64]roundState
 	currentHeightOldRoundsStatesMu sync.RWMutex
 

@@ -490,6 +490,7 @@ func TestHandleCommit(t *testing.T) {
 		prevoteTimeout:    newTimeout(prevote),
 		precommitTimeout:  newTimeout(precommit),
 		valSet:            new(validatorSet),
+		wal:               NewWalStub(),
 	}
 	c.handleCommit(context.Background())
 }

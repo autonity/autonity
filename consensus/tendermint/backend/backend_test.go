@@ -468,7 +468,7 @@ func newBackend() (b *Backend) {
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := rawdb.NewMemoryDatabase()
-	cfg := config.DefaultConfig()
+	cfg := config.DefaultConfig("")
 	// Use the first key as private key
 	b := New(cfg, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 	c := tendermintCore.New(b, cfg)

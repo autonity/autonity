@@ -17,14 +17,15 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/consensus/istanbul"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math/big"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
@@ -134,7 +135,7 @@ type Config struct {
 	Istanbul istanbul.Config
 
 	// Tendermint options
-	Tendermint config.Config
+	Tendermint *config.Config
 
 	// Transaction pool options
 	TxPool core.TxPoolConfig

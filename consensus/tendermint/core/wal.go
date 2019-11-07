@@ -144,7 +144,7 @@ func (wal *WAL) UpdateHeight(height *big.Int) error {
 func (wal *WAL) Start() {
 	go wal.EventLoop()
 }
-func (wal *WAL) EventLoop() error {
+func (wal *WAL) EventLoop() {
 	for {
 		wal.m.RLock()
 		if wal.db == nil {
@@ -171,8 +171,12 @@ func (wal *WAL) EventLoop() error {
 
 				switch height.Cmp(wal.height) {
 				case 0:
+					//
+					err = wal.Store(height, round, m, e.Payload)
+					if err != nil {
+						wal.logger.Error("Store event err", "height", height.Uint64(), "round", round.Uint64(), "err", err)
+					}
 					//wal.logger.Error("Store event", "height", height.Uint64(), "round", round.Uint64())
-					wal.Store(height, round, m, e.Payload)
 				case 1:
 					wal.logger.Error("Wal got future event", "height", height, "wal", wal.height)
 				case -1:
@@ -192,6 +196,9 @@ func (wal *WAL) EventLoop() error {
 				//
 				//	//wal.Store()
 			}
+		case <-wal.stop:
+			return
+
 		}
 	}
 }
@@ -294,11 +301,6 @@ func generateKey(round, code uint64, address common.Address) []byte {
 
 }
 
-type storedValue struct {
-	value []byte
-	key   []byte
-}
-
 func parseMessageEvent(e events.MessageEvent) (*big.Int, *big.Int, Message, error) {
 	if len(e.Payload) == 0 {
 		return nil, nil, Message{}, errors.New("empty event")
@@ -335,4 +337,21 @@ func parseMessageEvent(e events.MessageEvent) (*big.Int, *big.Int, Message, erro
 	default:
 		return nil, nil, Message{}, errors.New("unexpected message code")
 	}
+}
+
+type walStub struct {
+}
+
+func NewWalStub() *walStub {
+	return new(walStub)
+}
+
+func (*walStub) Start() {
+
+}
+func (*walStub) Close() {
+
+}
+func (*walStub) UpdateHeight(h *big.Int) error {
+	return nil
 }

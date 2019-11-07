@@ -20,15 +20,16 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"math/big"
+	"runtime"
+	"sync"
+	"sync/atomic"
+
 	istanbulBackend "github.com/clearmatics/autonity/consensus/istanbul/backend"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p/enode"
-	"math/big"
-	"runtime"
-	"sync"
-	"sync/atomic"
 
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/abi/bind"
@@ -289,8 +290,8 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 		return istanbulBackend.New(&config.Istanbul, ctx.NodeKey(), db, chainConfig, vmConfig)
 	}
 	if chainConfig.Tendermint != nil {
-		back := tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, chainConfig, vmConfig)
-		return tendermintCore.New(back, &config.Tendermint)
+		back := tendermintBackend.New(config.Tendermint, ctx.NodeKey(), db, chainConfig, vmConfig)
+		return tendermintCore.New(back, config.Tendermint)
 	}
 
 	// Otherwise assume proof-of-work

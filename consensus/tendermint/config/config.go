@@ -37,12 +37,13 @@ type Config struct {
 	sync.RWMutex
 }
 
-func DefaultConfig() *Config {
+func DefaultConfig(walDir string) *Config {
 	return &Config{
 		RequestTimeout: 10000,
 		BlockPeriod:    1,
 		ProposerPolicy: RoundRobin,
 		Epoch:          30000,
+		WALDir:         walDir,
 	}
 }
 
