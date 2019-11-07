@@ -25,6 +25,7 @@ func TestSendPrevote(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			backend:           backendMock,
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
+			wal:               NewWalStub(),
 		}
 
 		c.sendPrevote(context.Background(), false)
@@ -80,6 +81,7 @@ func TestSendPrevote(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			valSet:            new(validatorSet),
 			currentRoundState: curRoundState,
+			wal:               NewWalStub(),
 		}
 
 		c.sendPrevote(context.Background(), false)
@@ -114,6 +116,7 @@ func TestHandlePrevote(t *testing.T) {
 			currentRoundState: curRoundState,
 			logger:            log.New("backend", "test", "id", 0),
 			valSet:            new(validatorSet),
+			wal:               NewWalStub(),
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
@@ -151,6 +154,7 @@ func TestHandlePrevote(t *testing.T) {
 			currentHeightOldRoundsStates: make(map[int64]roundState),
 			logger:                       log.New("backend", "test", "id", 0),
 			valSet:                       new(validatorSet),
+			wal:                          NewWalStub(),
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
@@ -202,6 +206,7 @@ func TestHandlePrevote(t *testing.T) {
 			currentRoundState: curRoundState,
 			logger:            log.New("backend", "test", "id", 0),
 			valSet:            new(validatorSet),
+			wal:               NewWalStub(),
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
@@ -285,6 +290,7 @@ func TestHandlePrevote(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			prevoteTimeout:    newTimeout(prevote),
 			valSet:            new(validatorSet),
+			wal:               NewWalStub(),
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
@@ -365,6 +371,7 @@ func TestHandlePrevote(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			prevoteTimeout:    newTimeout(prevote),
 			valSet:            new(validatorSet),
+			wal:               NewWalStub(),
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)

@@ -28,6 +28,7 @@ func TestSendPrecommit(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			backend:           backendMock,
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
+			wal:               NewWalStub(),
 		}
 
 		c.sendPrecommit(context.Background(), false)
@@ -89,6 +90,7 @@ func TestSendPrecommit(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			valSet:            new(validatorSet),
 			currentRoundState: curRoundState,
+			wal:               NewWalStub(),
 		}
 
 		c.sendPrecommit(context.Background(), false)
@@ -150,6 +152,7 @@ func TestSendPrecommit(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			valSet:            new(validatorSet),
 			currentRoundState: curRoundState,
+			wal:               NewWalStub(),
 		}
 
 		c.sendPrecommit(context.Background(), true)
@@ -184,6 +187,7 @@ func TestHandlePrecommit(t *testing.T) {
 			currentRoundState: curRoundState,
 			logger:            log.New("backend", "test", "id", 0),
 			valSet:            new(validatorSet),
+			wal:               NewWalStub(),
 		}
 
 		err = c.handlePrecommit(context.Background(), expectedMsg)
@@ -220,6 +224,7 @@ func TestHandlePrecommit(t *testing.T) {
 			currentRoundState: curRoundState,
 			logger:            log.New("backend", "test", "id", 0),
 			valSet:            new(validatorSet),
+			wal:               NewWalStub(),
 		}
 
 		err = c.handlePrecommit(context.Background(), expectedMsg)
@@ -285,6 +290,7 @@ func TestHandlePrecommit(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			valSet:            new(validatorSet),
 			precommitTimeout:  newTimeout(precommit),
+			wal:               NewWalStub(),
 		}
 
 		err = c.handlePrecommit(context.Background(), expectedMsg)
@@ -342,6 +348,7 @@ func TestHandlePrecommit(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			valSet:            new(validatorSet),
 			precommitTimeout:  newTimeout(precommit),
+			wal:               NewWalStub(),
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -393,6 +400,7 @@ func TestHandlePrecommit(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			valSet:            new(validatorSet),
 			precommitTimeout:  newTimeout(precommit),
+			wal:               NewWalStub(),
 		}
 
 		err = c.handlePrecommit(context.Background(), expectedMsg)

@@ -17,6 +17,7 @@ func TestStoreUnminedBlockMsg(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
 			valSet:            new(validatorSet),
+			wal:               NewWalStub(),
 		}
 
 		unminedBlock := types.NewBlockWithHeader(&types.Header{})
@@ -33,6 +34,7 @@ func TestStoreUnminedBlockMsg(t *testing.T) {
 			currentRoundState:    NewRoundState(big.NewInt(2), big.NewInt(3)),
 			pendingUnminedBlocks: make(map[uint64]*types.Block),
 			valSet:               new(validatorSet),
+			wal:                  NewWalStub(),
 		}
 
 		unminedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
@@ -54,6 +56,7 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 		c := &core{
 			currentRoundState:    NewRoundState(big.NewInt(2), big.NewInt(3)),
 			pendingUnminedBlocks: unminedBlocks,
+			wal:                  NewWalStub(),
 		}
 		unminedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
 		c.updatePendingUnminedBlocks(unminedBlock)
@@ -71,6 +74,7 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 			pendingUnminedBlocks:     make(map[uint64]*types.Block),
 			pendingUnminedBlockCh:    pendingUnminedBlockCh,
 			isWaitingForUnminedBlock: true,
+			wal:                      NewWalStub(),
 		}
 		unminedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
 
@@ -101,6 +105,7 @@ func TestGetUnminedBlock(t *testing.T) {
 		c := &core{
 			currentRoundState:    NewRoundState(big.NewInt(1), big.NewInt(1)),
 			pendingUnminedBlocks: unminedBlocks,
+			wal:                  NewWalStub(),
 		}
 
 		block := c.getUnminedBlock()
@@ -113,6 +118,7 @@ func TestGetUnminedBlock(t *testing.T) {
 		c := &core{
 			currentRoundState:    NewRoundState(big.NewInt(1), big.NewInt(1)),
 			pendingUnminedBlocks: make(map[uint64]*types.Block),
+			wal:                  NewWalStub(),
 		}
 
 		block := c.getUnminedBlock()
@@ -126,6 +132,7 @@ func TestCheckUnminedBlockMsg(t *testing.T) {
 	t.Run("valid block is given, nil returned", func(t *testing.T) {
 		c := &core{
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
+			wal:               NewWalStub(),
 		}
 
 		block := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(2)})
@@ -147,6 +154,7 @@ func TestCheckUnminedBlockMsg(t *testing.T) {
 	t.Run("old block is given, error returned", func(t *testing.T) {
 		c := &core{
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
+			wal:               NewWalStub(),
 		}
 
 		oldBLock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})

@@ -88,6 +88,7 @@ func TestStoreBacklog(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			address:           addr,
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
+			wal:               NewWalStub(),
 		}
 
 		val := validator.New(addr)
@@ -104,6 +105,7 @@ func TestStoreBacklog(t *testing.T) {
 			address:           common.HexToAddress("0x1234567890"),
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
 			backlogs:          make(map[validator.Validator]*prque.Prque),
+			wal:               NewWalStub(),
 		}
 
 		vote := &Vote{
@@ -138,6 +140,7 @@ func TestStoreBacklog(t *testing.T) {
 			address:           common.HexToAddress("0x1234567890"),
 			backlogs:          make(map[validator.Validator]*prque.Prque),
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
+			wal:               NewWalStub(),
 		}
 
 		proposal := &Proposal{
@@ -212,6 +215,7 @@ func TestProcessBacklog(t *testing.T) {
 			address:           common.HexToAddress("0x1234567890"),
 			backlogs:          make(map[validator.Validator]*prque.Prque),
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
+			wal:               NewWalStub(),
 		}
 
 		c.storeBacklog(msg, val)
@@ -272,6 +276,7 @@ func TestProcessBacklog(t *testing.T) {
 			address:           common.HexToAddress("0x1234567890"),
 			backlogs:          make(map[validator.Validator]*prque.Prque),
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
+			wal:               NewWalStub(),
 		}
 
 		c.storeBacklog(msg, val)
@@ -323,6 +328,7 @@ func TestProcessBacklog(t *testing.T) {
 			address:           common.HexToAddress("0x1234567890"),
 			backlogs:          make(map[validator.Validator]*prque.Prque),
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(0)),
+			wal:               NewWalStub(),
 		}
 
 		c.storeBacklog(msg, val)
@@ -360,6 +366,7 @@ func TestProcessBacklog(t *testing.T) {
 			address:           common.HexToAddress("0x1234567890"),
 			backlogs:          make(map[validator.Validator]*prque.Prque),
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
+			wal:               NewWalStub(),
 		}
 
 		c.storeBacklog(msg, val)

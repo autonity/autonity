@@ -83,16 +83,6 @@ func sendTx(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Addres
 	return tx, nil
 }
 
-//func sendTx(service *eth.Ethereum, fromValidator *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error) {
-//	nonce := service.TxPool().Nonce(fromAddr)
-//
-//	tx, err := txWithNonce(fromAddr, nonce, toAddr, fromValidator, service)
-//	if err != nil {
-//		return txWithNonce(fromAddr, nonce+1, toAddr, fromValidator, service)
-//	}
-//	return tx, nil
-//}
-
 func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error) {
 	randEth, err := rand.Int(rand.Reader, big.NewInt(10000000))
 	if err != nil {
@@ -213,7 +203,7 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 		return nil, err
 	}
 	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		tdConfig := config.DefaultConfig(datadir + "/wal/")
+		tdConfig := config.DefaultConfig(datadir + "/wal/" + crypto.PubkeyToAddress(ctx.NodeKey().PublicKey).String())
 
 		return eth.New(ctx, &eth.Config{
 			Genesis:         genesis,

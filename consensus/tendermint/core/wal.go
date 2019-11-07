@@ -24,12 +24,6 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
-type WALService interface {
-	UpdateHeight(height *big.Int) error
-	Start()
-	Close()
-}
-
 type WALDB interface {
 	ethdb.KeyValueReader
 	ethdb.KeyValueWriter
@@ -49,11 +43,6 @@ type WAL struct {
 	stop   chan struct{}
 	logger log.Logger
 }
-
-//type DataStore interface {
-//	Key() []byte
-//	Value() []byte
-//}
 
 var currentHeightKey = []byte("current_height")
 
@@ -205,6 +194,7 @@ func (wal *WAL) EventLoop() {
 
 func (wal *WAL) Close() {
 	wal.m.Lock()
+	close(wal.stop)
 	wal.db.Close()
 	wal.sub.Unsubscribe()
 	wal.m.Unlock()
@@ -298,7 +288,6 @@ func keyPrefix(height *big.Int, key []byte) []byte {
 }
 func generateKey(round, code uint64, address common.Address) []byte {
 	return []byte(fmt.Sprintf("%v-%v-%s", round, code, address))
-
 }
 
 func parseMessageEvent(e events.MessageEvent) (*big.Int, *big.Int, Message, error) {

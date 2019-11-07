@@ -74,6 +74,7 @@ func TestSendPropose(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			validRound:        validRound,
 			valSet:            valSet,
+			wal:               NewWalStub(),
 		}
 
 		c.sendProposal(context.Background(), block)
@@ -109,6 +110,7 @@ func TestHandleProposal(t *testing.T) {
 			currentRoundState: curRoundState,
 			logger:            log.New("backend", "test", "id", 0),
 			validRound:        validRound,
+			wal:               NewWalStub(),
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -156,6 +158,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:            log.New("backend", "test", "id", 0),
 			validRound:        validRound,
 			valSet:            valSet,
+			wal:               NewWalStub(),
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -255,6 +258,7 @@ func TestHandleProposal(t *testing.T) {
 			proposeTimeout:    newTimeout(propose),
 			validRound:        validRound,
 			valSet:            valSet,
+			wal:               NewWalStub(),
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -313,6 +317,7 @@ func TestHandleProposal(t *testing.T) {
 			proposeTimeout:    newTimeout(propose),
 			validRound:        validRound,
 			valSet:            valSet,
+			wal:               NewWalStub(),
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -409,6 +414,7 @@ func TestHandleProposal(t *testing.T) {
 			proposeTimeout:    newTimeout(propose),
 			validRound:        validRound,
 			valSet:            valSet,
+			wal:               NewWalStub(),
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -508,6 +514,7 @@ func TestHandleProposal(t *testing.T) {
 			proposeTimeout: newTimeout(propose),
 			validRound:     validRound,
 			valSet:         valSet,
+			wal:            NewWalStub(),
 		}
 
 		err = c.handleProposal(context.Background(), msg)

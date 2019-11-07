@@ -430,6 +430,7 @@ func TestCore_Close(t *testing.T) {
 			precommitTimeout:        newTimeout(precommit),
 			timeoutEventSub:         timeoutEventSub,
 			stopped:                 stopped,
+			wal:                     NewWalStub(),
 		}
 
 		err := c.Close()
@@ -476,6 +477,7 @@ func TestCore_Close(t *testing.T) {
 			precommitTimeout:        newTimeout(precommit),
 			timeoutEventSub:         timeoutEventSub,
 			stopped:                 stopped,
+			wal:                     NewWalStub(),
 		}
 
 		err := c.Close()

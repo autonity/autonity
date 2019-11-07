@@ -91,6 +91,7 @@ func New(backend Backend, config *config.Config) *core {
 		proposeTimeout:               newTimeout(propose),
 		prevoteTimeout:               newTimeout(prevote),
 		precommitTimeout:             newTimeout(precommit),
+		wal:                          NewWalStub(),
 	}
 }
 
@@ -379,4 +380,10 @@ func PrepareCommittedSeal(hash common.Hash) []byte {
 	buf.Write(hash.Bytes())
 	buf.Write([]byte{byte(msgPrecommit)})
 	return buf.Bytes()
+}
+
+type WALService interface {
+	UpdateHeight(height *big.Int) error
+	Start()
+	Close()
 }
