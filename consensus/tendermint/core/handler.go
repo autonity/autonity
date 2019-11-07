@@ -103,7 +103,7 @@ func (c *core) Stop() error {
 	_ = c.proposeTimeout.stopTimer()
 	_ = c.prevoteTimeout.stopTimer()
 	_ = c.precommitTimeout.stopTimer()
-
+	c.wal.Close()
 	c.cancel()
 
 	c.stopFutureProposalTimer()

@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 
+	"go.uber.org/goleak"
+
 	"math/big"
 
 	"time"
@@ -30,8 +32,12 @@ func TestWalUpdateHeight(t *testing.T) {
 	sub := eventMux.Subscribe(events.MessageEvent{}, events.CommitEvent{})
 
 	wal := core.NewWal(log.Root(), dir, sub)
+	defer goleak.VerifyNone(t)
 	defer os.RemoveAll(dir) //nolint
-	defer wal.Close()
+	defer func() {
+		wal.Close()
+		time.Sleep(time.Second)
+	}()
 
 	wal.Start()
 	err = wal.UpdateHeight(big.NewInt(1))
@@ -47,7 +53,6 @@ func TestWalUpdateHeight(t *testing.T) {
 	if check := h.Cmp(big.NewInt(1)); check != 0 {
 		t.Fatal("Not equal", check)
 	}
-
 }
 
 func TestWalAdd(t *testing.T) {
@@ -58,8 +63,12 @@ func TestWalAdd(t *testing.T) {
 
 	wal := core.NewWal(log.Root(), dir, sub)
 
+	defer goleak.VerifyNone(t)
 	defer os.RemoveAll(dir)
-	defer wal.Close()
+	defer func() {
+		wal.Close()
+		time.Sleep(time.Second)
+	}()
 
 	wal.Start()
 	err := wal.UpdateHeight(big.NewInt(1))
