@@ -57,7 +57,7 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 		c.wal = NewWal(
 			c.logger.New("addr", c.address.String()),
 			c.config.WALDir,
-			c.backend.Subscribe(events.MessageEvent{}, backlogEvent{}, events.CommitEvent{}),
+			c.backend.Subscribe(events.MessageEvent{}, events.CommitEvent{}),
 		)
 		c.wal.Start()
 	} else {

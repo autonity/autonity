@@ -1,27 +1,23 @@
 package core
 
 import (
-	"fmt"
-
 	"errors"
-
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/ethdb/leveldb"
-	"github.com/clearmatics/autonity/log"
-	ldberr "github.com/syndtr/goleveldb/leveldb/errors"
-
+	"fmt"
 	"io"
 	"math/big"
 	"os"
 	"path"
 	"sync"
-
 	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/ethdb/leveldb"
 	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
+	ldberr "github.com/syndtr/goleveldb/leveldb/errors"
 )
 
 type WALDB interface {
@@ -67,7 +63,6 @@ func getDb(basedir string, height fmt.Stringer) (*leveldb.Database, error) {
 }
 
 func getDir(basedir string, height fmt.Stringer) string {
-
 	p := path.Join(basedir, height.String())
 
 	var err error
@@ -82,11 +77,13 @@ func getDir(basedir string, height fmt.Stringer) string {
 }
 
 func (wal *WAL) UpdateHeight(height *big.Int) error {
-
 	oldHeight, err := wal.Height()
 	if err != nil && err != ldberr.ErrNotFound {
+		wal.logger.Error("wal.Height err", "err", err)
 		return err
 	}
+	wal.m.Lock()
+	defer wal.m.Unlock()
 
 	if oldHeight.Cmp(height) == 0 {
 		return nil
@@ -97,35 +94,34 @@ func (wal *WAL) UpdateHeight(height *big.Int) error {
 		return nil
 	}
 
-	wal.logger.Info("WAL: get height", "base", wal.baseDir, "asked", height.String(), "current", wal.height.String())
+	wal.logger.Error("WAL: get height", "base", wal.baseDir, "asked", height.String(), "current", wal.height.String())
 
 	newDB, err := getDb(wal.baseDir, height)
 	if err != nil {
+		wal.logger.Error("wal. getDb err", "err", err, "baseDir", wal.baseDir, "height", height, "wal.height", wal.height)
 		return err
 	}
 
 	// close old wal
-	wal.m.Lock()
 	if wal.db != nil {
 		wal.db.Close()
+		go func() {
+			wal.logger.Warn("WAL: removing old wal", "path", getDir(wal.baseDir, oldHeight))
+			err = os.RemoveAll(getDir(wal.baseDir, oldHeight))
+			if err != nil {
+				wal.logger.Error("WAL: cant remove old wal", "path", getDir(wal.baseDir, oldHeight))
+			}
+		}()
 	}
 
 	wal.db = newDB
 	wal.cache = make(map[string]struct{})
-	wal.m.Unlock()
 
 	err = wal.setHeight(height)
 	if err != nil {
+		wal.logger.Error("setHeight err", "err", err)
 		return err
 	}
-
-	go func() {
-		wal.logger.Warn("WAL: removing old wal", "path", getDir(wal.baseDir, oldHeight))
-		err = os.RemoveAll(getDir(wal.baseDir, oldHeight))
-		if err != nil {
-			wal.logger.Error("WAL: cant remove old wal", "path", getDir(wal.baseDir, oldHeight))
-		}
-	}()
 
 	return nil
 }
@@ -156,34 +152,20 @@ func (wal *WAL) EventLoop() {
 					wal.logger.Error("parseMessageEvent", "err", err)
 					continue
 				}
-				wal.m.RLock()
 
 				switch height.Cmp(wal.height) {
 				case 0:
-					//
+					//wal.logger.Error("Store event", "height", height.Uint64(), "round", round.Uint64())
 					err = wal.Store(height, round, m, e.Payload)
 					if err != nil {
 						wal.logger.Error("Store event err", "height", height.Uint64(), "round", round.Uint64(), "err", err)
 					}
-					//wal.logger.Error("Store event", "height", height.Uint64(), "round", round.Uint64())
 				case 1:
 					wal.logger.Warn("Wal got future event", "height", height, "wal", wal.height)
 				case -1:
 					wal.logger.Warn("Wal got old event", "height", height, "wal", wal.height)
 
 				}
-				wal.m.RUnlock()
-
-				//case backlogEvent:
-				//	// No need to check signature for internal messages
-				//	log.Debug("Started handling backlogEvent")
-				//	p, err := e.msg.Payload()
-				//	if err != nil {
-				//		log.Debug("core.handleConsensusEvents Get message payload failed", "err", err)
-				//		continue
-				//	}
-				//
-				//	//wal.Store()
 			}
 		case <-wal.stop:
 			return
@@ -194,15 +176,21 @@ func (wal *WAL) EventLoop() {
 
 func (wal *WAL) Close() {
 	wal.m.Lock()
+	wal.logger.Error("Wal close")
 	close(wal.stop)
 	wal.sub.Unsubscribe()
-	wal.db.Close()
+	if wal.db != nil {
+		wal.db.Close()
+	}
 	wal.m.Unlock()
 }
 
 func (wal *WAL) Height() (*big.Int, error) {
 	wal.m.RLock()
 	defer wal.m.RUnlock()
+	if wal.height != nil {
+		return wal.height, nil
+	}
 	if wal.db == nil {
 		return new(big.Int), nil
 	}
@@ -216,19 +204,12 @@ func (wal *WAL) Height() (*big.Int, error) {
 }
 
 func (wal *WAL) setHeight(height *big.Int) error {
-
-	wal.m.Lock()
+	wal.logger.Error("setHeight", "height", height)
 	wal.height = height
-	wal.m.Unlock()
-
-	wal.m.RLock()
 	err := wal.db.Put(currentHeightKey, height.Bytes())
 	if err != nil {
-		wal.m.RUnlock()
 		return err
 	}
-	wal.m.RUnlock()
-
 	return nil
 }
 
