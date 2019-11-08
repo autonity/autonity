@@ -167,9 +167,9 @@ func (wal *WAL) EventLoop() {
 					}
 					//wal.logger.Error("Store event", "height", height.Uint64(), "round", round.Uint64())
 				case 1:
-					wal.logger.Error("Wal got future event", "height", height, "wal", wal.height)
+					wal.logger.Warn("Wal got future event", "height", height, "wal", wal.height)
 				case -1:
-					wal.logger.Error("Wal got old event", "height", height, "wal", wal.height)
+					wal.logger.Warn("Wal got old event", "height", height, "wal", wal.height)
 
 				}
 				wal.m.RUnlock()
@@ -195,8 +195,8 @@ func (wal *WAL) EventLoop() {
 func (wal *WAL) Close() {
 	wal.m.Lock()
 	close(wal.stop)
-	wal.db.Close()
 	wal.sub.Unsubscribe()
+	wal.db.Close()
 	wal.m.Unlock()
 }
 
