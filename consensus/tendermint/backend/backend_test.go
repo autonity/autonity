@@ -155,6 +155,60 @@ func TestGossip(t *testing.T) {
 	}
 }
 
+func TestVerifyProposal(t *testing.T) {
+	blockchain, backend := newBlockChain(1)
+	blocks := make([]*types.Block, 5)
+
+	for i := range blocks {
+		var parent *types.Block
+		if i == 0 {
+			parent = blockchain.Genesis()
+		} else {
+			parent = blocks[i-1]
+		}
+
+		block, errBlock := makeBlockWithoutSeal(blockchain, backend, parent)
+		if errBlock != nil {
+			t.Fatalf("could not create block %d, err=%s", i, errBlock)
+		}
+		header := block.Header()
+
+		seal, errS := backend.Sign(types.SigHash(header).Bytes())
+		if errS != nil {
+			t.Fatalf("could not sign %d, err=%s", i, errS)
+		}
+		if err := types.WriteSeal(header, seal); err != nil {
+			t.Fatalf("could not write seal %d, err=%s", i, err)
+		}
+		block = block.WithSeal(header)
+
+		// We need to sleep to avoid verifying a block in the future
+		time.Sleep(time.Duration(backend.config.BlockPeriod) * time.Second)
+		if _, err := backend.VerifyProposal(*block); err != nil {
+			t.Fatalf("could not verify block %d, err=%s", i, err)
+		}
+		// VerifyProposal dont need committed seals
+		committedSeal, errSC := backend.Sign(PrepareCommittedSeal(block.Hash()))
+		if errSC != nil {
+			t.Fatalf("could not sign commit %d, err=%s", i, errS)
+		}
+		// Append seals into extra-data
+		if err := types.WriteCommittedSeals(header, [][]byte{committedSeal}); err != nil {
+			t.Fatalf("could not write committed seal %d, err=%s", i, err)
+		}
+		block = block.WithSeal(header)
+
+		state, stateErr := blockchain.State()
+		if stateErr != nil {
+			t.Fatalf("could not retrieve state %d, err=%s", i, stateErr)
+		}
+		if status, errW := blockchain.WriteBlockWithState(block, nil, state); status != core.CanonStatTy && errW != nil {
+			t.Fatalf("write block failure %d, err=%s", i, errW)
+		}
+		blocks[i] = block
+	}
+
+}
 func TestResetPeerCache(t *testing.T) {
 	addr := common.HexToAddress("0x01234567890")
 	msgCache, err := lru.NewARC(inmemoryMessages)
@@ -696,4 +750,12 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	}
 
 	return block, nil
+}
+
+// PrepareCommittedSeal returns a committed seal for the given hash
+func PrepareCommittedSeal(hash common.Hash) []byte {
+	var buf bytes.Buffer
+	buf.Write(hash.Bytes())
+	buf.Write([]byte{byte(2)})
+	return buf.Bytes()
 }
