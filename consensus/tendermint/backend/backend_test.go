@@ -541,6 +541,44 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 	})
 }
 
+func TestBackendGetContractAddress(t *testing.T) {
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = chain.InsertChain(types.Blocks{block})
+	if err != nil {
+		t.Fatal(err)
+	}
+	contractAddress := engine.GetContractAddress()
+	expectedAddress := crypto.CreateAddress(chain.Config().AutonityContractConfig.Deployer, 0)
+	if bytes.Compare(contractAddress.Bytes(), expectedAddress.Bytes()) != 0 {
+		t.Fatalf("unexpected returned address")
+	}
+}
+
+func TestBackendWhiteList(t *testing.T) {
+	//Very shallow test for the time being, running only with 1 validator
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = chain.InsertChain(types.Blocks{block})
+	if err != nil {
+		t.Fatal(err)
+	}
+	whitelist := engine.WhiteList()
+	if len(whitelist) != 1 {
+		t.Fatalf("unexpected returned whitelist")
+	}
+	expectedWhitelist := chain.Config().AutonityContractConfig.Users[0].Enode
+	if strings.Compare(whitelist[0], expectedWhitelist) != 0 {
+		t.Fatalf("unexpected returned whitelist")
+	}
+}
+
 /**
  * SimpleBackend
  * Private key: bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1
