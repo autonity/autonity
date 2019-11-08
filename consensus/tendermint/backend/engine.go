@@ -265,8 +265,8 @@ func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 		}
 	}
 
-	// The length of validSeal should be larger than number of faulty node + 1
-	if validSeal <= 2*validators.F() {
+	// The length of validSeal should be larger than a Quorum of nodes
+	if validSeal < validators.Quorum() {
 		return types.ErrInvalidCommittedSeals
 	}
 
