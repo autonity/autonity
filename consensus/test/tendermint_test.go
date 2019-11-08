@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"math"
 	"math/big"
 	"net"
 	"os"
@@ -19,7 +20,6 @@ import (
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/fdlimit"
-	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
@@ -946,6 +946,42 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 	}
 }
 
+func TestTendermintNoQuorum(t *testing.T) {
+	cases := []*testCase{
+		{
+			name:          "2 validators, one goes down after block 3",
+			numPeers:      2,
+			numBlocks:     5,
+			txPerPeer:     1,
+			noQuorumAfter: 3,
+			beforeHooks: map[int]hook{
+				1: hookForceStopNode(1, 3),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+		{
+			name:            "3 validators, two go down after block 3",
+			numPeers:        3,
+			numBlocks:       5,
+			txPerPeer:       1,
+			noQuorumAfter:   3,
+			noQuorumTimeout: time.Second * 3,
+			beforeHooks: map[int]hook{
+				1: hookForceStopNode(1, 3),
+				2: hookForceStopNode(2, 3),
+			},
+			stopTime: make(map[int]time.Time),
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
 type testCase struct {
 	name                 string
 	isSkipped            bool
@@ -960,6 +996,8 @@ type testCase struct {
 	stopTime             map[int]time.Time
 	genesisHook          func(g *core.Genesis) *core.Genesis
 	mu                   sync.RWMutex
+	noQuorumAfter        uint64
+	noQuorumTimeout      time.Duration
 }
 
 func (test *testCase) getBeforeHook(index int) hook {
@@ -1235,6 +1273,10 @@ func (validator *testNode) stopNode() error {
 		}
 	}
 
+	return validator.forceStopNode()
+}
+
+func (validator *testNode) forceStopNode() error {
 	if err := validator.node.Stop(); err != nil {
 		return fmt.Errorf("cannot stop a node on block %d: %q", validator.lastBlock, err)
 	}
@@ -1453,9 +1495,17 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					}
 				case <-ctx.Done():
 					return ctx.Err()
+				default:
+				}
+				// allow to exit goroutine when no quorum expected
+				// check that there's no quorum within the given noQuorumTimeout
+				if !hasQuorum(validators) && test.noQuorumAfter > 0 {
+					log.Error("No Quorum", "index", index, "last_block", validator.lastBlock)
+					// wait for quorum to get restored
+					time.Sleep(test.noQuorumTimeout)
+					break wgLoop
 				}
 			}
-
 			return nil
 		})
 	}
@@ -1481,6 +1531,21 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		t.Fatal(err)
 	}
 
+	// no blocks can be mined with no quorum
+	if test.noQuorumAfter > 0 {
+		for index, validator := range validators {
+			if validator.lastBlock < test.noQuorumAfter-1 {
+				t.Fatalf("validator [%d] should have mined blocks. expected block number %d, but got %d",
+					index, test.noQuorumAfter-1, validator.lastBlock)
+			}
+
+			if validator.lastBlock > test.noQuorumAfter {
+				t.Fatalf("validator [%d] mined blocks without quorum. expected block number %d, but got %d",
+					index, test.noQuorumAfter, validator.lastBlock)
+			}
+		}
+	}
+
 	//check that all nodes reached the same minimum blockchain height
 	minHeight := math.MaxInt64
 	for index, validator := range validators {
@@ -1492,6 +1557,10 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		validatorBlock := validator.lastBlock
 		if minHeight > int(validatorBlock) {
 			minHeight = int(validatorBlock)
+		}
+
+		if test.noQuorumAfter > 0 {
+			continue
 		}
 
 		if validatorBlock < uint64(test.numBlocks) {
@@ -1515,6 +1584,20 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			}
 		}
 	}
+}
+
+func hasQuorum(validators []*testNode) bool {
+	active := 0
+	for _, val := range validators {
+		if val.isRunning {
+			active++
+		}
+	}
+	return quorum(len(validators), active)
+}
+
+func quorum(valCount, activeVals int) bool {
+	return float64(activeVals) >= math.Ceil(float64(2)/float64(3)*float64(valCount))
 }
 
 func runHook(validatorHook hook, test *testCase, block *types.Block, validator *testNode, index int) error {
@@ -1542,6 +1625,19 @@ func hookStopNode(nodeIndex int, blockNum uint64) hook {
 			tCase.setStopTime(nodeIndex, currentTime)
 		}
 
+		return nil
+	}
+}
+
+func hookForceStopNode(nodeIndex int, blockNum uint64) hook {
+	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+		if block.Number().Uint64() == blockNum {
+			err := validator.forceStopNode()
+			if err != nil {
+				return err
+			}
+			tCase.setStopTime(nodeIndex, currentTime)
+		}
 		return nil
 	}
 }
