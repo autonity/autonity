@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
 	"sort"
@@ -634,17 +635,20 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 }
 
 func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
+	genesis := core.DefaultGenesisBlock()
 	// Setup validators
 	var nodeKeys = make([]*ecdsa.PrivateKey, n)
 	var addrs = make([]common.Address, n)
 	for i := 0; i < n; i++ {
 		nodeKeys[i], _ = crypto.GenerateKey()
 		addrs[i] = crypto.PubkeyToAddress(nodeKeys[i].PublicKey)
+		genesis.Alloc[addrs[i]] = core.GenesisAccount{Balance: new(big.Int).SetUint64(uint64(math.Pow10(18)))}
 	}
 
 	// generate genesis block
-	genesis := core.DefaultGenesisBlock()
+
 	genesis.Config = params.TestChainConfig
+	genesis.GasLimit = 10000000
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	// force enable Istanbul engine
 	genesis.Config.Tendermint = &params.TendermintConfig{}
@@ -735,7 +739,26 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 		return nil, err
 	}
 
-	block, err := engine.FinalizeAndAssemble(chain, header, state, nil, nil, nil)
+	//add a few txs
+	txs := make(types.Transactions, 5)
+	nonce := state.GetNonce(engine.address)
+	gasPrice := new(big.Int).SetUint64(1000000)
+	gasPool := new(core.GasPool).AddGas(header.GasLimit)
+	var receipts types.Receipts
+	for i := range txs {
+		amount := new(big.Int).SetUint64((nonce + 1) * 1000000000)
+		tx := types.NewTransaction(nonce, common.Address{}, amount, params.TxGas, gasPrice, []byte{})
+		if txs[i], err = types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1)), engine.privateKey); err != nil {
+			return nil, err
+		}
+		receipt, _, err := core.ApplyTransaction(chain.Config(), chain, nil, gasPool, state, header, txs[i], &header.GasUsed, *engine.vmConfig)
+		if err != nil {
+			return nil, err
+		}
+		nonce++
+		receipts = append(receipts, receipt)
+	}
+	block, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, receipts)
 	if err != nil {
 		return nil, err
 	}
