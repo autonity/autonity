@@ -35,9 +35,10 @@ type WAL struct {
 
 	sub *event.TypeMuxSubscription
 
-	m      sync.RWMutex
-	stop   chan struct{}
-	logger log.Logger
+	m       sync.RWMutex
+	stop    chan struct{}
+	logger  log.Logger
+	stopped bool
 }
 
 var currentHeightKey = []byte("current_height")
@@ -53,6 +54,7 @@ func NewWal(logger log.Logger, basedir string, sub *event.TypeMuxSubscription) *
 		cache:   make(map[string]struct{}),
 		sub:     sub,
 		stop:    make(chan struct{}),
+		stopped: false,
 	}
 
 	return wal
@@ -84,6 +86,9 @@ func (wal *WAL) UpdateHeight(height *big.Int) error {
 	}
 	wal.m.Lock()
 	defer wal.m.Unlock()
+	if wal.stopped {
+		return nil
+	}
 
 	if oldHeight.Cmp(height) == 0 {
 		return nil
@@ -94,7 +99,7 @@ func (wal *WAL) UpdateHeight(height *big.Int) error {
 		return nil
 	}
 
-	wal.logger.Error("WAL: get height", "base", wal.baseDir, "asked", height.String(), "current", wal.height.String())
+	wal.logger.Error("WAL: new height", "base", wal.baseDir, "asked", height.String(), "current", wal.height.String())
 
 	newDB, err := getDb(wal.baseDir, height)
 	if err != nil {
@@ -127,6 +132,9 @@ func (wal *WAL) UpdateHeight(height *big.Int) error {
 }
 
 func (wal *WAL) Start() {
+	wal.m.Lock()
+	wal.stopped = false
+	defer wal.m.Unlock()
 	go wal.EventLoop()
 }
 func (wal *WAL) EventLoop() {
@@ -182,6 +190,7 @@ func (wal *WAL) Close() {
 	if wal.db != nil {
 		wal.db.Close()
 	}
+	wal.stopped = true
 	wal.m.Unlock()
 }
 
