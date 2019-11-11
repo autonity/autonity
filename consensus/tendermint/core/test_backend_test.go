@@ -9,17 +9,28 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 )
 
-func generateValidators(n int) []common.Address {
+type addressKeyMap map[common.Address]*ecdsa.PrivateKey
+
+func generateValidators(n int) ([]common.Address, addressKeyMap) {
 	vals := make([]common.Address, 0)
+	keymap := make(addressKeyMap)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
-		vals = append(vals, crypto.PubkeyToAddress(privateKey.PublicKey))
+		addr := crypto.PubkeyToAddress(privateKey.PublicKey)
+		vals = append(vals, addr)
+		keymap[addr] = privateKey
 	}
-	return vals
+	return vals, keymap
 }
 
 func newTestValidatorSet(n int) validator.Set {
-	return validator.NewSet(generateValidators(n), config.RoundRobin)
+	validators, _ := generateValidators(n)
+	return validator.NewSet(validators, config.RoundRobin)
+}
+
+func newTestValidatorSetWithKeys(n int) (validator.Set, addressKeyMap) {
+	validators, keyMap := generateValidators(n)
+	return validator.NewSet(validators, config.RoundRobin), keyMap
 }
 
 func generatePrivateKey() (*ecdsa.PrivateKey, error) {

@@ -553,7 +553,7 @@ func TestBackendGetContractAddress(t *testing.T) {
 	}
 	contractAddress := engine.GetContractAddress()
 	expectedAddress := crypto.CreateAddress(chain.Config().AutonityContractConfig.Deployer, 0)
-	if bytes.Compare(contractAddress.Bytes(), expectedAddress.Bytes()) != 0 {
+	if !bytes.Equal(contractAddress.Bytes(), expectedAddress.Bytes()) {
 		t.Fatalf("unexpected returned address")
 	}
 }
@@ -772,9 +772,9 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	header := makeHeader(parent, engine.config)
 	_ = engine.Prepare(chain, header)
 
-	state, err := chain.StateAt(parent.Root())
-	if err != nil {
-		return nil, err
+	state, errS := chain.StateAt(parent.Root())
+	if errS != nil {
+		return nil, errS
 	}
 
 	//add a few txs
@@ -786,9 +786,11 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	for i := range txs {
 		amount := new(big.Int).SetUint64((nonce + 1) * 1000000000)
 		tx := types.NewTransaction(nonce, common.Address{}, amount, params.TxGas, gasPrice, []byte{})
-		if txs[i], err = types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1)), engine.privateKey); err != nil {
+		tx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1)), engine.privateKey)
+		if err != nil {
 			return nil, err
 		}
+		txs[i] = tx
 		receipt, _, err := core.ApplyTransaction(chain.Config(), chain, nil, gasPool, state, header, txs[i], &header.GasUsed, *engine.vmConfig)
 		if err != nil {
 			return nil, err
