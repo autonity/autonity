@@ -60,7 +60,9 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 
 		addr := unhandled.(UnhandledMsg).addr
 		msg := unhandled.(UnhandledMsg).msg
-		_, _ = sb.HandleMsg(addr, msg)
+		if _, err := sb.HandleMsg(addr, msg); err != nil {
+			sb.logger.Error("could not handle cached message", "err", err)
+		}
 	}
 }
 
