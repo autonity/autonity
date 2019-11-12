@@ -89,15 +89,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
 
-	//todo do we need it?
-	//users, err = ac.SavedValidatorsRetriever(1)
-	//sort.Sort(users)
-
-	//We need to append to data the constructor's parameters
-	//That should always be genesis users
-
 	contractABI, err := ac.abi()
-
 	if err != nil {
 		log.Error("abi.JSON returns err", "err", err)
 		return common.Address{}, err
@@ -115,6 +107,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
 	}
 
+	//"" means contructor
 	constructorParams, err := contractABI.Pack("",
 		users,
 		enodes,
@@ -127,6 +120,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		return common.Address{}, err
 	}
 
+	//We need to append to data the constructor's parameters
 	data := append(contractBytecode, constructorParams...)
 	gas := uint64(0xFFFFFFFF)
 	value := new(big.Int).SetUint64(0x00)
