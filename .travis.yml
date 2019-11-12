@@ -40,7 +40,7 @@ jobs:
     - <<: *tests
       name: "Tendermint data race - unit tests"
       script:
-        - go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
+        - travis_wait 31 go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
         - cat coverage_tendermint.out >> coverage.out
     - <<: *tests
       name: "TestTendermintSuccess race"
