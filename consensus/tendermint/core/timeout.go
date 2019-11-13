@@ -101,7 +101,7 @@ func (t *timeout) reset(s Step) {
 	t.timer = nil
 	t.started = false
 	t.step = s
-	t.start = time.Now()
+	t.start = time.Time{}
 }
 
 /////////////// On Timeout Functions ///////////////
