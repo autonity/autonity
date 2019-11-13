@@ -3,7 +3,7 @@ go_import_path: github.com/clearmatics/autonity
 go: 1.12.9
 sudo: false
 os: linux
-dist: trusty
+dist: bionic
 addons:
   apt:
     packages:
@@ -37,6 +37,7 @@ jobs:
       name: "unit tests"
       script:
         - go run build/ci.go test -coverage $TEST_PACKAGES
+        - go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
     - <<: *tests
       name: "Tendermint data race - unit tests"
       script:
