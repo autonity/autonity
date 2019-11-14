@@ -21,7 +21,7 @@ func TestCheckMessage(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
 		}
 
-		err := c.checkMessage(big.NewInt(1), big.NewInt(2))
+		err := c.checkMessage(big.NewInt(1), big.NewInt(2), propose)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
@@ -30,7 +30,7 @@ func TestCheckMessage(t *testing.T) {
 	t.Run("given nil round, error returned", func(t *testing.T) {
 		c := &core{}
 
-		err := c.checkMessage(nil, big.NewInt(2))
+		err := c.checkMessage(nil, big.NewInt(2), propose)
 		if err != errInvalidMessage {
 			t.Fatalf("have %v, want %v", err, errInvalidMessage)
 		}
@@ -41,7 +41,7 @@ func TestCheckMessage(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
 		}
 
-		err := c.checkMessage(big.NewInt(2), big.NewInt(4))
+		err := c.checkMessage(big.NewInt(2), big.NewInt(4), propose)
 		if err != errFutureHeightMessage {
 			t.Fatalf("have %v, want %v", err, errFutureHeightMessage)
 		}
@@ -52,7 +52,7 @@ func TestCheckMessage(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
 		}
 
-		err := c.checkMessage(big.NewInt(2), big.NewInt(2))
+		err := c.checkMessage(big.NewInt(2), big.NewInt(2), propose)
 		if err != errOldHeightMessage {
 			t.Fatalf("have %v, want %v", err, errOldHeightMessage)
 		}
@@ -63,7 +63,7 @@ func TestCheckMessage(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
 		}
 
-		err := c.checkMessage(big.NewInt(3), big.NewInt(3))
+		err := c.checkMessage(big.NewInt(3), big.NewInt(3), propose)
 		if err != errFutureRoundMessage {
 			t.Fatalf("have %v, want %v", err, errFutureRoundMessage)
 		}
@@ -74,7 +74,7 @@ func TestCheckMessage(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(2)),
 		}
 
-		err := c.checkMessage(big.NewInt(1), big.NewInt(2))
+		err := c.checkMessage(big.NewInt(1), big.NewInt(2), propose)
 		if err != errOldRoundMessage {
 			t.Fatalf("have %v, want %v", err, errOldRoundMessage)
 		}
@@ -232,7 +232,7 @@ func TestProcessBacklog(t *testing.T) {
 		}
 	})
 
-	t.Run("valid vote received", func(t *testing.T) {
+	t.Run("valid vote received, processed at prevote step", func(t *testing.T) {
 		vote := &Vote{
 			Round:  big.NewInt(1),
 			Height: big.NewInt(2),
@@ -273,11 +273,20 @@ func TestProcessBacklog(t *testing.T) {
 			backlogs:          make(map[validator.Validator]*prque.Prque),
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
 		}
-
 		c.storeBacklog(msg, val)
 		c.processBacklog()
 
 		timeout := time.NewTimer(2 * time.Second)
+		//vote should not be processed at propose step
+		select {
+		case ev := <-evChan:
+			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev))
+		case <-timeout.C:
+		}
+		c.setStep(prevote)
+		c.processBacklog()
+
+		timeout = time.NewTimer(2 * time.Second)
 		select {
 		case ev := <-evChan:
 			e, ok := ev.(backlogEvent)
@@ -329,7 +338,7 @@ func TestProcessBacklog(t *testing.T) {
 		c.processBacklog()
 	})
 
-	t.Run("future message", func(t *testing.T) {
+	t.Run("future height message are not processed", func(t *testing.T) {
 		nilRoundVote := &Vote{
 			Round:  big.NewInt(2),
 			Height: big.NewInt(4),
@@ -349,7 +358,7 @@ func TestProcessBacklog(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
 		valSet := newTestValidatorSet(2)
 		val := valSet.GetByIndex(0)
@@ -364,5 +373,95 @@ func TestProcessBacklog(t *testing.T) {
 
 		c.storeBacklog(msg, val)
 		c.processBacklog()
+	})
+
+	t.Run("future height message are processed when height change", func(t *testing.T) {
+		nilRoundVote := &Vote{
+			Round:  big.NewInt(2),
+			Height: big.NewInt(4),
+		}
+
+		nilRoundVotePayload, err := Encode(nilRoundVote)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+
+		msg := &Message{
+			Code: msgPrevote,
+			Msg:  nilRoundVotePayload,
+		}
+		msg2 := &Message{
+			Code: msgPrecommit,
+			Msg:  nilRoundVotePayload,
+		}
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
+
+		valSet := newTestValidatorSet(2)
+		val := valSet.GetByIndex(0)
+
+		c := &core{
+			logger:            log.New("backend", "test", "id", 0),
+			backend:           backendMock,
+			address:           common.HexToAddress("0x1234567890"),
+			backlogs:          make(map[validator.Validator]*prque.Prque),
+			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
+		}
+		c.storeBacklog(msg, val)
+		c.storeBacklog(msg2, val)
+		c.setStep(prevote)
+		c.processBacklog()
+		c.currentRoundState = NewRoundState(big.NewInt(2), big.NewInt(4))
+
+		backendMock.EXPECT().Post(gomock.Any()).Times(2)
+		c.setStep(prevote)
+		c.processBacklog()
+		timeout := time.NewTimer(2 * time.Second)
+		<-timeout.C
+	})
+
+	t.Run("future round message are processed when round change", func(t *testing.T) {
+		nilRoundVote := &Vote{
+			Round:  big.NewInt(2),
+			Height: big.NewInt(4),
+		}
+
+		nilRoundVotePayload, err := Encode(nilRoundVote)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+
+		msg := &Message{
+			Code: msgPrevote,
+			Msg:  nilRoundVotePayload,
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
+
+		valSet := newTestValidatorSet(2)
+		val := valSet.GetByIndex(0)
+
+		c := &core{
+			logger:            log.New("backend", "test", "id", 0),
+			backend:           backendMock,
+			address:           common.HexToAddress("0x1234567890"),
+			backlogs:          make(map[validator.Validator]*prque.Prque),
+			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(4)),
+		}
+		c.storeBacklog(msg, val)
+		c.processBacklog()
+		backendMock.EXPECT().Post(gomock.Any()).Times(1)
+		c.currentRoundState = NewRoundState(big.NewInt(2), big.NewInt(4))
+		c.setStep(prevote)
+		c.processBacklog()
+		timeout := time.NewTimer(2 * time.Second)
+		<-timeout.C
 	})
 }

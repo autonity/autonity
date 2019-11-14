@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -40,11 +39,14 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
 	"github.com/hashicorp/golang-lru"
+	"github.com/zfjagann/golang-ring"
 )
 
 const (
 	// fetcherID is the ID indicates the block is from BFT engine
 	fetcherID = "tendermint"
+	// ring buffer to be able to handle at maximum 10 rounds, 20 validators and 3 messages types
+	ringCapacity = 10 * 20 * 3
 )
 
 var (
@@ -57,10 +59,6 @@ var (
 
 // New creates an Ethereum Backend for BFT core engine.
 func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
-	log.Warn("new backend with public key",
-		"backAddress", crypto.PubkeyToAddress(privateKey.PublicKey).String(),
-	)
-
 	if chainConfig.Tendermint.Epoch != 0 {
 		config.Epoch = chainConfig.Tendermint.Epoch
 	}
@@ -77,13 +75,18 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
-	logger := log.New()
+
+	pub := crypto.PubkeyToAddress(privateKey.PublicKey).String()
+	logger := log.New("addr", pub)
+
+	logger.Warn("new backend with public key")
+
 	backend := &Backend{
 		config:         config,
 		eventMux:       event.NewTypeMuxSilent(logger),
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:         log.New(),
+		logger:         logger,
 		db:             db,
 		recents:        recents,
 		coreStarted:    false,
@@ -92,22 +95,24 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		vmConfig:       vmConfig,
 	}
 
+	backend.pendingMessages.SetCapacity(ringCapacity)
 	return backend
 }
 
 // ----------------------------------------------------------------------------
 
 type Backend struct {
-	config       *tendermintConfig.Config
-	eventMux     *event.TypeMuxSilent
-	privateKey   *ecdsa.PrivateKey
-	privateKeyMu sync.RWMutex
-	address      common.Address
-	logger       log.Logger
-	db           ethdb.Database
-	blockchain   *core.BlockChain
-	currentBlock func() *types.Block
-	hasBadBlock  func(hash common.Hash) bool
+	config           *tendermintConfig.Config
+	eventMux         *event.TypeMuxSilent
+	privateKey       *ecdsa.PrivateKey
+	privateKeyMu     sync.RWMutex
+	address          common.Address
+	logger           log.Logger
+	db               ethdb.Database
+	blockchain       *core.BlockChain
+	blockchainInitMu sync.Mutex
+	currentBlock     func() *types.Block
+	hasBadBlock      func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
@@ -119,6 +124,9 @@ type Backend struct {
 	// Snapshots for recent block to speed up reorgs
 	recents *lru.ARCCache
 
+	// we save the last received p2p.messages in the ring buffer
+	pendingMessages ring.Ring
+
 	// event subscription for ChainHeadEvent event
 	broadcaster consensus.Broadcaster
 
@@ -129,8 +137,6 @@ type Backend struct {
 	autonityContractAddress common.Address // Ethereum address of the white list contract
 	contractsMu             sync.RWMutex
 	vmConfig                *vm.Config
-
-	resend chan messageToPeers
 }
 
 // Address implements tendermint.Backend.Address
@@ -165,57 +171,64 @@ func (sb *Backend) postEvent(event interface{}) {
 	go sb.Post(event)
 }
 
-const TTL = 10           //seconds
-const retryInterval = 50 //milliseconds
+func (sb *Backend) AskSync(valSet validator.Set) {
+	sb.logger.Info("Broadcasting consensus sync-me")
+
+	targets := make(map[common.Address]struct{})
+	for _, val := range valSet.List() {
+		if val.Address() != sb.Address() {
+			targets[val.Address()] = struct{}{}
+		}
+	}
+
+	if sb.broadcaster != nil && len(targets) > 0 {
+		ps := sb.broadcaster.FindPeers(targets)
+		count := 0
+		for addr, p := range ps {
+			//ask to quorum nodes to sync, 1 must then be honest and updated
+			if count == valSet.Quorum() {
+				break
+			}
+			sb.logger.Info("Asking sync to", "addr", addr)
+			go p.Send(tendermintSyncMsg, []byte{}) //nolint
+			count++
+		}
+	}
+}
 
 // Broadcast implements tendermint.Backend.Gossip
 func (sb *Backend) Gossip(ctx context.Context, valSet validator.Set, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
-	var targets []common.Address
+	targets := make(map[common.Address]struct{})
 	for _, val := range valSet.List() {
 		if val.Address() != sb.Address() {
-			targets = append(targets, val.Address())
+			targets[val.Address()] = struct{}{}
 		}
 	}
 
 	if sb.broadcaster != nil && len(targets) > 0 {
-		sb.trySend(ctx, messageToPeers{
-			message{
-				hash,
-				payload,
-			},
-			targets,
-			time.Now(),
-			time.Now(),
-		})
+		ps := sb.broadcaster.FindPeers(targets)
+		for addr, p := range ps {
+			ms, ok := sb.recentMessages.Get(addr)
+			var m *lru.ARCCache
+			if ok {
+				m, _ = ms.(*lru.ARCCache)
+				if _, k := m.Get(hash); k {
+					// This peer had this event, skip it
+					continue
+				}
+			} else {
+				m, _ = lru.NewARC(inmemoryMessages)
+			}
+
+			m.Add(hash, true)
+			sb.recentMessages.Add(addr, m)
+
+			go p.Send(tendermintMsg, payload) //nolint
+		}
 	}
-}
-
-type messageToPeers struct {
-	msg       message
-	peers     []common.Address
-	startTime time.Time
-	lastTry   time.Time
-}
-
-func (m messageToPeers) String() string {
-	msg := fmt.Sprintf("msg hash %s   length %d", m.msg.hash.String(), len(m.msg.payload))
-	t := fmt.Sprintf("time %s", m.startTime.String())
-
-	peers := peersToString(m.peers)
-
-	return fmt.Sprintf("%s %s %s", msg, t, peers)
-}
-
-func peersToString(ps []common.Address) string {
-	peersStr := fmt.Sprintf("peers %d: ", len(ps))
-	for _, p := range ps {
-		peersStr = fmt.Sprintf("%s%s ", peersStr, p.Hex())
-	}
-
-	return peersStr
 }
 
 // Commit implements tendermint.Backend.Commit
@@ -323,7 +336,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		// We need to ensure that the block transactions applied before the Autonity contract
 		if proposalNumber == 1 {
 			//Apply the same changes from consensus/tendermint/backend/engine.go:getValidator()349-369
-			log.Info("Autonity Contract Deployer in test state", "Address", sb.blockchain.Config().AutonityContractConfig.Deployer)
+			sb.logger.Info("Autonity Contract Deployer in test state", "Address", sb.blockchain.Config().AutonityContractConfig.Deployer)
 
 			_, err = sb.blockchain.GetAutonityContract().DeployAutonityContract(sb.blockchain, header, state)
 			if err != nil {
@@ -398,7 +411,7 @@ func (sb *Backend) Sign(data []byte) ([]byte, error) {
 func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byte) error {
 	signer, err := types.GetSignatureAddress(data, sig)
 	if err != nil {
-		log.Error("Failed to get signer address", "err", err)
+		sb.logger.Error("Failed to get signer address", "err", err)
 		return err
 	}
 	// Compare derived addresses
@@ -490,22 +503,20 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 	}
 
 	sb.logger.Info("Syncing", "peer", address)
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+	targets := map[common.Address]struct{}{address: {}}
+	ps := sb.broadcaster.FindPeers(targets)
+	p, connected := ps[address]
+	if !connected {
+		return
+	}
 	for _, msg := range messages {
 		payload, err := msg.Payload()
 		if err != nil {
-			sb.logger.Error("Sending", "code", msg.GetCode(), "sig", msg.GetSignature(), "err", err)
+			sb.logger.Debug("Sending", "code", msg.GetCode(), "sig", msg.GetSignature(), "err", err)
 			continue
 		}
-		hash := types.RLPHash(payload)
-		now := time.Now()
-		sb.trySend(ctx, messageToPeers{
-			message{hash: hash, payload: payload},
-			[]common.Address{address},
-			now,
-			now,
-		})
+		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
+		go p.Send(tendermintMsg, payload) //nolint
 	}
 }
 

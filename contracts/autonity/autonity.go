@@ -139,7 +139,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	ac.Lock()
 	ac.address = contractAddress
 	ac.Unlock()
-	log.Error("Deployed Autonity Contract", "Address", contractAddress.String())
+	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
 
 	return contractAddress, nil
 }

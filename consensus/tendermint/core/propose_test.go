@@ -29,7 +29,8 @@ func TestSendPropose(t *testing.T) {
 		curRoundState := NewRoundState(big.NewInt(1), big.NewInt(1))
 		validRound := big.NewInt(1)
 
-		proposalBlock := NewProposal(curRoundState.round, curRoundState.Height(), validRound, block)
+		logger := log.New("backend", "test", "id", 0)
+		proposalBlock := NewProposal(curRoundState.round, curRoundState.Height(), validRound, block, logger)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -71,7 +72,7 @@ func TestSendPropose(t *testing.T) {
 			address:           addr,
 			backend:           backendMock,
 			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
+			logger:            logger,
 			validRound:        validRound,
 			valSet:            valSet,
 		}
@@ -90,7 +91,9 @@ func TestHandleProposal(t *testing.T) {
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(1)
 
-		proposalBlock := NewProposal(big.NewInt(1), curRoundState.Height(), validRound, block)
+		logger := log.New("backend", "test", "id", 0)
+
+		proposalBlock := NewProposal(big.NewInt(1), curRoundState.Height(), validRound, block, logger)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -107,7 +110,7 @@ func TestHandleProposal(t *testing.T) {
 		c := &core{
 			address:           addr,
 			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
+			logger:            logger,
 			validRound:        validRound,
 		}
 
@@ -129,7 +132,8 @@ func TestHandleProposal(t *testing.T) {
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(1)
 
-		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block)
+		logger := log.New("backend", "test", "id", 0)
+		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block, logger)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -153,7 +157,7 @@ func TestHandleProposal(t *testing.T) {
 		c := &core{
 			address:           addr,
 			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
+			logger:            logger,
 			validRound:        validRound,
 			valSet:            valSet,
 		}
@@ -176,7 +180,8 @@ func TestHandleProposal(t *testing.T) {
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(1)
 
-		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block)
+		logger := log.New("backend", "test", "id", 0)
+		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block, logger)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -251,8 +256,8 @@ func TestHandleProposal(t *testing.T) {
 			address:           addr,
 			backend:           backendMock,
 			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
-			proposeTimeout:    newTimeout(propose),
+			logger:            logger,
+			proposeTimeout:    newTimeout(propose, logger),
 			validRound:        validRound,
 			valSet:            valSet,
 		}
@@ -275,7 +280,8 @@ func TestHandleProposal(t *testing.T) {
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(1)
 
-		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block)
+		logger := log.New("backend", "test", "id", 0)
+		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block, logger)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -309,8 +315,8 @@ func TestHandleProposal(t *testing.T) {
 			address:           addr,
 			backend:           backendMock,
 			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
-			proposeTimeout:    newTimeout(propose),
+			logger:            logger,
+			proposeTimeout:    newTimeout(propose, logger),
 			validRound:        validRound,
 			valSet:            valSet,
 		}
@@ -337,7 +343,8 @@ func TestHandleProposal(t *testing.T) {
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(-1)
 
-		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block)
+		logger := log.New("backend", "test", "id", 0)
+		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block, logger)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -405,8 +412,8 @@ func TestHandleProposal(t *testing.T) {
 			currentRoundState: curRoundState,
 			lockedValue:       types.NewBlockWithHeader(&types.Header{}),
 			lockedRound:       big.NewInt(-1),
-			logger:            log.New("backend", "test", "id", 0),
-			proposeTimeout:    newTimeout(propose),
+			logger:            logger,
+			proposeTimeout:    newTimeout(propose, logger),
 			validRound:        validRound,
 			valSet:            valSet,
 		}
@@ -433,7 +440,8 @@ func TestHandleProposal(t *testing.T) {
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(0)
 
-		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block)
+		logger := log.New("backend", "test", "id", 0)
+		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block, logger)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -499,13 +507,13 @@ func TestHandleProposal(t *testing.T) {
 			address:           addr,
 			backend:           backendMock,
 			currentRoundState: curRoundState,
-			currentHeightOldRoundsStates: map[int64]roundState{
-				0: *curRoundState,
+			currentHeightOldRoundsStates: map[int64]*roundState{
+				0: curRoundState,
 			},
 			lockedRound:    big.NewInt(-1),
 			lockedValue:    types.NewBlockWithHeader(&types.Header{}),
-			logger:         log.New("backend", "test", "id", 0),
-			proposeTimeout: newTimeout(propose),
+			logger:         logger,
+			proposeTimeout: newTimeout(propose, logger),
 			validRound:     validRound,
 			valSet:         valSet,
 		}

@@ -545,6 +545,12 @@
 			"revisionTime": "2016-12-11T03:23:59Z"
 		},
 		{
+			"checksumSHA1": "zYgYKSiDF9PYgGX+fNjmTouk+so=",
+			"path": "github.com/zfjagann/golang-ring",
+			"revision": "d34796e0a6c20df67b614d69184ee4c8093a6856",
+			"revisionTime": "2019-03-04T06:09:01Z"
+		},
+		{
 			"checksumSHA1": "gDWyH6deDwb4de/P4SL0fqKjhFs=",
 			"path": "go.uber.org/goleak",
 			"revision": "227bd74c34825787d52452ecf0916929863b787c",

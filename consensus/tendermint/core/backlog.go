@@ -42,7 +42,8 @@ type backlogEvent struct {
 // return errInvalidMessage if the message is invalid
 // return errFutureHeightMessage if the message view is larger than currentRoundState view
 // return errOldHeightMessage if the message view is smaller than currentRoundState view
-func (c *core) checkMessage(round *big.Int, height *big.Int) error {
+// return errFutureStepMessage if we are at the same view but at the propose step and it's a voting message.
+func (c *core) checkMessage(round *big.Int, height *big.Int, step Step) error {
 	if height == nil || round == nil {
 		return errInvalidMessage
 	}
@@ -55,6 +56,8 @@ func (c *core) checkMessage(round *big.Int, height *big.Int) error {
 		return errFutureRoundMessage
 	} else if round.Cmp(c.currentRoundState.Round()) < 0 {
 		return errOldRoundMessage
+	} else if c.currentRoundState.step == propose && step > propose {
+		return errFutureStepMessage
 	}
 
 	return nil
@@ -134,10 +137,10 @@ func (c *core) processBacklog() {
 				continue
 			}
 			// Push back if it's a future message
-			err := c.checkMessage(round, height)
+			err := c.checkMessage(round, height, Step(msg.Code))
 			if err != nil {
-				if err == errFutureHeightMessage {
-					logger.Debug("Stop processing backlog", "msg", msg)
+				if err == errFutureHeightMessage || err == errFutureRoundMessage || err == errFutureStepMessage {
+					logger.Debug("Stop processing backlog", "msg", msg, "err", err)
 					backlog.Push(msg, prio)
 					isFuture = true
 					break

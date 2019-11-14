@@ -409,10 +409,13 @@ func TestCore_Close(t *testing.T) {
 		newUnminedBlockEventSub := evmux.Subscribe(events.NewUnminedBlockEvent{})
 		committedSub := evmux.Subscribe(events.CommitEvent{})
 		timeoutEventSub := evmux.Subscribe(TimeoutEvent{})
+		syncEventSub := evmux.Subscribe(events.SyncEvent{})
 
 		stopped := make(chan struct{}, 2)
 		stopped <- struct{}{}
 		stopped <- struct{}{}
+
+		logger := log.New("backend", "test", "id", 0)
 
 		c := &core{
 			backend:                 backendMock,
@@ -422,13 +425,14 @@ func TestCore_Close(t *testing.T) {
 			isStopping:              new(uint32),
 			isStopped:               new(uint32),
 			committedSub:            committedSub,
-			logger:                  log.New("backend", "test", "id", 0),
+			logger:                  logger,
 			messageEventSub:         messageEventSub,
 			newUnminedBlockEventSub: newUnminedBlockEventSub,
-			proposeTimeout:          newTimeout(propose),
-			prevoteTimeout:          newTimeout(prevote),
-			precommitTimeout:        newTimeout(precommit),
+			proposeTimeout:          newTimeout(propose, logger),
+			prevoteTimeout:          newTimeout(prevote, logger),
+			precommitTimeout:        newTimeout(precommit, logger),
 			timeoutEventSub:         timeoutEventSub,
+			syncEventSub:            syncEventSub,
 			stopped:                 stopped,
 		}
 
@@ -455,11 +459,13 @@ func TestCore_Close(t *testing.T) {
 		newUnminedBlockEventSub := evmux.Subscribe(events.NewUnminedBlockEvent{})
 		committedSub := evmux.Subscribe(events.CommitEvent{})
 		timeoutEventSub := evmux.Subscribe(TimeoutEvent{})
+		syncEventSub := evmux.Subscribe(events.SyncEvent{})
 
 		stopped := make(chan struct{}, 2)
 		stopped <- struct{}{}
 		stopped <- struct{}{}
 
+		logger := log.New("backend", "test", "id", 0)
 		c := &core{
 			backend:                 backendMock,
 			cancel:                  cancel,
@@ -468,13 +474,14 @@ func TestCore_Close(t *testing.T) {
 			isStopping:              new(uint32),
 			isStopped:               new(uint32),
 			committedSub:            committedSub,
-			logger:                  log.New("backend", "test", "id", 0),
+			logger:                  logger,
 			messageEventSub:         messageEventSub,
 			newUnminedBlockEventSub: newUnminedBlockEventSub,
-			proposeTimeout:          newTimeout(propose),
-			prevoteTimeout:          newTimeout(prevote),
-			precommitTimeout:        newTimeout(precommit),
+			proposeTimeout:          newTimeout(propose, logger),
+			prevoteTimeout:          newTimeout(prevote, logger),
+			precommitTimeout:        newTimeout(precommit, logger),
 			timeoutEventSub:         timeoutEventSub,
+			syncEventSub:            syncEventSub,
 			stopped:                 stopped,
 		}
 

@@ -339,7 +339,9 @@ func (g *Genesis) SetBFT() error {
 	if g.Config.Istanbul != nil || g.Config.Tendermint != nil && g.Config.AutonityContractConfig != nil {
 		var validators []string
 		for _, v := range g.Config.AutonityContractConfig.Users {
-			validators = append(validators, v.Address.String())
+			if v.Type == params.UserValidator {
+				validators = append(validators, v.Address.String())
+			}
 		}
 
 		if len(validators) != 0 {

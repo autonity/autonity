@@ -30,13 +30,15 @@ type timeout struct {
 	timer   *time.Timer
 	started bool
 	step    Step
+	logger  log.Logger
 	sync.Mutex
 }
 
-func newTimeout(s Step) *timeout {
+func newTimeout(s Step, logger log.Logger) *timeout {
 	return &timeout{
 		started: false,
 		step:    s,
+		logger:  logger,
 	}
 }
 
@@ -77,7 +79,7 @@ func (t *timeout) stopTimer() error {
 func (t *timeout) reset(s Step) {
 	err := t.stopTimer()
 	if err != nil {
-		log.Info("cant stop timer", "err", err)
+		t.logger.Info("cant stop timer", "err", err)
 	}
 
 	t.Lock()
@@ -137,6 +139,7 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 }
 
 func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
+
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 

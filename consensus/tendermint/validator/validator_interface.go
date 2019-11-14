@@ -72,6 +72,8 @@ type Set interface {
 	Copy() Set
 	// Get the maximum number of faulty nodes
 	F() int
+	// Get the optimal quorum size
+	Quorum() int
 	// Get proposer policy
 	Policy() config.ProposerPolicy
 }
