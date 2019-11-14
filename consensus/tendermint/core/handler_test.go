@@ -13,7 +13,6 @@ import (
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
-
 	validators, keysMap := newTestValidatorSetWithKeys(4)
 	currentValidator := validators.GetByIndex(0)
 	sender := validators.GetByIndex(1)

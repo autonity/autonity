@@ -37,14 +37,6 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 			return
 		}
 
-		if proposalBlock == nil {
-			logger.Error("send nil proposed block",
-				"Round", c.currentRoundState.round.String(), "Height",
-				c.currentRoundState.height.String(), "ValidRound", c.validRound)
-
-			return
-		}
-
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
 

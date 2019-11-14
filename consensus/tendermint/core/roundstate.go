@@ -123,7 +123,6 @@ func (s *roundState) Step() Step {
 func (s *roundState) State() (*big.Int, *big.Int, uint64) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-
 	return s.height, s.round, uint64(s.step)
 }
 
