@@ -21,10 +21,12 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -47,39 +49,167 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
+func TestAskSync(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	// We are testing for a Quorum Q of peers to be asked for sync.
+	valSet, _ := newTestValidatorSet(7) // N=7, F=2, Q=5
+	validators := valSet.List()
+	addresses := make([]common.Address, 0, len(validators))
+	peers := make(map[common.Address]consensus.Peer)
+	counter := uint64(0)
+	for _, val := range validators {
+		addresses = append(addresses, val.Address())
+		mockedPeer := consensus.NewMockPeer(ctrl)
+		mockedPeer.EXPECT().Send(uint64(tendermintSyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
+			atomic.AddUint64(&counter, 1)
+		}).MaxTimes(1)
+		peers[val.Address()] = mockedPeer
+	}
+
+	m := make(map[common.Address]struct{})
+	for _, p := range addresses {
+		m[p] = struct{}{}
+	}
+	knownMessages, err := lru.NewARC(inmemoryMessages)
+	if err != nil {
+		t.Fatalf("Expected <nil>, got %v", err)
+	}
+
+	broadcaster := consensus.NewMockBroadcaster(ctrl)
+	broadcaster.EXPECT().FindPeers(m).Return(peers)
+	b := &Backend{
+		knownMessages: knownMessages,
+		logger:        log.New("backend", "test", "id", 0),
+	}
+	b.SetBroadcaster(broadcaster)
+	b.AskSync(valSet)
+	<-time.NewTimer(2 * time.Second).C
+	if atomic.LoadUint64(&counter) != 5 {
+		t.Fatalf("ask sync message transmission failure")
+	}
+}
+
 func TestGossip(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	valSet, _ := newTestValidatorSet(5)
 	validators := valSet.List()
-
-	peers := make([]common.Address, 0, len(validators))
-	for _, val := range validators {
-		peers = append(peers, val.Address())
+	payload, err := rlp.EncodeToBytes([]byte("data"))
+	hash := types.RLPHash(payload)
+	if err != nil {
+		t.Fatalf("Expected <nil>, got %v", err)
+	}
+	addresses := make([]common.Address, 0, len(validators))
+	peers := make(map[common.Address]consensus.Peer)
+	counter := uint64(0)
+	for i, val := range validators {
+		addresses = append(addresses, val.Address())
+		mockedPeer := consensus.NewMockPeer(ctrl)
+		// Address n3 is supposed to already have this message
+		if i == 3 {
+			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Times(0)
+		} else {
+			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
+				// We want to make sure the payload is correct AND that no other messages is sent.
+				if msgCode == uint64(tendermintMsg) && reflect.DeepEqual(data, payload) {
+					atomic.AddUint64(&counter, 1)
+				}
+			}).Times(1)
+		}
+		peers[val.Address()] = mockedPeer
 	}
 
 	m := make(map[common.Address]struct{})
-	for _, p := range peers {
+	for _, p := range addresses {
 		m[p] = struct{}{}
 	}
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
-	broadcaster.EXPECT().FindPeers(m)
+	broadcaster.EXPECT().FindPeers(m).Return(peers)
 
 	knownMessages, err := lru.NewARC(inmemoryMessages)
 	if err != nil {
 		t.Fatalf("Expected <nil>, got %v", err)
 	}
-
+	recentMessages, err := lru.NewARC(inmemoryMessages)
+	if err != nil {
+		t.Fatalf("Expected <nil>, got %v", err)
+	}
+	address3Cache, err := lru.NewARC(inmemoryMessages)
+	if err != nil {
+		t.Fatalf("Expected <nil>, got %v", err)
+	}
+	address3Cache.Add(hash, true)
+	recentMessages.Add(addresses[3], address3Cache)
 	b := &Backend{
-		knownMessages: knownMessages,
+		knownMessages:  knownMessages,
+		recentMessages: recentMessages,
 	}
 	b.SetBroadcaster(broadcaster)
 
-	b.Gossip(context.Background(), valSet, nil)
+	b.Gossip(context.Background(), valSet, payload)
+	<-time.NewTimer(2 * time.Second).C
+	if atomic.LoadUint64(&counter) != 4 {
+		t.Fatalf("gossip message transmission failure")
+	}
 }
 
+func TestVerifyProposal(t *testing.T) {
+	blockchain, backend := newBlockChain(1)
+	blocks := make([]*types.Block, 5)
+
+	for i := range blocks {
+		var parent *types.Block
+		if i == 0 {
+			parent = blockchain.Genesis()
+		} else {
+			parent = blocks[i-1]
+		}
+
+		block, errBlock := makeBlockWithoutSeal(blockchain, backend, parent)
+		if errBlock != nil {
+			t.Fatalf("could not create block %d, err=%s", i, errBlock)
+		}
+		header := block.Header()
+
+		seal, errS := backend.Sign(types.SigHash(header).Bytes())
+		if errS != nil {
+			t.Fatalf("could not sign %d, err=%s", i, errS)
+		}
+		if err := types.WriteSeal(header, seal); err != nil {
+			t.Fatalf("could not write seal %d, err=%s", i, err)
+		}
+		block = block.WithSeal(header)
+
+		// We need to sleep to avoid verifying a block in the future
+		time.Sleep(time.Duration(backend.config.BlockPeriod) * time.Second)
+		if _, err := backend.VerifyProposal(*block); err != nil {
+			t.Fatalf("could not verify block %d, err=%s", i, err)
+		}
+		// VerifyProposal dont need committed seals
+		committedSeal, errSC := backend.Sign(PrepareCommittedSeal(block.Hash()))
+		if errSC != nil {
+			t.Fatalf("could not sign commit %d, err=%s", i, errS)
+		}
+		// Append seals into extra-data
+		if err := types.WriteCommittedSeals(header, [][]byte{committedSeal}); err != nil {
+			t.Fatalf("could not write committed seal %d, err=%s", i, err)
+		}
+		block = block.WithSeal(header)
+
+		state, stateErr := blockchain.State()
+		if stateErr != nil {
+			t.Fatalf("could not retrieve state %d, err=%s", i, stateErr)
+		}
+		if status, errW := blockchain.WriteBlockWithState(block, nil, state); status != core.CanonStatTy && errW != nil {
+			t.Fatalf("write block failure %d, err=%s", i, errW)
+		}
+		blocks[i] = block
+	}
+
+}
 func TestResetPeerCache(t *testing.T) {
 	addr := common.HexToAddress("0x01234567890")
 	msgCache, err := lru.NewARC(inmemoryMessages)
@@ -369,6 +499,9 @@ func TestSyncPeer(t *testing.T) {
 		b.SetBroadcaster(broadcaster)
 
 		b.SyncPeer(peerAddr1, messages)
+
+		wait := time.NewTimer(time.Second)
+		<-wait.C
 	})
 }
 
@@ -406,6 +539,44 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 			t.Fatalf("expected empty block, got %v", bl)
 		}
 	})
+}
+
+func TestBackendGetContractAddress(t *testing.T) {
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = chain.InsertChain(types.Blocks{block})
+	if err != nil {
+		t.Fatal(err)
+	}
+	contractAddress := engine.GetContractAddress()
+	expectedAddress := crypto.CreateAddress(chain.Config().AutonityContractConfig.Deployer, 0)
+	if !bytes.Equal(contractAddress.Bytes(), expectedAddress.Bytes()) {
+		t.Fatalf("unexpected returned address")
+	}
+}
+
+func TestBackendWhiteList(t *testing.T) {
+	//Very shallow test for the time being, running only with 1 validator
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = chain.InsertChain(types.Blocks{block})
+	if err != nil {
+		t.Fatal(err)
+	}
+	whitelist := engine.WhiteList()
+	if len(whitelist) != 1 {
+		t.Fatalf("unexpected returned whitelist")
+	}
+	expectedWhitelist := chain.Config().AutonityContractConfig.Users[0].Enode
+	if strings.Compare(whitelist[0], expectedWhitelist) != 0 {
+		t.Fatalf("unexpected returned whitelist")
+	}
 }
 
 /**
@@ -502,17 +673,20 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 }
 
 func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
+	genesis := core.DefaultGenesisBlock()
 	// Setup validators
 	var nodeKeys = make([]*ecdsa.PrivateKey, n)
 	var addrs = make([]common.Address, n)
 	for i := 0; i < n; i++ {
 		nodeKeys[i], _ = crypto.GenerateKey()
 		addrs[i] = crypto.PubkeyToAddress(nodeKeys[i].PublicKey)
+		genesis.Alloc[addrs[i]] = core.GenesisAccount{Balance: new(big.Int).SetUint64(uint64(math.Pow10(18)))}
 	}
 
 	// generate genesis block
-	genesis := core.DefaultGenesisBlock()
+
 	genesis.Config = params.TestChainConfig
+	genesis.GasLimit = 10000000
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	// force enable Istanbul engine
 	genesis.Config.Tendermint = &params.TendermintConfig{}
@@ -598,12 +772,33 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	header := makeHeader(parent, engine.config)
 	_ = engine.Prepare(chain, header)
 
-	state, err := chain.StateAt(parent.Root())
-	if err != nil {
-		return nil, err
+	state, errS := chain.StateAt(parent.Root())
+	if errS != nil {
+		return nil, errS
 	}
 
-	block, err := engine.FinalizeAndAssemble(chain, header, state, nil, nil, nil)
+	//add a few txs
+	txs := make(types.Transactions, 5)
+	nonce := state.GetNonce(engine.address)
+	gasPrice := new(big.Int).SetUint64(1000000)
+	gasPool := new(core.GasPool).AddGas(header.GasLimit)
+	var receipts types.Receipts
+	for i := range txs {
+		amount := new(big.Int).SetUint64((nonce + 1) * 1000000000)
+		tx := types.NewTransaction(nonce, common.Address{}, amount, params.TxGas, gasPrice, []byte{})
+		tx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1)), engine.privateKey)
+		if err != nil {
+			return nil, err
+		}
+		txs[i] = tx
+		receipt, _, err := core.ApplyTransaction(chain.Config(), chain, nil, gasPool, state, header, txs[i], &header.GasUsed, *engine.vmConfig)
+		if err != nil {
+			return nil, err
+		}
+		nonce++
+		receipts = append(receipts, receipt)
+	}
+	block, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, receipts)
 	if err != nil {
 		return nil, err
 	}
@@ -618,4 +813,12 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	}
 
 	return block, nil
+}
+
+// PrepareCommittedSeal returns a committed seal for the given hash
+func PrepareCommittedSeal(hash common.Hash) []byte {
+	var buf bytes.Buffer
+	buf.Write(hash.Bytes())
+	buf.Write([]byte{byte(2)})
+	return buf.Bytes()
 }

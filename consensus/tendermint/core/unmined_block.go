@@ -96,13 +96,15 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 }
 
 func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
+	h, r, s := c.currentRoundState.State()
+
 	c.logger.Debug("NewUnminedBlockEvent: Received",
 		"from", c.address.String(),
 		"type", "New Unmined Block",
 		"hash", ub.Hash(),
-		"currentHeight", c.currentRoundState.Height(),
-		"currentRound", c.currentRoundState.Round(),
-		"currentStep", c.currentRoundState.Step(),
+		"currentHeight", h,
+		"currentRound", r,
+		"currentStep", s,
 		"currentProposer", c.isProposer(),
 		"msgHeight", ub.Header().Number.Uint64(),
 		"isNilMsg", ub.Hash() == common.Hash{},

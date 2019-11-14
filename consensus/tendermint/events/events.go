@@ -16,7 +16,10 @@
 
 package events
 
-import "github.com/clearmatics/autonity/core/types"
+import (
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
+)
 
 // NewUnminedBlockEvent is posted to propose a proposal
 type NewUnminedBlockEvent struct {
@@ -34,4 +37,8 @@ type Poster interface {
 
 // CommitEvent is posted when a proposal is committed
 type CommitEvent struct {
+}
+
+type SyncEvent struct {
+	Addr common.Address
 }

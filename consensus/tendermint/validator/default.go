@@ -197,4 +197,6 @@ func (valSet *defaultSet) Copy() Set {
 
 func (valSet *defaultSet) F() int { return int(math.Ceil(float64(valSet.Size())/3)) - 1 }
 
+func (valSet *defaultSet) Quorum() int { return int(math.Ceil((2 * float64(valSet.Size())) / 3.)) }
+
 func (valSet *defaultSet) Policy() config.ProposerPolicy { return valSet.policy }

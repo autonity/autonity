@@ -20,6 +20,7 @@ package miner
 import (
 	"fmt"
 	"math/big"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -58,6 +59,7 @@ type Miner struct {
 	mux      *event.TypeMux
 	worker   *worker
 	coinbase common.Address
+	coinbaseMu sync.RWMutex
 	eth      Backend
 	engine   consensus.Engine
 	exitCh   chan struct{}
@@ -84,8 +86,8 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 // It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
 // and halt your mining operation for as long as the DOS continues.
-func (self *Miner) update() {
-	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{})
+func (m *Miner) update() {
+	events := m.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{})
 	defer events.Unsubscribe()
 
 	for {
@@ -96,78 +98,78 @@ func (self *Miner) update() {
 			}
 			switch ev.Data.(type) {
 			case downloader.StartEvent:
-				atomic.StoreInt32(&self.canStart, 0)
-				if self.Mining() {
-					self.Stop()
-					atomic.StoreInt32(&self.shouldStart, 1)
+				atomic.StoreInt32(&m.canStart, 0)
+				if m.Mining() {
+					m.Stop()
+					atomic.StoreInt32(&m.shouldStart, 1)
 					log.Info("Mining aborted due to sync")
 				}
 			case downloader.DoneEvent, downloader.FailedEvent:
-				shouldStart := atomic.LoadInt32(&self.shouldStart) == 1
+				shouldStart := atomic.LoadInt32(&m.shouldStart) == 1
 
-				atomic.StoreInt32(&self.canStart, 1)
-				atomic.StoreInt32(&self.shouldStart, 0)
+				atomic.StoreInt32(&m.canStart, 1)
+				atomic.StoreInt32(&m.shouldStart, 0)
 				if shouldStart {
-					self.Start(self.coinbase)
+					m.Start(m.Coinbase())
 				}
 				// stop immediately and ignore all further pending events
 				return
 			}
-		case <-self.exitCh:
+		case <-m.exitCh:
 			return
 		}
 	}
 }
 
-func (self *Miner) Start(coinbase common.Address) {
-	atomic.StoreInt32(&self.shouldStart, 1)
-	self.SetEtherbase(coinbase)
+func (m *Miner) Start(coinbase common.Address) {
+	atomic.StoreInt32(&m.shouldStart, 1)
+	m.SetEtherbase(coinbase)
 
-	if atomic.LoadInt32(&self.canStart) == 0 {
+	if atomic.LoadInt32(&m.canStart) == 0 {
 		log.Info("Network syncing, will start miner afterwards")
 		return
 	}
-	self.worker.start()
+	m.worker.start()
 }
 
-func (self *Miner) Stop() {
-	self.worker.stop()
-	atomic.StoreInt32(&self.shouldStart, 0)
+func (m *Miner) Stop() {
+	m.worker.stop()
+	atomic.StoreInt32(&m.shouldStart, 0)
 }
 
-func (self *Miner) Close() {
-	self.worker.stop()
-	self.worker.close()
-	close(self.exitCh)
+func (m *Miner) Close() {
+	m.worker.stop()
+	m.worker.close()
+	close(m.exitCh)
 }
 
-func (self *Miner) Mining() bool {
-	return self.worker.isRunning()
+func (m *Miner) Mining() bool {
+	return m.worker.isRunning()
 }
 
-func (self *Miner) HashRate() uint64 {
-	if pow, ok := self.engine.(consensus.PoW); ok {
+func (m *Miner) HashRate() uint64 {
+	if pow, ok := m.engine.(consensus.PoW); ok {
 		return uint64(pow.Hashrate())
 	}
 	return 0
 }
 
-func (self *Miner) SetExtra(extra []byte) error {
+func (m *Miner) SetExtra(extra []byte) error {
 	if uint64(len(extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("Extra exceeds max length. %d > %v", len(extra), params.MaximumExtraDataSize)
 	}
-	self.worker.setExtra(extra)
+	m.worker.setExtra(extra)
 	return nil
 }
 
 // SetRecommitInterval sets the interval for sealing work resubmitting.
-func (self *Miner) SetRecommitInterval(interval time.Duration) {
-	self.worker.setRecommitInterval(interval)
+func (m *Miner) SetRecommitInterval(interval time.Duration) {
+	m.worker.setRecommitInterval(interval)
 }
 
 // Pending returns the currently pending block and associated state.
-func (self *Miner) Pending() (*types.Block, *state.StateDB) {
-	return self.worker.pending()
+func (m *Miner) Pending() (*types.Block, *state.StateDB) {
+	return m.worker.pending()
 }
 
 // PendingBlock returns the currently pending block.
@@ -175,11 +177,23 @@ func (self *Miner) Pending() (*types.Block, *state.StateDB) {
 // Note, to access both the pending block and the pending state
 // simultaneously, please use Pending(), as the pending state can
 // change between multiple method calls
-func (self *Miner) PendingBlock() *types.Block {
-	return self.worker.pendingBlock()
+func (m *Miner) PendingBlock() *types.Block {
+	return m.worker.pendingBlock()
 }
 
-func (self *Miner) SetEtherbase(addr common.Address) {
-	self.coinbase = addr
-	self.worker.setEtherbase(addr)
+func (m *Miner) SetEtherbase(addr common.Address) {
+	m.SetCoinbase(addr)
+	m.worker.setEtherbase(addr)
+}
+
+func (m *Miner) Coinbase() common.Address {
+	m.coinbaseMu.RLock()
+	defer m.coinbaseMu.RUnlock()
+	return m.coinbase
+}
+
+func (m *Miner) SetCoinbase(addr common.Address) {
+	m.coinbaseMu.Lock()
+	m.coinbase = addr
+	m.coinbaseMu.Unlock()
 }

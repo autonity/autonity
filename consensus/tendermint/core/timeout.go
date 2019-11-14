@@ -32,14 +32,16 @@ type timeout struct {
 	step    Step
 	// start will be refreshed on each new schedule, it is used for metric collection of tendermint timeout.
 	start time.Time
+	logger  log.Logger
 	sync.Mutex
 }
 
-func newTimeout(s Step) *timeout {
+func newTimeout(s Step, logger log.Logger) *timeout {
 	return &timeout{
 		started: false,
 		step:    s,
 		start:   time.Now(),
+		logger:  logger,
 	}
 }
 
@@ -93,7 +95,7 @@ func (t *timeout) measureMetricsOnStopTimer() {
 func (t *timeout) reset(s Step) {
 	err := t.stopTimer()
 	if err != nil {
-		log.Info("cant stop timer", "err", err)
+		t.logger.Info("cant stop timer", "err", err)
 	}
 
 	t.Lock()
@@ -173,6 +175,7 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 }
 
 func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
+
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 
