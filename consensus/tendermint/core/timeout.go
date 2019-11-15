@@ -2,11 +2,11 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"sync"
 	"time"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/common"
 )
 
 const (
@@ -30,8 +30,8 @@ type timeout struct {
 	started bool
 	step    Step
 	// start will be refreshed on each new schedule, it is used for metric collection of tendermint timeout.
-	start time.Time
-	logger  log.Logger
+	start  time.Time
+	logger log.Logger
 	sync.Mutex
 }
 

@@ -1,19 +1,19 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/metrics"
+	"context"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/golang/mock/gomock"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
+	"sync"
 	"testing"
-  "sync"
 	"time"
-	"context"
 )
 
 func TestCore_measureMetricsOnStopTimer(t *testing.T) {

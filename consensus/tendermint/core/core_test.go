@@ -11,11 +11,11 @@ import (
 func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
 	t.Run("measure metrics of new height", func(t *testing.T) {
 		c := &core{
-			address:           common.Address{},
-			logger:            log.New("core", "test", "id", 0),
-			proposeTimeout:    newTimeout(propose, log.New("core", "test", "id", 0)),
-			prevoteTimeout:    newTimeout(prevote, log.New("core", "test", "id", 0)),
-			precommitTimeout:  newTimeout(precommit, log.New("core", "test", "id", 0)),
+			address:          common.Address{},
+			logger:           log.New("core", "test", "id", 0),
+			proposeTimeout:   newTimeout(propose, log.New("core", "test", "id", 0)),
+			prevoteTimeout:   newTimeout(prevote, log.New("core", "test", "id", 0)),
+			precommitTimeout: newTimeout(precommit, log.New("core", "test", "id", 0)),
 
 			currentRoundState: NewRoundState(big.NewInt(0), big.NewInt(1)),
 		}
