@@ -13,9 +13,10 @@ func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
 		c := &core{
 			address:           common.Address{},
 			logger:            log.New("core", "test", "id", 0),
-			proposeTimeout:    newTimeout(propose),
-			prevoteTimeout:    newTimeout(prevote),
-			precommitTimeout:  newTimeout(precommit),
+			proposeTimeout:    newTimeout(propose, log.New("core", "test", "id", 0)),
+			prevoteTimeout:    newTimeout(prevote, log.New("core", "test", "id", 0)),
+			precommitTimeout:  newTimeout(precommit, log.New("core", "test", "id", 0)),
+
 			currentRoundState: NewRoundState(big.NewInt(0), big.NewInt(1)),
 		}
 		c.measureHeightRoundMetrics(common.Big0)
@@ -28,9 +29,9 @@ func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
 		c := &core{
 			address:           common.Address{},
 			logger:            log.New("core", "test", "id", 0),
-			proposeTimeout:    newTimeout(propose),
-			prevoteTimeout:    newTimeout(prevote),
-			precommitTimeout:  newTimeout(precommit),
+			proposeTimeout:    newTimeout(propose, log.New("core", "test", "id", 0)),
+			prevoteTimeout:    newTimeout(prevote, log.New("core", "test", "id", 0)),
+			precommitTimeout:  newTimeout(precommit, log.New("core", "test", "id", 0)),
 			currentRoundState: NewRoundState(big.NewInt(0), big.NewInt(1)),
 		}
 		c.measureHeightRoundMetrics(common.Big1)
@@ -45,9 +46,9 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 		c := &core{
 			address:           common.Address{},
 			logger:            log.New("core", "test", "id", 0),
-			proposeTimeout:    newTimeout(propose),
-			prevoteTimeout:    newTimeout(prevote),
-			precommitTimeout:  newTimeout(precommit),
+			proposeTimeout:    newTimeout(propose, log.New("core", "test", "id", 0)),
+			prevoteTimeout:    newTimeout(prevote, log.New("core", "test", "id", 0)),
+			precommitTimeout:  newTimeout(precommit, log.New("core", "test", "id", 0)),
 			currentRoundState: NewRoundState(big.NewInt(0), big.NewInt(1)),
 		}
 		c.measureMetricsOnTimeOut(msgProposal, 2)
@@ -60,9 +61,9 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 		c := &core{
 			address:           common.Address{},
 			logger:            log.New("core", "test", "id", 0),
-			proposeTimeout:    newTimeout(propose),
-			prevoteTimeout:    newTimeout(prevote),
-			precommitTimeout:  newTimeout(precommit),
+			proposeTimeout:    newTimeout(propose, log.New("core", "test", "id", 0)),
+			prevoteTimeout:    newTimeout(prevote, log.New("core", "test", "id", 0)),
+			precommitTimeout:  newTimeout(precommit, log.New("core", "test", "id", 0)),
 			currentRoundState: NewRoundState(big.NewInt(0), big.NewInt(1)),
 		}
 		c.measureMetricsOnTimeOut(msgPrevote, 2)
@@ -75,9 +76,9 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 		c := &core{
 			address:           common.Address{},
 			logger:            log.New("core", "test", "id", 0),
-			proposeTimeout:    newTimeout(propose),
-			prevoteTimeout:    newTimeout(prevote),
-			precommitTimeout:  newTimeout(precommit),
+			proposeTimeout:    newTimeout(propose, log.New("core", "test", "id", 0)),
+			prevoteTimeout:    newTimeout(prevote, log.New("core", "test", "id", 0)),
+			precommitTimeout:  newTimeout(precommit, log.New("core", "test", "id", 0)),
 			currentRoundState: NewRoundState(big.NewInt(0), big.NewInt(1)),
 		}
 		c.measureMetricsOnTimeOut(msgPrecommit, 2)
