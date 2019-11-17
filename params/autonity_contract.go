@@ -84,17 +84,25 @@ func (ac *AutonityContractGenesis) Validate() error {
 	if len(ac.Bytecode) == 0 || len(ac.ABI) == 0 {
 		return errors.New("autonity contract is empty")
 	}
+
 	if reflect.DeepEqual(ac.Deployer, common.Address{}) {
 		return errors.New("deployer is empty")
 	}
+
 	if reflect.DeepEqual(ac.Operator, common.Address{}) {
 		return errors.New("governance operator is empty")
 	}
+
 	for i := range ac.Users {
 		if err := ac.Users[i].Validate(); err != nil {
 			return err
 		}
 	}
+
+	if len(ac.GetValidatorUsers()) == 0 {
+		return errors.New("validators list is empty")
+	}
+
 	return nil
 }
 
