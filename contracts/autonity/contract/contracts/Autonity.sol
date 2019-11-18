@@ -17,7 +17,7 @@ contract Autonity {
 
     struct RewardDistributionData {
         address[] stakeholders;
-        uint256[] stakefractions;
+        uint256[] rewardfractions;
         uint256 amount;
     }
 
@@ -300,14 +300,14 @@ contract Autonity {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
         require(stakeholders.length > 0, "there must be stake holders");
 
-        uint256[] memory stakefractionlist = new uint256[](stakeholders.length);
+        uint256[] memory rewardfractionlist = new uint256[](stakeholders.length);
         for (uint256 i = 0; i < stakeholders.length; i++) {
             User storage _user = users[stakeholders[i]];
             uint256 reward = _user.stake.mul(_amount).div(stakeSupply);
             _user.addr.transfer(reward);
-            stakefractionlist[i] = reward;
+            rewardfractionlist[i] = reward;
         }
-        RewardDistributionData memory rd = RewardDistributionData(stakeholders, stakefractionlist, _amount);
+        RewardDistributionData memory rd = RewardDistributionData(stakeholders, rewardfractionlist, _amount);
         return rd;
     }
 

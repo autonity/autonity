@@ -2,6 +2,7 @@ package autonity
 
 import (
 	"errors"
+	"fmt"
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -9,6 +10,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/params"
 	"math/big"
 	"reflect"
@@ -32,6 +34,35 @@ func NewAutonityContract(
 
 	}
 }
+
+const (
+	Participant uint8 = iota
+	Stakeholder
+	Validator
+)
+
+const (
+	/* example metrics ID:
+	contract/user/0xefqefea...214dafaff/validator/stake
+	contract/user/0xefqefea...214dafaff/stakeholder/stake
+	contract/user/0xefqefea...214dafaff/participant/stake
+	contract/user/0xefqefea...214dafaff/validator/balance
+	contract/user/0xefqefea...214dafaff/stakeholder/balance
+	contract/user/0xefqefea...214dafaff/participant/balance
+	contract/user/0xefqefea...214dafaff/validator/commissionrate
+	contract/user/0xefqefea...214dafaff/stakeholder/commissionrate
+	contract/user/0xefqefea...214dafaff/participant/commissionrate
+	*/
+	// template:
+	UserMetricIDTemplate      = "contract/user/%s/%s/%s"
+
+	// counting for each block will introduce metric ID increasing in metric registry, it will exhaust the memory.
+	BlockRewardDistributionMetricIDTemplate = "contract/user/%s/%s/reward"
+	BlockRewardMetricID = "contract/transactionfee"
+
+	GlobalMetricIDGasPrice    = "contract/global/minimum/gasprice"
+	GloablMetricIDStakeSupply = "contract/global/stakesupply"
+)
 
 type ChainContext interface {
 	// Engine retrieves the chain's consensus engine.
@@ -59,6 +90,131 @@ type Contract struct {
 	transfer    func(db vm.StateDB, sender, recipient common.Address, amount *big.Int)
 	GetHashFn   func(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 	sync.RWMutex
+}
+
+func (ac *Contract) generateRewardDistributionMetricsID(address common.Address, role uint8) string {
+	userType := ac.resolveUserTypeName(role)
+	blockMetricsID := fmt.Sprintf(BlockRewardDistributionMetricIDTemplate, address.String(), userType)
+	return blockMetricsID
+}
+
+func (ac *Contract) resolveUserTypeName(role uint8) string {
+	ret := "unknown"
+	switch role {
+	case Validator:
+		ret = "validator"
+	case Stakeholder:
+		ret = "stakeholder"
+	case Participant:
+		ret = "participant"
+	}
+	return ret
+}
+
+func (ac *Contract) generateUserMetricsID(address common.Address, role uint8) (stakeID string,
+	balanceID string, commissionRateID string, err error) {
+	if role > Validator {
+		return "", "", "", errors.New("invalid parameter")
+	}
+	userType := ac.resolveUserTypeName(role)
+	stakeID = fmt.Sprintf(UserMetricIDTemplate, address.String(), userType, "stake")
+	balanceID = fmt.Sprintf(UserMetricIDTemplate, address.String(), userType, "balance")
+	commissionRateID = fmt.Sprintf(UserMetricIDTemplate, address.String(), userType, "commissionrate")
+	return stakeID, balanceID, commissionRateID, nil
+}
+
+// measure metrics of user's meta data by regarding of network economic.
+func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB) {
+	if header == nil || stateDB == nil {
+		log.Warn("invalid parameter")
+		return
+	}
+	// skip the measurement of genesis block.
+	if header.Number.Int64() < 1 {
+		return
+	}
+
+	deployer := ac.bc.Config().AutonityContractConfig.Deployer
+	sender := vm.AccountRef(deployer)
+	gas := uint64(0xFFFFFFFF)
+	evm := ac.getEVM(header, deployer, stateDB)
+
+	ABI, err := ac.abi()
+	if err != nil {
+		return
+	}
+
+	input, err := ABI.Pack("dumpNetworkEconomicsData")
+	if err != nil {
+		log.Warn("cannot pack the method: ", err.Error())
+		return
+	}
+
+	value := new(big.Int).SetUint64(0x00)
+	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
+	log.Debug("bytes return from contract: ", ret)
+	if vmerr != nil {
+		log.Warn("Error Autonity Contract dumpNetworkEconomics")
+		return
+	}
+
+	v := struct {
+		Accounts []common.Address `abi:"accounts"`
+		Usertypes []uint8	`abi:"usertypes"`
+		Stakes []*big.Int	`abi:"stakes"`
+		Commissionrates []*big.Int `abi:"commissionrates"`
+		Mingasprice *big.Int `abi:"mingasprice"`
+		Stakesupply *big.Int `abi:"stakesupply"`
+	}{make([]common.Address, 32), make([]uint8, 32), make([]*big.Int, 32),
+		make([]*big.Int, 32), new(big.Int), new(big.Int)}
+
+	if err := ABI.Unpack(&v, "dumpNetworkEconomicsData", ret); err != nil { // can't work with aliased types
+		log.Warn("Could not unpack dumpNetworkEconomicsData returned value", "err", err, "header.num",
+			header.Number.Uint64())
+		return
+	}
+
+	// measure global metrics
+	gasPriceGauge := metrics.GetOrRegisterGauge(GlobalMetricIDGasPrice, nil)
+	stakeTotalSupplyGauge := metrics.GetOrRegisterGauge(GloablMetricIDStakeSupply, nil)
+	gasPriceGauge.Update(v.Mingasprice.Int64())
+	stakeTotalSupplyGauge.Update(v.Stakesupply.Int64())
+
+	// measure user metrics
+	if len(v.Accounts) != len(v.Usertypes) || len(v.Accounts) != len(v.Stakes) ||
+		len(v.Accounts) != len(v.Commissionrates) {
+		log.Warn("mismatched data set dumped from autonity contract")
+		return
+	}
+
+	for i := 0; i < len(v.Accounts); i++ {
+		user := v.Accounts[i]
+		userType := v.Usertypes[i]
+		stake := v.Stakes[i]
+		rate := v.Commissionrates[i]
+		balance := stateDB.GetBalance(user)
+
+		log.Debug("user: ", user, "userType: ", userType, "stake: ", stake, "rate: ", rate, "balance: ", balance)
+
+		// generate metric ID.
+		stakeID, balanceID, commmissionRateID, err := ac.generateUserMetricsID(user, userType)
+		if err != nil {
+			log.Warn("generateUserMetricsID failed.")
+			return
+		}
+
+		// get or create metrics from default registry.
+		stakeGauge := metrics.GetOrRegisterGauge(stakeID, nil)
+		balanceGauge := metrics.GetOrRegisterGauge(balanceID, nil)
+		commissionRateGauge := metrics.GetOrRegisterGauge(commmissionRateID, nil)
+
+		// submit data to registry.
+		stakeGauge.Update(stake.Int64())
+		balanceGauge.Update(balance.Int64())
+		commissionRateGauge.Update(rate.Int64())
+	}
+
+	return
 }
 
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
@@ -345,11 +501,39 @@ func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *type
 
 	value := new(big.Int).SetUint64(0x00)
 
-	_, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
+	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract callPerformRedistribution()", "err", err)
 		return vmerr
 	}
+
+	// after reward distribution, update metrics with the return values.
+	v := struct {
+		Holders []common.Address `abi:"stakeholders"`
+		Rewardfractions []*big.Int	`abi:"rewardfractions"`
+		Amount *big.Int `abi:"amount"`
+	}{make([]common.Address, 32), make([]*big.Int, 32),	new(big.Int)}
+
+	if err := ABI.Unpack(&v, "performRedistribution", ret); err != nil { // can't work with aliased types
+		log.Error("Could not unpack performRedistribution returned value", "err", err, "header.num", header.Number.Uint64())
+		return nil
+	}
+
+	if len(v.Holders) != len(v.Rewardfractions) {
+		log.Warn("reward fractions does not distribute to all stake holder.")
+		return nil
+	}
+
+	// submit metrics to registry.
+	for i := 0; i < len(v.Holders); i++ {
+		rewardDistributionMetricID := ac.generateRewardDistributionMetricsID(v.Holders[i], Stakeholder)
+		rwdDistributionMetric := metrics.GetOrRegisterCounter(rewardDistributionMetricID, nil)
+		rwdDistributionMetric.Inc(v.Rewardfractions[i].Int64())
+	}
+
+	txFeeCounter := metrics.GetOrRegisterCounter(BlockRewardMetricID, nil)
+	txFeeCounter.Inc(v.Amount.Int64())
+
 	return nil
 }
 
