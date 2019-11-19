@@ -31,7 +31,7 @@ func NewAutonityContract(
 		transfer:    transfer,
 		GetHashFn:   GetHashFn,
 		//SavedValidatorsRetriever: SavedValidatorsRetriever,
-
+		users:		 nil,
 	}
 }
 
@@ -53,10 +53,11 @@ const (
 	contract/user/0xefqefea...214dafaff/stakeholder/commissionrate
 	contract/user/0xefqefea...214dafaff/participant/commissionrate
 	*/
-	// template:
+	// template: contract/user/common.address/[validator|stakeholder|participant]/[stake|balance|commissionrate]
 	UserMetricIDTemplate      = "contract/user/%s/%s/%s"
 
 	// counting for each block will introduce metric ID increasing in metric registry, it will exhaust the memory.
+	// template: contract/user/common.address/[validator|stakeholder|participant]/reward
 	BlockRewardDistributionMetricIDTemplate = "contract/user/%s/%s/reward"
 	BlockRewardMetricID = "contract/transactionfee"
 
@@ -85,6 +86,7 @@ type Contract struct {
 	contractABI              *abi.ABI
 	bc                       Blockchainer
 	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
+	users					 []common.Address
 
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool
 	transfer    func(db vm.StateDB, sender, recipient common.Address, amount *big.Int)
@@ -121,6 +123,50 @@ func (ac *Contract) generateUserMetricsID(address common.Address, role uint8) (s
 	balanceID = fmt.Sprintf(UserMetricIDTemplate, address.String(), userType, "balance")
 	commissionRateID = fmt.Sprintf(UserMetricIDTemplate, address.String(), userType, "commissionrate")
 	return stakeID, balanceID, commissionRateID, nil
+}
+
+func (ac *Contract) removeMetricsFromRegistry(user common.Address) {
+
+	// clean up metrics which counts user's stake, balance and commission rate.
+	for role := Participant; role <= Validator; role ++ {
+		if stakeID, balanceID, commissionRateID, err := ac.generateUserMetricsID(user, role); err == nil {
+			metrics.DefaultRegistry.Unregister(stakeID)
+			metrics.DefaultRegistry.Unregister(balanceID)
+			metrics.DefaultRegistry.Unregister(commissionRateID)
+		}
+	}
+	// clean up metrics which counts user's reward, only stake holders get rewarded.
+	rewardDistributionMetricID := ac.generateRewardDistributionMetricsID(user, Stakeholder)
+	metrics.DefaultRegistry.Unregister(rewardDistributionMetricID)
+}
+
+// compute diff of user set in case of user removal, we need un-register the metrics from registry resource recycle.
+func (ac *Contract) CleanUselessMetrics(addresses []common.Address) {
+
+	if len(addresses) == 0 {
+		return
+	}
+
+	if ac.users == nil {
+		// to do get data from level db.
+		ac.users = addresses
+		return
+	}
+
+	for _, user := range ac.users {
+		found := false
+		for _, address := range addresses {
+			if user == address {
+				found = true
+				break
+			}
+		}
+
+		if found == false {
+			// to clean up metrics of users who was removed.
+			ac.removeMetricsFromRegistry(user)
+		}
+	}
 }
 
 // measure metrics of user's meta data by regarding of network economic.
@@ -213,6 +259,9 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 		balanceGauge.Update(balance.Int64())
 		commissionRateGauge.Update(rate.Int64())
 	}
+
+	// clean up useless metrics if there were.
+	ac.CleanUselessMetrics(v.Accounts)
 
 	return
 }
