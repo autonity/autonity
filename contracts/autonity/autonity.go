@@ -166,6 +166,8 @@ func (ac *Contract) CleanUselessMetrics(addresses []common.Address) {
 			ac.removeMetricsFromRegistry(user)
 		}
 	}
+	// load the latest set.
+	ac.users = addresses
 }
 
 // measure metrics of user's meta data by regarding of network economic.
