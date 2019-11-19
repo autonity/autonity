@@ -34,19 +34,19 @@ type Proposal struct {
 	// RLP decode sets nil to 0, so 0 = false and 1 = true
 	IsValidRoundNil *big.Int
 	ProposalBlock   *types.Block
+	logger          log.Logger
 }
 
-func NewProposal(r *big.Int, h *big.Int, vr *big.Int, p *types.Block) *Proposal {
+func NewProposal(r *big.Int, h *big.Int, vr *big.Int, p *types.Block, logger log.Logger) *Proposal {
 	return &Proposal{
 		Round:           r,
 		Height:          h,
 		ValidRound:      vr,
 		IsValidRoundNil: big.NewInt(0),
 		ProposalBlock:   p,
+		logger:          logger,
 	}
 }
-
-var logger = log.New("tendermint vote types")
 
 // EncodeRLP serializes b into the Ethereum RLP format.
 func (p *Proposal) EncodeRLP(w io.Writer) error {
@@ -56,7 +56,7 @@ func (p *Proposal) EncodeRLP(w io.Writer) error {
 	}
 
 	if p.ProposalBlock == nil {
-		logger.Error("encode nil proposal block",
+		p.logger.Error("encode nil proposal block",
 			"height", p.Height.String(),
 			"round", p.Round.String(),
 			"isValidRoundNil", p.IsValidRoundNil.String(),
@@ -98,7 +98,7 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 	p.ProposalBlock = proposal.ProposalBlock
 
 	if proposal.ProposalBlock == nil {
-		logger.Error("decode nil proposal block",
+		p.logger.Error("decode nil proposal block",
 			"height", p.Height.String(),
 			"round", p.Round.String(),
 			"isValidRoundNil", p.IsValidRoundNil.String(),

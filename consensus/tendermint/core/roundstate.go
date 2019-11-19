@@ -33,7 +33,6 @@ func NewRoundState(r *big.Int, h *big.Int) *roundState {
 		proposal:   new(Proposal),
 		Prevotes:   newMessageSet(),
 		Precommits: newMessageSet(),
-		mu:         new(sync.RWMutex),
 	}
 }
 
@@ -47,7 +46,7 @@ type roundState struct {
 	proposalMsg *Message
 	Prevotes    messageSet
 	Precommits  messageSet
-	mu          *sync.RWMutex
+	mu          sync.RWMutex
 }
 
 func (s *roundState) Update(r *big.Int, h *big.Int) {
@@ -119,6 +118,12 @@ func (s *roundState) Step() Step {
 	defer s.mu.RUnlock()
 
 	return s.step
+}
+
+func (s *roundState) State() (*big.Int, *big.Int, uint64) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.height, s.round, uint64(s.step)
 }
 
 func (s *roundState) GetCurrentProposalHash() common.Hash {

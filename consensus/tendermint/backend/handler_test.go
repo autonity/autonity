@@ -17,7 +17,9 @@
 package backend
 
 import (
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"testing"
+	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -68,6 +70,50 @@ func TestTendermintMessage(t *testing.T) {
 	}
 }
 
+func TestSynchronisationMessage(t *testing.T) {
+	t.Run("engine not running, ignored", func(t *testing.T) {
+		eventMux := event.NewTypeMuxSilent(log.New("backend", "test", "id", 0))
+		sub := eventMux.Subscribe(events.SyncEvent{})
+		b := &Backend{
+			coreStarted: false,
+			logger:      log.New("backend", "test", "id", 0),
+			eventMux:    eventMux,
+		}
+		msg := makeMsg(tendermintSyncMsg, []byte{})
+		addr := common.BytesToAddress([]byte("address"))
+		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
+			t.Fatalf("HandleMsg unexpected return")
+		}
+		timer := time.NewTimer(2 * time.Second)
+		select {
+		case <-sub.Chan():
+			t.Fatalf("not expected message")
+		case <-timer.C:
+		}
+	})
+
+	t.Run("engine running, sync returned", func(t *testing.T) {
+		eventMux := event.NewTypeMuxSilent(log.New("backend", "test", "id", 0))
+		sub := eventMux.Subscribe(events.SyncEvent{})
+		b := &Backend{
+			coreStarted: true,
+			logger:      log.New("backend", "test", "id", 0),
+			eventMux:    eventMux,
+		}
+		msg := makeMsg(tendermintSyncMsg, []byte{})
+		addr := common.BytesToAddress([]byte("address"))
+		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
+			t.Fatalf("HandleMsg unexpected return")
+		}
+		timer := time.NewTimer(2 * time.Second)
+		select {
+		case <-timer.C:
+			t.Fatalf("sync message not posted")
+		case <-sub.Chan():
+		}
+	})
+}
+
 func TestProtocol(t *testing.T) {
 	b := &Backend{}
 
@@ -75,8 +121,8 @@ func TestProtocol(t *testing.T) {
 	if name != "tendermint" {
 		t.Fatalf("expected 'tendermint', got %v", name)
 	}
-	if code != 1 {
-		t.Fatalf("expected 1, got %v", code)
+	if code != 2 {
+		t.Fatalf("expected 2, got %v", code)
 	}
 }
 

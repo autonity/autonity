@@ -14,31 +14,16 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package events
+package core
 
 import (
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/metrics"
 )
 
-// NewUnminedBlockEvent is posted to propose a proposal
-type NewUnminedBlockEvent struct {
-	NewUnminedBlock types.Block
-}
-
-// MessageEvent is posted for Istanbul engine communication
-type MessageEvent struct {
-	Payload []byte
-}
-
-type Poster interface {
-	Post(interface{}) error
-}
-
-// CommitEvent is posted when a proposal is committed
-type CommitEvent struct {
-}
-
-type SyncEvent struct {
-	Addr common.Address
-}
+var (
+	tendermintHeightChangeMeter = metrics.NewRegisteredMeter("tendermint/height/change", nil)
+	tendermintRoundChangeMeter  = metrics.NewRegisteredMeter("tendermint/round/change", nil)
+	tendermintProposeTimer      = metrics.NewRegisteredTimer("tendermint/timer/propose", nil)
+	tendermintPrevoteTimer      = metrics.NewRegisteredTimer("tendermint/timer/prevote", nil)
+	tendermintPrecommitTimer    = metrics.NewRegisteredTimer("tendermint/timer/precommit", nil)
+)
