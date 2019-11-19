@@ -140,7 +140,7 @@ func (ac *Contract) removeMetricsFromRegistry(user common.Address) {
 	metrics.DefaultRegistry.Unregister(rewardDistributionMetricID)
 }
 
-// compute diff of user set in case of user removal, we need un-register the metrics from registry resource recycle.
+// clean up metrics from registry of removed users to recycle the memories.
 func (ac *Contract) CleanUselessMetrics(addresses []common.Address) {
 
 	if len(addresses) == 0 {
@@ -148,7 +148,6 @@ func (ac *Contract) CleanUselessMetrics(addresses []common.Address) {
 	}
 
 	if ac.users == nil {
-		// to do get data from level db.
 		ac.users = addresses
 		return
 	}
