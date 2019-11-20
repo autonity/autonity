@@ -86,6 +86,8 @@ type Contract struct {
 	contractABI              *abi.ABI
 	bc                       Blockchainer
 	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
+
+	usersMutex				 sync.RWMutex
 	users					 []common.Address
 
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool
@@ -135,18 +137,21 @@ func (ac *Contract) removeMetricsFromRegistry(user common.Address) {
 			metrics.DefaultRegistry.Unregister(commissionRateID)
 		}
 	}
-	// clean up metrics which counts user's reward, only stake holders get rewarded.
+	// clean up metrics which counts user's reward.
 	rewardDistributionMetricID := ac.generateRewardDistributionMetricsID(user, Stakeholder)
 	metrics.DefaultRegistry.Unregister(rewardDistributionMetricID)
 }
 
-// clean up metrics from registry of removed users to recycle the memories.
+/*
+*  CleanUselessMetrics clean up metric memory from ETH-Metric Registry framework used by removed users.
+*  Note: when node restart, those metrics registered in the metric registry are auto released.
+*/
 func (ac *Contract) CleanUselessMetrics(addresses []common.Address) {
-
 	if len(addresses) == 0 {
 		return
 	}
-
+	ac.usersMutex.Lock()
+	defer ac.usersMutex.Unlock()
 	if ac.users == nil {
 		ac.users = addresses
 		return
@@ -263,7 +268,6 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 
 	// clean up useless metrics if there were.
 	ac.CleanUselessMetrics(v.Accounts)
-
 	return
 }
 
