@@ -59,10 +59,7 @@ contract('Autonity', function (accounts) {
         let stake = getValidatorsResult[2];
         let enodes = getValidatorsResult[3];
         // assert.deepEqual(getValidatorsResult, validatorsList);
-        var a = Autonity.new(addresses, enodes, types, stake,0, { from:accounts[8]});
-        // let a = deployer.deploy(Autonity, accounts[0], 0,{ from:accounts[8]});
-        console.log("a=");
-        console.log(a);
+        var a = Autonity.new(addresses, enodes, types, stake,accounts[0], 0, { from:accounts[8]});
         let b = await a;
         console.log(b);
 
