@@ -31,7 +31,6 @@ func NewAutonityContract(
 		transfer:    transfer,
 		GetHashFn:   GetHashFn,
 		//SavedValidatorsRetriever: SavedValidatorsRetriever,
-		users:		 nil,
 	}
 }
 
@@ -42,7 +41,9 @@ const (
 )
 
 const (
-	/* example metrics ID:
+	/*
+	gauge metrics which tracks stake, balance, and commissionrate of per user, when user is removed, metric
+	should be removed from memory too.
 	contract/user/0xefqefea...214dafaff/validator/stake
 	contract/user/0xefqefea...214dafaff/stakeholder/stake
 	contract/user/0xefqefea...214dafaff/participant/stake
@@ -52,16 +53,27 @@ const (
 	contract/user/0xefqefea...214dafaff/validator/commissionrate
 	contract/user/0xefqefea...214dafaff/stakeholder/commissionrate
 	contract/user/0xefqefea...214dafaff/participant/commissionrate
+	template: contract/user/common.address/[validator|stakeholder|participant]/[stake|balance|commissionrate]
 	*/
-	// template: contract/user/common.address/[validator|stakeholder|participant]/[stake|balance|commissionrate]
 	UserMetricIDTemplate      = "contract/user/%s/%s/%s"
 
-	// counting for each block will introduce metric ID increasing in metric registry, it will exhaust the memory.
-	// template: contract/user/common.address/[validator|stakeholder|participant]/reward
-	BlockRewardDistributionMetricIDTemplate = "contract/user/%s/%s/reward"
-	BlockRewardMetricID = "contract/transactionfee"
+	/*
+	counter metrics which counts reward distribution for per block, cannot hold these counters from block0 to
+	infinite block number in memory, so we apply a height/time window to keep the counters in reasonable range, for
+	those counter which reported to TSDB could be removed for memory recycle.
+	template: contract/block/number/user/common.address/[validator|stakeholder|participant]/reward
+	*/
+	BlockRewardHeightWindow = 3600 // 1 hour time window to keep those counters in memory.
+	BlockRewardDistributionMetricIDTemplate = "contract/block/%v/user/%s/%s/reward"
 
-	GlobalMetricIDGasPrice    = "contract/global/minimum/gasprice"
+	// counter tracks the reward/transactionfee of a specific block
+	BlockRewardBlockMetricID = "contract/block/%v/reward"
+
+	// counter counts SUM of the rewards for each block in the history.
+	BlockRewardSUMMetricID = "contract/blockreward/sum"
+
+	// gauge metrics which track the global level metrics of economic.
+	GlobalMetricIDGasPrice    = "contract/global/mingasprice"
 	GloablMetricIDStakeSupply = "contract/global/stakesupply"
 )
 
@@ -87,8 +99,9 @@ type Contract struct {
 	bc                       Blockchainer
 	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
 
-	usersMutex				 sync.RWMutex
-	users					 []common.Address
+	metricDataMutex  sync.RWMutex
+	users            []common.Address
+	heightLowBounder uint64	// time/height window for keeping reasonable number of metrics in registry.
 
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool
 	transfer    func(db vm.StateDB, sender, recipient common.Address, amount *big.Int)
@@ -96,9 +109,13 @@ type Contract struct {
 	sync.RWMutex
 }
 
-func (ac *Contract) generateRewardDistributionMetricsID(address common.Address, role uint8) string {
+func (ac *Contract) generateBlockRewardMetricsID(blockNumber uint64) string {
+	return fmt.Sprintf(BlockRewardBlockMetricID, blockNumber)
+}
+
+func (ac *Contract) generateRewardDistributionMetricsID(address common.Address, role uint8, blockNumber uint64) string {
 	userType := ac.resolveUserTypeName(role)
-	blockMetricsID := fmt.Sprintf(BlockRewardDistributionMetricIDTemplate, address.String(), userType)
+	blockMetricsID := fmt.Sprintf(BlockRewardDistributionMetricIDTemplate, blockNumber, address.String(), userType)
 	return blockMetricsID
 }
 
@@ -127,7 +144,7 @@ func (ac *Contract) generateUserMetricsID(address common.Address, role uint8) (s
 	return stakeID, balanceID, commissionRateID, nil
 }
 
-func (ac *Contract) removeMetricsFromRegistry(user common.Address) {
+func (ac *Contract) removeMetricsFromRegistry(user common.Address, blockNumber uint64) {
 
 	// clean up metrics which counts user's stake, balance and commission rate.
 	for role := Participant; role <= Validator; role ++ {
@@ -137,22 +154,25 @@ func (ac *Contract) removeMetricsFromRegistry(user common.Address) {
 			metrics.DefaultRegistry.Unregister(commissionRateID)
 		}
 	}
-	// clean up metrics which counts user's reward.
-	rewardDistributionMetricID := ac.generateRewardDistributionMetricsID(user, Stakeholder)
-	metrics.DefaultRegistry.Unregister(rewardDistributionMetricID)
+	// clean up metrics which counts the removed user's reward.
+	for height := ac.heightLowBounder; height <= blockNumber; height++ {
+		rewardDistributionMetricID := ac.generateRewardDistributionMetricsID(user, Stakeholder, blockNumber)
+		metrics.DefaultRegistry.Unregister(rewardDistributionMetricID)
+	}
 }
 
 /*
-*  CleanUselessMetrics clean up metric memory from ETH-Metric Registry framework used by removed users.
+*  CleanUselessMetrics clean up metric memory from ETH-Metric framework by removed users.
 *  Note: when node restart, those metrics registered in the metric registry are auto released.
 */
-func (ac *Contract) CleanUselessMetrics(addresses []common.Address) {
+func (ac *Contract) CleanUselessMetrics(addresses []common.Address, blockNumber uint64) {
 	if len(addresses) == 0 {
 		return
 	}
-	ac.usersMutex.Lock()
-	defer ac.usersMutex.Unlock()
-	if ac.users == nil {
+	ac.metricDataMutex.Lock()
+	defer ac.metricDataMutex.Unlock()
+
+	if ac.users == nil || len(ac.users) == 0 {
 		ac.users = addresses
 		return
 	}
@@ -168,24 +188,20 @@ func (ac *Contract) CleanUselessMetrics(addresses []common.Address) {
 
 		if found == false {
 			// to clean up metrics of users who was removed.
-			ac.removeMetricsFromRegistry(user)
+			ac.removeMetricsFromRegistry(user, blockNumber)
 		}
 	}
-	// load the latest set.
+	// load the latest user set from economic contract.
 	ac.users = addresses
 }
 
 // measure metrics of user's meta data by regarding of network economic.
 func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB) {
-	if header == nil || stateDB == nil {
-		log.Warn("invalid parameter")
-		return
-	}
-	// skip the measurement of genesis block.
-	if header.Number.Int64() < 1 {
+	if header == nil || stateDB == nil || header.Number.Uint64() < 1 {
 		return
 	}
 
+	// prepare abi and evm context
 	deployer := ac.bc.Config().AutonityContractConfig.Deployer
 	sender := vm.AccountRef(deployer)
 	gas := uint64(0xFFFFFFFF)
@@ -196,12 +212,14 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 		return
 	}
 
+	// pack the function which dump the data from contract.
 	input, err := ABI.Pack("dumpNetworkEconomicsData")
 	if err != nil {
 		log.Warn("cannot pack the method: ", err.Error())
 		return
 	}
 
+	// call evm.
 	value := new(big.Int).SetUint64(0x00)
 	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
 	log.Debug("bytes return from contract: ", ret)
@@ -210,6 +228,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 		return
 	}
 
+	// marshal the data from bytes arrays into specified structure.
 	v := struct {
 		Accounts []common.Address `abi:"accounts"`
 		Usertypes []uint8	`abi:"usertypes"`
@@ -266,8 +285,8 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 		commissionRateGauge.Update(rate.Int64())
 	}
 
-	// clean up useless metrics if there were.
-	ac.CleanUselessMetrics(v.Accounts)
+	// clean up useless metrics if there exists.
+	ac.CleanUselessMetrics(v.Accounts, header.Number.Uint64())
 	return
 }
 
@@ -573,22 +592,58 @@ func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *type
 		return nil
 	}
 
-	if len(v.Holders) != len(v.Rewardfractions) {
-		log.Warn("reward fractions does not distribute to all stake holder.")
-		return nil
-	}
-
-	// submit metrics to registry.
-	for i := 0; i < len(v.Holders); i++ {
-		rewardDistributionMetricID := ac.generateRewardDistributionMetricsID(v.Holders[i], Stakeholder)
-		rwdDistributionMetric := metrics.GetOrRegisterCounter(rewardDistributionMetricID, nil)
-		rwdDistributionMetric.Inc(v.Rewardfractions[i].Int64())
-	}
-
-	txFeeCounter := metrics.GetOrRegisterCounter(BlockRewardMetricID, nil)
-	txFeeCounter.Inc(v.Amount.Int64())
-
+	ac.measureRewardDistributionMetrics(v.Holders, v.Rewardfractions, v.Amount, header.Number.Uint64())
 	return nil
+}
+
+/*
+* removeMetricsOutOfWindow remove those metrics from memory which is out of window.
+ */
+func (ac *Contract) removeMetricsOutOfWindow(blockNumber uint64) {
+	ac.metricDataMutex.Lock()
+	defer ac.metricDataMutex.Unlock()
+	if blockNumber - ac.heightLowBounder < BlockRewardHeightWindow {
+		return
+	}
+
+	newLowBounder := blockNumber - ac.heightLowBounder
+	for height := ac.heightLowBounder; height < newLowBounder; height++ {
+		for _, user := range ac.users {
+			blcRwdDistributionID := ac.generateRewardDistributionMetricsID(user, Stakeholder, height)
+			metrics.DefaultRegistry.Unregister(blcRwdDistributionID)
+		}
+		blcRwdID := ac.generateBlockRewardMetricsID(height)
+		metrics.DefaultRegistry.Unregister(blcRwdID)
+	}
+	// update low bounder with new window edge.
+	ac.heightLowBounder = newLowBounder
+}
+
+func (ac *Contract) measureRewardDistributionMetrics(holders []common.Address, rewardFractions []*big.Int,
+	blockReward *big.Int, blockNumber uint64) {
+	if len(holders) != len(rewardFractions) {
+		log.Warn("reward fractions does not distribute to all stake holder.")
+		return
+	}
+
+	// submit reward distribution metrics to registry.
+	for i := 0; i < len(holders); i++ {
+		rewardDistributionMetricID := ac.generateRewardDistributionMetricsID(holders[i], Stakeholder, blockNumber)
+		rwdDistributionMetric := metrics.GetOrRegisterCounter(rewardDistributionMetricID, nil)
+		rwdDistributionMetric.Inc(rewardFractions[i].Int64())
+	}
+
+	// submit block reward metric to registry.
+	blockRewardMetricID := ac.generateBlockRewardMetricsID(blockNumber)
+	blockRewardMetric := metrics.GetOrRegisterCounter(blockRewardMetricID, nil)
+	blockRewardMetric.Inc(blockReward.Int64())
+
+	// submit block reward sum metrics to registry.
+	sumBlockRewardMetric := metrics.GetOrRegisterCounter(BlockRewardSUMMetricID, nil)
+	sumBlockRewardMetric.Inc(blockReward.Int64())
+
+	// check to remove reward distribution metrics which is out of time/height window.
+	ac.removeMetricsOutOfWindow(blockNumber)
 }
 
 func (ac *Contract) ApplyPerformRedistribution(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) error {
@@ -600,6 +655,9 @@ func (ac *Contract) ApplyPerformRedistribution(transactions types.Transactions, 
 	for i, tx := range transactions {
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
+
+	ac.MeasureMetricsOfNetworkEconomic(header, statedb)
+
 	log.Info("execution start ApplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
 	if blockGas.Cmp(new(big.Int)) == 0 {
 		log.Info("execution start ApplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64())
