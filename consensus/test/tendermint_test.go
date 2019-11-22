@@ -121,6 +121,96 @@ func TestTendermintSlowConnections(t *testing.T) {
 	}
 }
 
+
+func TestTendermintMemoryLeak(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cases := []*testCase{
+		{
+			name:      "no malicious - 30 tx per second",
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 30,
+		},
+		{
+			name:      "no malicious - 100 blocks",
+			numPeers:  7,
+			numBlocks: 100,
+			txPerPeer: 10,
+		},
+	}
+
+	const repeats = 10
+	leaks := make([][]float64, len(cases))
+
+	for i, testCase := range cases {
+		i := i
+		testCase := testCase
+
+		leaks[i] = make([]float64, repeats)
+		for n:=0;n<repeats; n++ {
+			n:=n
+			t.Run(fmt.Sprintf("test case %s, try %d", testCase.name, n), func(t *testing.T) {
+				m := leak.MarkMemory()
+				runTest(t, testCase)
+				leaks[i][n] = float64(m.Release())
+			})
+		}
+	}
+
+	type stats struct {
+		mean float64
+		std float64
+		stdErr float64
+		n int
+	}
+
+	leaksStats := make([]stats, len(leaks))
+	for i, cases := range leaks {
+		mean, std := stat.MeanStdDev(cases, nil)
+		stdErr := stat.StdErr(std, float64(len(cases)))
+
+		leaksStats[i] = stats{
+			mean:   mean,
+			std:    std,
+			stdErr: stdErr,
+			n: len(cases),
+		}
+	}
+
+	sed := gmath.Sqrt(gmath.Pow(leaksStats[0].stdErr, 2) + gmath.Pow(leaksStats[1].stdErr, 2))
+	tstat := (leaksStats[0].mean - leaksStats[1].mean) / sed
+
+	// degrees of freedom
+	df := leaksStats[0].n + leaksStats[1].n - 2
+
+	// calculate the critical value
+	alpha := 0.05
+	cv := stat.PP.ppf(1.0 - alpha, df)
+
+	// calculate the p-value
+	p := (1 - stat.CDF(gmath.Abs(tstat), stat.Empirical, leaks[0], nil)) * 2
+
+	meansEqual := gmath.Abs(tstat) <= cv && p > alpha
+
+	fmt.Println("!!!", meansEqual, gmath.Abs(tstat) <= cv, p > alpha)
+}
+
+func runTestWithLeakChecks(t *testing.T, test *testCase, blocksMap ...map[common.Hash]uint64) {
+	m := leak.MarkMemory()
+	defer func() {
+		leaks := m.Release()
+
+		if leaks > 0 {
+			log.Error("some code is leaking", "size", leaks)
+		}
+	}()
+
+	runTest(t, test, blocksMap...)
+}
+
 func TestTendermintLongRun(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
