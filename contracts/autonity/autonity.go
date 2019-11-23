@@ -64,6 +64,8 @@ const (
 	template: contract/block/number/user/common.address/[validator|stakeholder|participant]/reward
 	*/
 	BlockRewardHeightWindow = 3600 // 1 hour time window to keep those counters in memory.
+	BlockRewardHeightWindowStepRange = 600 // each 10 minutes to shrink the window.
+
 	BlockRewardDistributionMetricIDTemplate = "contract/block/%v/user/%s/%s/reward"
 
 	// counter tracks the reward/transactionfee of a specific block
@@ -606,7 +608,8 @@ func (ac *Contract) removeMetricsOutOfWindow(blockNumber uint64) {
 		return
 	}
 
-	newLowBounder := blockNumber - ac.heightLowBounder
+	// newLowBounder := blockNumber - ac.heightLowBounder
+	newLowBounder := ac.heightLowBounder + BlockRewardHeightWindowStepRange
 	for height := ac.heightLowBounder; height < newLowBounder; height++ {
 		for _, user := range ac.users {
 			blcRwdDistributionID := ac.generateRewardDistributionMetricsID(user, Stakeholder, height)
