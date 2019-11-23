@@ -42,29 +42,29 @@ const (
 
 const (
 	/*
-	gauge metrics which tracks stake, balance, and commissionrate of per user, when user is removed, metric
-	should be removed from memory too.
-	contract/user/0xefqefea...214dafaff/validator/stake
-	contract/user/0xefqefea...214dafaff/stakeholder/stake
-	contract/user/0xefqefea...214dafaff/participant/stake
-	contract/user/0xefqefea...214dafaff/validator/balance
-	contract/user/0xefqefea...214dafaff/stakeholder/balance
-	contract/user/0xefqefea...214dafaff/participant/balance
-	contract/user/0xefqefea...214dafaff/validator/commissionrate
-	contract/user/0xefqefea...214dafaff/stakeholder/commissionrate
-	contract/user/0xefqefea...214dafaff/participant/commissionrate
-	template: contract/user/common.address/[validator|stakeholder|participant]/[stake|balance|commissionrate]
+		gauge metrics which tracks stake, balance, and commissionrate of per user, when user is removed, metric
+		should be removed from memory too.
+		contract/user/0xefqefea...214dafaff/validator/stake
+		contract/user/0xefqefea...214dafaff/stakeholder/stake
+		contract/user/0xefqefea...214dafaff/participant/stake
+		contract/user/0xefqefea...214dafaff/validator/balance
+		contract/user/0xefqefea...214dafaff/stakeholder/balance
+		contract/user/0xefqefea...214dafaff/participant/balance
+		contract/user/0xefqefea...214dafaff/validator/commissionrate
+		contract/user/0xefqefea...214dafaff/stakeholder/commissionrate
+		contract/user/0xefqefea...214dafaff/participant/commissionrate
+		template: contract/user/common.address/[validator|stakeholder|participant]/[stake|balance|commissionrate]
 	*/
-	UserMetricIDTemplate      = "contract/user/%s/%s/%s"
+	UserMetricIDTemplate = "contract/user/%s/%s/%s"
 
 	/*
-	counter metrics which counts reward distribution for per block, cannot hold these counters from block0 to
-	infinite block number in memory, so we apply a height/time window to keep the counters in reasonable range, for
-	those counter which reported to TSDB could be removed for memory recycle.
-	template: contract/block/number/user/common.address/[validator|stakeholder|participant]/reward
+		counter metrics which counts reward distribution for per block, cannot hold these counters from block0 to
+		infinite block number in memory, so we apply a height/time window to keep the counters in reasonable range, for
+		those counter which reported to TSDB could be removed for memory recycle.
+		template: contract/block/number/user/common.address/[validator|stakeholder|participant]/reward
 	*/
-	BlockRewardHeightWindow = 3600 // 1 hour time window to keep those counters in memory.
-	BlockRewardHeightWindowStepRange = 600 // each 10 minutes to shrink the window.
+	BlockRewardHeightWindow          = 3600 // 1 hour time window to keep those counters in memory.
+	BlockRewardHeightWindowStepRange = 600  // each 10 minutes to shrink the window.
 
 	BlockRewardDistributionMetricIDTemplate = "contract/block/%v/user/%s/%s/reward"
 
@@ -77,6 +77,10 @@ const (
 	// gauge metrics which track the global level metrics of economic.
 	GlobalMetricIDGasPrice    = "contract/global/mingasprice"
 	GloablMetricIDStakeSupply = "contract/global/stakesupply"
+	RoleUnknown               = "unknown"
+	RoleValidator             = "validator"
+	RoleStakeHolder           = "stakeholder"
+	RoleParticipant           = "participant"
 )
 
 type ChainContext interface {
@@ -103,7 +107,7 @@ type Contract struct {
 
 	metricDataMutex  sync.RWMutex
 	users            []common.Address
-	heightLowBounder uint64	// time/height window for keeping reasonable number of metrics in registry.
+	heightLowBounder uint64 // time/height window for keeping reasonable number of metrics in registry.
 
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool
 	transfer    func(db vm.StateDB, sender, recipient common.Address, amount *big.Int)
@@ -122,14 +126,14 @@ func (ac *Contract) generateRewardDistributionMetricsID(address common.Address, 
 }
 
 func (ac *Contract) resolveUserTypeName(role uint8) string {
-	ret := "unknown"
+	ret := RoleUnknown
 	switch role {
 	case Validator:
-		ret = "validator"
+		ret = RoleValidator
 	case Stakeholder:
-		ret = "stakeholder"
+		ret = RoleStakeHolder
 	case Participant:
-		ret = "participant"
+		ret = RoleParticipant
 	}
 	return ret
 }
@@ -149,7 +153,7 @@ func (ac *Contract) generateUserMetricsID(address common.Address, role uint8) (s
 func (ac *Contract) removeMetricsFromRegistry(user common.Address, blockNumber uint64) {
 
 	// clean up metrics which counts user's stake, balance and commission rate.
-	for role := Participant; role <= Validator; role ++ {
+	for role := Participant; role <= Validator; role++ {
 		if stakeID, balanceID, commissionRateID, err := ac.generateUserMetricsID(user, role); err == nil {
 			metrics.DefaultRegistry.Unregister(stakeID)
 			metrics.DefaultRegistry.Unregister(balanceID)
@@ -166,7 +170,7 @@ func (ac *Contract) removeMetricsFromRegistry(user common.Address, blockNumber u
 /*
 *  CleanUselessMetrics clean up metric memory from ETH-Metric framework by removed users.
 *  Note: when node restart, those metrics registered in the metric registry are auto released.
-*/
+ */
 func (ac *Contract) CleanUselessMetrics(addresses []common.Address, blockNumber uint64) {
 	if len(addresses) == 0 {
 		return
@@ -188,7 +192,7 @@ func (ac *Contract) CleanUselessMetrics(addresses []common.Address, blockNumber 
 			}
 		}
 
-		if found == false {
+		if !found {
 			// to clean up metrics of users who was removed.
 			ac.removeMetricsFromRegistry(user, blockNumber)
 		}
@@ -232,12 +236,12 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 
 	// marshal the data from bytes arrays into specified structure.
 	v := struct {
-		Accounts []common.Address `abi:"accounts"`
-		Usertypes []uint8	`abi:"usertypes"`
-		Stakes []*big.Int	`abi:"stakes"`
-		Commissionrates []*big.Int `abi:"commissionrates"`
-		Mingasprice *big.Int `abi:"mingasprice"`
-		Stakesupply *big.Int `abi:"stakesupply"`
+		Accounts        []common.Address `abi:"accounts"`
+		Usertypes       []uint8          `abi:"usertypes"`
+		Stakes          []*big.Int       `abi:"stakes"`
+		Commissionrates []*big.Int       `abi:"commissionrates"`
+		Mingasprice     *big.Int         `abi:"mingasprice"`
+		Stakesupply     *big.Int         `abi:"stakesupply"`
 	}{make([]common.Address, 32), make([]uint8, 32), make([]*big.Int, 32),
 		make([]*big.Int, 32), new(big.Int), new(big.Int)}
 
@@ -289,7 +293,6 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 
 	// clean up useless metrics if there exists.
 	ac.CleanUselessMetrics(v.Accounts, header.Number.Uint64())
-	return
 }
 
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
@@ -584,10 +587,10 @@ func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *type
 
 	// after reward distribution, update metrics with the return values.
 	v := struct {
-		Holders []common.Address `abi:"stakeholders"`
-		Rewardfractions []*big.Int	`abi:"rewardfractions"`
-		Amount *big.Int `abi:"amount"`
-	}{make([]common.Address, 32), make([]*big.Int, 32),	new(big.Int)}
+		Holders         []common.Address `abi:"stakeholders"`
+		Rewardfractions []*big.Int       `abi:"rewardfractions"`
+		Amount          *big.Int         `abi:"amount"`
+	}{make([]common.Address, 32), make([]*big.Int, 32), new(big.Int)}
 
 	if err := ABI.Unpack(&v, "performRedistribution", ret); err != nil { // can't work with aliased types
 		log.Error("Could not unpack performRedistribution returned value", "err", err, "header.num", header.Number.Uint64())
@@ -604,7 +607,7 @@ func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *type
 func (ac *Contract) removeMetricsOutOfWindow(blockNumber uint64) {
 	ac.metricDataMutex.Lock()
 	defer ac.metricDataMutex.Unlock()
-	if blockNumber - ac.heightLowBounder < BlockRewardHeightWindow {
+	if blockNumber-ac.heightLowBounder < BlockRewardHeightWindow {
 		return
 	}
 

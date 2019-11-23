@@ -11,14 +11,13 @@ import (
 
 const (
 	testAddress1 = "70524d664ffe731100208a0154e556f9bb679ae6"
-	testAddress2  = "70524d664ffe731100208a0154e556f9bb679ae5"
-	testAddress3  = "70524d664ffe731100208a0154e556f9bb679ae4"
+	testAddress2 = "70524d664ffe731100208a0154e556f9bb679ae5"
+	testAddress3 = "70524d664ffe731100208a0154e556f9bb679ae4"
 )
 
 func TestContract_generateMetricsIDs(t *testing.T) {
 	t.Run("test generate block reward metric ID", func(t *testing.T) {
-		contract := &Contract{
-		}
+		contract := &Contract{}
 		blockNumber := uint64(2)
 		blockRewardMetricID := contract.generateBlockRewardMetricsID(blockNumber)
 		if blockRewardMetricID != fmt.Sprintf(BlockRewardBlockMetricID, blockNumber) {
@@ -27,8 +26,7 @@ func TestContract_generateMetricsIDs(t *testing.T) {
 	})
 
 	t.Run("test generate reward distribution metric ID", func(t *testing.T) {
-		contract := &Contract{
-		}
+		contract := &Contract{}
 		a := common.Hex2Bytes(testAddress1)
 		address := common.BytesToAddress(a)
 		metricID := contract.generateRewardDistributionMetricsID(address, Participant, uint64(2))
@@ -43,10 +41,10 @@ func TestContract_generateMetricsIDs(t *testing.T) {
 		a := common.Hex2Bytes(testAddress1)
 		address := common.BytesToAddress(a)
 		stakeID, balanceID, commissionRateID, _ := contract.generateUserMetricsID(address, Participant)
-		expectedStakeId := fmt.Sprintf(UserMetricIDTemplate, address.String(), "participant", "stake")
-		expectedBalanceId := fmt.Sprintf(UserMetricIDTemplate, address.String(), "participant", "balance")
+		expectedStakeID := fmt.Sprintf(UserMetricIDTemplate, address.String(), "participant", "stake")
+		expectedBalanceID := fmt.Sprintf(UserMetricIDTemplate, address.String(), "participant", "balance")
 		expectedCommissionRateID := fmt.Sprintf(UserMetricIDTemplate, address.String(), "participant", "commissionrate")
-		if stakeID != expectedStakeId || balanceID != expectedBalanceId || commissionRateID != expectedCommissionRateID {
+		if stakeID != expectedStakeID || balanceID != expectedBalanceID || commissionRateID != expectedCommissionRateID {
 			t.Fatal("test cas failed.")
 		}
 	})
@@ -63,13 +61,13 @@ func TestContract_generateMetricsIDs(t *testing.T) {
 
 	t.Run("test resolve user type name", func(t *testing.T) {
 		contract := &Contract{}
-		name  := contract.resolveUserTypeName(Participant)
+		name := contract.resolveUserTypeName(Participant)
 		if name != "participant" {
 			t.Fatal("case failed.")
 		}
 
 		name = contract.resolveUserTypeName(Stakeholder)
-		if name != "stakeholder"{
+		if name != "stakeholder" {
 			t.Fatal("case failed.")
 		}
 
@@ -151,8 +149,8 @@ func TestContract_CleanUselessMetrics(t *testing.T) {
 	t.Run("clean up metrics for removed users, exception case: input address set is empty.", func(t *testing.T) {
 		// prepare context in metric registry
 		contract := &Contract{
-			metricDataMutex:          sync.RWMutex{},
-			heightLowBounder:         0,
+			metricDataMutex:  sync.RWMutex{},
+			heightLowBounder: 0,
 		}
 		blockHeight := uint64(10)
 		contract.CleanUselessMetrics(nil, blockHeight)
@@ -160,9 +158,9 @@ func TestContract_CleanUselessMetrics(t *testing.T) {
 
 	t.Run("clean up metrics for removed users, exception case: local address set is empty.", func(t *testing.T) {
 		contract := &Contract{
-			metricDataMutex:          sync.RWMutex{},
-			users:                    nil,
-			heightLowBounder:         0,
+			metricDataMutex:  sync.RWMutex{},
+			users:            nil,
+			heightLowBounder: 0,
 		}
 
 		a1 := common.Hex2Bytes(testAddress1)
@@ -192,9 +190,9 @@ func TestContract_CleanUselessMetrics(t *testing.T) {
 		users = append(users, address1, address2, address3)
 
 		contract := &Contract{
-			metricDataMutex:          sync.RWMutex{},
-			users:                    users,
-			heightLowBounder:         0,
+			metricDataMutex:  sync.RWMutex{},
+			users:            users,
+			heightLowBounder: 0,
 		}
 
 		// user removed, have to clean up and update user set.
@@ -214,9 +212,9 @@ func TestContract_MeasureMetricsOfNetworkEconomic(t *testing.T) {
 func TestContract_removeMetricsOutOfWindow(t *testing.T) {
 	t.Run("remove metrics which is out of window, normal case: metrics height in window.", func(t *testing.T) {
 		contract := &Contract{
-			metricDataMutex:          sync.RWMutex{},
-			users:                    nil,
-			heightLowBounder:         0,
+			metricDataMutex:  sync.RWMutex{},
+			users:            nil,
+			heightLowBounder: 0,
 		}
 
 		contract.removeMetricsOutOfWindow(BlockRewardHeightWindow - 1)
@@ -237,9 +235,9 @@ func TestContract_removeMetricsOutOfWindow(t *testing.T) {
 		users = append(users, address1, address2, address3)
 
 		contract := &Contract{
-			metricDataMutex:          sync.RWMutex{},
-			users:                    users,
-			heightLowBounder:         0,
+			metricDataMutex:  sync.RWMutex{},
+			users:            users,
+			heightLowBounder: 0,
 		}
 
 		contract.removeMetricsOutOfWindow(BlockRewardHeightWindow)
@@ -249,8 +247,8 @@ func TestContract_removeMetricsOutOfWindow(t *testing.T) {
 	})
 }
 
-func TestContract_measureRewardDistributionMetrics(t *testing.T){
-	t.Run("measure reward distribution metrics, exception case: wrong parameter.", func (t *testing.T){
+func TestContract_measureRewardDistributionMetrics(t *testing.T) {
+	t.Run("measure reward distribution metrics, exception case: wrong parameter.", func(t *testing.T) {
 		contract := &Contract{}
 		a1 := common.Hex2Bytes(testAddress1)
 		address1 := common.BytesToAddress(a1)
@@ -270,7 +268,7 @@ func TestContract_measureRewardDistributionMetrics(t *testing.T){
 		}
 	})
 
-	t.Run("measure reward distribution metrics, normal case.", func (t *testing.T){
+	t.Run("measure reward distribution metrics, normal case.", func(t *testing.T) {
 		contract := &Contract{}
 		a1 := common.Hex2Bytes(testAddress1)
 		address1 := common.BytesToAddress(a1)
@@ -299,4 +297,4 @@ func (evmMock) Call(caller vm.ContractRef, addr common.Address, input []byte, ga
 	return
 }
 
- */
+*/
