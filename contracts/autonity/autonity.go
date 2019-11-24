@@ -662,8 +662,6 @@ func (ac *Contract) ApplyPerformRedistribution(transactions types.Transactions, 
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
 
-	ac.MeasureMetricsOfNetworkEconomic(header, statedb)
-
 	log.Info("execution start ApplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
 	if blockGas.Cmp(new(big.Int)) == 0 {
 		log.Info("execution start ApplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64())

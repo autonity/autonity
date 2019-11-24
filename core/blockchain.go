@@ -1300,12 +1300,14 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		return NonStatTy, err
 	}
 
-	// Call network permissioning logic before committing the state
 	if bc.chainConfig.Istanbul != nil || bc.chainConfig.Tendermint != nil {
+		// Call network permissioning logic before committing the state
 		err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
 		if err != nil && err != autonity.ErrAutonityContract {
 			return NonStatTy, err
 		}
+		// Measure network economic metrics.
+		bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
 	}
 
 	rawdb.WriteBlock(bc.db, block)
