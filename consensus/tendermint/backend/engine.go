@@ -359,9 +359,9 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	}
 	ac := sb.blockchain.GetAutonityContract()
 	if ac != nil && header.Number.Uint64() > 1 {
-		err = ac.ApplyPerformRedistribution(txs, receipts, header, statedb)
+		err = ac.ApplyFinalize(txs, receipts, header, statedb)
 		if err != nil {
-			sb.logger.Error("ApplyPerformRedistribution", "err", err.Error())
+			sb.logger.Error("ApplyFinalize", "err", err.Error())
 			return nil, err
 		}
 	}
