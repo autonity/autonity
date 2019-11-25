@@ -153,7 +153,7 @@ func TestContract_CleanUselessMetrics(t *testing.T) {
 			heightLowBounder: 0,
 		}
 		blockHeight := uint64(10)
-		contract.CleanUselessMetrics(nil, blockHeight)
+		contract.cleanUselessMetrics(nil, blockHeight)
 	})
 
 	t.Run("clean up metrics for removed users, exception case: local address set is empty.", func(t *testing.T) {
@@ -172,7 +172,7 @@ func TestContract_CleanUselessMetrics(t *testing.T) {
 
 		var users []common.Address
 		users = append(users, address1, address2, address3)
-		contract.CleanUselessMetrics(users, uint64(10))
+		contract.cleanUselessMetrics(users, uint64(10))
 		if len(contract.users) != 3 {
 			t.Fatal("case failed.")
 		}
@@ -198,7 +198,7 @@ func TestContract_CleanUselessMetrics(t *testing.T) {
 		// user removed, have to clean up and update user set.
 		users = users[:len(users)-1]
 
-		contract.CleanUselessMetrics(users, uint64(10))
+		contract.cleanUselessMetrics(users, uint64(10))
 		if len(contract.users) != 2 {
 			t.Fatal("case failed.")
 		}

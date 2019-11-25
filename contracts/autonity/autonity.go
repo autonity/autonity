@@ -168,10 +168,10 @@ func (ac *Contract) removeMetricsFromRegistry(user common.Address, blockNumber u
 }
 
 /*
-*  CleanUselessMetrics clean up metric memory from ETH-Metric framework by removed users.
+*  cleanUselessMetrics clean up metric memory from ETH-Metric framework by removed users.
 *  Note: when node restart, those metrics registered in the metric registry are auto released.
  */
-func (ac *Contract) CleanUselessMetrics(addresses []common.Address, blockNumber uint64) {
+func (ac *Contract) cleanUselessMetrics(addresses []common.Address, blockNumber uint64) {
 	if len(addresses) == 0 {
 		return
 	}
@@ -292,7 +292,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	}
 
 	// clean up useless metrics if there exists.
-	ac.CleanUselessMetrics(v.Accounts, header.Number.Uint64())
+	ac.cleanUselessMetrics(v.Accounts, header.Number.Uint64())
 }
 
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
