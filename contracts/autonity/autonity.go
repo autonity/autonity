@@ -143,8 +143,15 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
 	log.Info("performing Autonity Contract upgrade", "header", header.Number.Uint64())
 	state, errState := ac.callRetrieveState(statedb, header)
+	if errState != nil {
+		return errState
+	}
 	bytecode, abi, errContract := ac.callRetrieveContract(statedb, header)
-	snapshotId := statedb.Snapshot()
+	if errContract != nil {
+		return errContract
+	}
+	//we save a snapshot of the statedb in case of upgrade failure
+	snapshot := statedb.Snapshot()
 
 	return nil
 }

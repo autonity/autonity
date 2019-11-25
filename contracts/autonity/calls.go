@@ -97,6 +97,12 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	return contractAddress, nil
 }
 
+func (ac *Contract) UpdateAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) error {
+	caller := ac.bc.Config().AutonityContractConfig.Deployer
+	evm := ac.getEVM(header, caller, statedb)
+	_, contractAddress, _, vmerr := evm.CreateWithAddress(sender, data, gas, value, ac.Address())
+}
+
 func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}) error {
 	caller := ac.bc.Config().AutonityContractConfig.Deployer
 	contractABI, err := ac.abi()

@@ -313,10 +313,10 @@ contract Autonity {
     }
 
     //Finalize function called once after every mined block, return if a new contract is ready for update
-
     function finalize(uint256 _amount) public onlyDeployer(msg.sender) returns (bool) {
         performRedistribution(_amount);
-        return len(bytecode) != 0;
+        _upgradeReady = len(bytecode) != 0;
+        return _upgradeReady;
     }
 
 
