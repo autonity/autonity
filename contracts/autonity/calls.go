@@ -9,7 +9,10 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"math"
 	"math/big"
+	"reflect"
 )
+
+type raw []byte
 
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
 func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
@@ -114,7 +117,11 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 		log.Error("Error Autonity Contract", "function", function)
 		return vmerr
 	}
-
+	// if result's type is "raw" then bypass unpacking
+	if reflect.TypeOf(result) == reflect.TypeOf(&raw{}) {
+		log.Info("meme type")
+	}
+	log.Info(reflect.TypeOf(result).String())
 	if err := contractABI.Unpack(result, function, ret); err != nil {
 		log.Error("Could not unpack returned value", "function", function)
 		return err
@@ -150,10 +157,21 @@ func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blo
 	return upgradeReady, nil
 }
 
-func (ac *Contract) callRetrieveState(state *state.StateDB, header *types.Header) ([]byte, error) {
-	return nil, nil
+func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Header) ([]byte, error) {
+	var state raw
+	err := ac.AutonityContractCall(statedb, header, "retrieveState", &state)
+	if err != nil {
+		return nil, err
+	}
+	return state, nil
 }
 
 func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Header) ([]byte, []byte, error) {
+	var bytecode []byte
+	var abi []byte
+	err := ac.AutonityContractCall(state, header, "retrieveContract", &[]interface{}{bytecode, abi})
+	if err != nil {
+		return nil, err
+	}
 	return nil, nil, nil
 }

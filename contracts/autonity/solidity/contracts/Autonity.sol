@@ -219,18 +219,20 @@ contract Autonity {
         return validators;
     }
 
-    function getUsers() public view returns (address[] memory, uint256[] memory, uint256[] memory, string[] memory) {
+    function retrieveState() public view
+        returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, address, uint256) {
+
         address[] memory addr = new address[](usersList.length);
         uint256[] memory userType  = new uint256[](usersList.length);
         uint256[] memory stake = new uint256[](usersList.length);
         string[] memory enode = new string[](usersList.length);
         for(uint256 i=0; i<usersList.length; i++ ) {
             addr[i] = users[usersList[i]].addr;
-            userType[i] =uint256(users[usersList[i]].userType);
+            userType[i] = uint256(users[usersList[i]].userType);
             stake[i] = users[usersList[i]].stake;
             enode[i] = users[usersList[i]].enode;
         }
-        return (addr, userType, stake, enode);
+        return (addr, enode, userType, stake, operatorAccount, minGasPrice);
     }
 
     function getStakeholders() public view returns (address[] memory) {
