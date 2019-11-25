@@ -1307,7 +1307,9 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 			return NonStatTy, err
 		}
 		// Measure network economic metrics.
-		bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
+		if bc.chainConfig.Tendermint != nil {
+			bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
+		}
 	}
 
 	rawdb.WriteBlock(bc.db, block)
