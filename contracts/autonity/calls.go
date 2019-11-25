@@ -169,9 +169,9 @@ func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Head
 func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Header) ([]byte, []byte, error) {
 	var bytecode []byte
 	var abi []byte
-	err := ac.AutonityContractCall(state, header, "retrieveContract", &[]interface{}{bytecode, abi})
+	err := ac.AutonityContractCall(state, header, "retrieveContract", &[]interface{}{&bytecode, &abi})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return nil, nil, nil
+	return bytecode, abi, nil
 }

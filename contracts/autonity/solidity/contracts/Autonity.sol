@@ -47,12 +47,21 @@ contract Autonity {
     address[] private usersList;
 
     uint256 totalStake = 0;
+
     /*
     * Ethereum transactions gas price must be greater or equal to the minimumGasPrice, a value set by the Governance operator.
     * FM-REQ-5: The minimumGasPrice value is a Genesis file configuration, if ommitted it defaults to 0.
     */
     uint256 minGasPrice = 0;
 
+    //Upgradability
+    bytes bytecode;
+    bytes abi;
+
+    /*
+    * Events
+    *
+    */
     event Transfer(address indexed from, address indexed to, uint256 value);
     event AddValidator(address _address, uint256 _stake);
     event AddStakeholder(address _address, uint256 _stake);
@@ -199,8 +208,14 @@ contract Autonity {
         return true;
     }
 
+    function upgradeContract(bytes _bytecode, bytes _abi, bytes _hashBytecode, bytes _hashabi) public onlyOperator(msg.sender) {
+        bytecode = _bytecode;
+        abi = _abi;
+    }
 
-
+    function retrieveContract() public view returns(bytes, bytes) {
+        return (bytecode, abi);
+    }
     /*
     ========================================================================================================================
 
@@ -287,7 +302,7 @@ contract Autonity {
         return  users[_account].addr == _account;
     }
 
-    function performRedistribution(uint256 _amount) public onlyDeployer(msg.sender) {
+    function performRedistribution(uint256 _amount) internal onlyDeployer(msg.sender) {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
         require(stakeholders.length > 0, "there must be stake holders");
 
@@ -296,6 +311,14 @@ contract Autonity {
             _user.addr.transfer(_user.stake.mul(_amount).div(stakeSupply));
         }
     }
+
+    //Finalize function called once after every mined block, return if a new contract is ready for update
+
+    function finalize(uint256 _amount) public onlyDeployer(msg.sender) returns (bool) {
+        performRedistribution(_amount);
+        return len(bytecode) != 0;
+    }
+
 
     function totalSupply() public view returns (uint) {
         return stakeSupply;

@@ -144,6 +144,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	log.Info("performing Autonity Contract upgrade", "header", header.Number.Uint64())
 	state, errState := ac.callRetrieveState(statedb, header)
 	bytecode, abi, errContract := ac.callRetrieveContract(statedb, header)
+	snapshotId := statedb.Snapshot()
 
 	return nil
 }
