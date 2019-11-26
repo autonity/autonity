@@ -16,13 +16,13 @@ contract Autonity {
     }
 
     struct RewardDistributionData {
+        bool result;
         address[] stakeholders;
         uint256[] rewardfractions;
         uint256 amount;
     }
 
-    //array of members who are participants.
-    address[] private participants;
+    address[] private usersList;
 
     // validators - list of validators of network
     address[] public validators;
@@ -122,11 +122,6 @@ contract Autonity {
         emit AddStakeholder(_address, _stake);
     }
 
-    function addParticipant(address payable _address, string memory _enode) public onlyOperator(msg.sender) {
-        _createUser(_address, _enode, UserType.Participant, 0);
-        emit AddParticipant(_address, 0);
-    }
-
     /*
     * removeUser
     * remove user. function MUST be restricted to the Authority Account.
@@ -144,10 +139,6 @@ contract Autonity {
             _removeFromArray(u.addr, validators);
         }
 
-        if(u.userType == UserType.Participant){
-            _removeFromArray(u.addr, participants);
-        }
-
         if (!(bytes(u.enode).length == 0)) {
             for (uint256 i = 0; i < enodesWhitelist.length; i++) {
                 if (compareStringsbyBytes(enodesWhitelist[i], u.enode)) {
@@ -158,7 +149,7 @@ contract Autonity {
             }
         }
         stakeSupply = stakeSupply.sub(u.stake);
-
+        _removeFromArray(u.addr, usersList);
         delete users[_address];
         emit RemoveUser(_address, u.userType);
     }
@@ -307,7 +298,7 @@ contract Autonity {
             _user.addr.transfer(reward);
             rewardfractionlist[i] = reward;
         }
-        RewardDistributionData memory rd = RewardDistributionData(stakeholders, rewardfractionlist, _amount);
+        RewardDistributionData memory rd = RewardDistributionData(true, stakeholders, rewardfractionlist, _amount);
         return rd;
     }
 
@@ -320,35 +311,18 @@ contract Autonity {
     * Returns a struct which contains all the network economic data.
     */
     function dumpNetworkEconomicsData() public view returns(NetworkEconomicsData memory economics) {
-        uint vl = validators.length;
-        uint sl = stakeholders.length;
-        uint pl = participants.length;
-        uint len = vl + sl + pl;
+        uint len = usersList.length;
 
         address[] memory tempAddrlist = new address[](len);
         UserType[] memory tempTypelist = new UserType[](len);
         uint256[] memory tempStakelist = new uint256[](len);
         uint256[] memory commissionRatelist = new uint256[](len);
 
-        for (uint i = 0; i < validators.length; i++) {
-            tempAddrlist[i] = users[validators[i]].addr;
-            tempTypelist[i] = users[validators[i]].userType;
-            tempStakelist[i] = users[validators[i]].stake;
-            commissionRatelist[i] = commission_rate[validators[i]];
-        }
-
-        for (uint i = 0; i < stakeholders.length; i++) {
-            tempAddrlist[i + vl] = users[stakeholders[i]].addr;
-            tempTypelist[i + vl] = users[stakeholders[i]].userType;
-            tempStakelist[i + vl] = users[stakeholders[i]].stake;
-            commissionRatelist[i + vl] = commission_rate[stakeholders[i]];
-        }
-
-        for (uint i = 0; i < participants.length; i++) {
-            tempAddrlist[i + vl + sl] = users[participants[i]].addr;
-            tempTypelist[i + vl + sl] = users[participants[i]].userType;
-            tempStakelist[i + vl + sl] = users[participants[i]].stake;
-            commissionRatelist[i + vl + sl] = commission_rate[participants[i]];
+        for (uint i = 0; i < len; i++) {
+            tempAddrlist[i] = users[usersList[i]].addr;
+            tempTypelist[i] = users[usersList[i]].userType;
+            tempStakelist[i] = users[usersList[i]].stake;
+            commissionRatelist[i] = commission_rate[usersList[i]];
         }
 
         NetworkEconomicsData memory data = NetworkEconomicsData(tempAddrlist, tempTypelist, tempStakelist, commissionRatelist, minGasPrice, stakeSupply);
@@ -415,14 +389,13 @@ contract Autonity {
         require(_address != address(0), "Addresses must be defined");
         User memory u = User(_address, _userType, _stake, _enode);
         users[u.addr] = u;
+        usersList.push(u.addr);
 
         if (u.userType == UserType.Stakeholder){
             stakeholders.push(u.addr);
         } else if(u.userType == UserType.Validator){
             validators.push(u.addr);
             stakeholders.push(u.addr);
-        } else {
-            participants.push(u.addr);
         }
         stakeSupply = stakeSupply.add(_stake);
 
