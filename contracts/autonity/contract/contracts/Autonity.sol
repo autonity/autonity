@@ -6,7 +6,7 @@ import "./SafeMath.sol";
 contract Autonity {
     using SafeMath for uint256;
 
-    struct NetworkEconomicsData {
+    struct EconomicsMetricData {
         address[] accounts;
         UserType[] usertypes;
         uint256[] stakes;
@@ -120,6 +120,11 @@ contract Autonity {
     function addStakeholder(address payable _address, string  memory _enode, uint256 _stake) public onlyOperator(msg.sender) {
         _createUser(_address, _enode, UserType.Stakeholder, _stake);
         emit AddStakeholder(_address, _stake);
+    }
+
+    function addParticipant(address payable _address, string memory _enode) public onlyOperator(msg.sender) {
+        _createUser(_address, _enode, UserType.Participant, 0);
+        emit AddParticipant(_address, 0);
     }
 
     /*
@@ -307,10 +312,10 @@ contract Autonity {
     }
 
     /*
-    * dumpNetworkEconomicsData
+    * dumpEconomicsMetricData
     * Returns a struct which contains all the network economic data.
     */
-    function dumpNetworkEconomicsData() public view returns(NetworkEconomicsData memory economics) {
+    function dumpEconomicsMetricData() public view returns(EconomicsMetricData memory economics) {
         uint len = usersList.length;
 
         address[] memory tempAddrlist = new address[](len);
@@ -325,7 +330,7 @@ contract Autonity {
             commissionRatelist[i] = commission_rate[usersList[i]];
         }
 
-        NetworkEconomicsData memory data = NetworkEconomicsData(tempAddrlist, tempTypelist, tempStakelist, commissionRatelist, minGasPrice, stakeSupply);
+        EconomicsMetricData memory data = EconomicsMetricData(tempAddrlist, tempTypelist, tempStakelist, commissionRatelist, minGasPrice, stakeSupply);
         return data;
     }
 
@@ -420,4 +425,5 @@ contract Autonity {
     // @notice Will receive any eth sent to the contract
     function () external payable {
     }
+
 }
