@@ -55,8 +55,8 @@ contract Autonity {
     uint256 minGasPrice = 0;
 
     //Upgradability
-    bytes bytecode;
-    bytes abi;
+    string bytecode;
+    string abi;
 
     /*
     * Events
@@ -208,12 +208,12 @@ contract Autonity {
         return true;
     }
 
-    function upgradeContract(bytes _bytecode, bytes _abi, bytes _hashBytecode, bytes _hashabi) public onlyOperator(msg.sender) {
+    function upgradeContract(string _bytecode, string _abi, string _hashBytecode, string _hashabi) public onlyOperator(msg.sender) {
         bytecode = _bytecode;
         abi = _abi;
     }
 
-    function retrieveContract() public view returns(bytes, bytes) {
+    function retrieveContract() public view returns(string, string) {
         return (bytecode, abi);
     }
     /*

@@ -97,10 +97,19 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	return contractAddress, nil
 }
 
-func (ac *Contract) UpdateAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) error {
+func (ac *Contract) UpdateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string, abi string, state []byte) error {
 	caller := ac.bc.Config().AutonityContractConfig.Deployer
 	evm := ac.getEVM(header, caller, statedb)
-	_, contractAddress, _, vmerr := evm.CreateWithAddress(sender, data, gas, value, ac.Address())
+	contractBytecode := common.Hex2Bytes(bytecode)
+	data := append(contractBytecode, state...)
+	gas := uint64(0xFFFFFFFF)
+	value := new(big.Int).SetUint64(0x00)
+	_, _, _, vmerr := evm.CreateWithAddress(vm.AccountRef(caller), data, gas, value, ac.Address())
+	if vmerr != nil {
+		log.Error("evm.Create returns err", "err", vmerr)
+		return vmerr
+	}
+	return nil
 }
 
 func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}) error {
@@ -172,12 +181,12 @@ func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Head
 	return state, nil
 }
 
-func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Header) ([]byte, []byte, error) {
-	var bytecode []byte
-	var abi []byte
+func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Header) (string, string, error) {
+	var bytecode string
+	var abi string
 	err := ac.AutonityContractCall(state, header, "retrieveContract", &[]interface{}{&bytecode, &abi})
 	if err != nil {
-		return nil, nil, err
+		return "", "", err
 	}
 	return bytecode, abi, nil
 }

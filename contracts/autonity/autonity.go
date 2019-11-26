@@ -10,7 +10,6 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
-	"math"
 	"math/big"
 	"reflect"
 	"sort"
@@ -67,7 +66,7 @@ func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *t
 		return ac.SavedValidatorsRetriever(1)
 	}
 	var addresses []common.Address
-	err := ac.AutonityContractCall(chain, statedb, header, "getValidators", &addresses)
+	err := ac.AutonityContractCall(statedb, header, "getValidators", &addresses)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +151,12 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	}
 	//we save a snapshot of the statedb in case of upgrade failure
 	snapshot := statedb.Snapshot()
-
+	//Create account will delete previous the AC stateobject and carry over the balance
+	statedb.CreateAccount(ac.Address())
+	if err := ac.UpdateAutonityContract(header, statedb, bytecode, abi, state); err != nil {
+		statedb.RevertToSnapshot(snapshot)
+		return err
+	}
 	return nil
 }
 
