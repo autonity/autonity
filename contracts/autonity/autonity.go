@@ -53,7 +53,7 @@ type Contract struct {
 	contractABI              *abi.ABI
 	bc                       Blockchainer
 	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
-	metrics 				 EconomicMetrics
+	metrics                  EconomicMetrics
 
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool
 	transfer    func(db vm.StateDB, sender, recipient common.Address, amount *big.Int)
@@ -396,7 +396,13 @@ func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *type
 	}
 
 	// after reward distribution, update metrics with the return values.
-	v := RewardDistributionMetaData {true, make([]common.Address, 32), make([]*big.Int, 32), new(big.Int)}
+	//v := RewardDistributionMetaData {true, make([]common.Address, 32), make([]*big.Int, 32), new(big.Int)}
+	v := RewardDistributionMetaData{}
+	v.Result = true
+	v.Holders = make([]common.Address, 32)
+	v.Rewardfractions = make([]*big.Int, 32)
+	v.Amount = new(big.Int)
+
 	if err := ABI.Unpack(&v, "performRedistribution", ret); err != nil { // can't work with aliased types
 		log.Error("Could not unpack performRedistribution returned value", "err", err, "header.num", header.Number.Uint64())
 		return nil

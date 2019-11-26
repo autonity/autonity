@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
-	"github.com/clearmatics/autonity/core/state"
 	"math/big"
 	"sync"
 )
@@ -72,7 +72,7 @@ type EconomicMetaData struct {
 
 // refer to autonity contract abi spec, keep in same meta.
 type RewardDistributionMetaData struct {
-	Result 			bool			 `abi:"result"`
+	Result          bool             `abi:"result"`
 	Holders         []common.Address `abi:"stakeholders"`
 	Rewardfractions []*big.Int       `abi:"rewardfractions"`
 	Amount          *big.Int         `abi:"amount"`

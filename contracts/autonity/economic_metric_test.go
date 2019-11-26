@@ -150,8 +150,7 @@ func TestEconomicMetrics_cleanUselessMetrics(t *testing.T) {
 	})
 
 	t.Run("clean up metrics for removed users, exception case: local address set is empty.", func(t *testing.T) {
-		em := &EconomicMetrics{
-		}
+		em := &EconomicMetrics{}
 
 		a1 := common.Hex2Bytes(testAddress1)
 		address1 := common.BytesToAddress(a1)
@@ -285,14 +284,3 @@ func TestEconomicMetrics_measureRewardDistributionMetrics(t *testing.T) {
 		}
 	})
 }
-
-/*
-
-type evmMock struct{}
-
-func (evmMock) Call(caller vm.ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
-	return
-}
-
-*/
-
