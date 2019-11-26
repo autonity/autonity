@@ -33,7 +33,6 @@ import (
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rpc"
 )
 
@@ -266,8 +265,8 @@ func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 		}
 	}
 
-	// The length of validSeal should be larger than number of faulty node + 1
-	if validSeal <= 2*validators.F() {
+	// The length of validSeal should be larger than a Quorum of nodes
+	if validSeal < validators.Quorum() {
 		return types.ErrInvalidCommittedSeals
 	}
 
@@ -320,15 +319,16 @@ func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 //
 // Note, the block header and state database might be updated to reflect any
 // consensus rules that happen at finalization (e.g. block rewards).
-func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header) {
+func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) {
+	sb.blockchainInitMu.Lock()
 	if sb.blockchain == nil {
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
+	sb.blockchainInitMu.Unlock()
 
 	validators, err := sb.getValidators(header, chain, state)
 	if err != nil {
-		log.Error("finalize. after getValidators", "err", err.Error())
+		sb.logger.Error("finalize. after getValidators", "err", err.Error())
 		return
 	}
 
@@ -338,27 +338,30 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 
 	// add validators to extraData's validators section
 	if header.Extra, err = types.PrepareExtra(header.Extra, validators); err != nil {
-		log.Error("finalize. after PrepareExtra", "err", err.Error())
+		sb.logger.Error("finalize. after PrepareExtra", "err", err.Error())
 		return
 	}
 }
 
 func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+
+	sb.blockchainInitMu.Lock()
 	if sb.blockchain == nil {
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
+	sb.blockchainInitMu.Unlock()
 
 	validators, err := sb.getValidators(header, chain, statedb)
 	if err != nil {
-		log.Error("FinalizeAndAssemble. after getValidators", "err", err.Error())
+		sb.logger.Error("FinalizeAndAssemble. after getValidators", "err", err.Error())
 		return nil, err
 	}
 	ac := sb.blockchain.GetAutonityContract()
 	if ac != nil && header.Number.Uint64() > 1 {
 		err = ac.ApplyPerformRedistribution(txs, receipts, header, statedb)
 		if err != nil {
-			log.Error("ApplyPerformRedistribution", "err", err.Error())
+			sb.logger.Error("ApplyPerformRedistribution", "err", err.Error())
 			return nil, err
 		}
 	}
@@ -388,7 +391,7 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		}
 		contractAddress, err := sb.blockchain.GetAutonityContract().DeployAutonityContract(chain, header, state)
 		if err != nil {
-			log.Error("Deploy autonity contract error", "error", err)
+			sb.logger.Error("Deploy autonity contract error", "error", err)
 			return nil, err
 		}
 		sb.autonityContractAddress = contractAddress
@@ -405,7 +408,7 @@ func (sb *Backend) getValidators(header *types.Header, chain consensus.ChainRead
 		var err error
 		validators, err = sb.blockchain.GetAutonityContract().ContractGetValidators(chain, header, state)
 		if err != nil {
-			log.Error("ContractGetValidators returns err", "err", err)
+			sb.logger.Error("ContractGetValidators returns err", "err", err)
 			return nil, err
 		}
 	}
@@ -448,6 +451,9 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	delay := time.Unix(int64(block.Header().Time), 0).Sub(now())
 	select {
 	case <-time.After(delay):
+		// nothing to do
+	case <-sb.stopped:
+		return nil
 	case <-stop:
 		return nil
 	}
@@ -529,17 +535,19 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 		return ErrStartedEngine
 	}
 
+	sb.stopped = make(chan struct{})
+
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
 
-	sb.blockchain = chain.(*core.BlockChain)
+	sb.blockchainInitMu.Lock()
+	sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
+	sb.blockchainInitMu.Unlock()
+
 	sb.currentBlock = currentBlock
 	sb.hasBadBlock = hasBadBlock
 
 	sb.coreStarted = true
-
-	sb.resend = make(chan messageToPeers, 1024)
-	sb.ReSend(ctx, 10)
 
 	return nil
 }
@@ -552,6 +560,8 @@ func (sb *Backend) Close() error {
 		return ErrStoppedEngine
 	}
 	sb.coreStarted = false
+
+	close(sb.stopped)
 
 	return nil
 }

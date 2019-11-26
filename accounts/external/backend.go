@@ -58,6 +58,12 @@ func (eb *Backend) Subscribe(sink chan<- accounts.WalletEvent) event.Subscriptio
 	})
 }
 
+func (eb *Backend) Close() {
+	for _, w := range eb.signers {
+		w.Close()
+	}
+}
+
 // Signer provides an API to interact with an external signer (clef)
 // It proxies request to the external signer while forwarding relevant
 // request headers

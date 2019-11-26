@@ -17,10 +17,14 @@
 package backend
 
 import (
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"testing"
+	"time"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/hashicorp/golang-lru"
@@ -64,6 +68,85 @@ func TestTendermintMessage(t *testing.T) {
 	if _, ok := backend.knownMessages.Get(hash); !ok {
 		t.Fatalf("the cache of messages cannot be found")
 	}
+}
+
+func TestSynchronisationMessage(t *testing.T) {
+	t.Run("engine not running, ignored", func(t *testing.T) {
+		eventMux := event.NewTypeMuxSilent(log.New("backend", "test", "id", 0))
+		sub := eventMux.Subscribe(events.SyncEvent{})
+		b := &Backend{
+			coreStarted: false,
+			logger:      log.New("backend", "test", "id", 0),
+			eventMux:    eventMux,
+		}
+		msg := makeMsg(tendermintSyncMsg, []byte{})
+		addr := common.BytesToAddress([]byte("address"))
+		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
+			t.Fatalf("HandleMsg unexpected return")
+		}
+		timer := time.NewTimer(2 * time.Second)
+		select {
+		case <-sub.Chan():
+			t.Fatalf("not expected message")
+		case <-timer.C:
+		}
+	})
+
+	t.Run("engine running, sync returned", func(t *testing.T) {
+		eventMux := event.NewTypeMuxSilent(log.New("backend", "test", "id", 0))
+		sub := eventMux.Subscribe(events.SyncEvent{})
+		b := &Backend{
+			coreStarted: true,
+			logger:      log.New("backend", "test", "id", 0),
+			eventMux:    eventMux,
+		}
+		msg := makeMsg(tendermintSyncMsg, []byte{})
+		addr := common.BytesToAddress([]byte("address"))
+		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
+			t.Fatalf("HandleMsg unexpected return")
+		}
+		timer := time.NewTimer(2 * time.Second)
+		select {
+		case <-timer.C:
+			t.Fatalf("sync message not posted")
+		case <-sub.Chan():
+		}
+	})
+}
+
+func TestProtocol(t *testing.T) {
+	b := &Backend{}
+
+	name, code := b.Protocol()
+	if name != "tendermint" {
+		t.Fatalf("expected 'tendermint', got %v", name)
+	}
+	if code != 2 {
+		t.Fatalf("expected 2, got %v", code)
+	}
+}
+
+func TestNewChainHead(t *testing.T) {
+	t.Run("engine not started, error returned", func(t *testing.T) {
+		b := &Backend{}
+
+		err := b.NewChainHead()
+		if err != ErrStoppedEngine {
+			t.Fatalf("expected %v, got %v", ErrStoppedEngine, err)
+		}
+	})
+
+	t.Run("engine is running, no errors", func(t *testing.T) {
+		b := &Backend{
+			coreStarted: true,
+			eventMux:    event.NewTypeMuxSilent(log.New("backend", "test", "id", 0)),
+		}
+
+		err := b.NewChainHead()
+		if err != nil {
+			t.Fatalf("expected <nil>, got %v", err)
+		}
+	})
 }
 
 func makeMsg(msgcode uint64, data interface{}) p2p.Msg {

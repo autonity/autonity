@@ -6,6 +6,24 @@ import "./SafeMath.sol";
 contract Autonity {
     using SafeMath for uint256;
 
+    struct NetworkEconomicsData {
+        address[] accounts;
+        UserType[] usertypes;
+        uint256[] stakes;
+        uint256[] commissionrates;
+        uint256 mingasprice;
+        uint256 stakesupply;
+    }
+
+    struct RewardDistributionData {
+        address[] stakeholders;
+        uint256[] rewardfractions;
+        uint256 amount;
+    }
+
+    //array of members who are participants.
+    address[] private participants;
+
     // validators - list of validators of network
     address[] public validators;
     // enodesWhitelist - which nodes can connect to network
@@ -124,6 +142,10 @@ contract Autonity {
 
         if(u.userType == UserType.Validator){
             _removeFromArray(u.addr, validators);
+        }
+
+        if(u.userType == UserType.Participant){
+            _removeFromArray(u.addr, participants);
         }
 
         if (!(bytes(u.enode).length == 0)) {
@@ -270,18 +292,67 @@ contract Autonity {
         return  users[_account].addr == _account;
     }
 
-    function performRedistribution(uint256 _amount) public onlyDeployer(msg.sender) {
+    /*
+    * performRedistribution
+    * return a structure contains reward distribution.
+    */
+    function performRedistribution(uint256 _amount) public onlyDeployer(msg.sender) returns(RewardDistributionData memory rewarddistribution) {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
         require(stakeholders.length > 0, "there must be stake holders");
 
+        uint256[] memory rewardfractionlist = new uint256[](stakeholders.length);
         for (uint256 i = 0; i < stakeholders.length; i++) {
             User storage _user = users[stakeholders[i]];
-            _user.addr.transfer(_user.stake.mul(_amount).div(stakeSupply));
+            uint256 reward = _user.stake.mul(_amount).div(stakeSupply);
+            _user.addr.transfer(reward);
+            rewardfractionlist[i] = reward;
         }
+        RewardDistributionData memory rd = RewardDistributionData(stakeholders, rewardfractionlist, _amount);
+        return rd;
     }
 
     function totalSupply() public view returns (uint) {
         return stakeSupply;
+    }
+
+    /*
+    * dumpNetworkEconomicsData
+    * Returns a struct which contains all the network economic data.
+    */
+    function dumpNetworkEconomicsData() public view returns(NetworkEconomicsData memory economics) {
+        uint vl = validators.length;
+        uint sl = stakeholders.length;
+        uint pl = participants.length;
+        uint len = vl + sl + pl;
+
+        address[] memory tempAddrlist = new address[](len);
+        UserType[] memory tempTypelist = new UserType[](len);
+        uint256[] memory tempStakelist = new uint256[](len);
+        uint256[] memory commissionRatelist = new uint256[](len);
+
+        for (uint i = 0; i < validators.length; i++) {
+            tempAddrlist[i] = users[validators[i]].addr;
+            tempTypelist[i] = users[validators[i]].userType;
+            tempStakelist[i] = users[validators[i]].stake;
+            commissionRatelist[i] = commission_rate[validators[i]];
+        }
+
+        for (uint i = 0; i < stakeholders.length; i++) {
+            tempAddrlist[i + vl] = users[stakeholders[i]].addr;
+            tempTypelist[i + vl] = users[stakeholders[i]].userType;
+            tempStakelist[i + vl] = users[stakeholders[i]].stake;
+            commissionRatelist[i + vl] = commission_rate[stakeholders[i]];
+        }
+
+        for (uint i = 0; i < participants.length; i++) {
+            tempAddrlist[i + vl + sl] = users[participants[i]].addr;
+            tempTypelist[i + vl + sl] = users[participants[i]].userType;
+            tempStakelist[i + vl + sl] = users[participants[i]].stake;
+            commissionRatelist[i + vl + sl] = commission_rate[participants[i]];
+        }
+
+        NetworkEconomicsData memory data = NetworkEconomicsData(tempAddrlist, tempTypelist, tempStakelist, commissionRatelist, minGasPrice, stakeSupply);
+        return data;
     }
 
     /*
@@ -350,6 +421,8 @@ contract Autonity {
         } else if(u.userType == UserType.Validator){
             validators.push(u.addr);
             stakeholders.push(u.addr);
+        } else {
+            participants.push(u.addr);
         }
         stakeSupply = stakeSupply.add(_stake);
 

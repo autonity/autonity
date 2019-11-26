@@ -17,13 +17,10 @@
 package core
 
 import (
-	"runtime"
-
 	"github.com/clearmatics/autonity/core/types"
+	"runtime"
+	"sync/atomic"
 )
-
-// senderCacher is a concurrent transaction sender recoverer and cacher.
-var senderCacher = newTxSenderCacher(runtime.NumCPU())
 
 // txSenderCacherRequest is a request for recovering transaction senders with a
 // specific signature scheme and caching it into the transactions themselves.
@@ -37,21 +34,29 @@ type txSenderCacherRequest struct {
 	inc    int
 }
 
-// txSenderCacher is a helper structure to concurrently ecrecover transaction
+// TxSenderCacher is a helper structure to concurrently ecrecover transaction
 // senders from digital signatures on background threads.
-type txSenderCacher struct {
-	threads int
-	tasks   chan *txSenderCacherRequest
+type TxSenderCacher struct {
+	threads  int
+	isClosed *uint32
+	tasks    chan *txSenderCacherRequest
 }
 
-// newTxSenderCacher creates a new transaction sender background cacher and starts
+// NewTxSenderCacher creates a new transaction sender background cacher and starts
 // as many processing goroutines as allowed by the GOMAXPROCS on construction.
-func newTxSenderCacher(threads int) *txSenderCacher {
-	cacher := &txSenderCacher{
-		tasks:   make(chan *txSenderCacherRequest, threads),
-		threads: threads,
+func NewTxSenderCacher(threads ...int) *TxSenderCacher {
+	num := 0
+	if len(threads) == 0 {
+		num = runtime.NumCPU()
+	} else {
+		num = threads[0]
 	}
-	for i := 0; i < threads; i++ {
+	cacher := &TxSenderCacher{
+		tasks:    make(chan *txSenderCacherRequest, 3*num),
+		isClosed: new(uint32),
+		threads:  num,
+	}
+	for i := 0; i < num; i++ {
 		go cacher.cache()
 	}
 	return cacher
@@ -59,7 +64,7 @@ func newTxSenderCacher(threads int) *txSenderCacher {
 
 // cache is an infinite loop, caching transaction senders from various forms of
 // data structures.
-func (cacher *txSenderCacher) cache() {
+func (cacher *TxSenderCacher) cache() {
 	for task := range cacher.tasks {
 		for i := 0; i < len(task.txs); i += task.inc {
 			types.Sender(task.signer, task.txs[i])
@@ -70,7 +75,7 @@ func (cacher *txSenderCacher) cache() {
 // recover recovers the senders from a batch of transactions and caches them
 // back into the same data structures. There is no validation being done, nor
 // any reaction to invalid signatures. That is up to calling code later.
-func (cacher *txSenderCacher) recover(signer types.Signer, txs []*types.Transaction) {
+func (cacher *TxSenderCacher) recover(signer types.Signer, txs []*types.Transaction) {
 	// If there's nothing to recover, abort
 	if len(txs) == 0 {
 		return
@@ -81,6 +86,10 @@ func (cacher *txSenderCacher) recover(signer types.Signer, txs []*types.Transact
 		tasks = (len(txs) + 3) / 4
 	}
 	for i := 0; i < tasks; i++ {
+		if atomic.LoadUint32(cacher.isClosed) == 1 {
+			return
+		}
+
 		cacher.tasks <- &txSenderCacherRequest{
 			signer: signer,
 			txs:    txs[i:],
@@ -92,7 +101,7 @@ func (cacher *txSenderCacher) recover(signer types.Signer, txs []*types.Transact
 // recoverFromBlocks recovers the senders from a batch of blocks and caches them
 // back into the same data structures. There is no validation being done, nor
 // any reaction to invalid signatures. That is up to calling code later.
-func (cacher *txSenderCacher) recoverFromBlocks(signer types.Signer, blocks []*types.Block) {
+func (cacher *TxSenderCacher) recoverFromBlocks(signer types.Signer, blocks []*types.Block) {
 	count := 0
 	for _, block := range blocks {
 		count += len(block.Transactions())
@@ -102,4 +111,10 @@ func (cacher *txSenderCacher) recoverFromBlocks(signer types.Signer, blocks []*t
 		txs = append(txs, block.Transactions()...)
 	}
 	cacher.recover(signer, txs)
+}
+
+func (cacher *TxSenderCacher) Close() {
+	if atomic.CompareAndSwapUint32(cacher.isClosed, 0, 1) {
+		close(cacher.tasks)
+	}
 }

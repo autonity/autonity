@@ -148,4 +148,14 @@ type Backend interface {
 	SyncPeer(address common.Address, messages []*Message)
 
 	ResetPeerCache(address common.Address)
+
+	AskSync(set validator.Set)
+
+	HandleUnhandledMsgs(ctx context.Context)
+
+	GetContractAddress() common.Address
+
+	GetContractABI() string
+
+	WhiteList() []string
 }

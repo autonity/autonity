@@ -19,13 +19,14 @@ package backend
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/rpc"
 )
 
 // API is a user facing RPC API to dump BFT state
 type API struct {
 	chain      consensus.ChainReader
-	tendermint *Backend
+	tendermint core.Backend
 }
 
 // GetValidators retrieves the list of authorized validators at the specified block.
@@ -55,12 +56,12 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 
 // Get Autonity contract address
 func (api *API) GetContractAddress() common.Address {
-	return api.tendermint.blockchain.GetAutonityContract().Address()
+	return api.tendermint.GetContractAddress()
 }
 
 // Get Autonity contract ABI
 func (api *API) GetContractABI() string {
-	return api.tendermint.blockchain.Config().AutonityContractConfig.ABI
+	return api.tendermint.GetContractABI()
 }
 
 // Get current white list

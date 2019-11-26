@@ -101,8 +101,7 @@ type Ethereum struct {
 	networkID     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	lock     sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
-	protocol Protocol
+	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 
 	glienickeCh  chan core.WhitelistEvent
 	glienickeSub event.Subscription
@@ -192,18 +191,6 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 		eth.etherbase = crypto.PubkeyToAddress(ctx.NodeKey().PublicKey)
 	}
 
-	if h, ok := eth.engine.(consensus.Handler); ok {
-		protocolName, extraMsgCodes := h.Protocol()
-		eth.protocol.Name = protocolName
-		eth.protocol.Versions = ProtocolVersions
-		eth.protocol.Lengths = make([]uint64, len(protocolLengths))
-		for i := range eth.protocol.Lengths {
-			eth.protocol.Lengths[i] = protocolLengths[uint(i)] + extraMsgCodes
-		}
-	} else {
-		eth.protocol = EthDefaultProtocol
-	}
-
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
 	var dbVer = "<nil>"
 	if bcVersion != nil {
@@ -220,7 +207,9 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 		}
 	}
 
-	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve)
+	senderCacher := core.NewTxSenderCacher()
+
+	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, senderCacher)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +224,7 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
-	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain)
+	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain, senderCacher)
 
 	// Permit the downloader to use the trie cache allowance during fast sync
 	cacheLimit := cacheConfig.TrieCleanLimit + cacheConfig.TrieDirtyLimit
@@ -301,9 +290,6 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 	case ethash.ModeTest:
 		log.Warn("Ethash used in test mode")
 		return ethash.NewTester(nil, noverify)
-	case ethash.ModeShared:
-		log.Warn("Ethash used in shared mode")
-		return ethash.NewShared()
 	default:
 		engine := ethash.New(ethash.Config{
 			CacheDir:       ctx.ResolvePath(ethConfig.CacheDir),
@@ -576,10 +562,9 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	if !srvr.OpenNetwork {
 		// Subscribe to Autonity updates events
 		s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
-		savedList := rawdb.ReadEnodeWhitelist(s.chainDb, srvr.OpenNetwork)
-		log.Info("Reading Whitelist", "list", savedList.StrList)
+
 		go s.glienickeEventLoop(srvr)
-		srvr.UpdateWhitelist(savedList.List)
+
 	}
 	s.startEthEntryUpdate(srvr.LocalNode())
 
@@ -608,6 +593,11 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 // Whitelist updating loop. Act as a relay between state processing logic and DevP2P
 // for updating the list of authorized enodes
 func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
+
+	savedList := rawdb.ReadEnodeWhitelist(s.chainDb, server.OpenNetwork)
+	log.Info("Reading Whitelist", "list", savedList.StrList)
+	server.UpdateWhitelist(savedList.List)
+
 	for {
 		select {
 		case event := <-s.glienickeCh:
@@ -652,7 +642,7 @@ func (s *Ethereum) Stop() error {
 		s.lesServer.Stop()
 	}
 	s.txPool.Stop()
-	s.miner.Stop()
+	s.miner.Close()
 	s.eventMux.Stop()
 
 	s.chainDb.Close()
