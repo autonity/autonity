@@ -57,11 +57,10 @@ const (
 
 	// gauge metrics which track the network operator balance.
 	GlobalOperatorBalanceMetricID = "contract/global/operator/balance"
-
-	RoleUnknown               = "unknown"
-	RoleValidator             = "validator"
-	RoleStakeHolder           = "stakeholder"
-	RoleParticipant           = "participant"
+	RoleUnknown                   = "unknown"
+	RoleValidator                 = "validator"
+	RoleStakeHolder               = "stakeholder"
+	RoleParticipant               = "participant"
 )
 
 // refer to autonity contract abt spec, keep in same meta.
