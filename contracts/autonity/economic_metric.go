@@ -53,7 +53,11 @@ const (
 
 	// gauge metrics which track the global level metrics of economic.
 	GlobalMetricIDGasPrice    = "contract/global/mingasprice"
-	GloablMetricIDStakeSupply = "contract/global/stakesupply"
+	GlobalMetricIDStakeSupply = "contract/global/stakesupply"
+
+	// gauge metrics which track the network operator balance.
+	GlobalOperatorBalanceMetricID = "contract/global/operator/balance"
+
 	RoleUnknown               = "unknown"
 	RoleValidator             = "validator"
 	RoleStakeHolder           = "stakeholder"
@@ -85,12 +89,18 @@ type EconomicMetrics struct {
 }
 
 // measure metrics of user's meta data by regarding of network economic.
-func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *state.StateDB, height uint64) {
+func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *state.StateDB, height uint64, operator common.Address) {
+
+	if v == nil || stateDB == nil {
+		return
+	}
 	// measure global metrics
 	gasPriceGauge := metrics.GetOrRegisterGauge(GlobalMetricIDGasPrice, nil)
-	stakeTotalSupplyGauge := metrics.GetOrRegisterGauge(GloablMetricIDStakeSupply, nil)
+	stakeTotalSupplyGauge := metrics.GetOrRegisterGauge(GlobalMetricIDStakeSupply, nil)
+	operatorBalanceGauge := metrics.GetOrRegisterGauge(GlobalOperatorBalanceMetricID, nil)
 	gasPriceGauge.Update(v.Mingasprice.Int64())
 	stakeTotalSupplyGauge.Update(v.Stakesupply.Int64())
+	operatorBalanceGauge.Update(stateDB.GetBalance(operator).Int64())
 
 	// measure user metrics
 	if len(v.Accounts) != len(v.Usertypes) || len(v.Accounts) != len(v.Stakes) ||

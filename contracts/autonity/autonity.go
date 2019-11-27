@@ -104,7 +104,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 		return
 	}
 
-	ac.metrics.SubmitEconomicMetrics(&v, stateDB, header.Number.Uint64())
+	ac.metrics.SubmitEconomicMetrics(&v, stateDB, header.Number.Uint64(), ac.bc.Config().AutonityContractConfig.Operator)
 }
 
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
