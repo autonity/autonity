@@ -45,7 +45,7 @@ func TestEconomicMetrics_generateMetricsIDs(t *testing.T) {
 		expectedBalanceID := fmt.Sprintf(UserMetricIDTemplate, address.String(), "participant", "balance")
 		expectedCommissionRateID := fmt.Sprintf(UserMetricIDTemplate, address.String(), "participant", "commissionrate")
 		if stakeID != expectedStakeID || balanceID != expectedBalanceID || commissionRateID != expectedCommissionRateID {
-			t.Fatal("test cas failed.")
+			t.Fatal("test case failed.")
 		}
 	})
 
@@ -55,7 +55,7 @@ func TestEconomicMetrics_generateMetricsIDs(t *testing.T) {
 		address := common.BytesToAddress(a)
 		_, _, _, err := em.generateUserMetricsID(address, 3)
 		if err == nil {
-			t.Fatal("test cas failed.")
+			t.Fatal("test case failed.")
 		}
 	})
 
