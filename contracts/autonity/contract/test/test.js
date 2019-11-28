@@ -110,6 +110,21 @@ contract('Autonity', function (accounts) {
 
     });
 
+    it('test dump network Economic metric data.', async function () {
+        const token = await Autonity.deployed();
+        let data = await token.dumpEconomicsMetricData();
+        let minGasPrice = await token.getMinimumGasPrice();
+        let sum = 0;
+        for (let i = 0; i < data.accounts.length; i++) {
+            let stake = await token.getAccountStake(data.accounts[i]);
+            assert.deepEqual(Number(data.stakes[i]), Number(stake));
+            sum += Number(data.stakes[i])
+        }
+
+        assert.deepEqual(data.accounts, validatorsList);
+        assert.deepEqual(Number(data.mingasprice), Number(minGasPrice))
+        assert.deepEqual(Number(data.stakesupply), sum)
+    });
 
     it('test non validator can get validator list', async function () {
         const token = await Autonity.deployed();
