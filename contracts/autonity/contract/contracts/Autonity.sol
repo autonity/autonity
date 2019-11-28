@@ -35,19 +35,21 @@ contract Autonity {
 
     uint256 private stakeSupply;
 
+    uint256 public committeeSize = 10;
+
     /*
     * The bonding period (BP) is specified by the Autonity System Architecture as an integer representing an interval of blocks.
     * We have identifed two differents ways to how this parameter could be used :
     * 1. Bonding/unbonding operations happening at the end of each epoch.
     * 2. BP-Delayed unbonding.
     */
-    uint256 public bonding_period = 100;
+    uint256 public bondingPeriod = 100;
     /*
     * The commission rate is set globally at the member level and is public:
     * A member can’t have multiple commission rates depending on the member
     * The commission rate MUST be by default 0 and MUST remain unchanged if not updated.
     */
-    mapping (address => uint256) private commission_rate;
+    mapping (address => uint256) public commission_rate;
 
     //array of members who are able to use stacking
     address[] private stakeholders;
@@ -59,9 +61,13 @@ contract Autonity {
         UserType userType;
         uint256 stake;
         string enode;
+        // uint256 selfStake;
+        // uint256 delegatedStake; 
     }
 
     mapping (address => User) private users;
+
+    mapping (address => User) public committee;
 
     uint256 totalStake = 0;
     /*
@@ -100,7 +106,7 @@ contract Autonity {
             require(_participantAddress[i] != address(0), "Addresses must be defined");
             UserType _userType = UserType(_participantType[i]);
             address payable addr = address(uint160(_participantAddress[i]));
-            _createUser(addr, _participantEnode[i], _userType, _participantStake[i]);
+           _createUser(addr, _participantEnode[i], _userType, _participantStake[i]);
         }
         deployer = msg.sender;
         operatorAccount = _operatorAccount;
@@ -167,6 +173,15 @@ contract Autonity {
     function setMinimumGasPrice(uint256  _value) public onlyOperator(msg.sender) {
         minGasPrice = _value;
         emit SetMinimumGasPrice(_value);
+    }
+
+    /*
+    * setCommitteeSize
+    * Set the maximum size of the commitee, restricted to the Governance Operator account
+    */
+
+    function setCommitteeSize (uint256 _size) public onlyOperator(msg.sender) {
+        committeeSize = _size        
     }
 
 
@@ -236,8 +251,18 @@ contract Autonity {
         return validators;
     }
 
+    /*
+    * getStakeholders
+    *
+    * Returns the macro stakeholders list
+    */
+
     function getStakeholders() public view returns (address[] memory) {
         return stakeholders;
+    }
+    
+    function getCommittee() public view returns (User[] memory) {
+        return committee;
     }
 
     /*
@@ -274,7 +299,14 @@ contract Autonity {
         return commission_rate[_account];
     }
 
+    /*
+    * getMaxCommitteeSize
+    * Returns the maximum possible size of the committee - set of validators participating in consensus.
+    */
 
+    function getMaxCommitteeSize() public view return(uint256) {
+        return committeeSize;
+    }
 
     /*
     * getMinimumGasPrice
@@ -286,6 +318,44 @@ contract Autonity {
 
     function checkMember(address _account) public view returns (bool) {
         return  users[_account].addr == _account;
+    }
+
+    /*
+    * setCommittee
+    * selects the committee of validators to participate in consensus
+    */
+    function setCommitte() public onlyDeployer(msg.sender) returns(User[] memory){
+        require(validators.lenght > 0, "There must be validators");
+        User[] memory validatorList;
+        User[] memory sortedValidatorList;
+        User[] memory committeeList;
+
+        /** The left uint of the helper mapping is the items current index in testStructArray,
+        ** the right uint is the destination index in sortedArray.*/
+        
+        
+        for (uint256 i = 0;i < validators.length; i++) {
+            User storage _user = users[validator[i]]; //not sure if storage or memory
+            validatorList.push(_user);
+        }
+        
+        if (validatorList.length > committeeSize) {
+            //Key is index in validatorList and value is index in sortedValidatorList
+            mapping (uint => uint) helper;
+            
+            // sort validators by stake
+            // choose the top-N (with N=maxCommitteeSize)
+            // push them into committee list
+            // implement a quicksort function here
+
+        }
+
+        // If validator is not in the committee, add it to persisten state
+            if (!committee[_validator[i]]) {
+                    committee[_user.addr] = _user;
+             }
+
+        return committeeList;
     }
 
     /*
