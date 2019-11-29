@@ -67,7 +67,7 @@ contract Autonity {
 
     mapping (address => User) private users;
 
-    mapping (address => User) public committee;
+    User[] public committee;
 
     uint256 totalStake = 0;
     /*
@@ -181,7 +181,7 @@ contract Autonity {
     */
 
     function setCommitteeSize (uint256 _size) public onlyOperator(msg.sender) {
-        committeeSize = _size        
+        committeeSize = _size;
     }
 
 
@@ -303,9 +303,16 @@ contract Autonity {
     * getMaxCommitteeSize
     * Returns the maximum possible size of the committee - set of validators participating in consensus.
     */
-
-    function getMaxCommitteeSize() public view return(uint256) {
+    function getMaxCommitteeSize() public view returns(uint256) {
         return committeeSize;
+    }
+
+    /*
+    *getCurrentCommitteeSize
+    *Returns the size of the current committee
+    */
+    function getCurrentCommiteeSize() public view returns(uint256) {
+        return committee.length;
     }
 
     /*
@@ -321,39 +328,73 @@ contract Autonity {
     }
 
     /*
+    * sortByStake
+    * Order validators by stake
+    *
+    */
+    function sortByStake(User[] validators) internal pure returns(User[]){
+        structQuickSort(User[], int(0), int(validators.length - 1));
+        return validators;
+    }
+
+    /*
+    * structQuickSort
+    * QuickSort algorithm sorting in ascending order by stake
+    */
+    function structQuickSort(User[] memory users, int low, int high) internal pure {
+
+        int i = left;
+        int j = right;
+        if (i==j) return;
+
+        uint pivot = users[uint(low + (high - low) / 2)].stake;
+
+        while (i <= j) {
+            while (users[uint(i)].stake > pivot) i++;
+            while (pivot < users[uint(j)].stake) j++;
+            if (i <= j) {
+                (users[uint(i)], users[uint(j)]) = (users[uint(j)], users[uint(i)]);
+                i++;
+                j++;
+            }
+        }
+
+        if (low < j) {
+            structQuicksort(users, low, j);
+        }
+        if (i < high) {
+            structQuicksort(users, i , high);
+        }
+    }
+
+    /*
     * setCommittee
     * selects the committee of validators to participate in consensus
     */
-    function setCommitte() public onlyDeployer(msg.sender) returns(User[] memory){
-        require(validators.lenght > 0, "There must be validators");
+    function setCommittee() public onlyDeployer(msg.sender) returns(User[] memory){
+        require(validators.length > 0, "There must be validators");
         User[] memory validatorList;
         User[] memory sortedValidatorList;
         User[] memory committeeList;
 
-        /** The left uint of the helper mapping is the items current index in testStructArray,
-        ** the right uint is the destination index in sortedArray.*/
-        
-        
         for (uint256 i = 0;i < validators.length; i++) {
             User storage _user = users[validator[i]]; //not sure if storage or memory
             validatorList.push(_user);
         }
         
         if (validatorList.length > committeeSize) {
-            //Key is index in validatorList and value is index in sortedValidatorList
-            mapping (uint => uint) helper;
-            
-            // sort validators by stake
+            // sort validators by stake in ascending order
+            sortedValidatorList = sortByStake(validatorList);
             // choose the top-N (with N=maxCommitteeSize)
-            // push them into committee list
-            // implement a quicksort function here
-
+            for (uint256 j = 0; j < committeeSize; j++) {
+                committeeList.push(sortedValidatorList[j]);
+            }
+        }
+        else {
+            committeeList = validatorList;
         }
 
-        // If validator is not in the committee, add it to persisten state
-            if (!committee[_validator[i]]) {
-                    committee[_user.addr] = _user;
-             }
+        committee = committeeList; // Updating persistent committee. CHECK if this is possible!
 
         return committeeList;
     }
