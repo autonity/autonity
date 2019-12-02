@@ -346,9 +346,8 @@ contract Autonity {
         int i = low;
         int j = high;
         if (i==j) return;
-
         uint pivot = _users[uint(low + (high - low) / 2)].stake;
-
+        // Set the pivot element in its right sorted index in the array
         while (i <= j) {
             while (_users[uint(i)].stake > pivot) i++;
             while (pivot < _users[uint(j)].stake) j++;
@@ -358,10 +357,11 @@ contract Autonity {
                 j++;
             }
         }
-
+        // Recursion call in the left partition of the array
         if (low < j) {
             structQuickSort(_users, low, j);
         }
+        // Recursion call in the right partition
         if (i < high) {
             structQuickSort(_users, i , high);
         }
