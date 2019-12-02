@@ -332,38 +332,38 @@ contract Autonity {
     * Order validators by stake
     *
     */
-    function sortByStake(User[] validators) internal pure returns(User[]){
-        structQuickSort(User[], int(0), int(validators.length - 1));
-        return validators;
+    function sortByStake(User[] memory _validators) internal pure returns(User[] memory){
+        structQuickSort(_validators, int(0), int(_validators.length - 1));
+        return _validators;
     }
 
     /*
     * structQuickSort
     * QuickSort algorithm sorting in ascending order by stake
     */
-    function structQuickSort(User[] memory users, int low, int high) internal pure {
+    function structQuickSort(User[] memory _users, int low, int high) internal pure {
 
-        int i = left;
-        int j = right;
+        int i = low;
+        int j = high;
         if (i==j) return;
 
-        uint pivot = users[uint(low + (high - low) / 2)].stake;
+        uint pivot = _users[uint(low + (high - low) / 2)].stake;
 
         while (i <= j) {
-            while (users[uint(i)].stake > pivot) i++;
-            while (pivot < users[uint(j)].stake) j++;
+            while (_users[uint(i)].stake > pivot) i++;
+            while (pivot < _users[uint(j)].stake) j++;
             if (i <= j) {
-                (users[uint(i)], users[uint(j)]) = (users[uint(j)], users[uint(i)]);
+                (_users[uint(i)], _users[uint(j)]) = (_users[uint(j)], _users[uint(i)]);
                 i++;
                 j++;
             }
         }
 
         if (low < j) {
-            structQuicksort(users, low, j);
+            structQuickSort(_users, low, j);
         }
         if (i < high) {
-            structQuicksort(users, i , high);
+            structQuickSort(_users, i , high);
         }
     }
 
@@ -373,28 +373,35 @@ contract Autonity {
     */
     function setCommittee() public onlyDeployer(msg.sender) returns(User[] memory){
         require(validators.length > 0, "There must be validators");
-        User[] memory validatorList;
-        User[] memory sortedValidatorList;
-        User[] memory committeeList;
+
+        User[] memory validatorList = new User[](committeeSize);
+        User[] memory sortedValidatorList = new User[](committeeSize);
+        User[] memory committeeList = new User[](committeeSize);
 
         for (uint256 i = 0;i < validators.length; i++) {
-            User storage _user = users[validator[i]]; //not sure if storage or memory
-            validatorList.push(_user);
+            User memory _user = users[validators[i]];
+            validatorList[i] =_user;
         }
-        
+
+        // If there are more validators than seats in the committee
         if (validatorList.length > committeeSize) {
             // sort validators by stake in ascending order
             sortedValidatorList = sortByStake(validatorList);
             // choose the top-N (with N=maxCommitteeSize)
             for (uint256 j = 0; j < committeeSize; j++) {
-                committeeList.push(sortedValidatorList[j]);
+                committeeList[j] = sortedValidatorList[j];
             }
         }
+        // If all the validators fit in the committee
         else {
             committeeList = validatorList;
         }
 
-        committee = committeeList; // Updating persistent committee. CHECK if this is possible!
+        // Update committee in persistent storage
+        delete committee;
+        for (uint256 k =0 ; k < committeeList.length; k++) {
+            committee.push(committeeList[k]);
+        }
 
         return committeeList;
     }
