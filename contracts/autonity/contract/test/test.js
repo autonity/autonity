@@ -42,6 +42,7 @@ contract('Autonity', function (accounts) {
         "enode://438a5c2cd8fdc2ecbc508bf7362e41c0f0c3754ba1d3267127a3756324caf45e6546b02140e2144b205aeb372c96c5df9641485f721dc7c5b27eb9e35f5d887b@172.25.0.14:30303",
         "enode://3ce6c053cb563bfd94f4e0e248510a07ccee1bc836c9784da1816dba4b10564e7be1ba42e0bd8d73c8f6274f8e9878dc13814adb381c823264265c06048b4b59@172.25.0.15:30303"
     ];
+    const stakes = [100, 90, 80, 110, 120];
 
     const governanceOperatorAccount = accounts[0];
     const deployer = accounts[8];
@@ -116,7 +117,10 @@ contract('Autonity', function (accounts) {
             }
 
             let performAmount = 10000;
-            let stackholdersPart = performAmount / st.length;
+
+            let totalStake= stakes.reduce((a,b) => a + b);
+
+            let stakeholdersPart = stakes.map(element => element * performAmount / totalStake);
 
             await token.performRedistribution(performAmount, {from: deployer});
 
@@ -128,7 +132,7 @@ contract('Autonity', function (accounts) {
             for (let i = 0; i < st.length; i++) {
                 let check = web3.utils.toBN(balancesAfter[i])
                     .sub(web3.utils.toBN(balances[i]))
-                    .eq(web3.utils.toBN(stackholdersPart));
+                    .eq(web3.utils.toBN(stakeholdersPart[i]));
 
                 assert(check, "not equal")
             }
@@ -370,14 +374,7 @@ contract('Autonity', function (accounts) {
             while(indexesToBeRemoved.length) {
                 validators.splice(indexesToBeRemoved.pop(), 1);
             }
-             // TODO: Remove dependency of the initial deploy contract script.
-            console.log("commmittee mock")
-            console.log(validators)
-            console.log("committee")
-            console.log(committeeValidators)
-
             assert.deepEqual(committeeValidators.sort(), validators.sort(), "Error while creating new committee");
-
         });
     });
 
@@ -466,7 +463,9 @@ contract('Autonity', function (accounts) {
             assert.deepEqual(Number(data.stakes[i]), Number(stake));
             sum += Number(data.stakes[i])
         }
+        console.log("Addresses")
         console.log(data.accounts);
+        console.log("Stake")
         console.log(data.stakes);
         assert.deepEqual(data.accounts, validatorsList);
         assert.deepEqual(Number(data.mingasprice), Number(minGasPrice))
