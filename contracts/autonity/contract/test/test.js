@@ -48,6 +48,28 @@ contract('Autonity', function (accounts) {
     const deployer = accounts[8];
     let token;
 
+    describe('Metrics', function() { // test failing
+
+        beforeEach(async function(){
+            token = await Autonity.deployed();
+        })
+
+        it('test dump network Economic metric data.', async function () {
+            let data = await token.dumpEconomicsMetricData({from: governanceOperatorAccount});
+            let minGasPrice = await token.getMinimumGasPrice({from: governanceOperatorAccount});
+            let sum = 0;
+            for (let i = 0; i < data.accounts.length; i++) {
+                let stake = await token.getAccountStake(data.accounts[i], {from: governanceOperatorAccount});
+                assert.deepEqual(Number(data.stakes[i]), Number(stake));
+                sum += Number(data.stakes[i])
+            }
+
+            assert.deepEqual(data.accounts, validatorsList);
+            assert.deepEqual(Number(data.mingasprice), Number(minGasPrice))
+            assert.deepEqual(Number(data.stakesupply), sum)
+        });
+    });
+
     describe('Initial state', function() {
 
         beforeEach(async function(){
@@ -452,46 +474,4 @@ contract('Autonity', function (accounts) {
             await token.removeUser(accounts[5], {from: governanceOperatorAccount});
         });
     });
-
-    it('test dump network Economic metric data.', async function () {
-        const token = await Autonity.deployed();
-        let data = await token.dumpEconomicsMetricData();
-        let minGasPrice = await token.getMinimumGasPrice();
-        let sum = 0;
-        for (let i = 0; i < data.accounts.length; i++) {
-            let stake = await token.getAccountStake(data.accounts[i]);
-            assert.deepEqual(Number(data.stakes[i]), Number(stake));
-            sum += Number(data.stakes[i])
-        }
-        console.log("Addresses")
-        console.log(data.accounts);
-        console.log("Stake")
-        console.log(data.stakes);
-        assert.deepEqual(data.accounts, validatorsList);
-        assert.deepEqual(Number(data.mingasprice), Number(minGasPrice))
-        assert.deepEqual(Number(data.stakesupply), sum)
-    });
-
-    describe('Metrics', function() { // test failing
-
-        beforeEach(async function(){
-            token = await Autonity.deployed();
-        })
-
-        it('test dump network Economic metric data.', async function () {
-            let data = await token.dumpEconomicsMetricData({from: governanceOperatorAccount});
-            let minGasPrice = await token.getMinimumGasPrice({from: governanceOperatorAccount});
-            let sum = 0;
-            for (let i = 0; i < data.accounts.length; i++) {
-                let stake = await token.getAccountStake(data.accounts[i], {from: governanceOperatorAccount});
-                assert.deepEqual(Number(data.stakes[i]), Number(stake));
-                sum += Number(data.stakes[i])
-            }
-
-            assert.deepEqual(data.accounts, validatorsList);
-            assert.deepEqual(Number(data.mingasprice), Number(minGasPrice))
-            assert.deepEqual(Number(data.stakesupply), sum)
-        });
-    });
-
 });
