@@ -20,7 +20,7 @@ contract Autonity {
         address[] stakeholders;
         uint256[] rewardfractions;
         uint256 amount;
-        uint256 sum;
+        uint256 totalrewards;
     }
 
     address[] private usersList;
@@ -64,7 +64,7 @@ contract Autonity {
 
     mapping (address => User) private users;
 
-    uint256 sum_reward = 0;
+    uint256 total_reward = 0;
     /*
     * Ethereum transactions gas price must be greater or equal to the minimumGasPrice, a value set by the Governance operator.
     * FM-REQ-5: The minimumGasPrice value is a Genesis file configuration, if ommitted it defaults to 0.
@@ -304,9 +304,9 @@ contract Autonity {
             _user.addr.transfer(reward);
             rewardfractionlist[i] = reward;
         }
-        sum_reward += _amount;
+        total_reward += _amount;
 
-        RewardDistributionData memory rd = RewardDistributionData(true, stakeholders, rewardfractionlist, _amount, sum_reward);
+        RewardDistributionData memory rd = RewardDistributionData(true, stakeholders, rewardfractionlist, _amount, total_reward);
         return rd;
     }
 

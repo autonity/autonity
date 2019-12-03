@@ -286,62 +286,31 @@ func TestEconomicMetrics_measureRewardDistributionMetrics(t *testing.T) {
 }
 
 func TestEconomicMetrics_recordMetric(t *testing.T) {
-	t.Run("record metrics, normal case with value 0 to be div.", func(t *testing.T) {
+	t.Run("record metrics, normal case 1.", func(t *testing.T) {
 		em := &EconomicMetrics{}
-		name := "metric_name"
 		value := big.NewInt(0)
-		result := em.recordMetric(name, value, false)
-		if result != 0 {
+		em.recordMetric("metricID1", value, true)
+		metric := metrics.Get("metricID1")
+		if metric == nil {
 			t.Fatal("case failed.")
 		}
 	})
 
-	t.Run("record metrics, normal case with value 1 to be div.", func(t *testing.T) {
+	t.Run("record metrics, normal case 2.", func(t *testing.T) {
 		em := &EconomicMetrics{}
-		name := "metric_name"
-		value := big.NewInt(1)
-		result := em.recordMetric(name, value, false)
-		if result != 1e-9 {
+		value := big.NewInt(0)
+		em.recordMetric("metricID2", value, false)
+		metric := metrics.Get("metricID2")
+		if metric == nil {
 			t.Fatal("case failed.")
 		}
 	})
 
-	t.Run("record metrics, normal case with value 100 to be div.", func(t *testing.T) {
+	t.Run("record metrics, exception case.", func(t *testing.T) {
 		em := &EconomicMetrics{}
-		name := "metric_name"
-		value := big.NewInt(100)
-		result := em.recordMetric(name, value, false)
-		if result != 1e-7 {
-			t.Fatal("case failed.")
-		}
-	})
-
-	t.Run("record metrics, normal case with value 1e9 to be div.", func(t *testing.T) {
-		em := &EconomicMetrics{}
-		name := "metric_name"
-		value := big.NewInt(1e9)
-		result := em.recordMetric(name, value, false)
-		if result != 1 {
-			t.Fatal("case failed.")
-		}
-	})
-
-	t.Run("record metrics, normal case with value 1e18 to be div.", func(t *testing.T) {
-		em := &EconomicMetrics{}
-		name := "metric_name"
-		value := big.NewInt(1e18)
-		result := em.recordMetric(name, value, false)
-		if result != 1e9 {
-			t.Fatal("case failed.")
-		}
-	})
-
-	t.Run("record metrics, normal case with value 1e18 to be div from Wei.", func(t *testing.T) {
-		em := &EconomicMetrics{}
-		name := "metric_name"
-		value := big.NewInt(1e18)
-		result := em.recordMetric(name, value, true)
-		if result != 1 {
+		em.recordMetric("metricID3", nil, false)
+		metric := metrics.Get("metricID3")
+		if metric != nil {
 			t.Fatal("case failed.")
 		}
 	})

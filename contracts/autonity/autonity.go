@@ -402,7 +402,7 @@ func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *type
 	v.Holders = make([]common.Address, 32)
 	v.Rewardfractions = make([]*big.Int, 32)
 	v.Amount = new(big.Int)
-	v.Sum = new(big.Int)
+	v.Totalrewards = new(big.Int)
 
 	if err := ABI.Unpack(&v, "performRedistribution", ret); err != nil { // can't work with aliased types
 		log.Error("Could not unpack performRedistribution returned value", "err", err, "header.num", header.Number.Uint64())

@@ -33,11 +33,12 @@ const (
 		contract/user/0xefqefea...214dafaff/participant/commissionrate
 		template: contract/user/common.address/[validator|stakeholder|participant]/[stake|balance|commissionrate]
 	*/
+
 	// gauge to track stake and balance in ETH for user.
 	UserMetricIDTemplate = "contract/user/%s/%s/%s"
 
 	// gauge which track the min gas price in GWei.
-	GlobalMetricIDGasPrice    = "contract/global/mingasprice"
+	GlobalMetricIDGasPrice = "contract/global/mingasprice"
 
 	// gauge which track the global state supply in ETH.
 	GlobalMetricIDStakeSupply = "contract/global/stakesupply"
@@ -84,7 +85,7 @@ type RewardDistributionMetaData struct {
 	Holders         []common.Address `abi:"stakeholders"`
 	Rewardfractions []*big.Int       `abi:"rewardfractions"`
 	Amount          *big.Int         `abi:"amount"`
-	Sum	            *big.Int         `abi:"sum"`
+	Totalrewards    *big.Int         `abi:"totalrewards"`
 }
 
 type EconomicMetrics struct {
@@ -93,20 +94,21 @@ type EconomicMetrics struct {
 	heightLowBounder uint64 // time/height window for keeping reasonable number of metrics in registry.
 }
 
-func (em *EconomicMetrics) recordMetric(name string, value *big.Int, fromWei bool) float64 {
+func (em *EconomicMetrics) recordMetric(name string, value *big.Int, isWei bool) {
 	if value == nil {
-		return 0.0
+		return
 	}
 
-	gauge := metrics.GetOrRegisterGaugeFloat64(name, nil)
-	divis := big.NewInt(params.GWei)
-	// convert value into ETH by div the unit.
-	if fromWei {
-		divis = big.NewInt(params.Ether)
+	// balance need to be converted from wei to ETH to be saved in prometheus.
+	if isWei {
+		gauge := metrics.GetOrRegisterGaugeFloat64(name, nil)
+		val2, _ := new(big.Rat).SetFrac(value, big.NewInt(params.Ether)).Float64()
+		gauge.Update(val2)
+		return
 	}
-	val2, _ := new(big.Rat).SetFrac(value, divis).Float64()
-	gauge.Update(val2)
-	return val2
+	// stake will be keep in raw stake.
+	gauge := metrics.GetOrRegisterGauge(name, nil)
+	gauge.Update(value.Int64())
 }
 
 // measure metrics of user's meta data by regarding of network economic.
@@ -116,7 +118,7 @@ func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *s
 		return
 	}
 
-	em.recordMetric(GlobalMetricIDGasPrice, v.Mingasprice, false)
+	em.recordMetric(GlobalMetricIDGasPrice, v.Mingasprice, true)
 	em.recordMetric(GlobalMetricIDStakeSupply, v.Stakesupply, false)
 	em.recordMetric(GlobalOperatorBalanceMetricID, stateDB.GetBalance(operator), true)
 
@@ -145,8 +147,7 @@ func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *s
 
 		em.recordMetric(stakeID, stake, false)
 		em.recordMetric(balanceID, balance, true)
-		commissionRateGauge := metrics.GetOrRegisterGauge(commmissionRateID, nil)
-		commissionRateGauge.Update(rate.Int64())
+		em.recordMetric(commmissionRateID, rate, false)
 	}
 
 	// clean up useless metrics if there exists.
@@ -167,10 +168,10 @@ func (em *EconomicMetrics) SubmitRewardDistributionMetrics(v *RewardDistribution
 
 	// submit block reward metric to registry.
 	blockRewardMetricID := em.generateBlockRewardMetricsID(height)
-	em.recordMetric(blockRewardMetricID, v.Amount, false)
+	em.recordMetric(blockRewardMetricID, v.Amount, true)
 
 	// submit block reward sum metrics to registry.
-	em.recordMetric(BlockRewardSUMMetricID, v.Sum, false)
+	em.recordMetric(BlockRewardSUMMetricID, v.Totalrewards, true)
 
 	// check to remove reward distribution metrics which is out of time/height window.
 	em.removeMetricsOutOfWindow(height)
