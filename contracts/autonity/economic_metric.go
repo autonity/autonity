@@ -104,10 +104,8 @@ func (em *EconomicMetrics) recordMetric(name string, value *big.Int, fromWei boo
 	if fromWei {
 		divis = big.NewInt(params.Ether)
 	}
-	val2, exact := new(big.Rat).SetFrac(value, divis).Float64()
-	if exact {
-		gauge.Update(val2)
-	}
+	val2, _ := new(big.Rat).SetFrac(value, divis).Float64()
+	gauge.Update(val2)
 	return val2
 }
 
