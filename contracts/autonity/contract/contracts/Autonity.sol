@@ -350,11 +350,11 @@ contract Autonity {
         // Set the pivot element in its right sorted index in the array
         while (i <= j) {
             while (_users[uint(i)].stake > pivot) i++;
-            while (pivot < _users[uint(j)].stake) j++;
+            while (pivot > _users[uint(j)].stake) j--;
             if (i <= j) {
                 (_users[uint(i)], _users[uint(j)]) = (_users[uint(j)], _users[uint(i)]);
                 i++;
-                j++;
+                j--;
             }
         }
         // Recursion call in the left partition of the array
@@ -374,9 +374,13 @@ contract Autonity {
     function setCommittee() public onlyDeployer(msg.sender) returns(User[] memory){
         require(validators.length > 0, "There must be validators");
 
-        User[] memory validatorList = new User[](committeeSize);
-        User[] memory sortedValidatorList = new User[](committeeSize);
-        User[] memory committeeList = new User[](committeeSize);
+        uint len = validators.length;
+        uint256 committeeLength = committeeSize;
+        if (committeeLength >= len) {committeeLength = len;}
+
+        User[] memory validatorList = new User[](len);
+        User[] memory sortedValidatorList = new User[](len);
+        User[] memory committeeList = new User[](committeeLength);
 
         for (uint256 i = 0;i < validators.length; i++) {
             User memory _user = users[validators[i]];
@@ -399,7 +403,7 @@ contract Autonity {
 
         // Update committee in persistent storage
         delete committee;
-        for (uint256 k =0 ; k < committeeList.length; k++) {
+        for (uint256 k =0 ; k < committeeLength; k++) {
             committee.push(committeeList[k]);
         }
 

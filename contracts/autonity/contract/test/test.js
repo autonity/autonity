@@ -1,15 +1,18 @@
 'use strict';
+const assert = require('assert');
 
 //it's kind of e2e test. They have sequence dependency
 //todo get rid of it.
 
+//todo: move gas analysis to separate js file
+
 const Autonity = artifacts.require('Autonity.sol');
 // const validatorsList = [
-//     '0x627306090abaB3A6e1400e9345bC60c78a8BEf57',
-//     '0xf17f52151EbEF6C7334FAD080c5704D77216b732',
-//     '0xC5fdf4076b8F3A5357c5E395ab970B5B54098Fef',
-//     '0x821aEa9a577a9b44299B9c15c88cf3087F3b5544',
-//     '0x0d1d4e623D10F9FBA5Db95830F7d3839406C6AF2'
+//   '0x25BaCC60294B57B6A2B72b87DdD18fd670DC3fA0',
+//   '0xA43156681B68c0F1fB60C031b819C98C3F7F16EE',
+//   '0xA01e558c547B4a9D956D2bB74aD152AF0281bEA5',
+//   '0xC0Dd26B0c5d5F17715ee87d3917827BeCBE56870',
+//   '0x2cE5E0af34B7aA2231aE9e0091B9330Ca905182F'
 // ];
 //
 // const whiteList = [
@@ -142,14 +145,14 @@ contract('Autonity', function (accounts) {
         it('test Governance operator can add/remove to whitelist', async function () {
             let enode = "enode://testenode";
             let tx = await token.addValidator(accounts[8], 20, enode, {from: governanceOperatorAccount});
-            console.log("\tGas used to add validator to whitelist = " + tx.receipt.gasUsed.toString() + " gas");
+            // console.log("\tGas used to add validator to whitelist = " + tx.receipt.gasUsed.toString() + " gas");
             let getValidatorsResult = await token.getWhitelist({from: governanceOperatorAccount});
             let expected = whiteList.slice();
             expected.push(enode);
             assert.deepEqual(getValidatorsResult, expected);
 
             tx = await token.removeUser(accounts[8], {from: governanceOperatorAccount});
-            console.log("\tGas used to remove val from whitelist = " + tx.receipt.gasUsed.toString() + " gas");
+            // console.log("\tGas used to remove val from whitelist = " + tx.receipt.gasUsed.toString() + " gas");
             getValidatorsResult = await token.getWhitelist({from: accounts[1]});
             assert.deepEqual(getValidatorsResult, whiteList);
         });
@@ -158,12 +161,12 @@ contract('Autonity', function (accounts) {
             let expected = validatorsList.slice();
             expected.push(accounts[7]);
             let tx = await token.addValidator(accounts[7], 100, "not nil enode", {from: governanceOperatorAccount});
-            console.log("\tGas used to add new validator = " + tx.receipt.gasUsed.toString() + " gas");
+            // console.log("\tGas used to add new validator = " + tx.receipt.gasUsed.toString() + " gas");
             let getValidatorsResult = await token.getValidators({from: governanceOperatorAccount});
             assert.deepEqual(expected, getValidatorsResult);
 
             tx = await token.removeUser(accounts[7], {from: governanceOperatorAccount});
-            console.log("\tGas used to remove validator = " + tx.receipt.gasUsed.toString() + " gas");
+            // console.log("\tGas used to remove validator = " + tx.receipt.gasUsed.toString() + " gas");
             getValidatorsResult = await token.getValidators({from: governanceOperatorAccount});
             assert.deepEqual(validatorsList, getValidatorsResult)
         });
@@ -171,14 +174,14 @@ contract('Autonity', function (accounts) {
         it('test create participant account check it and remove it', async function () {
 
             let tx = await token.addParticipant(accounts[9], "some enode", {from: governanceOperatorAccount});
-            console.log("\tGas used to add participant = " + tx.receipt.gasUsed.toString() + " gas");
+            //console.log("\tGas used to add participant = " + tx.receipt.gasUsed.toString() + " gas");
 
             let addMemberResult = await token.checkMember(accounts[9]);
 
             assert(true === addMemberResult);
 
             tx = await token.removeUser(accounts[9], {from: governanceOperatorAccount});
-            console.log("\tGas used to remove participant = " + tx.receipt.gasUsed.toString() + " gas");
+            // console.log("\tGas used to remove participant = " + tx.receipt.gasUsed.toString() + " gas");
             let removeMemberResult = await token.checkMember(accounts[9]);
 
             assert(false === removeMemberResult);
@@ -260,6 +263,124 @@ contract('Autonity', function (accounts) {
         });
     });
 
+    describe('Committee Selection', function () {
+
+        beforeEach(async function(){
+            token = await Autonity.deployed();
+        })
+
+        it('test set max committee size by operator account', async function () {
+
+            await token.setCommitteeSize(4, {from: governanceOperatorAccount});
+            let maxCommitteeSize = await token.getMaxCommitteeSize();
+            assert(4 == maxCommitteeSize, "maxCommittee size was not set correctly");
+
+        });
+
+
+        it('test regular validator cannot set the max committee size', async function() {
+
+            let initMaxCommitteeSize = await token.getMaxCommitteeSize();
+
+            try {
+                let r = await token.setCommitteeSize({from: accounts[6]});
+                assert.fail('Expected throw not received', r);
+
+            } catch (e) {
+                let maxCommitteeSize = await token.getMaxCommitteeSize();
+                assert.deepEqual(initMaxCommitteeSize,  maxCommitteeSize);
+            }
+        });
+
+        it('test set committee when committee size is equal than the number of validators', async function() {
+
+            let validators = await token.getValidators();
+            let committeeSize = validators.length;
+
+            await token.setCommitteeSize(committeeSize, {from: governanceOperatorAccount});
+            let maxCommitteeSize = await token.getMaxCommitteeSize();
+            assert(committeeSize == maxCommitteeSize, "maxCommittee size was not set correctly");
+
+            try {
+                let r = await token.setCommittee({from: deployer});
+                assert.fail('Expected throw not received', r);
+            } catch (e) {
+
+            }
+            let committeeResult = await token.getCommittee();
+            let committeeValidators = [];
+
+            for (let i = 0; i < committeeResult.length; i++) {
+                committeeValidators.push(committeeResult[i][0])
+            }
+
+            assert.deepEqual(committeeValidators.sort(), validators.sort(), "Committee should be equal than validator set");
+
+        });
+
+        it('test set committee when committee size is greater than the number of validators', async function() {
+
+            let validators = await token.getValidators();
+            let committeeSize = validators.length + 5;
+
+            await token.setCommitteeSize(committeeSize, {from: governanceOperatorAccount});
+            let maxCommitteeSize = await token.getMaxCommitteeSize();
+            assert(committeeSize == maxCommitteeSize, "maxCommittee size was not set correctly");
+
+            try {
+                let r = await token.setCommittee({from: deployer});
+                assert.fail('Expected throw not received', r);
+            } catch (e) {
+
+            }
+            let committeeResult = await token.getCommittee();
+            let committeeValidators = [];
+
+            for (let i = 0; i < committeeResult.length; i++) {
+                committeeValidators.push(committeeResult[i][0])
+            }
+
+            assert.deepEqual(committeeValidators.sort(), validators.sort(), "Committee should be equal than validator set");
+
+        });
+
+        it('test set committee when committee size is smaller than the number of validators', async function() {
+
+            let validators = await token.getValidators();
+            let committeeSize = validators.length - 2;
+
+            await token.setCommitteeSize(committeeSize, {from: governanceOperatorAccount});
+            let maxCommitteeSize = await token.getMaxCommitteeSize();
+            assert(committeeSize == maxCommitteeSize, "maxCommittee size was not set correctly");
+
+            try {
+                let r = await token.setCommittee({from: deployer});
+                assert.fail('Expected throw not received', r);
+            } catch (e) {
+
+            }
+            let committeeResult = await token.getCommittee();
+            let committeeValidators = [];
+
+            for (let i = 0; i < committeeResult.length; i++) {
+                committeeValidators.push(committeeResult[i][0])
+            }
+            // Mock committee selection
+            let indexesToBeRemoved = [1,2]
+            while(indexesToBeRemoved.length) {
+                validators.splice(indexesToBeRemoved.pop(), 1);
+            }
+             // TODO: Remove dependency of the initial deploy contract script.
+            console.log("commmittee mock")
+            console.log(validators)
+            console.log("committee")
+            console.log(committeeValidators)
+
+            assert.deepEqual(committeeValidators.sort(), validators.sort(), "Error while creating new committee");
+
+        });
+    });
+
     describe('Stake Token', function() {
 
         beforeEach(async function(){
@@ -273,14 +394,14 @@ contract('Autonity', function (accounts) {
             assert(0 == getStakeResult, "unexpected tokens");
 
             let tx = await token.mintStake(accounts[7], 100, {from: governanceOperatorAccount});
-            console.log("\tGas used to mint stake = " + tx.receipt.gasUsed.toString() + " gas");
+            // console.log("\tGas used to mint stake = " + tx.receipt.gasUsed.toString() + " gas");
 
             getStakeResult = await token.getStake({from: accounts[7]});
             assert(100 == getStakeResult, "tokens are not minted");
 
             tx = await token.redeemStake(accounts[7], 100, {from: governanceOperatorAccount});
 
-            console.log("\tGas used to redeem stake = " + tx.receipt.gasUsed.toString() + " gas");
+            // console.log("\tGas used to redeem stake = " + tx.receipt.gasUsed.toString() + " gas");
 
             getStakeResult = await token.getStake({from: accounts[7]});
             assert(0 == getStakeResult, "unexpected tokens");
@@ -320,7 +441,7 @@ contract('Autonity', function (accounts) {
             assert(100 == getStakeResult, "tokens are not minted");
 
             let tx = await token.send(accounts[5], 50, {from: accounts[7]});
-            console.log("\tGas used to send state token = " + tx.receipt.gasUsed.toString() + " gas");
+            // console.log("\tGas used to send state token = " + tx.receipt.gasUsed.toString() + " gas");
 
             getStakeResult = await token.getStake({from: accounts[7]});
             assert(50 == getStakeResult, "unexpected tokens");
@@ -345,13 +466,14 @@ contract('Autonity', function (accounts) {
             assert.deepEqual(Number(data.stakes[i]), Number(stake));
             sum += Number(data.stakes[i])
         }
-
+        console.log(data.accounts);
+        console.log(data.stakes);
         assert.deepEqual(data.accounts, validatorsList);
         assert.deepEqual(Number(data.mingasprice), Number(minGasPrice))
         assert.deepEqual(Number(data.stakesupply), sum)
     });
 
-    describe('Metrics', function() {
+    describe('Metrics', function() { // test failing
 
         beforeEach(async function(){
             token = await Autonity.deployed();
