@@ -35,7 +35,7 @@ contract Autonity {
 
     uint256 private stakeSupply;
 
-    uint256 public committeeSize = 10;
+    uint256 public committeeSize = 1000;
 
     /*
     * The bonding period (BP) is specified by the Autonity System Architecture as an integer representing an interval of blocks.
