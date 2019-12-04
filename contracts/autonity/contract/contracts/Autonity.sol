@@ -62,7 +62,7 @@ contract Autonity {
         uint256 stake;
         string enode;
         // uint256 selfStake;
-        // uint256 delegatedStake; 
+        // uint256 delegatedStake;
     }
 
     mapping (address => User) private users;
@@ -260,7 +260,7 @@ contract Autonity {
     function getStakeholders() public view returns (address[] memory) {
         return stakeholders;
     }
-    
+
     function getCommittee() public view returns (User[] memory) {
         return committee;
     }
