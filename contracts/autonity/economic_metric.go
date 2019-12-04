@@ -52,9 +52,6 @@ const (
 	// gauge tracks the reward/transactionfee of a specific block.
 	BlockRewardBlockMetricID = "contract/block/%v/reward"
 
-	// gauge tracks SUM of the rewards for each block in the history.
-	BlockRewardSUMMetricID = "contract/blockreward/sum"
-
 	RoleUnknown                   = "unknown"
 	RoleValidator                 = "validator"
 	RoleStakeHolder               = "stakeholder"
@@ -85,7 +82,6 @@ type RewardDistributionMetaData struct {
 	Holders         []common.Address `abi:"stakeholders"`
 	Rewardfractions []*big.Int       `abi:"rewardfractions"`
 	Amount          *big.Int         `abi:"amount"`
-	Totalrewards    *big.Int         `abi:"totalrewards"`
 }
 
 type EconomicMetrics struct {
@@ -98,17 +94,16 @@ func (em *EconomicMetrics) recordMetric(name string, value *big.Int, isWei bool)
 	if value == nil {
 		return
 	}
-
-	// balance need to be converted from wei to ETH to be saved in prometheus.
-	if isWei {
-		gauge := metrics.GetOrRegisterGaugeFloat64(name, nil)
-		val2, _ := new(big.Rat).SetFrac(value, big.NewInt(params.Ether)).Float64()
-		gauge.Update(val2)
-		return
+	switch isWei {
+	case true:
+		// float64 metric using different interface and type.
+		gaugeFloat64 := metrics.GetOrRegisterGaugeFloat64(name, nil)
+		val2Float64, _ := new(big.Rat).SetFrac(value, big.NewInt(params.Ether)).Float64()
+		gaugeFloat64.Update(val2Float64)
+	case false:
+		gaugeInt64 := metrics.GetOrRegisterGauge(name, nil)
+		gaugeInt64.Update(value.Int64())
 	}
-	// stake will be keep in raw stake.
-	gauge := metrics.GetOrRegisterGauge(name, nil)
-	gauge.Update(value.Int64())
 }
 
 // measure metrics of user's meta data by regarding of network economic.
@@ -163,15 +158,12 @@ func (em *EconomicMetrics) SubmitRewardDistributionMetrics(v *RewardDistribution
 	// submit reward distribution metrics to registry.
 	for i := 0; i < len(v.Holders); i++ {
 		rewardDistributionMetricID := em.generateRewardDistributionMetricsID(v.Holders[i], Stakeholder, height)
-		em.recordMetric(rewardDistributionMetricID, v.Rewardfractions[i], false)
+		em.recordMetric(rewardDistributionMetricID, v.Rewardfractions[i], true)
 	}
 
 	// submit block reward metric to registry.
 	blockRewardMetricID := em.generateBlockRewardMetricsID(height)
 	em.recordMetric(blockRewardMetricID, v.Amount, true)
-
-	// submit block reward sum metrics to registry.
-	em.recordMetric(BlockRewardSUMMetricID, v.Totalrewards, true)
 
 	// check to remove reward distribution metrics which is out of time/height window.
 	em.removeMetricsOutOfWindow(height)
