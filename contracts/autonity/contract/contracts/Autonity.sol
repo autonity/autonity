@@ -69,6 +69,14 @@ contract Autonity {
     */
     uint256 minGasPrice = 0;
 
+    //Upgradability
+    string bytecode;
+    string abi;
+
+    /*
+    * Events
+    *
+    */
     event Transfer(address indexed from, address indexed to, uint256 value);
     event AddValidator(address _address, uint256 _stake);
     event AddStakeholder(address _address, uint256 _stake);
@@ -85,6 +93,7 @@ contract Autonity {
         string[] memory _participantEnode,
         uint256[] memory _participantType,
         uint256[] memory _participantStake,
+        uint256[] memory _commissionRate,
         address _operatorAccount,
         uint256 _minGasPrice) public {
 
@@ -99,7 +108,7 @@ contract Autonity {
             require(_participantAddress[i] != address(0), "Addresses must be defined");
             UserType _userType = UserType(_participantType[i]);
             address payable addr = address(uint160(_participantAddress[i]));
-            _createUser(addr, _participantEnode[i], _userType, _participantStake[i]);
+            _createUser(addr, _participantEnode[i], _userType, _participantStake[i], _commissionRate[i]);
         }
         deployer = msg.sender;
         operatorAccount = _operatorAccount;
@@ -112,17 +121,17 @@ contract Autonity {
     * Add validator to validators list.
     */
     function addValidator(address payable _address, uint256 _stake, string memory _enode) public onlyOperator(msg.sender) {
-        _createUser(_address,_enode, UserType.Validator, _stake);
+        _createUser(_address,_enode, UserType.Validator, _stake, 0);
         emit AddValidator(_address, _stake);
     }
 
     function addStakeholder(address payable _address, string  memory _enode, uint256 _stake) public onlyOperator(msg.sender) {
-        _createUser(_address, _enode, UserType.Stakeholder, _stake);
+        _createUser(_address, _enode, UserType.Stakeholder, _stake, 0);
         emit AddStakeholder(_address, _stake);
     }
 
     function addParticipant(address payable _address, string memory _enode) public onlyOperator(msg.sender) {
-        _createUser(_address, _enode, UserType.Participant, 0);
+        _createUser(_address, _enode, UserType.Participant, 0, 0);
         emit AddParticipant(_address, 0);
     }
 
@@ -155,6 +164,7 @@ contract Autonity {
         stakeSupply = stakeSupply.sub(u.stake);
         _removeFromArray(u.addr, usersList);
         delete users[_address];
+        delete commission_rate[_address];
         emit RemoveUser(_address, u.userType);
     }
 
@@ -215,7 +225,14 @@ contract Autonity {
         return true;
     }
 
+    function upgradeContract(string _bytecode, string _abi, string _hashBytecode, string _hashabi) public onlyOperator(msg.sender) {
+        bytecode = _bytecode;
+        abi = _abi;
+    }
 
+    function retrieveContract() public view returns(string, string) {
+        return (bytecode, abi);
+    }
 
     /*
     ========================================================================================================================
@@ -233,6 +250,24 @@ contract Autonity {
 
     function getValidators() public view returns (address[] memory) {
         return validators;
+    }
+
+    function retrieveState() public view
+        returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, uint256[] memory, address, uint256) {
+
+        address[] memory addr = new address[](usersList.length);
+        uint256[] memory userType  = new uint256[](usersList.length);
+        uint256[] memory stake = new uint256[](usersList.length);
+        string[] memory enode = new string[](usersList.length);
+        uint256[] memory commissionRate = new uint256[](usersList.length);
+        for(uint256 i=0; i<usersList.length; i++ ) {
+            addr[i] = users[usersList[i]].addr;
+            userType[i] = uint256(users[usersList[i]].userType);
+            stake[i] = users[usersList[i]].stake;
+            enode[i] = users[usersList[i]].enode;
+            commissionRate[i] = commission_rate[i];
+        }
+        return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice);
     }
 
     function getStakeholders() public view returns (address[] memory) {
@@ -291,7 +326,7 @@ contract Autonity {
     * performRedistribution
     * return a structure contains reward distribution.
     */
-    function performRedistribution(uint256 _amount) public onlyDeployer(msg.sender) returns(RewardDistributionData memory rewarddistribution) {
+    function performRedistribution(uint256 _amount) internal onlyDeployer(msg.sender) returns(RewardDistributionData memory rewarddistribution) {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
         require(stakeholders.length > 0, "there must be stake holders");
 
@@ -304,6 +339,13 @@ contract Autonity {
         }
         RewardDistributionData memory rd = RewardDistributionData(true, stakeholders, rewardfractionlist, _amount);
         return rd;
+    }
+
+    //Finalize function called once after every mined block, return if a new contract is ready for update
+    function finalize(uint256 _amount) public onlyDeployer(msg.sender) returns (bool) {
+        performRedistribution(_amount);
+        _upgradeReady = len(bytecode) != 0;
+        return _upgradeReady;
     }
 
     function totalSupply() public view returns (uint) {
@@ -389,7 +431,7 @@ contract Autonity {
         return keccak256(abi.encodePacked(s1)) == keccak256(abi.encodePacked(s2));
     }
 
-    function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake) internal {
+    function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake, uint256 commissionRate) internal {
         require(_address != address(0), "Addresses must be defined");
         User memory u = User(_address, _userType, _stake, _enode);
         users[u.addr] = u;
@@ -406,6 +448,8 @@ contract Autonity {
         if(bytes(u.enode).length != 0) {
             enodesWhitelist.push(u.enode);
         }
+
+        commission_rate[u.addr] = rate;
     }
 
 

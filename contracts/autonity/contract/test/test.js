@@ -329,4 +329,19 @@ contract('Autonity', function (accounts) {
         await token.removeUser(accounts[5], {from: governanceOperatorAccount});
     });
 
+    it('test validator can get users list', async function () {
+        const token = await Autonity.deployed();
+
+        var getValidatorsResult = await token.getUsers({from: governanceOperatorAccount});
+        let addresses = getValidatorsResult[0];
+        let types = getValidatorsResult[1];
+        let stake = getValidatorsResult[2];
+        let enodes = getValidatorsResult[3];
+        // assert.deepEqual(getValidatorsResult, validatorsList);
+        var a = Autonity.new(addresses, enodes, types, stake,accounts[0], 0, { from:accounts[8]});
+        let b = await a;
+        console.log(b);
+
+    });
+
 });
