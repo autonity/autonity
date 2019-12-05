@@ -115,7 +115,7 @@ func (ac *Contract) UpdateAutonityContract(header *types.Header, statedb *state.
 	return nil
 }
 
-func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}) error {
+func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}, args ...interface{}) error {
 	caller := ac.bc.Config().AutonityContractConfig.Deployer
 	contractABI, err := ac.abi()
 	if err != nil {
@@ -125,7 +125,7 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 	gas := uint64(math.MaxUint64)
 	evm := ac.getEVM(header, caller, statedb)
 
-	input, err := contractABI.Pack(function)
+	input, err := contractABI.Pack(function, args)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blo
 	v.Rewardfractions = make([]*big.Int, 32)
 	v.Amount = new(big.Int)
 
-	err := ac.AutonityContractCall(state, header, "finalize", &v)
+	err := ac.AutonityContractCall(state, header, "finalize", &v, blockGas)
 	if err != nil {
 		return false, err
 	}
@@ -226,4 +226,3 @@ func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.H
 	}
 	return nil
 }
-
