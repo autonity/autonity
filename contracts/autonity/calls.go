@@ -164,12 +164,20 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 }
 
 func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, error) {
-	var upgradeReady bool
-	err := ac.AutonityContractCall(state, header, "finalize", &upgradeReady)
+	v := RewardDistributionMetaData{}
+	v.Result = true
+	v.Holders = make([]common.Address, 32)
+	v.Rewardfractions = make([]*big.Int, 32)
+	v.Amount = new(big.Int)
+
+	err := ac.AutonityContractCall(state, header, "finalize", &v)
 	if err != nil {
 		return false, err
 	}
-	return upgradeReady, nil
+
+	// submit the final reward distribution metrics.
+	ac.metrics.SubmitRewardDistributionMetrics(&v, header.Number.Uint64())
+	return v.Result, nil
 }
 
 func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Header) ([]byte, error) {
@@ -216,46 +224,3 @@ func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.H
 	return nil
 }
 
-func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *types.Header, blockGas *big.Int) error {
-	// Needs to be refactored somehow
-	deployer := ac.bc.Config().AutonityContractConfig.Deployer
-
-	sender := vm.AccountRef(deployer)
-	gas := uint64(0xFFFFFFFF)
-	evm := ac.getEVM(header, deployer, state)
-
-	ABI, err := ac.abi()
-	if err != nil {
-		return err
-	}
-
-	input, err := ABI.Pack("performRedistribution", blockGas)
-	if err != nil {
-		log.Error("Error Autonity Contract callPerformRedistribution()", "err", err)
-		return err
-	}
-
-	value := new(big.Int).SetUint64(0x00)
-
-	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
-	if vmerr != nil {
-		log.Error("Error Autonity Contract callPerformRedistribution()", "err", err)
-		return vmerr
-	}
-
-	// after reward distribution, update metrics with the return values.
-	//v := RewardDistributionMetaData {true, make([]common.Address, 32), make([]*big.Int, 32), new(big.Int)}
-	v := RewardDistributionMetaData{}
-	v.Result = true
-	v.Holders = make([]common.Address, 32)
-	v.Rewardfractions = make([]*big.Int, 32)
-	v.Amount = new(big.Int)
-
-	if err := ABI.Unpack(&v, "performRedistribution", ret); err != nil { // can't work with aliased types
-		log.Error("Could not unpack performRedistribution returned value", "err", err, "header.num", header.Number.Uint64())
-		return nil
-	}
-
-	ac.metrics.SubmitRewardDistributionMetrics(&v, header.Number.Uint64())
-	return nil
-}

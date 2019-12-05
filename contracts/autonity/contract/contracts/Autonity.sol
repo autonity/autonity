@@ -309,7 +309,6 @@ contract Autonity {
     }
 
 
-
     /*
     * getMinimumGasPrice
     * Returns minimum gas price. Ethereum transactions gas price must be greater or equal to the minimumGasPrice.
@@ -342,10 +341,11 @@ contract Autonity {
     }
 
     //Finalize function called once after every mined block, return if a new contract is ready for update
-    function finalize(uint256 _amount) public onlyDeployer(msg.sender) returns (bool) {
-        performRedistribution(_amount);
+    function finalize(uint256 _amount) public onlyDeployer(msg.sender) returns (RewardDistributionData memory rewarddistribution) {
+        RewardDistributionData data = performRedistribution(_amount);
         _upgradeReady = len(bytecode) != 0;
-        return _upgradeReady;
+        data.result = _upgradeReady;
+        return data;
     }
 
     function totalSupply() public view returns (uint) {
