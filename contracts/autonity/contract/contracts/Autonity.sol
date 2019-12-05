@@ -71,7 +71,7 @@ contract Autonity {
 
     //Upgradability
     string bytecode;
-    string abi;
+    string contractAbi;
 
     /*
     * Events
@@ -225,13 +225,13 @@ contract Autonity {
         return true;
     }
 
-    function upgradeContract(string _bytecode, string _abi, string _hashBytecode, string _hashabi) public onlyOperator(msg.sender) {
+    function upgradeContract(string memory _bytecode, string memory _abi) public onlyOperator(msg.sender) {
         bytecode = _bytecode;
-        abi = _abi;
+        contractAbi = _abi;
     }
 
-    function retrieveContract() public view returns(string, string) {
-        return (bytecode, abi);
+    function retrieveContract() public view returns(string memory, string memory) {
+        return (bytecode, contractAbi);
     }
 
     /*
@@ -265,7 +265,7 @@ contract Autonity {
             userType[i] = uint256(users[usersList[i]].userType);
             stake[i] = users[usersList[i]].stake;
             enode[i] = users[usersList[i]].enode;
-            commissionRate[i] = commission_rate[i];
+            commissionRate[i] = commission_rate[users[usersList[i]].addr];
         }
         return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice);
     }
@@ -342,9 +342,8 @@ contract Autonity {
 
     //Finalize function called once after every mined block, return if a new contract is ready for update
     function finalize(uint256 _amount) public onlyDeployer(msg.sender) returns (RewardDistributionData memory rewarddistribution) {
-        RewardDistributionData data = performRedistribution(_amount);
-        _upgradeReady = len(bytecode) != 0;
-        data.result = _upgradeReady;
+        RewardDistributionData memory data = performRedistribution(_amount);
+        data.result = bytes(bytecode).length != 0;
         return data;
     }
 
@@ -449,7 +448,7 @@ contract Autonity {
             enodesWhitelist.push(u.enode);
         }
 
-        commission_rate[u.addr] = rate;
+        commission_rate[u.addr] = commissionRate;
     }
 
 
