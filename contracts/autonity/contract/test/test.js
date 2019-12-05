@@ -45,9 +45,9 @@ contract('Autonity', function (accounts) {
 
     it('test validator can get validator list', async function () {
         const token = await Autonity.deployed();
-
         var getValidatorsResult = await token.getValidators({from: governanceOperatorAccount});
         assert.deepEqual(getValidatorsResult, validatorsList);
+
     });
 
 
@@ -60,6 +60,7 @@ contract('Autonity', function (accounts) {
         } catch (e) {
 
         }
+
     });
 
     it('test redistribution fails with not deployer', async function () {
@@ -79,6 +80,7 @@ contract('Autonity', function (accounts) {
         } catch (e) {
 
         }
+
     });
 
     it('test redistribution', async function () {
@@ -93,7 +95,7 @@ contract('Autonity', function (accounts) {
         let performAmount = 10000;
         let stackholdersPart = performAmount / st.length;
 
-        await token.performRedistribution(performAmount, {from: deployer});
+        await token.finalize(performAmount, {from: deployer});
 
         let balancesAfter = [];
         for (let i = 0; i < st.length; i++) {
@@ -124,6 +126,7 @@ contract('Autonity', function (accounts) {
         assert.deepEqual(data.accounts, validatorsList);
         assert.deepEqual(Number(data.mingasprice), Number(minGasPrice))
         assert.deepEqual(Number(data.stakesupply), sum)
+
     });
 
     it('test non validator can get validator list', async function () {
@@ -131,6 +134,7 @@ contract('Autonity', function (accounts) {
         var getValidatorsResult = await token.getValidators({from: accounts[7]});
 
         assert.deepEqual(getValidatorsResult, validatorsList)
+
     });
 
 
@@ -143,6 +147,7 @@ contract('Autonity', function (accounts) {
         } catch (e) {
             var getValidatorsResult = await token.getValidators({from: governanceOperatorAccount});
             assert.deepEqual(getValidatorsResult, validatorsList);
+
             return
         }
 
@@ -162,6 +167,7 @@ contract('Autonity', function (accounts) {
         await token.removeUser(accounts[7], {from: governanceOperatorAccount});
         getValidatorsResult = await token.getValidators({from: governanceOperatorAccount});
         assert.deepEqual(validatorsList, getValidatorsResult)
+
     });
 
 
@@ -176,6 +182,7 @@ contract('Autonity', function (accounts) {
             var getWhitelistResult = await token.getWhitelist({from: governanceOperatorAccount});
             assert.deepEqual(getWhitelistResult, whiteList);
         }
+
     });
 
     it('test non Governance operator cant add validator', async function () {
@@ -190,8 +197,8 @@ contract('Autonity', function (accounts) {
             var getWhitelistResult = await token.getWhitelist({from: governanceOperatorAccount});
             assert.deepEqual(getWhitelistResult, whiteList);
         }
-    });
 
+    });
 
     it('test Governance operator can add/remove to whitelist', async function () {
         const token = await Autonity.deployed();
@@ -206,6 +213,7 @@ contract('Autonity', function (accounts) {
         await token.removeUser(accounts[8], {from: governanceOperatorAccount});
         getValidatorsResult = await token.getWhitelist({from: accounts[1]});
         assert.deepEqual(getValidatorsResult, whiteList);
+
     });
 
 
@@ -221,6 +229,7 @@ contract('Autonity', function (accounts) {
         var removeMemberResult = await token.checkMember(accounts[9]);
 
         assert(false == removeMemberResult);
+
     });
 
 
@@ -242,6 +251,7 @@ contract('Autonity', function (accounts) {
         assert(0 == getStakeResult, "unexpected tokens");
 
         await token.removeUser(accounts[7], {from: governanceOperatorAccount});
+
     });
 
 
@@ -260,6 +270,7 @@ contract('Autonity', function (accounts) {
             assert(0 == getStakeResult, "unexpected tokens");
             await token.removeUser(accounts[7], {from: governanceOperatorAccount});
         }
+
     });
 
     it('test create/remove participants by non governance operator', async function () {
@@ -272,6 +283,7 @@ contract('Autonity', function (accounts) {
         } catch (e) {
             errorOnAddNewMember = true
         }
+
         var addMemberResult = await token.checkMember(accounts[8]);
         assert(false == addMemberResult);
 
@@ -306,8 +318,8 @@ contract('Autonity', function (accounts) {
         var getStakeResult = await token.getStake({from: accounts[7]});
         assert(0 == getStakeResult, "unexpected tokens");
 
-        await token.addStakeholder(accounts[5], "some enode", 0, {from: governanceOperatorAccount});
-        var getStakeResult = await token.getStake({from: accounts[5]});
+        await token.addStakeholder(accounts[6], "some enode", 0, {from: governanceOperatorAccount});
+        var getStakeResult = await token.getStake({from: accounts[6]});
         assert(0 == getStakeResult, "unexpected tokens");
 
         await token.mintStake(accounts[7], 100, {from: governanceOperatorAccount});
@@ -315,32 +327,34 @@ contract('Autonity', function (accounts) {
         getStakeResult = await token.getStake({from: accounts[7]});
         assert(100 == getStakeResult, "tokens are not minted");
 
-        await token.send(accounts[5], 50, {from: accounts[7]});
+        await token.send(accounts[6], 50, {from: accounts[7]});
 
         getStakeResult = await token.getStake({from: accounts[7]});
         assert(50 == getStakeResult, "unexpected tokens");
 
-        getStakeResult = await token.getStake({from: accounts[5]});
+        getStakeResult = await token.getStake({from: accounts[6]});
         assert(50 == getStakeResult, "unexpected tokens");
 
         await token.redeemStake(accounts[7], 50, {from: governanceOperatorAccount});
-        await token.redeemStake(accounts[5], 50, {from: governanceOperatorAccount});
+        await token.redeemStake(accounts[6], 50, {from: governanceOperatorAccount});
+
         await token.removeUser(accounts[7], {from: governanceOperatorAccount});
-        await token.removeUser(accounts[5], {from: governanceOperatorAccount});
+        await token.removeUser(accounts[6], {from: governanceOperatorAccount});
     });
 
     it('test validator can get users list', async function () {
         const token = await Autonity.deployed();
 
-        var getValidatorsResult = await token.getUsers({from: governanceOperatorAccount});
+        var getValidatorsResult = await token.retrieveState({from: governanceOperatorAccount});
         let addresses = getValidatorsResult[0];
         let types = getValidatorsResult[1];
         let stake = getValidatorsResult[2];
         let enodes = getValidatorsResult[3];
-        // assert.deepEqual(getValidatorsResult, validatorsList);
-        var a = Autonity.new(addresses, enodes, types, stake,accounts[0], 0, { from:accounts[8]});
-        let b = await a;
-        console.log(b);
+        let commisionRate = getValidatorsResult[4];
+        assert.deepEqual(getValidatorsResult[0], validatorsList);
+        var a = Autonity.new(addresses, enodes, types, stake, commisionRate, accounts[0], 0, { from:accounts[8]});
+        //let b = await a;
+        console.log(a);
 
     });
 
