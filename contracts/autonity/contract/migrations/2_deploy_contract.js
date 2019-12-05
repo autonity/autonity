@@ -27,7 +27,14 @@ module.exports = function(deployer, network, accounts) {
         100,
         100,
         100
-    ], accounts[0],
+    ],
+    [
+        0,
+        0,
+        0,
+        0,
+        0
+    ],accounts[0],
     0,
     //{ from:accounts[8], gas: 50000000});
     { from:accounts[8]});
