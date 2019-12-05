@@ -189,6 +189,7 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 	if err != nil {
 		return err
 	}
+
 	if upgradeContract {
 		return ac.performContractUpgrade(statedb, header)
 	}

@@ -97,6 +97,8 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	ac.Unlock()
 	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
 
+	//TODO: set contract abi and bytecode from this bootstrap phase.
+
 	return contractAddress, nil
 }
 
@@ -138,7 +140,10 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 	// if result's type is "raw" then bypass unpacking
 	if reflect.TypeOf(result) == reflect.TypeOf(&raw{}) {
 		log.Info("meme type")
+		result = ret
+		return nil
 	}
+
 	log.Info(reflect.TypeOf(result).String())
 	if err := contractABI.Unpack(result, function, ret); err != nil {
 		log.Error("Could not unpack returned value", "function", function)
