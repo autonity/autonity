@@ -125,7 +125,7 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 	gas := uint64(math.MaxUint64)
 	evm := ac.getEVM(header, caller, statedb)
 
-	input, err := contractABI.Pack(function, args)
+	input, err := contractABI.Pack(function, args...)
 	if err != nil {
 		return err
 	}
