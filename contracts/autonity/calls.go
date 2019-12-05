@@ -130,7 +130,7 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 		return err
 	}
 
-	ret, gas, vmerr := evm.Call(vm.AccountRef(caller), ac.Address(), input, gas, new(big.Int))
+	ret, _, vmerr := evm.Call(vm.AccountRef(caller), ac.Address(), input, gas, new(big.Int))
 	if vmerr != nil {
 		log.Error("Error Autonity Contract", "function", function)
 		return vmerr
