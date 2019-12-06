@@ -219,15 +219,16 @@ contract Autonity {
 
     //    The Autonity Contract MUST implements the setCommissionRate(rate)
     //    function capable of fixing the caller commission rate for the next bonding period.
-    function setCommissionRate(uint256 rate) public canUseStake(msg.sender) returns(bool)   {
+    function setCommissionRate(uint256 rate) public canUseStake(msg.sender) returns(bool) {
         commission_rate[msg.sender] = rate;
         emit SetCommissionRate(msg.sender, rate);
         return true;
     }
 
-    function upgradeContract(string memory _bytecode, string memory _abi) public onlyOperator(msg.sender) {
+    function upgradeContract(string memory _bytecode, string memory _abi) public onlyOperator(msg.sender) returns(bool) {
         bytecode = _bytecode;
         contractAbi = _abi;
+        return true;
     }
 
     function retrieveContract() public view returns(string memory, string memory) {
@@ -440,7 +441,6 @@ contract Autonity {
         }
 
         users[u.addr] = u;
-
 
         if (u.userType == UserType.Stakeholder){
             stakeholders.push(u.addr);

@@ -18,6 +18,7 @@ import (
 )
 
 var ErrAutonityContract = errors.New("could not call Autonity contract")
+var ErrWrongParameter = errors.New("wrong parameter")
 
 func NewAutonityContract(
 	bc Blockchainer,
@@ -215,6 +216,9 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}
+
+	// TODO: how to test the upgraded contract? If it does not work or cause the consensus stuck. Roll back.
+
 	return nil
 }
 

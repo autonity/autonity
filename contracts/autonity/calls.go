@@ -98,6 +98,13 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
 
 	//TODO: set contract abi and bytecode from this bootstrap phase.
+	contractBin := chain.Config().AutonityContractConfig.Bytecode
+	contractAbi := chain.Config().AutonityContractConfig.ABI
+	contractErr := ac.callSetContractProgram(statedb, header, contractBin, contractAbi)
+	if contractErr != nil {
+		log.Error("set contract binary failed", "err", contractErr)
+		return contractAddress, contractErr
+	}
 
 	return contractAddress, nil
 }
@@ -205,6 +212,22 @@ func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Hea
 		return "", "", err
 	}
 	return bytecode, abi, nil
+}
+
+func (ac *Contract) callSetContractProgram(state *state.StateDB, header *types.Header, byteCode string, abi string) error {
+	if state == nil || header == nil {
+		return ErrWrongParameter
+	}
+
+	var result bool
+	err := ac.AutonityContractCall(state, header, "upgradeContract", &result, byteCode, abi)
+	if err != nil {
+		return err
+	}
+	if result {
+		return nil
+	}
+	return ErrAutonityContract
 }
 
 func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) error {
