@@ -200,7 +200,8 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
 	log.Info("performing Autonity Contract upgrade", "header", header.Number.Uint64())
-	state, errState := ac.callRetrieveState(statedb, header)
+	//state, errState := ac.callRetrieveState(statedb, header)
+	state, errState := ac.callRetrieveStateV2(statedb, header)
 	if errState != nil {
 		return errState
 	}
@@ -212,7 +213,8 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	snapshot := statedb.Snapshot()
 	//Create account will delete previous the AC stateobject and carry over the balance
 	statedb.CreateAccount(ac.Address())
-	if err := ac.UpdateAutonityContract(header, statedb, bytecode, abi, state); err != nil {
+	//if err := ac.UpdateAutonityContract(header, statedb, bytecode, abi, state); err != nil {
+	if err := ac.UpdateAutonityContractV2(header, statedb, bytecode, abi, state); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}

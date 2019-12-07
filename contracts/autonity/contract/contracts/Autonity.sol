@@ -6,6 +6,16 @@ import "./SafeMath.sol";
 contract Autonity {
     using SafeMath for uint256;
 
+    struct ContractState {
+        address[] users;
+        string[] enodes;
+        uint256[] types;
+        uint256[] stakes;
+        uint256[] commisionrates;
+        address operator;
+        uint256 mingasprice;
+    }
+
     struct EconomicsMetricData {
         address[] accounts;
         UserType[] usertypes;
@@ -254,7 +264,7 @@ contract Autonity {
     }
 
     function retrieveState() public view
-        returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, uint256[] memory, address, uint256) {
+    returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, uint256[] memory, address, uint256) {
 
         address[] memory addr = new address[](usersList.length);
         uint256[] memory userType  = new uint256[](usersList.length);
@@ -269,6 +279,24 @@ contract Autonity {
             commissionRate[i] = commission_rate[users[usersList[i]].addr];
         }
         return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice);
+    }
+
+    function retrieveStateV2() public view returns (ContractState memory state) {
+
+        address[] memory addr = new address[](usersList.length);
+        uint256[] memory userType  = new uint256[](usersList.length);
+        uint256[] memory stake = new uint256[](usersList.length);
+        string[] memory enode = new string[](usersList.length);
+        uint256[] memory commissionRate = new uint256[](usersList.length);
+        for(uint256 i=0; i<usersList.length; i++ ) {
+            addr[i] = users[usersList[i]].addr;
+            userType[i] = uint256(users[usersList[i]].userType);
+            stake[i] = users[usersList[i]].stake;
+            enode[i] = users[usersList[i]].enode;
+            commissionRate[i] = commission_rate[users[usersList[i]].addr];
+        }
+        ContractState memory cs = ContractState(addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice);
+        return cs;
     }
 
     function getStakeholders() public view returns (address[] memory) {

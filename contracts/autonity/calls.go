@@ -14,6 +14,16 @@ import (
 
 type raw []byte
 
+type ContractState struct {
+	Users []common.Address `abi:"users"`
+	Enodes []string `abi:"enodes"`
+	Types []*big.Int `abi:"types"`
+	Stakes []*big.Int `abi:"stakes"`
+	CommissionRates []*big.Int `abi:"commisionrates"`
+	Operator common.Address `abi:"operator"`
+	MinGasPrice *big.Int `abi:"mingasprice"`
+}
+
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
 func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
 	coinbase, _ := types.Ecrecover(header)
@@ -109,6 +119,37 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	return contractAddress, nil
 }
 
+func (ac *Contract) UpdateAutonityContractV2(header *types.Header, statedb *state.StateDB, bytecode string, abi string, cs ContractState) error {
+	caller := ac.bc.Config().AutonityContractConfig.Deployer
+	evm := ac.getEVM(header, caller, statedb)
+	contractBytecode := common.Hex2Bytes(bytecode)
+	contractABI, err := ac.abi()
+	if err != nil {
+		return err
+	}
+	constructorParams, err := contractABI.Pack("",
+		cs.Users,
+		cs.Enodes,
+		cs.Types,
+		cs.Stakes,
+		cs.CommissionRates,
+		cs.Operator,
+		cs.MinGasPrice)
+	if err != nil {
+		log.Error("contractABI.Pack returns err", "err", err)
+		return err
+	}
+	data := append(contractBytecode, constructorParams...)
+	gas := uint64(0xFFFFFFFF)
+	value := new(big.Int).SetUint64(0x00)
+	_, _, _, vmerr := evm.CreateWithAddress(vm.AccountRef(caller), data, gas, value, ac.Address())
+	if vmerr != nil {
+		log.Error("evm.Create returns err", "err", vmerr)
+		return vmerr
+	}
+	return nil
+}
+
 func (ac *Contract) UpdateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string, abi string, state []byte) error {
 	caller := ac.bc.Config().AutonityContractConfig.Deployer
 	evm := ac.getEVM(header, caller, statedb)
@@ -145,9 +186,12 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 		return vmerr
 	}
 	// if result's type is "raw" then bypass unpacking
-	if reflect.TypeOf(result) == reflect.TypeOf(&raw{}) {
+	if reflect.TypeOf(result) == reflect.TypeOf(&[]byte{}) {
 		log.Info("meme type")
-		result = ret
+		// TODO: copy the slice of byte into slice interface. GO's typing system is complicated.
+		//reflect.ValueOf(result).SetBytes(ret)
+		//result = append([]byte(nil), ret...)
+		//copy(result, ret)
 		return nil
 	}
 
@@ -195,12 +239,23 @@ func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blo
 	return v.Result, nil
 }
 
+func (ac *Contract) callRetrieveStateV2(statedb *state.StateDB, header *types.Header) (ContractState, error) {
+	cs := ContractState{}
+	err := ac.AutonityContractCall(statedb, header, "retrieveStateV2", &cs)
+	if err != nil {
+		return cs, err
+	}
+	return cs, nil
+}
+
 func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Header) ([]byte, error) {
 	var state raw
+
 	err := ac.AutonityContractCall(statedb, header, "retrieveState", &state)
 	if err != nil {
 		return nil, err
 	}
+
 	return state, nil
 }
 
