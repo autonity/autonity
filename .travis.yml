@@ -3,7 +3,7 @@ go_import_path: github.com/clearmatics/autonity
 go: 1.12.9
 sudo: false
 os: linux
-dist: trusty
+dist: bionic
 addons:
   apt:
     packages:
@@ -37,46 +37,49 @@ jobs:
       name: "unit tests"
       script:
         - go run build/ci.go test -coverage $TEST_PACKAGES
+        - go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
     - <<: *tests
       name: "Tendermint data race - unit tests"
       script:
-        go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
+        - travis_wait 35 go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
         - cat coverage_tendermint.out >> coverage.out
     - <<: *tests
       name: "TestTendermintSuccess race"
       script:
-        - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+        - travis_wait 45 go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "TestTendermintSuccess,TestTendermintOneMalicious,TestTendermintSlowConnections,TestTendermintLongRun,TestTendermintStartStopSingleNode,TestTendermintStopUpToFNodes"
       script:
-        - travis_wait 60 go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+        - travis_wait 45 go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "TestTendermintStartStopFNodes"
       script:
-        - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+        - travis_wait 45 go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "TestTendermintStartStopFPlusOneNodes"
       script:
-        - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+        - travis_wait 45 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "TestTendermintStartStopFPlusTwoNodes"
       script:
-        - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+        - travis_wait 45 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "TestTendermintStartStopAllNodes"
       script:
-        - travis_wait 60 go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+        - travis_wait 45 go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "TestCheckBlockWithSmallFee"
       script:
-        - travis_wait 60 go test ./consensus/test/... -v -run 'TestCheckBlockWithSmallFee' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+        - travis_wait 45 go test ./consensus/test/... -v -run 'TestCheckBlockWithSmallFee' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "TestCheckFeeRedirectionAndRedistribution"
       script:
-        - travis_wait 60 go test ./consensus/test/... -v -run 'TestCheckFeeRedirectionAndRedistribution' -timeout 60m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+        - travis_wait 45 go test ./consensus/test/... -v -run 'TestCheckFeeRedirectionAndRedistribution' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "Contract tests"
       script:
+        - npm install -g ganache-cli
+        - ganache-cli --gasLimit=0x1fffffffffffff --allowUnlimitedContractSize -e 1000000000 &
         - make test-contracts
 
 notifications:

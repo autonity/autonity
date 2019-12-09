@@ -165,6 +165,7 @@ type BlockChain struct {
 	// procInterrupt must be atomically called
 	procInterrupt int32          // interrupt signaler for block processing
 	wg            sync.WaitGroup // chain processing wait group for shutting down
+	quitMu        sync.RWMutex
 
 	engine     consensus.Engine
 	validator  Validator  // Block and state validator interface
@@ -825,9 +826,8 @@ func (bc *BlockChain) Stop() {
 	// Unsubscribe all subscriptions registered from blockchain
 	bc.scope.Close()
 	close(bc.quit)
-	atomic.StoreInt32(&bc.procInterrupt, 1)
 
-	bc.wg.Wait()
+	bc.waitJobs()
 
 	// Ensure the state of a recent block is also stored to disk before exiting.
 	// We're writing three different states to catch different restart scenarios:
@@ -962,8 +962,10 @@ type numberHash struct {
 func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain []types.Receipts, ancientLimit uint64) (int, error) {
 	// We don't require the chainMu here since we want to maximize the
 	// concurrency of header insertion and receipt insertion.
-	bc.wg.Add(1)
-	defer bc.wg.Done()
+	if err := bc.addJob(); err != nil {
+		return 0, nil
+	}
+	defer bc.doneJob()
 
 	var (
 		ancientBlocks, liveBlocks     types.Blocks
@@ -1236,11 +1238,10 @@ var lastWrite uint64
 // but does not write any state. This is used to construct competing side forks
 // up to the point where they exceed the canonical total difficulty.
 func (bc *BlockChain) writeBlockWithoutState(block *types.Block, td *big.Int) (err error) {
-	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
-		return
+	if err := bc.addJob(); err != nil {
+		return nil
 	}
-	bc.wg.Add(1)
-	defer bc.wg.Done()
+	defer bc.doneJob()
 
 	if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), td); err != nil {
 		return err
@@ -1253,11 +1254,10 @@ func (bc *BlockChain) writeBlockWithoutState(block *types.Block, td *big.Int) (e
 // writeKnownBlock updates the head block flag with a known block
 // and introduces chain reorg if necessary.
 func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
-	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+	if err := bc.addJob(); err != nil {
 		return nil
 	}
-	bc.wg.Add(1)
-	defer bc.wg.Done()
+	defer bc.doneJob()
 
 	current := bc.CurrentBlock()
 	if block.ParentHash() != current.Hash() {
@@ -1284,11 +1284,10 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 // writeBlockWithState writes the block and all associated state to the database,
 // but is expects the chain mutex to be held.
 func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB) (status WriteStatus, err error) {
-	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
-		return
+	if err = bc.addJob(); err != nil {
+		return NonStatTy, nil
 	}
-	bc.wg.Add(1)
-	defer bc.wg.Done()
+	defer bc.doneJob()
 
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
@@ -1305,11 +1304,15 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		return NonStatTy, err
 	}
 
-	// Call network permissioning logic before committing the state
 	if bc.chainConfig.Istanbul != nil || bc.chainConfig.Tendermint != nil {
+		// Call network permissioning logic before committing the state
 		err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
 		if err != nil && err != autonity.ErrAutonityContract {
 			return NonStatTy, err
+		}
+		// Measure network economic metrics.
+		if bc.chainConfig.Tendermint != nil {
+			bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
 		}
 	}
 
@@ -1468,14 +1471,13 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		}
 	}
 	// Pre-checks passed, start the full block imports
-	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+	if err := bc.addJob(); err != nil {
 		return 0, nil
 	}
-	bc.wg.Add(1)
+	defer bc.doneJob()
 	bc.chainmu.Lock()
 	n, events, logs, err := bc.insertChain(chain, true)
 	bc.chainmu.Unlock()
-	bc.wg.Done()
 
 	bc.PostChainEvents(events, logs)
 	return n, err
@@ -2126,8 +2128,10 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	bc.chainmu.Lock()
 	defer bc.chainmu.Unlock()
 
-	bc.wg.Add(1)
-	defer bc.wg.Done()
+	if err := bc.addJob(); err != nil {
+		return 0, nil
+	}
+	defer bc.doneJob()
 
 	whFunc := func(header *types.Header) error {
 		_, err := bc.hc.WriteHeader(header)
@@ -2247,6 +2251,24 @@ func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscr
 	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
 }
 
-//func (bc *BlockChain) SubscribeGlienickeEvent(ch chan<- GlienickeEvent) event.Subscription {
-//	return bc.scope.Track(bc.glienickeFeed.Subscribe(ch))
-//}
+func (bc *BlockChain) addJob() error {
+	bc.quitMu.RLock()
+	defer bc.quitMu.RUnlock()
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return errors.New("blockchain is stopped")
+	}
+	bc.wg.Add(1)
+
+	return nil
+}
+
+func (bc *BlockChain) doneJob() {
+	bc.wg.Done()
+}
+
+func (bc *BlockChain) waitJobs() {
+	bc.quitMu.Lock()
+	atomic.StoreInt32(&bc.procInterrupt, 1)
+	bc.wg.Wait()
+	bc.quitMu.Unlock()
+}

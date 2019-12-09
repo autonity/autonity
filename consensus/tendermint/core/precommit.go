@@ -23,7 +23,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
 )
 
 func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
@@ -77,7 +76,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 		return errFailedDecodePrecommit
 	}
 
-	if err := c.checkMessage(preCommit.Round, preCommit.Height); err != nil {
+	if err := c.checkMessage(preCommit.Round, preCommit.Height, precommit); err != nil {
 		// Store old precommits because if there is a quorum of precommits in the previous round we need to go to the next height
 		//if err == errOldRoundMessage {
 		//	// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
@@ -151,7 +150,7 @@ func (c *core) verifyPrecommitCommittedSeal(addressMsg common.Address, committed
 
 	// ensure sender signed the committed seal
 	if !bytes.Equal(addressOfSignerOfCommittedSeal.Bytes(), addressMsg.Bytes()) {
-		log.Error("verify precommit seal error", "got", addressMsg.String(), "expected", addressOfSignerOfCommittedSeal.String())
+		c.logger.Error("verify precommit seal error", "got", addressMsg.String(), "expected", addressOfSignerOfCommittedSeal.String())
 
 		return errInvalidSenderOfCommittedSeal
 	}
@@ -161,7 +160,14 @@ func (c *core) verifyPrecommitCommittedSeal(addressMsg common.Address, committed
 
 func (c *core) handleCommit(ctx context.Context) {
 	c.logger.Debug("Received a final committed proposal", "step", c.currentRoundState.Step())
-	c.startRound(ctx, common.Big0)
+	lastBlock, _ := c.backend.LastCommittedProposal()
+	height := new(big.Int).Add(lastBlock.Number(), common.Big1).Uint64()
+	if height == c.currentRoundState.Height().Uint64() {
+		c.logger.Debug("Discarding event as core is at the same height", "state_height", c.currentRoundState.Height().Uint64())
+	} else {
+		c.logger.Debug("Received proposal is ahead", "state_height", c.currentRoundState.Height().Uint64(), "block_height", height)
+		c.startRound(ctx, common.Big0)
+	}
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to string) {

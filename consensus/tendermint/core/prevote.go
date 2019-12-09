@@ -65,7 +65,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 		return errFailedDecodePrevote
 	}
 
-	if err = c.checkMessage(preVote.Round, preVote.Height); err != nil {
+	if err = c.checkMessage(preVote.Round, preVote.Height, prevote); err != nil {
 		// Store old round prevote messages for future rounds since it is required for validRound
 		if err == errOldRoundMessage {
 			// We only process old rounds while future rounds messages are pushed on to the backlog
@@ -73,13 +73,13 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 			defer c.currentHeightOldRoundsStatesMu.Unlock()
 			oldRoundState, ok := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
 			if !ok {
-				oldRoundState = *NewRoundState(
+				oldRoundState = NewRoundState(
 					big.NewInt(preVote.Round.Int64()),
 					big.NewInt(c.currentRoundState.Height().Int64()),
 				)
 				c.currentHeightOldRoundsStates[preVote.Round.Int64()] = oldRoundState
 			}
-			c.acceptVote(&oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
+			c.acceptVote(oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
 		}
 		return err
 	}

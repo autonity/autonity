@@ -2,12 +2,11 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"sync"
 	"time"
-
-	"github.com/clearmatics/autonity/common"
 )
 
 const (
@@ -30,13 +29,18 @@ type timeout struct {
 	timer   *time.Timer
 	started bool
 	step    Step
+	// start will be refreshed on each new schedule, it is used for metric collection of tendermint timeout.
+	start  time.Time
+	logger log.Logger
 	sync.Mutex
 }
 
-func newTimeout(s Step) *timeout {
+func newTimeout(s Step, logger log.Logger) *timeout {
 	return &timeout{
 		started: false,
 		step:    s,
+		start:   time.Now(),
+		logger:  logger,
 	}
 }
 
@@ -45,6 +49,7 @@ func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height
 	t.Lock()
 	defer t.Unlock()
 	t.started = true
+	t.start = time.Now()
 	t.timer = time.AfterFunc(stepTimeout, func() {
 		runAfterTimeout(round, height)
 	})
@@ -70,14 +75,26 @@ func (t *timeout) stopTimer() error {
 				return errMovedToNewRound
 			}
 		}
+		t.measureMetricsOnStopTimer()
 	}
 	return nil
+}
+
+func (t *timeout) measureMetricsOnStopTimer() {
+	switch t.step {
+	case propose:
+		tendermintProposeTimer.UpdateSince(t.start)
+	case prevote:
+		tendermintPrevoteTimer.UpdateSince(t.start)
+	case precommit:
+		tendermintPrecommitTimer.UpdateSince(t.start)
+	}
 }
 
 func (t *timeout) reset(s Step) {
 	err := t.stopTimer()
 	if err != nil {
-		log.Info("cant stop timer", "err", err)
+		t.logger.Info("cant stop timer", "err", err)
 	}
 
 	t.Lock()
@@ -85,9 +102,27 @@ func (t *timeout) reset(s Step) {
 	t.timer = nil
 	t.started = false
 	t.step = s
+	t.start = time.Time{}
 }
 
 /////////////// On Timeout Functions ///////////////
+func (c *core) measureMetricsOnTimeOut(step uint64, r int64) {
+	switch step {
+	case msgProposal:
+		duration := timeoutPropose(r)
+		tendermintProposeTimer.Update(duration)
+		return
+	case msgPrevote:
+		duration := timeoutPrevote(r)
+		tendermintPrevoteTimer.Update(duration)
+		return
+	case msgPrecommit:
+		duration := timeoutPrecommit(r)
+		tendermintPrecommitTimer.Update(duration)
+		return
+	}
+}
+
 func (c *core) onTimeoutPropose(r int64, h int64) {
 	msg := TimeoutEvent{
 		roundWhenCalled:  r,
@@ -95,6 +130,7 @@ func (c *core) onTimeoutPropose(r int64, h int64) {
 		step:             msgProposal,
 	}
 	c.logTimeoutEvent("TimeoutEvent(Propose): Sent", "Propose", msg)
+	c.measureMetricsOnTimeOut(msg.step, r)
 	c.sendEvent(msg)
 }
 
@@ -105,8 +141,8 @@ func (c *core) onTimeoutPrevote(r int64, h int64) {
 		step:             msgPrevote,
 	}
 	c.logTimeoutEvent("TimeoutEvent(Prevote): Sent", "Prevote", msg)
+	c.measureMetricsOnTimeOut(msg.step, r)
 	c.sendEvent(msg)
-
 }
 
 func (c *core) onTimeoutPrecommit(r int64, h int64) {
@@ -116,6 +152,7 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 		step:             msgPrecommit,
 	}
 	c.logTimeoutEvent("TimeoutEvent(Precommit): Sent", "Precommit", msg)
+	c.measureMetricsOnTimeOut(msg.step, r)
 	c.sendEvent(msg)
 }
 
@@ -137,6 +174,7 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 }
 
 func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
+
 	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 

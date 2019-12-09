@@ -19,7 +19,6 @@ package core
 import (
 	"context"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/log"
 	"time"
 
 	"github.com/clearmatics/autonity/consensus"
@@ -31,18 +30,10 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.currentRoundState.Height().Int64() == p.Number().Int64() && c.isProposer() && !c.sentProposal {
-		proposalBlock := NewProposal(c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound, p)
+		proposalBlock := NewProposal(c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound, p, c.logger)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
-			return
-		}
-
-		if proposalBlock == nil {
-			logger.Error("send nil proposed block",
-				"Round", c.currentRoundState.round.String(), "Height",
-				c.currentRoundState.height.String(), "ValidRound", c.validRound)
-
 			return
 		}
 
@@ -68,7 +59,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	}
 
 	// Ensure we have the same view with the Proposal message
-	if err := c.checkMessage(proposal.Round, proposal.Height); err != nil {
+	if err := c.checkMessage(proposal.Round, proposal.Height, propose); err != nil {
 		// We don't care about old proposals so they are ignored
 		return err
 	}
@@ -139,7 +130,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 		rs, ok := c.currentHeightOldRoundsStates[vr]
 		if !ok {
-			log.Error("handleProposal. unknown old round",
+			c.logger.Error("handleProposal. unknown old round",
 				"proposalHeight", h,
 				"proposalRound", vr,
 				"currentHeight", c.currentRoundState.height.Uint64(),
