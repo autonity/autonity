@@ -127,7 +127,7 @@ func (u *User) Validate() error {
 		return errors.New("incorrect user type")
 	}
 
-	if reflect.DeepEqual(u.Address, common.Address{}) && len(u.Enode) == 0 { //TODO: Without the enode we cant do shit
+	if reflect.DeepEqual(u.Address, common.Address{}) && len(u.Enode) == 0 { //TODO: Check if && is correct here
 		return errors.New("user.enode or user.address must be defined")
 	}
 
