@@ -212,8 +212,10 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 			beforeHooks: map[int]hook{
 				4: hookStopNode(4, 1),
 			},
-			stopTime:       make(map[int]time.Time),
-			maliciousPeers: map[int]injectors{},
+			stopTime: make(map[int]time.Time),
+			maliciousPeers: map[int]injectors{
+				4: {},
+			},
 		},
 		{
 			name:      "one node stops at block 5",
@@ -223,8 +225,11 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 			beforeHooks: map[int]hook{
 				4: hookStopNode(4, 5),
 			},
-			stopTime:       make(map[int]time.Time),
-			maliciousPeers: map[int]injectors{},
+			stopTime: make(map[int]time.Time),
+			maliciousPeers: map[int]injectors{
+				4: {},
+			},
+
 		},
 		{
 			name:      "F nodes stop at block 1",
@@ -235,8 +240,11 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				3: hookStopNode(3, 1),
 				4: hookStopNode(4, 1),
 			},
-			stopTime:       make(map[int]time.Time),
-			maliciousPeers: map[int]injectors{},
+			stopTime: make(map[int]time.Time),
+			maliciousPeers: map[int]injectors{
+				3: {},
+				4: {},
+			},
 		},
 		{
 			name:      "F nodes stop at block 5",
@@ -247,8 +255,11 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				3: hookStopNode(3, 5),
 				4: hookStopNode(4, 5),
 			},
-			stopTime:       make(map[int]time.Time),
-			maliciousPeers: map[int]injectors{},
+			stopTime: make(map[int]time.Time),
+			maliciousPeers: map[int]injectors{
+				3: {},
+				4: {},
+			},
 		},
 		{
 			name:      "F nodes stop at blocks 4,5",
@@ -259,8 +270,11 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				3: hookStopNode(3, 4),
 				4: hookStopNode(4, 5),
 			},
-			stopTime:       make(map[int]time.Time),
-			maliciousPeers: map[int]injectors{},
+			stopTime: make(map[int]time.Time),
+			maliciousPeers: map[int]injectors{
+				3: {},
+				4: {},
+			},
 		},
 	}
 
@@ -986,6 +1000,10 @@ func TestTendermintTC7(t *testing.T) {
 		afterHooks: map[int]hook{
 			3: hookStartNode(3, 40),
 		},
+		maliciousPeers: map[int]injectors{
+			4: {},
+			5: {},
+		},
 		stopTime: make(map[int]time.Time),
 	}
 
@@ -1267,8 +1285,10 @@ func runTest(t *testing.T, test *testCase) {
 func maliciousTest(t *testing.T, test *testCase, validators []*testNode) {
 	for index, validator := range validators {
 		for number, block := range validator.blocks {
-			if maliciousBlock, ok := test.addedValidatorsBlocks[block.hash]; ok {
-				t.Errorf("a malicious block %d(%v)\nwas added to %d(%v)", number, maliciousBlock, index, validator)
+			if test.addedValidatorsBlocks != nil {
+				if maliciousBlock, ok := test.addedValidatorsBlocks[block.hash]; ok {
+					t.Errorf("a malicious block %d(%v)\nwas added to %d(%v)", number, maliciousBlock, index, validator)
+				}
 			}
 		}
 	}
@@ -1646,15 +1666,16 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		}
 	}
 
-	//check that all nodes reached the same minimum blockchain height
+	// check that all nodes reached the same minimum blockchain height
 	minHeight := math.MaxInt64
 	for index, validator := range validators {
 		if len(test.maliciousPeers) != 0 {
 			if _, ok := test.maliciousPeers[index]; ok {
-				//don't check chain for malicious peers
+				// don't check chain for malicious peers
 				continue
 			}
 		}
+
 		validatorBlock := validator.lastBlock
 		if minHeight > int(validatorBlock) {
 			minHeight = int(validatorBlock)
@@ -1670,7 +1691,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		}
 	}
 
-	//c heck that all nodes got the same blocks
+	// check that all nodes got the same blocks
 	for i := 1; i <= minHeight; i++ {
 		blockHash := validators[0].blocks[uint64(i)].hash
 
