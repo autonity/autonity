@@ -7,6 +7,7 @@ import (
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
+	"github.com/clearmatics/autonity/params"
 	"math/big"
 	"sync"
 )
@@ -32,8 +33,29 @@ const (
 		contract/user/0xefqefea...214dafaff/participant/commissionrate
 		template: contract/user/common.address/[validator|stakeholder|participant]/[stake|balance|commissionrate]
 	*/
+
+	// gauge to track stake and balance in ETH for user.
 	UserMetricIDTemplate = "contract/user/%s/%s/%s"
 
+	// gauge which track the min gas price in GWei.
+	GlobalMetricIDGasPrice = "contract/global/mingasprice"
+
+	// gauge which track the global state supply in ETH.
+	GlobalMetricIDStakeSupply = "contract/global/stakesupply"
+
+	// gauge which track the network operator balance in ETH.
+	GlobalOperatorBalanceMetricID = "contract/global/operator/balance"
+
+	// gauge tracks the fraction of reward per block for stakeholders.
+	BlockRewardDistributionMetricIDTemplate = "contract/block/%v/user/%s/%s/reward"
+
+	// gauge tracks the reward/transactionfee of a specific block.
+	BlockRewardBlockMetricID = "contract/block/%v/reward"
+
+	RoleUnknown                   = "unknown"
+	RoleValidator                 = "validator"
+	RoleStakeHolder               = "stakeholder"
+	RoleParticipant               = "participant"
 	/*
 		counter metrics which counts reward distribution for per block, cannot hold these counters from block0 to
 		infinite block number in memory, so we apply a height/time window to keep the counters in reasonable range, for
@@ -42,25 +64,6 @@ const (
 	*/
 	BlockRewardHeightWindow          = 3600 // 1 hour time window to keep those counters in memory.
 	BlockRewardHeightWindowStepRange = 600  // each 10 minutes to shrink the window.
-
-	BlockRewardDistributionMetricIDTemplate = "contract/block/%v/user/%s/%s/reward"
-
-	// counter tracks the reward/transactionfee of a specific block
-	BlockRewardBlockMetricID = "contract/block/%v/reward"
-
-	// counter counts SUM of the rewards for each block in the history.
-	BlockRewardSUMMetricID = "contract/blockreward/sum"
-
-	// gauge metrics which track the global level metrics of economic.
-	GlobalMetricIDGasPrice    = "contract/global/mingasprice"
-	GlobalMetricIDStakeSupply = "contract/global/stakesupply"
-
-	// gauge metrics which track the network operator balance.
-	GlobalOperatorBalanceMetricID = "contract/global/operator/balance"
-	RoleUnknown                   = "unknown"
-	RoleValidator                 = "validator"
-	RoleStakeHolder               = "stakeholder"
-	RoleParticipant               = "participant"
 )
 
 // refer to autonity contract abt spec, keep in same meta.
@@ -87,19 +90,32 @@ type EconomicMetrics struct {
 	heightLowBounder uint64 // time/height window for keeping reasonable number of metrics in registry.
 }
 
+func (em *EconomicMetrics) recordMetric(name string, value *big.Int, isWei bool) {
+	if value == nil {
+		return
+	}
+	switch isWei {
+	case true:
+		// float64 metric using different interface and type.
+		gaugeFloat64 := metrics.GetOrRegisterGaugeFloat64(name, nil)
+		val2Float64, _ := new(big.Rat).SetFrac(value, big.NewInt(params.Ether)).Float64()
+		gaugeFloat64.Update(val2Float64)
+	case false:
+		gaugeInt64 := metrics.GetOrRegisterGauge(name, nil)
+		gaugeInt64.Update(value.Int64())
+	}
+}
+
 // measure metrics of user's meta data by regarding of network economic.
 func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *state.StateDB, height uint64, operator common.Address) {
 
 	if v == nil || stateDB == nil {
 		return
 	}
-	// measure global metrics
-	gasPriceGauge := metrics.GetOrRegisterGauge(GlobalMetricIDGasPrice, nil)
-	stakeTotalSupplyGauge := metrics.GetOrRegisterGauge(GlobalMetricIDStakeSupply, nil)
-	operatorBalanceGauge := metrics.GetOrRegisterGauge(GlobalOperatorBalanceMetricID, nil)
-	gasPriceGauge.Update(v.Mingasprice.Int64())
-	stakeTotalSupplyGauge.Update(v.Stakesupply.Int64())
-	operatorBalanceGauge.Update(stateDB.GetBalance(operator).Int64())
+
+	em.recordMetric(GlobalMetricIDGasPrice, v.Mingasprice, true)
+	em.recordMetric(GlobalMetricIDStakeSupply, v.Stakesupply, false)
+	em.recordMetric(GlobalOperatorBalanceMetricID, stateDB.GetBalance(operator), true)
 
 	// measure user metrics
 	if len(v.Accounts) != len(v.Usertypes) || len(v.Accounts) != len(v.Stakes) ||
@@ -124,15 +140,9 @@ func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *s
 			return
 		}
 
-		// get or create metrics from default registry.
-		stakeGauge := metrics.GetOrRegisterGauge(stakeID, nil)
-		balanceGauge := metrics.GetOrRegisterGauge(balanceID, nil)
-		commissionRateGauge := metrics.GetOrRegisterGauge(commmissionRateID, nil)
-
-		// submit data to registry.
-		stakeGauge.Update(stake.Int64())
-		balanceGauge.Update(balance.Int64())
-		commissionRateGauge.Update(rate.Int64())
+		em.recordMetric(stakeID, stake, false)
+		em.recordMetric(balanceID, balance, true)
+		em.recordMetric(commmissionRateID, rate, false)
 	}
 
 	// clean up useless metrics if there exists.
@@ -148,18 +158,12 @@ func (em *EconomicMetrics) SubmitRewardDistributionMetrics(v *RewardDistribution
 	// submit reward distribution metrics to registry.
 	for i := 0; i < len(v.Holders); i++ {
 		rewardDistributionMetricID := em.generateRewardDistributionMetricsID(v.Holders[i], Stakeholder, height)
-		rwdDistributionMetric := metrics.GetOrRegisterCounter(rewardDistributionMetricID, nil)
-		rwdDistributionMetric.Inc(v.Rewardfractions[i].Int64())
+		em.recordMetric(rewardDistributionMetricID, v.Rewardfractions[i], true)
 	}
 
 	// submit block reward metric to registry.
 	blockRewardMetricID := em.generateBlockRewardMetricsID(height)
-	blockRewardMetric := metrics.GetOrRegisterCounter(blockRewardMetricID, nil)
-	blockRewardMetric.Inc(v.Amount.Int64())
-
-	// submit block reward sum metrics to registry.
-	sumBlockRewardMetric := metrics.GetOrRegisterCounter(BlockRewardSUMMetricID, nil)
-	sumBlockRewardMetric.Inc(v.Amount.Int64())
+	em.recordMetric(blockRewardMetricID, v.Amount, true)
 
 	// check to remove reward distribution metrics which is out of time/height window.
 	em.removeMetricsOutOfWindow(height)

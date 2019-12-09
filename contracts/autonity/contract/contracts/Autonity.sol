@@ -106,7 +106,7 @@ contract Autonity {
             require(_participantAddress[i] != address(0), "Addresses must be defined");
             UserType _userType = UserType(_participantType[i]);
             address payable addr = address(uint160(_participantAddress[i]));
-           _createUser(addr, _participantEnode[i], _userType, _participantStake[i]);
+            _createUser(addr, _participantEnode[i], _userType, _participantStake[i]);
         }
         deployer = msg.sender;
         operatorAccount = _operatorAccount;
