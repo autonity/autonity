@@ -3,7 +3,6 @@ package test
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
-	"github.com/clearmatics/autonity/log"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -21,6 +20,7 @@ import (
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/p2p/enode"
@@ -224,7 +224,7 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 		return nil, err
 	}
 	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { //делает какую-то проверку
-		return eth.New(ctx, &eth.Config{											//возвращает ядро Эфириума
+		return eth.New(ctx, &eth.Config{ //возвращает ядро Эфириума
 			Genesis:         genesis,
 			NetworkId:       genesis.Config.ChainID.Uint64(),
 			SyncMode:        downloader.FullSync,
