@@ -75,10 +75,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			},
 		)
 	}
-	err := gspec.Config.AutonityContractConfig.AddDefault().Validate()
-	if err != nil {
-		return nil, nil, err
-	}
+	gspec.Config.AutonityContractConfig.AddDefault()
 
 	genesis := gspec.MustCommit(db)
 	blockchain, err := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher())

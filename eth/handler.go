@@ -61,7 +61,7 @@ var (
 )
 
 var (
-	errUnauthaurizedPeer  = errors.New("peer is not authorized")
+	errUnauthaurizedPeer = errors.New("peer is not authorized")
 )
 
 func errResp(code errCode, format string, v ...interface{}) error {
@@ -401,7 +401,6 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		syncer := pm.blockchain.Engine().(consensus.Syncer)
 		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
 		syncer.ResetPeerCache(address)
-		syncer.SyncPeer(address)
 	}
 
 	// If we have a trusted CHT, reject all peers below that (avoid fast sync eclipse)
