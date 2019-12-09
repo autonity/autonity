@@ -43,7 +43,7 @@ func (c *ModifyValidatorListEngine) FinalizeAndAssemble(chain consensus.ChainRea
 		return block, nil
 	}
 
-	if c.currentRoundState == nil || c.currentRoundState.Height().Cmp(header.Number) != 0 {
+	if c.currentRoundState == nil || c.currentRoundState != nil || c.currentRoundState.Height().Cmp(header.Number) != 0 {
 		return block, nil
 	}
 

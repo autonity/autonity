@@ -28,6 +28,7 @@ import (
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
+	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -985,10 +986,6 @@ func TestTendermintTC7(t *testing.T) {
 		afterHooks: map[int]hook{
 			3: hookStartNode(3, 40),
 		},
-		maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
-			4: nil,
-			5: nil,
-		},
 		stopTime: make(map[int]time.Time),
 	}
 
@@ -1045,7 +1042,7 @@ type testCase struct {
 	numPeers                int
 	numBlocks               int
 	txPerPeer               int
-	validatorsCanBeStopped *int64
+	validatorsCanBeStopped  *int64
 	maliciousPeers          map[int]injectors
 	addedValidatorsBlocks   map[common.Hash]uint64
 	removedValidatorsBlocks map[common.Hash]uint64
@@ -1058,8 +1055,8 @@ type testCase struct {
 	stopTime             map[int]time.Time
 	genesisHook          func(g *core.Genesis) *core.Genesis
 	mu                   sync.RWMutex
-	noQuorumAfterBlock     uint64
-	noQuorumTimeout        time.Duration
+	noQuorumAfterBlock   uint64
+	noQuorumTimeout      time.Duration
 }
 
 type injectors struct {
