@@ -28,7 +28,6 @@ import (
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
-	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -60,18 +59,67 @@ func TestTendermintOneMalicious(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+	addedValidatorsBlocks := make(map[common.Hash]uint64)
+	removedValidatorsBlocks := make(map[common.Hash]uint64)
+	changedValidators := tendermintCore.NewChanges()
 
 	cases := []*testCase{
 		{
-			name:      "one node - always accepts blocks",
+			name:      "replace a valid validator with invalid one",
 			numPeers:  5,
-			numBlocks: 5,
+			numBlocks: 10,
 			txPerPeer: 1,
-			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
-				4: func(basic consensus.Engine) consensus.Engine {
-					return tendermintCore.NewVerifyHeaderAlwaysTrueEngine(basic)
+			maliciousPeers: map[int]injectors{
+				4: {
+					cons: func(basic consensus.Engine) consensus.Engine {
+						return tendermintCore.NewReplaceValidatorCore(basic, changedValidators)
+					},
+					backs: func(basic tendermintCore.Backend) tendermintCore.Backend {
+						return tendermintCore.NewChangeValidatorBackend(t, basic, changedValidators, removedValidatorsBlocks, addedValidatorsBlocks)
+					},
 				},
 			},
+			addedValidatorsBlocks:   addedValidatorsBlocks,
+			removedValidatorsBlocks: removedValidatorsBlocks,
+			changedValidators:       changedValidators,
+		},
+		{
+			name:      "add a validator",
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			maliciousPeers: map[int]injectors{
+				4: {
+					cons: func(basic consensus.Engine) consensus.Engine {
+						return tendermintCore.NewAddValidatorCore(basic, changedValidators)
+					},
+					backs: func(basic tendermintCore.Backend) tendermintCore.Backend {
+						return tendermintCore.NewChangeValidatorBackend(t, basic, changedValidators, removedValidatorsBlocks, addedValidatorsBlocks)
+					},
+				},
+			},
+			addedValidatorsBlocks:   addedValidatorsBlocks,
+			removedValidatorsBlocks: removedValidatorsBlocks,
+			changedValidators:       changedValidators,
+		},
+		{
+			name:      "remove a validator",
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 1,
+			maliciousPeers: map[int]injectors{
+				4: {
+					cons: func(basic consensus.Engine) consensus.Engine {
+						return tendermintCore.NewRemoveValidatorCore(basic, changedValidators)
+					},
+					backs: func(basic tendermintCore.Backend) tendermintCore.Backend {
+						return tendermintCore.NewChangeValidatorBackend(t, basic, changedValidators, removedValidatorsBlocks, addedValidatorsBlocks)
+					},
+				},
+			},
+			addedValidatorsBlocks:   addedValidatorsBlocks,
+			removedValidatorsBlocks: removedValidatorsBlocks,
+			changedValidators:       changedValidators,
 		},
 	}
 
@@ -163,10 +211,8 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 			beforeHooks: map[int]hook{
 				4: hookStopNode(4, 1),
 			},
-			stopTime: make(map[int]time.Time),
-			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
-				4: nil,
-			},
+			stopTime:       make(map[int]time.Time),
+			maliciousPeers: map[int]injectors{},
 		},
 		{
 			name:      "one node stops at block 5",
@@ -176,10 +222,8 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 			beforeHooks: map[int]hook{
 				4: hookStopNode(4, 5),
 			},
-			stopTime: make(map[int]time.Time),
-			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
-				4: nil,
-			},
+			stopTime:       make(map[int]time.Time),
+			maliciousPeers: map[int]injectors{},
 		},
 		{
 			name:      "F nodes stop at block 1",
@@ -190,11 +234,8 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				3: hookStopNode(3, 1),
 				4: hookStopNode(4, 1),
 			},
-			stopTime: make(map[int]time.Time),
-			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
-				3: nil,
-				4: nil,
-			},
+			stopTime:       make(map[int]time.Time),
+			maliciousPeers: map[int]injectors{},
 		},
 		{
 			name:      "F nodes stop at block 5",
@@ -205,11 +246,8 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				3: hookStopNode(3, 5),
 				4: hookStopNode(4, 5),
 			},
-			stopTime: make(map[int]time.Time),
-			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
-				3: nil,
-				4: nil,
-			},
+			stopTime:       make(map[int]time.Time),
+			maliciousPeers: map[int]injectors{},
 		},
 		{
 			name:      "F nodes stop at blocks 4,5",
@@ -220,11 +258,8 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				3: hookStopNode(3, 4),
 				4: hookStopNode(4, 5),
 			},
-			stopTime: make(map[int]time.Time),
-			maliciousPeers: map[int]func(basic consensus.Engine) consensus.Engine{
-				3: nil,
-				4: nil,
-			},
+			stopTime:       make(map[int]time.Time),
+			maliciousPeers: map[int]injectors{},
 		},
 	}
 
@@ -1005,22 +1040,31 @@ func TestTendermintNoQuorum(t *testing.T) {
 }
 
 type testCase struct {
-	name                   string
-	isSkipped              bool
-	numPeers               int
-	numBlocks              int
-	txPerPeer              int
+	name                    string
+	isSkipped               bool
+	numPeers                int
+	numBlocks               int
+	txPerPeer               int
 	validatorsCanBeStopped *int64
-	maliciousPeers         map[int]func(basic consensus.Engine) consensus.Engine //map[validatorIndex]consensusConstructor
-	networkRates           map[int]networkRate                                   //map[validatorIndex]networkRate
-	beforeHooks            map[int]hook                                          //map[validatorIndex]beforeHook
-	afterHooks             map[int]hook                                          //map[validatorIndex]afterHook
-	sendTransactionHooks   map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error)
-	stopTime               map[int]time.Time
-	genesisHook            func(g *core.Genesis) *core.Genesis
-	mu                     sync.RWMutex
+	maliciousPeers          map[int]injectors
+	addedValidatorsBlocks   map[common.Hash]uint64
+	removedValidatorsBlocks map[common.Hash]uint64
+	changedValidators       tendermintCore.Changes
+
+	networkRates         map[int]networkRate //map[validatorIndex]networkRate
+	beforeHooks          map[int]hook        //map[validatorIndex]beforeHook
+	afterHooks           map[int]hook        //map[validatorIndex]afterHook
+	sendTransactionHooks map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error)
+	stopTime             map[int]time.Time
+	genesisHook          func(g *core.Genesis) *core.Genesis
+	mu                   sync.RWMutex
 	noQuorumAfterBlock     uint64
 	noQuorumTimeout        time.Duration
+}
+
+type injectors struct {
+	cons  func(basic consensus.Engine) consensus.Engine
+	backs func(basic tendermintCore.Backend) tendermintCore.Backend
 }
 
 func (test *testCase) getBeforeHook(index int) hook {
@@ -1122,15 +1166,17 @@ func runTest(t *testing.T, test *testCase) {
 	}
 	for i, validator := range validators {
 		var engineConstructor func(basic consensus.Engine) consensus.Engine
+		var backendConstructor func(basic tendermintCore.Backend) tendermintCore.Backend
 		if test.maliciousPeers != nil {
-			engineConstructor = test.maliciousPeers[i]
+			engineConstructor = test.maliciousPeers[i].cons
+			backendConstructor = test.maliciousPeers[i].backs
 		}
 
 		validator.listener.Close()
 
 		rates := test.networkRates[i]
 
-		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, rates.in, rates.out, engineConstructor)
+		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, rates.in, rates.out, engineConstructor, backendConstructor) //делаем валидатор. Он просит переменную, которая типа функция engineConstructor
 		if err != nil {
 			t.Fatal("cant make a validator", i, err)
 		}
@@ -1215,6 +1261,20 @@ func runTest(t *testing.T, test *testCase) {
 
 	// each peer sends one tx per block
 	sendTransactions(t, test, validators, test.txPerPeer, true)
+
+	if len(test.maliciousPeers) != 0 {
+		maliciousTest(t, test, validators)
+	}
+}
+
+func maliciousTest(t *testing.T, test *testCase, validators []*testNode) {
+	for index, validator := range validators {
+		for number, block := range validator.blocks {
+			if maliciousBlock, ok := test.addedValidatorsBlocks[block.hash]; ok {
+				t.Errorf("a malicious block %d(%v)\nwas added to %d(%v)", number, maliciousBlock, index, validator)
+			}
+		}
+	}
 }
 
 func (validator *testNode) startNode() error {
@@ -1372,7 +1432,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		logger := log.New("addr", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "idx", index)
 
 		// skip malicious nodes
-		if test.maliciousPeers != nil {
+		if len(test.maliciousPeers) != 0 {
 			if _, ok := test.maliciousPeers[index]; ok {
 				atomic.AddInt64(test.validatorsCanBeStopped, 1)
 				continue
@@ -1592,11 +1652,12 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	//check that all nodes reached the same minimum blockchain height
 	minHeight := math.MaxInt64
 	for index, validator := range validators {
-		if _, ok := test.maliciousPeers[index]; ok {
-			//don't check chain for malicious peers
-			continue
+		if len(test.maliciousPeers) != 0 {
+			if _, ok := test.maliciousPeers[index]; ok {
+				//don't check chain for malicious peers
+				continue
+			}
 		}
-
 		validatorBlock := validator.lastBlock
 		if minHeight > int(validatorBlock) {
 			minHeight = int(validatorBlock)
@@ -1612,15 +1673,17 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		}
 	}
 
-	//check that all nodes got the same blocks
+	//c heck that all nodes got the same blocks
 	for i := 1; i <= minHeight; i++ {
 		blockHash := validators[0].blocks[uint64(i)].hash
-		for index, validator := range validators[1:] {
-			if _, ok := test.maliciousPeers[index+1]; ok {
-				//don't check chain for malicious peers
-				continue
-			}
 
+		for index, validator := range validators[1:] {
+			if len(test.maliciousPeers) != 0 {
+				if _, ok := test.maliciousPeers[index+1]; ok {
+					// don't check chain for malicious peers
+					continue
+				}
+			}
 			if validator.blocks[uint64(i)].hash != blockHash {
 				t.Fatalf("validators %d and %d have different blocks %d - %q vs %s",
 					0, index+1, i, validator.blocks[uint64(i)].hash.String(), blockHash.String())

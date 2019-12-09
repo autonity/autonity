@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"github.com/clearmatics/autonity/log"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -13,6 +14,7 @@ import (
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -50,6 +52,16 @@ type testNode struct {
 	lastBlock      uint64
 	txsSendCount   *int64
 	txsChainCount  map[uint64]int64
+}
+
+func (validator testNode) stringBlocks() string {
+	hashes := make(map[uint64]string, len(validator.blocks))
+
+	for number, block := range validator.blocks {
+		hashes[number] = block.hash.String()
+	}
+
+	return fmt.Sprintf("%v", hashes)
 }
 
 type block struct {
@@ -176,7 +188,7 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 	return genesis
 }
 
-func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, inRate, outRate int64, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) {
+func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, inRate, outRate int64, cons func(basic consensus.Engine) consensus.Engine, backs func(basic tendermintCore.Backend) tendermintCore.Backend) (*node.Node, error) { //здесь эта переменная-функция называется cons
 	// Define the basic configurations for the Ethereum node
 	datadir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -211,8 +223,8 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 	if err != nil {
 		return nil, err
 	}
-	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		return eth.New(ctx, &eth.Config{
+	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { //делает какую-то проверку
+		return eth.New(ctx, &eth.Config{											//возвращает ядро Эфириума
 			Genesis:         genesis,
 			NetworkId:       genesis.Config.ChainID.Uint64(),
 			SyncMode:        downloader.FullSync,
@@ -220,7 +232,7 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 			DatabaseHandles: 256,
 			TxPool:          core.DefaultTxPoolConfig,
 			Tendermint:      *config.DefaultConfig(),
-		}, cons)
+		}, cons, backs)
 	}); err != nil {
 		return nil, err
 	}

@@ -63,8 +63,6 @@ var (
 	errInvalidNonce = errors.New("invalid nonce")
 	// errInvalidUncleHash is returned if a block contains an non-empty uncle list.
 	errInvalidUncleHash = errors.New("non empty uncle hash")
-	// errInconsistentValidatorSet is returned if the validator set is inconsistent
-	errInconsistentValidatorSet = errors.New("inconsistent validator set")
 	// errInvalidTimestamp is returned if the timestamp of a block is lower than the previous block's timestamp + the minimum block period.
 	errInvalidTimestamp = errors.New("invalid timestamp")
 )
@@ -88,7 +86,7 @@ func (sb *Backend) Author(header *types.Header) (common.Address, error) {
 // VerifyHeader checks whether a header conforms to the consensus rules of a
 // given engine. Verifying the seal may be done optionally here, or explicitly
 // via the VerifySeal method.
-func (sb *Backend) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+func (sb *Backend) VerifyHeader(chain consensus.ChainReader, header *types.Header, _ bool) error {
 	return sb.verifyHeader(chain, header, nil)
 }
 
@@ -441,7 +439,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 		sb.logger.Error("Error ancestor")
 		return consensus.ErrUnknownAncestor
 	}
-	block, err := sb.updateBlock(block)
+	block, err := sb.AddSeal(block)
 	if err != nil {
 		sb.logger.Error("seal error updateBlock", "err", err.Error())
 		return err
@@ -501,7 +499,7 @@ func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
 }
 
 // update timestamp and signature of the block based on its number of transactions
-func (sb *Backend) updateBlock(block *types.Block) (*types.Block, error) {
+func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
 	header := block.Header()
 	// sign the hash
 	seal, err := sb.Sign(types.SigHash(header).Bytes())
