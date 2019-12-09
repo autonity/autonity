@@ -29,7 +29,6 @@ func NewAutonityContract(
 		transfer:    transfer,
 		GetHashFn:   GetHashFn,
 		//SavedValidatorsRetriever: SavedValidatorsRetriever,
-
 	}
 }
 
@@ -54,11 +53,58 @@ type Contract struct {
 	contractABI              *abi.ABI
 	bc                       Blockchainer
 	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
+	metrics                  EconomicMetrics
 
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool
 	transfer    func(db vm.StateDB, sender, recipient common.Address, amount *big.Int)
 	GetHashFn   func(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 	sync.RWMutex
+}
+
+// measure metrics of user's meta data by regarding of network economic.
+func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB) {
+	if header == nil || stateDB == nil || header.Number.Uint64() < 1 {
+		return
+	}
+
+	// prepare abi and evm context
+	deployer := ac.bc.Config().AutonityContractConfig.Deployer
+	sender := vm.AccountRef(deployer)
+	gas := uint64(0xFFFFFFFF)
+	evm := ac.getEVM(header, deployer, stateDB)
+
+	ABI, err := ac.abi()
+	if err != nil {
+		return
+	}
+
+	// pack the function which dump the data from contract.
+	input, err := ABI.Pack("dumpEconomicsMetricData")
+	if err != nil {
+		log.Warn("cannot pack the method: ", err.Error())
+		return
+	}
+
+	// call evm.
+	value := new(big.Int).SetUint64(0x00)
+	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
+	log.Debug("bytes return from contract: ", ret)
+	if vmerr != nil {
+		log.Warn("Error Autonity Contract dumpNetworkEconomics")
+		return
+	}
+
+	// marshal the data from bytes arrays into specified structure.
+	v := EconomicMetaData{make([]common.Address, 32), make([]uint8, 32), make([]*big.Int, 32),
+		make([]*big.Int, 32), new(big.Int), new(big.Int)}
+
+	if err := ABI.Unpack(&v, "dumpEconomicsMetricData", ret); err != nil { // can't work with aliased types
+		log.Warn("Could not unpack dumpNetworkEconomicsData returned value", "err", err, "header.num",
+			header.Number.Uint64())
+		return
+	}
+
+	ac.metrics.SubmitEconomicMetrics(&v, stateDB, header.Number.Uint64(), ac.bc.Config().AutonityContractConfig.Operator)
 }
 
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
@@ -209,8 +255,6 @@ func (ac *Contract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.
 	return newWhitelist, err
 }
 
-//blockchain
-
 func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
 	// Needs to be refactored somehow
 	deployer := ac.bc.Config().AutonityContractConfig.Deployer
@@ -345,11 +389,26 @@ func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *type
 
 	value := new(big.Int).SetUint64(0x00)
 
-	_, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
+	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract callPerformRedistribution()", "err", err)
 		return vmerr
 	}
+
+	// after reward distribution, update metrics with the return values.
+	//v := RewardDistributionMetaData {true, make([]common.Address, 32), make([]*big.Int, 32), new(big.Int)}
+	v := RewardDistributionMetaData{}
+	v.Result = true
+	v.Holders = make([]common.Address, 32)
+	v.Rewardfractions = make([]*big.Int, 32)
+	v.Amount = new(big.Int)
+
+	if err := ABI.Unpack(&v, "performRedistribution", ret); err != nil { // can't work with aliased types
+		log.Error("Could not unpack performRedistribution returned value", "err", err, "header.num", header.Number.Uint64())
+		return nil
+	}
+
+	ac.metrics.SubmitRewardDistributionMetrics(&v, header.Number.Uint64())
 	return nil
 }
 
@@ -362,6 +421,7 @@ func (ac *Contract) ApplyPerformRedistribution(transactions types.Transactions, 
 	for i, tx := range transactions {
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
+
 	log.Info("execution start ApplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
 	if blockGas.Cmp(new(big.Int)) == 0 {
 		log.Info("execution start ApplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64())

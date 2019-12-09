@@ -20,7 +20,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"io"
 	"math/big"
 	mrand "math/rand"
@@ -32,6 +31,7 @@ import (
 	"github.com/clearmatics/autonity/common/mclock"
 	"github.com/clearmatics/autonity/common/prque"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
@@ -240,7 +240,11 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
-	if (chainConfig.Tendermint != nil || chainConfig.Istanbul != nil) && chainConfig.AutonityContractConfig != nil {
+	if chainConfig.Tendermint != nil || chainConfig.Istanbul != nil {
+		if chainConfig.AutonityContractConfig == nil {
+			return nil, errors.New("we need autonity contract specified for tendermint or istanbul consensus")
+		}
+
 		bc.autonityContract = autonity.NewAutonityContract(bc, CanTransfer, Transfer, func(ref *types.Header, chain autonity.ChainContext) func(n uint64) common.Hash {
 			return GetHashFn(ref, chain)
 		})
@@ -1300,11 +1304,15 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		return NonStatTy, err
 	}
 
-	// Call network permissioning logic before committing the state
 	if bc.chainConfig.Istanbul != nil || bc.chainConfig.Tendermint != nil {
+		// Call network permissioning logic before committing the state
 		err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
 		if err != nil && err != autonity.ErrAutonityContract {
 			return NonStatTy, err
+		}
+		// Measure network economic metrics.
+		if bc.chainConfig.Tendermint != nil {
+			bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
 		}
 	}
 
