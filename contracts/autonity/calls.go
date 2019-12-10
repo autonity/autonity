@@ -1,6 +1,7 @@
 package autonity
 
 import (
+	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/state"
@@ -10,10 +11,14 @@ import (
 	"math"
 	"math/big"
 	"reflect"
+	"strings"
 )
 
-type raw []byte
-
+/*
+ * ContractState is a unified structure to represent the autonity contract state.
+ * By using a unified structure, the new state meta introduced in the Autonity.sol
+ * should be synced with this structure.
+ */
 type ContractState struct {
 	Users []common.Address `abi:"users"`
 	Enodes []string `abi:"enodes"`
@@ -21,8 +26,12 @@ type ContractState struct {
 	Stakes []*big.Int `abi:"stakes"`
 	CommissionRates []*big.Int `abi:"commisionrates"`
 	Operator common.Address `abi:"operator"`
+	Deployer common.Address `abi:"deployer"`
 	MinGasPrice *big.Int `abi:"mingasprice"`
+	BondingPeriod *big.Int `abi:"bondingperiod"`
 }
+
+type raw []byte
 
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
 func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
@@ -71,11 +80,17 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	accTypes := make([]*big.Int, 0, ln)
 	participantStake := make([]*big.Int, 0, ln)
 	commissionRate := make([]*big.Int, 0, ln)
+
+	// Default bond period is 100.
+	defaultBondPeriod := big.NewInt(100)
+
 	for _, v := range chain.Config().AutonityContractConfig.Users {
 		validators = append(validators, v.Address)
 		enodes = append(enodes, v.Enode)
 		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
 		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
+
+		//TODO: default commission rate is 0, should use a config file...
 		commissionRate = append(commissionRate, common.Big0)
 	}
 
@@ -86,7 +101,9 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		participantStake,
 		commissionRate,
 		chain.Config().AutonityContractConfig.Operator,
-		new(big.Int).SetUint64(chain.Config().AutonityContractConfig.MinGasPrice))
+		chain.Config().AutonityContractConfig.Deployer,
+		new(big.Int).SetUint64(chain.Config().AutonityContractConfig.MinGasPrice),
+		defaultBondPeriod)
 	if err != nil {
 		log.Error("contractABI.Pack returns err", "err", err)
 		return common.Address{}, err
@@ -107,34 +124,47 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	ac.Unlock()
 	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
 
-	//TODO: set contract abi and bytecode from this bootstrap phase.
+	///////////////////////////////////////////////////////////////
+	// only for testing, need to be removed once feature done!
 	contractBin := chain.Config().AutonityContractConfig.Bytecode
 	contractAbi := chain.Config().AutonityContractConfig.ABI
-	contractErr := ac.callSetContractProgram(statedb, header, contractBin, contractAbi)
+	contractErr := ac.callSetContractForTesting(statedb, header, contractBin, contractAbi)
 	if contractErr != nil {
 		log.Error("set contract binary failed", "err", contractErr)
 		return contractAddress, contractErr
 	}
+	////////////////////////////////////////////////////////////////
 
 	return contractAddress, nil
 }
 
-func (ac *Contract) UpdateAutonityContractV2(header *types.Header, statedb *state.StateDB, bytecode string, abi string, cs ContractState) error {
+func (ac *Contract) UpdateAutonityContractV2(header *types.Header, statedb *state.StateDB, bytecode string, newAbi string, cs ContractState) error {
+
+	if header == nil || statedb == nil || len(bytecode) == 0 || len(newAbi) == 0 {
+		return ErrWrongParameter
+	}
+
 	caller := ac.bc.Config().AutonityContractConfig.Deployer
 	evm := ac.getEVM(header, caller, statedb)
 	contractBytecode := common.Hex2Bytes(bytecode)
-	contractABI, err := ac.abi()
+
+	// get new abi, and prepare the constructor of new contract.
+	newContractABI, err := abi.JSON(strings.NewReader(newAbi))
 	if err != nil {
 		return err
 	}
-	constructorParams, err := contractABI.Pack("",
+
+	//TODO: Better to fix and use Youssef's direct byte packing upgrade, otherwise the construction is less flexible.
+	constructorParams, err := newContractABI.Pack("",
 		cs.Users,
 		cs.Enodes,
 		cs.Types,
 		cs.Stakes,
 		cs.CommissionRates,
 		cs.Operator,
-		cs.MinGasPrice)
+		cs.Deployer,
+		cs.MinGasPrice,
+		cs.BondingPeriod)
 	if err != nil {
 		log.Error("contractABI.Pack returns err", "err", err)
 		return err
@@ -188,7 +218,7 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 	// if result's type is "raw" then bypass unpacking
 	if reflect.TypeOf(result) == reflect.TypeOf(&[]byte{}) {
 		log.Info("meme type")
-		// TODO: copy the slice of byte into slice interface. GO's typing system is complicated.
+		// TODO: copy the slice of byte into slice interface. GO's typing system is complicated, using Unpack for now.
 		//reflect.ValueOf(result).SetBytes(ret)
 		//result = append([]byte(nil), ret...)
 		//copy(result, ret)
@@ -224,11 +254,6 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 
 func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, error) {
 	v := RewardDistributionMetaData{}
-	v.Result = true
-	v.Holders = make([]common.Address, 32)
-	v.Rewardfractions = make([]*big.Int, 32)
-	v.Amount = new(big.Int)
-
 	err := ac.AutonityContractCall(state, header, "finalize", &v, blockGas)
 	if err != nil {
 		return false, err
@@ -269,7 +294,7 @@ func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Hea
 	return bytecode, abi, nil
 }
 
-func (ac *Contract) callSetContractProgram(state *state.StateDB, header *types.Header, byteCode string, abi string) error {
+func (ac *Contract) callSetContractForTesting(state *state.StateDB, header *types.Header, byteCode string, abi string) error {
 	if state == nil || header == nil {
 		return ErrWrongParameter
 	}

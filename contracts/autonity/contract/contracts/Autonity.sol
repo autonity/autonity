@@ -13,7 +13,9 @@ contract Autonity {
         uint256[] stakes;
         uint256[] commisionrates;
         address operator;
+        address deployer;
         uint256 mingasprice;
+        uint256 bondingperiod;
     }
 
     struct EconomicsMetricData {
@@ -32,36 +34,6 @@ contract Autonity {
         uint256 amount;
     }
 
-    address[] private usersList;
-
-    // validators - list of validators of network
-    address[] public validators;
-    // enodesWhitelist - which nodes can connect to network
-    string[] public enodesWhitelist;
-    // deployer - deployer of contract
-    address public deployer;
-    // operatorAccount - account who can manipulate enodesWhitelist
-    address public operatorAccount;
-
-    uint256 private stakeSupply;
-
-    /*
-    * The bonding period (BP) is specified by the Autonity System Architecture as an integer representing an interval of blocks.
-    * We have identifed two differents ways to how this parameter could be used :
-    * 1. Bonding/unbonding operations happening at the end of each epoch.
-    * 2. BP-Delayed unbonding.
-    */
-    uint256 public bonding_period = 100;
-    /*
-    * The commission rate is set globally at the member level and is public:
-    * A member can’t have multiple commission rates depending on the member
-    * The commission rate MUST be by default 0 and MUST remain unchanged if not updated.
-    */
-    mapping (address => uint256) private commission_rate;
-
-    //array of members who are able to use stacking
-    address[] private stakeholders;
-
     enum UserType { Participant, Stakeholder, Validator}
 
     struct User {
@@ -69,17 +41,29 @@ contract Autonity {
         UserType userType;
         uint256 stake;
         string enode;
+        uint256 commission_rate; // rate must be by default 0 and must remain unchanged if not updated.
     }
 
+    ////////////////////// Contract States need to be dumped for contract upgrade//////////
+    address[] private usersList;
+    string[] public enodesWhitelist;
     mapping (address => User) private users;
+    address public deployer;
+    address public operatorAccount;
+    uint256 minGasPrice = 0;
+    uint256 public bonding_period = 100;
+    ///////////////////////////////////////////////////////////////////////////////////////
+
+    ///////////////////// Contract state which can be replay from dumped states////////////
+    address[] public validators;
+    address[] private stakeholders;
+    uint256 private stakeSupply;
+    ///////////////////////////////////////////////////////////////////////////////////////
 
     /*
-    * Ethereum transactions gas price must be greater or equal to the minimumGasPrice, a value set by the Governance operator.
-    * FM-REQ-5: The minimumGasPrice value is a Genesis file configuration, if ommitted it defaults to 0.
+     * Binary code and ABI of new version contract, the default value is "" when contract is created.
+     * if they are set by and only by operator, then contract upgrade will be triggered automatically.
     */
-    uint256 minGasPrice = 0;
-
-    //Upgradability
     string bytecode;
     string contractAbi;
 
@@ -105,7 +89,9 @@ contract Autonity {
         uint256[] memory _participantStake,
         uint256[] memory _commissionRate,
         address _operatorAccount,
-        uint256 _minGasPrice) public {
+        address _deployer,
+        uint256 _minGasPrice,
+        uint256 _bondingPeriod) public {
 
 
         require(_participantAddress.length == _participantEnode.length
@@ -120,11 +106,11 @@ contract Autonity {
             address payable addr = address(uint160(_participantAddress[i]));
             _createUser(addr, _participantEnode[i], _userType, _participantStake[i], _commissionRate[i]);
         }
-        deployer = msg.sender;
         operatorAccount = _operatorAccount;
+        deployer = msg.sender;
         minGasPrice = _minGasPrice;
+        bonding_period = _bondingPeriod;
     }
-
 
     /*
     * addValidator
@@ -174,7 +160,6 @@ contract Autonity {
         stakeSupply = stakeSupply.sub(u.stake);
         _removeFromArray(u.addr, usersList);
         delete users[_address];
-        delete commission_rate[_address];
         emit RemoveUser(_address, u.userType);
     }
 
@@ -187,7 +172,6 @@ contract Autonity {
         minGasPrice = _value;
         emit SetMinimumGasPrice(_value);
     }
-
 
     /*
     * mintStake
@@ -211,7 +195,6 @@ contract Autonity {
         emit RedeemStake(_account, _amount);
     }
 
-
     /*
     * send
     * Moves `amount` stake tokens from the caller's account to `recipient`.
@@ -225,12 +208,13 @@ contract Autonity {
         return true;
     }
 
-
-
-    //    The Autonity Contract MUST implements the setCommissionRate(rate)
-    //    function capable of fixing the caller commission rate for the next bonding period.
+    /*
+     * TODO: msg.sender == operator address or anynode address, we might need node's address when operator perform this.
+     * The Autonity Contract MUST implements the setCommissionRate(rate)
+     * function capable of fixing the caller commission rate for the next bonding period.
+     */
     function setCommissionRate(uint256 rate) public canUseStake(msg.sender) returns(bool) {
-        commission_rate[msg.sender] = rate;
+        users[msg.sender].commission_rate = rate;
         emit SetCommissionRate(msg.sender, rate);
         return true;
     }
@@ -276,7 +260,7 @@ contract Autonity {
             userType[i] = uint256(users[usersList[i]].userType);
             stake[i] = users[usersList[i]].stake;
             enode[i] = users[usersList[i]].enode;
-            commissionRate[i] = commission_rate[users[usersList[i]].addr];
+            commissionRate[i] = users[usersList[i]].commission_rate;
         }
         return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice);
     }
@@ -293,9 +277,9 @@ contract Autonity {
             userType[i] = uint256(users[usersList[i]].userType);
             stake[i] = users[usersList[i]].stake;
             enode[i] = users[usersList[i]].enode;
-            commissionRate[i] = commission_rate[users[usersList[i]].addr];
+            commissionRate[i] = users[usersList[i]].commission_rate;
         }
-        ContractState memory cs = ContractState(addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice);
+        ContractState memory cs = ContractState(addr, enode, userType, stake, commissionRate, operatorAccount, deployer, minGasPrice, bonding_period);
         return cs;
     }
 
@@ -334,7 +318,7 @@ contract Autonity {
     }
 
     function getRate(address _account) public view returns(uint256) {
-        return commission_rate[_account];
+        return users[_account].commission_rate;
     }
 
 
@@ -396,7 +380,7 @@ contract Autonity {
             tempAddrlist[i] = users[usersList[i]].addr;
             tempTypelist[i] = users[usersList[i]].userType;
             tempStakelist[i] = users[usersList[i]].stake;
-            commissionRatelist[i] = commission_rate[usersList[i]];
+            commissionRatelist[i] = users[usersList[i]].commission_rate;
         }
 
         EconomicsMetricData memory data = EconomicsMetricData(tempAddrlist, tempTypelist, tempStakelist, commissionRatelist, minGasPrice, stakeSupply);
@@ -461,7 +445,7 @@ contract Autonity {
 
     function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake, uint256 commissionRate) internal {
         require(_address != address(0), "Addresses must be defined");
-        User memory u = User(_address, _userType, _stake, _enode);
+        User memory u = User(_address, _userType, _stake, _enode, commissionRate);
 
         // avoid duplicated user in usersList.
         if (users[u.addr].addr != u.addr) {
@@ -481,8 +465,6 @@ contract Autonity {
         if(bytes(u.enode).length != 0) {
             enodesWhitelist.push(u.enode);
         }
-
-        commission_rate[u.addr] = commissionRate;
     }
 
 

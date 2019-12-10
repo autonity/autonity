@@ -42,6 +42,7 @@ type ChainContext interface {
 	// GetHeader returns the hash corresponding to their hash.
 	GetHeader(common.Hash, uint64) *types.Header
 }
+
 type Blockchainer interface {
 	ChainContext
 	GetVMConfig() *vm.Config
@@ -200,26 +201,41 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
 	log.Info("performing Autonity Contract upgrade", "header", header.Number.Uint64())
+
+	// dump contract state first.
 	//state, errState := ac.callRetrieveState(statedb, header)
 	state, errState := ac.callRetrieveStateV2(statedb, header)
 	if errState != nil {
 		return errState
 	}
-	bytecode, abi, errContract := ac.callRetrieveContract(statedb, header)
+
+	// get contract binary and abi set by system operator before.
+	bytecode, newAbi, errContract := ac.callRetrieveContract(statedb, header)
 	if errContract != nil {
 		return errContract
 	}
-	//we save a snapshot of the statedb in case of upgrade failure
+
+	// take snapshot in case of roll back to former view.
 	snapshot := statedb.Snapshot()
+
 	//Create account will delete previous the AC stateobject and carry over the balance
 	statedb.CreateAccount(ac.Address())
+
 	//if err := ac.UpdateAutonityContract(header, statedb, bytecode, abi, state); err != nil {
-	if err := ac.UpdateAutonityContractV2(header, statedb, bytecode, abi, state); err != nil {
+	if err := ac.UpdateAutonityContractV2(header, statedb, bytecode, newAbi, state); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}
 
-	// TODO: how to test the upgraded contract? If it does not work or cause the consensus stuck. Roll back.
+	// upgrade ac.ABI too right after the contract binary upgrade successfully.
+	if err := ac.upgradeAbi(newAbi); err != nil {
+		statedb.RevertToSnapshot(snapshot)
+		return err
+	}
+
+	// TODO: sync ABI spec to conf too, otherwise once node reset, it might cause serious problem.
+
+	// TODO: check if the upgraded contract and abi works by checking those important APIs, for example: getValidators().
 
 	return nil
 }
@@ -247,4 +263,17 @@ func (ac *Contract) abi() (*abi.ABI, error) {
 	}
 	ac.contractABI = &ABI
 	return ac.contractABI, nil
+}
+
+func (ac *Contract) upgradeAbi(newAbi string) error {
+	ac.Lock()
+	defer ac.Unlock()
+	newABI, err := abi.JSON(strings.NewReader(newAbi))
+	if err != nil {
+		return err
+	}
+
+	// TODO: double check if this cause memory leak.
+	ac.contractABI = &newABI
+	return nil
 }
