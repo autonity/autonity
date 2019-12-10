@@ -35,19 +35,21 @@ contract Autonity {
 
     uint256 private stakeSupply;
 
+    uint256 public committeeSize = 1000;
+
     /*
     * The bonding period (BP) is specified by the Autonity System Architecture as an integer representing an interval of blocks.
     * We have identifed two differents ways to how this parameter could be used :
     * 1. Bonding/unbonding operations happening at the end of each epoch.
     * 2. BP-Delayed unbonding.
     */
-    uint256 public bonding_period = 100;
+    uint256 public bondingPeriod = 100;
     /*
     * The commission rate is set globally at the member level and is public:
     * A member can’t have multiple commission rates depending on the member
     * The commission rate MUST be by default 0 and MUST remain unchanged if not updated.
     */
-    mapping (address => uint256) private commission_rate;
+    mapping (address => uint256) public commission_rate;
 
     //array of members who are able to use stacking
     address[] private stakeholders;
@@ -59,10 +61,15 @@ contract Autonity {
         UserType userType;
         uint256 stake;
         string enode;
+        // uint256 selfStake;
+        // uint256 delegatedStake;
     }
 
     mapping (address => User) private users;
 
+    User[] public committee;
+
+    uint256 totalStake = 0;
     /*
     * Ethereum transactions gas price must be greater or equal to the minimumGasPrice, a value set by the Governance operator.
     * FM-REQ-5: The minimumGasPrice value is a Genesis file configuration, if ommitted it defaults to 0.
@@ -168,6 +175,15 @@ contract Autonity {
         emit SetMinimumGasPrice(_value);
     }
 
+    /*
+    * setCommitteeSize
+    * Set the maximum size of the commitee, restricted to the Governance Operator account
+    */
+
+    function setCommitteeSize (uint256 _size) public onlyOperator(msg.sender) {
+        committeeSize = _size;
+    }
+
 
     /*
     * mintStake
@@ -235,8 +251,18 @@ contract Autonity {
         return validators;
     }
 
+    /*
+    * getStakeholders
+    *
+    * Returns the macro stakeholders list
+    */
+
     function getStakeholders() public view returns (address[] memory) {
         return stakeholders;
+    }
+
+    function getCommittee() public view returns (User[] memory) {
+        return committee;
     }
 
     /*
@@ -273,7 +299,21 @@ contract Autonity {
         return commission_rate[_account];
     }
 
+    /*
+    * getMaxCommitteeSize
+    * Returns the maximum possible size of the committee - set of validators participating in consensus.
+    */
+    function getMaxCommitteeSize() public view returns(uint256) {
+        return committeeSize;
+    }
 
+    /*
+    *getCurrentCommitteeSize
+    *Returns the size of the current committee
+    */
+    function getCurrentCommiteeSize() public view returns(uint256) {
+        return committee.length;
+    }
 
     /*
     * getMinimumGasPrice
@@ -285,6 +325,89 @@ contract Autonity {
 
     function checkMember(address _account) public view returns (bool) {
         return  users[_account].addr == _account;
+    }
+
+    /*
+    * sortByStake
+    * Order validators by stake
+    *
+    */
+    function sortByStake(User[] memory _validators) internal pure returns(User[] memory){
+        structQuickSort(_validators, int(0), int(_validators.length - 1));
+        return _validators;
+    }
+
+    /*
+    * structQuickSort
+    * QuickSort algorithm sorting in ascending order by stake
+    */
+    function structQuickSort(User[] memory _users, int low, int high) internal pure {
+
+        int i = low;
+        int j = high;
+        if (i==j) return;
+        uint pivot = _users[uint(low + (high - low) / 2)].stake;
+        // Set the pivot element in its right sorted index in the array
+        while (i <= j) {
+            while (_users[uint(i)].stake > pivot) i++;
+            while (pivot > _users[uint(j)].stake) j--;
+            if (i <= j) {
+                (_users[uint(i)], _users[uint(j)]) = (_users[uint(j)], _users[uint(i)]);
+                i++;
+                j--;
+            }
+        }
+        // Recursion call in the left partition of the array
+        if (low < j) {
+            structQuickSort(_users, low, j);
+        }
+        // Recursion call in the right partition
+        if (i < high) {
+            structQuickSort(_users, i , high);
+        }
+    }
+
+    /*
+    * setCommittee
+    * selects the committee of validators to participate in consensus
+    */
+    function setCommittee() public onlyDeployer(msg.sender) returns(User[] memory){
+        require(validators.length > 0, "There must be validators");
+
+        uint len = validators.length;
+        uint256 committeeLength = committeeSize;
+        if (committeeLength >= len) {committeeLength = len;}
+
+        User[] memory validatorList = new User[](len);
+        User[] memory sortedValidatorList = new User[](len);
+        User[] memory committeeList = new User[](committeeLength);
+
+        for (uint256 i = 0;i < validators.length; i++) {
+            User memory _user = users[validators[i]];
+            validatorList[i] =_user;
+        }
+
+        // If there are more validators than seats in the committee
+        if (validatorList.length > committeeSize) {
+            // sort validators by stake in ascending order
+            sortedValidatorList = sortByStake(validatorList);
+            // choose the top-N (with N=maxCommitteeSize)
+            for (uint256 j = 0; j < committeeSize; j++) {
+                committeeList[j] = sortedValidatorList[j];
+            }
+        }
+        // If all the validators fit in the committee
+        else {
+            committeeList = validatorList;
+        }
+
+        // Update committee in persistent storage
+        delete committee;
+        for (uint256 k =0 ; k < committeeLength; k++) {
+            committee.push(committeeList[k]);
+        }
+
+        return committeeList;
     }
 
     /*
