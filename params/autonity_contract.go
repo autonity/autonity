@@ -63,7 +63,6 @@ func (ac *AutonityContractGenesis) AddDefault() *AutonityContractGenesis {
 	if reflect.DeepEqual(ac.Deployer, common.Address{}) {
 		ac.Deployer = DefaultDeployer
 	}
-
 	if reflect.DeepEqual(ac.Operator, common.Address{}) {
 		ac.Operator = DefaultGovernance
 	}
@@ -76,6 +75,8 @@ func (ac *AutonityContractGenesis) AddDefault() *AutonityContractGenesis {
 				log.Error("Error parsing enode", "enode", ac.Users[i].Enode, "err", err)
 			}
 		}
+
+		//TODO: Do we need to check if enodeToAddress corresponds to the address provided (in case is not {})
 	}
 	return ac
 }
@@ -126,7 +127,7 @@ func (u *User) Validate() error {
 		return errors.New("incorrect user type")
 	}
 
-	if reflect.DeepEqual(u.Address, common.Address{}) && len(u.Enode) == 0 {
+	if reflect.DeepEqual(u.Address, common.Address{}) && len(u.Enode) == 0 { //TODO: Check if && is correct here
 		return errors.New("user.enode or user.address must be defined")
 	}
 
@@ -143,7 +144,7 @@ func (u *User) Validate() error {
 			return fmt.Errorf("fail to parse enode for account %v, error:%v", u.Address, err)
 		}
 
-		//todo do we need this check?
+		//todo do we need this check? --> I think we do!
 		//if reflect.DeepEqual(u.Address, common.Address{}) {
 		//	return errors.New("if both user.enode and user.address are defined, then the derived address from user.enode must be equal to user.address")
 		//}
@@ -167,7 +168,7 @@ func (ac *AutonityContractGenesis) GetValidatorUsers() []User {
 func (ac *AutonityContractGenesis) GetStakeHolderUsers() []User {
 	var users []User
 	for i := range ac.Users {
-		if ac.Users[i].Type == UserStakeHolder {
+		if ac.Users[i].Type == UserStakeHolder { //TODO: Validators are also stakeholders -> Fix this!
 			users = append(users, ac.Users[i])
 		}
 	}

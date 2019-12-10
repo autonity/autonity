@@ -153,8 +153,8 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	enodes := make([]string, 0, ln)
 	accTypes := make([]*big.Int, 0, ln)
 	participantStake := make([]*big.Int, 0, ln)
-	for _, v := range chain.Config().AutonityContractConfig.Users {
-		validators = append(validators, v.Address)
+	for _, v := range chain.Config().AutonityContractConfig.Users { // Todo: Looping through all the users here
+		validators = append(validators, v.Address) //Todo: Is this appending all the users as validators?
 		enodes = append(enodes, v.Enode)
 		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
 		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
