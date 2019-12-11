@@ -2,6 +2,12 @@ package autonity
 
 import (
 	"errors"
+	"math/big"
+	"reflect"
+	"sort"
+	"strings"
+	"sync"
+
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -10,11 +16,6 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
-	"math/big"
-	"reflect"
-	"sort"
-	"strings"
-	"sync"
 )
 
 func NewAutonityContract(
@@ -134,34 +135,27 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
 
-	//todo do we need it?
-	//validators, err = ac.SavedValidatorsRetriever(1)
-	//sort.Sort(validators)
-
-	//We need to append to data the constructor's parameters
-	//That should always be genesis validators
-
 	contractABI, err := ac.abi()
-
 	if err != nil {
 		log.Error("abi.JSON returns err", "err", err)
 		return common.Address{}, err
 	}
 
-	ln := len(chain.Config().AutonityContractConfig.GetValidatorUsers())
-	validators := make(common.Addresses, 0, ln)
+	ln := len(chain.Config().AutonityContractConfig.Users)
+	users := make(common.Addresses, 0, ln)
 	enodes := make([]string, 0, ln)
 	accTypes := make([]*big.Int, 0, ln)
 	participantStake := make([]*big.Int, 0, ln)
 	for _, v := range chain.Config().AutonityContractConfig.Users {
-		validators = append(validators, v.Address)
+		users = append(users, v.Address)
 		enodes = append(enodes, v.Enode)
 		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
 		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
 	}
 
+	//"" means contructor
 	constructorParams, err := contractABI.Pack("",
-		validators,
+		users,
 		enodes,
 		accTypes,
 		participantStake,
@@ -172,6 +166,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		return common.Address{}, err
 	}
 
+	//We need to append to data the constructor's parameters
 	data := append(contractBytecode, constructorParams...)
 	gas := uint64(0xFFFFFFFF)
 	value := new(big.Int).SetUint64(0x00)
