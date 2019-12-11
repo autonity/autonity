@@ -125,7 +125,7 @@ func NewRemoveValidatorCore(c consensus.Engine, changedValidators Changes) *Modi
 
 func (p removeValidatorCore) ModifyBFTExtra(bftExtra *types.BFTExtra) *types.BFTExtra {
 	p.removed[bftExtra.Validators[len(bftExtra.Validators)-1]] = struct{}{}
-	bftExtra.Validators = append(bftExtra.Validators[:len(bftExtra.Validators)-1])
+	bftExtra.Validators = bftExtra.Validators[:len(bftExtra.Validators)-1]
 	return bftExtra
 }
 

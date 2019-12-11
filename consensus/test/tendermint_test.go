@@ -229,8 +229,8 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 			maliciousPeers: map[int]injectors{
 				4: {},
 			},
-
 		},
+
 		{
 			name:      "F nodes stop at block 1",
 			numPeers:  7,
@@ -1055,16 +1055,17 @@ func TestTendermintNoQuorum(t *testing.T) {
 }
 
 type testCase struct {
-	name                    string
-	isSkipped               bool
-	numPeers                int
-	numBlocks               int
-	txPerPeer               int
-	validatorsCanBeStopped  *int64
+	name                   string
+	isSkipped              bool
+	numPeers               int
+	numBlocks              int
+	txPerPeer              int
+	validatorsCanBeStopped *int64
+
 	maliciousPeers          map[int]injectors
 	addedValidatorsBlocks   map[common.Hash]uint64
-	removedValidatorsBlocks map[common.Hash]uint64
-	changedValidators       tendermintCore.Changes
+	removedValidatorsBlocks map[common.Hash]uint64 //nolint: unused, structcheck
+	changedValidators       tendermintCore.Changes //nolint: unused,structcheck
 
 	networkRates         map[int]networkRate //map[validatorIndex]networkRate
 	beforeHooks          map[int]hook        //map[validatorIndex]beforeHook

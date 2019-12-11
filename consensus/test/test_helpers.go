@@ -3,7 +3,6 @@ package test
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
-	"fmt"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -52,16 +51,6 @@ type testNode struct {
 	lastBlock      uint64
 	txsSendCount   *int64
 	txsChainCount  map[uint64]int64
-}
-
-func (validator testNode) stringBlocks() string {
-	hashes := make(map[uint64]string, len(validator.blocks))
-
-	for number, block := range validator.blocks {
-		hashes[number] = block.hash.String()
-	}
-
-	return fmt.Sprintf("%v", hashes)
 }
 
 type block struct {
@@ -223,8 +212,8 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 	if err != nil {
 		return nil, err
 	}
-	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { //делает какую-то проверку
-		return eth.New(ctx, &eth.Config{ //возвращает ядро Эфириума
+	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
+		return eth.New(ctx, &eth.Config{
 			Genesis:         genesis,
 			NetworkId:       genesis.Config.ChainID.Uint64(),
 			SyncMode:        downloader.FullSync,

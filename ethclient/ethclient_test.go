@@ -178,7 +178,7 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	n.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 		config := &eth.Config{Genesis: genesis}
 		config.Ethash.PowMode = ethash.ModeFake
-		ethservice, err = eth.New(ctx, config, nil)
+		ethservice, err = eth.New(ctx, config, nil, nil)
 		return ethservice, err
 	})
 
