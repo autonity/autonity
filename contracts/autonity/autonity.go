@@ -202,9 +202,9 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
 	log.Info("performing Autonity Contract upgrade", "header", header.Number.Uint64())
 
-	// dump contract state first.
-	//state, errState := ac.callRetrieveState(statedb, header)
-	state, errState := ac.callRetrieveStateV2(statedb, header)
+	// dump contract stateBefore first.
+	//stateBefore, errState := ac.callRetrieveState(statedb, header)
+	stateBefore, errState := ac.callRetrieveStateV2(statedb, header)
 	if errState != nil {
 		return errState
 	}
@@ -221,22 +221,32 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	//Create account will delete previous the AC stateobject and carry over the balance
 	statedb.CreateAccount(ac.Address())
 
-	//if err := ac.UpdateAutonityContract(header, statedb, bytecode, abi, state); err != nil {
-	if err := ac.UpdateAutonityContractV2(header, statedb, bytecode, newAbi, state); err != nil {
+	//if err := ac.UpdateAutonityContract(header, statedb, bytecode, abi, stateBefore); err != nil {
+	if err := ac.UpdateAutonityContractV2(header, statedb, bytecode, newAbi, stateBefore); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}
 
-	// upgrade ac.ABI too right after the contract binary upgrade successfully.
+	// check if the upgraded contract and abi works by checking those important APIs, for example: getValidators().
+	stateAfter, err := ac.callRetrieveStateV2(statedb, header)
+	if err != nil {
+		statedb.RevertToSnapshot(snapshot)
+		return err
+	}
+
+	if !reflect.DeepEqual(stateBefore, stateAfter) {
+		statedb.RevertToSnapshot(snapshot)
+		return errors.New("state dis-match before and after contract upgrade")
+	}
+
+	// TODO: sync ABI spec to config file too, or do it by DEVOP scripts?
+	//  otherwise once node reset, it might cause serious problem.
+
+	// upgrade ac.ABI too right after the contract upgrade successfully.
 	if err := ac.upgradeAbi(newAbi); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}
-
-	// TODO: sync ABI spec to conf too, otherwise once node reset, it might cause serious problem.
-
-	// TODO: check if the upgraded contract and abi works by checking those important APIs, for example: getValidators().
-
 	return nil
 }
 
@@ -273,7 +283,6 @@ func (ac *Contract) upgradeAbi(newAbi string) error {
 		return err
 	}
 
-	// TODO: double check if this cause memory leak.
 	ac.contractABI = &newABI
 	return nil
 }

@@ -107,7 +107,7 @@ contract Autonity {
             _createUser(addr, _participantEnode[i], _userType, _participantStake[i], _commissionRate[i]);
         }
         operatorAccount = _operatorAccount;
-        deployer = msg.sender;
+        deployer = _deployer;
         minGasPrice = _minGasPrice;
         bonding_period = _bondingPeriod;
     }
