@@ -230,7 +230,6 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				4: {},
 			},
 		},
-
 		{
 			name:      "F nodes stop at block 1",
 			numPeers:  7,
