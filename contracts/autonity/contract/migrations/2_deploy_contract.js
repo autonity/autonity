@@ -23,11 +23,12 @@ module.exports = function(deployer, network, accounts) {
     ],
     [
         100,
-        100,
-        100,
-        100,
-        100
+        90,
+        80,
+        110,
+        120
     ], accounts[0],
     0,
+    //{ from:accounts[8], gas: 50000000});
     { from:accounts[8]});
 };

@@ -86,9 +86,9 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 	}
 
 	number := unminedBlock.Number()
-	if c := c.currentRoundState.Height().Cmp(number); c > 0 {
+	if currentIsHigher := c.currentRoundState.Height().Cmp(number); currentIsHigher > 0 {
 		return errOldHeightMessage
-	} else if c < 0 {
+	} else if currentIsHigher < 0 {
 		return consensus.ErrFutureBlock
 	} else {
 		return nil

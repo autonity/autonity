@@ -337,11 +337,10 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 // SetBFT sets default BFT(IBFT or Tendermint) config values
 func (g *Genesis) SetBFT() error {
 	if g.Config.Istanbul != nil || g.Config.Tendermint != nil && g.Config.AutonityContractConfig != nil {
+		//we should put validators to ExtraData field
 		var validators []string
-		for _, v := range g.Config.AutonityContractConfig.Users {
-			if v.Type == params.UserValidator {
-				validators = append(validators, v.Address.String())
-			}
+		for _, v := range g.Config.AutonityContractConfig.GetValidatorUsers() {
+			validators = append(validators, v.Address.String())
 		}
 
 		if len(validators) != 0 {

@@ -122,7 +122,7 @@ func (s *Ethereum) SetContractBackend(backend bind.ContractBackend) {
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Engine) consensus.Engine) (*Ethereum, error) {
+func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Engine) consensus.Engine, backs func(basic tendermintCore.Backend) tendermintCore.Backend) (*Ethereum, error) {
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
@@ -166,7 +166,7 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
-	consEngine := CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig)
+	consEngine := CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig, backs)
 	if cons != nil {
 		consEngine = cons(consEngine)
 	}
@@ -266,7 +266,8 @@ func makeExtraData(extra []byte) []byte {
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
+func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config,
+	backendConstructor func(basic tendermintCore.Backend) tendermintCore.Backend) consensus.Engine {
 
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
@@ -276,7 +277,10 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 		return istanbulBackend.New(&config.Istanbul, ctx.NodeKey(), db, chainConfig, vmConfig)
 	}
 	if chainConfig.Tendermint != nil {
-		back := tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, chainConfig, vmConfig)
+		var back tendermintCore.Backend = tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, chainConfig, vmConfig)
+		if backendConstructor != nil {
+			back = backendConstructor(back)
+		}
 		return tendermintCore.New(back, &config.Tendermint)
 	}
 

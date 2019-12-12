@@ -20,7 +20,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"io"
 	"math/big"
 	mrand "math/rand"
@@ -32,6 +31,7 @@ import (
 	"github.com/clearmatics/autonity/common/mclock"
 	"github.com/clearmatics/autonity/common/prque"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
@@ -240,7 +240,11 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
-	if (chainConfig.Tendermint != nil || chainConfig.Istanbul != nil) && chainConfig.AutonityContractConfig != nil {
+	if chainConfig.Tendermint != nil || chainConfig.Istanbul != nil {
+		if chainConfig.AutonityContractConfig == nil {
+			return nil, errors.New("we need autonity contract specified for tendermint or istanbul consensus")
+		}
+
 		bc.autonityContract = autonity.NewAutonityContract(bc, CanTransfer, Transfer, func(ref *types.Header, chain autonity.ChainContext) func(n uint64) common.Hash {
 			return GetHashFn(ref, chain)
 		})
@@ -959,7 +963,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 	// We don't require the chainMu here since we want to maximize the
 	// concurrency of header insertion and receipt insertion.
 	if err := bc.addJob(); err != nil {
-		return 0, nil
+		return 0, err
 	}
 	defer bc.doneJob()
 
@@ -1029,7 +1033,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 		var deleted []*numberHash
 		for i, block := range blockChain {
 			// Short circuit insertion if shutting down or processing failed
-			if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+			if bc.getProcInterrupt() {
 				return 0, errInsertionInterrupted
 			}
 			// Short circuit insertion if it is required(used in testing only)
@@ -1162,7 +1166,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 		batch := bc.db.NewBatch()
 		for i, block := range blockChain {
 			// Short circuit insertion if shutting down or processing failed
-			if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+			if bc.getProcInterrupt() {
 				return 0, errInsertionInterrupted
 			}
 			// Short circuit if the owner header is unknown
@@ -1234,11 +1238,6 @@ var lastWrite uint64
 // but does not write any state. This is used to construct competing side forks
 // up to the point where they exceed the canonical total difficulty.
 func (bc *BlockChain) writeBlockWithoutState(block *types.Block, td *big.Int) (err error) {
-	if err := bc.addJob(); err != nil {
-		return nil
-	}
-	defer bc.doneJob()
-
 	if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), td); err != nil {
 		return err
 	}
@@ -1251,7 +1250,7 @@ func (bc *BlockChain) writeBlockWithoutState(block *types.Block, td *big.Int) (e
 // and introduces chain reorg if necessary.
 func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
 	if err := bc.addJob(); err != nil {
-		return nil
+		return err
 	}
 	defer bc.doneJob()
 
@@ -1271,6 +1270,11 @@ func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
 
 // WriteBlockWithState writes the block and all associated state to the database.
 func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB) (status WriteStatus, err error) {
+	if err = bc.addJob(); err != nil {
+		return NonStatTy, err
+	}
+	defer bc.doneJob()
+
 	bc.chainmu.Lock()
 	defer bc.chainmu.Unlock()
 
@@ -1280,11 +1284,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 // writeBlockWithState writes the block and all associated state to the database,
 // but is expects the chain mutex to be held.
 func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB) (status WriteStatus, err error) {
-	if err = bc.addJob(); err != nil {
-		return NonStatTy, nil
-	}
-	defer bc.doneJob()
-
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 	if ptd == nil {
@@ -1300,11 +1299,15 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		return NonStatTy, err
 	}
 
-	// Call network permissioning logic before committing the state
 	if bc.chainConfig.Istanbul != nil || bc.chainConfig.Tendermint != nil {
+		// Call network permissioning logic before committing the state
 		err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
 		if err != nil && err != autonity.ErrAutonityContract {
 			return NonStatTy, err
+		}
+		// Measure network economic metrics.
+		if bc.chainConfig.Tendermint != nil {
+			bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
 		}
 	}
 
@@ -1464,12 +1467,12 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	}
 	// Pre-checks passed, start the full block imports
 	if err := bc.addJob(); err != nil {
-		return 0, nil
+		return 0, err
 	}
-	defer bc.doneJob()
 	bc.chainmu.Lock()
 	n, events, logs, err := bc.insertChain(chain, true)
 	bc.chainmu.Unlock()
+	bc.doneJob()
 
 	bc.PostChainEvents(events, logs)
 	return n, err
@@ -1485,7 +1488,7 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // completes, then the historic state could be pruned again
 func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []interface{}, []*types.Log, error) {
 	// If the chain is terminating, don't even bother starting up
-	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+	if bc.getProcInterrupt() {
 		return 0, nil, nil, nil
 	}
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
@@ -1587,7 +1590,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 	// No validation errors for the first block (or chain prefix skipped)
 	for ; block != nil && err == nil || err == ErrKnownBlock; block, err = it.next() {
 		// If the chain is terminating, stop processing blocks
-		if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		if bc.getProcInterrupt() {
 			log.Debug("Premature abort during blocks processing")
 			break
 		}
@@ -2121,7 +2124,7 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	defer bc.chainmu.Unlock()
 
 	if err := bc.addJob(); err != nil {
-		return 0, nil
+		return 0, err
 	}
 	defer bc.doneJob()
 
@@ -2243,10 +2246,11 @@ func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscr
 	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
 }
 
+// addJob should be called only for public methods
 func (bc *BlockChain) addJob() error {
 	bc.quitMu.RLock()
 	defer bc.quitMu.RUnlock()
-	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+	if bc.getProcInterrupt() {
 		return errors.New("blockchain is stopped")
 	}
 	bc.wg.Add(1)
