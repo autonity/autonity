@@ -493,6 +493,21 @@ func (mr *MockBackendMockRecorder) SetProposedBlockHash(hash interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProposedBlockHash", reflect.TypeOf((*MockBackend)(nil).SetProposedBlockHash), hash)
 }
 
+// AddSeal mocks base method
+func (m *MockBackend) AddSeal(block *types.Block) (*types.Block, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddSeal", block)
+	ret0, _ := ret[0].(*types.Block)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddSeal indicates an expected call of AddSeal
+func (mr *MockBackendMockRecorder) AddSeal(block interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSeal", reflect.TypeOf((*MockBackend)(nil).AddSeal), block)
+}
+
 // SyncPeer mocks base method
 func (m *MockBackend) SyncPeer(address common.Address, messages []*Message) {
 	m.ctrl.T.Helper()
