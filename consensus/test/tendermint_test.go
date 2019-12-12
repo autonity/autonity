@@ -560,7 +560,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f nodes stop for 5 seconds at the same block",
 			numPeers:  7,
-			numBlocks: 40,
+			numBlocks: 15,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -575,7 +575,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f nodes stop for 5 seconds at different blocks",
 			numPeers:  7,
-			numBlocks: 40,
+			numBlocks: 15,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -590,7 +590,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f nodes stop for 10 seconds at the same block",
 			numPeers:  7,
-			numBlocks: 40,
+			numBlocks: 20,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -605,7 +605,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		{
 			name:      "f nodes stop for 10 seconds at different blocks",
 			numPeers:  7,
-			numBlocks: 40,
+			numBlocks: 20,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
@@ -618,32 +618,32 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f nodes stop for 20 seconds at the same block",
+			name:      "f nodes stop for 10 seconds at the same block",
 			numPeers:  7,
-			numBlocks: 40,
+			numBlocks: 20,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
 				4: hookStopNode(4, 5),
 			},
 			afterHooks: map[int]hook{
-				3: hookStartNode(3, 20),
-				4: hookStartNode(4, 20),
+				3: hookStartNode(3, 10),
+				4: hookStartNode(4, 10),
 			},
 			stopTime: make(map[int]time.Time),
 		},
 		{
-			name:      "f nodes stop for 20 seconds at different blocks",
+			name:      "f nodes stop for 10 seconds at different blocks",
 			numPeers:  7,
-			numBlocks: 40,
+			numBlocks: 20,
 			txPerPeer: 1,
 			beforeHooks: map[int]hook{
 				3: hookStopNode(3, 5),
 				4: hookStopNode(4, 6),
 			},
 			afterHooks: map[int]hook{
-				3: hookStartNode(3, 20),
-				4: hookStartNode(4, 20),
+				3: hookStartNode(3, 10),
+				4: hookStartNode(4, 10),
 			},
 			stopTime: make(map[int]time.Time),
 		},
