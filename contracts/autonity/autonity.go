@@ -58,6 +58,7 @@ type Contract struct {
 	bc                       Blockchainer
 	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
 	metrics                  EconomicMetrics
+	ABIStore                 *ABIStore
 
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool
 	transfer    func(db vm.StateDB, sender, recipient common.Address, amount *big.Int)
@@ -239,10 +240,10 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 		return errors.New("state dis-match before and after contract upgrade")
 	}
 
-	// TODO: sync ABI spec to config file too, or do it by DEVOP scripts?
+	// TODO: sync ABIStore spec to config subDir too, or do it by DEVOP scripts?
 	//  otherwise once node reset, it might cause serious problem.
 
-	// upgrade ac.ABI too right after the contract upgrade successfully.
+	// upgrade ac.ABIStore too right after the contract upgrade successfully.
 	if err := ac.upgradeAbi(newAbi); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
@@ -267,6 +268,12 @@ func (ac *Contract) abi() (*abi.ABI, error) {
 	if ac.contractABI != nil {
 		return ac.contractABI, nil
 	}
+
+	// get abi first from abi spec store.
+	if ac.ABIStore == nil {
+		ac.ABIStore = NewABIStore(ac.bc.Config().AutonityContractConfig)
+	}
+
 	ABI, err := abi.JSON(strings.NewReader(ac.bc.Config().AutonityContractConfig.ABI))
 	if err != nil {
 		return nil, err
