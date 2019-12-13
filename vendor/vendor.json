@@ -551,6 +551,12 @@
 			"revisionTime": "2019-03-04T06:09:01Z"
 		},
 		{
+			"checksumSHA1": "Tfh4yL/rVuFYzI4kdnJpV0VOAf8=",
+			"path": "github.com/zimmski/go-leak",
+			"revision": "a11b0b936d24d0f31314933d543e020506efb6b6",
+			"revisionTime": "2015-10-16T21:22:41Z"
+		},
+		{
 			"checksumSHA1": "WI5PH8KPq8rM8nkj4x2Loj6j7h4=",
 			"path": "go.uber.org/goleak",
 			"revision": "7380c5a9fa8403fe6eb6354ceacf0cccdc0c61aa",
