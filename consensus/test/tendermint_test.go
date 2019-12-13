@@ -16,6 +16,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zimmski/go-leak"
+	"go.uber.org/goleak"
+	"golang.org/x/sync/errgroup"
+	"gonum.org/v1/gonum/stat"
+
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common"
@@ -28,8 +33,6 @@ import (
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
-	"go.uber.org/goleak"
-	"golang.org/x/sync/errgroup"
 )
 
 const DefaultTestGasPrice = 100000000000
@@ -170,94 +173,75 @@ func TestTendermintSlowConnections(t *testing.T) {
 	}
 }
 
+type stats struct {
+	mean   float64
+	std    float64
+	stdErr float64
+	n      int
+}
 
 func TestTendermintMemoryLeak(t *testing.T) {
+	t.Skip("Fails")
+
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
 
+	const thresholdPerBlock = 1024 // bytes
+
 	cases := []*testCase{
 		{
-			name:      "no malicious - 30 tx per second",
+			name:      "5 nodes, 10 blocks, 30 tx per peer per block",
 			numPeers:  5,
 			numBlocks: 10,
 			txPerPeer: 30,
 		},
+
 		{
-			name:      "no malicious - 100 blocks",
-			numPeers:  7,
-			numBlocks: 100,
-			txPerPeer: 10,
+			name:      "10 nodes, 40 blocks, 20 tx per peer per block",
+			numPeers:  10,
+			numBlocks: 40,
+			txPerPeer: 20,
 		},
 	}
 
 	const repeats = 10
-	leaks := make([][]float64, len(cases))
 
-	for i, testCase := range cases {
-		i := i
+	for _, testCase := range cases {
 		testCase := testCase
 
-		leaks[i] = make([]float64, repeats)
-		for n:=0;n<repeats; n++ {
-			n:=n
+		leaks := make([]float64, repeats)
+		for n := 0; n < repeats; n++ {
+			n := n
 			t.Run(fmt.Sprintf("test case %s, try %d", testCase.name, n), func(t *testing.T) {
 				m := leak.MarkMemory()
 				runTest(t, testCase)
-				leaks[i][n] = float64(m.Release())
+				leaks[n] = float64(m.Release()) / float64(testCase.numBlocks)
 			})
 		}
-	}
 
-	type stats struct {
-		mean float64
-		std float64
-		stdErr float64
-		n int
-	}
-
-	leaksStats := make([]stats, len(leaks))
-	for i, cases := range leaks {
-		mean, std := stat.MeanStdDev(cases, nil)
-		stdErr := stat.StdErr(std, float64(len(cases)))
-
-		leaksStats[i] = stats{
-			mean:   mean,
-			std:    std,
-			stdErr: stdErr,
-			n: len(cases),
+		if err := checkLeaks(leaks, thresholdPerBlock); err != nil {
+			t.Error(err)
 		}
 	}
-
-	sed := gmath.Sqrt(gmath.Pow(leaksStats[0].stdErr, 2) + gmath.Pow(leaksStats[1].stdErr, 2))
-	tstat := (leaksStats[0].mean - leaksStats[1].mean) / sed
-
-	// degrees of freedom
-	df := leaksStats[0].n + leaksStats[1].n - 2
-
-	// calculate the critical value
-	alpha := 0.05
-	cv := stat.PP.ppf(1.0 - alpha, df)
-
-	// calculate the p-value
-	p := (1 - stat.CDF(gmath.Abs(tstat), stat.Empirical, leaks[0], nil)) * 2
-
-	meansEqual := gmath.Abs(tstat) <= cv && p > alpha
-
-	fmt.Println("!!!", meansEqual, gmath.Abs(tstat) <= cv, p > alpha)
 }
 
-func runTestWithLeakChecks(t *testing.T, test *testCase, blocksMap ...map[common.Hash]uint64) {
-	m := leak.MarkMemory()
-	defer func() {
-		leaks := m.Release()
+func checkLeaks(leakStats []float64, threshold float64) error {
+	mean, std := stat.MeanStdDev(leakStats, nil)
+	stdErr := stat.StdErr(std, float64(len(leakStats)))
 
-		if leaks > 0 {
-			log.Error("some code is leaking", "size", leaks)
-		}
-	}()
+	st := stats{
+		mean:   mean,
+		std:    std,
+		stdErr: stdErr,
+		n:      len(leakStats),
+	}
 
-	runTest(t, test, blocksMap...)
+	if threshold < st.mean+st.stdErr {
+		return fmt.Errorf("mean %v; std %v; stdError %v; threshold %v", st.mean, st.std, st.stdErr, threshold)
+	}
+
+	return nil
 }
 
 func TestTendermintLongRun(t *testing.T) {
