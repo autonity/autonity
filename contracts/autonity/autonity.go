@@ -240,7 +240,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 		return errors.New("state dis-match before and after contract upgrade")
 	}
 
-	// sync abi to level db, in case of node reset, new abi will be load from level db.
+	// save new abi in persistent, once node reset, it load from persistent level db.
 	err = DefaultStore.Put([]byte(ABISPEC), []byte(newAbi))
 	if err != nil {
 		statedb.RevertToSnapshot(snapshot)
@@ -248,7 +248,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	}
 
 	// upgrade ac.ContractStateStore too right after the contract upgrade successfully.
-	if err := ac.upgradeAbi(newAbi); err != nil {
+	if err := ac.upgradeAbiCache(newAbi); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}
@@ -288,7 +288,7 @@ func (ac *Contract) abi() (*abi.ABI, error) {
 	return ac.contractABI, nil
 }
 
-func (ac *Contract) upgradeAbi(newAbi string) error {
+func (ac *Contract) upgradeAbiCache(newAbi string) error {
 	ac.Lock()
 	defer ac.Unlock()
 	newABI, err := abi.JSON(strings.NewReader(newAbi))
