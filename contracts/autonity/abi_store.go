@@ -6,44 +6,42 @@ import (
 	"github.com/clearmatics/autonity/ethdb/leveldb"
 	"github.com/clearmatics/autonity/log"
 	"io"
-	"math/big"
 	"os"
 	"path"
 	"sync"
 )
 
+const DirAutonityContractState = "contract_state_store"
+const NamespaceContractState = "contract_state"
+var ErrCreateContractStateStore = errors.New("cannot create contract state store")
+var ErrNotFoundFromDB = errors.New("not found from state db")
 
-const datadirAutonityContractABI = "abistore"       // Path within the datadir to store the autonity abi spec.
+var (
+	DefaultStore = NewStore()
+)
 
-var ErrCannotCreateABIStore = errors.New("cannot create abi store")
-var ErrNoABIFoundFromDB = errors.New("not abi found from db")
-var ABISpecKey = "ABI_SPEC"
-
-type ABIDB interface {
+type ContractStateDB interface {
 	ethdb.KeyValueReader
 	ethdb.KeyValueWriter
 	io.Closer
 }
 
-type ABIStore struct {
-	db      ABIDB
+type ContractStateStore struct {
+	db      ContractStateDB
 	baseDir string
 	subDir  string
-	cache   string
+	cache   map[string]string        // key value cache
 	m       sync.RWMutex
-	logger  log.Logger
 }
 
-func NewABIStore(logger log.Logger, baseDir string, subDir string) *ABIStore {
-	abi := &ABIStore{
-		baseDir: baseDir,
-		subDir:  subDir,
-		cache:   "",
+func NewStore() *ContractStateStore {
+	store := &ContractStateStore{
+		subDir:  DirAutonityContractState,
+		cache:   make(map[string]string),
 		m:       sync.RWMutex{},
-		logger:  logger,
 		db:      nil,
 	}
-	return abi
+	return store
 }
 
 func getDir(basedir string, subDir string) string {
@@ -55,85 +53,82 @@ func getDir(basedir string, subDir string) string {
 		err = os.MkdirAll(p, os.ModePerm)
 	}
 	if err != nil {
-		log.Error("can't create ABIStore directory", "path", p, "err", err)
+		log.Error("can't create ContractStateStore directory", "path", p, "err", err)
 	}
 
 	return p
 }
 
-func (abi *ABIStore) prepareDB() bool {
-	if abi.db == nil {
-		dir := getDir(abi.baseDir, abi.subDir)
-		newDB, err := leveldb.New(dir, 128, 1024, "")
-		if err != nil {
-			return false
-		}
-		abi.db = newDB
+func (st *ContractStateStore) InitDB(baseDir string) error {
+
+	if len(baseDir) <= 0 || baseDir == "" {
+		return ErrCreateContractStateStore
 	}
-	return true
+
+	st.m.Lock()
+	defer st.m.Unlock()
+
+	if st.db == nil {
+		dir := getDir(baseDir, st.subDir)
+		newDB, err := leveldb.New(dir, 128, 1024, NamespaceContractState)
+		if err != nil {
+			return ErrCreateContractStateStore
+		}
+		st.baseDir = baseDir
+		st.db = newDB
+	}
+	return nil
 }
 
-func (abi *ABIStore) UpdateABI(height *big.Int, abiSpec string) error {
-	if height == nil || abiSpec == "" {
+func (st *ContractStateStore) Put(key []byte, value []byte) error {
+	if len(key) <= 0 || len(value) <= 0 {
 		return ErrWrongParameter
 	}
 
-	abi.m.Lock()
-	defer abi.m.Unlock()
+	st.m.Lock()
+	defer st.m.Unlock()
 
-	if !abi.prepareDB() {
-		return ErrCannotCreateABIStore
-	}
-
-	//to do db update.
-	err := abi.db.Put([]byte(ABISpecKey), []byte(abiSpec))
+	err := st.db.Put(key, value)
 	if err != nil {
 		return err
 	}
 
-	abi.cache = abiSpec
+	st.cache[string(key)] = string(value)
 	return nil
 }
 
-func (abi *ABIStore) GetABI(height *big.Int) (string, error) {
-	if height == nil {
-		return "", ErrWrongParameter
-	}
-	abi.m.Lock()
-	defer abi.m.Unlock()
+func (st *ContractStateStore) Get(key []byte) ([]byte, error) {
+	st.m.Lock()
+	defer st.m.Unlock()
 
-	if abi.cache != "" {
-		return abi.cache, nil
-	}
-
-	if !abi.prepareDB() {
-		return "", ErrCannotCreateABIStore
+	if value, ok := st.cache[string(key)]; ok {
+		return []byte(value), nil
 	}
 
 	//to do db reading.
-	bytes, err := abi.db.Get([]byte(ABISpecKey))
+	bytes, err := st.db.Get(key)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if len(bytes) <= 0 {
-		return "", ErrNoABIFoundFromDB
+		return nil, ErrNotFoundFromDB
 	}
 
-	if abi.cache == "" {
-		abi.cache = string(bytes)
+	if value, ok := st.cache[string(key)]; !ok {
+		st.cache[string(key)] = value
 	}
 
-	return abi.cache, nil
+	return bytes, nil
 }
 
-func (abi *ABIStore) Close() {
-	abi.m.Lock()
-	defer abi.m.Unlock()
-	if abi.db != nil{
-		err := abi.db.Close()
+func (st *ContractStateStore) Close() {
+	st.m.Lock()
+	defer st.m.Unlock()
+	if st.db != nil{
+		err := st.db.Close()
 		if err != nil {
-			log.Error("close ABIStore failed: ", err)
+			log.Error("close ContractStateStore failed: ", err)
 		}
 	}
 }
