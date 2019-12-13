@@ -27,7 +27,6 @@ import (
 	"sync"
 
 	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/event"
@@ -128,9 +127,6 @@ func New(conf *Config) (*Node, error) {
 func (n *Node) Close() error {
 	var errs []error
 
-	// close autonity contract state db.
-	autonity.DefaultStore.Close()
-
 	// Terminate all subsystems and collect any errors
 	if err := n.Stop(); err != nil && err != ErrNodeStopped {
 		errs = append(errs, err)
@@ -172,11 +168,6 @@ func (n *Node) Start() error {
 		return ErrNodeRunning
 	}
 	if err := n.openDataDir(); err != nil {
-		return err
-	}
-
-	// init autonity contract state db.
-	if err := autonity.DefaultStore.InitDB(n.config.DataDir, datadirContractState); err != nil {
 		return err
 	}
 

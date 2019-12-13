@@ -51,6 +51,9 @@ type Blockchainer interface {
 
 	UpdateEnodeWhitelist(newWhitelist *types.Nodes)
 	ReadEnodeWhitelist(openNetwork bool) *types.Nodes
+
+	PutKeyValue(key []byte, value []byte) error
+	GetKeyValue(key []byte) ([]byte, error)
 }
 
 type Contract struct {
@@ -241,7 +244,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	}
 
 	// save new abi in persistent, once node reset, it load from persistent level db.
-	err = DefaultStore.Put([]byte(ABISPEC), []byte(newAbi))
+	err = ac.bc.PutKeyValue([]byte(ABISPEC), []byte(newAbi))
 	if err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
@@ -273,7 +276,7 @@ func (ac *Contract) abi() (*abi.ABI, error) {
 		return ac.contractABI, nil
 	}
 	var JsonString = ""
-	bytes, err := DefaultStore.Get([]byte(ABISPEC))
+	bytes, err := ac.bc.GetKeyValue([]byte(ABISPEC))
 	if err == nil {
 		JsonString = string(bytes)
 	} else {
