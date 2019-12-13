@@ -11,8 +11,6 @@ import (
 	"sync"
 )
 
-const DirAutonityContractState = "contract_state_store"
-const NamespaceContractState = "contract_state"
 var ErrCreateContractStateStore = errors.New("cannot create contract state store")
 var ErrNotFoundFromDB = errors.New("not found from state db")
 
@@ -36,7 +34,6 @@ type ContractStateStore struct {
 
 func NewStore() *ContractStateStore {
 	store := &ContractStateStore{
-		subDir:  DirAutonityContractState,
 		cache:   make(map[string]string),
 		m:       sync.RWMutex{},
 		db:      nil,
@@ -59,22 +56,24 @@ func getDir(basedir string, subDir string) string {
 	return p
 }
 
-func (st *ContractStateStore) InitDB(baseDir string) error {
-
-	if len(baseDir) <= 0 || baseDir == "" {
-		return ErrCreateContractStateStore
-	}
-
+func (st *ContractStateStore) InitDB(baseDir string, subDir string) error {
 	st.m.Lock()
 	defer st.m.Unlock()
 
+	// to support ephemeral node reside only in memory.
+	if baseDir == "" {
+		st.baseDir = baseDir
+		return nil
+	}
+
 	if st.db == nil {
-		dir := getDir(baseDir, st.subDir)
-		newDB, err := leveldb.New(dir, 128, 1024, NamespaceContractState)
+		dir := getDir(baseDir, subDir)
+		newDB, err := leveldb.New(dir, 128, 1024, "")
 		if err != nil {
 			return ErrCreateContractStateStore
 		}
 		st.baseDir = baseDir
+		st.subDir = subDir
 		st.db = newDB
 	}
 	return nil
@@ -87,6 +86,12 @@ func (st *ContractStateStore) Put(key []byte, value []byte) error {
 
 	st.m.Lock()
 	defer st.m.Unlock()
+
+	// to support ephemeral node reside in memory.
+	if st.baseDir == "" {
+		st.cache[string(key)] = string(value)
+		return nil
+	}
 
 	err := st.db.Put(key, value)
 	if err != nil {
@@ -105,7 +110,11 @@ func (st *ContractStateStore) Get(key []byte) ([]byte, error) {
 		return []byte(value), nil
 	}
 
-	//to do db reading.
+	// to support ephemeral node reside in memory.
+	if st.baseDir == "" {
+		return nil, ErrNotFoundFromDB
+	}
+
 	bytes, err := st.db.Get(key)
 	if err != nil {
 		return nil, err
@@ -125,10 +134,12 @@ func (st *ContractStateStore) Get(key []byte) ([]byte, error) {
 func (st *ContractStateStore) Close() {
 	st.m.Lock()
 	defer st.m.Unlock()
+	// to support ephemeral node reside in memory.
+	if st.baseDir == "" {
+		return
+	}
+
 	if st.db != nil{
-		err := st.db.Close()
-		if err != nil {
-			log.Error("close ContractStateStore failed: ", err)
-		}
+		st.db.Close()
 	}
 }
