@@ -551,10 +551,10 @@
 			"revisionTime": "2019-03-04T06:09:01Z"
 		},
 		{
-			"checksumSHA1": "gDWyH6deDwb4de/P4SL0fqKjhFs=",
+			"checksumSHA1": "WI5PH8KPq8rM8nkj4x2Loj6j7h4=",
 			"path": "go.uber.org/goleak",
-			"revision": "227bd74c34825787d52452ecf0916929863b787c",
-			"revisionTime": "2019-08-23T23:21:12Z"
+			"revision": "7380c5a9fa8403fe6eb6354ceacf0cccdc0c61aa",
+			"revisionTime": "2019-11-11T21:21:39Z"
 		},
 		{
 			"checksumSHA1": "TT1rac6kpQp2vz24m5yDGUNQ/QQ=",
@@ -669,6 +669,18 @@
 			"path": "golang.org/x/crypto/ssh/terminal",
 			"revision": "ff983b9c42bc9fbf91556e191cc8efb585c16908",
 			"revisionTime": "2018-07-25T11:53:45Z"
+		},
+		{
+			"checksumSHA1": "CtuqK/REatGcTfSrR+j5mkLDgKo=",
+			"path": "golang.org/x/lint",
+			"revision": "fdd1cda4f05fd1fd86124f0ef9ce31a0b72c8448",
+			"revisionTime": "2019-11-25T17:12:34Z"
+		},
+		{
+			"checksumSHA1": "543dY7RKJCSNiqYONDu1O2aD8s8=",
+			"path": "golang.org/x/lint/golint",
+			"revision": "fdd1cda4f05fd1fd86124f0ef9ce31a0b72c8448",
+			"revisionTime": "2019-11-25T17:12:34Z"
 		},
 		{
 			"checksumSHA1": "GtamqiJoL7PGHsN454AoffBFMa8=",
@@ -867,6 +879,120 @@
 			"path": "golang.org/x/text/unicode/norm",
 			"revision": "31e7599a6c37728c25ca34167be099d072ad335d",
 			"revisionTime": "2019-04-05T05:38:27Z"
+		},
+		{
+			"checksumSHA1": "LHHkpIoYHpQiBc7y0JaTmf3VbVQ=",
+			"path": "golang.org/x/tools/go/ast/astutil",
+			"revision": "7093a17b0467e77fb41804b2754a44f54a8c9ca2",
+			"revisionTime": "2019-11-18T02:26:56Z"
+		},
+		{
+			"checksumSHA1": "PKdfZOiW2rMqjcO1tybN+qXEyAw=",
+			"path": "golang.org/x/tools/go/gcexportdata",
+			"revision": "7093a17b0467e77fb41804b2754a44f54a8c9ca2",
+			"revisionTime": "2019-11-18T02:26:56Z"
+		},
+		{
+			"checksumSHA1": "tT4NXHPdRKJuPVEuHCZRkTVApjY=",
+			"path": "golang.org/x/tools/go/internal/gcimporter",
+			"revision": "7093a17b0467e77fb41804b2754a44f54a8c9ca2",
+			"revisionTime": "2019-11-18T02:26:56Z"
+		},
+		{
+			"checksumSHA1": "9BVOgS89ZFcJzqtjii1k9qaCQ1g=",
+			"path": "gonum.org/v1/gonum/blas",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "JGmFo1gHUDdxw8AJP+/1AK6Gnn0=",
+			"path": "gonum.org/v1/gonum/blas/blas64",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "/jgYYTQLwSKJx6Q8wem7MCXJvIs=",
+			"path": "gonum.org/v1/gonum/blas/cblas128",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "d2tV65oZIH7dna7b1jaEGHVsAP8=",
+			"path": "gonum.org/v1/gonum/blas/gonum",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "i5DnOAV5+qa1QdQCUlORTxVJsKM=",
+			"path": "gonum.org/v1/gonum/floats",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "FVBGdjX/25JopL6e6lH1PkmJHB0=",
+			"path": "gonum.org/v1/gonum/internal/asm/c128",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "7YcCgS7xz80xEZJT7SUmM0rcUH8=",
+			"path": "gonum.org/v1/gonum/internal/asm/c64",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "nFTYN524lVolLe3GVAyP8HiZprU=",
+			"path": "gonum.org/v1/gonum/internal/asm/f32",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "Y2zIM2yd2P02LcpoGtsSs6WTbIA=",
+			"path": "gonum.org/v1/gonum/internal/asm/f64",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "AUnqfg9uM3i1Psi2/T3DF8SHs5M=",
+			"path": "gonum.org/v1/gonum/internal/cmplx64",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "Gi7cwcjEebMyJBhYaFo96GQUDjc=",
+			"path": "gonum.org/v1/gonum/internal/math32",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "QBb/NCUK2Z9tdHf7yWNP0SYIcN8=",
+			"path": "gonum.org/v1/gonum/lapack",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "DoaTT0n2vcymChYnNtfBe+cMi2M=",
+			"path": "gonum.org/v1/gonum/lapack/gonum",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "BRJte/HC3K833VIEh+2TGp1MGsY=",
+			"path": "gonum.org/v1/gonum/lapack/lapack64",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "B/zCogc5rmPt0kK+Xjd2z78kR8A=",
+			"path": "gonum.org/v1/gonum/mat",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
+		},
+		{
+			"checksumSHA1": "X+NNJILEMjJauCAvWzY5Iq+YOHA=",
+			"path": "gonum.org/v1/gonum/stat",
+			"revision": "f622cf228092e5e2ebbf893c3927143009b42a73",
+			"revisionTime": "2019-12-12T17:12:44Z"
 		},
 		{
 			"checksumSHA1": "CEFTYXtWmgSh+3Ik1NmDaJcz4E0=",
