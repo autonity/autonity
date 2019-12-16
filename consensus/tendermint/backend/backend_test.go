@@ -357,7 +357,7 @@ func TestCommit(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					expectedBlock, _ := engine.updateBlock(block)
+					expectedBlock, _ := engine.AddSeal(block)
 					return *expectedBlock
 				},
 			},
@@ -371,7 +371,7 @@ func TestCommit(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					expectedBlock, _ := engine.updateBlock(block)
+					expectedBlock, _ := engine.AddSeal(block)
 					return *expectedBlock
 				},
 			},
@@ -411,7 +411,7 @@ func TestCommit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			expectedBlock, _ := engine.updateBlock(block)
+			expectedBlock, _ := engine.AddSeal(block)
 			return *expectedBlock
 		}
 

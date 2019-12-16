@@ -2,6 +2,12 @@ package autonity
 
 import (
 	"errors"
+	"math/big"
+	"reflect"
+	"sort"
+	"strings"
+	"sync"
+
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -10,11 +16,6 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
-	"math/big"
-	"reflect"
-	"sort"
-	"strings"
-	"sync"
 )
 
 var ErrAutonityContract = errors.New("could not call Autonity contract")

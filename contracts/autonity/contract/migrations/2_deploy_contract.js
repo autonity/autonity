@@ -23,10 +23,10 @@ module.exports = function(deployer, network, accounts) {
     ],
     [
         100,
-        100,
-        100,
-        100,
-        100
+        90,
+        80,
+        110,
+        120
     ],
     [
         0,
@@ -35,7 +35,6 @@ module.exports = function(deployer, network, accounts) {
         0,
         0
     ],
-    accounts[0],
     accounts[8],
     0,
     100,

@@ -360,7 +360,8 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 				return 0, err
 			}
 		} else {
-			validators, err = sb.retrieveSavedValidators(1, sb.blockchain) //genesis block and block #1 have the same validators
+			// genesis block and block #1 have the same validators
+			validators, err = sb.retrieveSavedValidators(1, sb.blockchain)
 			if err != nil {
 				return 0, err
 			}
@@ -372,24 +373,28 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		//Perform the actual comparison
 		if len(tendermintExtra.Validators) != len(validators) {
 			sb.logger.Error("wrong validator set",
+				"proposalNumber", proposalNumber,
 				"extraLen", len(tendermintExtra.Validators),
 				"currentLen", len(validators),
 				"extra", tendermintExtra.Validators,
 				"current", validators,
 			)
-			return 0, errInconsistentValidatorSet
+			return 0, consensus.ErrInconsistentValidatorSet
 		}
 
 		for i := range validators {
 			if tendermintExtra.Validators[i] != validators[i] {
 				sb.logger.Error("wrong validator in the set",
+					"currentVerifier", sb.address.String(),
+					"proposalNumber", proposalNumber,
+					"hash", block.Hash().String(),
 					"index", i,
 					"extraValidator", tendermintExtra.Validators[i],
-					"currentValidator", validators[i],
+					"currentProposer", validators[i],
 					"extra", tendermintExtra.Validators,
 					"current", validators,
 				)
-				return 0, errInconsistentValidatorSet
+				return 0, consensus.ErrInconsistentValidatorSet
 			}
 		}
 		// At this stage extradata field is consistent with the validator list returned by Soma-contract

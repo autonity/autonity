@@ -52,10 +52,10 @@ const (
 	// gauge tracks the reward/transactionfee of a specific block.
 	BlockRewardBlockMetricID = "contract/block/%v/reward"
 
-	RoleUnknown     = "unknown"
-	RoleValidator   = "validator"
-	RoleStakeHolder = "stakeholder"
-	RoleParticipant = "participant"
+	RoleUnknown                   = "unknown"
+	RoleValidator                 = "validator"
+	RoleStakeHolder               = "stakeholder"
+	RoleParticipant               = "participant"
 	/*
 		counter metrics which counts reward distribution for per block, cannot hold these counters from block0 to
 		infinite block number in memory, so we apply a height/time window to keep the counters in reasonable range, for

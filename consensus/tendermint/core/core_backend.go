@@ -145,6 +145,8 @@ type Backend interface {
 	// Setter for proposed block hash
 	SetProposedBlockHash(hash common.Hash)
 
+	AddSeal(block *types.Block) (*types.Block, error)
+
 	SyncPeer(address common.Address, messages []*Message)
 
 	ResetPeerCache(address common.Address)
