@@ -80,16 +80,15 @@ contract Autonity {
     event SetCommissionRate(address _address, uint256 _value);
     event MintStake(address _address, uint256 _amount);
     event RedeemStake(address _address, uint256 _amount);
-
     // constructor get called at block #1
     // configured in the genesis file.
+
     constructor (address[] memory _participantAddress,
         string[] memory _participantEnode,
         uint256[] memory _participantType,
         uint256[] memory _participantStake,
         uint256[] memory _commissionRate,
         address _operatorAccount,
-        address _deployer,
         uint256 _minGasPrice,
         uint256 _bondingPeriod) public {
 
@@ -107,7 +106,7 @@ contract Autonity {
             _createUser(addr, _participantEnode[i], _userType, _participantStake[i], _commissionRate[i]);
         }
         operatorAccount = _operatorAccount;
-        deployer = _deployer;
+        deployer = msg.sender;
         minGasPrice = _minGasPrice;
         bonding_period = _bondingPeriod;
     }
@@ -248,7 +247,7 @@ contract Autonity {
     }
 
     function retrieveState() public view
-    returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, uint256[] memory, address, uint256) {
+    returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, uint256[] memory, address, uint256, uint256) {
 
         address[] memory addr = new address[](usersList.length);
         uint256[] memory userType  = new uint256[](usersList.length);
@@ -262,25 +261,7 @@ contract Autonity {
             enode[i] = users[usersList[i]].enode;
             commissionRate[i] = users[usersList[i]].commission_rate;
         }
-        return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice);
-    }
-
-    function retrieveStateV2() public view returns (ContractState memory state) {
-
-        address[] memory addr = new address[](usersList.length);
-        uint256[] memory userType  = new uint256[](usersList.length);
-        uint256[] memory stake = new uint256[](usersList.length);
-        string[] memory enode = new string[](usersList.length);
-        uint256[] memory commissionRate = new uint256[](usersList.length);
-        for(uint256 i=0; i<usersList.length; i++ ) {
-            addr[i] = users[usersList[i]].addr;
-            userType[i] = uint256(users[usersList[i]].userType);
-            stake[i] = users[usersList[i]].stake;
-            enode[i] = users[usersList[i]].enode;
-            commissionRate[i] = users[usersList[i]].commission_rate;
-        }
-        ContractState memory cs = ContractState(addr, enode, userType, stake, commissionRate, operatorAccount, deployer, minGasPrice, bonding_period);
-        return cs;
+        return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice, bonding_period);
     }
 
     function getStakeholders() public view returns (address[] memory) {
