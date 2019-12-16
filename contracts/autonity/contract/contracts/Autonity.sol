@@ -6,18 +6,6 @@ import "./SafeMath.sol";
 contract Autonity {
     using SafeMath for uint256;
 
-    struct ContractState {
-        address[] users;
-        string[] enodes;
-        uint256[] types;
-        uint256[] stakes;
-        uint256[] commisionrates;
-        address operator;
-        address deployer;
-        uint256 mingasprice;
-        uint256 bondingperiod;
-    }
-
     struct EconomicsMetricData {
         address[] accounts;
         UserType[] usertypes;
@@ -54,15 +42,17 @@ contract Autonity {
     address public operatorAccount;
     uint256 minGasPrice = 0;
     uint256 public bondingPeriod = 100;
+    uint256 public committeeSize = 1000;
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ///////////////////// Contract state which can be replay from dumped states////////////
+    // Below 4 meta are used in each block generation before or after, so it is more about performance consideration.
+    // They are replay by constructor function.
     address[] public validators;
     address[] private stakeholders;
     uint256 private stakeSupply;
-    ///////////////////////////////////////////////////////////////////////////////////////
-
     User[] public committee;
+    ///////////////////////////////////////////////////////////////////////////////////////
 
     /*
      * Binary code and ABI of new version contract, the default value is "" when contract is created.
@@ -94,14 +84,13 @@ contract Autonity {
         uint256[] memory _commissionRate,
         address _operatorAccount,
         uint256 _minGasPrice,
-        uint256 _bondingPeriod) public {
-
+        uint256 _bondingPeriod,
+        uint256 _committeeSize) public {
 
         require(_participantAddress.length == _participantEnode.length
         && _participantAddress.length == _participantType.length
         && _participantAddress.length == _participantStake.length,
             "Incorrect constructor params");
-
 
         for (uint256 i = 0; i < _participantAddress.length; i++) {
             require(_participantAddress[i] != address(0), "Addresses must be defined");
@@ -112,7 +101,11 @@ contract Autonity {
         operatorAccount = _operatorAccount;
         deployer = msg.sender;
         minGasPrice = _minGasPrice;
-        bonding_period = _bondingPeriod;
+        bondingPeriod = _bondingPeriod;
+
+        // to construct the committee:
+        committeeSize = _committeeSize;
+        setCommittee();
     }
 
     /*
@@ -226,7 +219,7 @@ contract Autonity {
      * function capable of fixing the caller commission rate for the next bonding period.
      */
     function setCommissionRate(uint256 rate) public canUseStake(msg.sender) returns(bool) {
-        users[msg.sender].commission_rate = rate;
+        users[msg.sender].commissionRate = rate;
         emit SetCommissionRate(msg.sender, rate);
         return true;
     }
@@ -260,7 +253,7 @@ contract Autonity {
     }
 
     function retrieveState() public view
-    returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, uint256[] memory, address, uint256, uint256) {
+    returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, uint256[] memory, address, uint256, uint256, uint256) {
 
         address[] memory addr = new address[](usersList.length);
         uint256[] memory userType  = new uint256[](usersList.length);
@@ -272,9 +265,9 @@ contract Autonity {
             userType[i] = uint256(users[usersList[i]].userType);
             stake[i] = users[usersList[i]].stake;
             enode[i] = users[usersList[i]].enode;
-            commissionRate[i] = users[usersList[i]].commission_rate;
+            commissionRate[i] = users[usersList[i]].commissionRate;
         }
-        return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice, bonding_period);
+        return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice, bondingPeriod, committeeSize);
     }
 
     /*
@@ -321,7 +314,7 @@ contract Autonity {
     }
 
     function getRate(address _account) public view returns(uint256) {
-        return users[_account].commission_rate;
+        return users[_account].commissionRate;
     }
 
     /*
@@ -427,6 +420,8 @@ contract Autonity {
         }
 
         // Update committee in persistent storage
+
+        // TODO: Debuging on this committee contain, there might have a bug here.
         delete committee;
         for (uint256 k =0 ; k < committeeLength; k++) {
             committee.push(committeeList[k]);
@@ -481,7 +476,7 @@ contract Autonity {
             tempAddrlist[i] = users[usersList[i]].addr;
             tempTypelist[i] = users[usersList[i]].userType;
             tempStakelist[i] = users[usersList[i]].stake;
-            commissionRatelist[i] = users[usersList[i]].commission_rate;
+            commissionRatelist[i] = users[usersList[i]].commissionRate;
         }
 
         EconomicsMetricData memory data = EconomicsMetricData(tempAddrlist, tempTypelist, tempStakelist, commissionRatelist, minGasPrice, stakeSupply);
