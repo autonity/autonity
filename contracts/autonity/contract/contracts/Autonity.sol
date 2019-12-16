@@ -6,6 +6,18 @@ import "./SafeMath.sol";
 contract Autonity {
     using SafeMath for uint256;
 
+    struct ContractState {
+        address[] users;
+        string[] enodes;
+        uint256[] types;
+        uint256[] stakes;
+        uint256[] commisionrates;
+        address operator;
+        address deployer;
+        uint256 mingasprice;
+        uint256 bondingperiod;
+    }
+
     struct EconomicsMetricData {
         address[] accounts;
         UserType[] usertypes;
@@ -22,38 +34,6 @@ contract Autonity {
         uint256 amount;
     }
 
-    address[] private usersList;
-
-    // validators - list of validators of network
-    address[] public validators;
-    // enodesWhitelist - which nodes can connect to network
-    string[] public enodesWhitelist;
-    // deployer - deployer of contract
-    address public deployer;
-    // operatorAccount - account who can manipulate enodesWhitelist
-    address public operatorAccount;
-
-    uint256 private stakeSupply;
-
-    uint256 public committeeSize = 1000;
-
-    /*
-    * The bonding period (BP) is specified by the Autonity System Architecture as an integer representing an interval of blocks.
-    * We have identifed two differents ways to how this parameter could be used :
-    * 1. Bonding/unbonding operations happening at the end of each epoch.
-    * 2. BP-Delayed unbonding.
-    */
-    uint256 public bondingPeriod = 100;
-    /*
-    * The commission rate is set globally at the member level and is public:
-    * A member can’t have multiple commission rates depending on the member
-    * The commission rate MUST be by default 0 and MUST remain unchanged if not updated.
-    */
-    mapping (address => uint256) public commission_rate;
-
-    //array of members who are able to use stacking
-    address[] private stakeholders;
-
     enum UserType { Participant, Stakeholder, Validator}
 
     struct User {
@@ -63,19 +43,38 @@ contract Autonity {
         string enode;
         // uint256 selfStake;
         // uint256 delegatedStake;
+        uint256 commissionRate; // rate must be by default 0 and must remain unchanged if not updated.
     }
 
+    ////////////////////// Contract States need to be dumped for contract upgrade//////////
+    address[] private usersList;
+    string[] public enodesWhitelist;
     mapping (address => User) private users;
+    address public deployer;
+    address public operatorAccount;
+    uint256 minGasPrice = 0;
+    uint256 public bondingPeriod = 100;
+    ///////////////////////////////////////////////////////////////////////////////////////
+
+    ///////////////////// Contract state which can be replay from dumped states////////////
+    address[] public validators;
+    address[] private stakeholders;
+    uint256 private stakeSupply;
+    ///////////////////////////////////////////////////////////////////////////////////////
 
     User[] public committee;
 
-    uint256 totalStake = 0;
     /*
-    * Ethereum transactions gas price must be greater or equal to the minimumGasPrice, a value set by the Governance operator.
-    * FM-REQ-5: The minimumGasPrice value is a Genesis file configuration, if ommitted it defaults to 0.
+     * Binary code and ABI of new version contract, the default value is "" when contract is created.
+     * if they are set by and only by operator, then contract upgrade will be triggered automatically.
     */
-    uint256 minGasPrice = 0;
+    string bytecode;
+    string contractAbi;
 
+    /*
+    * Events
+    *
+    */
     event Transfer(address indexed from, address indexed to, uint256 value);
     event AddValidator(address _address, uint256 _stake);
     event AddStakeholder(address _address, uint256 _stake);
@@ -85,15 +84,17 @@ contract Autonity {
     event SetCommissionRate(address _address, uint256 _value);
     event MintStake(address _address, uint256 _amount);
     event RedeemStake(address _address, uint256 _amount);
-
     // constructor get called at block #1
     // configured in the genesis file.
+
     constructor (address[] memory _participantAddress,
         string[] memory _participantEnode,
         uint256[] memory _participantType,
         uint256[] memory _participantStake,
+        uint256[] memory _commissionRate,
         address _operatorAccount,
-        uint256 _minGasPrice) public {
+        uint256 _minGasPrice,
+        uint256 _bondingPeriod) public {
 
 
         require(_participantAddress.length == _participantEnode.length
@@ -106,30 +107,30 @@ contract Autonity {
             require(_participantAddress[i] != address(0), "Addresses must be defined");
             UserType _userType = UserType(_participantType[i]);
             address payable addr = address(uint160(_participantAddress[i]));
-            _createUser(addr, _participantEnode[i], _userType, _participantStake[i]);
+            _createUser(addr, _participantEnode[i], _userType, _participantStake[i], _commissionRate[i]);
         }
-        deployer = msg.sender;
         operatorAccount = _operatorAccount;
+        deployer = msg.sender;
         minGasPrice = _minGasPrice;
+        bonding_period = _bondingPeriod;
     }
-
 
     /*
     * addValidator
     * Add validator to validators list.
     */
     function addValidator(address payable _address, uint256 _stake, string memory _enode) public onlyOperator(msg.sender) {
-        _createUser(_address,_enode, UserType.Validator, _stake);
+        _createUser(_address,_enode, UserType.Validator, _stake, 0);
         emit AddValidator(_address, _stake);
     }
 
     function addStakeholder(address payable _address, string  memory _enode, uint256 _stake) public onlyOperator(msg.sender) {
-        _createUser(_address, _enode, UserType.Stakeholder, _stake);
+        _createUser(_address, _enode, UserType.Stakeholder, _stake, 0);
         emit AddStakeholder(_address, _stake);
     }
 
     function addParticipant(address payable _address, string memory _enode) public onlyOperator(msg.sender) {
-        _createUser(_address, _enode, UserType.Participant, 0);
+        _createUser(_address, _enode, UserType.Participant, 0, 0);
         emit AddParticipant(_address, 0);
     }
 
@@ -184,7 +185,6 @@ contract Autonity {
         committeeSize = _size;
     }
 
-
     /*
     * mintStake
     * function capable of creating new stake token and adding it to the recipient balance
@@ -207,7 +207,6 @@ contract Autonity {
         emit RedeemStake(_account, _amount);
     }
 
-
     /*
     * send
     * Moves `amount` stake tokens from the caller's account to `recipient`.
@@ -221,17 +220,26 @@ contract Autonity {
         return true;
     }
 
-
-
-    //    The Autonity Contract MUST implements the setCommissionRate(rate)
-    //    function capable of fixing the caller commission rate for the next bonding period.
-    function setCommissionRate(uint256 rate) public canUseStake(msg.sender) returns(bool)   {
-        commission_rate[msg.sender] = rate;
+    /*
+     * TODO: msg.sender == operator address or anynode address, we might need node's address when operator perform this.
+     * The Autonity Contract MUST implements the setCommissionRate(rate)
+     * function capable of fixing the caller commission rate for the next bonding period.
+     */
+    function setCommissionRate(uint256 rate) public canUseStake(msg.sender) returns(bool) {
+        users[msg.sender].commission_rate = rate;
         emit SetCommissionRate(msg.sender, rate);
         return true;
     }
 
+    function upgradeContract(string memory _bytecode, string memory _abi) public onlyOperator(msg.sender) returns(bool) {
+        bytecode = _bytecode;
+        contractAbi = _abi;
+        return true;
+    }
 
+    function retrieveContract() public view returns(string memory, string memory) {
+        return (bytecode, contractAbi);
+    }
 
     /*
     ========================================================================================================================
@@ -251,12 +259,29 @@ contract Autonity {
         return validators;
     }
 
+    function retrieveState() public view
+    returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, uint256[] memory, address, uint256, uint256) {
+
+        address[] memory addr = new address[](usersList.length);
+        uint256[] memory userType  = new uint256[](usersList.length);
+        uint256[] memory stake = new uint256[](usersList.length);
+        string[] memory enode = new string[](usersList.length);
+        uint256[] memory commissionRate = new uint256[](usersList.length);
+        for(uint256 i=0; i<usersList.length; i++ ) {
+            addr[i] = users[usersList[i]].addr;
+            userType[i] = uint256(users[usersList[i]].userType);
+            stake[i] = users[usersList[i]].stake;
+            enode[i] = users[usersList[i]].enode;
+            commissionRate[i] = users[usersList[i]].commission_rate;
+        }
+        return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice, bonding_period);
+    }
+
     /*
     * getStakeholders
     *
     * Returns the macro stakeholders list
     */
-
     function getStakeholders() public view returns (address[] memory) {
         return stakeholders;
     }
@@ -296,7 +321,7 @@ contract Autonity {
     }
 
     function getRate(address _account) public view returns(uint256) {
-        return commission_rate[_account];
+        return users[_account].commission_rate;
     }
 
     /*
@@ -414,7 +439,7 @@ contract Autonity {
     * performRedistribution
     * return a structure contains reward distribution.
     */
-    function performRedistribution(uint256 _amount) public onlyDeployer(msg.sender) returns(RewardDistributionData memory rewarddistribution) {
+    function performRedistribution(uint256 _amount) internal onlyDeployer(msg.sender) returns(RewardDistributionData memory rewarddistribution) {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
         require(stakeholders.length > 0, "there must be stake holders");
 
@@ -427,6 +452,13 @@ contract Autonity {
         }
         RewardDistributionData memory rd = RewardDistributionData(true, stakeholders, rewardfractionlist, _amount);
         return rd;
+    }
+
+    //Finalize function called once after every mined block, return if a new contract is ready for update
+    function finalize(uint256 _amount) public onlyDeployer(msg.sender) returns (RewardDistributionData memory rewarddistribution) {
+        RewardDistributionData memory data = performRedistribution(_amount);
+        data.result = bytes(bytecode).length != 0;
+        return data;
     }
 
     function totalSupply() public view returns (uint) {
@@ -449,7 +481,7 @@ contract Autonity {
             tempAddrlist[i] = users[usersList[i]].addr;
             tempTypelist[i] = users[usersList[i]].userType;
             tempStakelist[i] = users[usersList[i]].stake;
-            commissionRatelist[i] = commission_rate[usersList[i]];
+            commissionRatelist[i] = users[usersList[i]].commission_rate;
         }
 
         EconomicsMetricData memory data = EconomicsMetricData(tempAddrlist, tempTypelist, tempStakelist, commissionRatelist, minGasPrice, stakeSupply);
@@ -512,11 +544,16 @@ contract Autonity {
         return keccak256(abi.encodePacked(s1)) == keccak256(abi.encodePacked(s2));
     }
 
-    function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake) internal {
+    function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake, uint256 commissionRate) internal {
         require(_address != address(0), "Addresses must be defined");
-        User memory u = User(_address, _userType, _stake, _enode);
+        User memory u = User(_address, _userType, _stake, _enode, commissionRate);
+
+        // avoid duplicated user in usersList.
+        if (users[u.addr].addr != u.addr) {
+            usersList.push(u.addr);
+        }
+
         users[u.addr] = u;
-        usersList.push(u.addr);
 
         if (u.userType == UserType.Stakeholder){
             stakeholders.push(u.addr);
