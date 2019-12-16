@@ -19,6 +19,7 @@ import (
 
 var ErrAutonityContract = errors.New("could not call Autonity contract")
 var ErrWrongParameter = errors.New("wrong parameter")
+
 const ABISPEC = "ABISPEC"
 
 func NewAutonityContract(
@@ -89,7 +90,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	// pack the function which dump the data from contract.
 	input, err := ABI.Pack("dumpEconomicsMetricData")
 	if err != nil {
-		log.Warn("cannot pack the method: ", err.Error())
+		log.Warn("Cannot pack the method: ", err.Error())
 		return
 	}
 
@@ -135,7 +136,7 @@ func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *t
 func (ac *Contract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
 	newWhitelist, err := ac.GetWhitelist(block, state)
 	if err != nil {
-		log.Error("could not call contract", "err", err)
+		log.Error("Could not call contract", "err", err)
 		return ErrAutonityContract
 	}
 
@@ -177,7 +178,6 @@ func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, pr
 }
 
 func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) error {
-	log.Info("ApplyFinalize", "header", header.Number.Uint64())
 	if header.Number.Cmp(big.NewInt(1)) < 1 {
 		return nil
 	}
@@ -185,7 +185,7 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 	for i, tx := range transactions {
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
-	log.Info("execution start ApplyFinalize", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
+	log.Info("ApplyFinalize", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
 
 	if header.Number.Uint64() <= 1 {
 		return nil
@@ -204,11 +204,10 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 }
 
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
-	log.Info("performing Autonity Contract upgrade", "header", header.Number.Uint64())
+	log.Info("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
 
 	// dump contract stateBefore first.
-	//stateBefore, errState := ac.callRetrieveState(statedb, header)
-	stateBefore, errState := ac.callRetrieveStateV2(statedb, header)
+	stateBefore, errState := ac.callRetrieveState(statedb, header)
 	if errState != nil {
 		return errState
 	}
@@ -225,27 +224,13 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	//Create account will delete previous the AC stateobject and carry over the balance
 	statedb.CreateAccount(ac.Address())
 
-	//if err := ac.UpdateAutonityContract(header, statedb, bytecode, abi, stateBefore); err != nil {
-	if err := ac.UpdateAutonityContractV2(header, statedb, bytecode, newAbi, stateBefore); err != nil {
+	if err := ac.UpdateAutonityContract(header, statedb, bytecode, newAbi, stateBefore); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
-	}
-
-	// check if the upgraded contract and abi works by checking those important APIs, for example: getValidators().
-	stateAfter, err := ac.callRetrieveStateV2(statedb, header)
-	if err != nil {
-		statedb.RevertToSnapshot(snapshot)
-		return err
-	}
-
-	if !reflect.DeepEqual(stateBefore, stateAfter) {
-		statedb.RevertToSnapshot(snapshot)
-		return errors.New("state dis-match before and after contract upgrade")
 	}
 
 	// save new abi in persistent, once node reset, it load from persistent level db.
-	err = ac.bc.PutKeyValue([]byte(ABISPEC), []byte(newAbi))
-	if err != nil {
+	if err := ac.bc.PutKeyValue([]byte(ABISPEC), []byte(newAbi)); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}
@@ -255,6 +240,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}
+	log.Info("Autonity Contract upgrade success 🙌")
 	return nil
 }
 
@@ -275,15 +261,13 @@ func (ac *Contract) abi() (*abi.ABI, error) {
 	if ac.contractABI != nil {
 		return ac.contractABI, nil
 	}
-	var JsonString = ""
-	bytes, err := ac.bc.GetKeyValue([]byte(ABISPEC))
-	if err == nil {
-		JsonString = string(bytes)
-	} else {
-		JsonString = ac.bc.Config().AutonityContractConfig.ABI
+	var JSONString = ac.bc.Config().AutonityContractConfig.ABI
+
+	if bytes, err := ac.bc.GetKeyValue([]byte(ABISPEC)); err == nil {
+		JSONString = string(bytes)
 	}
 
-	ABI, err := abi.JSON(strings.NewReader(JsonString))
+	ABI, err := abi.JSON(strings.NewReader(JSONString))
 	if err != nil {
 		return nil, err
 	}
