@@ -82,6 +82,8 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	// Default bond period is 100.
 	defaultBondPeriod := big.NewInt(100)
 
+	defaultCommitteeSize := big.NewInt(1000)
+
 	for _, v := range chain.Config().AutonityContractConfig.Users {
 		validators = append(validators, v.Address)
 		enodes = append(enodes, v.Enode)
@@ -100,7 +102,8 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		commissionRate,
 		chain.Config().AutonityContractConfig.Operator,
 		new(big.Int).SetUint64(chain.Config().AutonityContractConfig.MinGasPrice),
-		defaultBondPeriod)
+		defaultBondPeriod,
+		defaultCommitteeSize)
 	if err != nil {
 		log.Error("contractABI.Pack returns err", "err", err)
 		return common.Address{}, err
