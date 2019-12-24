@@ -131,7 +131,7 @@ func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *s
 		rate := v.Commissionrates[i]
 		balance := stateDB.GetBalance(user)
 
-		log.Debug("user: ", user, "userType: ", userType, "stake: ", stake, "rate: ", rate, "balance: ", balance)
+		log.Debug("user: ", "user", user, "userType: ", userType, "stake: ", stake, "rate: ", rate, "balance: ", balance)
 
 		// generate metric ID.
 		stakeID, balanceID, commmissionRateID, err := em.generateUserMetricsID(user, userType)

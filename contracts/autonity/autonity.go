@@ -2,6 +2,7 @@ package autonity
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"reflect"
 	"sort"
@@ -134,6 +135,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
+	log.Error("Operator:", "addr", chain.Config().AutonityContractConfig.Operator.String())
 
 	contractABI, err := ac.abi()
 	if err != nil {
@@ -186,7 +188,9 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 }
 
 func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
+	fmt.Println("ContractGetValidators", "header", header.Number)
 	if header.Number.Cmp(big.NewInt(1)) == 0 && ac.SavedValidatorsRetriever != nil {
+		fmt.Println("form header")
 		return ac.SavedValidatorsRetriever(1)
 	}
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)

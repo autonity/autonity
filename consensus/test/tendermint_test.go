@@ -2,8 +2,11 @@ package test
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/accounts/abi/bind"
+	"github.com/clearmatics/autonity/contracts/autonity/rpcclient"
+	"github.com/clearmatics/autonity/ethclient"
+	"github.com/davecgh/go-spew/spew"
 	"math"
 	"math/big"
 	"net"
@@ -387,6 +390,7 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 		})
 	}
 }
+
 func TestCheckBlockWithSmallFee(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -430,11 +434,10 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 			numPeers:  5,
 			numBlocks: 5,
 			txPerPeer: 3,
-			sendTransactionHooks: map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error){
-				3: func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error) {
-					nonce := service.TxPool().Nonce(fromAddr)
+			sendTransactionHooks: map[int]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+				3: func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) {
+					nonce := validator.service.TxPool().Nonce(fromAddr)
 
-					//step 1 invalid transaction. It must return error.
 					tx, err := types.SignTx(
 						types.NewTransaction(
 							nonce,
@@ -444,13 +447,13 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 							big.NewInt(DefaultTestGasPrice-200),
 							nil,
 						),
-						types.HomesteadSigner{}, key)
+						types.HomesteadSigner{}, validator.privateKey)
 					if err != nil {
-						return nil, err
+						return false, nil, err
 					}
-					err = service.TxPool().AddLocal(tx)
+					err = validator.service.TxPool().AddLocal(tx)
 					if err == nil {
-						return nil, err
+						return false, nil, err
 					}
 
 					//step 2 valid transaction
@@ -463,16 +466,16 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 							big.NewInt(DefaultTestGasPrice+200),
 							nil,
 						),
-						types.HomesteadSigner{}, key)
+						types.HomesteadSigner{}, validator.privateKey)
 					if err != nil {
-						return nil, err
+						return false, nil, err
 					}
-					err = service.TxPool().AddLocal(tx)
+					err = validator.service.TxPool().AddLocal(tx)
 					if err != nil {
-						return nil, err
+						return false, nil, err
 					}
 
-					return tx, nil
+					return false, tx, nil
 				},
 			},
 			beforeHooks: map[int]hook{
@@ -484,6 +487,142 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 			genesisHook: func(g *core.Genesis) *core.Genesis {
 				g.Config.AutonityContractConfig.MinGasPrice = DefaultTestGasPrice - 100
 				return g
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestRemoveFromValidatorsList(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	operatorKey,err:=crypto.GenerateKey()
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+	once:=sync.Once{}
+	operatorAddress:=crypto.PubkeyToAddress(operatorKey.PublicKey)
+	var removeValidatorTxHash common.Hash
+	cases := []*testCase{
+		{
+			name:      "no malicious - 1 tx per second",
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 3,
+			sendTransactionHooks: map[int]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+				3: func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) {
+					if validator.lastBlock <= 3 {
+						return true, nil, nil
+					}
+					skip:=true
+					once.Do(func() {
+						conn, err := ethclient.Dial("http://127.0.0.1:"+strconv.Itoa(validator.rpcPort))
+						if err != nil {
+							t.Fatal(err)
+						}
+						defer conn.Close()
+
+						nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
+						if err != nil {
+							t.Fatal(err)
+						}
+
+						gasPrice, err := conn.SuggestGasPrice(context.Background())
+						if err != nil {
+							t.Fatal(err)
+						}
+
+						auth := bind.NewKeyedTransactor(operatorKey)
+						auth.From=operatorAddress
+						auth.Nonce = big.NewInt(int64(nonce))
+						auth.GasLimit = uint64(300000) // in units
+						auth.GasPrice = gasPrice
+
+						contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
+						instance, err := rpcclient.NewAutonity(contractAddress, conn)
+						if err != nil {
+							t.Fatal(err)
+						}
+						validatorsList:=validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+						tr, err:=instance.RemoveUser(auth, validatorsList[1].Address)
+						if err != nil {
+							t.Fatal(err)
+						}
+						removeValidatorTxHash = tr.Hash()
+
+						skip=false
+					})
+
+					validatorUsers:=validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+					validatorsListGenesis:=[]string{}
+					for i:=range validatorUsers {
+						validatorsListGenesis = append(validatorsListGenesis, validatorUsers[i].Address.String())
+					}
+					stateDB,err:=validator.service.BlockChain().State()
+					if err!=nil {
+						t.Fatal(err)
+					}
+
+					validatorList, err:=validator.service.BlockChain().GetAutonityContract().ContractGetValidators(
+						validator.service.BlockChain(),
+						validator.service.BlockChain().CurrentHeader(),
+						stateDB,
+					)
+					if err!=nil {
+						t.Fatal(err)
+					}
+					validatorListStr:=[]string{}
+					for _,v:=range validatorList {
+						validatorListStr = append(validatorListStr, v.String())
+					}
+					fmt.Println("Genesis", len(validatorsListGenesis))
+					fmt.Println("State", len(validatorListStr))
+
+					return skip, nil, nil
+				},
+			},
+			genesisHook: func(g *core.Genesis) *core.Genesis {
+				g.Config.AutonityContractConfig.Operator = operatorAddress
+				g.Alloc[operatorAddress]= core.GenesisAccount{
+					Balance:big.NewInt(100000000000000000),
+				}
+				return g
+			},
+			finalAssert:func(t *testing.T, validators []*testNode) {
+				validatorUsers:=validators[4].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+				validatorsListGenesis:=[]string{}
+				for i:=range validatorUsers {
+					validatorsListGenesis = append(validatorsListGenesis, validatorUsers[i].Address.String())
+				}
+
+				stateDB,err:=validators[4].service.BlockChain().State()
+				if err!=nil {
+					t.Fatal(err)
+				}
+				validatorList, err:=validators[4].service.BlockChain().GetAutonityContract().ContractGetValidators(
+					validators[4].service.BlockChain(),
+					validators[4].service.BlockChain().CurrentHeader(),
+					stateDB,
+				)
+				if err!=nil {
+					t.Fatal(err)
+				}
+				validatorListStr:=[]string{}
+				for _,v:=range validatorList {
+					validatorListStr = append(validatorListStr, v.String())
+				}
+
+				spew.Dump("Genesis", validatorsListGenesis)
+				spew.Dump("State", validatorListStr)
 			},
 		},
 	}
@@ -1069,7 +1208,8 @@ type testCase struct {
 	networkRates         map[int]networkRate //map[validatorIndex]networkRate
 	beforeHooks          map[int]hook        //map[validatorIndex]beforeHook
 	afterHooks           map[int]hook        //map[validatorIndex]afterHook
-	sendTransactionHooks map[int]func(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address) (*types.Transaction, error)
+	sendTransactionHooks map[int]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)
+	finalAssert		 func(t *testing.T, validators []*testNode)
 	stopTime             map[int]time.Time
 	genesisHook          func(g *core.Genesis) *core.Genesis
 	mu                   sync.RWMutex
@@ -1137,7 +1277,7 @@ func runTest(t *testing.T, test *testCase) {
 
 	defer goleak.VerifyNone(t)
 
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numPeers))
 	if err != nil {
 		t.Log("can't rise file description limit. errors are possible")
@@ -1155,17 +1295,38 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	for i := range validators {
-		validators[i].listener, err = net.Listen("tcp", "127.0.0.1:0")
+		//port
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			panic(err)
 		}
+		validators[i].listener = append(validators[i].listener, listener)
+
+		//rpc port
+		listener, err = net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			panic(err)
+		}
+		validators[i].listener = append(validators[i].listener, listener)
 	}
 
-	for _, validator := range validators {
-		listener := validator.listener
+	for i, validator := range validators {
+		listener := validator.listener[0]
 		validator.address = listener.Addr().String()
 		port := strings.Split(listener.Addr().String(), ":")[1]
 		validator.port, _ = strconv.Atoi(port)
+
+		rpcListener:=validator.listener[1]
+		rpcPort,err:=strconv.Atoi(strings.Split(rpcListener.Addr().String(), ":")[1])
+		if err!=nil {
+			t.Fatal("incorrect rpc port ", err)
+		}
+
+		validator.rpcPort =rpcPort
+
+		if validator.port==0 || validator.rpcPort ==0 {
+			t.Fatal("On validator", i, "port equals 0")
+		}
 
 		validator.url = enode.V4URL(
 			validator.privateKey.PublicKey,
@@ -1187,11 +1348,12 @@ func runTest(t *testing.T, test *testCase) {
 			backendConstructor = test.maliciousPeers[i].backs
 		}
 
-		validator.listener.Close()
+		validator.listener[0].Close()
+		validator.listener[1].Close()
 
 		rates := test.networkRates[i]
 
-		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, rates.in, rates.out, engineConstructor, backendConstructor) //делаем валидатор. Он просит переменную, которая типа функция engineConstructor
+		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address,validator.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor) //делаем валидатор. Он просит переменную, которая типа функция engineConstructor
 		if err != nil {
 			t.Fatal("cant make a validator", i, err)
 		}
@@ -1276,6 +1438,9 @@ func runTest(t *testing.T, test *testCase) {
 
 	// each peer sends one tx per block
 	sendTransactions(t, test, validators, test.txPerPeer, true)
+	if test.finalAssert!=nil {
+		test.finalAssert(t, validators)
+	}
 
 	if len(test.maliciousPeers) != 0 {
 		maliciousTest(t, test, validators)
@@ -1517,10 +1682,18 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 								toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
 								var tx *types.Transaction
 								var innerErr error
+								var skip bool
 								if f, ok := test.sendTransactionHooks[nextValidatorIndex]; ok {
-									if tx, innerErr = f(validator.service, validator.privateKey, fromAddr, toAddr); innerErr != nil {
+									skip, tx, innerErr = f(validator, fromAddr, toAddr)
+									if innerErr != nil {
 										return innerErr
 									}
+									if skip {
+										if tx, innerErr = sendTx(validator.service, validator.privateKey, fromAddr, toAddr, generateRandomTx); innerErr != nil {
+											return innerErr
+										}
+									}
+
 								} else {
 									if tx, innerErr = sendTx(validator.service, validator.privateKey, fromAddr, toAddr, generateRandomTx); innerErr != nil {
 										return innerErr
@@ -1531,7 +1704,9 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 								atomic.AddInt64(validator.txsSendCount, 1)
 
 								validator.transactionsMu.Lock()
-								validator.transactions[tx.Hash()] = struct{}{}
+								if tx!=nil {
+									validator.transactions[tx.Hash()] = struct{}{}
+								}
 								validator.transactionsMu.Unlock()
 							}
 						}
