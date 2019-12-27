@@ -145,3 +145,24 @@ func GetSignatureAddress(data []byte, sig []byte) (common.Address, error) {
 	}
 	return crypto.PubkeyToAddress(*pubkey), nil
 }
+
+func (c Committee) String() string {
+	var ret string
+	for _, val := range c {
+		ret += "[" + val.Address.String() + " - " + val.VotingPower.String() + "] "
+	}
+	return ret
+}
+
+// CommitteeMember methods necessary to satisfy tendermint validator interface
+func (m CommitteeMember) Addr() common.Address {
+	return m.Address
+}
+
+func (m CommitteeMember) String() string {
+	return m.Address.String()
+}
+
+func (m CommitteeMember) VP() *big.Int {
+	return new(big.Int).Set(m.VotingPower)
+}

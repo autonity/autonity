@@ -34,7 +34,7 @@ func (api *API) GetValidators(number *rpc.BlockNumber) ([]common.Address, error)
 	validators := api.tendermint.Validators(uint64(*number)).List()
 	addresses := make([]common.Address, len(validators))
 	for i, validator := range validators {
-		addresses[i] = validator.Address()
+		addresses[i] = validator.Addr()
 	}
 	return addresses, nil
 }
@@ -49,7 +49,7 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 	validators := api.tendermint.Validators(header.Number.Uint64()).List()
 	addresses := make([]common.Address, len(validators))
 	for i, validator := range validators {
-		addresses[i] = validator.Address()
+		addresses[i] = validator.Addr()
 	}
 	return addresses, nil
 }

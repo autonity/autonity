@@ -17,6 +17,7 @@
 package validator
 
 import (
+	"math/big"
 	"reflect"
 	"strings"
 	"testing"
@@ -48,9 +49,9 @@ func testNewValidatorSet(t *testing.T) {
 	for i := 0; i < ValCnt; i++ {
 		key, _ := crypto.GenerateKey()
 		addr := crypto.PubkeyToAddress(key.PublicKey)
-		val := New(addr)
+		val := New(addr, new(big.Int).SetUint64(1))
 		validators = append(validators, val)
-		b = append(b, val.Address().Bytes()...)
+		b = append(b, val.Addr().Bytes()...)
 	}
 
 	// Create Set
@@ -164,8 +165,8 @@ func testAddAndRemoveValidator(t *testing.T) {
 
 	for i, v := range valSet.List() {
 		expected := common.BytesToAddress([]byte(string(i)))
-		if v.Address() != expected {
-			t.Errorf("the order of validators is wrong: have %v, want %v", v.Address().Hex(), expected.Hex())
+		if v.Addr() != expected {
+			t.Errorf("the order of validators is wrong: have %v, want %v", v.Addr().Hex(), expected.Hex())
 		}
 	}
 

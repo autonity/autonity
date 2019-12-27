@@ -707,27 +707,6 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 const EnodeStub = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
-	extraData := genesis.GetExtraData()
-
-	if len(extraData) < types.BFTExtraVanity {
-		extraData = append(extraData, bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)...)
-	}
-	extraData = extraData[:types.BFTExtraVanity]
-
-	ist := &types.BFTExtra{
-		Validators:    addrs,
-		Seal:          []byte{},
-		CommittedSeal: [][]byte{},
-	}
-
-	istPayload, err := rlp.EncodeToBytes(&ist)
-	if err != nil {
-		panic("failed to encode tendermint extra")
-	}
-	extraData = append(extraData, istPayload...)
-
-	genesis.SetExtraData(extraData)
-
 	for i := range addrs {
 		genesis.Config.AutonityContractConfig.Users = append(
 			genesis.Config.AutonityContractConfig.Users,
@@ -737,6 +716,10 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 				Enode:   EnodeStub,
 				Stake:   100,
 			})
+		genesis.Committee = append(genesis.Committee, types.CommitteeMember{
+			Address:     addrs[i],
+			VotingPower: new(big.Int).SetUint64(1),
+		})
 	}
 }
 

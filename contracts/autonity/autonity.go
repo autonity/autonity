@@ -29,7 +29,6 @@ func NewAutonityContract(
 		canTransfer: canTransfer,
 		transfer:    transfer,
 		GetHashFn:   GetHashFn,
-		//SavedValidatorsRetriever: SavedValidatorsRetriever,
 	}
 }
 
@@ -50,11 +49,11 @@ type Blockchainer interface {
 }
 
 type Contract struct {
-	address                  common.Address
-	contractABI              *abi.ABI
-	bc                       Blockchainer
-	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
-	metrics                  EconomicMetrics
+	address                 common.Address
+	contractABI             *abi.ABI
+	bc                      Blockchainer
+	SavedCommitteeRetriever func(i uint64) (types.Committee, error)
+	metrics                 EconomicMetrics
 
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool
 	transfer    func(db vm.StateDB, sender, recipient common.Address, amount *big.Int)
@@ -185,9 +184,9 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	return contractAddress, nil
 }
 
-func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
-	if header.Number.Cmp(big.NewInt(1)) == 0 && ac.SavedValidatorsRetriever != nil {
-		return ac.SavedValidatorsRetriever(1)
+func (ac *Contract) ContractGetCommittee(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (types.Committee, error) {
+	if header.Number.Cmp(big.NewInt(1)) == 0 && ac.SavedCommitteeRetriever != nil {
+		return ac.SavedCommitteeRetriever(1)
 	}
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
 	gas := uint64(0xFFFFFFFF)
@@ -217,7 +216,12 @@ func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *t
 
 	sortableAddresses := common.Addresses(addresses)
 	sort.Sort(sortableAddresses)
-	return sortableAddresses, nil
+
+	var committee types.Committee
+	for _, val := range sortableAddresses {
+		committee = append(committee, types.CommitteeMember{Address: val, VotingPower: new(big.Int).SetUint64(1)})
+	}
+	return committee, nil
 }
 
 var ErrAutonityContract = errors.New("could not call Autonity contract")
