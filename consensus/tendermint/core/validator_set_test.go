@@ -1,6 +1,7 @@
 package core
 
 import (
+	"math/big"
 	"reflect"
 	"testing"
 
@@ -164,7 +165,9 @@ func TestValidatorSetList(t *testing.T) {
 
 	validatorSetMock := validator.NewMockSet(ctrl)
 
-	expectedList := []validator.Validator{validator.New(common.Address{}), validator.New(common.Address{})}
+	expectedList := []validator.Validator{
+		validator.New(common.Address{}, new(big.Int).SetUint64(1)),
+		validator.New(common.Address{}, new(big.Int).SetUint64(1))}
 	validatorSetMock.EXPECT().
 		List().
 		Return(expectedList)
@@ -184,7 +187,7 @@ func TestValidatorSetGetByIndex(t *testing.T) {
 
 	validatorSetMock := validator.NewMockSet(ctrl)
 
-	expectedValidator := validator.New(common.Address{})
+	expectedValidator := validator.New(common.Address{}, new(big.Int).SetUint64(1))
 	validatorSetMock.EXPECT().
 		GetByIndex(uint64(0)).
 		Return(expectedValidator)
@@ -209,7 +212,7 @@ func TestValidatorSetGetByAddress(t *testing.T) {
 
 	expectedIndex := 1
 
-	expectedValidator := validator.New(expectedAddress)
+	expectedValidator := validator.New(expectedAddress, new(big.Int).SetUint64(1))
 	validatorSetMock.EXPECT().
 		GetByAddress(expectedAddress).
 		Return(expectedIndex, expectedValidator)
@@ -236,7 +239,7 @@ func TestValidatorSetGetProposer(t *testing.T) {
 	expectedAddress := common.Address{}
 	expectedAddress[0] = 1
 
-	expectedValidator := validator.New(expectedAddress)
+	expectedValidator := validator.New(expectedAddress, new(big.Int).SetUint64(1))
 	validatorSetMock.EXPECT().
 		GetProposer().
 		Return(expectedValidator)

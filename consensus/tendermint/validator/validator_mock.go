@@ -8,6 +8,7 @@ import (
 	common "github.com/clearmatics/autonity/common"
 	config "github.com/clearmatics/autonity/consensus/tendermint/config"
 	gomock "github.com/golang/mock/gomock"
+	"math/big"
 	reflect "reflect"
 )
 
@@ -35,17 +36,17 @@ func (m *MockValidator) EXPECT() *MockValidatorMockRecorder {
 }
 
 // Address mocks base method
-func (m *MockValidator) Address() common.Address {
+func (m *MockValidator) Addr() common.Address {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Address")
+	ret := m.ctrl.Call(m, "Addr")
 	ret0, _ := ret[0].(common.Address)
 	return ret0
 }
 
 // Address indicates an expected call of Address
-func (mr *MockValidatorMockRecorder) Address() *gomock.Call {
+func (mr *MockValidatorMockRecorder) Addr() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockValidator)(nil).Address))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Addr", reflect.TypeOf((*MockValidator)(nil).Addr))
 }
 
 // String mocks base method
@@ -60,6 +61,20 @@ func (m *MockValidator) String() string {
 func (mr *MockValidatorMockRecorder) String() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockValidator)(nil).String))
+}
+
+// Address mocks base method
+func (m *MockValidator) VP() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VP")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// Address indicates an expected call of Address
+func (mr *MockValidatorMockRecorder) VP() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VP", reflect.TypeOf((*MockValidator)(nil).VP))
 }
 
 // MockSet is a mock of Set interface
