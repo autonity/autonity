@@ -67,6 +67,13 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 
 //go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
 
+type CommitteeMember struct {
+	Address     common.Address `json:"address"            gencodec:"required"`
+	VotingPower *big.Int       `json:"votingPower"        gencodec:"required"`
+}
+
+type Committee []CommitteeMember
+
 // Header represents a block header in the Ethereum blockchain.
 type Header struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
@@ -84,6 +91,15 @@ type Header struct {
 	Extra       []byte         `json:"extraData"        gencodec:"required"`
 	MixDigest   common.Hash    `json:"mixHash"`
 	Nonce       BlockNonce     `json:"nonce"`
+	/*
+		PoS header fields, round & committedSeals not taken into account
+		for computing the sigHash.
+	*/
+	Committee          Committee `json:"committee"           gencodec:"required"`
+	ProposerSeal       []byte    `json:"proposerSeal"        gencodec:"required"`
+	Round              *big.Int  `json:"round"               gencodec:"required"`
+	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"`
+	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
 }
 
 // field type overrides for gencodec
@@ -95,6 +111,12 @@ type headerMarshaling struct {
 	Time       hexutil.Uint64
 	Extra      hexutil.Bytes
 	Hash       common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
+	/*
+		PoS header fields type overriedes
+	*/
+	ProposerSeal       hexutil.Bytes
+	CommittedSeals     []hexutil.Bytes
+	PastCommittedSeals []hexutil.Bytes
 }
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
@@ -261,6 +283,35 @@ func CopyHeader(h *Header) *Header {
 		cpy.Extra = make([]byte, len(h.Extra))
 		copy(cpy.Extra, h.Extra)
 	}
+
+	/* PoS fields deep copy section*/
+	cpy.Committee = make([]CommitteeMember, len(h.Committee))
+	for i, val := range h.Committee {
+		cpy.Committee[i] = CommitteeMember{
+			Address:     val.Address,
+			VotingPower: new(big.Int).Set(val.VotingPower),
+		}
+	}
+
+	if cpy.Round = new(big.Int); h.Round != nil {
+		cpy.Round.Set(h.Round)
+	}
+
+	cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
+	copy(cpy.ProposerSeal, h.ProposerSeal)
+
+	cpy.CommittedSeals = make([][]byte, len(h.CommittedSeals))
+	for i, val := range h.CommittedSeals {
+		cpy.CommittedSeals[i] = make([]byte, len(val))
+		copy(cpy.CommittedSeals[i], val)
+	}
+
+	cpy.PastCommittedSeals = make([][]byte, len(h.PastCommittedSeals))
+	for i, val := range h.PastCommittedSeals {
+		cpy.PastCommittedSeals[i] = make([]byte, len(val))
+		copy(cpy.PastCommittedSeals[i], val)
+	}
+
 	return &cpy
 }
 
