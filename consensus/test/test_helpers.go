@@ -40,7 +40,7 @@ type testNode struct {
 	port           int
 	url            string
 	listener       []net.Listener
-	rpcPort           int
+	rpcPort        int
 	node           *node.Node
 	enode          *enode.Node
 	service        *eth.Ethereum
@@ -201,9 +201,8 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 		},
 		NoUSB: true,
 	}
-	configNode.HTTPHost="127.0.0.1"
-	configNode.HTTPPort=rpcPort
-
+	configNode.HTTPHost = "127.0.0.1"
+	configNode.HTTPPort = rpcPort
 
 	if inRate != 0 || outRate != 0 {
 		configNode.P2P.IsRated = true

@@ -2,7 +2,6 @@ package autonity
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"reflect"
 	"sort"
@@ -188,11 +187,10 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 }
 
 func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
-	fmt.Println("ContractGetValidators", "header", header.Number)
 	if header.Number.Cmp(big.NewInt(1)) == 0 && ac.SavedValidatorsRetriever != nil {
-		fmt.Println("form header")
 		return ac.SavedValidatorsRetriever(1)
 	}
+
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)

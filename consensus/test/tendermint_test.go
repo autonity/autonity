@@ -6,7 +6,6 @@ import (
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/contracts/autonity/rpcclient"
 	"github.com/clearmatics/autonity/ethclient"
-	"github.com/davecgh/go-spew/spew"
 	"math"
 	"math/big"
 	"net"
@@ -435,7 +434,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 			numBlocks: 5,
 			txPerPeer: 3,
 			sendTransactionHooks: map[int]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
-				3: func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) {
+				3: func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) { //nolint
 					nonce := validator.service.TxPool().Nonce(fromAddr)
 
 					tx, err := types.SignTx(
@@ -504,135 +503,101 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	operatorKey,err:=crypto.GenerateKey()
-	if err!=nil {
+	operatorKey, err := crypto.GenerateKey()
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	once:=sync.Once{}
-	operatorAddress:=crypto.PubkeyToAddress(operatorKey.PublicKey)
-	var removeValidatorTxHash common.Hash
-	cases := []*testCase{
-		{
-			name:      "no malicious - 1 tx per second",
-			numPeers:  5,
-			numBlocks: 10,
-			txPerPeer: 3,
-			sendTransactionHooks: map[int]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
-				3: func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) {
-					if validator.lastBlock <= 3 {
-						return true, nil, nil
-					}
-					skip:=true
-					once.Do(func() {
-						conn, err := ethclient.Dial("http://127.0.0.1:"+strconv.Itoa(validator.rpcPort))
-						if err != nil {
-							t.Fatal(err)
-						}
-						defer conn.Close()
+	once := sync.Once{}
+	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
+	testCase := &testCase{
+		name:                 "no malicious - 1 tx per second",
+		numPeers:             5,
+		numBlocks:            10,
+		txPerPeer:            1,
+		removedPeers:         make(map[common.Address]uint64),
+		sendTransactionHooks: make(map[int]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		genesisHook: func(g *core.Genesis) *core.Genesis {
+			g.Config.AutonityContractConfig.Operator = operatorAddress
+			g.Alloc[operatorAddress] = core.GenesisAccount{
+				Balance: big.NewInt(100000000000000000),
+			}
+			return g
+		},
+		finalAssert: func(t *testing.T, validators []*testNode) {
+			validatorUsers := validators[4].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+			validatorsListGenesis := []string{}
+			for i := range validatorUsers {
+				validatorsListGenesis = append(validatorsListGenesis, validatorUsers[i].Address.String())
+			}
 
-						nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
-						if err != nil {
-							t.Fatal(err)
-						}
+			stateDB, err := validators[4].service.BlockChain().State()
+			if err != nil {
+				t.Fatal(err)
+			}
+			validatorList, err := validators[4].service.BlockChain().GetAutonityContract().ContractGetValidators(
+				validators[4].service.BlockChain(),
+				validators[4].service.BlockChain().CurrentHeader(),
+				stateDB,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			validatorListStr := []string{}
+			for _, v := range validatorList {
+				validatorListStr = append(validatorListStr, v.String())
+			}
 
-						gasPrice, err := conn.SuggestGasPrice(context.Background())
-						if err != nil {
-							t.Fatal(err)
-						}
-
-						auth := bind.NewKeyedTransactor(operatorKey)
-						auth.From=operatorAddress
-						auth.Nonce = big.NewInt(int64(nonce))
-						auth.GasLimit = uint64(300000) // in units
-						auth.GasPrice = gasPrice
-
-						contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
-						instance, err := rpcclient.NewAutonity(contractAddress, conn)
-						if err != nil {
-							t.Fatal(err)
-						}
-						validatorsList:=validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-						tr, err:=instance.RemoveUser(auth, validatorsList[1].Address)
-						if err != nil {
-							t.Fatal(err)
-						}
-						removeValidatorTxHash = tr.Hash()
-
-						skip=false
-					})
-
-					validatorUsers:=validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-					validatorsListGenesis:=[]string{}
-					for i:=range validatorUsers {
-						validatorsListGenesis = append(validatorsListGenesis, validatorUsers[i].Address.String())
-					}
-					stateDB,err:=validator.service.BlockChain().State()
-					if err!=nil {
-						t.Fatal(err)
-					}
-
-					validatorList, err:=validator.service.BlockChain().GetAutonityContract().ContractGetValidators(
-						validator.service.BlockChain(),
-						validator.service.BlockChain().CurrentHeader(),
-						stateDB,
-					)
-					if err!=nil {
-						t.Fatal(err)
-					}
-					validatorListStr:=[]string{}
-					for _,v:=range validatorList {
-						validatorListStr = append(validatorListStr, v.String())
-					}
-					fmt.Println("Genesis", len(validatorsListGenesis))
-					fmt.Println("State", len(validatorListStr))
-
-					return skip, nil, nil
-				},
-			},
-			genesisHook: func(g *core.Genesis) *core.Genesis {
-				g.Config.AutonityContractConfig.Operator = operatorAddress
-				g.Alloc[operatorAddress]= core.GenesisAccount{
-					Balance:big.NewInt(100000000000000000),
-				}
-				return g
-			},
-			finalAssert:func(t *testing.T, validators []*testNode) {
-				validatorUsers:=validators[4].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-				validatorsListGenesis:=[]string{}
-				for i:=range validatorUsers {
-					validatorsListGenesis = append(validatorsListGenesis, validatorUsers[i].Address.String())
-				}
-
-				stateDB,err:=validators[4].service.BlockChain().State()
-				if err!=nil {
-					t.Fatal(err)
-				}
-				validatorList, err:=validators[4].service.BlockChain().GetAutonityContract().ContractGetValidators(
-					validators[4].service.BlockChain(),
-					validators[4].service.BlockChain().CurrentHeader(),
-					stateDB,
-				)
-				if err!=nil {
-					t.Fatal(err)
-				}
-				validatorListStr:=[]string{}
-				for _,v:=range validatorList {
-					validatorListStr = append(validatorListStr, v.String())
-				}
-
-				spew.Dump("Genesis", validatorsListGenesis)
-				spew.Dump("State", validatorListStr)
-			},
+			if len(validatorsListGenesis) <= len(validatorListStr) {
+				t.Fatal("Incorrect validator list")
+			}
 		},
 	}
+	testCase.sendTransactionHooks[3] = func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) {
+		if validator.lastBlock <= 3 {
+			return true, nil, nil
+		}
+		skip := true
+		once.Do(func() {
+			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
 
-	for _, testCase := range cases {
-		testCase := testCase
-		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			gasPrice, err := conn.SuggestGasPrice(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			auth := bind.NewKeyedTransactor(operatorKey)
+			auth.From = operatorAddress
+			auth.Nonce = big.NewInt(int64(nonce))
+			auth.GasLimit = uint64(300000) // in units
+			auth.GasPrice = gasPrice
+
+			contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
+			instance, err := rpcclient.NewAutonity(contractAddress, conn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+			_, err = instance.RemoveUser(auth, validatorsList[0].Address)
+			if err != nil {
+				t.Fatal(err)
+			}
+			skip = false
+			testCase.removedPeers[validatorsList[0].Address] = validator.lastBlock
 		})
+
+		return skip, nil, nil
 	}
+	runTest(t, testCase)
 }
 
 func TestTendermintStartStopSingleNode(t *testing.T) {
@@ -1201,6 +1166,7 @@ type testCase struct {
 	validatorsCanBeStopped *int64
 
 	maliciousPeers          map[int]injectors
+	removedPeers            map[common.Address]uint64
 	addedValidatorsBlocks   map[common.Hash]uint64
 	removedValidatorsBlocks map[common.Hash]uint64 //nolint: unused, structcheck
 	changedValidators       tendermintCore.Changes //nolint: unused,structcheck
@@ -1209,7 +1175,7 @@ type testCase struct {
 	beforeHooks          map[int]hook        //map[validatorIndex]beforeHook
 	afterHooks           map[int]hook        //map[validatorIndex]afterHook
 	sendTransactionHooks map[int]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)
-	finalAssert		 func(t *testing.T, validators []*testNode)
+	finalAssert          func(t *testing.T, validators []*testNode)
 	stopTime             map[int]time.Time
 	genesisHook          func(g *core.Genesis) *core.Genesis
 	mu                   sync.RWMutex
@@ -1277,7 +1243,7 @@ func runTest(t *testing.T, test *testCase) {
 
 	defer goleak.VerifyNone(t)
 
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numPeers))
 	if err != nil {
 		t.Log("can't rise file description limit. errors are possible")
@@ -1296,16 +1262,16 @@ func runTest(t *testing.T, test *testCase) {
 
 	for i := range validators {
 		//port
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			panic(err)
+		listener, innerErr := net.Listen("tcp", "127.0.0.1:0")
+		if innerErr != nil {
+			panic(innerErr)
 		}
 		validators[i].listener = append(validators[i].listener, listener)
 
 		//rpc port
-		listener, err = net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			panic(err)
+		listener, innerErr = net.Listen("tcp", "127.0.0.1:0")
+		if innerErr != nil {
+			panic(innerErr)
 		}
 		validators[i].listener = append(validators[i].listener, listener)
 	}
@@ -1316,15 +1282,15 @@ func runTest(t *testing.T, test *testCase) {
 		port := strings.Split(listener.Addr().String(), ":")[1]
 		validator.port, _ = strconv.Atoi(port)
 
-		rpcListener:=validator.listener[1]
-		rpcPort,err:=strconv.Atoi(strings.Split(rpcListener.Addr().String(), ":")[1])
-		if err!=nil {
-			t.Fatal("incorrect rpc port ", err)
+		rpcListener := validator.listener[1]
+		rpcPort, innerErr := strconv.Atoi(strings.Split(rpcListener.Addr().String(), ":")[1])
+		if innerErr != nil {
+			t.Fatal("incorrect rpc port ", innerErr)
 		}
 
-		validator.rpcPort =rpcPort
+		validator.rpcPort = rpcPort
 
-		if validator.port==0 || validator.rpcPort ==0 {
+		if validator.port == 0 || validator.rpcPort == 0 {
 			t.Fatal("On validator", i, "port equals 0")
 		}
 
@@ -1353,7 +1319,7 @@ func runTest(t *testing.T, test *testCase) {
 
 		rates := test.networkRates[i]
 
-		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address,validator.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor) //делаем валидатор. Он просит переменную, которая типа функция engineConstructor
+		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, validator.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor) //делаем валидатор. Он просит переменную, которая типа функция engineConstructor
 		if err != nil {
 			t.Fatal("cant make a validator", i, err)
 		}
@@ -1438,7 +1404,7 @@ func runTest(t *testing.T, test *testCase) {
 
 	// each peer sends one tx per block
 	sendTransactions(t, test, validators, test.txPerPeer, true)
-	if test.finalAssert!=nil {
+	if test.finalAssert != nil {
 		test.finalAssert(t, validators)
 	}
 
@@ -1688,23 +1654,24 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 									if innerErr != nil {
 										return innerErr
 									}
-									if skip {
+									if tx != nil {
+										atomic.AddInt64(validator.txsSendCount, 1)
+									} else if skip {
 										if tx, innerErr = sendTx(validator.service, validator.privateKey, fromAddr, toAddr, generateRandomTx); innerErr != nil {
 											return innerErr
 										}
+										atomic.AddInt64(validator.txsSendCount, 1)
 									}
 
 								} else {
 									if tx, innerErr = sendTx(validator.service, validator.privateKey, fromAddr, toAddr, generateRandomTx); innerErr != nil {
 										return innerErr
 									}
-
+									atomic.AddInt64(validator.txsSendCount, 1)
 								}
 
-								atomic.AddInt64(validator.txsSendCount, 1)
-
 								validator.transactionsMu.Lock()
-								if tx!=nil {
+								if tx != nil {
 									validator.transactions[tx.Hash()] = struct{}{}
 								}
 								validator.transactionsMu.Unlock()
@@ -1718,7 +1685,6 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						return err
 					}
 
-					// check transactions status if all blocks are passed
 					if int(validator.lastBlock) > test.numBlocks {
 						//all transactions were included into the chain
 						if errorOnTx {
@@ -1730,6 +1696,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 							}
 							validator.transactionsMu.Unlock()
 						} else {
+
 							if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
 								atomic.AddInt64(test.validatorsCanBeStopped, 1)
 							}
@@ -1800,6 +1767,15 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 					time.Sleep(test.noQuorumTimeout)
 					break wgLoop
 				}
+
+				// check transactions status if all blocks are passed
+				txRemoveBlock, ok := test.removedPeers[fromAddr]
+				if ok && (validator.lastBlock >= txRemoveBlock) {
+					if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+						atomic.AddInt64(test.validatorsCanBeStopped, 1)
+						break wgLoop
+					}
+				}
 			}
 			return nil
 		})
@@ -1857,6 +1833,10 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		}
 
 		if test.noQuorumAfterBlock > 0 {
+			continue
+		}
+
+		if _, ok := test.removedPeers[crypto.PubkeyToAddress(validator.privateKey.PublicKey)]; ok {
 			continue
 		}
 
