@@ -2,6 +2,7 @@ package graph
 
 import "sort"
 
+//nolint:vet
 type Graph struct {
 	graph       *graph
 	names       []string
@@ -12,11 +13,13 @@ type Graph struct {
 	SubGraphs []*SubGraph `@@*`
 }
 
+//nolint:vet
 type SubGraph struct {
 	Name  string  `"subgraph" @Ident`
 	Edges []*Edge `@@*"end"`
 }
 
+//nolint:vet
 type Edge struct {
 	LeftNode  string `@Ident[" "|"\t"]"-""-"["-"]`
 	Directed  bool   `[@">"][" "|"\t"]`
@@ -149,7 +152,7 @@ func (g *graph) setEdges(nodeA string, nodes ...string) {
 	if g.edges == nil {
 		g.edges = make(map[string][]string, len(nodes))
 	}
-	nodeEdges, _ := g.edges[nodeA]
+	nodeEdges := g.edges[nodeA]
 	nodeEdges = append(nodeEdges, nodes...)
 
 	g.edges[nodeA] = nodeEdges
