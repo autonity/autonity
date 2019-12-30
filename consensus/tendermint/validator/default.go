@@ -79,7 +79,7 @@ func makeValidators(committee types.Committee) []Validator {
 func copyValidators(validators []Validator) []Validator {
 	validatorsCopy := make([]Validator, len(validators))
 	for i, val := range validators {
-		validatorsCopy[i] = New(val.Addr(), val.VP())
+		validatorsCopy[i] = New(val.GetAddress(), val.GetVotingPower())
 	}
 
 	return validatorsCopy
@@ -103,7 +103,7 @@ func (valSet *defaultSet) GetByIndex(i uint64) Validator {
 		valSet.validatorMu.RLock()
 		defer valSet.validatorMu.RUnlock()
 
-		return New(valSet.validators[i].Addr(), valSet.validators[i].VP())
+		return New(valSet.validators[i].GetAddress(), valSet.validators[i].GetVotingPower())
 	}
 
 	return nil
@@ -114,7 +114,7 @@ func (valSet *defaultSet) GetByAddress(addr common.Address) (int, Validator) {
 	defer valSet.validatorMu.RUnlock()
 
 	for i, val := range valSet.validators {
-		if addr == val.Addr() {
+		if addr == val.GetAddress() {
 			return i, val
 		}
 	}
@@ -129,7 +129,7 @@ func (valSet *defaultSet) GetProposer() Validator {
 }
 
 func (valSet *defaultSet) getProposer() Validator {
-	return New(valSet.proposer.Addr(), valSet.proposer.VP())
+	return New(valSet.proposer.GetAddress(), valSet.proposer.GetVotingPower())
 }
 
 func (valSet *defaultSet) IsProposer(address common.Address) bool {
@@ -153,7 +153,7 @@ func (valSet *defaultSet) AddValidator(address common.Address) bool {
 	defer valSet.validatorMu.Unlock()
 
 	for _, v := range valSet.validators {
-		if v.Addr() == address {
+		if v.GetAddress() == address {
 			return false
 		}
 	}
@@ -169,7 +169,7 @@ func (valSet *defaultSet) RemoveValidator(address common.Address) bool {
 	defer valSet.validatorMu.Unlock()
 
 	for i, v := range valSet.validators {
-		if v.Addr() == address {
+		if v.GetAddress() == address {
 			valSet.validators = append(valSet.validators[:i], valSet.validators[i+1:]...)
 			return true
 		}

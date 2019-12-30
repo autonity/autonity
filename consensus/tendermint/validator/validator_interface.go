@@ -27,13 +27,13 @@ import (
 
 type Validator interface {
 	// Address returns address
-	Addr() common.Address
+	GetAddress() common.Address
 
 	// String representation of Validator
 	String() string
 
 	// Return Voting Power
-	VP() *big.Int
+	GetVotingPower() *big.Int
 }
 
 func New(address common.Address, votingPower *big.Int) Validator {

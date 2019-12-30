@@ -155,7 +155,7 @@ func (c Committee) String() string {
 }
 
 // CommitteeMember methods necessary to satisfy tendermint validator interface
-func (m CommitteeMember) Addr() common.Address {
+func (m CommitteeMember) GetAddress() common.Address {
 	return m.Address
 }
 
@@ -163,6 +163,6 @@ func (m CommitteeMember) String() string {
 	return m.Address.String()
 }
 
-func (m CommitteeMember) VP() *big.Int {
+func (m CommitteeMember) GetVotingPower() *big.Int {
 	return new(big.Int).Set(m.VotingPower)
 }

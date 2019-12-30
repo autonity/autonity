@@ -176,8 +176,8 @@ func (sb *Backend) AskSync(valSet validator.Set) {
 
 	targets := make(map[common.Address]struct{})
 	for _, val := range valSet.List() {
-		if val.Addr() != sb.Address() {
-			targets[val.Addr()] = struct{}{}
+		if val.GetAddress() != sb.Address() {
+			targets[val.GetAddress()] = struct{}{}
 		}
 	}
 
@@ -203,8 +203,8 @@ func (sb *Backend) Gossip(ctx context.Context, valSet validator.Set, payload []b
 
 	targets := make(map[common.Address]struct{})
 	for _, val := range valSet.List() {
-		if val.Addr() != sb.Address() {
-			targets[val.Addr()] = struct{}{}
+		if val.GetAddress() != sb.Address() {
+			targets[val.GetAddress()] = struct{}{}
 		}
 	}
 
