@@ -27,6 +27,18 @@
 			"revisionTime": "2018-01-16T20:38:02Z"
 		},
 		{
+			"checksumSHA1": "oC3fmOX6zq6eXcTI+0ajvVLK7/w=",
+			"path": "github.com/alecthomas/participle",
+			"revision": "1fbf954714890b1c83a222e38811c30335da86ea",
+			"revisionTime": "2019-12-27T22:43:23Z"
+		},
+		{
+			"checksumSHA1": "fGvYGa2QBsTPUfIXXmaGqJHT218=",
+			"path": "github.com/alecthomas/participle/lexer",
+			"revision": "1fbf954714890b1c83a222e38811c30335da86ea",
+			"revisionTime": "2019-12-27T22:43:23Z"
+		},
+		{
 			"checksumSHA1": "8skJYOdQytXjimcDPLRW4tonX3A=",
 			"path": "github.com/allegro/bigcache",
 			"revision": "e24eb225f15679bbe54f91bfa7da3b00e59b9768",
