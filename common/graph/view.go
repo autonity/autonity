@@ -4,8 +4,8 @@ type view string
 
 const (
 	TB view = "TB" // top bottom
-	BT      = "BT" // bottom top
-	RL      = "RL" // right left
-	LR      = "LR" // left right
-	TD      = "TD" // same as TB
+	BT view = "BT" // bottom top
+	RL view = "RL" // right left
+	LR view = "LR" // left right
+	TD view = "TD" // same as TB
 )
