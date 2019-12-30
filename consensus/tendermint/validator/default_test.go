@@ -51,7 +51,7 @@ func testNewValidatorSet(t *testing.T) {
 		addr := crypto.PubkeyToAddress(key.PublicKey)
 		val := New(addr, new(big.Int).SetUint64(1))
 		validators = append(validators, val)
-		b = append(b, val.Addr().Bytes()...)
+		b = append(b, val.GetAddress().Bytes()...)
 	}
 
 	// Create Set
@@ -165,8 +165,8 @@ func testAddAndRemoveValidator(t *testing.T) {
 
 	for i, v := range valSet.List() {
 		expected := common.BytesToAddress([]byte(string(i)))
-		if v.Addr() != expected {
-			t.Errorf("the order of validators is wrong: have %v, want %v", v.Addr().Hex(), expected.Hex())
+		if v.GetAddress() != expected {
+			t.Errorf("the order of validators is wrong: have %v, want %v", v.GetAddress().Hex(), expected.Hex())
 		}
 	}
 

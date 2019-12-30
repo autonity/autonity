@@ -66,7 +66,7 @@ func (c *core) checkMessage(round *big.Int, height *big.Int, step Step) error {
 func (c *core) storeBacklog(msg *Message, src validator.Validator) {
 	logger := c.logger.New("from", src, "step", c.currentRoundState.Step())
 
-	if src.Addr() == c.address {
+	if src.GetAddress() == c.address {
 		logger.Warn("Backlog from self")
 		return
 	}

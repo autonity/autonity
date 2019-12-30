@@ -36,9 +36,9 @@ func (m *MockValidator) EXPECT() *MockValidatorMockRecorder {
 }
 
 // Address mocks base method
-func (m *MockValidator) Addr() common.Address {
+func (m *MockValidator) GetAddress() common.Address {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Addr")
+	ret := m.ctrl.Call(m, "GetAddress")
 	ret0, _ := ret[0].(common.Address)
 	return ret0
 }
@@ -46,7 +46,7 @@ func (m *MockValidator) Addr() common.Address {
 // Address indicates an expected call of Address
 func (mr *MockValidatorMockRecorder) Addr() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Addr", reflect.TypeOf((*MockValidator)(nil).Addr))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockValidator)(nil).GetAddress))
 }
 
 // String mocks base method
@@ -64,9 +64,9 @@ func (mr *MockValidatorMockRecorder) String() *gomock.Call {
 }
 
 // Address mocks base method
-func (m *MockValidator) VP() *big.Int {
+func (m *MockValidator) GetVotingPower() *big.Int {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VP")
+	ret := m.ctrl.Call(m, "GetVotingPower")
 	ret0, _ := ret[0].(*big.Int)
 	return ret0
 }
@@ -74,7 +74,7 @@ func (m *MockValidator) VP() *big.Int {
 // Address indicates an expected call of Address
 func (mr *MockValidatorMockRecorder) VP() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VP", reflect.TypeOf((*MockValidator)(nil).VP))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVotingPower", reflect.TypeOf((*MockValidator)(nil).GetVotingPower))
 }
 
 // MockSet is a mock of Set interface
