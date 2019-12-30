@@ -1,18 +1,6 @@
 package graph
 
-import (
-	"sort"
-)
-
-type view string
-
-const (
-	TB view = "TB" // top bottom
-	BT      = "BT" // bottom top
-	RL      = "RL" // right left
-	LR      = "LR" // left right
-	TD      = "TD" // same as TB
-)
+import "sort"
 
 type Graph struct {
 	graph       *graph
@@ -22,6 +10,17 @@ type Graph struct {
 	View      view        `"graph" @Ident`
 	Edges     []*Edge     `@@*`
 	SubGraphs []*SubGraph `@@*`
+}
+
+type SubGraph struct {
+	Name  string  `"subgraph" @Ident`
+	Edges []*Edge `@@*"end"`
+}
+
+type Edge struct {
+	LeftNode  string `@Ident[" "|"\t"]"-""-"["-"]`
+	Directed  bool   `[@">"][" "|"\t"]`
+	RightNode string `@Ident[";"]`
 }
 
 // GetEdges assumes that SetNodeName was called for all nodes in the graphs
@@ -127,17 +126,6 @@ func (gr *Graph) setEdges() {
 
 func (gr Graph) GetView() view {
 	return gr.View
-}
-
-type SubGraph struct {
-	Name  string  `"subgraph" @Ident`
-	Edges []*Edge `@@*"end"`
-}
-
-type Edge struct {
-	LeftNode  string `@Ident[" "|"\t"]"-""-"["-"]`
-	Directed  bool   `[@">"][" "|"\t"]`
-	RightNode string `@Ident[";"]`
 }
 
 type graph struct {
