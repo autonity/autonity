@@ -45,17 +45,15 @@ func testNewValidatorSet(t *testing.T) {
 	const ValCnt = 100
 
 	// Create 100 validators with random addresses
-	b := []byte{}
 	for i := 0; i < ValCnt; i++ {
 		key, _ := crypto.GenerateKey()
 		addr := crypto.PubkeyToAddress(key.PublicKey)
 		val := New(addr, new(big.Int).SetUint64(1))
 		validators = append(validators, val)
-		b = append(b, val.GetAddress().Bytes()...)
 	}
 
 	// Create Set
-	valSet := NewSet(ExtractValidators(b), config.RoundRobin)
+	valSet := newDefaultSet(validators, config.RoundRobin)
 	if valSet == nil {
 		t.Error("the validator byte array cannot be parsed")
 		t.FailNow()
@@ -90,10 +88,10 @@ func testNormalValSet(t *testing.T) {
 	b2 := common.Hex2Bytes(testAddress2)
 	addr1 := common.BytesToAddress(b1)
 	addr2 := common.BytesToAddress(b2)
-	val1 := New(addr1)
-	val2 := New(addr2)
+	val1 := New(addr1, new(big.Int).SetUint64(1))
+	val2 := New(addr2, new(big.Int).SetUint64(1))
 
-	valSet := newDefaultSet([]common.Address{addr1, addr2}, config.RoundRobin)
+	valSet := newDefaultSet(Validators{val1, val2}, config.RoundRobin)
 	if valSet == nil {
 		t.Errorf("the format of validator set is invalid")
 		t.FailNow()
@@ -143,14 +141,14 @@ func testNormalValSet(t *testing.T) {
 }
 
 func testEmptyValSet(t *testing.T) {
-	valSet := NewSet(ExtractValidators([]byte{}), config.RoundRobin)
+	valSet := newDefaultSet(Validators{}, config.RoundRobin)
 	if valSet == nil {
 		t.Errorf("validator set should not be nil")
 	}
 }
 
 func testAddAndRemoveValidator(t *testing.T) {
-	valSet := NewSet(ExtractValidators([]byte{}), config.RoundRobin)
+	valSet := newDefaultSet(Validators{}, config.RoundRobin)
 	if !valSet.AddValidator(common.BytesToAddress([]byte(string(2)))) {
 		t.Error("the validator should be added")
 	}
@@ -194,10 +192,10 @@ func testStickyProposer(t *testing.T) {
 	b2 := common.Hex2Bytes(testAddress2)
 	addr1 := common.BytesToAddress(b1)
 	addr2 := common.BytesToAddress(b2)
-	val1 := New(addr1)
-	val2 := New(addr2)
+	val1 := New(addr1, new(big.Int).SetUint64(1))
+	val2 := New(addr2, new(big.Int).SetUint64(1))
 
-	valSet := newDefaultSet([]common.Address{addr1, addr2}, config.Sticky)
+	valSet := newDefaultSet(Validators{val1, val2}, config.Sticky)
 
 	// test get proposer
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val1) {

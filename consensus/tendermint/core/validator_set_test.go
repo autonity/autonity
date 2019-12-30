@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"reflect"
 	"testing"
@@ -17,7 +18,7 @@ func TestValidatorSetSetEmpty(t *testing.T) {
 		t.Fatalf("nil validator set expected, got %v", &valSet)
 	}
 
-	innerSet := Validators([]common.Address{{}})
+	innerSet := Validators(types.Committee{})
 
 	valSet.set(innerSet)
 	if !reflect.DeepEqual(valSet.Set, innerSet) {
@@ -31,14 +32,14 @@ func TestValidatorSetSet(t *testing.T) {
 		t.Fatalf("nil validator set expected, got %v", &valSet)
 	}
 
-	innerSet := Validators([]common.Address{{}})
+	innerSet := Validators(types.Committee{{common.HexToAddress("0xabcd"), new(big.Int).SetUint64(1)}})
 
 	valSet.set(innerSet)
 	if !reflect.DeepEqual(valSet.Set, innerSet) {
 		t.Fatalf("validator set expected %v, got %v", innerSet, valSet.Set)
 	}
 
-	innerSet = Validators([]common.Address{{}})
+	innerSet = Validators(types.Committee{})
 	valSet.set(innerSet)
 	if !reflect.DeepEqual(valSet.Set, innerSet) {
 		t.Fatalf("updated validator set expected %v, got %v", innerSet, valSet.Set)
@@ -259,10 +260,12 @@ func TestValidatorSetCopy(t *testing.T) {
 
 	validatorSetMock := validator.NewMockSet(ctrl)
 
-	expectedAddress := common.Address{}
-	expectedAddress[0] = 1
+	expectedCommittee := types.CommitteeMember{
+		Address:     common.HexToAddress("0xd3adb33f"),
+		VotingPower: new(big.Int).SetUint64(99),
+	}
 
-	expectedValidatorSet := validator.NewSet([]common.Address{expectedAddress}, 1)
+	expectedValidatorSet := validator.NewSet(types.Committee{expectedCommittee}, 1)
 
 	validatorSetMock.EXPECT().
 		Copy().
@@ -390,6 +393,6 @@ func TestValidatorSetRemoveValidator(t *testing.T) {
 	}
 }
 
-func Validators(validators []common.Address) validator.Set {
+func Validators(validators types.Committee) validator.Set {
 	return validator.NewSet(validators, config.ProposerPolicy(0))
 }

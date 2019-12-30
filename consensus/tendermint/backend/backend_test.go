@@ -59,12 +59,12 @@ func TestAskSync(t *testing.T) {
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
 	for _, val := range validators {
-		addresses = append(addresses, val.Address())
+		addresses = append(addresses, val.GetAddress())
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().Send(uint64(tendermintSyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
-		peers[val.Address()] = mockedPeer
+		peers[val.GetAddress()] = mockedPeer
 	}
 
 	m := make(map[common.Address]struct{})
@@ -105,7 +105,7 @@ func TestGossip(t *testing.T) {
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
 	for i, val := range validators {
-		addresses = append(addresses, val.Address())
+		addresses = append(addresses, val.GetAddress())
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
 		if i == 3 {
@@ -118,7 +118,7 @@ func TestGossip(t *testing.T) {
 				}
 			}).Times(1)
 		}
-		peers[val.Address()] = mockedPeer
+		peers[val.GetAddress()] = mockedPeer
 	}
 
 	m := make(map[common.Address]struct{})
@@ -307,8 +307,8 @@ func TestCheckValidatorSignature(t *testing.T) {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
 		val := vset.GetByIndex(uint64(i))
-		if addr != val.Address() {
-			t.Errorf("validator address mismatch: have %v, want %v", addr, val.Address())
+		if addr != val.GetAddress() {
+			t.Errorf("validator address mismatch: have %v, want %v", addr, val.GetAddress())
 		}
 	}
 
@@ -601,11 +601,14 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 func newTestValidatorSet(n int) (validator.Set, []*ecdsa.PrivateKey) {
 	// generate validators
 	keys := make(Keys, n)
-	addrs := make([]common.Address, n)
+	addrs := make(types.Committee, n)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
 		keys[i] = privateKey
-		addrs[i] = crypto.PubkeyToAddress(privateKey.PublicKey)
+		addrs[i] = types.CommitteeMember{
+			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower: new(big.Int).SetUint64(1),
+		}
 	}
 	vset := validator.NewSet(addrs, config.RoundRobin)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
@@ -659,7 +662,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	if validators.Size() == 0 {
 		panic("failed to get validators")
 	}
-	proposerAddr := validators.GetProposer().Address()
+	proposerAddr := validators.GetProposer().GetAddress()
 
 	// find proposer key
 	for _, key := range nodeKeys {
