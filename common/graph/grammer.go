@@ -125,6 +125,10 @@ func (gr *Graph) setEdges() {
 	gr.initialized = true
 }
 
+func (gr Graph) GetView() view {
+	return gr.View
+}
+
 type SubGraph struct {
 	Name  string  `"subgraph" @Ident`
 	Edges []*Edge `@@*"end"`
