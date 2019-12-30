@@ -2,6 +2,8 @@ package crypto
 
 import (
 	"crypto/ecdsa"
+	"github.com/clearmatics/autonity/core/types"
+	"math/big"
 	"sort"
 	"strings"
 	"testing"
@@ -30,8 +32,8 @@ func TestCheckValidatorSignature(t *testing.T) {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
 		val := vset.GetByIndex(uint64(i))
-		if addr != val.Address() {
-			t.Errorf("validator address mismatch: have %v, want %v", addr, val.Address())
+		if addr != val.GetAddress() {
+			t.Errorf("validator address mismatch: have %v, want %v", addr, val.GetAddress())
 		}
 	}
 
@@ -80,8 +82,8 @@ func TestCheckValidatorSignatureInvalid(t *testing.T) {
 		}
 
 		val := vset.GetByIndex(uint64(i))
-		if addr == val.Address() {
-			t.Errorf("validator address match: have %v, want != %v", addr, val.Address())
+		if addr == val.GetAddress() {
+			t.Errorf("validator address match: have %v, want != %v", addr, val.GetAddress())
 		}
 	}
 
@@ -134,8 +136,8 @@ func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
 		}
 
 		val := vset.GetByIndex(uint64(i))
-		if addr == val.Address() {
-			t.Errorf("validator address match: have %v, want != %v", addr, val.Address())
+		if addr == val.GetAddress() {
+			t.Errorf("validator address match: have %v, want != %v", addr, val.GetAddress())
 		}
 	}
 
@@ -165,11 +167,14 @@ func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
 func newTestValidatorSet(n int) (validator.Set, []*ecdsa.PrivateKey) {
 	// generate validators
 	keys := make(Keys, n)
-	addrs := make([]common.Address, n)
+	addrs := make(types.Committee, n)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
 		keys[i] = privateKey
-		addrs[i] = crypto.PubkeyToAddress(privateKey.PublicKey)
+		addrs[i] = types.CommitteeMember{
+			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower: new(big.Int).SetUint64(1),
+		}
 	}
 	vset := validator.NewSet(addrs, config.RoundRobin)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
