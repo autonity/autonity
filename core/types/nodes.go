@@ -7,6 +7,7 @@ import (
 
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type Nodes struct {
@@ -59,10 +60,7 @@ func NewNodes(strList []string, openNetwork bool) *Nodes {
 	}
 
 	if len(errs) != 0 {
-		if !openNetwork {
-			panic(errs)
-		}
-		log.Error("enodes parse errors", "errs", errs)
+		log.Error("enodes parse errors", "errs", spew.Sdump(errs))
 	}
 
 	return filterNodes(n, openNetwork)
