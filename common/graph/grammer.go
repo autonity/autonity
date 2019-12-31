@@ -8,7 +8,9 @@ import (
 	"github.com/alecthomas/participle"
 )
 
+
 //nolint:vet
+// Graph implements semantics of markdown flowchart, aka graph, http://mermaid-js.github.io/mermaid/#/flowchart
 type Graph struct {
 	graph       *graph
 	names       []string
