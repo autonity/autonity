@@ -18,6 +18,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zimmski/go-leak"
+	"go.uber.org/goleak"
+	"golang.org/x/sync/errgroup"
+	"gonum.org/v1/gonum/stat"
+
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common"
@@ -30,8 +35,6 @@ import (
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
-	"go.uber.org/goleak"
-	"golang.org/x/sync/errgroup"
 )
 
 const DefaultTestGasPrice = 100000000000
@@ -170,6 +173,77 @@ func TestTendermintSlowConnections(t *testing.T) {
 			runTest(t, testCase)
 		})
 	}
+}
+
+type stats struct {
+	mean   float64
+	std    float64
+	stdErr float64
+	n      int
+}
+
+func TestTendermintMemoryLeak(t *testing.T) {
+	t.Skip("Fails")
+
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	const thresholdPerBlock = 1024 // bytes
+
+	cases := []*testCase{
+		{
+			name:      "5 nodes, 10 blocks, 30 tx per peer per block",
+			numPeers:  5,
+			numBlocks: 10,
+			txPerPeer: 30,
+		},
+
+		{
+			name:      "10 nodes, 40 blocks, 20 tx per peer per block",
+			numPeers:  10,
+			numBlocks: 40,
+			txPerPeer: 20,
+		},
+	}
+
+	const repeats = 10
+
+	for _, testCase := range cases {
+		testCase := testCase
+
+		leaks := make([]float64, repeats)
+		for n := 0; n < repeats; n++ {
+			n := n
+			t.Run(fmt.Sprintf("test case %s, try %d", testCase.name, n), func(t *testing.T) {
+				m := leak.MarkMemory()
+				runTest(t, testCase)
+				leaks[n] = float64(m.Release()) / float64(testCase.numBlocks)
+			})
+		}
+
+		if err := checkLeaks(leaks, thresholdPerBlock); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+func checkLeaks(leakStats []float64, threshold float64) error {
+	mean, std := stat.MeanStdDev(leakStats, nil)
+	stdErr := stat.StdErr(std, float64(len(leakStats)))
+
+	st := stats{
+		mean:   mean,
+		std:    std,
+		stdErr: stdErr,
+		n:      len(leakStats),
+	}
+
+	if threshold < st.mean+st.stdErr {
+		return fmt.Errorf("mean %v; std %v; stdError %v; threshold %v", st.mean, st.std, st.stdErr, threshold)
+	}
+
+	return nil
 }
 
 func TestTendermintLongRun(t *testing.T) {
