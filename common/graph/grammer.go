@@ -38,14 +38,14 @@ func FromFile(path string) (*Graph, error) {
 		return nil, err
 	}
 
- 	graph := &Graph{}
+	graph := &Graph{}
 
- 	file, err := os.Open(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 
- 	err = parser.Parse(bufio.NewReader(file), graph, participle.AllowTrailing(true))
+	err = parser.Parse(bufio.NewReader(file), graph, participle.AllowTrailing(true))
 	if err != nil {
 		return nil, err
 	}
