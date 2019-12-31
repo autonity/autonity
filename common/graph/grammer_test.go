@@ -10,19 +10,7 @@ import (
 )
 
 func TestGraphLexer(t *testing.T) {
-	parser, err := participle.Build(&Graph{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	graph := &Graph{}
-
-	file, err := os.Open("graph.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = parser.Parse(bufio.NewReader(file), graph, participle.AllowTrailing(true))
+	graph, err := FromFile("graph.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,19 +47,7 @@ func TestGraphLexer(t *testing.T) {
 }
 
 func TestGraphLexerGetNames(t *testing.T) {
-	parser, err := participle.Build(&Graph{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	graph := &Graph{}
-
-	file, err := os.Open("graph.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = parser.Parse(bufio.NewReader(file), graph, participle.AllowTrailing(true))
+	graph, err := FromFile("graph.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,19 +62,7 @@ func TestGraphLexerGetNames(t *testing.T) {
 }
 
 func TestGraphLexerGetEdges(t *testing.T) {
-	parser, err := participle.Build(&Graph{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	graph := &Graph{}
-
-	file, err := os.Open("graph.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = parser.Parse(bufio.NewReader(file), graph, participle.AllowTrailing(true))
+	graph, err := FromFile("graph.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,19 +89,7 @@ func TestGraphLexerGetEdges(t *testing.T) {
 }
 
 func TestSubGraphLexer(t *testing.T) {
-	parser, err := participle.Build(&Graph{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	graph := &Graph{}
-
-	file, err := os.Open("subgraph.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = parser.Parse(bufio.NewReader(file), graph, participle.AllowTrailing(true))
+	graph, err := FromFile("subgraph.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,19 +164,7 @@ func TestSubGraphLexer(t *testing.T) {
 }
 
 func TestSubGraphLexerGetNames(t *testing.T) {
-	parser, err := participle.Build(&Graph{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	graph := &Graph{}
-
-	file, err := os.Open("subgraph.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = parser.Parse(bufio.NewReader(file), graph, participle.AllowTrailing(true))
+	graph, err := FromFile("subgraph.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,19 +179,7 @@ func TestSubGraphLexerGetNames(t *testing.T) {
 }
 
 func TestSubGraphLexerGetEdges(t *testing.T) {
-	parser, err := participle.Build(&Graph{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	graph := &Graph{}
-
-	file, err := os.Open("subgraph.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = parser.Parse(bufio.NewReader(file), graph, participle.AllowTrailing(true))
+	graph, err := FromFile("subgraph.md")
 	if err != nil {
 		t.Fatal(err)
 	}
