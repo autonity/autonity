@@ -299,7 +299,43 @@ func (bb *btBlock) decode() (*types.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	var b types.Block
+	var b originalBlock
 	err = rlp.DecodeBytes(data, &b)
-	return &b, err
+	return b.toBlock(), err
+}
+
+type originalHeader struct {
+	ParentHash  common.Hash
+	UncleHash   common.Hash
+	Coinbase    common.Address
+	Root        common.Hash
+	TxHash      common.Hash
+	ReceiptHash common.Hash
+	Bloom       types.Bloom
+	Difficulty  *big.Int
+	Number      *big.Int
+	GasLimit    uint64
+	GasUsed     uint64
+	Time        uint64
+	Extra       []byte
+	MixDigest   common.Hash
+	Nonce       types.BlockNonce
+}
+
+type originalBlock struct {
+	Header *originalHeader
+	Txs    []*types.Transaction
+	Uncles []*originalHeader
+}
+
+func (h *originalHeader) toHeader() *types.Header {
+	return &types.Header{h.ParentHash, h.UncleHash, h.Coinbase, h.Root, h.TxHash, h.ReceiptHash, h.Bloom, h.Difficulty, h.Number, h.GasLimit, h.GasUsed, h.Time, h.Extra, h.MixDigest, h.Nonce, nil, nil, nil, nil, nil}
+}
+
+func (b *originalBlock) toBlock() *types.Block {
+	uncles := make([]*types.Header, len(b.Uncles))
+	for i, _ := range b.Uncles {
+		uncles[i] = b.Uncles[i].toHeader()
+	}
+	return types.NewBlockWithHeader(b.Header.toHeader()).WithBody(b.Txs, uncles)
 }
