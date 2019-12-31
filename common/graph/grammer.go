@@ -26,7 +26,7 @@ type Edge struct {
 	RightNode string `@Ident[";"]`
 }
 
-func FromFile(path string) (*Graph, error {
+func FromFile(path string) (*Graph, error) {
 	parser, err := participle.Build(&Graph{})
 	if err != nil {
 		return nil, err
