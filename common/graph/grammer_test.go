@@ -1,12 +1,8 @@
 package graph
 
 import (
-	"bufio"
-	"os"
 	"reflect"
 	"testing"
-
-	"github.com/alecthomas/participle"
 )
 
 func TestGraphLexer(t *testing.T) {
