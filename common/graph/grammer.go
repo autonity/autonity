@@ -1,6 +1,12 @@
 package graph
 
-import "sort"
+import (
+	"bufio"
+	"os"
+	"sort"
+
+	"github.com/alecthomas/participle"
+)
 
 //nolint:vet
 type Graph struct {
