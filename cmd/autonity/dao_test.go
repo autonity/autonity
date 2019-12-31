@@ -17,15 +17,14 @@
 package main
 
 import (
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/params"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/params"
 )
 
 // Genesis block for nodes which don't care about the DAO fork (i.e. not configured)
@@ -39,7 +38,36 @@ var daoOldGenesis = `{
 	"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
 	"parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
 	"timestamp"  : "0x00",
-	"config"     : {}
+	"config"     : {
+		"autonityContract" : {
+			            "users": [
+                {
+                    "enode": "enode://b0ad42df49340361a0d9989a124acf58ec05e20e7bc35b994e8626c8f548a992d5d10f4d0acbedbd25ff30796590a55bcb090c3bed2f00c2f59f5f47391cbe6e@127.0.0.1:5000",
+                    "address": "0xaD8dD560065cc44DC8011F80B4c4F974Cd5E8350",
+                    "type": "validator",
+                    "stake": 2
+                },
+                {
+                    "enode": "enode://0964c84500648ce4ef06366beef0fee73fa7b56aed5a14c2861a238079dd188acc8c6da9da743d20216000413e3ec5bcd8a743d96b58ebff467019515aeb04d6@127.0.0.1:5001",
+                    "address": "0xbEA4FF331eC70ff0506e716F673F2553574e22e8",
+                    "type": "validator",
+                    "stake": 1
+                },
+                {
+                    "enode": "enode://535304a4bade7aed3120c21267baded1bae027aa9064db99abab5b326700710f1b32e9281c3f92d5fd5a4a218e40aecaa8f52e8e2632447683ea7d7651a07947@127.0.0.1:5002",
+                    "address": "0x4d1deA1EC4dB139c5D19880aC7791dd54Cb5Aa41",
+                    "type": "validator",
+                    "stake": 1
+                },
+                {
+                    "enode": "enode://237392d2d24688ea1e1f65f7284cd53825f55cf2ec2962b410bb559ddc3a57d1f71517dbe19fd8baf1c187e7e8e5912960ba09115de028709d46ec82f5c49849@127.0.0.1:5003",
+                    "address": "0x4f2c44DFb93465027Ed042F4d38b41c8c5Cf662C",
+                    "type": "validator",
+                    "stake": 1
+                }
+            ]},
+		"tendermint" : {}
+	}
 }`
 
 // Genesis block for nodes which actively oppose the DAO fork
@@ -55,7 +83,35 @@ var daoNoForkGenesis = `{
 	"timestamp"  : "0x00",
 	"config"     : {
 		"daoForkBlock"   : 314,
-		"daoForkSupport" : false
+		"daoForkSupport" : false,
+		"autonityContract" : {
+			            "users": [
+                {
+                    "enode": "enode://b0ad42df49340361a0d9989a124acf58ec05e20e7bc35b994e8626c8f548a992d5d10f4d0acbedbd25ff30796590a55bcb090c3bed2f00c2f59f5f47391cbe6e@127.0.0.1:5000",
+                    "address": "0xaD8dD560065cc44DC8011F80B4c4F974Cd5E8350",
+                    "type": "validator",
+                    "stake": 2
+                },
+                {
+                    "enode": "enode://0964c84500648ce4ef06366beef0fee73fa7b56aed5a14c2861a238079dd188acc8c6da9da743d20216000413e3ec5bcd8a743d96b58ebff467019515aeb04d6@127.0.0.1:5001",
+                    "address": "0xbEA4FF331eC70ff0506e716F673F2553574e22e8",
+                    "type": "validator",
+                    "stake": 1
+                },
+                {
+                    "enode": "enode://535304a4bade7aed3120c21267baded1bae027aa9064db99abab5b326700710f1b32e9281c3f92d5fd5a4a218e40aecaa8f52e8e2632447683ea7d7651a07947@127.0.0.1:5002",
+                    "address": "0x4d1deA1EC4dB139c5D19880aC7791dd54Cb5Aa41",
+                    "type": "validator",
+                    "stake": 1
+                },
+                {
+                    "enode": "enode://237392d2d24688ea1e1f65f7284cd53825f55cf2ec2962b410bb559ddc3a57d1f71517dbe19fd8baf1c187e7e8e5912960ba09115de028709d46ec82f5c49849@127.0.0.1:5003",
+                    "address": "0x4f2c44DFb93465027Ed042F4d38b41c8c5Cf662C",
+                    "type": "validator",
+                    "stake": 1
+                }
+            ]},
+		"tendermint" : {}
 	}
 }`
 
@@ -72,11 +128,40 @@ var daoProForkGenesis = `{
 	"timestamp"  : "0x00",
 	"config"     : {
 		"daoForkBlock"   : 314,
-		"daoForkSupport" : true
+		"daoForkSupport" : true,
+		"autonityContract" : {
+			            "users": [
+                {
+                    "enode": "enode://b0ad42df49340361a0d9989a124acf58ec05e20e7bc35b994e8626c8f548a992d5d10f4d0acbedbd25ff30796590a55bcb090c3bed2f00c2f59f5f47391cbe6e@127.0.0.1:5000",
+                    "address": "0xaD8dD560065cc44DC8011F80B4c4F974Cd5E8350",
+                    "type": "validator",
+                    "stake": 2
+                },
+                {
+                    "enode": "enode://0964c84500648ce4ef06366beef0fee73fa7b56aed5a14c2861a238079dd188acc8c6da9da743d20216000413e3ec5bcd8a743d96b58ebff467019515aeb04d6@127.0.0.1:5001",
+                    "address": "0xbEA4FF331eC70ff0506e716F673F2553574e22e8",
+                    "type": "validator",
+                    "stake": 1
+                },
+                {
+                    "enode": "enode://535304a4bade7aed3120c21267baded1bae027aa9064db99abab5b326700710f1b32e9281c3f92d5fd5a4a218e40aecaa8f52e8e2632447683ea7d7651a07947@127.0.0.1:5002",
+                    "address": "0x4d1deA1EC4dB139c5D19880aC7791dd54Cb5Aa41",
+                    "type": "validator",
+                    "stake": 1
+                },
+                {
+                    "enode": "enode://237392d2d24688ea1e1f65f7284cd53825f55cf2ec2962b410bb559ddc3a57d1f71517dbe19fd8baf1c187e7e8e5912960ba09115de028709d46ec82f5c49849@127.0.0.1:5003",
+                    "address": "0x4f2c44DFb93465027Ed042F4d38b41c8c5Cf662C",
+                    "type": "validator",
+                    "stake": 1
+                }
+            ]
+		},
+		"tendermint" : {}
 	}
 }`
 
-var daoGenesisHash = common.HexToHash("5e1fc79cb4ffa4739177b5408045cd5d51c6cf766133f23f7cd72ee1f8d790e0")
+var daoGenesisHash = common.HexToHash("c626d8be5d39286154d44074a2f0a31192792385e89d6f1f60dea77be6b99ce5")
 var daoGenesisForkBlock = big.NewInt(314)
 
 // TestDAOForkBlockNewChain tests that the DAO hard-fork number and the nodes support/opposition is correctly
