@@ -26,6 +26,27 @@ type Edge struct {
 	RightNode string `@Ident[";"]`
 }
 
+func FromFile(path string) (*Graph, error {
+	parser, err := participle.Build(&Graph{})
+	if err != nil {
+		return nil, err
+	}
+
+ 	graph := &Graph{}
+
+ 	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+ 	err = parser.Parse(bufio.NewReader(file), graph, participle.AllowTrailing(true))
+	if err != nil {
+		return nil, err
+	}
+
+	return graph, nil
+}
+
 // GetEdges assumes that SetNodeName was called for all nodes in the graphs
 func (gr *Graph) GetEdges(index int) []int {
 	if !gr.initialized {
