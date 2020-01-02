@@ -31,7 +31,44 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/p2p/enr"
+	"golang.org/x/crypto/sha3"
 )
+
+// func init() {
+// 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+// }
+
+type testTransport struct {
+	rpub *ecdsa.PublicKey
+	*rlpx
+
+	closeErr error
+}
+
+func newTestTransport(rpub *ecdsa.PublicKey, fd net.Conn) transport {
+	wrapped := newRLPX(fd).(*rlpx)
+	wrapped.rw = newRLPXFrameRW(fd, secrets{
+		MAC:        zero16,
+		AES:        zero16,
+		IngressMAC: sha3.NewLegacyKeccak256(),
+		EgressMAC:  sha3.NewLegacyKeccak256(),
+	})
+	return &testTransport{rpub: rpub, rlpx: wrapped}
+}
+
+func (c *testTransport) doEncHandshake(prv *ecdsa.PrivateKey, dialDest *ecdsa.PublicKey) (*ecdsa.PublicKey, error) {
+	return c.rpub, nil
+}
+
+func (c *testTransport) doProtoHandshake(our *protoHandshake) (*protoHandshake, error) {
+	pubkey := crypto.FromECDSAPub(c.rpub)[1:]
+	return &protoHandshake{ID: pubkey, Name: "test"}, nil
+}
+
+func (c *testTransport) close(err error) {
+	c.rlpx.fd.Close()
+	c.closeErr = err
+}
 
 func startTestServer(t *testing.T, remoteKey *ecdsa.PublicKey, pf func(*Peer)) *Server {
 	config := Config{
@@ -196,8 +233,8 @@ func TestServerTaskScheduling(t *testing.T) {
 		Config:    Config{MaxPeers: 10},
 		localnode: enode.NewLocalNode(db, newkey()),
 		nodedb:    db,
+		discmix:   enode.NewFairMix(0),
 		quit:      make(chan struct{}),
-		ntab:      fakeTable{},
 		running:   true,
 		log:       log.New(),
 	}
@@ -245,9 +282,9 @@ func TestServerManyTasks(t *testing.T) {
 			quit:      make(chan struct{}),
 			localnode: enode.NewLocalNode(db, newkey()),
 			nodedb:    db,
-			ntab:      fakeTable{},
 			running:   true,
 			log:       log.New(),
+			discmix:   enode.NewFairMix(0),
 		}
 		done       = make(chan *testTask)
 		start, end = 0, 0

@@ -19,7 +19,6 @@ package clique
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"fmt"
 	"sort"
 	"testing"
 
@@ -379,7 +378,6 @@ func TestClique(t *testing.T) {
 	}
 	// Run through the scenarios and test them
 	for i, tt := range tests {
-		fmt.Printf("\n\n\n")
 		// Create the account pool and generate the initial set of signers
 		accounts := newTesterAccountPool()
 
@@ -395,42 +393,37 @@ func TestClique(t *testing.T) {
 			}
 		}
 		// Create the genesis block with the initial set of signers
-		var (
-			db     = rawdb.NewMemoryDatabase()
-			config = params.TestChainConfig
-		)
-		genSpec := &core.Genesis{
-			Config: config,
+		genesis := &core.Genesis{
+			Config: params.AllCliqueProtocolChanges,
+			ExtraData: make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal),
+		}
+		for j, signer := range signers {
+			copy(genesis.ExtraData[extraVanity+j*common.AddressLength:], signer[:])
 		}
 
-		genSpec.ExtraData = make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal)
-		for j, signer := range signers {
-			copy(genSpec.ExtraData[extraVanity+j*common.AddressLength:], signer[:])
-		}
-		genSpec.Config = new(params.ChainConfig)
-		*genSpec.Config = *params.AllCliqueProtocolChanges
 		// Create a pristine blockchain with the genesis injected
-		_, err := genSpec.Commit(db)
+		db := rawdb.NewMemoryDatabase()
+		_, err := genesis.Commit(db)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// Assemble a chain of headers from the cast votes
+		config := *params.TestChainConfig
 		config.Clique = &params.CliqueConfig{
 			Period: 1,
 			Epoch:  tt.epoch,
 		}
-		// Assemble a chain of headers from the cast votes
 		engine := New(config.Clique, db)
 		engine.fakeDiff = true
 
-		chain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil, core.NewTxSenderCacher())
+		// Pass all the headers through clique and ensure tallying succeeds
+		chain, err := core.NewBlockChain(db, nil, &config, engine, vm.Config{}, nil, core.NewTxSenderCacher())
 		if err != nil {
 			t.Fatalf("test %d: failed to create test chain: %v", i, err)
-			continue
 		}
 
-		blocks, _ := core.GenerateChain(config, genSpec.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen) {
+		blocks, _ := core.GenerateChain(&config, genesis.ToBlock(db), engine, db, len(tt.votes), func(j int, gen *core.BlockGen) {
 			// Cast the vote contained in this block
 			gen.SetCoinbase(accounts.address(tt.votes[j].voted))
 			if tt.votes[j].auth {
@@ -441,7 +434,7 @@ func TestClique(t *testing.T) {
 		})
 		// Iterate through the blocks and seal them individually
 		for j, block := range blocks {
-			// Autonity the header and prepare it for signing
+			// Geth the header and prepare it for signing
 			header := block.Header()
 			if j > 0 {
 				header.ParentHash = blocks[j-1].Hash()

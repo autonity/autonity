@@ -29,6 +29,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sync"
 	"time"
 
@@ -42,7 +43,7 @@ import (
 var (
 	ErrLocked  = accounts.NewAuthNeededError("password or unlock")
 	ErrNoMatch = errors.New("no key for given address or file")
-	ErrDecrypt = errors.New("could not decrypt key with given passphrase")
+	ErrDecrypt = errors.New("could not decrypt key with given password")
 )
 
 // KeyStoreType is the reflect type of a keystore backend.
@@ -100,6 +101,12 @@ func (ks *KeyStore) init(keydir string) {
 	ks.unlocked = make(map[common.Address]*unlocked)
 	ks.cache, ks.changes = newAccountCache(keydir)
 
+	// TODO: In order for this finalizer to work, there must be no references
+	// to ks. addressCache doesn't keep a reference but unlocked keys do,
+	// so the finalizer will not trigger until all timed unlocks have expired.
+	runtime.SetFinalizer(ks, func(m *KeyStore) {
+		m.cache.close()
+	})
 	// Create the initial list of wallets from the cache
 	accs := ks.cache.accounts()
 	ks.wallets = make([]accounts.Wallet, len(accs))
@@ -132,7 +139,7 @@ func (ks *KeyStore) refreshWallets() {
 	// Transform the current list of wallets into the new one
 	var (
 		wallets = make([]accounts.Wallet, 0, len(accs))
-		events  = make([]accounts.WalletEvent, 0, len(accs))
+		events  []accounts.WalletEvent
 	)
 
 	for _, account := range accs {

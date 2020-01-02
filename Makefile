@@ -8,7 +8,7 @@
 .PHONY: autonity-darwin autonity-darwin-386 autonity-darwin-amd64
 .PHONY: autonity-windows autonity-windows-386 autonity-windows-amd64
 
-GOBIN = $(shell pwd)/build/bin
+GOBIN = ./build/bin
 GO ?= latest
 LATEST_COMMIT ?= $(shell git log -n 1 master --pretty=format:"%H")
 ifeq ($(LATEST_COMMIT),)
@@ -86,7 +86,7 @@ lint-deps:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.21.0
 
 clean:
-	./build/clean_go_build_cache.sh
+	go clean -cache
 	rm -fr build/_workspace/pkg/ $(GOBIN)/*
 
 # The devtools target installs tools required for 'go generate'.

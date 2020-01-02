@@ -21,6 +21,7 @@ jobs:
     - &tests
       stage: "Build, linters and tests"
       env:
+        - GO111MODULE=on
         - GORACE="history_size=7"
       after_success:
         - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
@@ -29,18 +30,14 @@ jobs:
       after_failure:
         - travis_terminate 1
       name: "build and linters"
-      script:
         - git fetch origin master --depth=1
         - go run build/ci.go install
         - make lint-ci
     - <<: *tests
       name: "unit tests"
-      script:
-        - go run build/ci.go test -coverage $TEST_PACKAGES
         - go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
     - <<: *tests
       name: "Tendermint data race - unit tests"
-      script:
         - travis_wait 35 go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
         - cat coverage_tendermint.out >> coverage.out
     - <<: *tests
@@ -61,27 +58,21 @@ jobs:
         - travis_wait 45 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "TestTendermintStartStopFPlusTwoNodes"
-      script:
         - travis_wait 45 go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "TestTendermintStartStopAllNodes"
-      script:
         - travis_wait 45 go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "TestCheckBlockWithSmallFee"
-      script:
         - travis_wait 45 go test ./consensus/test/... -v -run 'TestCheckBlockWithSmallFee' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "TestCheckFeeRedirectionAndRedistribution"
-      script:
         - travis_wait 45 go test ./consensus/test/... -v -run 'TestCheckFeeRedirectionAndRedistribution' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
       name: "Contract tests"
-      script:
         - npm install -g ganache-cli
         - ganache-cli --gasLimit=0x1fffffffffffff --allowUnlimitedContractSize -e 1000000000 &
         - make test-contracts
-
 notifications:
   slack:
     secure: GKYSUbw82VHxUw9JsCgxPfAN5bBE3JZs8YvKEABADDeioMI+3m90HKhuA7F7AtFCK1okIDAGSauX3NqcrAMNk0GnsgTGcvutpSnSL4Jprrff2SkTOfdQCyMdhAmZWBBGOUJx85Ei7lSCSRNRemI3E2jhLPDaQlQGuvUXN1+YM4iFK15dYIrWyDL2ZIMcCThcBft0P7h9Z6LX1bMf5SE9IATjgijzDXeJVUsgpt14p2suflU+jGq+EXqpCSW1uuwlEktiTxOpIpAmP6SdR/ltaMQ9khLCzvf7xkddIuE0AR4/PC+ug+pmsSyqhfW/5w0uGCeRXnQKomhkgzo9BV/uWeRZqAc/tMGXkYAUdwBvzbde9pXEdAoXg89BurCqQVIvUqVrnVONR8WI3pUa+03fFYpt34lF6SaFdluGQzwd6TTGSceEWaAuA8Ng7mSQrQD12857kFtq+WmetTkKKGZ3KW0i9Iz35/l6V22OfkEWb+ARiJuKAo5vQlQLRIJlWD+PiB66YASXyMN5xYtzQHZpxH+J8cWrvBmZSwBvZh0ZxAEgUtZUM5eFuKKymNaBBEj7uLiY/1M2RLNa8ZsOSsGi1nsd8UEd4sKJttrXgR5r4Y4oXQtlX2UPPMtR7VOfDEB7pnjSrfPBD5DrVMHpUU2F1rISXfjRLZvSgRq717NZUsI=

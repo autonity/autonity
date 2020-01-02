@@ -31,6 +31,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/internal/testlog"
@@ -38,7 +40,6 @@ import (
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/p2p/enr"
 	"github.com/clearmatics/autonity/rlp"
-	"github.com/davecgh/go-spew/spew"
 )
 
 func init() {

@@ -33,8 +33,7 @@ import (
 	"github.com/clearmatics/autonity/contracts/checkpointoracle/contract"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/params"
-)
+	"github.com/clearmatics/autonity/params")
 
 var (
 	emptyHash = [32]byte{}
@@ -175,8 +174,11 @@ func TestCheckpointRegister(t *testing.T) {
 	sort.Sort(accounts)
 
 	// Deploy registrar contract
-	transactOpts := bind.NewKeyedTransactor(accounts[0].key)
 	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{accounts[0].addr: {Balance: big.NewInt(1000000000)}, accounts[1].addr: {Balance: big.NewInt(1000000000)}, accounts[2].addr: {Balance: big.NewInt(1000000000)}}, 10000000)
+	defer contractBackend.Close()
+
+	transactOpts := bind.NewKeyedTransactor(accounts[0].key)
+
 	// 3 trusted signers, threshold 2
 	contractAddr, _, c, err := contract.DeployCheckpointOracle(transactOpts, contractBackend, []common.Address{accounts[0].addr, accounts[1].addr, accounts[2].addr}, sectionSize, processConfirms, big.NewInt(2))
 	if err != nil {

@@ -85,6 +85,7 @@ const (
 
 	insVerifyPin  = 0x20
 	insUnblockPin = 0x22
+	insExportKey  = 0xC2
 	insSign       = 0xC0
 	insLoadKey    = 0xD0
 	insDeriveKey  = 0xD1
@@ -97,8 +98,11 @@ const (
 	P1DeriveKeyFromParent  = uint8(0x01)
 	P1DeriveKeyFromCurrent = uint8(0x10)
 	statusP1WalletStatus   = uint8(0x00)
+	statusP1Path           = uint8(0x01)
 	signP1PrecomputedHash  = uint8(0x01)
 	signP2OnlyBlock        = uint8(0x81)
+	exportP1Any            = uint8(0x00)
+	exportP2Pubkey         = uint8(0x01)
 )
 
 // Minimum time to wait between self derivation attempts, even it the user is
@@ -573,7 +577,7 @@ func (w *Wallet) Accounts() []accounts.Account {
 		for address, path := range pairing.Accounts {
 			ret = append(ret, w.makeAccount(address, path))
 		}
-		sort.Sort(accounts.ByURL(ret))
+		sort.Sort(accounts.AccountsByURL(ret))
 		return ret
 	}
 	return nil
@@ -816,7 +820,7 @@ func (s *Session) unpair() error {
 
 // verifyPin unlocks a wallet with the provided pin.
 func (s *Session) verifyPin(pin []byte) error {
-	if _, err := s.Channel.transmitEncrypted(insVerifyPin, 0, 0, pin); err != nil {
+	if _, err := s.Channel.transmitEncrypted(claSCWallet, insVerifyPin, 0, 0, pin); err != nil {
 		return err
 	}
 	s.verified = true
@@ -826,7 +830,7 @@ func (s *Session) verifyPin(pin []byte) error {
 // unblockPin unblocks a wallet with the provided puk and resets the pin to the
 // new one specified.
 func (s *Session) unblockPin(pukpin []byte) error {
-	if _, err := s.Channel.transmitEncrypted(insUnblockPin, 0, 0, pukpin); err != nil {
+	if _, err := s.Channel.transmitEncrypted(claSCWallet, insUnblockPin, 0, 0, pukpin); err != nil {
 		return err
 	}
 	s.verified = true
@@ -862,7 +866,7 @@ type walletStatus struct {
 
 // walletStatus fetches the wallet's status from the card.
 func (s *Session) walletStatus() (*walletStatus, error) {
-	response, err := s.Channel.transmitEncrypted(insStatus, statusP1WalletStatus, 0, nil)
+	response, err := s.Channel.transmitEncrypted(claSCWallet, insStatus, statusP1WalletStatus, 0, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -872,6 +876,18 @@ func (s *Session) walletStatus() (*walletStatus, error) {
 		return nil, err
 	}
 	return status, nil
+}
+
+// derivationPath fetches the wallet's current derivation path from the card.
+//lint:ignore U1000 needs to be added to the console interface
+func (s *Session) derivationPath() (accounts.DerivationPath, error) {
+	response, err := s.Channel.transmitEncrypted(claSCWallet, insStatus, statusP1Path, 0, nil)
+	if err != nil {
+		return nil, err
+	}
+	buf := bytes.NewReader(response.Data)
+	path := make(accounts.DerivationPath, len(response.Data)/4)
+	return path, binary.Read(buf, binary.BigEndian, &path)
 }
 
 // initializeData contains data needed to initialize the smartcard wallet.
@@ -898,7 +914,7 @@ func (s *Session) initialize(seed []byte) error {
 
 	// HMAC the seed to produce the private key and chain code
 	mac := hmac.New(sha512.New, []byte("Bitcoin seed"))
-	_, _ = mac.Write(seed)
+	mac.Write(seed)
 	seed = mac.Sum(nil)
 
 	key, err := crypto.ToECDSA(seed[:32])
@@ -918,7 +934,7 @@ func (s *Session) initialize(seed []byte) error {
 	// Nasty hack to force the top-level struct tag to be context-specific
 	data[0] = 0xA1
 
-	_, err = s.Channel.transmitEncrypted(insLoadKey, 0x02, 0, data)
+	_, err = s.Channel.transmitEncrypted(claSCWallet, insLoadKey, 0x02, 0, data)
 	return err
 }
 
@@ -943,38 +959,59 @@ func (s *Session) derive(path accounts.DerivationPath) (accounts.Account, error)
 
 	data := new(bytes.Buffer)
 	for _, segment := range path {
-		if writeErr := binary.Write(data, binary.BigEndian, segment); writeErr != nil {
-			return accounts.Account{}, writeErr
+		if err := binary.Write(data, binary.BigEndian, segment); err != nil {
+			return accounts.Account{}, err
 		}
 	}
 
-	_, err = s.Channel.transmitEncrypted(insDeriveKey, p1, 0, data.Bytes())
+	_, err = s.Channel.transmitEncrypted(claSCWallet, insDeriveKey, p1, 0, data.Bytes())
 	if err != nil {
 		return accounts.Account{}, err
 	}
 
-	response, err := s.Channel.transmitEncrypted(insSign, 0, 0, DerivationSignatureHash[:])
+	response, err := s.Channel.transmitEncrypted(claSCWallet, insSign, 0, 0, DerivationSignatureHash[:])
 	if err != nil {
 		return accounts.Account{}, err
 	}
 
 	sigdata := new(signatureData)
-	if _, unmarshalErr := asn1.UnmarshalWithParams(response.Data, sigdata, "tag:0"); unmarshalErr != nil {
-		return accounts.Account{}, unmarshalErr
+	if _, err := asn1.UnmarshalWithParams(response.Data, sigdata, "tag:0"); err != nil {
+		return accounts.Account{}, err
 	}
 	rbytes, sbytes := sigdata.Signature.R.Bytes(), sigdata.Signature.S.Bytes()
 	sig := make([]byte, 65)
 	copy(sig[32-len(rbytes):32], rbytes)
 	copy(sig[64-len(sbytes):64], sbytes)
 
-	if pkErr := confirmPublicKey(sig, sigdata.PublicKey); pkErr != nil {
-		return accounts.Account{}, pkErr
+	if err := confirmPublicKey(sig, sigdata.PublicKey); err != nil {
+		return accounts.Account{}, err
 	}
 	pub, err := crypto.UnmarshalPubkey(sigdata.PublicKey)
 	if err != nil {
 		return accounts.Account{}, err
 	}
 	return s.Wallet.makeAccount(crypto.PubkeyToAddress(*pub), path), nil
+}
+
+// keyExport contains information on an exported keypair.
+//lint:ignore U1000 needs to be added to the console interface
+type keyExport struct {
+	PublicKey  []byte `asn1:"tag:0"`
+	PrivateKey []byte `asn1:"tag:1,optional"`
+}
+
+// publicKey returns the public key for the current derivation path.
+//lint:ignore U1000 needs to be added to the console interface
+func (s *Session) publicKey() ([]byte, error) {
+	response, err := s.Channel.transmitEncrypted(claSCWallet, insExportKey, exportP1Any, exportP2Pubkey, nil)
+	if err != nil {
+		return nil, err
+	}
+	keys := new(keyExport)
+	if _, err := asn1.UnmarshalWithParams(response.Data, keys, "tag:1"); err != nil {
+		return nil, err
+	}
+	return keys.PublicKey, nil
 }
 
 // signatureData contains information on a signature - the signature itself and
@@ -997,13 +1034,13 @@ func (s *Session) sign(path accounts.DerivationPath, hash []byte) ([]byte, error
 	}
 	deriveTime := time.Now()
 
-	response, err := s.Channel.transmitEncrypted(insSign, signP1PrecomputedHash, signP2OnlyBlock, hash)
+	response, err := s.Channel.transmitEncrypted(claSCWallet, insSign, signP1PrecomputedHash, signP2OnlyBlock, hash)
 	if err != nil {
 		return nil, err
 	}
 	sigdata := new(signatureData)
-	if _, unmarshalErr := asn1.UnmarshalWithParams(response.Data, sigdata, "tag:0"); unmarshalErr != nil {
-		return nil, unmarshalErr
+	if _, err := asn1.UnmarshalWithParams(response.Data, sigdata, "tag:0"); err != nil {
+		return nil, err
 	}
 	// Serialize the signature
 	rbytes, sbytes := sigdata.Signature.R.Bytes(), sigdata.Signature.S.Bytes()

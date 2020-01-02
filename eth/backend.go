@@ -145,7 +145,7 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	if err != nil {
 		return nil, err
 	}
-	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
+	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlockWithOverride(chainDb, config.Genesis, config.OverrideIstanbul, config.OverrideMuirGlacier)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}
@@ -163,7 +163,6 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 			TrieTimeLimit:       config.TrieTimeout,
 		}
 	)
-
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
 	consEngine := CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig, backs)
@@ -196,7 +195,7 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	if bcVersion != nil {
 		dbVer = fmt.Sprintf("%d", *bcVersion)
 	}
-	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId)
+	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId, "dbversion", dbVer)
 
 	if !config.SkipBcVersionCheck {
 		if bcVersion != nil && *bcVersion > core.BlockChainVersion {
