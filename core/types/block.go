@@ -423,7 +423,7 @@ func CalcUncleHash(uncles []*Header) common.Hash {
 	// len(uncles) > 0 can only happen during tests.
 	// We revert to the original structure to keep compatibility with hardcoded hash values.
 	originalUncles := make([]*OriginalHeader, len(uncles))
-	for i, _ := range uncles {
+	for i := range uncles {
 		originalUncles[i] = &uncles[i].OriginalHeader
 	}
 	return rlpHash(originalUncles)

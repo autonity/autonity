@@ -314,12 +314,12 @@ type originalBlock struct {
 }
 
 func extendHeader(h *types.OriginalHeader) *types.Header {
-	return &types.Header{*h, nil, nil, nil, nil, nil}
+	return &types.Header{OriginalHeader: *h}
 }
 
 func (b *originalBlock) toBlock() *types.Block {
 	uncles := make([]*types.Header, len(b.Uncles))
-	for i, _ := range b.Uncles {
+	for i := range b.Uncles {
 		uncles[i] = extendHeader(b.Uncles[i])
 	}
 	return types.NewBlockWithHeader(extendHeader(b.Header)).WithBody(b.Txs, uncles)

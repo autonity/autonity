@@ -32,7 +32,7 @@ func TestValidatorSetSet(t *testing.T) {
 		t.Fatalf("nil validator set expected, got %v", &valSet)
 	}
 
-	innerSet := Validators(types.Committee{{common.HexToAddress("0xabcd"), new(big.Int).SetUint64(1)}})
+	innerSet := Validators(types.Committee{{Address: common.HexToAddress("0xabcd"), VotingPower: new(big.Int).SetUint64(1)}})
 
 	valSet.set(innerSet)
 	if !reflect.DeepEqual(valSet.Set, innerSet) {
