@@ -543,6 +543,7 @@ func (srv *Server) Start() (err error) {
 		srv.NoDiscovery = true
 		srv.StaticNodes = nil
 		srv.TrustedNodes = nil
+		srv.discmix = enode.NewFairMix(discmixTimeout)
 		dialer = newDialState(srv.localnode.ID(), 0, &Config{NetRestrict: srv.Config.NetRestrict})
 	}
 	srv.loopWG.Add(1)
