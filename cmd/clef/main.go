@@ -735,7 +735,7 @@ func testExternalUI(api *core.SignerAPI) {
 	{ // Sign data test - clique header
 		api.UI.ShowInfo("Please approve the next request for signing a clique header")
 		time.Sleep(delay)
-		cliqueHeader := types.Header{
+		cliqueHeader := types.Header{OriginalHeader: types.OriginalHeader{
 			common.HexToHash("0000H45H"),
 			common.HexToHash("0000H45H"),
 			common.HexToAddress("0000H45H"),
@@ -750,12 +750,7 @@ func testExternalUI(api *core.SignerAPI) {
 			1338,
 			[]byte("Extra data Extra data Extra data  Extra data  Extra data  Extra data  Extra data Extra data"),
 			common.HexToHash("0x0000H45H"),
-			types.BlockNonce{},
-			types.Committee{},
-			[]byte{},
-			nil,
-			nil,
-			nil,
+			types.BlockNonce{}},
 		}
 		cliqueRlp, err := rlp.EncodeToBytes(cliqueHeader)
 		if err != nil {

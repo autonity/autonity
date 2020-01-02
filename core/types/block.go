@@ -74,8 +74,8 @@ type CommitteeMember struct {
 
 type Committee []CommitteeMember
 
-// Header represents a block header in the Ethereum blockchain.
-type Header struct {
+// OriginalHeader represents the ethereum blockchain header.
+type OriginalHeader struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`
@@ -91,6 +91,11 @@ type Header struct {
 	Extra       []byte         `json:"extraData"        gencodec:"required"`
 	MixDigest   common.Hash    `json:"mixHash"`
 	Nonce       BlockNonce     `json:"nonce"`
+}
+
+// Header represents a block header in the Autonity blockchain.
+type Header struct {
+	OriginalHeader
 	/*
 		PoS header fields, round & committedSeals not taken into account
 		for computing the sigHash.
@@ -133,23 +138,7 @@ func (h *Header) Hash() common.Hash {
 
 	//if not using the BFT mixdigest then return the original ethereum block header hash, this
 	//let Autonity to remain compatible with original go-ethereum tests.
-	return rlpHash(struct {
-		ParentHash  common.Hash
-		UncleHash   common.Hash
-		Coinbase    common.Address
-		Root        common.Hash
-		TxHash      common.Hash
-		ReceiptHash common.Hash
-		Bloom       Bloom
-		Difficulty  *big.Int
-		Number      *big.Int
-		GasLimit    uint64
-		GasUsed     uint64
-		Time        uint64
-		Extra       []byte
-		MixDigest   common.Hash
-		Nonce       BlockNonce
-	}{h.ParentHash, h.UncleHash, h.Coinbase, h.Root, h.TxHash, h.ReceiptHash, h.Bloom, h.Difficulty, h.Number, h.GasLimit, h.GasUsed, h.Time, h.Extra, h.MixDigest, h.Nonce})
+	return rlpHash(h.OriginalHeader)
 }
 
 var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
@@ -431,7 +420,13 @@ func CalcUncleHash(uncles []*Header) common.Hash {
 	if len(uncles) == 0 {
 		return EmptyUncleHash
 	}
-	return rlpHash(uncles)
+	// len(uncles) > 0 can only happen during tests.
+	// We revert to the original structure to keep compatibility with hardcoded hash values.
+	originalUncles := make([]*OriginalHeader, len(uncles))
+	for i, _ := range uncles {
+		originalUncles[i] = &uncles[i].OriginalHeader
+	}
+	return rlpHash(originalUncles)
 }
 
 // WithSeal returns a new block with the data from b but the header replaced with

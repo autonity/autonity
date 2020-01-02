@@ -274,7 +274,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	}
 	g.mu.RUnlock()
 
-	head := &types.Header{
+	head := &types.Header{OriginalHeader: types.OriginalHeader{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
 		Time:       g.Timestamp,
@@ -286,8 +286,9 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
 		Root:       root,
-		Committee:  g.Committee,
-		Round:      new(big.Int),
+	},
+		Committee: g.Committee,
+		Round:     new(big.Int),
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
