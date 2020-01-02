@@ -1135,7 +1135,7 @@ func runTest(t *testing.T, test *testCase) {
 		t.SkipNow()
 	}
 
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNoLeaks(t)
 
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numPeers))

@@ -1455,7 +1455,7 @@ func TestTransactionDeduplication(t *testing.T) {
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()))
 	blockchain := &testBlockChain{statedb, 1000000, new(event.Feed)}
 
-	pool := NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain)
+	pool := NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, NewTxSenderCacher())
 	defer pool.Stop()
 
 	// Create a test account to add transactions with

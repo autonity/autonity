@@ -38,6 +38,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.2-0.20190409134802-7e037d187b0c
 	github.com/pborman/uuid v0.0.0-20170112150404-1b00554d8222
 	github.com/peterh/liner v1.1.1-0.20190123174540-a2c9a5303de7
+	github.com/pkg/errors v0.8.1
 	github.com/prometheus/tsdb v0.6.2-0.20190402121629-4f204dcbc150
 	github.com/rjeczalik/notify v0.9.1
 	github.com/robertkrimen/otto v0.0.0-20170205013659-6a77b7cbc37d
@@ -49,11 +50,13 @@ require (
 	github.com/tyler-smith/go-bip39 v1.0.1-0.20181017060643-dbb3b84ba2ef
 	github.com/wsddn/go-ecdh v0.0.0-20161211032359-48726bab9208
 	github.com/zfjagann/golang-ring v0.0.0-20190304061218-d34796e0a6c2
+	go.uber.org/goleak v0.10.0
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 	gopkg.in/olebedev/go-duktape.v3 v3.0.0-20190213234257-ec84240a7772

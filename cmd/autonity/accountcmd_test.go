@@ -43,8 +43,8 @@ func tmpDatadirWithKeystore(t *testing.T) string {
 }
 
 func TestAccountListEmpty(t *testing.T) {
-	geth := runGeth(t, "account", "list")
-	geth.ExpectExit()
+	autonity := runAutonity(t, "account", "list")
+	autonity.ExpectExit()
 }
 
 func TestAccountList(t *testing.T) {
