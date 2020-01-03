@@ -213,7 +213,7 @@ func testGenerateBlockAndImport(t *testing.T, isClique bool) {
 
 	db2 := rawdb.NewMemoryDatabase()
 	b.genesis.MustCommit(db2)
-	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil)
+	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, core.NewTxSenderCacher())
 	defer chain.Stop()
 
 	loopErr := make(chan error)

@@ -39,6 +39,7 @@ import (
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
