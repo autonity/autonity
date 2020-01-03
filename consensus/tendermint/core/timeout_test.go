@@ -148,7 +148,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 			step:             msgPrecommit,
 		}
 
-		block := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})
+		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(1)}})
 		mockBackend.EXPECT().LastCommittedProposal().Return(block, currentValidator.GetAddress())
 		engine.handleTimeoutPrecommit(context.Background(), timeoutEvent)
 

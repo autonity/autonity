@@ -301,41 +301,26 @@ func (bb *btBlock) decode() (*types.Block, error) {
 	}
 	var b originalBlock
 	err = rlp.DecodeBytes(data, &b)
-	return b.toBlock(), err
-}
-
-type originalHeader struct {
-	ParentHash  common.Hash
-	UncleHash   common.Hash
-	Coinbase    common.Address
-	Root        common.Hash
-	TxHash      common.Hash
-	ReceiptHash common.Hash
-	Bloom       types.Bloom
-	Difficulty  *big.Int
-	Number      *big.Int
-	GasLimit    uint64
-	GasUsed     uint64
-	Time        uint64
-	Extra       []byte
-	MixDigest   common.Hash
-	Nonce       types.BlockNonce
+	if err != nil {
+		return nil, err
+	}
+	return b.toBlock(), nil
 }
 
 type originalBlock struct {
-	Header *originalHeader
+	Header *types.OriginalHeader
 	Txs    []*types.Transaction
-	Uncles []*originalHeader
+	Uncles []*types.OriginalHeader
 }
 
-func (h *originalHeader) toHeader() *types.Header {
-	return &types.Header{h.ParentHash, h.UncleHash, h.Coinbase, h.Root, h.TxHash, h.ReceiptHash, h.Bloom, h.Difficulty, h.Number, h.GasLimit, h.GasUsed, h.Time, h.Extra, h.MixDigest, h.Nonce, nil, nil, nil, nil, nil}
+func extendHeader(h *types.OriginalHeader) *types.Header {
+	return &types.Header{OriginalHeader: *h}
 }
 
 func (b *originalBlock) toBlock() *types.Block {
 	uncles := make([]*types.Header, len(b.Uncles))
-	for i, _ := range b.Uncles {
-		uncles[i] = b.Uncles[i].toHeader()
+	for i := range b.Uncles {
+		uncles[i] = extendHeader(b.Uncles[i])
 	}
-	return types.NewBlockWithHeader(b.Header.toHeader()).WithBody(b.Txs, uncles)
+	return types.NewBlockWithHeader(extendHeader(b.Header)).WithBody(b.Txs, uncles)
 }
