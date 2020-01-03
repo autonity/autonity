@@ -56,13 +56,13 @@ type Config struct {
 
 // Miner creates blocks and searches for proof-of-work values.
 type Miner struct {
-	mux      *event.TypeMux
-	worker   *worker
-	coinbase common.Address
+	mux        *event.TypeMux
+	worker     *worker
+	coinbase   common.Address
 	coinbaseMu sync.RWMutex
-	eth      Backend
-	engine   consensus.Engine
-	exitCh   chan struct{}
+	eth        Backend
+	engine     consensus.Engine
+	exitCh     chan struct{}
 
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync

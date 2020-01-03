@@ -33,7 +33,8 @@ import (
 	"github.com/clearmatics/autonity/contracts/checkpointoracle/contract"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/params")
+	"github.com/clearmatics/autonity/params"
+)
 
 var (
 	emptyHash = [32]byte{}

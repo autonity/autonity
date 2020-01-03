@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/p2p/enode"
 )

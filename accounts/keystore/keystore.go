@@ -99,7 +99,7 @@ func (ks *KeyStore) init(keydir string) {
 	// Initialize the set of unlocked keys and the account cache
 	ks.unlocked = make(map[common.Address]*unlocked)
 	ks.cache, ks.changes = newAccountCache(keydir)
-	
+
 	// Create the initial list of wallets from the cache
 	accs := ks.cache.accounts()
 	ks.wallets = make([]accounts.Wallet, len(accs))

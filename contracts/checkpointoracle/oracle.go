@@ -26,7 +26,8 @@ import (
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/contracts/checkpointoracle/contract"
-	"github.com/clearmatics/autonity/core/types")
+	"github.com/clearmatics/autonity/core/types"
+)
 
 // CheckpointOracle is a Go wrapper around an on-chain light client checkpoint oracle.
 type CheckpointOracle struct {

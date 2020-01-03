@@ -40,7 +40,6 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/rpc"
-
 )
 
 var ErrInvalidDumpMagic = errors.New("invalid dump magic")

@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/pkg/reexec"
+
 	"github.com/clearmatics/autonity/internal/cmdtest"
 	"github.com/clearmatics/autonity/rpc"
 )

@@ -21,9 +21,10 @@ import (
 	"strings"
 
 	"github.com/cloudflare/cloudflare-go"
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/dnsdisc"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (

@@ -283,11 +283,11 @@ func TestSendTransactions64(t *testing.T) { testSendTransactions(t, 64) }
 
 func testSendTransactions(t *testing.T, protocol int) {
 	var (
-		evmux   = new(event.TypeMux)
-		pow     = ethash.NewFaker()
-		db      = rawdb.NewMemoryDatabase()
-		config  = &params.ChainConfig{}
-		gspec   = &core.Genesis{Config: config}
+		evmux  = new(event.TypeMux)
+		pow    = ethash.NewFaker()
+		db     = rawdb.NewMemoryDatabase()
+		config = &params.ChainConfig{}
+		gspec  = &core.Genesis{Config: config}
 	)
 	config.AutonityContractConfig = &params.AutonityContractGenesis{}
 

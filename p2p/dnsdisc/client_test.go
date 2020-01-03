@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+
 	"github.com/clearmatics/autonity/common/mclock"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/internal/testlog"
