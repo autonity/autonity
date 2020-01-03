@@ -6,6 +6,7 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.7.0
 	github.com/JekaMas/notify v0.9.4
 	github.com/VictoriaMetrics/fastcache v1.5.3
+	github.com/alecthomas/participle v0.4.1
 	github.com/aristanetworks/goarista v0.0.0-20170210015632-ea17b1a17847
 	github.com/aws/aws-sdk-go v1.25.48
 	github.com/btcsuite/btcd v0.0.0-20171128150713-2e60448ffcc6
@@ -50,12 +51,14 @@ require (
 	github.com/tyler-smith/go-bip39 v1.0.1-0.20181017060643-dbb3b84ba2ef
 	github.com/wsddn/go-ecdh v0.0.0-20161211032359-48726bab9208
 	github.com/zfjagann/golang-ring v0.0.0-20190304061218-d34796e0a6c2
+	github.com/zimmski/go-leak v0.0.0-20151016212241-a11b0b936d24
 	go.uber.org/goleak v0.10.0
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
+	gonum.org/v1/gonum v0.6.2
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
