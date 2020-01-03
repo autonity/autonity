@@ -243,8 +243,10 @@ func (c *core) commit() {
 			committedSeals[i] = make([]byte, types.BFTExtraSeal)
 			copy(committedSeals[i][:], v.CommittedSeal[:])
 		}
-
-		if err := c.backend.Commit(*proposal.ProposalBlock, committedSeals); err != nil {
+		h := proposal.ProposalBlock.Header()
+		h.Round = c.currentRoundState.Round()
+		block := proposal.ProposalBlock.WithSeal(h)
+		if err := c.backend.Commit(*block, committedSeals); err != nil {
 			c.logger.Error("Failed to Commit block", "err", err)
 			return
 		}
@@ -389,9 +391,10 @@ func (c *core) Quorum(i int) bool {
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash
-func PrepareCommittedSeal(hash common.Hash) []byte {
+func PrepareCommittedSeal(hash common.Hash, round *big.Int, height *big.Int) []byte {
 	var buf bytes.Buffer
+	buf.Write(round.Bytes())
+	buf.Write(height.Bytes())
 	buf.Write(hash.Bytes())
-	buf.Write([]byte{byte(msgPrecommit)})
 	return buf.Bytes()
 }

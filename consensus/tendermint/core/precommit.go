@@ -59,7 +59,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	}
 
 	// Create committed seal
-	seal := PrepareCommittedSeal(precommit.ProposedBlockHash)
+	seal := PrepareCommittedSeal(precommit.ProposedBlockHash, c.currentRoundState.Round(), c.currentRoundState.Height())
 	msg.CommittedSeal, err = c.backend.Sign(seal)
 	if err != nil {
 		c.logger.Error("core.sendPrecommit error while signing committed seal", "err", err)
@@ -101,7 +101,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 	}
 
 	// Don't want to decode twice, hence sending preCommit with message
-	if err := c.verifyPrecommitCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash); err != nil {
+	if err := c.verifyPrecommitCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
 		return err
 	}
 
@@ -139,8 +139,8 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 	return nil
 }
 
-func (c *core) verifyPrecommitCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash) error {
-	committedSeal := PrepareCommittedSeal(proposedBlockHash)
+func (c *core) verifyPrecommitCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round *big.Int, height *big.Int) error {
+	committedSeal := PrepareCommittedSeal(proposedBlockHash, round, height)
 
 	addressOfSignerOfCommittedSeal, err := types.GetSignatureAddress(committedSeal, committedSealMsg)
 	if err != nil {
