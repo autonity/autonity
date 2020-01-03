@@ -18,7 +18,10 @@ package eth
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/core/forkid"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
+
 	"sync"
 	"testing"
 	"time"
@@ -26,7 +29,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/forkid"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
@@ -34,7 +36,6 @@ import (
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -182,8 +183,8 @@ func TestForkIDSplit(t *testing.T) {
 		blocksNoFork, _  = core.GenerateChain(configNoFork, genesisNoFork, engine, dbNoFork, 2, nil)
 		blocksProFork, _ = core.GenerateChain(configProFork, genesisProFork, engine, dbProFork, 2, nil)
 
-		ethNoFork, _  = NewProtocolManager(configNoFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainNoFork, dbNoFork, 1, nil, false)
-		ethProFork, _ = NewProtocolManager(configProFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainProFork, dbProFork, 1, nil, false)
+		ethNoFork, _  = NewProtocolManager(configNoFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainNoFork, dbNoFork, 1, nil, true)
+		ethProFork, _ = NewProtocolManager(configProFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainProFork, dbProFork, 1, nil, true)
 	)
 	ethNoFork.Start(1000)
 	ethProFork.Start(1000)

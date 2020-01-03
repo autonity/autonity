@@ -594,12 +594,11 @@ func TestBroadcastBlock(t *testing.T) {
 
 func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	var (
-		evmux   = new(event.TypeMux)
-		pow     = ethash.NewFaker()
-		db      = rawdb.NewMemoryDatabase()
-		config  = &params.ChainConfig{}
-		gspec   = &core.Genesis{Config: config}
-		genesis = gspec.MustCommit(db)
+		evmux  = new(event.TypeMux)
+		pow    = ethash.NewFaker()
+		db     = rawdb.NewMemoryDatabase()
+		config = &params.ChainConfig{}
+		gspec  = &core.Genesis{Config: config}
 	)
 	config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	config.Istanbul = &params.IstanbulConfig{}
@@ -619,6 +618,8 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	if err := config.AutonityContractConfig.AddDefault().Validate(); err != nil {
 		t.Fatal(err)
 	}
+
+	genesis := gspec.MustCommit(db)
 
 	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{}, nil, core.NewTxSenderCacher())
 	if err != nil {
@@ -650,7 +651,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	for _, peer := range peers {
 		go func(p *testPeer) {
 			if expectErr := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: new(big.Int).Add(genesis.Difficulty(), chain[0].Difficulty())}); expectErr != nil {
-				t.Log("eth/handler_test.go:635 p2p.ExpectMsg err", expectErr)
+				t.Log("eth/handler_test.go:654 p2p.ExpectMsg err", expectErr)
 				errCh <- expectErr
 			} else {
 				doneCh <- struct{}{}
