@@ -198,10 +198,15 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 	}
 
 	if upgradeContract {
-		return ac.performContractUpgrade(statedb, header)
+		// warning prints for failure rather than returning error to stuck engine.
+		// in any failure, the state will be rollback to snapshot.
+		err = ac.performContractUpgrade(statedb, header)
+		if err != nil {
+			log.Warn("Autonity Contract Upgrade Failed")
+		}
 	}
 
-	return err
+	return nil
 }
 
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
