@@ -33,7 +33,7 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod,committeeSize, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
         });
 
         it('test dump network Economic metric data.', async function () {
@@ -55,13 +55,7 @@ contract('Autonity', function (accounts) {
     describe('Initial state', function() {
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod,committeeSize, { from:accounts[8]} );
-        });
-
-        it('test validator can get validator list', async function () {
-            var getValidatorsResult = await token.getValidators({from: operator});
-            assert.deepEqual(getValidatorsResult, validatorsList);
-
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
         });
 
         it('test validator can get initial validator list', async function () {
@@ -89,7 +83,7 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod,committeeSize, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
         });
 
         it('test redistribution fails with empty balance', async function () {
@@ -156,7 +150,7 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod,committeeSize, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
         });
 
         it('test Governance operator can add/remove to whitelist', async function () {
@@ -282,7 +276,7 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod,committeeSize, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
         });
 
         it('test set max committee size by operator account', async function () {
@@ -298,7 +292,7 @@ contract('Autonity', function (accounts) {
             let initMaxCommitteeSize = await token.getMaxCommitteeSize();
 
             try {
-                let r = await token.setCommitteeSize({from: accounts[6]});
+                let r = await token.setCommitteeSize(50, {from: accounts[6]});
                 assert.fail('Expected throw not received', r);
 
             } catch (e) {
@@ -368,8 +362,8 @@ contract('Autonity', function (accounts) {
                 let maxCommitteeSize = await token.getMaxCommitteeSize();
                 assert(committeeSize == maxCommitteeSize, "maxCommittee size was not set correctly");
 
-                    let r = await token.setCommittee({from: deployer});
-                    assert.fail('Expected throw not received', r);
+                let r = await token.setCommittee({from: deployer});
+                assert.fail('Expected throw not received', r);
 
                 let committeeResult = await token.getCommittee();
                 let committeeValidators = [];
@@ -378,14 +372,11 @@ contract('Autonity', function (accounts) {
                     committeeValidators.push(r[i][0])
                 }
 
-                console.log(committeeResult)
                 // Mock committee selection
                 let indexesToBeRemoved = [1,2]
                 while(indexesToBeRemoved.length) {
                     validators.splice(indexesToBeRemoved.pop(), 1);
                 }
-                console.log(committeeValidators.sort())
-                console.log(validators.sort())
                 assert.deepEqual(committeeValidators.sort(), validators.sort(), "Error while creating new committee");
             }catch (e) {
 

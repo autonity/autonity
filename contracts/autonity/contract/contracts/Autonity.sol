@@ -47,7 +47,7 @@ contract Autonity {
 
     ///////////////////// Contract state which can be replay from dumped states////////////
     // Below 4 meta are used in each block generation before or after, so it is more about performance consideration.
-    // They are replay by constructor function.
+    // They are re-playable by constructor function.
     address[] public validators;
     address[] private stakeholders;
     uint256 private stakeSupply;
@@ -420,14 +420,12 @@ contract Autonity {
         }
 
         // Update committee in persistent storage
-
-        // TODO: Debuging on this committee contain, there might have a bug here.
         delete committee;
         for (uint256 k =0 ; k < committeeLength; k++) {
             committee.push(committeeList[k]);
         }
 
-        return committeeList;
+        return committee;
     }
 
     /*
