@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -241,8 +242,8 @@ func TestHandlePrecommit(t *testing.T) {
 		logger := log.New("backend", "test", "id", 0)
 
 		proposal := NewProposal(
-			big.NewInt(1),
 			big.NewInt(2),
+			big.NewInt(3),
 			big.NewInt(1),
 			types.NewBlockWithHeader(&types.Header{}),
 			logger)
@@ -251,14 +252,15 @@ func TestHandlePrecommit(t *testing.T) {
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
 		curRoundState.SetStep(precommit)
-		addr := getAddress()
 
 		var preCommit = Vote{
 			Round:             big.NewInt(curRoundState.Round().Int64()),
 			Height:            big.NewInt(curRoundState.Height().Int64()),
-			ProposedBlockHash: addr.Hash(),
+			ProposedBlockHash: proposal.ProposalBlock.Hash(),
 		}
-
+		// Notice that the current roundstate's round and height can differs from the received precommit seals.
+		// This is impossible to happen in the current implementation but actually the specification allows it.
+		// see https://github.com/clearmatics/autonity/issues/347
 		encodedVote, err := Encode(&preCommit)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
@@ -269,7 +271,7 @@ func TestHandlePrecommit(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		data := PrepareCommittedSeal(addr.Hash(), preCommit.Round, preCommit.Height)
+		data := PrepareCommittedSeal(proposal.ProposalBlock.Hash(), preCommit.Round, preCommit.Height)
 		hashData := crypto.Keccak256(data)
 		sig, err := crypto.Sign(hashData, key)
 		if err != nil {
@@ -279,16 +281,24 @@ func TestHandlePrecommit(t *testing.T) {
 		expectedMsg := &Message{
 			Code:          msgPrecommit,
 			Msg:           encodedVote,
-			Address:       addr,
+			Address:       getAddress(),
 			CommittedSeal: sig,
 			Signature:     []byte{0x1},
 		}
 
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Commit(proposal.ProposalBlock, gomock.Any(), gomock.Any()).Return(nil)
+		backendMock.EXPECT().Commit(proposal.ProposalBlock, gomock.Any(), gomock.Any()).Return(nil).Do(
+			func(proposalBlock *types.Block, round *big.Int, seals [][]byte) {
+				if round.Cmp(preCommit.Round) != 0 {
+					t.Fatalf("Commit called with round different than precommit seal")
+				}
+				if !reflect.DeepEqual([][]byte{expectedMsg.CommittedSeal}, seals) {
+					t.Fatalf("Commit called with wrong seal")
+				}
+			})
 
 		c := &core{
-			address:           addr,
+			address:           getAddress(),
 			backend:           backendMock,
 			currentRoundState: curRoundState,
 			logger:            logger,
