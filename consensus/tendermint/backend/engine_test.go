@@ -122,19 +122,7 @@ func TestVerifyHeader(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, types.ErrEmptyCommittedSeals)
 	}
 
-	// short extra data
 	header := block.Header()
-	header.Extra = []byte{}
-	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidExtraDataFormat {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidExtraDataFormat)
-	}
-	// incorrect extra format
-	header.Extra = []byte("0000000000000000000000000000000012300000000000000000000000000000000000000000000000000000000000000000")
-	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidExtraDataFormat {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidExtraDataFormat)
-	}
 
 	// non zero MixDigest
 	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -423,102 +411,12 @@ OUT3:
 	}
 }
 
-func TestPrepareExtra(t *testing.T) {
-	validators := make([]common.Address, 4)
-	validators[0] = common.BytesToAddress(hexutil.MustDecode("0x44add0ec310f115a0e603b2d7db9f067778eaf8a"))
-	validators[1] = common.BytesToAddress(hexutil.MustDecode("0x294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212"))
-	validators[2] = common.BytesToAddress(hexutil.MustDecode("0x6beaaed781d2d2ab6350f5c4566a2c6eaac407a6"))
-	validators[3] = common.BytesToAddress(hexutil.MustDecode("0x8be76812f765c24641ec63dc2852b378aba2b440"))
-
-	vanity := make([]byte, types.BFTExtraVanity)
-	expectedResult := append(vanity, hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0")...)
-
-	h := &types.Header{
-		Extra: vanity,
-	}
-
-	payload, err := types.PrepareExtra(h.Extra, validators)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want: nil", err)
-	}
-	if !reflect.DeepEqual(payload, expectedResult) {
-		t.Errorf("payload mismatch: have %v, want %v", payload, expectedResult)
-	}
-
-	// append useless information to extra-data
-	h.Extra = append(vanity, make([]byte, 15)...)
-
-	payload, err = types.PrepareExtra(h.Extra, validators)
-	if err != nil {
-		t.Errorf("error PrepareExtra: have %v", err)
-	}
-	if !reflect.DeepEqual(payload, expectedResult) {
-		t.Errorf("payload mismatch: have %v, want %v", payload, expectedResult)
-	}
-}
-
-func TestWriteSeal(t *testing.T) {
-	vanity := bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)
-	istRawData := hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0")
-	expectedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-3)...)
-	expectedIstExtra := &types.BFTExtra{
-		Validators: []common.Address{
-			common.BytesToAddress(hexutil.MustDecode("0x44add0ec310f115a0e603b2d7db9f067778eaf8a")),
-			common.BytesToAddress(hexutil.MustDecode("0x294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212")),
-			common.BytesToAddress(hexutil.MustDecode("0x6beaaed781d2d2ab6350f5c4566a2c6eaac407a6")),
-			common.BytesToAddress(hexutil.MustDecode("0x8be76812f765c24641ec63dc2852b378aba2b440")),
-		},
-		Seal:          expectedSeal,
-		CommittedSeal: [][]byte{},
-	}
-	var expectedErr error
-
-	h := &types.Header{
-		Extra: append(vanity, istRawData...),
-	}
-
-	// normal case
-	err := types.WriteSeal(h, expectedSeal)
-	if err != expectedErr {
-		t.Errorf("error mismatch: have %v, want %v", err, expectedErr)
-	}
-
-	// verify tendermint extra-data
-	istExtra, err := types.ExtractBFTHeaderExtra(h)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
-	}
-	if !reflect.DeepEqual(istExtra, expectedIstExtra) {
-		t.Errorf("extra data mismatch: have %v, want %v", istExtra, expectedIstExtra)
-	}
-
-	// invalid seal
-	unexpectedSeal := append(expectedSeal, make([]byte, 1)...)
-	err = types.WriteSeal(h, unexpectedSeal)
-	if err != types.ErrInvalidSignature {
-		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidSignature)
-	}
-}
-
 func TestWriteCommittedSeals(t *testing.T) {
-	vanity := bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)
-	istRawData := hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0")
+
 	expectedCommittedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-3)...)
-	expectedIstExtra := &types.BFTExtra{
-		Validators: []common.Address{
-			common.BytesToAddress(hexutil.MustDecode("0x44add0ec310f115a0e603b2d7db9f067778eaf8a")),
-			common.BytesToAddress(hexutil.MustDecode("0x294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212")),
-			common.BytesToAddress(hexutil.MustDecode("0x6beaaed781d2d2ab6350f5c4566a2c6eaac407a6")),
-			common.BytesToAddress(hexutil.MustDecode("0x8be76812f765c24641ec63dc2852b378aba2b440")),
-		},
-		Seal:          []byte{},
-		CommittedSeal: [][]byte{expectedCommittedSeal},
-	}
 	var expectedErr error
 
-	h := &types.Header{
-		Extra: append(vanity, istRawData...),
-	}
+	h := &types.Header{}
 
 	// normal case
 	err := types.WriteCommittedSeals(h, [][]byte{expectedCommittedSeal})
@@ -526,13 +424,8 @@ func TestWriteCommittedSeals(t *testing.T) {
 		t.Errorf("error mismatch: have %v, want %v", err, expectedErr)
 	}
 
-	// verify tendermint extra-data
-	istExtra, err := types.ExtractBFTHeaderExtra(h)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
-	}
-	if !reflect.DeepEqual(istExtra, expectedIstExtra) {
-		t.Errorf("extra data mismatch: have %v, want %v", istExtra, expectedIstExtra)
+	if !reflect.DeepEqual(h.CommittedSeals, [][]byte{expectedCommittedSeal}) {
+		t.Errorf("extra data mismatch: have %v, want %v", h.CommittedSeals, expectedCommittedSeal)
 	}
 
 	// invalid seal

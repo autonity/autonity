@@ -156,18 +156,18 @@ func (mr *MockBackendMockRecorder) FinalizeAndAssemble(chain, header, state, txs
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeAndAssemble", reflect.TypeOf((*MockBackend)(nil).FinalizeAndAssemble), chain, header, state, txs, uncles, receipts)
 }
 
-// Seal mocks base method
+// ProposerSeal mocks base method
 func (m *MockBackend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Seal", chain, block, results, stop)
+	ret := m.ctrl.Call(m, "ProposerSeal", chain, block, results, stop)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Seal indicates an expected call of Seal
+// ProposerSeal indicates an expected call of ProposerSeal
 func (mr *MockBackendMockRecorder) Seal(chain, block, results, stop interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockBackend)(nil).Seal), chain, block, results, stop)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposerSeal", reflect.TypeOf((*MockBackend)(nil).Seal), chain, block, results, stop)
 }
 
 // SealHash mocks base method

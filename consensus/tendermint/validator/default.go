@@ -17,7 +17,9 @@
 package validator
 
 import (
+	"github.com/clearmatics/autonity/core/types"
 	"math"
+	"math/big"
 	"reflect"
 	"sort"
 	"sync"
@@ -25,18 +27,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 )
-
-type defaultValidator struct {
-	address common.Address
-}
-
-func (val *defaultValidator) Address() common.Address {
-	return val.address
-}
-
-func (val *defaultValidator) String() string {
-	return val.Address().String()
-}
 
 // ----------------------------------------------------------------------------
 
@@ -49,11 +39,15 @@ type defaultSet struct {
 	selector    ProposalSelector
 }
 
-func newDefaultSet(addrs []common.Address, policy config.ProposerPolicy) *defaultSet {
+func NewSet(committee types.Committee, policy config.ProposerPolicy) *defaultSet {
+	return newDefaultSet(makeValidators(committee), policy)
+}
+
+func newDefaultSet(validators Validators, policy config.ProposerPolicy) *defaultSet {
 	valSet := &defaultSet{}
 
 	valSet.policy = policy
-	valSet.validators = makeValidators(addrs)
+	valSet.validators = validators
 
 	// sort validator
 	sort.Sort(valSet.validators)
@@ -74,19 +68,18 @@ func newDefaultSet(addrs []common.Address, policy config.ProposerPolicy) *defaul
 	return valSet
 }
 
-func makeValidators(addrs []common.Address) []Validator {
-	validators := make([]Validator, len(addrs))
-	for i, addr := range addrs {
-		validators[i] = New(addr)
+func makeValidators(committee types.Committee) []Validator {
+	validators := make([]Validator, len(committee))
+	for i, c := range committee {
+		validators[i] = Validator(c)
 	}
-
 	return validators
 }
 
 func copyValidators(validators []Validator) []Validator {
 	validatorsCopy := make([]Validator, len(validators))
 	for i, val := range validators {
-		validatorsCopy[i] = New(val.Address())
+		validatorsCopy[i] = New(val.GetAddress(), val.GetVotingPower())
 	}
 
 	return validatorsCopy
@@ -110,7 +103,7 @@ func (valSet *defaultSet) GetByIndex(i uint64) Validator {
 		valSet.validatorMu.RLock()
 		defer valSet.validatorMu.RUnlock()
 
-		return New(valSet.validators[i].Address())
+		return New(valSet.validators[i].GetAddress(), valSet.validators[i].GetVotingPower())
 	}
 
 	return nil
@@ -121,7 +114,7 @@ func (valSet *defaultSet) GetByAddress(addr common.Address) (int, Validator) {
 	defer valSet.validatorMu.RUnlock()
 
 	for i, val := range valSet.validators {
-		if addr == val.Address() {
+		if addr == val.GetAddress() {
 			return i, val
 		}
 	}
@@ -136,7 +129,7 @@ func (valSet *defaultSet) GetProposer() Validator {
 }
 
 func (valSet *defaultSet) getProposer() Validator {
-	return New(valSet.proposer.Address())
+	return New(valSet.proposer.GetAddress(), valSet.proposer.GetVotingPower())
 }
 
 func (valSet *defaultSet) IsProposer(address common.Address) bool {
@@ -160,12 +153,12 @@ func (valSet *defaultSet) AddValidator(address common.Address) bool {
 	defer valSet.validatorMu.Unlock()
 
 	for _, v := range valSet.validators {
-		if v.Address() == address {
+		if v.GetAddress() == address {
 			return false
 		}
 	}
 
-	valSet.validators = append(valSet.validators, New(address))
+	valSet.validators = append(valSet.validators, New(address, new(big.Int).SetUint64(1)))
 	// TODO: we may not need to re-sort it again
 	sort.Sort(valSet.validators)
 	return true
@@ -176,7 +169,7 @@ func (valSet *defaultSet) RemoveValidator(address common.Address) bool {
 	defer valSet.validatorMu.Unlock()
 
 	for i, v := range valSet.validators {
-		if v.Address() == address {
+		if v.GetAddress() == address {
 			valSet.validators = append(valSet.validators[:i], valSet.validators[i+1:]...)
 			return true
 		}
@@ -187,12 +180,7 @@ func (valSet *defaultSet) RemoveValidator(address common.Address) bool {
 func (valSet *defaultSet) Copy() Set {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
-
-	addresses := make([]common.Address, 0, len(valSet.validators))
-	for _, v := range valSet.validators {
-		addresses = append(addresses, v.Address())
-	}
-	return NewSet(addresses, valSet.policy)
+	return newDefaultSet(copyValidators(valSet.validators), valSet.policy)
 }
 
 func (valSet *defaultSet) F() int { return int(math.Ceil(float64(valSet.Size())/3)) - 1 }

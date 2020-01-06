@@ -147,7 +147,7 @@ func (sb *Backend) Address() common.Address {
 }
 
 func (sb *Backend) Validators(number uint64) validator.Set {
-	validators, err := sb.retrieveSavedValidators(number, sb.blockchain)
+	validators, err := sb.retrieveSavedCommittee(number, sb.blockchain)
 	proposerPolicy := sb.config.GetProposerPolicy()
 	if err != nil {
 		return validator.NewSet(nil, proposerPolicy)
@@ -176,8 +176,8 @@ func (sb *Backend) AskSync(valSet validator.Set) {
 
 	targets := make(map[common.Address]struct{})
 	for _, val := range valSet.List() {
-		if val.Address() != sb.Address() {
-			targets[val.Address()] = struct{}{}
+		if val.GetAddress() != sb.Address() {
+			targets[val.GetAddress()] = struct{}{}
 		}
 	}
 
@@ -203,8 +203,8 @@ func (sb *Backend) Gossip(ctx context.Context, valSet validator.Set, payload []b
 
 	targets := make(map[common.Address]struct{})
 	for _, val := range valSet.List() {
-		if val.Address() != sb.Address() {
-			targets[val.Address()] = struct{}{}
+		if val.GetAddress() != sb.Address() {
+			targets[val.GetAddress()] = struct{}{}
 		}
 	}
 
@@ -298,8 +298,8 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
 		var (
-			receipts   types.Receipts
-			validators []common.Address
+			receipts  types.Receipts
+			committee types.Committee
 
 			usedGas        = new(uint64)
 			gp             = new(core.GasPool).AddGas(block.GasLimit())
@@ -308,7 +308,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			parent         = sb.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 		)
 
-		// We need to process all of the transaction to get the latest state to get the latest validators
+		// We need to process all of the transaction to get the latest state to get the latest committee
 		state, stateErr := sb.blockchain.StateAt(parent.Root())
 		if stateErr != nil {
 			return 0, stateErr
@@ -355,49 +355,45 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		if proposalNumber > 1 {
-			validators, err = sb.blockchain.GetAutonityContract().ContractGetValidators(sb.blockchain, header, state)
+			committee, err = sb.blockchain.GetAutonityContract().ContractGetCommittee(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
 			}
 		} else {
 			// genesis block and block #1 have the same validators
-			validators, err = sb.retrieveSavedValidators(1, sb.blockchain)
+			committee, err = sb.retrieveSavedCommittee(1, sb.blockchain) //genesis block and block #1 have the same committee
 			if err != nil {
 				return 0, err
 			}
 		}
 
-		// Verify the validator set by comparing the validators in extra data and Soma-contract
-		tendermintExtra, _ := types.ExtractBFTHeaderExtra(header)
-
 		//Perform the actual comparison
-		if len(tendermintExtra.Validators) != len(validators) {
-			sb.logger.Error("wrong validator set",
+		if len(header.Committee) != len(committee) {
+			sb.logger.Error("wrong committee set",
 				"proposalNumber", proposalNumber,
-				"extraLen", len(tendermintExtra.Validators),
-				"currentLen", len(validators),
-				"extra", tendermintExtra.Validators,
-				"current", validators,
+				"extraLen", len(header.Committee),
+				"currentLen", len(committee),
+				"committee", header.Committee,
+				"current", committee,
 			)
 			return 0, consensus.ErrInconsistentValidatorSet
 		}
 
-		for i := range validators {
-			if tendermintExtra.Validators[i] != validators[i] {
-				sb.logger.Error("wrong validator in the set",
+		for i := range committee {
+			if header.Committee[i].Address != committee[i].Address {
+				sb.logger.Error("wrong committee member in the set",
+					"index", i,
 					"currentVerifier", sb.address.String(),
 					"proposalNumber", proposalNumber,
-					"hash", block.Hash().String(),
-					"index", i,
-					"extraValidator", tendermintExtra.Validators[i],
-					"currentProposer", validators[i],
-					"extra", tendermintExtra.Validators,
-					"current", validators,
+					"extraValidator", header.Committee[i].Address,
+					"currentCommittee", committee[i],
+					"headerCommittee", header.Committee,
+					"current", committee,
 				)
 				return 0, consensus.ErrInconsistentValidatorSet
 			}
 		}
-		// At this stage extradata field is consistent with the validator list returned by Soma-contract
+		// At this stage committee field is consistent with the validator list returned by Soma-contract
 
 		return 0, nil
 	} else if err == consensus.ErrFutureBlock {
