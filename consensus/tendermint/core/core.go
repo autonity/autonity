@@ -27,11 +27,9 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 var (
@@ -79,7 +77,6 @@ func New(backend Backend, config *config.Config) *core {
 		address:                      backend.Address(),
 		logger:                       logger,
 		backend:                      backend,
-		backlogs:                     make(map[validator.Validator]*prque.Prque),
 		pendingUnminedBlocks:         make(map[uint64]*types.Block),
 		pendingUnminedBlockCh:        make(chan *types.Block),
 		stopped:                      make(chan struct{}, 3),
@@ -120,9 +117,6 @@ type core struct {
 	isStopped               *uint32
 
 	valSet *validatorSet
-
-	backlogs   map[validator.Validator]*prque.Prque
-	backlogsMu sync.Mutex
 
 	currentRoundState *roundState
 
@@ -380,7 +374,6 @@ func (c *core) acceptVote(roundState *roundState, step Step, hash common.Hash, m
 
 func (c *core) setStep(step Step) {
 	c.currentRoundState.SetStep(step)
-	c.processBacklog()
 }
 
 func (c *core) stopFutureProposalTimer() {

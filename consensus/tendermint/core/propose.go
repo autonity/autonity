@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -87,11 +88,8 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				_, sender := c.valSet.GetByAddress(msg.Address)
-				c.sendEvent(backlogEvent{
-					src: sender,
-					msg: msg,
-				})
+				p, _ := msg.Payload()
+				c.sendEvent(events.MessageEvent{Payload: p})
 			})
 		}
 		return err

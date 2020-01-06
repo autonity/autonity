@@ -3,11 +3,9 @@ package core
 import (
 	"context"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 	"testing"
 )
@@ -112,7 +110,6 @@ func TestHandleCheckedMessage(t *testing.T) {
 		engine := core{
 			logger:             logger,
 			address:            currentValidator.GetAddress(),
-			backlogs:           make(map[validator.Validator]*prque.Prque),
 			currentRoundState:  testCase.currentState,
 			futureRoundsChange: make(map[int64]int64),
 			valSet:             &validatorSet{Set: validators},
@@ -126,14 +123,6 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != testCase.outcome {
 			t.Fatal("unexpected handlecheckedmsg returning ",
 				"err=", err, ", expecting=", testCase.outcome, " with msgCode=", testCase.message.Code)
-		}
-
-		if err != nil {
-			backlogValue, _ := engine.backlogs[sender].Pop()
-			msg := backlogValue.(*Message)
-			if msg != testCase.message {
-				t.Fatal("unexpected backlog message")
-			}
 		}
 	}
 

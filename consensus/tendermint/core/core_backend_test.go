@@ -405,7 +405,7 @@ func TestCore_Close(t *testing.T) {
 
 		evmux := new(event.TypeMux)
 
-		messageEventSub := evmux.Subscribe(events.MessageEvent{}, backlogEvent{})
+		messageEventSub := evmux.Subscribe(events.MessageEvent{})
 		newUnminedBlockEventSub := evmux.Subscribe(events.NewUnminedBlockEvent{})
 		committedSub := evmux.Subscribe(events.CommitEvent{})
 		timeoutEventSub := evmux.Subscribe(TimeoutEvent{})
@@ -455,7 +455,7 @@ func TestCore_Close(t *testing.T) {
 
 		evmux := new(event.TypeMux)
 
-		messageEventSub := evmux.Subscribe(events.MessageEvent{}, backlogEvent{})
+		messageEventSub := evmux.Subscribe(events.MessageEvent{})
 		newUnminedBlockEventSub := evmux.Subscribe(events.NewUnminedBlockEvent{})
 		committedSub := evmux.Subscribe(events.CommitEvent{})
 		timeoutEventSub := evmux.Subscribe(TimeoutEvent{})

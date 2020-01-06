@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"math/big"
 	"reflect"
 	"testing"
@@ -241,10 +242,8 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		event := backlogEvent{
-			src: sender,
-			msg: msg,
-		}
+		p, _ := msg.Payload()
+		event := events.MessageEvent{Payload: p}
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(time.Nanosecond, consensus.ErrFutureBlock)

@@ -9,7 +9,6 @@ import (
 	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/golang/mock/gomock"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 	"sync"
 	"testing"
@@ -75,7 +74,6 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 			logger:             logger,
 			backend:            mockBackend,
 			address:            currentValidator.GetAddress(),
-			backlogs:           make(map[validator.Validator]*prque.Prque),
 			currentRoundState:  currentState,
 			futureRoundsChange: make(map[int64]int64),
 			valSet:             &validatorSet{Set: validators},
@@ -133,7 +131,6 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 			logger:                       logger,
 			backend:                      mockBackend,
 			address:                      currentValidator.GetAddress(),
-			backlogs:                     make(map[validator.Validator]*prque.Prque),
 			currentRoundState:            currentState,
 			currentHeightOldRoundsStates: make(map[int64]*roundState),
 			futureRoundsChange:           make(map[int64]int64),
