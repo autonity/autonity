@@ -264,7 +264,8 @@ func (ac *Contract) abi() (*abi.ABI, error) {
 	}
 	var JSONString = ac.bc.Config().AutonityContractConfig.ABI
 
-	if bytes, err := ac.bc.GetKeyValue([]byte(ABISPEC)); err == nil {
+	bytes, err := ac.bc.GetKeyValue([]byte(ABISPEC))
+	if err == nil || bytes != nil {
 		JSONString = string(bytes)
 	}
 
