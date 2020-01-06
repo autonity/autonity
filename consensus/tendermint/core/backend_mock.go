@@ -381,17 +381,17 @@ func (mr *MockBackendMockRecorder) Gossip(ctx, valSet, payload interface{}) *gom
 }
 
 // Commit mocks base method
-func (m *MockBackend) Commit(proposalBlock types.Block, seals [][]byte) error {
+func (m *MockBackend) Commit(proposalBlock *types.Block, round *big.Int, seals [][]byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit", proposalBlock, seals)
+	ret := m.ctrl.Call(m, "Commit", proposalBlock, round, seals)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Commit indicates an expected call of Commit
-func (mr *MockBackendMockRecorder) Commit(proposalBlock, seals interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, seals interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, seals)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, seals)
 }
 
 // VerifyProposal mocks base method
