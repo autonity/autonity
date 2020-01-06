@@ -269,7 +269,7 @@ func TestHandlePrecommit(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		data := PrepareCommittedSeal(addr.Hash())
+		data := PrepareCommittedSeal(addr.Hash(), preCommit.Round, preCommit.Height)
 		hashData := crypto.Keccak256(data)
 		sig, err := crypto.Sign(hashData, key)
 		if err != nil {
@@ -285,7 +285,7 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Commit(*proposal.ProposalBlock, gomock.Any()).Return(nil)
+		backendMock.EXPECT().Commit(proposal.ProposalBlock, gomock.Any(), gomock.Any()).Return(nil)
 
 		c := &core{
 			address:           addr,
@@ -334,7 +334,7 @@ func TestHandlePrecommit(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		data := PrepareCommittedSeal(addr.Hash())
+		data := PrepareCommittedSeal(addr.Hash(), preCommit.Round, preCommit.Height)
 		hashData := crypto.Keccak256(data)
 		sig, err := crypto.Sign(hashData, key)
 		if err != nil {
@@ -386,7 +386,7 @@ func TestHandlePrecommit(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		data := PrepareCommittedSeal(addr.Hash())
+		data := PrepareCommittedSeal(addr.Hash(), preCommit.Round, preCommit.Height)
 		hashData := crypto.Keccak256(data)
 		sig, err := crypto.Sign(hashData, key)
 		if err != nil {
@@ -426,7 +426,7 @@ func TestVerifyPrecommitCommittedSeal(t *testing.T) {
 
 		addrMsg := common.HexToAddress("0x0123456789")
 
-		err := c.verifyPrecommitCommittedSeal(addrMsg, nil, common.Hash{})
+		err := c.verifyPrecommitCommittedSeal(addrMsg, nil, common.Hash{}, new(big.Int), new(big.Int))
 		if err != secp256k1.ErrInvalidSignatureLen {
 			t.Fatalf("Expected %v, got %v", secp256k1.ErrInvalidSignatureLen, err)
 		}
@@ -443,14 +443,14 @@ func TestVerifyPrecommitCommittedSeal(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		data := PrepareCommittedSeal(common.Hash{})
+		data := PrepareCommittedSeal(common.Hash{}, new(big.Int), new(big.Int))
 		hashData := crypto.Keccak256(data)
 		sig, err := crypto.Sign(hashData, key)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		err = c.verifyPrecommitCommittedSeal(addrMsg, sig, common.Hash{})
+		err = c.verifyPrecommitCommittedSeal(addrMsg, sig, common.Hash{}, new(big.Int), new(big.Int))
 		if err != errInvalidSenderOfCommittedSeal {
 			t.Fatalf("Expected %v, got %v", errInvalidSenderOfCommittedSeal, err)
 		}
@@ -467,14 +467,14 @@ func TestVerifyPrecommitCommittedSeal(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		data := PrepareCommittedSeal(addrMsg.Hash())
+		data := PrepareCommittedSeal(addrMsg.Hash(), new(big.Int), new(big.Int))
 		hashData := crypto.Keccak256(data)
 		sig, err := crypto.Sign(hashData, key)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		err = c.verifyPrecommitCommittedSeal(addrMsg, sig, addrMsg.Hash())
+		err = c.verifyPrecommitCommittedSeal(addrMsg, sig, addrMsg.Hash(), new(big.Int), new(big.Int))
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}

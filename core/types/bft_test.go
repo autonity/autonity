@@ -120,9 +120,16 @@ func TestHeaderHash(t *testing.T) {
 		},
 		{
 			Header{OriginalHeader: PosHeader, Round: new(big.Int).SetUint64(1997)},
-			common.HexToHash("0x79622628fd1cd12bf33623fa6deff06778e65e1f3815bf20cb3dadb026732380"),
+			posHeaderHash,
 		},
-
+		{
+			Header{OriginalHeader: PosHeader, Round: new(big.Int).SetUint64(3)},
+			posHeaderHash,
+		},
+		{
+			Header{OriginalHeader: PosHeader, Round: new(big.Int).SetUint64(0)},
+			posHeaderHash,
+		},
 		{
 			Header{OriginalHeader: PosHeader, PastCommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")}},
 			common.HexToHash("0x5d29fd91067324583e8203615ca019679ca5024b8d91cfb3f9710feffd65b6d2"),

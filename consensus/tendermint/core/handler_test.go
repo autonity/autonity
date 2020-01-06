@@ -45,7 +45,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not encode vote")
 		}
-		data := PrepareCommittedSeal(common.BytesToHash([]byte{0x1}))
+		data := PrepareCommittedSeal(common.BytesToHash([]byte{0x1}), vote.Round, vote.Height)
 		hashData := crypto.Keccak256(data)
 		commitSign, err := crypto.Sign(hashData, senderKey)
 		if err != nil {
