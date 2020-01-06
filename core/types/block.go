@@ -67,8 +67,15 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 
 //go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
 
-// Header represents a block header in the Ethereum blockchain.
-type Header struct {
+type CommitteeMember struct {
+	Address     common.Address `json:"address"            gencodec:"required"`
+	VotingPower *big.Int       `json:"votingPower"        gencodec:"required"`
+}
+
+type Committee []CommitteeMember
+
+// OriginalHeader represents the ethereum blockchain header.
+type OriginalHeader struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`
@@ -86,6 +93,20 @@ type Header struct {
 	Nonce       BlockNonce     `json:"nonce"`
 }
 
+// Header represents a block header in the Autonity blockchain.
+type Header struct {
+	OriginalHeader
+	/*
+		PoS header fields, round & committedSeals not taken into account
+		for computing the sigHash.
+	*/
+	Committee          Committee `json:"committee"           gencodec:"required"`
+	ProposerSeal       []byte    `json:"proposerSeal"        gencodec:"required"`
+	Round              *big.Int  `json:"round"               gencodec:"required"`
+	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"`
+	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
+}
+
 // field type overrides for gencodec
 type headerMarshaling struct {
 	Difficulty *hexutil.Big
@@ -95,20 +116,29 @@ type headerMarshaling struct {
 	Time       hexutil.Uint64
 	Extra      hexutil.Bytes
 	Hash       common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
+	/*
+		PoS header fields type overriedes
+	*/
+	ProposerSeal       hexutil.Bytes
+	CommittedSeals     []hexutil.Bytes
+	PastCommittedSeals []hexutil.Bytes
 }
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *Header) Hash() common.Hash {
 	// If the mix digest is equivalent to the predefined BFT digest, use BFT
-	// specific hash calculation.
+	// specific hash calculation. This is always the case with tendermint consensus protocol.
 	if h.MixDigest == BFTDigest {
 		// Seal is reserved in extra-data. To prove block is signed by the proposer.
 		if posHeader := BFTFilteredHeader(h, true); posHeader != nil {
 			return rlpHash(posHeader)
 		}
 	}
-	return rlpHash(h)
+
+	//if not using the BFT mixdigest then return the original ethereum block header hash, this
+	//let Autonity to remain compatible with original go-ethereum tests.
+	return rlpHash(h.OriginalHeader)
 }
 
 var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
@@ -261,6 +291,35 @@ func CopyHeader(h *Header) *Header {
 		cpy.Extra = make([]byte, len(h.Extra))
 		copy(cpy.Extra, h.Extra)
 	}
+
+	/* PoS fields deep copy section*/
+	cpy.Committee = make([]CommitteeMember, len(h.Committee))
+	for i, val := range h.Committee {
+		cpy.Committee[i] = CommitteeMember{
+			Address:     val.Address,
+			VotingPower: new(big.Int).Set(val.VotingPower),
+		}
+	}
+
+	if cpy.Round = new(big.Int); h.Round != nil {
+		cpy.Round.Set(h.Round)
+	}
+
+	cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
+	copy(cpy.ProposerSeal, h.ProposerSeal)
+
+	cpy.CommittedSeals = make([][]byte, len(h.CommittedSeals))
+	for i, val := range h.CommittedSeals {
+		cpy.CommittedSeals[i] = make([]byte, len(val))
+		copy(cpy.CommittedSeals[i], val)
+	}
+
+	cpy.PastCommittedSeals = make([][]byte, len(h.PastCommittedSeals))
+	for i, val := range h.PastCommittedSeals {
+		cpy.PastCommittedSeals[i] = make([]byte, len(val))
+		copy(cpy.PastCommittedSeals[i], val)
+	}
+
 	return &cpy
 }
 
@@ -361,7 +420,13 @@ func CalcUncleHash(uncles []*Header) common.Hash {
 	if len(uncles) == 0 {
 		return EmptyUncleHash
 	}
-	return rlpHash(uncles)
+	// len(uncles) > 0 can only happen during tests.
+	// We revert to the original structure to keep compatibility with hardcoded hash values.
+	originalUncles := make([]*OriginalHeader, len(uncles))
+	for i := range uncles {
+		originalUncles[i] = &uncles[i].OriginalHeader
+	}
+	return rlpHash(originalUncles)
 }
 
 // WithSeal returns a new block with the data from b but the header replaced with
