@@ -227,29 +227,32 @@ func (c *core) commit() {
 	c.setStep(precommitDone)
 
 	proposal := c.currentRoundState.Proposal()
+	if proposal == nil {
+		// Should never happen really.
+		c.logger.Error("core commit called with empty proposal ")
+		return
+	}
 
-	if proposal != nil {
-		if proposal.ProposalBlock != nil {
-			c.logger.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
-		} else {
-			c.logger.Error("commit a NIL block",
-				"block", proposal.ProposalBlock,
-				"height", c.currentRoundState.height.String(),
-				"round", c.currentRoundState.round.String())
-		}
+	if proposal.ProposalBlock == nil {
+		// Again should never happen.
+		c.logger.Error("commit a NIL block",
+			"block", proposal.ProposalBlock,
+			"height", c.currentRoundState.height.String(),
+			"round", c.currentRoundState.round.String())
+		return
+	}
 
-		committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
-		for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
-			committedSeals[i] = make([]byte, types.BFTExtraSeal)
-			copy(committedSeals[i][:], v.CommittedSeal[:])
-		}
-		h := proposal.ProposalBlock.Header()
-		h.Round = c.currentRoundState.Round()
-		block := proposal.ProposalBlock.WithSeal(h)
-		if err := c.backend.Commit(*block, committedSeals); err != nil {
-			c.logger.Error("Failed to Commit block", "err", err)
-			return
-		}
+	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
+
+	committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
+	for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
+		committedSeals[i] = make([]byte, types.BFTExtraSeal)
+		copy(committedSeals[i][:], v.CommittedSeal[:])
+	}
+
+	if err := c.backend.Commit(proposal.ProposalBlock, c.currentRoundState.Round(), committedSeals); err != nil {
+		c.logger.Error("failed to commit a block", "err", err)
+		return
 	}
 }
 

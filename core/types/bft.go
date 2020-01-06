@@ -107,6 +107,12 @@ func WriteSeal(h *Header, seal []byte) error {
 	return nil
 }
 
+// WriteRound writes the round field of the block header.
+func WriteRound(h *Header, round *big.Int) error {
+	h.Round = new(big.Int).Set(round)
+	return nil
+}
+
 // WriteCommittedSeals writes the extra-data field of a block header with given committed seals.
 func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
 	if len(committedSeals) == 0 {
