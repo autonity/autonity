@@ -18,57 +18,64 @@ package core
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"io"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 )
 
+type ConsensusMsg interface {
+	GetRound() *big.Int
+	GetHeight() *big.Int
+}
+
 type Proposal struct {
-	Round      *big.Int
-	Height     *big.Int
-	ValidRound *big.Int
-	// RLP decode sets nil to 0, so 0 = false and 1 = true
-	IsValidRoundNil *big.Int
-	ProposalBlock   *types.Block
-	logger          log.Logger
+	Round         *big.Int
+	Height        *big.Int
+	ValidRound    *big.Int
+	ProposalBlock *types.Block
 }
 
-func NewProposal(r *big.Int, h *big.Int, vr *big.Int, p *types.Block, logger log.Logger) *Proposal {
+func (p *Proposal) GetRound() *big.Int {
+	return p.Round
+}
+
+func (p *Proposal) GetHeight() *big.Int {
+	return p.Height
+}
+
+func NewProposal(r *big.Int, h *big.Int, vr *big.Int, p *types.Block) *Proposal {
 	return &Proposal{
-		Round:           r,
-		Height:          h,
-		ValidRound:      vr,
-		IsValidRoundNil: big.NewInt(0),
-		ProposalBlock:   p,
-		logger:          logger,
+		Round:         r,
+		Height:        h,
+		ValidRound:    vr,
+		ProposalBlock: p,
 	}
 }
 
-// EncodeRLP serializes b into the Ethereum RLP format.
+// RLP encoding doesn't support negative big.Int, so we have to pass one additionnal field to represents validRound = -1.
+// Note that we could have as well indexed rounds starting by 1, but we want to stay close as possible to the spec.
 func (p *Proposal) EncodeRLP(w io.Writer) error {
-	if p.ValidRound.Int64() == -1 {
-		p.ValidRound = nil
-		p.IsValidRoundNil = big.NewInt(1)
+	if p.ProposalBlock == nil {
+		// Should never happen
+		return errors.New("encoderlp proposal with nil block")
 	}
 
-	if p.ProposalBlock == nil {
-		p.logger.Error("encode nil proposal block",
-			"height", p.Height.String(),
-			"round", p.Round.String(),
-			"isValidRoundNil", p.IsValidRoundNil.String(),
-			"validRound", p.ValidRound.String(),
-		)
+	isValidRoundNil := false
+	validRound := new(big.Int).Set(p.ValidRound)
+	if p.ValidRound.Int64() == -1 {
+		validRound = validRound.SetUint64(255) // to make more obvious bad proposals.
+		isValidRoundNil = true
 	}
 
 	return rlp.Encode(w, []interface{}{
 		p.Round,
 		p.Height,
-		p.ValidRound,
-		p.IsValidRoundNil,
+		validRound,
+		isValidRoundNil,
 		p.ProposalBlock,
 	})
 }
@@ -79,7 +86,7 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 		Round           *big.Int
 		Height          *big.Int
 		ValidRound      *big.Int
-		IsValidRoundNil *big.Int
+		IsValidRoundNil bool
 		ProposalBlock   *types.Block
 	}
 
@@ -87,24 +94,20 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 
-	if proposal.ValidRound.Int64() == 0 && proposal.IsValidRoundNil.Int64() == 1 {
+	if proposal.IsValidRoundNil {
+		if proposal.ValidRound.Uint64() != 255 {
+			return errors.New("bad proposal with isValidround nil")
+		}
 		proposal.ValidRound = big.NewInt(-1)
+	}
+	if proposal.ProposalBlock == nil {
+		return errors.New("bad proposal with nil decoded block")
 	}
 
 	p.Round = proposal.Round
 	p.Height = proposal.Height
 	p.ValidRound = proposal.ValidRound
-	p.IsValidRoundNil = proposal.IsValidRoundNil
 	p.ProposalBlock = proposal.ProposalBlock
-
-	if proposal.ProposalBlock == nil {
-		p.logger.Error("decode nil proposal block",
-			"height", p.Height.String(),
-			"round", p.Round.String(),
-			"isValidRoundNil", p.IsValidRoundNil.String(),
-			"validRound", p.ValidRound.String(),
-		)
-	}
 
 	return nil
 }
@@ -113,6 +116,14 @@ type Vote struct {
 	Round             *big.Int
 	Height            *big.Int
 	ProposedBlockHash common.Hash
+}
+
+func (sub *Vote) GetRound() *big.Int {
+	return sub.Round
+}
+
+func (sub *Vote) GetHeight() *big.Int {
+	return sub.Height
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.

@@ -2,7 +2,6 @@ package core
 
 import (
 	"bytes"
-	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"reflect"
 	"testing"
@@ -18,8 +17,7 @@ func TestProposalEncodeDecode(t *testing.T) {
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}),
-			log.New("backend", "test", "id", 0))
+			types.NewBlockWithHeader(&types.Header{}))
 
 		buf := &bytes.Buffer{}
 		err := proposal.EncodeRLP(buf)
@@ -53,8 +51,7 @@ func TestProposalEncodeDecode(t *testing.T) {
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(-1),
-			types.NewBlockWithHeader(&types.Header{}),
-			log.New("backend", "test", "id", 0))
+			types.NewBlockWithHeader(&types.Header{}))
 
 		buf := &bytes.Buffer{}
 		err := proposal.EncodeRLP(buf)

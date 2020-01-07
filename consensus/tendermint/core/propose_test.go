@@ -30,7 +30,7 @@ func TestSendPropose(t *testing.T) {
 		validRound := big.NewInt(1)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(curRoundState.round, curRoundState.Height(), validRound, block, logger)
+		proposalBlock := NewProposal(curRoundState.round, curRoundState.Height(), validRound, block)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -93,7 +93,7 @@ func TestHandleProposal(t *testing.T) {
 
 		logger := log.New("backend", "test", "id", 0)
 
-		proposalBlock := NewProposal(big.NewInt(1), curRoundState.Height(), validRound, block, logger)
+		proposalBlock := NewProposal(big.NewInt(1), curRoundState.Height(), validRound, block)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -133,7 +133,7 @@ func TestHandleProposal(t *testing.T) {
 		validRound := big.NewInt(1)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block, logger)
+		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -181,7 +181,7 @@ func TestHandleProposal(t *testing.T) {
 		validRound := big.NewInt(1)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block, logger)
+		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -281,7 +281,7 @@ func TestHandleProposal(t *testing.T) {
 		validRound := big.NewInt(1)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block, logger)
+		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -344,7 +344,7 @@ func TestHandleProposal(t *testing.T) {
 		validRound := big.NewInt(-1)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block, logger)
+		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
@@ -441,7 +441,7 @@ func TestHandleProposal(t *testing.T) {
 		validRound := big.NewInt(0)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block, logger)
+		proposalBlock := NewProposal(curRoundState.Round(), curRoundState.Height(), validRound, block)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)

@@ -40,8 +40,7 @@ func TestSendPrevote(t *testing.T) {
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}),
-			logger)
+			types.NewBlockWithHeader(&types.Header{}))
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -179,8 +178,7 @@ func TestHandlePrevote(t *testing.T) {
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}),
-			logger)
+			types.NewBlockWithHeader(&types.Header{}))
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -235,8 +233,7 @@ func TestHandlePrevote(t *testing.T) {
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}),
-			logger)
+			types.NewBlockWithHeader(&types.Header{}))
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -399,8 +396,7 @@ func TestHandlePrevote(t *testing.T) {
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}),
-			logger)
+			types.NewBlockWithHeader(&types.Header{}))
 
 		addr := common.HexToAddress("0x0123456789")
 

@@ -80,21 +80,12 @@ func (c *core) storeBacklog(msg *Message, src validator.Validator) {
 	if backlogPrque == nil {
 		backlogPrque = prque.New()
 	}
-	switch msg.Code {
-	case msgProposal:
-		var p Proposal
-		err := msg.Decode(&p)
-		if err == nil {
-			backlogPrque.Push(msg, toPriority(msg.Code, p.Round, p.Height))
-		}
-		// for msgPrevote and msgPrecommit cases
-	default:
-		var p Vote
-		err := msg.Decode(&p)
-		if err == nil {
-			backlogPrque.Push(msg, toPriority(msg.Code, p.Round, p.Height))
-		}
+	msgRound, errRound := msg.Round()
+	msgHeight, errHeight := msg.Height()
+	if errRound == nil && errHeight == nil {
+		backlogPrque.Push(msg, toPriority(msg.Code, msgRound, msgHeight))
 	}
+
 	c.backlogs[src] = backlogPrque
 }
 
@@ -158,9 +149,9 @@ func (c *core) processBacklog() {
 	}
 }
 
-func toPriority(msgCode uint64, r *big.Int, h *big.Int) float32 {
+func toPriority(msgCode uint64, r int64, h *big.Int) float32 {
 	// FIXME: round will be reset as 0 while new height
 	// 10 * Round limits the range of message code is from 0 to 9
 	// 1000 * Height limits the range of round is from 0 to 99
-	return -float32(h.Uint64()*1000 + r.Uint64()*10 + uint64(msgPriority[msgCode]))
+	return -float32(h.Uint64()*1000 + uint64(r)*10 + uint64(msgPriority[msgCode]))
 }

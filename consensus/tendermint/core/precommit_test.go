@@ -44,8 +44,7 @@ func TestSendPrecommit(t *testing.T) {
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}),
-			logger)
+			types.NewBlockWithHeader(&types.Header{}))
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -108,8 +107,7 @@ func TestSendPrecommit(t *testing.T) {
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}),
-			logger)
+			types.NewBlockWithHeader(&types.Header{}))
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
@@ -245,8 +243,7 @@ func TestHandlePrecommit(t *testing.T) {
 			big.NewInt(2),
 			big.NewInt(3),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}),
-			logger)
+			types.NewBlockWithHeader(&types.Header{}))
 		proposal.ProposalBlock.Hash()
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
@@ -319,8 +316,7 @@ func TestHandlePrecommit(t *testing.T) {
 			big.NewInt(1),
 			big.NewInt(2),
 			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}),
-			logger)
+			types.NewBlockWithHeader(&types.Header{}))
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
