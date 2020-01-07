@@ -516,6 +516,7 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Heuristic limit, reject transactions over 1MB to prevent DOS attacks
+	// changes of parameters were recorded at https://github.com/clearmatics/autonity-wiki/wiki/Autonity-Chain-Parameter-Highlights
 	if tx.Size() > 1024*1024 {
 		return ErrOversizedData
 	}

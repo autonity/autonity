@@ -69,6 +69,7 @@ const (
 	MemoryGas        uint64 = 3     // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
 	TxDataNonZeroGas uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero. NOTE: Not payable on data of calls between transactions.
 
+	// changes of parameters were recorded at: https://github.com/clearmatics/autonity-wiki/wiki/Autonity-Chain-Parameter-Highlights
 	MaxCodeSize = 2457600 // Maximum bytecode to permit for a contract
 
 	// Precompiled contract gas prices
