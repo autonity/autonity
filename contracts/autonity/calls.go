@@ -91,7 +91,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
 
 		//TODO: default commission rate is 0, should use a config file...
-		commissionRate = append(commissionRate, common.Big0)
+		commissionRate = append(commissionRate, big.NewInt(0))
 	}
 
 	constructorParams, err := contractABI.Pack("",
