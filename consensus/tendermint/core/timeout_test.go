@@ -74,7 +74,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 			logger:             logger,
 			backend:            mockBackend,
 			address:            currentValidator.GetAddress(),
-			currentRoundState:  currentState,
+			roundState:         currentState,
 			futureRoundsChange: make(map[int64]int64),
 			valSet:             &validatorSet{Set: validators},
 			proposeTimeout:     newTimeout(propose, logger),
@@ -111,7 +111,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 
 		engine.handleTimeoutPrevote(context.Background(), timeoutEvent)
 
-		if engine.currentRoundState.step != precommit {
+		if engine.roundState.step != precommit {
 			t.Fatalf("should be precommit step now")
 		}
 	})
@@ -131,7 +131,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 			logger:                       logger,
 			backend:                      mockBackend,
 			address:                      currentValidator.GetAddress(),
-			currentRoundState:            currentState,
+			roundState:                   currentState,
 			currentHeightOldRoundsStates: make(map[int64]*roundState),
 			futureRoundsChange:           make(map[int64]int64),
 			valSet:                       &validatorSet{Set: validators},
@@ -149,11 +149,11 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		mockBackend.EXPECT().LastCommittedProposal().Return(block, currentValidator.GetAddress())
 		engine.handleTimeoutPrecommit(context.Background(), timeoutEvent)
 
-		if engine.currentRoundState.height.Uint64() != 2 || engine.currentRoundState.round.Uint64() != 2 {
+		if engine.roundState.height.Uint64() != 2 || engine.roundState.round.Uint64() != 2 {
 			t.Fatalf("should be next round")
 		}
 
-		if engine.currentRoundState.step != propose {
+		if engine.roundState.step != propose {
 			t.Fatalf("should be propose step")
 		}
 	})
@@ -164,9 +164,9 @@ func TestOnTimeoutPrevote(t *testing.T) {
 	defer ctrl.Finish()
 	mockBackend := NewMockBackend(ctrl)
 	engine := core{
-		backend:           mockBackend,
-		logger:            log.New("backend", "test", "id", 0),
-		currentRoundState: NewRoundState(new(big.Int).SetUint64(2), new(big.Int).SetUint64(4)),
+		backend:    mockBackend,
+		logger:     log.New("backend", "test", "id", 0),
+		roundState: NewRoundState(new(big.Int).SetUint64(2), new(big.Int).SetUint64(4)),
 	}
 	mockBackend.EXPECT().Post(gomock.Any()).Times(1).Do(func(ev interface{}) {
 		timeoutEvent, ok := ev.(TimeoutEvent)
@@ -188,9 +188,9 @@ func TestOnTimeoutPrecommit(t *testing.T) {
 	defer ctrl.Finish()
 	mockBackend := NewMockBackend(ctrl)
 	engine := core{
-		backend:           mockBackend,
-		logger:            log.New("backend", "test", "id", 0),
-		currentRoundState: NewRoundState(new(big.Int).SetUint64(2), new(big.Int).SetUint64(4)),
+		backend:    mockBackend,
+		logger:     log.New("backend", "test", "id", 0),
+		roundState: NewRoundState(new(big.Int).SetUint64(2), new(big.Int).SetUint64(4)),
 	}
 	mockBackend.EXPECT().Post(gomock.Any()).Times(1).Do(func(ev interface{}) {
 		timeoutEvent, ok := ev.(TimeoutEvent)

@@ -110,7 +110,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		engine := core{
 			logger:             logger,
 			address:            currentValidator.GetAddress(),
-			currentRoundState:  testCase.currentState,
+			roundState:         testCase.currentState,
 			futureRoundsChange: make(map[int64]int64),
 			valSet:             &validatorSet{Set: validators},
 			proposeTimeout:     newTimeout(propose, logger),

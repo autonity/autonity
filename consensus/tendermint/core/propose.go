@@ -27,11 +27,11 @@ import (
 )
 
 func (c *core) sendProposal(ctx context.Context, p *types.Block) {
-	logger := c.logger.New("step", c.currentRoundState.Step())
+	logger := c.logger.New("step", c.roundState.Step())
 
 	// If I'm the proposer and I have the same height with the proposal
-	if c.currentRoundState.Height().Int64() == p.Number().Int64() && c.isProposer() && !c.sentProposal {
-		proposalBlock := NewProposal(c.currentRoundState.Round(), c.currentRoundState.Height(), c.validRound, p, c.logger)
+	if c.roundState.Height().Int64() == p.Number().Int64() && c.isProposer() && !c.sentProposal {
+		proposalBlock := NewProposal(c.roundState.Round(), c.roundState.Height(), c.validRound, p, c.logger)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
@@ -65,7 +65,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		return err
 	}
 
-	// Check if the message comes from currentRoundState proposer
+	// Check if the message comes from roundState proposer
 	if !c.valSet.IsProposer(msg.Address) {
 		c.logger.Warn("Ignore proposal messages from non-proposer")
 		return errNotFromProposer
@@ -96,23 +96,20 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	}
 
 	// Here is about to accept the Proposal
-	if c.currentRoundState.Step() == propose {
+	if c.roundState.Step() == propose {
 		if err := c.proposeTimeout.stopTimer(); err != nil {
 			return err
 		}
 		c.logger.Debug("Stopped Scheduled Proposal Timeout")
 
 		// Set the proposal for the current round
-		c.currentRoundState.SetProposal(&proposal, msg)
+		c.roundState.SetProposal(c.roundState.Round().Int64(), &proposal, msg)
 
 		c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 
 		vr := proposal.ValidRound.Int64()
 		h := proposal.ProposalBlock.Hash()
-		curR := c.currentRoundState.Round().Int64()
-
-		c.currentHeightOldRoundsStatesMu.RLock()
-		defer c.currentHeightOldRoundsStatesMu.RUnlock()
+		curR := c.roundState.Round().Int64()
 
 		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
 		if vr == -1 {
@@ -126,18 +123,11 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			return nil
 		}
 
-		rs, ok := c.currentHeightOldRoundsStates[vr]
-		if !ok {
-			c.logger.Error("handleProposal. unknown old round",
-				"proposalHeight", h,
-				"proposalRound", vr,
-				"currentHeight", c.currentRoundState.height.Uint64(),
-				"currentRound", c.currentRoundState.round,
-			)
-		}
+		// TODO: when round is changed ensure to add new round messages set so the following is never nil
+		prevotes := c.roundState.allRoundMessages[curR].prevotes
 
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
-		if ok && vr < curR && c.Quorum(rs.Prevotes.VotesSize(h)) {
+		if vr < curR && c.Quorum(prevotes.VotesSize(h)) {
 			var voteForProposal = false
 			if c.lockedValue != nil {
 				voteForProposal = c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash()
@@ -156,11 +146,11 @@ func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, 
 		"type", "Proposal",
 		"from", from,
 		"to", to,
-		"currentHeight", c.currentRoundState.Height(),
+		"currentHeight", c.roundState.Height(),
 		"msgHeight", proposal.Height,
-		"currentRound", c.currentRoundState.Round(),
+		"currentRound", c.roundState.Round(),
 		"msgRound", proposal.Round,
-		"currentStep", c.currentRoundState.Step(),
+		"currentStep", c.roundState.Step(),
 		"isProposer", c.isProposer(),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},

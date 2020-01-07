@@ -37,39 +37,43 @@ type messageSet struct {
 	messagesMu *sync.RWMutex
 }
 
-func (ms *messageSet) AddVote(blockHash common.Hash, msg Message) {
-	var addressesMap map[common.Address]Message
-	var ok bool
-
-	if _, ok = ms.votes[blockHash]; !ok {
-		ms.votes[blockHash] = make(map[common.Address]Message)
-	}
-
-	addressesMap = ms.votes[blockHash]
-
-	if _, ok := addressesMap[msg.Address]; ok {
-		return
-	}
-
-	addressesMap[msg.Address] = msg
-
+func (ms *messageSet) Add(hash common.Hash, msg Message) {
 	ms.messagesMu.Lock()
-	ms.messages = append(ms.messages, &msg)
-	ms.messagesMu.Unlock()
-}
+	defer ms.messagesMu.Unlock()
 
-func (ms *messageSet) AddNilVote(msg Message) {
-	if _, ok := ms.nilvotes[msg.Address]; !ok {
-		ms.nilvotes[msg.Address] = msg
-		ms.messagesMu.Lock()
+	emptyHash := hash == (common.Hash{})
+	if emptyHash {
+		// Add nil vote
+		if _, ok := ms.nilvotes[msg.Address]; !ok {
+			ms.nilvotes[msg.Address] = msg
+			ms.messages = append(ms.messages, &msg)
+		}
+
+	} else {
+		// Add non nil vote
+		var addressesMap map[common.Address]Message
+		var ok bool
+
+		if _, ok = ms.votes[hash]; !ok {
+			ms.votes[hash] = make(map[common.Address]Message)
+		}
+
+		addressesMap = ms.votes[hash]
+
+		if _, ok := addressesMap[msg.Address]; ok {
+			return
+		}
+
+		addressesMap[msg.Address] = msg
+
 		ms.messages = append(ms.messages, &msg)
-		ms.messagesMu.Unlock()
 	}
 }
 
 func (ms *messageSet) GetMessages() []*Message {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
+
 	result := make([]*Message, len(ms.messages))
 	copy(result, ms.messages)
 	return result
@@ -96,6 +100,7 @@ func (ms *messageSet) TotalSize() int {
 	return total
 }
 
+// TODO: not sure whether both GetMessages() and Values() are both required
 func (ms *messageSet) Values(blockHash common.Hash) []Message {
 	if _, ok := ms.votes[blockHash]; !ok {
 		return nil

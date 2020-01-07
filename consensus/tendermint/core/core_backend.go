@@ -88,7 +88,7 @@ func (c *core) Protocol() (protocolName string, extraMsgCodes uint64) {
 // Synchronize new connected peer with current height state
 func (c *core) SyncPeer(address common.Address) {
 	if c.IsValidator(address) {
-		c.backend.SyncPeer(address, c.GetCurrentHeightMessages())
+		c.backend.SyncPeer(address, c.roundState.GetAllRoundMessages())
 	}
 }
 

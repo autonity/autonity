@@ -36,11 +36,11 @@ var (
 	// errNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
-	// errFutureHeightMessage is returned when currentRoundState view is earlier than the
+	// errFutureHeightMessage is returned when roundState view is earlier than the
 	// view of the received message.
 	errFutureHeightMessage = errors.New("future height message")
 	// errOldHeightMessage is returned when the received message's view is earlier
-	// than currentRoundState view.
+	// than roundState view.
 	errOldHeightMessage = errors.New("old height message")
 	// errOldRoundMessage message is returned when message is of the same Height but form a smaller round
 	errOldRoundMessage = errors.New("same height but old round message")
@@ -73,26 +73,24 @@ var (
 func New(backend Backend, config *config.Config) *core {
 	logger := log.New("addr", backend.Address().String())
 	return &core{
-		config:                       config,
-		address:                      backend.Address(),
-		logger:                       logger,
-		backend:                      backend,
-		pendingUnminedBlocks:         make(map[uint64]*types.Block),
-		pendingUnminedBlockCh:        make(chan *types.Block),
-		stopped:                      make(chan struct{}, 3),
-		isStarting:                   new(uint32),
-		isStarted:                    new(uint32),
-		isStopping:                   new(uint32),
-		isStopped:                    new(uint32),
-		valSet:                       new(validatorSet),
-		futureRoundsChange:           make(map[int64]int64),
-		currentHeightOldRoundsStates: make(map[int64]*roundState),
-		lockedRound:                  big.NewInt(-1),
-		validRound:                   big.NewInt(-1),
-		currentRoundState:            new(roundState),
-		proposeTimeout:               newTimeout(propose, logger),
-		prevoteTimeout:               newTimeout(prevote, logger),
-		precommitTimeout:             newTimeout(precommit, logger),
+		config:                config,
+		address:               backend.Address(),
+		logger:                logger,
+		backend:               backend,
+		pendingUnminedBlocks:  make(map[uint64]*types.Block),
+		pendingUnminedBlockCh: make(chan *types.Block),
+		stopped:               make(chan struct{}, 3),
+		isStarting:            new(uint32),
+		isStarted:             new(uint32),
+		isStopping:            new(uint32),
+		isStopped:             new(uint32),
+		valSet:                new(validatorSet),
+		lockedRound:           big.NewInt(-1),
+		validRound:            big.NewInt(-1),
+		roundState:            new(roundState),
+		proposeTimeout:        newTimeout(propose, logger),
+		prevoteTimeout:        newTimeout(prevote, logger),
+		precommitTimeout:      newTimeout(precommit, logger),
 	}
 }
 
@@ -118,7 +116,7 @@ type core struct {
 
 	valSet *validatorSet
 
-	currentRoundState *roundState
+	roundState *roundState
 
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
@@ -136,37 +134,9 @@ type core struct {
 	lockedValue *types.Block
 	validValue  *types.Block
 
-	currentHeightOldRoundsStates   map[int64]*roundState
-	currentHeightOldRoundsStatesMu sync.RWMutex
-
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
 	precommitTimeout *timeout
-
-	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
-	futureRoundsChange map[int64]int64
-}
-
-func (c *core) GetCurrentHeightMessages() []*Message {
-	c.currentHeightOldRoundsStatesMu.RLock()
-	defer c.currentHeightOldRoundsStatesMu.RUnlock()
-
-	msgs := make([][]*Message, len(c.currentHeightOldRoundsStates)+1)
-	var totalLen int
-	for i, state := range c.currentHeightOldRoundsStates {
-		msgs[i] = state.GetMessages()
-		totalLen += len(msgs[i])
-	}
-	msgs[len(msgs)-1] = c.currentRoundState.GetMessages()
-
-	totalLen += len(msgs[len(msgs)-1])
-
-	result := make([]*Message, 0, totalLen)
-	for _, ms := range msgs {
-		result = append(result, ms...)
-	}
-
-	return result
 }
 
 func (c *core) IsValidator(address common.Address) bool {
@@ -197,7 +167,7 @@ func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 }
 
 func (c *core) broadcast(ctx context.Context, msg *Message) {
-	logger := c.logger.New("step", c.currentRoundState.Step())
+	logger := c.logger.New("step", c.roundState.Step())
 
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
@@ -219,8 +189,9 @@ func (c *core) isProposer() bool {
 
 func (c *core) commit() {
 	c.setStep(precommitDone)
+	currentRound := c.roundState.Round().Int64()
 
-	proposal := c.currentRoundState.Proposal()
+	proposal := c.roundState.Proposal(currentRound)
 	if proposal == nil {
 		// Should never happen really.
 		c.logger.Error("core commit called with empty proposal ")
@@ -231,20 +202,21 @@ func (c *core) commit() {
 		// Again should never happen.
 		c.logger.Error("commit a NIL block",
 			"block", proposal.ProposalBlock,
-			"height", c.currentRoundState.height.String(),
-			"round", c.currentRoundState.round.String())
+			"height", c.roundState.height.String(),
+			"round", c.roundState.round.String())
 		return
 	}
 
 	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 
-	committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
-	for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
+	precommits := c.roundState.allRoundMessages[currentRound].precommits
+	committedSeals := make([][]byte, precommits.VotesSize(proposal.ProposalBlock.Hash()))
+	for i, v := range precommits.Values(proposal.ProposalBlock.Hash()) {
 		committedSeals[i] = make([]byte, types.BFTExtraSeal)
 		copy(committedSeals[i][:], v.CommittedSeal[:])
 	}
 
-	if err := c.backend.Commit(proposal.ProposalBlock, c.currentRoundState.Round(), committedSeals); err != nil {
+	if err := c.backend.Commit(proposal.ProposalBlock, c.roundState.Round(), committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
@@ -315,36 +287,14 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		// Set validator set for height
 		valSet := c.backend.Validators(h.Uint64())
 		c.valSet.set(valSet)
-
-		// Assuming that round == 0 only when the node moves to a new height
-		// Therefore, resetting round related maps
-		c.currentHeightOldRoundsStatesMu.Lock()
-		c.currentHeightOldRoundsStates = make(map[int64]*roundState)
-		c.currentHeightOldRoundsStatesMu.Unlock()
-		c.futureRoundsChange = make(map[int64]int64)
 	}
 	// Reset all timeouts
 	c.proposeTimeout.reset(propose)
 	c.prevoteTimeout.reset(prevote)
 	c.precommitTimeout.reset(precommit)
 
-	// Get all rounds from c.futureRoundsChange and remove previous rounds
-	var i int64
-	for i = 0; i <= r.Int64(); i++ {
-		if _, ok := c.futureRoundsChange[i]; ok {
-			delete(c.futureRoundsChange, i)
-		}
-	}
-	// Add a copy of c.currentRoundState to c.currentHeightOldRoundsStates and then update c.currentRoundState
-	// We only add old round prevote messages to c.currentHeightOldRoundsStates, while future messages are sent to the
-	// backlog which are processed when the step is set to propose
-	if r.Int64() > 0 {
-		// This is a shallow copy, should be fine for now
-		c.currentHeightOldRoundsStatesMu.Lock()
-		c.currentHeightOldRoundsStates[r.Int64()-1] = c.currentRoundState
-		c.currentHeightOldRoundsStatesMu.Unlock()
-	}
-	c.currentRoundState.Update(r, h)
+	// update the round and height
+	c.roundState.Update(r, h)
 
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, r.Uint64())
@@ -354,26 +304,8 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 	c.setValidRoundAndValue = false
 }
 
-func (c *core) acceptVote(roundState *roundState, step Step, hash common.Hash, msg Message) {
-	emptyHash := hash == (common.Hash{})
-	switch step {
-	case prevote:
-		if emptyHash {
-			roundState.Prevotes.AddNilVote(msg)
-		} else {
-			roundState.Prevotes.AddVote(hash, msg)
-		}
-	case precommit:
-		if emptyHash {
-			roundState.Precommits.AddNilVote(msg)
-		} else {
-			roundState.Precommits.AddVote(hash, msg)
-		}
-	}
-}
-
 func (c *core) setStep(step Step) {
-	c.currentRoundState.SetStep(step)
+	c.roundState.SetStep(step)
 }
 
 func (c *core) stopFutureProposalTimer() {

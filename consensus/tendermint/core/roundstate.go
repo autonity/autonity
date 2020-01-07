@@ -19,20 +19,15 @@ package core
 import (
 	"math/big"
 	"sync"
-
-	"github.com/clearmatics/autonity/common"
 )
 
 // NewRoundState creates a new roundState instance with the given view and validatorSet
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
 func NewRoundState(r *big.Int, h *big.Int) *roundState {
 	return &roundState{
-		round:      r,
-		height:     h,
-		step:       propose,
-		proposal:   new(Proposal),
-		Prevotes:   newMessageSet(),
-		Precommits: newMessageSet(),
+		round:  r,
+		height: h,
+		step:   propose,
 	}
 }
 
@@ -42,11 +37,23 @@ type roundState struct {
 	height *big.Int
 	step   Step
 
+	// TODO: potentially add getters and setters for allRoundMessages
+	allRoundMessages map[int64]roundMessageSet
+	mu               sync.RWMutex
+}
+
+type roundMessageSet struct {
 	proposal    *Proposal
 	proposalMsg *Message
-	Prevotes    messageSet
-	Precommits  messageSet
-	mu          sync.RWMutex
+	prevotes    messageSet
+	precommits  messageSet
+}
+
+func newRoundMessageSet() roundMessageSet {
+	return roundMessageSet{
+		prevotes:   newMessageSet(),
+		precommits: newMessageSet(),
+	}
 }
 
 func (s *roundState) Update(r *big.Int, h *big.Int) {
@@ -54,25 +61,24 @@ func (s *roundState) Update(r *big.Int, h *big.Int) {
 	defer s.mu.Unlock()
 	s.round = r
 	s.height = h
-	s.proposal = new(Proposal)
-	s.proposalMsg = nil
-	s.Prevotes = newMessageSet()
-	s.Precommits = newMessageSet()
 }
 
-func (s *roundState) SetProposal(proposal *Proposal, msg *Message) {
+func (s *roundState) SetProposal(round int64, proposal *Proposal, msg *Message) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.proposalMsg = msg
-	s.proposal = proposal
+
+	rms := s.allRoundMessages[round]
+	rms.proposalMsg = msg
+	rms.proposal = proposal
 }
 
-func (s *roundState) Proposal() *Proposal {
+func (s *roundState) Proposal(round int64) *Proposal {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.proposal != nil {
-		return s.proposal
+	rms := s.allRoundMessages[round]
+	if rms.proposal != nil {
+		return rms.proposal
 	}
 
 	return nil
@@ -120,36 +126,37 @@ func (s *roundState) Step() Step {
 	return s.step
 }
 
-func (s *roundState) State() (*big.Int, *big.Int, uint64) {
+func (s *roundState) CurrentState() (*big.Int, *big.Int, uint64) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.height, s.round, uint64(s.step)
 }
 
-func (s *roundState) GetCurrentProposalHash() common.Hash {
+func (s *roundState) GetMessages(round int64) []*Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.proposal.ProposalBlock != nil {
-		return s.proposal.ProposalBlock.Hash()
-	}
+	rms := s.allRoundMessages[round]
 
-	return common.Hash{}
-}
-
-func (s *roundState) GetMessages() []*Message {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	prevoteMsgs := s.Prevotes.GetMessages()
-	precommitMsgs := s.Precommits.GetMessages()
+	prevoteMsgs := rms.prevotes.GetMessages()
+	precommitMsgs := rms.precommits.GetMessages()
 
 	result := make([]*Message, 0, len(prevoteMsgs)+len(precommitMsgs)+1)
-	if s.proposalMsg != nil {
-		result = append(result, s.proposalMsg)
+	if rms.proposalMsg != nil {
+		result = append(result, rms.proposalMsg)
 	}
-
 	result = append(result, prevoteMsgs...)
 	result = append(result, precommitMsgs...)
+
 	return result
+}
+
+func (s *roundState) GetAllRoundMessages() []*Message {
+	var messages []*Message
+
+	for roundNumber, _ := range s.allRoundMessages {
+		messages = append(messages, s.GetMessages(roundNumber)...)
+	}
+
+	return messages
 }

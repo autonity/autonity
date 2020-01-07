@@ -54,11 +54,6 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 
 	c.subscribeEvents()
 
-	// set currentRoundState before starting go routines
-	lastCommittedProposalBlock, _ := c.backend.LastCommittedProposal()
-	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
-	c.currentRoundState.Update(big.NewInt(0), height)
-
 	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent(ctx)
 
@@ -123,8 +118,6 @@ func (c *core) unsubscribeEvents() {
 	c.committedSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
 }
-
-// TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, TimeoutEvent
 
 func (c *core) handleNewUnminedBlockEvent(ctx context.Context) {
 eventLoop:
@@ -208,8 +201,8 @@ func (c *core) syncLoop(ctx context.Context) {
 	*/
 	timer := time.NewTimer(10 * time.Second)
 
-	round := c.currentRoundState.Round()
-	height := c.currentRoundState.Height()
+	round := c.roundState.Round()
+	height := c.roundState.Height()
 
 	// Ask for sync when the engine starts
 	c.backend.AskSync(c.valSet.Copy())
@@ -217,8 +210,8 @@ func (c *core) syncLoop(ctx context.Context) {
 	for {
 		select {
 		case <-timer.C:
-			currentRound := c.currentRoundState.Round()
-			currentHeight := c.currentRoundState.Height()
+			currentRound := c.roundState.Round()
+			currentHeight := c.roundState.Height()
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound.Cmp(round) == 0 {
@@ -271,31 +264,7 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender valida
 			logger.Debug("Future height message, ignoring")
 		} else if err == errFutureRoundMessage {
 			logger.Debug("Storing future round message in backlog")
-
-			//We cannot move to a round in a new height without receiving a new block
-			var msgRound int64
-			if msg.Code == msgProposal {
-				var p Proposal
-				if e := msg.Decode(&p); e != nil {
-					return errFailedDecodeProposal
-				}
-				msgRound = p.Round.Int64()
-
-			} else {
-				var v Vote
-				if e := msg.Decode(&v); e != nil {
-					return errFailedDecodeVote
-				}
-				msgRound = v.Round.Int64()
-			}
-
-			c.futureRoundsChange[msgRound] = c.futureRoundsChange[msgRound] + 1
-			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
-
-			if totalFutureRoundMessages > int64(c.valSet.F()) {
-				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
-				c.startRound(ctx, big.NewInt(msgRound))
-			}
+			// TODO: handle future round messages properly
 		} else if err == errFutureStepMessage {
 			logger.Debug("Storing future step message in backlog")
 		}
@@ -322,23 +291,23 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender valida
 
 // checkMessage checks the message step
 // return errInvalidMessage if the message is invalid
-// return errFutureHeightMessage if the message view is larger than currentRoundState view
-// return errOldHeightMessage if the message view is smaller than currentRoundState view
+// return errFutureHeightMessage if the message view is larger than roundState view
+// return errOldHeightMessage if the message view is smaller than roundState view
 // return errFutureStepMessage if we are at the same view but at the propose step and it's a voting message.
 func (c *core) checkMessage(round *big.Int, height *big.Int, step Step) error {
 	if height == nil || round == nil {
 		return errInvalidMessage
 	}
 
-	if height.Cmp(c.currentRoundState.Height()) > 0 {
+	if height.Cmp(c.roundState.Height()) > 0 {
 		return errFutureHeightMessage
-	} else if height.Cmp(c.currentRoundState.Height()) < 0 {
+	} else if height.Cmp(c.roundState.Height()) < 0 {
 		return errOldHeightMessage
-	} else if round.Cmp(c.currentRoundState.Round()) > 0 {
+	} else if round.Cmp(c.roundState.Round()) > 0 {
 		return errFutureRoundMessage
-	} else if round.Cmp(c.currentRoundState.Round()) < 0 {
+	} else if round.Cmp(c.roundState.Round()) < 0 {
 		return errOldRoundMessage
-	} else if c.currentRoundState.step == propose && step > propose {
+	} else if c.roundState.step == propose && step > propose {
 		return errFutureStepMessage
 	}
 

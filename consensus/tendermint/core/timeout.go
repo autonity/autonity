@@ -158,7 +158,7 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 
 /////////////// Handle Timeout Functions ///////////////
 func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == propose {
+	if msg.heightWhenCalled == c.roundState.Height().Int64() && msg.roundWhenCalled == c.roundState.Round().Int64() && c.roundState.Step() == propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 		c.sendPrevote(ctx, true)
 		c.setStep(prevote)
@@ -166,7 +166,7 @@ func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 }
 
 func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == prevote {
+	if msg.heightWhenCalled == c.roundState.Height().Int64() && msg.roundWhenCalled == c.roundState.Round().Int64() && c.roundState.Step() == prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 		c.sendPrecommit(ctx, true)
 		c.setStep(precommit)
@@ -175,10 +175,10 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 
 func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
 
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
+	if msg.heightWhenCalled == c.roundState.Height().Int64() && msg.roundWhenCalled == c.roundState.Round().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 
-		c.startRound(ctx, new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
+		c.startRound(ctx, new(big.Int).Add(c.roundState.Round(), common.Big1))
 	}
 }
 
@@ -200,11 +200,11 @@ func (c *core) logTimeoutEvent(message string, msgType string, timeout TimeoutEv
 	c.logger.Debug(message,
 		"from", c.address.String(),
 		"type", msgType,
-		"currentHeight", c.currentRoundState.Height(),
+		"currentHeight", c.roundState.Height(),
 		"msgHeight", timeout.heightWhenCalled,
-		"currentRound", c.currentRoundState.Round(),
+		"currentRound", c.roundState.Round(),
 		"msgRound", timeout.roundWhenCalled,
-		"currentStep", c.currentRoundState.Step(),
+		"currentStep", c.roundState.Step(),
 		"msgStep", timeout.step,
 	)
 }

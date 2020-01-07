@@ -384,9 +384,9 @@ func TestCore_SyncPeer(t *testing.T) {
 		backendMock.EXPECT().SyncPeer(addr, gomock.Any())
 
 		c := &core{
-			backend:           backendMock,
-			currentRoundState: curRoundState,
-			valSet:            valSet,
+			backend:    backendMock,
+			roundState: curRoundState,
+			valSet:     valSet,
 		}
 
 		c.SyncPeer(addr)
