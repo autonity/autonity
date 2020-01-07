@@ -290,6 +290,30 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	return c.handleCheckedMsg(ctx, msg, *sender)
 }
 
+func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender validator.Validator) {
+	// Decoding functions can't fail here
+	msgRound, err := msg.Round()
+	if err != nil {
+		c.logger.Error("handleFutureRoundMsg msgRound", "err", err)
+		return
+	}
+	if _, ok := c.futureRoundsChange[msgRound]; !ok {
+		c.futureRoundsChange[msgRound] = make(map[common.Address]struct{})
+	}
+	c.futureRoundsChange[msgRound][sender.GetAddress()] = struct{}{}
+
+	// TODO(PoS Integration) : Weight by Voting Power
+	totalFutureRoundMessages := 0
+	for _ = range c.futureRoundsChange[msgRound] {
+		totalFutureRoundMessages += 1
+	}
+
+	if totalFutureRoundMessages > c.valSet.F() {
+		c.logger.Info("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
+		c.startRound(ctx, big.NewInt(msgRound))
+	}
+}
+
 func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender validator.Validator) error {
 	logger := c.logger.New("address", c.address, "from", sender)
 
@@ -302,30 +326,8 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender valida
 		} else if err == errFutureRoundMessage {
 			logger.Debug("Storing future round message in backlog")
 			c.storeBacklog(msg, sender)
-			//We cannot move to a round in a new height without receiving a new block
-			var msgRound int64
-			if msg.Code == msgProposal {
-				var p Proposal
-				if e := msg.Decode(&p); e != nil {
-					return errFailedDecodeProposal
-				}
-				msgRound = p.Round.Int64()
-
-			} else {
-				var v Vote
-				if e := msg.Decode(&v); e != nil {
-					return errFailedDecodeVote
-				}
-				msgRound = v.Round.Int64()
-			}
-
-			c.futureRoundsChange[msgRound] = c.futureRoundsChange[msgRound] + 1
-			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
-
-			if totalFutureRoundMessages > int64(c.valSet.F()) {
-				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
-				c.startRound(ctx, big.NewInt(msgRound))
-			}
+			// decoding must have been successful to return
+			c.handleFutureRoundMsg(ctx, msg, sender)
 		} else if err == errFutureStepMessage {
 			logger.Debug("Storing future step message in backlog")
 			c.storeBacklog(msg, sender)

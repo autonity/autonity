@@ -88,7 +88,7 @@ func New(backend Backend, config *config.Config) *core {
 		isStopping:                   new(uint32),
 		isStopped:                    new(uint32),
 		valSet:                       new(validatorSet),
-		futureRoundsChange:           make(map[int64]int64),
+		futureRoundsChange:           make(map[int64]map[common.Address]struct{}),
 		currentHeightOldRoundsStates: make(map[int64]*roundState),
 		lockedRound:                  big.NewInt(-1),
 		validRound:                   big.NewInt(-1),
@@ -150,7 +150,7 @@ type core struct {
 	precommitTimeout *timeout
 
 	//map[futureRoundNumber]NumberOfMessagesReceivedForTheRound
-	futureRoundsChange map[int64]int64
+	futureRoundsChange map[int64]map[common.Address]struct{}
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
@@ -327,7 +327,7 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		c.currentHeightOldRoundsStatesMu.Lock()
 		c.currentHeightOldRoundsStates = make(map[int64]*roundState)
 		c.currentHeightOldRoundsStatesMu.Unlock()
-		c.futureRoundsChange = make(map[int64]int64)
+		c.futureRoundsChange = make(map[int64]map[common.Address]struct{})
 	}
 	// Reset all timeouts
 	c.proposeTimeout.reset(propose)
