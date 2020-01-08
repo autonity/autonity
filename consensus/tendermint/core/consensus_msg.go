@@ -67,7 +67,7 @@ func (p *Proposal) EncodeRLP(w io.Writer) error {
 	isValidRoundNil := false
 	validRound := new(big.Int).Set(p.ValidRound)
 	if p.ValidRound.Int64() == -1 {
-		validRound = validRound.SetUint64(255) // to make more obvious bad proposals.
+		validRound = validRound.SetUint64(0)
 		isValidRoundNil = true
 	}
 
@@ -95,11 +95,18 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 	}
 
 	if proposal.IsValidRoundNil {
-		if proposal.ValidRound.Uint64() != 255 {
+		if proposal.ValidRound.Uint64() != 0 {
 			return errors.New("bad proposal with isValidround nil")
 		}
 		proposal.ValidRound = big.NewInt(-1)
 	}
+
+	if !(proposal.ValidRound.Cmp(new(big.Int).SetUint64(maxRound)) < 1 &&
+		proposal.Round.Cmp(new(big.Int).SetUint64(maxRound)) < 1) {
+		//those numbers can't be negative because rlp don't support it.
+		return errors.New("bad proposal with invalid round")
+	}
+
 	if proposal.ProposalBlock == nil {
 		return errors.New("bad proposal with nil decoded block")
 	}
