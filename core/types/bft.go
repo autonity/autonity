@@ -57,6 +57,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 		newHeader.ProposerSeal = []byte{}
 	}
 	newHeader.CommittedSeals = [][]byte{}
+	newHeader.Round = new(big.Int)
 	return newHeader
 }
 
@@ -103,6 +104,12 @@ func WriteSeal(h *Header, seal []byte) error {
 	}
 	h.ProposerSeal = make([]byte, len(seal))
 	copy(h.ProposerSeal, seal)
+	return nil
+}
+
+// WriteRound writes the round field of the block header.
+func WriteRound(h *Header, round *big.Int) error {
+	h.Round = new(big.Int).Set(round)
 	return nil
 }
 
