@@ -23,7 +23,7 @@ import (
 )
 
 func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
-	c.logNewUnminedBlockEvent(unminedBlock)
+	// c.logNewUnminedBlockEvent(unminedBlock) NOT SAFE !
 	if err := c.checkUnminedBlockMsg(unminedBlock); err != nil {
 		if err == errInvalidMessage {
 			c.logger.Error("NewUnminedBlockEvent: invalid unminedBlock", "err", err)
@@ -49,7 +49,7 @@ func (c *core) updatePendingUnminedBlocks(unminedBlock *types.Block) {
 		heights = append(heights, h)
 	}
 	for _, ub := range heights {
-		if ub < c.currentRoundState.Height().Uint64() {
+		if ub < c.Height().Uint64() {
 			delete(c.pendingUnminedBlocks, ub)
 		}
 	}

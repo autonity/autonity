@@ -60,12 +60,18 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 	// Ensure we have the same view with the Proposal message
 	if err := c.checkMessage(proposal.Round, proposal.Height, propose); err != nil {
-		// We don't care about old proposals so they are ignored
+		// If it's a future round proposal, the only upon conditon
+		// that can be triggered is L49, but this requires more than F future round messages
+		// meaning that a future roundchange will happen before, as such, pushing the
+		// message to the backlog is fine.
+		if err == errOldRoundMessage {
+			// if we already have a proposal then abort.
+		}
 		return err
 	}
 
-	// Check if the message comes from currentRoundState proposer
-	if !c.valSet.IsProposer(msg.Address) {
+	// Check if the message comes from curRoundMessages proposer
+	if !c.CommitteeSet().IsProposer(c.Round(), msg.Address) {
 		c.logger.Warn("Ignore proposal messages from non-proposer")
 		return errNotFromProposer
 	}
@@ -75,14 +81,12 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		if timeoutErr := c.proposeTimeout.stopTimer(); timeoutErr != nil {
 			return timeoutErr
 		}
-		c.logger.Debug("Stopped Scheduled Proposal Timeout")
 		c.sendPrevote(ctx, true)
 		// do not to accept another proposal in current round
 		c.setStep(prevote)
 
 		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 		// if it's a future block, we will handle it again after the duration
-		// TIME FIELD OF HEADER CHECKED HERE - NOT HEIGHT
 		// TODO: implement wiggle time / median time
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
@@ -102,7 +106,6 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		if err := c.proposeTimeout.stopTimer(); err != nil {
 			return err
 		}
-		c.logger.Debug("Stopped Scheduled Proposal Timeout")
 
 		// Set the proposal for the current round
 		c.currentRoundState.SetProposal(&proposal, msg)
@@ -121,7 +124,6 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			var voteForProposal = false
 			if c.lockedValue != nil {
 				voteForProposal = c.lockedRound.Int64() == -1 || h == c.lockedValue.Hash()
-
 			}
 			c.sendPrevote(ctx, voteForProposal)
 			c.setStep(prevote)
@@ -134,7 +136,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 				"proposalHeight", h,
 				"proposalRound", vr,
 				"currentHeight", c.currentRoundState.height.Uint64(),
-				"currentRound", c.currentRoundState.round,
+				"currentRound", c.currentRoundState.round.Uint64(),
 			)
 		}
 
@@ -143,7 +145,6 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			var voteForProposal = false
 			if c.lockedValue != nil {
 				voteForProposal = c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash()
-
 			}
 			c.sendPrevote(ctx, voteForProposal)
 			c.setStep(prevote)
