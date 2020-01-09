@@ -62,6 +62,7 @@ func (c *collector) addHistogram(name string, m metrics.Histogram) {
 	pv := []float64{0.5, 0.75, 0.95, 0.99, 0.999, 0.9999}
 	ps := m.Percentiles(pv)
 	c.writeSummaryCounter(name, m.Count())
+	c.writeSummaryType(name)
 	for i := range pv {
 		c.writeSummaryPercentile(name, strconv.FormatFloat(pv[i], 'f', -1, 64), ps[i])
 	}
@@ -75,6 +76,7 @@ func (c *collector) addTimer(name string, m metrics.Timer) {
 	pv := []float64{0.5, 0.75, 0.95, 0.99, 0.999, 0.9999}
 	ps := m.Percentiles(pv)
 	c.writeSummaryCounter(name, m.Count())
+	c.writeSummaryType(name)
 	for i := range pv {
 		c.writeSummaryPercentile(name, strconv.FormatFloat(pv[i], 'f', -1, 64), ps[i])
 	}
@@ -87,6 +89,7 @@ func (c *collector) addResettingTimer(name string, m metrics.ResettingTimer) {
 	ps := m.Percentiles([]float64{50, 95, 99})
 	val := m.Values()
 	c.writeSummaryCounter(name, len(val))
+	c.writeSummaryType(name)
 	c.writeSummaryPercentile(name, "0.50", ps[0])
 	c.writeSummaryPercentile(name, "0.95", ps[1])
 	c.writeSummaryPercentile(name, "0.99", ps[2])
@@ -94,7 +97,6 @@ func (c *collector) addResettingTimer(name string, m metrics.ResettingTimer) {
 
 func (c *collector) writeGaugeCounter(name string, value interface{}) {
 	name = mutateKey(name)
-	c.buff.WriteString(fmt.Sprintf(typeGaugeTpl, name))
 	c.buff.WriteString(fmt.Sprintf(keyValueTpl, name, value))
 }
 
@@ -108,6 +110,11 @@ func (c *collector) writeSummaryPercentile(name, p string, value interface{}) {
 	name = mutateKey(name)
 	c.buff.WriteString(fmt.Sprintf(typeSummaryTpl, name))
 	c.buff.WriteString(fmt.Sprintf(keyQuantileTagValueTpl, name, p, value))
+}
+
+func (c *collector) writeSummaryType(name string) {
+	name = mutateKey(name)
+	c.buff.WriteString(fmt.Sprintf(typeSummaryTpl, name))
 }
 
 func mutateKey(key string) string {
