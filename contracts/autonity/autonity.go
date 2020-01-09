@@ -143,6 +143,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
+	log.Error("Operator:", "addr", chain.Config().AutonityContractConfig.Operator.String())
 
 	contractABI, err := ac.abi()
 	if err != nil {

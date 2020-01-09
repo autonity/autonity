@@ -39,7 +39,8 @@ type testNode struct {
 	address        string
 	port           int
 	url            string
-	listener       net.Listener
+	listener       []net.Listener
+	rpcPort        int
 	node           *node.Node
 	enode          *enode.Node
 	service        *eth.Ethereum
@@ -177,7 +178,7 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 	return genesis
 }
 
-func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, inRate, outRate int64, cons func(basic consensus.Engine) consensus.Engine, backs func(basic tendermintCore.Backend) tendermintCore.Backend) (*node.Node, error) { //здесь эта переменная-функция называется cons
+func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64, cons func(basic consensus.Engine) consensus.Engine, backs func(basic tendermintCore.Backend) tendermintCore.Backend) (*node.Node, error) { //здесь эта переменная-функция называется cons
 	// Define the basic configurations for the Ethereum node
 	datadir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -200,6 +201,8 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 		},
 		NoUSB: true,
 	}
+	configNode.HTTPHost = "127.0.0.1"
+	configNode.HTTPPort = rpcPort
 
 	if inRate != 0 || outRate != 0 {
 		configNode.P2P.IsRated = true
