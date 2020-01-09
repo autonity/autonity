@@ -615,7 +615,7 @@ func TestFastVsFullChains(t *testing.T) {
 		}
 		// If the block number is a multiple of 5, add a few bonus uncles to the block
 		if i%5 == 5 {
-			block.AddUncle(&types.Header{ParentHash: block.PrevBlock(i - 1).Hash(), Number: big.NewInt(int64(i - 1))})
+			block.AddUncle(&types.Header{OriginalHeader: types.OriginalHeader{ParentHash: block.PrevBlock(i - 1).Hash(), Number: big.NewInt(int64(i - 1))}})
 		}
 	})
 	// Import the chain as an archive node for the comparison baseline

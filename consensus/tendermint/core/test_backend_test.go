@@ -2,6 +2,8 @@ package core
 
 import (
 	"crypto/ecdsa"
+	"github.com/clearmatics/autonity/core/types"
+	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
@@ -11,14 +13,17 @@ import (
 
 type addressKeyMap map[common.Address]*ecdsa.PrivateKey
 
-func generateValidators(n int) ([]common.Address, addressKeyMap) {
-	vals := make([]common.Address, 0)
+func generateValidators(n int) (types.Committee, addressKeyMap) {
+	vals := make(types.Committee, 0)
 	keymap := make(addressKeyMap)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
-		addr := crypto.PubkeyToAddress(privateKey.PublicKey)
-		vals = append(vals, addr)
-		keymap[addr] = privateKey
+		committeeMember := types.CommitteeMember{
+			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower: new(big.Int).SetUint64(1),
+		}
+		vals = append(vals, committeeMember)
+		keymap[committeeMember.Address] = privateKey
 	}
 	return vals, keymap
 }

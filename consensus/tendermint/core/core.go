@@ -227,27 +227,32 @@ func (c *core) commit() {
 	c.setStep(precommitDone)
 
 	proposal := c.currentRoundState.Proposal()
+	if proposal == nil {
+		// Should never happen really.
+		c.logger.Error("core commit called with empty proposal ")
+		return
+	}
 
-	if proposal != nil {
-		if proposal.ProposalBlock != nil {
-			c.logger.Warn("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
-		} else {
-			c.logger.Error("commit a NIL block",
-				"block", proposal.ProposalBlock,
-				"height", c.currentRoundState.height.String(),
-				"round", c.currentRoundState.round.String())
-		}
+	if proposal.ProposalBlock == nil {
+		// Again should never happen.
+		c.logger.Error("commit a NIL block",
+			"block", proposal.ProposalBlock,
+			"height", c.currentRoundState.height.String(),
+			"round", c.currentRoundState.round.String())
+		return
+	}
 
-		committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
-		for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
-			committedSeals[i] = make([]byte, types.BFTExtraSeal)
-			copy(committedSeals[i][:], v.CommittedSeal[:])
-		}
+	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 
-		if err := c.backend.Commit(*proposal.ProposalBlock, committedSeals); err != nil {
-			c.logger.Error("Failed to Commit block", "err", err)
-			return
-		}
+	committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
+	for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
+		committedSeals[i] = make([]byte, types.BFTExtraSeal)
+		copy(committedSeals[i][:], v.CommittedSeal[:])
+	}
+
+	if err := c.backend.Commit(proposal.ProposalBlock, c.currentRoundState.Round(), committedSeals); err != nil {
+		c.logger.Error("failed to commit a block", "err", err)
+		return
 	}
 }
 
@@ -389,9 +394,10 @@ func (c *core) Quorum(i int) bool {
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash
-func PrepareCommittedSeal(hash common.Hash) []byte {
+func PrepareCommittedSeal(hash common.Hash, round *big.Int, height *big.Int) []byte {
 	var buf bytes.Buffer
+	buf.Write(round.Bytes())
+	buf.Write(height.Bytes())
 	buf.Write(hash.Bytes())
-	buf.Write([]byte{byte(msgPrecommit)})
 	return buf.Bytes()
 }

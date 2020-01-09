@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bytes"
 	"math/big"
 	"testing"
 
@@ -9,24 +8,23 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/rlp"
 )
 
 type Modifier interface {
-	ModifyBFTExtra(*types.BFTExtra) *types.BFTExtra
+	ModifyHeader(header *types.Header) *types.Header
 }
 
-type ModifyValidatorListEngine struct {
+type ModifyCommitteeEngine struct {
 	*testing.T
 	*core
 	Modifier
 }
 
-func (*ModifyValidatorListEngine) VerifyHeader(_ consensus.ChainReader, _ *types.Header, _ bool) error {
+func (*ModifyCommitteeEngine) VerifyHeader(_ consensus.ChainReader, _ *types.Header, _ bool) error {
 	return nil
 }
 
-func (c *ModifyValidatorListEngine) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (c *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// create a normal block and check for errors
 	block, err := c.core.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
 	if err != nil {
@@ -47,18 +45,7 @@ func (c *ModifyValidatorListEngine) FinalizeAndAssemble(chain consensus.ChainRea
 		return block, nil
 	}
 
-	bftExtra, err := types.ExtractBFTHeaderExtra(block.Header())
-	if err != nil {
-		c.Error("types.ExtractBFTHeaderExtra returned error:", err, "Expected nil")
-	}
-
-	bftExtra = c.Modifier.ModifyBFTExtra(bftExtra)
-
-	payload, err := rlp.EncodeToBytes(bftExtra)
-	if err != nil {
-		c.Error("rlp.EncodeToBytes returned an error:", err, "Expected nil")
-	}
-	header.Extra = append(bytes.Repeat([]byte{0x00}, types.BFTExtraVanity), payload...)
+	header = c.Modifier.ModifyHeader(block.Header())
 
 	// create a new block with the modified header
 	newBlock := types.NewBlock(header, block.Transactions(), block.Uncles(), receipts)
@@ -91,42 +78,46 @@ func (c *ModifyValidatorListEngine) FinalizeAndAssemble(chain consensus.ChainRea
 
 type addValidatorCore Changes
 
-func NewAddValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyValidatorListEngine {
+func NewAddValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
 	basicCore, ok := c.(*core)
 	if !ok {
 		panic("*core type is expected")
 	}
-	return &ModifyValidatorListEngine{
+	return &ModifyCommitteeEngine{
 		core:     basicCore,
 		Modifier: addValidatorCore(changedValidators),
 	}
 }
 
-func (p addValidatorCore) ModifyBFTExtra(bftExtra *types.BFTExtra) *types.BFTExtra {
-	additionalValidator := common.Address{3}
-	p.added[additionalValidator] = struct{}{}
-	bftExtra.Validators = append(bftExtra.Validators, additionalValidator)
+func (p addValidatorCore) ModifyHeader(header *types.Header) *types.Header {
+	additionalValidator := types.CommitteeMember{
+		Address:     common.Address{3},
+		VotingPower: new(big.Int).SetUint64(1),
+	}
+	p.added[additionalValidator.Address] = struct{}{}
 
-	return bftExtra
+	header.Committee = append(header.Committee, additionalValidator)
+
+	return header
 }
 
 type removeValidatorCore Changes
 
-func NewRemoveValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyValidatorListEngine {
+func NewRemoveValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
 	basicCore, ok := c.(*core)
 	if !ok {
 		panic("*core type is expected")
 	}
-	return &ModifyValidatorListEngine{
+	return &ModifyCommitteeEngine{
 		core:     basicCore,
 		Modifier: removeValidatorCore(changedValidators),
 	}
 }
 
-func (p removeValidatorCore) ModifyBFTExtra(bftExtra *types.BFTExtra) *types.BFTExtra {
-	p.removed[bftExtra.Validators[len(bftExtra.Validators)-1]] = struct{}{}
-	bftExtra.Validators = bftExtra.Validators[:len(bftExtra.Validators)-1]
-	return bftExtra
+func (p removeValidatorCore) ModifyHeader(header *types.Header) *types.Header {
+	p.removed[header.Committee[len(header.Committee)-1].Address] = struct{}{}
+	header.Committee = header.Committee[:len(header.Committee)-1]
+	return header
 }
 
 type Changes struct {
@@ -143,23 +134,26 @@ func NewChanges() Changes {
 
 type replaceValidatorCore Changes
 
-func NewReplaceValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyValidatorListEngine {
+func NewReplaceValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
 	basicCore, ok := c.(*core)
 	if !ok {
 		panic("*core type is expected")
 	}
-	return &ModifyValidatorListEngine{
+	return &ModifyCommitteeEngine{
 		core:     basicCore,
 		Modifier: replaceValidatorCore(changedValidators),
 	}
 }
 
-func (p replaceValidatorCore) ModifyBFTExtra(bftExtra *types.BFTExtra) *types.BFTExtra {
-	maliciousValidator := common.Address{3}
-	p.added[maliciousValidator] = struct{}{}
-	p.removed[bftExtra.Validators[len(bftExtra.Validators)-1]] = struct{}{}
+func (p replaceValidatorCore) ModifyHeader(header *types.Header) *types.Header {
+	maliciousValidator := types.CommitteeMember{
+		Address:     common.Address{3},
+		VotingPower: new(big.Int).SetUint64(1),
+	}
+	p.added[maliciousValidator.Address] = struct{}{}
+	p.removed[header.Committee[len(header.Committee)-1].Address] = struct{}{}
 
-	bftExtra.Validators = append(bftExtra.Validators[:len(bftExtra.Validators)-1], maliciousValidator)
+	header.Committee = append(header.Committee[:len(header.Committee)-1], maliciousValidator)
 
-	return bftExtra
+	return header
 }

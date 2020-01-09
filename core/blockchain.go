@@ -2240,6 +2240,14 @@ func (bc *BlockChain) ReadEnodeWhitelist(openNetwork bool) *types.Nodes {
 	return rawdb.ReadEnodeWhitelist(bc.db, openNetwork)
 }
 
+func (bc *BlockChain) PutKeyValue(key []byte, value []byte) error {
+	return rawdb.PutKeyValue(bc.db, key, value)
+}
+
+func (bc *BlockChain) GetKeyValue(key []byte) ([]byte, error) {
+	return rawdb.GetKeyValue(bc.db, key)
+}
+
 // SubscribeBlockProcessingEvent registers a subscription of bool where true means
 // block processing has started while false means it has stopped.
 func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscription {

@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"errors"
+	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"reflect"
 	"testing"
@@ -121,8 +122,8 @@ func TestMessageFromPayload(t *testing.T) {
 
 		payload, _ := msg.Payload()
 
-		val := validator.New(authorizedAddress)
-		valSet := validator.NewSet([]common.Address{authorizedAddress}, config.RoundRobin)
+		val := validator.New(authorizedAddress, new(big.Int).SetUint64(1))
+		valSet := validator.NewSet([]types.CommitteeMember{{Address: authorizedAddress, VotingPower: new(big.Int).SetUint64(1)}}, config.RoundRobin)
 		validateFn := func(set validator.Set, data []byte, sig []byte) (common.Address, error) {
 			return authorizedAddress, nil
 		}

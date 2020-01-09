@@ -43,6 +43,8 @@ func TestState(t *testing.T) {
 	st.slow(`^stSystemOperationsTest/CallRecursiveBomb`)
 	st.slow(`^stTransactionTest/Opcodes_TransactionInit`)
 	// Broken tests:
+	st.skipLoad(`^stCreateTest/CREATE_ContractRETURNBigOffset\.json`)
+	st.skipLoad(`^stCodeSizeLimit/codesizeOOGInvalidSize\.json`)
 	st.skipLoad(`^stTransactionTest/OverflowGasRequire\.json`) // gasLimit > 256 bits
 	st.skipLoad(`^stTransactionTest/zeroSigTransa[^/]*\.json`) // EIP-86 is not supported yet
 	// Expected failures:

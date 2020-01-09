@@ -120,7 +120,7 @@ func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *s
 	// measure user metrics
 	if len(v.Accounts) != len(v.Usertypes) || len(v.Accounts) != len(v.Stakes) ||
 		len(v.Accounts) != len(v.Commissionrates) {
-		log.Warn("mismatched data set dumped from autonity contract")
+		log.Warn("Mismatched data set dumped from autonity contract")
 		return
 	}
 
@@ -131,7 +131,7 @@ func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *s
 		rate := v.Commissionrates[i]
 		balance := stateDB.GetBalance(user)
 
-		log.Debug("user: ", "user", user, "userType: ", userType, "stake: ", stake, "rate: ", rate, "balance: ", balance)
+		log.Debug("Economic data retrieved", "user: ", user, "userType: ", userType, "stake: ", stake, "rate: ", rate, "balance: ", balance)
 
 		// generate metric ID.
 		stakeID, balanceID, commmissionRateID, err := em.generateUserMetricsID(user, userType)
@@ -151,7 +151,7 @@ func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *s
 
 func (em *EconomicMetrics) SubmitRewardDistributionMetrics(v *RewardDistributionMetaData, height uint64) {
 	if len(v.Holders) != len(v.Rewardfractions) {
-		log.Warn("reward fractions does not distribute to all stake holder.")
+		log.Warn("Reward fractions does not distribute to all stake holder.")
 		return
 	}
 

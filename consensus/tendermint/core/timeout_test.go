@@ -74,7 +74,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		engine := core{
 			logger:             logger,
 			backend:            mockBackend,
-			address:            currentValidator.Address(),
+			address:            currentValidator.GetAddress(),
 			backlogs:           make(map[validator.Validator]*prque.Prque),
 			currentRoundState:  currentState,
 			futureRoundsChange: make(map[int64]int64),
@@ -132,7 +132,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		engine := core{
 			logger:                       logger,
 			backend:                      mockBackend,
-			address:                      currentValidator.Address(),
+			address:                      currentValidator.GetAddress(),
 			backlogs:                     make(map[validator.Validator]*prque.Prque),
 			currentRoundState:            currentState,
 			currentHeightOldRoundsStates: make(map[int64]*roundState),
@@ -148,8 +148,8 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 			step:             msgPrecommit,
 		}
 
-		block := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})
-		mockBackend.EXPECT().LastCommittedProposal().Return(block, currentValidator.Address())
+		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(1)}})
+		mockBackend.EXPECT().LastCommittedProposal().Return(block, currentValidator.GetAddress())
 		engine.handleTimeoutPrecommit(context.Background(), timeoutEvent)
 
 		if engine.currentRoundState.height.Uint64() != 2 || engine.currentRoundState.round.Uint64() != 2 {
