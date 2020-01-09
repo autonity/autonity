@@ -456,6 +456,11 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 	return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr)
 }
 
+// Create creates a new contract using code as deployment code at the specified address.
+func (evm *EVM) CreateWithAddress(caller ContractRef, code []byte, gas uint64, value *big.Int, addr common.Address) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
+	return evm.create(caller, &codeAndHash{code: code}, gas, value, addr)
+}
+
 // Create2 creates a new contract using code as deployment code.
 //
 // The different between Create2 with Create is Create2 uses sha3(0xff ++ msg.sender ++ salt ++ sha3(init_code))[12:]

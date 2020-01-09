@@ -18,6 +18,11 @@ import (
 	"github.com/clearmatics/autonity/params"
 )
 
+var ErrAutonityContract = errors.New("could not call Autonity contract")
+var ErrWrongParameter = errors.New("wrong parameter")
+
+const ABISPEC = "ABISPEC"
+
 func NewAutonityContract(
 	bc Blockchainer,
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool,
@@ -39,6 +44,7 @@ type ChainContext interface {
 	// GetHeader returns the hash corresponding to their hash.
 	GetHeader(common.Hash, uint64) *types.Header
 }
+
 type Blockchainer interface {
 	ChainContext
 	GetVMConfig() *vm.Config
@@ -46,6 +52,9 @@ type Blockchainer interface {
 
 	UpdateEnodeWhitelist(newWhitelist *types.Nodes)
 	ReadEnodeWhitelist(openNetwork bool) *types.Nodes
+
+	PutKeyValue(key []byte, value []byte) error
+	GetKeyValue(key []byte) ([]byte, error)
 }
 
 type Contract struct {
@@ -81,7 +90,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	// pack the function which dump the data from contract.
 	input, err := ABI.Pack("dumpEconomicsMetricData")
 	if err != nil {
-		log.Warn("cannot pack the method: ", err.Error())
+		log.Warn("Cannot pack the method: ", err.Error())
 		return
 	}
 
@@ -107,6 +116,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	ac.metrics.SubmitEconomicMetrics(&v, stateDB, header.Number.Uint64(), ac.bc.Config().AutonityContractConfig.Operator)
 }
 
+/*
 //// Instantiates a new EVM object which is required when creating or calling a deployed contract
 func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
 	coinbase, _ := types.Ecrecover(header)
@@ -182,35 +192,17 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
 
 	return contractAddress, nil
-}
+}*/
 
 func (ac *Contract) ContractGetCommittee(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (types.Committee, error) {
 	if header.Number.Cmp(big.NewInt(1)) == 0 && ac.SavedCommitteeRetriever != nil {
 		return ac.SavedCommitteeRetriever(1)
 	}
-	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
-	gas := uint64(0xFFFFFFFF)
-	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
-	contractABI, err := ac.abi()
-	if err != nil {
-		return nil, err
-	}
-
-	input, err := contractABI.Pack("getValidators")
-	if err != nil {
-		return nil, err
-	}
-
-	value := new(big.Int).SetUint64(0x00)
-	//A standard call is issued - we leave the possibility to modify the state
-	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
-	if vmerr != nil {
-		return nil, vmerr
-	}
 
 	var addresses []common.Address
-	if err := contractABI.Unpack(&addresses, "getValidators", ret); err != nil { // can't work with aliased types
-		log.Error("Could not unpack getValidators returned value", "err", err)
+	err := ac.AutonityContractCall(statedb, header, "getValidators", &addresses)
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -224,12 +216,10 @@ func (ac *Contract) ContractGetCommittee(chain consensus.ChainReader, header *ty
 	return committee, nil
 }
 
-var ErrAutonityContract = errors.New("could not call Autonity contract")
-
 func (ac *Contract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
 	newWhitelist, err := ac.GetWhitelist(block, state)
 	if err != nil {
-		log.Error("could not call contract", "err", err)
+		log.Error("Could not call contract", "err", err)
 		return ErrAutonityContract
 	}
 
@@ -254,38 +244,6 @@ func (ac *Contract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.
 	return newWhitelist, err
 }
 
-func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
-	// Needs to be refactored somehow
-	deployer := ac.bc.Config().AutonityContractConfig.Deployer
-	sender := vm.AccountRef(deployer)
-	gas := uint64(0xFFFFFFFF)
-	evm := ac.getEVM(header, deployer, state)
-
-	ABI, err := ac.abi()
-	if err != nil {
-		return nil, err
-	}
-
-	input, err := ABI.Pack("getWhitelist")
-	if err != nil {
-		return nil, err
-	}
-
-	ret, _, vmerr := evm.StaticCall(sender, ac.Address(), input, gas)
-	if vmerr != nil {
-		log.Error("Error Autonity Contract getWhitelist()")
-		return nil, vmerr
-	}
-
-	var returnedEnodes []string
-	if err := ABI.Unpack(&returnedEnodes, "getWhitelist", ret); err != nil { // can't work with aliased types
-		log.Error("Could not unpack getWhitelist returned value")
-		return nil, err
-	}
-
-	return types.NewNodes(returnedEnodes, false), nil
-}
-
 func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (uint64, error) {
 	if block.Number().Uint64() <= 1 {
 		return ac.bc.Config().AutonityContractConfig.MinGasPrice, nil
@@ -302,117 +260,7 @@ func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, pr
 	return ac.callSetMinimumGasPrice(db, block.Header(), price)
 }
 
-func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.Header) (uint64, error) {
-	// Needs to be refactored somehow
-	deployer := ac.bc.Config().AutonityContractConfig.Deployer
-	sender := vm.AccountRef(deployer)
-	gas := uint64(0xFFFFFFFF)
-	evm := ac.getEVM(header, deployer, state)
-
-	ABI, err := ac.abi()
-	if err != nil {
-		return 0, err
-	}
-
-	input, err := ABI.Pack("getMinimumGasPrice")
-	if err != nil {
-		return 0, err
-	}
-
-	value := new(big.Int).SetUint64(0x00)
-	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
-	if vmerr != nil {
-		log.Error("Error Autonity Contract getMinimumGasPrice()")
-		return 0, vmerr
-	}
-
-	minGasPrice := new(big.Int)
-	if err := ABI.Unpack(&minGasPrice, "getMinimumGasPrice", ret); err != nil { // can't work with aliased types
-		log.Error("Could not unpack minGasPrice returned value", "err", err, "header.num", header.Number.Uint64())
-		return 0, err
-	}
-
-	return minGasPrice.Uint64(), nil
-}
-
-func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) error {
-	// Needs to be refactored somehow
-	deployer := ac.bc.Config().AutonityContractConfig.Deployer
-	sender := vm.AccountRef(deployer)
-	gas := uint64(0xFFFFFFFF)
-	evm := ac.getEVM(header, deployer, state)
-
-	ABI, err := ac.abi()
-	if err != nil {
-		return err
-	}
-
-	input, err := ABI.Pack("setMinimumGasPrice")
-	if err != nil {
-		return err
-	}
-
-	_, _, vmerr := evm.Call(sender, ac.Address(), input, gas, price)
-	if vmerr != nil {
-		log.Error("Error Autonity Contract getMinimumGasPrice()")
-		return vmerr
-	}
-	return nil
-}
-
-func (ac *Contract) PerformRedistribution(header *types.Header, db *state.StateDB, gasUsed *big.Int) error {
-	if header.Number.Uint64() <= 1 {
-		return nil
-	}
-	return ac.callPerformRedistribution(db, header, gasUsed)
-}
-
-func (ac *Contract) callPerformRedistribution(state *state.StateDB, header *types.Header, blockGas *big.Int) error {
-	// Needs to be refactored somehow
-	deployer := ac.bc.Config().AutonityContractConfig.Deployer
-
-	sender := vm.AccountRef(deployer)
-	gas := uint64(0xFFFFFFFF)
-	evm := ac.getEVM(header, deployer, state)
-
-	ABI, err := ac.abi()
-	if err != nil {
-		return err
-	}
-
-	input, err := ABI.Pack("performRedistribution", blockGas)
-	if err != nil {
-		log.Error("Error Autonity Contract callPerformRedistribution()", "err", err)
-		return err
-	}
-
-	value := new(big.Int).SetUint64(0x00)
-
-	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
-	if vmerr != nil {
-		log.Error("Error Autonity Contract callPerformRedistribution()", "err", err)
-		return vmerr
-	}
-
-	// after reward distribution, update metrics with the return values.
-	//v := RewardDistributionMetaData {true, make([]common.Address, 32), make([]*big.Int, 32), new(big.Int)}
-	v := RewardDistributionMetaData{}
-	v.Result = true
-	v.Holders = make([]common.Address, 32)
-	v.Rewardfractions = make([]*big.Int, 32)
-	v.Amount = new(big.Int)
-
-	if err := ABI.Unpack(&v, "performRedistribution", ret); err != nil { // can't work with aliased types
-		log.Error("Could not unpack performRedistribution returned value", "err", err, "header.num", header.Number.Uint64())
-		return nil
-	}
-
-	ac.metrics.SubmitRewardDistributionMetrics(&v, header.Number.Uint64())
-	return nil
-}
-
-func (ac *Contract) ApplyPerformRedistribution(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) error {
-	log.Info("ApplyPerformRedistribution", "header", header.Number.Uint64())
+func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) error {
 	if header.Number.Cmp(big.NewInt(1)) < 1 {
 		return nil
 	}
@@ -420,13 +268,68 @@ func (ac *Contract) ApplyPerformRedistribution(transactions types.Transactions, 
 	for i, tx := range transactions {
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
+	log.Info("ApplyFinalize", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
 
-	log.Info("execution start ApplyPerformRedistribution", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
-	if blockGas.Cmp(new(big.Int)) == 0 {
-		log.Info("execution start ApplyPerformRedistribution with 0 gas", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64())
+	if header.Number.Uint64() <= 1 {
 		return nil
 	}
-	return ac.PerformRedistribution(header, statedb, blockGas)
+
+	upgradeContract, err := ac.callFinalize(statedb, header, blockGas)
+	if err != nil {
+		return err
+	}
+
+	if upgradeContract {
+		// warning prints for failure rather than returning error to stuck engine.
+		// in any failure, the state will be rollback to snapshot.
+		err = ac.performContractUpgrade(statedb, header)
+		if err != nil {
+			log.Warn("Autonity Contract Upgrade Failed")
+		}
+	}
+
+	return nil
+}
+
+func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
+	log.Info("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
+
+	// dump contract stateBefore first.
+	stateBefore, errState := ac.callRetrieveState(statedb, header)
+	if errState != nil {
+		return errState
+	}
+
+	// get contract binary and abi set by system operator before.
+	bytecode, newAbi, errContract := ac.callRetrieveContract(statedb, header)
+	if errContract != nil {
+		return errContract
+	}
+
+	// take snapshot in case of roll back to former view.
+	snapshot := statedb.Snapshot()
+
+	//Create account will delete previous the AC stateobject and carry over the balance
+	statedb.CreateAccount(ac.Address())
+
+	if err := ac.UpdateAutonityContract(header, statedb, bytecode, newAbi, stateBefore); err != nil {
+		statedb.RevertToSnapshot(snapshot)
+		return err
+	}
+
+	// save new abi in persistent, once node reset, it load from persistent level db.
+	if err := ac.bc.PutKeyValue([]byte(ABISPEC), []byte(newAbi)); err != nil {
+		statedb.RevertToSnapshot(snapshot)
+		return err
+	}
+
+	// upgrade ac.ContractStateStore too right after the contract upgrade successfully.
+	if err := ac.upgradeAbiCache(newAbi); err != nil {
+		statedb.RevertToSnapshot(snapshot)
+		return err
+	}
+	log.Info("Autonity Contract upgrade success 🙌")
+	return nil
 }
 
 func (ac *Contract) Address() common.Address {
@@ -446,11 +349,29 @@ func (ac *Contract) abi() (*abi.ABI, error) {
 	if ac.contractABI != nil {
 		return ac.contractABI, nil
 	}
-	ABI, err := abi.JSON(strings.NewReader(ac.bc.Config().AutonityContractConfig.ABI))
+	var JSONString = ac.bc.Config().AutonityContractConfig.ABI
+
+	bytes, err := ac.bc.GetKeyValue([]byte(ABISPEC))
+	if err == nil || bytes != nil {
+		JSONString = string(bytes)
+	}
+
+	ABI, err := abi.JSON(strings.NewReader(JSONString))
 	if err != nil {
 		return nil, err
 	}
 	ac.contractABI = &ABI
 	return ac.contractABI, nil
+}
 
+func (ac *Contract) upgradeAbiCache(newAbi string) error {
+	ac.Lock()
+	defer ac.Unlock()
+	newABI, err := abi.JSON(strings.NewReader(newAbi))
+	if err != nil {
+		return err
+	}
+
+	ac.contractABI = &newABI
+	return nil
 }
