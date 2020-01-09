@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/contracts/autonity/rpcclient"
 	"github.com/clearmatics/autonity/ethclient"
 	"math"
 	"math/big"
@@ -656,7 +655,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 			auth.GasPrice = gasPrice
 
 			contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
-			instance, err := rpcclient.NewAutonity(contractAddress, conn)
+			instance, err := NewAutonity(contractAddress, conn)
 			if err != nil {
 				t.Fatal(err)
 			}
