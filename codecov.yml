@@ -1,5 +1,6 @@
 ignore:
   - "**/*_mock.go"  # ignore mock files
+  - "**/*_gen.go"  # ignore gen files
 coverage:
   status:
     project:
