@@ -609,7 +609,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			validatorList, err := validators[4].service.BlockChain().GetAutonityContract().ContractGetValidators(
+			validatorList, err := validators[4].service.BlockChain().GetAutonityContract().ContractGetCommittee(
 				validators[4].service.BlockChain(),
 				validators[4].service.BlockChain().CurrentHeader(),
 				stateDB,
@@ -619,7 +619,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 			}
 			validatorListStr := []string{}
 			for _, v := range validatorList {
-				validatorListStr = append(validatorListStr, v.String())
+				validatorListStr = append(validatorListStr, v.Address.String())
 			}
 
 			if len(validatorsListGenesis) <= len(validatorListStr) {
