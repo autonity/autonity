@@ -367,7 +367,7 @@ func (pool *serverPool) eventLoop() {
 		case req := <-pool.connCh:
 			if pool.trustedNodes[req.p.ID()] != nil {
 				// ignore trusted nodes
-				req.result <- nil
+				req.result <- &poolEntry{trusted: true}
 			} else {
 				// Handle peer connection requests.
 				entry := pool.entries[req.p.ID()]
