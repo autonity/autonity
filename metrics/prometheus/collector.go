@@ -97,6 +97,7 @@ func (c *collector) addResettingTimer(name string, m metrics.ResettingTimer) {
 
 func (c *collector) writeGaugeCounter(name string, value interface{}) {
 	name = mutateKey(name)
+	c.buff.WriteString(fmt.Sprintf(typeGaugeTpl, name))
 	c.buff.WriteString(fmt.Sprintf(keyValueTpl, name, value))
 }
 
@@ -108,7 +109,6 @@ func (c *collector) writeSummaryCounter(name string, value interface{}) {
 
 func (c *collector) writeSummaryPercentile(name, p string, value interface{}) {
 	name = mutateKey(name)
-	c.buff.WriteString(fmt.Sprintf(typeSummaryTpl, name))
 	c.buff.WriteString(fmt.Sprintf(keyQuantileTagValueTpl, name, p, value))
 }
 
