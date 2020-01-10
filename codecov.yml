@@ -6,9 +6,6 @@ coverage:
       default:
         target: 50%
         threshold: null
-      tendermint:
-        flags: tendermint
-        target: 65%
 flags:
   tendermint:
     paths:
