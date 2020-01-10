@@ -45,6 +45,7 @@ type testNode struct {
 	lastBlock      uint64
 	txsSendCount   *int64
 	txsChainCount  map[uint64]int64
+	isMalicious	   bool
 }
 
 type block struct {

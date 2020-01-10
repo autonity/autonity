@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -73,7 +74,7 @@ func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey
 		types.HomesteadSigner{}, key)
 }
 
-func makeGenesis(validators []*testNode) *core.Genesis {
+func makeGenesis(validators map[string]*testNode) *core.Genesis {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.ExtraData = nil
@@ -96,24 +97,14 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 		}
 	}
 
-	validatorsAddresses := make([]common.Address, len(validators))
-	for i, validator := range validators {
-		validatorsAddresses[i] = crypto.PubkeyToAddress(validator.privateKey.PublicKey)
-	}
-
-	enodes := make([]string, len(validators))
-	for i, validator := range validators {
-		enodes[i] = validator.url
-	}
-
-	users := make([]params.User, len(validators))
-	for i := range validators {
-		users[i] = params.User{
-			Address: validatorsAddresses[i],
-			Enode:   enodes[i],
+	users := make([]params.User,0, len(validators))
+	for _, validator:= range validators {
+		users = append(users, params.User{
+			Address: crypto.PubkeyToAddress(validator.privateKey.PublicKey),
+			Enode:   validator.url,
 			Type:    params.UserValidator,
 			Stake:   100,
-		}
+		})
 	}
 	//generate one sh
 	shKey, err := crypto.GenerateKey()
@@ -126,6 +117,7 @@ func makeGenesis(validators []*testNode) *core.Genesis {
 		Stake:   200,
 	})
 	genesis.Config.AutonityContractConfig.Users = users
+	spew.Dump(users)
 	err = genesis.Config.AutonityContractConfig.AddDefault().Validate()
 	if err != nil {
 		panic(err)
@@ -194,19 +186,19 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 	return stack, nil
 }
 
-func maliciousTest(t *testing.T, test *testCase, validators []*testNode) {
+func maliciousTest(t *testing.T, test *testCase, validators map[string]*testNode) {
 	for index, validator := range validators {
 		for number, block := range validator.blocks {
 			if test.addedValidatorsBlocks != nil {
 				if maliciousBlock, ok := test.addedValidatorsBlocks[block.hash]; ok {
-					t.Errorf("a malicious block %d(%v)\nwas added to %d(%v)", number, maliciousBlock, index, validator)
+					t.Errorf("a malicious block %d(%v)\nwas added to %s(%v)", number, maliciousBlock, index, validator)
 				}
 			}
 		}
 	}
 }
 
-func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
+func sendTransactions(t *testing.T, test *testCase, validators map[string]*testNode, txPerPeer int, errorOnTx bool, names []string) {
 	const blocksToWait = 15
 
 	txs := make(map[uint64]int) // blockNumber to count
@@ -286,7 +278,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 						if int(validator.lastBlock) <= test.numBlocks {
 							for i := 0; i < txPerPeer; i++ {
-								nextValidatorIndex := (index + i + 1) % len(validators)
+								nextValidatorIndex := names[(sort.SearchStrings(names, index) + i + 1) % len(names)]
 								toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
 								var tx *types.Transaction
 								var innerErr error
@@ -368,7 +360,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 
 								if validator.wasStopped {
 									//fixme an error should be returned
-									logger.Error("test error!!!", "err", fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
+									logger.Error("test error!!!", "err", fmt.Errorf("a validator %s still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
 										index,
 										pendingTransactions, ev.Block.Number().Uint64(),
 										atomic.LoadInt64(validator.txsSendCount), txsChainCount))
@@ -377,7 +369,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 										atomic.AddInt64(test.validatorsCanBeStopped, 1)
 									}
 								} else {
-									return fmt.Errorf("a validator %d still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
+									return fmt.Errorf("a validator %s still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
 										index,
 										pendingTransactions, ev.Block.Number().Uint64(),
 										atomic.LoadInt64(validator.txsSendCount), txsChainCount)
@@ -437,7 +429,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	fmt.Println("\nPending transactions")
 	for index, validator := range validators {
 		validator.transactionsMu.Lock()
-		fmt.Printf("Validator %d has %d transactions\n", index, len(validator.transactions))
+		fmt.Printf("Validator %s has %d transactions\n", index, len(validator.transactions))
 		validator.transactionsMu.Unlock()
 	}
 	if err != nil {
@@ -448,12 +440,12 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 	if test.noQuorumAfterBlock > 0 {
 		for index, validator := range validators {
 			if validator.lastBlock < test.noQuorumAfterBlock-1 {
-				t.Fatalf("validator [%d] should have mined blocks. expected block number %d, but got %d",
+				t.Fatalf("validator [%s] should have mined blocks. expected block number %d, but got %d",
 					index, test.noQuorumAfterBlock-1, validator.lastBlock)
 			}
 
 			if validator.lastBlock > test.noQuorumAfterBlock {
-				t.Fatalf("validator [%d] mined blocks without quorum. expected block number %d, but got %d",
+				t.Fatalf("validator [%s] mined blocks without quorum. expected block number %d, but got %d",
 					index, test.noQuorumAfterBlock, validator.lastBlock)
 			}
 		}
@@ -483,32 +475,36 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 		}
 
 		if validatorBlock < uint64(test.numBlocks) {
-			t.Fatalf("a validator is behind the network index %d and block %v - expected %d",
+			t.Fatalf("a validator is behind the network index %s and block %v - expected %d",
 				index, validatorBlock, test.numBlocks)
 		}
 	}
 
 	// check that all nodes got the same blocks
 	for i := 1; i <= minHeight; i++ {
-		blockHash := validators[0].blocks[uint64(i)].hash
+		blockHash := validators["A"].blocks[uint64(i)].hash
 
-		for index, validator := range validators[1:] {
+		for index, validator := range validators {
+			if validator.isMalicious {
+				continue
+			}
+
 			if len(test.maliciousPeers) != 0 {
-				if _, ok := test.maliciousPeers[index+1]; ok {
+				if _, ok := test.maliciousPeers[index]; ok {
 					// don't check chain for malicious peers
 					continue
 				}
 			}
 			if validator.blocks[uint64(i)].hash != blockHash {
-				t.Fatalf("validators %d and %d have different blocks %d - %q vs %s",
-					0, index+1, i, validator.blocks[uint64(i)].hash.String(), blockHash.String())
+				t.Fatalf("validators %d and %s have different blocks %d - %q vs %s",
+					0, index, i, validator.blocks[uint64(i)].hash.String(), blockHash.String())
 			}
 		}
 	}
 	fmt.Println("\nTransactions OK")
 }
 
-func hasQuorum(validators []*testNode) bool {
+func hasQuorum(validators map[string]*testNode) bool {
 	active := 0
 	for _, val := range validators {
 		if val.isRunning {
@@ -522,21 +518,21 @@ func quorum(valCount, activeVals int) bool {
 	return float64(activeVals) >= math.Ceil(float64(2)/float64(3)*float64(valCount))
 }
 
-func runHook(validatorHook hook, test *testCase, block *types.Block, validator *testNode, index int) error {
+func runHook(validatorHook hook, test *testCase, block *types.Block, validator *testNode, index string) error {
 	if validatorHook == nil {
 		return nil
 	}
 
 	err := validatorHook(block, validator, test, time.Now())
 	if err != nil {
-		return fmt.Errorf("error while executing before hook for validator index %d and block %v, err %v",
+		return fmt.Errorf("error while executing before hook for validator index %s and block %v, err %v",
 			index, block.NumberU64(), err)
 	}
 
 	return nil
 }
 
-func hookStopNode(nodeIndex int, blockNum uint64) hook {
+func hookStopNode(nodeIndex string, blockNum uint64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		if block.Number().Uint64() == blockNum {
 			err := validator.stopNode()
@@ -551,7 +547,7 @@ func hookStopNode(nodeIndex int, blockNum uint64) hook {
 	}
 }
 
-func hookForceStopNode(nodeIndex int, blockNum uint64) hook {
+func hookForceStopNode(nodeIndex string, blockNum uint64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		if block.Number().Uint64() == blockNum {
 			err := validator.forceStopNode()
@@ -564,7 +560,7 @@ func hookForceStopNode(nodeIndex int, blockNum uint64) hook {
 	}
 }
 
-func hookStartNode(nodeIndex int, durationAfterStop float64) hook {
+func hookStartNode(nodeIndex string, durationAfterStop float64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		stopTime := tCase.getStopTime(nodeIndex)
 		if block == nil && currentTime.Sub(stopTime).Seconds() >= durationAfterStop {

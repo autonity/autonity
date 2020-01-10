@@ -33,23 +33,23 @@ type testCase struct {
 	txPerPeer              int
 	validatorsCanBeStopped *int64
 
-	maliciousPeers          map[int]injectors
+	maliciousPeers          map[string]injectors
 	removedPeers            map[common.Address]uint64
 	addedValidatorsBlocks   map[common.Hash]uint64
 	removedValidatorsBlocks map[common.Hash]uint64 //nolint: unused, structcheck
 	changedValidators       tendermintCore.Changes //nolint: unused,structcheck
 
-	networkRates         map[int]networkRate //map[validatorIndex]networkRate
-	beforeHooks          map[int]hook        //map[validatorIndex]beforeHook
-	afterHooks           map[int]hook        //map[validatorIndex]afterHook
-	sendTransactionHooks map[int]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)
-	finalAssert          func(t *testing.T, validators []*testNode)
-	stopTime             map[int]time.Time
+	networkRates         map[string]networkRate //map[validatorIndex]networkRate
+	beforeHooks          map[string]hook        //map[validatorIndex]beforeHook
+	afterHooks           map[string]hook        //map[validatorIndex]afterHook
+	sendTransactionHooks map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)
+	finalAssert          func(t *testing.T, validators map[string]*testNode)
+	stopTime             map[string]time.Time
 	genesisHook          func(g *core.Genesis) *core.Genesis
 	mu                   sync.RWMutex
 	noQuorumAfterBlock   uint64
 	noQuorumTimeout      time.Duration
-	Topology
+	topology 			 *Topology
 }
 
 type injectors struct {
@@ -57,7 +57,7 @@ type injectors struct {
 	backs func(basic tendermintCore.Backend) tendermintCore.Backend
 }
 
-func (test *testCase) getBeforeHook(index int) hook {
+func (test *testCase) getBeforeHook(index string) hook {
 	test.mu.Lock()
 	defer test.mu.Unlock()
 
@@ -73,7 +73,7 @@ func (test *testCase) getBeforeHook(index int) hook {
 	return validatorHook
 }
 
-func (test *testCase) getAfterHook(index int) hook {
+func (test *testCase) getAfterHook(index string) hook {
 	test.mu.Lock()
 	defer test.mu.Unlock()
 
@@ -89,13 +89,13 @@ func (test *testCase) getAfterHook(index int) hook {
 	return validatorHook
 }
 
-func (test *testCase) setStopTime(index int, stopTime time.Time) {
+func (test *testCase) setStopTime(index string, stopTime time.Time) {
 	test.mu.Lock()
 	test.stopTime[index] = stopTime
 	test.mu.Unlock()
 }
 
-func (test *testCase) getStopTime(index int) time.Time {
+func (test *testCase) getStopTime(index string) time.Time {
 	test.mu.RLock()
 	currentTime := test.stopTime[index]
 	test.mu.RUnlock()
@@ -118,12 +118,17 @@ func runTest(t *testing.T, test *testCase) {
 		t.Log("can't rise file description limit. errors are possible")
 	}
 
+	nodeNames:=getNodeNames()[:test.numValidators]
+	if test.topology!=nil {
+		test.numValidators=len(test.topology.graph.GetNames())
+		nodeNames=test.topology.graph.GetNames()
+	}
 	// Generate a batch of accounts to seal and fund with
-	validators := make([]*testNode, test.numValidators)
+	validators := make(map[string]*testNode, test.numValidators)
 
-	for i := range validators {
-		validators[i] = new(testNode)
-		validators[i].privateKey, err = crypto.GenerateKey()
+	for i:=0; i<test.numValidators; i++ {
+		validators[nodeNames[i]] = new(testNode)
+		validators[nodeNames[i]].privateKey, err = crypto.GenerateKey()
 		if err != nil {
 			t.Fatal("cant make pk", err)
 		}
@@ -188,7 +193,7 @@ func runTest(t *testing.T, test *testCase) {
 
 		rates := test.networkRates[i]
 
-		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, validator.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor) //делаем валидатор. Он просит переменную, которая типа функция engineConstructor
+		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, validator.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor)
 		if err != nil {
 			t.Fatal("cant make a validator", i, err)
 		}
@@ -272,7 +277,7 @@ func runTest(t *testing.T, test *testCase) {
 	}()
 
 	// each peer sends one tx per block
-	sendTransactions(t, test, validators, test.txPerPeer, true)
+	sendTransactions(t, test, validators, test.txPerPeer, true, nodeNames)
 	if test.finalAssert != nil {
 		test.finalAssert(t, validators)
 	}
@@ -289,4 +294,10 @@ type Topology struct {
 
 func (tp *Topology) Connect(peers []*testNode)  {
 
+}
+
+func getNodeNames() []string {
+	return []string{
+		"A","B","C","D","E","F","G","H","I","J","K",
+	}
 }

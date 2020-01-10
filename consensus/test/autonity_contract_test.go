@@ -1,5 +1,7 @@
 package test
 
+
+/*
 import (
 	"context"
 	"fmt"
@@ -330,3 +332,5 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 	}
 	runTest(t, testCase)
 }
+
+*/
