@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -14,6 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -97,8 +98,8 @@ func makeGenesis(validators map[string]*testNode) *core.Genesis {
 		}
 	}
 
-	users := make([]params.User,0, len(validators))
-	for _, validator:= range validators {
+	users := make([]params.User, 0, len(validators))
+	for _, validator := range validators {
 		users = append(users, params.User{
 			Address: crypto.PubkeyToAddress(validator.privateKey.PublicKey),
 			Enode:   validator.url,
@@ -278,7 +279,7 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 
 						if int(validator.lastBlock) <= test.numBlocks {
 							for i := 0; i < txPerPeer; i++ {
-								nextValidatorIndex := names[(sort.SearchStrings(names, index) + i + 1) % len(names)]
+								nextValidatorIndex := names[(sort.SearchStrings(names, index)+i+1)%len(names)]
 								toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
 								var tx *types.Transaction
 								var innerErr error

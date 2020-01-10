@@ -2,7 +2,6 @@ package test
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/common/graph"
 	"net"
 	"os"
 	"strconv"
@@ -10,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/common/graph"
 
 	"github.com/clearmatics/autonity/common/fdlimit"
 	"github.com/clearmatics/autonity/consensus"
@@ -49,7 +50,7 @@ type testCase struct {
 	mu                   sync.RWMutex
 	noQuorumAfterBlock   uint64
 	noQuorumTimeout      time.Duration
-	topology 			 *Topology
+	topology             *Topology
 }
 
 type injectors struct {
@@ -118,15 +119,15 @@ func runTest(t *testing.T, test *testCase) {
 		t.Log("can't rise file description limit. errors are possible")
 	}
 
-	nodeNames:=getNodeNames()[:test.numValidators]
-	if test.topology!=nil {
-		test.numValidators=len(test.topology.graph.GetNames())
-		nodeNames=test.topology.graph.GetNames()
+	nodeNames := getNodeNames()[:test.numValidators]
+	if test.topology != nil {
+		test.numValidators = len(test.topology.graph.GetNames())
+		nodeNames = test.topology.graph.GetNames()
 	}
 	// Generate a batch of accounts to seal and fund with
 	validators := make(map[string]*testNode, test.numValidators)
 
-	for i:=0; i<test.numValidators; i++ {
+	for i := 0; i < test.numValidators; i++ {
 		validators[nodeNames[i]] = new(testNode)
 		validators[nodeNames[i]].privateKey, err = crypto.GenerateKey()
 		if err != nil {
@@ -288,16 +289,16 @@ func runTest(t *testing.T, test *testCase) {
 }
 
 type Topology struct {
-	File string
+	File  string
 	graph graph.Graph
 }
 
-func (tp *Topology) Connect(peers []*testNode)  {
+func (tp *Topology) Connect(peers []*testNode) {
 
 }
 
 func getNodeNames() []string {
 	return []string{
-		"A","B","C","D","E","F","G","H","I","J","K",
+		"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K",
 	}
 }
