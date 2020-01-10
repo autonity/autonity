@@ -32,8 +32,8 @@ def generate_genesis(addresses: List[str], enodes: List[str]):
                 "block-period": 1,
             },
             "autonityContract": {
-                "deployer": "0x0000000000000000000000000000000000000002",
-                "bytecode": "",
+                "deployer": "",
+                "bytecode": "",  # use default bin and abi from client side.
                 "abi": "",
                 "minGasPrice": 5000,
                 "users": [],
@@ -56,6 +56,8 @@ def generate_genesis(addresses: List[str], enodes: List[str]):
     starting_balance = "0x000000000000000000100000000000000000000000000000000000000000000"
     genesis["alloc"] = {}
     genesis["validators"] = []
+    # let operator and deployer to be the same account.
+    genesis["config"]["autonityContract"]["deployer"] = f"0x{addresses[0]}"
     genesis["config"]["autonityContract"]["governanceOperator"] = f"0x{addresses[0]}"
 
     for i in range(0, len(addresses)):
@@ -209,6 +211,7 @@ def deploy_clients():
     global node_count
     global autonity_path
     global bootnode_path
+    global addresses
     print("----------------------------------------------------")
     print("Autonity Local Network Deployment Utility")
     print("All rights reserved - Clearmatics Technologies Ltd.")
@@ -216,7 +219,7 @@ def deploy_clients():
 
     try:
         parser = argparse.ArgumentParser()
-        parser.add_argument("autonity", help='Autonity Binary Path')
+        parser.add_argument("autonity", help='Autonity Binary Path', type=str, default='../../build/bin/autonity')
         parser.add_argument("-n", help='Number of nodes', type=int, default=4)
         parser.add_argument("-r", help='Restart All', action="store_true")
         parser.add_argument("-o", help='Restart All except', type=int)
@@ -278,15 +281,16 @@ def deploy_clients():
 
 
 def get_http_end_point():
-    return ""
+    return "http://127.0.0.1:6000"
 
 
-def get_contract_abi():
-    return ""
-
-
-def get_contract_bin():
-    return ""
+# to do compile autontiy contract from solidity.
+def compile_contract():
+    contract_file = "../autonity/contract/contracts/Autonity.sol"
+    print("compile contract: {}", contract_file)
+    bin = ""
+    abi = ""
+    return bin, abi
 
 
 def get_autonity_contract_address():
@@ -294,11 +298,11 @@ def get_autonity_contract_address():
 
 
 def get_system_operator_account():
-    return ""
+    return f"0x{addresses[0]}"
 
 
 def get_system_deployer_account():
-    return ""
+    return f"0x{addresses[0]}"
 
 
 def run_tests():
@@ -313,7 +317,7 @@ def run_tests():
     try:
         # construct contract object.
         addr = get_autonity_contract_address()
-        abi = get_contract_abi()
+        byte_code, abi = compile_contract()
         autonity_contract = w3_obj.eth.contract(address=addr, abi=abi)
     except Exception as e:
         print("cannot create contract object from client. {}", e)
@@ -326,7 +330,6 @@ def run_tests():
     print("gas price is {}", gas_price)
 
     # test upgrade contract with same version of bin and abi.
-    byte_code = get_contract_bin()
     operator_account = get_system_deployer_account()
     result = autonity_contract.functions.upgradeContract(byte_code, abi).call({'from': operator_account})
     if result is False:
