@@ -5,7 +5,10 @@ import subprocess
 import re
 import os
 import json
+from time import sleep
+
 from web3.auto import w3
+from web3 import Web3
 from typing import List
 
 
@@ -274,8 +277,73 @@ def deploy_clients():
         raise e
 
 
+def get_http_end_point():
+    return ""
+
+
+def get_contract_abi():
+    return ""
+
+
+def get_contract_bin():
+    return ""
+
+
+def get_autonity_contract_address():
+    return ""
+
+
+def get_system_operator_account():
+    return ""
+
+
+def get_system_deployer_account():
+    return ""
+
+
 def run_tests():
-    return
+    try:
+        # connect to node.
+        end_point = get_http_end_point()
+        w3_obj = Web3(Web3.HTTPProvider(end_point, request_kwargs={'timeout': 60}))
+    except Exception as e:
+        print("cannot connect to endpoint. {}", e)
+        raise e
+
+    try:
+        # construct contract object.
+        addr = get_autonity_contract_address()
+        abi = get_contract_abi()
+        autonity_contract = w3_obj.eth.contract(address=addr, abi=abi)
+    except Exception as e:
+        print("cannot create contract object from client. {}", e)
+        raise e
+    # get chain height before test
+    start_at_block = w3_obj.eth.getBlock("latest")
+    print("test started at block height: {}", start_at_block['number'])
+    # get gas price.
+    gas_price = w3_obj.eth.gasPrice
+    print("gas price is {}", gas_price)
+
+    # test upgrade contract with same version of bin and abi.
+    byte_code = get_contract_bin()
+    operator_account = get_system_deployer_account()
+    result = autonity_contract.functions.upgradeContract(byte_code, abi).call({'from': operator_account})
+    if result is False:
+        raise Exception("cannot upgrade contract.")
+
+    # get chain height after contract upgrade
+    end_at_block = w3_obj.eth.getBlock("latest")
+    print("test end at block height: {}", end_at_block['number'])
+    if end_at_block['number'] == start_at_block['number']:
+        raise Exception("chain on hold?")
+
+    # check if contract was upgraded successfully.
+    sleep(5)
+    _byte_code, _abi = autonity_contract.functions.retrieveContract().call({'from': operator_account})
+    if _byte_code == byte_code:
+        print("new contract does not apply by autonity.")
+        raise Exception("Contract does not applied by autonity.")
 
 
 if __name__ == "__main__":
