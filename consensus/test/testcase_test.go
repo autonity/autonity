@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/common/graph"
 	"net"
 	"os"
 	"strconv"
@@ -27,7 +28,7 @@ import (
 type testCase struct {
 	name                   string
 	isSkipped              bool
-	numPeers               int
+	numValidators          int
 	numBlocks              int
 	txPerPeer              int
 	validatorsCanBeStopped *int64
@@ -48,6 +49,7 @@ type testCase struct {
 	mu                   sync.RWMutex
 	noQuorumAfterBlock   uint64
 	noQuorumTimeout      time.Duration
+	Topology
 }
 
 type injectors struct {
@@ -111,13 +113,13 @@ func runTest(t *testing.T, test *testCase) {
 	defer goleak.VerifyNone(t)
 
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-	_, err := fdlimit.Raise(512 * uint64(test.numPeers))
+	_, err := fdlimit.Raise(512 * uint64(test.numValidators))
 	if err != nil {
 		t.Log("can't rise file description limit. errors are possible")
 	}
 
 	// Generate a batch of accounts to seal and fund with
-	validators := make([]*testNode, test.numPeers)
+	validators := make([]*testNode, test.numValidators)
 
 	for i := range validators {
 		validators[i] = new(testNode)
@@ -278,4 +280,13 @@ func runTest(t *testing.T, test *testCase) {
 	if len(test.maliciousPeers) != 0 {
 		maliciousTest(t, test, validators)
 	}
+}
+
+type Topology struct {
+	File string
+	graph graph.Graph
+}
+
+func (tp *Topology) Connect(peers []*testNode)  {
+
 }

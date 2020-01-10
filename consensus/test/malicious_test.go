@@ -19,10 +19,10 @@ func TestTendermintOneMalicious(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name:      "replace a valid validator with invalid one",
-			numPeers:  5,
-			numBlocks: 10,
-			txPerPeer: 1,
+			name:          "replace a valid validator with invalid one",
+			numValidators: 5,
+			numBlocks:     10,
+			txPerPeer:     1,
 			maliciousPeers: map[int]injectors{
 				4: {
 					cons: func(basic consensus.Engine) consensus.Engine {
@@ -38,10 +38,10 @@ func TestTendermintOneMalicious(t *testing.T) {
 			changedValidators:       changedValidators,
 		},
 		{
-			name:      "add a validator",
-			numPeers:  5,
-			numBlocks: 10,
-			txPerPeer: 1,
+			name:          "add a validator",
+			numValidators: 5,
+			numBlocks:     10,
+			txPerPeer:     1,
 			maliciousPeers: map[int]injectors{
 				4: {
 					cons: func(basic consensus.Engine) consensus.Engine {
@@ -57,10 +57,10 @@ func TestTendermintOneMalicious(t *testing.T) {
 			changedValidators:       changedValidators,
 		},
 		{
-			name:      "remove a validator",
-			numPeers:  5,
-			numBlocks: 10,
-			txPerPeer: 1,
+			name:          "remove a validator",
+			numValidators: 5,
+			numBlocks:     10,
+			txPerPeer:     1,
 			maliciousPeers: map[int]injectors{
 				4: {
 					cons: func(basic consensus.Engine) consensus.Engine {

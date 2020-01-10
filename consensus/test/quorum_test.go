@@ -14,7 +14,7 @@ func TestTendermintNoQuorum(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:               "2 validators, one goes down after block 3",
-			numPeers:           2,
+			numValidators:      2,
 			numBlocks:          5,
 			txPerPeer:          1,
 			noQuorumAfterBlock: 3,
@@ -25,7 +25,7 @@ func TestTendermintNoQuorum(t *testing.T) {
 		},
 		{
 			name:               "3 validators, two go down after block 3",
-			numPeers:           3,
+			numValidators:      3,
 			numBlocks:          5,
 			txPerPeer:          1,
 			noQuorumAfterBlock: 3,

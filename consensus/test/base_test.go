@@ -18,10 +18,10 @@ func TestTendermintSuccess(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name:      "no malicious",
-			numPeers:  5,
-			numBlocks: 5,
-			txPerPeer: 1,
+			name:          "no malicious",
+			numValidators: 5,
+			numBlocks:     5,
+			txPerPeer:     1,
 		},
 	}
 
@@ -40,19 +40,19 @@ func TestTendermintSlowConnections(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name:      "no malicious, one slow node",
-			numPeers:  5,
-			numBlocks: 5,
-			txPerPeer: 1,
+			name:          "no malicious, one slow node",
+			numValidators: 5,
+			numBlocks:     5,
+			txPerPeer:     1,
 			networkRates: map[int]networkRate{
 				4: {50 * 1024, 50 * 1024},
 			},
 		},
 		{
-			name:      "no malicious, all nodes are slow",
-			numPeers:  5,
-			numBlocks: 5,
-			txPerPeer: 1,
+			name:          "no malicious, all nodes are slow",
+			numValidators: 5,
+			numBlocks:     5,
+			txPerPeer:     1,
 			networkRates: map[int]networkRate{
 				0: {50 * 1024, 50 * 1024},
 				1: {50 * 1024, 50 * 1024},
@@ -89,17 +89,17 @@ func TestTendermintMemoryLeak(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name:      "5 nodes, 10 blocks, 30 tx per peer per block",
-			numPeers:  5,
-			numBlocks: 10,
-			txPerPeer: 30,
+			name:          "5 nodes, 10 blocks, 30 tx per peer per block",
+			numValidators: 5,
+			numBlocks:     10,
+			txPerPeer:     30,
 		},
 
 		{
-			name:      "10 nodes, 40 blocks, 20 tx per peer per block",
-			numPeers:  10,
-			numBlocks: 40,
-			txPerPeer: 20,
+			name:          "10 nodes, 40 blocks, 20 tx per peer per block",
+			numValidators: 10,
+			numBlocks:     40,
+			txPerPeer:     20,
 		},
 	}
 
@@ -149,16 +149,16 @@ func TestTendermintLongRun(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name:      "no malicious - 30 tx per second",
-			numPeers:  5,
-			numBlocks: 10,
-			txPerPeer: 30,
+			name:          "no malicious - 30 tx per second",
+			numValidators: 5,
+			numBlocks:     10,
+			txPerPeer:     30,
 		},
 		{
-			name:      "no malicious - 100 blocks",
-			numPeers:  5,
-			numBlocks: 100,
-			txPerPeer: 5,
+			name:          "no malicious - 100 blocks",
+			numValidators: 5,
+			numBlocks:     100,
+			txPerPeer:     5,
 		},
 	}
 
@@ -176,10 +176,10 @@ func TestTendermintTC7(t *testing.T) {
 	}
 
 	test := &testCase{
-		name:      "3 nodes stop, 1 recover and sync blocks and state",
-		numPeers:  6,
-		numBlocks: 40,
-		txPerPeer: 1,
+		name:          "3 nodes stop, 1 recover and sync blocks and state",
+		numValidators: 6,
+		numBlocks:     40,
+		txPerPeer:     1,
 		beforeHooks: map[int]hook{
 			3: hookStopNode(3, 10),
 			4: hookStopNode(4, 15),

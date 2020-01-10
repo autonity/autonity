@@ -75,10 +75,10 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 	case3Before, case3After := hookGenerator()
 	cases := []*testCase{
 		{
-			name:      "no malicious - 1 tx per second",
-			numPeers:  5,
-			numBlocks: 5,
-			txPerPeer: 1,
+			name:          "no malicious - 1 tx per second",
+			numValidators: 5,
+			numBlocks:     5,
+			txPerPeer:     1,
 			beforeHooks: map[int]hook{
 				3: case1Before,
 			},
@@ -87,10 +87,10 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 			},
 		},
 		{
-			name:      "no malicious - 10 tx per second",
-			numPeers:  6,
-			numBlocks: 10,
-			txPerPeer: 10,
+			name:          "no malicious - 10 tx per second",
+			numValidators: 6,
+			numBlocks:     10,
+			txPerPeer:     10,
 			beforeHooks: map[int]hook{
 				5: case2Before,
 			},
@@ -99,10 +99,10 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 			},
 		},
 		{
-			name:      "no malicious - 5 tx per second 4 peers",
-			numPeers:  4,
-			numBlocks: 5,
-			txPerPeer: 5,
+			name:          "no malicious - 5 tx per second 4 peers",
+			numValidators: 4,
+			numBlocks:     5,
+			txPerPeer:     5,
 			beforeHooks: map[int]hook{
 				1: case3Before,
 			},
@@ -160,10 +160,10 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 	case1Before, case1After := hookGenerator()
 	cases := []*testCase{
 		{
-			name:      "no malicious - 1 tx per second",
-			numPeers:  5,
-			numBlocks: 5,
-			txPerPeer: 3,
+			name:          "no malicious - 1 tx per second",
+			numValidators: 5,
+			numBlocks:     5,
+			txPerPeer:     3,
 			sendTransactionHooks: map[int]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
 				3: func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) { //nolint
 					nonce := validator.service.TxPool().Nonce(fromAddr)
@@ -243,7 +243,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 	testCase := &testCase{
 		name:                 "no malicious - 1 tx per second",
-		numPeers:             5,
+		numValidators:        5,
 		numBlocks:            10,
 		txPerPeer:            1,
 		removedPeers:         make(map[common.Address]uint64),
