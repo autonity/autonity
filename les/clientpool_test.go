@@ -22,6 +22,7 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -71,10 +72,21 @@ func (i poolTestPeer) updateCapacity(uint64) {}
 type poolTestPeerWithCap struct {
 	poolTestPeer
 
-	cap uint64
+	cap   uint64
+	capMu sync.Mutex
 }
 
-func (i *poolTestPeerWithCap) updateCapacity(cap uint64) { i.cap = cap }
+func (i *poolTestPeerWithCap) updateCapacity(cap uint64) {
+	i.capMu.Lock()
+	defer i.capMu.Unlock()
+	i.cap = cap
+}
+
+func (i *poolTestPeerWithCap) getCap() uint64 {
+	i.capMu.Lock()
+	defer i.capMu.Unlock()
+	return i.cap
+}
 
 func (i poolTestPeer) freezeClient() {}
 
@@ -379,14 +391,14 @@ func TestDowngradePriorityClient(t *testing.T) {
 	}
 	pool.addBalance(p.ID(), int64(time.Minute), "")
 	pool.connect(p, 10)
-	if p.cap != 10 {
+	if p.getCap() != 10 {
 		t.Fatalf("The capcacity of priority peer hasn't been updated, got: %d", p.cap)
 	}
 
 	clock.Run(time.Minute)             // All positive balance should be used up.
 	time.Sleep(300 * time.Millisecond) // Ensure the callback is called
-	if p.cap != 1 {
-		t.Fatalf("The capcacity of peer should be downgraded, got: %d", p.cap)
+	if p.getCap() != 1 {
+		t.Fatalf("The capcacity of peer should be downgraded, got: %d", p.getCap())
 	}
 	pb := pool.ndb.getOrNewPB(poolTestPeer(0).ID())
 	if pb.value != 0 {

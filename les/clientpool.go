@@ -663,7 +663,8 @@ type nodeDB struct {
 	db              ethdb.Database
 	pcache          *lru.Cache
 	ncache          *lru.Cache
-	auxbuf          []byte                                // 37-byte auxiliary buffer for key encoding
+	auxbuf          []byte // 37-byte auxiliary buffer for key encoding
+	auxbufMu        sync.Mutex
 	verbuf          [2]byte                               // 2-byte auxiliary buffer for db version
 	nbEvictCallBack func(mclock.AbsTime, negBalance) bool // Callback to determine whether the negative balance can be evicted.
 	clock           mclock.Clock
@@ -696,13 +697,17 @@ func (db *nodeDB) key(id []byte, neg bool) []byte {
 	if neg {
 		prefix = negativeBalancePrefix
 	}
+
+	db.auxbufMu.Lock()
+	defer db.auxbufMu.Unlock()
+
 	if len(prefix)+len(db.verbuf)+len(id) > len(db.auxbuf) {
 		db.auxbuf = append(db.auxbuf, make([]byte, len(prefix)+len(db.verbuf)+len(id)-len(db.auxbuf))...)
 	}
 	copy(db.auxbuf[:len(db.verbuf)], db.verbuf[:])
 	copy(db.auxbuf[len(db.verbuf):len(db.verbuf)+len(prefix)], prefix)
 	copy(db.auxbuf[len(prefix)+len(db.verbuf):len(prefix)+len(db.verbuf)+len(id)], id)
-	return db.auxbuf[:len(prefix)+len(db.verbuf)+len(id)]
+	return append([]byte{}, db.auxbuf[:len(prefix)+len(db.verbuf)+len(id)]...)
 }
 
 func (db *nodeDB) getCumulativeTime() int64 {
@@ -714,6 +719,9 @@ func (db *nodeDB) getCumulativeTime() int64 {
 }
 
 func (db *nodeDB) setCumulativeTime(v int64) {
+	db.auxbufMu.Lock()
+	defer db.auxbufMu.Unlock()
+
 	binary.BigEndian.PutUint64(db.auxbuf[:8], uint64(v))
 	db.db.Put(append(cumulativeRunningTimeKey, db.verbuf[:]...), db.auxbuf[:8])
 }
