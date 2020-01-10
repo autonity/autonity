@@ -5,6 +5,15 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
+	"io/ioutil"
+	"math"
+	"math/big"
+	"sort"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
@@ -19,16 +28,7 @@ import (
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/params"
 	"golang.org/x/sync/errgroup"
-	"io/ioutil"
-	"math"
-	"math/big"
-	"sort"
-	"sync"
-	"sync/atomic"
-	"testing"
-	"time"
 )
-
 
 func sendTx(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address, transactionGenerator func(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error)) (*types.Transaction, error) {
 	nonce := service.TxPool().Nonce(fromAddr)
@@ -194,8 +194,6 @@ func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr 
 	return stack, nil
 }
 
-
-
 func maliciousTest(t *testing.T, test *testCase, validators []*testNode) {
 	for index, validator := range validators {
 		for number, block := range validator.blocks {
@@ -207,9 +205,6 @@ func maliciousTest(t *testing.T, test *testCase, validators []*testNode) {
 		}
 	}
 }
-
-
-
 
 func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPerPeer int, errorOnTx bool) {
 	const blocksToWait = 15

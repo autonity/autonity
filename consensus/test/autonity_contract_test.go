@@ -3,13 +3,14 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/ethclient"
 	"math/big"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/accounts/abi/bind"
+	"github.com/clearmatics/autonity/ethclient"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
@@ -227,7 +228,6 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 		})
 	}
 }
-
 
 func TestRemoveFromValidatorsList(t *testing.T) {
 	if testing.Short() {

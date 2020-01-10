@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
 )
 
 func TestTendermintNoQuorum(t *testing.T) {

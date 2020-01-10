@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zimmski/go-leak"
+	leak "github.com/zimmski/go-leak"
 	"gonum.org/v1/gonum/stat"
 )
 
@@ -32,7 +32,6 @@ func TestTendermintSuccess(t *testing.T) {
 		})
 	}
 }
-
 
 func TestTendermintSlowConnections(t *testing.T) {
 	if testing.Short() {
@@ -171,12 +170,6 @@ func TestTendermintLongRun(t *testing.T) {
 	}
 }
 
-
-
-
-
-
-
 func TestTendermintTC7(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -208,7 +201,3 @@ func TestTendermintTC7(t *testing.T) {
 		})
 	}
 }
-
-
-
-

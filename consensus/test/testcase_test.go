@@ -2,10 +2,6 @@ package test
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/common/fdlimit"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"go.uber.org/goleak"
 	"net"
 	"os"
 	"strconv"
@@ -13,6 +9,11 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/common/fdlimit"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"go.uber.org/goleak"
 
 	"github.com/clearmatics/autonity/common"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"

@@ -93,7 +93,6 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 	}
 }
 
-
 func TestTendermintStartStopSingleNode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")

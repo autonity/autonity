@@ -2,11 +2,13 @@ package test
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
-	"testing"
 )
+
 func TestTendermintOneMalicious(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")

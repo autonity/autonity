@@ -3,12 +3,13 @@ package test
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/node"
+	"github.com/clearmatics/autonity/p2p/enode"
 
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/keystore"
@@ -17,7 +18,6 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth"
 )
-
 
 type networkRate struct {
 	in  int64
@@ -51,7 +51,6 @@ type block struct {
 	hash common.Hash
 	txs  int
 }
-
 
 func (validator *testNode) startNode() error {
 	// Inject the signer key and start sealing with it
