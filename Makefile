@@ -50,6 +50,10 @@ test-race:
 test-contracts:
 	cd contracts/autonity/contract/ && truffle test && cd -
 
+e2etest-contracts:
+	#sudo apt-get update -y && sudo apt-get install -y tmux
+	cd contracts/contract_e2e_test && pip install -r requirements.txt && python3 contract_e2e_test.py && cd -
+
 mock-gen:
 	mockgen -source=consensus/tendermint/validator/validator_interface.go -package=validator -destination=consensus/tendermint/validator/validator_mock.go
 	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go

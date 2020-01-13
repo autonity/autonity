@@ -15,6 +15,9 @@ before_script:
   - nvm install 9
   - make test-deps
   - npm install -g truffle
+  - sudo apt-get update -y
+  - sudo apt-get install -y tmux
+  - sudo apt-get install python3
 
 jobs:
   include:
@@ -81,6 +84,10 @@ jobs:
         - npm install -g ganache-cli
         - ganache-cli --gasLimit=0x1fffffffffffff --allowUnlimitedContractSize -e 1000000000 &
         - make test-contracts
+    - <<: *tests
+      name: "Contract e2e tests"
+      script:
+        - make e2etest-contracts
 
 notifications:
   slack:
