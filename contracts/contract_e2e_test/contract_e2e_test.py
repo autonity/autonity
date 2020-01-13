@@ -85,8 +85,8 @@ def generate_genesis(addresses: List[str], enodes: List[str]):
     try:
         with open("./network-data/genesis.json", 'w') as out:
             out.write(json.dumps(genesis, indent=4) + '\n')
-    except Exception as e:
-        print("cannot create genesis.json {}", e)
+    except IOError as e:
+        print("cannot create genesis.json ", e)
         raise e
 
 
@@ -96,18 +96,18 @@ def execute(cmd):
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", shell=True)
         return process.communicate()
     except Exception as e:
-        print("Error: {}", e)
+        print("Error: ", e)
         raise e
 
 
 def create_dir(dir_path):
     if execute("mkdir -p {}".format(dir_path)) is None:
-        raise IOError
+        raise IOError("cannot create dir")
 
 
 def remove_dir(dir_path):
     if execute("rm -rf {}".format(dir_path)) is None:
-        raise IOError
+        raise IOError("cannot remove dir")
 
 
 def create_network_dir():
@@ -117,7 +117,7 @@ def create_network_dir():
         for i in range(0, node_count):
             create_dir("./network-data/node{}".format(i))
     except IOError as e:
-        print("cannot create dir {}", e)
+        print("cannot create dir ", e)
         raise e
 
 
@@ -139,8 +139,8 @@ def generate_new_accounts():
         with open("./network-data/addresses.json", 'w') as out:
             out.write(json.dumps(addresses, indent=4) + '\n')
         return addresses
-    except Exception as e:
-        print('cannot generate accounts {}', e)
+    except IOError as e:
+        print('cannot generate accounts ', e)
         raise e
 
 
@@ -163,8 +163,8 @@ def generate_enodes():
             port = 5000 + node_id
             enodes.append("enode://{}@127.0.0.1:{}".format(pub_key, port))
         return enodes
-    except Exception as e:
-        print("cannot generate enodes. {}", e)
+    except IOError as e:
+        print("cannot generate enodes. ", e)
         raise e
 
 
@@ -174,7 +174,7 @@ def init_chains():
             execute("""{} --datadir "./network-data/node{}/data/" init "./network-data/genesis.json" """
                     .format(autonity_path, node_id))
     except Exception as e:
-        print("cannot init chain {}", e)
+        print("cannot init chain ", e)
         raise e
 
 
@@ -184,8 +184,8 @@ def reinit_chains():
             remove_dir("./network-data/node{}/data/autonity".format(node_id))
             execute("""{} --datadir "./network-data/node{}/data/" init "./network-data/genesis.json" """
                     .format(autonity_path, node_id))
-    except Exception as e:
-        print("cannot reinit chain {}", e)
+    except IOError as e:
+        print("cannot reinit chain ", e)
         raise e
 
 
@@ -214,7 +214,10 @@ def tmux_start_clients(addresses, dont_start_id=None):
             execute("""tmux send-keys -t autonity:{} "{} attach ipc:./network-data/node{}/data/autonity.ipc" C-m"""
                     .format(node_id + 1, autonity_path, node_id))
     except Exception as e:
-        print("tmux cannot start clients {}", e)
+        print("tmux cannot start clients ", e)
+        raise e
+    except IOError as e:
+        print("cannot start client ", e)
         raise e
 
 
@@ -287,7 +290,7 @@ def deploy_clients():
         print("===== STARTING CLIENTS =====")
         tmux_start_clients(addresses)
     except Exception as e:
-        print("cannot deploy the network, {}", e)
+        print("cannot deploy the network, ", e)
         raise e
 
 
@@ -300,7 +303,7 @@ def compile_contract():
         contract = compile_files(["../autonity/contract/contracts/Autonity.sol"])
         return contract["Autonity"]["code"], contract["Autonity"]["abi"]
     except Exception as e:
-        print("cannot compile contract {}", e)
+        print("cannot compile contract ", e)
         raise e
 
 
@@ -352,7 +355,7 @@ def run_tests():
         end_point = get_http_end_point()
         w3_obj = Web3(Web3.HTTPProvider(end_point, request_kwargs={'timeout': 60}))
     except Exception as e:
-        print("cannot connect to endpoint. {}", e)
+        print("cannot connect to endpoint. ", e)
         raise e
 
     try:
@@ -361,14 +364,14 @@ def run_tests():
         byte_code, abi = compile_contract()
         autonity_contract = w3_obj.eth.contract(address=addr, abi=abi)
     except Exception as e:
-        print("cannot create contract object from client. {}", e)
+        print("cannot create contract object from client. ", e)
         raise e
     # get chain height before test
     start_at_block = w3_obj.eth.getBlock("latest")
-    print("test started at block height: {}", start_at_block['number'])
+    print("test started at block height: ", start_at_block['number'])
     # get gas price.
     gas_price = w3_obj.eth.gasPrice
-    print("gas price is {}", gas_price)
+    print("gas price is ", gas_price)
 
     # test upgrade contract with same version of bin and abi.
     operator_account = get_system_operator_account()
@@ -378,7 +381,7 @@ def run_tests():
 
     # get chain height after contract upgrade
     end_at_block = w3_obj.eth.getBlock("latest")
-    print("test end at block height: {}", end_at_block['number'])
+    print("test end at block height: ", end_at_block['number'])
     if end_at_block['number'] == start_at_block['number']:
         raise Exception("chain on hold?")
 
@@ -394,10 +397,10 @@ if __name__ == "__main__":
     try:
         deploy_clients()
     except Exception as e:
-        print("cannot deploy clients {}", e)
+        print("cannot deploy clients ", e)
         exit(1)
     try:
         run_tests()
     except Exception as e:
-        print("test case failed {}", e)
+        print("test case failed ", e)
         exit(1)
