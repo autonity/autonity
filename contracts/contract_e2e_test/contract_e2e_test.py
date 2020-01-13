@@ -1,14 +1,25 @@
 #!/usr/bin/python3
+try:
+    from Crypto.Hash import keccak
+    sha3_256 = lambda x: keccak.new(digest_bits=256, data=x).digest()
+except:
+    import sha3 as _sha3
+    sha3_256 = lambda x: _sha3.sha3_256(x).digest()
 
 import argparse
 import subprocess
 import re
 import os
 import json
+import rlp
+#from rlp.utils import decode_hex
+from eth_utils.hexadecimal import decode_hex
+
 from time import sleep
 
 from web3.auto import w3
 from web3 import Web3
+from solcx import compile_files
 from typing import List
 
 
@@ -284,17 +295,47 @@ def get_http_end_point():
     return "http://127.0.0.1:6000"
 
 
-# to do compile autontiy contract from solidity.
 def compile_contract():
-    contract_file = "../autonity/contract/contracts/Autonity.sol"
-    print("compile contract: {}", contract_file)
-    bin = ""
-    abi = ""
-    return bin, abi
+    try:
+        contract = compile_files(["../autonity/contract/contracts/Autonity.sol"])
+        return contract["Autonity"]["code"], contract["Autonity"]["abi"]
+    except Exception as e:
+        print("cannot compile contract {}", e)
+        raise e
+
+
+def to_string(value):
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, str):
+        return bytes(value, 'utf-8')
+    if isinstance(value, int):
+        return bytes(str(value), 'utf-8')
+
+
+def sha3(seed):
+    return sha3_256(to_string(seed))
+
+
+def normalize_address(x, allow_blank=False):
+    if allow_blank and x == '':
+        return ''
+    if len(x) in (42, 50) and x[:2] == '0x':
+        x = x[2:]
+    if len(x) in (40, 48):
+        x = decode_hex(x)
+    if len(x) == 24:
+        assert len(x) == 24 and sha3(x[:20])[:4] == x[-4:]
+        x = x[:20]
+    if len(x) != 20:
+        raise Exception("Invalid address format: %r" % x)
+    return x
 
 
 def get_autonity_contract_address():
-    return ""
+    sender = get_system_deployer_account()
+    nonce = 0
+    return sha3(rlp.encode([normalize_address(sender), nonce]))[12:]
 
 
 def get_system_operator_account():
@@ -330,7 +371,7 @@ def run_tests():
     print("gas price is {}", gas_price)
 
     # test upgrade contract with same version of bin and abi.
-    operator_account = get_system_deployer_account()
+    operator_account = get_system_operator_account()
     result = autonity_contract.functions.upgradeContract(byte_code, abi).call({'from': operator_account})
     if result is False:
         raise Exception("cannot upgrade contract.")
