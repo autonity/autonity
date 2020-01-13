@@ -240,10 +240,8 @@ func (c *core) sendEvent(ev interface{}) {
 
 func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	logger := c.logger.New()
-
 	// Decode message and check its signature
 	msg := new(Message)
-
 	sender, err := msg.FromPayload(payload, c.valSet.Copy(), crypto.CheckValidatorSignature)
 	if err != nil {
 		logger.Error("Failed to decode message from payload", "err", err)
@@ -256,32 +254,16 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender validator.Validator) error {
 	logger := c.logger.New("address", c.address, "from", sender)
 
-	// Store the message if it's a future message
-	testBacklog := func(err error) error {
-		// We want to store only future messages in backlog
-		if err == errFutureHeightMessage {
-			// Ignore future height messages
-			logger.Debug("Future height message, ignoring")
-		} else if err == errFutureRoundMessage {
-			logger.Debug("Storing future round message in backlog")
-			// TODO: handle future round messages properly
-		} else if err == errFutureStepMessage {
-			logger.Debug("Storing future step message in backlog")
-		}
-
-		return err
-	}
-
 	switch msg.Code {
 	case msgProposal:
 		logger.Debug("tendermint.MessageEvent: PROPOSAL")
-		return testBacklog(c.handleProposal(ctx, msg))
+		return c.handleProposal(ctx, msg)
 	case msgPrevote:
 		logger.Debug("tendermint.MessageEvent: PREVOTE")
-		return testBacklog(c.handlePrevote(ctx, msg))
+		return c.handlePrevote(ctx, msg)
 	case msgPrecommit:
 		logger.Debug("tendermint.MessageEvent: PRECOMMIT")
-		return testBacklog(c.handlePrecommit(ctx, msg))
+		return c.handlePrecommit(ctx, msg)
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}
@@ -303,12 +285,6 @@ func (c *core) checkMessage(round *big.Int, height *big.Int, step Step) error {
 		return errFutureHeightMessage
 	} else if height.Cmp(c.roundState.Height()) < 0 {
 		return errOldHeightMessage
-	} else if round.Cmp(c.roundState.Round()) > 0 {
-		return errFutureRoundMessage
-	} else if round.Cmp(c.roundState.Round()) < 0 {
-		return errOldRoundMessage
-	} else if c.roundState.step == propose && step > propose {
-		return errFutureStepMessage
 	}
 
 	return nil

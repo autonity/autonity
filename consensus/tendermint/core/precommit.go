@@ -130,7 +130,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			c.commit()
+			c.commit(curR)
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus

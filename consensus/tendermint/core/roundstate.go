@@ -17,6 +17,7 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/common"
 	"math/big"
 	"sync"
 )
@@ -38,8 +39,9 @@ type roundState struct {
 	step   Step
 
 	// TODO: potentially add getters and setters for allRoundMessages
-	allRoundMessages map[int64]roundMessageSet
-	mu               sync.RWMutex
+	allRoundMessages  map[int64]roundMessageSet
+	verifiedProposals map[common.Hash]bool
+	mu                sync.RWMutex
 }
 
 type roundMessageSet struct {
@@ -61,6 +63,15 @@ func (s *roundState) Update(r *big.Int, h *big.Int) {
 	defer s.mu.Unlock()
 	s.round = r
 	s.height = h
+	s.step = propose
+
+	if s.verifiedProposals == nil {
+		s.verifiedProposals = make(map[common.Hash]bool)
+	}
+
+	if _, ok := s.allRoundMessages[r.Int64()]; !ok {
+		s.allRoundMessages[r.Int64()] = newRoundMessageSet()
+	}
 }
 
 func (s *roundState) SetProposal(round int64, proposal *Proposal, msg *Message) {
@@ -119,6 +130,8 @@ func (s *roundState) SetStep(step Step) {
 	s.step = step
 }
 
+// TODO: it is possible the step can change because of time outs so when step is being used for upon conditions
+// change how the mutexes are used to control proper access
 func (s *roundState) Step() Step {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

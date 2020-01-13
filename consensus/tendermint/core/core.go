@@ -42,13 +42,6 @@ var (
 	// errOldHeightMessage is returned when the received message's view is earlier
 	// than roundState view.
 	errOldHeightMessage = errors.New("old height message")
-	// errOldRoundMessage message is returned when message is of the same Height but form a smaller round
-	errOldRoundMessage = errors.New("same height but old round message")
-	// errFutureRoundMessage message is returned when message is of the same Height but form a newer round
-	errFutureRoundMessage = errors.New("same height but future round message")
-	// errFutureStepMessage message is returned when it's a prevote or precommit message of the same Height same round
-	// while the current step is propose.
-	errFutureStepMessage = errors.New("same round but future step message")
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")
 	// errInvalidSenderOfCommittedSeal is returned when the committed seal is not from the sender of the message.
@@ -73,24 +66,25 @@ var (
 func New(backend Backend, config *config.Config) *core {
 	logger := log.New("addr", backend.Address().String())
 	return &core{
-		config:                config,
-		address:               backend.Address(),
-		logger:                logger,
-		backend:               backend,
-		pendingUnminedBlocks:  make(map[uint64]*types.Block),
-		pendingUnminedBlockCh: make(chan *types.Block),
-		stopped:               make(chan struct{}, 3),
-		isStarting:            new(uint32),
-		isStarted:             new(uint32),
-		isStopping:            new(uint32),
-		isStopped:             new(uint32),
-		valSet:                new(validatorSet),
-		lockedRound:           big.NewInt(-1),
-		validRound:            big.NewInt(-1),
-		roundState:            new(roundState),
-		proposeTimeout:        newTimeout(propose, logger),
-		prevoteTimeout:        newTimeout(prevote, logger),
-		precommitTimeout:      newTimeout(precommit, logger),
+		config:                     config,
+		address:                    backend.Address(),
+		logger:                     logger,
+		backend:                    backend,
+		pendingUnminedBlocks:       make(map[uint64]*types.Block),
+		pendingUnminedBlockCh:      make(chan *types.Block),
+		stopped:                    make(chan struct{}, 3),
+		isStarting:                 new(uint32),
+		isStarted:                  new(uint32),
+		isStopping:                 new(uint32),
+		isStopped:                  new(uint32),
+		valSet:                     new(validatorSet),
+		lockedRound:                big.NewInt(-1),
+		validRound:                 big.NewInt(-1),
+		roundState:                 new(roundState),
+		proposeTimeout:             newTimeout(propose, logger),
+		prevoteTimeout:             newTimeout(prevote, logger),
+		precommitTimeout:           newTimeout(precommit, logger),
+		lastCommittedBlockProposer: common.Address{},
 	}
 }
 
@@ -137,6 +131,8 @@ type core struct {
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
 	precommitTimeout *timeout
+
+	lastCommittedBlockProposer common.Address
 }
 
 func (c *core) IsValidator(address common.Address) bool {
@@ -187,11 +183,14 @@ func (c *core) isProposer() bool {
 	return c.valSet.IsProposer(c.address)
 }
 
-func (c *core) commit() {
-	c.setStep(precommitDone)
-	currentRound := c.roundState.Round().Int64()
+func (c *core) isProposerForR(r int64, a common.Address) bool {
+	return c.valSet.IsProposerForRound(c.lastCommittedBlockProposer, uint64(r), a)
+}
 
-	proposal := c.roundState.Proposal(currentRound)
+func (c *core) commit(round int64) {
+	c.setStep(precommitDone)
+
+	proposal := c.roundState.Proposal(round)
 	if proposal == nil {
 		// Should never happen really.
 		c.logger.Error("core commit called with empty proposal ")
@@ -209,7 +208,7 @@ func (c *core) commit() {
 
 	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 
-	precommits := c.roundState.allRoundMessages[currentRound].precommits
+	precommits := c.roundState.allRoundMessages[round].precommits
 	committedSeals := make([][]byte, precommits.VotesSize(proposal.ProposalBlock.Hash()))
 	for i, v := range precommits.Values(proposal.ProposalBlock.Hash()) {
 		committedSeals[i] = make([]byte, types.BFTExtraSeal)
@@ -237,10 +236,10 @@ func (c *core) measureHeightRoundMetrics(round *big.Int) {
 func (c *core) startRound(ctx context.Context, round *big.Int) {
 
 	c.measureHeightRoundMetrics(round)
-	lastCommittedProposalBlock, lastCommittedProposalBlockProposer := c.backend.LastCommittedProposal()
+	lastCommittedProposalBlock, lastCommittedBlockProposer := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 
-	c.setCore(round, height, lastCommittedProposalBlockProposer)
+	c.setCore(round, height, lastCommittedBlockProposer)
 
 	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setStep(propose)
@@ -272,6 +271,12 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 		timeoutDuration := timeoutPropose(round.Int64())
 		c.proposeTimeout.scheduleTimeout(timeoutDuration, round.Int64(), height.Int64(), c.onTimeoutPropose)
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
+
+		// Check if we already have the proposal (this will be true if a future proposal was received an a previous
+		// round, if so send the proposal message to handler to handle the proposal
+		if c.roundState.Proposal(round.Int64()) != nil {
+			c.sendEvent(c.roundState.allRoundMessages[round.Int64()].proposalMsg)
+		}
 	}
 }
 
@@ -283,6 +288,8 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 		c.lockedValue = nil
 		c.validRound = big.NewInt(-1)
 		c.validValue = nil
+
+		c.lastCommittedBlockProposer = lastProposer
 
 		// Set validator set for height
 		valSet := c.backend.Validators(h.Uint64())
@@ -325,4 +332,112 @@ func PrepareCommittedSeal(hash common.Hash, round *big.Int, height *big.Int) []b
 	buf.Write(height.Bytes())
 	buf.Write(hash.Bytes())
 	return buf.Bytes()
+}
+
+func (c *core) isValid(proposal *types.Block) (bool, error) {
+	if _, ok := c.roundState.verifiedProposals[proposal.Hash()]; !ok {
+		if _, err := c.backend.VerifyProposal(*proposal); err != nil {
+			return false, err
+		}
+		c.roundState.verifiedProposals[proposal.Hash()] = true
+	}
+	return true, nil
+}
+
+// Line 49 in Algorithm 1 of the latest gossip on BFT consensus
+func (c *core) checkForConsensus(ctx context.Context, round int64) error {
+	proposal := c.roundState.Proposal(round)
+	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
+	precommits := c.roundState.allRoundMessages[round].precommits
+	h := proposal.ProposalBlock.Hash()
+
+	if proposal != nil && c.isProposerForR(round, proposalMsg.Address) && c.Quorum(precommits.VotesSize(h)) {
+		if valid, err := c.isValid(proposal.ProposalBlock); !valid {
+			return err
+		} else {
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				c.commit(round)
+			}
+
+		}
+	}
+	return nil
+}
+
+// Line 22 in Algorithm 1 of the latest gossip on BFT consensus
+func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
+	proposal := c.roundState.Proposal(round)
+	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
+	h := proposal.ProposalBlock.Hash()
+
+	if proposal != nil && c.isProposerForR(round, proposalMsg.Address) && c.roundState.Step() == propose {
+		valid, err := c.isValid(proposal.ProposalBlock)
+
+		// Vote for the proposal if proposal is valid(proposal) && (lockedRound = -1 || lockedValue = proposal).
+		if valid && (c.lockedRound.Int64() == -1 || (c.lockedRound != nil && h == c.lockedValue.Hash())) {
+			c.sendPrevote(ctx, true)
+			c.setStep(prevote)
+			return nil
+		}
+		c.sendPrevote(ctx, false)
+		c.setStep(prevote)
+		return err
+	}
+	return nil
+}
+
+// Line 28 in Algorithm 1 of the latest gossip on BFT consensus
+func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
+	proposal := c.roundState.Proposal(round)
+	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
+	vr := proposal.ValidRound.Int64()
+	validRoundPrevotes := c.roundState.allRoundMessages[vr].prevotes
+	h := proposal.ProposalBlock.Hash()
+
+	if proposal != nil && c.isProposerForR(round, proposalMsg.Address) && c.Quorum(validRoundPrevotes.VotesSize(h)) &&
+		c.roundState.Step() == propose && vr >= 0 && vr < round {
+		valid, err := c.isValid(proposal.ProposalBlock)
+
+		// Vote for proposal if valid(proposal) && ((0 <= lockedRound <= vr < curR) || lockedValue == proposal)
+		if valid && (c.lockedRound.Int64() <= vr || (c.lockedRound != nil && h == c.lockedValue.Hash())) {
+			c.sendPrevote(ctx, true)
+			c.setStep(prevote)
+			return nil
+		}
+		c.sendPrevote(ctx, false)
+		c.setStep(prevote)
+		return err
+	}
+	return nil
+}
+
+// Line 36 in Algorithm 1 of the latest gossip on BFT consensus
+func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
+	proposal := c.roundState.Proposal(round)
+	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
+	prevotes := c.roundState.allRoundMessages[round].prevotes
+	h := proposal.ProposalBlock.Hash()
+
+	if proposal != nil && c.isProposerForR(round, proposalMsg.Address) && c.Quorum(prevotes.VotesSize(h)) &&
+		c.roundState.Step() >= prevote && !c.setValidRoundAndValue {
+		if valid, err := c.isValid(proposal.ProposalBlock); !valid {
+			return err
+		}
+
+		if c.roundState.Step() == prevote {
+			c.lockedValue = proposal.ProposalBlock
+			c.lockedRound = big.NewInt(round)
+			c.sendPrecommit(ctx, false)
+			c.setStep(precommit)
+		}
+		c.validValue = proposal.ProposalBlock
+		c.validRound = big.NewInt(round)
+		c.setValidRoundAndValue = true
+
+	}
+	return nil
 }

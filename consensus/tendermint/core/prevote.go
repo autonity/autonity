@@ -69,17 +69,17 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 
 	if err = c.checkMessage(preVote.Round, preVote.Height, prevote); err != nil {
 		// Store old round prevote messages for future rounds since it is required for validRound
-		if err == errOldRoundMessage {
-			// We only process old rounds while future rounds messages are pushed on to the backlog
-			oldRoundMessageSet, ok := c.roundState.allRoundMessages[preVote.Round.Int64()]
-			if !ok {
-				oldRoundMessageSet = newRoundMessageSet()
-				c.roundState.allRoundMessages[preVote.Round.Int64()] = oldRoundMessageSet
-			}
-
-			oldRoundPrevotes := oldRoundMessageSet.prevotes
-			oldRoundPrevotes.Add(preVote.ProposedBlockHash, *msg)
-		}
+		//if err == errOldRoundMessage {
+		//	// We only process old rounds while future rounds messages are pushed on to the backlog
+		//	oldRoundMessageSet, ok := c.roundState.allRoundMessages[preVote.Round.Int64()]
+		//	if !ok {
+		//		oldRoundMessageSet = newRoundMessageSet()
+		//		c.roundState.allRoundMessages[preVote.Round.Int64()] = oldRoundMessageSet
+		//	}
+		//
+		//	oldRoundPrevotes := oldRoundMessageSet.prevotes
+		//	oldRoundPrevotes.Add(preVote.ProposedBlockHash, *msg)
+		//}
 		return err
 	}
 

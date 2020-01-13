@@ -65,6 +65,8 @@ var (
 	errInvalidUncleHash = errors.New("non empty uncle hash")
 	// errInvalidTimestamp is returned if the timestamp of a block is lower than the previous block's timestamp + the minimum block period.
 	errInvalidTimestamp = errors.New("invalid timestamp")
+	// errMismatchTxhashes is returned if the TxHash in header is mismatch.
+	errMismatchTxhashes = errors.New("mismatch transactions hashes")
 )
 var (
 	defaultDifficulty = big.NewInt(1)

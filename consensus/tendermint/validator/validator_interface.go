@@ -75,7 +75,10 @@ type Set interface {
 	// Get current proposer
 	GetProposer() Validator
 	// Check whether the validator with given address is a proposer
+	// TODO: needs to be deprecated
 	IsProposer(address common.Address) bool
+	// Check whether the validator with the given address is the proposer for the round
+	IsProposerForRound(lastCommittedBlockProposer common.Address, round uint64, address common.Address) bool
 	// Add validator
 	AddValidator(address common.Address) bool
 	// Remove validator

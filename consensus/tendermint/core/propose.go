@@ -59,33 +59,26 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		return errFailedDecodeProposal
 	}
 
-	// Ensure we have the same view with the Proposal message
+	// Check for nil values
+	if proposal.Height == nil || proposal.Round == nil || proposal.ProposalBlock == nil {
+		return errInvalidMessage
+	}
+
+	// Ensure proposal is for current height
 	if err := c.checkMessage(proposal.Round, proposal.Height, propose); err != nil {
-		// We don't care about old proposals so they are ignored
 		return err
 	}
 
-	// Check if the message comes from roundState proposer
-	if !c.valSet.IsProposer(msg.Address) {
+	// Ensure proposer of the Proposal is for round proposal.Round
+	if !c.isProposerForR(proposal.Round.Int64(), msg.Address) {
 		c.logger.Warn("Ignore proposal messages from non-proposer")
 		return errNotFromProposer
 	}
 
-	// Verify the proposal we received
-	if duration, err := c.backend.VerifyProposal(*proposal.ProposalBlock); err != nil {
-		if timeoutErr := c.proposeTimeout.stopTimer(); timeoutErr != nil {
-			return timeoutErr
-		}
-		c.logger.Debug("Stopped Scheduled Proposal Timeout")
-		c.sendPrevote(ctx, true)
-		// do not to accept another proposal in current round
-		c.setStep(prevote)
-
-		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
-		// if it's a future block, we will handle it again after the duration
-		// TIME FIELD OF HEADER CHECKED HERE - NOT HEIGHT
-		// TODO: implement wiggle time / median time
+	// Check block header (will check body later)
+	if duration, err := c.backend.VerifyProposalHeader(*proposal.ProposalBlock); err != nil {
 		if err == consensus.ErrFutureBlock {
+			c.logger.Warn("Proposal timestamp greater than local time. Setting timer to handle message again.", "err", err, "duration", duration)
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
 				p, _ := msg.Payload()
@@ -95,46 +88,45 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		return err
 	}
 
-	// Here is about to accept the Proposal
-	if c.roundState.Step() == propose {
-		if err := c.proposeTimeout.stopTimer(); err != nil {
-			return err
-		}
-		c.logger.Debug("Stopped Scheduled Proposal Timeout")
-
-		// Set the proposal for the current round
-		c.roundState.SetProposal(c.roundState.Round().Int64(), &proposal, msg)
-
-		c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
-
-		vr := proposal.ValidRound.Int64()
-		h := proposal.ProposalBlock.Hash()
-		curR := c.roundState.Round().Int64()
-
-		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
-		if vr == -1 {
-			var voteForProposal = false
-			if c.lockedValue != nil {
-				voteForProposal = c.lockedRound.Int64() == -1 || h == c.lockedValue.Hash()
-
-			}
-			c.sendPrevote(ctx, voteForProposal)
-			c.setStep(prevote)
+	// if the proposal is different from what is stored in the round state, then proposer is byzantine, therefore,
+	// ignore the proposal, otherwise, the current proposal was received by the validator in a previous round and
+	// it should be handled now as the current proposal
+	if c.roundState.Proposal(proposal.Round.Int64()) != nil {
+		if c.roundState.Proposal(proposal.Round.Int64()).ProposalBlock.Hash() != proposal.ProposalBlock.Hash() {
 			return nil
 		}
+	}
 
-		// TODO: when round is changed ensure to add new round messages set so the following is never nil
-		prevotes := c.roundState.allRoundMessages[curR].prevotes
+	c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 
-		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
-		if vr < curR && c.Quorum(prevotes.VotesSize(h)) {
-			var voteForProposal = false
-			if c.lockedValue != nil {
-				voteForProposal = c.lockedRound.Int64() <= vr || h == c.lockedValue.Hash()
-
+	roundCmp := proposal.Round.Cmp(c.roundState.Round())
+	if roundCmp != 0 {
+		// If we don't have old or future proposal, then add the proposal to the relevant round message set and since
+		// the state has changed we need to check for consensus on this proposal block. If the proposal block is
+		// received more than once through gossip we need to ignore since the state will not change.
+		if c.roundState.Proposal(proposal.Round.Int64()) == nil {
+			c.roundState.SetProposal(proposal.Round.Int64(), &proposal, msg)
+			if err := c.checkForConsensus(ctx, proposal.Round.Int64()); err != nil {
+				return err
 			}
-			c.sendPrevote(ctx, voteForProposal)
-			c.setStep(prevote)
+		}
+
+		if roundCmp > 0 {
+			// TODO: check if validator needs to move to a future round
+		}
+	} else {
+		// Proposal is for current round, i.e. proposal.Round.Int64() = c.roundState.Round().Int64()
+		c.roundState.SetProposal(proposal.Round.Int64(), &proposal, msg)
+
+		roundStep := c.roundState.Step()
+		if roundStep == propose {
+			if proposal.ValidRound.Int64() == -1 {
+				return c.checkForNewProposal(ctx, proposal.Round.Int64())
+			} else if proposal.ValidRound.Int64() > -1 {
+				return c.checkForOldProposal(ctx, proposal.Round.Int64())
+			}
+		} else if roundStep > propose {
+			return c.checkForQuorumPrevotes(ctx, proposal.Round.Int64())
 		}
 	}
 

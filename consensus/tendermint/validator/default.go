@@ -148,6 +148,18 @@ func (valSet *defaultSet) CalcProposer(lastProposer common.Address, round uint64
 	valSet.validatorMu.Unlock()
 }
 
+func (valSet *defaultSet) IsProposerForRound(lastCommittedBlockProposer common.Address, round uint64, address common.Address) bool {
+	valSet.validatorMu.RLock()
+	defer valSet.validatorMu.RUnlock()
+
+	// Calculate the intended proposer of the round
+	proposerForRound := valSet.selector(valSet, lastCommittedBlockProposer, round)
+
+	// Compare the intended proposer of round (proposerForRound) with the validator of given as address
+	_, val := valSet.GetByAddress(address)
+	return reflect.DeepEqual(proposerForRound, val)
+}
+
 func (valSet *defaultSet) AddValidator(address common.Address) bool {
 	valSet.validatorMu.Lock()
 	defer valSet.validatorMu.Unlock()

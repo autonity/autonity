@@ -109,6 +109,16 @@ func (v *validatorSet) IsProposer(address common.Address) bool {
 	return v.Set.IsProposer(address)
 }
 
+func (v *validatorSet) IsProposerForRound(lastCommittedBlockProposer common.Address, round uint64, address common.Address) bool {
+	v.RLock()
+	defer v.RUnlock()
+	if v.Set == nil {
+		return false
+	}
+
+	return v.Set.IsProposerForRound(lastCommittedBlockProposer, round, address)
+}
+
 func (v *validatorSet) AddValidator(address common.Address) bool {
 	v.RLock()
 	defer v.RUnlock()

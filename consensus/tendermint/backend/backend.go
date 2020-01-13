@@ -272,20 +272,52 @@ func (sb *Backend) Subscribe(types ...interface{}) *event.TypeMuxSubscription {
 	return sb.eventMux.Subscribe(types...)
 }
 
-// VerifyProposal implements tendermint.Backend.VerifyProposal
-func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
-	// Check if the proposal is a valid block
-	// TODO: fix always false statement and check for non nil
-	// TODO: use interface instead of type
+func (sb *Backend) VerifyProposalHeader(proposal types.Block) (time.Duration, error) {
 	block := &proposal
-	//if block == nil {
-	//	sb.logger.Error("Invalid proposal, %v", proposal)
-	//	return 0, errInvalidProposal
-	//}
 
 	// check bad block
 	if sb.HasBadProposal(block.Hash()) {
 		return 0, core.ErrBlacklistedHash
+	}
+
+	// check block body
+	txnHash := types.DeriveSha(block.Transactions())
+	uncleHash := types.CalcUncleHash(block.Uncles())
+	if txnHash != block.Header().TxHash {
+		return 0, errMismatchTxhashes
+	}
+	if uncleHash != nilUncleHash {
+		return 0, errInvalidUncleHash
+	}
+
+	// verify the header of proposed block
+	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
+	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
+	if err == nil || err == types.ErrEmptyCommittedSeals {
+		return 0, nil
+	} else if err == consensus.ErrFutureBlock {
+		return time.Unix(int64(block.Header().Time), 0).Sub(now()), consensus.ErrFutureBlock
+	}
+	return 0, err
+}
+
+// VerifyProposal implements tendermint.Backend.VerifyProposal
+func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
+	block := &proposal
+
+	// check bad block
+	if sb.HasBadProposal(block.Hash()) {
+		return 0, core.ErrBlacklistedHash
+	}
+
+	// check block body
+	txnHash := types.DeriveSha(block.Transactions())
+	uncleHash := types.CalcUncleHash(block.Uncles())
+	if txnHash != block.Header().TxHash {
+		return 0, errMismatchTxhashes
+	}
+	if uncleHash != nilUncleHash {
+		return 0, errInvalidUncleHash
 	}
 
 	// verify the header of proposed block
