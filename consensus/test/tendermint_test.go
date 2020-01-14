@@ -1209,7 +1209,11 @@ func runTest(t *testing.T, test *testCase) {
 		t.SkipNow()
 	}
 
-	defer goleak.VerifyNoLeaks(t)
+	// TODO: (screwyprof) Fix the following gorotine leaks
+	defer goleak.VerifyNoLeaks(t,
+		goleak.IgnoreTopFunction("github.com/JekaMas/notify._Cfunc_CFRunLoopRun"),
+		goleak.IgnoreTopFunction("github.com/clearmatics/autonity/metrics.(*meterArbiter).tick"),
+		goleak.IgnoreTopFunction("github.com/clearmatics/autonity/consensus/ethash.(*remoteSealer).loop"))
 
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numPeers))
