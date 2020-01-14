@@ -248,20 +248,20 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 		time = parent.Time() + 10 // block time is fixed at 10 seconds
 	}
 
-	return &types.Header{
+	return &types.Header{OriginalHeader: types.OriginalHeader{
 		Root:       state.IntermediateRoot(chain.Config().IsEIP158(parent.Number())),
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcDifficulty(chain, time, &types.Header{
+		Difficulty: engine.CalcDifficulty(chain, time, &types.Header{OriginalHeader: types.OriginalHeader{
 			Number:     parent.Number(),
 			Time:       time - 10,
 			Difficulty: parent.Difficulty(),
 			UncleHash:  parent.UncleHash(),
-		}),
+		}}),
 		GasLimit: CalcGasLimit(parent, parent.GasLimit(), parent.GasLimit()),
 		Number:   new(big.Int).Add(parent.Number(), common.Big1),
 		Time:     time,
-	}
+	}}
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.

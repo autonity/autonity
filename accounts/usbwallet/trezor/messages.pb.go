@@ -3,13 +3,10 @@
 
 package trezor
 
-import (
-	fmt "fmt"
-	math "math"
-
-	proto "github.com/golang/protobuf/proto"
-	descriptor "github.com/golang/protobuf/protoc-gen-go/descriptor"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
+import descriptor "github.com/golang/protobuf/protoc-gen-go/descriptor"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -20,9 +17,9 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-//*
+// *
 // Mapping between TREZOR wire identifier (uint) and a protobuf message
 type MessageType int32
 
@@ -436,7 +433,6 @@ var MessageType_name = map[int32]string{
 	708: "MessageType_BinanceCancelMsg",
 	709: "MessageType_BinanceSignedTx",
 }
-
 var MessageType_value = map[string]int32{
 	"MessageType_Initialize":                                0,
 	"MessageType_Ping":                                      1,
@@ -638,11 +634,9 @@ func (x MessageType) Enum() *MessageType {
 	*p = x
 	return p
 }
-
 func (x MessageType) String() string {
 	return proto.EnumName(MessageType_name, int32(x))
 }
-
 func (x *MessageType) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(MessageType_value, data, "MessageType")
 	if err != nil {
@@ -651,9 +645,8 @@ func (x *MessageType) UnmarshalJSON(data []byte) error {
 	*x = MessageType(value)
 	return nil
 }
-
 func (MessageType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_4dc296cbfe5ffcd5, []int{0}
+	return fileDescriptor_messages_682f2c0a81fe1eb6, []int{0}
 }
 
 var E_WireIn = &proto.ExtensionDesc{
@@ -661,7 +654,7 @@ var E_WireIn = &proto.ExtensionDesc{
 	ExtensionType: (*bool)(nil),
 	Field:         50002,
 	Name:          "hw.trezor.messages.wire_in",
-	Tag:           "varint,50002,opt,name=wire_in",
+	Tag:           "varint,50002,opt,name=wire_in,json=wireIn",
 	Filename:      "messages.proto",
 }
 
@@ -670,7 +663,7 @@ var E_WireOut = &proto.ExtensionDesc{
 	ExtensionType: (*bool)(nil),
 	Field:         50003,
 	Name:          "hw.trezor.messages.wire_out",
-	Tag:           "varint,50003,opt,name=wire_out",
+	Tag:           "varint,50003,opt,name=wire_out,json=wireOut",
 	Filename:      "messages.proto",
 }
 
@@ -679,7 +672,7 @@ var E_WireDebugIn = &proto.ExtensionDesc{
 	ExtensionType: (*bool)(nil),
 	Field:         50004,
 	Name:          "hw.trezor.messages.wire_debug_in",
-	Tag:           "varint,50004,opt,name=wire_debug_in",
+	Tag:           "varint,50004,opt,name=wire_debug_in,json=wireDebugIn",
 	Filename:      "messages.proto",
 }
 
@@ -688,7 +681,7 @@ var E_WireDebugOut = &proto.ExtensionDesc{
 	ExtensionType: (*bool)(nil),
 	Field:         50005,
 	Name:          "hw.trezor.messages.wire_debug_out",
-	Tag:           "varint,50005,opt,name=wire_debug_out",
+	Tag:           "varint,50005,opt,name=wire_debug_out,json=wireDebugOut",
 	Filename:      "messages.proto",
 }
 
@@ -697,7 +690,7 @@ var E_WireTiny = &proto.ExtensionDesc{
 	ExtensionType: (*bool)(nil),
 	Field:         50006,
 	Name:          "hw.trezor.messages.wire_tiny",
-	Tag:           "varint,50006,opt,name=wire_tiny",
+	Tag:           "varint,50006,opt,name=wire_tiny,json=wireTiny",
 	Filename:      "messages.proto",
 }
 
@@ -706,7 +699,7 @@ var E_WireBootloader = &proto.ExtensionDesc{
 	ExtensionType: (*bool)(nil),
 	Field:         50007,
 	Name:          "hw.trezor.messages.wire_bootloader",
-	Tag:           "varint,50007,opt,name=wire_bootloader",
+	Tag:           "varint,50007,opt,name=wire_bootloader,json=wireBootloader",
 	Filename:      "messages.proto",
 }
 
@@ -715,7 +708,7 @@ var E_WireNoFsm = &proto.ExtensionDesc{
 	ExtensionType: (*bool)(nil),
 	Field:         50008,
 	Name:          "hw.trezor.messages.wire_no_fsm",
-	Tag:           "varint,50008,opt,name=wire_no_fsm",
+	Tag:           "varint,50008,opt,name=wire_no_fsm,json=wireNoFsm",
 	Filename:      "messages.proto",
 }
 
@@ -730,9 +723,9 @@ func init() {
 	proto.RegisterExtension(E_WireNoFsm)
 }
 
-func init() { proto.RegisterFile("messages.proto", fileDescriptor_4dc296cbfe5ffcd5) }
+func init() { proto.RegisterFile("messages.proto", fileDescriptor_messages_682f2c0a81fe1eb6) }
 
-var fileDescriptor_4dc296cbfe5ffcd5 = []byte{
+var fileDescriptor_messages_682f2c0a81fe1eb6 = []byte{
 	// 2430 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x9a, 0xd9, 0x73, 0x1c, 0xc5,
 	0x1d, 0xc7, 0xb3, 0xab, 0x11, 0x88, 0xf6, 0x41, 0x23, 0xb0, 0x2d, 0xaf, 0x2f, 0xf9, 0xc0, 0x96,

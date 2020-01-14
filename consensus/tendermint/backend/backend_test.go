@@ -59,12 +59,12 @@ func TestAskSync(t *testing.T) {
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
 	for _, val := range validators {
-		addresses = append(addresses, val.Address())
+		addresses = append(addresses, val.GetAddress())
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().Send(uint64(tendermintSyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
-		peers[val.Address()] = mockedPeer
+		peers[val.GetAddress()] = mockedPeer
 	}
 
 	m := make(map[common.Address]struct{})
@@ -105,7 +105,7 @@ func TestGossip(t *testing.T) {
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
 	for i, val := range validators {
-		addresses = append(addresses, val.Address())
+		addresses = append(addresses, val.GetAddress())
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
 		if i == 3 {
@@ -118,7 +118,7 @@ func TestGossip(t *testing.T) {
 				}
 			}).Times(1)
 		}
-		peers[val.Address()] = mockedPeer
+		peers[val.GetAddress()] = mockedPeer
 	}
 
 	m := make(map[common.Address]struct{})
@@ -307,8 +307,8 @@ func TestCheckValidatorSignature(t *testing.T) {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
 		val := vset.GetByIndex(uint64(i))
-		if addr != val.Address() {
-			t.Errorf("validator address mismatch: have %v, want %v", addr, val.Address())
+		if addr != val.GetAddress() {
+			t.Errorf("validator address mismatch: have %v, want %v", addr, val.GetAddress())
 		}
 	}
 
@@ -345,34 +345,34 @@ func TestCommit(t *testing.T) {
 		testCases := []struct {
 			expectedErr       error
 			expectedSignature [][]byte
-			expectedBlock     func() types.Block
+			expectedBlock     func() *types.Block
 		}{
 			{
 				// normal case
 				nil,
 				[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-1)...)},
-				func() types.Block {
+				func() *types.Block {
 					chain, engine := newBlockChain(1)
 					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 					if err != nil {
 						t.Fatal(err)
 					}
 					expectedBlock, _ := engine.AddSeal(block)
-					return *expectedBlock
+					return expectedBlock
 				},
 			},
 			{
 				// invalid signature
 				types.ErrInvalidCommittedSeals,
 				nil,
-				func() types.Block {
+				func() *types.Block {
 					chain, engine := newBlockChain(1)
 					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 					if err != nil {
 						t.Fatal(err)
 					}
 					expectedBlock, _ := engine.AddSeal(block)
-					return *expectedBlock
+					return expectedBlock
 				},
 			},
 		}
@@ -381,7 +381,7 @@ func TestCommit(t *testing.T) {
 			expBlock := test.expectedBlock()
 
 			backend.proposedBlockHash = expBlock.Hash()
-			if err := backend.Commit(expBlock, test.expectedSignature); err != nil {
+			if err := backend.Commit(expBlock, new(big.Int), test.expectedSignature); err != nil {
 				if err != test.expectedErr {
 					t.Errorf("error mismatch: have %v, want %v", err, test.expectedErr)
 				}
@@ -405,14 +405,14 @@ func TestCommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		blockFactory := func() types.Block {
+		blockFactory := func() *types.Block {
 			chain, engine := newBlockChain(1)
 			block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 			if err != nil {
 				t.Fatal(err)
 			}
 			expectedBlock, _ := engine.AddSeal(block)
-			return *expectedBlock
+			return expectedBlock
 		}
 
 		newBlock := blockFactory()
@@ -427,7 +427,7 @@ func TestCommit(t *testing.T) {
 		}
 		b.SetBroadcaster(broadcaster)
 
-		err := b.Commit(newBlock, seals)
+		err := b.Commit(newBlock, new(big.Int), seals)
 		if err != nil {
 			t.Fatalf("expected <nil>, got %v", err)
 		}
@@ -523,8 +523,8 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 	})
 
 	t.Run("block number is greater than 0, empty block returned", func(t *testing.T) {
-		block := types.NewBlockWithHeader(&types.Header{
-			Number: big.NewInt(1),
+		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
+			Number: big.NewInt(1)},
 		})
 
 		b := &Backend{
@@ -601,11 +601,14 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 func newTestValidatorSet(n int) (validator.Set, []*ecdsa.PrivateKey) {
 	// generate validators
 	keys := make(Keys, n)
-	addrs := make([]common.Address, n)
+	addrs := make(types.Committee, n)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
 		keys[i] = privateKey
-		addrs[i] = crypto.PubkeyToAddress(privateKey.PublicKey)
+		addrs[i] = types.CommitteeMember{
+			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower: new(big.Int).SetUint64(1),
+		}
 	}
 	vset := validator.NewSet(addrs, config.RoundRobin)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
@@ -659,7 +662,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	if validators.Size() == 0 {
 		panic("failed to get validators")
 	}
-	proposerAddr := validators.GetProposer().Address()
+	proposerAddr := validators.GetProposer().GetAddress()
 
 	// find proposer key
 	for _, key := range nodeKeys {
@@ -707,27 +710,6 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 const EnodeStub = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
-	extraData := genesis.GetExtraData()
-
-	if len(extraData) < types.BFTExtraVanity {
-		extraData = append(extraData, bytes.Repeat([]byte{0x00}, types.BFTExtraVanity)...)
-	}
-	extraData = extraData[:types.BFTExtraVanity]
-
-	ist := &types.BFTExtra{
-		Validators:    addrs,
-		Seal:          []byte{},
-		CommittedSeal: [][]byte{},
-	}
-
-	istPayload, err := rlp.EncodeToBytes(&ist)
-	if err != nil {
-		panic("failed to encode tendermint extra")
-	}
-	extraData = append(extraData, istPayload...)
-
-	genesis.SetExtraData(extraData)
-
 	for i := range addrs {
 		genesis.Config.AutonityContractConfig.Users = append(
 			genesis.Config.AutonityContractConfig.Users,
@@ -737,18 +719,22 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 				Enode:   EnodeStub,
 				Stake:   100,
 			})
+		genesis.Committee = append(genesis.Committee, types.CommitteeMember{
+			Address:     addrs[i],
+			VotingPower: new(big.Int).SetUint64(1),
+		})
 	}
 }
 
 func makeHeader(parent *types.Block, config *config.Config) *types.Header {
-	header := &types.Header{
+	header := &types.Header{OriginalHeader: types.OriginalHeader{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, 8000000, 8000000),
 		GasUsed:    0,
 		Extra:      parent.Extra(),
 		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(config.BlockPeriod)).Uint64(),
-		Difficulty: defaultDifficulty,
+		Difficulty: defaultDifficulty},
 	}
 	return header
 }

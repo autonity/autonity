@@ -37,12 +37,17 @@ const (
 	HashLength = 32
 	// AddressLength is the expected length of the address
 	AddressLength = 20
+	//SealLeangth is the expected length of a signature
+	SealLength = 65
 )
 
 var (
 	hashT    = reflect.TypeOf(Hash{})
 	addressT = reflect.TypeOf(Address{})
 )
+
+// Seal represents the 65 byte of a compact ECDSA signature. TODO: consider using that instead of []byte.
+// type Seal [SealLength]byte
 
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
 type Hash [HashLength]byte

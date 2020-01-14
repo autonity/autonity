@@ -16,7 +16,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 	validators, keysMap := newTestValidatorSetWithKeys(4)
 	currentValidator := validators.GetByIndex(0)
 	sender := validators.GetByIndex(1)
-	senderKey := keysMap[sender.Address()]
+	senderKey := keysMap[sender.GetAddress()]
 
 	createPrevote := func(round int64, height int64) *Message {
 		vote := &Vote{
@@ -31,7 +31,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		return &Message{
 			Code:    msgPrevote,
 			Msg:     encoded,
-			Address: sender.Address(),
+			Address: sender.GetAddress(),
 		}
 	}
 
@@ -45,7 +45,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not encode vote")
 		}
-		data := PrepareCommittedSeal(common.BytesToHash([]byte{0x1}))
+		data := PrepareCommittedSeal(common.BytesToHash([]byte{0x1}), vote.Round, vote.Height)
 		hashData := crypto.Keccak256(data)
 		commitSign, err := crypto.Sign(hashData, senderKey)
 		if err != nil {
@@ -54,7 +54,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		return &Message{
 			Code:          msgPrecommit,
 			Msg:           encoded,
-			Address:       sender.Address(),
+			Address:       sender.GetAddress(),
 			CommittedSeal: commitSign,
 		}
 	}
@@ -111,7 +111,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		logger := log.New("backend", "test", "id", 0)
 		engine := core{
 			logger:             logger,
-			address:            currentValidator.Address(),
+			address:            currentValidator.GetAddress(),
 			backlogs:           make(map[validator.Validator]*prque.Prque),
 			currentRoundState:  testCase.currentState,
 			futureRoundsChange: make(map[int64]int64),

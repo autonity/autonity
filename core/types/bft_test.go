@@ -17,72 +17,127 @@
 package types
 
 import (
-	"bytes"
+	"math/big"
 	"reflect"
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
 )
 
 func TestHeaderHash(t *testing.T) {
-	// 0xcefefd3ade63a5955bca4562ed840b67f39e74df217f7e5f7241a6e9552cca70
-	expectedExtra := common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000000f89af8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b440b8410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0")
-	expectedHash := common.HexToHash("0xcefefd3ade63a5955bca4562ed840b67f39e74df217f7e5f7241a6e9552cca70")
-
-	// for pos consensus
-	header := &Header{MixDigest: BFTDigest, Extra: expectedExtra}
-	if !reflect.DeepEqual(header.Hash(), expectedHash) {
-		t.Errorf("expected: %v, but got: %v", expectedHash.Hex(), header.Hash().Hex())
+	originalHeader := OriginalHeader{
+		ParentHash:  common.HexToHash("0000H45H"),
+		UncleHash:   common.HexToHash("0000H45H"),
+		Coinbase:    common.HexToAddress("0000H45H"),
+		Root:        common.HexToHash("0000H00H"),
+		TxHash:      common.HexToHash("0000H45H"),
+		ReceiptHash: common.HexToHash("0000H45H"),
+		Difficulty:  big.NewInt(1337),
+		Number:      big.NewInt(1337),
+		GasLimit:    1338,
+		GasUsed:     1338,
+		Time:        1338,
+		Extra:       []byte("Extra data Extra data Extra data  Extra data  Extra data  Extra data  Extra data Extra data"),
+		MixDigest:   common.HexToHash("0x0000H45H"),
 	}
+	PosHeader := originalHeader
+	PosHeader.MixDigest = BFTDigest
 
-	// append useless information to extra-data
-	unexpectedExtra := append(expectedExtra, []byte{1, 2, 3}...)
-	header.Extra = unexpectedExtra
-	if !reflect.DeepEqual(header.Hash(), rlpHash(header)) {
-		t.Errorf("expected: %v, but got: %v", rlpHash(header).Hex(), header.Hash().Hex())
-	}
-}
+	originalHeaderHash := common.HexToHash("0x44381ab449d77774874aca34634cb53bc21bd22aef2d3d4cf40e51176cb585ec")
+	posHeaderHash := common.HexToHash("0x4ceafbc550a2f60288e7bdfef92a71a65346d184304b526e28cc56a478e12080")
 
-func TestExtractToBFT(t *testing.T) {
 	testCases := []struct {
-		vanity         []byte
-		posRawData     []byte
-		expectedResult *BFTExtra
-		expectedErr    error
+		header Header
+		hash   common.Hash
 	}{
+		// Non-BFT header tests, PoS fields should not be taken into account.
 		{
-			// normal case
-			bytes.Repeat([]byte{0x00}, BFTExtraVanity),
-			hexutil.MustDecode("0xf858f8549444add0ec310f115a0e603b2d7db9f067778eaf8a94294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212946beaaed781d2d2ab6350f5c4566a2c6eaac407a6948be76812f765c24641ec63dc2852b378aba2b44080c0"),
-			&BFTExtra{
-				Validators: []common.Address{
-					common.BytesToAddress(hexutil.MustDecode("0x44add0ec310f115a0e603b2d7db9f067778eaf8a")),
-					common.BytesToAddress(hexutil.MustDecode("0x294fc7e8f22b3bcdcf955dd7ff3ba2ed833f8212")),
-					common.BytesToAddress(hexutil.MustDecode("0x6beaaed781d2d2ab6350f5c4566a2c6eaac407a6")),
-					common.BytesToAddress(hexutil.MustDecode("0x8be76812f765c24641ec63dc2852b378aba2b440")),
-				},
-				Seal:          []byte{},
-				CommittedSeal: [][]byte{},
-			},
-			nil,
+			Header{},
+			common.HexToHash("0xc3bd2d00745c03048a5616146a96f5ff78e54efb9e5b04af208cdaff6f3830ee"),
 		},
 		{
-			// insufficient vanity
-			bytes.Repeat([]byte{0x00}, BFTExtraVanity-1),
-			nil,
-			nil,
-			ErrInvalidBFTHeaderExtra,
+			Header{OriginalHeader: originalHeader},
+			originalHeaderHash,
+		},
+		{
+			Header{OriginalHeader: originalHeader, Committee: Committee{
+				{
+					Address:     common.HexToAddress("0x1234566"),
+					VotingPower: new(big.Int).SetUint64(12),
+				},
+				{
+					Address:     common.HexToAddress("0x13371337"),
+					VotingPower: new(big.Int).SetUint64(1337),
+				},
+			}},
+			originalHeaderHash,
+		},
+		{
+			Header{OriginalHeader: originalHeader, ProposerSeal: common.Hex2Bytes("0xbebedead")},
+			originalHeaderHash,
+		},
+		{
+			Header{OriginalHeader: originalHeader, Round: new(big.Int).SetUint64(1997)},
+			originalHeaderHash,
+		},
+		{
+			Header{OriginalHeader: originalHeader, CommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")}},
+			originalHeaderHash,
+		},
+		{
+			Header{OriginalHeader: originalHeader, PastCommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")}},
+			originalHeaderHash,
+		},
+		// BFT header tests
+		{
+			Header{OriginalHeader: PosHeader}, // test 7
+			posHeaderHash,
+		},
+		{
+			Header{OriginalHeader: PosHeader, CommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")}},
+			posHeaderHash,
+		},
+		{
+			Header{OriginalHeader: PosHeader, CommittedSeals: [][]byte{common.Hex2Bytes("0x123456"), common.Hex2Bytes("0x777777"), common.Hex2Bytes("0xaaaaaaa")}},
+			posHeaderHash,
+		},
+		{
+			Header{OriginalHeader: PosHeader, Committee: Committee{
+				{
+					Address:     common.HexToAddress("0x1234566"),
+					VotingPower: new(big.Int).SetUint64(12),
+				},
+				{
+					Address:     common.HexToAddress("0x13371337"),
+					VotingPower: new(big.Int).SetUint64(1337),
+				},
+			}},
+			common.HexToHash("0xf5d460ed44edb6c81ab9ff1979126704e18777986c064d0023aa87bb4a2a7ea5"),
+		},
+		{
+			Header{OriginalHeader: PosHeader, ProposerSeal: common.Hex2Bytes("0xbebedead")},
+			common.HexToHash("0x4ceafbc550a2f60288e7bdfef92a71a65346d184304b526e28cc56a478e12080"),
+		},
+		{
+			Header{OriginalHeader: PosHeader, Round: new(big.Int).SetUint64(1997)},
+			posHeaderHash,
+		},
+		{
+			Header{OriginalHeader: PosHeader, Round: new(big.Int).SetUint64(3)},
+			posHeaderHash,
+		},
+		{
+			Header{OriginalHeader: PosHeader, Round: new(big.Int).SetUint64(0)},
+			posHeaderHash,
+		},
+		{
+			Header{OriginalHeader: PosHeader, PastCommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")}},
+			common.HexToHash("0x5d29fd91067324583e8203615ca019679ca5024b8d91cfb3f9710feffd65b6d2"),
 		},
 	}
-	for _, test := range testCases {
-		h := &Header{Extra: append(test.vanity, test.posRawData...)}
-		bftExtra, err := ExtractBFTHeaderExtra(h)
-		if err != test.expectedErr {
-			t.Errorf("expected: %v, but got: %v", test.expectedErr, err)
-		}
-		if !reflect.DeepEqual(bftExtra, test.expectedResult) {
-			t.Errorf("expected: %v, but got: %v", test.expectedResult, bftExtra)
+	for i := range testCases {
+		if !reflect.DeepEqual(testCases[i].hash, testCases[i].header.Hash()) {
+			t.Errorf("test %d, expected: %v, but got: %v", i, testCases[i].hash.Hex(), testCases[i].header.Hash().Hex())
 		}
 	}
 }

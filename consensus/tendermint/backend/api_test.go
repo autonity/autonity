@@ -23,7 +23,7 @@ func TestGetValidators(t *testing.T) {
 	want := []common.Address{addr}
 
 	val := validator.NewMockValidator(ctrl)
-	val.EXPECT().Address().Return(addr)
+	val.EXPECT().GetAddress().Return(addr)
 
 	valSet := validator.NewMockSet(ctrl)
 	valSet.EXPECT().List().Return([]validator.Validator{val})
@@ -77,10 +77,10 @@ func TestGetValidatorsAtHash(t *testing.T) {
 		hash := common.HexToHash("0x0123456789")
 
 		chain := consensus.NewMockChainReader(ctrl)
-		chain.EXPECT().GetHeaderByHash(hash).Return(&types.Header{Number: big.NewInt(1)})
+		chain.EXPECT().GetHeaderByHash(hash).Return(&types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(1)}})
 
 		val := validator.NewMockValidator(ctrl)
-		val.EXPECT().Address().Return(addr)
+		val.EXPECT().GetAddress().Return(addr)
 
 		valSet := validator.NewMockSet(ctrl)
 		valSet.EXPECT().List().Return([]validator.Validator{val})

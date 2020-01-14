@@ -20,18 +20,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/istanbul"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/console"
 	"github.com/clearmatics/autonity/core"
@@ -193,19 +190,6 @@ Use "ethereum dump 0" to dump the genesis block.`,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 	}
-	updateValidatorsCommand = cli.Command{
-		Action:    utils.MigrateFlags(updateValidators),
-		Name:      "update-validators",
-		Usage:     "Update validator list in the given genesis file",
-		ArgsUsage: "<genesisPath> <comma separated list of validators IDs>",
-		Flags: []cli.Flag{
-			utils.GenesisFlag,
-			utils.UpdateValidatorsFlag,
-		},
-		Category: "BLOCKCHAIN COMMANDS",
-		Description: `
-It expects the genesis file as argument. The second parameter should be in format ID1,ID2,ID3,...`,
-	}
 )
 
 // initGenesis will initialise the given JSON format genesis file and writes it as
@@ -226,11 +210,17 @@ func initGenesis(ctx *cli.Context) error {
 	if err := json.NewDecoder(file).Decode(genesis); err != nil {
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
-	if genesis.Config.AutonityContractConfig != nil {
-		if err := genesis.Config.AutonityContractConfig.AddDefault().Validate(); err != nil {
-			spew.Dump(genesis.Config.AutonityContractConfig)
-			return fmt.Errorf("autonity contract section is invalid. error:%v", err.Error())
-		}
+	// Make AutonityContract and Tendermint consensus mandatory for the time being.
+	if genesis.Config.AutonityContractConfig == nil {
+		utils.Fatalf("No Autonity Contract config section in genesis")
+	}
+	if genesis.Config.Tendermint == nil {
+		utils.Fatalf("No Tendermint config section in genesis")
+	}
+
+	if err := genesis.Config.AutonityContractConfig.AddDefault().Validate(); err != nil {
+		spew.Dump(genesis.Config.AutonityContractConfig)
+		return fmt.Errorf("autonity contract section is invalid. error:%v", err.Error())
 	}
 
 	setupDefaults(genesis)
@@ -257,18 +247,6 @@ func initGenesis(ctx *cli.Context) error {
 func setupDefaults(genesis *core.Genesis) {
 	if genesis == nil || genesis.Config == nil {
 		return
-	}
-
-	if genesis.Config.Istanbul != nil {
-		if genesis.Config.Istanbul.Epoch == 0 {
-			genesis.Config.Istanbul.Epoch = istanbul.DefaultConfig.Epoch
-		}
-		if genesis.Config.Istanbul.RequestTimeout == 0 {
-			genesis.Config.Istanbul.RequestTimeout = istanbul.DefaultConfig.RequestTimeout
-		}
-		if genesis.Config.Istanbul.BlockPeriod == 0 {
-			genesis.Config.Istanbul.BlockPeriod = istanbul.DefaultConfig.BlockPeriod
-		}
 	}
 
 	defaultConfig := config.DefaultConfig()
@@ -619,73 +597,4 @@ func inspect(ctx *cli.Context) error {
 func hashish(x string) bool {
 	_, err := strconv.Atoi(x)
 	return err != nil
-}
-
-// updateValidators will update extraData in genesis file according to the provided list of validators
-func updateValidators(ctx *cli.Context) error {
-	addressListString := strings.TrimSpace(ctx.Args().Get(1))
-
-	var addressList []string
-	if len(addressListString) != 0 {
-		addressList = strings.Split(addressListString, ",")
-	} else {
-		addressList = ctx.StringSlice("validators")
-		if len(addressList) == 0 {
-			utils.Fatalf("Must specify non-empty list of validators")
-		}
-	}
-
-	var validators []common.Address
-	for _, address := range addressList {
-		validators = append(validators, common.HexToAddress(address))
-	}
-
-	// Make sure we have a valid genesis JSON
-	genesisPath := ctx.Args().First()
-	if len(genesisPath) == 0 {
-		genesisPath = ctx.String("genesis")
-	}
-
-	var (
-		extraData   []byte
-		genesisData []byte
-		err         error
-		genesis     *core.Genesis
-	)
-
-	updateGenesis := len(genesisPath) != 0
-	if updateGenesis {
-		genesisData, err = ioutil.ReadFile(genesisPath)
-		if err != nil {
-			utils.Fatalf("Failed to read genesis: %v", err)
-		}
-
-		genesis = new(core.Genesis)
-		if err := json.Unmarshal(genesisData, genesis); err != nil {
-			utils.Fatalf("invalid genesis: %v", err)
-		}
-
-		extraData = genesis.GetExtraData()
-	}
-
-	if extraData, err = types.PrepareExtra(extraData, validators); err != nil {
-		utils.Fatalf("error while updating extraData field: %v", err)
-	}
-
-	//output new ExtraData
-	fmt.Println(common.Bytes2Hex(extraData))
-
-	if updateGenesis {
-		genesisData, err = json.MarshalIndent(genesis, "", "\t")
-		if err != nil {
-			utils.Fatalf("json marshal error: %v", err)
-		}
-
-		err = ioutil.WriteFile(genesisPath, genesisData, 0666)
-		if err != nil {
-			utils.Fatalf("can't update genesis file: %v", err)
-		}
-	}
-
-	return nil
 }

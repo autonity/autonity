@@ -20,7 +20,6 @@ package eth
 import (
 	"errors"
 	"fmt"
-	istanbulBackend "github.com/clearmatics/autonity/consensus/istanbul/backend"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/crypto"
@@ -272,9 +271,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 	if chainConfig.Clique != nil {
 		return clique.New(chainConfig.Clique, db)
 	}
-	if chainConfig.Istanbul != nil {
-		return istanbulBackend.New(&config.Istanbul, ctx.NodeKey(), db, chainConfig, vmConfig)
-	}
+
 	if chainConfig.Tendermint != nil {
 		var back tendermintCore.Backend = tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, chainConfig, vmConfig)
 		if backendConstructor != nil {

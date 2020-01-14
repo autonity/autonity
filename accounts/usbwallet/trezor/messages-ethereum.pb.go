@@ -3,12 +3,9 @@
 
 package trezor
 
-import (
-	fmt "fmt"
-	math "math"
-
-	proto "github.com/golang/protobuf/proto"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -19,9 +16,9 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-//*
+// *
 // Request: Ask device for public key corresponding to address_n path
 // @start
 // @next EthereumPublicKey
@@ -38,17 +35,16 @@ func (m *EthereumGetPublicKey) Reset()         { *m = EthereumGetPublicKey{} }
 func (m *EthereumGetPublicKey) String() string { return proto.CompactTextString(m) }
 func (*EthereumGetPublicKey) ProtoMessage()    {}
 func (*EthereumGetPublicKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cb33f46ba915f15c, []int{0}
+	return fileDescriptor_messages_ethereum_8e74d77a1bca50fb, []int{0}
 }
-
 func (m *EthereumGetPublicKey) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EthereumGetPublicKey.Unmarshal(m, b)
 }
 func (m *EthereumGetPublicKey) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EthereumGetPublicKey.Marshal(b, m, deterministic)
 }
-func (m *EthereumGetPublicKey) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EthereumGetPublicKey.Merge(m, src)
+func (dst *EthereumGetPublicKey) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumGetPublicKey.Merge(dst, src)
 }
 func (m *EthereumGetPublicKey) XXX_Size() int {
 	return xxx_messageInfo_EthereumGetPublicKey.Size(m)
@@ -73,7 +69,7 @@ func (m *EthereumGetPublicKey) GetShowDisplay() bool {
 	return false
 }
 
-//*
+// *
 // Response: Contains public key derived from device private seed
 // @end
 type EthereumPublicKey struct {
@@ -88,17 +84,16 @@ func (m *EthereumPublicKey) Reset()         { *m = EthereumPublicKey{} }
 func (m *EthereumPublicKey) String() string { return proto.CompactTextString(m) }
 func (*EthereumPublicKey) ProtoMessage()    {}
 func (*EthereumPublicKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cb33f46ba915f15c, []int{1}
+	return fileDescriptor_messages_ethereum_8e74d77a1bca50fb, []int{1}
 }
-
 func (m *EthereumPublicKey) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EthereumPublicKey.Unmarshal(m, b)
 }
 func (m *EthereumPublicKey) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EthereumPublicKey.Marshal(b, m, deterministic)
 }
-func (m *EthereumPublicKey) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EthereumPublicKey.Merge(m, src)
+func (dst *EthereumPublicKey) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumPublicKey.Merge(dst, src)
 }
 func (m *EthereumPublicKey) XXX_Size() int {
 	return xxx_messageInfo_EthereumPublicKey.Size(m)
@@ -123,7 +118,7 @@ func (m *EthereumPublicKey) GetXpub() string {
 	return ""
 }
 
-//*
+// *
 // Request: Ask device for Ethereum address corresponding to address_n path
 // @start
 // @next EthereumAddress
@@ -140,17 +135,16 @@ func (m *EthereumGetAddress) Reset()         { *m = EthereumGetAddress{} }
 func (m *EthereumGetAddress) String() string { return proto.CompactTextString(m) }
 func (*EthereumGetAddress) ProtoMessage()    {}
 func (*EthereumGetAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cb33f46ba915f15c, []int{2}
+	return fileDescriptor_messages_ethereum_8e74d77a1bca50fb, []int{2}
 }
-
 func (m *EthereumGetAddress) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EthereumGetAddress.Unmarshal(m, b)
 }
 func (m *EthereumGetAddress) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EthereumGetAddress.Marshal(b, m, deterministic)
 }
-func (m *EthereumGetAddress) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EthereumGetAddress.Merge(m, src)
+func (dst *EthereumGetAddress) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumGetAddress.Merge(dst, src)
 }
 func (m *EthereumGetAddress) XXX_Size() int {
 	return xxx_messageInfo_EthereumGetAddress.Size(m)
@@ -175,7 +169,7 @@ func (m *EthereumGetAddress) GetShowDisplay() bool {
 	return false
 }
 
-//*
+// *
 // Response: Contains an Ethereum address derived from device private seed
 // @end
 type EthereumAddress struct {
@@ -190,17 +184,16 @@ func (m *EthereumAddress) Reset()         { *m = EthereumAddress{} }
 func (m *EthereumAddress) String() string { return proto.CompactTextString(m) }
 func (*EthereumAddress) ProtoMessage()    {}
 func (*EthereumAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cb33f46ba915f15c, []int{3}
+	return fileDescriptor_messages_ethereum_8e74d77a1bca50fb, []int{3}
 }
-
 func (m *EthereumAddress) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EthereumAddress.Unmarshal(m, b)
 }
 func (m *EthereumAddress) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EthereumAddress.Marshal(b, m, deterministic)
 }
-func (m *EthereumAddress) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EthereumAddress.Merge(m, src)
+func (dst *EthereumAddress) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumAddress.Merge(dst, src)
 }
 func (m *EthereumAddress) XXX_Size() int {
 	return xxx_messageInfo_EthereumAddress.Size(m)
@@ -225,7 +218,7 @@ func (m *EthereumAddress) GetAddressHex() string {
 	return ""
 }
 
-//*
+// *
 // Request: Ask device to sign transaction
 // All fields are optional from the protocol's point of view. Each field defaults to value `0` if missing.
 // Note: the first at most 1024 bytes of data MUST be transmitted as part of this message.
@@ -253,17 +246,16 @@ func (m *EthereumSignTx) Reset()         { *m = EthereumSignTx{} }
 func (m *EthereumSignTx) String() string { return proto.CompactTextString(m) }
 func (*EthereumSignTx) ProtoMessage()    {}
 func (*EthereumSignTx) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cb33f46ba915f15c, []int{4}
+	return fileDescriptor_messages_ethereum_8e74d77a1bca50fb, []int{4}
 }
-
 func (m *EthereumSignTx) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EthereumSignTx.Unmarshal(m, b)
 }
 func (m *EthereumSignTx) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EthereumSignTx.Marshal(b, m, deterministic)
 }
-func (m *EthereumSignTx) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EthereumSignTx.Merge(m, src)
+func (dst *EthereumSignTx) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumSignTx.Merge(dst, src)
 }
 func (m *EthereumSignTx) XXX_Size() int {
 	return xxx_messageInfo_EthereumSignTx.Size(m)
@@ -351,7 +343,7 @@ func (m *EthereumSignTx) GetTxType() uint32 {
 	return 0
 }
 
-//*
+// *
 // Response: Device asks for more data from transaction payload, or returns the signature.
 // If data_length is set, device awaits that many more bytes of payload.
 // Otherwise, the signature_* fields contain the computed transaction signature. All three fields will be present.
@@ -371,17 +363,16 @@ func (m *EthereumTxRequest) Reset()         { *m = EthereumTxRequest{} }
 func (m *EthereumTxRequest) String() string { return proto.CompactTextString(m) }
 func (*EthereumTxRequest) ProtoMessage()    {}
 func (*EthereumTxRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cb33f46ba915f15c, []int{5}
+	return fileDescriptor_messages_ethereum_8e74d77a1bca50fb, []int{5}
 }
-
 func (m *EthereumTxRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EthereumTxRequest.Unmarshal(m, b)
 }
 func (m *EthereumTxRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EthereumTxRequest.Marshal(b, m, deterministic)
 }
-func (m *EthereumTxRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EthereumTxRequest.Merge(m, src)
+func (dst *EthereumTxRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumTxRequest.Merge(dst, src)
 }
 func (m *EthereumTxRequest) XXX_Size() int {
 	return xxx_messageInfo_EthereumTxRequest.Size(m)
@@ -420,7 +411,7 @@ func (m *EthereumTxRequest) GetSignatureS() []byte {
 	return nil
 }
 
-//*
+// *
 // Request: Transaction payload data.
 // @next EthereumTxRequest
 type EthereumTxAck struct {
@@ -434,17 +425,16 @@ func (m *EthereumTxAck) Reset()         { *m = EthereumTxAck{} }
 func (m *EthereumTxAck) String() string { return proto.CompactTextString(m) }
 func (*EthereumTxAck) ProtoMessage()    {}
 func (*EthereumTxAck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cb33f46ba915f15c, []int{6}
+	return fileDescriptor_messages_ethereum_8e74d77a1bca50fb, []int{6}
 }
-
 func (m *EthereumTxAck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EthereumTxAck.Unmarshal(m, b)
 }
 func (m *EthereumTxAck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EthereumTxAck.Marshal(b, m, deterministic)
 }
-func (m *EthereumTxAck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EthereumTxAck.Merge(m, src)
+func (dst *EthereumTxAck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumTxAck.Merge(dst, src)
 }
 func (m *EthereumTxAck) XXX_Size() int {
 	return xxx_messageInfo_EthereumTxAck.Size(m)
@@ -462,7 +452,7 @@ func (m *EthereumTxAck) GetDataChunk() []byte {
 	return nil
 }
 
-//*
+// *
 // Request: Ask device to sign message
 // @start
 // @next EthereumMessageSignature
@@ -479,17 +469,16 @@ func (m *EthereumSignMessage) Reset()         { *m = EthereumSignMessage{} }
 func (m *EthereumSignMessage) String() string { return proto.CompactTextString(m) }
 func (*EthereumSignMessage) ProtoMessage()    {}
 func (*EthereumSignMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cb33f46ba915f15c, []int{7}
+	return fileDescriptor_messages_ethereum_8e74d77a1bca50fb, []int{7}
 }
-
 func (m *EthereumSignMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EthereumSignMessage.Unmarshal(m, b)
 }
 func (m *EthereumSignMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EthereumSignMessage.Marshal(b, m, deterministic)
 }
-func (m *EthereumSignMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EthereumSignMessage.Merge(m, src)
+func (dst *EthereumSignMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumSignMessage.Merge(dst, src)
 }
 func (m *EthereumSignMessage) XXX_Size() int {
 	return xxx_messageInfo_EthereumSignMessage.Size(m)
@@ -514,7 +503,7 @@ func (m *EthereumSignMessage) GetMessage() []byte {
 	return nil
 }
 
-//*
+// *
 // Response: Signed message
 // @end
 type EthereumMessageSignature struct {
@@ -530,17 +519,16 @@ func (m *EthereumMessageSignature) Reset()         { *m = EthereumMessageSignatu
 func (m *EthereumMessageSignature) String() string { return proto.CompactTextString(m) }
 func (*EthereumMessageSignature) ProtoMessage()    {}
 func (*EthereumMessageSignature) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cb33f46ba915f15c, []int{8}
+	return fileDescriptor_messages_ethereum_8e74d77a1bca50fb, []int{8}
 }
-
 func (m *EthereumMessageSignature) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EthereumMessageSignature.Unmarshal(m, b)
 }
 func (m *EthereumMessageSignature) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EthereumMessageSignature.Marshal(b, m, deterministic)
 }
-func (m *EthereumMessageSignature) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EthereumMessageSignature.Merge(m, src)
+func (dst *EthereumMessageSignature) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumMessageSignature.Merge(dst, src)
 }
 func (m *EthereumMessageSignature) XXX_Size() int {
 	return xxx_messageInfo_EthereumMessageSignature.Size(m)
@@ -572,7 +560,7 @@ func (m *EthereumMessageSignature) GetAddressHex() string {
 	return ""
 }
 
-//*
+// *
 // Request: Ask device to verify message
 // @start
 // @next Success
@@ -591,17 +579,16 @@ func (m *EthereumVerifyMessage) Reset()         { *m = EthereumVerifyMessage{} }
 func (m *EthereumVerifyMessage) String() string { return proto.CompactTextString(m) }
 func (*EthereumVerifyMessage) ProtoMessage()    {}
 func (*EthereumVerifyMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cb33f46ba915f15c, []int{9}
+	return fileDescriptor_messages_ethereum_8e74d77a1bca50fb, []int{9}
 }
-
 func (m *EthereumVerifyMessage) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EthereumVerifyMessage.Unmarshal(m, b)
 }
 func (m *EthereumVerifyMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EthereumVerifyMessage.Marshal(b, m, deterministic)
 }
-func (m *EthereumVerifyMessage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EthereumVerifyMessage.Merge(m, src)
+func (dst *EthereumVerifyMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EthereumVerifyMessage.Merge(dst, src)
 }
 func (m *EthereumVerifyMessage) XXX_Size() int {
 	return xxx_messageInfo_EthereumVerifyMessage.Size(m)
@@ -653,9 +640,11 @@ func init() {
 	proto.RegisterType((*EthereumVerifyMessage)(nil), "hw.trezor.messages.ethereum.EthereumVerifyMessage")
 }
 
-func init() { proto.RegisterFile("messages-ethereum.proto", fileDescriptor_cb33f46ba915f15c) }
+func init() {
+	proto.RegisterFile("messages-ethereum.proto", fileDescriptor_messages_ethereum_8e74d77a1bca50fb)
+}
 
-var fileDescriptor_cb33f46ba915f15c = []byte{
+var fileDescriptor_messages_ethereum_8e74d77a1bca50fb = []byte{
 	// 593 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x54, 0x4d, 0x6f, 0xd3, 0x40,
 	0x10, 0x95, 0x9b, 0xb4, 0x49, 0x26, 0x0d, 0x1f, 0xa6, 0x55, 0x17, 0x0a, 0x34, 0x18, 0x21, 0xe5,

@@ -735,17 +735,6 @@ var (
 		Value: "",
 	}
 
-	// Istanbul settings
-	IstanbulRequestTimeoutFlag = cli.Uint64Flag{
-		Name:  "istanbul.requesttimeout",
-		Usage: "Timeout for each Istanbul round in milliseconds",
-		Value: eth.DefaultConfig.Istanbul.RequestTimeout,
-	}
-	IstanbulBlockPeriodFlag = cli.Uint64Flag{
-		Name:  "istanbul.blockperiod",
-		Usage: "Default minimum difference between two consecutive block's timestamps in seconds",
-		Value: eth.DefaultConfig.Istanbul.BlockPeriod,
-	}
 	GenesisFlag = cli.StringFlag{
 		Name:   "genesis",
 		EnvVar: "AUTONITY_GENESIS",
@@ -1289,15 +1278,6 @@ func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
 	}
 }
 
-func setIstanbul(ctx *cli.Context, cfg *eth.Config) {
-	if ctx.GlobalIsSet(IstanbulRequestTimeoutFlag.Name) {
-		cfg.Istanbul.RequestTimeout = ctx.GlobalUint64(IstanbulRequestTimeoutFlag.Name)
-	}
-	if ctx.GlobalIsSet(IstanbulBlockPeriodFlag.Name) {
-		cfg.Istanbul.BlockPeriod = ctx.GlobalUint64(IstanbulBlockPeriodFlag.Name)
-	}
-}
-
 func setEthash(ctx *cli.Context, cfg *eth.Config) {
 	if ctx.GlobalIsSet(EthashCacheDirFlag.Name) {
 		cfg.Ethash.CacheDir = ctx.GlobalString(EthashCacheDirFlag.Name)
@@ -1432,7 +1412,6 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
 	setMiner(ctx, &cfg.Miner)
-	setIstanbul(ctx, cfg)
 	setWhitelist(ctx, cfg)
 	setLes(ctx, cfg)
 

@@ -3,12 +3,9 @@
 
 package trezor
 
-import (
-	fmt "fmt"
-	math "math"
-
-	proto "github.com/golang/protobuf/proto"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -19,9 +16,9 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-//*
+// *
 // Structure representing passphrase source
 type ApplySettings_PassphraseSourceType int32
 
@@ -36,7 +33,6 @@ var ApplySettings_PassphraseSourceType_name = map[int32]string{
 	1: "DEVICE",
 	2: "HOST",
 }
-
 var ApplySettings_PassphraseSourceType_value = map[string]int32{
 	"ASK":    0,
 	"DEVICE": 1,
@@ -48,11 +44,9 @@ func (x ApplySettings_PassphraseSourceType) Enum() *ApplySettings_PassphraseSour
 	*p = x
 	return p
 }
-
 func (x ApplySettings_PassphraseSourceType) String() string {
 	return proto.EnumName(ApplySettings_PassphraseSourceType_name, int32(x))
 }
-
 func (x *ApplySettings_PassphraseSourceType) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(ApplySettings_PassphraseSourceType_value, data, "ApplySettings_PassphraseSourceType")
 	if err != nil {
@@ -61,12 +55,11 @@ func (x *ApplySettings_PassphraseSourceType) UnmarshalJSON(data []byte) error {
 	*x = ApplySettings_PassphraseSourceType(value)
 	return nil
 }
-
 func (ApplySettings_PassphraseSourceType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{4, 0}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{4, 0}
 }
 
-//*
+// *
 // Type of recovery procedure. These should be used as bitmask, e.g.,
 // `RecoveryDeviceType_ScrambledWords | RecoveryDeviceType_Matrix`
 // listing every method supported by the host computer.
@@ -85,7 +78,6 @@ var RecoveryDevice_RecoveryDeviceType_name = map[int32]string{
 	0: "RecoveryDeviceType_ScrambledWords",
 	1: "RecoveryDeviceType_Matrix",
 }
-
 var RecoveryDevice_RecoveryDeviceType_value = map[string]int32{
 	"RecoveryDeviceType_ScrambledWords": 0,
 	"RecoveryDeviceType_Matrix":         1,
@@ -96,11 +88,9 @@ func (x RecoveryDevice_RecoveryDeviceType) Enum() *RecoveryDevice_RecoveryDevice
 	*p = x
 	return p
 }
-
 func (x RecoveryDevice_RecoveryDeviceType) String() string {
 	return proto.EnumName(RecoveryDevice_RecoveryDeviceType_name, int32(x))
 }
-
 func (x *RecoveryDevice_RecoveryDeviceType) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(RecoveryDevice_RecoveryDeviceType_value, data, "RecoveryDevice_RecoveryDeviceType")
 	if err != nil {
@@ -109,12 +99,11 @@ func (x *RecoveryDevice_RecoveryDeviceType) UnmarshalJSON(data []byte) error {
 	*x = RecoveryDevice_RecoveryDeviceType(value)
 	return nil
 }
-
 func (RecoveryDevice_RecoveryDeviceType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{17, 0}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{17, 0}
 }
 
-//*
+// *
 // Type of Recovery Word request
 type WordRequest_WordRequestType int32
 
@@ -129,7 +118,6 @@ var WordRequest_WordRequestType_name = map[int32]string{
 	1: "WordRequestType_Matrix9",
 	2: "WordRequestType_Matrix6",
 }
-
 var WordRequest_WordRequestType_value = map[string]int32{
 	"WordRequestType_Plain":   0,
 	"WordRequestType_Matrix9": 1,
@@ -141,11 +129,9 @@ func (x WordRequest_WordRequestType) Enum() *WordRequest_WordRequestType {
 	*p = x
 	return p
 }
-
 func (x WordRequest_WordRequestType) String() string {
 	return proto.EnumName(WordRequest_WordRequestType_name, int32(x))
 }
-
 func (x *WordRequest_WordRequestType) UnmarshalJSON(data []byte) error {
 	value, err := proto.UnmarshalJSONEnum(WordRequest_WordRequestType_value, data, "WordRequest_WordRequestType")
 	if err != nil {
@@ -154,12 +140,11 @@ func (x *WordRequest_WordRequestType) UnmarshalJSON(data []byte) error {
 	*x = WordRequest_WordRequestType(value)
 	return nil
 }
-
 func (WordRequest_WordRequestType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{18, 0}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{18, 0}
 }
 
-//*
+// *
 // Request: Reset device to default state and ask for device details
 // @start
 // @next Features
@@ -175,17 +160,16 @@ func (m *Initialize) Reset()         { *m = Initialize{} }
 func (m *Initialize) String() string { return proto.CompactTextString(m) }
 func (*Initialize) ProtoMessage()    {}
 func (*Initialize) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{0}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{0}
 }
-
 func (m *Initialize) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Initialize.Unmarshal(m, b)
 }
 func (m *Initialize) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Initialize.Marshal(b, m, deterministic)
 }
-func (m *Initialize) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Initialize.Merge(m, src)
+func (dst *Initialize) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Initialize.Merge(dst, src)
 }
 func (m *Initialize) XXX_Size() int {
 	return xxx_messageInfo_Initialize.Size(m)
@@ -210,7 +194,7 @@ func (m *Initialize) GetSkipPassphrase() bool {
 	return false
 }
 
-//*
+// *
 // Request: Ask for device details (no device reset)
 // @start
 // @next Features
@@ -224,17 +208,16 @@ func (m *GetFeatures) Reset()         { *m = GetFeatures{} }
 func (m *GetFeatures) String() string { return proto.CompactTextString(m) }
 func (*GetFeatures) ProtoMessage()    {}
 func (*GetFeatures) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{1}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{1}
 }
-
 func (m *GetFeatures) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetFeatures.Unmarshal(m, b)
 }
 func (m *GetFeatures) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetFeatures.Marshal(b, m, deterministic)
 }
-func (m *GetFeatures) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetFeatures.Merge(m, src)
+func (dst *GetFeatures) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetFeatures.Merge(dst, src)
 }
 func (m *GetFeatures) XXX_Size() int {
 	return xxx_messageInfo_GetFeatures.Size(m)
@@ -245,7 +228,7 @@ func (m *GetFeatures) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_GetFeatures proto.InternalMessageInfo
 
-//*
+// *
 // Response: Reports various information about the device
 // @end
 type Features struct {
@@ -285,17 +268,16 @@ func (m *Features) Reset()         { *m = Features{} }
 func (m *Features) String() string { return proto.CompactTextString(m) }
 func (*Features) ProtoMessage()    {}
 func (*Features) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{2}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{2}
 }
-
 func (m *Features) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Features.Unmarshal(m, b)
 }
 func (m *Features) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Features.Marshal(b, m, deterministic)
 }
-func (m *Features) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Features.Merge(m, src)
+func (dst *Features) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Features.Merge(dst, src)
 }
 func (m *Features) XXX_Size() int {
 	return xxx_messageInfo_Features.Size(m)
@@ -495,7 +477,7 @@ func (m *Features) GetNoBackup() bool {
 	return false
 }
 
-//*
+// *
 // Request: clear session (removes cached PIN, passphrase, etc).
 // @start
 // @next Success
@@ -509,17 +491,16 @@ func (m *ClearSession) Reset()         { *m = ClearSession{} }
 func (m *ClearSession) String() string { return proto.CompactTextString(m) }
 func (*ClearSession) ProtoMessage()    {}
 func (*ClearSession) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{3}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{3}
 }
-
 func (m *ClearSession) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClearSession.Unmarshal(m, b)
 }
 func (m *ClearSession) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ClearSession.Marshal(b, m, deterministic)
 }
-func (m *ClearSession) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClearSession.Merge(m, src)
+func (dst *ClearSession) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClearSession.Merge(dst, src)
 }
 func (m *ClearSession) XXX_Size() int {
 	return xxx_messageInfo_ClearSession.Size(m)
@@ -530,7 +511,7 @@ func (m *ClearSession) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ClearSession proto.InternalMessageInfo
 
-//*
+// *
 // Request: change language and/or label of the device
 // @start
 // @next Success
@@ -552,17 +533,16 @@ func (m *ApplySettings) Reset()         { *m = ApplySettings{} }
 func (m *ApplySettings) String() string { return proto.CompactTextString(m) }
 func (*ApplySettings) ProtoMessage()    {}
 func (*ApplySettings) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{4}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{4}
 }
-
 func (m *ApplySettings) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ApplySettings.Unmarshal(m, b)
 }
 func (m *ApplySettings) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ApplySettings.Marshal(b, m, deterministic)
 }
-func (m *ApplySettings) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ApplySettings.Merge(m, src)
+func (dst *ApplySettings) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ApplySettings.Merge(dst, src)
 }
 func (m *ApplySettings) XXX_Size() int {
 	return xxx_messageInfo_ApplySettings.Size(m)
@@ -622,7 +602,7 @@ func (m *ApplySettings) GetDisplayRotation() uint32 {
 	return 0
 }
 
-//*
+// *
 // Request: set flags of the device
 // @start
 // @next Success
@@ -638,17 +618,16 @@ func (m *ApplyFlags) Reset()         { *m = ApplyFlags{} }
 func (m *ApplyFlags) String() string { return proto.CompactTextString(m) }
 func (*ApplyFlags) ProtoMessage()    {}
 func (*ApplyFlags) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{5}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{5}
 }
-
 func (m *ApplyFlags) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ApplyFlags.Unmarshal(m, b)
 }
 func (m *ApplyFlags) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ApplyFlags.Marshal(b, m, deterministic)
 }
-func (m *ApplyFlags) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ApplyFlags.Merge(m, src)
+func (dst *ApplyFlags) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ApplyFlags.Merge(dst, src)
 }
 func (m *ApplyFlags) XXX_Size() int {
 	return xxx_messageInfo_ApplyFlags.Size(m)
@@ -666,7 +645,7 @@ func (m *ApplyFlags) GetFlags() uint32 {
 	return 0
 }
 
-//*
+// *
 // Request: Starts workflow for setting/changing/removing the PIN
 // @start
 // @next Success
@@ -682,17 +661,16 @@ func (m *ChangePin) Reset()         { *m = ChangePin{} }
 func (m *ChangePin) String() string { return proto.CompactTextString(m) }
 func (*ChangePin) ProtoMessage()    {}
 func (*ChangePin) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{6}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{6}
 }
-
 func (m *ChangePin) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ChangePin.Unmarshal(m, b)
 }
 func (m *ChangePin) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ChangePin.Marshal(b, m, deterministic)
 }
-func (m *ChangePin) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ChangePin.Merge(m, src)
+func (dst *ChangePin) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ChangePin.Merge(dst, src)
 }
 func (m *ChangePin) XXX_Size() int {
 	return xxx_messageInfo_ChangePin.Size(m)
@@ -710,7 +688,7 @@ func (m *ChangePin) GetRemove() bool {
 	return false
 }
 
-//*
+// *
 // Request: Test if the device is alive, device sends back the message in Success response
 // @start
 // @next Success
@@ -728,17 +706,16 @@ func (m *Ping) Reset()         { *m = Ping{} }
 func (m *Ping) String() string { return proto.CompactTextString(m) }
 func (*Ping) ProtoMessage()    {}
 func (*Ping) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{7}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{7}
 }
-
 func (m *Ping) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Ping.Unmarshal(m, b)
 }
 func (m *Ping) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Ping.Marshal(b, m, deterministic)
 }
-func (m *Ping) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Ping.Merge(m, src)
+func (dst *Ping) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Ping.Merge(dst, src)
 }
 func (m *Ping) XXX_Size() int {
 	return xxx_messageInfo_Ping.Size(m)
@@ -777,7 +754,7 @@ func (m *Ping) GetPassphraseProtection() bool {
 	return false
 }
 
-//*
+// *
 // Request: Abort last operation that required user interaction
 // @start
 // @next Failure
@@ -791,17 +768,16 @@ func (m *Cancel) Reset()         { *m = Cancel{} }
 func (m *Cancel) String() string { return proto.CompactTextString(m) }
 func (*Cancel) ProtoMessage()    {}
 func (*Cancel) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{8}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{8}
 }
-
 func (m *Cancel) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Cancel.Unmarshal(m, b)
 }
 func (m *Cancel) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Cancel.Marshal(b, m, deterministic)
 }
-func (m *Cancel) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Cancel.Merge(m, src)
+func (dst *Cancel) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Cancel.Merge(dst, src)
 }
 func (m *Cancel) XXX_Size() int {
 	return xxx_messageInfo_Cancel.Size(m)
@@ -812,7 +788,7 @@ func (m *Cancel) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Cancel proto.InternalMessageInfo
 
-//*
+// *
 // Request: Request a sample of random data generated by hardware RNG. May be used for testing.
 // @start
 // @next Entropy
@@ -828,17 +804,16 @@ func (m *GetEntropy) Reset()         { *m = GetEntropy{} }
 func (m *GetEntropy) String() string { return proto.CompactTextString(m) }
 func (*GetEntropy) ProtoMessage()    {}
 func (*GetEntropy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{9}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{9}
 }
-
 func (m *GetEntropy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetEntropy.Unmarshal(m, b)
 }
 func (m *GetEntropy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetEntropy.Marshal(b, m, deterministic)
 }
-func (m *GetEntropy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetEntropy.Merge(m, src)
+func (dst *GetEntropy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetEntropy.Merge(dst, src)
 }
 func (m *GetEntropy) XXX_Size() int {
 	return xxx_messageInfo_GetEntropy.Size(m)
@@ -856,7 +831,7 @@ func (m *GetEntropy) GetSize() uint32 {
 	return 0
 }
 
-//*
+// *
 // Response: Reply with random data generated by internal RNG
 // @end
 type Entropy struct {
@@ -870,17 +845,16 @@ func (m *Entropy) Reset()         { *m = Entropy{} }
 func (m *Entropy) String() string { return proto.CompactTextString(m) }
 func (*Entropy) ProtoMessage()    {}
 func (*Entropy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{10}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{10}
 }
-
 func (m *Entropy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Entropy.Unmarshal(m, b)
 }
 func (m *Entropy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Entropy.Marshal(b, m, deterministic)
 }
-func (m *Entropy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Entropy.Merge(m, src)
+func (dst *Entropy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Entropy.Merge(dst, src)
 }
 func (m *Entropy) XXX_Size() int {
 	return xxx_messageInfo_Entropy.Size(m)
@@ -898,7 +872,7 @@ func (m *Entropy) GetEntropy() []byte {
 	return nil
 }
 
-//*
+// *
 // Request: Request device to wipe all sensitive data and settings
 // @start
 // @next Success
@@ -913,17 +887,16 @@ func (m *WipeDevice) Reset()         { *m = WipeDevice{} }
 func (m *WipeDevice) String() string { return proto.CompactTextString(m) }
 func (*WipeDevice) ProtoMessage()    {}
 func (*WipeDevice) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{11}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{11}
 }
-
 func (m *WipeDevice) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_WipeDevice.Unmarshal(m, b)
 }
 func (m *WipeDevice) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_WipeDevice.Marshal(b, m, deterministic)
 }
-func (m *WipeDevice) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_WipeDevice.Merge(m, src)
+func (dst *WipeDevice) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WipeDevice.Merge(dst, src)
 }
 func (m *WipeDevice) XXX_Size() int {
 	return xxx_messageInfo_WipeDevice.Size(m)
@@ -934,7 +907,7 @@ func (m *WipeDevice) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_WipeDevice proto.InternalMessageInfo
 
-//*
+// *
 // Request: Load seed and related internal settings from the computer
 // @start
 // @next Success
@@ -957,17 +930,16 @@ func (m *LoadDevice) Reset()         { *m = LoadDevice{} }
 func (m *LoadDevice) String() string { return proto.CompactTextString(m) }
 func (*LoadDevice) ProtoMessage()    {}
 func (*LoadDevice) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{12}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{12}
 }
-
 func (m *LoadDevice) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LoadDevice.Unmarshal(m, b)
 }
 func (m *LoadDevice) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LoadDevice.Marshal(b, m, deterministic)
 }
-func (m *LoadDevice) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LoadDevice.Merge(m, src)
+func (dst *LoadDevice) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LoadDevice.Merge(dst, src)
 }
 func (m *LoadDevice) XXX_Size() int {
 	return xxx_messageInfo_LoadDevice.Size(m)
@@ -1036,7 +1008,7 @@ func (m *LoadDevice) GetU2FCounter() uint32 {
 	return 0
 }
 
-//*
+// *
 // Request: Ask device to do initialization involving user interaction
 // @start
 // @next EntropyRequest
@@ -1060,17 +1032,16 @@ func (m *ResetDevice) Reset()         { *m = ResetDevice{} }
 func (m *ResetDevice) String() string { return proto.CompactTextString(m) }
 func (*ResetDevice) ProtoMessage()    {}
 func (*ResetDevice) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{13}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{13}
 }
-
 func (m *ResetDevice) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ResetDevice.Unmarshal(m, b)
 }
 func (m *ResetDevice) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ResetDevice.Marshal(b, m, deterministic)
 }
-func (m *ResetDevice) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResetDevice.Merge(m, src)
+func (dst *ResetDevice) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResetDevice.Merge(dst, src)
 }
 func (m *ResetDevice) XXX_Size() int {
 	return xxx_messageInfo_ResetDevice.Size(m)
@@ -1147,7 +1118,7 @@ func (m *ResetDevice) GetNoBackup() bool {
 	return false
 }
 
-//*
+// *
 // Request: Perform backup of the device seed if not backed up using ResetDevice
 // @start
 // @next Success
@@ -1161,17 +1132,16 @@ func (m *BackupDevice) Reset()         { *m = BackupDevice{} }
 func (m *BackupDevice) String() string { return proto.CompactTextString(m) }
 func (*BackupDevice) ProtoMessage()    {}
 func (*BackupDevice) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{14}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{14}
 }
-
 func (m *BackupDevice) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BackupDevice.Unmarshal(m, b)
 }
 func (m *BackupDevice) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BackupDevice.Marshal(b, m, deterministic)
 }
-func (m *BackupDevice) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BackupDevice.Merge(m, src)
+func (dst *BackupDevice) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BackupDevice.Merge(dst, src)
 }
 func (m *BackupDevice) XXX_Size() int {
 	return xxx_messageInfo_BackupDevice.Size(m)
@@ -1182,7 +1152,7 @@ func (m *BackupDevice) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_BackupDevice proto.InternalMessageInfo
 
-//*
+// *
 // Response: Ask for additional entropy from host computer
 // @next EntropyAck
 type EntropyRequest struct {
@@ -1195,17 +1165,16 @@ func (m *EntropyRequest) Reset()         { *m = EntropyRequest{} }
 func (m *EntropyRequest) String() string { return proto.CompactTextString(m) }
 func (*EntropyRequest) ProtoMessage()    {}
 func (*EntropyRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{15}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{15}
 }
-
 func (m *EntropyRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EntropyRequest.Unmarshal(m, b)
 }
 func (m *EntropyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EntropyRequest.Marshal(b, m, deterministic)
 }
-func (m *EntropyRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EntropyRequest.Merge(m, src)
+func (dst *EntropyRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EntropyRequest.Merge(dst, src)
 }
 func (m *EntropyRequest) XXX_Size() int {
 	return xxx_messageInfo_EntropyRequest.Size(m)
@@ -1216,7 +1185,7 @@ func (m *EntropyRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_EntropyRequest proto.InternalMessageInfo
 
-//*
+// *
 // Request: Provide additional entropy for seed generation function
 // @next Success
 type EntropyAck struct {
@@ -1230,17 +1199,16 @@ func (m *EntropyAck) Reset()         { *m = EntropyAck{} }
 func (m *EntropyAck) String() string { return proto.CompactTextString(m) }
 func (*EntropyAck) ProtoMessage()    {}
 func (*EntropyAck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{16}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{16}
 }
-
 func (m *EntropyAck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EntropyAck.Unmarshal(m, b)
 }
 func (m *EntropyAck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EntropyAck.Marshal(b, m, deterministic)
 }
-func (m *EntropyAck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EntropyAck.Merge(m, src)
+func (dst *EntropyAck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EntropyAck.Merge(dst, src)
 }
 func (m *EntropyAck) XXX_Size() int {
 	return xxx_messageInfo_EntropyAck.Size(m)
@@ -1258,7 +1226,7 @@ func (m *EntropyAck) GetEntropy() []byte {
 	return nil
 }
 
-//*
+// *
 // Request: Start recovery workflow asking user for specific words of mnemonic
 // Used to recovery device safely even on untrusted computer.
 // @start
@@ -1283,17 +1251,16 @@ func (m *RecoveryDevice) Reset()         { *m = RecoveryDevice{} }
 func (m *RecoveryDevice) String() string { return proto.CompactTextString(m) }
 func (*RecoveryDevice) ProtoMessage()    {}
 func (*RecoveryDevice) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{17}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{17}
 }
-
 func (m *RecoveryDevice) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RecoveryDevice.Unmarshal(m, b)
 }
 func (m *RecoveryDevice) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RecoveryDevice.Marshal(b, m, deterministic)
 }
-func (m *RecoveryDevice) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RecoveryDevice.Merge(m, src)
+func (dst *RecoveryDevice) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RecoveryDevice.Merge(dst, src)
 }
 func (m *RecoveryDevice) XXX_Size() int {
 	return xxx_messageInfo_RecoveryDevice.Size(m)
@@ -1369,7 +1336,7 @@ func (m *RecoveryDevice) GetDryRun() bool {
 	return false
 }
 
-//*
+// *
 // Response: Device is waiting for user to enter word of the mnemonic
 // Its position is shown only on device's internal display.
 // @next WordAck
@@ -1384,17 +1351,16 @@ func (m *WordRequest) Reset()         { *m = WordRequest{} }
 func (m *WordRequest) String() string { return proto.CompactTextString(m) }
 func (*WordRequest) ProtoMessage()    {}
 func (*WordRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{18}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{18}
 }
-
 func (m *WordRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_WordRequest.Unmarshal(m, b)
 }
 func (m *WordRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_WordRequest.Marshal(b, m, deterministic)
 }
-func (m *WordRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_WordRequest.Merge(m, src)
+func (dst *WordRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WordRequest.Merge(dst, src)
 }
 func (m *WordRequest) XXX_Size() int {
 	return xxx_messageInfo_WordRequest.Size(m)
@@ -1412,7 +1378,7 @@ func (m *WordRequest) GetType() WordRequest_WordRequestType {
 	return WordRequest_WordRequestType_Plain
 }
 
-//*
+// *
 // Request: Computer replies with word from the mnemonic
 // @next WordRequest
 // @next Success
@@ -1428,17 +1394,16 @@ func (m *WordAck) Reset()         { *m = WordAck{} }
 func (m *WordAck) String() string { return proto.CompactTextString(m) }
 func (*WordAck) ProtoMessage()    {}
 func (*WordAck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{19}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{19}
 }
-
 func (m *WordAck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_WordAck.Unmarshal(m, b)
 }
 func (m *WordAck) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_WordAck.Marshal(b, m, deterministic)
 }
-func (m *WordAck) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_WordAck.Merge(m, src)
+func (dst *WordAck) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WordAck.Merge(dst, src)
 }
 func (m *WordAck) XXX_Size() int {
 	return xxx_messageInfo_WordAck.Size(m)
@@ -1456,7 +1421,7 @@ func (m *WordAck) GetWord() string {
 	return ""
 }
 
-//*
+// *
 // Request: Set U2F counter
 // @start
 // @next Success
@@ -1471,17 +1436,16 @@ func (m *SetU2FCounter) Reset()         { *m = SetU2FCounter{} }
 func (m *SetU2FCounter) String() string { return proto.CompactTextString(m) }
 func (*SetU2FCounter) ProtoMessage()    {}
 func (*SetU2FCounter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c720c20d27aa029, []int{20}
+	return fileDescriptor_messages_management_0a92b12acdf20592, []int{20}
 }
-
 func (m *SetU2FCounter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SetU2FCounter.Unmarshal(m, b)
 }
 func (m *SetU2FCounter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SetU2FCounter.Marshal(b, m, deterministic)
 }
-func (m *SetU2FCounter) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetU2FCounter.Merge(m, src)
+func (dst *SetU2FCounter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetU2FCounter.Merge(dst, src)
 }
 func (m *SetU2FCounter) XXX_Size() int {
 	return xxx_messageInfo_SetU2FCounter.Size(m)
@@ -1500,9 +1464,6 @@ func (m *SetU2FCounter) GetU2FCounter() uint32 {
 }
 
 func init() {
-	proto.RegisterEnum("hw.trezor.messages.management.ApplySettings_PassphraseSourceType", ApplySettings_PassphraseSourceType_name, ApplySettings_PassphraseSourceType_value)
-	proto.RegisterEnum("hw.trezor.messages.management.RecoveryDevice_RecoveryDeviceType", RecoveryDevice_RecoveryDeviceType_name, RecoveryDevice_RecoveryDeviceType_value)
-	proto.RegisterEnum("hw.trezor.messages.management.WordRequest_WordRequestType", WordRequest_WordRequestType_name, WordRequest_WordRequestType_value)
 	proto.RegisterType((*Initialize)(nil), "hw.trezor.messages.management.Initialize")
 	proto.RegisterType((*GetFeatures)(nil), "hw.trezor.messages.management.GetFeatures")
 	proto.RegisterType((*Features)(nil), "hw.trezor.messages.management.Features")
@@ -1524,11 +1485,16 @@ func init() {
 	proto.RegisterType((*WordRequest)(nil), "hw.trezor.messages.management.WordRequest")
 	proto.RegisterType((*WordAck)(nil), "hw.trezor.messages.management.WordAck")
 	proto.RegisterType((*SetU2FCounter)(nil), "hw.trezor.messages.management.SetU2FCounter")
+	proto.RegisterEnum("hw.trezor.messages.management.ApplySettings_PassphraseSourceType", ApplySettings_PassphraseSourceType_name, ApplySettings_PassphraseSourceType_value)
+	proto.RegisterEnum("hw.trezor.messages.management.RecoveryDevice_RecoveryDeviceType", RecoveryDevice_RecoveryDeviceType_name, RecoveryDevice_RecoveryDeviceType_value)
+	proto.RegisterEnum("hw.trezor.messages.management.WordRequest_WordRequestType", WordRequest_WordRequestType_name, WordRequest_WordRequestType_value)
 }
 
-func init() { proto.RegisterFile("messages-management.proto", fileDescriptor_0c720c20d27aa029) }
+func init() {
+	proto.RegisterFile("messages-management.proto", fileDescriptor_messages_management_0a92b12acdf20592)
+}
 
-var fileDescriptor_0c720c20d27aa029 = []byte{
+var fileDescriptor_messages_management_0a92b12acdf20592 = []byte{
 	// 1393 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x57, 0xdd, 0x6e, 0xdb, 0xc8,
 	0x15, 0x8e, 0x7e, 0x62, 0x49, 0xc7, 0xfa, 0xcb, 0xd4, 0x8e, 0xe9, 0xb8, 0x6e, 0x1c, 0xba, 0x6e,

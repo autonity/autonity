@@ -2290,6 +2290,14 @@ func (bc *BlockChain) ReadEnodeWhitelist(openNetwork bool) *types.Nodes {
 	return rawdb.ReadEnodeWhitelist(bc.db, openNetwork)
 }
 
+func (bc *BlockChain) PutKeyValue(key []byte, value []byte) error {
+	return rawdb.PutKeyValue(bc.db, key, value)
+}
+
+func (bc *BlockChain) GetKeyValue(key []byte) ([]byte, error) {
+	return rawdb.GetKeyValue(bc.db, key)
+}
+
 // addJob should be called only for public methods
 func (bc *BlockChain) addJob() error {
 	bc.quitMu.RLock()

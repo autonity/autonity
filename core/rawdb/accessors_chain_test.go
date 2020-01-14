@@ -37,7 +37,7 @@ func TestHeaderStorage(t *testing.T) {
 	db := NewMemoryDatabase()
 
 	// Create a test header to move around the database and make sure it's really new
-	header := &types.Header{Number: big.NewInt(42), Extra: []byte("test header")}
+	header := &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(42), Extra: []byte("test header"), MixDigest: types.BFTDigest}}
 	if entry := ReadHeader(db, header.Hash(), header.Number.Uint64()); entry != nil {
 		t.Fatalf("Non existent header returned: %v", entry)
 	}
@@ -70,7 +70,7 @@ func TestBodyStorage(t *testing.T) {
 	db := NewMemoryDatabase()
 
 	// Create a test body to move around the database and make sure it's really new
-	body := &types.Body{Uncles: []*types.Header{{Extra: []byte("test header")}}}
+	body := &types.Body{Uncles: []*types.Header{{OriginalHeader: types.OriginalHeader{Extra: []byte("test header")}}}}
 
 	hasher := sha3.NewLegacyKeccak256()
 	rlp.Encode(hasher, body)
@@ -108,11 +108,11 @@ func TestBlockStorage(t *testing.T) {
 	db := NewMemoryDatabase()
 
 	// Create a test block to move around the database and make sure it's really new
-	block := types.NewBlockWithHeader(&types.Header{
+	block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
 		Extra:       []byte("test block"),
 		UncleHash:   types.EmptyUncleHash,
 		TxHash:      types.EmptyRootHash,
-		ReceiptHash: types.EmptyRootHash,
+		ReceiptHash: types.EmptyRootHash},
 	})
 	if entry := ReadBlock(db, block.Hash(), block.NumberU64()); entry != nil {
 		t.Fatalf("Non existent block returned: %v", entry)
@@ -156,11 +156,11 @@ func TestBlockStorage(t *testing.T) {
 // Tests that partial block contents don't get reassembled into full blocks.
 func TestPartialBlockStorage(t *testing.T) {
 	db := NewMemoryDatabase()
-	block := types.NewBlockWithHeader(&types.Header{
+	block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
 		Extra:       []byte("test block"),
 		UncleHash:   types.EmptyUncleHash,
 		TxHash:      types.EmptyRootHash,
-		ReceiptHash: types.EmptyRootHash,
+		ReceiptHash: types.EmptyRootHash},
 	})
 	// Store a header and check that it's not recognized as a block
 	WriteHeader(db, block.Header())
@@ -237,9 +237,9 @@ func TestCanonicalMappingStorage(t *testing.T) {
 func TestHeadStorage(t *testing.T) {
 	db := NewMemoryDatabase()
 
-	blockHead := types.NewBlockWithHeader(&types.Header{Extra: []byte("test block header")})
-	blockFull := types.NewBlockWithHeader(&types.Header{Extra: []byte("test block full")})
-	blockFast := types.NewBlockWithHeader(&types.Header{Extra: []byte("test block fast")})
+	blockHead := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{Extra: []byte("test block header")}})
+	blockFull := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{Extra: []byte("test block full")}})
+	blockFast := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{Extra: []byte("test block fast")}})
 
 	// Check that no head entries are in a pristine database
 	if entry := ReadHeadHeaderHash(db); entry != (common.Hash{}) {
@@ -374,13 +374,13 @@ func TestAncientStorage(t *testing.T) {
 		t.Fatalf("failed to create database with ancient backend")
 	}
 	// Create a test block
-	block := types.NewBlockWithHeader(&types.Header{
+	block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
 		Number:      big.NewInt(0),
 		Extra:       []byte("test block"),
 		UncleHash:   types.EmptyUncleHash,
 		TxHash:      types.EmptyRootHash,
 		ReceiptHash: types.EmptyRootHash,
-	})
+	}})
 	// Ensure nothing non-existent will be read
 	hash, number := block.Hash(), block.NumberU64()
 	if blob := ReadHeaderRLP(db, hash, number); len(blob) > 0 {

@@ -22,12 +22,14 @@ require (
 	github.com/edsrzf/mmap-go v0.0.0-20160512033002-935e0e8a636c
 	github.com/elastic/gosigar v0.8.1-0.20180330100440-37f05ff46ffa
 	github.com/fatih/color v1.3.0
+	github.com/fjl/gencodec v0.0.0-20191126094850-e283372f291f // indirect
 	github.com/fjl/memsize v0.0.0-20180418122429-ca190fb6ffbc
+	github.com/garslo/gogen v0.0.0-20170307003452-d6ebae628c7c // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-stack/stack v1.8.0
 	github.com/golang/mock v1.3.1
-	github.com/golang/protobuf v1.3.2-0.20190517061210-b285ee9cfc6c
+	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/gorilla/websocket v1.4.1-0.20190629185528-ae1634f6a989
@@ -38,6 +40,7 @@ require (
 	github.com/jackpal/go-nat-pmp v1.0.2-0.20160603034137-1fa385a6f458
 	github.com/julienschmidt/httprouter v1.1.1-0.20170430222011-975b5c4c7c21
 	github.com/karalabe/usb v0.0.0-20190919080040-51dc0efba356
+	github.com/kevinburke/go-bindata v3.16.0+incompatible // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.0
@@ -62,12 +65,13 @@ require (
 	github.com/zfjagann/golang-ring v0.0.0-20190304061218-d34796e0a6c2
 	github.com/zimmski/go-leak v0.0.0-20151016212241-a11b0b936d24
 	go.uber.org/goleak v0.10.0
-	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
 	golang.org/x/net v0.0.0-20190628185345-da137c7871d7 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
+	golang.org/x/tools v0.0.0-20200114015519-9dc88fb721c3 // indirect
 	gonum.org/v1/gonum v0.6.2
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951

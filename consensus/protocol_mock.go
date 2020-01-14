@@ -36,19 +36,16 @@ func (m *MockBroadcaster) EXPECT() *MockBroadcasterMockRecorder {
 
 // Enqueue mocks base method
 func (m *MockBroadcaster) Enqueue(id string, block *types.Block) {
-	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Enqueue", id, block)
 }
 
 // Enqueue indicates an expected call of Enqueue
 func (mr *MockBroadcasterMockRecorder) Enqueue(id, block interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockBroadcaster)(nil).Enqueue), id, block)
 }
 
 // FindPeers mocks base method
 func (m *MockBroadcaster) FindPeers(arg0 map[common.Address]struct{}) map[common.Address]Peer {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindPeers", arg0)
 	ret0, _ := ret[0].(map[common.Address]Peer)
 	return ret0
@@ -56,7 +53,6 @@ func (m *MockBroadcaster) FindPeers(arg0 map[common.Address]struct{}) map[common
 
 // FindPeers indicates an expected call of FindPeers
 func (mr *MockBroadcasterMockRecorder) FindPeers(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindPeers", reflect.TypeOf((*MockBroadcaster)(nil).FindPeers), arg0)
 }
 
@@ -85,7 +81,6 @@ func (m *MockPeer) EXPECT() *MockPeerMockRecorder {
 
 // Send mocks base method
 func (m *MockPeer) Send(msgcode uint64, data interface{}) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Send", msgcode, data)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -93,6 +88,5 @@ func (m *MockPeer) Send(msgcode uint64, data interface{}) error {
 
 // Send indicates an expected call of Send
 func (mr *MockPeerMockRecorder) Send(msgcode, data interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockPeer)(nil).Send), msgcode, data)
 }

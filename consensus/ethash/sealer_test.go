@@ -53,7 +53,7 @@ func TestRemoteNotify(t *testing.T) {
 	defer ethash.Close()
 
 	// Stream a work task and ensure the notification bubbles out.
-	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
+	header := &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(1), Difficulty: big.NewInt(100)}}
 	block := types.NewBlockWithHeader(header)
 
 	ethash.Seal(nil, block, nil, nil)
@@ -99,7 +99,7 @@ func TestRemoteMultiNotify(t *testing.T) {
 
 	// Stream a lot of work task and ensure all the notifications bubble out.
 	for i := 0; i < cap(sink); i++ {
-		header := &types.Header{Number: big.NewInt(int64(i)), Difficulty: big.NewInt(100)}
+		header := &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(int64(i)), Difficulty: big.NewInt(100)}}
 		block := types.NewBlockWithHeader(header)
 		ethash.Seal(nil, block, nil, nil)
 	}
@@ -129,7 +129,7 @@ func TestStaleSubmission(t *testing.T) {
 		// Case1: submit solution for the latest mining package
 		{
 			[]*types.Header{
-				{ParentHash: common.BytesToHash([]byte{0xa}), Number: big.NewInt(1), Difficulty: big.NewInt(100000000)},
+				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xa}), Number: big.NewInt(1), Difficulty: big.NewInt(100000000)}},
 			},
 			0,
 			true,
@@ -137,8 +137,8 @@ func TestStaleSubmission(t *testing.T) {
 		// Case2: submit solution for the previous package but have same parent.
 		{
 			[]*types.Header{
-				{ParentHash: common.BytesToHash([]byte{0xb}), Number: big.NewInt(2), Difficulty: big.NewInt(100000000)},
-				{ParentHash: common.BytesToHash([]byte{0xb}), Number: big.NewInt(2), Difficulty: big.NewInt(100000001)},
+				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xb}), Number: big.NewInt(2), Difficulty: big.NewInt(100000000)}},
+				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xb}), Number: big.NewInt(2), Difficulty: big.NewInt(100000001)}},
 			},
 			0,
 			true,
@@ -146,8 +146,8 @@ func TestStaleSubmission(t *testing.T) {
 		// Case3: submit stale but acceptable solution
 		{
 			[]*types.Header{
-				{ParentHash: common.BytesToHash([]byte{0xc}), Number: big.NewInt(3), Difficulty: big.NewInt(100000000)},
-				{ParentHash: common.BytesToHash([]byte{0xd}), Number: big.NewInt(9), Difficulty: big.NewInt(100000000)},
+				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xc}), Number: big.NewInt(3), Difficulty: big.NewInt(100000000)}},
+				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xd}), Number: big.NewInt(9), Difficulty: big.NewInt(100000000)}},
 			},
 			0,
 			true,
@@ -155,8 +155,8 @@ func TestStaleSubmission(t *testing.T) {
 		// Case4: submit very old solution
 		{
 			[]*types.Header{
-				{ParentHash: common.BytesToHash([]byte{0xe}), Number: big.NewInt(10), Difficulty: big.NewInt(100000000)},
-				{ParentHash: common.BytesToHash([]byte{0xf}), Number: big.NewInt(17), Difficulty: big.NewInt(100000000)},
+				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xe}), Number: big.NewInt(10), Difficulty: big.NewInt(100000000)}},
+				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xf}), Number: big.NewInt(17), Difficulty: big.NewInt(100000000)}},
 			},
 			0,
 			false,

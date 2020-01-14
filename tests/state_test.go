@@ -45,6 +45,8 @@ func TestState(t *testing.T) {
 	st.skipLoad(`^stTimeConsuming/`)
 
 	// Broken tests:
+	st.skipLoad(`^stCreateTest/CREATE_ContractRETURNBigOffset\.json`)
+	st.skipLoad(`^stCodeSizeLimit/codesizeOOGInvalidSize\.json`)
 	// Expected failures:
 	//st.fails(`^stRevertTest/RevertPrecompiledTouch(_storage)?\.json/Byzantium/0`, "bug in test")
 	//st.fails(`^stRevertTest/RevertPrecompiledTouch(_storage)?\.json/Byzantium/3`, "bug in test")

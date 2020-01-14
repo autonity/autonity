@@ -705,7 +705,7 @@ func TestConcurrentDiskCacheGeneration(t *testing.T) {
 	defer os.RemoveAll(cachedir)
 
 	// Define a heavy enough block, one from mainnet should do
-	block := types.NewBlockWithHeader(&types.Header{
+	block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
 		Number:      big.NewInt(3311058),
 		ParentHash:  common.HexToHash("0xd783efa4d392943503f28438ad5830b2d5964696ffc285f338585e9fe0a37a05"),
 		UncleHash:   common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
@@ -719,7 +719,7 @@ func TestConcurrentDiskCacheGeneration(t *testing.T) {
 		Time:        1488928920,
 		Extra:       []byte("www.bw.com"),
 		MixDigest:   common.HexToHash("0x3e140b0784516af5e5ec6730f2fb20cca22f32be399b9e4ad77d32541f798cd0"),
-		Nonce:       types.EncodeNonce(0xf400cd0006070c49),
+		Nonce:       types.EncodeNonce(0xf400cd0006070c49)},
 	})
 	// Simulate multiple processes sharing the same datadir
 	var pend sync.WaitGroup

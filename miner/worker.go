@@ -860,12 +860,12 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	}
 
 	num := parent.Number()
-	header := &types.Header{
+	header := &types.Header{OriginalHeader: types.OriginalHeader{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, w.config.GasFloor, w.config.GasCeil),
 		Extra:      w.extra,
-		Time:       uint64(timestamp),
+		Time:       uint64(timestamp)},
 	}
 	// Only set the coinbase if our consensus engine is running (avoid spurious block rewards)
 	if w.isRunning() {

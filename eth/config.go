@@ -17,7 +17,6 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/consensus/istanbul"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math/big"
 	"os"
@@ -129,9 +128,6 @@ type Config struct {
 
 	// Ethash options
 	Ethash ethash.Config
-
-	// Istanbul options
-	Istanbul istanbul.Config
 
 	// Tendermint options
 	Tendermint config.Config
