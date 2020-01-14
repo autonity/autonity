@@ -104,11 +104,11 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 		var nodeType params.UserType
 		switch {
 		case strings.HasPrefix(n, ValidatorPrefix):
-			nodeType=params.UserValidator
+			nodeType = params.UserValidator
 		case strings.HasPrefix(n, StakeholderPrefix):
-			nodeType=params.UserStakeHolder
+			nodeType = params.UserStakeHolder
 		case strings.HasPrefix(n, ParticipantPrefix):
-			nodeType=params.UserParticipant
+			nodeType = params.UserParticipant
 		default:
 			panic("incorrect node type")
 

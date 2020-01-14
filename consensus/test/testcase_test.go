@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	ValidatorPrefix = "V"
+	ValidatorPrefix   = "V"
 	StakeholderPrefix = "S"
 	ParticipantPrefix = "P"
 )
@@ -131,8 +131,8 @@ func runTest(t *testing.T, test *testCase) {
 		nodeNames = getNodeNamesByPrefix(test.topology.graph.GetNames(), ValidatorPrefix)
 		test.numValidators = len(nodeNames)
 
-		stakeholderNames:=getNodeNamesByPrefix(test.topology.graph.GetNames(), StakeholderPrefix)
-		participantNames:=getNodeNamesByPrefix(test.topology.graph.GetNames(), ParticipantPrefix)
+		stakeholderNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), StakeholderPrefix)
+		participantNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), ParticipantPrefix)
 		nodeNames = append(nodeNames, stakeholderNames...)
 		nodeNames = append(nodeNames, participantNames...)
 	}
@@ -190,7 +190,7 @@ func runTest(t *testing.T, test *testCase) {
 		)
 	}
 
-	if len(nodeNames)!=len(nodes) {
+	if len(nodeNames) != len(nodes) {
 		t.Fatal("test enveiroment it wrong")
 	}
 
@@ -230,8 +230,8 @@ func runTest(t *testing.T, test *testCase) {
 		t.Fatal(err)
 	}
 
-	if test.topology!=nil {
-		for _,v:=range test.topology.graph.Edges {
+	if test.topology != nil {
+		for _, v := range test.topology.graph.Edges {
 			nodes[v.LeftNode].node.Server().AddPeer(nodes[v.RightNode].node.Server().Self())
 		}
 	}
@@ -306,25 +306,24 @@ func runTest(t *testing.T, test *testCase) {
 		test.finalAssert(t, nodes)
 	}
 	//check topology
-	if test.topology!=nil {
-		missedConnections:=[]graph.Edge{}
-		for _,v:=range test.topology.graph.Edges {
-			exists:=false
-			for _,nd:=range nodes[v.LeftNode].node.Server().Peers() {
+	if test.topology != nil {
+		missedConnections := []graph.Edge{}
+		for _, v := range test.topology.graph.Edges {
+			exists := false
+			for _, nd := range nodes[v.LeftNode].node.Server().Peers() {
 				if nodes[v.RightNode].node.Server().Self().ID() == nd.ID() {
-					exists=true
+					exists = true
 				}
 			}
 			if !exists {
 				missedConnections = append(missedConnections, *v)
 			}
 		}
-		if len(missedConnections)!=0 {
+		if len(missedConnections) != 0 {
 			spew.Dump(missedConnections)
 			t.Fatal("Some connections missed")
 		}
 	}
-
 
 	if len(test.maliciousPeers) != 0 {
 		maliciousTest(t, test, nodes)
@@ -345,14 +344,14 @@ func getNodeNames() []string {
 		"VA", "VB", "VC", "VD", "VE", "VF", "VG", "VH", "VI", "VJ", "VK",
 	}
 }
-func getNodeNamesByPrefix(names []string, typ string) []string  {
-	validators:=make([]string, 0, len(names))
-	for _,v:=range names {
-		if len(v)==0 {
+func getNodeNamesByPrefix(names []string, typ string) []string {
+	validators := make([]string, 0, len(names))
+	for _, v := range names {
+		if len(v) == 0 {
 			continue
 		}
 		if strings.HasPrefix(v, typ) {
-			validators=append(validators, v)
+			validators = append(validators, v)
 		}
 	}
 	return validators
