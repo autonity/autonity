@@ -19,7 +19,7 @@ func TestTendermintNoQuorum(t *testing.T) {
 			txPerPeer:          1,
 			noQuorumAfterBlock: 3,
 			beforeHooks: map[string]hook{
-				"B": hookForceStopNode("B", 3),
+				"VB": hookForceStopNode("VB", 3),
 			},
 			stopTime: make(map[string]time.Time),
 		},
@@ -31,8 +31,8 @@ func TestTendermintNoQuorum(t *testing.T) {
 			noQuorumAfterBlock: 3,
 			noQuorumTimeout:    time.Second * 3,
 			beforeHooks: map[string]hook{
-				"B": hookForceStopNode("B", 3),
-				"C": hookForceStopNode("C", 3),
+				"VB": hookForceStopNode("VB", 3),
+				"VC": hookForceStopNode("VC", 3),
 			},
 			stopTime: make(map[string]time.Time),
 		},

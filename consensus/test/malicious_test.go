@@ -24,7 +24,7 @@ func TestTendermintOneMalicious(t *testing.T) {
 			numBlocks:     10,
 			txPerPeer:     1,
 			maliciousPeers: map[string]injectors{
-				"E": {
+				"VE": {
 					cons: func(basic consensus.Engine) consensus.Engine {
 						return tendermintCore.NewReplaceValidatorCore(basic, changedValidators)
 					},
@@ -43,7 +43,7 @@ func TestTendermintOneMalicious(t *testing.T) {
 			numBlocks:     10,
 			txPerPeer:     1,
 			maliciousPeers: map[string]injectors{
-				"E": {
+				"VE": {
 					cons: func(basic consensus.Engine) consensus.Engine {
 						return tendermintCore.NewAddValidatorCore(basic, changedValidators)
 					},
@@ -62,7 +62,7 @@ func TestTendermintOneMalicious(t *testing.T) {
 			numBlocks:     10,
 			txPerPeer:     1,
 			maliciousPeers: map[string]injectors{
-				"E": {
+				"VE": {
 					cons: func(basic consensus.Engine) consensus.Engine {
 						return tendermintCore.NewRemoveValidatorCore(basic, changedValidators)
 					},

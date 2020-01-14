@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"net"
 	"os"
 	"strconv"
@@ -24,6 +25,12 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"golang.org/x/sync/errgroup"
+)
+
+const (
+	ValidatorPrefix = "V"
+	StakeholderPrefix = "S"
+	ParticipantPrefix = "P"
 )
 
 type testCase struct {
@@ -121,67 +128,77 @@ func runTest(t *testing.T, test *testCase) {
 
 	nodeNames := getNodeNames()[:test.numValidators]
 	if test.topology != nil {
-		test.numValidators = len(test.topology.graph.GetNames())
-		nodeNames = test.topology.graph.GetNames()
-	}
-	// Generate a batch of accounts to seal and fund with
-	validators := make(map[string]*testNode, test.numValidators)
+		nodeNames = getNodeNamesByPrefix(test.topology.graph.GetNames(), ValidatorPrefix)
+		test.numValidators = len(nodeNames)
 
-	for i := 0; i < test.numValidators; i++ {
-		validators[nodeNames[i]] = new(testNode)
-		validators[nodeNames[i]].privateKey, err = crypto.GenerateKey()
+		stakeholderNames:=getNodeNamesByPrefix(test.topology.graph.GetNames(), StakeholderPrefix)
+		participantNames:=getNodeNamesByPrefix(test.topology.graph.GetNames(), ParticipantPrefix)
+		nodeNames = append(nodeNames, stakeholderNames...)
+		nodeNames = append(nodeNames, participantNames...)
+	}
+	nodesNum := len(nodeNames)
+	// Generate a batch of accounts to seal and fund with
+	nodes := make(map[string]*testNode, nodesNum)
+
+	for i := 0; i < nodesNum; i++ {
+		nodes[nodeNames[i]] = new(testNode)
+		nodes[nodeNames[i]].privateKey, err = crypto.GenerateKey()
 		if err != nil {
 			t.Fatal("cant make pk", err)
 		}
 	}
 
-	for i := range validators {
+	for i := range nodes {
 		//port
 		listener, innerErr := net.Listen("tcp", "127.0.0.1:0")
 		if innerErr != nil {
 			panic(innerErr)
 		}
-		validators[i].listener = append(validators[i].listener, listener)
+		nodes[i].listener = append(nodes[i].listener, listener)
 
 		//rpc port
 		listener, innerErr = net.Listen("tcp", "127.0.0.1:0")
 		if innerErr != nil {
 			panic(innerErr)
 		}
-		validators[i].listener = append(validators[i].listener, listener)
+		nodes[i].listener = append(nodes[i].listener, listener)
 	}
 
-	for i, validator := range validators {
-		listener := validator.listener[0]
-		validator.address = listener.Addr().String()
+	for i, node := range nodes {
+		listener := node.listener[0]
+		node.address = listener.Addr().String()
 		port := strings.Split(listener.Addr().String(), ":")[1]
-		validator.port, _ = strconv.Atoi(port)
+		node.port, _ = strconv.Atoi(port)
 
-		rpcListener := validator.listener[1]
+		rpcListener := node.listener[1]
 		rpcPort, innerErr := strconv.Atoi(strings.Split(rpcListener.Addr().String(), ":")[1])
 		if innerErr != nil {
 			t.Fatal("incorrect rpc port ", innerErr)
 		}
 
-		validator.rpcPort = rpcPort
+		node.rpcPort = rpcPort
 
-		if validator.port == 0 || validator.rpcPort == 0 {
-			t.Fatal("On validator", i, "port equals 0")
+		if node.port == 0 || node.rpcPort == 0 {
+			t.Fatal("On node", i, "port equals 0")
 		}
 
-		validator.url = enode.V4URL(
-			validator.privateKey.PublicKey,
+		node.url = enode.V4URL(
+			node.privateKey.PublicKey,
 			net.IPv4(127, 0, 0, 1),
-			validator.port,
-			validator.port,
+			node.port,
+			node.port,
 		)
 	}
 
-	genesis := makeGenesis(validators)
+	if len(nodeNames)!=len(nodes) {
+		t.Fatal("test enveiroment it wrong")
+	}
+
+	genesis := makeGenesis(nodes)
 	if test.genesisHook != nil {
 		genesis = test.genesisHook(genesis)
 	}
-	for i, validator := range validators {
+	for i, validator := range nodes {
 		var engineConstructor func(basic consensus.Engine) consensus.Engine
 		var backendConstructor func(basic tendermintCore.Backend) tendermintCore.Backend
 		if test.maliciousPeers != nil {
@@ -196,12 +213,12 @@ func runTest(t *testing.T, test *testCase) {
 
 		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, validator.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor)
 		if err != nil {
-			t.Fatal("cant make a validator", i, err)
+			t.Fatal("cant make a node", i, err)
 		}
 	}
 
 	wg := &errgroup.Group{}
-	for _, validator := range validators {
+	for _, validator := range nodes {
 		validator := validator
 
 		wg.Go(func() error {
@@ -213,9 +230,15 @@ func runTest(t *testing.T, test *testCase) {
 		t.Fatal(err)
 	}
 
+	if test.topology!=nil {
+		for _,v:=range test.topology.graph.Edges {
+			nodes[v.LeftNode].node.Server().AddPeer(nodes[v.RightNode].node.Server().Self())
+		}
+	}
+
 	defer func() {
 		wgClose := &errgroup.Group{}
-		for _, validator := range validators {
+		for _, validator := range nodes {
 			validatorInner := validator
 			wgClose.Go(func() error {
 				if !validatorInner.isRunning {
@@ -242,7 +265,7 @@ func runTest(t *testing.T, test *testCase) {
 	}()
 
 	wg = &errgroup.Group{}
-	for _, validator := range validators {
+	for _, validator := range nodes {
 		validator := validator
 
 		wg.Go(func() error {
@@ -255,14 +278,14 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	wg = &errgroup.Group{}
-	for i, validator := range validators {
+	for i, validator := range nodes {
 		validator := validator
 		i := i
 
 		wg.Go(func() error {
 			log.Debug("peers", "i", i,
 				"peers", len(validator.node.Server().Peers()),
-				"nodes", len(validators))
+				"nodes", len(nodes))
 			return nil
 		})
 	}
@@ -272,19 +295,39 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	defer func() {
-		for _, validator := range validators {
+		for _, validator := range nodes {
 			validator.subscription.Unsubscribe()
 		}
 	}()
 
 	// each peer sends one tx per block
-	sendTransactions(t, test, validators, test.txPerPeer, true, nodeNames)
+	sendTransactions(t, test, nodes, test.txPerPeer, true, nodeNames)
 	if test.finalAssert != nil {
-		test.finalAssert(t, validators)
+		test.finalAssert(t, nodes)
+	}
+	//check topology
+	if test.topology!=nil {
+		missedConnections:=[]graph.Edge{}
+		for _,v:=range test.topology.graph.Edges {
+			exists:=false
+			for _,nd:=range nodes[v.LeftNode].node.Server().Peers() {
+				if nodes[v.RightNode].node.Server().Self().ID() == nd.ID() {
+					exists=true
+				}
+			}
+			if !exists {
+				missedConnections = append(missedConnections, *v)
+			}
+		}
+		if len(missedConnections)!=0 {
+			spew.Dump(missedConnections)
+			t.Fatal("Some connections missed")
+		}
 	}
 
+
 	if len(test.maliciousPeers) != 0 {
-		maliciousTest(t, test, validators)
+		maliciousTest(t, test, nodes)
 	}
 }
 
@@ -299,6 +342,18 @@ func (tp *Topology) Connect(peers []*testNode) {
 
 func getNodeNames() []string {
 	return []string{
-		"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K",
+		"VA", "VB", "VC", "VD", "VE", "VF", "VG", "VH", "VI", "VJ", "VK",
 	}
+}
+func getNodeNamesByPrefix(names []string, typ string) []string  {
+	validators:=make([]string, 0, len(names))
+	for _,v:=range names {
+		if len(v)==0 {
+			continue
+		}
+		if strings.HasPrefix(v, typ) {
+			validators=append(validators, v)
+		}
+	}
+	return validators
 }

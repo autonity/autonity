@@ -45,7 +45,7 @@ func TestTendermintSlowConnections(t *testing.T) {
 			numBlocks:     5,
 			txPerPeer:     1,
 			networkRates: map[string]networkRate{
-				"E": {50 * 1024, 50 * 1024},
+				"VE": {50 * 1024, 50 * 1024},
 			},
 		},
 		{
@@ -54,11 +54,11 @@ func TestTendermintSlowConnections(t *testing.T) {
 			numBlocks:     5,
 			txPerPeer:     1,
 			networkRates: map[string]networkRate{
-				"A": {50 * 1024, 50 * 1024},
-				"B": {50 * 1024, 50 * 1024},
-				"C": {50 * 1024, 50 * 1024},
-				"D": {50 * 1024, 50 * 1024},
-				"E": {50 * 1024, 50 * 1024},
+				"VA": {50 * 1024, 50 * 1024},
+				"VB": {50 * 1024, 50 * 1024},
+				"VC": {50 * 1024, 50 * 1024},
+				"VD": {50 * 1024, 50 * 1024},
+				"VE": {50 * 1024, 50 * 1024},
 			},
 		},
 	}
@@ -181,16 +181,16 @@ func TestTendermintTC7(t *testing.T) {
 		numBlocks:     40,
 		txPerPeer:     1,
 		beforeHooks: map[string]hook{
-			"D": hookStopNode("D", 10),
-			"E": hookStopNode("E", 15),
-			"F": hookStopNode("F", 20),
+			"VD": hookStopNode("VD", 10),
+			"VE": hookStopNode("VE", 15),
+			"VF": hookStopNode("VF", 20),
 		},
 		afterHooks: map[string]hook{
-			"D": hookStartNode("D", 40),
+			"VD": hookStartNode("VD", 40),
 		},
 		maliciousPeers: map[string]injectors{
-			"E": {},
-			"F": {},
+			"VE": {},
+			"VF": {},
 		},
 		stopTime: make(map[string]time.Time),
 	}

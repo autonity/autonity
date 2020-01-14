@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -75,7 +76,7 @@ func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey
 		types.HomesteadSigner{}, key)
 }
 
-func makeGenesis(validators map[string]*testNode) *core.Genesis {
+func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.ExtraData = nil
@@ -92,18 +93,30 @@ func makeGenesis(validators map[string]*testNode) *core.Genesis {
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 
 	genesis.Alloc = core.GenesisAlloc{}
-	for _, validator := range validators {
+	for _, validator := range nodes {
 		genesis.Alloc[crypto.PubkeyToAddress(validator.privateKey.PublicKey)] = core.GenesisAccount{
 			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
 		}
 	}
 
-	users := make([]params.User, 0, len(validators))
-	for _, validator := range validators {
+	users := make([]params.User, 0, len(nodes))
+	for n, validator := range nodes {
+		var nodeType params.UserType
+		switch {
+		case strings.HasPrefix(n, ValidatorPrefix):
+			nodeType=params.UserValidator
+		case strings.HasPrefix(n, StakeholderPrefix):
+			nodeType=params.UserStakeHolder
+		case strings.HasPrefix(n, ParticipantPrefix):
+			nodeType=params.UserParticipant
+		default:
+			panic("incorrect node type")
+
+		}
 		users = append(users, params.User{
 			Address: crypto.PubkeyToAddress(validator.privateKey.PublicKey),
 			Enode:   validator.url,
-			Type:    params.UserValidator,
+			Type:    nodeType,
 			Stake:   100,
 		})
 	}
@@ -483,7 +496,7 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 
 	// check that all nodes got the same blocks
 	for i := 1; i <= minHeight; i++ {
-		blockHash := validators["A"].blocks[uint64(i)].hash
+		blockHash := validators["VA"].blocks[uint64(i)].hash
 
 		for index, validator := range validators {
 			if validator.isMalicious {
