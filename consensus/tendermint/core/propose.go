@@ -120,6 +120,10 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 		roundStep := c.roundState.Step()
 		if roundStep == propose {
+			// stop the timeout since a valid proposal has been received, if it cannot be stopped return
+			if err := c.proposeTimeout.stopTimer(); err != nil {
+				return err
+			}
 			if proposal.ValidRound.Int64() == -1 {
 				return c.checkForNewProposal(ctx, proposal.Round.Int64())
 			} else if proposal.ValidRound.Int64() > -1 {
