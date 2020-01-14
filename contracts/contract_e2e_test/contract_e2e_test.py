@@ -1,9 +1,11 @@
 #!/usr/bin/python3
 try:
     from Crypto.Hash import keccak
+
     sha3_256 = lambda x: keccak.new(digest_bits=256, data=x).digest()
 except:
     import sha3 as _sha3
+
     sha3_256 = lambda x: _sha3.sha3_256(x).digest()
 
 import argparse
@@ -12,7 +14,7 @@ import re
 import os
 import json
 import rlp
-#from rlp.utils import decode_hex
+# from rlp.utils import decode_hex
 from eth_utils.hexadecimal import decode_hex
 
 from time import sleep
@@ -20,6 +22,7 @@ from time import sleep
 from web3.auto import w3
 from web3 import Web3
 from solcx import compile_files
+import solcx
 from typing import List
 
 
@@ -128,7 +131,7 @@ def generate_new_accounts():
             execute("echo 123 > ./network-data/node{}/pass.txt".format(node_id))
             output = execute(
                 '{} --datadir "./network-data/node{}/data" --password "./network-data/node{}/pass.txt" account new'
-                .format(autonity_path, node_id, node_id)
+                    .format(autonity_path, node_id, node_id)
             )
             print(output)
             m = re.findall(r'0x(.{40})', output[0], re.MULTILINE)
@@ -157,7 +160,8 @@ def generate_enodes():
             with open("./network-data/node{}/boot.key".format(node_id), "w") as bootkey:
                 bootkey.write(account_private_key)
 
-            pub_key = execute("{} -writeaddress -nodekey ./network-data/node{}/boot.key".format(bootnode_path, node_id))[
+            pub_key = \
+            execute("{} -writeaddress -nodekey ./network-data/node{}/boot.key".format(bootnode_path, node_id))[
                 0].rstrip()
             pubkeys.append(pub_key)
             port = 5000 + node_id
@@ -219,6 +223,15 @@ def tmux_start_clients(addresses, dont_start_id=None):
     except IOError as e:
         print("cannot start client ", e)
         raise e
+
+
+def prepare_dependency():
+    installed_solc = solcx.get_installed_solc_versions()
+    if 'v0.5.11' in installed_solc:
+        solcx.set_solc_version('v0.5.11')
+    else:
+        solcx.install_solc('v0.5.11')
+        solcx.set_solc_version('v0.5.11')
 
 
 def deploy_clients():
@@ -301,7 +314,8 @@ def get_http_end_point():
 def compile_contract():
     try:
         contract = compile_files(["../autonity/contract/contracts/Autonity.sol"])
-        return contract["Autonity"]["code"], contract["Autonity"]["abi"]
+        return contract["../autonity/contract/contracts/Autonity.sol:Autonity"]["bin"], \
+               contract["../autonity/contract/contracts/Autonity.sol:Autonity"]["abi"]
     except Exception as e:
         print("cannot compile contract ", e)
         raise e
@@ -399,7 +413,9 @@ if __name__ == "__main__":
     except Exception as e:
         print("cannot deploy clients ", e)
         exit(1)
+
     try:
+        prepare_dependency()
         run_tests()
     except Exception as e:
         print("test case failed ", e)
