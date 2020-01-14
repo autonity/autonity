@@ -518,8 +518,9 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
-	// Heuristic limit, reject transactions over 32KB to prevent DOS attacks
-	if tx.Size() > 32*1024 {
+	// Heuristic limit, reject transactions over 1MB to prevent DOS attacks
+	// changes of parameters were recorded at https://github.com/clearmatics/autonity-wiki/wiki/Autonity-Chain-Parameter-Highlights
+	if tx.Size() > 1024*1024 {
 		return ErrOversizedData
 	}
 	// Transactions can't be negative. This may never happen using RLP decoded
@@ -845,6 +846,9 @@ func (pool *TxPool) addTxsLocked(txs []*types.Transaction, local bool) ([]error,
 // Status returns the status (unknown/pending/queued) of a batch of transactions
 // identified by their hashes.
 func (pool *TxPool) Status(hashes []common.Hash) []TxStatus {
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+
 	status := make([]TxStatus, len(hashes))
 	for i, hash := range hashes {
 		tx := pool.Get(hash)
@@ -852,7 +856,6 @@ func (pool *TxPool) Status(hashes []common.Hash) []TxStatus {
 			continue
 		}
 		from, _ := types.Sender(pool.signer, tx) // already validated
-		pool.mu.RLock()
 		if txList := pool.pending[from]; txList != nil && txList.txs.items[tx.Nonce()] != nil {
 			status[i] = TxStatusPending
 		} else if txList := pool.queue[from]; txList != nil && txList.txs.items[tx.Nonce()] != nil {
@@ -860,7 +863,6 @@ func (pool *TxPool) Status(hashes []common.Hash) []TxStatus {
 		}
 		// implicit else: the tx may have been included into a block between
 		// checking pool.Get and obtaining the lock. In that case, TxStatusUnknown is correct
-		pool.mu.RUnlock()
 	}
 	return status
 }
@@ -1163,7 +1165,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
-	senderCacher.recover(pool.signer, reinject)
+	pool.senderCacher.recover(pool.signer, reinject)
 	pool.addTxsLocked(reinject, false)
 
 	// Update all fork indicator by next pending block number.

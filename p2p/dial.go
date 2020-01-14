@@ -341,9 +341,22 @@ type waitExpireTask struct {
 	time.Duration
 }
 
-func (t waitExpireTask) Do(*Server) {
-	time.Sleep(t.Duration)
+func (t waitExpireTask) Do(srv *Server) {
+	sleep(t.Duration, srv)
 }
+
 func (t waitExpireTask) String() string {
 	return fmt.Sprintf("wait for dial hist expire (%v)", t.Duration)
+}
+
+func sleep(d time.Duration, srv *Server) {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+	//nothing to do
+	case <-srv.quit:
+		return
+	}
 }

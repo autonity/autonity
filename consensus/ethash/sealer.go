@@ -331,6 +331,8 @@ func (s *remoteSealer) loop() {
 
 		case <-s.requestExit:
 			return
+		case <-s.exitCh:
+			return
 		}
 	}
 }
