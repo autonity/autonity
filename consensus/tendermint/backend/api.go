@@ -29,12 +29,12 @@ type API struct {
 	tendermint core.Backend
 }
 
-// GetValidators retrieves the list of authorized validators at the specified block.
+// GetValidators retrieves the list of authorized committee at the specified block.
 func (api *API) GetValidators(number *rpc.BlockNumber) ([]common.Address, error) {
-	validators := api.tendermint.Validators(uint64(*number)).List()
+	validators := api.tendermint.Validators(uint64(*number)).Committee()
 	addresses := make([]common.Address, len(validators))
 	for i, validator := range validators {
-		addresses[i] = validator.GetAddress()
+		addresses[i] = validator.Address
 	}
 	return addresses, nil
 }
@@ -46,10 +46,10 @@ func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) 
 		return nil, errUnknownBlock
 	}
 
-	validators := api.tendermint.Validators(header.Number.Uint64()).List()
+	validators := api.tendermint.Validators(header.Number.Uint64()).Committee()
 	addresses := make([]common.Address, len(validators))
 	for i, validator := range validators {
-		addresses[i] = validator.GetAddress()
+		addresses[i] = validator.Address
 	}
 	return addresses, nil
 }

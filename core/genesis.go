@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 	"sync"
 
@@ -374,6 +375,7 @@ func (g *Genesis) SetBFT() error {
 		return fmt.Errorf("autonity Network requires at least 1 validator")
 	}
 
+	sort.Sort(committee)
 	g.Committee = committee
 
 	log.Info("starting BFT consensus", "validators", committee)

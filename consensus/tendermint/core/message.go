@@ -21,7 +21,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 	"io"
@@ -89,7 +90,7 @@ var ErrUnauthorizedAddress = errors.New("unauthorized address")
 //
 // define the functions that needs to be provided for core.
 
-func (m *Message) FromPayload(b []byte, valSet validator.Set, validateFn func(validator.Set, []byte, []byte) (common.Address, error)) (*validator.Validator, error) {
+func (m *Message) FromPayload(b []byte, valSet committee.Set, validateFn func(committee.Set, []byte, []byte) (common.Address, error)) (*types.CommitteeMember, error) {
 	// Decode message
 	err := rlp.DecodeBytes(b, m)
 	if err != nil {
@@ -140,7 +141,7 @@ func (m *Message) PayloadNoSig() ([]byte, error) {
 func (m *Message) Decode(val interface{}) error {
 	//Decode is responsible to rlp-decode m.Msg. It is meant to only perform the actual decoding once,
 	//saving a cached value in m.decodedMsg.
-	//But I'm not sure if this optimization is actually worth the code complexity overhead..
+
 	rval := reflect.ValueOf(val)
 	if rval.Kind() != reflect.Ptr {
 		return errors.New("decode arg must be a pointer")
@@ -160,7 +161,7 @@ func (m *Message) Decode(val interface{}) error {
 		return err
 	}
 
-	// copy the result via Set (not a deep copy !)
+	// copy the result via Set (shallow)
 	nval := reflect.New(rval.Elem().Type()) // we need first to allocate memory
 	nval.Elem().Set(rval.Elem())
 	m.decodedMsg = nval.Interface().(ConsensusMsg)
@@ -175,7 +176,7 @@ func (m *Message) Round() (int64, error) {
 	if m.decodedMsg == nil {
 		return 0, errMsgPayloadNotDecoded
 	}
-	return m.decodedMsg.GetRound().Int64(), nil
+	return m.decodedMsg.GetRound(), nil
 }
 
 func (m *Message) Height() (*big.Int, error) {

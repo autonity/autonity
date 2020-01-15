@@ -242,7 +242,7 @@ func (c *core) syncLoop(ctx context.Context) {
 	height := c.currentRoundState.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.valSet.Copy())
+	c.backend.AskSync(c.CommitteeSet())
 
 	for {
 		select {
@@ -251,8 +251,8 @@ func (c *core) syncLoop(ctx context.Context) {
 			currentHeight := c.currentRoundState.Height()
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
-			if currentHeight.Cmp(height) == 0 && currentRound.Cmp(round) == 0 {
-				c.backend.AskSync(c.valSet.Copy())
+			if currentHeight.Cmp(height) == 0 && currentRound == round {
+				c.backend.AskSync(c.CommitteeSet())
 			}
 			round = currentRound
 			height = currentHeight

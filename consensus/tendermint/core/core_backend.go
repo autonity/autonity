@@ -7,7 +7,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
@@ -87,7 +87,7 @@ func (c *core) Protocol() (protocolName string, extraMsgCodes uint64) {
 
 // Synchronize new connected peer with current height state
 func (c *core) SyncPeer(address common.Address) {
-	if c.IsValidator(address) {
+	if c.IsMember(address) {
 		c.backend.SyncPeer(address, c.GetCurrentHeightMessages())
 	}
 }
@@ -106,21 +106,21 @@ type Backend interface {
 	Address() common.Address
 
 	// Validators returns the validator set
-	Validators(number uint64) validator.Set
+	Validators(number uint64) committee.Set
 
 	Subscribe(types ...interface{}) *event.TypeMuxSubscription
 
 	Post(ev interface{})
 
 	// Broadcast sends a message to all validators (include self)
-	Broadcast(ctx context.Context, valSet validator.Set, payload []byte) error
+	Broadcast(ctx context.Context, valSet committee.Set, payload []byte) error
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(ctx context.Context, valSet validator.Set, payload []byte)
+	Gossip(ctx context.Context, valSet committee.Set, payload []byte)
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	Commit(proposalBlock *types.Block, round *big.Int, seals [][]byte) error
+	Commit(proposalBlock *types.Block, round int64, seals [][]byte) error
 
 	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
@@ -151,7 +151,7 @@ type Backend interface {
 
 	ResetPeerCache(address common.Address)
 
-	AskSync(set validator.Set)
+	AskSync(set committee.Set)
 
 	HandleUnhandledMsgs(ctx context.Context)
 

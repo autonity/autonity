@@ -187,12 +187,9 @@ func (c *core) GetCurrentHeightMessages() []*Message {
 		result = append(result, ms...)
 	}
 
-	return result
-}
-
-func (c *core) IsValidator(address common.Address) bool {
-	_, val := c.valSet.GetByAddress(address)
-	return val != nil
+func (c *core) IsMember(address common.Address) bool {
+	i, _ := c.CommitteeSet().GetByAddress(address)
+	return i != -1
 }
 
 func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
@@ -228,7 +225,7 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 
 	// Broadcast payload
 	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(ctx, c.valSet.Copy(), payload); err != nil {
+	if err = c.backend.Broadcast(ctx, c.CommitteeSet(), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}
