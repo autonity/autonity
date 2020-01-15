@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"math"
 	"math/big"
 	"reflect"
@@ -616,8 +617,8 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 	return crypto.HexToECDSA(key)
 }
 
-func newTestValidatorSet(n int) (validator.Set, []*ecdsa.PrivateKey) {
-	// generate validators
+func newTestValidatorSet(n int) (committee.Set, []*ecdsa.PrivateKey) {
+	// generate committee
 	keys := make(Keys, n)
 	addrs := make(types.Committee, n)
 	for i := 0; i < n; i++ {
@@ -628,7 +629,7 @@ func newTestValidatorSet(n int) (validator.Set, []*ecdsa.PrivateKey) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 	}
-	vset := validator.NewSet(addrs, config.RoundRobin)
+	vset := committee.NewSet(addrs, config.RoundRobin)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
 	return vset, keys
 }
@@ -678,7 +679,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 
 	validators := b.Validators(0)
 	if validators.Size() == 0 {
-		panic("failed to get validators")
+		panic("failed to get committee")
 	}
 	proposerAddr := validators.GetProposer().GetAddress()
 
@@ -695,7 +696,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 
 func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis := core.DefaultGenesisBlock()
-	// Setup validators
+	// Setup committee
 	var nodeKeys = make([]*ecdsa.PrivateKey, n)
 	var addrs = make([]common.Address, n)
 	for i := 0; i < n; i++ {

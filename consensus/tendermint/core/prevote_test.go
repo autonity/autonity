@@ -22,9 +22,9 @@ func TestSendPrevote(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 		c := &core{
-			logger:            log.New("backend", "test", "id", 0),
-			backend:           backendMock,
-			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			curRoundMessages: NewRoundMessages(big.NewInt(2), big.NewInt(3)),
 		}
 
 		c.sendPrevote(context.Background(), false)
@@ -42,7 +42,7 @@ func TestSendPrevote(t *testing.T) {
 			big.NewInt(1),
 			types.NewBlockWithHeader(&types.Header{}))
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
 
 		addr := common.HexToAddress("0x0123456789")
@@ -50,7 +50,7 @@ func TestSendPrevote(t *testing.T) {
 		var preVote = Vote{
 			Round:             big.NewInt(curRoundState.Round().Int64()),
 			Height:            big.NewInt(curRoundState.Height().Int64()),
-			ProposedBlockHash: curRoundState.GetCurrentProposalHash(),
+			ProposedBlockHash: curRoundState.GetProposalHash(),
 		}
 
 		encodedVote, err := Encode(&preVote)
@@ -77,11 +77,11 @@ func TestSendPrevote(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
 		c := &core{
-			backend:           backendMock,
-			address:           addr,
-			logger:            logger,
-			valSet:            new(validatorSet),
-			currentRoundState: curRoundState,
+			backend:          backendMock,
+			address:          addr,
+			logger:           logger,
+			committeeSet:     new(validatorSet),
+			curRoundMessages: curRoundState,
 		}
 
 		c.sendPrevote(context.Background(), false)
@@ -90,7 +90,7 @@ func TestSendPrevote(t *testing.T) {
 
 func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote with future height given, error returned", func(t *testing.T) {
-		curRoundState := NewRoundState(big.NewInt(1), big.NewInt(2))
+		curRoundState := NewRoundMessages(big.NewInt(1), big.NewInt(2))
 		addr := common.HexToAddress("0x0123456789")
 
 		var preVote = Vote{
@@ -112,10 +112,10 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		c := &core{
-			address:           addr,
-			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
-			valSet:            new(validatorSet),
+			address:          addr,
+			curRoundMessages: curRoundState,
+			logger:           log.New("backend", "test", "id", 0),
+			committeeSet:     new(validatorSet),
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
@@ -125,13 +125,13 @@ func TestHandlePrevote(t *testing.T) {
 	})
 
 	t.Run("pre-vote with old height given, pre-vote added", func(t *testing.T) {
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		addr := common.HexToAddress("0x0123456789")
 
 		var preVote = Vote{
 			Round:             big.NewInt(1),
 			Height:            big.NewInt(3),
-			ProposedBlockHash: curRoundState.GetCurrentProposalHash(),
+			ProposedBlockHash: curRoundState.GetProposalHash(),
 		}
 
 		encodedVote, err := Encode(&preVote)
@@ -148,11 +148,11 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		c := &core{
-			address:                      addr,
-			currentRoundState:            curRoundState,
-			currentHeightOldRoundsStates: make(map[int64]*roundState),
-			logger:                       log.New("backend", "test", "id", 0),
-			valSet:                       new(validatorSet),
+			address:          addr,
+			curRoundMessages: curRoundState,
+			roundStates:      make(map[int64]*roundMessages),
+			logger:           log.New("backend", "test", "id", 0),
+			committeeSet:     new(validatorSet),
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
@@ -162,7 +162,7 @@ func TestHandlePrevote(t *testing.T) {
 
 		c.currentHeightOldRoundsStatesMu.Lock()
 		defer c.currentHeightOldRoundsStatesMu.Unlock()
-		oldRoundState := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
+		oldRoundState := c.roundStates[preVote.Round.Int64()]
 		if s := oldRoundState.Prevotes.NilVotesSize(); s != 1 {
 			t.Fatalf("Expected 1 nil-prevote, but got %d", s)
 		}
@@ -180,7 +180,7 @@ func TestHandlePrevote(t *testing.T) {
 			big.NewInt(1),
 			types.NewBlockWithHeader(&types.Header{}))
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
 		curRoundState.SetStep(prevote)
 		addr := common.HexToAddress("0x0123456789")
@@ -188,7 +188,7 @@ func TestHandlePrevote(t *testing.T) {
 		var preVote = Vote{
 			Round:             big.NewInt(curRoundState.Round().Int64()),
 			Height:            big.NewInt(curRoundState.Height().Int64()),
-			ProposedBlockHash: curRoundState.GetCurrentProposalHash(),
+			ProposedBlockHash: curRoundState.GetProposalHash(),
 		}
 
 		encodedVote, err := Encode(&preVote)
@@ -205,20 +205,20 @@ func TestHandlePrevote(t *testing.T) {
 		}
 		backendMock := NewMockBackend(ctrl)
 		c := &core{
-			address:           addr,
-			currentRoundState: curRoundState,
-			logger:            logger,
-			valSet:            new(validatorSet),
-			prevoteTimeout:    newTimeout(prevote, logger),
-			backend:           backendMock,
+			address:          addr,
+			curRoundMessages: curRoundState,
+			logger:           logger,
+			committeeSet:     new(validatorSet),
+			prevoteTimeout:   newTimeout(prevote, logger),
+			backend:          backendMock,
 		}
-		c.valSet.set(newTestValidatorSet(4))
+		c.CommitteeSet().set(newTestValidatorSet(4))
 		err = c.handlePrevote(context.Background(), expectedMsg)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		if s := c.currentRoundState.Prevotes.VotesSize(curRoundState.GetCurrentProposalHash()); s != 1 {
+		if s := c.curRoundMessages.Prevotes.VotesSize(curRoundState.GetProposalHash()); s != 1 {
 			t.Fatalf("Expected 1 prevote, but got %d", s)
 		}
 	})
@@ -235,7 +235,7 @@ func TestHandlePrevote(t *testing.T) {
 			big.NewInt(1),
 			types.NewBlockWithHeader(&types.Header{}))
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
 		curRoundState.SetStep(prevote)
 
@@ -244,7 +244,7 @@ func TestHandlePrevote(t *testing.T) {
 		var preVote = Vote{
 			Round:             big.NewInt(curRoundState.Round().Int64()),
 			Height:            big.NewInt(curRoundState.Height().Int64()),
-			ProposedBlockHash: curRoundState.GetCurrentProposalHash(),
+			ProposedBlockHash: curRoundState.GetProposalHash(),
 		}
 
 		encodedVote, err := Encode(&preVote)
@@ -266,7 +266,7 @@ func TestHandlePrevote(t *testing.T) {
 		var precommit = Vote{
 			Round:             big.NewInt(curRoundState.Round().Int64()),
 			Height:            big.NewInt(curRoundState.Height().Int64()),
-			ProposedBlockHash: curRoundState.GetCurrentProposalHash(),
+			ProposedBlockHash: curRoundState.GetProposalHash(),
 		}
 
 		encodedVote, err = Encode(&precommit)
@@ -290,12 +290,12 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock.EXPECT().Broadcast(context.Background(), gomock.Any(), payload)
 
 		c := &core{
-			address:           addr,
-			backend:           backendMock,
-			currentRoundState: curRoundState,
-			logger:            logger,
-			prevoteTimeout:    newTimeout(prevote, logger),
-			valSet:            new(validatorSet),
+			address:          addr,
+			backend:          backendMock,
+			curRoundMessages: curRoundState,
+			logger:           logger,
+			prevoteTimeout:   newTimeout(prevote, logger),
+			committeeSet:     new(validatorSet),
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
@@ -303,12 +303,12 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		if s := c.currentRoundState.Prevotes.VotesSize(curRoundState.GetCurrentProposalHash()); s != 1 {
+		if s := c.curRoundMessages.Prevotes.VotesSize(curRoundState.GetProposalHash()); s != 1 {
 			t.Fatalf("Expected 1 prevote, but got %d", s)
 		}
 
-		if !reflect.DeepEqual(c.validValue, c.currentRoundState.Proposal().ProposalBlock) {
-			t.Fatalf("Expected %v, got %v", c.currentRoundState.Proposal().ProposalBlock, c.validValue)
+		if !reflect.DeepEqual(c.validValue, c.curRoundMessages.Proposal().ProposalBlock) {
+			t.Fatalf("Expected %v, got %v", c.curRoundMessages.Proposal().ProposalBlock, c.validValue)
 		}
 	})
 
@@ -316,7 +316,7 @@ func TestHandlePrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetStep(prevote)
 
 		addr := common.HexToAddress("0x0123456789")
@@ -324,7 +324,7 @@ func TestHandlePrevote(t *testing.T) {
 		var preVote = Vote{
 			Round:             big.NewInt(curRoundState.Round().Int64()),
 			Height:            big.NewInt(curRoundState.Height().Int64()),
-			ProposedBlockHash: curRoundState.GetCurrentProposalHash(),
+			ProposedBlockHash: curRoundState.GetProposalHash(),
 		}
 
 		encodedVote, err := Encode(&preVote)
@@ -372,12 +372,12 @@ func TestHandlePrevote(t *testing.T) {
 		logger := log.New("backend", "test", "id", 0)
 
 		c := &core{
-			address:           addr,
-			backend:           backendMock,
-			currentRoundState: curRoundState,
-			logger:            logger,
-			prevoteTimeout:    newTimeout(prevote, logger),
-			valSet:            new(validatorSet),
+			address:          addr,
+			backend:          backendMock,
+			curRoundMessages: curRoundState,
+			logger:           logger,
+			prevoteTimeout:   newTimeout(prevote, logger),
+			committeeSet:     new(validatorSet),
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
@@ -400,7 +400,7 @@ func TestHandlePrevote(t *testing.T) {
 
 		addr := common.HexToAddress("0x0123456789")
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
 		curRoundState.SetStep(prevote)
 		curRoundState.Prevotes.AddVote(addr.Hash(), Message{})
@@ -408,7 +408,7 @@ func TestHandlePrevote(t *testing.T) {
 		var preVote = Vote{
 			Round:             big.NewInt(curRoundState.Round().Int64()),
 			Height:            big.NewInt(curRoundState.Height().Int64()),
-			ProposedBlockHash: curRoundState.GetCurrentProposalHash(),
+			ProposedBlockHash: curRoundState.GetProposalHash(),
 		}
 
 		encodedVote, err := Encode(&preVote)
@@ -428,9 +428,9 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock.EXPECT().Address().AnyTimes().Return(addr)
 
 		c := New(backendMock, nil)
-		c.currentRoundState = curRoundState
+		c.curRoundMessages = curRoundState
 		c.prevoteTimeout = newTimeout(prevote, logger)
-		c.valSet = &validatorSet{
+		c.CommitteeSet() = &validatorSet{
 			Set: newTestValidatorSet(2),
 		}
 

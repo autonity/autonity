@@ -61,14 +61,14 @@ func TestHandleCheckedMessage(t *testing.T) {
 		}
 	}
 
-	setCurrentRoundState := func(round int64, height int64, step Step) *roundState {
-		currentState := NewRoundState(big.NewInt(round), big.NewInt(height))
+	setCurrentRoundState := func(round int64, height int64, step Step) *roundMessages {
+		currentState := NewRoundMessages(big.NewInt(round), big.NewInt(height))
 		currentState.SetStep(step)
 		return currentState
 	}
 
 	cases := []struct {
-		currentState *roundState
+		currentState *roundMessages
 		message      *Message
 		outcome      error
 	}{
@@ -112,15 +112,15 @@ func TestHandleCheckedMessage(t *testing.T) {
 	for _, testCase := range cases {
 		logger := log.New("backend", "test", "id", 0)
 		engine := core{
-			logger:             logger,
-			address:            currentValidator.GetAddress(),
-			backlogs:           make(map[validator.Validator]*prque.Prque),
-			currentRoundState:  testCase.currentState,
-			futureRoundsChange: make(map[int64]int64),
-			valSet:             &validatorSet{Set: validators},
-			proposeTimeout:     newTimeout(propose, logger),
-			prevoteTimeout:     newTimeout(prevote, logger),
-			precommitTimeout:   newTimeout(precommit, logger),
+			logger:            logger,
+			address:           currentValidator.GetAddress(),
+			backlogs:          make(map[committee.Validator]*prque.Prque),
+			curRoundMessages:  testCase.currentState,
+			futureRoundChange: make(map[int64]int64),
+			committeeSet:      &validatorSet{Set: validators},
+			proposeTimeout:    newTimeout(propose, logger),
+			prevoteTimeout:    newTimeout(prevote, logger),
+			precommitTimeout:  newTimeout(precommit, logger),
 		}
 
 		err := engine.handleCheckedMsg(context.Background(), testCase.message, sender)

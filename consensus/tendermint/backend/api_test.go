@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"math/big"
 	"reflect"
 	"testing"
@@ -22,11 +23,11 @@ func TestGetValidators(t *testing.T) {
 	addr := common.HexToAddress("0x0123456789")
 	want := []common.Address{addr}
 
-	val := validator.NewMockValidator(ctrl)
-	val.EXPECT().GetAddress().Return(addr)
+	val := committee.NewMockValidator(ctrl)
+	val.EXPECT().Addr().Return(addr)
 
-	valSet := validator.NewMockSet(ctrl)
-	valSet.EXPECT().List().Return([]validator.Validator{val})
+	valSet := committee.NewMockSet(ctrl)
+	valSet.EXPECT().List().Return([]committee.Validator{val})
 
 	backend := core.NewMockBackend(ctrl)
 	backend.EXPECT().Validators(uint64(1)).Return(valSet)
@@ -67,7 +68,7 @@ func TestGetValidatorsAtHash(t *testing.T) {
 		}
 	})
 
-	t.Run("valid block given, validators returned", func(t *testing.T) {
+	t.Run("valid block given, committee returned", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -79,11 +80,11 @@ func TestGetValidatorsAtHash(t *testing.T) {
 		chain := consensus.NewMockChainReader(ctrl)
 		chain.EXPECT().GetHeaderByHash(hash).Return(&types.Header{Number: big.NewInt(1)})
 
-		val := validator.NewMockValidator(ctrl)
-		val.EXPECT().GetAddress().Return(addr)
+		val := committee.NewMockValidator(ctrl)
+		val.EXPECT().Addr().Return(addr)
 
-		valSet := validator.NewMockSet(ctrl)
-		valSet.EXPECT().List().Return([]validator.Validator{val})
+		valSet := committee.NewMockSet(ctrl)
+		valSet.EXPECT().List().Return([]committee.Validator{val})
 
 		backend := core.NewMockBackend(ctrl)
 		backend.EXPECT().Validators(uint64(1)).Return(valSet)

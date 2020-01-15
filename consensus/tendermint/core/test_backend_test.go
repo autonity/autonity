@@ -28,14 +28,14 @@ func generateValidators(n int) (types.Committee, addressKeyMap) {
 	return vals, keymap
 }
 
-func newTestValidatorSet(n int) validator.Set {
+func newTestValidatorSet(n int) committee.Set {
 	validators, _ := generateValidators(n)
-	return validator.NewSet(validators, config.RoundRobin)
+	return committee.NewSet(validators, config.RoundRobin)
 }
 
-func newTestValidatorSetWithKeys(n int) (validator.Set, addressKeyMap) {
+func newTestValidatorSetWithKeys(n int) (committee.Set, addressKeyMap) {
 	validators, keyMap := generateValidators(n)
-	return validator.NewSet(validators, config.RoundRobin), keyMap
+	return committee.NewSet(validators, config.RoundRobin), keyMap
 }
 
 func generatePrivateKey() (*ecdsa.PrivateKey, error) {

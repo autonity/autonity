@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"math/big"
 	"reflect"
 	"testing"
@@ -26,7 +27,7 @@ func TestSendPropose(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		curRoundState := NewRoundState(big.NewInt(1), big.NewInt(1))
+		curRoundState := NewRoundMessages(big.NewInt(1), big.NewInt(1))
 		validRound := big.NewInt(1)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -54,7 +55,7 @@ func TestSendPropose(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		valSetMock := validator.NewMockSet(ctrl)
+		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(addr).Return(true).AnyTimes()
 		valSetMock.EXPECT().GetProposer()
 		valSetMock.EXPECT().Copy()
@@ -69,12 +70,12 @@ func TestSendPropose(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
 		c := &core{
-			address:           addr,
-			backend:           backendMock,
-			currentRoundState: curRoundState,
-			logger:            logger,
-			validRound:        validRound,
-			valSet:            valSet,
+			address:          addr,
+			backend:          backendMock,
+			curRoundMessages: curRoundState,
+			logger:           logger,
+			validRound:       validRound,
+			committeeSet:     valSet,
 		}
 
 		c.sendProposal(context.Background(), block)
@@ -88,7 +89,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(1)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -108,10 +109,10 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		c := &core{
-			address:           addr,
-			currentRoundState: curRoundState,
-			logger:            logger,
-			validRound:        validRound,
+			address:          addr,
+			curRoundMessages: curRoundState,
+			logger:           logger,
+			validRound:       validRound,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -129,7 +130,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(1)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -147,7 +148,7 @@ func TestHandleProposal(t *testing.T) {
 			Signature:     []byte{0x1},
 		}
 
-		valSetMock := validator.NewMockSet(ctrl)
+		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(addr).Return(false)
 
 		valSet := &validatorSet{
@@ -155,11 +156,11 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		c := &core{
-			address:           addr,
-			currentRoundState: curRoundState,
-			logger:            logger,
-			validRound:        validRound,
-			valSet:            valSet,
+			address:          addr,
+			curRoundMessages: curRoundState,
+			logger:           logger,
+			validRound:       validRound,
+			committeeSet:     valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -177,7 +178,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(1)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -195,9 +196,9 @@ func TestHandleProposal(t *testing.T) {
 			Signature:     []byte{0x1},
 		}
 
-		sender := validator.NewMockValidator(ctrl)
+		sender := committee.NewMockValidator(ctrl)
 
-		valSetMock := validator.NewMockSet(ctrl)
+		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(addr).Return(true).AnyTimes()
 		valSetMock.EXPECT().GetProposer()
 		valSetMock.EXPECT().Size().AnyTimes()
@@ -253,13 +254,13 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().Post(event).AnyTimes()
 
 		c := &core{
-			address:           addr,
-			backend:           backendMock,
-			currentRoundState: curRoundState,
-			logger:            logger,
-			proposeTimeout:    newTimeout(propose, logger),
-			validRound:        validRound,
-			valSet:            valSet,
+			address:          addr,
+			backend:          backendMock,
+			curRoundMessages: curRoundState,
+			logger:           logger,
+			proposeTimeout:   newTimeout(propose, logger),
+			validRound:       validRound,
+			committeeSet:     valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -277,7 +278,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(1)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -295,7 +296,7 @@ func TestHandleProposal(t *testing.T) {
 			Signature:     []byte{0x1},
 		}
 
-		valSetMock := validator.NewMockSet(ctrl)
+		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(addr).Return(true).AnyTimes()
 		valSetMock.EXPECT().GetProposer()
 
@@ -312,13 +313,13 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().VerifyProposal(*decProposal.ProposalBlock)
 
 		c := &core{
-			address:           addr,
-			backend:           backendMock,
-			currentRoundState: curRoundState,
-			logger:            logger,
-			proposeTimeout:    newTimeout(propose, logger),
-			validRound:        validRound,
-			valSet:            valSet,
+			address:          addr,
+			backend:          backendMock,
+			curRoundMessages: curRoundState,
+			logger:           logger,
+			proposeTimeout:   newTimeout(propose, logger),
+			validRound:       validRound,
+			committeeSet:     valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -340,7 +341,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(-1)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -358,7 +359,7 @@ func TestHandleProposal(t *testing.T) {
 			Signature:     []byte{0x1},
 		}
 
-		valSetMock := validator.NewMockSet(ctrl)
+		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(addr).Return(true).AnyTimes()
 		valSetMock.EXPECT().GetProposer().AnyTimes()
 		valSetMock.EXPECT().Size().AnyTimes()
@@ -407,15 +408,15 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
 		c := &core{
-			address:           addr,
-			backend:           backendMock,
-			currentRoundState: curRoundState,
-			lockedValue:       types.NewBlockWithHeader(&types.Header{}),
-			lockedRound:       big.NewInt(-1),
-			logger:            logger,
-			proposeTimeout:    newTimeout(propose, logger),
-			validRound:        validRound,
-			valSet:            valSet,
+			address:          addr,
+			backend:          backendMock,
+			curRoundMessages: curRoundState,
+			lockedValue:      types.NewBlockWithHeader(&types.Header{}),
+			lockedRound:      big.NewInt(-1),
+			logger:           logger,
+			proposeTimeout:   newTimeout(propose, logger),
+			validRound:       validRound,
+			committeeSet:     valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -437,7 +438,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(1))
 		validRound := big.NewInt(0)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -455,7 +456,7 @@ func TestHandleProposal(t *testing.T) {
 			Signature:     []byte{0x1},
 		}
 
-		valSetMock := validator.NewMockSet(ctrl)
+		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(addr).Return(true).AnyTimes()
 		valSetMock.EXPECT().GetProposer().AnyTimes()
 		valSetMock.EXPECT().Size().AnyTimes()
@@ -504,10 +505,10 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
 		c := &core{
-			address:           addr,
-			backend:           backendMock,
-			currentRoundState: curRoundState,
-			currentHeightOldRoundsStates: map[int64]*roundState{
+			address:          addr,
+			backend:          backendMock,
+			curRoundMessages: curRoundState,
+			roundStates: map[int64]*roundMessages{
 				0: curRoundState,
 			},
 			lockedRound:    big.NewInt(-1),
@@ -515,7 +516,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:         logger,
 			proposeTimeout: newTimeout(propose, logger),
 			validRound:     validRound,
-			valSet:         valSet,
+			committeeSet:   valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)

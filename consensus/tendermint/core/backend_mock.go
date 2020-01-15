@@ -8,7 +8,7 @@ import (
 	context "context"
 	common "github.com/clearmatics/autonity/common"
 	consensus "github.com/clearmatics/autonity/consensus"
-	validator "github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	state "github.com/clearmatics/autonity/core/state"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
@@ -310,18 +310,18 @@ func (mr *MockBackendMockRecorder) Address() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockBackend)(nil).Address))
 }
 
-// Validators mocks base method
-func (m *MockBackend) Validators(number uint64) validator.Set {
+// Committee mocks base method
+func (m *MockBackend) Committee(number uint64) committee.Set {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validators", number)
-	ret0, _ := ret[0].(validator.Set)
+	ret := m.ctrl.Call(m, "Committee", number)
+	ret0, _ := ret[0].(committee.Set)
 	return ret0
 }
 
-// Validators indicates an expected call of Validators
-func (mr *MockBackendMockRecorder) Validators(number interface{}) *gomock.Call {
+// Committee indicates an expected call of Committee
+func (mr *MockBackendMockRecorder) Committee(number interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validators", reflect.TypeOf((*MockBackend)(nil).Validators), number)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Committee", reflect.TypeOf((*MockBackend)(nil).Committee), number)
 }
 
 // Subscribe mocks base method
@@ -355,7 +355,7 @@ func (mr *MockBackendMockRecorder) Post(ev interface{}) *gomock.Call {
 }
 
 // Broadcast mocks base method
-func (m *MockBackend) Broadcast(ctx context.Context, valSet validator.Set, payload []byte) error {
+func (m *MockBackend) Broadcast(ctx context.Context, valSet committee.Set, payload []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Broadcast", ctx, valSet, payload)
 	ret0, _ := ret[0].(error)
@@ -369,7 +369,7 @@ func (mr *MockBackendMockRecorder) Broadcast(ctx, valSet, payload interface{}) *
 }
 
 // Gossip mocks base method
-func (m *MockBackend) Gossip(ctx context.Context, valSet validator.Set, payload []byte) {
+func (m *MockBackend) Gossip(ctx context.Context, valSet committee.Set, payload []byte) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Gossip", ctx, valSet, payload)
 }
@@ -533,7 +533,7 @@ func (mr *MockBackendMockRecorder) ResetPeerCache(address interface{}) *gomock.C
 }
 
 // AskSync mocks base method
-func (m *MockBackend) AskSync(set validator.Set) {
+func (m *MockBackend) AskSync(set committee.Set) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AskSync", set)
 }

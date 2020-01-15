@@ -14,7 +14,7 @@ func TestMessageSetAddVote(t *testing.T) {
 	ms.AddVote(blockHash, msg)
 	ms.AddVote(blockHash, msg)
 
-	if got := ms.VotesSize(blockHash); got != 1 {
+	if got := ms.VoteCount(blockHash); got != 1 {
 		t.Fatalf("Expected 1 vote, got %v", got)
 	}
 }
@@ -23,7 +23,7 @@ func TestMessageSetVotesSize(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
 
 	ms := newMessageSet()
-	if got := ms.VotesSize(blockHash); got != 0 {
+	if got := ms.VoteCount(blockHash); got != 0 {
 		t.Fatalf("Expected 0, got %v", got)
 	}
 }
@@ -51,7 +51,7 @@ func TestMessageSetTotalSize(t *testing.T) {
 	ms.AddNilVote(msg)
 	ms.AddNilVote(msg)
 
-	if got := ms.TotalSize(); got != 2 {
+	if got := ms.TotalVoteCount(); got != 2 {
 		t.Fatalf("Expected 2 total votes, got %v", got)
 	}
 }

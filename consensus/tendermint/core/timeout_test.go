@@ -68,20 +68,20 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		validators, _ := newTestValidatorSetWithKeys(4)
 		currentValidator := validators.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
-		currentState := NewRoundState(new(big.Int).SetUint64(1), new(big.Int).SetUint64(2))
+		currentState := NewRoundMessages(new(big.Int).SetUint64(1), new(big.Int).SetUint64(2))
 		currentState.SetStep(prevote)
 		mockBackend := NewMockBackend(ctrl)
 		engine := core{
-			logger:             logger,
-			backend:            mockBackend,
-			address:            currentValidator.GetAddress(),
-			backlogs:           make(map[validator.Validator]*prque.Prque),
-			currentRoundState:  currentState,
-			futureRoundsChange: make(map[int64]int64),
-			valSet:             &validatorSet{Set: validators},
-			proposeTimeout:     newTimeout(propose, logger),
-			prevoteTimeout:     newTimeout(prevote, logger),
-			precommitTimeout:   newTimeout(precommit, logger),
+			logger:            logger,
+			backend:           mockBackend,
+			address:           currentValidator.GetAddress(),
+			backlogs:          make(map[committee.Validator]*prque.Prque),
+			curRoundMessages:  currentState,
+			futureRoundChange: make(map[int64]int64),
+			committeeSet:      &validatorSet{Set: validators},
+			proposeTimeout:    newTimeout(propose, logger),
+			prevoteTimeout:    newTimeout(prevote, logger),
+			precommitTimeout:  newTimeout(precommit, logger),
 		}
 		timeoutEvent := TimeoutEvent{
 			roundWhenCalled:  1,
@@ -91,7 +91,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		// should send precommit nil
 		mockBackend.EXPECT().Sign(gomock.Any()).Times(2)
 		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Do(
-			func(ctx context.Context, valSet validator.Set, payload []byte) {
+			func(ctx context.Context, valSet committee.Set, payload []byte) {
 				message := new(Message)
 				if err := rlp.DecodeBytes(payload, message); err != nil {
 					t.Fatalf("could not decode payload")
@@ -113,7 +113,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 
 		engine.handleTimeoutPrevote(context.Background(), timeoutEvent)
 
-		if engine.currentRoundState.step != precommit {
+		if engine.curRoundMessages.step != precommit {
 			t.Fatalf("should be precommit step now")
 		}
 	})
@@ -126,21 +126,21 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		validators, _ := newTestValidatorSetWithKeys(4)
 		currentValidator := validators.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
-		currentState := NewRoundState(new(big.Int).SetUint64(1), new(big.Int).SetUint64(2))
+		currentState := NewRoundMessages(new(big.Int).SetUint64(1), new(big.Int).SetUint64(2))
 		currentState.SetStep(prevote)
 		mockBackend := NewMockBackend(ctrl)
 		engine := core{
-			logger:                       logger,
-			backend:                      mockBackend,
-			address:                      currentValidator.GetAddress(),
-			backlogs:                     make(map[validator.Validator]*prque.Prque),
-			currentRoundState:            currentState,
-			currentHeightOldRoundsStates: make(map[int64]*roundState),
-			futureRoundsChange:           make(map[int64]int64),
-			valSet:                       &validatorSet{Set: validators},
-			proposeTimeout:               newTimeout(propose, logger),
-			prevoteTimeout:               newTimeout(prevote, logger),
-			precommitTimeout:             newTimeout(precommit, logger),
+			logger:            logger,
+			backend:           mockBackend,
+			address:           currentValidator.GetAddress(),
+			backlogs:          make(map[committee.Validator]*prque.Prque),
+			curRoundMessages:  currentState,
+			roundStates:       make(map[int64]*roundMessages),
+			futureRoundChange: make(map[int64]int64),
+			committeeSet:      &validatorSet{Set: validators},
+			proposeTimeout:    newTimeout(propose, logger),
+			prevoteTimeout:    newTimeout(prevote, logger),
+			precommitTimeout:  newTimeout(precommit, logger),
 		}
 		timeoutEvent := TimeoutEvent{
 			roundWhenCalled:  1,
@@ -152,11 +152,11 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		mockBackend.EXPECT().LastCommittedProposal().Return(block, currentValidator.GetAddress())
 		engine.handleTimeoutPrecommit(context.Background(), timeoutEvent)
 
-		if engine.currentRoundState.height.Uint64() != 2 || engine.currentRoundState.round.Uint64() != 2 {
+		if engine.curRoundMessages.height.Uint64() != 2 || engine.curRoundMessages.round.Uint64() != 2 {
 			t.Fatalf("should be next round")
 		}
 
-		if engine.currentRoundState.step != propose {
+		if engine.curRoundMessages.step != propose {
 			t.Fatalf("should be propose step")
 		}
 	})
@@ -167,9 +167,9 @@ func TestOnTimeoutPrevote(t *testing.T) {
 	defer ctrl.Finish()
 	mockBackend := NewMockBackend(ctrl)
 	engine := core{
-		backend:           mockBackend,
-		logger:            log.New("backend", "test", "id", 0),
-		currentRoundState: NewRoundState(new(big.Int).SetUint64(2), new(big.Int).SetUint64(4)),
+		backend:          mockBackend,
+		logger:           log.New("backend", "test", "id", 0),
+		curRoundMessages: NewRoundMessages(new(big.Int).SetUint64(2), new(big.Int).SetUint64(4)),
 	}
 	mockBackend.EXPECT().Post(gomock.Any()).Times(1).Do(func(ev interface{}) {
 		timeoutEvent, ok := ev.(TimeoutEvent)
@@ -191,9 +191,9 @@ func TestOnTimeoutPrecommit(t *testing.T) {
 	defer ctrl.Finish()
 	mockBackend := NewMockBackend(ctrl)
 	engine := core{
-		backend:           mockBackend,
-		logger:            log.New("backend", "test", "id", 0),
-		currentRoundState: NewRoundState(new(big.Int).SetUint64(2), new(big.Int).SetUint64(4)),
+		backend:          mockBackend,
+		logger:           log.New("backend", "test", "id", 0),
+		curRoundMessages: NewRoundMessages(new(big.Int).SetUint64(2), new(big.Int).SetUint64(4)),
 	}
 	mockBackend.EXPECT().Post(gomock.Any()).Times(1).Do(func(ev interface{}) {
 		timeoutEvent, ok := ev.(TimeoutEvent)

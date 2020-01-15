@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"math/big"
 	"reflect"
 	"testing"
@@ -26,9 +27,9 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 		c := &core{
-			logger:            log.New("backend", "test", "id", 0),
-			backend:           backendMock,
-			currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			curRoundMessages: NewRoundMessages(big.NewInt(2), big.NewInt(3)),
 		}
 
 		c.sendPrecommit(context.Background(), false)
@@ -46,7 +47,7 @@ func TestSendPrecommit(t *testing.T) {
 			big.NewInt(1),
 			types.NewBlockWithHeader(&types.Header{}))
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
 
 		addr := common.HexToAddress("0x0123456789")
@@ -54,7 +55,7 @@ func TestSendPrecommit(t *testing.T) {
 		var preCommit = Vote{
 			Round:             big.NewInt(curRoundState.Round().Int64()),
 			Height:            big.NewInt(curRoundState.Height().Int64()),
-			ProposedBlockHash: curRoundState.GetCurrentProposalHash(),
+			ProposedBlockHash: curRoundState.GetProposalHash(),
 		}
 
 		encodedVote, err := Encode(&preCommit)
@@ -87,11 +88,11 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
 		c := &core{
-			backend:           backendMock,
-			address:           addr,
-			logger:            logger,
-			valSet:            new(validatorSet),
-			currentRoundState: curRoundState,
+			backend:          backendMock,
+			address:          addr,
+			logger:           logger,
+			committeeSet:     new(validatorSet),
+			curRoundMessages: curRoundState,
 		}
 
 		c.sendPrecommit(context.Background(), false)
@@ -109,7 +110,7 @@ func TestSendPrecommit(t *testing.T) {
 			big.NewInt(1),
 			types.NewBlockWithHeader(&types.Header{}))
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
 
 		addr := common.HexToAddress("0x0123456789")
@@ -150,11 +151,11 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
 		c := &core{
-			backend:           backendMock,
-			address:           addr,
-			logger:            logger,
-			valSet:            new(validatorSet),
-			currentRoundState: curRoundState,
+			backend:          backendMock,
+			address:          addr,
+			logger:           logger,
+			committeeSet:     new(validatorSet),
+			curRoundMessages: curRoundState,
 		}
 
 		c.sendPrecommit(context.Background(), true)
@@ -163,7 +164,7 @@ func TestSendPrecommit(t *testing.T) {
 
 func TestHandlePrecommit(t *testing.T) {
 	t.Run("pre-commit with future height given, error returned", func(t *testing.T) {
-		curRoundState := NewRoundState(big.NewInt(1), big.NewInt(2))
+		curRoundState := NewRoundMessages(big.NewInt(1), big.NewInt(2))
 		addr := common.HexToAddress("0x0123456789")
 
 		var preCommit = Vote{
@@ -185,10 +186,10 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		c := &core{
-			address:           addr,
-			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
-			valSet:            new(validatorSet),
+			address:          addr,
+			curRoundMessages: curRoundState,
+			logger:           log.New("backend", "test", "id", 0),
+			committeeSet:     new(validatorSet),
 		}
 
 		err = c.handlePrecommit(context.Background(), expectedMsg)
@@ -198,13 +199,13 @@ func TestHandlePrecommit(t *testing.T) {
 	})
 
 	t.Run("pre-commit with invalid signature given, error returned", func(t *testing.T) {
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		addr := common.HexToAddress("0x0123456789")
 
 		var preCommit = Vote{
 			Round:             big.NewInt(curRoundState.Round().Int64()),
 			Height:            big.NewInt(curRoundState.Height().Int64()),
-			ProposedBlockHash: curRoundState.GetCurrentProposalHash(),
+			ProposedBlockHash: curRoundState.GetProposalHash(),
 		}
 
 		encodedVote, err := Encode(&preCommit)
@@ -221,10 +222,10 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		c := &core{
-			address:           addr,
-			currentRoundState: curRoundState,
-			logger:            log.New("backend", "test", "id", 0),
-			valSet:            new(validatorSet),
+			address:          addr,
+			curRoundMessages: curRoundState,
+			logger:           log.New("backend", "test", "id", 0),
+			committeeSet:     new(validatorSet),
 		}
 		c.setStep(precommit)
 		err = c.handlePrecommit(context.Background(), expectedMsg)
@@ -246,7 +247,7 @@ func TestHandlePrecommit(t *testing.T) {
 			types.NewBlockWithHeader(&types.Header{}))
 		proposal.ProposalBlock.Hash()
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
 		curRoundState.SetStep(precommit)
 
@@ -295,12 +296,12 @@ func TestHandlePrecommit(t *testing.T) {
 			})
 
 		c := &core{
-			address:           getAddress(),
-			backend:           backendMock,
-			currentRoundState: curRoundState,
-			logger:            logger,
-			valSet:            new(validatorSet),
-			precommitTimeout:  newTimeout(precommit, logger),
+			address:          getAddress(),
+			backend:          backendMock,
+			curRoundMessages: curRoundState,
+			logger:           logger,
+			committeeSet:     new(validatorSet),
+			precommitTimeout: newTimeout(precommit, logger),
 		}
 
 		err = c.handlePrecommit(context.Background(), expectedMsg)
@@ -318,7 +319,7 @@ func TestHandlePrecommit(t *testing.T) {
 			big.NewInt(1),
 			types.NewBlockWithHeader(&types.Header{}))
 
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetProposal(proposal, nil)
 		curRoundState.SetStep(prevote)
 
@@ -356,11 +357,11 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		c := &core{
-			address:           addr,
-			currentRoundState: curRoundState,
-			logger:            logger,
-			valSet:            new(validatorSet),
-			precommitTimeout:  newTimeout(precommit, logger),
+			address:          addr,
+			curRoundMessages: curRoundState,
+			logger:           logger,
+			committeeSet:     new(validatorSet),
+			precommitTimeout: newTimeout(precommit, logger),
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -372,7 +373,7 @@ func TestHandlePrecommit(t *testing.T) {
 	})
 
 	t.Run("pre-commit given with no errors, pre-commit timeout triggered", func(t *testing.T) {
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(3))
+		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(3))
 		curRoundState.SetStep(precommit)
 		addr := getAddress()
 
@@ -410,11 +411,11 @@ func TestHandlePrecommit(t *testing.T) {
 		logger := log.New("backend", "test", "id", 0)
 
 		c := &core{
-			address:           addr,
-			currentRoundState: curRoundState,
-			logger:            logger,
-			valSet:            new(validatorSet),
-			precommitTimeout:  newTimeout(precommit, logger),
+			address:          addr,
+			curRoundMessages: curRoundState,
+			logger:           logger,
+			committeeSet:     new(validatorSet),
+			precommitTimeout: newTimeout(precommit, logger),
 		}
 
 		err = c.handlePrecommit(context.Background(), expectedMsg)
@@ -432,7 +433,7 @@ func TestVerifyPrecommitCommittedSeal(t *testing.T) {
 
 		addrMsg := common.HexToAddress("0x0123456789")
 
-		err := c.verifyPrecommitCommittedSeal(addrMsg, nil, common.Hash{}, new(big.Int), new(big.Int))
+		err := c.verifyCommittedSeal(addrMsg, nil, common.Hash{}, new(big.Int), new(big.Int))
 		if err != secp256k1.ErrInvalidSignatureLen {
 			t.Fatalf("Expected %v, got %v", secp256k1.ErrInvalidSignatureLen, err)
 		}
@@ -456,7 +457,7 @@ func TestVerifyPrecommitCommittedSeal(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		err = c.verifyPrecommitCommittedSeal(addrMsg, sig, common.Hash{}, new(big.Int), new(big.Int))
+		err = c.verifyCommittedSeal(addrMsg, sig, common.Hash{}, new(big.Int), new(big.Int))
 		if err != errInvalidSenderOfCommittedSeal {
 			t.Fatalf("Expected %v, got %v", errInvalidSenderOfCommittedSeal, err)
 		}
@@ -480,7 +481,7 @@ func TestVerifyPrecommitCommittedSeal(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		err = c.verifyPrecommitCommittedSeal(addrMsg, sig, addrMsg.Hash(), new(big.Int), new(big.Int))
+		err = c.verifyCommittedSeal(addrMsg, sig, addrMsg.Hash(), new(big.Int), new(big.Int))
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
@@ -499,21 +500,21 @@ func TestHandleCommit(t *testing.T) {
 	backendMock := NewMockBackend(ctrl)
 	backendMock.EXPECT().LastCommittedProposal().MinTimes(1).Return(block, addr)
 
-	valSet := validator.NewMockSet(ctrl)
+	valSet := committee.NewMockSet(ctrl)
 	valSet.EXPECT().CalcProposer(addr, uint64(0))
 	valSet.EXPECT().IsProposer(addr).Return(false)
 
 	backendMock.EXPECT().Validators(uint64(1)).Return(valSet)
 
 	c := &core{
-		address:           addr,
-		backend:           backendMock,
-		currentRoundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
-		logger:            logger,
-		proposeTimeout:    newTimeout(propose, logger),
-		prevoteTimeout:    newTimeout(prevote, logger),
-		precommitTimeout:  newTimeout(precommit, logger),
-		valSet:            new(validatorSet),
+		address:          addr,
+		backend:          backendMock,
+		curRoundMessages: NewRoundMessages(big.NewInt(2), big.NewInt(3)),
+		logger:           logger,
+		proposeTimeout:   newTimeout(propose, logger),
+		prevoteTimeout:   newTimeout(prevote, logger),
+		precommitTimeout: newTimeout(precommit, logger),
+		committeeSet:     new(validatorSet),
 	}
 	c.handleCommit(context.Background())
 }

@@ -41,7 +41,7 @@ func (c *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 		return block, nil
 	}
 
-	if c.currentRoundState == nil || c.currentRoundState != nil || c.currentRoundState.Height().Cmp(header.Number) != 0 {
+	if c.curRoundMessages == nil || c.curRoundMessages != nil || c.Height().Cmp(header.Number) != 0 {
 		return block, nil
 	}
 
@@ -67,7 +67,7 @@ func (c *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 
 	// we want be sure that the block is modified but not broken
 	switch _, err = back.VerifyProposal(*newBlock); err {
-	case consensus.ErrInconsistentValidatorSet:
+	case consensus.ErrInconsistentCommitteeSet:
 	// nothing to do
 	default:
 		c.Error("Mock FinalizeAndAssemble created incorrect block:", err, newBlock)
