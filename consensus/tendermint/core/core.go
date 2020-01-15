@@ -19,15 +19,15 @@ package core
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
-	"math"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -38,11 +38,11 @@ var (
 	// errNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
-	// errFutureHeightMessage is returned when currentRoundState view is earlier than the
+	// errFutureHeightMessage is returned when curRoundMessages view is earlier than the
 	// view of the received message.
 	errFutureHeightMessage = errors.New("future height message")
 	// errOldHeightMessage is returned when the received message's view is earlier
-	// than currentRoundState view.
+	// than curRoundMessages view.
 	errOldHeightMessage = errors.New("old height message")
 	// errOldRoundMessage message is returned when message is of the same Height but form a smaller round
 	errOldRoundMessage = errors.New("same height but old round message")
@@ -125,13 +125,8 @@ type core struct {
 	isStopping              *uint32
 	isStopped               *uint32
 
-	valSet *validatorSet
-
-	backlogs   map[validator.Validator]*prque.Prque
+	backlogs   map[types.CommitteeMember]*prque.Prque
 	backlogsMu sync.Mutex
-
-	currentRoundState *roundState
-
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
 	pendingUnminedBlocksMu   sync.Mutex
@@ -165,27 +160,12 @@ type core struct {
 	prevoteTimeout   *timeout
 	precommitTimeout *timeout
 
-	futureRoundsChange map[int64]map[common.Address]struct{}
+	futureRoundChange map[int64]map[common.Address]struct{}
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
-	c.currentHeightOldRoundsStatesMu.RLock()
-	defer c.currentHeightOldRoundsStatesMu.RUnlock()
-
-	msgs := make([][]*Message, len(c.currentHeightOldRoundsStates)+1)
-	var totalLen int
-	for i, state := range c.currentHeightOldRoundsStates {
-		msgs[i] = state.GetMessages()
-		totalLen += len(msgs[i])
-	}
-	msgs[len(msgs)-1] = c.currentRoundState.GetMessages()
-
-	totalLen += len(msgs[len(msgs)-1])
-
-	result := make([]*Message, 0, totalLen)
-	for _, ms := range msgs {
-		result = append(result, ms...)
-	}
+	return c.messages.GetMessages()
+}
 
 func (c *core) IsMember(address common.Address) bool {
 	i, _ := c.CommitteeSet().GetByAddress(address)
@@ -232,13 +212,13 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 }
 
 func (c *core) isProposer() bool {
-	return c.valSet.IsProposer(c.address)
+	return c.CommitteeSet().IsProposer(c.Round(), c.address)
 }
 
-func (c *core) commit() {
+func (c *core) commit(round int64, messages *roundMessages) {
 	c.setStep(precommitDone)
 
-	proposal := c.curRoundMessages.Proposal()
+	proposal := messages.Proposal()
 	if proposal == nil {
 		// Should never happen really.
 		c.logger.Error("core commit called with empty proposal ")
@@ -250,19 +230,19 @@ func (c *core) commit() {
 		c.logger.Error("commit a NIL block",
 			"block", proposal.ProposalBlock,
 			"height", c.Height(),
-			"round", c.Round())
+			"round", round)
 		return
 	}
 
 	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 
-	committedSeals := make([][]byte, c.curRoundMessages.PrecommitsCount(proposal.ProposalBlock.Hash()))
-	for i, v := range c.curRoundMessages.CommitedSeals(proposal.ProposalBlock.Hash()) {
+	committedSeals := make([][]byte, messages.PrecommitsCount(proposal.ProposalBlock.Hash()))
+	for i, v := range messages.CommitedSeals(proposal.ProposalBlock.Hash()) {
 		committedSeals[i] = make([]byte, types.BFTExtraSeal)
 		copy(committedSeals[i][:], v.CommittedSeal[:])
 	}
 
-	if err := c.backend.Commit(proposal.ProposalBlock, c.Round(), committedSeals); err != nil {
+	if err := c.backend.Commit(proposal.ProposalBlock, round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
@@ -353,25 +333,52 @@ func (c *core) acceptVote(roundMsgs *roundMessages, step Step, hash common.Hash,
 }
 
 func (c *core) setStep(step Step) {
-	c.currentRoundState.SetStep(step)
+	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
+	c.step = step
 	c.processBacklog()
 }
 
-func (c *core) stopFutureProposalTimer() {
-	if c.futureProposalTimer != nil {
-		c.futureProposalTimer.Stop()
-	}
-}
-
-func (c *core) Quorum(i int) bool {
-	return float64(i) >= math.Ceil(float64(2)/float64(3)*float64(c.valSet.Size()))
-}
-
 // PrepareCommittedSeal returns a committed seal for the given hash
-func PrepareCommittedSeal(hash common.Hash, round *big.Int, height *big.Int) []byte {
+func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) []byte {
 	var buf bytes.Buffer
-	buf.Write(round.Bytes())
+	roundBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(roundBytes, uint64(round))
+	buf.Write(roundBytes)
 	buf.Write(height.Bytes())
 	buf.Write(hash.Bytes())
 	return buf.Bytes()
+}
+
+func (c *core) setRound(round int64) {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.round = round
+}
+
+func (c *core) setHeight(height *big.Int) {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.height = height
+}
+func (c *core) setCommitteeSet(set committee.Set) {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.committeeSet = set
+}
+
+func (c *core) Round() int64 {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.round
+}
+
+func (c *core) Height() *big.Int {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.height
+}
+func (c *core) CommitteeSet() committee.Set {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.committeeSet
 }
