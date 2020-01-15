@@ -125,7 +125,7 @@ type originalHeader struct {
 type headerExtra struct {
 	Committee          Committee `json:"committee"           gencodec:"required"`
 	ProposerSeal       []byte    `json:"proposerSeal"        gencodec:"required"`
-	Round              *big.Int  `json:"round"               gencodec:"required"`
+	Round              uint64    `json:"round"               gencodec:"required"`
 	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"`
 	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
 }
@@ -422,14 +422,8 @@ func CopyHeader(h *Header) *Header {
 		}
 	}
 
-	if h.Round != nil {
-		cpy.Round = new(big.Int).Set(h.Round)
-	}
-
-	if len(h.ProposerSeal) > 0 {
-		cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
-		copy(cpy.ProposerSeal, h.ProposerSeal)
-	}
+	cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
+	copy(cpy.ProposerSeal, h.ProposerSeal)
 
 	if len(h.CommittedSeals) > 0 {
 		cpy.CommittedSeals = make([][]byte, len(h.CommittedSeals))

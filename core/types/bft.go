@@ -24,7 +24,7 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/crypto/sha3"
-	"math/big"
+	"strings"
 )
 
 var (
@@ -36,7 +36,7 @@ var (
 	BFTExtraVanity = 32 // Fixed number of extra-data bytes reserved for validator vanity
 	BFTExtraSeal   = 65 // Fixed number of extra-data bytes reserved for validator seal
 
-	inmemoryAddresses  = 20 // Number of recent addresses from ecrecover
+	inmemoryAddresses  = 500 // Number of recent addresses from ecrecover
 	recentAddresses, _ = lru.NewARC(inmemoryAddresses)
 
 	// ErrInvalidBFTHeaderExtra is returned if the length of extra-data is less than 32 bytes
@@ -47,6 +47,8 @@ var (
 	ErrInvalidCommittedSeals = errors.New("invalid committed seals")
 	// ErrEmptyCommittedSeals is returned if the field of committed seals is zero.
 	ErrEmptyCommittedSeals = errors.New("zero committed seals")
+	// ErrNegativeRound is returned if the round field is negative
+	ErrNegativeRound = errors.New("negative round")
 )
 
 // BFTFilteredHeader returns a filtered header which some information (like seal, committed seals)
@@ -57,7 +59,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 		newHeader.ProposerSeal = []byte{}
 	}
 	newHeader.CommittedSeals = [][]byte{}
-	newHeader.Round = new(big.Int).SetInt64(0)
+	newHeader.Round = 0
 	return newHeader
 }
 
@@ -108,8 +110,11 @@ func WriteSeal(h *Header, seal []byte) error {
 }
 
 // WriteRound writes the round field of the block header.
-func WriteRound(h *Header, round *big.Int) error {
-	h.Round = new(big.Int).Set(round)
+func WriteRound(h *Header, round int64) error {
+	if round < 0 {
+		return ErrNegativeRound
+	}
+	h.Round = uint64(round)
 	return nil
 }
 
@@ -161,15 +166,18 @@ func (c Committee) String() string {
 	return ret
 }
 
-// CommitteeMember methods necessary to satisfy tendermint validator interface
-func (m CommitteeMember) GetAddress() common.Address {
-	return m.Address
+func (c Committee) Len() int {
+	return len(c)
+}
+
+func (c Committee) Less(i, j int) bool {
+	return strings.Compare(c[i].String(), c[j].String()) < 0
+}
+
+func (c Committee) Swap(i, j int) {
+	c[i], c[j] = c[j], c[i]
 }
 
 func (m CommitteeMember) String() string {
 	return m.Address.String()
-}
-
-func (m CommitteeMember) GetVotingPower() *big.Int {
-	return new(big.Int).Set(m.VotingPower)
 }
