@@ -2,17 +2,18 @@
 // Source: consensus/tendermint/validator/validator_interface.go
 
 // Package validator is a generated GoMock package.
-package validator
+package committee
 
 import (
 	common "github.com/clearmatics/autonity/common"
 	config "github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/core/types"
 	gomock "github.com/golang/mock/gomock"
 	big "math/big"
 	reflect "reflect"
 )
 
-// MockValidator is a mock of Validator interface
+// MockValidator is a mock of Member interface
 type MockValidator struct {
 	ctrl     *gomock.Controller
 	recorder *MockValidatorMockRecorder
@@ -126,25 +127,25 @@ func (mr *MockSetMockRecorder) Size() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Size", reflect.TypeOf((*MockSet)(nil).Size))
 }
 
-// List mocks base method
-func (m *MockSet) List() []Validator {
+// Committee mocks base method
+func (m *MockSet) List() types.Committee {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List")
-	ret0, _ := ret[0].([]Validator)
+	ret := m.ctrl.Call(m, "Committee")
+	ret0, _ := ret[0].(types.Committee)
 	return ret0
 }
 
-// List indicates an expected call of List
+// Committee indicates an expected call of Committee
 func (mr *MockSetMockRecorder) List() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSet)(nil).List))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Committee", reflect.TypeOf((*MockSet)(nil).List))
 }
 
 // GetByIndex mocks base method
-func (m *MockSet) GetByIndex(i uint64) Validator {
+func (m *MockSet) GetByIndex(i uint64) types.CommitteeMember {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByIndex", i)
-	ret0, _ := ret[0].(Validator)
+	ret0, _ := ret[0].(types.CommitteeMember)
 	return ret0
 }
 
@@ -155,11 +156,11 @@ func (mr *MockSetMockRecorder) GetByIndex(i interface{}) *gomock.Call {
 }
 
 // GetByAddress mocks base method
-func (m *MockSet) GetByAddress(addr common.Address) (int, Validator) {
+func (m *MockSet) GetByAddress(addr common.Address) (int, types.CommitteeMember) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByAddress", addr)
 	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(Validator)
+	ret1, _ := ret[1].(types.CommitteeMember)
 	return ret0, ret1
 }
 
@@ -170,10 +171,10 @@ func (mr *MockSetMockRecorder) GetByAddress(addr interface{}) *gomock.Call {
 }
 
 // GetProposer mocks base method
-func (m *MockSet) GetProposer() Validator {
+func (m *MockSet) GetProposer() types.CommitteeMember {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetProposer")
-	ret0, _ := ret[0].(Validator)
+	ret0, _ := ret[0].(types.CommitteeMember)
 	return ret0
 }
 
@@ -195,34 +196,6 @@ func (m *MockSet) IsProposer(address common.Address) bool {
 func (mr *MockSetMockRecorder) IsProposer(address interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsProposer", reflect.TypeOf((*MockSet)(nil).IsProposer), address)
-}
-
-// AddValidator mocks base method
-func (m *MockSet) AddValidator(address common.Address) bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddValidator", address)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// AddValidator indicates an expected call of AddValidator
-func (mr *MockSetMockRecorder) AddValidator(address interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddValidator", reflect.TypeOf((*MockSet)(nil).AddValidator), address)
-}
-
-// RemoveValidator mocks base method
-func (m *MockSet) RemoveValidator(address common.Address) bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveValidator", address)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// RemoveValidator indicates an expected call of RemoveValidator
-func (mr *MockSetMockRecorder) RemoveValidator(address interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveValidator", reflect.TypeOf((*MockSet)(nil).RemoveValidator), address)
 }
 
 // Copy mocks base method

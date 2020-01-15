@@ -35,6 +35,6 @@ var (
 	// plus one.
 	ErrInvalidNumber = errors.New("invalid block number")
 
-	// ErrInconsistentValidatorSet is returned if the validator set is inconsistent
-	ErrInconsistentValidatorSet = errors.New("inconsistent validator set")
+	// ErrInconsistentCommitteeSet is returned if the validator set is inconsistent
+	ErrInconsistentCommitteeSet = errors.New("inconsistent committee set")
 )

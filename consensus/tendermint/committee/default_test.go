@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package validator
+package committee
 
 import (
 	"math/big"
@@ -41,10 +41,10 @@ func TestValidatorSet(t *testing.T) {
 }
 
 func testNewValidatorSet(t *testing.T) {
-	var validators []Validator
+	var validators types.Committee
 	const ValCnt = 100
 
-	// Create 100 validators with random addresses
+	// Create 100 members with random addresses
 	for i := 0; i < ValCnt; i++ {
 		key, _ := crypto.GenerateKey()
 		addr := crypto.PubkeyToAddress(key.PublicKey)
@@ -68,7 +68,7 @@ func testNewValidatorSet(t *testing.T) {
 		valsMap[val.String()] = struct{}{}
 	}
 
-	// Check validators sorting: should be in ascending order
+	// Check members sorting: should be in ascending order
 	for i := 0; i < ValCnt-1; i++ {
 		val := valSet.GetByIndex(uint64(i))
 		nextVal := valSet.GetByIndex(uint64(i + 1))
@@ -77,7 +77,7 @@ func testNewValidatorSet(t *testing.T) {
 		}
 
 		if _, ok := valsMap[val.String()]; !ok {
-			t.Errorf("validator set has unexpected element %s. Original validators %v, given %v",
+			t.Errorf("validator set has unexpected element %s. Original members %v, given %v",
 				val.String(), validators, valSet.List())
 		}
 	}
@@ -91,7 +91,7 @@ func testNormalValSet(t *testing.T) {
 	val1 := New(addr1, new(big.Int).SetUint64(1))
 	val2 := New(addr2, new(big.Int).SetUint64(1))
 
-	valSet := newDefaultSet(Validators{val1, val2}, config.RoundRobin)
+	valSet := newDefaultSet(Members{val1, val2}, config.RoundRobin)
 	if valSet == nil {
 		t.Errorf("the format of validator set is invalid")
 		t.FailNow()
@@ -141,14 +141,14 @@ func testNormalValSet(t *testing.T) {
 }
 
 func testEmptyValSet(t *testing.T) {
-	valSet := newDefaultSet(Validators{}, config.RoundRobin)
+	valSet := newDefaultSet(Members{}, config.RoundRobin)
 	if valSet == nil {
 		t.Errorf("validator set should not be nil")
 	}
 }
 
 func testAddAndRemoveValidator(t *testing.T) {
-	valSet := newDefaultSet(Validators{}, config.RoundRobin)
+	valSet := newDefaultSet(Members{}, config.RoundRobin)
 	if !valSet.AddValidator(common.BytesToAddress([]byte(string(2)))) {
 		t.Error("the validator should be added")
 	}
@@ -164,7 +164,7 @@ func testAddAndRemoveValidator(t *testing.T) {
 	for i, v := range valSet.List() {
 		expected := common.BytesToAddress([]byte(string(i)))
 		if v.GetAddress() != expected {
-			t.Errorf("the order of validators is wrong: have %v, want %v", v.GetAddress().Hex(), expected.Hex())
+			t.Errorf("the order of members is wrong: have %v, want %v", v.GetAddress().Hex(), expected.Hex())
 		}
 	}
 
@@ -195,7 +195,7 @@ func testStickyProposer(t *testing.T) {
 	val1 := New(addr1, new(big.Int).SetUint64(1))
 	val2 := New(addr2, new(big.Int).SetUint64(1))
 
-	valSet := newDefaultSet(Validators{val1, val2}, config.Sticky)
+	valSet := newDefaultSet(Members{val1, val2}, config.Sticky)
 
 	// test get proposer
 	if val := valSet.GetProposer(); !reflect.DeepEqual(val, val1) {
