@@ -15,8 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
@@ -102,6 +100,7 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 	users := make([]params.User, 0, len(nodes))
 	for n, validator := range nodes {
 		var nodeType params.UserType
+		stake := uint64(100)
 		switch {
 		case strings.HasPrefix(n, ValidatorPrefix):
 			nodeType = params.UserValidator
@@ -109,6 +108,7 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 			nodeType = params.UserStakeHolder
 		case strings.HasPrefix(n, ParticipantPrefix):
 			nodeType = params.UserParticipant
+			stake = 0
 		default:
 			panic("incorrect node type")
 
@@ -117,7 +117,7 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 			Address: crypto.PubkeyToAddress(validator.privateKey.PublicKey),
 			Enode:   validator.url,
 			Type:    nodeType,
-			Stake:   100,
+			Stake:   stake,
 		})
 	}
 	//generate one sh
@@ -131,7 +131,6 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 		Stake:   200,
 	})
 	genesis.Config.AutonityContractConfig.Users = users
-	spew.Dump(users)
 	err = genesis.Config.AutonityContractConfig.AddDefault().Validate()
 	if err != nil {
 		panic(err)

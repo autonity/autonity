@@ -331,12 +331,7 @@ func runTest(t *testing.T, test *testCase) {
 }
 
 type Topology struct {
-	File  string
 	graph graph.Graph
-}
-
-func (tp *Topology) Connect(peers []*testNode) {
-
 }
 
 func getNodeNames() []string {
