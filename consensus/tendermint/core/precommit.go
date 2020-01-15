@@ -36,11 +36,11 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	if isNil {
 		precommit.ProposedBlockHash = common.Hash{}
 	} else {
-		if h := c.currentRoundState.GetCurrentProposalHash(); h == (common.Hash{}) {
+		if h := c.curRoundMessages.GetProposalHash(); h == (common.Hash{}) {
 			c.logger.Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit.ProposedBlockHash = c.curRoundMessages.GetCurrentProposalHash()
+		precommit.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
 	}
 
 	encodedVote, err := Encode(&precommit)
@@ -75,27 +75,28 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 	if err != nil {
 		return errFailedDecodePrecommit
 	}
+	precommitHash := preCommit.ProposedBlockHash
 
 	if err := c.checkMessage(preCommit.Round, preCommit.Height, precommit); err != nil {
-		// Store old precommits because if there is a quorum of precommits in the previous round we need to go to the next height
-		//if err == errOldRoundMessage {
-		//	// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
-		//	// And we only process old rounds while future rounds messages are pushed on to the backlog
-		//	oldRoundState := c.currentHeightOldRoundsStates[preCommit.Round.Int64()]
-		//	c.acceptVote(&oldRoundState, precommit, preCommit.ProposedBlockHash, *msg)
-		//
-		//	// Check for old round precommit quorum
-		//	if c.Quorum(oldRoundState.Precommits.VotesSize(oldRoundState.GetCurrentProposalHash())) {
-		//		select {
-		//		case <-ctx.Done():
-		//			return ctx.Err()
-		//		default:
-		//			c.commit()
-		//		}
-		//
-		//		return nil
-		//	}
-		//}
+
+		if err == errOldRoundMessage {
+			roundMsgs := c.messages.getOrCreate(preCommit.Round)
+			if err := c.verifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
+				return err
+			}
+			c.acceptVote(roundMsgs, precommit, precommitHash, *msg)
+			oldRoundProposalHash := roundMsgs.GetProposalHash()
+			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsCount(oldRoundProposalHash) >= c.CommitteeSet().Quorum() {
+				c.logger.Info("Quorum on a old round proposal", "round", preCommit.Round)
+				if !roundMsgs.isProposalVerified() {
+					if _, err := c.backend.VerifyProposal(*roundMsgs.Proposal().ProposalBlock); err != nil {
+						return err
+					}
+				}
+				c.commit(preCommit.Round, c.curRoundMessages)
+				return nil
+			}
+		}
 
 		return err
 	}
@@ -104,15 +105,13 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 	if err := c.verifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
 		return err
 	}
-
+	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
+	curProposalHash := c.curRoundMessages.GetProposalHash()
 	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
-	precommitHash := preCommit.ProposedBlockHash
 
 	c.acceptVote(c.curRoundMessages, precommit, precommitHash, *msg)
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
-	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	curProposalHash := c.curRoundMessages.GetCurrentProposalHash()
 	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsCount(curProposalHash) >= c.CommitteeSet().Quorum() {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
@@ -123,7 +122,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			c.commit()
+			c.commit(c.Round(), c.curRoundMessages)
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
@@ -168,7 +167,7 @@ func (c *core) handleCommit(ctx context.Context) {
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to string) {
-	currentProposalHash := c.curRoundMessages.GetCurrentProposalHash()
+	currentProposalHash := c.curRoundMessages.GetProposalHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
