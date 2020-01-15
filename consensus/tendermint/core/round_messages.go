@@ -84,7 +84,7 @@ type roundMessages struct {
 	mu               sync.RWMutex
 }
 
-func (s *roundState) Update(r *big.Int, h *big.Int) {
+func (s *roundMessages) New(r uint64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.proposal = new(Proposal)
@@ -107,6 +107,7 @@ func (s *roundMessages) SetProposal(proposal *Proposal, msg *Message, verified b
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.proposalMsg = msg
+	s.verifiedProposal = verified
 	s.proposal = proposal
 }
 
@@ -153,7 +154,7 @@ func (s *roundMessages) isProposalVerified() bool {
 	return s.verifiedProposal
 }
 
-func (s *roundMessages) GetCurrentProposalHash() common.Hash {
+func (s *roundMessages) GetProposalHash() common.Hash {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
