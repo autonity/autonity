@@ -9,8 +9,6 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
-const DefaultTestGasPrice = 100000000000
-
 func TestTendermintSuccess(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
