@@ -78,46 +78,46 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 		return errFailedDecodePrecommit
 	}
 
-	if err := c.checkMessage(preCommit.Round, preCommit.Height, precommit); err != nil {
+	// Check for nil values
+	if preCommit.Height == nil || preCommit.Round == nil {
+		return errInvalidMessage
+	}
+
+	// Ensure prevote is for current height
+	if err = c.checkMessage(preCommit.Round, preCommit.Height, prevote); err != nil {
 		return err
+	}
+
+	// If we already have the prevote do nothing
+	if c.roundState.hasVote(preCommit, msg) {
+		return nil
 	}
 
 	// Don't want to decode twice, hence sending preCommit with message
 	if err := c.verifyPrecommitCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
 		return err
 	}
-
-	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
-	// TODO: use uints instead of ints
-	precommitHash := preCommit.ProposedBlockHash
-	curR := c.roundState.Round().Int64()
-	curH := c.roundState.Height().Int64()
-	precommits := c.roundState.allRoundMessages[curR].precommits
-
-	precommits.Add(precommitHash, *msg)
-
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
-	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	curProposalHash := c.roundState.Proposal(curR).ProposalBlock.Hash()
-	if curProposalHash != (common.Hash{}) && c.Quorum(precommits.VotesSize(curProposalHash)) {
-		if err := c.precommitTimeout.stopTimer(); err != nil {
-			return err
-		}
-		c.logger.Debug("Stopped Scheduled Precommit Timeout")
+	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
+	curR := c.roundState.Round().Int64()
+	curH := c.roundState.Height().Int64()
+	precommitHash := preCommit.ProposedBlockHash
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			c.commit(curR)
-		}
+	// The precommit doesn't exists in our current round state, so add it, thus it will add the precommit to the round
+	// of the precommit
+	precommits := c.roundState.allRoundMessages[preCommit.Round.Int64()].precommits
+	precommits.Add(precommitHash, *msg)
 
-		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.timerStarted() && c.Quorum(precommits.TotalSize()) {
-		timeoutDuration := timeoutPrecommit(curR)
-		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
-		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
+	roundCmp := preCommit.Round.Cmp(c.roundState.Round())
+	if roundCmp == 0 {
+		//Check for timeout only if preCommit.Round == curR
+		c.checkForPrecommitTimeout(curR, curH)
+	}
+
+	// Check for consensus regardless of the precommit round
+	if err := c.checkForConsensus(ctx, preCommit.Round.Int64()); err != nil {
+		return err
 	}
 
 	return nil
