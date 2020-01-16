@@ -43,6 +43,7 @@ contract Autonity {
     uint256 minGasPrice = 0;
     uint256 public bondingPeriod = 100;
     uint256 public committeeSize = 1000;
+    string public contractVersion = "v0.0.0";
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ///////////////////// Contract state which can be replay from dumped states////////////
@@ -74,6 +75,7 @@ contract Autonity {
     event SetCommissionRate(address _address, uint256 _value);
     event MintStake(address _address, uint256 _amount);
     event RedeemStake(address _address, uint256 _amount);
+    event Version(string version);
     // constructor get called at block #1
     // configured in the genesis file.
 
@@ -85,7 +87,8 @@ contract Autonity {
         address _operatorAccount,
         uint256 _minGasPrice,
         uint256 _bondingPeriod,
-        uint256 _committeeSize) public {
+        uint256 _committeeSize,
+        string memory _contractVersion) public {
 
         require(_participantAddress.length == _participantEnode.length
         && _participantAddress.length == _participantType.length
@@ -102,6 +105,7 @@ contract Autonity {
         deployer = msg.sender;
         minGasPrice = _minGasPrice;
         bondingPeriod = _bondingPeriod;
+        contractVersion = _contractVersion;
 
         // to construct the committee:
         committeeSize = _committeeSize;
@@ -224,9 +228,11 @@ contract Autonity {
         return true;
     }
 
-    function upgradeContract(string memory _bytecode, string memory _abi) public onlyOperator(msg.sender) returns(bool) {
+    function upgradeContract(string memory _bytecode, string memory _abi, string memory _version) public onlyOperator(msg.sender) returns(bool) {
         bytecode = _bytecode;
         contractAbi = _abi;
+        contractVersion = _version;
+        emit Version(contractVersion);
         return true;
     }
 
@@ -252,8 +258,12 @@ contract Autonity {
         return validators;
     }
 
+    function getVersion() public view returns (string memory) {
+        return contractVersion;
+    }
+
     function retrieveState() public view
-    returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, uint256[] memory, address, uint256, uint256, uint256) {
+    returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, uint256[] memory, address, uint256, uint256, uint256, string memory) {
 
         address[] memory addr = new address[](usersList.length);
         uint256[] memory userType  = new uint256[](usersList.length);
@@ -267,7 +277,7 @@ contract Autonity {
             enode[i] = users[usersList[i]].enode;
             commissionRate[i] = users[usersList[i]].commissionRate;
         }
-        return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice, bondingPeriod, committeeSize);
+        return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice, bondingPeriod, committeeSize, contractVersion);
     }
 
     /*

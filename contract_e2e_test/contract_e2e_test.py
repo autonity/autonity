@@ -14,7 +14,6 @@ import re
 import os
 import json
 import rlp
-# from rlp.utils import decode_hex
 from eth_utils.hexadecimal import decode_hex
 
 from time import sleep
@@ -49,7 +48,7 @@ def generate_genesis(addresses: List[str], enodes: List[str]):
                 "deployer": "",
                 "bytecode": "",  # use default bin and abi from client side.
                 "abi": "",
-                "minGasPrice": 5000,
+                "minGasPrice": 0,
                 "users": [],
             }
         },
@@ -72,7 +71,7 @@ def generate_genesis(addresses: List[str], enodes: List[str]):
     genesis["validators"] = []
     # let operator and deployer to be the same account.
     genesis["config"]["autonityContract"]["deployer"] = f"0x{addresses[0]}"
-    genesis["config"]["autonityContract"]["governanceOperator"] = f"0x{addresses[0]}"
+    genesis["config"]["autonityContract"]["operator"] = f"0x{addresses[0]}"
 
     for i in range(0, len(addresses)):
         user = {
@@ -97,7 +96,7 @@ def execute(cmd):
     try:
         print("[CMD] {}".format(cmd))
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", shell=True)
-        return process.communicate()
+        return process.communicate(timeout=5)
     except Exception as e:
         print("Error: ", e)
         raise e
@@ -251,6 +250,7 @@ def deploy_clients():
         parser.add_argument("-r", help='Restart All', action="store_true")
         parser.add_argument("-o", help='Restart All except', type=int)
         parser.add_argument("-i", help='Reinit chains', action="store_true")
+        parser.add_argument("-t", help='Test from e2e', type=bool, default=False)
         args = parser.parse_args()
 
         node_count = args.n
@@ -286,6 +286,11 @@ def deploy_clients():
             reinit_chains()
             return
 
+        if args.t:
+            prepare_dependency()
+            run_tests()
+            return
+
         print("===== SETUP INITIALIZATION =====")
         create_network_dir()
         print("===== ACCOUNTS CREATION =====")
@@ -308,14 +313,16 @@ def deploy_clients():
 
 
 def get_http_end_point():
-    return "http://127.0.0.1:6000"
+    return "http://0.0.0.0:6000"
 
 
 def compile_contract():
     try:
-        contract = compile_files(["../autonity/contract/contracts/Autonity.sol"])
-        return contract["../autonity/contract/contracts/Autonity.sol:Autonity"]["bin"], \
-               contract["../autonity/contract/contracts/Autonity.sol:Autonity"]["abi"]
+        contract = compile_files(["../contracts/autonity/contract/contracts/Autonity.sol"])
+        bin = contract["../contracts/autonity/contract/contracts/Autonity.sol:Autonity"]["bin"]
+        abi = contract["../contracts/autonity/contract/contracts/Autonity.sol:Autonity"]["abi"]
+        version = "v0.0.1"
+        return bin, abi, version
     except Exception as e:
         print("cannot compile contract ", e)
         raise e
@@ -356,11 +363,15 @@ def get_autonity_contract_address():
 
 
 def get_system_operator_account():
-    return f"0x{addresses[0]}"
+    with open('./network-data/addresses.json') as address_file:
+        data = json.load(address_file)
+        return f"0x{data[0]}"
 
 
 def get_system_deployer_account():
-    return f"0x{addresses[0]}"
+    with open('./network-data/addresses.json') as address_file:
+        data = json.load(address_file)
+        return f"0x{data[0]}"
 
 
 def run_tests():
@@ -375,24 +386,39 @@ def run_tests():
     try:
         # construct contract object.
         addr = get_autonity_contract_address()
-        byte_code, abi = compile_contract()
+        byte_code, abi, version = compile_contract()
         autonity_contract = w3_obj.eth.contract(address=addr, abi=abi)
     except Exception as e:
         print("cannot create contract object from client. ", e)
         raise e
+
     # get chain height before test
     start_at_block = w3_obj.eth.getBlock("latest")
     print("test started at block height: ", start_at_block['number'])
+
     # get gas price.
     gas_price = w3_obj.eth.gasPrice
     print("gas price is ", gas_price)
 
-    # test upgrade contract with same version of bin and abi.
-    operator_account = get_system_operator_account()
-    result = autonity_contract.functions.upgradeContract(byte_code, abi).call({'from': operator_account})
-    if result is False:
-        raise Exception("cannot upgrade contract.")
+    # get validators
+    validators = autonity_contract.functions.getValidators().call()
+    print("validators: ", validators)
 
+    abi = json.dumps(abi)
+
+    gas_estimate = autonity_contract.functions.upgradeContract(byte_code, abi, version).estimateGas()
+    print("gas estimate to transact with ugradeContract: {0}\n".format(gas_estimate))
+
+    autonity_contract.functions.upgradeContract(byte_code, abi, version).transact({'from': get_system_deployer_account(), 'gas': 1000000000})
+
+    # wait TX to be mined.
+    sleep(10)
+    version_fetched = autonity_contract.functions.getVersion().call()
+    if version != version_fetched:
+        raise Exception("test case failed.")
+
+    """
+    sleep(10)
     # get chain height after contract upgrade
     end_at_block = w3_obj.eth.getBlock("latest")
     print("test end at block height: ", end_at_block['number'])
@@ -402,21 +428,35 @@ def run_tests():
     # check if contract was upgraded successfully.
     sleep(5)
     _byte_code, _abi = autonity_contract.functions.retrieveContract().call({'from': operator_account})
+    print("after upgrade: bin and abi: ", _byte_code, _abi)
     if _byte_code == byte_code:
         print("new contract does not apply by autonity.")
         raise Exception("Contract does not applied by autonity.")
+
+    # check version after upgrade
+    after_version = autonity_contract.functions.getVersion().call()
+    print("after upgrade, version: ", after_version)
+
+    if after_version <= version:
+        raise Exception("contract upgrade failed.")
+
+    print("test case passed.")
+    """
 
 
 if __name__ == "__main__":
     try:
         deploy_clients()
+        #sleep(60)
     except Exception as e:
         print("cannot deploy clients ", e)
         exit(1)
 
+    """
     try:
         prepare_dependency()
         run_tests()
     except Exception as e:
         print("test case failed ", e)
         exit(1)
+    """

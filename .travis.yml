@@ -18,6 +18,7 @@ before_script:
   - sudo apt-get update -y
   - sudo apt-get install -y tmux
   - sudo apt-get install python3
+  - sudo apt-get install python3-pip
 
 jobs:
   include:

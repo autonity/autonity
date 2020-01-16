@@ -201,6 +201,8 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 		return err
 	}
 
+	log.Info("ApplyFinalize", "upgradeContract", upgradeContract)
+
 	if upgradeContract {
 		// warning prints for failure rather than returning error to stuck engine.
 		// in any failure, the state will be rollback to snapshot.
