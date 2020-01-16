@@ -503,7 +503,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	if checkpoint {
 		index := uint64(rand.Intn(500))
 		number := (index+1)*params.CHTFrequency - 1
-		response = &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(int64(number)), Extra: []byte("valid")}}
+		response = &types.Header{Number: big.NewInt(int64(number)), Extra: []byte("valid")}
 
 		cht = &params.TrustedCheckpoint{
 			SectionIndex: index,
@@ -548,7 +548,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 					t.Fatalf("failed to answer challenge: %v", err)
 				}
 			} else {
-				if err := p2p.Send(peer.app, BlockHeadersMsg, []*types.Header{{OriginalHeader: types.OriginalHeader{Number: response.Number}}}); err != nil {
+				if err := p2p.Send(peer.app, BlockHeadersMsg, []*types.Header{{Number: response.Number}}); err != nil {
 					t.Fatalf("failed to answer challenge: %v", err)
 				}
 			}

@@ -16,29 +16,34 @@ var _ = (*headerMarshaling)(nil)
 // MarshalJSON marshals as JSON.
 func (h Header) MarshalJSON() ([]byte, error) {
 	type Header struct {
-		ParentHash         common.Hash     `json:"parentHash"       gencodec:"required"`
-		UncleHash          common.Hash     `json:"sha3Uncles"       gencodec:"required"`
-		Coinbase           common.Address  `json:"miner"            gencodec:"required"`
-		Root               common.Hash     `json:"stateRoot"        gencodec:"required"`
-		TxHash             common.Hash     `json:"transactionsRoot" gencodec:"required"`
-		ReceiptHash        common.Hash     `json:"receiptsRoot"     gencodec:"required"`
-		Bloom              Bloom           `json:"logsBloom"        gencodec:"required"`
-		Difficulty         *hexutil.Big    `json:"difficulty"       gencodec:"required"`
-		Number             *hexutil.Big    `json:"number"           gencodec:"required"`
-		GasLimit           hexutil.Uint64  `json:"gasLimit"         gencodec:"required"`
-		GasUsed            hexutil.Uint64  `json:"gasUsed"          gencodec:"required"`
-		Time               hexutil.Uint64  `json:"timestamp"        gencodec:"required"`
-		Extra              hexutil.Bytes   `json:"extraData"        gencodec:"required"`
-		MixDigest          common.Hash     `json:"mixHash"`
-		Nonce              BlockNonce      `json:"nonce"`
+		ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
+		UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+		Coinbase    common.Address `json:"miner"            gencodec:"required"`
+		Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
+		TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+		Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
+		Difficulty  *hexutil.Big   `json:"difficulty"       gencodec:"required"`
+		Number      *hexutil.Big   `json:"number"           gencodec:"required"`
+		GasLimit    hexutil.Uint64 `json:"gasLimit"         gencodec:"required"`
+		GasUsed     hexutil.Uint64 `json:"gasUsed"          gencodec:"required"`
+		Time        hexutil.Uint64 `json:"timestamp"        gencodec:"required"`
+		Extra       hexutil.Bytes  `json:"extraData"        gencodec:"required"`
+		MixDigest   common.Hash    `json:"mixHash"`
+		Nonce       BlockNonce     `json:"nonce"`
+		Hash        common.Hash    `json:"hash"`
+	}
+	type ExtraHeader struct {
 		Committee          Committee       `json:"committee"           gencodec:"required"`
 		ProposerSeal       hexutil.Bytes   `json:"proposerSeal"        gencodec:"required"`
-		Round              *big.Int        `json:"round"               gencodec:"required"`
+		Round              *hexutil.Big    `json:"round"               gencodec:"required"`
 		CommittedSeals     []hexutil.Bytes `json:"committedSeals"      gencodec:"required"`
 		PastCommittedSeals []hexutil.Bytes `json:"pastCommittedSeals"  gencodec:"required"`
-		Hash               common.Hash     `json:"hash"`
 	}
+
 	var enc Header
+	var encExtra ExtraHeader
+
 	enc.ParentHash = h.ParentHash
 	enc.UncleHash = h.UncleHash
 	enc.Coinbase = h.Coinbase
@@ -51,24 +56,31 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.GasLimit = hexutil.Uint64(h.GasLimit)
 	enc.GasUsed = hexutil.Uint64(h.GasUsed)
 	enc.Time = hexutil.Uint64(h.Time)
-	enc.Extra = h.Extra
 	enc.MixDigest = h.MixDigest
 	enc.Nonce = h.Nonce
-	enc.Committee = h.Committee
-	enc.ProposerSeal = h.ProposerSeal
-	enc.Round = h.Round
-	if h.CommittedSeals != nil {
-		enc.CommittedSeals = make([]hexutil.Bytes, len(h.CommittedSeals))
+
+	encExtra.Committee = h.Committee
+	encExtra.ProposerSeal = h.ProposerSeal
+	encExtra.Round = (*hexutil.Big)(h.Round)
+	if encExtra.CommittedSeals != nil {
+		encExtra.CommittedSeals = make([]hexutil.Bytes, len(h.CommittedSeals))
 		for k, v := range h.CommittedSeals {
-			enc.CommittedSeals[k] = v
+			encExtra.CommittedSeals[k] = v
 		}
 	}
 	if h.PastCommittedSeals != nil {
-		enc.PastCommittedSeals = make([]hexutil.Bytes, len(h.PastCommittedSeals))
+		encExtra.PastCommittedSeals = make([]hexutil.Bytes, len(h.PastCommittedSeals))
 		for k, v := range h.PastCommittedSeals {
-			enc.PastCommittedSeals[k] = v
+			encExtra.PastCommittedSeals[k] = v
 		}
 	}
+
+	extraBytes, err := json.Marshal(&encExtra)
+	if err != nil {
+		return nil, err
+	}
+	enc.Extra = extraBytes
+
 	enc.Hash = h.Hash()
 	return json.Marshal(&enc)
 }
@@ -76,31 +88,42 @@ func (h Header) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (h *Header) UnmarshalJSON(input []byte) error {
 	type Header struct {
-		ParentHash         *common.Hash    `json:"parentHash"       gencodec:"required"`
-		UncleHash          *common.Hash    `json:"sha3Uncles"       gencodec:"required"`
-		Coinbase           *common.Address `json:"miner"            gencodec:"required"`
-		Root               *common.Hash    `json:"stateRoot"        gencodec:"required"`
-		TxHash             *common.Hash    `json:"transactionsRoot" gencodec:"required"`
-		ReceiptHash        *common.Hash    `json:"receiptsRoot"     gencodec:"required"`
-		Bloom              *Bloom          `json:"logsBloom"        gencodec:"required"`
-		Difficulty         *hexutil.Big    `json:"difficulty"       gencodec:"required"`
-		Number             *hexutil.Big    `json:"number"           gencodec:"required"`
-		GasLimit           *hexutil.Uint64 `json:"gasLimit"         gencodec:"required"`
-		GasUsed            *hexutil.Uint64 `json:"gasUsed"          gencodec:"required"`
-		Time               *hexutil.Uint64 `json:"timestamp"        gencodec:"required"`
-		Extra              *hexutil.Bytes  `json:"extraData"        gencodec:"required"`
-		MixDigest          *common.Hash    `json:"mixHash"`
-		Nonce              *BlockNonce     `json:"nonce"`
-		Committee          *Committee      `json:"committee"           gencodec:"required"`
-		ProposerSeal       *hexutil.Bytes  `json:"proposerSeal"        gencodec:"required"`
-		Round              *big.Int        `json:"round"               gencodec:"required"`
-		CommittedSeals     []hexutil.Bytes `json:"committedSeals"      gencodec:"required"`
-		PastCommittedSeals []hexutil.Bytes `json:"pastCommittedSeals"  gencodec:"required"`
+		ParentHash  *common.Hash    `json:"parentHash"       gencodec:"required"`
+		UncleHash   *common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+		Coinbase    *common.Address `json:"miner"            gencodec:"required"`
+		Root        *common.Hash    `json:"stateRoot"        gencodec:"required"`
+		TxHash      *common.Hash    `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash *common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+		Bloom       *Bloom          `json:"logsBloom"        gencodec:"required"`
+		Difficulty  *hexutil.Big    `json:"difficulty"       gencodec:"required"`
+		Number      *hexutil.Big    `json:"number"           gencodec:"required"`
+		GasLimit    *hexutil.Uint64 `json:"gasLimit"         gencodec:"required"`
+		GasUsed     *hexutil.Uint64 `json:"gasUsed"          gencodec:"required"`
+		Time        *hexutil.Uint64 `json:"timestamp"        gencodec:"required"`
+		Extra       *hexutil.Bytes  `json:"extraData"        gencodec:"required"`
+		MixDigest   *common.Hash    `json:"mixHash"`
+		Nonce       *BlockNonce     `json:"nonce"`
+	}
+	type ExtraHeader struct {
+		Committee          *Committee       `json:"committee"           gencodec:"required"`
+		ProposerSeal       *hexutil.Bytes   `json:"proposerSeal"        gencodec:"required"`
+		Round              *hexutil.Big     `json:"round"               gencodec:"required"`
+		CommittedSeals     *[]hexutil.Bytes `json:"committedSeals"      gencodec:"required"`
+		PastCommittedSeals *[]hexutil.Bytes `json:"pastCommittedSeals"  gencodec:"required"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {
 		return err
 	}
+	if dec.Extra == nil {
+		return errors.New("missing required field 'extraData' for Header")
+	}
+
+	var decExtra ExtraHeader
+	if err := json.Unmarshal(*dec.Extra, &decExtra); err != nil {
+		return err
+	}
+
 	if dec.ParentHash == nil {
 		return errors.New("missing required field 'parentHash' for Header")
 	}
@@ -149,40 +172,39 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'timestamp' for Header")
 	}
 	h.Time = uint64(*dec.Time)
-	if dec.Extra == nil {
-		return errors.New("missing required field 'extraData' for Header")
-	}
-	h.Extra = *dec.Extra
 	if dec.MixDigest != nil {
 		h.MixDigest = *dec.MixDigest
 	}
 	if dec.Nonce != nil {
 		h.Nonce = *dec.Nonce
 	}
-	if dec.Committee == nil {
+
+	h.Extra = nil
+
+	if decExtra.Committee == nil {
 		return errors.New("missing required field 'committee' for Header")
 	}
-	h.Committee = *dec.Committee
-	if dec.ProposerSeal == nil {
+	h.Committee = *decExtra.Committee
+	if decExtra.ProposerSeal == nil {
 		return errors.New("missing required field 'proposerSeal' for Header")
 	}
-	h.ProposerSeal = *dec.ProposerSeal
-	if dec.Round == nil {
+	h.ProposerSeal = *decExtra.ProposerSeal
+	if decExtra.Round == nil {
 		return errors.New("missing required field 'round' for Header")
 	}
-	h.Round = dec.Round
-	if dec.CommittedSeals == nil {
+	h.Round = (*big.Int)(decExtra.Round)
+	if decExtra.CommittedSeals == nil {
 		return errors.New("missing required field 'committedSeals' for Header")
 	}
-	h.CommittedSeals = make([][]byte, len(dec.CommittedSeals))
-	for k, v := range dec.CommittedSeals {
+	h.CommittedSeals = make([][]byte, len(*decExtra.CommittedSeals))
+	for k, v := range *decExtra.CommittedSeals {
 		h.CommittedSeals[k] = v
 	}
-	if dec.PastCommittedSeals == nil {
+	if decExtra.PastCommittedSeals == nil {
 		return errors.New("missing required field 'pastCommittedSeals' for Header")
 	}
-	h.PastCommittedSeals = make([][]byte, len(dec.PastCommittedSeals))
-	for k, v := range dec.PastCommittedSeals {
+	h.PastCommittedSeals = make([][]byte, len(*decExtra.PastCommittedSeals))
+	for k, v := range *decExtra.PastCommittedSeals {
 		h.PastCommittedSeals[k] = v
 	}
 	return nil

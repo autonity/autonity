@@ -157,7 +157,7 @@ func TestSetupGenesis(t *testing.T) {
 			// Check database content.
 			stored := rawdb.ReadBlock(db, test.wantHash, 0)
 			if stored.Hash() != test.wantHash {
-				t.Errorf("%s: block in DB has hash %s, want %s", test.name, stored.Hash(), test.wantHash)
+				t.Errorf("%s: block in DB has hash %s, want %s", test.name, stored.Hash().String(), test.wantHash.String())
 			}
 		}
 	}

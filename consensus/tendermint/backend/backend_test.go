@@ -523,8 +523,8 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 	})
 
 	t.Run("block number is greater than 0, empty block returned", func(t *testing.T) {
-		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
-			Number: big.NewInt(1)},
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
 		})
 
 		b := &Backend{
@@ -727,14 +727,14 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 }
 
 func makeHeader(parent *types.Block, config *config.Config) *types.Header {
-	header := &types.Header{OriginalHeader: types.OriginalHeader{
+	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, 8000000, 8000000),
 		GasUsed:    0,
 		Extra:      parent.Extra(),
 		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(config.BlockPeriod)).Uint64(),
-		Difficulty: defaultDifficulty},
+		Difficulty: defaultDifficulty,
 	}
 	return header
 }

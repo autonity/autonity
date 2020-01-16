@@ -226,14 +226,14 @@ func BenchmarkChainWrite_full_500k(b *testing.B) {
 func makeChainForBench(db ethdb.Database, full bool, count uint64) {
 	var hash common.Hash
 	for n := uint64(0); n < count; n++ {
-		header := &types.Header{OriginalHeader: types.OriginalHeader{
+		header := &types.Header{
 			Coinbase:    common.Address{},
 			Number:      big.NewInt(int64(n)),
 			ParentHash:  hash,
 			Difficulty:  big.NewInt(1),
 			UncleHash:   types.EmptyUncleHash,
 			TxHash:      types.EmptyRootHash,
-			ReceiptHash: types.EmptyRootHash},
+			ReceiptHash: types.EmptyRootHash,
 		}
 		hash = header.Hash()
 

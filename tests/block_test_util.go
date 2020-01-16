@@ -299,28 +299,7 @@ func (bb *btBlock) decode() (*types.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	var b originalBlock
+	var b types.Block
 	err = rlp.DecodeBytes(data, &b)
-	if err != nil {
-		return nil, err
-	}
-	return b.toBlock(), nil
-}
-
-type originalBlock struct {
-	Header *types.OriginalHeader
-	Txs    []*types.Transaction
-	Uncles []*types.OriginalHeader
-}
-
-func extendHeader(h *types.OriginalHeader) *types.Header {
-	return &types.Header{OriginalHeader: *h}
-}
-
-func (b *originalBlock) toBlock() *types.Block {
-	uncles := make([]*types.Header, len(b.Uncles))
-	for i := range b.Uncles {
-		uncles[i] = extendHeader(b.Uncles[i])
-	}
-	return types.NewBlockWithHeader(extendHeader(b.Header)).WithBody(b.Txs, uncles)
+	return &b, err
 }

@@ -25,7 +25,7 @@ import (
 )
 
 func TestHeaderHash(t *testing.T) {
-	originalHeader := OriginalHeader{
+	originalHeader := Header{
 		ParentHash:  common.HexToHash("0000H45H"),
 		UncleHash:   common.HexToHash("0000H45H"),
 		Coinbase:    common.HexToAddress("0000H45H"),
@@ -56,82 +56,108 @@ func TestHeaderHash(t *testing.T) {
 			common.HexToHash("0xc3bd2d00745c03048a5616146a96f5ff78e54efb9e5b04af208cdaff6f3830ee"),
 		},
 		{
-			Header{OriginalHeader: originalHeader},
+			originalHeader,
 			originalHeaderHash,
 		},
 		{
-			Header{OriginalHeader: originalHeader, Committee: Committee{
-				{
-					Address:     common.HexToAddress("0x1234566"),
-					VotingPower: new(big.Int).SetUint64(12),
+			setExtra(originalHeader, headerExtra{
+				Committee: Committee{
+					{
+						Address:     common.HexToAddress("0x1234566"),
+						VotingPower: new(big.Int).SetUint64(12),
+					},
+					{
+						Address:     common.HexToAddress("0x13371337"),
+						VotingPower: new(big.Int).SetUint64(1337),
+					},
 				},
-				{
-					Address:     common.HexToAddress("0x13371337"),
-					VotingPower: new(big.Int).SetUint64(1337),
-				},
-			}},
+			}),
 			originalHeaderHash,
 		},
 		{
-			Header{OriginalHeader: originalHeader, ProposerSeal: common.Hex2Bytes("0xbebedead")},
+			setExtra(originalHeader, headerExtra{
+				ProposerSeal: common.Hex2Bytes("0xbebedead"),
+			}),
 			originalHeaderHash,
 		},
 		{
-			Header{OriginalHeader: originalHeader, Round: new(big.Int).SetUint64(1997)},
+			setExtra(originalHeader, headerExtra{
+				Round: new(big.Int).SetUint64(1997),
+			}),
 			originalHeaderHash,
 		},
 		{
-			Header{OriginalHeader: originalHeader, CommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")}},
+			setExtra(originalHeader, headerExtra{
+				CommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")},
+			}),
 			originalHeaderHash,
 		},
 		{
-			Header{OriginalHeader: originalHeader, PastCommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")}},
+			setExtra(originalHeader, headerExtra{
+				PastCommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")},
+			}),
 			originalHeaderHash,
 		},
 		// BFT header tests
 		{
-			Header{OriginalHeader: PosHeader}, // test 7
+			PosHeader, // test 7
 			posHeaderHash,
 		},
 		{
-			Header{OriginalHeader: PosHeader, CommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")}},
+			setExtra(PosHeader, headerExtra{
+				CommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")},
+			}),
 			posHeaderHash,
 		},
 		{
-			Header{OriginalHeader: PosHeader, CommittedSeals: [][]byte{common.Hex2Bytes("0x123456"), common.Hex2Bytes("0x777777"), common.Hex2Bytes("0xaaaaaaa")}},
+			setExtra(PosHeader, headerExtra{
+				CommittedSeals: [][]byte{common.Hex2Bytes("0x123456"), common.Hex2Bytes("0x777777"), common.Hex2Bytes("0xaaaaaaa")},
+			}),
 			posHeaderHash,
 		},
 		{
-			Header{OriginalHeader: PosHeader, Committee: Committee{
-				{
-					Address:     common.HexToAddress("0x1234566"),
-					VotingPower: new(big.Int).SetUint64(12),
+			setExtra(PosHeader, headerExtra{
+				Committee: Committee{
+					{
+						Address:     common.HexToAddress("0x1234566"),
+						VotingPower: new(big.Int).SetUint64(12),
+					},
+					{
+						Address:     common.HexToAddress("0x13371337"),
+						VotingPower: new(big.Int).SetUint64(1337),
+					},
 				},
-				{
-					Address:     common.HexToAddress("0x13371337"),
-					VotingPower: new(big.Int).SetUint64(1337),
-				},
-			}},
+			}),
 			common.HexToHash("0xf5d460ed44edb6c81ab9ff1979126704e18777986c064d0023aa87bb4a2a7ea5"),
 		},
 		{
-			Header{OriginalHeader: PosHeader, ProposerSeal: common.Hex2Bytes("0xbebedead")},
+			setExtra(PosHeader, headerExtra{
+				ProposerSeal: common.Hex2Bytes("0xbebedead"),
+			}),
 			common.HexToHash("0x4ceafbc550a2f60288e7bdfef92a71a65346d184304b526e28cc56a478e12080"),
 		},
 		{
-			Header{OriginalHeader: PosHeader, Round: new(big.Int).SetUint64(1997)},
+			setExtra(PosHeader, headerExtra{
+				Round: new(big.Int).SetUint64(1997),
+			}),
 			posHeaderHash,
 		},
 		{
-			Header{OriginalHeader: PosHeader, Round: new(big.Int).SetUint64(3)},
+			setExtra(PosHeader, headerExtra{
+				Round: new(big.Int).SetUint64(3),
+			}),
 			posHeaderHash,
 		},
 		{
-			Header{OriginalHeader: PosHeader, Round: new(big.Int).SetUint64(0)},
+			setExtra(PosHeader, headerExtra{
+				Round: new(big.Int).SetUint64(0),
+			}),
 			posHeaderHash,
 		},
 		{
-			Header{OriginalHeader: PosHeader, PastCommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")}},
+			setExtra(PosHeader, headerExtra{
+				PastCommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")},
+			}),
 			common.HexToHash("0x5d29fd91067324583e8203615ca019679ca5024b8d91cfb3f9710feffd65b6d2"),
 		},
 	}
@@ -140,4 +166,14 @@ func TestHeaderHash(t *testing.T) {
 			t.Errorf("test %d, expected: %v, but got: %v", i, testCases[i].hash.Hex(), testCases[i].header.Hash().Hex())
 		}
 	}
+}
+
+func setExtra(h Header, hExtra headerExtra) Header {
+	h.Committee = hExtra.Committee
+	h.ProposerSeal = hExtra.ProposerSeal
+	h.Round = hExtra.Round
+	h.CommittedSeals = hExtra.CommittedSeals
+	h.PastCommittedSeals = hExtra.PastCommittedSeals
+
+	return h
 }

@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/mclock"
 	"github.com/clearmatics/autonity/common/prque"
@@ -43,7 +45,6 @@ import (
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/clearmatics/autonity/trie"
-	"github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -1605,10 +1606,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		// just skip the block (we already validated it once fully (and crashed), since
 		// its header and body was already in the database).
 		if err == ErrKnownBlock {
-			logger := log.Debug
-			if bc.chainConfig.Clique == nil {
-				logger = log.Warn
-			}
+			logger := log.Warn
 			logger("Inserted known block", "number", block.Number(), "hash", block.Hash(),
 				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
