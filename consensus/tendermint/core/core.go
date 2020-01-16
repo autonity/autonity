@@ -187,8 +187,8 @@ func (c *core) isProposerForR(r int64, a common.Address) bool {
 	return c.valSet.IsProposerForRound(c.lastCommittedBlockProposer, uint64(r), a)
 }
 
-func (c *core) commit(round int64) {
-	c.setStep(precommitDone)
+func (c *core) commit(ctx context.Context, round int64) {
+	_ = c.setStep(ctx, precommitDone)
 
 	proposal := c.roundState.Proposal(round)
 	if proposal == nil {
@@ -242,7 +242,7 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 	c.setCore(round, height, lastCommittedBlockProposer)
 
 	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
-	c.setStep(propose)
+	_ = c.setStep(ctx, propose)
 
 	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
 
@@ -311,8 +311,34 @@ func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
 	c.setValidRoundAndValue = false
 }
 
-func (c *core) setStep(step Step) {
+func (c *core) setStep(ctx context.Context, step Step) error {
 	c.roundState.SetStep(step)
+
+	// We need to check for upon conditions which refer to a specific step, so that once a validator moves to that step
+	// and no more messages are received, we ensure that if an upon condition is true it is executed. Propose step upon
+	// are checked when round is changed in startRound() by resending a future proposal if it was received in an older
+	// round to ensure line 22  and line 28 are run. When the validator moves to the prevote step we need to check the
+	// prevote step upon conditions here. For precommit step upon condition nothing needs to be done even though line 36
+	// predicates on it, this is because line 36 will be run when validator moves to prevote step, prevotes arrival and
+	// and proposal arrival in prevote/precommit step. Since quorum prevotes is required to move to precommit step, line
+	// 36 would have been executed in prevote step if not because some prevotes were nil, then once a valid prevote
+	// arrive then line 36 will be run in precommit step. Otherwise the condition is not satisfied to run line 36.
+	// Therefore, nothing needs to be done when a validator moves to the precommit step.
+
+	if step == prevote {
+		// Check for line 34, 36 and 44
+		curR := c.roundState.Round().Int64()
+		curH := c.roundState.Height().Int64()
+		c.checkForPrevoteTimeout(curR, curH)
+		if err := c.checkForQuorumPrevotes(ctx, curR); err != nil {
+			return err
+		}
+		if err := c.checkForQuorumPrevotesNil(ctx, curR); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *core) stopFutureProposalTimer() {
@@ -371,7 +397,9 @@ func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
 		} else {
 			c.sendPrevote(ctx, false)
 		}
-		c.setStep(prevote)
+		if err := c.setStep(ctx, prevote); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -406,7 +434,9 @@ func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 		} else {
 			c.sendPrevote(ctx, false)
 		}
-		c.setStep(prevote)
+		if err := c.setStep(ctx, prevote); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -449,7 +479,7 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 			c.lockedValue = proposal.ProposalBlock
 			c.lockedRound = big.NewInt(round)
 			c.sendPrecommit(ctx, false)
-			c.setStep(precommit)
+			_ = c.setStep(ctx, precommit)
 		}
 		c.validValue = proposal.ProposalBlock
 		c.validRound = big.NewInt(round)
@@ -472,7 +502,7 @@ func (c *core) checkForQuorumPrevotesNil(ctx context.Context, round int64) error
 		}
 
 		c.sendPrecommit(ctx, true)
-		c.setStep(precommit)
+		_ = c.setStep(ctx, precommit)
 	}
 	return nil
 }
@@ -513,7 +543,7 @@ func (c *core) checkForConsensus(ctx context.Context, round int64) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			c.commit(round)
+			c.commit(ctx, round)
 		}
 
 	}

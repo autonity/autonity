@@ -161,7 +161,9 @@ func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 	if msg.heightWhenCalled == c.roundState.Height().Int64() && msg.roundWhenCalled == c.roundState.Round().Int64() && c.roundState.Step() == propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 		c.sendPrevote(ctx, true)
-		c.setStep(prevote)
+		if err := c.setStep(ctx, prevote); err != nil {
+			c.logger.Error(err.Error())
+		}
 	}
 }
 
@@ -169,7 +171,7 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 	if msg.heightWhenCalled == c.roundState.Height().Int64() && msg.roundWhenCalled == c.roundState.Round().Int64() && c.roundState.Step() == prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 		c.sendPrecommit(ctx, true)
-		c.setStep(precommit)
+		_ = c.setStep(ctx, precommit)
 	}
 }
 
