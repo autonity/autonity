@@ -173,3 +173,16 @@ func (s *roundState) GetAllRoundMessages() []*Message {
 
 	return messages
 }
+
+func (s *roundState) hasVote(v Vote, m *Message) bool {
+	var votes messageSet
+	voteRound := v.Round.Int64()
+	mCode := m.Code
+
+	if mCode == msgPrevote {
+		votes = s.allRoundMessages[voteRound].prevotes
+	} else if mCode == msgPrecommit {
+		votes = s.allRoundMessages[voteRound].precommits
+	}
+	return votes.hasMessage(v.ProposedBlockHash, *m)
+}

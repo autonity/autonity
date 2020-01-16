@@ -41,8 +41,7 @@ func (ms *messageSet) Add(hash common.Hash, msg Message) {
 	ms.messagesMu.Lock()
 	defer ms.messagesMu.Unlock()
 
-	emptyHash := hash == (common.Hash{})
-	if emptyHash {
+	if hash == (common.Hash{}) {
 		// Add nil vote
 		if _, ok := ms.nilvotes[msg.Address]; !ok {
 			ms.nilvotes[msg.Address] = msg
@@ -111,4 +110,25 @@ func (ms *messageSet) Values(blockHash common.Hash) []Message {
 		messages = append(messages, v)
 	}
 	return messages
+}
+
+func (ms *messageSet) hasMessage(h common.Hash, m Message) bool {
+	if h == (common.Hash{}) {
+		if _, ok := ms.nilvotes[m.Address]; !ok {
+			return false
+		}
+	} else {
+		var addressesMap map[common.Address]Message
+		var ok bool
+
+		if addressesMap, ok = ms.votes[h]; !ok {
+			return false
+		}
+
+		if _, ok = addressesMap[m.Address]; !ok {
+			return false
+		}
+
+	}
+	return true
 }

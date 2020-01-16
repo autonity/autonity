@@ -67,72 +67,46 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 		return errFailedDecodePrevote
 	}
 
+	// Check for nil values
+	if preVote.Height == nil || preVote.Round == nil {
+		return errInvalidMessage
+	}
+
+	// Ensure prevote is for current height
 	if err = c.checkMessage(preVote.Round, preVote.Height, prevote); err != nil {
-		// Store old round prevote messages for future rounds since it is required for validRound
-		//if err == errOldRoundMessage {
-		//	// We only process old rounds while future rounds messages are pushed on to the backlog
-		//	oldRoundMessageSet, ok := c.roundState.allRoundMessages[preVote.Round.Int64()]
-		//	if !ok {
-		//		oldRoundMessageSet = newRoundMessageSet()
-		//		c.roundState.allRoundMessages[preVote.Round.Int64()] = oldRoundMessageSet
-		//	}
-		//
-		//	oldRoundPrevotes := oldRoundMessageSet.prevotes
-		//	oldRoundPrevotes.Add(preVote.ProposedBlockHash, *msg)
-		//}
 		return err
 	}
 
-	// After checking the message we know it is from the same height and round, so we should store it even if
-	// c.roundState.Step() < prevote. The propose timeout which is started at the beginning of the round
-	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
-	// votes from other nodes.
-	curR := c.roundState.Round().Int64()
-	curH := c.roundState.Height().Int64()
-	curProposalHash := c.roundState.Proposal(curR).ProposalBlock.Hash()
-	prevoteHash := preVote.ProposedBlockHash
-	prevotes := c.roundState.allRoundMessages[curR].prevotes
-	prevotes.Add(prevoteHash, *msg)
+	// If we already have the prevote do nothing
+	if c.roundState.hasVote(preVote, msg) {
+		return nil
+	}
 
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", preVote, msg.Address.String(), c.address.String())
 
-	// Now we can add the preVote to our current round state
-	if c.roundState.Step() >= prevote {
-		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
-		if curProposalHash != (common.Hash{}) && c.Quorum(prevotes.VotesSize(curProposalHash)) && !c.setValidRoundAndValue {
-			// this piece of code should only run once
-			if err := c.prevoteTimeout.stopTimer(); err != nil {
-				return err
-			}
-			c.logger.Debug("Stopped Scheduled Prevote Timeout")
+	curR := c.roundState.Round().Int64()
+	curH := c.roundState.Height().Int64()
+	prevoteHash := preVote.ProposedBlockHash
 
-			if c.roundState.Step() == prevote {
-				c.lockedValue = c.roundState.Proposal(curR).ProposalBlock
-				c.lockedRound = big.NewInt(curR)
-				c.sendPrecommit(ctx, false)
-				c.setStep(precommit)
-			}
-			c.validValue = c.roundState.Proposal(curR).ProposalBlock
-			c.validRound = big.NewInt(curR)
-			c.setValidRoundAndValue = true
-			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.roundState.Step() == prevote && c.Quorum(prevotes.NilVotesSize()) {
-			if err := c.prevoteTimeout.stopTimer(); err != nil {
-				return err
-			}
-			c.logger.Debug("Stopped Scheduled Prevote Timeout")
+	// The prevote doesn't exists in our current round state, so add it
+	prevotes := c.roundState.allRoundMessages[preVote.Round.Int64()].prevotes
+	prevotes.Add(prevoteHash, *msg)
 
-			c.sendPrecommit(ctx, true)
-			c.setStep(precommit)
-
-			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.roundState.Step() == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.Quorum(prevotes.TotalSize()) {
-			timeoutDuration := timeoutPrevote(curR)
-			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
-			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
+	roundCmp := preVote.Round.Cmp(c.roundState.Round())
+	if roundCmp < 0 {
+		return c.checkForOldProposal(ctx, curR)
+	} else if roundCmp > 0 {
+		// TODO: check if validator needs to move to a future round
+	} else {
+		// preVote.Round.Int64()==curR
+		c.checkForPrevoteTimeout(curR, curH)
+		if err := c.checkForQuorumPrevotes(ctx, curR); err != nil {
+			return err
+		}
+		if err := c.checkForQuorumPrevotesNil(ctx, curR); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }
 

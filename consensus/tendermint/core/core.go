@@ -344,37 +344,16 @@ func (c *core) isValid(proposal *types.Block) (bool, error) {
 	return true, nil
 }
 
-// Line 49 in Algorithm 1 of the latest gossip on BFT consensus
-func (c *core) checkForConsensus(ctx context.Context, round int64) error {
-	proposal := c.roundState.Proposal(round)
-	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
-	precommits := c.roundState.allRoundMessages[round].precommits
-	h := proposal.ProposalBlock.Hash()
-
-	if proposal != nil && c.isProposerForR(round, proposalMsg.Address) && c.Quorum(precommits.VotesSize(h)) {
-		if valid, err := c.isValid(proposal.ProposalBlock); !valid {
-			return err
-		} else {
-
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-				c.commit(round)
-			}
-
-		}
-	}
-	return nil
-}
-
 // Line 22 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
 	proposal := c.roundState.Proposal(round)
+	if proposal == nil {
+		return nil
+	}
 	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
 	h := proposal.ProposalBlock.Hash()
 
-	if proposal != nil && c.isProposerForR(round, proposalMsg.Address) && c.roundState.Step() == propose {
+	if c.isProposerForR(round, proposalMsg.Address) && c.roundState.Step() == propose {
 		valid, err := c.isValid(proposal.ProposalBlock)
 
 		// Vote for the proposal if proposal is valid(proposal) && (lockedRound = -1 || lockedValue = proposal).
@@ -393,12 +372,15 @@ func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
 // Line 28 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 	proposal := c.roundState.Proposal(round)
+	if proposal == nil {
+		return nil
+	}
 	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
 	vr := proposal.ValidRound.Int64()
 	validRoundPrevotes := c.roundState.allRoundMessages[vr].prevotes
 	h := proposal.ProposalBlock.Hash()
 
-	if proposal != nil && c.isProposerForR(round, proposalMsg.Address) && c.Quorum(validRoundPrevotes.VotesSize(h)) &&
+	if c.isProposerForR(round, proposalMsg.Address) && c.Quorum(validRoundPrevotes.VotesSize(h)) &&
 		c.roundState.Step() == propose && vr >= 0 && vr < round {
 		valid, err := c.isValid(proposal.ProposalBlock)
 
@@ -415,18 +397,38 @@ func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 	return nil
 }
 
+// Line 34 in Algorithm 1 of the latest gossip on BFT consensus
+func (c *core) checkForPrevoteTimeout(round int64, height int64) {
+	prevotes := c.roundState.allRoundMessages[round].prevotes
+	if c.roundState.Step() == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.Quorum(prevotes.TotalSize()) {
+		timeoutDuration := timeoutPrevote(round)
+		c.prevoteTimeout.scheduleTimeout(timeoutDuration, round, height, c.onTimeoutPrevote)
+		c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
+	}
+}
+
 // Line 36 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 	proposal := c.roundState.Proposal(round)
+	if proposal == nil {
+		return nil
+	}
 	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
 	prevotes := c.roundState.allRoundMessages[round].prevotes
 	h := proposal.ProposalBlock.Hash()
 
-	if proposal != nil && c.isProposerForR(round, proposalMsg.Address) && c.Quorum(prevotes.VotesSize(h)) &&
+	// this piece of code should only run once per round
+	if c.isProposerForR(round, proposalMsg.Address) && c.Quorum(prevotes.VotesSize(h)) &&
 		c.roundState.Step() >= prevote && !c.setValidRoundAndValue {
+		// We shouldn't stop timer if proposal is not valid
 		if valid, err := c.isValid(proposal.ProposalBlock); !valid {
 			return err
 		}
+
+		if err := c.prevoteTimeout.stopTimer(); err != nil {
+			return err
+		}
+		c.logger.Debug("Stopped Scheduled Prevote Timeout")
 
 		if c.roundState.Step() == prevote {
 			c.lockedValue = proposal.ProposalBlock
@@ -438,6 +440,54 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 		c.validRound = big.NewInt(round)
 		c.setValidRoundAndValue = true
 
+	}
+	return nil
+}
+
+// Line 44 in Algorithm 1 of the latest gossip on BFT consensus
+func (c *core) checkForQuorumPrevotesNil(ctx context.Context, round int64) error {
+	prevotes := c.roundState.allRoundMessages[round].prevotes
+
+	if c.roundState.Step() == prevote && c.Quorum(prevotes.NilVotesSize()) {
+		if err := c.prevoteTimeout.stopTimer(); err != nil {
+			return err
+		}
+		c.logger.Debug("Stopped Scheduled Prevote Timeout")
+
+		c.sendPrecommit(ctx, true)
+		c.setStep(precommit)
+	}
+	return nil
+}
+
+// Line 47 in Algorithm 1 of the latest gossip on BFT consensus
+func (c *core) checkForPrecommitTimeout(ctx context.Context, round int64) error {
+	return nil
+}
+
+// Line 49 in Algorithm 1 of the latest gossip on BFT consensus
+func (c *core) checkForConsensus(ctx context.Context, round int64) error {
+	proposal := c.roundState.Proposal(round)
+	if proposal == nil {
+		return nil
+	}
+	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
+	precommits := c.roundState.allRoundMessages[round].precommits
+	h := proposal.ProposalBlock.Hash()
+
+	if c.isProposerForR(round, proposalMsg.Address) && c.Quorum(precommits.VotesSize(h)) {
+		if valid, err := c.isValid(proposal.ProposalBlock); !valid {
+			return err
+		} else {
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				c.commit(round)
+			}
+
+		}
 	}
 	return nil
 }

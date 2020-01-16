@@ -79,26 +79,6 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 	}
 
 	if err := c.checkMessage(preCommit.Round, preCommit.Height, precommit); err != nil {
-		// Store old precommits because if there is a quorum of precommits in the previous round we need to go to the next height
-		//if err == errOldRoundMessage {
-		//	// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
-		//	// And we only process old rounds while future rounds messages are pushed on to the backlog
-		//	oldRoundState := c.currentHeightOldRoundsStates[preCommit.Round.Int64()]
-		//	c.acceptVote(&oldRoundState, precommit, preCommit.ProposedBlockHash, *msg)
-		//
-		//	// Check for old round precommit quorum
-		//	if c.Quorum(oldRoundState.Precommits.VotesSize(oldRoundState.GetCurrentProposalHash())) {
-		//		select {
-		//		case <-ctx.Done():
-		//			return ctx.Err()
-		//		default:
-		//			c.commit()
-		//		}
-		//
-		//		return nil
-		//	}
-		//}
-
 		return err
 	}
 

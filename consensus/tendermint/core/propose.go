@@ -109,11 +109,12 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			if err := c.checkForConsensus(ctx, proposal.Round.Int64()); err != nil {
 				return err
 			}
+
+			if roundCmp > 0 {
+				// TODO: check if validator needs to move to a future round
+			}
 		}
 
-		if roundCmp > 0 {
-			// TODO: check if validator needs to move to a future round
-		}
 	} else {
 		// Proposal is for current round, i.e. proposal.Round.Int64() = c.roundState.Round().Int64()
 		c.roundState.SetProposal(proposal.Round.Int64(), &proposal, msg)
