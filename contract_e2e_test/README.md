@@ -9,7 +9,7 @@ autonity contract.
 sudo apt-get update -y
 sudo apt-get install -y tmux
 sudo apt-get install python3
-sudo apt install python3-pip
+sudo apt-get install python3-pip
 cd ~/go/src/github.com/clearmatics/autonity/contract_e2e_test/
 pip3 install -r requirements.txt
 
