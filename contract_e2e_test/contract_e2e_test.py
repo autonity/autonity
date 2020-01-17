@@ -223,7 +223,7 @@ def tmux_start_clients(addresses, dont_start_id=None):
         print("cannot start client ", e)
         raise e
 
-
+# install solc compiler.
 def prepare_dependency():
     installed_solc = solcx.get_installed_solc_versions()
     if 'v0.5.11' in installed_solc:
@@ -250,7 +250,6 @@ def deploy_clients():
         parser.add_argument("-r", help='Restart All', action="store_true")
         parser.add_argument("-o", help='Restart All except', type=int)
         parser.add_argument("-i", help='Reinit chains', action="store_true")
-        parser.add_argument("-t", help='Test from e2e', type=bool, default=False)
         args = parser.parse_args()
 
         node_count = args.n
@@ -286,11 +285,6 @@ def deploy_clients():
             reinit_chains()
             return
 
-        if args.t:
-            prepare_dependency()
-            run_tests()
-            return
-
         print("===== SETUP INITIALIZATION =====")
         create_network_dir()
         print("===== ACCOUNTS CREATION =====")
@@ -311,16 +305,18 @@ def deploy_clients():
         print("cannot deploy the network, ", e)
         raise e
 
-
+# connect to fist node as default endpoint.
 def get_http_end_point():
     return "http://0.0.0.0:6000"
 
 
+# get autonity contract bin, abi, and a new version with v0.0.1.
 def compile_contract():
     try:
         contract = compile_files(["../contracts/autonity/contract/contracts/Autonity.sol"])
         bin = contract["../contracts/autonity/contract/contracts/Autonity.sol:Autonity"]["bin"]
         abi = contract["../contracts/autonity/contract/contracts/Autonity.sol:Autonity"]["abi"]
+        # to do get version from release note from Devop team.
         version = "v0.0.1"
         return bin, abi, version
     except Exception as e:
@@ -356,6 +352,8 @@ def normalize_address(x, allow_blank=False):
     return x
 
 
+# get autonity contract address with deployer account and nonce 0.
+# This is same as autonity set the address of autonity contract.
 def get_autonity_contract_address():
     sender = get_system_deployer_account()
     nonce = 0
@@ -363,100 +361,157 @@ def get_autonity_contract_address():
 
 
 def get_system_operator_account():
-    with open('./network-data/addresses.json') as address_file:
-        data = json.load(address_file)
-        return f"0x{data[0]}"
+    try:
+        with open('./network-data/addresses.json') as address_file:
+            data = json.load(address_file)
+            return f"0x{data[0]}"
+    except IOError as e:
+        print("cannot read file ", e)
+        raise e
+
+
+def get_validators_from_config():
+    try:
+        with open('./network-data/addresses.json') as address_file:
+            data = json.load(address_file)
+            res = []
+            for item in data:
+                res.append("0x{}".format(item))
+            return res
+    except IOError as e:
+        print("cannot read file ", e)
+        raise e
 
 
 def get_system_deployer_account():
-    with open('./network-data/addresses.json') as address_file:
-        data = json.load(address_file)
-        return f"0x{data[0]}"
-
-
-def run_tests():
     try:
-        # connect to node.
+        with open('./network-data/addresses.json') as address_file:
+            data = json.load(address_file)
+            return f"0x{data[0]}"
+    except IOError as e:
+        print("cannot read file ", e)
+        raise e
+
+
+# bootstrap timer after network setup and before test case starts.
+def wait_for_network_bootstrap():
+    i = 10
+    while i:
+        sleep(1)
+        i -= 1
+        print("waiting for {} seconds for network bootstrap.".format(i))
+
+
+# get autontiy client and contract object
+def get_autonity_and_contract():
+    try:
+        # connect to autonity.
         end_point = get_http_end_point()
-        w3_obj = Web3(Web3.HTTPProvider(end_point, request_kwargs={'timeout': 60}))
+        autonity = Web3(Web3.HTTPProvider(end_point, request_kwargs={'timeout': 60}))
     except Exception as e:
         print("cannot connect to endpoint. ", e)
         raise e
-
     try:
         # construct contract object.
         addr = get_autonity_contract_address()
         byte_code, abi, version = compile_contract()
-        autonity_contract = w3_obj.eth.contract(address=addr, abi=abi)
+        autonity_contract = autonity.eth.contract(address=addr, abi=abi)
     except Exception as e:
         print("cannot create contract object from client. ", e)
         raise e
+    return autonity, autonity_contract
 
-    # get chain height before test
-    start_at_block = w3_obj.eth.getBlock("latest")
-    print("test started at block height: ", start_at_block['number'])
 
-    # get gas price.
-    gas_price = w3_obj.eth.gasPrice
-    print("gas price is ", gas_price)
+#####################################################################
+#          Your new e2e test cases implements from here             #
+def test_upgrade_autonity_contract():
+    try:
+        autonity, contract = get_autonity_and_contract()
+    except Exception as e:
+        print("cannot connect to client. ", e)
+        raise Exception("test_upgrade_autonity_contract failed.")
 
-    # get validators
-    validators = autonity_contract.functions.getValidators().call()
-    print("validators: ", validators)
+    try:
+        start_height = autonity.eth.getBlock("latest")['number']
+        print("test started at height: ", start_height)
+        byte_code, abi, version = compile_contract()
+        abi = json.dumps(abi)
+        gas_estimate = contract.functions.upgradeContract(byte_code, abi, version).estimateGas()
+        print("gas estimate to transact with ugradeContract: {}".format(gas_estimate))
+        deployer = get_system_deployer_account()
+        contract.functions.upgradeContract(byte_code, abi, version).transact({'from': deployer, 'gas': 999999999})
+        # wait TX to be mined.
+        sleep(5)
+        version_fetched = contract.functions.getVersion().call()
+        if version != version_fetched:
+            raise Exception("test_upgrade_autonity_contract failed")
+        end_height = autonity.eth.getBlock("latest")['number']
+        print("test endedat at height: ", end_height)
+        if end_height <= start_height:
+            print("chain on-hold after contract upgrade")
+            raise Exception("test_upgrade_autonity_contract failed")
+        print("test_upgrade_autonity_contract passed.")
 
-    abi = json.dumps(abi)
+    except Exception as e:
+        print("test case failed: ", e)
+        raise Exception("test_upgrade_autonity_contract failed.")
 
-    gas_estimate = autonity_contract.functions.upgradeContract(byte_code, abi, version).estimateGas()
-    print("gas estimate to transact with ugradeContract: {0}\n".format(gas_estimate))
 
-    autonity_contract.functions.upgradeContract(byte_code, abi, version).transact({'from': get_system_deployer_account(), 'gas': 1000000000})
+def test_get_validators():
+    try:
+        autonity, contract = get_autonity_and_contract()
+        start_height = autonity.eth.getBlock("latest")['number']
+        print("test started at height: ", start_height)
+        # get validators from contract
+        validators = contract.functions.getValidators().call()
+        print("validators: ", validators)
 
-    # wait TX to be mined.
-    sleep(10)
-    version_fetched = autonity_contract.functions.getVersion().call()
-    if version != version_fetched:
-        raise Exception("test case failed.")
+        # get validators from configuration
+        expected_validators = get_validators_from_config()
+        print("expected validators: ", expected_validators)
 
-    """
-    sleep(10)
-    # get chain height after contract upgrade
-    end_at_block = w3_obj.eth.getBlock("latest")
-    print("test end at block height: ", end_at_block['number'])
-    if end_at_block['number'] == start_at_block['number']:
-        raise Exception("chain on hold?")
+        # compare two list
+        result = set(validators) & set(expected_validators)
+        if len(result) != len(validators):
+            print("wrong validators set expected.")
+            raise Exception("test_get_validators failed.")
 
-    # check if contract was upgraded successfully.
-    sleep(5)
-    _byte_code, _abi = autonity_contract.functions.retrieveContract().call({'from': operator_account})
-    print("after upgrade: bin and abi: ", _byte_code, _abi)
-    if _byte_code == byte_code:
-        print("new contract does not apply by autonity.")
-        raise Exception("Contract does not applied by autonity.")
+        end_height = autonity.eth.getBlock("latest")['number']
+        print("test started at height: ", end_height)
+        print("test_get_validators passed.")
+    except Exception as e:
+        print("cannot connect to client. ", e)
+        raise Exception("test_get_validators failed.")
 
-    # check version after upgrade
-    after_version = autonity_contract.functions.getVersion().call()
-    print("after upgrade, version: ", after_version)
 
-    if after_version <= version:
-        raise Exception("contract upgrade failed.")
-
-    print("test case passed.")
-    """
+def run_tests():
+    try:
+        test_upgrade_autonity_contract()
+        test_get_validators()
+    except Exception as e:
+        raise e
 
 
 if __name__ == "__main__":
+
+    # before test, trying to clean up test-bed context.
+    execute("tmux kill-session -t autonity")
+
     try:
         deploy_clients()
-        #sleep(60)
+        wait_for_network_bootstrap()
     except Exception as e:
-        print("cannot deploy clients ", e)
+        print("cannot deploy network", e)
         exit(1)
 
-    """
     try:
         prepare_dependency()
+    except Exception as e:
+        print("cannot install dependencies ", e)
+        exit(1)
+
+    try:
         run_tests()
     except Exception as e:
-        print("test case failed ", e)
+        print("test case failed: ", e)
         exit(1)
-    """
