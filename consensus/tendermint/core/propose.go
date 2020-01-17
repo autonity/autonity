@@ -18,11 +18,10 @@ package core
 
 import (
 	"context"
-	"time"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/types"
+	"time"
 )
 
 func (c *core) sendProposal(ctx context.Context, p *types.Block) {
@@ -101,14 +100,10 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 	// Verify the proposal we received
 	if duration, err := c.backend.VerifyProposal(*proposal.ProposalBlock); err != nil {
+
 		if timeoutErr := c.proposeTimeout.stopTimer(); timeoutErr != nil {
 			return timeoutErr
 		}
-		c.sendPrevote(ctx, true)
-		// do not to accept another proposal in current round
-		c.setStep(prevote)
-
-		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 		// if it's a future block, we will handle it again after the duration
 		// TODO: implement wiggle time / median time
 		if err == consensus.ErrFutureBlock {
@@ -121,6 +116,12 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 				})
 			})
 		}
+		c.sendPrevote(ctx, true)
+		// do not to accept another proposal in current round
+		c.setStep(prevote)
+
+		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
+
 		return err
 	}
 

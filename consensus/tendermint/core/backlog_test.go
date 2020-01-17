@@ -10,7 +10,7 @@ import (
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 )
@@ -18,19 +18,21 @@ import (
 func TestCheckMessage(t *testing.T) {
 	t.Run("valid params given, nil returned", func(t *testing.T) {
 		c := &core{
-			curRoundMessages: NewRoundMessages(big.NewInt(1), big.NewInt(2)),
+			curRoundMessages: NewRoundMessages(),
+			round:            1,
+			height:           big.NewInt(2),
 		}
 
-		err := c.checkMessage(big.NewInt(1), big.NewInt(2), propose)
+		err := c.checkMessage(1, big.NewInt(2), propose)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 	})
 
-	t.Run("given nil round, error returned", func(t *testing.T) {
+	t.Run("given nil height, error returned", func(t *testing.T) {
 		c := &core{}
 
-		err := c.checkMessage(nil, big.NewInt(2), propose)
+		err := c.checkMessage(1, nil, propose)
 		if err != errInvalidMessage {
 			t.Fatalf("have %v, want %v", err, errInvalidMessage)
 		}
@@ -38,10 +40,10 @@ func TestCheckMessage(t *testing.T) {
 
 	t.Run("given future height, error returned", func(t *testing.T) {
 		c := &core{
-			curRoundMessages: NewRoundMessages(big.NewInt(2), big.NewInt(3)),
+			curRoundMessages: NewRoundMessages(),
 		}
 
-		err := c.checkMessage(big.NewInt(2), big.NewInt(4), propose)
+		err := c.checkMessage(2, big.NewInt(4), propose)
 		if err != errFutureHeightMessage {
 			t.Fatalf("have %v, want %v", err, errFutureHeightMessage)
 		}
@@ -49,7 +51,7 @@ func TestCheckMessage(t *testing.T) {
 
 	t.Run("given old height, error returned", func(t *testing.T) {
 		c := &core{
-			curRoundMessages: NewRoundMessages(big.NewInt(2), big.NewInt(3)),
+			curRoundMessages: NewRoundMessages(2, 3),
 		}
 
 		err := c.checkMessage(big.NewInt(2), big.NewInt(2), propose)
