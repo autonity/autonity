@@ -1,11 +1,9 @@
 #!/usr/bin/python3
 try:
     from Crypto.Hash import keccak
-
     sha3_256 = lambda x: keccak.new(digest_bits=256, data=x).digest()
 except:
     import sha3 as _sha3
-
     sha3_256 = lambda x: _sha3.sha3_256(x).digest()
 
 import argparse
@@ -223,6 +221,7 @@ def tmux_start_clients(addresses, dont_start_id=None):
         print("cannot start client ", e)
         raise e
 
+
 # install solc compiler.
 def prepare_dependency():
     installed_solc = solcx.get_installed_solc_versions()
@@ -245,7 +244,7 @@ def deploy_clients():
 
     try:
         parser = argparse.ArgumentParser()
-        parser.add_argument("autonity", help='Autonity Binary Path', type=str, default='../../build/bin/autonity')
+        parser.add_argument("autonity", help='Autonity Binary Path', type=str, default='../build/bin/autonity')
         parser.add_argument("-n", help='Number of nodes', type=int, default=4)
         parser.add_argument("-r", help='Restart All', action="store_true")
         parser.add_argument("-o", help='Restart All except', type=int)
@@ -305,7 +304,8 @@ def deploy_clients():
         print("cannot deploy the network, ", e)
         raise e
 
-# connect to fist node as default endpoint.
+
+# connect to first node as default endpoint.
 def get_http_end_point():
     return "http://0.0.0.0:6000"
 
@@ -434,6 +434,9 @@ def test_upgrade_autonity_contract():
     try:
         start_height = autonity.eth.getBlock("latest")['number']
         print("test started at height: ", start_height)
+        # get contract version from chain before upgrade.
+        previous_version = contract.functions.getVersion().call()
+        print("get contract previous version: ", previous_version)
         byte_code, abi, version = compile_contract()
         abi = json.dumps(abi)
         gas_estimate = contract.functions.upgradeContract(byte_code, abi, version).estimateGas()
@@ -442,8 +445,9 @@ def test_upgrade_autonity_contract():
         contract.functions.upgradeContract(byte_code, abi, version).transact({'from': deployer, 'gas': 999999999})
         # wait TX to be mined.
         sleep(5)
-        version_fetched = contract.functions.getVersion().call()
-        if version != version_fetched:
+        version_new = contract.functions.getVersion().call()
+        print("get contrace new version: ", version_new)
+        if version != version_new:
             raise Exception("test_upgrade_autonity_contract failed")
         end_height = autonity.eth.getBlock("latest")['number']
         print("test endedat at height: ", end_height)
