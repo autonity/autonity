@@ -135,5 +135,8 @@ func CalcGasLimit(parent *types.Block, gasFloor, gasCeil uint64) uint64 {
 			limit = gasCeil
 		}
 	}
-	return limit * 1000 // testing.
+
+	//return limit  //raw ETH'S limit per block.
+	//https://github.com/clearmatics/autonity-wiki/wiki/Autonity-Chain-Parameter-Highlights
+	return limit * 100  // Autonity gas limit for per block.
 }
