@@ -14,6 +14,27 @@ cd ~/go/src/github.com/clearmatics/autonity/contract_e2e_test/
 pip3 install -r requirements.txt
 
 ```
+
+# How to run it locally
+```
+make e2etest-contracts
+```
+
 # Integrate with CI script
-CI script will add new task to trigger this automation test.
-Makefile script will be updated too.
+
+Dependency was installed at CI before-script session.
+```
+  - sudo apt-get update -y
+  - sudo apt-get install -y tmux
+  - sudo apt-get install python3
+  - sudo apt-get install python3-pip
+```
+
+New task was added into CI job list.
+```
+    - <<: *tests
+      name: "Contract e2e tests"
+      script:
+        - make all
+        - make e2etest-contracts
+```

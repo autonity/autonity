@@ -88,6 +88,7 @@ jobs:
     - <<: *tests
       name: "Contract e2e tests"
       script:
+        - make all
         - make e2etest-contracts
 
 notifications:

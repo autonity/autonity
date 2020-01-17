@@ -244,7 +244,7 @@ def deploy_clients():
 
     try:
         parser = argparse.ArgumentParser()
-        parser.add_argument("autonity", help='Autonity Binary Path', type=str, default='../build/bin/autonity')
+        parser.add_argument("autonity", help='Autonity work dir Path', type=str, default='~/go/src/github.com/clearmatics/autonity')
         parser.add_argument("-n", help='Number of nodes', type=int, default=4)
         parser.add_argument("-r", help='Restart All', action="store_true")
         parser.add_argument("-o", help='Restart All except', type=int)
@@ -313,9 +313,22 @@ def get_http_end_point():
 # get autonity contract bin, abi, and a new version with v0.0.1.
 def compile_contract():
     try:
-        contract = compile_files(["../contracts/autonity/contract/contracts/Autonity.sol"])
-        bin = contract["../contracts/autonity/contract/contracts/Autonity.sol:Autonity"]["bin"]
-        abi = contract["../contracts/autonity/contract/contracts/Autonity.sol:Autonity"]["abi"]
+        contract_path = autonity_path.split("/")
+        contract_path[len(contract_path) - 3], contract_path[len(contract_path) - 2], contract_path[len(contract_path) - 1]\
+            = "contracts", "autonity", "contract"
+        contract_path.append("contracts")
+        contract_path.append("Autonity.sol")
+        contract_path = "/".join(contract_path)
+        print("contract path: ", contract_path)
+
+        files = []
+        files.append(contract_path)
+
+        contract = compile_files(files)
+        key = "{}:Autonity".format(contract_path)
+
+        bin = contract[key]["bin"]
+        abi = contract[key]["abi"]
         # to do get version from release note from Devop team.
         version = "v0.0.1"
         return bin, abi, version
