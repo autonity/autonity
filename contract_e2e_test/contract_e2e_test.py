@@ -438,6 +438,7 @@ def get_autonity_and_contract():
 #####################################################################
 #          Your new e2e test cases implements from here             #
 def test_upgrade_autonity_contract():
+    print("# test_upgrade_autonity_contract")
     try:
         autonity, contract = get_autonity_and_contract()
     except Exception as e:
@@ -453,17 +454,17 @@ def test_upgrade_autonity_contract():
         byte_code, abi, version = compile_contract()
         abi = json.dumps(abi)
         gas_estimate = contract.functions.upgradeContract(byte_code, abi, version).estimateGas()
-        print("gas estimate to transact with ugradeContract: {}".format(gas_estimate))
+        print("gas estimate to transact with upradeContract: {}".format(gas_estimate))
         deployer = get_system_deployer_account()
         contract.functions.upgradeContract(byte_code, abi, version).transact({'from': deployer, 'gas': 999999999})
         # wait TX to be mined.
         sleep(5)
         version_new = contract.functions.getVersion().call()
-        print("get contrace new version: ", version_new)
+        print("get contract new version: ", version_new)
         if version != version_new:
             raise Exception("test_upgrade_autonity_contract failed")
         end_height = autonity.eth.getBlock("latest")['number']
-        print("test endedat at height: ", end_height)
+        print("test end at height: ", end_height)
         if end_height <= start_height:
             print("chain on-hold after contract upgrade")
             raise Exception("test_upgrade_autonity_contract failed")
@@ -474,7 +475,52 @@ def test_upgrade_autonity_contract():
         raise Exception("test_upgrade_autonity_contract failed.")
 
 
+def test_rollback_wrong_contract_without_engine_on_holding():
+    print("# test_rollback_wrong_contract_without_engine_on_holding")
+    try:
+        autonity, contract = get_autonity_and_contract()
+    except Exception as e:
+        print("cannot connect to client. ", e)
+        raise Exception("test_rollback_wrong_contract_without_engine_on_holding failed.")
+
+    try:
+        current_height = autonity.eth.getBlock("latest")['number']
+        print("test started at height: ", current_height)
+        # get contract version from chain before upgrade.
+        previous_version = contract.functions.getVersion().call()
+        print("get contract previous version: ", previous_version)
+
+        # prepare wrong contract meta data:
+        byte_code, abi, version = "wrong_bin", "['wrong_abi']", "wrong_version"
+        abi = json.dumps(abi)
+        gas_estimate = contract.functions.upgradeContract(byte_code, abi, version).estimateGas()
+        print("gas estimate to transact with ugradeContract: {}".format(gas_estimate))
+        deployer = get_system_deployer_account()
+        contract.functions.upgradeContract(byte_code, abi, version).transact({'from': deployer, 'gas': 999999999})
+        sleep(5)
+        # checking engine should not on-hold.
+        i = 5
+        is_producing = False
+        while i:
+            sleep(1)
+            i -= 1
+            height = autonity.eth.getBlock("latest")['number']
+            if height > current_height:
+                current_height = height
+                is_producing = True
+                print("after rollback, chain is producing block: ", current_height)
+        if not is_producing:
+            print("test_rollback_wrong_contract_without_engine_on_holding failed.")
+            raise Exception("test_rollback_wrong_contract_without_engine_on_holding failed")
+        print("test_rollback_wrong_contract_without_engine_on_holding passed.")
+
+    except Exception as e:
+        print("test case failed: ", e)
+        raise Exception("test_rollback_wrong_contract_without_engine_on_holding failed.")
+
+
 def test_get_validators():
+    print("# test_get_validators")
     try:
         autonity, contract = get_autonity_and_contract()
         start_height = autonity.eth.getBlock("latest")['number']
@@ -494,7 +540,7 @@ def test_get_validators():
             raise Exception("test_get_validators failed.")
 
         end_height = autonity.eth.getBlock("latest")['number']
-        print("test started at height: ", end_height)
+        print("test end at height: ", end_height)
         print("test_get_validators passed.")
     except Exception as e:
         print("cannot connect to client. ", e)
@@ -504,6 +550,7 @@ def test_get_validators():
 def run_tests():
     try:
         test_upgrade_autonity_contract()
+        test_rollback_wrong_contract_without_engine_on_holding()
         test_get_validators()
     except Exception as e:
         raise e
