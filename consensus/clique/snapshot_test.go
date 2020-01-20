@@ -445,7 +445,7 @@ func TestClique(t *testing.T) {
 				accounts.checkpoint(header, auths)
 			}
 			header.Difficulty = diffInTurn // Ignored, we just need a valid number
-
+			header.MixDigest = common.Hash{}
 			// Generate the signature, embed it into the header and the block
 			accounts.sign(header, tt.votes[j].signer)
 			blocks[j] = block.WithSeal(header)

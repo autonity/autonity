@@ -380,6 +380,7 @@ func TestAncientStorage(t *testing.T) {
 		UncleHash:   types.EmptyUncleHash,
 		TxHash:      types.EmptyRootHash,
 		ReceiptHash: types.EmptyRootHash,
+		MixDigest:   types.BFTDigest,
 	}})
 	// Ensure nothing non-existent will be read
 	hash, number := block.Hash(), block.NumberU64()
