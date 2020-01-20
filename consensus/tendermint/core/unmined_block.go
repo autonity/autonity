@@ -78,8 +78,8 @@ func (c *core) getUnminedBlock() *types.Block {
 
 // check request step
 // return errInvalidMessage if the message is invalid
-// return errFutureHeightMessage if the height of proposal is larger than roundState height
-// return errOldHeightMessage if the height of proposal is smaller than roundState height
+// return errFutureHeightMessage if the height of proposal is larger than height
+// return errOldHeightMessage if the height of proposal is smaller than height
 func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 	if unminedBlock == nil {
 		return errInvalidMessage

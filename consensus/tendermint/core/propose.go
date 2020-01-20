@@ -111,7 +111,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	roundCmp := proposal.Round.Cmp(c.getRound())
 	// Nothing more to do for old round proposal
 	if roundCmp == 0 {
-		// Proposal is for current round, i.e. proposal.Round.Int64() = c.roundState.Round().Int64()
+		// Proposal is for current round, i.e. proposal.Round.Int64() = c.getRound().Int64()
 		c.setProposal(proposal.Round.Int64(), &proposal, msg)
 
 		if c.step == propose {

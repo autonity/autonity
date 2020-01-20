@@ -156,18 +156,18 @@ func (mr *MockBackendMockRecorder) FinalizeAndAssemble(chain, header, state, txs
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeAndAssemble", reflect.TypeOf((*MockBackend)(nil).FinalizeAndAssemble), chain, header, state, txs, uncles, receipts)
 }
 
-// ProposerSeal mocks base method
+// Seal mocks base method
 func (m *MockBackend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProposerSeal", chain, block, results, stop)
+	ret := m.ctrl.Call(m, "Seal", chain, block, results, stop)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ProposerSeal indicates an expected call of ProposerSeal
+// Seal indicates an expected call of Seal
 func (mr *MockBackendMockRecorder) Seal(chain, block, results, stop interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposerSeal", reflect.TypeOf((*MockBackend)(nil).Seal), chain, block, results, stop)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockBackend)(nil).Seal), chain, block, results, stop)
 }
 
 // SealHash mocks base method
@@ -392,6 +392,21 @@ func (m *MockBackend) Commit(proposalBlock *types.Block, round *big.Int, seals [
 func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, seals interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, seals)
+}
+
+// VerifyProposalHeader mocks base method
+func (m *MockBackend) VerifyProposalHeader(arg0 types.Block) (time.Duration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VerifyProposalHeader", arg0)
+	ret0, _ := ret[0].(time.Duration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// VerifyProposalHeader indicates an expected call of VerifyProposalHeader
+func (mr *MockBackendMockRecorder) VerifyProposalHeader(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyProposalHeader", reflect.TypeOf((*MockBackend)(nil).VerifyProposalHeader), arg0)
 }
 
 // VerifyProposal mocks base method

@@ -36,11 +36,11 @@ var (
 	// errNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
-	// errFutureHeightMessage is returned when roundState view is earlier than the
+	// errFutureHeightMessage is returned when round is earlier than the
 	// view of the received message.
 	errFutureHeightMessage = errors.New("future height message")
-	// errOldHeightMessage is returned when the received message's view is earlier
-	// than roundState view.
+	// errOldHeightMessage is returned when the received message's round is earlier
+	// than the validator's round.
 	errOldHeightMessage = errors.New("old height message")
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")

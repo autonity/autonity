@@ -369,7 +369,6 @@ func TestCore_SyncPeer(t *testing.T) {
 		defer ctrl.Finish()
 
 		addr := common.HexToAddress("0x0123456789")
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
 
 		val := validator.NewMockValidator(ctrl)
 
@@ -384,9 +383,8 @@ func TestCore_SyncPeer(t *testing.T) {
 		backendMock.EXPECT().SyncPeer(addr, gomock.Any())
 
 		c := &core{
-			backend:    backendMock,
-			roundState: curRoundState,
-			valSet:     valSet,
+			backend: backendMock,
+			valSet:  valSet,
 		}
 
 		c.SyncPeer(addr)

@@ -72,7 +72,6 @@ func TestSendPropose(t *testing.T) {
 		c := &core{
 			address:    addr,
 			backend:    backendMock,
-			roundState: curRoundState,
 			logger:     logger,
 			validRound: validRound,
 			valSet:     valSet,
@@ -110,7 +109,6 @@ func TestHandleProposal(t *testing.T) {
 
 		c := &core{
 			address:    addr,
-			roundState: curRoundState,
 			logger:     logger,
 			validRound: validRound,
 		}
@@ -157,7 +155,6 @@ func TestHandleProposal(t *testing.T) {
 
 		c := &core{
 			address:    addr,
-			roundState: curRoundState,
 			logger:     logger,
 			validRound: validRound,
 			valSet:     valSet,
@@ -254,7 +251,6 @@ func TestHandleProposal(t *testing.T) {
 		c := &core{
 			address:        addr,
 			backend:        backendMock,
-			roundState:     curRoundState,
 			logger:         logger,
 			proposeTimeout: newTimeout(propose, logger),
 			validRound:     validRound,
@@ -313,7 +309,6 @@ func TestHandleProposal(t *testing.T) {
 		c := &core{
 			address:        addr,
 			backend:        backendMock,
-			roundState:     curRoundState,
 			logger:         logger,
 			proposeTimeout: newTimeout(propose, logger),
 			validRound:     validRound,
@@ -408,7 +403,6 @@ func TestHandleProposal(t *testing.T) {
 		c := &core{
 			address:        addr,
 			backend:        backendMock,
-			roundState:     curRoundState,
 			lockedValue:    types.NewBlockWithHeader(&types.Header{}),
 			lockedRound:    big.NewInt(-1),
 			logger:         logger,
@@ -503,12 +497,8 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
 		c := &core{
-			address:    addr,
-			backend:    backendMock,
-			roundState: curRoundState,
-			currentHeightOldRoundsStates: map[int64]*roundState{
-				0: curRoundState,
-			},
+			address:        addr,
+			backend:        backendMock,
 			lockedRound:    big.NewInt(-1),
 			lockedValue:    types.NewBlockWithHeader(&types.Header{}),
 			logger:         logger,

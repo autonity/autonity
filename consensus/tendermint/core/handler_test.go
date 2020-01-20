@@ -57,27 +57,28 @@ func TestHandleCheckedMessage(t *testing.T) {
 		}
 	}
 
-	setCurrentRoundState := func(round int64, height int64, step Step) *roundState {
-		currentState := NewRoundState(big.NewInt(round), big.NewInt(height))
-		currentState.SetStep(step)
-		return currentState
+	setCurrentRoundState := func(round int64, height int64, step Step) struct {
+		round  *big.Int
+		height *big.Int
+		step   Step
+	} {
+
+		return struct {
+			round  *big.Int
+			height *big.Int
+			step   Step
+		}{big.NewInt(round), big.NewInt(height), step}
 	}
 
 	cases := []struct {
-		currentState *roundState
-		message      *Message
-		outcome      error
+		currentState struct {
+			round  *big.Int
+			height *big.Int
+			step   Step
+		}
+		message *Message
+		outcome error
 	}{
-		{
-			setCurrentRoundState(1, 2, propose),
-			createPrevote(1, 2),
-			errFutureStepMessage,
-		},
-		{
-			setCurrentRoundState(1, 2, propose),
-			createPrevote(2, 2),
-			errFutureRoundMessage,
-		},
 		{
 			setCurrentRoundState(0, 2, propose),
 			createPrevote(0, 3),
@@ -98,24 +99,20 @@ func TestHandleCheckedMessage(t *testing.T) {
 			createPrecommit(0, 10),
 			errFutureHeightMessage,
 		},
-		{
-			setCurrentRoundState(5, 2, precommit),
-			createPrecommit(20, 2),
-			errFutureRoundMessage,
-		},
 	}
 
 	for _, testCase := range cases {
 		logger := log.New("backend", "test", "id", 0)
 		engine := core{
-			logger:             logger,
-			address:            currentValidator.GetAddress(),
-			roundState:         testCase.currentState,
-			futureRoundsChange: make(map[int64]int64),
-			valSet:             &validatorSet{Set: validators},
-			proposeTimeout:     newTimeout(propose, logger),
-			prevoteTimeout:     newTimeout(prevote, logger),
-			precommitTimeout:   newTimeout(precommit, logger),
+			logger:           logger,
+			address:          currentValidator.GetAddress(),
+			round:            testCase.currentState.round,
+			height:           testCase.currentState.height,
+			step:             testCase.currentState.step,
+			valSet:           &validatorSet{Set: validators},
+			proposeTimeout:   newTimeout(propose, logger),
+			prevoteTimeout:   newTimeout(prevote, logger),
+			precommitTimeout: newTimeout(precommit, logger),
 		}
 
 		err := engine.handleCheckedMsg(context.Background(), testCase.message, sender)

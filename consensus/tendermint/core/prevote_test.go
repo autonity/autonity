@@ -22,9 +22,8 @@ func TestSendPrevote(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 		c := &core{
-			logger:     log.New("backend", "test", "id", 0),
-			backend:    backendMock,
-			roundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
+			logger:  log.New("backend", "test", "id", 0),
+			backend: backendMock,
 		}
 
 		c.sendPrevote(context.Background(), false)
@@ -78,11 +77,10 @@ func TestSendPrevote(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
 		c := &core{
-			backend:    backendMock,
-			address:    addr,
-			logger:     logger,
-			valSet:     new(validatorSet),
-			roundState: curRoundState,
+			backend: backendMock,
+			address: addr,
+			logger:  logger,
+			valSet:  new(validatorSet),
 		}
 
 		c.sendPrevote(context.Background(), false)
@@ -113,10 +111,9 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		c := &core{
-			address:    addr,
-			roundState: curRoundState,
-			logger:     log.New("backend", "test", "id", 0),
-			valSet:     new(validatorSet),
+			address: addr,
+			logger:  log.New("backend", "test", "id", 0),
+			valSet:  new(validatorSet),
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
@@ -149,11 +146,9 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		c := &core{
-			address:                      addr,
-			roundState:                   curRoundState,
-			currentHeightOldRoundsStates: make(map[int64]*roundState),
-			logger:                       log.New("backend", "test", "id", 0),
-			valSet:                       new(validatorSet),
+			address: addr,
+			logger:  log.New("backend", "test", "id", 0),
+			valSet:  new(validatorSet),
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
@@ -161,8 +156,6 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected %v, got %v", errOldRoundMessage, err)
 		}
 
-		c.currentHeightOldRoundsStatesMu.Lock()
-		defer c.currentHeightOldRoundsStatesMu.Unlock()
 		oldRoundState := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
 		if s := oldRoundState.Prevotes.NilVotesSize(); s != 1 {
 			t.Fatalf("Expected 1 nil-prevote, but got %d", s)
@@ -208,7 +201,6 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		c := &core{
 			address:        addr,
-			roundState:     curRoundState,
 			logger:         logger,
 			valSet:         new(validatorSet),
 			prevoteTimeout: newTimeout(prevote, logger),
@@ -295,7 +287,6 @@ func TestHandlePrevote(t *testing.T) {
 		c := &core{
 			address:        addr,
 			backend:        backendMock,
-			roundState:     curRoundState,
 			logger:         logger,
 			prevoteTimeout: newTimeout(prevote, logger),
 			valSet:         new(validatorSet),
@@ -377,7 +368,6 @@ func TestHandlePrevote(t *testing.T) {
 		c := &core{
 			address:        addr,
 			backend:        backendMock,
-			roundState:     curRoundState,
 			logger:         logger,
 			prevoteTimeout: newTimeout(prevote, logger),
 			valSet:         new(validatorSet),

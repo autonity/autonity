@@ -26,9 +26,8 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 		c := &core{
-			logger:     log.New("backend", "test", "id", 0),
-			backend:    backendMock,
-			roundState: NewRoundState(big.NewInt(2), big.NewInt(3)),
+			logger:  log.New("backend", "test", "id", 0),
+			backend: backendMock,
 		}
 
 		c.sendPrecommit(context.Background(), false)
@@ -88,11 +87,10 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
 		c := &core{
-			backend:    backendMock,
-			address:    addr,
-			logger:     logger,
-			valSet:     new(validatorSet),
-			roundState: curRoundState,
+			backend: backendMock,
+			address: addr,
+			logger:  logger,
+			valSet:  new(validatorSet),
 		}
 
 		c.sendPrecommit(context.Background(), false)
@@ -152,11 +150,10 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
 		c := &core{
-			backend:    backendMock,
-			address:    addr,
-			logger:     logger,
-			valSet:     new(validatorSet),
-			roundState: curRoundState,
+			backend: backendMock,
+			address: addr,
+			logger:  logger,
+			valSet:  new(validatorSet),
 		}
 
 		c.sendPrecommit(context.Background(), true)
@@ -187,10 +184,9 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		c := &core{
-			address:    addr,
-			roundState: curRoundState,
-			logger:     log.New("backend", "test", "id", 0),
-			valSet:     new(validatorSet),
+			address: addr,
+			logger:  log.New("backend", "test", "id", 0),
+			valSet:  new(validatorSet),
 		}
 
 		err = c.handlePrecommit(context.Background(), expectedMsg)
@@ -223,10 +219,9 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		c := &core{
-			address:    addr,
-			roundState: curRoundState,
-			logger:     log.New("backend", "test", "id", 0),
-			valSet:     new(validatorSet),
+			address: addr,
+			logger:  log.New("backend", "test", "id", 0),
+			valSet:  new(validatorSet),
 		}
 		c.setStep(precommit)
 		err = c.handlePrecommit(context.Background(), expectedMsg)
@@ -300,7 +295,6 @@ func TestHandlePrecommit(t *testing.T) {
 		c := &core{
 			address:          getAddress(),
 			backend:          backendMock,
-			roundState:       curRoundState,
 			logger:           logger,
 			valSet:           new(validatorSet),
 			precommitTimeout: newTimeout(precommit, logger),
@@ -361,7 +355,6 @@ func TestHandlePrecommit(t *testing.T) {
 
 		c := &core{
 			address:          addr,
-			roundState:       curRoundState,
 			logger:           logger,
 			valSet:           new(validatorSet),
 			precommitTimeout: newTimeout(precommit, logger),
@@ -415,7 +408,6 @@ func TestHandlePrecommit(t *testing.T) {
 
 		c := &core{
 			address:          addr,
-			roundState:       curRoundState,
 			logger:           logger,
 			valSet:           new(validatorSet),
 			precommitTimeout: newTimeout(precommit, logger),
@@ -512,7 +504,6 @@ func TestHandleCommit(t *testing.T) {
 	c := &core{
 		address:          addr,
 		backend:          backendMock,
-		roundState:       NewRoundState(big.NewInt(2), big.NewInt(3)),
 		logger:           logger,
 		proposeTimeout:   newTimeout(propose, logger),
 		prevoteTimeout:   newTimeout(prevote, logger),
