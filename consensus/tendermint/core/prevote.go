@@ -24,15 +24,15 @@ import (
 )
 
 func (c *core) sendPrevote(ctx context.Context, isNil bool) {
-	logger := c.logger.New("step", c.roundState.Step())
-	currentRound := c.roundState.Round().Int64()
+	logger := c.logger.New("step", c.step)
+	currentRound := c.getRound().Int64()
 
 	var prevote = Vote{
-		Round:  big.NewInt(c.roundState.Round().Int64()),
-		Height: big.NewInt(c.roundState.Height().Int64()),
+		Round:  big.NewInt(c.getRound().Int64()),
+		Height: big.NewInt(c.getHeight().Int64()),
 	}
 
-	proposalBlockHash := c.roundState.Proposal(currentRound).ProposalBlock.Hash()
+	proposalBlockHash := c.getProposal(currentRound).ProposalBlock.Hash()
 	if isNil {
 		prevote.ProposedBlockHash = common.Hash{}
 	} else {
@@ -78,21 +78,21 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 	}
 
 	// If we already have the prevote do nothing
-	if c.roundState.hasVote(preVote, msg) {
+	if c.hasVote(preVote, msg) {
 		return nil
 	}
 
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", preVote, msg.Address.String(), c.address.String())
 
-	curR := c.roundState.Round().Int64()
-	curH := c.roundState.Height().Int64()
+	curR := c.getRound().Int64()
+	curH := c.getHeight().Int64()
 	prevoteHash := preVote.ProposedBlockHash
 
 	// The prevote doesn't exists in our current round state, so add it
-	prevotes := c.roundState.allRoundMessages[preVote.Round.Int64()].prevotes
+	prevotes := c.allRoundMessages[preVote.Round.Int64()].prevotes
 	prevotes.Add(prevoteHash, *msg)
 
-	roundCmp := preVote.Round.Cmp(c.roundState.Round())
+	roundCmp := preVote.Round.Cmp(c.getRound())
 	if roundCmp < 0 {
 		return c.checkForOldProposal(ctx, curR)
 	} else if roundCmp > 0 {
@@ -111,18 +111,18 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 }
 
 func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to string) {
-	currentRound := c.roundState.Round().Int64()
-	currentProposalHash := c.roundState.Proposal(currentRound).ProposalBlock.Hash()
-	prevotes := c.roundState.allRoundMessages[currentRound].prevotes
+	currentRound := c.getRound().Int64()
+	currentProposalHash := c.getProposal(currentRound).ProposalBlock.Hash()
+	prevotes := c.allRoundMessages[currentRound].prevotes
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
-		"currentHeight", c.roundState.Height(),
+		"currentHeight", c.getHeight(),
 		"msgHeight", prevote.Height,
-		"currentRound", c.roundState.Round(),
+		"currentRound", c.getRound(),
 		"msgRound", prevote.Round,
-		"currentStep", c.roundState.Step(),
-		"isProposer", c.isProposer(),
+		"currentStep", c.step,
+		"isProposer", c.isProposerForR(c.getRound().Int64(), c.address),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
 		"hash", prevote.ProposedBlockHash,

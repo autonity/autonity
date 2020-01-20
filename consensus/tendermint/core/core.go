@@ -78,9 +78,10 @@ func New(backend Backend, config *config.Config) *core {
 		isStopping:                 new(uint32),
 		isStopped:                  new(uint32),
 		valSet:                     new(validatorSet),
+		allRoundMessages:           make(map[int64]roundMessageSet),
+		verifiedProposals:          make(map[common.Hash]bool),
 		lockedRound:                big.NewInt(-1),
 		validRound:                 big.NewInt(-1),
-		roundState:                 new(roundState),
 		proposeTimeout:             newTimeout(propose, logger),
 		prevoteTimeout:             newTimeout(prevote, logger),
 		precommitTimeout:           newTimeout(precommit, logger),
@@ -110,7 +111,12 @@ type core struct {
 
 	valSet *validatorSet
 
-	roundState *roundState
+	round             *big.Int
+	height            *big.Int
+	step              Step
+	allRoundMessages  map[int64]roundMessageSet
+	verifiedProposals map[common.Hash]bool
+	coreMu            sync.RWMutex
 
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
@@ -163,7 +169,7 @@ func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 }
 
 func (c *core) broadcast(ctx context.Context, msg *Message) {
-	logger := c.logger.New("step", c.roundState.Step())
+	logger := c.logger.New("step", c.step)
 
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
@@ -179,10 +185,6 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 	}
 }
 
-func (c *core) isProposer() bool {
-	return c.valSet.IsProposer(c.address)
-}
-
 func (c *core) isProposerForR(r int64, a common.Address) bool {
 	return c.valSet.IsProposerForRound(c.lastCommittedBlockProposer, uint64(r), a)
 }
@@ -190,7 +192,7 @@ func (c *core) isProposerForR(r int64, a common.Address) bool {
 func (c *core) commit(ctx context.Context, round int64) {
 	_ = c.setStep(ctx, precommitDone)
 
-	proposal := c.roundState.Proposal(round)
+	proposal := c.getProposal(round)
 	if proposal == nil {
 		// Should never happen really.
 		c.logger.Error("core commit called with empty proposal ")
@@ -199,23 +201,20 @@ func (c *core) commit(ctx context.Context, round int64) {
 
 	if proposal.ProposalBlock == nil {
 		// Again should never happen.
-		c.logger.Error("commit a NIL block",
-			"block", proposal.ProposalBlock,
-			"height", c.roundState.height.String(),
-			"round", c.roundState.round.String())
+		c.logger.Error("commit a NIL block", "block", proposal.ProposalBlock, "height", c.getHeight().String(), "round", c.getRound().String())
 		return
 	}
 
 	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 
-	precommits := c.roundState.allRoundMessages[round].precommits
+	precommits := c.allRoundMessages[round].precommits
 	committedSeals := make([][]byte, precommits.VotesSize(proposal.ProposalBlock.Hash()))
 	for i, v := range precommits.Values(proposal.ProposalBlock.Hash()) {
 		committedSeals[i] = make([]byte, types.BFTExtraSeal)
 		copy(committedSeals[i][:], v.CommittedSeal[:])
 	}
 
-	if err := c.backend.Commit(proposal.ProposalBlock, c.roundState.Round(), committedSeals); err != nil {
+	if err := c.backend.Commit(proposal.ProposalBlock, c.getRound(), committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
@@ -234,21 +233,50 @@ func (c *core) measureHeightRoundMetrics(round *big.Int) {
 
 // startRound starts a new round. if round equals to 0, it means to starts a new height
 func (c *core) startRound(ctx context.Context, round *big.Int) {
-
 	c.measureHeightRoundMetrics(round)
-	lastCommittedProposalBlock, lastCommittedBlockProposer := c.backend.LastCommittedProposal()
-	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 
-	c.setCore(round, height, lastCommittedBlockProposer)
+	proposalBlock, blockProposer := c.backend.LastCommittedProposal()
 
-	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
+	c.lastCommittedBlockProposer = blockProposer
+	height := new(big.Int).Add(proposalBlock.Number(), common.Big1)
+	c.setHeight(height)
+	c.setRound(round)
 	_ = c.setStep(ctx, propose)
+
+	if _, ok := c.allRoundMessages[round.Int64()]; !ok {
+		c.allRoundMessages[round.Int64()] = newRoundMessageSet()
+	}
+
+	if round.Int64() == 0 {
+		c.lockedRound = big.NewInt(-1)
+		c.lockedValue = nil
+		c.validRound = big.NewInt(-1)
+		c.validValue = nil
+
+		c.verifiedProposals = make(map[common.Hash]bool)
+
+		// Set validator set for height
+		valSet := c.backend.Validators(height.Uint64())
+		c.valSet.set(valSet)
+	}
+	// Reset all timeouts
+	c.proposeTimeout.reset(propose)
+	c.prevoteTimeout.reset(prevote)
+	c.precommitTimeout.reset(precommit)
+
+	// Calculate new proposer
+	c.valSet.CalcProposer(blockProposer, round.Uint64())
+
+	c.sentProposal = false
+	c.sentPrevote = false
+	c.sentPrecommit = false
+	c.setValidRoundAndValue = false
 
 	c.logger.Debug("Starting new Round", "Height", height, "Round", round)
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
 	// proposeTimeout is started, where the node waits for a proposal from the proposer of the current round.
-	if c.isProposer() {
+	if c.isProposerForR(round.Int64(), c.address) {
 		// validValue and validRound represent a block they received a quorum of prevote and the round quorum was
 		// received, respectively. If the block is not committed in that round then the round is changed.
 		// The new proposer will chose the validValue, if present, which was set in one of the previous rounds otherwise
@@ -274,71 +302,10 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 
 		// Check if we already have the proposal (this will be true if a future proposal was received an a previous
 		// round, if so send the proposal message to handler to handle the proposal
-		if c.roundState.Proposal(round.Int64()) != nil {
-			c.sendEvent(c.roundState.allRoundMessages[round.Int64()].proposalMsg)
+		if c.getProposal(round.Int64()) != nil {
+			c.sendEvent(c.allRoundMessages[round.Int64()].proposalMsg)
 		}
 	}
-}
-
-func (c *core) setCore(r *big.Int, h *big.Int, lastProposer common.Address) {
-	// Start of new height where round is 0
-	if r.Int64() == 0 {
-		// Set the shared round values to initial values
-		c.lockedRound = big.NewInt(-1)
-		c.lockedValue = nil
-		c.validRound = big.NewInt(-1)
-		c.validValue = nil
-
-		c.lastCommittedBlockProposer = lastProposer
-
-		// Set validator set for height
-		valSet := c.backend.Validators(h.Uint64())
-		c.valSet.set(valSet)
-	}
-	// Reset all timeouts
-	c.proposeTimeout.reset(propose)
-	c.prevoteTimeout.reset(prevote)
-	c.precommitTimeout.reset(precommit)
-
-	// update the round and height
-	c.roundState.Update(r, h)
-
-	// Calculate new proposer
-	c.valSet.CalcProposer(lastProposer, r.Uint64())
-	c.sentProposal = false
-	c.sentPrevote = false
-	c.sentPrecommit = false
-	c.setValidRoundAndValue = false
-}
-
-func (c *core) setStep(ctx context.Context, step Step) error {
-	c.roundState.SetStep(step)
-
-	// We need to check for upon conditions which refer to a specific step, so that once a validator moves to that step
-	// and no more messages are received, we ensure that if an upon condition is true it is executed. Propose step upon
-	// are checked when round is changed in startRound() by resending a future proposal if it was received in an older
-	// round to ensure line 22  and line 28 are run. When the validator moves to the prevote step we need to check the
-	// prevote step upon conditions here. For precommit step upon condition nothing needs to be done even though line 36
-	// predicates on it, this is because line 36 will be run when validator moves to prevote step, prevotes arrival and
-	// and proposal arrival in prevote/precommit step. Since quorum prevotes is required to move to precommit step, line
-	// 36 would have been executed in prevote step if not because some prevotes were nil, then once a valid prevote
-	// arrive then line 36 will be run in precommit step. Otherwise the condition is not satisfied to run line 36.
-	// Therefore, nothing needs to be done when a validator moves to the precommit step.
-
-	if step == prevote {
-		// Check for line 34, 36 and 44
-		curR := c.roundState.Round().Int64()
-		curH := c.roundState.Height().Int64()
-		c.checkForPrevoteTimeout(curR, curH)
-		if err := c.checkForQuorumPrevotes(ctx, curR); err != nil {
-			return err
-		}
-		if err := c.checkForQuorumPrevotesNil(ctx, curR); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (c *core) stopFutureProposalTimer() {
@@ -361,25 +328,25 @@ func PrepareCommittedSeal(hash common.Hash, round *big.Int, height *big.Int) []b
 }
 
 func (c *core) isValid(proposal *types.Block) (bool, error) {
-	if _, ok := c.roundState.verifiedProposals[proposal.Hash()]; !ok {
+	if _, ok := c.verifiedProposals[proposal.Hash()]; !ok {
 		if _, err := c.backend.VerifyProposal(*proposal); err != nil {
 			return false, err
 		}
-		c.roundState.verifiedProposals[proposal.Hash()] = true
+		c.verifiedProposals[proposal.Hash()] = true
 	}
 	return true, nil
 }
 
 // Line 22 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
-	proposal := c.roundState.Proposal(round)
+	proposal := c.getProposal(round)
 	if proposal == nil {
 		return nil
 	}
-	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
+	proposalMsg := c.allRoundMessages[round].proposalMsg
 	h := proposal.ProposalBlock.Hash()
 
-	if c.isProposerForR(round, proposalMsg.Address) && c.roundState.Step() == propose {
+	if c.isProposerForR(round, proposalMsg.Address) && c.step == propose {
 		if valid, err := c.isValid(proposal.ProposalBlock); !valid {
 			return err
 		}
@@ -406,17 +373,17 @@ func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
 
 // Line 28 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
-	proposal := c.roundState.Proposal(round)
+	proposal := c.getProposal(round)
 	if proposal == nil {
 		return nil
 	}
-	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
+	proposalMsg := c.allRoundMessages[round].proposalMsg
 	vr := proposal.ValidRound.Int64()
-	validRoundPrevotes := c.roundState.allRoundMessages[vr].prevotes
+	validRoundPrevotes := c.allRoundMessages[vr].prevotes
 	h := proposal.ProposalBlock.Hash()
 
 	if c.isProposerForR(round, proposalMsg.Address) && c.Quorum(validRoundPrevotes.VotesSize(h)) &&
-		c.roundState.Step() == propose && vr >= 0 && vr < round {
+		c.step == propose && vr >= 0 && vr < round {
 		if valid, err := c.isValid(proposal.ProposalBlock); !valid {
 			return err
 		}
@@ -443,8 +410,8 @@ func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 
 // Line 34 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForPrevoteTimeout(round int64, height int64) {
-	prevotes := c.roundState.allRoundMessages[round].prevotes
-	if c.roundState.Step() == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.Quorum(prevotes.TotalSize()) {
+	prevotes := c.allRoundMessages[round].prevotes
+	if c.step == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.Quorum(prevotes.TotalSize()) {
 		timeoutDuration := timeoutPrevote(round)
 		c.prevoteTimeout.scheduleTimeout(timeoutDuration, round, height, c.onTimeoutPrevote)
 		c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
@@ -453,17 +420,17 @@ func (c *core) checkForPrevoteTimeout(round int64, height int64) {
 
 // Line 36 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
-	proposal := c.roundState.Proposal(round)
+	proposal := c.getProposal(round)
 	if proposal == nil {
 		return nil
 	}
-	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
-	prevotes := c.roundState.allRoundMessages[round].prevotes
+	proposalMsg := c.allRoundMessages[round].proposalMsg
+	prevotes := c.allRoundMessages[round].prevotes
 	h := proposal.ProposalBlock.Hash()
 
 	// this piece of code should only run once per round
 	if c.isProposerForR(round, proposalMsg.Address) && c.Quorum(prevotes.VotesSize(h)) &&
-		c.roundState.Step() >= prevote && !c.setValidRoundAndValue {
+		c.step >= prevote && !c.setValidRoundAndValue {
 		if valid, err := c.isValid(proposal.ProposalBlock); !valid {
 			return err
 		}
@@ -475,7 +442,7 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 		}
 
-		if c.roundState.Step() == prevote {
+		if c.step == prevote {
 			c.lockedValue = proposal.ProposalBlock
 			c.lockedRound = big.NewInt(round)
 			c.sendPrecommit(ctx, false)
@@ -491,9 +458,9 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 
 // Line 44 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForQuorumPrevotesNil(ctx context.Context, round int64) error {
-	prevotes := c.roundState.allRoundMessages[round].prevotes
+	prevotes := c.allRoundMessages[round].prevotes
 
-	if c.roundState.Step() == prevote && c.Quorum(prevotes.NilVotesSize()) {
+	if c.step == prevote && c.Quorum(prevotes.NilVotesSize()) {
 		if c.prevoteTimeout.timerStarted() {
 			if err := c.prevoteTimeout.stopTimer(); err != nil {
 				return err
@@ -509,7 +476,7 @@ func (c *core) checkForQuorumPrevotesNil(ctx context.Context, round int64) error
 
 // Line 47 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForPrecommitTimeout(round int64, height int64) {
-	precommits := c.roundState.allRoundMessages[round].precommits
+	precommits := c.allRoundMessages[round].precommits
 	if !c.precommitTimeout.timerStarted() && c.Quorum(precommits.TotalSize()) {
 		timeoutDuration := timeoutPrecommit(round)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, round, height, c.onTimeoutPrecommit)
@@ -519,12 +486,12 @@ func (c *core) checkForPrecommitTimeout(round int64, height int64) {
 
 // Line 49 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForConsensus(ctx context.Context, round int64) error {
-	proposal := c.roundState.Proposal(round)
+	proposal := c.getProposal(round)
 	if proposal == nil {
 		return nil
 	}
-	proposalMsg := c.roundState.allRoundMessages[round].proposalMsg
-	precommits := c.roundState.allRoundMessages[round].precommits
+	proposalMsg := c.allRoundMessages[round].proposalMsg
+	precommits := c.allRoundMessages[round].precommits
 	h := proposal.ProposalBlock.Hash()
 
 	if c.isProposerForR(round, proposalMsg.Address) && c.Quorum(precommits.VotesSize(h)) {
@@ -548,4 +515,118 @@ func (c *core) checkForConsensus(ctx context.Context, round int64) error {
 
 	}
 	return nil
+}
+
+func (c *core) setRound(r *big.Int) {
+	c.coreMu.Lock()
+	defer c.coreMu.Unlock()
+
+	c.round = big.NewInt(r.Int64())
+}
+
+func (c *core) getRound() *big.Int {
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+
+	return c.round
+}
+
+func (c *core) setHeight(height *big.Int) {
+	c.coreMu.Lock()
+	defer c.coreMu.Unlock()
+
+	c.height = height
+}
+
+func (c *core) getHeight() *big.Int {
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+
+	return c.height
+}
+
+func (c *core) setStep(ctx context.Context, step Step) error {
+	c.step = step
+
+	// We need to check for upon conditions which refer to a specific step, so that once a validator moves to that step
+	// and no more messages are received, we ensure that if an upon condition is true it is executed. Propose step upon
+	// are checked when round is changed in startRound() by resending a future proposal if it was received in an older
+	// round to ensure line 22  and line 28 are run. When the validator moves to the prevote step we need to check the
+	// prevote step upon conditions here. For precommit step upon condition nothing needs to be done even though line 36
+	// predicates on it, this is because line 36 will be run when validator moves to prevote step, prevotes arrival and
+	// and proposal arrival in prevote/precommit step. Since quorum prevotes is required to move to precommit step, line
+	// 36 would have been executed in prevote step if not because some prevotes were nil, then once a valid prevote
+	// arrive then line 36 will be run in precommit step. Otherwise the condition is not satisfied to run line 36.
+	// Therefore, nothing needs to be done when a validator moves to the precommit step.
+
+	if step == prevote {
+		// Check for line 34, 36 and 44
+		curR := c.getRound().Int64()
+		curH := c.getHeight().Int64()
+		c.checkForPrevoteTimeout(curR, curH)
+		if err := c.checkForQuorumPrevotes(ctx, curR); err != nil {
+			return err
+		}
+		if err := c.checkForQuorumPrevotesNil(ctx, curR); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *core) currentState() (*big.Int, *big.Int, uint64) {
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+	return c.height, c.round, uint64(c.step)
+}
+
+func (c *core) getMessages(round int64) []*Message {
+	rms := c.allRoundMessages[round]
+	prevoteMsgs := rms.prevotes.GetMessages()
+	precommitMsgs := rms.precommits.GetMessages()
+
+	result := make([]*Message, 0, len(prevoteMsgs)+len(precommitMsgs)+1)
+	if rms.proposalMsg != nil {
+		result = append(result, rms.proposalMsg)
+	}
+	result = append(result, prevoteMsgs...)
+	result = append(result, precommitMsgs...)
+
+	return result
+}
+
+func (c *core) getAllRoundMessages() []*Message {
+	var messages []*Message
+	for roundNumber, _ := range c.allRoundMessages {
+		messages = append(messages, c.getMessages(roundNumber)...)
+	}
+	return messages
+}
+
+func (c *core) setProposal(round int64, proposal *Proposal, msg *Message) {
+	rms := c.allRoundMessages[round]
+	rms.proposalMsg = msg
+	rms.proposal = proposal
+}
+
+func (c *core) getProposal(round int64) *Proposal {
+	rms := c.allRoundMessages[round]
+	if rms.proposal != nil {
+		return rms.proposal
+	}
+	return nil
+}
+
+func (c *core) hasVote(v Vote, m *Message) bool {
+	var votes messageSet
+	voteRound := v.Round.Int64()
+	mCode := m.Code
+
+	if mCode == msgPrevote {
+		votes = c.allRoundMessages[voteRound].prevotes
+	} else if mCode == msgPrecommit {
+		votes = c.allRoundMessages[voteRound].precommits
+	}
+	return votes.hasMessage(v.ProposedBlockHash, *m)
 }

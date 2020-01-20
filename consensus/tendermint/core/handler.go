@@ -201,8 +201,8 @@ func (c *core) syncLoop(ctx context.Context) {
 	*/
 	timer := time.NewTimer(10 * time.Second)
 
-	round := c.roundState.Round()
-	height := c.roundState.Height()
+	round := c.getRound()
+	height := c.getHeight()
 
 	// Ask for sync when the engine starts
 	c.backend.AskSync(c.valSet.Copy())
@@ -210,8 +210,8 @@ func (c *core) syncLoop(ctx context.Context) {
 	for {
 		select {
 		case <-timer.C:
-			currentRound := c.roundState.Round()
-			currentHeight := c.roundState.Height()
+			currentRound := c.getRound()
+			currentHeight := c.getHeight()
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound.Cmp(round) == 0 {
@@ -271,19 +271,15 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender valida
 	return errInvalidMessage
 }
 
-// checkMessage checks the message step
-// return errInvalidMessage if the message is invalid
-// return errFutureHeightMessage if the message view is larger than roundState view
-// return errOldHeightMessage if the message view is smaller than roundState view
-// return errFutureStepMessage if we are at the same view but at the propose step and it's a voting message.
 func (c *core) checkMessage(round *big.Int, height *big.Int, step Step) error {
 	if height == nil || round == nil {
 		return errInvalidMessage
 	}
 
-	if height.Cmp(c.roundState.Height()) > 0 {
+	hCmp := height.Cmp(c.getHeight())
+	if hCmp > 0 {
 		return errFutureHeightMessage
-	} else if height.Cmp(c.roundState.Height()) < 0 {
+	} else if hCmp < 0 {
 		return errOldHeightMessage
 	}
 

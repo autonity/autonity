@@ -158,7 +158,7 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 
 /////////////// Handle Timeout Functions ///////////////
 func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
-	if msg.heightWhenCalled == c.roundState.Height().Int64() && msg.roundWhenCalled == c.roundState.Round().Int64() && c.roundState.Step() == propose {
+	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() && c.step == propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 		c.sendPrevote(ctx, true)
 		if err := c.setStep(ctx, prevote); err != nil {
@@ -168,7 +168,7 @@ func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 }
 
 func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
-	if msg.heightWhenCalled == c.roundState.Height().Int64() && msg.roundWhenCalled == c.roundState.Round().Int64() && c.roundState.Step() == prevote {
+	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() && c.step == prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 		c.sendPrecommit(ctx, true)
 		_ = c.setStep(ctx, precommit)
@@ -177,10 +177,10 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 
 func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
 
-	if msg.heightWhenCalled == c.roundState.Height().Int64() && msg.roundWhenCalled == c.roundState.Round().Int64() {
+	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 
-		c.startRound(ctx, new(big.Int).Add(c.roundState.Round(), common.Big1))
+		c.startRound(ctx, new(big.Int).Add(c.getRound(), common.Big1))
 	}
 }
 
@@ -202,11 +202,11 @@ func (c *core) logTimeoutEvent(message string, msgType string, timeout TimeoutEv
 	c.logger.Debug(message,
 		"from", c.address.String(),
 		"type", msgType,
-		"currentHeight", c.roundState.Height(),
+		"currentHeight", c.getHeight(),
 		"msgHeight", timeout.heightWhenCalled,
-		"currentRound", c.roundState.Round(),
+		"currentRound", c.getRound(),
 		"msgRound", timeout.roundWhenCalled,
-		"currentStep", c.roundState.Step(),
+		"currentStep", c.step,
 		"msgStep", timeout.step,
 	)
 }

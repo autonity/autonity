@@ -27,11 +27,11 @@ import (
 )
 
 func (c *core) sendProposal(ctx context.Context, p *types.Block) {
-	logger := c.logger.New("step", c.roundState.Step())
+	logger := c.logger.New("step", c.step)
 
 	// If I'm the proposer and I have the same height with the proposal
-	if c.roundState.Height().Int64() == p.Number().Int64() && c.isProposer() && !c.sentProposal {
-		proposalBlock := NewProposal(c.roundState.Round(), c.roundState.Height(), c.validRound, p, c.logger)
+	if c.getHeight().Int64() == p.Number().Int64() && c.isProposerForR(c.getRound().Int64(), c.address) && !c.sentProposal {
+		proposalBlock := NewProposal(c.getRound(), c.getHeight(), c.validRound, p, c.logger)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
@@ -91,8 +91,8 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	// if the proposal is different from what is stored in the round state, then proposer is byzantine, therefore,
 	// ignore the proposal, otherwise, the current proposal was received by the validator in a previous round and
 	// it should be handled now as the current proposal
-	if c.roundState.Proposal(proposal.Round.Int64()) != nil {
-		if c.roundState.Proposal(proposal.Round.Int64()).ProposalBlock.Hash() != proposal.ProposalBlock.Hash() {
+	if c.getProposal(proposal.Round.Int64()) != nil {
+		if c.getProposal(proposal.Round.Int64()).ProposalBlock.Hash() != proposal.ProposalBlock.Hash() {
 			return nil
 		}
 		// If the proposal block is received more than once through gossip we need to ignore since the state will not
@@ -100,7 +100,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	} else {
 		// If we don't have old or future proposal, then add the proposal to the relevant round message set and since
 		// the state has changed we need to check for consensus on this proposal block.
-		c.roundState.SetProposal(proposal.Round.Int64(), &proposal, msg)
+		c.setProposal(proposal.Round.Int64(), &proposal, msg)
 		if err := c.checkForConsensus(ctx, proposal.Round.Int64()); err != nil {
 			return err
 		}
@@ -108,20 +108,19 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 	c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 
-	roundCmp := proposal.Round.Cmp(c.roundState.Round())
+	roundCmp := proposal.Round.Cmp(c.getRound())
 	// Nothing more to do for old round proposal
 	if roundCmp == 0 {
 		// Proposal is for current round, i.e. proposal.Round.Int64() = c.roundState.Round().Int64()
-		c.roundState.SetProposal(proposal.Round.Int64(), &proposal, msg)
+		c.setProposal(proposal.Round.Int64(), &proposal, msg)
 
-		roundStep := c.roundState.Step()
-		if roundStep == propose {
+		if c.step == propose {
 			if proposal.ValidRound.Int64() == -1 {
 				return c.checkForNewProposal(ctx, proposal.Round.Int64())
 			} else if proposal.ValidRound.Int64() > -1 {
 				return c.checkForOldProposal(ctx, proposal.Round.Int64())
 			}
-		} else if roundStep > propose {
+		} else if c.step > propose {
 			return c.checkForQuorumPrevotes(ctx, proposal.Round.Int64())
 		}
 	} else if roundCmp > 0 {
@@ -136,12 +135,12 @@ func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, 
 		"type", "Proposal",
 		"from", from,
 		"to", to,
-		"currentHeight", c.roundState.Height(),
+		"currentHeight", c.getHeight(),
 		"msgHeight", proposal.Height,
-		"currentRound", c.roundState.Round(),
+		"currentRound", c.getRound(),
 		"msgRound", proposal.Round,
-		"currentStep", c.roundState.Step(),
-		"isProposer", c.isProposer(),
+		"currentStep", c.step,
+		"isProposer", c.isProposerForR(c.getRound().Int64(), c.address),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
 		"hash", proposal.ProposalBlock.Hash(),
