@@ -1,6 +1,5 @@
 package test
 
-/*
 import (
 	"context"
 	"fmt"
@@ -18,6 +17,8 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 )
+
+const DefaultTestGasPrice = 100000000000
 
 func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 	if testing.Short() {
@@ -80,11 +81,11 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 			numValidators: 5,
 			numBlocks:     5,
 			txPerPeer:     1,
-			beforeHooks: map[int]hook{
-				3: case1Before,
+			beforeHooks: map[string]hook{
+				"VD": case1Before,
 			},
-			afterHooks: map[int]hook{
-				3: case1After,
+			afterHooks: map[string]hook{
+				"VD": case1After,
 			},
 		},
 		{
@@ -92,11 +93,11 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 			numValidators: 6,
 			numBlocks:     10,
 			txPerPeer:     10,
-			beforeHooks: map[int]hook{
-				5: case2Before,
+			beforeHooks: map[string]hook{
+				"VF": case2Before,
 			},
-			afterHooks: map[int]hook{
-				5: case2After,
+			afterHooks: map[string]hook{
+				"VF": case2After,
 			},
 		},
 		{
@@ -104,11 +105,11 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 			numValidators: 4,
 			numBlocks:     5,
 			txPerPeer:     5,
-			beforeHooks: map[int]hook{
-				1: case3Before,
+			beforeHooks: map[string]hook{
+				"VB": case3Before,
 			},
-			afterHooks: map[int]hook{
-				1: case3After,
+			afterHooks: map[string]hook{
+				"VB": case3After,
 			},
 		},
 	}
@@ -165,8 +166,8 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 			numValidators: 5,
 			numBlocks:     5,
 			txPerPeer:     3,
-			sendTransactionHooks: map[int]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
-				3: func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) { //nolint
+			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+				"VD": func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) { //nolint
 					nonce := validator.service.TxPool().Nonce(fromAddr)
 
 					tx, err := types.SignTx(
@@ -209,11 +210,11 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 					return false, tx, nil
 				},
 			},
-			beforeHooks: map[int]hook{
-				3: case1Before,
+			beforeHooks: map[string]hook{
+				"VD": case1Before,
 			},
-			afterHooks: map[int]hook{
-				3: case1After,
+			afterHooks: map[string]hook{
+				"VD": case1After,
 			},
 			genesisHook: func(g *core.Genesis) *core.Genesis {
 				g.Config.AutonityContractConfig.MinGasPrice = DefaultTestGasPrice - 100
@@ -248,7 +249,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 		numBlocks:            10,
 		txPerPeer:            1,
 		removedPeers:         make(map[common.Address]uint64),
-		sendTransactionHooks: make(map[int]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = operatorAddress
 			g.Alloc[operatorAddress] = core.GenesisAccount{
@@ -256,20 +257,20 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 			}
 			return g
 		},
-		finalAssert: func(t *testing.T, validators []*testNode) {
-			validatorUsers := validators[4].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+		finalAssert: func(t *testing.T, validators map[string]*testNode) {
+			validatorUsers := validators["VE"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			validatorsListGenesis := []string{}
 			for i := range validatorUsers {
 				validatorsListGenesis = append(validatorsListGenesis, validatorUsers[i].Address.String())
 			}
 
-			stateDB, err := validators[4].service.BlockChain().State()
+			stateDB, err := validators["VE"].service.BlockChain().State()
 			if err != nil {
 				t.Fatal(err)
 			}
-			validatorList, err := validators[4].service.BlockChain().GetAutonityContract().ContractGetCommittee(
-				validators[4].service.BlockChain(),
-				validators[4].service.BlockChain().CurrentHeader(),
+			validatorList, err := validators["VE"].service.BlockChain().GetAutonityContract().ContractGetCommittee(
+				validators["VE"].service.BlockChain(),
+				validators["VE"].service.BlockChain().CurrentHeader(),
 				stateDB,
 			)
 			if err != nil {
@@ -285,7 +286,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 			}
 		},
 	}
-	testCase.sendTransactionHooks[3] = func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
+	testCase.sendTransactionHooks["VD"] = func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock <= 3 {
 			return true, nil, nil
 		}
@@ -331,5 +332,3 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 	}
 	runTest(t, testCase)
 }
-
-*/
