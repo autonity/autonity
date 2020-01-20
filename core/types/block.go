@@ -151,18 +151,9 @@ type headerMarshaling struct {
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *Header) Hash() common.Hash {
-	// If the mix digest is equivalent to the predefined BFT digest, use BFT
-	// specific hash calculation. This is always the case with tendermint consensus protocol.
-	if h.MixDigest == BFTDigest {
-		// Seal is reserved in extra-data. To prove block is signed by the proposer.
-		if posHeader := BFTFilteredHeader(h, true); posHeader != nil {
-			return rlpHash(posHeader)
-		}
-	}
-
 	// If not using the BFT mixdigest then return the original ethereum block header hash, this
 	// let Autonity to remain compatible with original go-ethereum tests.
-	return rlpHash(h.original())
+	return rlpHash(h)
 }
 
 var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
@@ -215,15 +206,22 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.GasLimit = origin.GasLimit
 	h.GasUsed = origin.GasUsed
 	h.Time = origin.Time
-	h.Extra = nil
 	h.MixDigest = origin.MixDigest
 	h.Nonce = origin.Nonce
 
-	h.CommittedSeals = hExtra.CommittedSeals
-	h.Committee = hExtra.Committee
-	h.PastCommittedSeals = hExtra.PastCommittedSeals
-	h.ProposerSeal = hExtra.ProposerSeal
-	h.Round = hExtra.Round
+	if len(hExtra.CommittedSeals) != 0 ||
+		len(hExtra.Committee) != 0 ||
+		len(hExtra.PastCommittedSeals) != 0 ||
+		len(hExtra.ProposerSeal) != 0 ||
+		hExtra.Round != nil {
+
+		h.CommittedSeals = hExtra.CommittedSeals
+		h.Committee = hExtra.Committee
+		h.PastCommittedSeals = hExtra.PastCommittedSeals
+		h.ProposerSeal = hExtra.ProposerSeal
+		h.Round = hExtra.Round
+		h.Extra = nil
+	}
 
 	return nil
 }
@@ -243,7 +241,11 @@ func (h *Header) EncodeRLP(w io.Writer) error {
 	}
 
 	original := h.original()
-	original.Extra = extra
+	if len(extra) > 0 {
+		original.Extra = extra
+	} else {
+		original.Extra = h.Extra
+	}
 
 	return rlp.Encode(w, *original)
 }

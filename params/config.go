@@ -143,6 +143,10 @@ var (
 		ByzantiumBlock:      big.NewInt(1035301),
 		ConstantinopleBlock: big.NewInt(3660663),
 		PetersburgBlock:     big.NewInt(4321234),
+		Clique: &CliqueConfig{
+			Period: 15,
+			Epoch:  30000,
+		},
 	}
 
 	// RinkebyTrustedCheckpoint contains the light client trusted checkpoint for the Rinkeby test network.
@@ -177,6 +181,10 @@ var (
 		ByzantiumBlock:      big.NewInt(0),
 		ConstantinopleBlock: big.NewInt(0),
 		PetersburgBlock:     big.NewInt(0),
+		Clique: &CliqueConfig{
+			Period: 15,
+			Epoch:  30000,
+		},
 	}
 
 	// GoerliTrustedCheckpoint contains the light client trusted checkpoint for the Görli test network.
@@ -205,16 +213,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil, nil, nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil, nil, nil, nil}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, nil, nil}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil, nil, nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil, nil, nil, nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
 
@@ -287,6 +295,7 @@ type ChainConfig struct {
 
 	// Various consensus engines
 	Ethash                 *EthashConfig            `json:"ethash,omitempty"`
+	Clique                 *CliqueConfig            `json:"clique,omitempty"`
 	Istanbul               *IstanbulConfig          `json:"istanbul,omitempty"`
 	Tendermint             *TendermintConfig        `json:"tendermint,omitempty"`
 	AutonityContractConfig *AutonityContractGenesis `json:"autonityContract,omitempty"`
@@ -298,6 +307,17 @@ type EthashConfig struct{}
 // String implements the stringer interface, returning the consensus engine details.
 func (c *EthashConfig) String() string {
 	return "ethash"
+}
+
+// CliqueConfig is the consensus engine configs for proof-of-authority based sealing.
+type CliqueConfig struct {
+	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
+	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
+}
+
+// String implements the stringer interface, returning the consensus engine details.
+func (c *CliqueConfig) String() string {
+	return "clique"
 }
 
 // IstanbulConfig is the consensus engine configs for Istanbul based sealing.
@@ -332,8 +352,8 @@ func (c *ChainConfig) String() string {
 	switch {
 	case c.Ethash != nil:
 		engine = c.Ethash
-	case c.Istanbul != nil:
-		engine = c.Istanbul
+	case c.Clique != nil:
+		engine = c.Clique
 	case c.Tendermint != nil:
 		engine = c.Tendermint
 	default:
@@ -538,8 +558,8 @@ func (c *ChainConfig) Copy() *ChainConfig {
 	if c.Ethash != nil {
 		cfg.Ethash = &(*c.Ethash)
 	}
-	if c.Istanbul != nil {
-		cfg.Istanbul = &(*c.Istanbul)
+	if c.Clique != nil {
+		cfg.Clique = &(*c.Clique)
 	}
 	if c.Tendermint != nil {
 		cfg.Tendermint = &(*c.Tendermint)

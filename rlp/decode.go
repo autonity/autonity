@@ -27,8 +27,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-
-	"github.com/clearmatics/autonity/common/debug"
 )
 
 var (
@@ -440,7 +438,6 @@ func decodeByteArray(s *Stream, val reflect.Value) error {
 			return wrapStreamError(ErrCanonSize, val.Type())
 		}
 	case List:
-		fmt.Println("2222222222222222222222", kind, debug.Callers(20))
 		return wrapStreamError(ErrExpectedString, val.Type())
 	}
 	return nil
@@ -681,7 +678,6 @@ func (s *Stream) Bytes() ([]byte, error) {
 		}
 		return b, nil
 	default:
-		fmt.Println("0000000000000000000000", kind)
 		return nil, ErrExpectedString
 	}
 }

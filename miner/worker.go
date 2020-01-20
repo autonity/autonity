@@ -369,7 +369,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		case <-timer.C:
 			// If mining is running resubmit a new work cycle periodically to pull in
 			// higher priced transactions. Disable this overhead for pending blocks.
-			if w.isRunning() {
+			if w.isRunning() && (w.chainConfig.Clique == nil || w.chainConfig.Clique.Period > 0) {
 				// Short circuit if no new transaction arrives.
 				if atomic.LoadInt32(&w.newTxs) == 0 {
 					timer.Reset(recommit)
@@ -490,6 +490,12 @@ func (w *worker) mainLoop() {
 				// to the pending block
 				if tcount != w.current.tcount {
 					w.updateSnapshot()
+				}
+			} else {
+				// If clique is running in dev mode(period is 0), disable
+				// advance sealing here.
+				if w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0 {
+					w.commitNewWork(nil, true, time.Now().Unix())
 				}
 			}
 			atomic.AddInt32(&w.newTxs, int32(len(ev.Txs)))
@@ -927,7 +933,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	commitUncles(w.localUncles)
 	commitUncles(w.remoteUncles)
 
-	if !noempty && (w.chainConfig.Istanbul == nil && w.chainConfig.Tendermint == nil) {
+	if !noempty && w.chainConfig.Tendermint == nil {
 		// Create an empty block based on temporary copied state for sealing in advance without waiting block
 		// execution finished.
 		w.commit(uncles, nil, false, tstart)
@@ -940,7 +946,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		return
 	}
 	// Short circuit if there is no available pending transactions
-	if len(pending) == 0 && (w.chainConfig.Istanbul == nil && w.chainConfig.Tendermint == nil) {
+	if len(pending) == 0 && w.chainConfig.Tendermint == nil {
 		w.updateSnapshot()
 		return
 	}

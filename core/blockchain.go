@@ -241,7 +241,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
-	if chainConfig.Tendermint != nil || chainConfig.Istanbul != nil {
+	if chainConfig.Tendermint != nil {
 		if chainConfig.AutonityContractConfig == nil {
 			return nil, errors.New("we need autonity contract specified for tendermint or istanbul consensus")
 		}
@@ -1300,16 +1300,15 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		return NonStatTy, err
 	}
 
-	if bc.chainConfig.Istanbul != nil || bc.chainConfig.Tendermint != nil {
+	if bc.chainConfig.Tendermint != nil {
 		// Call network permissioning logic before committing the state
 		err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
 		if err != nil && err != autonity.ErrAutonityContract {
 			return NonStatTy, err
 		}
+
 		// Measure network economic metrics.
-		if bc.chainConfig.Tendermint != nil {
-			bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
-		}
+		bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
 	}
 
 	rawdb.WriteBlock(bc.db, block)

@@ -1669,6 +1669,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 			for {
 				select {
 				case ev := <-validator.eventChan:
+					fmt.Println("### -3")
 					if _, ok := validator.blocks[ev.Block.NumberU64()]; ok {
 						continue
 					}
@@ -1817,6 +1818,7 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						}
 					}
 				case innerErr := <-validator.subscription.Err():
+					fmt.Println("### -2")
 					if innerErr != nil {
 						return fmt.Errorf("error in blockchain %q", innerErr)
 					}
@@ -1829,8 +1831,8 @@ func sendTransactions(t *testing.T, test *testCase, validators []*testNode, txPe
 						return err
 					}
 				case <-ctx.Done():
+					fmt.Println("### -1")
 					return ctx.Err()
-				default:
 				}
 				// allow to exit goroutine when no quorum expected
 				// check that there's no quorum within the given noQuorumTimeout
@@ -1946,6 +1948,7 @@ func hasQuorum(validators []*testNode) bool {
 			active++
 		}
 	}
+	fmt.Println("########## running", len(validators), active)
 	return quorum(len(validators), active)
 }
 

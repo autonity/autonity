@@ -79,6 +79,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	//fixme: надо ли делать проверки на пустоту подписей и прочего?
 	enc.Extra = extraBytes
 
 	enc.Hash = h.Hash()
@@ -179,6 +180,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		h.Nonce = *dec.Nonce
 	}
 
+	//fixme надо ли делать обнуление?
 	h.Extra = nil
 
 	if decExtra.Committee == nil {

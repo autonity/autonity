@@ -306,7 +306,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 		g.Config = params.AllEthashProtocolChanges
 	}
 
-	if g.Config != nil && (g.Config.Istanbul != nil || g.Config.Tendermint != nil) {
+	if g.Config != nil && g.Config.Tendermint != nil {
 		err := g.SetBFT()
 		if err != nil {
 			return nil, err
@@ -455,6 +455,7 @@ func DefaultGoerliGenesisBlock() *Genesis {
 func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 	// Override the default period to the user requested one
 	config := *params.AllCliqueProtocolChanges
+	config.Clique.Period = period
 
 	// Assemble and return the genesis with the precompiles and faucet pre-funded
 	return &Genesis{

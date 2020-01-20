@@ -599,7 +599,6 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		gspec  = &core.Genesis{Config: config}
 	)
 	config.AutonityContractConfig = &params.AutonityContractGenesis{}
-	config.Istanbul = &params.IstanbulConfig{}
 
 	p2pPeers := make([]*p2p.Peer, totalPeers)
 	for i := 0; i < totalPeers; i++ {
