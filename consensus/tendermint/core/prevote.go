@@ -129,8 +129,8 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 		"type", "Prevote",
 		"totalVotes", prevotes.TotalSize(),
 		"totalNilVotes", prevotes.NilVotesSize(),
-		"quorumReject", c.Quorum(prevotes.NilVotesSize()),
+		"quorumReject", c.quorum(prevotes.NilVotesSize()),
 		"totalNonNilVotes", prevotes.VotesSize(currentProposalHash),
-		"quorumAccept", c.Quorum(prevotes.VotesSize(currentProposalHash)),
+		"quorumAccept", c.quorum(prevotes.VotesSize(currentProposalHash)),
 	)
 }
