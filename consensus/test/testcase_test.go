@@ -2,6 +2,8 @@ package test
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/davecgh/go-spew/spew"
 	"net"
 	"os"
@@ -15,14 +17,12 @@ import (
 
 	"github.com/clearmatics/autonity/common/fdlimit"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"go.uber.org/goleak"
 
 	"github.com/clearmatics/autonity/common"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"golang.org/x/sync/errgroup"
 )
@@ -140,59 +140,8 @@ func runTest(t *testing.T, test *testCase) {
 	// Generate a batch of accounts to seal and fund with
 	nodes := make(map[string]*testNode, nodesNum)
 
-	for i := 0; i < nodesNum; i++ {
-		nodes[nodeNames[i]] = new(testNode)
-		nodes[nodeNames[i]].privateKey, err = crypto.GenerateKey()
-		if err != nil {
-			t.Fatal("cant make pk", err)
-		}
-	}
-
-	for i := range nodes {
-		//port
-		listener, innerErr := net.Listen("tcp", "127.0.0.1:0")
-		if innerErr != nil {
-			panic(innerErr)
-		}
-		nodes[i].listener = append(nodes[i].listener, listener)
-
-		//rpc port
-		listener, innerErr = net.Listen("tcp", "127.0.0.1:0")
-		if innerErr != nil {
-			panic(innerErr)
-		}
-		nodes[i].listener = append(nodes[i].listener, listener)
-	}
-
-	for i, node := range nodes {
-		listener := node.listener[0]
-		node.address = listener.Addr().String()
-		port := strings.Split(listener.Addr().String(), ":")[1]
-		node.port, _ = strconv.Atoi(port)
-
-		rpcListener := node.listener[1]
-		rpcPort, innerErr := strconv.Atoi(strings.Split(rpcListener.Addr().String(), ":")[1])
-		if innerErr != nil {
-			t.Fatal("incorrect rpc port ", innerErr)
-		}
-
-		node.rpcPort = rpcPort
-
-		if node.port == 0 || node.rpcPort == 0 {
-			t.Fatal("On node", i, "port equals 0")
-		}
-
-		node.url = enode.V4URL(
-			node.privateKey.PublicKey,
-			net.IPv4(127, 0, 0, 1),
-			node.port,
-			node.port,
-		)
-	}
-
-	if len(nodeNames) != len(nodes) {
-		t.Fatal("test enveiroment it wrong")
-	}
+	generateNodesPrivateKey(t, nodes, nodeNames, nodesNum)
+	setNodesPortAndEnode(t, nodes)
 
 	genesis := makeGenesis(nodes)
 	if test.genesisHook != nil {
@@ -339,6 +288,63 @@ func getNodeNames() []string {
 		"VA", "VB", "VC", "VD", "VE", "VF", "VG", "VH", "VI", "VJ", "VK",
 	}
 }
+
+func generateNodesPrivateKey(t *testing.T, nodes map[string]*testNode, nodeNames []string, nodesNum int)  {
+	var err error
+	for i := 0; i < nodesNum; i++ {
+		nodes[nodeNames[i]] = new(testNode)
+		nodes[nodeNames[i]].privateKey, err = crypto.GenerateKey()
+		if err != nil {
+			t.Fatal("cant make pk", err)
+		}
+	}
+
+}
+
+func setNodesPortAndEnode(t *testing.T, nodes map[string]*testNode)  {
+	for i := range nodes {
+		//port
+		listener, innerErr := net.Listen("tcp", "127.0.0.1:0")
+		if innerErr != nil {
+			panic(innerErr)
+		}
+		nodes[i].listener = append(nodes[i].listener, listener)
+
+		//rpc port
+		listener, innerErr = net.Listen("tcp", "127.0.0.1:0")
+		if innerErr != nil {
+			panic(innerErr)
+		}
+		nodes[i].listener = append(nodes[i].listener, listener)
+	}
+
+	for i, node := range nodes {
+		listener := node.listener[0]
+		node.address = listener.Addr().String()
+		port := strings.Split(listener.Addr().String(), ":")[1]
+		node.port, _ = strconv.Atoi(port)
+
+		rpcListener := node.listener[1]
+		rpcPort, innerErr := strconv.Atoi(strings.Split(rpcListener.Addr().String(), ":")[1])
+		if innerErr != nil {
+			t.Fatal("incorrect rpc port ", innerErr)
+		}
+
+		node.rpcPort = rpcPort
+
+		if node.port == 0 || node.rpcPort == 0 {
+			t.Fatal("On node", i, "port equals 0")
+		}
+
+		node.url = enode.V4URL(
+			node.privateKey.PublicKey,
+			net.IPv4(127, 0, 0, 1),
+			node.port,
+			node.port,
+		)
+	}
+}
+
 func getNodeNamesByPrefix(names []string, typ string) []string {
 	validators := make([]string, 0, len(names))
 	for _, v := range names {
