@@ -215,7 +215,7 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 	const blocksToWait = 15
 
 	txs := make(map[uint64]int) // blockNumber to count
-	txsMu := sync.Mutex{}
+	txsMu := &sync.Mutex{}
 
 	test.validatorsCanBeStopped = new(int64)
 	wg, ctx := errgroup.WithContext(context.Background())
@@ -353,7 +353,7 @@ func hookStartNode(nodeIndex string, durationAfterStop float64) hook {
 	}
 }
 
-func runNode(ctx context.Context, validator *testNode, test *testCase, validators map[string]*testNode, logger log.Logger, index string, blocksToWait int, txs map[uint64]int, txsMu sync.Mutex, errorOnTx bool, txPerPeer int, names []string) error {
+func runNode(ctx context.Context, validator *testNode, test *testCase, validators map[string]*testNode, logger log.Logger, index string, blocksToWait int, txs map[uint64]int, txsMu sync.Locker, errorOnTx bool, txPerPeer int, names []string) error {
 	var err error
 	testCanBeStopped := new(uint32)
 	fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
@@ -409,12 +409,12 @@ wgLoop:
 				}
 
 				if int(validator.lastBlock) <= test.numBlocks {
-					err := validatorSendTransaction(
+					err = validatorSendTransaction(
 						generateToAddr(txPerPeer, names, index, validators),
 						test,
 						validator)
 					if err != nil {
-
+						return err
 					}
 				}
 			}
