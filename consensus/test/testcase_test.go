@@ -289,7 +289,7 @@ func getNodeNames() []string {
 	}
 }
 
-func generateNodesPrivateKey(t *testing.T, nodes map[string]*testNode, nodeNames []string, nodesNum int)  {
+func generateNodesPrivateKey(t *testing.T, nodes map[string]*testNode, nodeNames []string, nodesNum int) {
 	var err error
 	for i := 0; i < nodesNum; i++ {
 		nodes[nodeNames[i]] = new(testNode)
@@ -298,10 +298,9 @@ func generateNodesPrivateKey(t *testing.T, nodes map[string]*testNode, nodeNames
 			t.Fatal("cant make pk", err)
 		}
 	}
-
 }
 
-func setNodesPortAndEnode(t *testing.T, nodes map[string]*testNode)  {
+func setNodesPortAndEnode(t *testing.T, nodes map[string]*testNode) {
 	for i := range nodes {
 		//port
 		listener, innerErr := net.Listen("tcp", "127.0.0.1:0")
