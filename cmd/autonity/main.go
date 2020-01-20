@@ -145,8 +145,6 @@ var (
 		utils.GpoPercentileFlag,
 		utils.EWASMInterpreterFlag,
 		utils.EVMInterpreterFlag,
-		utils.IstanbulRequestTimeoutFlag,
-		utils.IstanbulBlockPeriodFlag,
 		configFileFlag,
 	}
 
@@ -201,7 +199,6 @@ func init() {
 		removedbCommand,
 		dumpCommand,
 		inspectCommand,
-		updateValidatorsCommand,
 		// See accountcmd.go:
 		accountCommand,
 		walletCommand,

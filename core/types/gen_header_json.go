@@ -33,7 +33,17 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		Nonce       BlockNonce     `json:"nonce"`
 		Hash        common.Hash    `json:"hash"`
 	}
+	type ExtraHeader struct {
+		Committee          Committee       `json:"committee"           gencodec:"required"`
+		ProposerSeal       hexutil.Bytes   `json:"proposerSeal"        gencodec:"required"`
+		Round              *hexutil.Big    `json:"round"               gencodec:"required"`
+		CommittedSeals     []hexutil.Bytes `json:"committedSeals"      gencodec:"required"`
+		PastCommittedSeals []hexutil.Bytes `json:"pastCommittedSeals"  gencodec:"required"`
+	}
+
 	var enc Header
+	var encExtra ExtraHeader
+
 	enc.ParentHash = h.ParentHash
 	enc.UncleHash = h.UncleHash
 	enc.Coinbase = h.Coinbase
@@ -49,6 +59,35 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.Extra = h.Extra
 	enc.MixDigest = h.MixDigest
 	enc.Nonce = h.Nonce
+
+	if len(h.Committee) != 0 {
+		encExtra.Committee = h.Committee
+	}
+	if len(h.ProposerSeal) != 0 {
+		encExtra.ProposerSeal = h.ProposerSeal
+	}
+	if h.Round != nil {
+		encExtra.Round = (*hexutil.Big)(h.Round)
+	}
+	if encExtra.CommittedSeals != nil {
+		encExtra.CommittedSeals = make([]hexutil.Bytes, len(h.CommittedSeals))
+		for k, v := range h.CommittedSeals {
+			encExtra.CommittedSeals[k] = v
+		}
+	}
+	if h.PastCommittedSeals != nil {
+		encExtra.PastCommittedSeals = make([]hexutil.Bytes, len(h.PastCommittedSeals))
+		for k, v := range h.PastCommittedSeals {
+			encExtra.PastCommittedSeals[k] = v
+		}
+	}
+
+	extraBytes, err := json.Marshal(&encExtra)
+	if err != nil {
+		return nil, err
+	}
+	enc.Extra = extraBytes
+
 	enc.Hash = h.Hash()
 	return json.Marshal(&enc)
 }
@@ -71,6 +110,13 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		Extra       *hexutil.Bytes  `json:"extraData"        gencodec:"required"`
 		MixDigest   *common.Hash    `json:"mixHash"`
 		Nonce       *BlockNonce     `json:"nonce"`
+	}
+	type ExtraHeader struct {
+		Committee          *Committee       `json:"committee"           gencodec:"required"`
+		ProposerSeal       *hexutil.Bytes   `json:"proposerSeal"        gencodec:"required"`
+		Round              *hexutil.Big     `json:"round"               gencodec:"required"`
+		CommittedSeals     *[]hexutil.Bytes `json:"committedSeals"      gencodec:"required"`
+		PastCommittedSeals *[]hexutil.Bytes `json:"pastCommittedSeals"  gencodec:"required"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -133,6 +179,37 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	}
 	if dec.Nonce != nil {
 		h.Nonce = *dec.Nonce
+	}
+
+	var decExtra ExtraHeader
+	if err := json.Unmarshal(*dec.Extra, &decExtra); err != nil {
+		return err
+	}
+	if decExtra.Committee == nil {
+		return errors.New("missing required field 'committee' for Header")
+	}
+	h.Committee = *decExtra.Committee
+	if decExtra.ProposerSeal == nil {
+		return errors.New("missing required field 'proposerSeal' for Header")
+	}
+	h.ProposerSeal = *decExtra.ProposerSeal
+	if decExtra.Round == nil {
+		return errors.New("missing required field 'round' for Header")
+	}
+	h.Round = (*big.Int)(decExtra.Round)
+	if decExtra.CommittedSeals == nil {
+		return errors.New("missing required field 'committedSeals' for Header")
+	}
+	h.CommittedSeals = make([][]byte, len(*decExtra.CommittedSeals))
+	for k, v := range *decExtra.CommittedSeals {
+		h.CommittedSeals[k] = v
+	}
+	if decExtra.PastCommittedSeals == nil {
+		return errors.New("missing required field 'pastCommittedSeals' for Header")
+	}
+	h.PastCommittedSeals = make([][]byte, len(*decExtra.PastCommittedSeals))
+	for k, v := range *decExtra.PastCommittedSeals {
+		h.PastCommittedSeals[k] = v
 	}
 	return nil
 }

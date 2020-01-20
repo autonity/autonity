@@ -45,6 +45,10 @@ func TestState(t *testing.T) {
 	st.skipLoad(`^stTimeConsuming/`)
 
 	// Broken tests:
+	st.skipLoad(`^stCreateTest/CREATE_ContractRETURNBigOffset\.json`)
+	st.skipLoad(`^stCodeSizeLimit/codesizeOOGInvalidSize\.json`)
+	st.skipLoad(`^stTransactionTest/OverflowGasRequire\.json`) // gasLimit > 256 bits
+	st.skipLoad(`^stTransactionTest/zeroSigTransa[^/]*\.json`) // EIP-86 is not supported yet
 	// Expected failures:
 	//st.fails(`^stRevertTest/RevertPrecompiledTouch(_storage)?\.json/Byzantium/0`, "bug in test")
 	//st.fails(`^stRevertTest/RevertPrecompiledTouch(_storage)?\.json/Byzantium/3`, "bug in test")

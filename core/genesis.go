@@ -64,6 +64,9 @@ type Genesis struct {
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
 
+	//PoS Fields
+	Committee types.Committee `json:"committee"           gencodec:"required"`
+
 	mu sync.RWMutex
 }
 
@@ -101,6 +104,9 @@ type genesisSpecMarshaling struct {
 	Number     math.HexOrDecimal64
 	Difficulty *math.HexOrDecimal256
 	Alloc      map[common.UnprefixedAddress]GenesisAccount
+
+	Committee    []common.UnprefixedAddress
+	VotingPowers []math.HexOrDecimal64
 }
 
 type genesisAccountMarshaling struct {
@@ -294,6 +300,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
 		Root:       root,
+		Committee: g.Committee,
+		Round:     new(big.Int),
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
@@ -315,7 +323,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 		return nil, err
 	}
 
-	if g.Config != nil && (g.Config.Istanbul != nil || g.Config.Tendermint != nil) {
+	if g.Config != nil && g.Config.Tendermint != nil {
 		err := g.SetBFT()
 		if err != nil {
 			return nil, err
@@ -352,23 +360,25 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 
 // SetBFT sets default BFT(IBFT or Tendermint) config values
 func (g *Genesis) SetBFT() error {
-	if g.Config.Istanbul != nil || g.Config.Tendermint != nil && g.Config.AutonityContractConfig != nil {
-		//we should put validators to ExtraData field
-		var validators []string
-		for _, v := range g.Config.AutonityContractConfig.GetValidatorUsers() {
-			validators = append(validators, v.Address.String())
-		}
 
-		if len(validators) != 0 {
-			extraData, err := g.bftValidatorExtraData(validators)
-			if err != nil {
-				return fmt.Errorf("can't commit genesis block with incorrect validators: %s", err)
+	var committee types.Committee
+	for _, v := range g.Config.AutonityContractConfig.Users {
+		if v.Type == params.UserValidator {
+			member := types.CommitteeMember{
+				Address:     v.Address,
+				VotingPower: new(big.Int).SetUint64(v.Stake),
 			}
-			g.SetExtraData(extraData)
+			committee = append(committee, member)
 		}
 	}
 
-	log.Info("starting BFT consensus", "extraData", common.Bytes2Hex(g.GetExtraData()))
+	if len(committee) == 0 { // we already have this check before, but just to make sure..
+		return fmt.Errorf("autonity Network requires at least 1 validator")
+	}
+
+	g.Committee = committee
+
+	log.Info("starting BFT consensus", "validators", committee)
 
 	// we have to use '1' to have TD == BlockNumber for xBFT consensus
 	g.mu.Lock()
@@ -386,16 +396,6 @@ func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
 		panic(err)
 	}
 	return block
-}
-
-// bftValidatorExtraData updates Genesis ExtraData field with a new list of validators
-func (g *Genesis) bftValidatorExtraData(addressList []string) ([]byte, error) {
-	var validators []common.Address
-	for _, address := range addressList {
-		validators = append(validators, common.HexToAddress(address))
-	}
-
-	return types.PrepareExtra(g.GetExtraData(), validators)
 }
 
 func (g *Genesis) GetExtraData() []byte {

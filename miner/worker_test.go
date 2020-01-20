@@ -189,10 +189,6 @@ func TestGenerateBlockAndImportEthash(t *testing.T) {
 	testGenerateBlockAndImport(t, false)
 }
 
-func TestGenerateBlockAndImportClique(t *testing.T) {
-	testGenerateBlockAndImport(t, true)
-}
-
 func testGenerateBlockAndImport(t *testing.T, isClique bool) {
 	var (
 		engine      consensus.Engine
@@ -255,9 +251,6 @@ func testGenerateBlockAndImport(t *testing.T, isClique bool) {
 
 func TestEmptyWorkEthash(t *testing.T) {
 	testEmptyWork(t, ethashChainConfig, ethash.NewFaker())
-}
-func TestEmptyWorkClique(t *testing.T) {
-	testEmptyWork(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
 }
 
 func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
@@ -362,10 +355,6 @@ func TestRegenerateMiningBlockEthash(t *testing.T) {
 	testRegenerateMiningBlock(t, ethashChainConfig, ethash.NewFaker())
 }
 
-func TestRegenerateMiningBlockClique(t *testing.T) {
-	testRegenerateMiningBlock(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
-}
-
 func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
 	defer engine.Close()
 
@@ -420,10 +409,6 @@ func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, en
 
 func TestAdjustIntervalEthash(t *testing.T) {
 	testAdjustInterval(t, ethashChainConfig, ethash.NewFaker())
-}
-
-func TestAdjustIntervalClique(t *testing.T) {
-	testAdjustInterval(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
 }
 
 func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {

@@ -22,6 +22,8 @@ github.com/Azure/go-autorest/tracing v0.5.0/go.mod h1:r/s2XiOKccPW3HrqB+W0TQzfbt
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/JekaMas/notify v0.9.4 h1:Ns+DRf9kho8T0yQNSKoZqAnbvO/Hg3KmJCUaoRhL7MM=
 github.com/JekaMas/notify v0.9.4/go.mod h1:KYZd45vBSOYP2/9lY38EjZtvKRZMfgWaJk8bvBxhIYk=
+github.com/JekaMas/pretty v0.0.0-20161213095928-bfc6f9ec9574 h1:uxx/6jNGNsB3pisEJMhp2IwOe+eRTDOTL1uBI1vx/wM=
+github.com/JekaMas/pretty v0.0.0-20161213095928-bfc6f9ec9574/go.mod h1:1UhimYhDZRIta5E9Gikxj3TztMI6w70s6w2Z/EkDP0E=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/OneOfOne/xxhash v1.2.5 h1:zl/OfRA6nftbBK9qTohYBJ5xvw6C/oNKizR7cZGl3cI=
 github.com/OneOfOne/xxhash v1.2.5/go.mod h1:eZbhyaAYD41SGSSsnmcpxVoRiQ/MPUTjUdIIOT9Um7Q=

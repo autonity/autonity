@@ -1,0 +1,268 @@
+build/env.sh go run build/ci.go install
+>>> /snap/go/current/bin/go install -ldflags -X main.gitCommit=a5271b6d8d77b86f9e97f29dacbe150787cfd270 -X main.gitDate=20200120 -v github.com/clearmatics/autonity github.com/clearmatics/autonity/accounts github.com/clearmatics/autonity/accounts/abi github.com/clearmatics/autonity/accounts/abi/bind github.com/clearmatics/autonity/accounts/abi/bind/backends github.com/clearmatics/autonity/accounts/external github.com/clearmatics/autonity/accounts/keystore github.com/clearmatics/autonity/accounts/scwallet github.com/clearmatics/autonity/accounts/usbwallet github.com/clearmatics/autonity/accounts/usbwallet/trezor github.com/clearmatics/autonity/cmd/abigen github.com/clearmatics/autonity/cmd/autonity github.com/clearmatics/autonity/cmd/bootnode github.com/clearmatics/autonity/cmd/checkpoint-admin github.com/clearmatics/autonity/cmd/clef github.com/clearmatics/autonity/cmd/devp2p github.com/clearmatics/autonity/cmd/ethkey github.com/clearmatics/autonity/cmd/evm github.com/clearmatics/autonity/cmd/evm/internal/compiler github.com/clearmatics/autonity/cmd/faucet github.com/clearmatics/autonity/cmd/p2psim github.com/clearmatics/autonity/cmd/puppeth github.com/clearmatics/autonity/cmd/rlpdump github.com/clearmatics/autonity/cmd/utils github.com/clearmatics/autonity/common github.com/clearmatics/autonity/common/bitutil github.com/clearmatics/autonity/common/compiler github.com/clearmatics/autonity/common/debug github.com/clearmatics/autonity/common/fdlimit github.com/clearmatics/autonity/common/graph github.com/clearmatics/autonity/common/hexutil github.com/clearmatics/autonity/common/math github.com/clearmatics/autonity/common/mclock github.com/clearmatics/autonity/common/prque github.com/clearmatics/autonity/common/ratelimit github.com/clearmatics/autonity/consensus github.com/clearmatics/autonity/consensus/clique github.com/clearmatics/autonity/consensus/ethash github.com/clearmatics/autonity/consensus/misc github.com/clearmatics/autonity/consensus/tendermint/backend github.com/clearmatics/autonity/consensus/tendermint/config github.com/clearmatics/autonity/consensus/tendermint/core github.com/clearmatics/autonity/consensus/tendermint/crypto github.com/clearmatics/autonity/consensus/tendermint/events github.com/clearmatics/autonity/consensus/tendermint/validator github.com/clearmatics/autonity/consensus/test github.com/clearmatics/autonity/console github.com/clearmatics/autonity/contracts/autonity github.com/clearmatics/autonity/contracts/checkpointoracle github.com/clearmatics/autonity/contracts/checkpointoracle/contract github.com/clearmatics/autonity/core github.com/clearmatics/autonity/core/asm github.com/clearmatics/autonity/core/bloombits github.com/clearmatics/autonity/core/forkid github.com/clearmatics/autonity/core/rawdb github.com/clearmatics/autonity/core/state github.com/clearmatics/autonity/core/types github.com/clearmatics/autonity/core/vm github.com/clearmatics/autonity/core/vm/runtime github.com/clearmatics/autonity/crypto github.com/clearmatics/autonity/crypto/bn256 github.com/clearmatics/autonity/crypto/bn256/cloudflare github.com/clearmatics/autonity/crypto/bn256/google github.com/clearmatics/autonity/crypto/ecies github.com/clearmatics/autonity/crypto/secp256k1 github.com/clearmatics/autonity/eth github.com/clearmatics/autonity/eth/downloader github.com/clearmatics/autonity/eth/fetcher github.com/clearmatics/autonity/eth/filters github.com/clearmatics/autonity/eth/gasprice github.com/clearmatics/autonity/eth/tracers github.com/clearmatics/autonity/eth/tracers/internal/tracers github.com/clearmatics/autonity/ethclient github.com/clearmatics/autonity/ethdb github.com/clearmatics/autonity/ethdb/leveldb github.com/clearmatics/autonity/ethdb/memorydb github.com/clearmatics/autonity/ethstats github.com/clearmatics/autonity/event github.com/clearmatics/autonity/graphql github.com/clearmatics/autonity/internal/build github.com/clearmatics/autonity/internal/cmdtest github.com/clearmatics/autonity/internal/debug github.com/clearmatics/autonity/internal/ethapi github.com/clearmatics/autonity/internal/guide github.com/clearmatics/autonity/internal/jsre github.com/clearmatics/autonity/internal/jsre/deps github.com/clearmatics/autonity/internal/testlog github.com/clearmatics/autonity/internal/web3ext github.com/clearmatics/autonity/les github.com/clearmatics/autonity/les/flowcontrol github.com/clearmatics/autonity/light github.com/clearmatics/autonity/log github.com/clearmatics/autonity/metrics github.com/clearmatics/autonity/metrics/exp github.com/clearmatics/autonity/metrics/influxdb github.com/clearmatics/autonity/metrics/librato github.com/clearmatics/autonity/metrics/prometheus github.com/clearmatics/autonity/miner github.com/clearmatics/autonity/mobile github.com/clearmatics/autonity/node github.com/clearmatics/autonity/p2p github.com/clearmatics/autonity/p2p/discover github.com/clearmatics/autonity/p2p/discv5 github.com/clearmatics/autonity/p2p/enode github.com/clearmatics/autonity/p2p/enr github.com/clearmatics/autonity/p2p/nat github.com/clearmatics/autonity/p2p/netutil github.com/clearmatics/autonity/p2p/simulations github.com/clearmatics/autonity/p2p/simulations/adapters github.com/clearmatics/autonity/p2p/simulations/examples github.com/clearmatics/autonity/p2p/simulations/pipes github.com/clearmatics/autonity/p2p/testing github.com/clearmatics/autonity/params github.com/clearmatics/autonity/rlp github.com/clearmatics/autonity/rpc github.com/clearmatics/autonity/signer/core github.com/clearmatics/autonity/signer/fourbyte github.com/clearmatics/autonity/signer/rules github.com/clearmatics/autonity/signer/rules/deps github.com/clearmatics/autonity/signer/storage github.com/clearmatics/autonity/tests github.com/clearmatics/autonity/trie 
+build/env.sh go run build/ci.go test -coverage
+>>> /snap/go/current/bin/go test -ldflags -X main.gitCommit=a5271b6d8d77b86f9e97f29dacbe150787cfd270 -X main.gitDate=20200120 -p 1 -timeout 30m -short -covermode=atomic -cover -test.coverprofile=coverage.out github.com/clearmatics/autonity github.com/clearmatics/autonity/accounts github.com/clearmatics/autonity/accounts/abi github.com/clearmatics/autonity/accounts/abi/bind github.com/clearmatics/autonity/accounts/abi/bind/backends github.com/clearmatics/autonity/accounts/external github.com/clearmatics/autonity/accounts/keystore github.com/clearmatics/autonity/accounts/scwallet github.com/clearmatics/autonity/accounts/usbwallet github.com/clearmatics/autonity/accounts/usbwallet/trezor github.com/clearmatics/autonity/cmd/abigen github.com/clearmatics/autonity/cmd/autonity github.com/clearmatics/autonity/cmd/bootnode github.com/clearmatics/autonity/cmd/checkpoint-admin github.com/clearmatics/autonity/cmd/clef github.com/clearmatics/autonity/cmd/devp2p github.com/clearmatics/autonity/cmd/ethkey github.com/clearmatics/autonity/cmd/evm github.com/clearmatics/autonity/cmd/evm/internal/compiler github.com/clearmatics/autonity/cmd/faucet github.com/clearmatics/autonity/cmd/p2psim github.com/clearmatics/autonity/cmd/puppeth github.com/clearmatics/autonity/cmd/rlpdump github.com/clearmatics/autonity/cmd/utils github.com/clearmatics/autonity/common github.com/clearmatics/autonity/common/bitutil github.com/clearmatics/autonity/common/compiler github.com/clearmatics/autonity/common/debug github.com/clearmatics/autonity/common/fdlimit github.com/clearmatics/autonity/common/graph github.com/clearmatics/autonity/common/hexutil github.com/clearmatics/autonity/common/math github.com/clearmatics/autonity/common/mclock github.com/clearmatics/autonity/common/prque github.com/clearmatics/autonity/common/ratelimit github.com/clearmatics/autonity/consensus github.com/clearmatics/autonity/consensus/clique github.com/clearmatics/autonity/consensus/ethash github.com/clearmatics/autonity/consensus/misc github.com/clearmatics/autonity/consensus/tendermint/backend github.com/clearmatics/autonity/consensus/tendermint/config github.com/clearmatics/autonity/consensus/tendermint/core github.com/clearmatics/autonity/consensus/tendermint/crypto github.com/clearmatics/autonity/consensus/tendermint/events github.com/clearmatics/autonity/consensus/tendermint/validator github.com/clearmatics/autonity/consensus/test github.com/clearmatics/autonity/console github.com/clearmatics/autonity/contracts/autonity github.com/clearmatics/autonity/contracts/checkpointoracle github.com/clearmatics/autonity/contracts/checkpointoracle/contract github.com/clearmatics/autonity/core github.com/clearmatics/autonity/core/asm github.com/clearmatics/autonity/core/bloombits github.com/clearmatics/autonity/core/forkid github.com/clearmatics/autonity/core/rawdb github.com/clearmatics/autonity/core/state github.com/clearmatics/autonity/core/types github.com/clearmatics/autonity/core/vm github.com/clearmatics/autonity/core/vm/runtime github.com/clearmatics/autonity/crypto github.com/clearmatics/autonity/crypto/bn256 github.com/clearmatics/autonity/crypto/bn256/cloudflare github.com/clearmatics/autonity/crypto/bn256/google github.com/clearmatics/autonity/crypto/ecies github.com/clearmatics/autonity/crypto/secp256k1 github.com/clearmatics/autonity/eth github.com/clearmatics/autonity/eth/downloader github.com/clearmatics/autonity/eth/fetcher github.com/clearmatics/autonity/eth/filters github.com/clearmatics/autonity/eth/gasprice github.com/clearmatics/autonity/eth/tracers github.com/clearmatics/autonity/eth/tracers/internal/tracers github.com/clearmatics/autonity/ethclient github.com/clearmatics/autonity/ethdb github.com/clearmatics/autonity/ethdb/leveldb github.com/clearmatics/autonity/ethdb/memorydb github.com/clearmatics/autonity/ethstats github.com/clearmatics/autonity/event github.com/clearmatics/autonity/graphql github.com/clearmatics/autonity/internal/build github.com/clearmatics/autonity/internal/cmdtest github.com/clearmatics/autonity/internal/debug github.com/clearmatics/autonity/internal/ethapi github.com/clearmatics/autonity/internal/guide github.com/clearmatics/autonity/internal/jsre github.com/clearmatics/autonity/internal/jsre/deps github.com/clearmatics/autonity/internal/testlog github.com/clearmatics/autonity/internal/web3ext github.com/clearmatics/autonity/les github.com/clearmatics/autonity/les/flowcontrol github.com/clearmatics/autonity/light github.com/clearmatics/autonity/log github.com/clearmatics/autonity/metrics github.com/clearmatics/autonity/metrics/exp github.com/clearmatics/autonity/metrics/influxdb github.com/clearmatics/autonity/metrics/librato github.com/clearmatics/autonity/metrics/prometheus github.com/clearmatics/autonity/miner github.com/clearmatics/autonity/mobile github.com/clearmatics/autonity/node github.com/clearmatics/autonity/p2p github.com/clearmatics/autonity/p2p/discover github.com/clearmatics/autonity/p2p/discv5 github.com/clearmatics/autonity/p2p/enode github.com/clearmatics/autonity/p2p/enr github.com/clearmatics/autonity/p2p/nat github.com/clearmatics/autonity/p2p/netutil github.com/clearmatics/autonity/p2p/simulations github.com/clearmatics/autonity/p2p/simulations/adapters github.com/clearmatics/autonity/p2p/simulations/examples github.com/clearmatics/autonity/p2p/simulations/pipes github.com/clearmatics/autonity/p2p/testing github.com/clearmatics/autonity/params github.com/clearmatics/autonity/rlp github.com/clearmatics/autonity/rpc github.com/clearmatics/autonity/signer/core github.com/clearmatics/autonity/signer/fourbyte github.com/clearmatics/autonity/signer/rules github.com/clearmatics/autonity/signer/rules/deps github.com/clearmatics/autonity/signer/storage github.com/clearmatics/autonity/tests github.com/clearmatics/autonity/trie 
+?   	github.com/clearmatics/autonity	[no test files]
+ok  	github.com/clearmatics/autonity/accounts	0.018s	coverage: 27.7% of statements
+ok  	github.com/clearmatics/autonity/accounts/abi	0.029s	coverage: 89.6% of statements
+ok  	github.com/clearmatics/autonity/accounts/abi/bind	5.580s	coverage: 49.9% of statements
+ok  	github.com/clearmatics/autonity/accounts/abi/bind/backends	0.032s	coverage: 20.8% of statements
+?   	github.com/clearmatics/autonity/accounts/external	[no test files]
+ok  	github.com/clearmatics/autonity/accounts/keystore	14.982s	coverage: 74.4% of statements
+?   	github.com/clearmatics/autonity/accounts/scwallet	[no test files]
+?   	github.com/clearmatics/autonity/accounts/usbwallet	[no test files]
+?   	github.com/clearmatics/autonity/accounts/usbwallet/trezor	[no test files]
+?   	github.com/clearmatics/autonity/cmd/abigen	[no test files]
+ok  	github.com/clearmatics/autonity/cmd/autonity	19.082s	coverage: 1.5% of statements
+?   	github.com/clearmatics/autonity/cmd/bootnode	[no test files]
+?   	github.com/clearmatics/autonity/cmd/checkpoint-admin	[no test files]
+?   	github.com/clearmatics/autonity/cmd/clef	[no test files]
+?   	github.com/clearmatics/autonity/cmd/devp2p	[no test files]
+ok  	github.com/clearmatics/autonity/cmd/ethkey	1.579s	coverage: 1.3% of statements
+?   	github.com/clearmatics/autonity/cmd/evm	[no test files]
+?   	github.com/clearmatics/autonity/cmd/evm/internal/compiler	[no test files]
+?   	github.com/clearmatics/autonity/cmd/faucet	[no test files]
+?   	github.com/clearmatics/autonity/cmd/p2psim	[no test files]
+ok  	github.com/clearmatics/autonity/cmd/puppeth	0.023s	coverage: 7.5% of statements
+?   	github.com/clearmatics/autonity/cmd/rlpdump	[no test files]
+ok  	github.com/clearmatics/autonity/cmd/utils	0.027s	coverage: 2.2% of statements
+ok  	github.com/clearmatics/autonity/common	0.002s	coverage: 39.9% of statements
+ok  	github.com/clearmatics/autonity/common/bitutil	0.004s	coverage: 95.7% of statements
+ok  	github.com/clearmatics/autonity/common/compiler	0.020s	coverage: 35.9% of statements
+?   	github.com/clearmatics/autonity/common/debug	[no test files]
+ok  	github.com/clearmatics/autonity/common/fdlimit	0.002s	coverage: 73.7% of statements
+ok  	github.com/clearmatics/autonity/common/graph	0.003s	coverage: 85.1% of statements
+ok  	github.com/clearmatics/autonity/common/hexutil	0.002s	coverage: 80.9% of statements
+ok  	github.com/clearmatics/autonity/common/math	0.003s	coverage: 92.4% of statements
+?   	github.com/clearmatics/autonity/common/mclock	[no test files]
+?   	github.com/clearmatics/autonity/common/prque	[no test files]
+ok  	github.com/clearmatics/autonity/common/ratelimit	0.003s	coverage: 37.5% of statements
+?   	github.com/clearmatics/autonity/consensus	[no test files]
+?   	github.com/clearmatics/autonity/consensus/clique	[no test files]
+ok  	github.com/clearmatics/autonity/consensus/ethash	13.043s	coverage: 63.3% of statements
+?   	github.com/clearmatics/autonity/consensus/misc	[no test files]
+ok  	github.com/clearmatics/autonity/consensus/tendermint/backend	23.399s	coverage: 82.8% of statements
+?   	github.com/clearmatics/autonity/consensus/tendermint/config	[no test files]
+ok  	github.com/clearmatics/autonity/consensus/tendermint/core	6.062s	coverage: 68.9% of statements
+ok  	github.com/clearmatics/autonity/consensus/tendermint/crypto	0.026s	coverage: 100.0% of statements
+?   	github.com/clearmatics/autonity/consensus/tendermint/events	[no test files]
+ok  	github.com/clearmatics/autonity/consensus/tendermint/validator	0.039s	coverage: 52.8% of statements
+ok  	github.com/clearmatics/autonity/consensus/test	0.023s	coverage: 0.0% of statements
+panic: runtime error: makeslice: len out of range
+
+goroutine 106 [running]:
+github.com/clearmatics/autonity/consensus/clique.(*Clique).snapshot(0xc0000f25b0, 0x12609e0, 0xc0002be000, 0x0, 0x3db2561fce24b2d8, 0x3bce646681877763, 0xfe2cfdbf80f85659, 0x7ce1bfb4477052db, 0x0, 0x0, ...)
+	/mnt/sdb/go/src/github.com/clearmatics/autonity/build/_workspace/src/github.com/clearmatics/autonity/consensus/clique/clique.go:377 +0x487
+github.com/clearmatics/autonity/consensus/clique.(*Clique).Prepare(0xc0000f25b0, 0x12609e0, 0xc0002be000, 0xc000400000, 0x7ce1bfb4477052db, 0x2020202020202020)
+	/mnt/sdb/go/src/github.com/clearmatics/autonity/build/_workspace/src/github.com/clearmatics/autonity/consensus/clique/clique.go:497 +0xec
+github.com/clearmatics/autonity/miner.(*worker).commitNewWork(0xc0001064e0, 0xc000506028, 0x0, 0x5e25b508)
+	/mnt/sdb/go/src/github.com/clearmatics/autonity/build/_workspace/src/github.com/clearmatics/autonity/miner/worker.go:883 +0x39e
+github.com/clearmatics/autonity/miner.(*worker).mainLoop(0xc0001064e0)
+	/mnt/sdb/go/src/github.com/clearmatics/autonity/build/_workspace/src/github.com/clearmatics/autonity/miner/worker.go:425 +0xca4
+created by github.com/clearmatics/autonity/miner.newWorker
+	/mnt/sdb/go/src/github.com/clearmatics/autonity/build/_workspace/src/github.com/clearmatics/autonity/miner/worker.go:217 +0x501
+FAIL	github.com/clearmatics/autonity/console	0.480s
+ok  	github.com/clearmatics/autonity/contracts/autonity	0.024s	coverage: 21.5% of statements
+ok  	github.com/clearmatics/autonity/contracts/checkpointoracle	0.616s	coverage: 0.0% of statements
+?   	github.com/clearmatics/autonity/contracts/checkpointoracle/contract	[no test files]
+--- FAIL: TestChainIndexerSingle (10.00s)
+    chain_indexer_test.go:189: Expected processed block #0, got nothing
+--- FAIL: TestChainIndexerWithChildren (10.01s)
+    chain_indexer_test.go:189: Expected processed block #0, got nothing
+--- FAIL: TestDAOForkRangeExtradata (0.29s)
+    dao_test.go:105: failed to import pro-fork chain for expansion: bad DAO pro-fork extra-data
+--- FAIL: TestDefaultGenesisBlock (0.25s)
+    genesis_test.go:36: wrong mainnet genesis hash, got [246 24 186 137 54 179 216 78 19 87 222 72 223 96 68 147 183 226 17 28 217 233 51 27 58 42 98 181 159 192 52 26], want [212 229 103 64 248 118 174 248 192 16 184 106 64 213 245 103 69 161 24 208 144 106 52 230 154 236 140 13 177 203 143 163]
+    genesis_test.go:40: wrong testnet genesis hash, got [172 192 235 124 197 230 216 24 45 27 189 81 153 200 89 134 173 153 118 129 30 69 231 69 229 27 86 158 254 76 94 109], want [65 148 16 35 104 9 35 224 254 77 116 163 75 218 200 20 31 37 64 227 174 144 98 55 24 228 125 102 209 202 74 45]
+--- FAIL: TestSetupGenesis (0.53s)
+    genesis_test.go:155: no block in DB, genesis == nil: returned hash 0xf618ba8936b3d84e1357de48df604493b7e2111cd9e9331b3a2a62b59fc0341a, want 0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3
+    genesis_test.go:155: mainnet block in DB, genesis == nil: returned hash 0xf618ba8936b3d84e1357de48df604493b7e2111cd9e9331b3a2a62b59fc0341a, want 0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3
+    genesis_test.go:155: custom block in DB, genesis == nil: returned hash 0x6018a5369b06a135ed310215e46c79c0bc3f5072cfc92a782fdcd89ef06075ca, want 0x89c99d90b79719238d2645c7642f2c9295246e80775b38cfd162b696817fbd50
+    genesis_test.go:149: custom block in DB, genesis == testnet: returned error (*core.GenesisMismatchError)database contains incompatible genesis (have 6018a5369b06a135ed310215e46c79c0bc3f5072cfc92a782fdcd89ef06075ca, new acc0eb7cc5e6d8182d1bbd5199c85986ad9976811e45e745e51b569efe4c5e6d), want (*core.GenesisMismatchError)database contains incompatible genesis (have 89c99d90b79719238d2645c7642f2c9295246e80775b38cfd162b696817fbd50, new 41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d)
+    genesis_test.go:155: custom block in DB, genesis == testnet: returned hash 0xacc0eb7cc5e6d8182d1bbd5199c85986ad9976811e45e745e51b569efe4c5e6d, want 0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d
+    genesis_test.go:155: compatible config in DB: returned hash 0x6018a5369b06a135ed310215e46c79c0bc3f5072cfc92a782fdcd89ef06075ca, want 0x89c99d90b79719238d2645c7642f2c9295246e80775b38cfd162b696817fbd50
+    genesis_test.go:155: incompatible config in DB: returned hash 0x6018a5369b06a135ed310215e46c79c0bc3f5072cfc92a782fdcd89ef06075ca, want 0x89c99d90b79719238d2645c7642f2c9295246e80775b38cfd162b696817fbd50
+--- FAIL: ExampleGenerateChain (0.08s)
+got:
+insert error (block 4): uncle is ancestor
+want:
+last block: #5
+balance of addr1: 989000
+balance of addr2: 10000
+balance of addr3: 19687500000000001000
+FAIL
+coverage: 70.0% of statements
+FAIL	github.com/clearmatics/autonity/core	40.831s
+ok  	github.com/clearmatics/autonity/core/asm	0.019s	coverage: 38.2% of statements
+ok  	github.com/clearmatics/autonity/core/bloombits	2.531s	coverage: 95.5% of statements
+ok  	github.com/clearmatics/autonity/core/forkid	0.020s	coverage: 85.5% of statements
+--- FAIL: TestHeaderStorage (0.00s)
+    accessors_chain_test.go:46: Stored header not found
+--- FAIL: TestBodyStorage (0.00s)
+    accessors_chain_test.go:84: Stored body not found
+|-----------------|
+| fileno | offset |
+|--------+--------|
+|  000   |  000   | 
+|  000   |  020   | 
+|  000   |  040   | 
+|  001   |  020   | 
+|  001   |  040   | 
+|  002   |  020   | 
+|  002   |  040   | 
+|-----------------|
+|-----------------|
+| fileno | offset |
+|--------+--------|
+|  004   |  002   | 
+|  002   |  020   | 
+|  002   |  040   | 
+|-----------------|
+FAIL
+coverage: 39.1% of statements
+FAIL	github.com/clearmatics/autonity/core/rawdb	23.525s
+ok  	github.com/clearmatics/autonity/core/state	7.242s	coverage: 78.0% of statements
+--- FAIL: TestHeaderHash (0.00s)
+    bft_test.go:132: test 3, expected: 0x4ceafbc550a2f60288e7bdfef92a71a65346d184304b526e28cc56a478e12080, but got: 0x9acfd617b26d948236857039f3e63d48f23cfc6c8693c7a564ce1e67df0f587c
+    bft_test.go:132: test 4, expected: 0x4ceafbc550a2f60288e7bdfef92a71a65346d184304b526e28cc56a478e12080, but got: 0x9acfd617b26d948236857039f3e63d48f23cfc6c8693c7a564ce1e67df0f587c
+    bft_test.go:132: test 5, expected: 0x4ceafbc550a2f60288e7bdfef92a71a65346d184304b526e28cc56a478e12080, but got: 0x9acfd617b26d948236857039f3e63d48f23cfc6c8693c7a564ce1e67df0f587c
+    bft_test.go:132: test 6, expected: 0xf5d460ed44edb6c81ab9ff1979126704e18777986c064d0023aa87bb4a2a7ea5, but got: 0xdf95f3ce4042e30ce57b2bcab9d9ebff1612035ef8abfe2213e6aa77f6e43abc
+    bft_test.go:132: test 7, expected: 0x4ceafbc550a2f60288e7bdfef92a71a65346d184304b526e28cc56a478e12080, but got: 0x9acfd617b26d948236857039f3e63d48f23cfc6c8693c7a564ce1e67df0f587c
+    bft_test.go:132: test 8, expected: 0x4ceafbc550a2f60288e7bdfef92a71a65346d184304b526e28cc56a478e12080, but got: 0x9acfd617b26d948236857039f3e63d48f23cfc6c8693c7a564ce1e67df0f587c
+    bft_test.go:132: test 9, expected: 0x4ceafbc550a2f60288e7bdfef92a71a65346d184304b526e28cc56a478e12080, but got: 0x9acfd617b26d948236857039f3e63d48f23cfc6c8693c7a564ce1e67df0f587c
+    bft_test.go:132: test 10, expected: 0x4ceafbc550a2f60288e7bdfef92a71a65346d184304b526e28cc56a478e12080, but got: 0x9acfd617b26d948236857039f3e63d48f23cfc6c8693c7a564ce1e67df0f587c
+    bft_test.go:132: test 11, expected: 0x5d29fd91067324583e8203615ca019679ca5024b8d91cfb3f9710feffd65b6d2, but got: 0x0e006ab23161c9d88dab8cf00b6de143f1230b8f8a9d6b91ed10bb788edb9e4f
+FAIL
+coverage: 45.3% of statements
+FAIL	github.com/clearmatics/autonity/core/types	0.227s
+ok  	github.com/clearmatics/autonity/core/vm	0.096s	coverage: 27.5% of statements
+ok  	github.com/clearmatics/autonity/core/vm/runtime	0.023s	coverage: 76.7% of statements
+ok  	github.com/clearmatics/autonity/crypto	0.052s	coverage: 80.5% of statements
+?   	github.com/clearmatics/autonity/crypto/bn256	[no test files]
+ok  	github.com/clearmatics/autonity/crypto/bn256/cloudflare	0.079s	coverage: 81.3% of statements
+ok  	github.com/clearmatics/autonity/crypto/bn256/google	0.519s	coverage: 91.6% of statements
+flag provided but not defined: -test.timeout
+Usage of /tmp/go-build060638958/b530/ecies.test:
+  -dump
+    	write encrypted test message to file
+FAIL	github.com/clearmatics/autonity/crypto/ecies	0.018s
+ok  	github.com/clearmatics/autonity/crypto/secp256k1	0.984s	coverage: 30.6% of statements
+--- FAIL: TestGetNodeData63 (0.01s)
+panic: uncle is ancestor [recovered]
+	panic: uncle is ancestor
+
+goroutine 1377 [running]:
+testing.tRunner.func1(0xc00a36a300)
+	/snap/go/current/src/testing/testing.go:874 +0x3a3
+panic(0xc20f60, 0xc0001a5630)
+	/snap/go/current/src/runtime/panic.go:679 +0x1b2
+github.com/clearmatics/autonity/eth.newTestProtocolManager(0x0, 0x4, 0xc00a489ec8, 0x0, 0xc00a489e48, 0x1, 0x1, 0x0, 0x0, 0x0, ...)
+	/mnt/sdb/go/src/github.com/clearmatics/autonity/build/_workspace/src/github.com/clearmatics/autonity/eth/helper_test.go:88 +0x8b7
+github.com/clearmatics/autonity/eth.newTestProtocolManagerMust(0xc00a36a300, 0x0, 0x4, 0xc00a3e3ec8, 0x0, 0xc00a3e3e48, 0x1, 0x1, 0x0, 0x20, ...)
+	/mnt/sdb/go/src/github.com/clearmatics/autonity/build/_workspace/src/github.com/clearmatics/autonity/eth/helper_test.go:103 +0x8e
+github.com/clearmatics/autonity/eth.testGetNodeData(0xc00a36a300, 0x3f)
+	/mnt/sdb/go/src/github.com/clearmatics/autonity/build/_workspace/src/github.com/clearmatics/autonity/eth/handler_test.go:318 +0x245
+github.com/clearmatics/autonity/eth.TestGetNodeData63(0xc00a36a300)
+	/mnt/sdb/go/src/github.com/clearmatics/autonity/build/_workspace/src/github.com/clearmatics/autonity/eth/handler_test.go:277 +0x34
+testing.tRunner(0xc00a36a300, 0xda0948)
+	/snap/go/current/src/testing/testing.go:909 +0xc9
+created by testing.(*T).Run
+	/snap/go/current/src/testing/testing.go:960 +0x350
+FAIL	github.com/clearmatics/autonity/eth	0.313s
+ok  	github.com/clearmatics/autonity/eth/downloader	27.419s	coverage: 78.2% of statements
+ok  	github.com/clearmatics/autonity/eth/fetcher	8.275s	coverage: 90.1% of statements
+ok  	github.com/clearmatics/autonity/eth/filters	1.475s	coverage: 52.9% of statements
+?   	github.com/clearmatics/autonity/eth/gasprice	[no test files]
+ok  	github.com/clearmatics/autonity/eth/tracers	0.139s	coverage: 75.6% of statements
+?   	github.com/clearmatics/autonity/eth/tracers/internal/tracers	[no test files]
+--- FAIL: TestHeader (0.01s)
+    --- FAIL: TestHeader/genesis (0.00s)
+        ethclient_test.go:253: HeaderByNumber(0)
+               = &{[0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [29 204 77 232 222 199 93 122 171 133 181 103 182 204 212 26 211 18 69 27 148 138 116 19 240 161 66 253 64 212 147 71] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [12 144 135 207 177 79 75 146 190 183 27 205 179 10 115 87 141 19 238 3 250 62 71 153 89 106 84 86 197 46 84 246] [86 232 31 23 27 204 85 166 255 131 69 230 146 192 248 110 91 72 224 27 153 108 173 192 1 98 47 181 227 99 180 33] [86 232 31 23 27 204 85 166 255 131 69 230 146 192 248 110 91 72 224 27 153 108 173 192 1 98 47 181 227 99 180 33] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] 131072 0 4712388 0 9000 [197 192 128 128 192 192] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [0 0 0 0 0 0 0 0]  [] <nil> [] []}
+            want &{[0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [29 204 77 232 222 199 93 122 171 133 181 103 182 204 212 26 211 18 69 27 148 138 116 19 240 161 66 253 64 212 147 71] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [12 144 135 207 177 79 75 146 190 183 27 205 179 10 115 87 141 19 238 3 250 62 71 153 89 106 84 86 197 46 84 246] [86 232 31 23 27 204 85 166 255 131 69 230 146 192 248 110 91 72 224 27 153 108 173 192 1 98 47 181 227 99 180 33] [86 232 31 23 27 204 85 166 255 131 69 230 146 192 248 110 91 72 224 27 153 108 173 192 1 98 47 181 227 99 180 33] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] 131072 0 4712388 0 9000 [116 101 115 116 32 103 101 110 101 115 105 115] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [0 0 0 0 0 0 0 0]  [] 0 [] []}
+    --- FAIL: TestHeader/first_block (0.00s)
+        ethclient_test.go:253: HeaderByNumber(1)
+               = &{[74 46 127 77 54 25 195 241 53 39 28 115 71 97 116 16 160 166 89 97 168 78 3 175 184 78 127 19 98 47 237 163] [29 204 77 232 222 199 93 122 171 133 181 103 182 204 212 26 211 18 69 27 148 138 116 19 240 161 66 253 64 212 147 71] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [105 174 127 40 231 97 231 182 52 112 60 180 167 248 12 255 72 127 8 2 173 45 16 93 142 197 71 215 112 168 229 148] [86 232 31 23 27 204 85 166 255 131 69 230 146 192 248 110 91 72 224 27 153 108 173 192 1 98 47 181 227 99 180 33] [86 232 31 23 27 204 85 166 255 131 69 230 146 192 248 110 91 72 224 27 153 108 173 192 1 98 47 181 227 99 180 33] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] 131072 1 4712388 0 9015 [197 192 128 128 192 192] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [0 0 0 0 0 0 0 0]  [] <nil> [] []}
+            want &{[74 46 127 77 54 25 195 241 53 39 28 115 71 97 116 16 160 166 89 97 168 78 3 175 184 78 127 19 98 47 237 163] [29 204 77 232 222 199 93 122 171 133 181 103 182 204 212 26 211 18 69 27 148 138 116 19 240 161 66 253 64 212 147 71] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [105 174 127 40 231 97 231 182 52 112 60 180 167 248 12 255 72 127 8 2 173 45 16 93 142 197 71 215 112 168 229 148] [86 232 31 23 27 204 85 166 255 131 69 230 146 192 248 110 91 72 224 27 153 108 173 192 1 98 47 181 227 99 180 33] [86 232 31 23 27 204 85 166 255 131 69 230 146 192 248 110 91 72 224 27 153 108 173 192 1 98 47 181 227 99 180 33] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] 131072 1 4712388 0 9015 [116 101 115 116] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [0 0 0 0 0 0 0 0]  [] 0 [] []}
+FAIL
+coverage: 14.0% of statements
+FAIL	github.com/clearmatics/autonity/ethclient	0.042s
+?   	github.com/clearmatics/autonity/ethdb	[no test files]
+?   	github.com/clearmatics/autonity/ethdb/leveldb	[no test files]
+ok  	github.com/clearmatics/autonity/ethdb/memorydb	0.002s	coverage: 28.6% of statements
+?   	github.com/clearmatics/autonity/ethstats	[no test files]
+ok  	github.com/clearmatics/autonity/event	0.547s	coverage: 92.8% of statements
+ok  	github.com/clearmatics/autonity/graphql	0.026s	coverage: 2.0% of statements
+?   	github.com/clearmatics/autonity/internal/build	[no test files]
+?   	github.com/clearmatics/autonity/internal/cmdtest	[no test files]
+?   	github.com/clearmatics/autonity/internal/debug	[no test files]
+?   	github.com/clearmatics/autonity/internal/ethapi	[no test files]
+ok  	github.com/clearmatics/autonity/internal/guide	11.551s	coverage: [no statements]
+ok  	github.com/clearmatics/autonity/internal/jsre	0.112s	coverage: 48.5% of statements
+?   	github.com/clearmatics/autonity/internal/jsre/deps	[no test files]
+?   	github.com/clearmatics/autonity/internal/testlog	[no test files]
+?   	github.com/clearmatics/autonity/internal/web3ext	[no test files]
+flag provided but not defined: -test.timeout
+Usage of /tmp/go-build060638958/b591/les.test:
+  -adapter string
+    	type of simulation: sim|socket|exec|docker (default "exec")
+  -loglevel int
+    	verbosity of logs
+  -nodes int
+    	number of nodes
+FAIL	github.com/clearmatics/autonity/les	0.025s
+ok  	github.com/clearmatics/autonity/les/flowcontrol	10.530s	coverage: 37.9% of statements
+ok  	github.com/clearmatics/autonity/light	0.726s	coverage: 38.4% of statements
+?   	github.com/clearmatics/autonity/log	[no test files]
+ok  	github.com/clearmatics/autonity/metrics	0.277s	coverage: 48.9% of statements
+?   	github.com/clearmatics/autonity/metrics/exp	[no test files]
+?   	github.com/clearmatics/autonity/metrics/influxdb	[no test files]
+?   	github.com/clearmatics/autonity/metrics/librato	[no test files]
+?   	github.com/clearmatics/autonity/metrics/prometheus	[no test files]
+ok  	github.com/clearmatics/autonity/miner	2.633s	coverage: 65.6% of statements
+ok  	github.com/clearmatics/autonity/mobile	0.025s	coverage: 17.0% of statements
+ok  	github.com/clearmatics/autonity/node	0.812s	coverage: 43.1% of statements
+ok  	github.com/clearmatics/autonity/p2p	0.470s	coverage: 69.6% of statements
+ok  	github.com/clearmatics/autonity/p2p/discover	10.365s	coverage: 74.6% of statements
+ok  	github.com/clearmatics/autonity/p2p/discv5	9.207s	coverage: 43.6% of statements
+--- FAIL: TestParseNodeWithDomainResolution (0.01s)
+    urlv4_resolve_test.go:155: test "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@gdns.oogle.com:3":
+          unexpected error: invalid domain or IP address
+    urlv4_resolve_test.go:155: test "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@dns.google.com":
+          unexpected error: invalid domain or IP address
+FAIL
+coverage: 75.5% of statements
+FAIL	github.com/clearmatics/autonity/p2p/enode	0.321s
+ok  	github.com/clearmatics/autonity/p2p/enr	0.003s	coverage: 62.3% of statements
+ok  	github.com/clearmatics/autonity/p2p/nat	0.507s	coverage: 5.5% of statements
+ok  	github.com/clearmatics/autonity/p2p/netutil	0.007s	coverage: 84.1% of statements
+flag provided but not defined: -test.timeout
+Usage of /tmp/go-build060638958/b635/simulations.test:
+  -loglevel int
+    	verbosity of logs (default 2)
+FAIL	github.com/clearmatics/autonity/p2p/simulations	0.022s
+ok  	github.com/clearmatics/autonity/p2p/simulations/adapters	0.029s	coverage: 0.2% of statements
+?   	github.com/clearmatics/autonity/p2p/simulations/examples	[no test files]
+?   	github.com/clearmatics/autonity/p2p/simulations/pipes	[no test files]
+?   	github.com/clearmatics/autonity/p2p/testing	[no test files]
+ok  	github.com/clearmatics/autonity/params	0.020s	coverage: 46.7% of statements
+ok  	github.com/clearmatics/autonity/rlp	0.008s	coverage: 96.4% of statements
+ok  	github.com/clearmatics/autonity/rpc	6.655s	coverage: 77.7% of statements
+ok  	github.com/clearmatics/autonity/signer/core	3.941s	coverage: 41.3% of statements
+ok  	github.com/clearmatics/autonity/signer/fourbyte	2.235s	coverage: 48.1% of statements
+ok  	github.com/clearmatics/autonity/signer/rules	0.121s	coverage: 77.1% of statements
+?   	github.com/clearmatics/autonity/signer/rules/deps	[no test files]
+ok  	github.com/clearmatics/autonity/signer/storage	0.003s	coverage: 52.3% of statements
+flag provided but not defined: -test.timeout
+Usage of /tmp/go-build060638958/b667/tests.test:
+  -vm.evm string
+    	External EVM configuration (default = built-in interpreter)
+  -vm.ewasm string
+    	External ewasm configuration (default = built-in interpreter)
+FAIL	github.com/clearmatics/autonity/tests	0.024s
+ok  	github.com/clearmatics/autonity/trie	3.347s	coverage: 69.4% of statements
+FAIL
+util.go:45: exit status 1
+exit status 1
+Makefile:37: recipe for target 'test' failed
+make: *** [test] Error 1

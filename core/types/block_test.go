@@ -23,7 +23,9 @@ import (
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/debug"
 	"github.com/clearmatics/autonity/rlp"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // from bcValidBlockTest.json, "SimpleTx"
@@ -60,7 +62,13 @@ func TestBlockEncoding(t *testing.T) {
 		t.Fatal("encode error: ", err)
 	}
 	if !bytes.Equal(ourBlockEnc, blockEnc) {
-		t.Errorf("encoded block mismatch:\ngot:  %x\nwant: %x", ourBlockEnc, blockEnc)
+		var blockRestored Block
+		if err := rlp.DecodeBytes(ourBlockEnc, &blockRestored); err != nil {
+			t.Fatal("decode error: ", err)
+		}
+
+		debug.Diff(blockRestored, block)
+		t.Errorf("encoded block mismatch:\ngot:  %x\nwant: %x\n%v\n%v", ourBlockEnc, blockEnc, spew.Sdump(block), len(block.Extra()))
 	}
 }
 

@@ -85,7 +85,10 @@ func verifyTest(wg *sync.WaitGroup, e *Ethash, workerIndex, epochs int) {
 		if block < 0 {
 			block = 0
 		}
-		header := &types.Header{Number: big.NewInt(block), Difficulty: big.NewInt(100)}
+		header := &types.Header{
+			Number:     big.NewInt(block),
+			Difficulty: big.NewInt(100),
+		}
 		e.VerifySeal(nil, header)
 	}
 }

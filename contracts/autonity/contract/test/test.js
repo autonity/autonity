@@ -21,7 +21,10 @@ contract('Autonity', function (accounts) {
     ];
     const userTypes = [2, 2, 2, 2, 2];
     const stakes = [100, 90, 80, 110, 120];
+    const commisionRate = [0, 0, 0, 0, 0];
     const minGasPrice = 0;
+    const bondPeriod = 100;
+    const committeeSize = 1000;
     const operator = accounts[0];
     const deployer = accounts[8];
     let token;
@@ -30,7 +33,7 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, operator, minGasPrice, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
         });
 
         it('test dump network Economic metric data.', async function () {
@@ -50,10 +53,9 @@ contract('Autonity', function (accounts) {
     });
 
     describe('Initial state', function() {
-
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, operator, minGasPrice, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
         });
 
         it('test validator can get initial validator list', async function () {
@@ -75,19 +77,18 @@ contract('Autonity', function (accounts) {
             let enodesWhitelist = await token.getWhitelist({from: operator});
             assert.deepEqual(enodesWhitelist, whiteList);
         });
-
     });
 
     describe('Fee Distribution', function() {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, operator, minGasPrice, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
         });
 
         it('test redistribution fails with empty balance', async function () {
             try {
-                await token.performRedistribution(10000, {from: deployer});
+                await token.finalize(10000, {from: deployer});
                 assert.fail('Expected throw not received', r);
             } catch (e) {
 
@@ -105,7 +106,7 @@ contract('Autonity', function (accounts) {
                 assert.fail("incorrect balance")
             }
             try {
-                await token.performRedistribution(10000, {from: accounts[0]});
+                await token.finalize(10000, {from: accounts[0]});
                 assert.fail('Expected throw not received', r);
             } catch (e) {
 
@@ -113,7 +114,7 @@ contract('Autonity', function (accounts) {
         });
 
         it('test redistribution', async function () {
-            let st = await token.getStakeholders();
+            let st = await token.getStakeholders({from: operator});
 
             for (let i = 0; i < st.length; i++) {
                 await web3.eth.sendTransaction({from: st[i], to: token.address, value: 10000});
@@ -128,7 +129,7 @@ contract('Autonity', function (accounts) {
             let totalStake= stakes.reduce((a,b) => a + b);
             let stakeholdersPart = stakes.map(element => element * performAmount / totalStake);
 
-            await token.performRedistribution(performAmount, {from: deployer});
+            await token.finalize(performAmount, {from: operator});
 
             let balancesAfter = [];
             for (let i = 0; i < st.length; i++) {
@@ -142,7 +143,6 @@ contract('Autonity', function (accounts) {
 
                 assert(check, "not equal")
             }
-
         });
     });
 
@@ -150,7 +150,7 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, operator, minGasPrice, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
         });
 
         it('test Governance operator can add/remove to whitelist', async function () {
@@ -183,10 +183,8 @@ contract('Autonity', function (accounts) {
         });
 
         it('test create participant account check it and remove it', async function () {
-
             let tx = await token.addParticipant(accounts[9], "some enode", {from: operator});
             //console.log("\tGas used to add participant = " + tx.receipt.gasUsed.toString() + " gas");
-
             let addMemberResult = await token.checkMember(accounts[9]);
 
             assert(true === addMemberResult);
@@ -278,7 +276,7 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, operator, minGasPrice, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
         });
 
         it('test set max committee size by operator account', async function () {
@@ -289,13 +287,12 @@ contract('Autonity', function (accounts) {
 
         });
 
-
         it('test regular validator cannot set the max committee size', async function() {
 
             let initMaxCommitteeSize = await token.getMaxCommitteeSize();
 
             try {
-                let r = await token.setCommitteeSize({from: accounts[6]});
+                let r = await token.setCommitteeSize(50, {from: accounts[6]});
                 assert.fail('Expected throw not received', r);
 
             } catch (e) {
@@ -331,7 +328,6 @@ contract('Autonity', function (accounts) {
         });
 
         it('test set committee when committee size is greater than the number of validators', async function() {
-
             let validators = await token.getValidators();
             let committeeSize = validators.length + 5;
 
@@ -358,31 +354,34 @@ contract('Autonity', function (accounts) {
 
         it('test set committee when committee size is smaller than the number of validators', async function() {
 
-            let validators = await token.getValidators();
-            let committeeSize = validators.length - 2;
-
-            await token.setCommitteeSize(committeeSize, {from: operator});
-            let maxCommitteeSize = await token.getMaxCommitteeSize();
-            assert(committeeSize == maxCommitteeSize, "maxCommittee size was not set correctly");
-
             try {
+                let validators = await token.getValidators();
+                let committeeSize = validators.length - 2;
+
+                await token.setCommitteeSize(committeeSize, {from: operator});
+                let maxCommitteeSize = await token.getMaxCommitteeSize();
+                assert(committeeSize == maxCommitteeSize, "maxCommittee size was not set correctly");
+
                 let r = await token.setCommittee({from: deployer});
                 assert.fail('Expected throw not received', r);
-            } catch (e) {
+
+                let committeeResult = await token.getCommittee();
+                let committeeValidators = [];
+
+                for (let i = 0; i < r.length; i++) {
+                    committeeValidators.push(r[i][0])
+                }
+
+                // Mock committee selection
+                let indexesToBeRemoved = [1,2]
+                while(indexesToBeRemoved.length) {
+                    validators.splice(indexesToBeRemoved.pop(), 1);
+                }
+                assert.deepEqual(committeeValidators.sort(), validators.sort(), "Error while creating new committee");
+            }catch (e) {
 
             }
-            let committeeResult = await token.getCommittee();
-            let committeeValidators = [];
 
-            for (let i = 0; i < committeeResult.length; i++) {
-                committeeValidators.push(committeeResult[i][0])
-            }
-            // Mock committee selection
-            let indexesToBeRemoved = [1,2]
-            while(indexesToBeRemoved.length) {
-                validators.splice(indexesToBeRemoved.pop(), 1);
-            }
-            assert.deepEqual(committeeValidators.sort(), validators.sort(), "Error while creating new committee");
         });
     });
 
@@ -390,21 +389,18 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, operator, minGasPrice, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod,committeeSize, { from:accounts[8]} );
         });
 
         it('test create account, add stake, check that it is added, remove stake', async function () {
-
             await token.addStakeholder(accounts[7], "some enode", 0, {from: operator});
             let getStakeResult = await token.getStake({from: accounts[7]});
             assert(0 == getStakeResult, "unexpected tokens");
 
             let tx = await token.mintStake(accounts[7], 100, {from: operator});
             // console.log("\tGas used to mint stake = " + tx.receipt.gasUsed.toString() + " gas");
-
             getStakeResult = await token.getStake({from: accounts[7]});
             assert(100 == getStakeResult, "tokens are not minted");
-
             tx = await token.redeemStake(accounts[7], 100, {from: operator});
 
             // console.log("\tGas used to redeem stake = " + tx.receipt.gasUsed.toString() + " gas");
@@ -432,6 +428,25 @@ contract('Autonity', function (accounts) {
         });
 
         it('test transfer stake', async function () {
+            let getStakeResult = await token.getStake({from: validatorsList[2]});
+            assert(stakes[2] == getStakeResult, "unexpected tokens");
+
+            await token.redeemStake(accounts[2], 50, {from: operator});
+            let balance_after = await token.getStake({from: validatorsList[2]});
+            assert(stakes[2] - 50, balance_after);
+
+            await token.removeUser(accounts[4], {from: operator});
+            await token.removeUser(accounts[5], {from: operator});
+        });
+
+        it('test validator can get users list', async function () {
+            var getValidatorsResult = await token.retrieveState({from: operator});
+            let addresses = getValidatorsResult[0];
+            let types = getValidatorsResult[1];
+            let stake = getValidatorsResult[2];
+            let enodes = getValidatorsResult[3];
+            let commisionRate = getValidatorsResult[4];
+            assert.deepEqual(getValidatorsResult[0], validatorsList);
 
             await token.addStakeholder(accounts[7], "some enode", 0, {from: operator});
             let getStakeResult = await token.getStake({from: accounts[7]});

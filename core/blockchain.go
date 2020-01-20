@@ -28,6 +28,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/mclock"
 	"github.com/clearmatics/autonity/common/prque"
@@ -44,7 +46,6 @@ import (
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/clearmatics/autonity/trie"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -253,7 +254,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
-	if chainConfig.Tendermint != nil || chainConfig.Istanbul != nil {
+	if chainConfig.Tendermint != nil {
 		if chainConfig.AutonityContractConfig == nil {
 			return nil, errors.New("we need autonity contract specified for tendermint or istanbul consensus")
 		}
@@ -1312,16 +1313,15 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		return NonStatTy, err
 	}
 
-	if bc.chainConfig.Istanbul != nil || bc.chainConfig.Tendermint != nil {
+	if bc.chainConfig.Tendermint != nil {
 		// Call network permissioning logic before committing the state
 		err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
 		if err != nil && err != autonity.ErrAutonityContract {
 			return NonStatTy, err
 		}
+
 		// Measure network economic metrics.
-		if bc.chainConfig.Tendermint != nil {
-			bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
-		}
+		bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
 	}
 
 	rawdb.WriteBlock(bc.db, block)
@@ -1636,10 +1636,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		// just skip the block (we already validated it once fully (and crashed), since
 		// its header and body was already in the database).
 		if err == ErrKnownBlock {
-			logger := log.Debug
-			if bc.chainConfig.Clique == nil {
-				logger = log.Warn
-			}
+			logger := log.Warn
 			logger("Inserted known block", "number", block.Number(), "hash", block.Hash(),
 				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
@@ -2288,6 +2285,14 @@ func (bc *BlockChain) UpdateEnodeWhitelist(newWhitelist *types.Nodes) {
 
 func (bc *BlockChain) ReadEnodeWhitelist(openNetwork bool) *types.Nodes {
 	return rawdb.ReadEnodeWhitelist(bc.db, openNetwork)
+}
+
+func (bc *BlockChain) PutKeyValue(key []byte, value []byte) error {
+	return rawdb.PutKeyValue(bc.db, key, value)
+}
+
+func (bc *BlockChain) GetKeyValue(key []byte) ([]byte, error) {
+	return rawdb.GetKeyValue(bc.db, key)
 }
 
 // addJob should be called only for public methods

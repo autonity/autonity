@@ -3,13 +3,12 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math/big"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/consensus/istanbul"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/eth/gasprice"
@@ -42,7 +41,6 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		TrieTimeout             time.Duration
 		Miner                   miner.Config
 		Ethash                  ethash.Config
-		Istanbul                istanbul.Config
 		Tendermint              config.Config
 		TxPool                  core.TxPoolConfig
 		GPO                     gasprice.Config
@@ -78,7 +76,6 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.TrieTimeout = c.TrieTimeout
 	enc.Miner = c.Miner
 	enc.Ethash = c.Ethash
-	enc.Istanbul = c.Istanbul
 	enc.Tendermint = c.Tendermint
 	enc.TxPool = c.TxPool
 	enc.GPO = c.GPO
@@ -118,7 +115,6 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		TrieTimeout             *time.Duration
 		Miner                   *miner.Config
 		Ethash                  *ethash.Config
-		Istanbul                *istanbul.Config
 		Tendermint              *config.Config
 		TxPool                  *core.TxPoolConfig
 		GPO                     *gasprice.Config
@@ -200,9 +196,6 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	}
 	if dec.Ethash != nil {
 		c.Ethash = *dec.Ethash
-	}
-	if dec.Istanbul != nil {
-		c.Istanbul = *dec.Istanbul
 	}
 	if dec.Tendermint != nil {
 		c.Tendermint = *dec.Tendermint

@@ -7,6 +7,7 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.7.0
 	github.com/Azure/go-autorest/autorest/adal v0.8.0 // indirect
 	github.com/JekaMas/notify v0.9.4
+	github.com/JekaMas/pretty v0.0.0-20161213095928-bfc6f9ec9574
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.3
 	github.com/alecthomas/participle v0.4.1

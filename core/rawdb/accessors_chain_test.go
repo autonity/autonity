@@ -29,6 +29,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
+	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -37,7 +38,7 @@ func TestHeaderStorage(t *testing.T) {
 	db := NewMemoryDatabase()
 
 	// Create a test header to move around the database and make sure it's really new
-	header := &types.Header{Number: big.NewInt(42), Extra: []byte("test header")}
+	header := &types.Header{Number: big.NewInt(42), Extra: []byte("test header"), MixDigest: types.BFTDigest}
 	if entry := ReadHeader(db, header.Hash(), header.Number.Uint64()); entry != nil {
 		t.Fatalf("Non existent header returned: %v", entry)
 	}
@@ -183,7 +184,7 @@ func TestPartialBlockStorage(t *testing.T) {
 	if entry := ReadBlock(db, block.Hash(), block.NumberU64()); entry == nil {
 		t.Fatalf("Stored block not found")
 	} else if entry.Hash() != block.Hash() {
-		t.Fatalf("Retrieved block mismatch: have %v, want %v", entry, block)
+		t.Fatalf("Retrieved block mismatch: have %v, want %v", spew.Sdump(entry), spew.Sdump(block))
 	}
 }
 

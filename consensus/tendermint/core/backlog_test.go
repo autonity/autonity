@@ -90,7 +90,7 @@ func TestStoreBacklog(t *testing.T) {
 			currentRoundState: NewRoundState(big.NewInt(1), big.NewInt(2)),
 		}
 
-		val := validator.New(addr)
+		val := validator.New(addr, new(big.Int).SetUint64(1))
 		c.storeBacklog(nil, val)
 
 		if c.backlogs[val] != nil {
@@ -121,7 +121,7 @@ func TestStoreBacklog(t *testing.T) {
 			Msg:  votePayload,
 		}
 
-		val := validator.New(common.HexToAddress("0x0987654321"))
+		val := validator.New(common.HexToAddress("0x0987654321"), new(big.Int).SetUint64(1))
 		c.storeBacklog(msg, val)
 
 		pque := c.backlogs[val]
@@ -157,7 +157,7 @@ func TestStoreBacklog(t *testing.T) {
 			Msg:  proposalPayload,
 		}
 
-		val := validator.New(common.HexToAddress("0x0987654321"))
+		val := validator.New(common.HexToAddress("0x0987654321"), new(big.Int).SetUint64(1))
 
 		c.storeBacklog(msg, val)
 		pque := c.backlogs[val]

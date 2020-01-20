@@ -17,6 +17,8 @@
 package validator
 
 import (
+	"github.com/clearmatics/autonity/core/types"
+	"math/big"
 	"strings"
 
 	"github.com/clearmatics/autonity/common"
@@ -25,10 +27,20 @@ import (
 
 type Validator interface {
 	// Address returns address
-	Address() common.Address
+	GetAddress() common.Address
 
 	// String representation of Validator
 	String() string
+
+	// Return Voting Power
+	GetVotingPower() *big.Int
+}
+
+func New(address common.Address, votingPower *big.Int) Validator {
+	return types.CommitteeMember{
+		Address:     address,
+		VotingPower: new(big.Int).Set(votingPower),
+	}
 }
 
 // ----------------------------------------------------------------------------

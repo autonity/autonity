@@ -362,8 +362,6 @@ func (c *ChainConfig) String() string {
 		engine = c.Ethash
 	case c.Clique != nil:
 		engine = c.Clique
-	case c.Istanbul != nil:
-		engine = c.Istanbul
 	case c.Tendermint != nil:
 		engine = c.Tendermint
 	default:
@@ -606,9 +604,6 @@ func (c *ChainConfig) Copy() *ChainConfig {
 	}
 	if c.Clique != nil {
 		cfg.Clique = &(*c.Clique)
-	}
-	if c.Istanbul != nil {
-		cfg.Istanbul = &(*c.Istanbul)
 	}
 	if c.Tendermint != nil {
 		cfg.Tendermint = &(*c.Tendermint)

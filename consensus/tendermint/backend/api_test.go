@@ -23,7 +23,7 @@ func TestGetValidators(t *testing.T) {
 	want := []common.Address{addr}
 
 	val := validator.NewMockValidator(ctrl)
-	val.EXPECT().Address().Return(addr)
+	val.EXPECT().Addr().Return(addr)
 
 	valSet := validator.NewMockSet(ctrl)
 	valSet.EXPECT().List().Return([]validator.Validator{val})
@@ -80,7 +80,7 @@ func TestGetValidatorsAtHash(t *testing.T) {
 		chain.EXPECT().GetHeaderByHash(hash).Return(&types.Header{Number: big.NewInt(1)})
 
 		val := validator.NewMockValidator(ctrl)
-		val.EXPECT().Address().Return(addr)
+		val.EXPECT().Addr().Return(addr)
 
 		valSet := validator.NewMockSet(ctrl)
 		valSet.EXPECT().List().Return([]validator.Validator{val})
