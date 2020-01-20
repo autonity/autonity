@@ -235,196 +235,7 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 		}
 
 		wg.Go(func() error {
-			var err error
-			testCanBeStopped := new(uint32)
-			fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
-
-		wgLoop:
-			for {
-				select {
-				case ev := <-validator.eventChan:
-					if _, ok := validator.blocks[ev.Block.NumberU64()]; ok {
-						continue
-					}
-
-					// before hook
-					err = runHook(test.getBeforeHook(index), test, ev.Block, validator, index)
-					if err != nil {
-						return err
-					}
-
-					validator.blocks[ev.Block.NumberU64()] = block{ev.Block.Hash(), len(ev.Block.Transactions())}
-					validator.lastBlock = ev.Block.NumberU64()
-
-					logger.Error("last mined block", "validator", index,
-						"num", validator.lastBlock, "hash", validator.blocks[ev.Block.NumberU64()].hash,
-						"txCount", validator.blocks[ev.Block.NumberU64()].txs)
-
-					if atomic.LoadUint32(testCanBeStopped) == 1 {
-						if atomic.LoadInt64(test.validatorsCanBeStopped) == int64(len(validators)) {
-							break wgLoop
-						}
-						if atomic.LoadInt64(test.validatorsCanBeStopped) > int64(len(validators)) {
-							return fmt.Errorf("something is wrong. %d of %d validators are ready to be stopped", atomic.LoadInt64(test.validatorsCanBeStopped), uint32(len(validators)))
-						}
-						continue
-					}
-
-					// actual forming and sending transaction
-					logger.Debug("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64(), "isRunning", validator.isRunning)
-
-					if validator.isRunning {
-						txsMu.Lock()
-						if _, ok := txs[validator.lastBlock]; !ok {
-							txs[validator.lastBlock] = ev.Block.Transactions().Len()
-						}
-						txsMu.Unlock()
-
-						for _, tx := range ev.Block.Transactions() {
-							validator.transactionsMu.Lock()
-							if _, ok := validator.transactions[tx.Hash()]; ok {
-								validator.txsChainCount[ev.Block.NumberU64()]++
-								delete(validator.transactions, tx.Hash())
-							}
-							validator.transactionsMu.Unlock()
-						}
-
-						if int(validator.lastBlock) <= test.numBlocks {
-							for i := 0; i < txPerPeer; i++ {
-								nextValidatorIndex := names[(sort.SearchStrings(names, index)+i+1)%len(names)]
-								toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
-								var tx *types.Transaction
-								var innerErr error
-								var skip bool
-								if f, ok := test.sendTransactionHooks[nextValidatorIndex]; ok {
-									skip, tx, innerErr = f(validator, fromAddr, toAddr)
-									if innerErr != nil {
-										return innerErr
-									}
-									if tx != nil {
-										atomic.AddInt64(validator.txsSendCount, 1)
-									} else if skip {
-										if tx, innerErr = sendTx(validator.service, validator.privateKey, fromAddr, toAddr, generateRandomTx); innerErr != nil {
-											return innerErr
-										}
-										atomic.AddInt64(validator.txsSendCount, 1)
-									}
-
-								} else {
-									if tx, innerErr = sendTx(validator.service, validator.privateKey, fromAddr, toAddr, generateRandomTx); innerErr != nil {
-										return innerErr
-									}
-									atomic.AddInt64(validator.txsSendCount, 1)
-								}
-
-								validator.transactionsMu.Lock()
-								if tx != nil {
-									validator.transactions[tx.Hash()] = struct{}{}
-								}
-								validator.transactionsMu.Unlock()
-							}
-						}
-					}
-
-					// after hook
-					err = runHook(test.getAfterHook(index), test, ev.Block, validator, index)
-					if err != nil {
-						return err
-					}
-
-					if int(validator.lastBlock) > test.numBlocks {
-						//all transactions were included into the chain
-						if errorOnTx {
-							validator.transactionsMu.Lock()
-							if len(validator.transactions) == 0 {
-								if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-									atomic.AddInt64(test.validatorsCanBeStopped, 1)
-								}
-							}
-							validator.transactionsMu.Unlock()
-						} else {
-
-							if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-								atomic.AddInt64(test.validatorsCanBeStopped, 1)
-							}
-						}
-					}
-
-					if validator.isRunning && int(validator.lastBlock) >= test.numBlocks+blocksToWait {
-						if errorOnTx {
-							pending, queued := validator.service.TxPool().Stats()
-							if pending > 0 {
-								return fmt.Errorf("after a new block it should be 0 pending transactions got %d. block %d", pending, ev.Block.Number().Uint64())
-							}
-							if queued > 0 {
-								return fmt.Errorf("after a new block it should be 0 queued transactions got %d. block %d", queued, ev.Block.Number().Uint64())
-							}
-
-							validator.transactionsMu.Lock()
-							pendingTransactions := len(validator.transactions)
-							havePendingTransactions := pendingTransactions != 0
-							validator.transactionsMu.Unlock()
-
-							if havePendingTransactions {
-								var txsChainCount int64
-								for _, txsBlockCount := range validator.txsChainCount {
-									txsChainCount += txsBlockCount
-								}
-
-								if validator.wasStopped {
-									//fixme an error should be returned
-									logger.Error("test error!!!", "err", fmt.Errorf("a validator %s still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
-										index,
-										pendingTransactions, ev.Block.Number().Uint64(),
-										atomic.LoadInt64(validator.txsSendCount), txsChainCount))
-
-									if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-										atomic.AddInt64(test.validatorsCanBeStopped, 1)
-									}
-								} else {
-									return fmt.Errorf("a validator %s still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
-										index,
-										pendingTransactions, ev.Block.Number().Uint64(),
-										atomic.LoadInt64(validator.txsSendCount), txsChainCount)
-								}
-							}
-						}
-					}
-				case innerErr := <-validator.subscription.Err():
-					if innerErr != nil {
-						return fmt.Errorf("error in blockchain %q", innerErr)
-					}
-
-					time.Sleep(500 * time.Millisecond)
-
-					// after hook
-					err = runHook(test.getAfterHook(index), test, nil, validator, index)
-					if err != nil {
-						return err
-					}
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
-				}
-				// allow to exit goroutine when no quorum expected
-				// check that there's no quorum within the given noQuorumTimeout
-				if !hasQuorum(validators) && test.noQuorumAfterBlock > 0 {
-					log.Error("No Quorum", "index", index, "last_block", validator.lastBlock)
-					// wait for quorum to get restored
-					time.Sleep(test.noQuorumTimeout)
-					break wgLoop
-				}
-
-				// check transactions status if all blocks are passed
-				txRemoveBlock, ok := test.removedPeers[fromAddr]
-				if ok && (validator.lastBlock >= txRemoveBlock) {
-					if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-						atomic.AddInt64(test.validatorsCanBeStopped, 1)
-						break wgLoop
-					}
-				}
-			}
-			return nil
+			return runNode(validator, test, validators, logger, ctx, index, blocksToWait, txs, txsMu, errorOnTx, txPerPeer, names)
 		})
 	}
 	err := wg.Wait()
@@ -464,56 +275,8 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 		}
 	}
 
-	// check that all nodes reached the same minimum blockchain height
-	minHeight := math.MaxInt64
-	for index, validator := range validators {
-		if len(test.maliciousPeers) != 0 {
-			if _, ok := test.maliciousPeers[index]; ok {
-				// don't check chain for malicious peers
-				continue
-			}
-		}
-
-		validatorBlock := validator.lastBlock
-		if minHeight > int(validatorBlock) {
-			minHeight = int(validatorBlock)
-		}
-
-		if test.noQuorumAfterBlock > 0 {
-			continue
-		}
-
-		if _, ok := test.removedPeers[crypto.PubkeyToAddress(validator.privateKey.PublicKey)]; ok {
-			continue
-		}
-
-		if validatorBlock < uint64(test.numBlocks) {
-			t.Fatalf("a validator is behind the network index %s and block %v - expected %d",
-				index, validatorBlock, test.numBlocks)
-		}
-	}
-
-	// check that all nodes got the same blocks
-	for i := 1; i <= minHeight; i++ {
-		blockHash := validators["VA"].blocks[uint64(i)].hash
-
-		for index, validator := range validators {
-			if validator.isMalicious {
-				continue
-			}
-
-			if len(test.maliciousPeers) != 0 {
-				if _, ok := test.maliciousPeers[index]; ok {
-					// don't check chain for malicious peers
-					continue
-				}
-			}
-			if validator.blocks[uint64(i)].hash != blockHash {
-				t.Fatalf("validators %d and %s have different blocks %d - %q vs %s",
-					0, index, i, validator.blocks[uint64(i)].hash.String(), blockHash.String())
-			}
-		}
-	}
+	minHeight := checkAndReturnMinHeight(t, test, validators)
+	checkNodesDontContainMaliciousBlock(t, minHeight, validators, test)
 	fmt.Println("\nTransactions OK")
 }
 
@@ -587,5 +350,283 @@ func hookStartNode(nodeIndex string, durationAfterStop float64) hook {
 		}
 
 		return nil
+	}
+}
+
+func runNode(validator *testNode, test *testCase, validators map[string]*testNode, logger log.Logger, ctx context.Context, index string, blocksToWait int, txs map[uint64]int, txsMu sync.Mutex, errorOnTx bool, txPerPeer int, names []string) error {
+	var err error
+	testCanBeStopped := new(uint32)
+	fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
+
+wgLoop:
+	for {
+		select {
+		case ev := <-validator.eventChan:
+			if _, ok := validator.blocks[ev.Block.NumberU64()]; ok {
+				continue
+			}
+
+			// before hook
+			err = runHook(test.getBeforeHook(index), test, ev.Block, validator, index)
+			if err != nil {
+				return err
+			}
+
+			validator.blocks[ev.Block.NumberU64()] = block{ev.Block.Hash(), len(ev.Block.Transactions())}
+			validator.lastBlock = ev.Block.NumberU64()
+
+			logger.Error("last mined block", "validator", index,
+				"num", validator.lastBlock, "hash", validator.blocks[ev.Block.NumberU64()].hash,
+				"txCount", validator.blocks[ev.Block.NumberU64()].txs)
+
+			if atomic.LoadUint32(testCanBeStopped) == 1 {
+				if atomic.LoadInt64(test.validatorsCanBeStopped) == int64(len(validators)) {
+					break wgLoop
+				}
+				if atomic.LoadInt64(test.validatorsCanBeStopped) > int64(len(validators)) {
+					return fmt.Errorf("something is wrong. %d of %d validators are ready to be stopped", atomic.LoadInt64(test.validatorsCanBeStopped), uint32(len(validators)))
+				}
+				continue
+			}
+
+			// actual forming and sending transaction
+			logger.Debug("peer", "address", crypto.PubkeyToAddress(validator.privateKey.PublicKey).String(), "block", ev.Block.Number().Uint64(), "isRunning", validator.isRunning)
+
+			if validator.isRunning {
+				txsMu.Lock()
+				if _, ok := txs[validator.lastBlock]; !ok {
+					txs[validator.lastBlock] = ev.Block.Transactions().Len()
+				}
+				txsMu.Unlock()
+
+				for _, tx := range ev.Block.Transactions() {
+					validator.transactionsMu.Lock()
+					if _, ok := validator.transactions[tx.Hash()]; ok {
+						validator.txsChainCount[ev.Block.NumberU64()]++
+						delete(validator.transactions, tx.Hash())
+					}
+					validator.transactionsMu.Unlock()
+				}
+
+				if int(validator.lastBlock) <= test.numBlocks {
+					err := validatorSendTransaction(
+						generateToAddr(txPerPeer, names, index, validators),
+						test,
+						validator)
+					if err != nil {
+
+					}
+				}
+			}
+
+			// after hook
+			err = runHook(test.getAfterHook(index), test, ev.Block, validator, index)
+			if err != nil {
+				return err
+			}
+
+			if int(validator.lastBlock) > test.numBlocks {
+				//all transactions were included into the chain
+				if errorOnTx {
+					validator.transactionsMu.Lock()
+					if len(validator.transactions) == 0 {
+						if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+							atomic.AddInt64(test.validatorsCanBeStopped, 1)
+						}
+					}
+					validator.transactionsMu.Unlock()
+				} else {
+
+					if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+						atomic.AddInt64(test.validatorsCanBeStopped, 1)
+					}
+				}
+			}
+
+			if validator.isRunning && int(validator.lastBlock) >= test.numBlocks+blocksToWait {
+				if errorOnTx {
+					pending, queued := validator.service.TxPool().Stats()
+					if pending > 0 {
+						return fmt.Errorf("after a new block it should be 0 pending transactions got %d. block %d", pending, ev.Block.Number().Uint64())
+					}
+					if queued > 0 {
+						return fmt.Errorf("after a new block it should be 0 queued transactions got %d. block %d", queued, ev.Block.Number().Uint64())
+					}
+
+					validator.transactionsMu.Lock()
+					pendingTransactions := len(validator.transactions)
+					havePendingTransactions := pendingTransactions != 0
+					validator.transactionsMu.Unlock()
+
+					if havePendingTransactions {
+						var txsChainCount int64
+						for _, txsBlockCount := range validator.txsChainCount {
+							txsChainCount += txsBlockCount
+						}
+
+						if validator.wasStopped {
+							//fixme an error should be returned
+							logger.Error("test error!!!", "err", fmt.Errorf("a validator %s still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
+								index,
+								pendingTransactions, ev.Block.Number().Uint64(),
+								atomic.LoadInt64(validator.txsSendCount), txsChainCount))
+
+							if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+								atomic.AddInt64(test.validatorsCanBeStopped, 1)
+							}
+						} else {
+							return fmt.Errorf("a validator %s still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
+								index,
+								pendingTransactions, ev.Block.Number().Uint64(),
+								atomic.LoadInt64(validator.txsSendCount), txsChainCount)
+						}
+					}
+				}
+			}
+		case innerErr := <-validator.subscription.Err():
+			if innerErr != nil {
+				return fmt.Errorf("error in blockchain %q", innerErr)
+			}
+
+			time.Sleep(500 * time.Millisecond)
+
+			// after hook
+			err = runHook(test.getAfterHook(index), test, nil, validator, index)
+			if err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		// allow to exit goroutine when no quorum expected
+		// check that there's no quorum within the given noQuorumTimeout
+		if !hasQuorum(validators) && test.noQuorumAfterBlock > 0 {
+			log.Error("No Quorum", "index", index, "last_block", validator.lastBlock)
+			// wait for quorum to get restored
+			time.Sleep(test.noQuorumTimeout)
+			break wgLoop
+		}
+
+		// check transactions status if all blocks are passed
+		txRemoveBlock, ok := test.removedPeers[fromAddr]
+		if ok && (validator.lastBlock >= txRemoveBlock) {
+			if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+				atomic.AddInt64(test.validatorsCanBeStopped, 1)
+				break wgLoop
+			}
+		}
+	}
+	return nil
+
+}
+
+func checkAndReturnMinHeight(t *testing.T, test *testCase, validators map[string]*testNode) uint64 {
+	// check that all nodes reached the same minimum blockchain height
+	minHeight := uint64(math.MaxUint64)
+	for index, validator := range validators {
+		if len(test.maliciousPeers) != 0 {
+			if _, ok := test.maliciousPeers[index]; ok {
+				// don't check chain for malicious peers
+				continue
+			}
+		}
+
+		validatorBlock := validator.lastBlock
+		if minHeight > validatorBlock {
+			minHeight = validatorBlock
+		}
+
+		if test.noQuorumAfterBlock > 0 {
+			continue
+		}
+
+		if _, ok := test.removedPeers[crypto.PubkeyToAddress(validator.privateKey.PublicKey)]; ok {
+			continue
+		}
+
+		if validatorBlock < uint64(test.numBlocks) {
+			t.Fatalf("a validator is behind the network index %s and block %v - expected %d",
+				index, validatorBlock, test.numBlocks)
+		}
+	}
+	return minHeight
+}
+
+type addressesList struct {
+	Address   common.Address
+	NodeIndex string
+}
+
+func generateToAddr(txPerPeer int, names []string, index string, validators map[string]*testNode) []addressesList {
+	addresses := make([]addressesList, 0, txPerPeer)
+	for i := 0; i < txPerPeer; i++ {
+		nextValidatorIndex := names[(sort.SearchStrings(names, index)+i+1)%len(names)]
+		toAddr := crypto.PubkeyToAddress(validators[nextValidatorIndex].privateKey.PublicKey)
+		addresses = append(addresses, addressesList{
+			Address:   toAddr,
+			NodeIndex: index,
+		})
+	}
+	return addresses
+}
+
+func validatorSendTransaction(addresses []addressesList, test *testCase, validator *testNode) error {
+	fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
+	for _, toAddr := range addresses {
+		var tx *types.Transaction
+		var innerErr error
+		var skip bool
+		if f, ok := test.sendTransactionHooks[toAddr.NodeIndex]; ok {
+			skip, tx, innerErr = f(validator, fromAddr, toAddr.Address)
+			if innerErr != nil {
+				return innerErr
+			}
+			if tx != nil {
+				atomic.AddInt64(validator.txsSendCount, 1)
+			} else if skip {
+				if tx, innerErr = sendTx(validator.service, validator.privateKey, fromAddr, toAddr.Address, generateRandomTx); innerErr != nil {
+					return innerErr
+				}
+				atomic.AddInt64(validator.txsSendCount, 1)
+			}
+
+		} else {
+			if tx, innerErr = sendTx(validator.service, validator.privateKey, fromAddr, toAddr.Address, generateRandomTx); innerErr != nil {
+				return innerErr
+			}
+			atomic.AddInt64(validator.txsSendCount, 1)
+		}
+
+		validator.transactionsMu.Lock()
+		if tx != nil {
+			validator.transactions[tx.Hash()] = struct{}{}
+		}
+		validator.transactionsMu.Unlock()
+	}
+	return nil
+}
+
+func checkNodesDontContainMaliciousBlock(t *testing.T, minHeight uint64, validators map[string]*testNode, test *testCase) {
+	// check that all nodes got the same blocks
+	for i := uint64(1); i <= minHeight; i++ {
+		blockHash := validators["VA"].blocks[i].hash
+
+		for index, validator := range validators {
+			if validator.isMalicious {
+				continue
+			}
+
+			if len(test.maliciousPeers) != 0 {
+				if _, ok := test.maliciousPeers[index]; ok {
+					// don't check chain for malicious peers
+					continue
+				}
+			}
+			if validator.blocks[i].hash != blockHash {
+				t.Fatalf("validators %d and %s have different blocks %d - %q vs %s",
+					0, index, i, validator.blocks[i].hash.String(), blockHash.String())
+			}
+		}
 	}
 }
