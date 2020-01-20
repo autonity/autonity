@@ -94,13 +94,13 @@ func TestHeaderHash(t *testing.T) {
 					},
 				},
 			}),
-			common.HexToHash("0xf5d460ed44edb6c81ab9ff1979126704e18777986c064d0023aa87bb4a2a7ea5"),
+			common.HexToHash("0xdf95f3ce4042e30ce57b2bcab9d9ebff1612035ef8abfe2213e6aa77f6e43abc"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ProposerSeal: common.Hex2Bytes("0xbebedead"),
 			}),
-			common.HexToHash("0x4ceafbc550a2f60288e7bdfef92a71a65346d184304b526e28cc56a478e12080"),
+			common.HexToHash("0xfe5aad27871b04ad6c0815c39a371b369e3537f7f117342181eefbf81ba7a686"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
@@ -124,7 +124,7 @@ func TestHeaderHash(t *testing.T) {
 			setExtra(PosHeader, headerExtra{
 				PastCommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")},
 			}),
-			common.HexToHash("0x5d29fd91067324583e8203615ca019679ca5024b8d91cfb3f9710feffd65b6d2"),
+			common.HexToHash("0x0e006ab23161c9d88dab8cf00b6de143f1230b8f8a9d6b91ed10bb788edb9e4f"),
 		},
 	}
 	for i := range testCases {
