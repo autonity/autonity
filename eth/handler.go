@@ -221,7 +221,7 @@ func (pm *ProtocolManager) makeProtocol(version uint) p2p.Protocol {
 	// get consensus protocol from backend engine.
 	if handler, ok := pm.engine.(consensus.Handler); ok {
 		protoName, _ = handler.Protocol()
-		log.Info("Get consensus protocol ", "name: ", protoName)
+		log.Debug("Get consensus protocol ", "name: ", protoName)
 	}
 
 	return p2p.Protocol{
