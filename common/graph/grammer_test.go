@@ -1,7 +1,6 @@
 package graph
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"testing"
 )
@@ -68,7 +67,6 @@ func TestGraphLexerGetEdges(t *testing.T) {
 	for i, name := range nodeNames {
 		graph.SetNodeName(name, i)
 	}
-	spew.Dump(nodeNames)
 
 	expected := [][]int{
 		0: {1, 2, 3, 4},
