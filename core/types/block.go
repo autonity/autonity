@@ -68,13 +68,6 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 
 //go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
 
-type CommitteeMember struct {
-	Address     common.Address `json:"address"            gencodec:"required"`
-	VotingPower *big.Int       `json:"votingPower"        gencodec:"required"`
-}
-
-type Committee []CommitteeMember
-
 // Header represents a block header in the Autonity blockchain.
 type Header struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
@@ -104,6 +97,13 @@ type Header struct {
 	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"	extra:"5"`
 }
 
+type CommitteeMember struct {
+	Address     common.Address `json:"address"            gencodec:"required"`
+	VotingPower *big.Int       `json:"votingPower"        gencodec:"required"`
+}
+
+type Committee []CommitteeMember
+
 // originalHeader represents the ethereum blockchain header.
 type originalHeader struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
@@ -131,6 +131,13 @@ type headerExtra struct {
 	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
 }
 
+func (hExtra headerExtra) withExtraData() bool {
+	return len(hExtra.CommittedSeals) != 0 ||
+		len(hExtra.Committee) != 0 ||
+		len(hExtra.PastCommittedSeals) != 0 ||
+		len(hExtra.ProposerSeal) != 0
+}
+
 // field type overrides for gencodec
 type headerMarshaling struct {
 	Difficulty *hexutil.Big
@@ -151,9 +158,18 @@ type headerMarshaling struct {
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *Header) Hash() common.Hash {
+	// If the mix digest is equivalent to the predefined BFT digest, use BFT
+	// specific hash calculation. This is always the case with tendermint consensus protocol.
+	if h.MixDigest == BFTDigest {
+		// Seal is reserved in extra-data. To prove block is signed by the proposer.
+		if posHeader := BFTFilteredHeader(h, true); posHeader != nil {
+			return rlpHash(posHeader)
+		}
+	}
+
 	// If not using the BFT mixdigest then return the original ethereum block header hash, this
 	// let Autonity to remain compatible with original go-ethereum tests.
-	return rlpHash(h)
+	return rlpHash(h.original())
 }
 
 var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
@@ -184,14 +200,20 @@ func (h *Header) SanityCheck() error {
 func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	origin := &originalHeader{}
 	if err := s.Decode(origin); err != nil {
-		fmt.Println("xxxxxxxxxxxxxxxxxx 2")
 		return err
 	}
 
 	hExtra := &headerExtra{}
-	if err := rlp.DecodeBytes(origin.Extra, hExtra); err != nil {
-		fmt.Println("xxxxxxxxxxxxxxxxxxxxxx 1")
-		return err
+	if len(origin.Extra) > 0 {
+		if err := rlp.DecodeBytes(origin.Extra, hExtra); err == nil {
+			if hExtra.withExtraData() {
+				h.CommittedSeals = hExtra.CommittedSeals
+				h.Committee = hExtra.Committee
+				h.PastCommittedSeals = hExtra.PastCommittedSeals
+				h.ProposerSeal = hExtra.ProposerSeal
+				h.Round = hExtra.Round
+			}
+		}
 	}
 
 	h.ParentHash = origin.ParentHash
@@ -209,39 +231,27 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.MixDigest = origin.MixDigest
 	h.Nonce = origin.Nonce
 
-	if len(hExtra.CommittedSeals) != 0 ||
-		len(hExtra.Committee) != 0 ||
-		len(hExtra.PastCommittedSeals) != 0 ||
-		len(hExtra.ProposerSeal) != 0 ||
-		hExtra.Round != nil {
-
-		h.CommittedSeals = hExtra.CommittedSeals
-		h.Committee = hExtra.Committee
-		h.PastCommittedSeals = hExtra.PastCommittedSeals
-		h.ProposerSeal = hExtra.ProposerSeal
-		h.Round = hExtra.Round
-		h.Extra = nil
-	}
+	h.Extra = origin.Extra
 
 	return nil
 }
 
 // EncodeRLP serializes b into the Ethereum RLP block format.
 func (h *Header) EncodeRLP(w io.Writer) error {
-	extra, err := rlp.EncodeToBytes(headerExtra{
+	hExtra := headerExtra{
 		Committee:          h.Committee,
 		ProposerSeal:       h.ProposerSeal,
 		Round:              h.Round,
 		CommittedSeals:     h.CommittedSeals,
 		PastCommittedSeals: h.PastCommittedSeals,
-	})
-
-	if err != nil {
-		return err
 	}
 
 	original := h.original()
-	if len(extra) > 0 {
+	if hExtra.withExtraData() {
+		extra, err := rlp.EncodeToBytes(hExtra)
+		if err != nil {
+			return err
+		}
 		original.Extra = extra
 	} else {
 		original.Extra = h.Extra
@@ -395,31 +405,40 @@ func CopyHeader(h *Header) *Header {
 	}
 
 	/* PoS fields deep copy section*/
-	cpy.Committee = make([]CommitteeMember, len(h.Committee))
-	for i, val := range h.Committee {
-		cpy.Committee[i] = CommitteeMember{
-			Address:     val.Address,
-			VotingPower: new(big.Int).Set(val.VotingPower),
+	if len(h.Committee) > 0 {
+		cpy.Committee = make([]CommitteeMember, len(h.Committee))
+		for i, val := range h.Committee {
+			cpy.Committee[i] = CommitteeMember{
+				Address:     val.Address,
+				VotingPower: new(big.Int).Set(val.VotingPower),
+			}
 		}
 	}
 
-	if cpy.Round = new(big.Int); h.Round != nil {
+	if h.Round != nil {
+		cpy.Round = new(big.Int)
 		cpy.Round.Set(h.Round)
 	}
 
-	cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
-	copy(cpy.ProposerSeal, h.ProposerSeal)
-
-	cpy.CommittedSeals = make([][]byte, len(h.CommittedSeals))
-	for i, val := range h.CommittedSeals {
-		cpy.CommittedSeals[i] = make([]byte, len(val))
-		copy(cpy.CommittedSeals[i], val)
+	if len(h.ProposerSeal) > 0 {
+		cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
+		copy(cpy.ProposerSeal, h.ProposerSeal)
 	}
 
-	cpy.PastCommittedSeals = make([][]byte, len(h.PastCommittedSeals))
-	for i, val := range h.PastCommittedSeals {
-		cpy.PastCommittedSeals[i] = make([]byte, len(val))
-		copy(cpy.PastCommittedSeals[i], val)
+	if len(h.CommittedSeals) > 0 {
+		cpy.CommittedSeals = make([][]byte, len(h.CommittedSeals))
+		for i, val := range h.CommittedSeals {
+			cpy.CommittedSeals[i] = make([]byte, len(val))
+			copy(cpy.CommittedSeals[i], val)
+		}
+	}
+
+	if len(h.PastCommittedSeals) > 0 {
+		cpy.PastCommittedSeals = make([][]byte, len(h.PastCommittedSeals))
+		for i, val := range h.PastCommittedSeals {
+			cpy.PastCommittedSeals[i] = make([]byte, len(val))
+			copy(cpy.PastCommittedSeals[i], val)
+		}
 	}
 
 	return &cpy

@@ -21,13 +21,14 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/params"
-	"github.com/davecgh/go-spew/spew"
 )
 
 func TestDefaultGenesisBlock(t *testing.T) {
@@ -140,7 +141,7 @@ func TestSetupGenesis(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
+	for i, test := range tests {
 		db := rawdb.NewMemoryDatabase()
 		config, hash, err := test.fn(db)
 		// Check the return values.
@@ -156,9 +157,13 @@ func TestSetupGenesis(t *testing.T) {
 		} else if err == nil {
 			// Check database content.
 			stored := rawdb.ReadBlock(db, test.wantHash, 0)
+			if stored == nil {
+				t.Fatalf("Test #%d %s: DB has nil block, want %s", i, test.name, test.wantHash.String())
+			}
 			if stored.Hash() != test.wantHash {
-				t.Errorf("%s: block in DB has hash %s, want %s", test.name, stored.Hash().String(), test.wantHash.String())
+				t.Errorf("Test #%d %s: block in DB has hash %s, want %s", i, test.name, stored.Hash().String(), test.wantHash.String())
 			}
 		}
+		db.Close()
 	}
 }

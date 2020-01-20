@@ -56,12 +56,19 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.GasLimit = hexutil.Uint64(h.GasLimit)
 	enc.GasUsed = hexutil.Uint64(h.GasUsed)
 	enc.Time = hexutil.Uint64(h.Time)
+	enc.Extra = h.Extra
 	enc.MixDigest = h.MixDigest
 	enc.Nonce = h.Nonce
 
-	encExtra.Committee = h.Committee
-	encExtra.ProposerSeal = h.ProposerSeal
-	encExtra.Round = (*hexutil.Big)(h.Round)
+	if len(h.Committee) != 0 {
+		encExtra.Committee = h.Committee
+	}
+	if len(h.ProposerSeal) != 0 {
+		encExtra.ProposerSeal = h.ProposerSeal
+	}
+	if h.Round != nil {
+		encExtra.Round = (*hexutil.Big)(h.Round)
+	}
 	if encExtra.CommittedSeals != nil {
 		encExtra.CommittedSeals = make([]hexutil.Bytes, len(h.CommittedSeals))
 		for k, v := range h.CommittedSeals {
@@ -79,7 +86,6 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	//fixme: надо ли делать проверки на пустоту подписей и прочего?
 	enc.Extra = extraBytes
 
 	enc.Hash = h.Hash()
@@ -116,15 +122,6 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	if err := json.Unmarshal(input, &dec); err != nil {
 		return err
 	}
-	if dec.Extra == nil {
-		return errors.New("missing required field 'extraData' for Header")
-	}
-
-	var decExtra ExtraHeader
-	if err := json.Unmarshal(*dec.Extra, &decExtra); err != nil {
-		return err
-	}
-
 	if dec.ParentHash == nil {
 		return errors.New("missing required field 'parentHash' for Header")
 	}
@@ -173,6 +170,10 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'timestamp' for Header")
 	}
 	h.Time = uint64(*dec.Time)
+	if dec.Extra == nil {
+		return errors.New("missing required field 'extraData' for Header")
+	}
+	h.Extra = *dec.Extra
 	if dec.MixDigest != nil {
 		h.MixDigest = *dec.MixDigest
 	}
@@ -180,9 +181,10 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		h.Nonce = *dec.Nonce
 	}
 
-	//fixme надо ли делать обнуление?
-	h.Extra = nil
-
+	var decExtra ExtraHeader
+	if err := json.Unmarshal(*dec.Extra, &decExtra); err != nil {
+		return err
+	}
 	if decExtra.Committee == nil {
 		return errors.New("missing required field 'committee' for Header")
 	}

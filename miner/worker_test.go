@@ -21,7 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/clique"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -37,6 +39,7 @@ var (
 	// Test chain configurations
 	testTxPoolConfig  core.TxPoolConfig
 	ethashChainConfig *params.ChainConfig
+	cliqueChainConfig *params.ChainConfig
 
 	// Test accounts
 	testBankKey, _  = crypto.GenerateKey()
@@ -61,6 +64,11 @@ func init() {
 	testTxPoolConfig = core.DefaultTxPoolConfig
 	testTxPoolConfig.Journal = ""
 	ethashChainConfig = params.TestChainConfig
+	cliqueChainConfig = params.TestChainConfig
+	cliqueChainConfig.Clique = &params.CliqueConfig{
+		Period: 10,
+		Epoch:  30000,
+	}
 	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
 	pendingTxs = append(pendingTxs, tx1)
 	tx2, _ := types.SignTx(types.NewTransaction(1, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
@@ -86,6 +94,9 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	)
 
 	switch engine.(type) {
+	case *clique.Clique:
+		gspec.ExtraData = make([]byte, 32+common.AddressLength+65)
+		copy(gspec.ExtraData[32:], testBankAddress[:])
 	case *ethash.Ethash:
 	default:
 		t.Fatalf("unexpected consensus engine type: %T", engine)
