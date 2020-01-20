@@ -235,7 +235,7 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 		}
 
 		wg.Go(func() error {
-			return runNode(ctx, validator, test, validators, logger, ctx, index, blocksToWait, txs, txsMu, errorOnTx, txPerPeer, names)
+			return runNode(ctx, validator, test, validators, logger, index, blocksToWait, txs, txsMu, errorOnTx, txPerPeer, names)
 		})
 	}
 	err := wg.Wait()
