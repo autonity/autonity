@@ -217,15 +217,15 @@ func (pm *ProtocolManager) makeProtocol(version uint) p2p.Protocol {
 		panic("makeProtocol for unknown version")
 	}
 
-	protocolName := protocolName
+	protoName := protocolName
 	// get consensus protocol from backend engine.
 	if handler, ok := pm.engine.(consensus.Handler); ok {
-		protocolName, _ = handler.Protocol()
-		log.Info("Get consensus protocol ", "name: ", protocolName)
+		protoName, _ = handler.Protocol()
+		log.Info("Get consensus protocol ", "name: ", protoName)
 	}
 
 	return p2p.Protocol{
-		Name:    protocolName,
+		Name:    protoName,
 		Version: version,
 		Length:  length,
 		Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
