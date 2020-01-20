@@ -235,7 +235,7 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 		}
 
 		wg.Go(func() error {
-			return runNode(validator, test, validators, logger, ctx, index, blocksToWait, txs, txsMu, errorOnTx, txPerPeer, names)
+			return runNode(ctx, validator, test, validators, logger, ctx, index, blocksToWait, txs, txsMu, errorOnTx, txPerPeer, names)
 		})
 	}
 	err := wg.Wait()
@@ -353,7 +353,7 @@ func hookStartNode(nodeIndex string, durationAfterStop float64) hook {
 	}
 }
 
-func runNode(validator *testNode, test *testCase, validators map[string]*testNode, logger log.Logger, ctx context.Context, index string, blocksToWait int, txs map[uint64]int, txsMu sync.Mutex, errorOnTx bool, txPerPeer int, names []string) error {
+func runNode(ctx context.Context, validator *testNode, test *testCase, validators map[string]*testNode, logger log.Logger, index string, blocksToWait int, txs map[uint64]int, txsMu sync.Mutex, errorOnTx bool, txPerPeer int, names []string) error {
 	var err error
 	testCanBeStopped := new(uint32)
 	fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
