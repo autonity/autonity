@@ -24,8 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
@@ -629,9 +627,11 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	if err != nil {
 		t.Fatalf("failed to start test protocol manager: %v", err)
 	}
+
 	pm.Start(1000)
 	defer pm.Stop()
 	var peers []*testPeer
+
 	for i := 0; i < totalPeers; i++ {
 		peer, errc := newTestPeer(p2pPeers[i], eth63, pm, true)
 		go func() {
@@ -644,15 +644,13 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	}
 	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *core.BlockGen) {})
 
-	spew.Dump(chain[0])
-
 	pm.BroadcastBlock(chain[0], true /*propagate*/)
 
 	errCh := make(chan error, totalPeers)
 	doneCh := make(chan struct{}, totalPeers)
 	for _, peer := range peers {
 		go func(p *testPeer) {
-			if expectErr := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: new(big.Int).Add(genesis.Difficulty(), chain[0].Difficulty())}); expectErr != nil {
+			if expectErr := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: chain[0].Difficulty()}); expectErr != nil {
 				errCh <- expectErr
 			} else {
 				doneCh <- struct{}{}
