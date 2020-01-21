@@ -9,6 +9,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/log"
 )
 
 var _ = (*headerMarshaling)(nil)
@@ -170,46 +171,51 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'timestamp' for Header")
 	}
 	h.Time = uint64(*dec.Time)
+
 	if dec.Extra == nil {
 		return errors.New("missing required field 'extraData' for Header")
 	}
+
 	h.Extra = *dec.Extra
 	if dec.MixDigest != nil {
 		h.MixDigest = *dec.MixDigest
 	}
+
 	if dec.Nonce != nil {
 		h.Nonce = *dec.Nonce
 	}
 
 	var decExtra ExtraHeader
 	if err := json.Unmarshal(*dec.Extra, &decExtra); err != nil {
-		return err
+		log.Error("on unmarshalling Header.extra", "err", err, "extra", []byte(*dec.Extra))
 	}
-	if decExtra.Committee == nil {
-		return errors.New("missing required field 'committee' for Header")
+
+	if decExtra.Committee != nil {
+		h.Committee = *decExtra.Committee
 	}
-	h.Committee = *decExtra.Committee
-	if decExtra.ProposerSeal == nil {
-		return errors.New("missing required field 'proposerSeal' for Header")
+
+	if decExtra.ProposerSeal != nil {
+		h.ProposerSeal = *decExtra.ProposerSeal
 	}
-	h.ProposerSeal = *decExtra.ProposerSeal
-	if decExtra.Round == nil {
-		return errors.New("missing required field 'round' for Header")
+
+	if decExtra.Round != nil {
+		h.Round = (*big.Int)(decExtra.Round)
+	} else {
+		h.Round = big.NewInt(0)
 	}
-	h.Round = (*big.Int)(decExtra.Round)
-	if decExtra.CommittedSeals == nil {
-		return errors.New("missing required field 'committedSeals' for Header")
+
+	if decExtra.CommittedSeals != nil {
+		h.CommittedSeals = make([][]byte, len(*decExtra.CommittedSeals))
+		for k, v := range *decExtra.CommittedSeals {
+			h.CommittedSeals[k] = v
+		}
 	}
-	h.CommittedSeals = make([][]byte, len(*decExtra.CommittedSeals))
-	for k, v := range *decExtra.CommittedSeals {
-		h.CommittedSeals[k] = v
-	}
-	if decExtra.PastCommittedSeals == nil {
-		return errors.New("missing required field 'pastCommittedSeals' for Header")
-	}
-	h.PastCommittedSeals = make([][]byte, len(*decExtra.PastCommittedSeals))
-	for k, v := range *decExtra.PastCommittedSeals {
-		h.PastCommittedSeals[k] = v
+
+	if decExtra.PastCommittedSeals != nil {
+		h.PastCommittedSeals = make([][]byte, len(*decExtra.PastCommittedSeals))
+		for k, v := range *decExtra.PastCommittedSeals {
+			h.PastCommittedSeals[k] = v
+		}
 	}
 	return nil
 }

@@ -3,8 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/ethclient"
 	"math"
 	"math/big"
 	"net"
@@ -16,6 +14,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/accounts/abi/bind"
+	"github.com/clearmatics/autonity/ethclient"
 
 	"github.com/zimmski/go-leak"
 	"go.uber.org/goleak"

@@ -90,11 +90,11 @@ type Header struct {
 		PoS header fields, round & committedSeals not taken into account
 		for computing the sigHash.
 	*/
-	Committee          Committee `json:"committee"           gencodec:"required"	extra:"1"`
-	ProposerSeal       []byte    `json:"proposerSeal"        gencodec:"required"	extra:"2"`
-	Round              *big.Int  `json:"round"               gencodec:"required"	extra:"3"`
-	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"	extra:"4"`
-	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"	extra:"5"`
+	Committee          Committee `json:"committee"           gencodec:"required"`
+	ProposerSeal       []byte    `json:"proposerSeal"        gencodec:"required"`
+	Round              *big.Int  `json:"round"               gencodec:"required"`
+	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"`
+	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
 }
 
 type CommitteeMember struct {
@@ -232,6 +232,10 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.Nonce = origin.Nonce
 
 	h.Extra = origin.Extra
+
+	if h.Round == nil {
+		h.Round = big.NewInt(0)
+	}
 
 	return nil
 }
@@ -379,6 +383,10 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 		}
 	}
 
+	if b.header.Round == nil {
+		b.header.Round = big.NewInt(0)
+	}
+
 	return b
 }
 
@@ -416,8 +424,7 @@ func CopyHeader(h *Header) *Header {
 	}
 
 	if h.Round != nil {
-		cpy.Round = new(big.Int)
-		cpy.Round.Set(h.Round)
+		cpy.Round = new(big.Int).Set(h.Round)
 	}
 
 	if len(h.ProposerSeal) > 0 {
