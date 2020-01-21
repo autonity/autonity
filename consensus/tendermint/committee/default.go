@@ -18,6 +18,7 @@ package committee
 
 import (
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
@@ -83,18 +84,21 @@ func (set *defaultSet) Committee() types.Committee {
 	return copyMembers(set.members)
 }
 
-func (set *defaultSet) GetByIndex(i int) types.CommitteeMember {
+func (set *defaultSet) GetByIndex(i int) (types.CommitteeMember, error) {
 	// this would panic if i out of bound, but this should never happen.
-	return set.members[i]
+	if i < 0 || i >= len(set.members) {
+		return types.CommitteeMember{}, consensus.ErrCommitteeMemberNotFound
+	}
+	return set.members[i], nil
 }
 
-func (set *defaultSet) GetByAddress(addr common.Address) (int, types.CommitteeMember) {
+func (set *defaultSet) GetByAddress(addr common.Address) (int, types.CommitteeMember, error) {
 	for i, member := range set.members {
 		if addr == member.Address {
-			return i, member
+			return i, member, nil
 		}
 	}
-	return -1, types.CommitteeMember{}
+	return -1, types.CommitteeMember{}, consensus.ErrCommitteeMemberNotFound
 }
 
 func (set *defaultSet) GetProposer(round int64) types.CommitteeMember {
@@ -109,7 +113,10 @@ func (set *defaultSet) GetProposer(round int64) types.CommitteeMember {
 }
 
 func (set *defaultSet) IsProposer(round int64, address common.Address) bool {
-	_, val := set.GetByAddress(address)
+	_, val, err := set.GetByAddress(address)
+	if err != nil {
+		return false
+	}
 	return reflect.DeepEqual(set.GetProposer(round), val)
 }
 

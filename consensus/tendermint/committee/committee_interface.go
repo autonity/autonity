@@ -27,9 +27,9 @@ type Set interface {
 	// Return the underlying types.Committee
 	Committee() types.Committee
 	// Get validator by index
-	GetByIndex(i int) types.CommitteeMember
+	GetByIndex(i int) (types.CommitteeMember, error)
 	// Get validator by given address
-	GetByAddress(addr common.Address) (int, types.CommitteeMember)
+	GetByAddress(addr common.Address) (int, types.CommitteeMember, error)
 	// Get the round proposer
 	GetProposer(round int64) types.CommitteeMember
 	// Check whether the validator with given address is the round proposer

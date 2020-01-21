@@ -13,12 +13,13 @@ func stickyProposer(valSet Set, proposer common.Address, round int64) types.Comm
 	}
 
 	pick := seed % size
-	return valSet.GetByIndex(pick)
+	selectedProposer, _ := valSet.GetByIndex(pick)
+	return selectedProposer
 }
 
 func calcSeed(valSet Set, proposer common.Address, round int64) int {
 	offset := 0
-	if idx, _ := valSet.GetByAddress(proposer); idx != -1 {
+	if idx, _, err := valSet.GetByAddress(proposer); err != nil {
 		offset = idx
 	}
 	return offset + int(round)

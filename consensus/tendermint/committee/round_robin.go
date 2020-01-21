@@ -12,5 +12,6 @@ func roundRobinProposer(valSet Set, proposer common.Address, round int64) types.
 		seed = calcSeed(valSet, proposer, round) + 1
 	}
 	pick := seed % size
-	return valSet.GetByIndex(pick)
+	selectedProposer, _ := valSet.GetByIndex(pick)
+	return selectedProposer
 }

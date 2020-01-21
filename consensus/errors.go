@@ -35,6 +35,10 @@ var (
 	// plus one.
 	ErrInvalidNumber = errors.New("invalid block number")
 
-	// ErrInconsistentCommitteeSet is returned if the validator set is inconsistent
+	// ErrInconsistentCommitteeSet is returned if the committee set is inconsistent
 	ErrInconsistentCommitteeSet = errors.New("inconsistent committee set")
+
+	// ErrCommitteeMemberNotFound is returned if the committee member is missing from
+	// the committee set.
+	ErrCommitteeMemberNotFound = errors.New("committee member not found")
 )
