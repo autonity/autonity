@@ -7,11 +7,13 @@ import (
 
 // Line 22 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
-	proposal := c.getProposal(round)
-	if proposal == nil {
+	proposalMS, ok := c.allProposals[round]
+	if !ok {
+		// Have not received proposal
 		return nil
 	}
-	proposalMsg := c.allRoundMessages[round].proposalMsg
+	proposal, proposalMsg := proposalMS.proposal, proposalMS.proposalMsg
+
 	h := proposal.ProposalBlock.Hash()
 
 	if c.isProposerForR(round, proposalMsg.Address) && c.step == propose {
@@ -24,13 +26,14 @@ func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
 			if err := c.proposeTimeout.stopTimer(); err != nil {
 				return err
 			}
+			c.logger.Debug("Stopped Scheduled Propose Timeout")
 		}
 
 		// Vote for the proposal if proposal is valid(proposal) && (lockedRound = -1 || lockedValue = proposal).
 		if c.lockedRound.Int64() == -1 || (c.lockedRound != nil && h == c.lockedValue.Hash()) {
-			c.sendPrevote(ctx, true)
-		} else {
 			c.sendPrevote(ctx, false)
+		} else {
+			c.sendPrevote(ctx, true)
 		}
 		if err := c.setStep(ctx, prevote); err != nil {
 			return err
@@ -41,13 +44,21 @@ func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
 
 // Line 28 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
-	proposal := c.getProposal(round)
-	if proposal == nil {
+	proposalMS, ok := c.allProposals[round]
+	if !ok {
+		// Have not received proposal
 		return nil
 	}
-	proposalMsg := c.allRoundMessages[round].proposalMsg
+	proposal, proposalMsg := proposalMS.proposal, proposalMS.proposalMsg
+
 	vr := proposal.ValidRound.Int64()
-	validRoundPrevotes := c.allRoundMessages[vr].prevotes
+
+	validRoundPrevotes, ok := c.allPrevotes[vr]
+	if !ok {
+		// Have not received any prevotes for the valid round
+		return nil
+	}
+
 	h := proposal.ProposalBlock.Hash()
 
 	if c.isProposerForR(round, proposalMsg.Address) && c.quorum(validRoundPrevotes.VotesSize(h)) &&
@@ -61,13 +72,14 @@ func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 			if err := c.proposeTimeout.stopTimer(); err != nil {
 				return err
 			}
+			c.logger.Debug("Stopped Scheduled Propose Timeout")
 		}
 
 		// Vote for proposal if valid(proposal) && ((0 <= lockedRound <= vr < curR) || lockedValue == proposal)
 		if c.lockedRound.Int64() <= vr || (c.lockedRound != nil && h == c.lockedValue.Hash()) {
-			c.sendPrevote(ctx, true)
-		} else {
 			c.sendPrevote(ctx, false)
+		} else {
+			c.sendPrevote(ctx, true)
 		}
 		if err := c.setStep(ctx, prevote); err != nil {
 			return err
@@ -78,7 +90,11 @@ func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 
 // Line 34 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForPrevoteTimeout(round int64, height int64) {
-	prevotes := c.allRoundMessages[round].prevotes
+	prevotes, ok := c.allPrevotes[round]
+	if !ok {
+		// Do not have any prevotes for the round
+		return
+	}
 	if c.step == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.quorum(prevotes.TotalSize()) {
 		timeoutDuration := timeoutPrevote(round)
 		c.prevoteTimeout.scheduleTimeout(timeoutDuration, round, height, c.onTimeoutPrevote)
@@ -88,12 +104,19 @@ func (c *core) checkForPrevoteTimeout(round int64, height int64) {
 
 // Line 36 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
-	proposal := c.getProposal(round)
-	if proposal == nil {
+	proposalMS, ok := c.allProposals[round]
+	if !ok {
+		// Have not received proposal
 		return nil
 	}
-	proposalMsg := c.allRoundMessages[round].proposalMsg
-	prevotes := c.allRoundMessages[round].prevotes
+	proposal, proposalMsg := proposalMS.proposal, proposalMS.proposalMsg
+
+	prevotes, ok := c.allPrevotes[round]
+	if !ok {
+		// Have not received any prevotes for round
+		return nil
+	}
+
 	h := proposal.ProposalBlock.Hash()
 
 	// this piece of code should only run once per round
@@ -126,7 +149,11 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 
 // Line 44 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForQuorumPrevotesNil(ctx context.Context, round int64) error {
-	prevotes := c.allRoundMessages[round].prevotes
+	prevotes, ok := c.allPrevotes[round]
+	if !ok {
+		// Have not received any prevotes for round
+		return nil
+	}
 
 	if c.step == prevote && c.quorum(prevotes.NilVotesSize()) {
 		if c.prevoteTimeout.timerStarted() {
@@ -144,7 +171,11 @@ func (c *core) checkForQuorumPrevotesNil(ctx context.Context, round int64) error
 
 // Line 47 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForPrecommitTimeout(round int64, height int64) {
-	precommits := c.allRoundMessages[round].precommits
+	precommits, ok := c.allPrecommits[round]
+	if !ok {
+		// Do not have any precommits for the round
+		return
+	}
 	if !c.precommitTimeout.timerStarted() && c.quorum(precommits.TotalSize()) {
 		timeoutDuration := timeoutPrecommit(round)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, round, height, c.onTimeoutPrecommit)
@@ -154,12 +185,19 @@ func (c *core) checkForPrecommitTimeout(round int64, height int64) {
 
 // Line 49 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForConsensus(ctx context.Context, round int64) error {
-	proposal := c.getProposal(round)
-	if proposal == nil {
+	proposalMS, ok := c.allProposals[round]
+	if !ok {
+		// Have not received proposal
 		return nil
 	}
-	proposalMsg := c.allRoundMessages[round].proposalMsg
-	precommits := c.allRoundMessages[round].precommits
+	proposal, proposalMsg := proposalMS.proposal, proposalMS.proposalMsg
+
+	precommits, ok := c.allPrecommits[round]
+	if !ok {
+		// Have not received any precommits for round
+		return nil
+	}
+
 	h := proposal.ProposalBlock.Hash()
 
 	if c.isProposerForR(round, proposalMsg.Address) && c.quorum(precommits.VotesSize(h)) {

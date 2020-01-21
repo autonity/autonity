@@ -37,6 +37,11 @@ type messageSet struct {
 	messagesMu *sync.RWMutex
 }
 
+type proposalSet struct {
+	proposal    Proposal
+	proposalMsg *Message
+}
+
 func (ms *messageSet) Add(hash common.Hash, msg Message) {
 	ms.messagesMu.Lock()
 	defer ms.messagesMu.Unlock()
@@ -79,6 +84,9 @@ func (ms *messageSet) GetMessages() []*Message {
 }
 
 func (ms *messageSet) VotesSize(h common.Hash) int {
+	ms.messagesMu.RLock()
+	defer ms.messagesMu.RUnlock()
+
 	if m, ok := ms.votes[h]; ok {
 		return len(m)
 	}
@@ -86,10 +94,16 @@ func (ms *messageSet) VotesSize(h common.Hash) int {
 }
 
 func (ms *messageSet) NilVotesSize() int {
+	ms.messagesMu.RLock()
+	defer ms.messagesMu.RUnlock()
+
 	return len(ms.nilvotes)
 }
 
 func (ms *messageSet) TotalSize() int {
+	ms.messagesMu.RLock()
+	defer ms.messagesMu.RUnlock()
+
 	total := ms.NilVotesSize()
 
 	for _, v := range ms.votes {
@@ -101,6 +115,9 @@ func (ms *messageSet) TotalSize() int {
 
 // TODO: not sure whether both GetMessages() and Values() are both required
 func (ms *messageSet) Values(blockHash common.Hash) []Message {
+	ms.messagesMu.RLock()
+	defer ms.messagesMu.RUnlock()
+
 	if _, ok := ms.votes[blockHash]; !ok {
 		return nil
 	}
@@ -109,10 +126,16 @@ func (ms *messageSet) Values(blockHash common.Hash) []Message {
 	for _, v := range ms.votes[blockHash] {
 		messages = append(messages, v)
 	}
-	return messages
+
+	var result = make([]Message, 0)
+	copy(result, messages)
+	return result
 }
 
 func (ms *messageSet) hasMessage(h common.Hash, m Message) bool {
+	ms.messagesMu.RLock()
+	defer ms.messagesMu.RUnlock()
+
 	if h == (common.Hash{}) {
 		if _, ok := ms.nilvotes[m.Address]; !ok {
 			return false

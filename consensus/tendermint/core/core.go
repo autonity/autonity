@@ -78,7 +78,9 @@ func New(backend Backend, config *config.Config) *core {
 		isStopping:                 new(uint32),
 		isStopped:                  new(uint32),
 		valSet:                     new(validatorSet),
-		allRoundMessages:           make(map[int64]roundMessageSet),
+		allProposals:               make(map[int64]proposalSet),
+		allPrevotes:                make(map[int64]messageSet),
+		allPrecommits:              make(map[int64]messageSet),
 		verifiedProposals:          make(map[common.Hash]bool),
 		lockedRound:                big.NewInt(-1),
 		validRound:                 big.NewInt(-1),
@@ -114,7 +116,9 @@ type core struct {
 	round             *big.Int
 	height            *big.Int
 	step              Step
-	allRoundMessages  map[int64]roundMessageSet
+	allProposals      map[int64]proposalSet
+	allPrevotes       map[int64]messageSet
+	allPrecommits     map[int64]messageSet
 	verifiedProposals map[common.Hash]bool
 	coreMu            sync.RWMutex
 
@@ -152,10 +156,6 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 	c.setHeight(height)
 	c.setRound(round)
 	_ = c.setStep(ctx, propose)
-
-	if _, ok := c.allRoundMessages[round.Int64()]; !ok {
-		c.allRoundMessages[round.Int64()] = newRoundMessageSet()
-	}
 
 	if round.Int64() == 0 {
 		c.lockedRound = big.NewInt(-1)
@@ -211,9 +211,21 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 
 		// Check if we already have the proposal (this will be true if a future proposal was received an a previous
-		// round, if so send the proposal message to handler to handle the proposal
-		if c.getProposal(round.Int64()) != nil {
-			c.sendEvent(c.allRoundMessages[round.Int64()].proposalMsg)
+		// round, if so then check for propose step condition. It is simpler to check for the conditions here because
+		// step is set to propose only once and it is done above. Also, if we are the validator for this round and are
+		// honest then we will not have the proposal, therefore checking for the propose step condition in setStep()
+		// will require determining whether we are the proposer or not adding to more complexity.
+		if proposalMS, ok := c.allProposals[round.Int64()]; ok {
+			proposal := proposalMS.proposal
+			if proposal.ValidRound.Int64() == -1 {
+				if err := c.checkForNewProposal(ctx, round.Int64()); err != nil {
+					c.logger.Error(err.Error())
+				}
+			} else if proposal.ValidRound.Int64() >= 0 {
+				if err := c.checkForOldProposal(ctx, round.Int64()); err != nil {
+					c.logger.Error(err.Error())
+				}
+			}
 		}
 	}
 }
@@ -370,41 +382,24 @@ func (c *core) currentState() (*big.Int, *big.Int, uint64) {
 	return c.height, c.round, uint64(c.step)
 }
 
-func (c *core) getMessages(round int64) []*Message {
-	rms := c.allRoundMessages[round]
-	prevoteMsgs := rms.prevotes.GetMessages()
-	precommitMsgs := rms.precommits.GetMessages()
-
-	result := make([]*Message, 0, len(prevoteMsgs)+len(precommitMsgs)+1)
-	if rms.proposalMsg != nil {
-		result = append(result, rms.proposalMsg)
-	}
-	result = append(result, prevoteMsgs...)
-	result = append(result, precommitMsgs...)
-
-	return result
-}
-
 func (c *core) getAllRoundMessages() []*Message {
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
 	var messages []*Message
-	for roundNumber, _ := range c.allRoundMessages {
-		messages = append(messages, c.getMessages(roundNumber)...)
+
+	for _, proposalMS := range c.allProposals {
+		messages = append(messages, proposalMS.proposalMsg)
 	}
+
+	for _, prevoteMS := range c.allPrevotes {
+		messages = append(messages, prevoteMS.GetMessages()...)
+	}
+
+	for _, precommitMS := range c.allPrecommits {
+		messages = append(messages, precommitMS.GetMessages()...)
+	}
+
 	return messages
-}
-
-func (c *core) setProposal(round int64, proposal *Proposal, msg *Message) {
-	rms := c.allRoundMessages[round]
-	rms.proposalMsg = msg
-	rms.proposal = proposal
-}
-
-func (c *core) getProposal(round int64) *Proposal {
-	rms := c.allRoundMessages[round]
-	if rms.proposal != nil {
-		return rms.proposal
-	}
-	return nil
 }
 
 func (c *core) hasVote(v Vote, m *Message) bool {
@@ -413,9 +408,15 @@ func (c *core) hasVote(v Vote, m *Message) bool {
 	mCode := m.Code
 
 	if mCode == msgPrevote {
-		votes = c.allRoundMessages[voteRound].prevotes
+		if _, ok := c.allPrevotes[voteRound]; !ok {
+			return false
+		}
+		votes = c.allPrevotes[voteRound]
 	} else if mCode == msgPrecommit {
-		votes = c.allRoundMessages[voteRound].precommits
+		if _, ok := c.allPrecommits[voteRound]; !ok {
+			return false
+		}
+		votes = c.allPrecommits[voteRound]
 	}
 	return votes.hasMessage(v.ProposedBlockHash, *m)
 }

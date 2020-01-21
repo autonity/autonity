@@ -140,17 +140,3 @@ func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
 func (sub *Vote) String() string {
 	return fmt.Sprintf("{Round: %v, Height: %v ProposedBlockHash: %v}", sub.Round, sub.Height, sub.ProposedBlockHash.String())
 }
-
-type roundMessageSet struct {
-	proposal    *Proposal
-	proposalMsg *Message
-	prevotes    messageSet
-	precommits  messageSet
-}
-
-func newRoundMessageSet() roundMessageSet {
-	return roundMessageSet{
-		prevotes:   newMessageSet(),
-		precommits: newMessageSet(),
-	}
-}

@@ -36,7 +36,15 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	if isNil {
 		prevote.ProposedBlockHash = proposalBlockHash
 	} else {
-		proposalBlockHash = c.getProposal(currentRound).ProposalBlock.Hash()
+		proposalMS, ok := c.allProposals[currentRound]
+		if !ok {
+			// Should never be the case
+			c.logger.Error("Proposal is empty while trying to send prevote")
+			return
+		}
+
+		p := proposalMS.proposal
+		proposalBlockHash = p.ProposalBlock.Hash()
 		if h := proposalBlockHash; h == (common.Hash{}) {
 			c.logger.Error("sendPrecommit Proposal is empty! It should not be empty!")
 			return
@@ -83,15 +91,18 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 		return nil
 	}
 
-	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", preVote, msg.Address.String(), c.address.String())
-
 	curR := c.getRound().Int64()
 	curH := c.getHeight().Int64()
 	prevoteHash := preVote.ProposedBlockHash
 
 	// The prevote doesn't exists in our current round state, so add it
-	prevotes := c.allRoundMessages[preVote.Round.Int64()].prevotes
+	if _, ok := c.allPrevotes[preVote.Round.Int64()]; !ok {
+		c.allPrevotes[preVote.Round.Int64()] = newMessageSet()
+	}
+	prevotes := c.allPrevotes[preVote.Round.Int64()]
 	prevotes.Add(prevoteHash, *msg)
+
+	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", preVote, msg.Address.String(), c.address.String())
 
 	roundCmp := preVote.Round.Cmp(c.getRound())
 	if roundCmp < 0 {
@@ -115,11 +126,15 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 	currentRound := c.getRound().Int64()
 	currentProposalHash := common.Hash{}
 
-	if p := c.getProposal(currentRound); p != nil {
-		currentProposalHash = p.ProposalBlock.Hash()
+	proposalMS, ok := c.allProposals[currentRound]
+	if ok {
+		currentProposalHash = proposalMS.proposal.ProposalBlock.Hash()
 	}
 
-	prevotes := c.allRoundMessages[currentRound].prevotes
+	prevotes, ok := c.allPrevotes[currentRound]
+	if !ok {
+		return
+	}
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,

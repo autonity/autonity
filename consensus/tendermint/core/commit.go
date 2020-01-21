@@ -11,13 +11,14 @@ import (
 func (c *core) commit(ctx context.Context, round int64) {
 	_ = c.setStep(ctx, precommitDone)
 
-	proposal := c.getProposal(round)
-	if proposal == nil {
+	proposalMS, ok := c.allProposals[round]
+	if !ok {
 		// Should never happen really.
 		c.logger.Error("core commit called with empty proposal ")
 		return
 	}
 
+	proposal := proposalMS.proposal
 	if proposal.ProposalBlock == nil {
 		// Again should never happen.
 		c.logger.Error("commit a NIL block", "block", proposal.ProposalBlock, "height", c.getHeight().String(), "round", c.getRound().String())
@@ -26,7 +27,12 @@ func (c *core) commit(ctx context.Context, round int64) {
 
 	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 
-	precommits := c.allRoundMessages[round].precommits
+	precommits, ok := c.allPrecommits[round]
+	if !ok {
+		// This should never be the case
+		c.logger.Error("Precommits empty in commit()")
+		return
+	}
 	committedSeals := make([][]byte, precommits.VotesSize(proposal.ProposalBlock.Hash()))
 	for i, v := range precommits.Values(proposal.ProposalBlock.Hash()) {
 		committedSeals[i] = make([]byte, types.BFTExtraSeal)

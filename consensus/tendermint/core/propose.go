@@ -89,38 +89,32 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	}
 
 	// if the proposal is different from what is stored in the round state, then proposer is byzantine, therefore,
-	// ignore the proposal, otherwise, the current proposal was received by the validator in a previous round and
-	// it should be handled now as the current proposal
-	if c.getProposal(proposal.Round.Int64()) != nil {
-		if c.getProposal(proposal.Round.Int64()).ProposalBlock.Hash() != proposal.ProposalBlock.Hash() {
-			return nil
-		}
-		// If the proposal block is received more than once through gossip we need to ignore since the state will not
-		// change.
-	} else {
-		// If we don't have old or future proposal, then add the proposal to the relevant round message set and since
-		// the state has changed we need to check for consensus on this proposal block.
-		c.setProposal(proposal.Round.Int64(), &proposal, msg)
-		if err := c.checkForConsensus(ctx, proposal.Round.Int64()); err != nil {
-			return err
-		}
+	// ignore the proposal. otherwise, if the proposal block is received more than once through gossip we need to
+	// ignore since the state will not change.
+	if _, ok := c.allProposals[proposal.Round.Int64()]; ok {
+		return nil
 	}
+	// We don't have old, current or future proposal, then add the proposal to the relevant round message set
+	// and since the state has changed we need to check for consensus on this proposal block.
+	c.allProposals[proposal.Round.Int64()] = proposalSet{proposal, msg}
 
 	c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
+
+	if err := c.checkForConsensus(ctx, proposal.Round.Int64()); err != nil {
+		return err
+	}
 
 	roundCmp := proposal.Round.Cmp(c.getRound())
 	// Nothing more to do for old round proposal
 	if roundCmp == 0 {
 		// Proposal is for current round, i.e. proposal.Round.Int64() = c.getRound().Int64()
-		c.setProposal(proposal.Round.Int64(), &proposal, msg)
-
 		if c.step == propose {
 			if proposal.ValidRound.Int64() == -1 {
 				return c.checkForNewProposal(ctx, proposal.Round.Int64())
-			} else if proposal.ValidRound.Int64() > -1 {
+			} else if proposal.ValidRound.Int64() >= 0 {
 				return c.checkForOldProposal(ctx, proposal.Round.Int64())
 			}
-		} else if c.step > propose {
+		} else if c.step >= prevote {
 			return c.checkForQuorumPrevotes(ctx, proposal.Round.Int64())
 		}
 	} else if roundCmp > 0 {

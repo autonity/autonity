@@ -38,7 +38,15 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	if isNil {
 		precommit.ProposedBlockHash = proposalBlockHash
 	} else {
-		proposalBlockHash = c.getProposal(currentRound).ProposalBlock.Hash()
+		proposalMS, ok := c.allProposals[currentRound]
+		if !ok {
+			// Should never be the case
+			c.logger.Error("Proposal is empty while trying to send precommit")
+			return
+		}
+
+		p := proposalMS.proposal
+		proposalBlockHash = p.ProposalBlock.Hash()
 		if h := proposalBlockHash; h == (common.Hash{}) {
 			c.logger.Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
@@ -98,7 +106,6 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 	if err := c.verifyPrecommitCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
 		return err
 	}
-	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
 	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
 	curR := c.getRound().Int64()
@@ -107,8 +114,13 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 
 	// The precommit doesn't exists in our current round state, so add it, thus it will add the precommit to the round
 	// of the precommit
-	precommits := c.allRoundMessages[preCommit.Round.Int64()].precommits
+	if _, ok := c.allPrecommits[preCommit.Round.Int64()]; !ok {
+		c.allPrecommits[preCommit.Round.Int64()] = newMessageSet()
+	}
+	precommits := c.allPrecommits[preCommit.Round.Int64()]
 	precommits.Add(precommitHash, *msg)
+
+	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
 	roundCmp := preCommit.Round.Cmp(c.getRound())
 	if roundCmp == 0 {
@@ -147,11 +159,15 @@ func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to
 	currentRound := c.getRound().Int64()
 	currentProposalHash := common.Hash{}
 
-	if p := c.getProposal(currentRound); p != nil {
-		currentProposalHash = p.ProposalBlock.Hash()
+	proposalMS, ok := c.allProposals[currentRound]
+	if ok {
+		currentProposalHash = proposalMS.proposal.ProposalBlock.Hash()
 	}
 
-	precommits := c.allRoundMessages[currentRound].precommits
+	precommits, ok := c.allPrecommits[currentRound]
+	if !ok {
+		return
+	}
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
