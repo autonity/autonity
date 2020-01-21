@@ -615,6 +615,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	if err := config.AutonityContractConfig.AddDefault().Validate(); err != nil {
 		t.Fatal(err)
 	}
+	gspec.Difficulty = big.NewInt(1)
 
 	genesis := gspec.MustCommit(db)
 
@@ -650,7 +651,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	doneCh := make(chan struct{}, totalPeers)
 	for _, peer := range peers {
 		go func(p *testPeer) {
-			if expectErr := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: chain[0].Difficulty()}); expectErr != nil {
+			if expectErr := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: new(big.Int).Add(genesis.Difficulty(), chain[0].Difficulty())}); expectErr != nil {
 				errCh <- expectErr
 			} else {
 				doneCh <- struct{}{}
