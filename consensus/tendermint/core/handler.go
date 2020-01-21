@@ -54,6 +54,11 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 
 	c.subscribeEvents()
 
+	// set height and round before starting go routines
+	lastCommittedProposalBlock, _ := c.backend.LastCommittedProposal()
+	c.setHeight(new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1))
+	c.setRound(big.NewInt(0))
+
 	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent(ctx)
 
