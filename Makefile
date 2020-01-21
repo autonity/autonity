@@ -9,7 +9,6 @@
 .PHONY: autonity-windows autonity-windows-386 autonity-windows-amd64
 
 GOBIN = $(shell pwd)/build/bin
-AUTONITY_BIN = $(shell pwd)/build/bin/autonity
 GO ?= latest
 LATEST_COMMIT ?= $(shell git log -n 1 master --pretty=format:"%H")
 ifeq ($(LATEST_COMMIT),)
@@ -50,10 +49,6 @@ test-race:
 
 test-contracts:
 	cd contracts/autonity/contract/ && truffle test && cd -
-
-e2etest-contracts:
-	pip3 install -r contract_e2e_test/requirements.txt
-	python3 contract_e2e_test/contract_e2e_test.py $(AUTONITY_BIN)
 
 mock-gen:
 	mockgen -source=consensus/tendermint/validator/validator_interface.go -package=validator -destination=consensus/tendermint/validator/validator_mock.go
