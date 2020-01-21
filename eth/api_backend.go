@@ -21,8 +21,6 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
@@ -82,16 +80,13 @@ func (b *EthAPIBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*ty
 func (b *EthAPIBackend) BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error) {
 	// Pending block is only known by the miner
 	if number == rpc.PendingBlockNumber {
-		spew.Dump(111)
 		block := b.eth.miner.PendingBlock()
 		return block, nil
 	}
 	// Otherwise resolve and return the block
 	if number == rpc.LatestBlockNumber {
-		spew.Dump(222)
 		return b.eth.blockchain.CurrentBlock(), nil
 	}
-	spew.Dump(333)
 	return b.eth.blockchain.GetBlockByNumber(uint64(number)), nil
 }
 
