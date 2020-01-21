@@ -497,7 +497,6 @@ wgLoop:
 			}
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
 		}
 		// allow to exit goroutine when no quorum expected
 		// check that there's no quorum within the given noQuorumTimeout

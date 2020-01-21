@@ -21,6 +21,12 @@
 			"revisionTime": "2019-10-01T09:44:35Z"
 		},
 		{
+			"checksumSHA1": "epYLisgoRS3k/b9ij9eLIWVYKfw=",
+			"path": "github.com/JekaMas/pretty",
+			"revision": "bfc6f9ec9574d3596a75cec8fe110a659dcb6458",
+			"revisionTime": "2016-12-13T09:59:28Z"
+		},
+		{
 			"checksumSHA1": "QC55lHNOv1+UAL2xtIHw17MJ8J8=",
 			"path": "github.com/StackExchange/wmi",
 			"revision": "5d049714c4a64225c3c79a7cf7d02f7fb5b96338",
@@ -278,6 +284,12 @@
 			"revision": "6a7de9d893feb2324aaef49331e923ce279c7973",
 			"revisionTime": "2019-07-03T09:51:11Z",
 			"tree": true
+		},
+		{
+			"checksumSHA1": "SbguDK5lY8uhaHNrmJmNbiWIGM0=",
+			"path": "github.com/kr/text",
+			"revision": "e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f",
+			"revisionTime": "2018-05-06T08:24:08Z"
 		},
 		{
 			"checksumSHA1": "SEnjvwVyfuU2xBaOfXfwPD5MZqk=",

@@ -38,7 +38,7 @@ var (
 	testKey, _   = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddress  = crypto.PubkeyToAddress(testKey.PublicKey)
 	genesis      = core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
-	unknownBlock = types.NewBlock(&types.Header{OriginalHeader: types.OriginalHeader{GasLimit: params.GenesisGasLimit}}, nil, nil, nil)
+	unknownBlock = types.NewBlock(&types.Header{GasLimit: params.GenesisGasLimit}, nil, nil, nil)
 )
 
 // makeChain creates a chain of n blocks starting at and including parent.
@@ -60,7 +60,7 @@ func makeChain(n int, seed byte, parent *types.Block) ([]common.Hash, map[common
 		}
 		// If the block number is a multiple of 5, add a bonus uncle to the block
 		if i%5 == 0 {
-			block.AddUncle(&types.Header{OriginalHeader: types.OriginalHeader{ParentHash: block.PrevBlock(i - 1).Hash(), Number: big.NewInt(int64(i - 1))}})
+			block.AddUncle(&types.Header{ParentHash: block.PrevBlock(i - 1).Hash(), Number: big.NewInt(int64(i - 1))})
 		}
 	})
 	hashes := make([]common.Hash, n+1)

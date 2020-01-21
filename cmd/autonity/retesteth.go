@@ -459,12 +459,12 @@ func (api *RetestethAPI) mineBlock() error {
 		timestamp = parent.Time() + api.blockInterval
 	}
 	gasLimit := core.CalcGasLimit(parent, 9223372036854775807, 9223372036854775807)
-	header := &types.Header{OriginalHeader: types.OriginalHeader{
+	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     big.NewInt(int64(api.blockNumber + 1)),
 		GasLimit:   gasLimit,
 		Extra:      api.extraData,
-		Time:       timestamp},
+		Time:       timestamp,
 	}
 	header.Coinbase = api.author
 	if api.engine != nil {

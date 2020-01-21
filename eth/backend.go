@@ -186,7 +186,7 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	}
 
 	// force to set the istanbul etherbase to node key address
-	if chainConfig.Istanbul != nil || chainConfig.Tendermint != nil {
+	if chainConfig.Tendermint != nil {
 		eth.etherbase = crypto.PubkeyToAddress(ctx.NodeKey().PublicKey)
 	}
 

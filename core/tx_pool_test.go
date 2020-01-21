@@ -52,8 +52,8 @@ type testBlockChain struct {
 }
 
 func (bc *testBlockChain) CurrentBlock() *types.Block {
-	return types.NewBlock(&types.Header{OriginalHeader: types.OriginalHeader{
-		GasLimit: bc.gasLimit},
+	return types.NewBlock(&types.Header{
+		GasLimit: bc.gasLimit,
 	}, nil, nil, nil)
 }
 
