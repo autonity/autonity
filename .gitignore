@@ -26,6 +26,7 @@ coverage_all.out
 
 # used by the Makefile
 /build/_workspace/
+/build/cache/
 /build/bin/
 /autonity*.zip
 

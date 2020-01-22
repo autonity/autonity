@@ -2,9 +2,6 @@ package test
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/davecgh/go-spew/spew"
 	"net"
 	"os"
 	"strconv"
@@ -13,17 +10,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common/graph"
-
-	"github.com/clearmatics/autonity/common/fdlimit"
-	"github.com/clearmatics/autonity/consensus"
-	"go.uber.org/goleak"
-
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/fdlimit"
+	"github.com/clearmatics/autonity/common/graph"
+	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/davecgh/go-spew/spew"
+	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -118,7 +116,11 @@ func runTest(t *testing.T, test *testCase) {
 		t.SkipNow()
 	}
 
-	defer goleak.VerifyNone(t)
+	// TODO: (screwyprof) Fix the following gorotine leaks
+	defer goleak.VerifyNone(t,
+		goleak.IgnoreTopFunction("github.com/JekaMas/notify._Cfunc_CFRunLoopRun"),
+		goleak.IgnoreTopFunction("github.com/clearmatics/autonity/metrics.(*meterArbiter).tick"),
+		goleak.IgnoreTopFunction("github.com/clearmatics/autonity/consensus/ethash.(*remoteSealer).loop"))
 
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numValidators))

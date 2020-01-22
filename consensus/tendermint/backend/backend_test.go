@@ -203,7 +203,7 @@ func TestVerifyProposal(t *testing.T) {
 		if stateErr != nil {
 			t.Fatalf("could not retrieve state %d, err=%s", i, stateErr)
 		}
-		if status, errW := blockchain.WriteBlockWithState(block, nil, state); status != core.CanonStatTy && errW != nil {
+		if status, errW := blockchain.WriteBlockWithState(block, nil, nil, state, false); status != core.CanonStatTy && errW != nil {
 			t.Fatalf("write block failure %d, err=%s", i, errW)
 		}
 		blocks[i] = block
@@ -779,7 +779,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 			return nil, err
 		}
 		txs[i] = tx
-		receipt, _, err := core.ApplyTransaction(chain.Config(), chain, nil, gasPool, state, header, txs[i], &header.GasUsed, *engine.vmConfig)
+		receipt, err := core.ApplyTransaction(chain.Config(), chain, nil, gasPool, state, header, txs[i], &header.GasUsed, *engine.vmConfig)
 		if err != nil {
 			return nil, err
 		}

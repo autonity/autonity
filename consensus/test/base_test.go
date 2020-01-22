@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	leak "github.com/zimmski/go-leak"
+	"github.com/zimmski/go-leak"
 	"gonum.org/v1/gonum/stat"
 )
 
