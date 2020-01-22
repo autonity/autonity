@@ -381,7 +381,7 @@ func (mr *MockBackendMockRecorder) Gossip(ctx, valSet, payload interface{}) *gom
 }
 
 // Commit mocks base method
-func (m *MockBackend) Commit(proposalBlock *types.Block, round *big.Int, seals [][]byte) error {
+func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, seals [][]byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Commit", proposalBlock, round, seals)
 	ret0, _ := ret[0].(error)

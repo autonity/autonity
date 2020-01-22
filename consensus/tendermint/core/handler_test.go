@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
@@ -15,14 +15,14 @@ import (
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
-	validators, keysMap := newTestValidatorSetWithKeys(4)
-	currentValidator := validators.GetByIndex(0)
-	sender := validators.GetByIndex(1)
-	senderKey := keysMap[sender.GetAddress()]
+	committeeSet, keysMap := newTestCommitteeSetWithKeys(4)
+	currentValidator, _ := committeeSet.GetByIndex(0)
+	sender, _ := committeeSet.GetByIndex(1)
+	senderKey := keysMap[sender.Address]
 
 	createPrevote := func(round int64, height int64) *Message {
 		vote := &Vote{
-			Round:             big.NewInt(round),
+			Round:             round,
 			Height:            big.NewInt(height),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
@@ -33,13 +33,13 @@ func TestHandleCheckedMessage(t *testing.T) {
 		return &Message{
 			Code:    msgPrevote,
 			Msg:     encoded,
-			Address: sender.GetAddress(),
+			Address: sender.Address,
 		}
 	}
 
 	createPrecommit := func(round int64, height int64) *Message {
 		vote := &Vote{
-			Round:             big.NewInt(round),
+			Round:             round,
 			Height:            big.NewInt(height),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
@@ -56,54 +56,64 @@ func TestHandleCheckedMessage(t *testing.T) {
 		return &Message{
 			Code:          msgPrecommit,
 			Msg:           encoded,
-			Address:       sender.GetAddress(),
+			Address:       sender.Address,
 			CommittedSeal: commitSign,
 		}
 	}
 
-	setCurrentRoundState := func(round int64, height int64, step Step) *roundMessages {
-		currentState := NewRoundMessages(big.NewInt(round), big.NewInt(height))
-		currentState.SetStep(step)
-		return currentState
-	}
-
 	cases := []struct {
-		currentState *roundMessages
-		message      *Message
-		outcome      error
+		round   int64
+		height  *big.Int
+		step    Step
+		message *Message
+		outcome error
 	}{
 		{
-			setCurrentRoundState(1, 2, propose),
+			1,
+			big.NewInt(2),
+			propose,
 			createPrevote(1, 2),
 			errFutureStepMessage,
 		},
 		{
-			setCurrentRoundState(1, 2, propose),
+			1,
+			big.NewInt(2),
+			propose,
 			createPrevote(2, 2),
 			errFutureRoundMessage,
 		},
 		{
-			setCurrentRoundState(0, 2, propose),
+			0,
+			big.NewInt(2),
+			propose,
 			createPrevote(0, 3),
 			errFutureHeightMessage,
 		},
 		{
-			setCurrentRoundState(0, 2, prevote),
+			0,
+			big.NewInt(2),
+			prevote,
 			createPrevote(0, 2),
 			nil,
 		},
 		{
-			setCurrentRoundState(0, 2, precommit),
+			0,
+			big.NewInt(2),
+			precommit,
 			createPrecommit(0, 2),
 			nil,
 		},
 		{
-			setCurrentRoundState(0, 5, precommit),
+			0,
+			big.NewInt(5),
+			precommit,
 			createPrecommit(0, 10),
 			errFutureHeightMessage,
 		},
 		{
-			setCurrentRoundState(5, 2, precommit),
+			5,
+			big.NewInt(2),
+			precommit,
 			createPrecommit(20, 2),
 			errFutureRoundMessage,
 		},
@@ -111,13 +121,18 @@ func TestHandleCheckedMessage(t *testing.T) {
 
 	for _, testCase := range cases {
 		logger := log.New("backend", "test", "id", 0)
+		message := newMessagesMap()
 		engine := core{
 			logger:            logger,
-			address:           currentValidator.GetAddress(),
-			backlogs:          make(map[committee.Validator]*prque.Prque),
-			curRoundMessages:  testCase.currentState,
-			futureRoundChange: make(map[int64]int64),
-			committeeSet:      &validatorSet{Set: validators},
+			address:           currentValidator.Address,
+			backlogs:          make(map[types.CommitteeMember]*prque.Prque),
+			round:             testCase.round,
+			height:            testCase.height,
+			step:              testCase.step,
+			futureRoundChange: make(map[int64]map[common.Address]struct{}),
+			messages:          message,
+			curRoundMessages:  message.getOrCreate(0),
+			committeeSet:      committeeSet,
 			proposeTimeout:    newTimeout(propose, logger),
 			prevoteTimeout:    newTimeout(prevote, logger),
 			precommitTimeout:  newTimeout(precommit, logger),

@@ -168,8 +168,8 @@ func (c *core) GetCurrentHeightMessages() []*Message {
 }
 
 func (c *core) IsMember(address common.Address) bool {
-	i, _ := c.CommitteeSet().GetByAddress(address)
-	return i != -1
+	_, _, err := c.CommitteeSet().GetByAddress(address)
+	return err == nil
 }
 
 func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
@@ -302,7 +302,7 @@ func (c *core) setInitialState(r int64) {
 	if r == 0 {
 		lastBlockMined, _ := c.backend.LastCommittedProposal()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-		c.setCommitteeSet(c.backend.Validators(c.Height().Uint64()))
+		c.setCommitteeSet(c.backend.Committee(c.Height().Uint64()))
 		c.lockedRound = -1
 		c.lockedValue = nil
 		c.validRound = -1

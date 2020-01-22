@@ -120,7 +120,11 @@ func (m *Message) FromPayload(b []byte, valSet committee.Set, validateFn func(co
 		return nil, ErrUnauthorizedAddress
 	}
 
-	_, v := valSet.GetByAddress(addr)
+	_, v, err := valSet.GetByAddress(addr)
+	if err != nil {
+		return nil, err
+	}
+
 	return &v, nil
 }
 

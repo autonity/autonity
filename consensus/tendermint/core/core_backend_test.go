@@ -369,24 +369,20 @@ func TestCore_SyncPeer(t *testing.T) {
 		defer ctrl.Finish()
 
 		addr := common.HexToAddress("0x0123456789")
-		curRoundState := NewRoundMessages(big.NewInt(2), big.NewInt(1))
+		val := types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)}
 
-		val := committee.NewMockValidator(ctrl)
-
-		valSetMock := committee.NewMockSet(ctrl)
-		valSetMock.EXPECT().GetByAddress(addr).Return(1, val)
-
-		valSet := &validatorSet{
-			Set: valSetMock,
-		}
+		committeeSet := committee.NewMockSet(ctrl)
+		committeeSet.EXPECT().GetByAddress(addr).Return(1, val, nil)
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().SyncPeer(addr, gomock.Any())
 
 		c := &core{
 			backend:          backendMock,
-			curRoundMessages: curRoundState,
-			committeeSet:     valSet,
+			curRoundMessages: NewRoundMessages(),
+			committeeSet:     committeeSet,
+			round:            1,
+			height:           big.NewInt(1),
 		}
 
 		c.SyncPeer(addr)
