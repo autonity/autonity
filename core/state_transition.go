@@ -224,7 +224,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	st.refundGas()
 	address := st.evm.Coinbase
 
-	if st.evm.ChainConfig().AutonityContractConfig != nil && (st.evm.ChainConfig().Istanbul != nil || st.evm.ChainConfig().Tendermint != nil) {
+	if st.evm.ChainConfig().AutonityContractConfig != nil && st.evm.ChainConfig().Tendermint != nil {
 		addr, innerErr := st.evm.ChainConfig().AutonityContractConfig.GetContractAddress()
 		if innerErr != nil {
 			return nil, 0, true, innerErr
