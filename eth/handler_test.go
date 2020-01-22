@@ -503,7 +503,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	if checkpoint {
 		index := uint64(rand.Intn(500))
 		number := (index+1)*params.CHTFrequency - 1
-		response = &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(int64(number)), Extra: []byte("valid")}}
+		response = &types.Header{Number: big.NewInt(int64(number)), Extra: []byte("valid")}
 
 		cht = &params.TrustedCheckpoint{
 			SectionIndex: index,
@@ -548,7 +548,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 					t.Fatalf("failed to answer challenge: %v", err)
 				}
 			} else {
-				if err := p2p.Send(peer.app, BlockHeadersMsg, []*types.Header{{OriginalHeader: types.OriginalHeader{Number: response.Number}}}); err != nil {
+				if err := p2p.Send(peer.app, BlockHeadersMsg, []*types.Header{{Number: response.Number}}); err != nil {
 					t.Fatalf("failed to answer challenge: %v", err)
 				}
 			}
@@ -599,7 +599,6 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		gspec  = &core.Genesis{Config: config}
 	)
 	config.AutonityContractConfig = &params.AutonityContractGenesis{}
-	config.Istanbul = &params.IstanbulConfig{}
 
 	p2pPeers := make([]*p2p.Peer, totalPeers)
 	for i := 0; i < totalPeers; i++ {
@@ -616,6 +615,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	if err := config.AutonityContractConfig.AddDefault().Validate(); err != nil {
 		t.Fatal(err)
 	}
+	gspec.Difficulty = big.NewInt(1)
 
 	genesis := gspec.MustCommit(db)
 
@@ -628,21 +628,23 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	if err != nil {
 		t.Fatalf("failed to start test protocol manager: %v", err)
 	}
+
 	pm.Start(1000)
 	defer pm.Stop()
 	var peers []*testPeer
+
 	for i := 0; i < totalPeers; i++ {
 		peer, errc := newTestPeer(p2pPeers[i], eth63, pm, true)
 		go func() {
 			for err := range errc {
-				fmt.Println(fmt.Println("testPeerErr", err))
+				fmt.Println("testPeerErr", err)
 			}
-
 		}()
 		defer peer.close()
 		peers = append(peers, peer)
 	}
 	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *core.BlockGen) {})
+
 	pm.BroadcastBlock(chain[0], true /*propagate*/)
 
 	errCh := make(chan error, totalPeers)
@@ -650,7 +652,6 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	for _, peer := range peers {
 		go func(p *testPeer) {
 			if expectErr := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: new(big.Int).Add(genesis.Difficulty(), chain[0].Difficulty())}); expectErr != nil {
-				t.Log("eth/handler_test.go:635 p2p.ExpectMsg err", expectErr)
 				errCh <- expectErr
 			} else {
 				doneCh <- struct{}{}

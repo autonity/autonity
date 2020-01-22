@@ -865,12 +865,12 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	}
 
 	num := parent.Number()
-	header := &types.Header{OriginalHeader: types.OriginalHeader{
+	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, w.config.GasFloor, w.config.GasCeil),
 		Extra:      w.extra,
-		Time:       uint64(timestamp)},
+		Time:       uint64(timestamp),
 	}
 	// Only set the coinbase if our consensus engine is running (avoid spurious block rewards)
 	if w.isRunning() {
@@ -933,7 +933,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	commitUncles(w.localUncles)
 	commitUncles(w.remoteUncles)
 
-	if !noempty && (w.chainConfig.Istanbul == nil && w.chainConfig.Tendermint == nil) {
+	if !noempty && w.chainConfig.Tendermint == nil {
 		// Create an empty block based on temporary copied state for sealing in advance without waiting block
 		// execution finished.
 		w.commit(uncles, nil, false, tstart)
@@ -946,7 +946,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		return
 	}
 	// Short circuit if there is no available pending transactions
-	if len(pending) == 0 && (w.chainConfig.Istanbul == nil && w.chainConfig.Tendermint == nil) {
+	if len(pending) == 0 && w.chainConfig.Tendermint == nil {
 		w.updateSnapshot()
 		return
 	}

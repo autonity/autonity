@@ -232,23 +232,18 @@ func (sb *Backend) Gossip(ctx context.Context, valSet validator.Set, payload []b
 }
 
 // Commit implements tendermint.Backend.Commit
-func (sb *Backend) Commit(proposal types.Block, seals [][]byte) error {
-	// Check if the proposal is a valid block
-	block := &proposal
+func (sb *Backend) Commit(proposal *types.Block, round *big.Int, seals [][]byte) error {
+	h := proposal.Header()
+	// Append seals and round into extra-data
+	if err := types.WriteCommittedSeals(h, seals); err != nil {
+		return err
+	}
 
-	//if block == nil {
-	//	sb.logger.Error("Invalid proposal, %v", proposal)
-	//	return errInvalidProposal
-	//}
-
-	h := block.Header()
-	// Append seals into extra-data
-	err := types.WriteCommittedSeals(h, seals)
-	if err != nil {
+	if err := types.WriteRound(h, round); err != nil {
 		return err
 	}
 	// update block's header
-	block = block.WithSeal(h)
+	proposal = proposal.WithSeal(h)
 
 	sb.logger.Info("Committed", "address", sb.Address(), "hash", proposal.Hash(), "number", proposal.Number().Uint64())
 	// - if the proposed and committed blocks are the same, send the proposed hash
@@ -257,14 +252,14 @@ func (sb *Backend) Commit(proposal types.Block, seals [][]byte) error {
 	// -- if success, the ChainHeadEvent event will be broadcasted, try to build
 	//    the next block and the previous Seal() will be stopped.
 	// -- otherwise, a error will be returned and a round change event will be fired.
-	if sb.proposedBlockHash == block.Hash() && !sb.isResultChanNil() {
+	if sb.proposedBlockHash == proposal.Hash() && !sb.isResultChanNil() {
 		// feed block hash to Seal() and wait the Seal() result
-		sb.sendResultChan(block)
+		sb.sendResultChan(proposal)
 		return nil
 	}
 
 	if sb.broadcaster != nil {
-		sb.broadcaster.Enqueue(fetcherID, block)
+		sb.broadcaster.Enqueue(fetcherID, proposal)
 	}
 	return nil
 }
@@ -343,7 +338,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 				return 0, err
 			}
 		} else if proposalNumber > 1 {
-			err = sb.blockchain.GetAutonityContract().ApplyPerformRedistribution(block.Transactions(), receipts, block.Header(), state)
+			err = sb.blockchain.GetAutonityContract().ApplyFinalize(block.Transactions(), receipts, block.Header(), state)
 			if err != nil {
 				return 0, err
 			}

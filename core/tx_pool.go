@@ -19,7 +19,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"math"
 	"math/big"
 	"sort"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/prque"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
@@ -515,8 +515,9 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
-	// Heuristic limit, reject transactions over 32KB to prevent DOS attacks
-	if tx.Size() > 32*1024 {
+	// Heuristic limit, reject transactions over 1MB to prevent DOS attacks
+	// changes of parameters were recorded at https://github.com/clearmatics/autonity-wiki/wiki/Autonity-Chain-Parameter-Highlights
+	if tx.Size() > 1024*1024 {
 		return ErrOversizedData
 	}
 	// Transactions can't be negative. This may never happen using RLP decoded

@@ -19,14 +19,15 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
 
@@ -83,6 +84,28 @@ func ReadEnodeWhitelist(db ethdb.KeyValueReader, openNetwork bool) *types.Nodes 
 
 	nodes = types.NewNodes(strList, openNetwork)
 	return nodes
+}
+
+// PutKeyValue stores the key value to the chain data level db.
+func PutKeyValue(db ethdb.KeyValueWriter, key []byte, value []byte) error {
+	if err := db.Put(key, value); err != nil {
+		log.Crit("Failed to store state into level db.", "err", err)
+		return err
+	}
+	return nil
+}
+
+// GetKeyValue get the key value from chain data level db.
+func GetKeyValue(db ethdb.KeyValueReader, key []byte) ([]byte, error) {
+	bytes, err := db.Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(bytes) <= 0 {
+		return nil, errors.New("no data found")
+	}
+	return bytes, nil
 }
 
 // DeleteCanonicalHash removes the number to hash canonical mapping.
@@ -239,6 +262,7 @@ func ReadHeader(db ethdb.Reader, hash common.Hash, number uint64) *types.Header 
 		log.Error("Invalid block header RLP", "hash", hash, "err", err)
 		return nil
 	}
+
 	return header
 }
 

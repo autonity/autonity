@@ -77,7 +77,7 @@ func TestGetValidatorsAtHash(t *testing.T) {
 		hash := common.HexToHash("0x0123456789")
 
 		chain := consensus.NewMockChainReader(ctrl)
-		chain.EXPECT().GetHeaderByHash(hash).Return(&types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(1)}})
+		chain.EXPECT().GetHeaderByHash(hash).Return(&types.Header{Number: big.NewInt(1)})
 
 		val := validator.NewMockValidator(ctrl)
 		val.EXPECT().Addr().Return(addr)

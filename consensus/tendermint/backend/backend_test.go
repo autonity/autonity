@@ -345,34 +345,34 @@ func TestCommit(t *testing.T) {
 		testCases := []struct {
 			expectedErr       error
 			expectedSignature [][]byte
-			expectedBlock     func() types.Block
+			expectedBlock     func() *types.Block
 		}{
 			{
 				// normal case
 				nil,
 				[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-1)...)},
-				func() types.Block {
+				func() *types.Block {
 					chain, engine := newBlockChain(1)
 					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 					if err != nil {
 						t.Fatal(err)
 					}
 					expectedBlock, _ := engine.AddSeal(block)
-					return *expectedBlock
+					return expectedBlock
 				},
 			},
 			{
 				// invalid signature
 				types.ErrInvalidCommittedSeals,
 				nil,
-				func() types.Block {
+				func() *types.Block {
 					chain, engine := newBlockChain(1)
 					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 					if err != nil {
 						t.Fatal(err)
 					}
 					expectedBlock, _ := engine.AddSeal(block)
-					return *expectedBlock
+					return expectedBlock
 				},
 			},
 		}
@@ -381,7 +381,7 @@ func TestCommit(t *testing.T) {
 			expBlock := test.expectedBlock()
 
 			backend.proposedBlockHash = expBlock.Hash()
-			if err := backend.Commit(expBlock, test.expectedSignature); err != nil {
+			if err := backend.Commit(expBlock, new(big.Int), test.expectedSignature); err != nil {
 				if err != test.expectedErr {
 					t.Errorf("error mismatch: have %v, want %v", err, test.expectedErr)
 				}
@@ -405,14 +405,14 @@ func TestCommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		blockFactory := func() types.Block {
+		blockFactory := func() *types.Block {
 			chain, engine := newBlockChain(1)
 			block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 			if err != nil {
 				t.Fatal(err)
 			}
 			expectedBlock, _ := engine.AddSeal(block)
-			return *expectedBlock
+			return expectedBlock
 		}
 
 		newBlock := blockFactory()
@@ -427,7 +427,7 @@ func TestCommit(t *testing.T) {
 		}
 		b.SetBroadcaster(broadcaster)
 
-		err := b.Commit(newBlock, seals)
+		err := b.Commit(newBlock, new(big.Int), seals)
 		if err != nil {
 			t.Fatalf("expected <nil>, got %v", err)
 		}
@@ -523,8 +523,8 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 	})
 
 	t.Run("block number is greater than 0, empty block returned", func(t *testing.T) {
-		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
-			Number: big.NewInt(1)},
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
 		})
 
 		b := &Backend{
@@ -727,14 +727,16 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 }
 
 func makeHeader(parent *types.Block, config *config.Config) *types.Header {
-	header := &types.Header{OriginalHeader: types.OriginalHeader{
+	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, 8000000, 8000000),
 		GasUsed:    0,
 		Extra:      parent.Extra(),
 		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(config.BlockPeriod)).Uint64(),
-		Difficulty: defaultDifficulty},
+		Difficulty: defaultDifficulty,
+		MixDigest:  types.BFTDigest,
+		Round:      big.NewInt(0),
 	}
 	return header
 }
