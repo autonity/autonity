@@ -1,6 +1,6 @@
 language: go
 go_import_path: github.com/clearmatics/autonity
-go: 1.12.9
+go: 1.13.x
 sudo: false
 os: linux
 dist: bionic
@@ -21,6 +21,7 @@ jobs:
     - &tests
       stage: "Build, linters and tests"
       env:
+        - GO111MODULE=on
         - GORACE="history_size=7"
       after_success:
         - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN

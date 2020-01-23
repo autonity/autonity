@@ -28,13 +28,13 @@ import (
 	"testing"
 	"testing/quick"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/ethdb/leveldb"
 	"github.com/clearmatics/autonity/ethdb/memorydb"
 	"github.com/clearmatics/autonity/rlp"
-	"github.com/davecgh/go-spew/spew"
 )
 
 func init() {
@@ -315,16 +315,6 @@ func TestLargeValue(t *testing.T) {
 	trie.Update([]byte("key1"), []byte{99, 99, 99, 99})
 	trie.Update([]byte("key2"), bytes.Repeat([]byte{1}, 32))
 	trie.Hash()
-}
-
-type countingDB struct {
-	ethdb.KeyValueStore
-	gets map[string]int
-}
-
-func (db *countingDB) Get(key []byte) ([]byte, error) {
-	db.gets[string(key)]++
-	return db.KeyValueStore.Get(key)
 }
 
 // randTest performs random trie operations.

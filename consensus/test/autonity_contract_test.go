@@ -1,0 +1,334 @@
+package test
+
+import (
+	"context"
+	"fmt"
+	"math/big"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/clearmatics/autonity/accounts/abi/bind"
+	"github.com/clearmatics/autonity/ethclient"
+
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
+)
+
+const DefaultTestGasPrice = 100000000000
+
+func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	hookGenerator := func() (hook, hook) {
+		prevBlockBalance := uint64(0)
+		prevSTBalance := new(big.Int)
+
+		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+			addr, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
+			if err != nil {
+				return err
+			}
+			st, _ := validator.service.BlockChain().State()
+			if block.NumberU64() == 1 && st.GetBalance(addr).Uint64() != 0 {
+				return fmt.Errorf("incorrect balance on the first block")
+			}
+			return nil
+		}
+		fAfter := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+			autonityContractAddress, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
+			if err != nil {
+				return err
+			}
+			st, _ := validator.service.BlockChain().State()
+
+			if block.NumberU64() == 1 && prevBlockBalance != 0 {
+				return fmt.Errorf("incorrect balance on the first block")
+			}
+			contractBalance := st.GetBalance(autonityContractAddress)
+			if block.NumberU64() > 1 && len(block.Transactions()) > 0 && block.NumberU64() <= uint64(tCase.numBlocks) {
+				if contractBalance.Uint64() < prevBlockBalance {
+					return fmt.Errorf("balance must be increased")
+				}
+			}
+			prevBlockBalance = contractBalance.Uint64()
+
+			if block.NumberU64() > 1 && len(block.Transactions()) > 0 && block.NumberU64() <= uint64(tCase.numBlocks) {
+				sh := validator.service.BlockChain().Config().AutonityContractConfig.GetStakeHolderUsers()[0]
+				stakeHolderBalance := st.GetBalance(sh.Address)
+				if stakeHolderBalance.Cmp(prevSTBalance) != 1 {
+					return fmt.Errorf("balance must be increased")
+				}
+				prevSTBalance = stakeHolderBalance
+			}
+
+			return nil
+		}
+		return fBefore, fAfter
+	}
+
+	case1Before, case1After := hookGenerator()
+	case2Before, case2After := hookGenerator()
+	case3Before, case3After := hookGenerator()
+	cases := []*testCase{
+		{
+			name:          "no malicious - 1 tx per second",
+			numValidators: 5,
+			numBlocks:     5,
+			txPerPeer:     1,
+			beforeHooks: map[string]hook{
+				"VD": case1Before,
+			},
+			afterHooks: map[string]hook{
+				"VD": case1After,
+			},
+		},
+		{
+			name:          "no malicious - 10 tx per second",
+			numValidators: 6,
+			numBlocks:     10,
+			txPerPeer:     10,
+			beforeHooks: map[string]hook{
+				"VF": case2Before,
+			},
+			afterHooks: map[string]hook{
+				"VF": case2After,
+			},
+		},
+		{
+			name:          "no malicious - 5 tx per second 4 peers",
+			numValidators: 4,
+			numBlocks:     5,
+			txPerPeer:     5,
+			beforeHooks: map[string]hook{
+				"VB": case3Before,
+			},
+			afterHooks: map[string]hook{
+				"VB": case3After,
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+
+		})
+	}
+}
+
+func TestCheckBlockWithSmallFee(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	hookGenerator := func() (hook, hook) {
+		prevBlockBalance := uint64(0)
+		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+			addr, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
+			if err != nil {
+				t.Fatal(err)
+			}
+			st, _ := validator.service.BlockChain().State()
+			if block.NumberU64() == 1 && st.GetBalance(addr).Uint64() != 0 {
+				t.Fatal("incorrect balance on the first block")
+			}
+			return nil
+		}
+		fAfter := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+			autonityContractAddress, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
+			if err != nil {
+				t.Fatal(err)
+			}
+			st, _ := validator.service.BlockChain().State()
+
+			if block.NumberU64() == 1 && prevBlockBalance != 0 {
+				t.Fatal("incorrect balance on the first block")
+			}
+			contractBalance := st.GetBalance(autonityContractAddress)
+
+			prevBlockBalance = contractBalance.Uint64()
+			return nil
+		}
+		return fBefore, fAfter
+	}
+
+	case1Before, case1After := hookGenerator()
+	cases := []*testCase{
+		{
+			name:          "no malicious - 1 tx per second",
+			numValidators: 5,
+			numBlocks:     5,
+			txPerPeer:     3,
+			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+				"VD": func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) { //nolint
+					nonce := validator.service.TxPool().Nonce(fromAddr)
+
+					tx, err := types.SignTx(
+						types.NewTransaction(
+							nonce,
+							toAddr,
+							big.NewInt(1),
+							210000000,
+							big.NewInt(DefaultTestGasPrice-200),
+							nil,
+						),
+						types.HomesteadSigner{}, validator.privateKey)
+					if err != nil {
+						return false, nil, err
+					}
+					err = validator.service.TxPool().AddLocal(tx)
+					if err == nil {
+						return false, nil, err
+					}
+
+					//step 2 valid transaction
+					tx, err = types.SignTx(
+						types.NewTransaction(
+							nonce,
+							toAddr,
+							big.NewInt(1),
+							210000000,
+							big.NewInt(DefaultTestGasPrice+200),
+							nil,
+						),
+						types.HomesteadSigner{}, validator.privateKey)
+					if err != nil {
+						return false, nil, err
+					}
+					err = validator.service.TxPool().AddLocal(tx)
+					if err != nil {
+						return false, nil, err
+					}
+
+					return false, tx, nil
+				},
+			},
+			beforeHooks: map[string]hook{
+				"VD": case1Before,
+			},
+			afterHooks: map[string]hook{
+				"VD": case1After,
+			},
+			genesisHook: func(g *core.Genesis) *core.Genesis {
+				g.Config.AutonityContractConfig.MinGasPrice = DefaultTestGasPrice - 100
+				return g
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestRemoveFromValidatorsList(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	operatorKey, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	once := sync.Once{}
+	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
+	testCase := &testCase{
+		name:                 "no malicious - 1 tx per second",
+		numValidators:        5,
+		numBlocks:            10,
+		txPerPeer:            1,
+		removedPeers:         make(map[common.Address]uint64),
+		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		genesisHook: func(g *core.Genesis) *core.Genesis {
+			g.Config.AutonityContractConfig.Operator = operatorAddress
+			g.Alloc[operatorAddress] = core.GenesisAccount{
+				Balance: big.NewInt(100000000000000000),
+			}
+			return g
+		},
+		finalAssert: func(t *testing.T, validators map[string]*testNode) {
+			validatorUsers := validators["VE"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+			validatorsListGenesis := []string{}
+			for i := range validatorUsers {
+				validatorsListGenesis = append(validatorsListGenesis, validatorUsers[i].Address.String())
+			}
+
+			stateDB, err := validators["VE"].service.BlockChain().State()
+			if err != nil {
+				t.Fatal(err)
+			}
+			validatorList, err := validators["VE"].service.BlockChain().GetAutonityContract().ContractGetCommittee(
+				validators["VE"].service.BlockChain(),
+				validators["VE"].service.BlockChain().CurrentHeader(),
+				stateDB,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			validatorListStr := []string{}
+			for _, v := range validatorList {
+				validatorListStr = append(validatorListStr, v.Address.String())
+			}
+
+			if len(validatorsListGenesis) <= len(validatorListStr) {
+				t.Fatal("Incorrect validator list")
+			}
+		},
+	}
+	testCase.sendTransactionHooks["VD"] = func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
+		if validator.lastBlock <= 3 {
+			return true, nil, nil
+		}
+		skip := true
+		once.Do(func() {
+			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+
+			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			gasPrice, err := conn.SuggestGasPrice(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			auth := bind.NewKeyedTransactor(operatorKey)
+			auth.From = operatorAddress
+			auth.Nonce = big.NewInt(int64(nonce))
+			auth.GasLimit = uint64(300000) // in units
+			auth.GasPrice = gasPrice
+
+			contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
+			instance, err := NewAutonity(contractAddress, conn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+			_, err = instance.RemoveUser(auth, validatorsList[0].Address)
+			if err != nil {
+				t.Fatal(err)
+			}
+			skip = false
+			testCase.removedPeers[validatorsList[0].Address] = validator.lastBlock
+		})
+
+		return skip, nil, nil
+	}
+	runTest(t, testCase)
+}
