@@ -163,6 +163,10 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 		c.validRound = big.NewInt(-1)
 		c.validValue = nil
 
+		// reset all maps
+		c.allProposals = make(map[int64]proposalSet)
+		c.allPrevotes = make(map[int64]messageSet)
+		c.allPrecommits = make(map[int64]messageSet)
 		c.verifiedProposals = make(map[common.Hash]bool)
 
 		// Set validator set for height

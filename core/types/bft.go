@@ -116,7 +116,7 @@ func WriteRound(h *Header, round *big.Int) error {
 // WriteCommittedSeals writes the extra-data field of a block header with given committed seals.
 func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
 	if len(committedSeals) == 0 {
-		return ErrInvalidCommittedSeals
+		return ErrEmptyCommittedSeals
 	}
 
 	for _, seal := range committedSeals {

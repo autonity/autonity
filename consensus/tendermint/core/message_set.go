@@ -127,7 +127,7 @@ func (ms *messageSet) Values(blockHash common.Hash) []Message {
 		messages = append(messages, v)
 	}
 
-	var result = make([]Message, 0)
+	var result = make([]Message, len(messages))
 	copy(result, messages)
 	return result
 }
