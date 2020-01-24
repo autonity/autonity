@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/autonity_contract_default"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
@@ -55,16 +56,16 @@ type AutonityContractGenesis struct {
 func (ac *AutonityContractGenesis) AddDefault() *AutonityContractGenesis {
 	if len(ac.Bytecode) == 0 || len(ac.ABI) == 0 {
 		log.Info("Default Validator smart contract set")
-		ac.ABI = DefaultABI
-		ac.Bytecode = DefaultBytecode
+		ac.ABI = autonity_contract_default.ABI()
+		ac.Bytecode = autonity_contract_default.Bytecode()
 	} else {
 		log.Info("User specified Validator smart contract set")
 	}
 	if reflect.DeepEqual(ac.Deployer, common.Address{}) {
-		ac.Deployer = DefaultDeployer
+		ac.Deployer = autonity_contract_default.Deployer()
 	}
 	if reflect.DeepEqual(ac.Operator, common.Address{}) {
-		ac.Operator = DefaultGovernance
+		ac.Operator = autonity_contract_default.Governance()
 	}
 
 	for i := range ac.Users {
