@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
+	"github.com/clearmatics/autonity/common/keygenerator"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -121,7 +122,7 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 		})
 	}
 	//generate one sh
-	shKey, err := crypto.GenerateKey()
+	shKey, err := keygenerator.Next()
 	if err != nil {
 		log.Error("Make genesis error", "err", err)
 	}
