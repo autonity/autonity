@@ -84,6 +84,7 @@ func (gen *Generator) Next() (*ecdsa.PrivateKey, error) {
 	return key, err
 }
 
+//Next returns new private key
 func Next() (*ecdsa.PrivateKey, error) {
 	return root.Next()
 }
