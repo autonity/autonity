@@ -168,12 +168,12 @@ func (validator *testNode) startService() error {
 		curBlock := validator.service.BlockChain().CurrentBlock().Number().Uint64()
 		for blockNum := validator.lastBlock + 1; blockNum <= curBlock; blockNum++ {
 			block := validator.service.BlockChain().GetBlockByNumber(blockNum)
-			event := core.ChainEvent{
+			chainEvent := core.ChainEvent{
 				Block: block,
 				Hash:  block.Hash(),
 				Logs:  nil,
 			}
-			validator.eventChan <- event
+			validator.eventChan <- chainEvent
 		}
 	}
 

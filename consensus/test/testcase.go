@@ -157,8 +157,8 @@ func runTest(t *testing.T, test *testCase) {
 			backendConstructor = test.maliciousPeers[i].backs
 		}
 
-		validator.listener[0].Close()
-		validator.listener[1].Close()
+		_ = validator.listener[0].Close()
+		_ = validator.listener[1].Close()
 
 		rates := test.networkRates[i]
 
