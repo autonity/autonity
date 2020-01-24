@@ -23,8 +23,8 @@ func TestSendPropose(t *testing.T) {
 		defer ctrl.Finish()
 
 		addr := common.HexToAddress("0x0123456789")
-		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
-			Number: big.NewInt(1)},
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
 		})
 
 		curRoundState := NewRoundState(big.NewInt(1), big.NewInt(1))
@@ -84,8 +84,8 @@ func TestSendPropose(t *testing.T) {
 func TestHandleProposal(t *testing.T) {
 	t.Run("old proposal given, error returned", func(t *testing.T) {
 		addr := common.HexToAddress("0x0123456789")
-		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
-			Number: big.NewInt(1)},
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
 		})
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
@@ -124,8 +124,8 @@ func TestHandleProposal(t *testing.T) {
 		defer ctrl.Finish()
 
 		addr := common.HexToAddress("0x0123456789")
-		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
-			Number: big.NewInt(1)},
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
 		})
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
@@ -171,8 +171,8 @@ func TestHandleProposal(t *testing.T) {
 		defer ctrl.Finish()
 
 		addr := common.HexToAddress("0x0123456789")
-		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
-			Number: big.NewInt(1)},
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
 		})
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
@@ -268,8 +268,8 @@ func TestHandleProposal(t *testing.T) {
 		defer ctrl.Finish()
 
 		addr := common.HexToAddress("0x0123456789")
-		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
-			Number: big.NewInt(1)},
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
 		})
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
@@ -330,8 +330,8 @@ func TestHandleProposal(t *testing.T) {
 		defer ctrl.Finish()
 
 		addr := common.HexToAddress("0x0123456789")
-		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
-			Number: big.NewInt(1)},
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
 		})
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
@@ -426,8 +426,8 @@ func TestHandleProposal(t *testing.T) {
 		defer ctrl.Finish()
 
 		addr := common.HexToAddress("0x0123456789")
-		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
-			Number: big.NewInt(1)},
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
 		})
 
 		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))

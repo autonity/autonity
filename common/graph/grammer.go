@@ -2,6 +2,7 @@ package graph
 
 import (
 	"bufio"
+	"io"
 	"os"
 	"sort"
 
@@ -47,6 +48,22 @@ func FromFile(path string) (*Graph, error) {
 	}
 
 	err = parser.Parse(bufio.NewReader(file), graph, participle.AllowTrailing(true))
+	if err != nil {
+		return nil, err
+	}
+
+	return graph, nil
+}
+
+func Parse(reader io.Reader) (*Graph, error) {
+	parser, err := participle.Build(&Graph{})
+	if err != nil {
+		return nil, err
+	}
+
+	graph := &Graph{}
+
+	err = parser.Parse(reader, graph, participle.AllowTrailing(true))
 	if err != nil {
 		return nil, err
 	}

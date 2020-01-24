@@ -23,14 +23,14 @@ import (
 	"io"
 	"math/big"
 	"reflect"
-	"sort"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/crypto/sha3"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -67,6 +67,35 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 
 //go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
 
+// Header represents a block header in the Autonity blockchain.
+type Header struct {
+	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
+	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+	Coinbase    common.Address `json:"miner"            gencodec:"required"`
+	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
+	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
+	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
+	Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
+	Number      *big.Int       `json:"number"           gencodec:"required"`
+	GasLimit    uint64         `json:"gasLimit"         gencodec:"required"`
+	GasUsed     uint64         `json:"gasUsed"          gencodec:"required"`
+	Time        uint64         `json:"timestamp"        gencodec:"required"`
+	Extra       []byte         `json:"extraData"        gencodec:"required"`
+	MixDigest   common.Hash    `json:"mixHash"`
+	Nonce       BlockNonce     `json:"nonce"`
+
+	/*
+		PoS header fields, round & committedSeals not taken into account
+		for computing the sigHash.
+	*/
+	Committee          Committee `json:"committee"           gencodec:"required"`
+	ProposerSeal       []byte    `json:"proposerSeal"        gencodec:"required"`
+	Round              *big.Int  `json:"round"               gencodec:"required"`
+	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"`
+	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
+}
+
 type CommitteeMember struct {
 	Address     common.Address `json:"address"            gencodec:"required"`
 	VotingPower *big.Int       `json:"votingPower"        gencodec:"required"`
@@ -74,8 +103,8 @@ type CommitteeMember struct {
 
 type Committee []CommitteeMember
 
-// OriginalHeader represents the ethereum blockchain header.
-type OriginalHeader struct {
+// originalHeader represents the ethereum blockchain header.
+type originalHeader struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`
@@ -93,18 +122,19 @@ type OriginalHeader struct {
 	Nonce       BlockNonce     `json:"nonce"`
 }
 
-// Header represents a block header in the Autonity blockchain.
-type Header struct {
-	OriginalHeader
-	/*
-		PoS header fields, round & committedSeals not taken into account
-		for computing the sigHash.
-	*/
+type headerExtra struct {
 	Committee          Committee `json:"committee"           gencodec:"required"`
 	ProposerSeal       []byte    `json:"proposerSeal"        gencodec:"required"`
 	Round              *big.Int  `json:"round"               gencodec:"required"`
 	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"`
 	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
+}
+
+func (hExtra headerExtra) withExtraData() bool {
+	return len(hExtra.CommittedSeals) != 0 ||
+		len(hExtra.Committee) != 0 ||
+		len(hExtra.PastCommittedSeals) != 0 ||
+		len(hExtra.ProposerSeal) != 0
 }
 
 // field type overrides for gencodec
@@ -136,9 +166,9 @@ func (h *Header) Hash() common.Hash {
 		}
 	}
 
-	//if not using the BFT mixdigest then return the original ethereum block header hash, this
-	//let Autonity to remain compatible with original go-ethereum tests.
-	return rlpHash(h.OriginalHeader)
+	// If not using the BFT mixdigest then return the original ethereum block header hash, this
+	// let Autonity to remain compatible with original go-ethereum tests.
+	return rlpHash(h.original())
 }
 
 var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
@@ -162,10 +192,95 @@ func (h *Header) SanityCheck() error {
 			return fmt.Errorf("too large block difficulty: bitlen %d", diffLen)
 		}
 	}
-	if eLen := len(h.Extra); eLen > 100*1024 {
-		return fmt.Errorf("too large block extradata: size %d", eLen)
-	}
 	return nil
+}
+
+// DecodeRLP decodes the Ethereum
+func (h *Header) DecodeRLP(s *rlp.Stream) error {
+	origin := &originalHeader{}
+	if err := s.Decode(origin); err != nil {
+		return err
+	}
+
+	hExtra := &headerExtra{}
+	if len(origin.Extra) > 0 {
+		if err := rlp.DecodeBytes(origin.Extra, hExtra); err == nil {
+			if hExtra.withExtraData() {
+				h.CommittedSeals = hExtra.CommittedSeals
+				h.Committee = hExtra.Committee
+				h.PastCommittedSeals = hExtra.PastCommittedSeals
+				h.ProposerSeal = hExtra.ProposerSeal
+				h.Round = hExtra.Round
+			}
+		}
+	}
+
+	h.ParentHash = origin.ParentHash
+	h.UncleHash = origin.UncleHash
+	h.Coinbase = origin.Coinbase
+	h.Root = origin.Root
+	h.TxHash = origin.TxHash
+	h.ReceiptHash = origin.ReceiptHash
+	h.Bloom = origin.Bloom
+	h.Difficulty = origin.Difficulty
+	h.Number = origin.Number
+	h.GasLimit = origin.GasLimit
+	h.GasUsed = origin.GasUsed
+	h.Time = origin.Time
+	h.MixDigest = origin.MixDigest
+	h.Nonce = origin.Nonce
+
+	h.Extra = origin.Extra
+
+	if h.Round == nil {
+		h.Round = big.NewInt(0)
+	}
+
+	return nil
+}
+
+// EncodeRLP serializes b into the Ethereum RLP block format.
+func (h *Header) EncodeRLP(w io.Writer) error {
+	hExtra := headerExtra{
+		Committee:          h.Committee,
+		ProposerSeal:       h.ProposerSeal,
+		Round:              h.Round,
+		CommittedSeals:     h.CommittedSeals,
+		PastCommittedSeals: h.PastCommittedSeals,
+	}
+
+	original := h.original()
+	if hExtra.withExtraData() {
+		extra, err := rlp.EncodeToBytes(hExtra)
+		if err != nil {
+			return err
+		}
+		original.Extra = extra
+	} else {
+		original.Extra = h.Extra
+	}
+
+	return rlp.Encode(w, *original)
+}
+
+func (h *Header) original() *originalHeader {
+	return &originalHeader{
+		ParentHash:  h.ParentHash,
+		UncleHash:   h.UncleHash,
+		Coinbase:    h.Coinbase,
+		Root:        h.Root,
+		TxHash:      h.TxHash,
+		ReceiptHash: h.ReceiptHash,
+		Bloom:       h.Bloom,
+		Difficulty:  h.Difficulty,
+		Number:      h.Number,
+		GasLimit:    h.GasLimit,
+		GasUsed:     h.GasUsed,
+		Time:        h.Time,
+		Extra:       h.Extra,
+		MixDigest:   h.MixDigest,
+		Nonce:       h.Nonce,
+	}
 }
 
 func rlpHash(x interface{}) (h common.Hash) {
@@ -267,6 +382,10 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 		}
 	}
 
+	if b.header.Round == nil {
+		b.header.Round = big.NewInt(0)
+	}
+
 	return b
 }
 
@@ -293,31 +412,39 @@ func CopyHeader(h *Header) *Header {
 	}
 
 	/* PoS fields deep copy section*/
-	cpy.Committee = make([]CommitteeMember, len(h.Committee))
-	for i, val := range h.Committee {
-		cpy.Committee[i] = CommitteeMember{
-			Address:     val.Address,
-			VotingPower: new(big.Int).Set(val.VotingPower),
+	if len(h.Committee) > 0 {
+		cpy.Committee = make([]CommitteeMember, len(h.Committee))
+		for i, val := range h.Committee {
+			cpy.Committee[i] = CommitteeMember{
+				Address:     val.Address,
+				VotingPower: new(big.Int).Set(val.VotingPower),
+			}
 		}
 	}
 
-	if cpy.Round = new(big.Int); h.Round != nil {
-		cpy.Round.Set(h.Round)
+	if h.Round != nil {
+		cpy.Round = new(big.Int).Set(h.Round)
 	}
 
-	cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
-	copy(cpy.ProposerSeal, h.ProposerSeal)
-
-	cpy.CommittedSeals = make([][]byte, len(h.CommittedSeals))
-	for i, val := range h.CommittedSeals {
-		cpy.CommittedSeals[i] = make([]byte, len(val))
-		copy(cpy.CommittedSeals[i], val)
+	if len(h.ProposerSeal) > 0 {
+		cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
+		copy(cpy.ProposerSeal, h.ProposerSeal)
 	}
 
-	cpy.PastCommittedSeals = make([][]byte, len(h.PastCommittedSeals))
-	for i, val := range h.PastCommittedSeals {
-		cpy.PastCommittedSeals[i] = make([]byte, len(val))
-		copy(cpy.PastCommittedSeals[i], val)
+	if len(h.CommittedSeals) > 0 {
+		cpy.CommittedSeals = make([][]byte, len(h.CommittedSeals))
+		for i, val := range h.CommittedSeals {
+			cpy.CommittedSeals[i] = make([]byte, len(val))
+			copy(cpy.CommittedSeals[i], val)
+		}
+	}
+
+	if len(h.PastCommittedSeals) > 0 {
+		cpy.PastCommittedSeals = make([][]byte, len(h.PastCommittedSeals))
+		for i, val := range h.PastCommittedSeals {
+			cpy.PastCommittedSeals[i] = make([]byte, len(val))
+			copy(cpy.PastCommittedSeals[i], val)
+		}
 	}
 
 	return &cpy
@@ -422,9 +549,9 @@ func CalcUncleHash(uncles []*Header) common.Hash {
 	}
 	// len(uncles) > 0 can only happen during tests.
 	// We revert to the original structure to keep compatibility with hardcoded hash values.
-	originalUncles := make([]*OriginalHeader, len(uncles))
+	originalUncles := make([]*originalHeader, len(uncles))
 	for i := range uncles {
-		originalUncles[i] = &uncles[i].OriginalHeader
+		originalUncles[i] = uncles[i].original()
 	}
 	return rlpHash(originalUncles)
 }
@@ -467,26 +594,3 @@ func (b *Block) Hash() common.Hash {
 }
 
 type Blocks []*Block
-
-type BlockBy func(b1, b2 *Block) bool
-
-func (self BlockBy) Sort(blocks Blocks) {
-	bs := blockSorter{
-		blocks: blocks,
-		by:     self,
-	}
-	sort.Sort(bs)
-}
-
-type blockSorter struct {
-	blocks Blocks
-	by     func(b1, b2 *Block) bool
-}
-
-func (self blockSorter) Len() int { return len(self.blocks) }
-func (self blockSorter) Swap(i, j int) {
-	self.blocks[i], self.blocks[j] = self.blocks[j], self.blocks[i]
-}
-func (self blockSorter) Less(i, j int) bool { return self.by(self.blocks[i], self.blocks[j]) }
-
-func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }

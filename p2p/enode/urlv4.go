@@ -34,7 +34,10 @@ import (
 	"github.com/clearmatics/autonity/p2p/enr"
 )
 
-var incompleteNodeURL = regexp.MustCompile("(?i)^(?:enode://)?([0-9a-f]+)$")
+var (
+	incompleteNodeURL = regexp.MustCompile("(?i)^(?:enode://)?([0-9a-f]+)$")
+	lookupIPFunc      = net.LookupIP
+)
 
 const defaultPort = ":30303"
 
@@ -142,7 +145,6 @@ func isNewV4(n *Node) bool {
 func parseComplete(rawurl string, resolve bool) (*Node, error) {
 	var (
 		id               *ecdsa.PublicKey
-		ip               net.IP
 		tcpPort, udpPort uint64
 	)
 	u, err := url.Parse(rawurl)
@@ -164,27 +166,23 @@ func parseComplete(rawurl string, resolve bool) (*Node, error) {
 		u.Host += defaultPort
 	}
 	// Parse the IP address.
-	host, port, err := net.SplitHostPort(u.Host)
-	if err != nil {
-		return nil, fmt.Errorf("invalid host: %v", err)
-	}
-
-	if ip = net.ParseIP(host); ip == nil {
+	ip := net.ParseIP(u.Hostname())
+	if ip == nil {
 		if !resolve {
 			return nil, errors.New("invalid IP address")
 		}
-		// if host is not IPV4/6, resolve host is a domain
-
-		hostIPs, err := net.LookupIP(host)
+		ips, err := lookupIPFunc(u.Hostname())
 		if err != nil {
-			return NewV4(id, nil, 0, 0), errors.New("invalid domain or IP address")
+			return nil, err
 		}
-		if len(hostIPs) > 0 {
-			ip = hostIPs[len(hostIPs)-1]
-		}
+		ip = ips[0]
+	}
+	// Ensure the IP is 4 bytes long for IPv4 addresses.
+	if ipv4 := ip.To4(); ipv4 != nil {
+		ip = ipv4
 	}
 	// Parse the port numbers.
-	if tcpPort, err = strconv.ParseUint(port, 10, 16); err != nil {
+	if tcpPort, err = strconv.ParseUint(u.Port(), 10, 16); err != nil {
 		return nil, errors.New("invalid port")
 	}
 	udpPort = tcpPort

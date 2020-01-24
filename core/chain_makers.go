@@ -103,7 +103,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 		b.SetCoinbase(common.Address{})
 	}
 	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
-	receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
+	receipt, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
 	if err != nil {
 		panic(err)
 	}
@@ -248,20 +248,22 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 		time = parent.Time() + 10 // block time is fixed at 10 seconds
 	}
 
-	return &types.Header{OriginalHeader: types.OriginalHeader{
+	return &types.Header{
 		Root:       state.IntermediateRoot(chain.Config().IsEIP158(parent.Number())),
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcDifficulty(chain, time, &types.Header{OriginalHeader: types.OriginalHeader{
+		Difficulty: engine.CalcDifficulty(chain, time, &types.Header{
 			Number:     parent.Number(),
 			Time:       time - 10,
 			Difficulty: parent.Difficulty(),
 			UncleHash:  parent.UncleHash(),
-		}}),
-		GasLimit: CalcGasLimit(parent, parent.GasLimit(), parent.GasLimit()),
-		Number:   new(big.Int).Add(parent.Number(), common.Big1),
-		Time:     time,
-	}}
+		}),
+		GasLimit:  CalcGasLimit(parent, parent.GasLimit(), parent.GasLimit()),
+		Number:    new(big.Int).Add(parent.Number(), common.Big1),
+		Time:      time,
+		Round:     big.NewInt(0),
+		MixDigest: types.BFTDigest,
+	}
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
@@ -283,8 +285,7 @@ func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethd
 }
 
 type fakeChainReader struct {
-	config  *params.ChainConfig
-	genesis *types.Block
+	config *params.ChainConfig
 }
 
 // Config returns the chain configuration.

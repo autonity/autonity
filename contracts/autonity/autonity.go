@@ -106,7 +106,6 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	// marshal the data from bytes arrays into specified structure.
 	v := EconomicMetaData{make([]common.Address, 32), make([]uint8, 32), make([]*big.Int, 32),
 		make([]*big.Int, 32), new(big.Int), new(big.Int)}
-
 	if err := ABI.Unpack(&v, "dumpEconomicsMetricData", ret); err != nil { // can't work with aliased types
 		log.Warn("Could not unpack dumpNetworkEconomicsData returned value", "err", err, "header.num",
 			header.Number.Uint64())
@@ -115,84 +114,6 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 
 	ac.metrics.SubmitEconomicMetrics(&v, stateDB, header.Number.Uint64(), ac.bc.Config().AutonityContractConfig.Operator)
 }
-
-/*
-//// Instantiates a new EVM object which is required when creating or calling a deployed contract
-func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
-	coinbase, _ := types.Ecrecover(header)
-	evmContext := vm.Context{
-		CanTransfer: ac.canTransfer,
-		Transfer:    ac.transfer,
-		GetHash:     ac.GetHashFn(header, ac.bc),
-		Origin:      origin,
-		Coinbase:    coinbase,
-		BlockNumber: header.Number,
-		Time:        new(big.Int).SetUint64(header.Time),
-		GasLimit:    header.GasLimit,
-		Difficulty:  header.Difficulty,
-		GasPrice:    new(big.Int).SetUint64(0x0),
-	}
-	vmConfig := *ac.bc.GetVMConfig()
-	evm := vm.NewEVM(evmContext, statedb, ac.bc.Config(), vmConfig)
-	return evm
-}
-
-// deployContract deploys the contract contained within the genesis field bytecode
-func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error) {
-	// Convert the contract bytecode from hex into bytes
-	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
-	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
-	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
-
-	contractABI, err := ac.abi()
-	if err != nil {
-		log.Error("abi.JSON returns err", "err", err)
-		return common.Address{}, err
-	}
-
-	ln := len(chain.Config().AutonityContractConfig.Users)
-	users := make(common.Addresses, 0, ln)
-	enodes := make([]string, 0, ln)
-	accTypes := make([]*big.Int, 0, ln)
-	participantStake := make([]*big.Int, 0, ln)
-	for _, v := range chain.Config().AutonityContractConfig.Users {
-		users = append(users, v.Address)
-		enodes = append(enodes, v.Enode)
-		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
-		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
-	}
-
-	//"" means contructor
-	constructorParams, err := contractABI.Pack("",
-		users,
-		enodes,
-		accTypes,
-		participantStake,
-		chain.Config().AutonityContractConfig.Operator,
-		new(big.Int).SetUint64(chain.Config().AutonityContractConfig.MinGasPrice))
-	if err != nil {
-		log.Error("contractABI.Pack returns err", "err", err)
-		return common.Address{}, err
-	}
-
-	//We need to append to data the constructor's parameters
-	data := append(contractBytecode, constructorParams...)
-	gas := uint64(0xFFFFFFFF)
-	value := new(big.Int).SetUint64(0x00)
-
-	// Deploy the Autonity contract
-	_, contractAddress, _, vmerr := evm.Create(sender, data, gas, value)
-	if vmerr != nil {
-		log.Error("evm.Create returns err", "err", vmerr)
-		return contractAddress, vmerr
-	}
-	ac.Lock()
-	ac.address = contractAddress
-	ac.Unlock()
-	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
-
-	return contractAddress, nil
-}*/
 
 func (ac *Contract) ContractGetCommittee(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (types.Committee, error) {
 	if header.Number.Cmp(big.NewInt(1)) == 0 && ac.SavedCommitteeRetriever != nil {
@@ -278,6 +199,8 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 	if err != nil {
 		return err
 	}
+
+	log.Info("ApplyFinalize", "upgradeContract", upgradeContract)
 
 	if upgradeContract {
 		// warning prints for failure rather than returning error to stuck engine.

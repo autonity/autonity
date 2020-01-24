@@ -57,7 +57,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 		newHeader.ProposerSeal = []byte{}
 	}
 	newHeader.CommittedSeals = [][]byte{}
-	newHeader.Round = new(big.Int)
+	newHeader.Round = new(big.Int).SetInt64(0)
 	return newHeader
 }
 

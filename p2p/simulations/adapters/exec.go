@@ -19,7 +19,6 @@ package adapters
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,13 +34,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/docker/docker/pkg/reexec"
+	"github.com/gorilla/websocket"
+
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/rpc"
-	"github.com/docker/docker/pkg/reexec"
-	"golang.org/x/net/websocket"
 )
 
 func init() {
@@ -118,7 +118,7 @@ func (e *ExecAdapter) NewNode(config *NodeConfig) (Node, error) {
 	conf.Stack.P2P.NAT = nil
 	conf.Stack.NoUSB = true
 
-	// listen on a localhost port, which we set when we
+	// Listen on a localhost port, which we set when we
 	// initialise NodeConfig (usually a random port)
 	conf.Stack.P2P.ListenAddr = fmt.Sprintf(":%d", config.Port)
 
@@ -146,7 +146,6 @@ type ExecNode struct {
 	client  *rpc.Client
 	wsAddr  string
 	newCmd  func() *exec.Cmd
-	key     *ecdsa.PrivateKey
 }
 
 // Addr returns the node's enode URL
@@ -205,17 +204,17 @@ func (n *ExecNode) Start(snapshots map[string][]byte) (err error) {
 	}
 	n.Cmd = cmd
 
-	// read the WebSocket address from the stderr logs
+	// Wait for the node to start.
 	status := <-statusC
 	if status.Err != "" {
 		return errors.New(status.Err)
 	}
-	client, err := rpc.DialWebsocket(ctx, status.WSEndpoint, "http://localhost")
+	client, err := rpc.DialWebsocket(ctx, status.WSEndpoint, "")
 	if err != nil {
 		return fmt.Errorf("can't connect to RPC server: %v", err)
 	}
 
-	// node ready :)
+	// Node ready :)
 	n.client = client
 	n.wsAddr = status.WSEndpoint
 	n.Info = status.NodeInfo
@@ -314,29 +313,35 @@ func (n *ExecNode) NodeInfo() *p2p.NodeInfo {
 
 // ServeRPC serves RPC requests over the given connection by dialling the
 // node's WebSocket address and joining the two connections
-func (n *ExecNode) ServeRPC(clientConn net.Conn) error {
-	conn, err := websocket.Dial(n.wsAddr, "", "http://localhost")
+func (n *ExecNode) ServeRPC(clientConn *websocket.Conn) error {
+	conn, _, err := websocket.DefaultDialer.Dial(n.wsAddr, nil)
 	if err != nil {
 		return err
 	}
 	var wg sync.WaitGroup
 	wg.Add(2)
-	join := func(src, dst net.Conn) {
-		defer wg.Done()
-		io.Copy(dst, src)
-		// close the write end of the destination connection
-		if cw, ok := dst.(interface {
-			CloseWrite() error
-		}); ok {
-			cw.CloseWrite()
-		} else {
-			dst.Close()
+	go wsCopy(&wg, conn, clientConn)
+	go wsCopy(&wg, clientConn, conn)
+	wg.Wait()
+	conn.Close()
+	return nil
+}
+
+func wsCopy(wg *sync.WaitGroup, src, dst *websocket.Conn) {
+	defer wg.Done()
+	for {
+		msgType, r, err := src.NextReader()
+		if err != nil {
+			return
+		}
+		w, err := dst.NextWriter(msgType)
+		if err != nil {
+			return
+		}
+		if _, err = io.Copy(w, r); err != nil {
+			return
 		}
 	}
-	go join(conn, clientConn)
-	go join(clientConn, conn)
-	wg.Wait()
-	return nil
 }
 
 // Snapshots creates snapshots of the services by calling the

@@ -20,8 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/crypto"
 	"math"
 	"math/big"
 	"sync"
@@ -31,7 +29,10 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/forkid"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/eth/fetcher"
 	"github.com/clearmatics/autonity/ethdb"
@@ -58,9 +59,6 @@ const (
 
 var (
 	syncChallengeTimeout = 15 * time.Second // Time allowance for a node to reply to the sync progress challenge
-)
-
-var (
 	errUnauthaurizedPeer = errors.New("peer is not authorized")
 )
 
@@ -69,7 +67,8 @@ func errResp(code errCode, format string, v ...interface{}) error {
 }
 
 type ProtocolManager struct {
-	networkID uint64
+	networkID  uint64
+	forkFilter forkid.Filter // Fork ID filter, constant across the lifetime of the node
 
 	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
@@ -117,6 +116,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
+		forkFilter:  forkid.NewFilter(blockchain),
 		eventMux:    mux,
 		txpool:      txpool,
 		blockchain:  blockchain,
@@ -217,8 +217,15 @@ func (pm *ProtocolManager) makeProtocol(version uint) p2p.Protocol {
 		panic("makeProtocol for unknown version")
 	}
 
+	protoName := protocolName
+	// get consensus protocol from backend engine.
+	if handler, ok := pm.engine.(consensus.Handler); ok {
+		protoName, _ = handler.Protocol()
+		log.Debug("Get consensus protocol ", "name: ", protoName)
+	}
+
 	return p2p.Protocol{
-		Name:    protocolName,
+		Name:    protoName,
 		Version: version,
 		Length:  length,
 		Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
@@ -350,7 +357,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		number  = head.Number.Uint64()
 		td      = pm.blockchain.GetTd(hash, number)
 	)
-	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash()); err != nil {
+	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), forkid.NewID(pm.blockchain), pm.forkFilter); err != nil {
 		p.Log().Debug("Ethereum handshake failed", "err", err)
 		return err
 	}

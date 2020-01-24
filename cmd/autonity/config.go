@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"reflect"
 	"unicode"
@@ -132,13 +133,18 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 
 func makeFullNode(ctx *cli.Context) *node.Node {
 	stack, cfg := makeConfigNode(ctx)
+	if ctx.GlobalIsSet(utils.OverrideIstanbulFlag.Name) {
+		cfg.Eth.OverrideIstanbul = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideIstanbulFlag.Name))
+	}
+	if ctx.GlobalIsSet(utils.OverrideMuirGlacierFlag.Name) {
+		cfg.Eth.OverrideMuirGlacier = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideMuirGlacierFlag.Name))
+	}
 	utils.RegisterEthService(stack, &cfg.Eth)
 
 	// Configure GraphQL if requested
 	if ctx.GlobalIsSet(utils.GraphQLEnabledFlag.Name) {
 		utils.RegisterGraphQLService(stack, cfg.Node.GraphQLEndpoint(), cfg.Node.GraphQLCors, cfg.Node.GraphQLVirtualHosts, cfg.Node.HTTPTimeouts)
 	}
-
 	// Add the Ethereum Stats daemon if requested.
 	if cfg.Ethstats.URL != "" {
 		utils.RegisterEthStatsService(stack, cfg.Ethstats.URL)
@@ -169,15 +175,8 @@ func dumpConfig(ctx *cli.Context) error {
 		}
 		defer dump.Close()
 	}
-	_, err = dump.WriteString(comment)
-	if err != nil {
-		return err
-	}
-
-	_, err = dump.Write(out)
-	if err != nil {
-		return err
-	}
+	dump.WriteString(comment)
+	dump.Write(out)
 
 	return nil
 }

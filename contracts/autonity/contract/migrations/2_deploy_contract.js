@@ -39,5 +39,6 @@ module.exports = function(deployer, network, accounts) {
     0,
     100,
     1000,
+    "v0.0.0",
     { from:accounts[8]});
 };

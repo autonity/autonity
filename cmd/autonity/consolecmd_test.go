@@ -85,7 +85,7 @@ func TestIPCAttachWelcome(t *testing.T) {
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--ipcpath", ipc)
 
-	time.Sleep(2 * time.Second) // Simple way to wait for the RPC endpoint to open
+	waitForEndpoint(t, ipc, 3*time.Second)
 	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs)
 
 	autonity.Interrupt()
@@ -99,8 +99,9 @@ func TestHTTPAttachWelcome(t *testing.T) {
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--rpc", "--rpcport", port)
 
-	time.Sleep(2 * time.Second) // Simple way to wait for the RPC endpoint to open
-	testAttachWelcome(t, autonity, "http://localhost:"+port, httpAPIs)
+	endpoint := "http://127.0.0.1:" + port
+	waitForEndpoint(t, endpoint, 3*time.Second)
+	testAttachWelcome(t, autonity, endpoint, httpAPIs)
 
 	autonity.Interrupt()
 	autonity.ExpectExit()
@@ -114,8 +115,9 @@ func TestWSAttachWelcome(t *testing.T) {
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--ws", "--wsport", port)
 
-	time.Sleep(2 * time.Second) // Simple way to wait for the RPC endpoint to open
-	testAttachWelcome(t, autonity, "ws://localhost:"+port, httpAPIs)
+	endpoint := "ws://127.0.0.1:" + port
+	waitForEndpoint(t, endpoint, 3*time.Second)
+	testAttachWelcome(t, autonity, endpoint, httpAPIs)
 
 	autonity.Interrupt()
 	autonity.ExpectExit()
