@@ -27,13 +27,14 @@ contract('Autonity', function (accounts) {
     const committeeSize = 1000;
     const operator = accounts[0];
     const deployer = accounts[8];
+    const version = "v0.0.0";
     let token;
 
     describe('Metrics', function() { // test failing
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version, {from: accounts[8]} );
         });
 
         it('test dump network Economic metric data.', async function () {
@@ -55,7 +56,7 @@ contract('Autonity', function (accounts) {
     describe('Initial state', function() {
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version, { from:accounts[8]} );
         });
 
         it('test validator can get initial validator list', async function () {
@@ -83,7 +84,7 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version, { from:accounts[0]} );
         });
 
         it('test redistribution fails with empty balance', async function () {
@@ -150,7 +151,7 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version, { from:accounts[8]} );
         });
 
         it('test Governance operator can add/remove to whitelist', async function () {
@@ -276,7 +277,7 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
         });
 
         it('test set max committee size by operator account', async function () {
@@ -389,7 +390,7 @@ contract('Autonity', function (accounts) {
 
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod,committeeSize, { from:accounts[8]} );
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
         });
 
         it('test create account, add stake, check that it is added, remove stake', async function () {
