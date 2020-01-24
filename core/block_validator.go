@@ -138,5 +138,5 @@ func CalcGasLimit(parent *types.Block, gasFloor, gasCeil uint64) uint64 {
 
 	return limit
 	// TODO: discuss this parameter at link: https://github.com/clearmatics/autonity-wiki/wiki/Autonity-Chain-Parameter-Highlights
-	//When autontiy contract grows in size, it will impact the availablity of the upgrade of contract.
+	//When autontiy contract grows in size, it will impact the availability of the upgrade of contract.
 }
