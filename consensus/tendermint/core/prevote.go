@@ -96,10 +96,10 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 	prevoteHash := preVote.ProposedBlockHash
 
 	// The prevote doesn't exists in our current round state, so add it
-	if _, ok := c.allPrevotes[preVote.Round.Int64()]; !ok {
-		c.allPrevotes[preVote.Round.Int64()] = newMessageSet()
+	if prevotes := c.getPrevotesSet(preVote.Round.Int64()); prevotes == nil {
+		c.setPrevotesSet(preVote.Round.Int64())
 	}
-	prevotes := c.allPrevotes[preVote.Round.Int64()]
+	prevotes := c.getPrevotesSet(preVote.Round.Int64())
 	prevotes.Add(prevoteHash, *msg)
 
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", preVote, msg.Address.String(), c.address.String())
@@ -131,8 +131,8 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 		currentProposalHash = proposalMS.proposal().ProposalBlock.Hash()
 	}
 
-	prevotes, ok := c.allPrevotes[currentRound]
-	if !ok {
+	prevotes := c.getPrevotesSet(currentRound)
+	if prevotes == nil {
 		return
 	}
 	c.logger.Debug(message,
