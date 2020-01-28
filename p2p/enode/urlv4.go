@@ -181,7 +181,11 @@ func parseComplete(rawurl string, resolve bool) (*Node, error) {
 		if err != nil {
 			return NewV4(id, nil, 0, 0), errors.New("invalid domain or IP address")
 		}
-		ip = ips[0]
+		if len(ips) > 1 {
+			ip = ips[len(ips)-1]
+		} else {
+			ip = ips[0]
+		}
 		// Ensure the IP is 4 bytes long for IPv4 addresses.
 		if ipv4 := ip.To4(); ipv4 != nil {
 			ip = ipv4
