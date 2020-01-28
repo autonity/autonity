@@ -24,7 +24,7 @@ import (
 )
 
 func (c *core) sendPrevote(ctx context.Context, isNil bool) {
-	logger := c.logger.New("step", c.step)
+	logger := c.logger.New("step", c.getStep())
 	currentRound := c.getRound().Int64()
 
 	var prevote = Vote{
@@ -142,7 +142,7 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 		"msgHeight", prevote.Height,
 		"currentRound", c.getRound(),
 		"msgRound", prevote.Round,
-		"currentStep", c.step,
+		"currentStep", c.getStep(),
 		"isProposer", c.isProposerForR(c.getRound().Int64(), c.address),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},

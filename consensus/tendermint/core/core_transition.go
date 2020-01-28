@@ -16,7 +16,7 @@ func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
 
 	h := proposal.ProposalBlock.Hash()
 
-	if c.isProposerForR(round, proposalMsg.Address) && c.step == propose {
+	if c.isProposerForR(round, proposalMsg.Address) && c.getStep() == propose {
 		if valid, err := c.isValid(proposal.ProposalBlock); !valid {
 			return err
 		}
@@ -62,7 +62,7 @@ func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 	h := proposal.ProposalBlock.Hash()
 
 	if c.isProposerForR(round, proposalMsg.Address) && c.quorum(validRoundPrevotes.VotesSize(h)) &&
-		c.step == propose && vr >= 0 && vr < round {
+		c.getStep() == propose && vr >= 0 && vr < round {
 		if valid, err := c.isValid(proposal.ProposalBlock); !valid {
 			return err
 		}
@@ -95,7 +95,7 @@ func (c *core) checkForPrevoteTimeout(round int64, height int64) {
 		// Do not have any prevotes for the round
 		return
 	}
-	if c.step == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.quorum(prevotes.TotalSize()) {
+	if c.getStep() == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.quorum(prevotes.TotalSize()) {
 		timeoutDuration := timeoutPrevote(round)
 		c.prevoteTimeout.scheduleTimeout(timeoutDuration, round, height, c.onTimeoutPrevote)
 		c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
@@ -121,7 +121,7 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 
 	// this piece of code should only run once per round
 	if c.isProposerForR(round, proposalMsg.Address) && c.quorum(prevotes.VotesSize(h)) &&
-		c.step >= prevote && !c.setValidRoundAndValue {
+		c.getStep() >= prevote && !c.setValidRoundAndValue {
 		if valid, err := c.isValid(proposal.ProposalBlock); !valid {
 			return err
 		}
@@ -133,7 +133,7 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 		}
 
-		if c.step == prevote {
+		if c.getStep() == prevote {
 			c.lockedValue = proposal.ProposalBlock
 			c.lockedRound = big.NewInt(round)
 			c.sendPrecommit(ctx, false)
@@ -155,7 +155,7 @@ func (c *core) checkForQuorumPrevotesNil(ctx context.Context, round int64) error
 		return nil
 	}
 
-	if c.step == prevote && c.quorum(prevotes.NilVotesSize()) {
+	if c.getStep() == prevote && c.quorum(prevotes.NilVotesSize()) {
 		if c.prevoteTimeout.timerStarted() {
 			if err := c.prevoteTimeout.stopTimer(); err != nil {
 				return err

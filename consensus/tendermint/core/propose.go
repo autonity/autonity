@@ -27,7 +27,7 @@ import (
 )
 
 func (c *core) sendProposal(ctx context.Context, p *types.Block) {
-	logger := c.logger.New("step", c.step)
+	logger := c.logger.New("step", c.getStep())
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.getHeight().Int64() == p.Number().Int64() && c.isProposerForR(c.getRound().Int64(), c.address) && !c.sentProposal {
@@ -108,13 +108,13 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	// Nothing more to do for old round proposal
 	if roundCmp == 0 {
 		// Proposal is for current round, i.e. proposal.Round.Int64() = c.getRound().Int64()
-		if c.step == propose {
+		if c.getStep() == propose {
 			if proposal.ValidRound.Int64() == -1 {
 				return c.checkForNewProposal(ctx, proposal.Round.Int64())
 			} else if proposal.ValidRound.Int64() >= 0 {
 				return c.checkForOldProposal(ctx, proposal.Round.Int64())
 			}
-		} else if c.step >= prevote {
+		} else if c.getStep() >= prevote {
 			return c.checkForQuorumPrevotes(ctx, proposal.Round.Int64())
 		}
 	} else if roundCmp > 0 {
@@ -133,7 +133,7 @@ func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, 
 		"msgHeight", proposal.Height,
 		"currentRound", c.getRound(),
 		"msgRound", proposal.Round,
-		"currentStep", c.step,
+		"currentStep", c.getStep(),
 		"isProposer", c.isProposerForR(c.getRound().Int64(), c.address),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},

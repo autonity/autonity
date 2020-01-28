@@ -46,7 +46,7 @@ func (c *core) commit(ctx context.Context, round int64) {
 }
 
 func (c *core) handleCommit(ctx context.Context) {
-	c.logger.Debug("Received a final committed proposal", "step", c.step)
+	c.logger.Debug("Received a final committed proposal", "step", c.getStep())
 	lastBlock, _ := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastBlock.Number(), common.Big1).Uint64()
 	if height == c.getHeight().Uint64() {

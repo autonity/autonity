@@ -52,8 +52,6 @@ var (
 	errFailedDecodePrevote = errors.New("failed to decode PREVOTE")
 	// errFailedDecodePrecommit is returned when the PRECOMMIT message is malformed.
 	errFailedDecodePrecommit = errors.New("failed to decode PRECOMMIT")
-	// errFailedDecodeVote is returned for when PREVOTE or PRECOMMIT is malformed.
-	errFailedDecodeVote = errors.New("failed to decode vote")
 	// errNilPrevoteSent is returned when timer could be stopped in time
 	errNilPrevoteSent = errors.New("timer expired and nil prevote sent")
 	// errNilPrecommitSent is returned when timer could be stopped in time
@@ -262,7 +260,7 @@ func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 }
 
 func (c *core) broadcast(ctx context.Context, msg *Message) {
-	logger := c.logger.New("step", c.step)
+	logger := c.logger.New("step", c.getStep())
 
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
@@ -351,6 +349,9 @@ func (c *core) getHeight() *big.Int {
 }
 
 func (c *core) setStep(ctx context.Context, step Step) error {
+	c.coreMu.Lock()
+	defer c.coreMu.Unlock()
+
 	c.step = step
 
 	// We need to check for upon conditions which refer to a specific step, so that once a validator moves to that step
@@ -380,10 +381,14 @@ func (c *core) setStep(ctx context.Context, step Step) error {
 	return nil
 }
 
-func (c *core) currentState() (*big.Int, *big.Int, uint64) {
+func (c *core) getStep() Step {
 	c.coreMu.RLock()
 	defer c.coreMu.RUnlock()
-	return c.height, c.round, uint64(c.step)
+	return c.step
+}
+
+func (c *core) currentState() (*big.Int, *big.Int, uint64) {
+	return c.getHeight(), c.getRound(), uint64(c.getStep())
 }
 
 func (c *core) getAllRoundMessages() []*Message {

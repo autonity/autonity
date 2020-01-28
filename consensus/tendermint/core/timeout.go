@@ -158,7 +158,7 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 
 /////////////// Handle Timeout Functions ///////////////
 func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
-	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() && c.step == propose {
+	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() && c.getStep() == propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 		c.sendPrevote(ctx, true)
 		if err := c.setStep(ctx, prevote); err != nil {
@@ -168,7 +168,7 @@ func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 }
 
 func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
-	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() && c.step == prevote {
+	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() && c.getStep() == prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 		c.sendPrecommit(ctx, true)
 		_ = c.setStep(ctx, precommit)
@@ -206,7 +206,7 @@ func (c *core) logTimeoutEvent(message string, msgType string, timeout TimeoutEv
 		"msgHeight", timeout.heightWhenCalled,
 		"currentRound", c.getRound(),
 		"msgRound", timeout.roundWhenCalled,
-		"currentStep", c.step,
+		"currentStep", c.getStep(),
 		"msgStep", timeout.step,
 	)
 }

@@ -26,7 +26,7 @@ import (
 )
 
 func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
-	logger := c.logger.New("step", c.step)
+	logger := c.logger.New("step", c.getStep())
 	currentRound := c.getRound().Int64()
 
 	var precommit = Vote{
@@ -175,7 +175,7 @@ func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to
 		"msgHeight", precommit.Height,
 		"currentRound", c.getRound(),
 		"msgRound", precommit.Round,
-		"currentStep", c.step,
+		"currentStep", c.getStep(),
 		"isProposer", c.isProposerForR(c.getRound().Int64(), c.address),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
