@@ -37,9 +37,18 @@ type messageSet struct {
 	messagesMu *sync.RWMutex
 }
 
+func newProposalSet(p Proposal, m *Message) proposalSet {
+	return proposalSet{
+		p:    p,
+		pMsg: m,
+		mu:   new(sync.RWMutex),
+	}
+}
+
 type proposalSet struct {
-	proposal    Proposal
-	proposalMsg *Message
+	p    Proposal
+	pMsg *Message
+	mu   *sync.RWMutex
 }
 
 func (ms *messageSet) Add(hash common.Hash, msg Message) {
@@ -154,4 +163,16 @@ func (ms *messageSet) hasMessage(h common.Hash, m Message) bool {
 
 	}
 	return true
+}
+
+func (ps *proposalSet) proposal() Proposal {
+	ps.mu.RLock()
+	defer ps.mu.RUnlock()
+	return ps.p
+}
+
+func (ps *proposalSet) proposalMsg() *Message {
+	ps.mu.RLock()
+	defer ps.mu.RUnlock()
+	return ps.pMsg
 }

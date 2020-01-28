@@ -11,14 +11,14 @@ import (
 func (c *core) commit(ctx context.Context, round int64) {
 	_ = c.setStep(ctx, precommitDone)
 
-	proposalMS, ok := c.allProposals[round]
-	if !ok {
+	proposalMS := c.getProposalSet(round)
+	if proposalMS == nil {
 		// Should never happen really.
 		c.logger.Error("core commit called with empty proposal ")
 		return
 	}
 
-	proposal := proposalMS.proposal
+	proposal := proposalMS.proposal()
 	if proposal.ProposalBlock == nil {
 		// Again should never happen.
 		c.logger.Error("commit a NIL block", "block", proposal.ProposalBlock, "height", c.getHeight().String(), "round", c.getRound().String())

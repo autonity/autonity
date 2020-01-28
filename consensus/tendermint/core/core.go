@@ -162,10 +162,12 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 		c.validValue = nil
 
 		// reset all maps
+		c.coreMu.Lock()
 		c.allProposals = make(map[int64]proposalSet)
 		c.allPrevotes = make(map[int64]messageSet)
 		c.allPrecommits = make(map[int64]messageSet)
 		c.verifiedProposals = make(map[common.Hash]bool)
+		c.coreMu.Unlock()
 
 		// Set validator set for height
 		valSet := c.backend.Validators(height.Uint64())
@@ -217,8 +219,8 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 		// step is set to propose only once and it is done above. Also, if we are the validator for this round and are
 		// honest then we will not have the proposal, therefore checking for the propose step condition in setStep()
 		// will require determining whether we are the proposer or not adding to more complexity.
-		if proposalMS, ok := c.allProposals[round.Int64()]; ok {
-			proposal := proposalMS.proposal
+		if proposalMS := c.getProposalSet(round.Int64()); proposalMS != nil {
+			proposal := proposalMS.proposal()
 			if proposal.ValidRound.Int64() == -1 {
 				if err := c.checkForNewProposal(ctx, round.Int64()); err != nil {
 					c.logger.Error(err.Error())
@@ -397,7 +399,7 @@ func (c *core) getAllRoundMessages() []*Message {
 	var messages []*Message
 
 	for _, proposalMS := range c.allProposals {
-		messages = append(messages, proposalMS.proposalMsg)
+		messages = append(messages, proposalMS.proposalMsg())
 	}
 
 	for _, prevoteMS := range c.allPrevotes {
@@ -428,4 +430,22 @@ func (c *core) hasVote(v Vote, m *Message) bool {
 		votes = c.allPrecommits[voteRound]
 	}
 	return votes.hasMessage(v.ProposedBlockHash, *m)
+}
+
+func (c *core) getProposalSet(round int64) *proposalSet {
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+
+	proposalS, ok := c.allProposals[round]
+	if !ok {
+		return nil
+	}
+
+	return &proposalS
+}
+
+func (c *core) setProposalSet(round int64, p Proposal, m *Message) {
+	c.coreMu.Lock()
+	defer c.coreMu.Unlock()
+	c.allProposals[round] = newProposalSet(p, m)
 }

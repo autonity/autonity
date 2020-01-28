@@ -36,14 +36,14 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	if isNil {
 		prevote.ProposedBlockHash = proposalBlockHash
 	} else {
-		proposalMS, ok := c.allProposals[currentRound]
-		if !ok {
+		proposalMS := c.getProposalSet(currentRound)
+		if proposalMS == nil {
 			// Should never be the case
 			c.logger.Error("Proposal is empty while trying to send prevote")
 			return
 		}
 
-		p := proposalMS.proposal
+		p := proposalMS.proposal()
 		proposalBlockHash = p.ProposalBlock.Hash()
 		if h := proposalBlockHash; h == (common.Hash{}) {
 			c.logger.Error("sendPrecommit Proposal is empty! It should not be empty!")
@@ -126,9 +126,9 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 	currentRound := c.getRound().Int64()
 	currentProposalHash := common.Hash{}
 
-	proposalMS, ok := c.allProposals[currentRound]
-	if ok {
-		currentProposalHash = proposalMS.proposal.ProposalBlock.Hash()
+	proposalMS := c.getProposalSet(currentRound)
+	if proposalMS != nil {
+		currentProposalHash = proposalMS.proposal().ProposalBlock.Hash()
 	}
 
 	prevotes, ok := c.allPrevotes[currentRound]

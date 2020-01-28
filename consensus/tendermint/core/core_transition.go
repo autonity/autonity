@@ -7,12 +7,13 @@ import (
 
 // Line 22 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
-	proposalMS, ok := c.allProposals[round]
-	if !ok {
+	proposalMS := c.getProposalSet(round)
+	if proposalMS == nil {
 		// Have not received proposal
 		return nil
 	}
-	proposal, proposalMsg := proposalMS.proposal, proposalMS.proposalMsg
+	proposal := proposalMS.proposal()
+	proposalMsg := proposalMS.proposalMsg()
 
 	h := proposal.ProposalBlock.Hash()
 
@@ -44,12 +45,13 @@ func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
 
 // Line 28 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
-	proposalMS, ok := c.allProposals[round]
-	if !ok {
+	proposalMS := c.getProposalSet(round)
+	if proposalMS == nil {
 		// Have not received proposal
 		return nil
 	}
-	proposal, proposalMsg := proposalMS.proposal, proposalMS.proposalMsg
+	proposal := proposalMS.proposal()
+	proposalMsg := proposalMS.proposalMsg()
 
 	vr := proposal.ValidRound.Int64()
 
@@ -104,12 +106,13 @@ func (c *core) checkForPrevoteTimeout(round int64, height int64) {
 
 // Line 36 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
-	proposalMS, ok := c.allProposals[round]
-	if !ok {
+	proposalMS := c.getProposalSet(round)
+	if proposalMS == nil {
 		// Have not received proposal
 		return nil
 	}
-	proposal, proposalMsg := proposalMS.proposal, proposalMS.proposalMsg
+	proposal := proposalMS.proposal()
+	proposalMsg := proposalMS.proposalMsg()
 
 	prevotes, ok := c.allPrevotes[round]
 	if !ok {
@@ -185,12 +188,13 @@ func (c *core) checkForPrecommitTimeout(round int64, height int64) {
 
 // Line 49 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForConsensus(ctx context.Context, round int64) error {
-	proposalMS, ok := c.allProposals[round]
-	if !ok {
+	proposalMS := c.getProposalSet(round)
+	if proposalMS == nil {
 		// Have not received proposal
 		return nil
 	}
-	proposal, proposalMsg := proposalMS.proposal, proposalMS.proposalMsg
+	proposal := proposalMS.proposal()
+	proposalMsg := proposalMS.proposalMsg()
 
 	precommits, ok := c.allPrecommits[round]
 	if !ok {
