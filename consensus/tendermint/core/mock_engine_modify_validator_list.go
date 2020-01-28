@@ -41,6 +41,10 @@ func (c *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 		return block, nil
 	}
 
+	if c.getHeight() == nil {
+		return block, nil
+	}
+
 	if c.getHeight().Cmp(header.Number) != 0 {
 		return block, nil
 	}
