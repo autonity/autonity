@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/common/autonity_contract_default"
+	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/common/graph"
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/log"

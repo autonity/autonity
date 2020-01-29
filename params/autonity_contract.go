@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/autonity_contract_default"
+	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
