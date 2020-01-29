@@ -352,9 +352,8 @@ func (c *core) getHeight() *big.Int {
 
 func (c *core) setStep(ctx context.Context, step Step) error {
 	c.coreMu.Lock()
-	defer c.coreMu.Unlock()
-
 	c.step = step
+	c.coreMu.Unlock()
 
 	// We need to check for upon conditions which refer to a specific step, so that once a validator moves to that step
 	// and no more messages are received, we ensure that if an upon condition is true it is executed. Propose step upon
