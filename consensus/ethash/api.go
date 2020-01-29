@@ -24,8 +24,6 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
-var errEthashStopped = errors.New("ethash stopped")
-
 // API exposes ethash related methods for the RPC interface.
 type API struct {
 	ethash *Ethash

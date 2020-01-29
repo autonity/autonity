@@ -18,7 +18,6 @@ package ethash
 
 import (
 	crand "crypto/rand"
-	"errors"
 	"math"
 	"math/big"
 	"math/rand"
@@ -28,10 +27,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/types"
-)
-
-var (
-	errNoMiningWork      = errors.New("no mining work available yet")
 )
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
