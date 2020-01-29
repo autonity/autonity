@@ -56,16 +56,16 @@ type AutonityContractGenesis struct {
 func (ac *AutonityContractGenesis) AddDefault() *AutonityContractGenesis {
 	if len(ac.Bytecode) == 0 || len(ac.ABI) == 0 {
 		log.Info("Default Validator smart contract set")
-		ac.ABI = autonity_contract_default.ABI()
-		ac.Bytecode = autonity_contract_default.Bytecode()
+		ac.ABI = acdefault.ABI()
+		ac.Bytecode = acdefault.Bytecode()
 	} else {
 		log.Info("User specified Validator smart contract set")
 	}
 	if reflect.DeepEqual(ac.Deployer, common.Address{}) {
-		ac.Deployer = autonity_contract_default.Deployer()
+		ac.Deployer = acdefault.Deployer()
 	}
 	if reflect.DeepEqual(ac.Operator, common.Address{}) {
-		ac.Operator = autonity_contract_default.Governance()
+		ac.Operator = acdefault.Governance()
 	}
 
 	for i := range ac.Users {

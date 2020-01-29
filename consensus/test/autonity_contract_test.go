@@ -553,7 +553,7 @@ func upgradeHook(t *testing.T, upgradeBlocks map[uint64]struct{}, operatorAddres
 			t.Fatal(err)
 		}
 
-		_, err = instance.UpgradeContract(auth, autonity_contract_default.Bytecode(), autonity_contract_default.ABI())
+		_, err = instance.UpgradeContract(auth, acdefault.Bytecode(), acdefault.ABI())
 		if err != nil {
 			t.Fatal(err)
 		}
