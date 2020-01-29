@@ -145,6 +145,7 @@ func isNewV4(n *Node) bool {
 func parseComplete(rawurl string, resolve bool) (*Node, error) {
 	var (
 		id               *ecdsa.PublicKey
+		ip               net.IP
 		tcpPort, udpPort uint64
 	)
 	u, err := url.Parse(rawurl)
@@ -166,23 +167,32 @@ func parseComplete(rawurl string, resolve bool) (*Node, error) {
 		u.Host += defaultPort
 	}
 	// Parse the IP address.
-	ip := net.ParseIP(u.Hostname())
-	if ip == nil {
+	host, port, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		return nil, fmt.Errorf("invalid host: %v", err)
+	}
+
+	if ip = net.ParseIP(host); ip == nil {
 		if !resolve {
 			return nil, errors.New("invalid IP address")
 		}
-		ips, err := lookupIPFunc(u.Hostname())
+		// if host is not IPV4/6, resolve host is a domain
+		ips, err := lookupIPFunc(host)
 		if err != nil {
-			return nil, err
+			return NewV4(id, nil, 0, 0), errors.New("invalid domain or IP address")
 		}
-		ip = ips[0]
-	}
-	// Ensure the IP is 4 bytes long for IPv4 addresses.
-	if ipv4 := ip.To4(); ipv4 != nil {
-		ip = ipv4
+		if len(ips) > 1 {
+			ip = ips[len(ips)-1]
+		} else {
+			ip = ips[0]
+		}
+		// Ensure the IP is 4 bytes long for IPv4 addresses.
+		if ipv4 := ip.To4(); ipv4 != nil {
+			ip = ipv4
+		}
 	}
 	// Parse the port numbers.
-	if tcpPort, err = strconv.ParseUint(u.Port(), 10, 16); err != nil {
+	if tcpPort, err = strconv.ParseUint(port, 10, 16); err != nil {
 		return nil, errors.New("invalid port")
 	}
 	udpPort = tcpPort
