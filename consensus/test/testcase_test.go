@@ -120,7 +120,10 @@ func runTest(t *testing.T, test *testCase) {
 	defer goleak.VerifyNone(t,
 		goleak.IgnoreTopFunction("github.com/JekaMas/notify._Cfunc_CFRunLoopRun"),
 		goleak.IgnoreTopFunction("github.com/clearmatics/autonity/metrics.(*meterArbiter).tick"),
-		goleak.IgnoreTopFunction("github.com/clearmatics/autonity/consensus/ethash.(*remoteSealer).loop"))
+		goleak.IgnoreTopFunction("github.com/clearmatics/autonity/consensus/ethash.(*remoteSealer).loop"),
+		goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
+		goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
+	)
 
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numValidators))

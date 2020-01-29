@@ -5,8 +5,12 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/clearmatics/autonity/common/autonity_contract_default"
+	"github.com/clearmatics/autonity/common/graph"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -335,7 +339,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 	runTest(t, testCase)
 }
 
-func TestContractUpgrade(t *testing.T) {
+func TestContractUpgrade_Success(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -356,20 +360,169 @@ func TestContractUpgrade(t *testing.T) {
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = operatorAddress
 			g.Alloc[operatorAddress] = core.GenesisAccount{
-				Balance: big.NewInt(100000000000000000),
+				Balance: big.NewInt(math.MaxInt64),
 			}
 			return g
 		},
 		afterHooks: map[string]hook{
-			"VD": upgradeHook(t, operatorAddress, operatorKey),
+			"VD": upgradeHook(t, map[uint64]struct{}{
+				5: {},
+			},
+				operatorAddress,
+				operatorKey),
 		},
 	}
 	runTest(t, testCase)
 }
 
-func upgradeHook(t *testing.T, operatorAddress common.Address, operatorKey *ecdsa.PrivateKey) hook {
+func TestContractUpgradeSeveralUpgrades(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	operatorKey, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
+	testCase := &testCase{
+		name:                 "no malicious - 1 tx per second",
+		numValidators:        5,
+		numBlocks:            20,
+		txPerPeer:            10,
+		removedPeers:         make(map[common.Address]uint64),
+		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		genesisHook: func(g *core.Genesis) *core.Genesis {
+			g.Config.AutonityContractConfig.Operator = operatorAddress
+			g.Alloc[operatorAddress] = core.GenesisAccount{
+				Balance: big.NewInt(math.MaxInt64),
+			}
+			return g
+		},
+		afterHooks: map[string]hook{
+			"VD": upgradeHook(t, map[uint64]struct{}{
+				5:  {},
+				7:  {},
+				15: {},
+			},
+				operatorAddress,
+				operatorKey),
+		},
+	}
+	runTest(t, testCase)
+}
+
+func TestContractUpgradeSeveralUpgradesOnBusTopology(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	operatorKey, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	topologyStr := `graph TB
+    VA---VB
+    VC---VB
+    VD---VC
+    VE---VD
+`
+
+	topology, err := graph.Parse(strings.NewReader(topologyStr))
+	if err != nil {
+		t.Fatal("parse error")
+	}
+
+	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
+	testCase := &testCase{
+		name:                 "no malicious - 1 tx per second",
+		numValidators:        5,
+		numBlocks:            20,
+		txPerPeer:            10,
+		removedPeers:         make(map[common.Address]uint64),
+		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		genesisHook: func(g *core.Genesis) *core.Genesis {
+			g.Config.AutonityContractConfig.Operator = operatorAddress
+			g.Alloc[operatorAddress] = core.GenesisAccount{
+				Balance: big.NewInt(math.MaxInt64),
+			}
+			return g
+		},
+		afterHooks: map[string]hook{
+			"VD": upgradeHook(t, map[uint64]struct{}{
+				5:  {},
+				7:  {},
+				15: {},
+			},
+				operatorAddress,
+				operatorKey),
+		},
+		topology: &Topology{
+			graph: *topology,
+		},
+	}
+	runTest(t, testCase)
+}
+
+func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	operatorKey, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	topologyStr := `graph TB
+    SF---VA
+    SF---VB
+    SF---VC
+    SF---VD
+    SF-->VE`
+
+	topology, err := graph.Parse(strings.NewReader(topologyStr))
+	if err != nil {
+		t.Fatal("parse error")
+	}
+
+	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
+	testCase := &testCase{
+		name:                 "no malicious - 1 tx per second",
+		numValidators:        5,
+		numBlocks:            20,
+		txPerPeer:            10,
+		removedPeers:         make(map[common.Address]uint64),
+		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		genesisHook: func(g *core.Genesis) *core.Genesis {
+			g.Config.AutonityContractConfig.Operator = operatorAddress
+			g.Alloc[operatorAddress] = core.GenesisAccount{
+				Balance: big.NewInt(math.MaxInt64),
+			}
+			return g
+		},
+		afterHooks: map[string]hook{
+			"VD": upgradeHook(t, map[uint64]struct{}{
+				5:  {},
+				7:  {},
+				15: {},
+			},
+				operatorAddress,
+				operatorKey),
+		},
+		topology: &Topology{
+			graph: *topology,
+		},
+	}
+	runTest(t, testCase)
+}
+
+func upgradeHook(t *testing.T, upgradeBlocks map[uint64]struct{}, operatorAddress common.Address, operatorKey *ecdsa.PrivateKey) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-		if block.Number().Uint64() != 5 {
+		log.Error("Upgrade hook")
+		if _, ok := upgradeBlocks[block.Number().Uint64()]; !ok {
 			return nil
 		}
 		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
@@ -391,7 +544,7 @@ func upgradeHook(t *testing.T, operatorAddress common.Address, operatorKey *ecds
 		auth := bind.NewKeyedTransactor(operatorKey)
 		auth.From = operatorAddress
 		auth.Nonce = big.NewInt(int64(nonce))
-		auth.GasLimit = uint64(300000) // in units
+		auth.GasLimit = uint64(30000000) // in units
 		auth.GasPrice = gasPrice
 
 		contractAddress := validator.service.BlockChain().GetAutonityContract().Address()

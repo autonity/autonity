@@ -77,6 +77,10 @@ jobs:
       script:
         - travis_wait 45 go test ./consensus/test/... -v -run 'TestCheckFeeRedirectionAndRedistribution' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
     - <<: *tests
+      name: "ContractUpgradeTests"
+      script:
+        - travis_wait 45 go test ./consensus/test/... -v -run 'TestContractUpgrade_Success|TestContractUpgradeSeveralUpgrades|TestContractUpgradeSeveralUpgradesOnBusTopology|TestContractUpgradeSeveralUpgradesOnStarTopology' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage.out
+    - <<: *tests
       name: "Contract tests"
       script:
         - npm install -g ganache-cli
