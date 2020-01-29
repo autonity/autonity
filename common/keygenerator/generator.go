@@ -78,7 +78,7 @@ type Generator struct {
 func (gen *Generator) Next() (*ecdsa.PrivateKey, error) {
 	key, err := crypto.HexToECDSA(gen.keys[gen.index])
 	gen.index++
-	if gen.index > len(gen.keys) {
+	if gen.index >= len(gen.keys) {
 		gen.index -= len(gen.keys)
 	}
 	return key, err
