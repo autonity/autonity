@@ -19,6 +19,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/goleak"
@@ -119,8 +120,12 @@ func runTest(t *testing.T, test *testCase) {
 	// TODO: (screwyprof) Fix the following gorotine leaks
 	defer goleak.VerifyNone(t,
 		goleak.IgnoreTopFunction("github.com/JekaMas/notify._Cfunc_CFRunLoopRun"),
-		goleak.IgnoreTopFunction("github.com/clearmatics/autonity/metrics.(*meterArbiter).tick"),
+		//	goleak.IgnoreTopFunction("github.com/clearmatics/autonity/metrics.(*meterArbiter).tick"),
 		goleak.IgnoreTopFunction("github.com/clearmatics/autonity/consensus/ethash.(*remoteSealer).loop"))
+
+	// needed to prevent go-routine leak at github.com/clearmatics/autonity/metrics.(*meterArbiter).tick
+	// see: metrics/meter.go:55
+	defer metrics.DefaultRegistry.UnregisterAll()
 
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numValidators))

@@ -280,15 +280,35 @@ type meterArbiter struct {
 	started bool
 	meters  map[*StandardMeter]struct{}
 	ticker  *time.Ticker
+	done    chan struct{}
 }
 
-var arbiter = meterArbiter{ticker: time.NewTicker(5e9), meters: make(map[*StandardMeter]struct{})}
+var arbiter = meterArbiter{
+	ticker: time.NewTicker(5e9),
+	meters: make(map[*StandardMeter]struct{}),
+	done:   make(chan struct{}),
+}
 
 // Ticks meters on the scheduled interval
 func (ma *meterArbiter) tick() {
-	for range ma.ticker.C {
-		ma.tickMeters()
+	defer func() {
+		ma.ticker.Stop()
+	}()
+
+	for {
+		select {
+		case <-ma.done:
+			return
+		case <-ma.ticker.C:
+			ma.tickMeters()
+		}
 	}
+}
+
+func (ma *meterArbiter) stopTicker() {
+	ma.Lock()
+	defer ma.Unlock()
+	ma.done <- struct{}{}
 }
 
 func (ma *meterArbiter) tickMeters() {

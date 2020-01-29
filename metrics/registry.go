@@ -189,6 +189,8 @@ func (r *StandardRegistry) UnregisterAll() {
 		r.stop(name)
 		delete(r.metrics, name)
 	}
+	// stop the ticker to avoid go-routine leak
+	arbiter.stopTicker()
 }
 
 func (r *StandardRegistry) register(name string, i interface{}) error {
