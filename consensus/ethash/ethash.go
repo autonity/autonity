@@ -49,9 +49,7 @@ var (
 	two256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 
 	// sharedEthash is a full instance that can be shared between multiple users.
-	sharedEthash = New(Config{"", 3, 0, "", 1, 0, ModeNormal, nil}, nil, false)
-	// sharedEthashOnce is a full instance that can be shared between multiple users.
-	sharedEthashOnce = &sync.Once{}
+	sharedEthash = New(Config{"", 3, 0, "", 1, 0, ModeFullFake, nil}, nil, false)
 
 	// algorithmRevision is the data structure version used for file naming.
 	algorithmRevision = 23
@@ -388,8 +386,7 @@ func MakeDataset(block uint64, dir string) {
 type Mode uint
 
 const (
-	ModeNormal Mode = iota
-	ModeTest
+	ModeTest Mode = iota
 	ModeFake
 	ModeFullFake
 )
@@ -632,7 +629,7 @@ func (ethash *Ethash) SetThreads(threads int) {
 // hashrate of all remote miner.
 func (ethash *Ethash) Hashrate() float64 {
 	// Short circuit if we are run the ethash in normal/test mode.
-	if ethash.config.PowMode != ModeNormal && ethash.config.PowMode != ModeTest {
+	if ethash.config.PowMode != ModeTest {
 		return ethash.hashrate.Rate1()
 	}
 	var res = make(chan uint64, 1)

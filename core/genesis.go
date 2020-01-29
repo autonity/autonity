@@ -42,7 +42,6 @@ import (
 //go:generate gencodec -type GenesisAccount -field-override genesisAccountMarshaling -out gen_genesis_account.go
 
 var errGenesisNoConfig = errors.New("genesis has no chain configuration")
-var errGenesisBadWhitelist = errors.New("whitelist badly formatted")
 
 // Genesis specifies the header fields, state of a genesis block. It also defines hard
 // fork switch-over blocks through the chain configuration.

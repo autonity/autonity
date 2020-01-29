@@ -42,6 +42,7 @@ func TestBlockchain(t *testing.T) {
 
 	// test takes a lot for time and goes easily OOM because of sha3 calculation on a huge range,
 	// using 4.6 TGas
+
 	bt.skipLoad(`.*randomStatetest94.json.*`)
 
 	bt.walk(t, blockTestDir, func(t *testing.T, name string, test *BlockTest) {
