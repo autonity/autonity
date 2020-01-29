@@ -50,4 +50,4 @@ profile.cov
 
 **/yarn-error.log
 
-./vendor/
+/vendor
