@@ -83,6 +83,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	defaultBondPeriod := big.NewInt(100)
 
 	defaultCommitteeSize := big.NewInt(1000)
+	defaultVersion := "v0.0.0"
 
 	for _, v := range chain.Config().AutonityContractConfig.Users {
 		validators = append(validators, v.Address)
@@ -103,7 +104,8 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		chain.Config().AutonityContractConfig.Operator,
 		new(big.Int).SetUint64(chain.Config().AutonityContractConfig.MinGasPrice),
 		defaultBondPeriod,
-		defaultCommitteeSize)
+		defaultCommitteeSize,
+		defaultVersion)
 	if err != nil {
 		log.Error("contractABI.Pack returns err", "err", err)
 		return common.Address{}, err
