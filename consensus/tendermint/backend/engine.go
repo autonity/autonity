@@ -55,8 +55,6 @@ var (
 	errUnauthorized = errors.New("unauthorized")
 	// errInvalidDifficulty is returned if the difficulty of a block is not 1
 	errInvalidDifficulty = errors.New("invalid difficulty")
-	// errInvalidExtraDataFormat is returned when the extra data format is incorrect
-	errInvalidExtraDataFormat = errors.New("invalid extra data format")
 	// errInvalidMixDigest is returned if a block's mix digest is not BFT digest.
 	errInvalidMixDigest = errors.New("invalid BFT mix digest")
 	// errInvalidNonce is returned if a block's nonce is invalid

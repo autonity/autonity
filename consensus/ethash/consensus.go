@@ -26,6 +26,8 @@ import (
 
 	mapset "github.com/deckarep/golang-set"
 
+	"golang.org/x/crypto/sha3"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/consensus"
@@ -34,7 +36,6 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 // Ethash proof-of-work protocol constants.

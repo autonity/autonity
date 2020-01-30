@@ -56,6 +56,10 @@ mock-gen:
 	mockgen -source=consensus/protocol.go -package=consensus -destination=consensus/protocol_mock.go
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 
+lint-dead:
+	@./build/bin/golangci-lint run \
+		--config ./.golangci/step_dead.yml
+
 lint:
 	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
 	@./build/bin/golangci-lint run \

@@ -17,7 +17,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -66,45 +65,6 @@ func (w *wizard) makeGenesis() {
 		// In case of ethash, we're pretty much done
 		genesis.Config.Ethash = new(params.EthashConfig)
 		genesis.ExtraData = make([]byte, 32)
-
-	case choice == "" || choice == "2":
-		// In the case of clique, configure the consensus parameters
-		genesis.Difficulty = big.NewInt(1)
-		genesis.Config.Clique = &params.CliqueConfig{
-			Period: 15,
-			Epoch:  30000,
-		}
-		fmt.Println()
-		fmt.Println("How many seconds should blocks take? (default = 15)")
-		genesis.Config.Clique.Period = uint64(w.readDefaultInt(15))
-
-		// We also need the initial list of signers
-		fmt.Println()
-		fmt.Println("Which accounts are allowed to seal? (mandatory at least one)")
-
-		var signers []common.Address
-		for {
-			if address := w.readAddress(); address != nil {
-				signers = append(signers, *address)
-				continue
-			}
-			if len(signers) > 0 {
-				break
-			}
-		}
-		// Sort the signers and embed into the extra-data section
-		for i := 0; i < len(signers); i++ {
-			for j := i + 1; j < len(signers); j++ {
-				if bytes.Compare(signers[i][:], signers[j][:]) > 0 {
-					signers[i], signers[j] = signers[j], signers[i]
-				}
-			}
-		}
-		genesis.ExtraData = make([]byte, 32+len(signers)*common.AddressLength+65)
-		for i, signer := range signers {
-			copy(genesis.ExtraData[32+i*common.AddressLength:], signer[:])
-		}
-
 	default:
 		log.Crit("Invalid consensus engine choice", "choice", choice)
 	}
