@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/common/keygenerator"
 	"net"
 	"os"
 	"strconv"
@@ -17,7 +18,6 @@ import (
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/davecgh/go-spew/spew"
@@ -296,7 +296,7 @@ func generateNodesPrivateKey(t *testing.T, nodes map[string]*testNode, nodeNames
 	var err error
 	for i := 0; i < nodesNum; i++ {
 		nodes[nodeNames[i]] = new(testNode)
-		nodes[nodeNames[i]].privateKey, err = crypto.GenerateKey()
+		nodes[nodeNames[i]].privateKey, err = keygenerator.Next()
 		if err != nil {
 			t.Fatal("cant make pk", err)
 		}
