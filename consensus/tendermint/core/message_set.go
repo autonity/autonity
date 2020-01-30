@@ -21,8 +21,8 @@ import (
 	"sync"
 )
 
-func newMessageSet() messageSet {
-	return messageSet{
+func newMessageSet() *messageSet {
+	return &messageSet{
 		votes:      map[common.Hash]map[common.Address]Message{},
 		nilvotes:   map[common.Address]Message{},
 		messages:   make([]*Message, 0),
@@ -37,8 +37,8 @@ type messageSet struct {
 	messagesMu *sync.RWMutex
 }
 
-func newProposalSet(p Proposal, m *Message) proposalSet {
-	return proposalSet{
+func newProposalSet(p Proposal, m *Message) *proposalSet {
+	return &proposalSet{
 		p:    p,
 		pMsg: m,
 		mu:   new(sync.RWMutex),

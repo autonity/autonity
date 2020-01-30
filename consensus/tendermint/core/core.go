@@ -76,9 +76,9 @@ func New(backend Backend, config *config.Config) *core {
 		isStopping:                 new(uint32),
 		isStopped:                  new(uint32),
 		valSet:                     new(validatorSet),
-		allProposals:               make(map[int64]proposalSet),
-		allPrevotes:                make(map[int64]messageSet),
-		allPrecommits:              make(map[int64]messageSet),
+		allProposals:               make(map[int64]*proposalSet),
+		allPrevotes:                make(map[int64]*messageSet),
+		allPrecommits:              make(map[int64]*messageSet),
 		verifiedProposals:          make(map[common.Hash]bool),
 		lockedRound:                big.NewInt(-1),
 		validRound:                 big.NewInt(-1),
@@ -114,9 +114,9 @@ type core struct {
 	round             *big.Int
 	height            *big.Int
 	step              Step
-	allProposals      map[int64]proposalSet
-	allPrevotes       map[int64]messageSet
-	allPrecommits     map[int64]messageSet
+	allProposals      map[int64]*proposalSet
+	allPrevotes       map[int64]*messageSet
+	allPrecommits     map[int64]*messageSet
 	verifiedProposals map[common.Hash]bool
 	coreMu            sync.RWMutex
 
@@ -163,9 +163,9 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 
 		// reset all maps
 		c.coreMu.Lock()
-		c.allProposals = make(map[int64]proposalSet)
-		c.allPrevotes = make(map[int64]messageSet)
-		c.allPrecommits = make(map[int64]messageSet)
+		c.allProposals = make(map[int64]*proposalSet)
+		c.allPrevotes = make(map[int64]*messageSet)
+		c.allPrecommits = make(map[int64]*messageSet)
 		c.verifiedProposals = make(map[common.Hash]bool)
 		c.coreMu.Unlock()
 
@@ -442,7 +442,7 @@ func (c *core) getProposalSet(round int64) *proposalSet {
 		return nil
 	}
 
-	return &proposalS
+	return proposalS
 }
 
 func (c *core) setProposalSet(round int64, p Proposal, m *Message) {
@@ -460,7 +460,7 @@ func (c *core) getPrevotesSet(round int64) *messageSet {
 		return nil
 	}
 
-	return &prevotesS
+	return prevotesS
 }
 
 func (c *core) setPrevotesSet(round int64) {
@@ -478,7 +478,7 @@ func (c *core) getPrecommitsSet(round int64) *messageSet {
 		return nil
 	}
 
-	return &precommitsS
+	return precommitsS
 }
 
 func (c *core) setPrecommitsSet(round int64) {
