@@ -21,7 +21,6 @@ var Modules = map[string]string{
 	"accounting": AccountingJs,
 	"admin":      AdminJs,
 	"chequebook": ChequebookJs,
-	"clique":     CliqueJs,
 	"ethash":     EthashJs,
 	"debug":      DebugJs,
 	"eth":        EthJs,
@@ -33,7 +32,6 @@ var Modules = map[string]string{
 	"swarmfs":    SwarmfsJs,
 	"txpool":     TxpoolJs,
 	"les":        LESJs,
-	"istanbul":   Istanbul_JS,
 	"tendermint": TendermintJs,
 }
 
@@ -63,57 +61,6 @@ web3._extend({
 			call: 'chequebook_issue',
 			params: 2,
 			inputFormatter: [null, null]
-		}),
-	]
-});
-`
-
-const CliqueJs = `
-web3._extend({
-	property: 'clique',
-	methods: [
-		new web3._extend.Method({
-			name: 'getSnapshot',
-			call: 'clique_getSnapshot',
-			params: 1,
-			inputFormatter: [web3._extend.utils.fromDecimal]
-		}),
-		new web3._extend.Method({
-			name: 'getSnapshotAtHash',
-			call: 'clique_getSnapshotAtHash',
-			params: 1
-		}),
-		new web3._extend.Method({
-			name: 'getSigners',
-			call: 'clique_getSigners',
-			params: 1,
-			inputFormatter: [web3._extend.utils.fromDecimal]
-		}),
-		new web3._extend.Method({
-			name: 'getSignersAtHash',
-			call: 'clique_getSignersAtHash',
-			params: 1
-		}),
-		new web3._extend.Method({
-			name: 'propose',
-			call: 'clique_propose',
-			params: 2
-		}),
-		new web3._extend.Method({
-			name: 'discard',
-			call: 'clique_discard',
-			params: 1
-		}),
-		new web3._extend.Method({
-			name: 'status',
-			call: 'clique_status',
-			params: 0
-		}),
-	],
-	properties: [
-		new web3._extend.Property({
-			name: 'proposals',
-			getter: 'clique_proposals'
 		}),
 	]
 });
@@ -243,12 +190,6 @@ web3._extend({
 			name: 'getBlockRlp',
 			call: 'debug_getBlockRlp',
 			params: 1
-		}),
-		new web3._extend.Method({
-			name: 'testSignCliqueBlock',
-			call: 'debug_testSignCliqueBlock',
-			params: 2,
-			inputFormatters: [web3._extend.formatters.inputAddressFormatter, null],
 		}),
 		new web3._extend.Method({
 			name: 'setHead',
@@ -855,50 +796,6 @@ web3._extend({
 			name: 'serverInfo',
 			getter: 'les_serverInfo'
 		}),
-	]
-});
-`
-
-const Istanbul_JS = `
-web3._extend({
-	property: 'istanbul',
-	methods:
-	[
-		new web3._extend.Method({
-			name: 'getValidators',
-			call: 'istanbul_getValidators',
-			params: 1
-		}),
-		new web3._extend.Method({
-			name: 'getValidatorsAtHash',
-			call: 'istanbul_getValidatorsAtHash',
-			params: 1
-		}),
-		new web3._extend.Method({
-			name: 'getSomaContractAddress',
-			call: 'istanbul_getSomaContractAddress',
-			params: 0
-		}),
-		new web3._extend.Method({
-			name: 'getSomaContractABI',
-			call: 'istanbul_getSomaContractABI',
-			params: 0
-		}),
-		new web3._extend.Method({
-			name: 'getGlienickeContractAddress',
-			call: 'istanbul_getGlienickeContractAddress',
-			params: 0
-		}),
-		new web3._extend.Method({
-			name: 'getGlienickeContractABI',
-			call: 'istanbul_getGlienickeContractABI',
-			params: 0
-		}),
-		new web3._extend.Method({
-			name: 'getWhitelist',
-			call: 'istanbul_getWhitelist',
-			params: 0
-		})
 	]
 });
 `

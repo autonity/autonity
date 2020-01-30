@@ -120,8 +120,9 @@ func runTest(t *testing.T, test *testCase) {
 	// TODO: (screwyprof) Fix the following gorotine leaks
 	defer goleak.VerifyNone(t,
 		goleak.IgnoreTopFunction("github.com/JekaMas/notify._Cfunc_CFRunLoopRun"),
-		//goleak.IgnoreTopFunction("github.com/clearmatics/autonity/metrics.(*meterArbiter).tick"),
-		goleak.IgnoreTopFunction("github.com/clearmatics/autonity/consensus/ethash.(*remoteSealer).loop"))
+		goleak.IgnoreTopFunction("github.com/clearmatics/autonity/metrics.(*meterArbiter).tick"),
+		goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
+		goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"))
 
 	// needed to prevent go-routine leak at github.com/clearmatics/autonity/metrics.(*meterArbiter).tick
 	// see: metrics/meter.go:55
