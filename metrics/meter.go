@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -280,24 +281,23 @@ type meterArbiter struct {
 	started bool
 	meters  map[*StandardMeter]struct{}
 	ticker  *time.Ticker
-	done    chan struct{}
+	doneCh  chan struct{}
+	stopped *uint32
 }
 
 var arbiter = meterArbiter{
-	ticker: time.NewTicker(5e9),
-	meters: make(map[*StandardMeter]struct{}),
-	done:   make(chan struct{}),
+	ticker:  time.NewTicker(5e9),
+	meters:  make(map[*StandardMeter]struct{}),
+	doneCh:  make(chan struct{}),
+	stopped: new(uint32),
 }
 
 // Ticks meters on the scheduled interval
 func (ma *meterArbiter) tick() {
-	defer func() {
-		ma.ticker.Stop()
-	}()
-
 	for {
 		select {
-		case <-ma.done:
+		case <-ma.doneCh:
+			ma.haltTicker()
 			return
 		case <-ma.ticker.C:
 			ma.tickMeters()
@@ -305,10 +305,18 @@ func (ma *meterArbiter) tick() {
 	}
 }
 
+func (ma *meterArbiter) haltTicker() {
+	ma.Lock()
+	defer ma.Unlock()
+
+	ma.ticker.Stop()
+	atomic.StoreUint32(ma.stopped, 1)
+}
+
 func (ma *meterArbiter) stopTicker() {
 	ma.Lock()
 	defer ma.Unlock()
-	ma.done <- struct{}{}
+	ma.doneCh <- struct{}{}
 }
 
 func (ma *meterArbiter) tickMeters() {
