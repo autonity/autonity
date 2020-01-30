@@ -424,7 +424,7 @@ func (c *core) hasVote(v Vote, m *Message) bool {
 		}
 		votes = *prevotesSet
 	} else if mCode == msgPrecommit {
-		precommitsSet := c.getPrecommitSet(voteRound)
+		precommitsSet := c.getPrecommitsSet(voteRound)
 		if precommitsSet == nil {
 			return false
 		}
@@ -469,7 +469,7 @@ func (c *core) setPrevotesSet(round int64) {
 	c.allPrevotes[round] = newMessageSet()
 }
 
-func (c *core) getPrecommitSet(round int64) *messageSet {
+func (c *core) getPrecommitsSet(round int64) *messageSet {
 	c.coreMu.RLock()
 	defer c.coreMu.RUnlock()
 
@@ -481,7 +481,7 @@ func (c *core) getPrecommitSet(round int64) *messageSet {
 	return &precommitsS
 }
 
-func (c *core) setPrecommitSet(round int64) {
+func (c *core) setPrecommitsSet(round int64) {
 	c.coreMu.Lock()
 	defer c.coreMu.Unlock()
 	c.allPrecommits[round] = newMessageSet()

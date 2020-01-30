@@ -175,7 +175,7 @@ func (c *core) checkForQuorumPrevotesNil(ctx context.Context, round int64) error
 
 // Line 47 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForPrecommitTimeout(round int64, height int64) {
-	precommits := c.getPrecommitSet(round)
+	precommits := c.getPrecommitsSet(round)
 	if precommits == nil {
 		// Do not have any precommits for the round
 		return
@@ -197,7 +197,7 @@ func (c *core) checkForConsensus(ctx context.Context, round int64) error {
 	proposal := proposalMS.proposal()
 	proposalMsg := proposalMS.proposalMsg()
 
-	precommits := c.getPrecommitSet(round)
+	precommits := c.getPrecommitsSet(round)
 	if precommits == nil {
 		// Have not received any precommits for round
 		return nil

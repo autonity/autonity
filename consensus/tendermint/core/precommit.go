@@ -94,10 +94,10 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 
 	// The precommit doesn't exists in our current round state, so add it, thus it will add the precommit to the round
 	// of the precommit
-	if precommits := c.getPrecommitSet(preCommit.Round.Int64()); precommits == nil {
-		c.setPrecommitSet(preCommit.Round.Int64())
+	if precommits := c.getPrecommitsSet(preCommit.Round.Int64()); precommits == nil {
+		c.setPrecommitsSet(preCommit.Round.Int64())
 	}
-	precommits := c.getPrecommitSet(preCommit.Round.Int64())
+	precommits := c.getPrecommitsSet(preCommit.Round.Int64())
 	precommits.Add(precommitHash, *msg)
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
@@ -144,27 +144,41 @@ func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to
 		currentProposalHash = proposalMS.proposal().ProposalBlock.Hash()
 	}
 
-	precommits := c.getPrecommitSet(currentRound)
+	precommits := c.getPrecommitsSet(currentRound)
 	if precommits == nil {
-		return
+		c.logger.Debug(message,
+			"from", from,
+			"to", to,
+			"currentHeight", c.getHeight(),
+			"msgHeight", precommit.Height,
+			"currentRound", c.getRound(),
+			"msgRound", precommit.Round,
+			"currentStep", c.getStep(),
+			"isProposer", c.isProposerForR(c.getRound().Int64(), c.address),
+			"currentProposer", c.valSet.GetProposer(),
+			"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
+			"hash", precommit.ProposedBlockHash,
+			"type", "Precommit",
+		)
+	} else {
+		c.logger.Debug(message,
+			"from", from,
+			"to", to,
+			"currentHeight", c.getHeight(),
+			"msgHeight", precommit.Height,
+			"currentRound", c.getRound(),
+			"msgRound", precommit.Round,
+			"currentStep", c.getStep(),
+			"isProposer", c.isProposerForR(c.getRound().Int64(), c.address),
+			"currentProposer", c.valSet.GetProposer(),
+			"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
+			"hash", precommit.ProposedBlockHash,
+			"type", "Precommit",
+			"totalVotes", precommits.TotalSize(),
+			"totalNilVotes", precommits.NilVotesSize(),
+			"quorumReject", c.quorum(precommits.NilVotesSize()),
+			"totalNonNilVotes", precommits.VotesSize(currentProposalHash),
+			"quorumAccept", c.quorum(precommits.VotesSize(currentProposalHash)),
+		)
 	}
-	c.logger.Debug(message,
-		"from", from,
-		"to", to,
-		"currentHeight", c.getHeight(),
-		"msgHeight", precommit.Height,
-		"currentRound", c.getRound(),
-		"msgRound", precommit.Round,
-		"currentStep", c.getStep(),
-		"isProposer", c.isProposerForR(c.getRound().Int64(), c.address),
-		"currentProposer", c.valSet.GetProposer(),
-		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
-		"hash", precommit.ProposedBlockHash,
-		"type", "Precommit",
-		"totalVotes", precommits.TotalSize(),
-		"totalNilVotes", precommits.NilVotesSize(),
-		"quorumReject", c.quorum(precommits.NilVotesSize()),
-		"totalNonNilVotes", precommits.VotesSize(currentProposalHash),
-		"quorumAccept", c.quorum(precommits.VotesSize(currentProposalHash)),
-	)
 }
