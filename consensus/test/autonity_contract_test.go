@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/clearmatics/autonity/common/keygenerator"
 	"math/big"
 	"strconv"
 	"sync"
@@ -236,7 +237,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	operatorKey, err := crypto.GenerateKey()
+	operatorKey, err := keygenerator.Next()
 	if err != nil {
 		t.Fatal(err)
 	}
