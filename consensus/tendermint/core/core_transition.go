@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/common"
 	"math/big"
 )
 
@@ -32,9 +33,9 @@ func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
 
 		// Vote for the proposal if proposal is valid(proposal) && (lockedRound = -1 || lockedValue = proposal).
 		if c.lockedRound.Int64() == -1 || (c.lockedRound != nil && h == c.lockedValue.Hash()) {
-			c.sendPrevote(ctx, false)
+			c.sendPrevote(ctx, big.NewInt(c.getHeight().Int64()), big.NewInt(round), h)
 		} else {
-			c.sendPrevote(ctx, true)
+			c.sendPrevote(ctx, big.NewInt(c.getHeight().Int64()), big.NewInt(round), common.Hash{})
 		}
 		if err := c.setStep(ctx, prevote); err != nil {
 			return err
@@ -79,9 +80,9 @@ func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 
 		// Vote for proposal if valid(proposal) && ((0 <= lockedRound <= vr < curR) || lockedValue == proposal)
 		if c.lockedRound.Int64() <= vr || (c.lockedRound != nil && h == c.lockedValue.Hash()) {
-			c.sendPrevote(ctx, false)
+			c.sendPrevote(ctx, big.NewInt(c.getHeight().Int64()), big.NewInt(round), h)
 		} else {
-			c.sendPrevote(ctx, true)
+			c.sendPrevote(ctx, big.NewInt(c.getHeight().Int64()), big.NewInt(round), common.Hash{})
 		}
 		if err := c.setStep(ctx, prevote); err != nil {
 			return err
@@ -139,7 +140,7 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 		if c.getStep() == prevote {
 			c.lockedValue = proposal.ProposalBlock
 			c.lockedRound = big.NewInt(round)
-			c.sendPrecommit(ctx, false)
+			c.sendPrecommit(ctx, big.NewInt(c.getHeight().Int64()), big.NewInt(round), h)
 			_ = c.setStep(ctx, precommit)
 		}
 		c.validValue = proposal.ProposalBlock
@@ -166,7 +167,7 @@ func (c *core) checkForQuorumPrevotesNil(ctx context.Context, round int64) error
 			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 		}
 
-		c.sendPrecommit(ctx, true)
+		c.sendPrecommit(ctx, big.NewInt(c.getHeight().Int64()), big.NewInt(round), common.Hash{})
 		_ = c.setStep(ctx, precommit)
 	}
 	return nil

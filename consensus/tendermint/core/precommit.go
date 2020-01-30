@@ -25,33 +25,13 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
-func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
+func (c *core) sendPrecommit(ctx context.Context, height *big.Int, round *big.Int, hash common.Hash) {
 	logger := c.logger.New("step", c.getStep())
-	currentRound := c.getRound().Int64()
 
 	var precommit = Vote{
-		Round:  big.NewInt(c.getRound().Int64()),
-		Height: big.NewInt(c.getHeight().Int64()),
-	}
-
-	proposalBlockHash := common.Hash{}
-	if isNil {
-		precommit.ProposedBlockHash = proposalBlockHash
-	} else {
-		proposalMS := c.getProposalSet(currentRound)
-		if proposalMS == nil {
-			// Should never be the case
-			c.logger.Error("Proposal is empty while trying to send precommit")
-			return
-		}
-
-		p := proposalMS.proposal()
-		proposalBlockHash = p.ProposalBlock.Hash()
-		if h := proposalBlockHash; h == (common.Hash{}) {
-			c.logger.Error("core.sendPrecommit Proposal is empty! It should not be empty!")
-			return
-		}
-		precommit.ProposedBlockHash = proposalBlockHash
+		Height:            height,
+		Round:             round,
+		ProposedBlockHash: hash,
 	}
 
 	encodedVote, err := Encode(&precommit)

@@ -23,33 +23,13 @@ import (
 	"github.com/clearmatics/autonity/common"
 )
 
-func (c *core) sendPrevote(ctx context.Context, isNil bool) {
+func (c *core) sendPrevote(ctx context.Context, height *big.Int, round *big.Int, hash common.Hash) {
 	logger := c.logger.New("step", c.getStep())
-	currentRound := c.getRound().Int64()
 
 	var prevote = Vote{
-		Round:  big.NewInt(c.getRound().Int64()),
-		Height: big.NewInt(c.getHeight().Int64()),
-	}
-
-	proposalBlockHash := common.Hash{}
-	if isNil {
-		prevote.ProposedBlockHash = proposalBlockHash
-	} else {
-		proposalMS := c.getProposalSet(currentRound)
-		if proposalMS == nil {
-			// Should never be the case
-			c.logger.Error("Proposal is empty while trying to send prevote")
-			return
-		}
-
-		p := proposalMS.proposal()
-		proposalBlockHash = p.ProposalBlock.Hash()
-		if h := proposalBlockHash; h == (common.Hash{}) {
-			c.logger.Error("sendPrecommit Proposal is empty! It should not be empty!")
-			return
-		}
-		prevote.ProposedBlockHash = proposalBlockHash
+		Height:            height,
+		Round:             round,
+		ProposedBlockHash: hash,
 	}
 
 	encodedVote, err := Encode(&prevote)

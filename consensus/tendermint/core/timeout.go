@@ -160,7 +160,7 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() && c.getStep() == propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
-		c.sendPrevote(ctx, true)
+		c.sendPrevote(ctx, big.NewInt(msg.heightWhenCalled), big.NewInt(msg.roundWhenCalled), common.Hash{})
 		if err := c.setStep(ctx, prevote); err != nil {
 			c.logger.Error(err.Error())
 		}
@@ -170,7 +170,7 @@ func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() && c.getStep() == prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
-		c.sendPrecommit(ctx, true)
+		c.sendPrecommit(ctx, big.NewInt(msg.heightWhenCalled), big.NewInt(msg.roundWhenCalled), common.Hash{})
 		_ = c.setStep(ctx, precommit)
 	}
 }
