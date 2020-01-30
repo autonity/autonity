@@ -300,8 +300,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
 		Root:       root,
-		Committee: g.Committee,
-		Round:     new(big.Int).SetInt64(0),
+		Committee:  g.Committee,
+		Round:      new(big.Int).SetInt64(0),
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
@@ -376,7 +376,9 @@ func (g *Genesis) SetBFT() error {
 		return fmt.Errorf("autonity Network requires at least 1 validator")
 	}
 
+	g.mu.Lock()
 	g.Committee = committee
+	g.mu.Unlock()
 
 	log.Info("starting BFT consensus", "validators", committee)
 
