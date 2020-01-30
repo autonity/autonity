@@ -48,8 +48,6 @@ var (
 	// two256 is a big integer representing 2^256
 	two256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 
-	// sharedEthash is a full instance that can be shared between multiple users.
-	sharedEthash = New(Config{"", 3, 0, "", 1, 0, ModeNormal, nil}, nil, false)
 	// sharedEthashOnce is a full instance that can be shared between multiple users.
 	sharedEthashOnce = &sync.Once{}
 
@@ -420,7 +418,6 @@ type Ethash struct {
 	threads  int           // Number of threads to mine on if mining
 	update   chan struct{} // Notification channel to update mining parameters
 	hashrate metrics.Meter // Meter tracking the average hashrate
-	remote   *remoteSealer
 
 	// The fields below are hooks for testing
 	shared    *Ethash       // Shared PoW verifier to avoid cache regeneration
@@ -428,7 +425,6 @@ type Ethash struct {
 	fakeDelay time.Duration // Time delay to sleep for before returning from verify
 
 	lock      sync.Mutex // Ensures thread safety for the in-memory caches and mining fields
-	closeOnce sync.Once  // Ensures exit channel will not be closed twice.
 }
 
 // New creates a full sized ethash PoW scheme and starts a background thread for
@@ -455,7 +451,6 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeterForced(),
 	}
-	ethash.remote = startRemoteSealer(ethash, notify, noverify)
 	return ethash
 }
 
@@ -469,7 +464,6 @@ func NewTester(notify []string, noverify bool) *Ethash {
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeterForced(),
 	}
-	ethash.remote = startRemoteSealer(ethash, notify, noverify)
 	return ethash
 }
 
@@ -522,24 +516,20 @@ func NewFullFaker() *Ethash {
 	}
 }
 
+var sharedEthash *Ethash
+
 // NewShared creates a full sized ethash PoW shared between all requesters running
 // in the same process.
 func NewShared() *Ethash {
+	sharedEthashOnce.Do(func() {
+		sharedEthash = New(Config{"", 3, 0, "", 1, 0, ModeNormal, nil}, nil, false)
+	})
 	return &Ethash{shared: sharedEthash}
 }
 
 // Close closes the exit channel to notify all backend threads exiting.
 func (ethash *Ethash) Close() error {
-	var err error
-	ethash.closeOnce.Do(func() {
-		// Short circuit if the exit channel is not allocated.
-		if ethash.remote == nil {
-			return
-		}
-		close(ethash.remote.requestExit)
-		<-ethash.remote.exitCh
-	})
-	return err
+	return nil
 }
 
 // cache tries to retrieve a verification cache for the specified block number
@@ -636,13 +626,6 @@ func (ethash *Ethash) Hashrate() float64 {
 		return ethash.hashrate.Rate1()
 	}
 	var res = make(chan uint64, 1)
-
-	select {
-	case ethash.remote.fetchRateCh <- res:
-	case <-ethash.remote.exitCh:
-		// Return local hashrate only if ethash is stopped.
-		return ethash.hashrate.Rate1()
-	}
 
 	// Gather total submitted hash rate of remote sealers.
 	return ethash.hashrate.Rate1() + float64(<-res)
