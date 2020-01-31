@@ -25,8 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/core/types"
 )
 
@@ -90,83 +88,5 @@ func verifyTest(wg *sync.WaitGroup, e *Ethash, workerIndex, epochs int) {
 			Difficulty: big.NewInt(100),
 		}
 		e.VerifySeal(nil, header)
-	}
-}
-
-func TestRemoteSealer(t *testing.T) {
-	ethash := NewTester(nil, false)
-	defer ethash.Close()
-
-	api := &API{ethash}
-	if _, err := api.GetWork(); err != errNoMiningWork {
-		t.Error("expect to return an error indicate there is no mining work")
-	}
-	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
-	block := types.NewBlockWithHeader(header)
-	sealhash := ethash.SealHash(header)
-
-	// Push new work.
-	results := make(chan *types.Block)
-	ethash.Seal(nil, block, results, nil)
-
-	var (
-		work [4]string
-		err  error
-	)
-	if work, err = api.GetWork(); err != nil || work[0] != sealhash.Hex() {
-		t.Error("expect to return a mining work has same hash")
-	}
-
-	if res := api.SubmitWork(types.BlockNonce{}, sealhash, common.Hash{}); res {
-		t.Error("expect to return false when submit a fake solution")
-	}
-	// Push new block with same block number to replace the original one.
-	header = &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(1000)}
-	block = types.NewBlockWithHeader(header)
-	sealhash = ethash.SealHash(header)
-	ethash.Seal(nil, block, results, nil)
-
-	if work, err = api.GetWork(); err != nil || work[0] != sealhash.Hex() {
-		t.Error("expect to return the latest pushed work")
-	}
-}
-
-func TestHashRate(t *testing.T) {
-	var (
-		hashrate = []hexutil.Uint64{100, 200, 300}
-		expect   uint64
-		ids      = []common.Hash{common.HexToHash("a"), common.HexToHash("b"), common.HexToHash("c")}
-	)
-	ethash := NewTester(nil, false)
-	defer ethash.Close()
-
-	if tot := ethash.Hashrate(); tot != 0 {
-		t.Error("expect the result should be zero")
-	}
-
-	api := &API{ethash}
-	for i := 0; i < len(hashrate); i += 1 {
-		if res := api.SubmitHashRate(hashrate[i], ids[i]); !res {
-			t.Error("remote miner submit hashrate failed")
-		}
-		expect += uint64(hashrate[i])
-	}
-	if tot := ethash.Hashrate(); tot != float64(expect) {
-		t.Error("expect total hashrate should be same")
-	}
-}
-
-func TestClosedRemoteSealer(t *testing.T) {
-	ethash := NewTester(nil, false)
-	time.Sleep(1 * time.Second) // ensure exit channel is listening
-	ethash.Close()
-
-	api := &API{ethash}
-	if _, err := api.GetWork(); err != errEthashStopped {
-		t.Error("expect to return an error to indicate ethash is stopped")
-	}
-
-	if res := api.SubmitHashRate(hexutil.Uint64(100), common.HexToHash("a")); res {
-		t.Error("expect to return false when submit hashrate to a stopped ethash")
 	}
 }
