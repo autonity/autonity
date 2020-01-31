@@ -118,7 +118,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			return c.checkForQuorumPrevotes(ctx, proposal.Round.Int64())
 		}
 	} else if roundCmp > 0 {
-		// TODO: check if validator needs to move to a future round
+		c.checkForFutureRoundChange(ctx, proposal.Round.Int64())
 	}
 
 	return nil

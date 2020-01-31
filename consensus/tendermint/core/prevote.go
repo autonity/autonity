@@ -88,7 +88,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 	if roundCmp < 0 {
 		return c.checkForOldProposal(ctx, curR)
 	} else if roundCmp > 0 {
-		// TODO: check if validator needs to move to a future round
+		c.checkForFutureRoundChange(ctx, preVote.Round.Int64())
 	} else {
 		// preVote.Round.Int64()==curR
 		c.checkForPrevoteTimeout(curR, curH)

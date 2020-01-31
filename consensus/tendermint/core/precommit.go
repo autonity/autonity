@@ -102,15 +102,18 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
-	roundCmp := preCommit.Round.Cmp(c.getRound())
-	if roundCmp == 0 {
-		//Check for timeout only if preCommit.Round == curR
-		c.checkForPrecommitTimeout(curR, curH)
-	}
-
 	// Check for consensus regardless of the precommit round
 	if err := c.checkForConsensus(ctx, preCommit.Round.Int64()); err != nil {
 		return err
+	}
+
+	roundCmp := preCommit.Round.Cmp(c.getRound())
+	// Nothing more to do for old round proposal
+	if roundCmp == 0 {
+		//Check for timeout only if preCommit.Round == curR
+		c.checkForPrecommitTimeout(curR, curH)
+	} else if roundCmp > 0 {
+		c.checkForFutureRoundChange(ctx, preCommit.Round.Int64())
 	}
 
 	return nil

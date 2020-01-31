@@ -227,3 +227,43 @@ func (c *core) checkForConsensus(ctx context.Context, round int64) error {
 	}
 	return nil
 }
+
+// Line 55 in Algorithm 1 of the latest gossip on BFT consensus
+func (c *core) checkForFutureRoundChange(ctx context.Context, round int64) {
+	var messages []*Message
+	proposalMS, prevotes, precommits := c.getProposalSet(round), c.getPrevotesSet(round), c.getPrecommitsSet(round)
+
+	if proposalMS != nil {
+		messages = append(messages, proposalMS.pMsg)
+	}
+
+	if prevotes != nil {
+		messages = append(messages, prevotes.GetMessages()...)
+	}
+
+	if precommits != nil {
+		messages = append(messages, precommits.GetMessages()...)
+	}
+
+	if len(messages) <= c.valSet.F() {
+		// Not enough message to move to future round
+		return
+	}
+
+	// check for distinct messages
+	addrMap := make(map[common.Address]struct{})
+
+	for _, msg := range messages {
+		if _, ok := addrMap[msg.Address]; ok {
+			// If the message address is already in the map (i.e there are prevote, precommit and/or proposal from the
+			// same sender, therefore, continue to next message)
+			continue
+		}
+		addrMap[msg.Address] = struct{}{}
+	}
+
+	if len(addrMap) > c.valSet.F() {
+		c.logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", round)
+		c.startRound(ctx, big.NewInt(round))
+	}
+}
