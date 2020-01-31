@@ -34,7 +34,7 @@ func (c *core) commit(ctx context.Context, round int64) {
 		return
 	}
 	committedSeals := make([][]byte, precommits.VotesSize(proposal.ProposalBlock.Hash()))
-	for i, v := range precommits.Values(proposal.ProposalBlock.Hash()) {
+	for i, v := range precommits.AllBlockHashMessages(proposal.ProposalBlock.Hash()) {
 		committedSeals[i] = make([]byte, types.BFTExtraSeal)
 		copy(committedSeals[i][:], v.CommittedSeal[:])
 	}
