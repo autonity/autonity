@@ -166,6 +166,7 @@ eventLoop:
 				c.logger.Debug("Started handling messageEvent...")
 				if err := c.handleMsg(ctx, messageE.Payload); err != nil {
 					c.logger.Debug("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
+					c.logger.Debug("Finished handling messageEvent...")
 					continue
 				}
 				c.backend.Gossip(ctx, c.valSet.Copy(), messageE.Payload)
