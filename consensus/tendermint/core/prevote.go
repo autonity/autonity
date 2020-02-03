@@ -90,10 +90,10 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 		c.logger.Debug("Received old round prevote")
 		return c.checkForOldProposal(ctx, curR)
 	} else if roundCmp > 0 {
+		c.logger.Debug("Received future round prevote")
 		c.checkForFutureRoundChange(ctx, preVote.Round.Int64())
 	} else {
 		// preVote.Round.Int64()==curR
-		c.logger.Debug("Received future round prevote")
 		c.checkForPrevoteTimeout(curR, curH)
 		if err := c.checkForQuorumPrevotes(ctx, curR); err != nil {
 			return err
