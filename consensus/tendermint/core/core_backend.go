@@ -106,7 +106,7 @@ type Backend interface {
 	Address() common.Address
 
 	// Validators returns the committee set
-	Committee(number uint64) committee.Set
+	Committee(number uint64) (committee.Set, error)
 
 	Subscribe(types ...interface{}) *event.TypeMuxSubscription
 

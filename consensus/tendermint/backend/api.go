@@ -20,6 +20,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
 )
 
@@ -29,29 +30,26 @@ type API struct {
 	tendermint core.Backend
 }
 
-// GetValidators retrieves the list of authorized committee at the specified block.
-func (api *API) GetValidators(number *rpc.BlockNumber) ([]common.Address, error) {
-	validators := api.tendermint.Validators(uint64(*number)).Committee()
-	addresses := make([]common.Address, len(validators))
-	for i, validator := range validators {
-		addresses[i] = validator.Address
+// GetCommittee retrieves the list of authorized committee at the specified block.
+func (api *API) GetCommittee(number *rpc.BlockNumber) (types.Committee, error) {
+	committeeSet, err := api.tendermint.Committee(uint64(*number))
+	if err != nil {
+		return nil, err
 	}
-	return addresses, nil
+	return committeeSet.Committee(), nil
 }
 
-// GetValidatorsAtHash retrieves the state snapshot at a given block.
-func (api *API) GetValidatorsAtHash(hash common.Hash) ([]common.Address, error) {
+// GetCommitteeAtHash retrieves the state snapshot at a given block.
+func (api *API) GetCommitteeAtHash(hash common.Hash) (types.Committee, error) {
 	header := api.chain.GetHeaderByHash(hash)
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-
-	validators := api.tendermint.Validators(header.Number.Uint64()).Committee()
-	addresses := make([]common.Address, len(validators))
-	for i, validator := range validators {
-		addresses[i] = validator.Address
+	committeeSet, err := api.tendermint.Committee(header.Number.Uint64())
+	if err != nil {
+		return nil, err
 	}
-	return addresses, nil
+	return committeeSet.Committee(), nil
 }
 
 // Get Autonity contract address

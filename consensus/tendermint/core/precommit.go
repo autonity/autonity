@@ -111,7 +111,6 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 
 	c.acceptVote(c.curRoundMessages, precommit, precommitHash, *msg)
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
-
 	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsCount(curProposalHash) >= c.CommitteeSet().Quorum() {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err

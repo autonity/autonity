@@ -109,7 +109,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				_, sender := c.CommitteeSet().GetByAddress(msg.Address)
+				_, sender, _ := c.CommitteeSet().GetByAddress(msg.Address)
 				c.sendEvent(backlogEvent{
 					src: sender,
 					msg: msg,

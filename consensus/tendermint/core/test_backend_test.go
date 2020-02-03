@@ -13,7 +13,7 @@ import (
 
 type addressKeyMap map[common.Address]*ecdsa.PrivateKey
 
-func generateValidators(n int) (types.Committee, addressKeyMap) {
+func generateCommittee(n int) (types.Committee, addressKeyMap) {
 	vals := make(types.Committee, 0)
 	keymap := make(addressKeyMap)
 	for i := 0; i < n; i++ {
@@ -28,14 +28,14 @@ func generateValidators(n int) (types.Committee, addressKeyMap) {
 	return vals, keymap
 }
 
-func newTestValidatorSet(n int) committee.Set {
-	validators, _ := generateValidators(n)
-	return committee.NewSet(validators, config.RoundRobin)
+func newTestCommitteeSet(n int) committee.Set {
+	validators, _ := generateCommittee(n)
+	return committee.NewSet(validators, config.RoundRobin, validators[0].Address)
 }
 
-func newTestValidatorSetWithKeys(n int) (committee.Set, addressKeyMap) {
-	validators, keyMap := generateValidators(n)
-	return committee.NewSet(validators, config.RoundRobin), keyMap
+func newTestCommitteeSetWithKeys(n int) (committee.Set, addressKeyMap) {
+	validators, keyMap := generateCommittee(n)
+	return committee.NewSet(validators, config.RoundRobin, validators[0].Address), keyMap
 }
 
 func generatePrivateKey() (*ecdsa.PrivateKey, error) {

@@ -412,8 +412,13 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	number := header.Number.Uint64()
 
 	// Bail out if we're unauthorized to sign a block
-	if idx, _ := sb.Validators(number).GetByAddress(sb.Address()); idx == -1 {
-		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
+	if committeeSet, err := sb.Committee(number); err == nil {
+		if _, _, errP := committeeSet.GetByAddress(sb.Address()); errP != nil {
+			sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
+			return errUnauthorized
+		}
+	} else {
+		sb.logger.Error("couldn't retrieve current block committee", "addr", sb.address)
 		return errUnauthorized
 	}
 
@@ -558,7 +563,6 @@ func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (c
 	if parentHeader == nil {
 		return nil, errUnknownBlock
 	}
-
 	// For the genesis block, lastMiner is no one (empty).
 	if number > 1 {
 		lastMiner, err = sb.Author(parentHeader)

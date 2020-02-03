@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"math/big"
 	"reflect"
 	"testing"
@@ -38,7 +37,7 @@ func TestGetValidators(t *testing.T) {
 
 	bn := rpc.BlockNumber(1)
 
-	got, err := API.GetValidators(&bn)
+	got, err := API.GetCommittee(&bn)
 	if err != nil {
 		t.Fatalf("expected <nil>, got %v", err)
 	}
@@ -62,7 +61,7 @@ func TestGetValidatorsAtHash(t *testing.T) {
 			chain: chain,
 		}
 
-		_, err := API.GetValidatorsAtHash(hash)
+		_, err := API.GetCommitteeAtHash(hash)
 		if err != errUnknownBlock {
 			t.Fatalf("expected %v, got %v", errUnknownBlock, err)
 		}
@@ -94,7 +93,7 @@ func TestGetValidatorsAtHash(t *testing.T) {
 			tendermint: backend,
 		}
 
-		got, err := API.GetValidatorsAtHash(hash)
+		got, err := API.GetCommitteeAtHash(hash)
 		if err != nil {
 			t.Fatalf("expected <nil>, got %v", err)
 		}

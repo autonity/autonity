@@ -302,7 +302,12 @@ func (c *core) setInitialState(r int64) {
 	if r == 0 {
 		lastBlockMined, _ := c.backend.LastCommittedProposal()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-		c.setCommitteeSet(c.backend.Committee(c.Height().Uint64()))
+		committeeSet, err := c.backend.Committee(c.Height().Uint64())
+		if err != nil {
+			c.logger.Error("fatal error: could not retrieve saved committee")
+			panic(err)
+		}
+		c.setCommitteeSet(committeeSet)
 		c.lockedRound = -1
 		c.lockedValue = nil
 		c.validRound = -1
@@ -319,7 +324,6 @@ func (c *core) setInitialState(r int64) {
 	c.sentPrevote = false
 	c.sentPrecommit = false
 	c.setValidRoundAndValue = false
-
 	c.setRound(r)
 }
 

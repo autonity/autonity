@@ -311,11 +311,12 @@ func (mr *MockBackendMockRecorder) Address() *gomock.Call {
 }
 
 // Committee mocks base method
-func (m *MockBackend) Committee(number uint64) committee.Set {
+func (m *MockBackend) Committee(number uint64) (committee.Set, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Committee", number)
 	ret0, _ := ret[0].(committee.Set)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Committee indicates an expected call of Committee
