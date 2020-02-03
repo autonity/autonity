@@ -401,19 +401,19 @@ func (c *core) getAllRoundMessages() []*Message {
 		messages = append(messages, proposalMS.proposalMsg())
 	}
 	lenProposal := len(messages)
-	c.logger.Debug("Collecting messages for sync!", "#Proposals", lenProposal)
+	c.logger.Debug("Collecting messages for sync", "#Proposals", lenProposal)
 
 	for _, prevoteMS := range c.allPrevotes {
 		messages = append(messages, prevoteMS.GetMessages()...)
 	}
 	lenPrevotes := len(messages) - lenProposal
-	c.logger.Debug("Collecting messages for sync!", "#Prevotes", lenPrevotes)
+	c.logger.Debug("Collecting messages for sync", "#Prevotes", lenPrevotes)
 
 	for _, precommitMS := range c.allPrecommits {
 		messages = append(messages, precommitMS.GetMessages()...)
 	}
 	lenPrecommits := len(messages) - lenPrevotes - lenProposal
-	c.logger.Debug("Collecting messages for sync!", "#Precommits", lenPrecommits)
+	c.logger.Debug("Collecting messages for sync", "#Precommits", lenPrecommits)
 
 	return messages
 }

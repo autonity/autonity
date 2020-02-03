@@ -536,6 +536,7 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 	ps := sb.broadcaster.FindPeers(targets)
 	p, connected := ps[address]
 	if !connected {
+		sb.logger.Debug("Not connected", "peer", address)
 		return
 	}
 	for _, msg := range messages {
