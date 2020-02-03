@@ -92,6 +92,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	// ignore the proposal. otherwise, if the proposal block is received more than once through gossip we need to
 	// ignore since the state will not change.
 	if ps := c.getProposalSet(proposal.Round.Int64()); ps != nil {
+		c.logger.Debug("Already have proposal so ignoring...")
 		return nil
 	}
 	// We don't have old, current or future proposal, then add the proposal to the relevant round message set
@@ -105,8 +106,13 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	}
 
 	roundCmp := proposal.Round.Cmp(c.getRound())
-	// Nothing more to do for old round proposal
-	if roundCmp == 0 {
+	if roundCmp < 0 {
+		// Nothing more to do for old round proposal
+		c.logger.Debug("Received old round proposal")
+	} else if roundCmp > 0 {
+		c.logger.Debug("Received future round proposal")
+		c.checkForFutureRoundChange(ctx, proposal.Round.Int64())
+	} else {
 		// Proposal is for current round, i.e. proposal.Round.Int64() = c.getRound().Int64()
 		if c.getStep() == propose {
 			if proposal.ValidRound.Int64() == -1 {
@@ -117,8 +123,6 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		} else if c.getStep() >= prevote {
 			return c.checkForQuorumPrevotes(ctx, proposal.Round.Int64())
 		}
-	} else if roundCmp > 0 {
-		c.checkForFutureRoundChange(ctx, proposal.Round.Int64())
 	}
 
 	return nil
@@ -134,7 +138,7 @@ func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, 
 		"currentRound", c.getRound(),
 		"msgRound", proposal.Round,
 		"currentStep", c.getStep(),
-		"isProposer", c.isProposerForR(c.getRound().Int64(), c.address),
+		"isProposer", c.isProposerForR(proposal.Round.Int64(), c.address),
 		"currentProposer", c.valSet.GetProposer(),
 		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
 		"hash", proposal.ProposalBlock.Hash(),

@@ -79,6 +79,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 
 	// If we already have the prevote do nothing
 	if c.hasVote(preCommit, msg) {
+		c.logger.Debug("Already have precommit so ignoring...")
 		return nil
 	}
 
@@ -108,12 +109,15 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 	}
 
 	roundCmp := preCommit.Round.Cmp(c.getRound())
-	// Nothing more to do for old round proposal
-	if roundCmp == 0 {
+	if roundCmp < 0 {
+		// Nothing more to do for old round proposal
+		c.logger.Debug("Received old round precommit")
+	} else if roundCmp > 0 {
+		c.logger.Debug("Received future round precommit")
+		c.checkForFutureRoundChange(ctx, preCommit.Round.Int64())
+	} else {
 		//Check for timeout only if preCommit.Round == curR
 		c.checkForPrecommitTimeout(curR, curH)
-	} else if roundCmp > 0 {
-		c.checkForFutureRoundChange(ctx, preCommit.Round.Int64())
 	}
 
 	return nil
@@ -139,15 +143,14 @@ func (c *core) verifyPrecommitCommittedSeal(addressMsg common.Address, committed
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to string) {
-	currentRound := c.getRound().Int64()
-	currentProposalHash := common.Hash{}
+	precommitProposalHash := common.Hash{}
 
-	proposalMS := c.getProposalSet(currentRound)
+	proposalMS := c.getProposalSet(precommit.Round.Int64())
 	if proposalMS != nil {
-		currentProposalHash = proposalMS.proposal().ProposalBlock.Hash()
+		precommitProposalHash = proposalMS.proposal().ProposalBlock.Hash()
 	}
 
-	precommits := c.getPrecommitsSet(currentRound)
+	precommits := c.getPrecommitsSet(precommit.Round.Int64())
 	if precommits == nil {
 		c.logger.Debug(message,
 			"from", from,
@@ -180,8 +183,8 @@ func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to
 			"totalVotes", precommits.TotalSize(),
 			"totalNilVotes", precommits.NilVotesSize(),
 			"quorumReject", c.quorum(precommits.NilVotesSize()),
-			"totalNonNilVotes", precommits.VotesSize(currentProposalHash),
-			"quorumAccept", c.quorum(precommits.VotesSize(currentProposalHash)),
+			"totalNonNilVotes", precommits.VotesSize(precommitProposalHash),
+			"quorumAccept", c.quorum(precommits.VotesSize(precommitProposalHash)),
 		)
 	}
 }

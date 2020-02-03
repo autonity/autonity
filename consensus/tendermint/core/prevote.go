@@ -68,6 +68,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 
 	// If we already have the prevote do nothing
 	if c.hasVote(preVote, msg) {
+		c.logger.Debug("Already have prevote so ignoring...")
 		return nil
 	}
 
@@ -86,11 +87,13 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 
 	roundCmp := preVote.Round.Cmp(c.getRound())
 	if roundCmp < 0 {
+		c.logger.Debug("Received old round prevote")
 		return c.checkForOldProposal(ctx, curR)
 	} else if roundCmp > 0 {
 		c.checkForFutureRoundChange(ctx, preVote.Round.Int64())
 	} else {
 		// preVote.Round.Int64()==curR
+		c.logger.Debug("Received future round prevote")
 		c.checkForPrevoteTimeout(curR, curH)
 		if err := c.checkForQuorumPrevotes(ctx, curR); err != nil {
 			return err
@@ -103,15 +106,14 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 }
 
 func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to string) {
-	currentRound := c.getRound().Int64()
-	currentProposalHash := common.Hash{}
+	prevoteProposalHash := common.Hash{}
 
-	proposalMS := c.getProposalSet(currentRound)
+	proposalMS := c.getProposalSet(prevote.Round.Int64())
 	if proposalMS != nil {
-		currentProposalHash = proposalMS.proposal().ProposalBlock.Hash()
+		prevoteProposalHash = proposalMS.proposal().ProposalBlock.Hash()
 	}
 
-	prevotes := c.getPrevotesSet(currentRound)
+	prevotes := c.getPrevotesSet(prevote.Round.Int64())
 	if prevotes == nil {
 		c.logger.Debug(message,
 			"from", from,
@@ -144,8 +146,8 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 			"totalVotes", prevotes.TotalSize(),
 			"totalNilVotes", prevotes.NilVotesSize(),
 			"quorumReject", c.quorum(prevotes.NilVotesSize()),
-			"totalNonNilVotes", prevotes.VotesSize(currentProposalHash),
-			"quorumAccept", c.quorum(prevotes.VotesSize(currentProposalHash)),
+			"totalNonNilVotes", prevotes.VotesSize(prevoteProposalHash),
+			"quorumAccept", c.quorum(prevotes.VotesSize(prevoteProposalHash)),
 		)
 	}
 }

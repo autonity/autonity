@@ -263,7 +263,7 @@ func (c *core) checkForFutureRoundChange(ctx context.Context, round int64) {
 	}
 
 	if len(addrMap) > c.valSet.F() {
-		c.logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", round)
+		c.logger.Info("Received ceil(N/3) - 1 messages for higher round", "New round", round)
 		c.startRound(ctx, big.NewInt(round))
 	}
 }

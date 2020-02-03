@@ -163,11 +163,13 @@ eventLoop:
 					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) empty payload")
 				}
 
+				c.logger.Debug("Started handling messageEvent...")
 				if err := c.handleMsg(ctx, messageE.Payload); err != nil {
 					c.logger.Debug("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
 					continue
 				}
 				c.backend.Gossip(ctx, c.valSet.Copy(), messageE.Payload)
+				c.logger.Debug("Finished handling messageEvent...")
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {

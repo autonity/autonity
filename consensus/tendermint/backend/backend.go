@@ -531,7 +531,7 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 		return
 	}
 
-	sb.logger.Info("Syncing", "peer", address)
+	sb.logger.Info("Syncing", "peer", address, "len(messages)", len(messages))
 	targets := map[common.Address]struct{}{address: {}}
 	ps := sb.broadcaster.FindPeers(targets)
 	p, connected := ps[address]
