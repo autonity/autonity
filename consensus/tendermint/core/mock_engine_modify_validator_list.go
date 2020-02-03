@@ -82,12 +82,13 @@ func (c *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 
 type addValidatorCore Changes
 
-func NewAddValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
+func NewAddValidatorCore(t *testing.T, c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
 	basicCore, ok := c.(*core)
 	if !ok {
 		panic("*core type is expected")
 	}
 	return &ModifyCommitteeEngine{
+		T:        t,
 		core:     basicCore,
 		Modifier: addValidatorCore(changedValidators),
 	}
@@ -107,12 +108,13 @@ func (p addValidatorCore) ModifyHeader(header *types.Header) *types.Header {
 
 type removeValidatorCore Changes
 
-func NewRemoveValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
+func NewRemoveValidatorCore(t *testing.T, c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
 	basicCore, ok := c.(*core)
 	if !ok {
 		panic("*core type is expected")
 	}
 	return &ModifyCommitteeEngine{
+		T:        t,
 		core:     basicCore,
 		Modifier: removeValidatorCore(changedValidators),
 	}
@@ -138,12 +140,13 @@ func NewChanges() Changes {
 
 type replaceValidatorCore Changes
 
-func NewReplaceValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
+func NewReplaceValidatorCore(t *testing.T, c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
 	basicCore, ok := c.(*core)
 	if !ok {
 		panic("*core type is expected")
 	}
 	return &ModifyCommitteeEngine{
+		T:        t,
 		core:     basicCore,
 		Modifier: replaceValidatorCore(changedValidators),
 	}

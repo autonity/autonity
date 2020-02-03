@@ -24,6 +24,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
+	"github.com/zfjagann/golang-ring"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
@@ -38,8 +41,6 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
-	"github.com/hashicorp/golang-lru"
-	"github.com/zfjagann/golang-ring"
 )
 
 const (
