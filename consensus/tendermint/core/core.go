@@ -400,17 +400,20 @@ func (c *core) getAllRoundMessages() []*Message {
 	for _, proposalMS := range c.allProposals {
 		messages = append(messages, proposalMS.proposalMsg())
 	}
-	c.logger.Debug("Collecting messages for sync!", "Length of messages after proposal", len(messages))
+	lenProposal := len(messages)
+	c.logger.Debug("Collecting messages for sync!", "#Proposals", lenProposal)
 
 	for _, prevoteMS := range c.allPrevotes {
 		messages = append(messages, prevoteMS.GetMessages()...)
 	}
-	c.logger.Debug("Collecting messages for sync!", "Length of messages after prevotes", len(messages))
+	lenPrevotes := len(messages) - lenProposal
+	c.logger.Debug("Collecting messages for sync!", "#Prevotes", lenPrevotes)
 
 	for _, precommitMS := range c.allPrecommits {
 		messages = append(messages, precommitMS.GetMessages()...)
 	}
-	c.logger.Debug("Collecting messages for sync!", "Length of messages after precommits", len(messages))
+	lenPrecommits := len(messages) - lenPrevotes - lenProposal
+	c.logger.Debug("Collecting messages for sync!", "#Precommits", lenPrecommits)
 
 	return messages
 }
