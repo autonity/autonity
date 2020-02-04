@@ -24,7 +24,7 @@ func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
 		}
 
 		// stop the timeout since a valid proposal has been received, if it cannot be stopped return
-		if c.proposeTimeout.timerStarted() {
+		if c.proposeTimeout.timerStarted() && round == c.getRound().Int64() {
 			if err := c.proposeTimeout.stopTimer(); err != nil {
 				return err
 			}
@@ -71,7 +71,7 @@ func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 		}
 
 		// stop the timeout since a valid proposal has been received, if it cannot be stopped return
-		if c.proposeTimeout.timerStarted() {
+		if c.proposeTimeout.timerStarted() && round == c.getRound().Int64() {
 			if err := c.proposeTimeout.stopTimer(); err != nil {
 				return err
 			}
@@ -98,7 +98,7 @@ func (c *core) checkForPrevoteTimeout(round int64, height int64) {
 		// Do not have any prevotes for the round
 		return
 	}
-	if c.getStep() == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.quorum(prevotes.TotalSize()) {
+	if c.getStep() == prevote && !c.prevoteTimeout.timerStarted() && round == c.getRound().Int64() && !c.sentPrecommit && c.quorum(prevotes.TotalSize()) {
 		timeoutDuration := timeoutPrevote(round)
 		c.prevoteTimeout.scheduleTimeout(timeoutDuration, round, height, c.onTimeoutPrevote)
 		c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
@@ -130,7 +130,7 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 			return err
 		}
 
-		if c.prevoteTimeout.timerStarted() {
+		if c.prevoteTimeout.timerStarted() && round == c.getRound().Int64() {
 			if err := c.prevoteTimeout.stopTimer(); err != nil {
 				return err
 			}
@@ -160,7 +160,7 @@ func (c *core) checkForQuorumPrevotesNil(ctx context.Context, round int64) error
 	}
 
 	if c.getStep() == prevote && c.quorum(prevotes.NilVotesSize()) {
-		if c.prevoteTimeout.timerStarted() {
+		if c.prevoteTimeout.timerStarted() && round == c.getRound().Int64() {
 			if err := c.prevoteTimeout.stopTimer(); err != nil {
 				return err
 			}
@@ -180,7 +180,7 @@ func (c *core) checkForPrecommitTimeout(round int64, height int64) {
 		// Do not have any precommits for the round
 		return
 	}
-	if !c.precommitTimeout.timerStarted() && c.quorum(precommits.TotalSize()) {
+	if !c.precommitTimeout.timerStarted() && c.quorum(precommits.TotalSize()) && round == c.getRound().Int64() {
 		timeoutDuration := timeoutPrecommit(round)
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, round, height, c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
@@ -210,11 +210,14 @@ func (c *core) checkForConsensus(ctx context.Context, round int64) error {
 			return err
 		}
 
-		if c.precommitTimeout.timerStarted() {
+		if c.precommitTimeout.timerStarted() && round == c.getRound().Int64() {
 			if err := c.precommitTimeout.stopTimer(); err != nil {
-				return err
+				// We have enough precommits to commit, so even if timer cannot be stopped we should still commit
+				// since we want to decide as soon as possible
+				c.logger.Error(err.Error())
+			} else {
+				c.logger.Debug("Stopped Scheduled Precommit Timeout")
 			}
-			c.logger.Debug("Stopped Scheduled Precommit Timeout")
 		}
 
 		select {
