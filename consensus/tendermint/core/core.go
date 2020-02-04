@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"math"
 	"math/big"
 	"sync"
@@ -80,6 +81,7 @@ func New(backend Backend, config *config.Config) *core {
 		allPrevotes:                make(map[int64]*messageSet),
 		allPrecommits:              make(map[int64]*messageSet),
 		verifiedProposals:          make(map[common.Hash]bool),
+		futureHeightMessages:       make(map[int64][]*Message),
 		lockedRound:                big.NewInt(-1),
 		validRound:                 big.NewInt(-1),
 		proposeTimeout:             newTimeout(propose, logger),
@@ -111,14 +113,15 @@ type core struct {
 
 	valSet *validatorSet
 
-	round             *big.Int
-	height            *big.Int
-	step              Step
-	allProposals      map[int64]*proposalSet
-	allPrevotes       map[int64]*messageSet
-	allPrecommits     map[int64]*messageSet
-	verifiedProposals map[common.Hash]bool
-	coreMu            sync.RWMutex
+	round                *big.Int
+	height               *big.Int
+	step                 Step
+	allProposals         map[int64]*proposalSet
+	allPrevotes          map[int64]*messageSet
+	allPrecommits        map[int64]*messageSet
+	verifiedProposals    map[common.Hash]bool
+	futureHeightMessages map[int64][]*Message
+	coreMu               sync.RWMutex
 
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
@@ -172,6 +175,16 @@ func (c *core) startRound(ctx context.Context, round *big.Int) {
 		// Set validator set for height
 		valSet := c.backend.Validators(height.Uint64())
 		c.valSet.set(valSet)
+
+		//Send all messages stored in futureHeightMessages to handler
+		if ms, ok := c.futureHeightMessages[height.Int64()]; ok {
+			for _, m := range ms {
+				p, _ := m.Payload()
+				go c.sendEvent(events.MessageEvent{Payload: p})
+			}
+			// Once finished sending messages back to handler delete key value pair
+			delete(c.futureHeightMessages, height.Int64())
+		}
 	}
 	// Reset all timeouts
 	c.proposeTimeout.reset(propose)
@@ -301,6 +314,10 @@ func (c *core) stopFutureProposalTimer() {
 
 func (c *core) quorum(i int) bool {
 	return float64(i) >= math.Ceil(float64(2)/float64(3)*float64(c.valSet.Size()))
+}
+
+func (c *core) addFutureHeighMessage(height int64, msg *Message) {
+	c.futureHeightMessages[height] = append(c.futureHeightMessages[height], msg)
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash

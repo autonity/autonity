@@ -74,6 +74,11 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 
 	// Ensure prevote is for current height
 	if err = c.checkMessage(preCommit.Round, preCommit.Height, prevote); err != nil {
+		if err == errFutureHeightMessage {
+			// Add the future message to futureHeightMessage
+			c.addFutureHeighMessage(preCommit.Height.Int64(), msg)
+
+		}
 		return err
 	}
 

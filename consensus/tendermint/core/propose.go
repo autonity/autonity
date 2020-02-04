@@ -66,6 +66,10 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 	// Ensure proposal is for current height
 	if err := c.checkMessage(proposal.Round, proposal.Height, propose); err != nil {
+		if err == errFutureHeightMessage {
+			// Add the future message to futureHeightMessage
+			c.addFutureHeighMessage(proposal.Height.Int64(), msg)
+		}
 		return err
 	}
 

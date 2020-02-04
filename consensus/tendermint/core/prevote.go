@@ -63,6 +63,11 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 
 	// Ensure prevote is for current height
 	if err = c.checkMessage(preVote.Round, preVote.Height, prevote); err != nil {
+		if err == errFutureHeightMessage {
+			// Add the future message to futureHeightMessage
+			c.addFutureHeighMessage(preVote.Height.Int64(), msg)
+
+		}
 		return err
 	}
 
