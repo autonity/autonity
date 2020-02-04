@@ -26,7 +26,7 @@ type NewUnminedBlockEvent struct {
 	NewUnminedBlock types.Block
 }
 
-// MessageEvent is posted for Istanbul engine communication
+// MessageEvent is posted for Tendermint engine communication
 type MessageEvent struct {
 	Payload []byte
 }

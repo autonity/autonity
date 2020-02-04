@@ -103,6 +103,7 @@ type core struct {
 	newUnminedBlockEventSub *event.TypeMuxSubscription
 	committedSub            *event.TypeMuxSubscription
 	timeoutEventSub         *event.TypeMuxSubscription
+	startRoundEventSub      *event.TypeMuxSubscription
 	syncEventSub            *event.TypeMuxSubscription
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
@@ -144,6 +145,11 @@ type core struct {
 	precommitTimeout *timeout
 
 	lastCommittedBlockProposer common.Address
+}
+
+// StartRoundEvent is posted for Tendermint round change
+type StartRoundEvent struct {
+	round int64
 }
 
 // startRound starts a new round. if round equals to 0, it means to starts a new height

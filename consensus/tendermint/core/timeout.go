@@ -180,7 +180,7 @@ func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
 	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 
-		c.startRound(ctx, new(big.Int).Add(c.getRound(), common.Big1))
+		go c.sendEvent(StartRoundEvent{round: c.getRound().Int64() + 1})
 	}
 }
 

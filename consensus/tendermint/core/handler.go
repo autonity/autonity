@@ -111,6 +111,7 @@ func (c *core) subscribeEvents() {
 	c.messageEventSub = c.backend.Subscribe(events.MessageEvent{})
 	c.newUnminedBlockEventSub = c.backend.Subscribe(events.NewUnminedBlockEvent{})
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
+	c.startRoundEventSub = c.backend.Subscribe(StartRoundEvent{})
 	c.committedSub = c.backend.Subscribe(events.CommitEvent{})
 	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 }
@@ -120,6 +121,7 @@ func (c *core) unsubscribeEvents() {
 	c.messageEventSub.Unsubscribe()
 	c.newUnminedBlockEventSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
+	c.startRoundEventSub.Unsubscribe()
 	c.committedSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
 }
@@ -171,6 +173,13 @@ eventLoop:
 				}
 				c.backend.Gossip(ctx, c.valSet.Copy(), messageE.Payload)
 				c.logger.Debug("Finished handling messageEvent...")
+			}
+		case ev, ok := <-c.startRoundEventSub.Chan():
+			if !ok {
+				break eventLoop
+			}
+			if startRoundEvent, ok := ev.Data.(StartRoundEvent); ok {
+				c.startRound(ctx, big.NewInt(startRoundEvent.round))
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {

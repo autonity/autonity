@@ -53,6 +53,6 @@ func (c *core) handleCommit(ctx context.Context) {
 		c.logger.Debug("Discarding event as core is at the same height", "state_height", c.getHeight().Uint64())
 	} else {
 		c.logger.Debug("Received proposal is ahead", "state_height", c.getHeight().Uint64(), "block_height", height)
-		c.startRound(ctx, common.Big0)
+		go c.sendEvent(StartRoundEvent{round: 0})
 	}
 }
