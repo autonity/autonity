@@ -157,6 +157,8 @@ func (c *core) onTimeoutPrecommit(r int64, h int64) {
 }
 
 /////////////// Handle Timeout Functions ///////////////
+
+// Line 57 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() && c.getStep() == propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
@@ -167,6 +169,7 @@ func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 	}
 }
 
+// Line 61 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() && c.getStep() == prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
@@ -175,11 +178,10 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 	}
 }
 
+// Line 65 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
-
 	if msg.heightWhenCalled == c.getHeight().Int64() && msg.roundWhenCalled == c.getRound().Int64() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
-
 		go c.sendEvent(StartRoundEvent{round: c.getRound().Int64() + 1})
 	}
 }
