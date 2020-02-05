@@ -72,7 +72,9 @@ func (c *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 	// we want be sure that the block is modified but not broken
 	switch _, err = back.VerifyProposal(*newBlock); err {
 	case consensus.ErrInconsistentValidatorSet:
-	// nothing to do
+		// nothing to do
+	case consensus.ErrFutureBlock:
+		// nothing to do
 	default:
 		c.Error("Mock FinalizeAndAssemble created incorrect block:", err, newBlock)
 	}
