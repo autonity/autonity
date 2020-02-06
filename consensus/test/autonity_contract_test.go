@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/common/graph"
+	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/log"
 	"math/big"
@@ -26,7 +27,7 @@ import (
 
 const DefaultTestGasPrice = 100000000000
 
-func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
+func TestCheckFeeRedirectionAndRedistribution(t *teststating.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -242,7 +243,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	operatorKey, err := crypto.GenerateKey()
+	operatorKey, err := keygenerator.Next()
 	if err != nil {
 		t.Fatal(err)
 	}
