@@ -27,7 +27,7 @@ import (
 
 const DefaultTestGasPrice = 100000000000
 
-func TestCheckFeeRedirectionAndRedistribution(t *teststating.T) {
+func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
