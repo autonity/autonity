@@ -22,7 +22,8 @@ func TestTendermintNoQuorum(t *testing.T) {
 			beforeHooks: map[string]hook{
 				"VB": hookForceStopNode("VB", 3),
 			},
-			stopTime: make(map[string]time.Time),
+			stopTime:        make(map[string]time.Time),
+			skipNoLeakCheck: true,
 		},
 		{
 			name:               "3 validators, two go down after block 3",
@@ -35,7 +36,8 @@ func TestTendermintNoQuorum(t *testing.T) {
 				"VB": hookForceStopNode("VB", 3),
 				"VC": hookForceStopNode("VC", 3),
 			},
-			stopTime: make(map[string]time.Time),
+			stopTime:        make(map[string]time.Time),
+			skipNoLeakCheck: true,
 		},
 	}
 
