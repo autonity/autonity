@@ -359,6 +359,14 @@ func runNode(ctx context.Context, validator *testNode, test *testCase, validator
 	testCanBeStopped := new(uint32)
 	fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 
+	var noQuorumTimer *time.Timer
+	if test.noQuorumAfterBlock > 0 {
+		noQuorumTimer = time.NewTimer(test.noQuorumTimeout)
+		defer noQuorumTimer.Stop()
+	}
+	periodicChecks := time.NewTicker(100*time.Millisecond)
+	defer periodicChecks.Stop()
+
 wgLoop:
 	for {
 		select {
@@ -427,7 +435,7 @@ wgLoop:
 			}
 
 			if int(validator.lastBlock) > test.numBlocks {
-				//all transactions were included into the chain
+				// all transactions were included into the chain
 				if errorOnTx {
 					validator.transactionsMu.Lock()
 					if len(validator.transactions) == 0 {
@@ -498,14 +506,23 @@ wgLoop:
 			}
 		case <-ctx.Done():
 			return ctx.Err()
-		}
-		// allow to exit goroutine when no quorum expected
-		// check that there's no quorum within the given noQuorumTimeout
-		if !hasQuorum(validators) && test.noQuorumAfterBlock > 0 {
-			log.Error("No Quorum", "index", index, "last_block", validator.lastBlock)
-			// wait for quorum to get restored
-			time.Sleep(test.noQuorumTimeout)
-			break wgLoop
+		case <-periodicChecks.C:
+				if test.noQuorumAfterBlock > 0 {
+					if hasQuorum(validators) {
+						if !noQuorumTimer.Stop() {
+							 		<-noQuorumTimer.C
+							}
+						noQuorumTimer.Reset(test.noQuorumTimeout)
+					} else {
+						select {
+						case <-noQuorumTimer.C:
+							log.Error("No Quorum", "index", index, "last_block", validator.lastBlock)
+							atomic.AddInt64(test.validatorsCanBeStopped, 1)
+							break wgLoop
+						default:
+						}
+					}
+				}
 		}
 
 		// check transactions status if all blocks are passed
