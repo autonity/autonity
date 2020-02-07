@@ -1,0 +1,42 @@
+run:
+  deadline: 20m
+
+linters:
+  enable:
+    - errcheck
+    - goconst
+    - gofmt
+    - golint
+    - interfacer
+    - deadcode
+    - govet
+    - structcheck
+    - misspell
+    - megacheck
+    - unconvert
+    - unparam
+    - varcheck
+    - scopelint
+    - nakedret
+    - prealloc
+    - gosec
+    - ineffassign
+    - gocyclo
+    - depguard
+    - typecheck
+
+
+  disable-all: true
+
+linters-settings:
+  golint:
+    min-confidence: 0
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  gofmt:
+    auto-fix: false
+  govet:
+    check-shadowing: true
+  gocyclo:
+    min-complexity: 40
