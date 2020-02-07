@@ -350,7 +350,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 			}
 		}
 
-		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodes, true))
+		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodes))
 	}
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil

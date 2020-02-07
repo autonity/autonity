@@ -229,7 +229,7 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, config.OpenNetwork); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
@@ -542,13 +542,10 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start(srvr *p2p.Server) error {
-	if !srvr.OpenNetwork {
-		// Subscribe to Autonity updates events
-		s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
+	// Subscribe to Autonity updates events
+	s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
+	go s.glienickeEventLoop(srvr)
 
-		go s.glienickeEventLoop(srvr)
-
-	}
 	s.startEthEntryUpdate(srvr.LocalNode())
 
 	// Start the bloom bits servicing goroutines
@@ -577,7 +574,7 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 // for updating the list of authorized enodes
 func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 
-	savedList := rawdb.ReadEnodeWhitelist(s.chainDb, server.OpenNetwork)
+	savedList := rawdb.ReadEnodeWhitelist(s.chainDb)
 	log.Info("Reading Whitelist", "list", savedList.StrList)
 	server.UpdateWhitelist(savedList.List)
 
