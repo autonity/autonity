@@ -20,60 +20,40 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"math/big"
-	"net"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/internal/testlog"
+	"github.com/clearmatics/autonity/log"
 )
 
 // Tests whether remote HTTP servers are correctly notified of new work.
 func TestRemoteNotify(t *testing.T) {
-	// Start a simple webserver to capture notifications
+	// Start a simple web server to capture notifications.
 	sink := make(chan [3]string)
-
-	server := &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			blob, err := ioutil.ReadAll(req.Body)
-			if err != nil {
-				t.Fatalf("failed to read miner notification: %v", err)
-			}
-			var work [3]string
-			if err := json.Unmarshal(blob, &work); err != nil {
-				t.Fatalf("failed to unmarshal miner notification: %v", err)
-			}
-			sink <- work
-		}),
-	}
-	// Open a custom listener to extract its local address
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("failed to open notification server: %v", err)
-	}
-	defer listener.Close()
-
-	go server.Serve(listener)
-
-	// Wait for server to start listening
-	var tries int
-	for tries = 0; tries < 10; tries++ {
-		conn, _ := net.DialTimeout("tcp", listener.Addr().String(), 1*time.Second)
-		if conn != nil {
-			break
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		blob, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			t.Errorf("failed to read miner notification: %v", err)
 		}
-	}
-	if tries == 10 {
-		t.Fatal("tcp listener not ready for more than 10 seconds")
-	}
+		var work [3]string
+		if err := json.Unmarshal(blob, &work); err != nil {
+			t.Errorf("failed to unmarshal miner notification: %v", err)
+		}
+		sink <- work
+	}))
+	defer server.Close()
 
-	// Create the custom ethash engine
-	ethash := NewTester([]string{"http://" + listener.Addr().String()}, false)
+	// Create the custom ethash engine.
+	ethash := NewTester([]string{server.URL}, false)
 	defer ethash.Close()
 
-	// Stream a work task and ensure the notification bubbles out
-	header := &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(1), Difficulty: big.NewInt(100)}}
+	// Stream a work task and ensure the notification bubbles out.
+	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
 	block := types.NewBlockWithHeader(header)
 
 	ethash.Seal(nil, block, nil, nil)
@@ -97,46 +77,37 @@ func TestRemoteNotify(t *testing.T) {
 // Tests that pushing work packages fast to the miner doesn't cause any data race
 // issues in the notifications.
 func TestRemoteMultiNotify(t *testing.T) {
-	// Start a simple webserver to capture notifications
+	// Start a simple web server to capture notifications.
 	sink := make(chan [3]string, 64)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		blob, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			t.Errorf("failed to read miner notification: %v", err)
+		}
+		var work [3]string
+		if err := json.Unmarshal(blob, &work); err != nil {
+			t.Errorf("failed to unmarshal miner notification: %v", err)
+		}
+		sink <- work
+	}))
+	defer server.Close()
 
-	server := &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			blob, err := ioutil.ReadAll(req.Body)
-			if err != nil {
-				t.Fatalf("failed to read miner notification: %v", err)
-			}
-			var work [3]string
-			if err := json.Unmarshal(blob, &work); err != nil {
-				t.Fatalf("failed to unmarshal miner notification: %v", err)
-			}
-			sink <- work
-		}),
-	}
-	// Open a custom listener to extract its local address
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("failed to open notification server: %v", err)
-	}
-	defer listener.Close()
-
-	go server.Serve(listener)
-
-	// Create the custom ethash engine
-	ethash := NewTester([]string{"http://" + listener.Addr().String()}, false)
+	// Create the custom ethash engine.
+	ethash := NewTester([]string{server.URL}, false)
+	ethash.config.Log = testlog.Logger(t, log.LvlWarn)
 	defer ethash.Close()
 
-	// Stream a lot of work task and ensure all the notifications bubble out
+	// Stream a lot of work task and ensure all the notifications bubble out.
 	for i := 0; i < cap(sink); i++ {
-		header := &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(int64(i)), Difficulty: big.NewInt(100)}}
+		header := &types.Header{Number: big.NewInt(int64(i)), Difficulty: big.NewInt(100)}
 		block := types.NewBlockWithHeader(header)
-
 		ethash.Seal(nil, block, nil, nil)
 	}
+
 	for i := 0; i < cap(sink); i++ {
 		select {
 		case <-sink:
-		case <-time.After(3 * time.Second):
+		case <-time.After(10 * time.Second):
 			t.Fatalf("notification %d timed out", i)
 		}
 	}
@@ -158,7 +129,7 @@ func TestStaleSubmission(t *testing.T) {
 		// Case1: submit solution for the latest mining package
 		{
 			[]*types.Header{
-				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xa}), Number: big.NewInt(1), Difficulty: big.NewInt(100000000)}},
+				{ParentHash: common.BytesToHash([]byte{0xa}), Number: big.NewInt(1), Difficulty: big.NewInt(100000000)},
 			},
 			0,
 			true,
@@ -166,8 +137,8 @@ func TestStaleSubmission(t *testing.T) {
 		// Case2: submit solution for the previous package but have same parent.
 		{
 			[]*types.Header{
-				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xb}), Number: big.NewInt(2), Difficulty: big.NewInt(100000000)}},
-				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xb}), Number: big.NewInt(2), Difficulty: big.NewInt(100000001)}},
+				{ParentHash: common.BytesToHash([]byte{0xb}), Number: big.NewInt(2), Difficulty: big.NewInt(100000000)},
+				{ParentHash: common.BytesToHash([]byte{0xb}), Number: big.NewInt(2), Difficulty: big.NewInt(100000001)},
 			},
 			0,
 			true,
@@ -175,8 +146,8 @@ func TestStaleSubmission(t *testing.T) {
 		// Case3: submit stale but acceptable solution
 		{
 			[]*types.Header{
-				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xc}), Number: big.NewInt(3), Difficulty: big.NewInt(100000000)}},
-				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xd}), Number: big.NewInt(9), Difficulty: big.NewInt(100000000)}},
+				{ParentHash: common.BytesToHash([]byte{0xc}), Number: big.NewInt(3), Difficulty: big.NewInt(100000000)},
+				{ParentHash: common.BytesToHash([]byte{0xd}), Number: big.NewInt(9), Difficulty: big.NewInt(100000000)},
 			},
 			0,
 			true,
@@ -184,8 +155,8 @@ func TestStaleSubmission(t *testing.T) {
 		// Case4: submit very old solution
 		{
 			[]*types.Header{
-				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xe}), Number: big.NewInt(10), Difficulty: big.NewInt(100000000)}},
-				{OriginalHeader: types.OriginalHeader{ParentHash: common.BytesToHash([]byte{0xf}), Number: big.NewInt(17), Difficulty: big.NewInt(100000000)}},
+				{ParentHash: common.BytesToHash([]byte{0xe}), Number: big.NewInt(10), Difficulty: big.NewInt(100000000)},
+				{ParentHash: common.BytesToHash([]byte{0xf}), Number: big.NewInt(17), Difficulty: big.NewInt(100000000)},
 			},
 			0,
 			false,
@@ -206,10 +177,10 @@ func TestStaleSubmission(t *testing.T) {
 		select {
 		case res := <-results:
 			if res.Header().Nonce != fakeNonce {
-				t.Errorf("case %d block nonce mismatch, want %s, get %s", id+1, fakeNonce, res.Header().Nonce)
+				t.Errorf("case %d block nonce mismatch, want %x, get %x", id+1, fakeNonce, res.Header().Nonce)
 			}
 			if res.Header().MixDigest != fakeDigest {
-				t.Errorf("case %d block digest mismatch, want %s, get %s", id+1, fakeDigest, res.Header().MixDigest)
+				t.Errorf("case %d block digest mismatch, want %x, get %x", id+1, fakeDigest, res.Header().MixDigest)
 			}
 			if res.Header().Difficulty.Uint64() != c.headers[c.submitIndex].Difficulty.Uint64() {
 				t.Errorf("case %d block difficulty mismatch, want %d, get %d", id+1, c.headers[c.submitIndex].Difficulty, res.Header().Difficulty)

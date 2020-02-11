@@ -42,7 +42,7 @@ import (
 var (
 	ErrLocked  = accounts.NewAuthNeededError("password or unlock")
 	ErrNoMatch = errors.New("no key for given address or file")
-	ErrDecrypt = errors.New("could not decrypt key with given passphrase")
+	ErrDecrypt = errors.New("could not decrypt key with given password")
 )
 
 // KeyStoreType is the reflect type of a keystore backend.
@@ -132,7 +132,7 @@ func (ks *KeyStore) refreshWallets() {
 	// Transform the current list of wallets into the new one
 	var (
 		wallets = make([]accounts.Wallet, 0, len(accs))
-		events  = make([]accounts.WalletEvent, 0, len(accs))
+		events  []accounts.WalletEvent
 	)
 
 	for _, account := range accs {

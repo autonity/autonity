@@ -195,7 +195,7 @@ func TextHash(data []byte) []byte {
 func TextAndHash(data []byte) ([]byte, string) {
 	msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(data), string(data))
 	hasher := sha3.NewLegacyKeccak256()
-	_, _ = hasher.Write([]byte(msg))
+	hasher.Write([]byte(msg))
 	return hasher.Sum(nil), msg
 }
 

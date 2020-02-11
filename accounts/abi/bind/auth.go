@@ -83,7 +83,7 @@ func NewKeyedTransactor(key *ecdsa.PrivateKey) *TransactOpts {
 
 // NewClefTransactor is a utility method to easily create a transaction signer
 // with a clef backend.
-func NewClefTransactor(clef *external.Signer, account accounts.Account) *TransactOpts {
+func NewClefTransactor(clef *external.ExternalSigner, account accounts.Account) *TransactOpts {
 	return &TransactOpts{
 		From: account.Address,
 		Signer: func(signer types.Signer, address common.Address, transaction *types.Transaction) (*types.Transaction, error) {

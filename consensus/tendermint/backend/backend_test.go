@@ -203,7 +203,7 @@ func TestVerifyProposal(t *testing.T) {
 		if stateErr != nil {
 			t.Fatalf("could not retrieve state %d, err=%s", i, stateErr)
 		}
-		if status, errW := blockchain.WriteBlockWithState(block, nil, state); status != core.CanonStatTy && errW != nil {
+		if status, errW := blockchain.WriteBlockWithState(block, nil, nil, state, false); status != core.CanonStatTy && errW != nil {
 			t.Fatalf("write block failure %d, err=%s", i, errW)
 		}
 		blocks[i] = block
@@ -523,8 +523,8 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 	})
 
 	t.Run("block number is greater than 0, empty block returned", func(t *testing.T) {
-		block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{
-			Number: big.NewInt(1)},
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
 		})
 
 		b := &Backend{
@@ -727,14 +727,16 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 }
 
 func makeHeader(parent *types.Block, config *config.Config) *types.Header {
-	header := &types.Header{OriginalHeader: types.OriginalHeader{
+	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, 8000000, 8000000),
 		GasUsed:    0,
 		Extra:      parent.Extra(),
 		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(config.BlockPeriod)).Uint64(),
-		Difficulty: defaultDifficulty},
+		Difficulty: defaultDifficulty,
+		MixDigest:  types.BFTDigest,
+		Round:      big.NewInt(0),
 	}
 	return header
 }
@@ -777,7 +779,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 			return nil, err
 		}
 		txs[i] = tx
-		receipt, _, err := core.ApplyTransaction(chain.Config(), chain, nil, gasPool, state, header, txs[i], &header.GasUsed, *engine.vmConfig)
+		receipt, err := core.ApplyTransaction(chain.Config(), chain, nil, gasPool, state, header, txs[i], &header.GasUsed, *engine.vmConfig)
 		if err != nil {
 			return nil, err
 		}

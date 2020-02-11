@@ -106,7 +106,6 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	// marshal the data from bytes arrays into specified structure.
 	v := EconomicMetaData{make([]common.Address, 32), make([]uint8, 32), make([]*big.Int, 32),
 		make([]*big.Int, 32), new(big.Int), new(big.Int)}
-
 	if err := ABI.Unpack(&v, "dumpEconomicsMetricData", ret); err != nil { // can't work with aliased types
 		log.Warn("Could not unpack dumpNetworkEconomicsData returned value", "err", err, "header.num",
 			header.Number.Uint64())

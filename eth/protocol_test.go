@@ -18,22 +18,25 @@ package eth
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/core/forkid"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"math/big"
+
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/ethash"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth/downloader"
+	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
 
@@ -44,10 +47,7 @@ func init() {
 var testAccount, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 
 // Tests that handshake failures are detected and reported correctly.
-func TestStatusMsgErrors62(t *testing.T) { testStatusMsgErrors(t, 62) }
-func TestStatusMsgErrors63(t *testing.T) { testStatusMsgErrors(t, 63) }
-
-func testStatusMsgErrors(t *testing.T, protocol int) {
+func TestStatusMsgErrors63(t *testing.T) {
 	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, nil)
 	var (
 		genesis = pm.blockchain.Genesis()
@@ -66,22 +66,21 @@ func testStatusMsgErrors(t *testing.T, protocol int) {
 			wantError: errResp(ErrNoStatusMsg, "first msg has code 2 (!= 0)"),
 		},
 		{
-			code: StatusMsg, data: statusData{10, DefaultConfig.NetworkId, td, head.Hash(), genesis.Hash()},
-			wantError: errResp(ErrProtocolVersionMismatch, "10 (!= %d)", protocol),
+			code: StatusMsg, data: statusData63{10, DefaultConfig.NetworkId, td, head.Hash(), genesis.Hash()},
+			wantError: errResp(ErrProtocolVersionMismatch, "10 (!= %d)", 63),
 		},
 		{
-			code: StatusMsg, data: statusData{uint32(protocol), 999, td, head.Hash(), genesis.Hash()},
-			wantError: errResp(ErrNetworkIdMismatch, "999 (!= %d)", DefaultConfig.NetworkId),
+			code: StatusMsg, data: statusData63{63, 999, td, head.Hash(), genesis.Hash()},
+			wantError: errResp(ErrNetworkIDMismatch, "999 (!= %d)", DefaultConfig.NetworkId),
 		},
 		{
-			code: StatusMsg, data: statusData{uint32(protocol), DefaultConfig.NetworkId, td, head.Hash(), common.Hash{3}},
-			wantError: errResp(ErrGenesisBlockMismatch, "0300000000000000 (!= %x)", genesis.Hash().Bytes()[:8]),
+			code: StatusMsg, data: statusData63{63, DefaultConfig.NetworkId, td, head.Hash(), common.Hash{3}},
+			wantError: errResp(ErrGenesisMismatch, "0300000000000000 (!= %x)", genesis.Hash().Bytes()[:8]),
 		},
 	}
-
 	for i, test := range tests {
 		p2pPeer := newTestP2PPeer("peer")
-		p, errc := newTestPeer(p2pPeer, protocol, pm, false)
+		p, errc := newTestPeer(p2pPeer, 63, pm, false)
 		// The send call might hang until reset because
 		// the protocol might not read the payload.
 		go p2p.Send(p.app, test.code, test.data)
@@ -100,9 +99,156 @@ func testStatusMsgErrors(t *testing.T, protocol int) {
 	}
 }
 
+func TestStatusMsgErrors64(t *testing.T) {
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, nil)
+	var (
+		genesis = pm.blockchain.Genesis()
+		head    = pm.blockchain.CurrentHeader()
+		td      = pm.blockchain.GetTd(head.Hash(), head.Number.Uint64())
+		forkID  = forkid.NewID(pm.blockchain)
+	)
+	defer pm.Stop()
+
+	tests := []struct {
+		code      uint64
+		data      interface{}
+		wantError error
+	}{
+		{
+			code: TxMsg, data: []interface{}{},
+			wantError: errResp(ErrNoStatusMsg, "first msg has code 2 (!= 0)"),
+		},
+		{
+			code: StatusMsg, data: statusData{10, DefaultConfig.NetworkId, td, head.Hash(), genesis.Hash(), forkID},
+			wantError: errResp(ErrProtocolVersionMismatch, "10 (!= %d)", 64),
+		},
+		{
+			code: StatusMsg, data: statusData{64, 999, td, head.Hash(), genesis.Hash(), forkID},
+			wantError: errResp(ErrNetworkIDMismatch, "999 (!= %d)", DefaultConfig.NetworkId),
+		},
+		{
+			code: StatusMsg, data: statusData{64, DefaultConfig.NetworkId, td, head.Hash(), common.Hash{3}, forkID},
+			wantError: errResp(ErrGenesisMismatch, "0300000000000000000000000000000000000000000000000000000000000000 (!= %x)", genesis.Hash()),
+		},
+		{
+			code: StatusMsg, data: statusData{64, DefaultConfig.NetworkId, td, head.Hash(), genesis.Hash(), forkid.ID{Hash: [4]byte{0x00, 0x01, 0x02, 0x03}}},
+			wantError: errResp(ErrForkIDRejected, forkid.ErrLocalIncompatibleOrStale.Error()),
+		},
+	}
+	for i, test := range tests {
+		p2pPeer := newTestP2PPeer("peer")
+		p, errc := newTestPeer(p2pPeer, 64, pm, false)
+		// The send call might hang until reset because
+		// the protocol might not read the payload.
+		go p2p.Send(p.app, test.code, test.data)
+
+		select {
+		case err := <-errc:
+			if err == nil {
+				t.Errorf("test %d: protocol returned nil error, want %q", i, test.wantError)
+			} else if err.Error() != test.wantError.Error() {
+				t.Errorf("test %d: wrong error: got %q, want %q", i, err, test.wantError)
+			}
+		case <-time.After(2 * time.Second):
+			t.Errorf("protocol did not shut down within 2 seconds")
+		}
+		p.close()
+	}
+}
+
+func TestForkIDSplit(t *testing.T) {
+	var (
+		engine = ethash.NewFaker()
+
+		configNoFork  = &params.ChainConfig{HomesteadBlock: big.NewInt(1)}
+		configProFork = &params.ChainConfig{
+			HomesteadBlock: big.NewInt(1),
+			EIP150Block:    big.NewInt(2),
+			EIP155Block:    big.NewInt(2),
+			EIP158Block:    big.NewInt(2),
+			ByzantiumBlock: big.NewInt(3),
+		}
+		dbNoFork  = rawdb.NewMemoryDatabase()
+		dbProFork = rawdb.NewMemoryDatabase()
+
+		gspecNoFork  = &core.Genesis{Config: configNoFork}
+		gspecProFork = &core.Genesis{Config: configProFork}
+
+		genesisNoFork  = gspecNoFork.MustCommit(dbNoFork)
+		genesisProFork = gspecProFork.MustCommit(dbProFork)
+
+		chainNoFork, _  = core.NewBlockChain(dbNoFork, nil, configNoFork, engine, vm.Config{}, nil, core.NewTxSenderCacher())
+		chainProFork, _ = core.NewBlockChain(dbProFork, nil, configProFork, engine, vm.Config{}, nil, core.NewTxSenderCacher())
+
+		blocksNoFork, _  = core.GenerateChain(configNoFork, genesisNoFork, engine, dbNoFork, 2, nil)
+		blocksProFork, _ = core.GenerateChain(configProFork, genesisProFork, engine, dbProFork, 2, nil)
+
+		ethNoFork, _  = NewProtocolManager(configNoFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainNoFork, dbNoFork, 1, nil, true)
+		ethProFork, _ = NewProtocolManager(configProFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainProFork, dbProFork, 1, nil, true)
+	)
+	ethNoFork.Start(1000)
+	ethProFork.Start(1000)
+
+	// Both nodes should allow the other to connect (same genesis, next fork is the same)
+	p2pNoFork, p2pProFork := p2p.MsgPipe()
+	peerNoFork := newPeer(64, p2p.NewPeer(enode.ID{1}, "", nil), p2pNoFork)
+	peerProFork := newPeer(64, p2p.NewPeer(enode.ID{2}, "", nil), p2pProFork)
+
+	errc := make(chan error, 2)
+	go func() { errc <- ethNoFork.handle(peerProFork) }()
+	go func() { errc <- ethProFork.handle(peerNoFork) }()
+
+	select {
+	case err := <-errc:
+		t.Fatalf("frontier nofork <-> profork failed: %v", err)
+	case <-time.After(250 * time.Millisecond):
+		p2pNoFork.Close()
+		p2pProFork.Close()
+	}
+	// Progress into Homestead. Fork's match, so we don't care what the future holds
+	chainNoFork.InsertChain(blocksNoFork[:1])
+	chainProFork.InsertChain(blocksProFork[:1])
+
+	p2pNoFork, p2pProFork = p2p.MsgPipe()
+	peerNoFork = newPeer(64, p2p.NewPeer(enode.ID{1}, "", nil), p2pNoFork)
+	peerProFork = newPeer(64, p2p.NewPeer(enode.ID{2}, "", nil), p2pProFork)
+
+	errc = make(chan error, 2)
+	go func() { errc <- ethNoFork.handle(peerProFork) }()
+	go func() { errc <- ethProFork.handle(peerNoFork) }()
+
+	select {
+	case err := <-errc:
+		t.Fatalf("homestead nofork <-> profork failed: %v", err)
+	case <-time.After(250 * time.Millisecond):
+		p2pNoFork.Close()
+		p2pProFork.Close()
+	}
+	// Progress into Spurious. Forks mismatch, signalling differing chains, reject
+	chainNoFork.InsertChain(blocksNoFork[1:2])
+	chainProFork.InsertChain(blocksProFork[1:2])
+
+	p2pNoFork, p2pProFork = p2p.MsgPipe()
+	peerNoFork = newPeer(64, p2p.NewPeer(enode.ID{1}, "", nil), p2pNoFork)
+	peerProFork = newPeer(64, p2p.NewPeer(enode.ID{2}, "", nil), p2pProFork)
+
+	errc = make(chan error, 2)
+	go func() { errc <- ethNoFork.handle(peerProFork) }()
+	go func() { errc <- ethProFork.handle(peerNoFork) }()
+
+	select {
+	case err := <-errc:
+		if want := errResp(ErrForkIDRejected, forkid.ErrLocalIncompatibleOrStale.Error()); err.Error() != want.Error() {
+			t.Fatalf("fork ID rejection error mismatch: have %v, want %v", err, want)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatalf("split peers not rejected")
+	}
+}
+
 // This test checks that received transactions are added to the local pool.
-func TestRecvTransactions62(t *testing.T) { testRecvTransactions(t, 62) }
 func TestRecvTransactions63(t *testing.T) { testRecvTransactions(t, 63) }
+func TestRecvTransactions64(t *testing.T) { testRecvTransactions(t, 64) }
 
 func testRecvTransactions(t *testing.T, protocol int) {
 	txAdded := make(chan []*types.Transaction)
@@ -132,16 +278,16 @@ func testRecvTransactions(t *testing.T, protocol int) {
 }
 
 // This test checks that pending transactions are sent.
-func TestSendTransactions62(t *testing.T) { testSendTransactions(t, 62) }
 func TestSendTransactions63(t *testing.T) { testSendTransactions(t, 63) }
+func TestSendTransactions64(t *testing.T) { testSendTransactions(t, 64) }
 
 func testSendTransactions(t *testing.T, protocol int) {
 	var (
-		evmux   = new(event.TypeMux)
-		pow     = ethash.NewFaker()
-		db      = rawdb.NewMemoryDatabase()
-		config  = &params.ChainConfig{}
-		gspec   = &core.Genesis{Config: config}
+		evmux  = new(event.TypeMux)
+		pow    = ethash.NewFaker()
+		db     = rawdb.NewMemoryDatabase()
+		config = &params.ChainConfig{}
+		gspec  = &core.Genesis{Config: config}
 	)
 	config.AutonityContractConfig = &params.AutonityContractGenesis{}
 
@@ -232,7 +378,7 @@ func testSendTransactions(t *testing.T, protocol int) {
 			if readMsg.err != nil {
 				t.Fatalf("%v: read error: %v, Msg: %v", p.Peer, err, msg.String())
 			} else if msg.Code == 7 {
-				log.Debug("genesis block message")
+				t.Log("genesis block message")
 				continue
 			} else if msg.Code != TxMsg {
 				t.Errorf("%v: got code %d, want TxMsg: %v", p.Peer, msg.Code, msg)

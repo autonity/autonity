@@ -32,7 +32,7 @@ import (
 
 // Tests that ethash works correctly in test mode.
 func TestTestMode(t *testing.T) {
-	header := &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(1), Difficulty: big.NewInt(100)}}
+	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
 
 	ethash := NewTester(nil, false)
 	defer ethash.Close()
@@ -49,7 +49,7 @@ func TestTestMode(t *testing.T) {
 		if err := ethash.VerifySeal(nil, header); err != nil {
 			t.Fatalf("unexpected verification error: %v", err)
 		}
-	case <-time.NewTimer(time.Second).C:
+	case <-time.NewTimer(2 * time.Second).C:
 		t.Error("sealing result timeout")
 	}
 }
@@ -85,7 +85,10 @@ func verifyTest(wg *sync.WaitGroup, e *Ethash, workerIndex, epochs int) {
 		if block < 0 {
 			block = 0
 		}
-		header := &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(block), Difficulty: big.NewInt(100)}}
+		header := &types.Header{
+			Number:     big.NewInt(block),
+			Difficulty: big.NewInt(100),
+		}
 		e.VerifySeal(nil, header)
 	}
 }
@@ -98,7 +101,7 @@ func TestRemoteSealer(t *testing.T) {
 	if _, err := api.GetWork(); err != errNoMiningWork {
 		t.Error("expect to return an error indicate there is no mining work")
 	}
-	header := &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(1), Difficulty: big.NewInt(100)}}
+	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
 	block := types.NewBlockWithHeader(header)
 	sealhash := ethash.SealHash(header)
 
@@ -118,7 +121,7 @@ func TestRemoteSealer(t *testing.T) {
 		t.Error("expect to return false when submit a fake solution")
 	}
 	// Push new block with same block number to replace the original one.
-	header = &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(1), Difficulty: big.NewInt(1000)}}
+	header = &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(1000)}
 	block = types.NewBlockWithHeader(header)
 	sealhash = ethash.SealHash(header)
 	ethash.Seal(nil, block, results, nil)

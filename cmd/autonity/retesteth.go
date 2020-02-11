@@ -50,10 +50,6 @@ import (
 	cli "gopkg.in/urfave/cli.v1"
 )
 
-const (
-	NoReward = "NoReward"
-)
-
 var (
 	rpcPortFlag = cli.IntFlag{
 		Name:  "rpcport",
@@ -136,6 +132,7 @@ type CParamsParams struct {
 	ByzantiumForkBlock         *math.HexOrDecimal64  `json:"byzantiumForkBlock"`
 	ConstantinopleForkBlock    *math.HexOrDecimal64  `json:"constantinopleForkBlock"`
 	ConstantinopleFixForkBlock *math.HexOrDecimal64  `json:"constantinopleFixForkBlock"`
+	IstanbulBlock              *math.HexOrDecimal64  `json:"istanbulForkBlock"`
 	ChainID                    *math.HexOrDecimal256 `json:"chainID"`
 	MaximumExtraDataSize       math.HexOrDecimal64   `json:"maximumExtraDataSize"`
 	TieBreakingGas             bool                  `json:"tieBreakingGas"`
@@ -223,7 +220,7 @@ func (e *NoRewardEngine) Prepare(chain consensus.ChainReader, header *types.Head
 	return e.inner.Prepare(chain, header)
 }
 
-func (e *NoRewardEngine) accumulateRewards(state *state.StateDB, header *types.Header, uncles []*types.Header) {
+func (e *NoRewardEngine) accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, uncles []*types.Header) {
 	// Simply touch miner and uncle coinbase accounts
 	reward := big.NewInt(0)
 	for _, uncle := range uncles {
@@ -237,7 +234,7 @@ func (e *NoRewardEngine) Finalize(chain consensus.ChainReader, header *types.Hea
 	if e.rewardsOn {
 		e.inner.Finalize(chain, header, statedb, txs, uncles)
 	} else {
-		e.accumulateRewards(statedb, header, uncles)
+		e.accumulateRewards(chain.Config(), statedb, header, uncles)
 		header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	}
 }
@@ -246,13 +243,13 @@ func (e *NoRewardEngine) FinalizeAndAssemble(chain consensus.ChainReader, header
 	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	if e.rewardsOn {
 		return e.inner.FinalizeAndAssemble(chain, header, statedb, txs, uncles, receipts)
+	} else {
+		e.accumulateRewards(chain.Config(), statedb, header, uncles)
+		header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+
+		// Header seems complete, assemble into a block and return
+		return types.NewBlock(header, txs, uncles, receipts), nil
 	}
-
-	e.accumulateRewards(statedb, header, uncles)
-	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-
-	// Header seems complete, assemble into a block and return
-	return types.NewBlock(header, txs, uncles, receipts), nil
 }
 
 func (e *NoRewardEngine) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
@@ -310,9 +307,9 @@ func (api *RetestethAPI) SetChainParams(ctx context.Context, chainParams ChainPa
 			}
 		}
 	}
-	chainID := big.NewInt(1)
+	chainId := big.NewInt(1)
 	if chainParams.Params.ChainID != nil {
-		chainID.Set((*big.Int)(chainParams.Params.ChainID))
+		chainId.Set((*big.Int)(chainParams.Params.ChainID))
 	}
 	var (
 		homesteadBlock      *big.Int
@@ -323,6 +320,7 @@ func (api *RetestethAPI) SetChainParams(ctx context.Context, chainParams ChainPa
 		byzantiumBlock      *big.Int
 		constantinopleBlock *big.Int
 		petersburgBlock     *big.Int
+		istanbulBlock       *big.Int
 	)
 	if chainParams.Params.HomesteadForkBlock != nil {
 		homesteadBlock = big.NewInt(int64(*chainParams.Params.HomesteadForkBlock))
@@ -349,9 +347,13 @@ func (api *RetestethAPI) SetChainParams(ctx context.Context, chainParams ChainPa
 	if constantinopleBlock != nil && petersburgBlock == nil {
 		petersburgBlock = big.NewInt(100000000000)
 	}
+	if chainParams.Params.IstanbulBlock != nil {
+		istanbulBlock = big.NewInt(int64(*chainParams.Params.IstanbulBlock))
+	}
+
 	genesis := &core.Genesis{
 		Config: &params.ChainConfig{
-			ChainID:             chainID,
+			ChainID:             chainId,
 			HomesteadBlock:      homesteadBlock,
 			DAOForkBlock:        daoForkBlock,
 			DAOForkSupport:      false,
@@ -361,6 +363,7 @@ func (api *RetestethAPI) SetChainParams(ctx context.Context, chainParams ChainPa
 			ByzantiumBlock:      byzantiumBlock,
 			ConstantinopleBlock: constantinopleBlock,
 			PetersburgBlock:     petersburgBlock,
+			IstanbulBlock:       istanbulBlock,
 		},
 		Nonce:      uint64(chainParams.Genesis.Nonce),
 		Timestamp:  uint64(chainParams.Genesis.Timestamp),
@@ -380,7 +383,7 @@ func (api *RetestethAPI) SetChainParams(ctx context.Context, chainParams ChainPa
 
 	var inner consensus.Engine
 	switch chainParams.SealEngine {
-	case "NoProof", NoReward:
+	case "NoProof", "NoReward":
 		inner = ethash.NewFaker()
 	case "Ethash":
 		inner = ethash.New(ethash.Config{
@@ -393,10 +396,8 @@ func (api *RetestethAPI) SetChainParams(ctx context.Context, chainParams ChainPa
 	default:
 		return false, fmt.Errorf("unrecognised seal engine: %s", chainParams.SealEngine)
 	}
-	engine := &NoRewardEngine{inner: inner, rewardsOn: chainParams.SealEngine != NoReward}
-
+	engine := &NoRewardEngine{inner: inner, rewardsOn: chainParams.SealEngine != "NoReward"}
 	senderCacher := core.NewTxSenderCacher()
-
 	blockchain, err := core.NewBlockChain(ethDb, nil, chainConfig, engine, vm.Config{}, nil, senderCacher)
 	if err != nil {
 		return false, err
@@ -459,16 +460,16 @@ func (api *RetestethAPI) mineBlock() error {
 		timestamp = parent.Time() + api.blockInterval
 	}
 	gasLimit := core.CalcGasLimit(parent, 9223372036854775807, 9223372036854775807)
-	header := &types.Header{OriginalHeader: types.OriginalHeader{
+	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     big.NewInt(int64(api.blockNumber + 1)),
 		GasLimit:   gasLimit,
 		Extra:      api.extraData,
-		Time:       timestamp},
+		Time:       timestamp,
 	}
 	header.Coinbase = api.author
 	if api.engine != nil {
-		_ = api.engine.Prepare(api.blockchain, header)
+		api.engine.Prepare(api.blockchain, header)
 	}
 	// If we are care about TheDAO hard-fork check whether to override the extra-data or not
 	if daoBlock := api.chainConfig.DAOForkBlock; daoBlock != nil {
@@ -506,7 +507,7 @@ func (api *RetestethAPI) mineBlock() error {
 				statedb.Prepare(tx.Hash(), common.Hash{}, txCount)
 				snap := statedb.Snapshot()
 
-				receipt, _, txErr := core.ApplyTransaction(
+				receipt, err := core.ApplyTransaction(
 					api.chainConfig,
 					api.blockchain,
 					&api.author,
@@ -514,7 +515,7 @@ func (api *RetestethAPI) mineBlock() error {
 					statedb,
 					header, tx, &header.GasUsed, *api.blockchain.GetVMConfig(),
 				)
-				if txErr != nil {
+				if err != nil {
 					statedb.RevertToSnapshot(snap)
 					break
 				}
@@ -577,19 +578,19 @@ func (api *RetestethAPI) RewindToBlock(ctx context.Context, newHead uint64) (boo
 	return true, nil
 }
 
-var emptyListHash = common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347")
+var emptyListHash common.Hash = common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347")
 
 func (api *RetestethAPI) GetLogHash(ctx context.Context, txHash common.Hash) (common.Hash, error) {
 	receipt, _, _, _ := rawdb.ReadReceipt(api.ethDb, txHash, api.chainConfig)
 	if receipt == nil {
 		return emptyListHash, nil
+	} else {
+		if logListRlp, err := rlp.EncodeToBytes(receipt.Logs); err != nil {
+			return common.Hash{}, err
+		} else {
+			return common.BytesToHash(crypto.Keccak256(logListRlp)), nil
+		}
 	}
-
-	logListRlp, err := rlp.EncodeToBytes(receipt.Logs)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	return common.BytesToHash(crypto.Keccak256(logListRlp)), nil
 }
 
 func (api *RetestethAPI) BlockNumber(ctx context.Context) (uint64, error) {
@@ -654,8 +655,8 @@ func (api *RetestethAPI) AccountRange(ctx context.Context,
 			context := core.NewEVMContext(msg, block.Header(), api.blockchain, nil)
 			// Not yet the searched for transaction, execute on top of the current state
 			vmenv := vm.NewEVM(context, statedb, api.blockchain.Config(), vm.Config{})
-			if _, _, _, msgErr := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); msgErr != nil {
-				return AccountRangeResult{}, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), msgErr)
+			if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
+				return AccountRangeResult{}, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
 			}
 			// Ensure any modifications are committed to the state
 			// Only delete empty objects if EIP158/161 (a.k.a Spurious Dragon) is in effect
@@ -676,10 +677,9 @@ func (api *RetestethAPI) AccountRange(ctx context.Context,
 	}
 	it := trie.NewIterator(accountTrie.NodeIterator(common.BigToHash((*big.Int)(addressHash)).Bytes()))
 	result := AccountRangeResult{AddressMap: make(map[common.Hash]common.Address)}
-	for i := 0; /*i < int(maxResults) && */ it.Next(); i++ {
+	for i := 0; i < int(maxResults) && it.Next(); i++ {
 		if preimage := accountTrie.GetKey(it.Key); preimage != nil {
 			result.AddressMap[common.BytesToHash(it.Key)] = common.BytesToAddress(preimage)
-			//fmt.Printf("%x: %x\n", it.Key, preimage)
 		}
 	}
 	//fmt.Printf("Number of entries returned: %d\n", len(result.AddressMap))
@@ -765,8 +765,8 @@ func (api *RetestethAPI) StorageRangeAt(ctx context.Context,
 			context := core.NewEVMContext(msg, block.Header(), api.blockchain, nil)
 			// Not yet the searched for transaction, execute on top of the current state
 			vmenv := vm.NewEVM(context, statedb, api.blockchain.Config(), vm.Config{})
-			if _, _, _, msgErr := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); msgErr != nil {
-				return StorageRangeResult{}, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), msgErr)
+			if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
+				return StorageRangeResult{}, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
 			}
 			// Ensure any modifications are committed to the state
 			// Only delete empty objects if EIP158/161 (a.k.a Spurious Dragon) is in effect
@@ -803,7 +803,6 @@ func (api *RetestethAPI) StorageRangeAt(ctx context.Context,
 				Key:   string(ks),
 				Value: string(vs),
 			}
-			//fmt.Printf("Key: %s, Value: %s\n", ks, vs)
 		}
 	}
 	if it.Next() {
@@ -835,33 +834,33 @@ func retesteth(ctx *cli.Context) error {
 		extapiURL string
 	)
 	apiImpl := &RetestethAPI{}
-	var testAPI RetestethTestAPI = apiImpl
-	var ethAPI RetestethEthAPI = apiImpl
-	var debugAPI RetestethDebugAPI = apiImpl
-	var web3API RetestWeb3API = apiImpl
+	var testApi RetestethTestAPI = apiImpl
+	var ethApi RetestethEthAPI = apiImpl
+	var debugApi RetestethDebugAPI = apiImpl
+	var web3Api RetestWeb3API = apiImpl
 	rpcAPI := []rpc.API{
 		{
 			Namespace: "test",
 			Public:    true,
-			Service:   testAPI,
+			Service:   testApi,
 			Version:   "1.0",
 		},
 		{
 			Namespace: "eth",
 			Public:    true,
-			Service:   ethAPI,
+			Service:   ethApi,
 			Version:   "1.0",
 		},
 		{
 			Namespace: "debug",
 			Public:    true,
-			Service:   debugAPI,
+			Service:   debugApi,
 			Version:   "1.0",
 		},
 		{
 			Namespace: "web3",
 			Public:    true,
-			Service:   web3API,
+			Service:   web3Api,
 			Version:   "1.0",
 		},
 	}
@@ -882,7 +881,7 @@ func retesteth(ctx *cli.Context) error {
 		log.Info("HTTP endpoint closed", "url", httpEndpoint)
 	}()
 
-	abortChan := make(chan os.Signal, 1)
+	abortChan := make(chan os.Signal, 11)
 	signal.Notify(abortChan, os.Interrupt)
 
 	sig := <-abortChan

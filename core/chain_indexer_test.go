@@ -91,7 +91,7 @@ func testChainIndexer(t *testing.T, count int) {
 	}
 	// inject inserts a new random canonical header into the database directly
 	inject := func(number uint64) {
-		header := &types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(int64(number)), Extra: big.NewInt(rand.Int63()).Bytes()}}
+		header := &types.Header{Number: big.NewInt(int64(number)), Extra: big.NewInt(rand.Int63()).Bytes()}
 		if number > 0 {
 			header.ParentHash = rawdb.ReadCanonicalHash(db, number-1)
 		}
