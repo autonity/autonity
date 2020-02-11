@@ -477,4 +477,29 @@ contract('Autonity', function (accounts) {
             await token.removeUser(accounts[5], {from: operator});
         });
     });
+
+    describe('Proposer selection', function() {
+
+        beforeEach(async function(){
+            token = await utils.deployContract(validatorsList, whiteList,
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
+        });
+
+        it('get proposer, proposer should be determinated across nodes on same height and round.', async function () {
+
+            let height;
+            for (height = 0; height < 10; height++) {
+                let round;
+                for (round = 0; round < 3; round ++){
+                    let proposer1 = await token.getProposer(height, round);
+                    let proposer2 = await token.getProposer(height, round);
+                    console.log("height: " + height + " round: " + round + " proposer: ", proposer1)
+                    console.log("height: " + height + " round: " + round + " proposer: ", proposer2)
+                    assert(proposer1 === proposer2, "proposer should be determinated on same height and round")
+                }
+            }
+        });
+
+    });
+
 });

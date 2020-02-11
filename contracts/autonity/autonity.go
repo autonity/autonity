@@ -122,6 +122,8 @@ func (ac *Contract) ContractGetCommittee(chain consensus.ChainReader, header *ty
 	}
 
 	var addresses []common.Address
+
+	//Committee election was done in contract side by sorting of stake, why we get it by using getValidators?
 	err := ac.AutonityContractCall(statedb, header, "getValidators", &addresses)
 
 	if err != nil {
@@ -136,6 +138,17 @@ func (ac *Contract) ContractGetCommittee(chain consensus.ChainReader, header *ty
 		committee = append(committee, types.CommitteeMember{Address: val, VotingPower: new(big.Int).SetUint64(1)})
 	}
 	return committee, nil
+}
+
+func (ac *Contract) ContractGetProposer(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, height big.Int, round big.Int) (common.Address, error) {
+	var proposer common.Address
+	err := ac.AutonityContractCall(statedb, header, "getProposer", &proposer, height, round)
+
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	return proposer, nil
 }
 
 func (ac *Contract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
@@ -196,14 +209,14 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 		return nil
 	}
 
-	upgradeContract, err := ac.callFinalize(statedb, header, blockGas)
+	finalInfo, err := ac.callFinalize(statedb, header, blockGas)
 	if err != nil {
 		return err
 	}
 
-	log.Info("ApplyFinalize", "upgradeContract", upgradeContract)
+	log.Info("ApplyFinalize", "upgradeContract", finalInfo.Result)
 
-	if upgradeContract {
+	if finalInfo.Result {
 		// warning prints for failure rather than returning error to stuck engine.
 		// in any failure, the state will be rollback to snapshot.
 		err = ac.performContractUpgrade(statedb, header)
@@ -211,6 +224,9 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 			log.Warn("Autonity Contract Upgrade Failed")
 		}
 	}
+
+	//to do update the header with latest committees with Youssef's latest code.
+	//header.committee = finalInfo.Committees
 
 	return nil
 }

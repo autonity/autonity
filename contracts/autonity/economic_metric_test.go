@@ -247,7 +247,7 @@ func TestEconomicMetrics_measureRewardDistributionMetrics(t *testing.T) {
 		var rewardFractions []*big.Int
 		rewardFractions = append(rewardFractions, common.Big1, common.Big2)
 		blockReward := common.Big32
-		var distributions RewardDistributionMetaData
+		var distributions FinalInfo
 		distributions.Amount = blockReward
 		distributions.Rewardfractions = rewardFractions
 		distributions.Holders = stakeHolders
@@ -272,7 +272,7 @@ func TestEconomicMetrics_measureRewardDistributionMetrics(t *testing.T) {
 		var rewardFractions []*big.Int
 		rewardFractions = append(rewardFractions, common.Big1, common.Big2, common.Big3)
 		blockReward := common.Big32
-		var distributions RewardDistributionMetaData
+		var distributions FinalInfo
 		distributions.Amount = blockReward
 		distributions.Rewardfractions = rewardFractions
 		distributions.Holders = stakeHolders

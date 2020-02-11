@@ -15,11 +15,12 @@ contract Autonity {
         uint256 stakesupply;
     }
 
-    struct RewardDistributionData {
+    struct FinalInfo {
         bool result;
         address[] stakeholders;
         uint256[] rewardfractions;
         uint256 amount;
+        address[] committees;
     }
 
     enum UserType { Participant, Stakeholder, Validator}
@@ -109,7 +110,7 @@ contract Autonity {
 
         // to construct the committee:
         committeeSize = _committeeSize;
-        setCommittee();
+        electCommittee();
     }
 
     /*
@@ -396,10 +397,39 @@ contract Autonity {
     }
 
     /*
-    * setCommittee
-    * selects the committee of validators to participate in consensus
+    * getProposer
+    * implement a determinated stateless weighted-round-robin proposer election from a sorted committee with stake.
     */
-    function setCommittee() public onlyDeployer(msg.sender) returns(User[] memory){
+    function getProposer(uint256 height, uint256 round) public view returns(address) {
+        //map seed into a 256bits key-space.
+        uint256 key = height + round;
+        uint256 value = uint256(keccak256(abi.encodePacked(key)));
+
+        //calculate total voting power from current committee.
+        uint256 total_voting_power = 0;
+        for (uint256 i = 0; i < committee.length; i++) {
+            total_voting_power += committee[i].stake;
+        }
+
+        //convergent value into a logical space -- total_voting_power, get the logical index.
+        uint256 index = value % total_voting_power;
+
+        //find the index hit which committee member which line up in a sorted committee list.
+        uint256 counter = 0;
+        for (uint256 i = 0; i < committee.length; i++) {
+            counter += committee[i].stake;
+            if (index <= counter - 1) {
+                return committee[i].addr;
+            }
+        }
+    }
+
+    /*
+    * electCommittee
+    * elect the new committee member by top N staking validators, and save it in storage.
+    * on each Finalize, we should call it to update the committee members.
+    */
+    function electCommittee() internal returns(address[] memory){
         require(validators.length > 0, "There must be validators");
 
         uint len = validators.length;
@@ -429,20 +459,21 @@ contract Autonity {
             committeeList = validatorList;
         }
 
-        // Update committee in persistent storage
+        // Update committee in persistent storage, and return sorted member address list.
         delete committee;
+        address[] memory retMemberList = new address[](committeeLength);
         for (uint256 k =0 ; k < committeeLength; k++) {
             committee.push(committeeList[k]);
+            retMemberList[k] = committeeList[k].addr;
         }
-
-        return committee;
+        return retMemberList;
     }
 
     /*
-    * performRedistribution
-    * return a structure contains reward distribution.
+    * electNewCommitteesWithRewardDistribution
+    * return a structure contains reward distribution and latest committees.
     */
-    function performRedistribution(uint256 _amount) internal onlyDeployer(msg.sender) returns(RewardDistributionData memory rewarddistribution) {
+    function electNewCommitteesWithRewardDistribution(uint256 _amount) internal onlyDeployer(msg.sender) returns(FinalInfo memory rewarddistribution) {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
         require(stakeholders.length > 0, "there must be stake holders");
 
@@ -453,14 +484,19 @@ contract Autonity {
             _user.addr.transfer(reward);
             rewardfractionlist[i] = reward;
         }
-        RewardDistributionData memory rd = RewardDistributionData(true, stakeholders, rewardfractionlist, _amount);
+
+        //elect latest committee by top staking members, and update committee with client
+        FinalInfo memory rd = FinalInfo(true, stakeholders, rewardfractionlist, _amount, electCommittee());
         return rd;
     }
 
     //Finalize function called once after every mined block, return if a new contract is ready for update
-    function finalize(uint256 _amount) public onlyDeployer(msg.sender) returns (RewardDistributionData memory rewarddistribution) {
-        RewardDistributionData memory data = performRedistribution(_amount);
+    function finalize(uint256 _amount) public onlyDeployer(msg.sender) returns (FinalInfo memory rewarddistribution) {
+
+        //taking reward fee as stake to distribute to stakeholders.
+        FinalInfo memory data = electNewCommitteesWithRewardDistribution(_amount);
         data.result = bytes(bytecode).length != 0;
+
         return data;
     }
 

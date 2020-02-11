@@ -197,16 +197,16 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 	return minGasPrice.Uint64(), nil
 }
 
-func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, error) {
-	v := RewardDistributionMetaData{}
+func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (FinalInfo, error) {
+	v := FinalInfo{}
 	err := ac.AutonityContractCall(state, header, "finalize", &v, blockGas)
 	if err != nil {
-		return false, err
+		return v, err
 	}
 
 	// submit the final reward distribution metrics.
 	ac.metrics.SubmitRewardDistributionMetrics(&v, header.Number.Uint64())
-	return v.Result, nil
+	return v, nil
 }
 
 func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Header) ([]byte, error) {

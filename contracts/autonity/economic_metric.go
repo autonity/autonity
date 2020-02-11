@@ -77,11 +77,12 @@ type EconomicMetaData struct {
 }
 
 // refer to autonity contract abi spec, keep in same meta.
-type RewardDistributionMetaData struct {
+type FinalInfo struct {
 	Result          bool             `abi:"result"`
 	Holders         []common.Address `abi:"stakeholders"`
 	Rewardfractions []*big.Int       `abi:"rewardfractions"`
 	Amount          *big.Int         `abi:"amount"`
+	Committees      []common.Address `abi:"committees"`
 }
 
 type EconomicMetrics struct {
@@ -149,7 +150,7 @@ func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *s
 	em.cleanUselessMetrics(v.Accounts, height)
 }
 
-func (em *EconomicMetrics) SubmitRewardDistributionMetrics(v *RewardDistributionMetaData, height uint64) {
+func (em *EconomicMetrics) SubmitRewardDistributionMetrics(v *FinalInfo, height uint64) {
 	if len(v.Holders) != len(v.Rewardfractions) {
 		log.Warn("Reward fractions does not distribute to all stake holder.")
 		return
