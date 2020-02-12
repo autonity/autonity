@@ -261,7 +261,7 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 		GasLimit:  CalcGasLimit(parent, parent.GasLimit(), parent.GasLimit()),
 		Number:    new(big.Int).Add(parent.Number(), common.Big1),
 		Time:      time,
-		Round:     big.NewInt(0),
+		Round:     0,
 		MixDigest: types.BFTDigest,
 	}
 }

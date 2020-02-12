@@ -319,7 +319,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	}
 	sb.blockchainInitMu.Unlock()
 
-	validators, err := sb.AutonityContractFinalize(header, chain, state)
+	committeeSet, err := sb.AutonityContractFinalize(header, chain, state)
 	if err != nil {
 		sb.logger.Error("finalize. after AutonityContractFinalize", "err", err.Error())
 		return
@@ -330,7 +330,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	header.UncleHash = nilUncleHash
 
 	// add committee to extraData's committee section
-	header.Committee = validators
+	header.Committee = committeeSet
 }
 
 func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,

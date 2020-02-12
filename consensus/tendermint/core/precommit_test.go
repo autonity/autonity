@@ -468,7 +468,7 @@ func TestHandleCommit(t *testing.T) {
 
 	logger := log.New("backend", "test", "id", 0)
 
-	block := types.NewBlockWithHeader(&types.Header{OriginalHeader: types.OriginalHeader{Number: big.NewInt(3)}})
+	block := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
 	addr := common.HexToAddress("0x0123456789")
 
 	backendMock := NewMockBackend(ctrl)
