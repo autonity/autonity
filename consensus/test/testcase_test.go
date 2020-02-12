@@ -2,9 +2,12 @@ package test
 
 import (
 	"fmt"
+	"errors"
 	"github.com/clearmatics/autonity/common/keygenerator"
+	"github.com/clearmatics/autonity/p2p"
 	"net"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -127,7 +130,7 @@ func runTest(t *testing.T, test *testCase) {
 	// see: metrics/meter.go:55
 	defer metrics.DefaultRegistry.UnregisterAll()
 
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numValidators))
 	if err != nil {
 		t.Log("can't rise file description limit. errors are possible")
@@ -135,6 +138,10 @@ func runTest(t *testing.T, test *testCase) {
 
 	nodeNames := getNodeNames()[:test.numValidators]
 	if test.topology != nil {
+		err:=test.topology.Validate()
+		if err!=nil {
+			t.Fatal(err)
+		}
 		nodeNames = getNodeNamesByPrefix(test.topology.graph.GetNames(), ValidatorPrefix)
 		test.numValidators = len(nodeNames)
 
@@ -186,12 +193,27 @@ func runTest(t *testing.T, test *testCase) {
 		t.Fatal(err)
 	}
 
+	s:=""
+	for i,v:=range nodes {
+		s+=i+" === "+v.enode.URLv4()+"\n"
+	}
+	fmt.Println(s)
+
+
+
 	if test.topology != nil {
-		for _, v := range test.topology.graph.Edges {
-			nodes[v.LeftNode].node.Server().AddPeer(nodes[v.RightNode].node.Server().Self())
+		err:=test.topology.ConnectNodes(nodes)
+		if err!=nil {
+			t.Fatal(err)
 		}
 	}
 
+/*	VA === 35384f688b8de23736384e3c499ea9ccfb49d1c9c207b7370d5e55cfd828858c
+	VB === 0a10b664aebfee7e4bfa9a96a19d250b546f35f72fd5b89cba4ddee55c0100f8
+	VC === d8683e118e93da8f2be4a4e4aaecfbfefb4d07d811d926e5bebc5f5b56908908
+	VD === 11f3a474c4ebae2a3f0d1c4eeb97f554c0e0686e1b835ed70eb282a2be7cef2d
+	VE === 1c0533bb761db93b427ff23dc0df971bb859595ae211ab65c479f8658d4c21ca
+	*/
 	defer func() {
 		wgClose := &errgroup.Group{}
 		for _, validator := range nodes {
@@ -263,21 +285,9 @@ func runTest(t *testing.T, test *testCase) {
 	}
 	//check topology
 	if test.topology != nil {
-		missedConnections := []graph.Edge{}
-		for _, v := range test.topology.graph.Edges {
-			exists := false
-			for _, nd := range nodes[v.LeftNode].node.Server().Peers() {
-				if nodes[v.RightNode].node.Server().Self().ID() == nd.ID() {
-					exists = true
-				}
-			}
-			if !exists {
-				missedConnections = append(missedConnections, *v)
-			}
-		}
-		if len(missedConnections) != 0 {
-			spew.Dump(missedConnections)
-			t.Fatal("Some connections missed")
+		err:=test.topology.CheckTopology(nodes)
+		if err!=nil {
+			t.Fatal(err)
 		}
 	}
 
@@ -290,6 +300,242 @@ type Topology struct {
 	graph graph.Graph
 }
 
+func (t *Topology) Validate() error  {
+	if len(t.graph.Edges)==0 && len(t.graph.SubGraphs)==0 {
+		spew.Dump(t.graph)
+		return errors.New("empty topology")
+	}
+	if len(t.graph.Edges)>0 && len(t.graph.SubGraphs)>0 {
+		return errors.New("conflicting topologies")
+	}
+	for _,v:=range t.graph.SubGraphs {
+		if _,err:=strconv.ParseUint(strings.TrimPrefix(v.Name,"b"), 10, 64); err!=nil {
+			return errors.New("incorrect block number")
+		}
+	}
+	return nil
+}
+
+func (t *Topology) WithChanges() bool {
+	return len(t.graph.SubGraphs)>0
+}
+func (t *Topology) ConnectNodes(nodes map[string]*testNode) error {
+	edges:=t.getEdges(maxNumOfBlockMum(nodes))
+	connections:=t.getPeerConnections(edges)
+	for nodeKey, connectionsList := range connections {
+		m:=t.transformPeerListToMap(nodes[nodeKey].node.Server().Peers(), nodes)
+		for k:=range connectionsList {
+			if _, ok:=m[k]; ok {
+				continue
+			}
+			nodes[nodeKey].node.Server().AddPeer(nodes[k].node.Server().Self())
+		}
+		for k:=range m {
+			if _, ok:=connectionsList[k]; ok {
+				continue
+			}
+			nodes[nodeKey].node.Server().RemovePeer(nodes[k].node.Server().Self())
+		}
+	}
+
+	return nil
+}
+
+func (t *Topology) transformPeerListToMap(peers []*p2p.Peer, nodes map[string]*testNode) map[string]struct{}  {
+	m:=make(map[string]struct{})
+	mapper:=make(map[enode.ID]string, len(nodes))
+	for index,n:=range nodes {
+		mapper[n.node.Server().Self().ID()] = index
+	}
+	for _,v:=range peers {
+		index,ok:=mapper[v.Node().ID()]
+		if ok {
+			m[index]= struct{}{}
+		} else {
+			panic("Node doesn't exists")
+		}
+	}
+	return m
+
+}
+func (t *Topology) getEdges(blockNum uint64) []*graph.Edge  {
+	var edges []*graph.Edge
+	if t.WithChanges() {
+		for _,v:=range t.graph.SubGraphs {
+			blockNumStr:=strings.TrimPrefix(v.Name,"b")
+			parsed,_:=strconv.ParseUint(blockNumStr, 10, 64)
+			if blockNum >= parsed {
+				edges=v.Edges
+			}
+		}
+		if edges==nil {
+			return nil
+		}
+	} else {
+		edges = t.graph.Edges
+	}
+	return edges
+}
+
+func (t *Topology) getChangesBlocks() (map[uint64]struct{}, error)  {
+	m:=make(map[uint64]struct{})
+	if t.WithChanges() {
+		for _,v:=range t.graph.SubGraphs {
+			blockNumStr:=strings.TrimPrefix(v.Name,"b")
+			parsed,err:=strconv.ParseUint(blockNumStr, 10, 64)
+			if err!=nil {
+				return nil, err
+			}
+			m[parsed]= struct{}{}
+
+		}
+	}
+	return m, nil
+}
+func (t *Topology) getPeerConnections(edges []*graph.Edge) map[string]map[string] struct{} {
+	res:=make(map[string]map[string]struct{})
+	for _,v:=range edges {
+		m, ok:=res[v.LeftNode]
+		if !ok {
+			m=make(map[string]struct{})
+		}
+		m[v.RightNode] = struct{}{}
+		res[v.LeftNode]= m
+
+		m, ok=res[v.RightNode]
+		if !ok {
+			m=make(map[string]struct{})
+		}
+		m[v.LeftNode] = struct{}{}
+		res[v.RightNode]= m
+	}
+	return res
+}
+
+func (t *Topology) CheckTopology(nodes map[string]*testNode) error {
+	blockNum:=maxNumOfBlockMum(nodes)
+	edges:=t.getEdges(blockNum)
+	connections:=t.getPeerConnections(edges)
+
+	for i,v:=range connections {
+		peers:=nodes[i].node.Server().Peers()
+		m:=t.transformPeerListToMap(peers, nodes)
+		if !reflect.DeepEqual(v, m) {
+			spew.Dump(m)
+			spew.Dump(v)
+			spew.Dump(connections)
+			return fmt.Errorf("CheckTopology incorrect topology for block %v for node %v", blockNum, i)
+
+		}
+	}
+
+	return nil
+}
+
+func (t *Topology) FullTopology(nodes map[string]*testNode) map[string]map[string]struct{} {
+	m:=make(map[string]map[string]struct{})
+	for i,v:=range nodes {
+		peers:=v.node.Server().Peers()
+		byPeer:=t.transformPeerListToMap(peers, nodes)
+		m[i] = byPeer
+	}
+
+	return m
+}
+
+func (t *Topology) DumpTopology(nodes map[string]*testNode) string {
+	m:=t.FullTopology(nodes)
+	s:=""
+	for i:=range m {
+		s+=i+"\n"
+		s+=dumpConnections(i, m[i])
+		s+="\n"
+	}
+	return s
+
+}
+func (t *Topology) CheckTopologyForIndex(index string, nodes map[string]*testNode) error {
+	node:=nodes[index]
+	blockNum:=node.lastBlock
+	if t.WithChanges() {
+		m, err:=t.getChangesBlocks()
+		if err!=nil {
+			return err
+		}
+		if _,ok:= m[blockNum]; ok {
+			return nil
+		}
+		if _,ok:= m[blockNum-1]; ok {
+			return nil
+		}
+		if _,ok:= m[blockNum-2]; ok {
+			return nil
+		}
+		if _,ok:= m[blockNum-3]; ok {
+			return nil
+		}
+		if _,ok:= m[blockNum-4]; ok {
+			return nil
+		}
+		if _,ok:= m[blockNum-5]; ok {
+			return nil
+		}
+	}
+	edges:=t.getEdges(blockNum)
+	allConnections:=t.getPeerConnections(edges)
+	indexConnections:=allConnections[index]
+	peers:=node.node.Server().Peers()
+	m:=t.transformPeerListToMap(peers, nodes)
+	if !reflect.DeepEqual(indexConnections, m) {
+		fmt.Println("current", dumpConnections(index,m))
+		fmt.Println()
+		fmt.Println("must", dumpConnections(index,indexConnections))
+		return fmt.Errorf("CheckTopologyForIndex incorrect topology for %v for block %v",index, blockNum)
+	}
+	return nil
+}
+
+func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode) error {
+	blockNum:=nodes[index].lastBlock
+	ch,err:=t.getChangesBlocks()
+	if err!=nil {
+		return err
+	}
+	if _, ok:=ch[blockNum]; !ok {
+		return nil
+	}
+	edges:=t.getEdges(blockNum)
+	if len(edges)==0 {
+		return nil
+	}
+	fmt.Println("+ConnectNodesForIndex", index)
+	defer fmt.Println("-ConnectNodesForIndex", index)
+	allConnections:=t.getPeerConnections(edges)
+	graphConnections :=allConnections[index]
+	fmt.Println(dumpConnections(index, graphConnections))
+	fmt.Println()
+	peers:=nodes[index].node.Server().Peers()
+	currentConnections :=t.transformPeerListToMap(peers, nodes)
+	for k:=range currentConnections {
+		if _, ok:= graphConnections[k]; ok {
+			continue
+		}
+		fmt.Println("node", index, "removes to", k)
+		nodes[index].node.Server().RemovePeer(nodes[k].node.Server().Self())
+		nodes[index].node.Server().RemoveTrustedPeer(nodes[k].node.Server().Self())
+	}
+
+	for k:=range graphConnections {
+		if _, ok:= currentConnections[k]; ok {
+			continue
+		}
+		fmt.Println("node", index, "connects to", k)
+		nodes[index].node.Server().AddPeer(nodes[k].node.Server().Self())
+		nodes[index].node.Server().AddTrustedPeer(nodes[k].node.Server().Self())
+	}
+
+	return nil
+}
 func getNodeNames() []string {
 	return []string{
 		"VA", "VB", "VC", "VD", "VE", "VF", "VG", "VH", "VI", "VJ", "VK",
@@ -362,4 +608,28 @@ func getNodeNamesByPrefix(names []string, typ string) []string {
 		}
 	}
 	return validators
+}
+
+func maxNumOfBlockMum(nodes map[string]*testNode) uint64 {
+	m:=make(map[uint64]int)
+	for i:=range nodes {
+		m[nodes[i].lastBlock]++
+	}
+	var max int
+	var blockNum uint64
+	for i,v:=range m {
+		if v>max {
+			max=v
+			blockNum=i
+		}
+	}
+	return blockNum
+}
+
+func dumpConnections(index string, nodes map[string]struct{}) string  {
+	s:=""
+	for i:=range nodes {
+		s+=index+"---"+i+"\n"
+	}
+	return s
 }

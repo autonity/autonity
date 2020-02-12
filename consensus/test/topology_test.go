@@ -112,3 +112,284 @@ func TestTendermintBusSuccess(t *testing.T) {
 		})
 	}
 }
+
+func TestTendermintChangeTopologyFromBusToStarSuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	topologyStr := `graph TB
+    subgraph b1
+		VA---VB
+		VC---VB
+		VD---VC
+		VE---VD
+    end
+    subgraph b7
+		VA---VB
+		VA---VC
+		VA---VD
+		VA-->VE
+	end
+`
+
+	topology, err := graph.Parse(strings.NewReader(topologyStr))
+	if err != nil {
+		t.Fatal("parse error")
+	}
+
+	cases := []*testCase{
+		{
+			name:          "no malicious",
+			numValidators: 5,
+			numBlocks:     20,
+			txPerPeer:     1,
+			topology: &Topology{
+				graph: *topology,
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintChangeTopologyFromStarToBusSuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	topologyStr := `graph TB
+    subgraph b1
+		VA---VB
+		VA---VC
+		VA---VD
+		VA-->VE
+	end
+    subgraph b7
+		VA---VB
+		VC---VB
+		VD---VC
+		VE---VD
+    end
+
+`
+
+	topology, err := graph.Parse(strings.NewReader(topologyStr))
+	if err != nil {
+		t.Fatal("parse error")
+	}
+
+	cases := []*testCase{
+		{
+			name:          "no malicious",
+			numValidators: 5,
+			numBlocks:     20,
+			txPerPeer:     1,
+			topology: &Topology{
+				graph: *topology,
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintAddConnectionToTopologySuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	topologyStr := `graph TB
+    subgraph b1
+		VA---VB
+		VC---VB
+		VD---VC
+		VE---VD
+    end
+    subgraph b7
+		VA---VB
+		VA---VC
+		VC---VB
+		VD---VC
+		VE---VD
+	end
+`
+
+	topology, err := graph.Parse(strings.NewReader(topologyStr))
+	if err != nil {
+		t.Fatal("parse error")
+	}
+
+	cases := []*testCase{
+		{
+			name:          "no malicious",
+			numValidators: 5,
+			numBlocks:     10,
+			txPerPeer:     1,
+			topology: &Topology{
+				graph: *topology,
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintAddValidatorsToTopologySuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	topologyStr := `graph TB
+    subgraph b1
+		VA---VB
+		VC---VB
+		VD---VC
+		VE---VD
+		VF---VG
+    end
+    subgraph b7
+		VA---VB
+		VA---VF
+		VC---VB
+		VD---VC
+		VE---VD
+		VF---VG
+	end
+`
+
+	topology, err := graph.Parse(strings.NewReader(topologyStr))
+	if err != nil {
+		t.Fatal("parse error")
+	}
+
+	cases := []*testCase{
+		{
+			name:          "no malicious",
+			numValidators: 5,
+			numBlocks:     10,
+			txPerPeer:     1,
+			topology: &Topology{
+				graph: *topology,
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintAddParticipantsToTopologySuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	topologyStr := `graph TB
+    subgraph b1
+		VA---VB
+		VC---VB
+		VD---VC
+		VE---VD
+		PF---PG
+    end
+    subgraph b7
+		VA---VB
+		VA---PF
+		VC---VB
+		VD---VC
+		VE---VD
+		PF---PG
+	end
+`
+
+	topology, err := graph.Parse(strings.NewReader(topologyStr))
+	if err != nil {
+		t.Fatal("parse error")
+	}
+
+	cases := []*testCase{
+		{
+			name:          "no malicious",
+			numValidators: 5,
+			numBlocks:     10,
+			txPerPeer:     1,
+			topology: &Topology{
+				graph: *topology,
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
+func TestTendermintAddStakeholdersToTopologySuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	topologyStr := `graph TB
+    subgraph b1
+		VA---VB
+		VC---VB
+		VD---VC
+		VE---VD
+		SF---SG
+    end
+    subgraph b7
+		VA---VB
+		VA---SF
+		VC---VB
+		VD---VC
+		VE---VD
+		SF---SG
+	end
+`
+
+	topology, err := graph.Parse(strings.NewReader(topologyStr))
+	if err != nil {
+		t.Fatal("parse error")
+	}
+
+	cases := []*testCase{
+		{
+			name:          "no malicious",
+			numValidators: 5,
+			numBlocks:     10,
+			txPerPeer:     1,
+			topology: &Topology{
+				graph: *topology,
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}

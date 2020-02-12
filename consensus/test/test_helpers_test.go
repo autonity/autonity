@@ -240,6 +240,13 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 		})
 	}
 	err := wg.Wait()
+	if err != nil {
+		if test.topology!=nil {
+			fmt.Println(test.topology.DumpTopology(validators))
+		}
+		t.Fatal(err)
+	}
+
 	keys := make([]int, 0, len(txs))
 	for key := range txs {
 		keys = append(keys, int(key))
@@ -256,9 +263,6 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 		validator.transactionsMu.Lock()
 		fmt.Printf("Validator %s has %d transactions\n", index, len(validator.transactions))
 		validator.transactionsMu.Unlock()
-	}
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	// no blocks can be mined with no quorum
@@ -354,7 +358,7 @@ func hookStartNode(nodeIndex string, durationAfterStop float64) hook {
 	}
 }
 
-func runNode(ctx context.Context, validator *testNode, test *testCase, validators map[string]*testNode, logger log.Logger, index string, blocksToWait int, txs map[uint64]int, txsMu sync.Locker, errorOnTx bool, txPerPeer int, names []string) error {
+func  runNode(ctx context.Context, validator *testNode, test *testCase, validators map[string]*testNode, logger log.Logger, index string, blocksToWait int, txs map[uint64]int, txsMu sync.Locker, errorOnTx bool, txPerPeer int, names []string) error {
 	var err error
 	testCanBeStopped := new(uint32)
 	fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
@@ -363,6 +367,11 @@ wgLoop:
 	for {
 		select {
 		case ev := <-validator.eventChan:
+			err=test.topology.ConnectNodesForIndex(index, validators)
+			if err != nil {
+				return err
+			}
+
 			if _, ok := validator.blocks[ev.Block.NumberU64()]; ok {
 				continue
 			}
@@ -425,6 +434,13 @@ wgLoop:
 			if err != nil {
 				return err
 			}
+
+			err:=test.topology.CheckTopologyForIndex(index, validators)
+			if err != nil {
+				logger.Error("check topology err", "index",index,"block", validator.lastBlock,"err", err)
+				return err
+			}
+
 
 			if int(validator.lastBlock) > test.numBlocks {
 				//all transactions were included into the chain
