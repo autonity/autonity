@@ -18,10 +18,6 @@ package eth
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"math/big"
-
 	"sync"
 	"testing"
 	"time"
@@ -29,6 +25,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/forkid"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
@@ -153,96 +150,6 @@ func TestStatusMsgErrors64(t *testing.T) {
 			t.Errorf("protocol did not shut down within 2 seconds")
 		}
 		p.close()
-	}
-}
-
-func TestForkIDSplit(t *testing.T) {
-	var (
-		engine = ethash.NewFaker()
-
-		configNoFork  = &params.ChainConfig{HomesteadBlock: big.NewInt(1)}
-		configProFork = &params.ChainConfig{
-			HomesteadBlock: big.NewInt(1),
-			EIP150Block:    big.NewInt(2),
-			EIP155Block:    big.NewInt(2),
-			EIP158Block:    big.NewInt(2),
-			ByzantiumBlock: big.NewInt(3),
-		}
-		dbNoFork  = rawdb.NewMemoryDatabase()
-		dbProFork = rawdb.NewMemoryDatabase()
-
-		gspecNoFork  = &core.Genesis{Config: configNoFork}
-		gspecProFork = &core.Genesis{Config: configProFork}
-
-		genesisNoFork  = gspecNoFork.MustCommit(dbNoFork)
-		genesisProFork = gspecProFork.MustCommit(dbProFork)
-
-		chainNoFork, _  = core.NewBlockChain(dbNoFork, nil, configNoFork, engine, vm.Config{}, nil, core.NewTxSenderCacher())
-		chainProFork, _ = core.NewBlockChain(dbProFork, nil, configProFork, engine, vm.Config{}, nil, core.NewTxSenderCacher())
-
-		blocksNoFork, _  = core.GenerateChain(configNoFork, genesisNoFork, engine, dbNoFork, 2, nil)
-		blocksProFork, _ = core.GenerateChain(configProFork, genesisProFork, engine, dbProFork, 2, nil)
-
-		ethNoFork, _  = NewProtocolManager(configNoFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainNoFork, dbNoFork, 1, nil)
-		ethProFork, _ = NewProtocolManager(configProFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainProFork, dbProFork, 1, nil)
-	)
-	ethNoFork.Start(1000)
-	ethProFork.Start(1000)
-
-	// Both nodes should allow the other to connect (same genesis, next fork is the same)
-	p2pNoFork, p2pProFork := p2p.MsgPipe()
-	peerNoFork := newPeer(64, p2p.NewPeer(enode.ID{1}, "", nil), p2pNoFork)
-	peerProFork := newPeer(64, p2p.NewPeer(enode.ID{2}, "", nil), p2pProFork)
-
-	errc := make(chan error, 2)
-	go func() { errc <- ethNoFork.handle(peerProFork) }()
-	go func() { errc <- ethProFork.handle(peerNoFork) }()
-
-	select {
-	case err := <-errc:
-		t.Fatalf("frontier nofork <-> profork failed: %v", err)
-	case <-time.After(250 * time.Millisecond):
-		p2pNoFork.Close()
-		p2pProFork.Close()
-	}
-	// Progress into Homestead. Fork's match, so we don't care what the future holds
-	chainNoFork.InsertChain(blocksNoFork[:1])
-	chainProFork.InsertChain(blocksProFork[:1])
-
-	p2pNoFork, p2pProFork = p2p.MsgPipe()
-	peerNoFork = newPeer(64, p2p.NewPeer(enode.ID{1}, "", nil), p2pNoFork)
-	peerProFork = newPeer(64, p2p.NewPeer(enode.ID{2}, "", nil), p2pProFork)
-
-	errc = make(chan error, 2)
-	go func() { errc <- ethNoFork.handle(peerProFork) }()
-	go func() { errc <- ethProFork.handle(peerNoFork) }()
-
-	select {
-	case err := <-errc:
-		t.Fatalf("homestead nofork <-> profork failed: %v", err)
-	case <-time.After(250 * time.Millisecond):
-		p2pNoFork.Close()
-		p2pProFork.Close()
-	}
-	// Progress into Spurious. Forks mismatch, signalling differing chains, reject
-	chainNoFork.InsertChain(blocksNoFork[1:2])
-	chainProFork.InsertChain(blocksProFork[1:2])
-
-	p2pNoFork, p2pProFork = p2p.MsgPipe()
-	peerNoFork = newPeer(64, p2p.NewPeer(enode.ID{1}, "", nil), p2pNoFork)
-	peerProFork = newPeer(64, p2p.NewPeer(enode.ID{2}, "", nil), p2pProFork)
-
-	errc = make(chan error, 2)
-	go func() { errc <- ethNoFork.handle(peerProFork) }()
-	go func() { errc <- ethProFork.handle(peerNoFork) }()
-
-	select {
-	case err := <-errc:
-		if want := errResp(ErrForkIDRejected, forkid.ErrLocalIncompatibleOrStale.Error()); err.Error() != want.Error() {
-			t.Fatalf("fork ID rejection error mismatch: have %v, want %v", err, want)
-		}
-	case <-time.After(250 * time.Millisecond):
-		t.Fatalf("split peers not rejected")
 	}
 }
 

@@ -529,8 +529,7 @@ func (srv *Server) Start() (err error) {
 	// Static nodes logic is used to handle returned Whitelist and will be populated via the eth service.
 	log.Info("Private-network mode enabled.")
 	srv.NoDiscovery = true
-	srv.StaticNodes = nil
-	srv.TrustedNodes = nil
+
 	srv.discmix = enode.NewFairMix(discmixTimeout)
 	dialer = newDialState(srv.localnode.ID(), 0, &Config{NetRestrict: srv.Config.NetRestrict})
 
