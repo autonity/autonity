@@ -129,22 +129,16 @@ func (ms *messageSet) AllBlockHashMessages(blockHash common.Hash) []Message {
 	return result
 }
 
-func (ms *messageSet) hasMessage(h common.Hash, m Message) bool {
+func (ms *messageSet) hasMessage(m Message) bool {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
 
-	var addressesMap map[common.Address]Message
-	var ok bool
-
-	if addressesMap, ok = ms.votes[h]; !ok {
-		return false
+	for _, addressMap := range ms.votes {
+		if _, ok := addressMap[m.Address]; ok {
+			return true
+		}
 	}
-
-	if _, ok = addressesMap[m.Address]; !ok {
-		return false
-	}
-
-	return true
+	return false
 }
 
 func (ps *proposalSet) proposal() Proposal {

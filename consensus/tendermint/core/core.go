@@ -441,6 +441,7 @@ func (c *core) getAllRoundMessages() []*Message {
 	return messages
 }
 
+// Determine if we already have vote from the sender
 func (c *core) hasVote(v Vote, m *Message) bool {
 	var votes messageSet
 	voteRound := v.Round.Int64()
@@ -459,7 +460,7 @@ func (c *core) hasVote(v Vote, m *Message) bool {
 		}
 		votes = *precommitsSet
 	}
-	return votes.hasMessage(v.ProposedBlockHash, *m)
+	return votes.hasMessage(*m)
 }
 
 func (c *core) getProposalSet(round int64) *proposalSet {
