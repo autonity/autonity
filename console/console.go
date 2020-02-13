@@ -230,10 +230,12 @@ func (c *Console) init(preload []string) error {
 // contract in the console context.
 func (c *Console) contractBinding() {
 	message := "The backend contract binds to JS object: autonity!"
-		if _, err := c.jsre.Run(`
-		var abi = JSON.parse(tendermint.getContractABI());
-		var addr = tendermint.getContractAddress();
-		var autonity = eth.contract(abi).at(addr);
+	if _, err := c.jsre.Run(`
+		if (typeof(tendermint) != 'undefined') {
+			var abi = JSON.parse(tendermint.getContractABI());
+			var addr = tendermint.getContractAddress();
+			var autonity = eth.contract(abi).at(addr);
+		}
 	`); err != nil {
 		fmt.Fprintln(c.printer, "contract binding failed: ", err)
 		return
