@@ -185,6 +185,7 @@ eventLoop:
 			if !ok {
 				break eventLoop
 			}
+			c.logger.Debug("Started handling timeoutEvent...")
 			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
 				switch timeoutE.step {
 				case msgProposal:
@@ -195,13 +196,16 @@ eventLoop:
 					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
 			}
+			c.logger.Debug("Finished handling timeoutEvent...")
 		case ev, ok := <-c.committedSub.Chan():
 			if !ok {
 				break eventLoop
 			}
+			c.logger.Debug("Started handling commitEvent...")
 			if _, ok := ev.Data.(events.CommitEvent); ok {
 				c.handleCommit(ctx)
 			}
+			c.logger.Debug("Finished handling commitEvent...")
 		case <-ctx.Done():
 			c.logger.Info("handleConsensusEvents is stopped", "event", ctx.Err())
 			break eventLoop
