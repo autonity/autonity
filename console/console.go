@@ -220,7 +220,25 @@ func (c *Console) init(preload []string) error {
 		}
 		c.prompter.SetWordCompleter(c.AutoCompleteInput)
 	}
+	
+	// Bind autontiy contract with JS object.
+	c.contractBinding()
 	return nil
+}
+
+// contractBinding() binds JS object with the client's autonity
+// contract in the console context.
+func (c *Console) contractBinding() {
+	message := "The backend contract binds to JS object: autonity!"
+		if _, err := c.jsre.Run(`
+		var abi = JSON.parse(tendermint.getContractABI());
+		var addr = tendermint.getContractAddress();
+		var autonity = eth.contract(abi).at(addr);
+	`); err != nil {
+		fmt.Fprintln(c.printer, "contract binding failed: ", err)
+		return
+	}
+	fmt.Fprintln(c.printer, message)
 }
 
 func (c *Console) clearHistory() {
