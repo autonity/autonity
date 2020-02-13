@@ -298,6 +298,7 @@ func (ac *Contract) upgradeAbiCache(newAbi string) error {
 	ac.contractABI = &newABI
 	return nil
 }
+
 func (ac *Contract) RPCGetContractABI() string {
 	ac.Lock()
 	defer ac.Unlock()
@@ -310,5 +311,4 @@ func (ac *Contract) RPCGetContractABI() string {
 
 	return JSONString
 }
-
 
