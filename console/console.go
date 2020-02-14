@@ -236,7 +236,6 @@ func (c *Console) contractBinding() {
 		}
 	`); err != nil {
 		fmt.Fprintln(c.printer, "contract binding failed: ", err)
-		return
 	}
 }
 
