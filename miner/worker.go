@@ -171,6 +171,12 @@ type worker struct {
 	running int32 // The indicator whether the consensus engine is running or not.
 	newTxs  int32 // New arrival transaction count since last sealing work submitting.
 
+	hooks
+
+	initOnce sync.Once
+}
+
+type hooks struct {
 	// External functions
 	isLocalBlock func(block *types.Block) bool // Function used to determine whether the specified block is mined by local miner.
 
@@ -181,7 +187,7 @@ type worker struct {
 	resubmitHook func(time.Duration, time.Duration) // Method to call upon updating resubmitting interval.
 }
 
-func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool) *worker {
+func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, h hooks, init bool) *worker {
 	worker := &worker{
 		config:             config,
 		chainConfig:        chainConfig,
@@ -189,43 +195,26 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		eth:                eth,
 		mux:                mux,
 		chain:              eth.BlockChain(),
-		isLocalBlock:       isLocalBlock,
+		hooks:              h,
 		localUncles:        make(map[common.Hash]*types.Block),
 		remoteUncles:       make(map[common.Hash]*types.Block),
 		unconfirmed:        newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),
 		pendingTasks:       make(map[common.Hash]*task),
+		newWorkCh:          make(chan *newWorkReq, 1),
+		taskCh:             make(chan *task, 1),
 		txsCh:              make(chan core.NewTxsEvent, txChanSize),
 		chainHeadCh:        make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:        make(chan core.ChainSideEvent, chainSideChanSize),
-		newWorkCh:          make(chan *newWorkReq, 1),
-		taskCh:             make(chan *task, 1),
 		resultCh:           make(chan *types.Block, resultQueueSize),
 		exitCh:             make(chan struct{}),
 		startCh:            make(chan struct{}, 1),
 		resubmitIntervalCh: make(chan time.Duration),
 		resubmitAdjustCh:   make(chan *intervalAdjust, resubmitAdjustChanSize),
 	}
-	// Subscribe NewTxsEvent for tx pool
-	worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
-	// Subscribe events for blockchain
-	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
-	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
-
-	// Sanitize recommit interval if the user-specified one is too short.
-	recommit := worker.config.Recommit
-	if recommit < minRecommitInterval {
-		log.Warn("Sanitizing miner recommit interval", "provided", recommit, "updated", minRecommitInterval)
-		recommit = minRecommitInterval
-	}
-
-	go worker.mainLoop()
-	go worker.newWorkLoop(recommit)
-	go worker.resultLoop()
-	go worker.taskLoop()
 
 	// Submit first work to initialize pending state.
 	if init {
-		worker.startCh <- struct{}{}
+		worker.init()
 	}
 	return worker
 }
@@ -268,23 +257,57 @@ func (w *worker) pendingBlock() *types.Block {
 	return w.snapshotBlock
 }
 
+func (w *worker) init() {
+	w.initOnce.Do(func() {
+		// Subscribe NewTxsEvent for tx pool
+		w.txsSub = w.eth.TxPool().SubscribeNewTxsEvent(w.txsCh)
+
+		// Subscribe events for blockchain
+		w.chainHeadSub = w.eth.BlockChain().SubscribeChainHeadEvent(w.chainHeadCh)
+		w.chainSideSub = w.eth.BlockChain().SubscribeChainSideEvent(w.chainSideCh)
+
+		// Sanitize recommit interval if the user-specified one is too short.
+		recommit := w.config.Recommit
+		if recommit < minRecommitInterval {
+			log.Warn("Sanitizing miner recommit interval", "provided", recommit, "updated", minRecommitInterval)
+			recommit = minRecommitInterval
+		}
+
+		go w.mainLoop()
+		go w.newWorkLoop(recommit)
+		go w.resultLoop()
+		go w.taskLoop()
+	})
+}
+
+type starter interface {
+	Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
+}
+
 // start sets the running status as 1 and triggers new work submitting.
 func (w *worker) start() {
-	atomic.StoreInt32(&w.running, 1)
-	if pos, ok := w.engine.(consensus.BFT); ok {
-		err := pos.Start(context.Background(), w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
-		if err != nil {
-			log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)
-		}
-	}
+	if atomic.CompareAndSwapInt32(&w.running, 0, 1) {
+		if pos, ok := w.engine.(starter); ok {
+			w.init()
 
-	w.startCh <- struct{}{}
+			err := pos.Start(context.Background(), w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
+			if err != nil {
+				log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)
+			}
+		}
+
+		w.startCh <- struct{}{}
+	}
+}
+
+type closer interface {
+	Close() error
 }
 
 // stop sets the running status as 0.
 func (w *worker) stop() {
 	atomic.StoreInt32(&w.running, 0)
-	if pos, ok := w.engine.(consensus.BFT); ok {
+	if pos, ok := w.engine.(closer); ok {
 		err := pos.Close()
 		if err != nil {
 			log.Error("Error stopping Consensus Engine", "error", err)

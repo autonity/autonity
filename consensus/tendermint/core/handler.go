@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -59,10 +60,10 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 	c.currentRoundState.Update(big.NewInt(0), height)
 
-	//We need a separate go routine to keep c.latestPendingUnminedBlock up to date
+	// We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent(ctx)
 
-	//We want to sequentially handle all the event which modify the current consensus state
+	// We want to sequentially handle all the event which modify the current consensus state
 	go c.handleConsensusEvents(ctx)
 
 	go c.backend.HandleUnhandledMsgs(ctx)
@@ -73,10 +74,16 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 // Stop implements core.Engine.Stop
 func (c *core) Stop() error {
 	// prevent double stop
+	if atomic.LoadUint32(c.isStarted) != 1 {
+		fmt.Println("1")
+		return nil
+	}
 	if atomic.LoadUint32(c.isStopped) == 1 {
+		fmt.Println("2")
 		return nil
 	}
 	if !atomic.CompareAndSwapUint32(c.isStopping, 0, 1) {
+		fmt.Println("3")
 		return nil
 	}
 	defer func() {
