@@ -311,4 +311,3 @@ func (ac *Contract) RPCGetContractABI() string {
 
 	return JSONString
 }
-

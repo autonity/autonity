@@ -226,8 +226,7 @@ func (c *Console) init(preload []string) error {
 	return nil
 }
 
-// contractBinding() binds JS object with the client's autonity
-// contract in the console context.
+// contractBinding binds JS object with the client's autonity contract in the console context.
 func (c *Console) contractBinding() {
 	if _, err := c.jsre.Run(`
 		if (typeof(tendermint) != 'undefined') {
