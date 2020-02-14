@@ -298,8 +298,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
 		Root:       root,
-		Committee: g.Committee,
-		Round:     new(big.Int).SetInt64(0),
+		Committee:  g.Committee,
+		Round:      new(big.Int).SetInt64(0),
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
@@ -343,14 +343,14 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
 	if g.Config.AutonityContractConfig != nil {
-		enodes := []string{}
+		enodes := make([]string, 0, len(g.Config.AutonityContractConfig.Users))
 		for _, v := range g.Config.AutonityContractConfig.Users {
 			if v.Enode != "" {
 				enodes = append(enodes, v.Enode)
 			}
 		}
 
-		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodes, true))
+		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodes))
 	}
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
