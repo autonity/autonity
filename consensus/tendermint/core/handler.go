@@ -155,6 +155,22 @@ func (c *core) handleConsensusEvents(ctx context.Context) {
 eventLoop:
 	for {
 		select {
+		case ev, ok := <-c.startRoundEventSub.Chan():
+			if !ok {
+				break eventLoop
+			}
+
+			c.logger.Debug("Started handling StartRoundEvent...")
+			if startRoundEvent, ok := ev.Data.(StartRoundEvent); ok {
+				c.startRound(ctx, big.NewInt(startRoundEvent.round))
+			}
+			c.logger.Debug("Finished handling StartRoundEvent...")
+			continue
+		default:
+			// make select statement non-blocking if no start round events
+		}
+
+		select {
 		case ev, ok := <-c.messageEventSub.Chan():
 			if !ok {
 				break eventLoop
@@ -165,10 +181,10 @@ eventLoop:
 					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) empty payload")
 				}
 
-				c.logger.Debug("Started handling messageEvent...")
+				c.logger.Debug("Started handling MessageEvent...")
 				if err := c.handleMsg(ctx, messageE.Payload); err != nil {
 					c.logger.Debug("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
-					c.logger.Debug("Finished handling messageEvent...")
+					c.logger.Debug("Finished handling MessageEvent...")
 					continue
 				}
 				c.backend.Gossip(ctx, c.valSet.Copy(), messageE.Payload)
@@ -185,7 +201,7 @@ eventLoop:
 			if !ok {
 				break eventLoop
 			}
-			c.logger.Debug("Started handling timeoutEvent...")
+			c.logger.Debug("Started handling TimeoutEvent...")
 			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
 				switch timeoutE.step {
 				case msgProposal:
@@ -196,16 +212,16 @@ eventLoop:
 					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
 			}
-			c.logger.Debug("Finished handling timeoutEvent...")
+			c.logger.Debug("Finished handling TimeoutEvent...")
 		case ev, ok := <-c.committedSub.Chan():
 			if !ok {
 				break eventLoop
 			}
-			c.logger.Debug("Started handling commitEvent...")
+			c.logger.Debug("Started handling CommitEvent...")
 			if _, ok := ev.Data.(events.CommitEvent); ok {
 				c.handleCommit(ctx)
 			}
-			c.logger.Debug("Finished handling commitEvent...")
+			c.logger.Debug("Finished handling CommitEvent...")
 		case <-ctx.Done():
 			c.logger.Info("handleConsensusEvents is stopped", "event", ctx.Err())
 			break eventLoop
