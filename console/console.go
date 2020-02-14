@@ -220,7 +220,6 @@ func (c *Console) init(preload []string) error {
 		}
 		c.prompter.SetWordCompleter(c.AutoCompleteInput)
 	}
-	
 	// Bind autontiy contract with JS object.
 	c.contractBinding()
 	return nil
