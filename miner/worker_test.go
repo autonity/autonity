@@ -174,11 +174,11 @@ func newTestWorkerBackend(t *testing.T, testCase *testCase, chainConfig *params.
 func (b *testWorkerBackend) BlockChain() *core.BlockChain { return b.chain }
 func (b *testWorkerBackend) TxPool() *core.TxPool         { return b.txPool }
 
-func newTestWorker(t *testCase, chainConfig *params.ChainConfig, engine consensus.Engine, backend Backend, h hooks, waitInit bool) *worker {
+func newTestWorker(t *testCase, chainConfig *params.ChainConfig, engine consensus.Engine, backend Backend, h hooks, waitStart bool) *worker {
 	w := newWorker(t.testConfig, chainConfig, engine, backend, new(event.TypeMux), h, true)
 	w.setEtherbase(t.testBankAddress)
-	if waitInit {
-		w.init()
+	if waitStart {
+		w.start()
 
 		// Ensure worker has finished initialization
 		timer := time.NewTicker(10 * time.Millisecond)
@@ -276,7 +276,9 @@ func testGenerateBlockAndImport(t *testing.T, testCase *testCase) {
 	w.skipSealHook = func(task *task) bool {
 		return len(task.receipts) == 0
 	}
+	
 	w.start() // Start mining!
+	
 	go listenNewBlock()
 
 	for i := 0; i < 5; i++ {
@@ -312,12 +314,9 @@ func testEmptyWork(t *testing.T, testCase *testCase, chainConfig *params.ChainCo
 	defer engine.Close()
 
 	backend := newTestBackend(t, testCase, chainConfig, engine, rawdb.NewMemoryDatabase(), 0)
-
 	var (
 		taskIndex int
 		taskCh    = make(chan struct{}, 2)
-
-		h hooks
 	)
 	checkEqual := func(t *testing.T, task *task, index int) {
 		// The first empty work without any txs included
@@ -333,25 +332,27 @@ func testEmptyWork(t *testing.T, testCase *testCase, chainConfig *params.ChainCo
 			t.Fatalf("account balance mismatch: have %d, want %d", task.state.GetBalance(testCase.testUserAddress), balance)
 		}
 	}
-	h.newTaskHook = func(task *task) {
-		if task.block.NumberU64() == 1 {
-			checkEqual(t, task, taskIndex)
-			taskIndex += 1
-			taskCh <- struct{}{}
-		}
-	}
-	h.skipSealHook = func(task *task) bool { return true }
-	h.fullTaskHook = func() {
-		// Arch64 unit tests are running in a VM on travis, they must
-		// be given more time to execute.
-		time.Sleep(time.Second)
+
+	h := hooks{
+		newTaskHook: func(task *task) {
+			if task.block.NumberU64() == 1 {
+				checkEqual(t, task, taskIndex)
+				taskIndex++
+				taskCh <- struct{}{}
+			}
+		},
+		skipSealHook: func(task *task) bool { return true },
+		fullTaskHook: func() {
+			// Arch64 unit tests are running in a VM on travis, they must
+			// be given more time to execute.
+			time.Sleep(time.Second)
+		},
 	}
 
 	w := newTestWorker(testCase, chainConfig, engine, backend, h, true)
 	defer w.close()
 
-	w.start() // Start mining!
-	for i := 0; i < 2; i += 1 {
+	for i := 0; i < 2; i++ {
 		select {
 		case <-taskCh:
 		case <-time.NewTimer(3 * time.Second).C:
@@ -387,7 +388,7 @@ func TestStreamUncleBlock(t *testing.T) {
 				}
 			}
 			taskCh <- struct{}{}
-			taskIndex += 1
+			taskIndex++
 		}
 	}
 	h.skipSealHook = func(task *task) bool {
@@ -400,9 +401,7 @@ func TestStreamUncleBlock(t *testing.T) {
 	w := newTestWorker(testCase, testCase.ethashChainConfig, ethash, b, h, true)
 	defer w.close()
 
-	w.start()
-
-	for i := 0; i < 2; i += 1 {
+	for i := 0; i < 2; i++ {
 		select {
 		case <-taskCh:
 		case <-time.NewTimer(time.Second).C:
@@ -450,7 +449,7 @@ func testRegenerateMiningBlock(t *testing.T, testCase *testCase, chainConfig *pa
 				}
 			}
 			taskCh <- struct{}{}
-			taskIndex += 1
+			taskIndex++
 		}
 	}
 	h.skipSealHook = func(task *task) bool {
@@ -463,9 +462,8 @@ func testRegenerateMiningBlock(t *testing.T, testCase *testCase, chainConfig *pa
 	w := newTestWorker(testCase, chainConfig, engine, b, h, true)
 	defer w.close()
 
-	w.start()
 	// Ignore the first two works
-	for i := 0; i < 2; i += 1 {
+	for i := 0; i < 2; i++ {
 		select {
 		case <-taskCh:
 		case <-time.NewTimer(time.Second).C:
@@ -539,14 +537,12 @@ func testAdjustInterval(t *testing.T, testCase *testCase, chainConfig *params.Ch
 			t.Errorf("resubmit interval mismatch: have %v, want %v", recommitInterval, wantRecommitInterval)
 		}
 		result = append(result, float64(recommitInterval.Nanoseconds()))
-		index += 1
+		index++
 		progress <- struct{}{}
 	}
 
 	w := newTestWorker(testCase, chainConfig, engine, backend, h, true)
 	defer w.close()
-
-	w.start()
 
 	time.Sleep(time.Second) // Ensure two tasks have been summitted due to start opt
 	atomic.StoreUint32(&start, 1)
