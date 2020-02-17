@@ -276,9 +276,9 @@ func testGenerateBlockAndImport(t *testing.T, testCase *testCase) {
 	w.skipSealHook = func(task *task) bool {
 		return len(task.receipts) == 0
 	}
-	
+
 	w.start() // Start mining!
-	
+
 	go listenNewBlock()
 
 	for i := 0; i < 5; i++ {
