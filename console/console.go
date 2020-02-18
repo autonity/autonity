@@ -229,9 +229,9 @@ func (c *Console) init(preload []string) error {
 func (c *Console) contractBinding() {
 	if _, err := c.jsre.Run(`
 		if (typeof(tendermint) != 'undefined') {
-			var abi = JSON.parse(tendermint.getContractABI());
-			var addr = tendermint.getContractAddress();
-			var autonity = eth.contract(abi).at(addr);
+			var autonity_contract_abi = JSON.parse(tendermint.getContractABI());
+			var autonity_contract_addr = tendermint.getContractAddress();
+			var autonity = eth.contract(autonity_contract_abi).at(autonity_contract_addr);
 		}
 	`); err != nil {
 		fmt.Fprintln(c.printer, "contract binding failed: ", err)
