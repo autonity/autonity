@@ -326,7 +326,6 @@ func TestServerAtCap(t *testing.T) {
 	trustedID := enode.PubkeyToIDV4(&trustedNode.PublicKey)
 	srv := &Server{
 		Config: Config{
-			OpenNetwork:  true,
 			PrivateKey:   newkey(),
 			MaxPeers:     10,
 			NoDial:       true,
