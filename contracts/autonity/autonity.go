@@ -299,7 +299,7 @@ func (ac *Contract) upgradeAbiCache(newAbi string) error {
 	return nil
 }
 
-func (ac *Contract) RPCGetContractABI() string {
+func (ac *Contract) GetContractABI() string {
 	ac.Lock()
 	defer ac.Unlock()
 
