@@ -140,7 +140,7 @@ func signV4Compat(r *enr.Record, pubkey *ecdsa.PublicKey) {
 // ID in the record without any signature.
 type NullID struct{}
 
-func (NullID) Verify(r *enr.Record, sig []byte) error {
+func (NullID) Verify(_ *enr.Record, _ []byte) error {
 	return nil
 }
 
