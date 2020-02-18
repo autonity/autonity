@@ -215,7 +215,7 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 }
 
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
-	log.Info("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
+	log.Error("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
 
 	// dump contract stateBefore first.
 	stateBefore, errState := ac.callRetrieveState(statedb, header)
