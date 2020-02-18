@@ -165,7 +165,7 @@ eventLoop:
 				c.startRound(ctx, big.NewInt(startRoundEvent.round))
 			}
 			c.logger.Debug("Finished handling StartRoundEvent...")
-			continue
+			continue eventLoop
 		default:
 			// make select statement non-blocking if no start round events
 		}
@@ -185,7 +185,7 @@ eventLoop:
 				if err := c.handleMsg(ctx, messageE.Payload); err != nil {
 					c.logger.Debug("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
 					c.logger.Debug("Finished handling MessageEvent...")
-					continue
+					continue eventLoop
 				}
 				c.backend.Gossip(ctx, c.valSet.Copy(), messageE.Payload)
 				c.logger.Debug("Finished handling messageEvent...")
