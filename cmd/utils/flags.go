@@ -631,10 +631,6 @@ var (
 		Usage: "Comma separated enode URLs for P2P v5 discovery bootstrap (light server, light nodes)",
 		Value: "",
 	}
-	OpenNetworkFlag = cli.BoolFlag{
-		Name:  "open-network",
-		Usage: "Disable network permissioning feature, allow anyone to connect to the network.",
-	}
 	NodeKeyFileFlag = cli.StringFlag{
 		Name:  "nodekey",
 		Usage: "P2P node key file",
@@ -1091,8 +1087,6 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	setBootstrapNodes(ctx, cfg)
 	setBootstrapNodesV5(ctx, cfg)
 
-	cfg.OpenNetwork = ctx.GlobalBool(OpenNetworkFlag.Name)
-
 	lightClient := ctx.GlobalString(SyncModeFlag.Name) == "light"
 	lightServer := (ctx.GlobalInt(LightLegacyServFlag.Name) != 0 || ctx.GlobalInt(LightServeFlag.Name) != 0)
 
@@ -1461,8 +1455,6 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	if ctx.GlobalIsSet(RPCGlobalGasCap.Name) {
 		cfg.RPCGasCap = new(big.Int).SetUint64(ctx.GlobalUint64(RPCGlobalGasCap.Name))
 	}
-
-	cfg.OpenNetwork = ctx.GlobalBool(OpenNetworkFlag.Name)
 
 	// Override any default configs for hard coded networks.
 	switch {

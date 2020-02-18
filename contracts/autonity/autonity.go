@@ -51,7 +51,7 @@ type Blockchainer interface {
 	Config() *params.ChainConfig
 
 	UpdateEnodeWhitelist(newWhitelist *types.Nodes)
-	ReadEnodeWhitelist(openNetwork bool) *types.Nodes
+	ReadEnodeWhitelist() *types.Nodes
 
 	PutKeyValue(key []byte, value []byte) error
 	GetKeyValue(key []byte) ([]byte, error)
@@ -156,7 +156,7 @@ func (ac *Contract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.
 
 	if block.Number().Uint64() == 1 {
 		// use genesis block whitelist
-		newWhitelist = ac.bc.ReadEnodeWhitelist(false)
+		newWhitelist = ac.bc.ReadEnodeWhitelist()
 	} else {
 		// call retrieveWhitelist contract function
 		newWhitelist, err = ac.callGetWhitelist(db, block.Header())

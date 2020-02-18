@@ -106,13 +106,11 @@ type ProtocolManager struct {
 	wg sync.WaitGroup
 
 	engine consensus.Engine
-
-	openNetwork bool
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, openNetwork bool) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
@@ -127,7 +125,6 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
 		engine:      engine,
-		openNetwork: openNetwork,
 		whitelistCh: make(chan core.WhitelistEvent, 64),
 	}
 
@@ -207,7 +204,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		return n, err
 	}
 	manager.fetcher = fetcher.New(blockchain.GetBlockByHash, validator, manager.BroadcastBlock, heighter, inserter, manager.removePeer)
-	manager.enodesWhitelist = rawdb.ReadEnodeWhitelist(chaindb, openNetwork).List
+	manager.enodesWhitelist = rawdb.ReadEnodeWhitelist(chaindb).List
 	return manager, nil
 }
 
@@ -283,10 +280,8 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.minedBroadcastLoop()
 
 	// update peers whitelist
-	if !pm.openNetwork {
-		pm.whitelistSub = pm.blockchain.SubscribeAutonityEvents(pm.whitelistCh)
-		go pm.glienickeEventLoop()
-	}
+	pm.whitelistSub = pm.blockchain.SubscribeAutonityEvents(pm.whitelistCh)
+	go pm.glienickeEventLoop()
 
 	// start sync handlers
 	go pm.syncer()
@@ -298,9 +293,7 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
-	if !pm.openNetwork {
-		pm.whitelistSub.Unsubscribe() // quits glienickeEventLoop
-	}
+	pm.whitelistSub.Unsubscribe()  // quits glienickeEventLoop
 
 	// Quit the sync loop.
 	// After this send has completed, no new peers will be accepted.
@@ -362,29 +355,27 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		return err
 	}
 
-	if !pm.openNetwork {
-		whitelisted := false
-		pm.enodesWhitelistLock.RLock()
-		for _, enode := range pm.enodesWhitelist {
-			if p.Node().ID() == enode.ID() {
-				whitelisted = true
-				break
-			}
+	whitelisted := false
+	pm.enodesWhitelistLock.RLock()
+	for _, enode := range pm.enodesWhitelist {
+		if p.Node().ID() == enode.ID() {
+			whitelisted = true
+			break
 		}
-
-		pm.enodesWhitelistLock.RUnlock()
-		if !whitelisted && p.td.Uint64() <= head.Number.Uint64()+1 {
-			p.Log().Info("dropping unauthorized peer with old TD",
-				"whitelisted", whitelisted,
-				"enode", p.Node().ID(),
-				"peersTD", p.td.Uint64(),
-				"currentTD", head.Number.Uint64()+1,
-			)
-
-			return errUnauthaurizedPeer
-		}
-		// Todo : pause relaying if not whitelisted until full sync
 	}
+
+	pm.enodesWhitelistLock.RUnlock()
+	if !whitelisted && p.td.Uint64() <= head.Number.Uint64()+1 {
+		p.Log().Info("dropping unauthorized peer with old TD",
+			"whitelisted", whitelisted,
+			"enode", p.Node().ID(),
+			"peersTD", p.td.Uint64(),
+			"currentTD", head.Number.Uint64()+1,
+		)
+
+		return errUnauthaurizedPeer
+	}
+	// Todo : pause relaying if not whitelisted until full sync
 
 	if rw, ok := p.rw.(*meteredMsgReadWriter); ok {
 		rw.Init(p.version)
