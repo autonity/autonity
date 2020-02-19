@@ -299,12 +299,21 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          file: ./coverage/tendermint*
-          flags: tendermint
+          file: ./coverage/coverage.out
           yml: ./codecov.yml
+
+  coverage-reports-tendermint:
+    needs: [start_stop_test2, start_stop_test1, autonity_test, race_tests, start_stop_tests, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download coverage
+        uses: actions/download-artifact@v1
+        with:
+          name: coverage
 
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          file: ./coverage/coverage.out
+          file: [./coverage/tendermint1.cov ./coverage/tendermint2.cov ./coverage/tendermint3.cov ./coverage/tendermint4.cov ./coverage/tendermint5.cov ./coverage/tendermint6.cov ./coverage/tendermint7.cov ./coverage/tendermint8.cov ./coverage/tendermint9.cov ./coverage/tendermint10.cov]
+          flags: tendermint
           yml: ./codecov.yml
