@@ -299,8 +299,8 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          file: ./coverage/coverage.out
-          yml: ./codecov.yml
+          file: coverage/coverage.out
+          yml: codecov.yml
 
   coverage-reports-tendermint:
     needs: [start_stop_test2, start_stop_test1, autonity_test, race_tests, start_stop_tests, tests]
@@ -318,6 +318,6 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          file: ./coverage/result.cov
+          file: coverage/result.cov
           flags: tendermint
-          yml: ./codecov.yml
+          yml: codecov.yml
