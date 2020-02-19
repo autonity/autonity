@@ -55,20 +55,19 @@ jobs:
         run: go run build/ci.go test -coverage $TEST_PACKAGES
 
       - name: success_test_e2e
-        run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint1.cov
+        run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=tendermint1.cov
 
-      - uses: codecov/codecov-action@v1
+      - name: Upload results
+        uses: actions/upload-artifact@v1
         with:
-          token: ${{ secrets.codecov_upload }}
-          file: ./coverage_tendermint1.cov
-          flags: tendermint
-          yml: ./codecov.yml
+          name: coverage
+          path: tendermint1.cov
 
-      - uses: codecov/codecov-action@v1
+      - name: Upload results
+        uses: actions/upload-artifact@v1
         with:
-          token: ${{ secrets.codecov_upload }}
-          file: ./coverage.out
-          yml: ./codecov.yml
+          name: coverage
+          path: coverage.out
 
   start_stop_tests:
     runs-on: ubuntu-latest
@@ -94,14 +93,13 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Test2
-        run: go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_tendermint2.cov
+        run: go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=tendermint2.cov
 
-      - uses: codecov/codecov-action@v1
+      - name: Upload results
+        uses: actions/upload-artifact@v1
         with:
-          token: ${{ secrets.codecov_upload }}
-          file: ./coverage_tendermint2.cov
-          flags: tendermint
-          yml: ./codecov.yml
+          name: coverage
+          path: tendermint2.cov
 
   race_tests:
     runs-on: ubuntu-latest
@@ -127,24 +125,22 @@ jobs:
         uses: actions/checkout@v2
 
       - name: unit
-        run: go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint3.cov
+        run: go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=tendermint3.cov
 
       - name: e2e
-        run: go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_tendermint4.cov
+        run: go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=tendermint4.cov
 
-      - uses: codecov/codecov-action@v1
+      - name: Upload results
+        uses: actions/upload-artifact@v1
         with:
-          token: ${{ secrets.codecov_upload }}
-          file: ./coverage_tendermint3.cov
-          flags: tendermint
-          yml: ./codecov.yml
+          name: coverage
+          path: tendermint3.cov
 
-      - uses: codecov/codecov-action@v1
+      - name: Upload results
+        uses: actions/upload-artifact@v1
         with:
-          token: ${{ secrets.codecov_upload }}
-          file: ./coverage_tendermint4.cov
-          flags: tendermint
-          yml: ./codecov.yml
+          name: coverage
+          path: tendermint4.cov
 
   autonity_test:
     runs-on: ubuntu-latest
@@ -170,24 +166,22 @@ jobs:
         uses: actions/checkout@v2
 
       - name: TestCheckBlockWithSmallFee
-        run: go test ./consensus/test/... -v -run 'TestCheckBlockWithSmallFee' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_tendermint5.cov
+        run: go test ./consensus/test/... -v -run 'TestCheckBlockWithSmallFee' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=tendermint5.cov
 
       - name: TestCheckFeeRedirectionAndRedistribution
-        run: go test ./consensus/test/... -v -run 'TestCheckFeeRedirectionAndRedistribution' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_tendermint6.cov
+        run: go test ./consensus/test/... -v -run 'TestCheckFeeRedirectionAndRedistribution' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=tendermint6.cov
 
-      - uses: codecov/codecov-action@v1
+      - name: Upload results
+        uses: actions/upload-artifact@v1
         with:
-          token: ${{ secrets.codecov_upload }}
-          file: ./coverage_tendermint5.cov
-          flags: tendermint
-          yml: ./codecov.yml
+          name: coverage
+          path: tendermint5.cov
 
-      - uses: codecov/codecov-action@v1
+      - name: Upload results
+        uses: actions/upload-artifact@v1
         with:
-          token: ${{ secrets.codecov_upload }}
-          file: ./coverage_tendermint6.cov
-          flags: tendermint
-          yml: ./codecov.yml
+          name: coverage
+          path: tendermint6.cov
 
   start_stop_test1:
     runs-on: ubuntu-latest
@@ -213,24 +207,22 @@ jobs:
         uses: actions/checkout@v2
 
       - name: TestTendermintStartStopFNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_tendermint7.cov
+        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=tendermint7.cov
 
       - name: TestTendermintStartStopFPlusTwoNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_tendermint8.cov
+        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=tendermint8.cov
 
-      - uses: codecov/codecov-action@v1
+      - name: Upload results
+        uses: actions/upload-artifact@v1
         with:
-          token: ${{ secrets.codecov_upload }}
-          file: ./coverage_tendermint7.cov
-          flags: tendermint
-          yml: ./codecov.yml
+          name: coverage
+          path: tendermint7.cov
 
-      - uses: codecov/codecov-action@v1
+      - name: Upload results
+        uses: actions/upload-artifact@v1
         with:
-          token: ${{ secrets.codecov_upload }}
-          file: ./coverage_tendermint8.cov
-          flags: tendermint
-          yml: ./codecov.yml
+          name: coverage
+          path: tendermint8.cov
 
   start_stop_test2:
     runs-on: ubuntu-latest
@@ -256,23 +248,39 @@ jobs:
         uses: actions/checkout@v2
 
       - name: TestTendermintStartStopFPlusOneNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_tendermint9.cov
+        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=tendermint9.cov
 
       - name: TestTendermintStartStopAllNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_tendermint10.cov
+        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=tendermint10.cov
+
+      - name: Upload results
+        uses: actions/upload-artifact@v1
+        with:
+          name: coverage
+          path: tendermint9.cov
+
+      - name: Upload results
+        uses: actions/upload-artifact@v1
+        with:
+          name: coverage
+          path: tendermint10.cov
+
+      - name: Download coverage
+        uses: actions/download-artifact@v1
+        with:
+          name: coverage
 
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          file: ./coverage_tendermint9.cov
+          file: ./coverage/tendermint*
           flags: tendermint
           yml: ./codecov.yml
 
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          file: ./coverage_tendermint10.cov
-          flags: tendermint
+          file: ./coverage/coverage.out
           yml: ./codecov.yml
 
   contract_tests:
