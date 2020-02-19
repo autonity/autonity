@@ -265,6 +265,10 @@ jobs:
           name: coverage
           path: tendermint10.cov
 
+  coverage-reports:
+    needs: [start_stop_test2, start_stop_test1, autonity_test, race_tests, start_stop_tests, tests]
+    runs-on: ubuntu-latest
+    steps:
       - name: Download coverage
         uses: actions/download-artifact@v1
         with:
