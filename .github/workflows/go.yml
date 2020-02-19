@@ -52,7 +52,7 @@ jobs:
         run: go run build/ci.go install
 
       - name: unit tests
-        run: go run build/ci.go test -coverage $TEST_PACKAGES -cover -covermode=atomic -test.coverprofile=coverage_unit.cov
+        run: go run build/ci.go test -coverage $TEST_PACKAGES -cover
 
       - name: success_test_e2e
         run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.cov
@@ -68,7 +68,7 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
-          file: ./coverage_unit.cov
+          file: ./coverage.out
           yml: ./codecov.yml #optional
           fail_ci_if_error: false #optional (default = false)
 
