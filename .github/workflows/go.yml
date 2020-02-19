@@ -61,6 +61,7 @@ jobs:
         with:
           token: ${{ secrets.codecov_upload }}
           file: ./coverage_tendermint1.cov
+          flags: tendermint
           yml: ./codecov.yml
 
       - uses: codecov/codecov-action@v1
