@@ -1,3 +1,5 @@
+codecov:
+  require_ci_to_pass: yes
 ignore:
   - "**/*_mock.go"  # ignore mock files
   - "contracts/autonity/rpcclient/clien_gen.go"  # ignore generated client
