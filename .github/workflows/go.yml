@@ -52,7 +52,7 @@ jobs:
         run: go run build/ci.go install
 
       - name: unit tests
-        run: go run build/ci.go test -coverage $TEST_PACKAGES
+        run: go run build/ci.go test -coverage $TEST_PACKAGES -cover -covermode=atomic -test.coverprofile=coverage_unit.cov
 
       - name: success_test_e2e
         run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.cov
@@ -60,8 +60,15 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
-          file: ./coverage_*.cov #optional
+          file: ./coverage_tendermint.cov #optional
           flags: tendermint #optional
+          yml: ./codecov.yml #optional
+          fail_ci_if_error: false #optional (default = false)
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }} #required
+          file: ./coverage_unit.cov
           yml: ./codecov.yml #optional
           fail_ci_if_error: false #optional (default = false)
 
@@ -94,7 +101,7 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
-          file: ./coverage*.cov #optional
+          file: ./coverage_start_stop.cov
           flags: tendermint #optional
           yml: ./codecov.yml #optional
           fail_ci_if_error: false #optional (default = false)
@@ -131,7 +138,15 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
-          file: ./coverage*.out #optional
+          file: ./coverage.out
+          flags: tendermint #optional
+          yml: ./codecov.yml #optional
+          fail_ci_if_error: false #optional (default = false)
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }} #required
+          file: ./coverage_tendermint.cov
           flags: tendermint #optional
           yml: ./codecov.yml #optional
           fail_ci_if_error: false #optional (default = false)
@@ -168,7 +183,15 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
-          file: ./coverage*.out #optional
+          file: ./coverage_tenderming.cov
+          flags: tendermint #optional
+          yml: ./codecov.yml #optional
+          fail_ci_if_error: false #optional (default = false)
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }} #required
+          file: ./coverage.cov
           flags: tendermint #optional
           yml: ./codecov.yml #optional
           fail_ci_if_error: false #optional (default = false)
@@ -202,6 +225,22 @@ jobs:
       - name: TestTendermintStartStopFPlusTwoNodes
         run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 40m -coverpkg=./... -cover -covermode=atomic -test.coverprofile=coverage_many.cov
 
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }} #required
+          file: ./coverage_many.cov
+          flags: tendermint #optional
+          yml: ./codecov.yml #optional
+          fail_ci_if_error: false #optional (default = false)
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }} #required
+          file: ./coverage.cov
+          flags: tendermint #optional
+          yml: ./codecov.yml #optional
+          fail_ci_if_error: false #optional (default = false)
+
   start_stop_test2:
     runs-on: ubuntu-latest
     env:
@@ -234,7 +273,15 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
-          file: ./coverage*.cov #optional
+          file: ./coverage_tendermint.cov
+          flags: tendermint #optional
+          yml: ./codecov.yml #optional
+          fail_ci_if_error: false #optional (default = false)
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }} #required
+          file: ./coverage_all.cov
           flags: tendermint #optional
           yml: ./codecov.yml #optional
           fail_ci_if_error: false #optional (default = false)
@@ -260,5 +307,4 @@ jobs:
         uses: actions/checkout@v2
       - name: test contract
         run: make test-contracts
-
 
