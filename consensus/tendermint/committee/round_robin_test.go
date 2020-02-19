@@ -3,6 +3,7 @@ package committee
 import (
 	"bytes"
 	"fmt"
+	"github.com/clearmatics/autonity/core/types"
 	"reflect"
 	"testing"
 
@@ -88,9 +89,9 @@ func TestRoundRobinProposer(t *testing.T) {
 
 	testCases := []struct {
 		size     int
-		round    uint64
+		round    int64
 		proposer common.Address
-		pick     uint64
+		pick     int
 	}{
 		// size is greater than pick
 		{
@@ -216,16 +217,16 @@ func TestRoundRobinProposer(t *testing.T) {
 
 			if testCase.proposer != proposerZeroAddress {
 				index := 1
-				validator := NewMockValidator(ctrl)
+				validator := types.CommitteeMember{}
 				validatorSet.EXPECT().
 					GetByAddress(gomock.Eq(testCase.proposer)).
-					Return(index, validator)
+					Return(index, validator, nil)
 			}
 
-			expectedValidator := NewMockValidator(ctrl)
+			expectedValidator := types.CommitteeMember{}
 			validatorSet.EXPECT().
 				GetByIndex(gomock.Eq(testCase.pick)).
-				Return(expectedValidator)
+				Return(expectedValidator, nil)
 
 			val := roundRobinProposer(validatorSet, testCase.proposer, testCase.round)
 			if !reflect.DeepEqual(val, expectedValidator) {

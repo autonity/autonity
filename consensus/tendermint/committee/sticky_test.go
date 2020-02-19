@@ -3,6 +3,7 @@ package committee
 import (
 	"bytes"
 	"fmt"
+	"github.com/clearmatics/autonity/core/types"
 	"reflect"
 	"testing"
 
@@ -15,9 +16,8 @@ func TestCalcSeedNotFoundProposer(t *testing.T) {
 
 	testCases := []struct {
 		validatorIndex int
-		round          uint64
-
-		resultOffset uint64
+		round          int64
+		resultOffset   int
 	}{
 		{
 			round:        0,
@@ -46,7 +46,7 @@ func TestCalcSeedNotFoundProposer(t *testing.T) {
 			validatorSet := NewMockSet(ctrl)
 			validatorSet.EXPECT().
 				GetByAddress(gomock.Eq(proposerAddress)).
-				Return(testCase.validatorIndex, nil)
+				Return(testCase.validatorIndex, types.CommitteeMember{}, nil)
 
 			res := calcSeed(validatorSet, proposerAddress, testCase.round)
 			if res != testCase.resultOffset {
@@ -61,9 +61,9 @@ func TestCalcSeedWithProposer(t *testing.T) {
 
 	testCases := []struct {
 		validatorIndex int
-		round          uint64
+		round          int64
 
-		resultOffset uint64
+		resultOffset int
 	}{
 		{
 			validatorIndex: 0,
@@ -156,87 +156,15 @@ func TestCalcSeedWithProposer(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			validator := NewMockValidator(ctrl)
+			validator := types.CommitteeMember{}
 			validatorSet := NewMockSet(ctrl)
 			validatorSet.EXPECT().
 				GetByAddress(gomock.Eq(proposerAddress)).
-				Return(testCase.validatorIndex, validator)
+				Return(testCase.validatorIndex, validator, nil)
 
 			res := calcSeed(validatorSet, proposerAddress, testCase.round)
 			if res != testCase.resultOffset {
 				t.Errorf("got %d, expected %d", res, testCase.resultOffset)
-			}
-		})
-	}
-}
-
-func TestStickyProposerZeroSize(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	proposerAddress := common.BytesToAddress(bytes.Repeat([]byte{1}, common.AddressLength))
-	proposerZeroAddress := common.Address{}
-
-	testCases := []struct {
-		size     int
-		round    uint64
-		proposer common.Address
-	}{
-		{
-			size:     0,
-			round:    0,
-			proposer: proposerZeroAddress,
-		},
-		{
-			size:     0,
-			round:    1,
-			proposer: proposerZeroAddress,
-		},
-		{
-			size:     0,
-			round:    2,
-			proposer: proposerZeroAddress,
-		},
-		{
-			size:     0,
-			round:    10,
-			proposer: proposerZeroAddress,
-		},
-
-		{
-			size:     0,
-			round:    0,
-			proposer: proposerAddress,
-		},
-		{
-			size:     0,
-			round:    1,
-			proposer: proposerAddress,
-		},
-		{
-			size:     0,
-			round:    2,
-			proposer: proposerAddress,
-		},
-		{
-			size:     0,
-			round:    10,
-			proposer: proposerAddress,
-		},
-	}
-
-	for _, testCase := range testCases {
-		testCase := testCase
-		t.Run(fmt.Sprintf("validator is zero address, round %d", testCase.round), func(t *testing.T) {
-			validatorSet := NewMockSet(ctrl)
-
-			validatorSet.EXPECT().
-				Size().
-				Return(testCase.size)
-
-			val := stickyProposer(validatorSet, proposerAddress, testCase.round)
-			if val != nil {
-				t.Errorf("got wrond validator %v, expected nil", val)
 			}
 		})
 	}
@@ -251,7 +179,7 @@ func TestStickyProposer(t *testing.T) {
 
 	testCases := []struct {
 		size     int
-		round    uint64
+		round    int64
 		proposer common.Address
 		pick     uint64
 	}{
@@ -375,16 +303,16 @@ func TestStickyProposer(t *testing.T) {
 
 			if testCase.proposer != proposerZeroAddress {
 				index := 1
-				validator := NewMockValidator(ctrl)
+				validator := types.CommitteeMember{}
 				validatorSet.EXPECT().
 					GetByAddress(gomock.Eq(testCase.proposer)).
-					Return(index, validator)
+					Return(index, validator, nil)
 			}
 
-			expectedValidator := NewMockValidator(ctrl)
+			expectedValidator := types.CommitteeMember{}
 			validatorSet.EXPECT().
 				GetByIndex(gomock.Eq(testCase.pick)).
-				Return(expectedValidator)
+				Return(expectedValidator, nil)
 
 			val := stickyProposer(validatorSet, testCase.proposer, testCase.round)
 			if !reflect.DeepEqual(val, expectedValidator) {

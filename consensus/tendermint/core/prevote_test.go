@@ -247,14 +247,14 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote given at pre-vote step, non-nil pre-commit sent", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet := newTestCommitteeSet(4)
+		committeeSet := newTestCommitteeSet(1)
 		logger := log.New("backend", "test", "id", 0)
 
 		proposal := NewProposal(
 			2,
 			big.NewInt(3),
 			1,
-			types.NewBlockWithHeader(&types.Header{}))
+			types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)}))
 
 		message := newMessagesMap()
 		curRoundMessage := message.getOrCreate(2)
