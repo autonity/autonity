@@ -265,28 +265,6 @@ jobs:
           name: coverage
           path: tendermint10.cov
 
-  coverage-reports:
-    needs: [start_stop_test2, start_stop_test1, autonity_test, race_tests, start_stop_tests, tests]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download coverage
-        uses: actions/download-artifact@v1
-        with:
-          name: coverage
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: ./coverage/tendermint*
-          flags: tendermint
-          yml: ./codecov.yml
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: ./coverage/coverage.out
-          yml: ./codecov.yml
-
   contract_tests:
     runs-on: ubuntu-latest
     env:
@@ -309,3 +287,24 @@ jobs:
       - name: test contract
         run: make test-contracts
 
+  coverage-reports:
+    needs: [start_stop_test2, start_stop_test1, autonity_test, race_tests, start_stop_tests, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download coverage
+        uses: actions/download-artifact@v1
+        with:
+          name: coverage
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }}
+          file: ./coverage/tendermint*
+          flags: tendermint
+          yml: ./codecov.yml
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }}
+          file: ./coverage/coverage.out
+          yml: ./codecov.yml
