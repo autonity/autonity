@@ -21,8 +21,8 @@ const (
 	defaultTTL        = 120
 )
 
-func NewNodes(strList []string, openNetwork bool) *Nodes {
-	getEnode := getParseFunc(openNetwork)
+func NewNodes(strList []string) *Nodes {
+	getEnode := getParseFunc()
 
 	idx := new(int32)
 	wg := sync.WaitGroup{}
@@ -63,10 +63,10 @@ func NewNodes(strList []string, openNetwork bool) *Nodes {
 		log.Error("enodes parse errors", "errs", spew.Sdump(errs))
 	}
 
-	return filterNodes(n, openNetwork)
+	return filterNodes(n)
 }
 
-func filterNodes(n *Nodes, openNetwork bool) *Nodes {
+func filterNodes(n *Nodes) *Nodes {
 	filtered := &Nodes{
 		make([]*enode.Node, 0, len(n.List)),
 		make([]string, 0, len(n.StrList)),
@@ -76,20 +76,15 @@ func filterNodes(n *Nodes, openNetwork bool) *Nodes {
 		if node != nil {
 			filtered.List = append(filtered.List, node)
 			filtered.StrList = append(filtered.StrList, n.StrList[i])
-		} else if openNetwork {
-			// we want to store raw enodes for later checks
-			filtered.StrList = append(filtered.StrList, n.StrList[i])
 		}
 	}
 
 	return filtered
 }
 
-func getParseFunc(openNetwork bool) func(string) (*enode.Node, error) {
+func getParseFunc() func(string) (*enode.Node, error) {
 	getEnode := enode.ParseV4WithResolve
-	if !openNetwork {
-		getEnode = enode.GetParseV4WithResolveMaxTry(maxParseTries, delayBetweenTries)
-	}
+	getEnode = enode.GetParseV4WithResolveMaxTry(maxParseTries, delayBetweenTries)
 	return getEnode
 }
 

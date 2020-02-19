@@ -1,6 +1,5 @@
 run:
   deadline: 20m
-modules-download-mode: readonly
 
 linters:
   enable:
