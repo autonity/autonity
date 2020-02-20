@@ -15,3 +15,5 @@ flags:
   tendermint:
     paths:
       - consensus/tendermint
+comment:
+  behavior: new
