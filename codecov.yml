@@ -1,10 +1,7 @@
-codecov:
-  require_ci_to_pass: yes
 ignore:
   - "**/*_mock.go"  # ignore mock files
   - "**/*_gen.go"  # ignore generated client
   - "**/mock*.go"
-  - "**/*_mock.go"
 coverage:
   status:
     project:
