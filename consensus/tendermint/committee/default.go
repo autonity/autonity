@@ -85,7 +85,6 @@ func (set *defaultSet) Committee() types.Committee {
 }
 
 func (set *defaultSet) GetByIndex(i int) (types.CommitteeMember, error) {
-	// this would panic if i out of bound, but this should never happen.
 	if i < 0 || i >= len(set.members) {
 		return types.CommitteeMember{}, consensus.ErrCommitteeMemberNotFound
 	}

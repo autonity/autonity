@@ -181,7 +181,7 @@ func TestStickyProposer(t *testing.T) {
 		size     int
 		round    int64
 		proposer common.Address
-		pick     uint64
+		pick     int
 	}{
 		// size is greater than pick
 		{
