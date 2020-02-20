@@ -75,6 +75,15 @@ jobs:
           yml: ./codecov.yml #optional
           fail_ci_if_error: false #optional (default = false)
 
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }} #required
+          file: ./coverage.out #optional
+          flags: tendermint
+          yml: ./codecov.yml #optional
+          fail_ci_if_error: false #optional (default = false)
+
+
   start_stop_tests:
     runs-on: ubuntu-latest
     env:
