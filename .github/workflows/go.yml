@@ -390,6 +390,7 @@ jobs:
           path: tendermint10.cov
 
   contract_tests:
+    needs: [coverage-reports]
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
