@@ -18,6 +18,9 @@ jobs:
       - name: Build
         run: make autonity
 
+      - name: Install
+        run: go run build/ci.go install
+
       - run: |
           git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
 
@@ -49,11 +52,37 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
-      - name: Install
-        run: go run build/ci.go install
-
       - name: unit tests
         run: go run build/ci.go test -coverage $TEST_PACKAGES
+
+      - name: Upload results
+        uses: actions/upload-artifact@v1
+        with:
+          name: coverage
+          path: coverage.out
+
+  tests-tendermint:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on
+      GORACE: "history_size=7"
+    steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Set GOPATH
+        # temporary fix
+        # see https://github.com/actions/setup-go/issues/14
+        run: |
+          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+        shell: bash
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
 
       - name: success_test_e2e
         run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=tendermint1.cov
@@ -63,12 +92,6 @@ jobs:
         with:
           name: coverage
           path: tendermint1.cov
-
-      - name: Upload results
-        uses: actions/upload-artifact@v1
-        with:
-          name: coverage
-          path: coverage.out
 
   start_stop_tests:
     runs-on: ubuntu-latest
@@ -381,7 +404,7 @@ jobs:
         run: make test-contracts
 
   coverage-reports:
-    needs: [tests, start_stop_tests, race_tests, tendermint-success-test, autonity_test-small-fee, autonity_test-fee-redistribution, start_stop_test-f, start_stop_test-f-plus-2, start_stop_test-f-plus-1, start_stop_test-all-nodes]
+    needs: [tests-tendermint, tests, start_stop_tests, race_tests, tendermint-success-test, autonity_test-small-fee, autonity_test-fee-redistribution, start_stop_test-f, start_stop_test-f-plus-2, start_stop_test-f-plus-1, start_stop_test-all-nodes]
     runs-on: ubuntu-latest
     steps:
       - name: Download coverage
