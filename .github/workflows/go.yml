@@ -72,7 +72,6 @@ jobs:
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage.out #optional
-          flags: tendermint #optional
           yml: ./codecov.yml #optional
           fail_ci_if_error: false #optional (default = false)
 
