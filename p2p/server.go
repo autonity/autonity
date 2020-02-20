@@ -99,9 +99,6 @@ type Config struct {
 	// Use common.MakeName to create a name that follows existing conventions.
 	Name string `toml:"-"`
 
-	// OpenNetwork disable network permissioning logic
-	OpenNetwork bool
-
 	// BootstrapNodes are used to establish connectivity
 	// with the rest of the network.
 	BootstrapNodes []*enode.Node
@@ -526,26 +523,16 @@ func (srv *Server) Start() (err error) {
 		}
 	}
 
-	dynPeers := srv.maxDialedConns()
-
 	var dialer *dialstate
-	if srv.OpenNetwork {
-		if err := srv.setupDiscovery(); err != nil {
-			return err
-		}
-		dialer = newDialState(srv.localnode.ID(), dynPeers, &srv.Config)
-		log.Info("Open-network mode enabled.")
-	} else {
-		// Discovery protocol is disabled for consortium chains.
-		// Bootnodes are disabled.
-		// Static nodes logic is used to handle returned Whitelist and will be populated via the eth service.
-		log.Info("Private-network mode enabled.")
-		srv.NoDiscovery = true
-		srv.StaticNodes = nil
-		srv.TrustedNodes = nil
-		srv.discmix = enode.NewFairMix(discmixTimeout)
-		dialer = newDialState(srv.localnode.ID(), 0, &Config{NetRestrict: srv.Config.NetRestrict})
-	}
+	// Discovery protocol is disabled for consortium chains.
+	// Bootnodes are disabled.
+	// Static nodes logic is used to handle returned Whitelist and will be populated via the eth service.
+	log.Info("Private-network mode enabled.")
+	srv.NoDiscovery = true
+
+	srv.discmix = enode.NewFairMix(discmixTimeout)
+	dialer = newDialState(srv.localnode.ID(), 0, &Config{NetRestrict: srv.Config.NetRestrict})
+
 	srv.loopWG.Add(1)
 	go srv.run(dialer)
 	return nil

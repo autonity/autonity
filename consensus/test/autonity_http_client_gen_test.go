@@ -28,7 +28,7 @@ var (
 )
 
 // AutonityABI is the input ABI used to generate the binding from.
-const AutonityABI = "[{\"constant\":false,\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_address\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_enode\",\"type\":\"string\"}],\"name\":\"addValidator\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"rate\",\"type\":\"uint256\"}],\"name\":\"setCommissionRate\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_address\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"addStakeholder\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"operatorAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"validators\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"getRate\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"getAccountStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"commission_rate\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getMaxCommitteeSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_size\",\"type\":\"uint256\"}],\"name\":\"setCommitteeSize\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"removeUser\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"committeeSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"enodesWhitelist\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"checkMember\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"committee\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"enumAutonity.UserType\",\"name\":\"userType\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"stake\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_address\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_enode\",\"type\":\"string\"}],\"name\":\"addParticipant\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getStakeholders\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getValidators\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"bondingPeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"mintStake\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getWhitelist\",\"outputs\":[{\"internalType\":\"string[]\",\"name\":\"\",\"type\":\"string[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"send\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_value\",\"type\":\"uint256\"}],\"name\":\"setMinimumGasPrice\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"deployer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"redeemStake\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getMinimumGasPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getCurrentCommiteeSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_participantAddress\",\"type\":\"address[]\"},{\"internalType\":\"string[]\",\"name\":\"_participantEnode\",\"type\":\"string[]\"},{\"internalType\":\"uint256[]\",\"name\":\"_participantType\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"_participantStake\",\"type\":\"uint256[]\"},{\"internalType\":\"address\",\"name\":\"_operatorAccount\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_minGasPrice\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"AddValidator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"AddStakeholder\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"AddParticipant\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"enumAutonity.UserType\",\"name\":\"_type\",\"type\":\"uint8\"}],\"name\":\"RemoveUser\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_gasPrice\",\"type\":\"uint256\"}],\"name\":\"SetMinimumGasPrice\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_value\",\"type\":\"uint256\"}],\"name\":\"SetCommissionRate\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"MintStake\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"RedeemStake\",\"type\":\"event\"}]"
+const AutonityABI = "[{\"constant\":false,\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_address\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_enode\",\"type\":\"string\"}],\"name\":\"addValidator\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"finalize\",\"outputs\":[{\"components\":[{\"internalType\":\"bool\",\"name\":\"result\",\"type\":\"bool\"},{\"internalType\":\"address[]\",\"name\":\"stakeholders\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"rewardfractions\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.RewardDistributionData\",\"name\":\"rewarddistribution\",\"type\":\"tuple\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"dumpEconomicsMetricData\",\"outputs\":[{\"components\":[{\"internalType\":\"address[]\",\"name\":\"accounts\",\"type\":\"address[]\"},{\"internalType\":\"enumAutonity.UserType[]\",\"name\":\"usertypes\",\"type\":\"uint8[]\"},{\"internalType\":\"uint256[]\",\"name\":\"stakes\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"commissionrates\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256\",\"name\":\"mingasprice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"stakesupply\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.EconomicsMetricData\",\"name\":\"economics\",\"type\":\"tuple\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"retrieveState\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"},{\"internalType\":\"string[]\",\"name\":\"\",\"type\":\"string[]\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"rate\",\"type\":\"uint256\"}],\"name\":\"setCommissionRate\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_address\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"addStakeholder\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"operatorAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"validators\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"getRate\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"string\",\"name\":\"_bytecode\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"_abi\",\"type\":\"string\"}],\"name\":\"upgradeContract\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"getAccountStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"retrieveContract\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getMaxCommitteeSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_size\",\"type\":\"uint256\"}],\"name\":\"setCommitteeSize\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"removeUser\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"committeeSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"enodesWhitelist\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"checkMember\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"committee\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"enumAutonity.UserType\",\"name\":\"userType\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"stake\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"commissionRate\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_address\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_enode\",\"type\":\"string\"}],\"name\":\"addParticipant\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getStakeholders\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getValidators\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"bondingPeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"mintStake\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getWhitelist\",\"outputs\":[{\"internalType\":\"string[]\",\"name\":\"\",\"type\":\"string[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"send\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_value\",\"type\":\"uint256\"}],\"name\":\"setMinimumGasPrice\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"deployer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"redeemStake\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"setCommittee\",\"outputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"enumAutonity.UserType\",\"name\":\"userType\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"stake\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"commissionRate\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.User[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getMinimumGasPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getCurrentCommiteeSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_participantAddress\",\"type\":\"address[]\"},{\"internalType\":\"string[]\",\"name\":\"_participantEnode\",\"type\":\"string[]\"},{\"internalType\":\"uint256[]\",\"name\":\"_participantType\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"_participantStake\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"_commissionRate\",\"type\":\"uint256[]\"},{\"internalType\":\"address\",\"name\":\"_operatorAccount\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_minGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_bondingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_committeeSize\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"AddValidator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"AddStakeholder\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_stake\",\"type\":\"uint256\"}],\"name\":\"AddParticipant\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"enumAutonity.UserType\",\"name\":\"_type\",\"type\":\"uint8\"}],\"name\":\"RemoveUser\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_gasPrice\",\"type\":\"uint256\"}],\"name\":\"SetMinimumGasPrice\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_value\",\"type\":\"uint256\"}],\"name\":\"SetCommissionRate\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"MintStake\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"RedeemStake\",\"type\":\"event\"}]"
 
 // Autonity is an auto generated Go binding around an Ethereum contract.
 type Autonity struct {
@@ -172,6 +172,24 @@ func (_Autonity *AutonityTransactorRaw) Transact(opts *bind.TransactOpts, method
 	return _Autonity.Contract.contract.Transact(opts, method, params...)
 }
 
+// Struct1 is an auto generated low-level Go binding around an user-defined struct.
+type Struct1 struct {
+	Accounts        []common.Address
+	Usertypes       []uint8
+	Stakes          []*big.Int
+	Commissionrates []*big.Int
+	Mingasprice     *big.Int
+	Stakesupply     *big.Int
+}
+
+// Struct0 is an auto generated low-level Go binding around an user-defined struct.
+type Struct0 struct {
+	Result          bool
+	Stakeholders    []common.Address
+	Rewardfractions []*big.Int
+	Amount          *big.Int
+}
+
 // BondingPeriod is a free data retrieval call binding the contract method 0xc31c6fb9.
 //
 // Solidity: function bondingPeriod() constant returns(uint256)
@@ -224,46 +242,22 @@ func (_Autonity *AutonityCallerSession) CheckMember(_account common.Address) (bo
 	return _Autonity.Contract.CheckMember(&_Autonity.CallOpts, _account)
 }
 
-// CommissionRate is a free data retrieval call binding the contract method 0x64d7863b.
-//
-// Solidity: function commission_rate(address ) constant returns(uint256)
-func (_Autonity *AutonityCaller) CommissionRate(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _Autonity.contract.Call(opts, out, "commission_rate", arg0)
-	return *ret0, err
-}
-
-// CommissionRate is a free data retrieval call binding the contract method 0x64d7863b.
-//
-// Solidity: function commission_rate(address ) constant returns(uint256)
-func (_Autonity *AutonitySession) CommissionRate(arg0 common.Address) (*big.Int, error) {
-	return _Autonity.Contract.CommissionRate(&_Autonity.CallOpts, arg0)
-}
-
-// CommissionRate is a free data retrieval call binding the contract method 0x64d7863b.
-//
-// Solidity: function commission_rate(address ) constant returns(uint256)
-func (_Autonity *AutonityCallerSession) CommissionRate(arg0 common.Address) (*big.Int, error) {
-	return _Autonity.Contract.CommissionRate(&_Autonity.CallOpts, arg0)
-}
-
 // Committee is a free data retrieval call binding the contract method 0xafe7fcf4.
 //
-// Solidity: function committee(uint256 ) constant returns(address addr, uint8 userType, uint256 stake, string enode)
+// Solidity: function committee(uint256 ) constant returns(address addr, uint8 userType, uint256 stake, string enode, uint256 commissionRate)
 func (_Autonity *AutonityCaller) Committee(opts *bind.CallOpts, arg0 *big.Int) (struct {
-	Addr     common.Address
-	UserType uint8
-	Stake    *big.Int
-	Enode    string
+	Addr           common.Address
+	UserType       uint8
+	Stake          *big.Int
+	Enode          string
+	CommissionRate *big.Int
 }, error) {
 	ret := new(struct {
-		Addr     common.Address
-		UserType uint8
-		Stake    *big.Int
-		Enode    string
+		Addr           common.Address
+		UserType       uint8
+		Stake          *big.Int
+		Enode          string
+		CommissionRate *big.Int
 	})
 	out := ret
 	err := _Autonity.contract.Call(opts, out, "committee", arg0)
@@ -272,24 +266,26 @@ func (_Autonity *AutonityCaller) Committee(opts *bind.CallOpts, arg0 *big.Int) (
 
 // Committee is a free data retrieval call binding the contract method 0xafe7fcf4.
 //
-// Solidity: function committee(uint256 ) constant returns(address addr, uint8 userType, uint256 stake, string enode)
+// Solidity: function committee(uint256 ) constant returns(address addr, uint8 userType, uint256 stake, string enode, uint256 commissionRate)
 func (_Autonity *AutonitySession) Committee(arg0 *big.Int) (struct {
-	Addr     common.Address
-	UserType uint8
-	Stake    *big.Int
-	Enode    string
+	Addr           common.Address
+	UserType       uint8
+	Stake          *big.Int
+	Enode          string
+	CommissionRate *big.Int
 }, error) {
 	return _Autonity.Contract.Committee(&_Autonity.CallOpts, arg0)
 }
 
 // Committee is a free data retrieval call binding the contract method 0xafe7fcf4.
 //
-// Solidity: function committee(uint256 ) constant returns(address addr, uint8 userType, uint256 stake, string enode)
+// Solidity: function committee(uint256 ) constant returns(address addr, uint8 userType, uint256 stake, string enode, uint256 commissionRate)
 func (_Autonity *AutonityCallerSession) Committee(arg0 *big.Int) (struct {
-	Addr     common.Address
-	UserType uint8
-	Stake    *big.Int
-	Enode    string
+	Addr           common.Address
+	UserType       uint8
+	Stake          *big.Int
+	Enode          string
+	CommissionRate *big.Int
 }, error) {
 	return _Autonity.Contract.Committee(&_Autonity.CallOpts, arg0)
 }
@@ -344,6 +340,32 @@ func (_Autonity *AutonitySession) Deployer() (common.Address, error) {
 // Solidity: function deployer() constant returns(address)
 func (_Autonity *AutonityCallerSession) Deployer() (common.Address, error) {
 	return _Autonity.Contract.Deployer(&_Autonity.CallOpts)
+}
+
+// DumpEconomicsMetricData is a free data retrieval call binding the contract method 0x0f4f1176.
+//
+// Solidity: function dumpEconomicsMetricData() constant returns(Struct1 economics)
+func (_Autonity *AutonityCaller) DumpEconomicsMetricData(opts *bind.CallOpts) (Struct1, error) {
+	var (
+		ret0 = new(Struct1)
+	)
+	out := ret0
+	err := _Autonity.contract.Call(opts, out, "dumpEconomicsMetricData")
+	return *ret0, err
+}
+
+// DumpEconomicsMetricData is a free data retrieval call binding the contract method 0x0f4f1176.
+//
+// Solidity: function dumpEconomicsMetricData() constant returns(Struct1 economics)
+func (_Autonity *AutonitySession) DumpEconomicsMetricData() (Struct1, error) {
+	return _Autonity.Contract.DumpEconomicsMetricData(&_Autonity.CallOpts)
+}
+
+// DumpEconomicsMetricData is a free data retrieval call binding the contract method 0x0f4f1176.
+//
+// Solidity: function dumpEconomicsMetricData() constant returns(Struct1 economics)
+func (_Autonity *AutonityCallerSession) DumpEconomicsMetricData() (Struct1, error) {
+	return _Autonity.Contract.DumpEconomicsMetricData(&_Autonity.CallOpts)
 }
 
 // EnodesWhitelist is a free data retrieval call binding the contract method 0xa7b05df5.
@@ -632,6 +654,80 @@ func (_Autonity *AutonityCallerSession) OperatorAccount() (common.Address, error
 	return _Autonity.Contract.OperatorAccount(&_Autonity.CallOpts)
 }
 
+// RetrieveContract is a free data retrieval call binding the contract method 0x61d9d615.
+//
+// Solidity: function retrieveContract() constant returns(string, string)
+func (_Autonity *AutonityCaller) RetrieveContract(opts *bind.CallOpts) (string, string, error) {
+	var (
+		ret0 = new(string)
+		ret1 = new(string)
+	)
+	out := &[]interface{}{
+		ret0,
+		ret1,
+	}
+	err := _Autonity.contract.Call(opts, out, "retrieveContract")
+	return *ret0, *ret1, err
+}
+
+// RetrieveContract is a free data retrieval call binding the contract method 0x61d9d615.
+//
+// Solidity: function retrieveContract() constant returns(string, string)
+func (_Autonity *AutonitySession) RetrieveContract() (string, string, error) {
+	return _Autonity.Contract.RetrieveContract(&_Autonity.CallOpts)
+}
+
+// RetrieveContract is a free data retrieval call binding the contract method 0x61d9d615.
+//
+// Solidity: function retrieveContract() constant returns(string, string)
+func (_Autonity *AutonityCallerSession) RetrieveContract() (string, string, error) {
+	return _Autonity.Contract.RetrieveContract(&_Autonity.CallOpts)
+}
+
+// RetrieveState is a free data retrieval call binding the contract method 0x11879449.
+//
+// Solidity: function retrieveState() constant returns(address[], string[], uint256[], uint256[], uint256[], address, uint256, uint256, uint256)
+func (_Autonity *AutonityCaller) RetrieveState(opts *bind.CallOpts) ([]common.Address, []string, []*big.Int, []*big.Int, []*big.Int, common.Address, *big.Int, *big.Int, *big.Int, error) {
+	var (
+		ret0 = new([]common.Address)
+		ret1 = new([]string)
+		ret2 = new([]*big.Int)
+		ret3 = new([]*big.Int)
+		ret4 = new([]*big.Int)
+		ret5 = new(common.Address)
+		ret6 = new(*big.Int)
+		ret7 = new(*big.Int)
+		ret8 = new(*big.Int)
+	)
+	out := &[]interface{}{
+		ret0,
+		ret1,
+		ret2,
+		ret3,
+		ret4,
+		ret5,
+		ret6,
+		ret7,
+		ret8,
+	}
+	err := _Autonity.contract.Call(opts, out, "retrieveState")
+	return *ret0, *ret1, *ret2, *ret3, *ret4, *ret5, *ret6, *ret7, *ret8, err
+}
+
+// RetrieveState is a free data retrieval call binding the contract method 0x11879449.
+//
+// Solidity: function retrieveState() constant returns(address[], string[], uint256[], uint256[], uint256[], address, uint256, uint256, uint256)
+func (_Autonity *AutonitySession) RetrieveState() ([]common.Address, []string, []*big.Int, []*big.Int, []*big.Int, common.Address, *big.Int, *big.Int, *big.Int, error) {
+	return _Autonity.Contract.RetrieveState(&_Autonity.CallOpts)
+}
+
+// RetrieveState is a free data retrieval call binding the contract method 0x11879449.
+//
+// Solidity: function retrieveState() constant returns(address[], string[], uint256[], uint256[], uint256[], address, uint256, uint256, uint256)
+func (_Autonity *AutonityCallerSession) RetrieveState() ([]common.Address, []string, []*big.Int, []*big.Int, []*big.Int, common.Address, *big.Int, *big.Int, *big.Int, error) {
+	return _Autonity.Contract.RetrieveState(&_Autonity.CallOpts)
+}
+
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
 //
 // Solidity: function totalSupply() constant returns(uint256)
@@ -747,6 +843,27 @@ func (_Autonity *AutonityTransactorSession) AddValidator(_address common.Address
 	return _Autonity.Contract.AddValidator(&_Autonity.TransactOpts, _address, _stake, _enode)
 }
 
+// Finalize is a paid mutator transaction binding the contract method 0x05261aea.
+//
+// Solidity: function finalize(uint256 _amount) returns(Struct0 rewarddistribution)
+func (_Autonity *AutonityTransactor) Finalize(opts *bind.TransactOpts, _amount *big.Int) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "finalize", _amount)
+}
+
+// Finalize is a paid mutator transaction binding the contract method 0x05261aea.
+//
+// Solidity: function finalize(uint256 _amount) returns(Struct0 rewarddistribution)
+func (_Autonity *AutonitySession) Finalize(_amount *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.Finalize(&_Autonity.TransactOpts, _amount)
+}
+
+// Finalize is a paid mutator transaction binding the contract method 0x05261aea.
+//
+// Solidity: function finalize(uint256 _amount) returns(Struct0 rewarddistribution)
+func (_Autonity *AutonityTransactorSession) Finalize(_amount *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.Finalize(&_Autonity.TransactOpts, _amount)
+}
+
 // MintStake is a paid mutator transaction binding the contract method 0xca43c38f.
 //
 // Solidity: function mintStake(address _account, uint256 _amount) returns()
@@ -852,6 +969,27 @@ func (_Autonity *AutonityTransactorSession) SetCommissionRate(rate *big.Int) (*t
 	return _Autonity.Contract.SetCommissionRate(&_Autonity.TransactOpts, rate)
 }
 
+// SetCommittee is a paid mutator transaction binding the contract method 0xf611d7c9.
+//
+// Solidity: function setCommittee() returns((address,uint8,uint256,string,uint256)[])
+func (_Autonity *AutonityTransactor) SetCommittee(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "setCommittee")
+}
+
+// SetCommittee is a paid mutator transaction binding the contract method 0xf611d7c9.
+//
+// Solidity: function setCommittee() returns((address,uint8,uint256,string,uint256)[])
+func (_Autonity *AutonitySession) SetCommittee() (*types.Transaction, error) {
+	return _Autonity.Contract.SetCommittee(&_Autonity.TransactOpts)
+}
+
+// SetCommittee is a paid mutator transaction binding the contract method 0xf611d7c9.
+//
+// Solidity: function setCommittee() returns((address,uint8,uint256,string,uint256)[])
+func (_Autonity *AutonityTransactorSession) SetCommittee() (*types.Transaction, error) {
+	return _Autonity.Contract.SetCommittee(&_Autonity.TransactOpts)
+}
+
 // SetCommitteeSize is a paid mutator transaction binding the contract method 0x8bac7dad.
 //
 // Solidity: function setCommitteeSize(uint256 _size) returns()
@@ -892,6 +1030,27 @@ func (_Autonity *AutonitySession) SetMinimumGasPrice(_value *big.Int) (*types.Tr
 // Solidity: function setMinimumGasPrice(uint256 _value) returns()
 func (_Autonity *AutonityTransactorSession) SetMinimumGasPrice(_value *big.Int) (*types.Transaction, error) {
 	return _Autonity.Contract.SetMinimumGasPrice(&_Autonity.TransactOpts, _value)
+}
+
+// UpgradeContract is a paid mutator transaction binding the contract method 0x48953929.
+//
+// Solidity: function upgradeContract(string _bytecode, string _abi) returns(bool)
+func (_Autonity *AutonityTransactor) UpgradeContract(opts *bind.TransactOpts, _bytecode string, _abi string) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "upgradeContract", _bytecode, _abi)
+}
+
+// UpgradeContract is a paid mutator transaction binding the contract method 0x48953929.
+//
+// Solidity: function upgradeContract(string _bytecode, string _abi) returns(bool)
+func (_Autonity *AutonitySession) UpgradeContract(_bytecode string, _abi string) (*types.Transaction, error) {
+	return _Autonity.Contract.UpgradeContract(&_Autonity.TransactOpts, _bytecode, _abi)
+}
+
+// UpgradeContract is a paid mutator transaction binding the contract method 0x48953929.
+//
+// Solidity: function upgradeContract(string _bytecode, string _abi) returns(bool)
+func (_Autonity *AutonityTransactorSession) UpgradeContract(_bytecode string, _abi string) (*types.Transaction, error) {
+	return _Autonity.Contract.UpgradeContract(&_Autonity.TransactOpts, _bytecode, _abi)
 }
 
 // AutonityAddParticipantIterator is returned from FilterAddParticipant and is used to iterate over the raw logs and unpacked data for AddParticipant events raised by the Autonity contract.
