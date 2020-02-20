@@ -302,15 +302,6 @@ jobs:
           file: coverage/coverage.out
           yml: codecov.yml
 
-  coverage-reports-tendermint:
-    needs: [start_stop_test2, start_stop_test1, autonity_test, race_tests, start_stop_tests, tests]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download coverage
-        uses: actions/download-artifact@v1
-        with:
-          name: coverage
-
       - name: Combine coverage
         run: |
           head ./coverage/tendermint1.cov -n1 &> ./coverage/result.cov & ls ./coverage/tendermint*.cov | xargs -n 1 tail -n +2 >> ./coverage/result.cov
