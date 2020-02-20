@@ -416,13 +416,13 @@ jobs:
     needs: [tests-tendermint, tests, start_stop_tests, race_tests, tendermint-success-test, autonity_test-small-fee, autonity_test-fee-redistribution, start_stop_test-f, start_stop_test-f-plus-2, start_stop_test-f-plus-1, start_stop_test-all-nodes]
     runs-on: ubuntu-latest
     steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
       - name: Download coverage
         uses: actions/download-artifact@v1
         with:
           name: coverage
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
 
       - uses: codecov/codecov-action@v1
         with:
