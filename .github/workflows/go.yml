@@ -432,11 +432,27 @@ jobs:
 
       - name: Combine coverage
         run: |
-          head ./coverage/tendermint1.cov -n1 &> ./coverage/result.cov & ls ./coverage/tendermint*.cov | xargs -n 1 tail -n +2 >> ./coverage/result.cov
+          head ./coverage/tendermint1.cov -n1 &> ./coverage/result1.cov & ls ./coverage/tendermint[1-3].cov | xargs -n 1 tail -n +2 >> ./coverage/result1.cov
+          head ./coverage/tendermint4.cov -n1 &> ./coverage/result2.cov & ls ./coverage/tendermint[4-6].cov | xargs -n 1 tail -n +2 >> ./coverage/result2.cov
+          head ./coverage/tendermint7.cov -n1 &> ./coverage/result3.cov & ls ./coverage/tendermint[7,8,9,10].cov | xargs -n 1 tail -n +2 >> ./coverage/result3.cov
 
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          file: coverage/result.cov
+          file: coverage/result1.cov
+          flags: tendermint
+          yml: codecov.yml
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }}
+          file: coverage/result2.cov
+          flags: tendermint
+          yml: codecov.yml
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }}
+          file: coverage/result3.cov
           flags: tendermint
           yml: codecov.yml
