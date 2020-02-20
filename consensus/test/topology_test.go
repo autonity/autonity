@@ -210,13 +210,13 @@ func TestTendermintAddConnectionToTopologySuccess(t *testing.T) {
 	}
 
 	topologyStr := `graph TB
-    subgraph b1
+    subgraph b7
 		VA---VB
 		VC---VB
 		VD---VC
 		VE---VD
     end
-    subgraph b7
+    subgraph b20
 		VA---VB
 		VA---VC
 		VC---VB
@@ -234,7 +234,7 @@ func TestTendermintAddConnectionToTopologySuccess(t *testing.T) {
 		{
 			name:          "no malicious",
 			numValidators: 5,
-			numBlocks:     10,
+			numBlocks:     30,
 			txPerPeer:     1,
 			topology: &Topology{
 				graph: *topology,
@@ -256,14 +256,14 @@ func TestTendermintAddValidatorsToTopologySuccess(t *testing.T) {
 	}
 
 	topologyStr := `graph TB
-    subgraph b1
+    subgraph b7
 		VA---VB
 		VC---VB
 		VD---VC
 		VE---VD
 		VF---VG
     end
-    subgraph b7
+    subgraph b20
 		VA---VB
 		VA---VF
 		VC---VB
@@ -282,7 +282,7 @@ func TestTendermintAddValidatorsToTopologySuccess(t *testing.T) {
 		{
 			name:          "no malicious",
 			numValidators: 5,
-			numBlocks:     10,
+			numBlocks:     30,
 			txPerPeer:     1,
 			topology: &Topology{
 				graph: *topology,
@@ -304,14 +304,14 @@ func TestTendermintAddParticipantsToTopologySuccess(t *testing.T) {
 	}
 
 	topologyStr := `graph TB
-    subgraph b1
+    subgraph b7
 		VA---VB
 		VC---VB
 		VD---VC
 		VE---VD
 		PF---PG
     end
-    subgraph b7
+    subgraph b20
 		VA---VB
 		VA---PF
 		VC---VB
@@ -330,7 +330,7 @@ func TestTendermintAddParticipantsToTopologySuccess(t *testing.T) {
 		{
 			name:          "no malicious",
 			numValidators: 5,
-			numBlocks:     10,
+			numBlocks:     30,
 			txPerPeer:     1,
 			topology: &Topology{
 				graph: *topology,
@@ -352,14 +352,14 @@ func TestTendermintAddStakeholdersToTopologySuccess(t *testing.T) {
 	}
 
 	topologyStr := `graph TB
-    subgraph b1
+    subgraph b7
 		VA---VB
 		VC---VB
 		VD---VC
 		VE---VD
 		SF---SG
     end
-    subgraph b7
+    subgraph b20
 		VA---VB
 		VA---SF
 		VC---VB
@@ -378,7 +378,7 @@ func TestTendermintAddStakeholdersToTopologySuccess(t *testing.T) {
 		{
 			name:          "no malicious",
 			numValidators: 5,
-			numBlocks:     10,
+			numBlocks:     30,
 			txPerPeer:     1,
 			topology: &Topology{
 				graph: *topology,
