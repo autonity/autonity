@@ -368,6 +368,12 @@ func runNode(ctx context.Context, validator *testNode, test *testCase, validator
 	periodicChecks := time.NewTicker(100 * time.Millisecond)
 	defer periodicChecks.Stop()
 
+	mux := validator.node.EventMux()
+	chainEvents := mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{})
+	defer chainEvents.Unsubscribe()
+
+	shouldSendTx := true
+
 wgLoop:
 	for {
 		select {
@@ -418,7 +424,7 @@ wgLoop:
 					validator.transactionsMu.Unlock()
 				}
 
-				if int(validator.lastBlock) <= test.numBlocks {
+				if shouldSendTx && int(validator.lastBlock) <= test.numBlocks {
 					err = validatorSendTransaction(
 						generateToAddr(txPerPeer, names, index, validators),
 						test,
@@ -524,6 +530,17 @@ wgLoop:
 					}
 				}
 			}
+		case ev := <-chainEvents.Chan():
+			if ev == nil {
+				continue
+			}
+			switch ev.Data.(type) {
+			case downloader.StartEvent:
+				shouldSendTx = false
+
+			case downloader.DoneEvent:
+				shouldSendTx = true
+			}
 		}
 
 		// check transactions status if all blocks are passed
@@ -536,7 +553,6 @@ wgLoop:
 		}
 	}
 	return nil
-
 }
 
 func checkAndReturnMinHeight(t *testing.T, test *testCase, validators map[string]*testNode) uint64 {
