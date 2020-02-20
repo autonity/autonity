@@ -64,16 +64,16 @@ jobs:
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage*.out #optional
-          flags: tendermint #optional
+          flags: tendermint
           yml: ./codecov.yml #optional
-          fail_ci_if_error: false #optional (default = false)
+          fail_ci_if_error: true
 
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage*.out #optional
           yml: ./codecov.yml #optional
-          fail_ci_if_error: false #optional (default = false)
+          fail_ci_if_error: true
 
   start_stop_tests:
     runs-on: ubuntu-latest
@@ -105,15 +105,15 @@ jobs:
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage*.out #optional
-          flags: tendermint #optional
+          flags: tendermint
           yml: ./codecov.yml #optional
-          fail_ci_if_error: false #optional (default = false)
+          fail_ci_if_error: true
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage*.out #optional
           yml: ./codecov.yml #optional
-          fail_ci_if_error: false #optional (default = false)
+          fail_ci_if_error: true
 
   race_tests:
     runs-on: ubuntu-latest
@@ -148,15 +148,15 @@ jobs:
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage*.out #optional
-          flags: tendermint #optional
+          flags: tendermint
           yml: ./codecov.yml #optional
-          fail_ci_if_error: false #optional (default = false)
+          fail_ci_if_error: true #optional (default = false)
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage*.out #optional
           yml: ./codecov.yml #optional
-          fail_ci_if_error: false #optional (default = false)
+          fail_ci_if_error: true #optional (default = false)
 
   autonity_test:
     runs-on: ubuntu-latest
@@ -191,9 +191,9 @@ jobs:
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage*.out #optional
-          flags: tendermint #optional
+          flags: tendermint
           yml: ./codecov.yml #optional
-          fail_ci_if_error: false #optional (default = false)
+          fail_ci_if_error: true
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
@@ -234,15 +234,15 @@ jobs:
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage*.out #optional
-          flags: tendermint #optional
+          flags: tendermint
           yml: ./codecov.yml #optional
-          fail_ci_if_error: false #optional (default = false)
+          fail_ci_if_error: true
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage*.out #optional
           yml: ./codecov.yml #optional
-          fail_ci_if_error: false #optional (default = false)
+          fail_ci_if_error: true
 
   start_stop_test2:
     runs-on: ubuntu-latest
@@ -277,15 +277,15 @@ jobs:
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage*.out #optional
-          flags: tendermint #optional
+          flags: tendermint
           yml: ./codecov.yml #optional
-          fail_ci_if_error: false #optional (default = false)
+          fail_ci_if_error: true
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }} #required
           file: ./coverage*.out #optional
           yml: ./codecov.yml #optional
-          fail_ci_if_error: false #optional (default = false)
+          fail_ci_if_error: true
 
 
   contract_tests:
