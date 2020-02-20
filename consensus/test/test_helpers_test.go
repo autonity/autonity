@@ -372,7 +372,7 @@ func runNode(ctx context.Context, validator *testNode, test *testCase, validator
 	chainEvents := mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{})
 	defer chainEvents.Unsubscribe()
 
-	shouldSendTx := true
+	shouldSendTx := validator.service.Miner().IsMining()
 
 wgLoop:
 	for {
@@ -424,7 +424,9 @@ wgLoop:
 					validator.transactionsMu.Unlock()
 				}
 
-				if shouldSendTx && int(validator.lastBlock) <= test.numBlocks {
+				currentBlock := validator.service.BlockChain().CurrentHeader().Number.Uint64()
+				isBehind := currentBlock < ev.Block.NumberU64()
+				if !isBehind && shouldSendTx && int(validator.lastBlock) <= test.numBlocks {
 					err = validatorSendTransaction(
 						generateToAddr(txPerPeer, names, index, validators),
 						test,
