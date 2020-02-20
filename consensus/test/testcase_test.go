@@ -57,8 +57,7 @@ type testCase struct {
 	noQuorumAfterBlock   uint64
 	noQuorumTimeout      time.Duration
 	topology             *Topology
-
-	skipNoLeakCheck bool
+	skipNoLeakCheck      bool
 }
 
 type injectors struct {
