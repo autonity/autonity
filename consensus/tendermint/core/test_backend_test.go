@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"github.com/clearmatics/autonity/core/types"
 	"math/big"
+	"sort"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
@@ -25,6 +26,7 @@ func generateCommittee(n int) (types.Committee, addressKeyMap) {
 		vals = append(vals, committeeMember)
 		keymap[committeeMember.Address] = privateKey
 	}
+	sort.Sort(vals)
 	return vals, keymap
 }
 

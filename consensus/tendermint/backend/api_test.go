@@ -15,21 +15,21 @@ import (
 	"github.com/clearmatics/autonity/rpc"
 )
 
-func TestGetValidators(t *testing.T) {
+func TestGetCommittee(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	addr := common.HexToAddress("0x0123456789")
-	want := []common.Address{addr}
+	val := types.CommitteeMember{
+		Address:     common.HexToAddress("0x0123456789"),
+		VotingPower: new(big.Int).SetInt64(132),
+	}
 
-	val := committee.NewMockValidator(ctrl)
-	val.EXPECT().Addr().Return(addr)
-
-	valSet := committee.NewMockSet(ctrl)
-	valSet.EXPECT().List().Return([]committee.Validator{val})
+	want := types.Committee{val}
+	committeeSet := committee.NewMockSet(ctrl)
+	committeeSet.EXPECT().Committee().Return(types.Committee{val})
 
 	backend := core.NewMockBackend(ctrl)
-	backend.EXPECT().Validators(uint64(1)).Return(valSet)
+	backend.EXPECT().Committee(uint64(1)).Return(committeeSet, nil)
 
 	API := &API{
 		tendermint: backend,
@@ -47,7 +47,7 @@ func TestGetValidators(t *testing.T) {
 	}
 }
 
-func TestGetValidatorsAtHash(t *testing.T) {
+func TestGetCommitteeAtHash(t *testing.T) {
 	t.Run("unknown block given, error returned", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -71,22 +71,22 @@ func TestGetValidatorsAtHash(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		addr := common.HexToAddress("0x0123456789")
-		want := []common.Address{addr}
+		val := types.CommitteeMember{
+			Address:     common.HexToAddress("0x0123456789"),
+			VotingPower: new(big.Int).SetInt64(132),
+		}
+		want := types.Committee{val}
 
 		hash := common.HexToHash("0x0123456789")
 
 		chain := consensus.NewMockChainReader(ctrl)
 		chain.EXPECT().GetHeaderByHash(hash).Return(&types.Header{Number: big.NewInt(1)})
 
-		val := committee.NewMockValidator(ctrl)
-		val.EXPECT().Addr().Return(addr)
-
-		valSet := committee.NewMockSet(ctrl)
-		valSet.EXPECT().List().Return([]committee.Validator{val})
+		committeeSet := committee.NewMockSet(ctrl)
+		committeeSet.EXPECT().Committee().Return(types.Committee{val})
 
 		backend := core.NewMockBackend(ctrl)
-		backend.EXPECT().Validators(uint64(1)).Return(valSet)
+		backend.EXPECT().Committee(uint64(1)).Return(committeeSet, nil)
 
 		API := &API{
 			chain:      chain,

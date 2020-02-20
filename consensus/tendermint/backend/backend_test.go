@@ -21,7 +21,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"math"
 	"math/big"
 	"reflect"
@@ -55,17 +54,17 @@ func TestAskSync(t *testing.T) {
 	defer ctrl.Finish()
 	// We are testing for a Quorum Q of peers to be asked for sync.
 	valSet, _ := newTestValidatorSet(7) // N=7, F=2, Q=5
-	validators := valSet.List()
+	validators := valSet.Committee()
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
 	for _, val := range validators {
-		addresses = append(addresses, val.GetAddress())
+		addresses = append(addresses, val.Address)
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().Send(uint64(tendermintSyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
-		peers[val.GetAddress()] = mockedPeer
+		peers[val.Address] = mockedPeer
 	}
 
 	m := make(map[common.Address]struct{})
@@ -96,7 +95,7 @@ func TestGossip(t *testing.T) {
 	defer ctrl.Finish()
 
 	valSet, _ := newTestValidatorSet(5)
-	validators := valSet.List()
+	validators := valSet.Committee()
 	payload, err := rlp.EncodeToBytes([]byte("data"))
 	hash := types.RLPHash(payload)
 	if err != nil {
@@ -106,7 +105,7 @@ func TestGossip(t *testing.T) {
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
 	for i, val := range validators {
-		addresses = append(addresses, val.GetAddress())
+		addresses = append(addresses, val.Address)
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
 		if i == 3 {
@@ -119,7 +118,7 @@ func TestGossip(t *testing.T) {
 				}
 			}).Times(1)
 		}
-		peers[val.GetAddress()] = mockedPeer
+		peers[val.Address] = mockedPeer
 	}
 
 	m := make(map[common.Address]struct{})
@@ -307,9 +306,9 @@ func TestCheckValidatorSignature(t *testing.T) {
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
-		val := vset.GetByIndex(uint64(i))
-		if addr != val.GetAddress() {
-			t.Errorf("validator address mismatch: have %v, want %v", addr, val.GetAddress())
+		val, err := vset.GetByIndex(i)
+		if err != nil || addr != val.Address {
+			t.Errorf("validator address mismatch: have %v, want %v", addr, val.Address)
 		}
 	}
 
@@ -382,7 +381,7 @@ func TestCommit(t *testing.T) {
 			expBlock := test.expectedBlock()
 
 			backend.proposedBlockHash = expBlock.Hash()
-			if err := backend.Commit(expBlock, new(big.Int), test.expectedSignature); err != nil {
+			if err := backend.Commit(expBlock, 0, test.expectedSignature); err != nil {
 				if err != test.expectedErr {
 					t.Errorf("error mismatch: have %v, want %v", err, test.expectedErr)
 				}
@@ -428,7 +427,7 @@ func TestCommit(t *testing.T) {
 		}
 		b.SetBroadcaster(broadcaster)
 
-		err := b.Commit(newBlock, new(big.Int), seals)
+		err := b.Commit(newBlock, 0, seals)
 		if err != nil {
 			t.Fatalf("expected <nil>, got %v", err)
 		}
@@ -629,7 +628,7 @@ func newTestValidatorSet(n int) (committee.Set, []*ecdsa.PrivateKey) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 	}
-	vset := committee.NewSet(addrs, config.RoundRobin)
+	vset := committee.NewSet(addrs, config.RoundRobin, addrs[0].Address)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
 	return vset, keys
 }
@@ -681,7 +680,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	if err != nil || validators.Size() == 0 {
 		panic("failed to get committee")
 	}
-	proposerAddr := validators.GetProposer(0).GetAddress()
+	proposerAddr := validators.GetProposer(0).Address
 
 	// find proposer key
 	for _, key := range nodeKeys {
@@ -762,7 +761,7 @@ func makeHeader(parent *types.Block, config *config.Config) *types.Header {
 		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(config.BlockPeriod)).Uint64(),
 		Difficulty: defaultDifficulty,
 		MixDigest:  types.BFTDigest,
-		Round:      big.NewInt(0),
+		Round:      0,
 	}
 	return header
 }

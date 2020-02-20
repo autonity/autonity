@@ -116,7 +116,8 @@ func (set *defaultSet) IsProposer(round int64, address common.Address) bool {
 	if err != nil {
 		return false
 	}
-	return reflect.DeepEqual(set.GetProposer(round), val)
+	curProposer := set.GetProposer(round)
+	return reflect.DeepEqual(curProposer, val)
 }
 
 func (set *defaultSet) Copy() Set {

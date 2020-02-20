@@ -129,6 +129,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		messages := newMessagesMap()
 		curRoundMessages := messages.getOrCreate(1)
 		mockBackend := NewMockBackend(ctrl)
+		mockBackend.EXPECT().Post(gomock.Any()).AnyTimes()
 		engine := core{
 			logger:           logger,
 			backend:          mockBackend,
@@ -159,6 +160,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 			t.Fatalf("should be propose step")
 		}
 	})
+
 }
 
 func TestOnTimeoutPrevote(t *testing.T) {
