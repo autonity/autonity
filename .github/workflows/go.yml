@@ -424,6 +424,6 @@ jobs:
 
   coverage-reports:
     runs-on: ubuntu-latest
-      steps:
-        - name: Setup
-          run: echo "Done"
+    steps:
+      - name: Setup
+      run: echo "Done"
