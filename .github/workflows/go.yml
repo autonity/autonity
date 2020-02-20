@@ -117,6 +117,12 @@ jobs:
           flags: tendermint #optional
           yml: ./codecov.yml #optional
           fail_ci_if_error: false #optional (default = false)
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }} #required
+          file: ./coverage_start_stop.cov #optional
+          yml: ./codecov.yml #optional
+          fail_ci_if_error: false #optional (default = false)
 
   race_tests:
     runs-on: ubuntu-latest
@@ -152,6 +158,13 @@ jobs:
           token: ${{ secrets.codecov_upload }} #required
           file: ./race_tests.cov #optional
           flags: tendermint #optional
+          yml: ./codecov.yml #optional
+          fail_ci_if_error: false #optional (default = false)
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }} #required
+          file: ./race_tests.cov #optional
           yml: ./codecov.yml #optional
           fail_ci_if_error: false #optional (default = false)
 
