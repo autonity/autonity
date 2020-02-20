@@ -104,19 +104,19 @@ func TestHeaderHash(t *testing.T) {
 		},
 		{
 			setExtra(PosHeader, headerExtra{
-				Round: new(big.Int).SetUint64(1997),
+				Round: 1997,
 			}),
 			posHeaderHash,
 		},
 		{
 			setExtra(PosHeader, headerExtra{
-				Round: new(big.Int).SetUint64(3),
+				Round: 3,
 			}),
 			posHeaderHash,
 		},
 		{
 			setExtra(PosHeader, headerExtra{
-				Round: new(big.Int).SetUint64(0),
+				Round: 0,
 			}),
 			posHeaderHash,
 		},
