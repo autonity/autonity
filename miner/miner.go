@@ -66,6 +66,7 @@ type Miner struct {
 
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
+	isMining    int32
 }
 
 func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(block *types.Block) bool) *Miner {
@@ -74,7 +75,7 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 		mux:      mux,
 		engine:   engine,
 		exitCh:   make(chan struct{}),
-		worker:   newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, true),
+		worker:   newWorker(config, chainConfig, engine, eth, mux, hooks{isLocalBlock: isLocalBlock}, false),
 		canStart: 1,
 	}
 	go miner.update()
@@ -130,11 +131,13 @@ func (miner *Miner) Start(coinbase common.Address) {
 		return
 	}
 	miner.worker.start()
+	atomic.StoreInt32(&miner.isMining, 1)
 }
 
 func (miner *Miner) Stop() {
 	miner.worker.stop()
 	atomic.StoreInt32(&miner.shouldStart, 0)
+	atomic.StoreInt32(&miner.isMining, 0)
 }
 
 func (miner *Miner) Close() {
@@ -145,6 +148,10 @@ func (miner *Miner) Close() {
 
 func (miner *Miner) Mining() bool {
 	return miner.worker.isRunning()
+}
+
+func (miner *Miner) IsMining() bool {
+	return atomic.LoadInt32(&miner.isMining) == 1
 }
 
 func (miner *Miner) HashRate() uint64 {

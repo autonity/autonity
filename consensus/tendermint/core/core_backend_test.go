@@ -417,11 +417,13 @@ func TestCore_Close(t *testing.T) {
 
 		logger := log.New("backend", "test", "id", 0)
 
+		isStarted := uint32(1)
+
 		c := &core{
 			backend:                 backendMock,
 			cancel:                  cancel,
 			isStarting:              new(uint32),
-			isStarted:               new(uint32),
+			isStarted:               &isStarted,
 			isStopping:              new(uint32),
 			isStopped:               new(uint32),
 			committedSub:            committedSub,
@@ -465,12 +467,15 @@ func TestCore_Close(t *testing.T) {
 		stopped <- struct{}{}
 		stopped <- struct{}{}
 
+		isStarted := new(uint32)
+		*isStarted = 1
+
 		logger := log.New("backend", "test", "id", 0)
 		c := &core{
 			backend:                 backendMock,
 			cancel:                  cancel,
 			isStarting:              new(uint32),
-			isStarted:               new(uint32),
+			isStarted:               isStarted,
 			isStopping:              new(uint32),
 			isStopped:               new(uint32),
 			committedSub:            committedSub,
@@ -493,9 +498,11 @@ func TestCore_Close(t *testing.T) {
 
 	t.Run("the system is already stopped, nothing done", func(t *testing.T) {
 		isStopped := new(uint32)
+		isStarted := new(uint32)
 		atomic.StoreUint32(isStopped, 1)
 
 		c := &core{
+			isStarted: isStarted,
 			isStopped: isStopped,
 		}
 
@@ -506,10 +513,14 @@ func TestCore_Close(t *testing.T) {
 	})
 
 	t.Run("the system is being stopped, nothing done", func(t *testing.T) {
+		isStarted := new(uint32)
+		atomic.StoreUint32(isStarted, 1)
+
 		isStopping := new(uint32)
 		atomic.StoreUint32(isStopping, 1)
 
 		c := &core{
+			isStarted:  isStarted,
 			isStopped:  new(uint32),
 			isStopping: isStopping,
 		}
