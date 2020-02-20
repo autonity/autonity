@@ -14,6 +14,6 @@ coverage:
 flags:
   tendermint:
     paths:
-      - consensus/tendermint
+      - consensus/tendermint/
 comment:
   behavior: new
