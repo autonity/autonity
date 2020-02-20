@@ -420,6 +420,9 @@ jobs:
         with:
           name: coverage
 
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
