@@ -421,3 +421,9 @@ jobs:
         uses: actions/checkout@v2
       - name: test contract
         run: make test-contracts
+
+  coverage-reports:
+    runs-on: ubuntu-latest
+      steps:
+        - name: Setup
+          run: echo "Done"
