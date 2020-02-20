@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math"
 	"os"
 	"runtime"
@@ -293,6 +294,7 @@ func autonity(ctx *cli.Context) error {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 	prepare(ctx)
+	enode.AutomaticResolveStart()
 	node := makeFullNode(ctx)
 	defer node.Close()
 	startNode(ctx, node)
