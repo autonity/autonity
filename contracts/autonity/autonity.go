@@ -298,3 +298,16 @@ func (ac *Contract) upgradeAbiCache(newAbi string) error {
 	ac.contractABI = &newABI
 	return nil
 }
+
+func (ac *Contract) GetContractABI() string {
+	ac.Lock()
+	defer ac.Unlock()
+
+	var JSONString = ac.bc.Config().AutonityContractConfig.ABI
+	bytes, err := ac.bc.GetKeyValue([]byte(ABISPEC))
+	if err == nil || bytes != nil {
+		JSONString = string(bytes)
+	}
+
+	return JSONString
+}
