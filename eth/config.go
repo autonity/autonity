@@ -164,7 +164,4 @@ type Config struct {
 
 	// MuirGlacier block override (TODO: remove after the fork)
 	OverrideMuirGlacier *big.Int
-
-	// Disable private network
-	OpenNetwork bool
 }

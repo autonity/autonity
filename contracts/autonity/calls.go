@@ -185,7 +185,7 @@ func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header)
 	if err != nil {
 		return nil, err
 	}
-	return types.NewNodes(returnedEnodes, false), nil
+	return types.NewNodes(returnedEnodes), nil
 }
 
 func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.Header) (uint64, error) {
