@@ -8,7 +8,6 @@ import (
 	"github.com/clearmatics/autonity/p2p"
 	"net"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -283,7 +282,7 @@ func runTest(t *testing.T, test *testCase) {
 		test.finalAssert(t, nodes)
 	}
 	//check topology
-	if test.topology != nil && !test.topology.WithChanges() {
+	if test.topology != nil  {
 		err := test.topology.CheckTopology(nodes)
 		if err != nil {
 			t.Fatal(err)
@@ -368,6 +367,7 @@ func (t *Topology) getEdges(blockNum uint64) []*graph.Edge {
 			}
 		}
 		if edges == nil {
+			fmt.Println("empty edges")
 			return nil
 		}
 	} else {
@@ -465,13 +465,16 @@ func (t *Topology) DumpTopology(nodes map[string]*testNode) string {
 func (t *Topology) CheckTopologyForIndex(index string, nodes map[string]*testNode) error {
 	node := nodes[index]
 	blockNum := node.lastBlock
+
+	fmt.Println("check topology", index, blockNum)
 	if t.WithChanges() {
 		m, err := t.getChangesBlocks()
 		if err != nil {
 			return err
 		}
 		for i := uint64(0); i < 10; i++ {
-			if _, ok := m[blockNum+i]; !ok {
+			if _, ok := m[blockNum-i]; ok {
+				fmt.Println("blocknum check exit")
 				return nil
 			}
 
@@ -481,16 +484,18 @@ func (t *Topology) CheckTopologyForIndex(index string, nodes map[string]*testNod
 	if edges == nil {
 		return nil
 	}
-
+	fmt.Println("check started", index, blockNum)
 	allConnections := t.getPeerConnections(edges)
 	indexConnections := allConnections[index]
 	peers := node.node.Server().Peers()
 	m := t.transformPeerListToMap(peers, nodes)
-	if !reflect.DeepEqual(indexConnections, m) {
-		fmt.Println("current", dumpConnections(index, m))
-		fmt.Println()
-		fmt.Println("must", dumpConnections(index, indexConnections))
-		return fmt.Errorf("CheckTopologyForIndex incorrect topology for %v for block %v", index, blockNum)
+	for i:=range  indexConnections {
+		if _,ok:= m[i]; !ok {
+			fmt.Println("current", dumpConnections(index, m))
+			fmt.Println()
+			fmt.Println("must", dumpConnections(index, indexConnections))
+			return fmt.Errorf("CheckTopologyForIndex incorrect topology for %v for block %v", index, blockNum)
+		}
 	}
 	return nil
 }
