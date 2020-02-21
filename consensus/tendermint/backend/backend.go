@@ -488,7 +488,8 @@ func (sb *Backend) GetContractAddress() common.Address {
 }
 
 func (sb *Backend) GetContractABI() string {
-	return sb.blockchain.Config().AutonityContractConfig.ABI
+	// after the contract is upgradable, call it from contract object rather than from conf.
+	return sb.blockchain.GetAutonityContract().GetContractABI()
 }
 
 // Whitelist for the current block
