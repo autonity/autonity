@@ -413,8 +413,10 @@ func CopyHeader(h *Header) *Header {
 		}
 	}
 
-	cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
-	copy(cpy.ProposerSeal, h.ProposerSeal)
+	if len(h.CommittedSeals) > 0 {
+		cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
+		copy(cpy.ProposerSeal, h.ProposerSeal)
+	}
 
 	if len(h.CommittedSeals) > 0 {
 		cpy.CommittedSeals = make([][]byte, len(h.CommittedSeals))

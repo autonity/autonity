@@ -61,10 +61,10 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.MixDigest = h.MixDigest
 	enc.Nonce = h.Nonce
 
-	if len(h.Committee) != 0 {
+	if h.Committee != nil {
 		encExtra.Committee = h.Committee
 	}
-	if len(h.ProposerSeal) != 0 {
+	if h.ProposerSeal != nil {
 		encExtra.ProposerSeal = h.ProposerSeal
 	}
 	encExtra.Round = hexutil.Uint64(h.Round)
@@ -195,7 +195,9 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	if decExtra.ProposerSeal != nil {
 		h.ProposerSeal = *decExtra.ProposerSeal
 	}
-	h.Round = uint64(*decExtra.Round)
+	if decExtra.Round != nil {
+		h.Round = uint64(*decExtra.Round)
+	}
 	if decExtra.CommittedSeals == nil {
 		return errors.New("missing required field 'committedSeals' for Header")
 	}
