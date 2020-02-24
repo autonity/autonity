@@ -491,7 +491,7 @@ func TestProcessBacklog(t *testing.T) {
 			address:  common.HexToAddress("0x1234567890"),
 			backlogs: make(map[types.CommitteeMember]*prque.Prque),
 			round:    2,
-			height:   big.NewInt(4),
+			height:   big.NewInt(3),
 		}
 		c.storeBacklog(msg, val)
 		c.storeBacklog(msg2, val)
