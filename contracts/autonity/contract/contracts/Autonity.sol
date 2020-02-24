@@ -606,7 +606,7 @@ contract Autonity {
         require(_address != address(0), "Addresses must be defined");
 
         // avoid duplicated user in usersList.
-        require(users[u.addr].addr == address(0), "This address is already registered");
+        require(users[u.addr].addr == 0x0, "This address is already registered");
 
         User memory u = User(_address, _userType, _stake, _enode, commissionRate);
 
