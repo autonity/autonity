@@ -549,12 +549,13 @@ contract Autonity {
 
     function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake, uint256 commissionRate) internal {
         require(_address != address(0), "Addresses must be defined");
-        User memory u = User(_address, _userType, _stake, _enode, commissionRate);
 
         // avoid duplicated user in usersList.
-        if (users[u.addr].addr != u.addr) {
-            usersList.push(u.addr);
-        }
+        require(users[u.addr].addr == 0x0);
+
+        User memory u = User(_address, _userType, _stake, _enode, commissionRate);
+
+	usersList.push(u.addr);
 
         users[u.addr] = u;
 
