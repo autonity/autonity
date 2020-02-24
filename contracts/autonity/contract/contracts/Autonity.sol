@@ -71,6 +71,7 @@ contract Autonity {
     event AddStakeholder(address _address, uint256 _stake);
     event AddParticipant(address _address, uint256 _stake);
     event RemoveUser(address _address, UserType _type);
+    event ChangeUserType(address _address, UserType _oldType, UserType _newType);
     event SetMinimumGasPrice(uint256 _gasPrice);
     event SetCommissionRate(address _address, uint256 _value);
     event MintStake(address _address, uint256 _amount);
@@ -130,6 +131,60 @@ contract Autonity {
         _createUser(_address, _enode, UserType.Participant, 0, 0);
         emit AddParticipant(_address, 0);
     }
+
+
+    /*
+    * changeUserStatus
+    * Change user status
+    */
+    function changeUserStatus( address _address , UserType newUserType ) internal onlyOperator(msg.sender) {
+        require(_address != address(0), "address must be defined");
+        require(users[_address].addr != address(0), "user must exist");
+
+        require(users[_address].userType != newUserType, "The user is already of this type.");
+
+        /*
+        * Removes the user from the relevant lists and updates
+        * the user's UserType
+        */
+        if(u.userType == UserType.Participant){
+            if(newUserType == UserType.Stakeholder){
+              stakeholders.push(u.addr);
+            }
+
+            if(newUserType == UserType.Validator){
+              stakeholders.push(u.addr);
+              validators.push(u.addr);
+            }
+        }
+
+        if(u.UserType == UserType.Stakeholder){
+            if(newUserType == UserType.Participant){
+              _removeFromArray(u.addr, stakeholders);
+            }
+
+            if(newUserType == UserType.Validator){
+              validators.push(u.addr);
+            }
+        }
+
+        if(u.UserType == UserType.Validator){
+            if(newUserType == UserType.Participant){
+              _removeFromArray(u.addr, stakeholders);
+              _removeFromArray(u.addr, validators);
+            }
+
+            if(newUserType == UserType.Stakeholder){
+              _removeFromArray(u.addr, validators);
+            }
+        }
+
+        u.userType = newUserType;
+
+        emit ChangeUserType(u.addr , newUserType);
+
+    }
+
 
     /*
     * removeUser
@@ -555,7 +610,7 @@ contract Autonity {
 
         User memory u = User(_address, _userType, _stake, _enode, commissionRate);
 
-	usersList.push(u.addr);
+	      usersList.push(u.addr);
 
         users[u.addr] = u;
 
@@ -589,4 +644,3 @@ contract Autonity {
     function () external payable {
     }
 }
-
