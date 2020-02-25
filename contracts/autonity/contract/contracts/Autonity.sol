@@ -147,42 +147,11 @@ contract Autonity {
         * Removes the user from the relevant lists and updates
         * the user's UserType
         */
-        if(u.userType == UserType.Participant){
-            if(newUserType == UserType.Stakeholder){
-              stakeholders.push(u.addr);
-            }
-
-            if(newUserType == UserType.Validator){
-              stakeholders.push(u.addr);
-              validators.push(u.addr);
-            }
-        }
-
-        if(u.UserType == UserType.Stakeholder){
-            if(newUserType == UserType.Participant){
-              _removeFromArray(u.addr, stakeholders);
-            }
-
-            if(newUserType == UserType.Validator){
-              validators.push(u.addr);
-            }
-        }
-
-        if(u.UserType == UserType.Validator){
-            if(newUserType == UserType.Participant){
-              _removeFromArray(u.addr, stakeholders);
-              _removeFromArray(u.addr, validators);
-            }
-
-            if(newUserType == UserType.Stakeholder){
-              _removeFromArray(u.addr, validators);
-            }
-        }
-
-        u.userType = newUserType;
+        User memory u = users[_address]
+        removeUser(u.addr);
+        _createUser(u.addr, u.enode, newUserType, u.stake, u.comissionRate);
 
         emit ChangeUserType(u.addr , newUserType);
-
     }
 
 
