@@ -89,7 +89,6 @@ func TestTendermintBusSuccess(t *testing.T) {
     VD---VC
     VE---VD
 `
-
 	topology, err := graph.Parse(strings.NewReader(topologyStr))
 	if err != nil {
 		t.Fatal("parse error")
