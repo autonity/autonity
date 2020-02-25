@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gonum.org/v1/gonum/stat"
+	"github.com/zimmski/go-leak"
 )
 
 func TestTendermintSuccess(t *testing.T) {
