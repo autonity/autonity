@@ -72,7 +72,7 @@ var (
 )
 
 const (
-	maxRound = 99 // consequence of backlog priority
+	MaxRound = 99 // consequence of backlog priority
 )
 
 // New creates an Tendermint consensus core

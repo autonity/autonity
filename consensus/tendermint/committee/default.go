@@ -17,18 +17,18 @@
 package committee
 
 import (
+	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
 	"math"
 	"reflect"
 	"sort"
 	"sync"
 )
 
-// ----------------------------------------------------------------------------
+var ErrEmptyCommitteeSet = errors.New("committee set can't be empty")
 
 type defaultSet struct {
 	members      types.Committee
@@ -40,11 +40,10 @@ type defaultSet struct {
 	proposer map[int64]types.CommitteeMember // cached computed values
 }
 
-func NewSet(members types.Committee, policy config.ProposerPolicy, lastProposer common.Address) *defaultSet {
+func NewSet(members types.Committee, policy config.ProposerPolicy, lastProposer common.Address) (*defaultSet, error) {
 
 	if len(members) == 0 {
-		log.Error("creating empty validator set")
-		return nil
+		return nil, ErrEmptyCommitteeSet
 	}
 
 	commitee := &defaultSet{}
@@ -65,7 +64,7 @@ func NewSet(members types.Committee, policy config.ProposerPolicy, lastProposer 
 
 	commitee.lastProposer = lastProposer
 	commitee.proposer[0] = commitee.selector(commitee, lastProposer, 0)
-	return commitee
+	return commitee, nil
 }
 
 func copyMembers(members types.Committee) types.Committee {
@@ -103,12 +102,13 @@ func (set *defaultSet) GetByAddress(addr common.Address) (int, types.CommitteeMe
 func (set *defaultSet) GetProposer(round int64) types.CommitteeMember {
 	set.mu.Lock()
 	defer set.mu.Unlock()
-	_, ok := set.proposer[round]
+	v, ok := set.proposer[round]
 	if !ok {
-		set.proposer[round] = set.selector(set, set.lastProposer, round)
+		v = set.selector(set, set.lastProposer, round)
+		set.proposer[round] = v
 	}
 
-	return set.proposer[round]
+	return v
 }
 
 func (set *defaultSet) IsProposer(round int64, address common.Address) bool {
@@ -121,7 +121,8 @@ func (set *defaultSet) IsProposer(round int64, address common.Address) bool {
 }
 
 func (set *defaultSet) Copy() Set {
-	return NewSet(copyMembers(set.members), set.policy, set.lastProposer)
+	newSet, _ := NewSet(copyMembers(set.members), set.policy, set.lastProposer)
+	return newSet
 }
 
 func (set *defaultSet) F() int { return int(math.Ceil(float64(set.Size())/3)) - 1 }

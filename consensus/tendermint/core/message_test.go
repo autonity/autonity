@@ -127,7 +127,10 @@ func TestMessageFromPayload(t *testing.T) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 
-		committeeSet := committee.NewSet(types.Committee{val}, config.RoundRobin, val.Address)
+		committeeSet, err := committee.NewSet(types.Committee{val}, config.RoundRobin, val.Address)
+		if err != nil {
+			t.Fatal("error creating committee set")
+		}
 		validateFn := func(set committee.Set, data []byte, sig []byte) (common.Address, error) {
 			return authorizedAddress, nil
 		}

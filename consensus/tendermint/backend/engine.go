@@ -98,8 +98,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 	if header.Number == nil {
 		return errUnknownBlock
 	}
-	// TODO : change it to use the const defined in core (refactoring needed)
-	if header.Round > 99 {
+	if header.Round > tendermintCore.MaxRound {
 		return errInvalidRound
 	}
 	// Don't waste time checking blocks from the future
@@ -554,7 +553,7 @@ func (sb *Backend) Close() error {
 
 // retrieve list of committee for the block at height passed as parameter
 func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (committee.Set, error) {
-	var lastMiner common.Address
+	var lastProposer common.Address
 	var err error
 	if number == 0 {
 		number = 1
@@ -563,14 +562,14 @@ func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (c
 	if parentHeader == nil {
 		return nil, errUnknownBlock
 	}
-	// For the genesis block, lastMiner is no one (empty).
+	// For the genesis block, lastProposer is no one (empty).
 	if number > 1 {
-		lastMiner, err = sb.Author(parentHeader)
+		lastProposer, err = sb.Author(parentHeader)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return committee.NewSet(parentHeader.Committee, sb.config.GetProposerPolicy(), lastMiner), nil
+	return committee.NewSet(parentHeader.Committee, sb.config.GetProposerPolicy(), lastProposer)
 }
 
 // retrieve list of committee for the block header passed as parameter
@@ -587,7 +586,7 @@ func (sb *Backend) committee(header *types.Header, parents []*types.Header, chai
 		if err != nil {
 			return nil, err
 		}
-		return committee.NewSet(header.Committee, sb.config.GetProposerPolicy(), lastMiner), nil
+		return committee.NewSet(header.Committee, sb.config.GetProposerPolicy(), lastMiner)
 	} else {
 		return sb.savedCommittee(header.Number.Uint64(), chain)
 	}

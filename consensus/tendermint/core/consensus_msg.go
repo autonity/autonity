@@ -105,7 +105,7 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 		validRound = int64(proposal.ValidRound)
 	}
 
-	if !(validRound <= maxRound && proposal.Round <= maxRound) {
+	if !(validRound <= MaxRound && proposal.Round <= MaxRound) {
 		return errors.New("bad proposal with invalid rounds")
 	}
 
@@ -152,7 +152,7 @@ func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 	sub.Round = int64(vote.Round)
-	if sub.Round > maxRound {
+	if sub.Round > MaxRound {
 		return errInvalidMessage
 	}
 	sub.Height = vote.Height

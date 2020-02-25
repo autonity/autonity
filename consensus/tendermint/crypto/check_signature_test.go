@@ -176,7 +176,7 @@ func newTestValidatorSet(n int) (committee.Set, []*ecdsa.PrivateKey) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 	}
-	vset := committee.NewSet(addrs, config.RoundRobin, addrs[0].Address)
+	vset, _ := committee.NewSet(addrs, config.RoundRobin, addrs[0].Address)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
 	return vset, keys
 }

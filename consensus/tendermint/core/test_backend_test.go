@@ -31,13 +31,16 @@ func generateCommittee(n int) (types.Committee, addressKeyMap) {
 }
 
 func newTestCommitteeSet(n int) committee.Set {
+
 	validators, _ := generateCommittee(n)
-	return committee.NewSet(validators, config.RoundRobin, validators[0].Address)
+	set, _ := committee.NewSet(validators, config.RoundRobin, validators[0].Address)
+	return set
 }
 
 func newTestCommitteeSetWithKeys(n int) (committee.Set, addressKeyMap) {
 	validators, keyMap := generateCommittee(n)
-	return committee.NewSet(validators, config.RoundRobin, validators[0].Address), keyMap
+	set, _ := committee.NewSet(validators, config.RoundRobin, validators[0].Address)
+	return set, keyMap
 }
 
 func generatePrivateKey() (*ecdsa.PrivateKey, error) {

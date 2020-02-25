@@ -33,7 +33,6 @@ type messagesMap struct {
 func newMessagesMap() messagesMap {
 	return messagesMap{
 		internal: make(map[int64]*roundMessages),
-		mu:       sync.RWMutex{},
 	}
 }
 

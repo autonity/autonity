@@ -43,7 +43,7 @@ type backlogEvent struct {
 // return errOldHeightMessage if the message view is smaller than curRoundMessages view
 // return errFutureStepMessage if we are at the same view but at the propose step and it's a voting message.
 func (c *core) checkMessage(round int64, height *big.Int, step Step) error {
-	if height == nil || round < 0 || round > 99 {
+	if height == nil || round < 0 || round > MaxRound {
 		return errInvalidMessage
 	}
 
@@ -135,5 +135,5 @@ func toPriority(msgCode uint64, r int64, h *big.Int) float32 {
 	// TODO check for overflows!!
 	// 10 * Round limits the range of message code is from 0 to 9
 	// 1000 * Height limits the range of round is from 0 to 99
-	return -float32(h.Uint64()*10*(maxRound+1) + uint64(r)*10 + uint64(msgPriority[msgCode]))
+	return -float32(h.Uint64()*10*(MaxRound+1) + uint64(r)*10 + uint64(msgPriority[msgCode]))
 }
