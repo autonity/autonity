@@ -1,11 +1,13 @@
 package enode
 
 import (
-	"github.com/clearmatics/autonity/log"
+	"errors"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/clearmatics/autonity/log"
 )
 
 const (
@@ -118,6 +120,9 @@ func (rs *resolveSet) ParseV4WithResolveMaxTry(rawurl string, maxTry int, wait t
 		time.Sleep(wait)
 		log.Error("trying to parse", "enode", rawurl, "attempt", i)
 	}
+	if node == nil {
+		return nil, errors.New("have not parsed")
+	}
 	return node, err
 
 }
@@ -128,6 +133,7 @@ type resolveSetNode struct {
 }
 
 func (rs *resolveSet) Get(enodeStr string) (*Node, error) {
+	var err error
 	rs.RLock()
 	node, ok := rs.cache[enodeStr]
 	rs.RUnlock()
@@ -138,8 +144,7 @@ func (rs *resolveSet) Get(enodeStr string) (*Node, error) {
 			rs.addNoLock(enodeStr)
 		}
 		rs.Unlock()
-
-		node, err := rs.ParseV4WithResolveMaxTry(enodeStr, rs.maxTries, rs.delayBetweenTries)
+		node, err = rs.ParseV4WithResolveMaxTry(enodeStr, rs.maxTries, rs.delayBetweenTries)
 		if err != nil {
 			return nil, err
 		}

@@ -205,6 +205,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	}
 	manager.fetcher = fetcher.New(blockchain.GetBlockByHash, validator, manager.BroadcastBlock, heighter, inserter, manager.removePeer)
 	manager.enodesWhitelist = rawdb.ReadEnodeWhitelist(chaindb).List
+	fmt.Println("rawdb.ReadEnodeWhitelist", manager.enodesWhitelist)
 	return manager, nil
 }
 

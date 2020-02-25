@@ -1,11 +1,12 @@
 package types
 
 import (
+	"sync"
+	"sync/atomic"
+
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/davecgh/go-spew/spew"
-	"sync"
-	"sync/atomic"
 )
 
 type Nodes struct {
