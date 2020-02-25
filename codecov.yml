@@ -17,4 +17,4 @@ flags:
     paths:
       - consensus/tendermint/
 comment:
-  behavior: new
+  behavior: default
