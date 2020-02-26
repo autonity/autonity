@@ -201,7 +201,7 @@ func runTest(t *testing.T, test *testCase) {
 
 	s := ""
 	for i, v := range nodes {
-		s += fmt.Sprintf("%s%d === %s  -- %s\n", s, i, v.enode.URLv4(), crypto.PubkeyToAddress(v.privateKey.PublicKey).String())
+		s += fmt.Sprintf("%s %s === %s  -- %s\n", s, i, v.enode.URLv4(), crypto.PubkeyToAddress(v.privateKey.PublicKey).String())
 
 	}
 	fmt.Println(s)
