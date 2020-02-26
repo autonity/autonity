@@ -558,6 +558,24 @@ func TestBackendGetContractAddress(t *testing.T) {
 	}
 }
 
+// Test get contract ABI, it should have the default abi before contract upgrade.
+func TestBackendGetContractABI(t *testing.T) {
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = chain.InsertChain(types.Blocks{block})
+	if err != nil {
+		t.Fatal(err)
+	}
+	contractABI := engine.GetContractABI()
+	expectedABI := chain.Config().AutonityContractConfig.ABI
+	if contractABI != expectedABI {
+		t.Fatalf("unexpected returned ABI")
+	}
+}
+
 func TestBackendWhiteList(t *testing.T) {
 	//Very shallow test for the time being, running only with 1 validator
 	chain, engine := newBlockChain(1)
@@ -710,6 +728,13 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 const EnodeStub = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
+	if genesis.Config == nil {
+		genesis.Config = &params.ChainConfig{}
+	}
+	if genesis.Config.AutonityContractConfig == nil {
+		genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
+	}
+
 	for i := range addrs {
 		genesis.Config.AutonityContractConfig.Users = append(
 			genesis.Config.AutonityContractConfig.Users,

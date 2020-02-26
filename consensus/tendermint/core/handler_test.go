@@ -7,6 +7,8 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
+	"github.com/golang/mock/gomock"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 	"testing"
@@ -136,5 +138,56 @@ func TestHandleCheckedMessage(t *testing.T) {
 			}
 		}
 	}
+}
 
+func TestCoreStopDoesntPanic(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	addr := common.HexToAddress("0x0123456789")
+
+	backendMock := NewMockBackend(ctrl)
+	backendMock.EXPECT().Address().AnyTimes().Return(addr)
+
+	c := New(backendMock, nil)
+	if err := c.Stop(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCoreMultipleStopsDontPanic(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	addr := common.HexToAddress("0x0123456789")
+
+	backendMock := NewMockBackend(ctrl)
+	backendMock.EXPECT().Address().AnyTimes().Return(addr)
+
+	c := New(backendMock, nil)
+	if err := c.Stop(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := c.Stop(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCoreMultipleConcurrentStopsDontPanic(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	addr := common.HexToAddress("0x0123456789")
+
+	backendMock := NewMockBackend(ctrl)
+	backendMock.EXPECT().Address().AnyTimes().Return(addr)
+
+	c := New(backendMock, nil)
+
+	wg := errgroup.Group{}
+	for i := 0; i < 10; i++ {
+		wg.Go(c.Stop)
+	}
+
+	if err := wg.Wait(); err != nil {
+		t.Fatal(err)
+	}
 }

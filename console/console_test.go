@@ -185,6 +185,18 @@ func TestWelcome(t *testing.T) {
 	}
 }
 
+// Tests that the contract binding should not rise jsre exceptions even if tendermint web3 extend is not defined.
+func TestContractBinding(t *testing.T) {
+	tester := newTester(t, nil)
+	defer tester.Close(t)
+	tester.console.contractBinding()
+
+	output := tester.output.String()
+	if want := ""; !strings.Contains(output, want) {
+		t.Fatalf("console output is not expected: have\n%s\nwant also %s", output, want)
+	}
+}
+
 // Tests that JavaScript statement evaluation works as intended.
 func TestEvaluate(t *testing.T) {
 	tester := newTester(t, nil)
