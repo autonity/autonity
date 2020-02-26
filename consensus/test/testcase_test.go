@@ -150,6 +150,7 @@ func runTest(t *testing.T, test *testCase) {
 		nodeNames = append(nodeNames, stakeholderNames...)
 		nodeNames = append(nodeNames, participantNames...)
 	}
+
 	nodesNum := len(nodeNames)
 	// Generate a batch of accounts to seal and fund with
 	nodes := make(map[string]*testNode, nodesNum)
