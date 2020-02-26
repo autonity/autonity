@@ -3,9 +3,6 @@ package test
 import (
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p"
 	"net"
 	"os"
 	"strconv"
@@ -13,6 +10,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/common/keygenerator"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/p2p"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/fdlimit"
@@ -200,7 +201,8 @@ func runTest(t *testing.T, test *testCase) {
 
 	s := ""
 	for i, v := range nodes {
-		s += i + " === " + v.enode.URLv4() + "  -- " + crypto.PubkeyToAddress(v.privateKey.PublicKey).String() + "\n"
+		s += fmt.Sprintf("%s%d === %s  -- %s\n", s, i, v.enode.URLv4(), crypto.PubkeyToAddress(v.privateKey.PublicKey).String())
+
 	}
 	fmt.Println(s)
 
@@ -211,12 +213,6 @@ func runTest(t *testing.T, test *testCase) {
 		}
 	}
 
-	/*	VA === 35384f688b8de23736384e3c499ea9ccfb49d1c9c207b7370d5e55cfd828858c
-		VB === 0a10b664aebfee7e4bfa9a96a19d250b546f35f72fd5b89cba4ddee55c0100f8
-		VC === d8683e118e93da8f2be4a4e4aaecfbfefb4d07d811d926e5bebc5f5b56908908
-		VD === 11f3a474c4ebae2a3f0d1c4eeb97f554c0e0686e1b835ed70eb282a2be7cef2d
-		VE === 1c0533bb761db93b427ff23dc0df971bb859595ae211ab65c479f8658d4c21ca
-	*/
 	defer func() {
 		wgClose := &errgroup.Group{}
 		for _, validator := range nodes {
@@ -287,7 +283,7 @@ func runTest(t *testing.T, test *testCase) {
 		test.finalAssert(t, nodes)
 	}
 	//check topology
-	if test.topology != nil  {
+	if test.topology != nil {
 		err := test.topology.CheckTopology(nodes)
 		if err != nil {
 			t.Fatal(err)
@@ -433,13 +429,7 @@ func (t *Topology) CheckTopology(nodes map[string]*testNode) error {
 				return fmt.Errorf("CheckTopology incorrect topology for block %v for node %v", blockNum, i)
 			}
 		}
-		//if !reflect.DeepEqual(v, m) {
-		//	spew.Dump(m)
-		//	spew.Dump(v)
-		//	spew.Dump(connections)
-		//	return fmt.Errorf("CheckTopology incorrect topology for block %v for node %v", blockNum, i)
-		//
-		//}
+
 	}
 
 	return nil
@@ -494,8 +484,8 @@ func (t *Topology) CheckTopologyForIndex(index string, nodes map[string]*testNod
 	indexConnections := allConnections[index]
 	peers := node.node.Server().Peers()
 	m := t.transformPeerListToMap(peers, nodes)
-	for i:=range  indexConnections {
-		if _,ok:= m[i]; !ok {
+	for i := range indexConnections {
+		if _, ok := m[i]; !ok {
 			fmt.Println("current", dumpConnections(index, m))
 			fmt.Println()
 			fmt.Println("must", dumpConnections(index, indexConnections))
