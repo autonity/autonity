@@ -2,9 +2,10 @@ package test
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/common/graph"
 	"strings"
 	"testing"
+
+	"github.com/clearmatics/autonity/common/graph"
 )
 
 func TestTendermintStarSuccess(t *testing.T) {
@@ -88,7 +89,6 @@ func TestTendermintBusSuccess(t *testing.T) {
     VD---VC
     VE---VD
 `
-
 	topology, err := graph.Parse(strings.NewReader(topologyStr))
 	if err != nil {
 		t.Fatal("parse error")
@@ -299,6 +299,7 @@ func TestTendermintAddValidatorsToTopologySuccess(t *testing.T) {
 }
 
 func TestTendermintAddParticipantsToTopologySuccess(t *testing.T) {
+	t.Skip("should be fixed by https://github.com/clearmatics/autonity/issues/431")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -347,6 +348,7 @@ func TestTendermintAddParticipantsToTopologySuccess(t *testing.T) {
 }
 
 func TestTendermintAddStakeholdersToTopologySuccess(t *testing.T) {
+	t.Skip("should be fixed by https://github.com/clearmatics/autonity/issues/431")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
