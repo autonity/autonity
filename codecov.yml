@@ -9,9 +9,12 @@ coverage:
         target: 30%
         threshold: null
       tendermint:
-        flags: tendermint
+        flags:
+          - tendermint
         target: 65%
 flags:
   tendermint:
     paths:
-      - consensus/tendermint
+      - consensus/tendermint/
+comment:
+  behavior: new
