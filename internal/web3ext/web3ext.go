@@ -816,23 +816,13 @@ web3._extend({
 			params: 1
 		}),
 		new web3._extend.Method({
-			name: 'getSomaContractAddress',
-			call: 'tendermint_getSomaContractAddress',
+			name: 'getContractAddress',
+			call: 'tendermint_getContractAddress',
 			params: 0
 		}),
 		new web3._extend.Method({
-			name: 'getSomaContractABI',
-			call: 'tendermint_getSomaContractABI',
-			params: 0
-		}),
-		new web3._extend.Method({
-			name: 'getGlienickeContractAddress',
-			call: 'tendermint_getGlienickeContractAddress',
-			params: 0
-		}),
-		new web3._extend.Method({
-			name: 'getGlienickeContractABI',
-			call: 'tendermint_getGlienickeContractABI',
+			name: 'getContractABI',
+			call: 'tendermint_getContractABI',
 			params: 0
 		}),
 		new web3._extend.Method({

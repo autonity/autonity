@@ -3,7 +3,6 @@ package test
 import (
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p"
 	"net"
@@ -14,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+
+	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/fdlimit"
 	"github.com/clearmatics/autonity/common/graph"
@@ -128,6 +129,7 @@ func runTest(t *testing.T, test *testCase) {
 			goleak.IgnoreTopFunction("github.com/JekaMas/notify._Cfunc_CFRunLoopRun"),
 			goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
 			goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
+			goleak.IgnoreTopFunction("github.com/clearmatics/autonity/miner.(*worker).newWorkLoop.func1"),
 		)
 	}
 
@@ -155,6 +157,7 @@ func runTest(t *testing.T, test *testCase) {
 		nodeNames = append(nodeNames, stakeholderNames...)
 		nodeNames = append(nodeNames, participantNames...)
 	}
+
 	nodesNum := len(nodeNames)
 	// Generate a batch of accounts to seal and fund with
 	nodes := make(map[string]*testNode, nodesNum)
