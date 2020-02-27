@@ -17,7 +17,6 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/types"
 )
@@ -93,19 +92,4 @@ func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 	} else {
 		return nil
 	}
-}
-
-func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
-
-	c.logger.Debug("NewUnminedBlockEvent: Received",
-		"from", c.address.String(),
-		"type", "New Unmined Block",
-		"hash", ub.Hash(),
-		"currentHeight", c.Height(),
-		"currentRound", c.Round(),
-		"currentStep", c.step,
-		"currentProposer", c.isProposer(),
-		"msgHeight", ub.Header().Number.Uint64(),
-		"isNilMsg", ub.Hash() == common.Hash{},
-	)
 }
