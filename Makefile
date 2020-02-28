@@ -87,7 +87,7 @@ test-deps:
 	cd tests/testdata && git checkout b5eb9900ee2147b40d3e681fe86efa4fd693959a
 
 lint-deps:
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.21.0
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.23.6
 
 clean:
 	go clean -cache
