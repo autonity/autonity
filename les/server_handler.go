@@ -903,6 +903,9 @@ func (h *serverHandler) broadcastHeaders() {
 
 	headCh := make(chan core.ChainHeadEvent, 10)
 	headSub := h.blockchain.SubscribeChainHeadEvent(headCh)
+	if headSub==nil {
+		return
+	}
 	defer headSub.Unsubscribe()
 
 	var (
