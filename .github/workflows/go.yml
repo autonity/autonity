@@ -51,9 +51,8 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
-      - name: Linters
-        uses: actions/checkout@v2
-        run: |
+      - uses: actions/checkout@v2
+      - run: |
           git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
           git branch
           echo "##[set-env name=LATEST_COMMIT;]$(git log -n 1 origin/develop --pretty=format:"%H")"
