@@ -53,11 +53,6 @@ jobs:
 
       - name: Set LATEST_COMMIT
         run: |
-          git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
-        shell: bash
-
-      - name: Set LATEST_COMMIT
-        run: |
           git branch
           echo "##[set-env name=LATEST_COMMIT;]$(git log -n 1 origin/develop --pretty=format:"%H")"
         shell: bash
