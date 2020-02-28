@@ -29,12 +29,34 @@ jobs:
       - name: Install
         run: go run build/ci.go install
 
-      - run: |
-          git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
+  linters:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on
+    steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
 
-      - name: Set LATEST_COMMIT
+      - name: Set GOPATH
+        # temporary fix
+        # see https://github.com/actions/setup-go/issues/14
         run: |
-          echo "##[set-env name=LATEST_COMMIT;]$(git log -n 1 origin/master --pretty=format:"%H")"
+          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+        shell: bash
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+        with:
+          clean: 'false'
+
+      - name: Linters
+        run: |
+          git fetch --no-tags --depth=1 origin develop:develop
+          make lint-ci
         shell: bash
 
   tests:
@@ -135,7 +157,6 @@ jobs:
 
       - name: Test
         run: go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 40m
-
 
 
   race_tests:
