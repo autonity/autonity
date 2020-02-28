@@ -441,6 +441,7 @@ func unlockAccounts(ctx *cli.Context, stack *node.Node) {
 	if len(unlocks) == 0 {
 		return
 	}
+
 	// If insecure account unlocking is not allowed if node's APIs are exposed to external.
 	// Print warning log to user and skip unlocking.
 	if !stack.Config().InsecureUnlockAllowed && stack.Config().ExtRPCEnabled() {
