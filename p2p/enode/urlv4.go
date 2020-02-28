@@ -21,17 +21,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/p2p/enr"
 	"net"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enr"
 )
 
 var (
@@ -75,10 +72,10 @@ func MustParseV4(rawurl string) *Node {
 //
 //    enode://<hex node id>@10.3.58.6:30303?discport=30301
 func ParseV4(rawurl string) (*Node, error) {
-	return parseV4(rawurl, false)
+	return parseV4(rawurl, nil)
 }
 
-func parseV4(rawurl string, resolve bool) (*Node, error) {
+func parseV4(rawurl string, resolve func(host string) ([]net.IP, error)) (*Node, error) {
 	if m := incompleteNodeURL.FindStringSubmatch(rawurl); m != nil {
 		id, err := parsePubkey(m[1])
 		if err != nil {
@@ -88,31 +85,6 @@ func parseV4(rawurl string, resolve bool) (*Node, error) {
 	}
 
 	return parseComplete(rawurl, resolve)
-}
-
-func GetParseV4WithResolveMaxTry(maxTry int, wait time.Duration) func(rawurl string) (*Node, error) {
-	return func(rawurl string) (*Node, error) {
-		return ParseV4WithResolveMaxTry(rawurl, maxTry, wait)
-	}
-}
-
-func ParseV4WithResolveMaxTry(rawurl string, maxTry int, wait time.Duration) (*Node, error) {
-	var node *Node
-	var err error
-	for i := 0; i < maxTry; i++ {
-		node, err = ParseV4WithResolve(rawurl)
-		if err == nil {
-			break
-		}
-		time.Sleep(wait)
-		log.Error("trying to parse", "enode", rawurl, "attempt", i)
-	}
-
-	return node, err
-}
-
-func ParseV4WithResolve(rawurl string) (*Node, error) {
-	return parseV4(rawurl, true)
 }
 
 // NewV4 creates a node from discovery v4 node information. The record
@@ -142,7 +114,7 @@ func isNewV4(n *Node) bool {
 	return n.r.IdentityScheme() == "" && n.r.Load(&k) == nil && len(n.r.Signature()) == 0
 }
 
-func parseComplete(rawurl string, resolve bool) (*Node, error) {
+func parseComplete(rawurl string, resolveFunc func(host string) ([]net.IP, error)) (*Node, error) {
 	var (
 		id               *ecdsa.PublicKey
 		ip               net.IP
@@ -173,11 +145,11 @@ func parseComplete(rawurl string, resolve bool) (*Node, error) {
 	}
 
 	if ip = net.ParseIP(host); ip == nil {
-		if !resolve {
+		if resolveFunc == nil {
 			return nil, errors.New("invalid IP address")
 		}
 		// if host is not IPV4/6, resolve host is a domain
-		ips, err := lookupIPFunc(host)
+		ips, err := resolveFunc(host)
 		if err != nil {
 			return NewV4(id, nil, 0, 0), errors.New("invalid domain or IP address")
 		}
