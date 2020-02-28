@@ -36,8 +36,7 @@ type Poster interface {
 }
 
 // CommitEvent is posted when a proposal is committed
-type CommitEvent struct {
-}
+type CommitEvent struct{}
 
 type SyncEvent struct {
 	Addr common.Address
