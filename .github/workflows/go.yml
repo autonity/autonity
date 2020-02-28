@@ -95,14 +95,6 @@ jobs:
         with:
           token: ${{ secrets.codecov_upload }}
           file: coverage*.out
-          flags: tendermint
-          yml: codecov.yml
-          fail_ci_if_error: true
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
           yml: codecov.yml
           fail_ci_if_error: true
 
@@ -140,13 +132,6 @@ jobs:
           yml: codecov.yml
           fail_ci_if_error: true
 
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          yml: codecov.yml
-          fail_ci_if_error: true
-
   start_stop_tests:
     runs-on: ubuntu-latest
     env:
@@ -171,22 +156,8 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Test
-        run: go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 40m   -cover -covermode=atomic -test.coverprofile=coverage_start_stop.out
+        run: go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 40m
 
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          flags: tendermint
-          yml: codecov.yml
-          fail_ci_if_error: true
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          yml: codecov.yml
-          fail_ci_if_error: true
 
   race_tests:
     runs-on: ubuntu-latest
@@ -212,23 +183,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: unit
-        run: go test -race -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_race_tests.out
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          flags: tendermint
-          yml: codecov.yml
-          fail_ci_if_error: true
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          yml: codecov.yml
-          fail_ci_if_error: true
-
+        run: go test -race -v ./consensus/tendermint/... -timeout 30m
 
   tendermint-success-test:
     runs-on: ubuntu-latest
@@ -254,22 +209,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: e2e
-        run: go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 40m   -cover -covermode=atomic -test.coverprofile=coverage_tendermint4.out
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          flags: tendermint
-          yml: codecov.yml
-          fail_ci_if_error: true
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          yml: codecov.yml
-          fail_ci_if_error: true
+        run: go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 40m
 
 
   autonity_test-small-fee:
@@ -296,23 +236,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: TestCheckBlockWithSmallFee
-        run: go test ./consensus/test/... -v -run 'TestCheckBlockWithSmallFee' -timeout 40m   -cover -covermode=atomic -test.coverprofile=coverage_tendermint5.out
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          flags: tendermint
-          yml: codecov.yml
-          fail_ci_if_error: true
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          yml: codecov.yml
-          fail_ci_if_error: true
-
+        run: go test ./consensus/test/... -v -run 'TestCheckBlockWithSmallFee' -timeout 40m
 
   autonity_test-fee-redistribution:
     runs-on: ubuntu-latest
@@ -338,22 +262,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: TestCheckFeeRedirectionAndRedistribution
-        run: go test ./consensus/test/... -v -run 'TestCheckFeeRedirectionAndRedistribution' -timeout 40m   -cover -covermode=atomic -test.coverprofile=coverage_tendermint6.out
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          flags: tendermint
-          yml: codecov.yml
-          fail_ci_if_error: true
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          yml: codecov.yml
-          fail_ci_if_error: true
+        run: go test ./consensus/test/... -v -run 'TestCheckFeeRedirectionAndRedistribution' -timeout 40m
 
 
   start_stop_test-f:
@@ -380,22 +289,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: TestTendermintStartStopFNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 40m   -cover -covermode=atomic -test.coverprofile=coverage_tendermint7.out
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          flags: tendermint
-          yml: codecov.yml
-          fail_ci_if_error: true
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          yml: codecov.yml
-          fail_ci_if_error: true
+        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 40m
 
 
   start_stop_test-f-plus-2:
@@ -422,22 +316,8 @@ jobs:
         uses: actions/checkout@v2
 
       - name: TestTendermintStartStopFPlusTwoNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 40m   -cover -covermode=atomic -test.coverprofile=coverage_tendermint8.out
+        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 40m
 
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          flags: tendermint
-          yml: codecov.yml
-          fail_ci_if_error: true
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          yml: codecov.yml
-          fail_ci_if_error: true
 
 
   start_stop_test-f-plus-1:
@@ -464,22 +344,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: TestTendermintStartStopFPlusOneNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 40m   -cover -covermode=atomic -test.coverprofile=coverage_tendermint9.out
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          flags: tendermint
-          yml: codecov.yml
-          fail_ci_if_error: true
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          yml: codecov.yml
-          fail_ci_if_error: true
+        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 40m
 
 
   start_stop_test-all-nodes:
@@ -506,26 +371,10 @@ jobs:
         uses: actions/checkout@v2
 
       - name: TestTendermintStartStopAllNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 40m   -cover -covermode=atomic -test.coverprofile=coverage_tendermint10.out
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          flags: tendermint
-          yml: codecov.yml
-          fail_ci_if_error: true
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          yml: codecov.yml
-          fail_ci_if_error: true
+        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 40m
 
 
   contract_tests:
-    needs: [tests-tendermint, tests, start_stop_tests, race_tests, tendermint-success-test, autonity_test-small-fee, autonity_test-fee-redistribution, start_stop_test-f, start_stop_test-f-plus-2, start_stop_test-f-plus-1, start_stop_test-all-nodes]
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -546,23 +395,3 @@ jobs:
         uses: actions/checkout@v2
       - name: test contract
         run: make test-contracts
-
-  coverage-reports:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
