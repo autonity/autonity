@@ -354,8 +354,6 @@ jobs:
 
 
   contract_tests:
-    needs: [tests-tendermint, tests, start_stop_tests, race_tests, tendermint-success-test, autonity_test-small-fee, autonity_test-fee-redistribution, start_stop_test-f, start_stop_test-f-plus-2, start_stop_test-f-plus-1, start_stop_test-all-nodes]
-    runs-on: ubuntu-latest
     env:
       GO111MODULE: on
       GORACE: "history_size=7"
