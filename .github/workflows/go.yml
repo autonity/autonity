@@ -54,12 +54,9 @@ jobs:
           fetch-depth: '0'
           clean: 'false'
 
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: '0'
-          clean: 'false'
       - run: |
-          git log --color --pretty=oneline | tail -n 10 | cat
+          git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
+          git branch
           echo "##[set-env name=LATEST_COMMIT;]$(git log -n 1 origin/develop --pretty=format:"%H")"
           make lint-ci
         shell: bash
