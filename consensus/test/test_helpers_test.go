@@ -241,6 +241,13 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 		})
 	}
 	err := wg.Wait()
+	if err != nil {
+		if test.topology != nil {
+			fmt.Println(test.topology.DumpTopology(validators))
+		}
+		t.Fatal(err)
+	}
+
 	keys := make([]int, 0, len(txs))
 	for key := range txs {
 		keys = append(keys, int(key))
@@ -257,9 +264,6 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 		validator.transactionsMu.Lock()
 		fmt.Printf("Validator %s has %d transactions\n", index, len(validator.transactions))
 		validator.transactionsMu.Unlock()
-	}
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	// no blocks can be mined with no quorum
@@ -378,6 +382,13 @@ wgLoop:
 	for {
 		select {
 		case ev := <-validator.eventChan:
+			if test.topology != nil && test.topology.WithChanges() {
+				err = test.topology.ConnectNodesForIndex(index, validators)
+				if err != nil {
+					return err
+				}
+			}
+
 			if _, ok := validator.blocks[ev.Block.NumberU64()]; ok {
 				continue
 			}
@@ -441,6 +452,14 @@ wgLoop:
 			err = runHook(test.getAfterHook(index), test, ev.Block, validator, index)
 			if err != nil {
 				return err
+			}
+
+			if test.topology != nil && test.topology.WithChanges() {
+				err := test.topology.CheckTopologyForIndex(index, validators)
+				if err != nil {
+					logger.Error("check topology err", "index", index, "block", validator.lastBlock, "err", err)
+					return err
+				}
 			}
 
 			if int(validator.lastBlock) > test.numBlocks {
