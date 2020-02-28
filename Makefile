@@ -10,7 +10,7 @@
 
 GOBIN = ./build/bin
 GO ?= latest
-LATEST_COMMIT ?= $(shell git log -n 1 master --pretty=format:"%H")
+LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
 ifeq ($(LATEST_COMMIT),)
 LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif

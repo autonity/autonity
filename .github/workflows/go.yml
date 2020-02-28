@@ -34,7 +34,12 @@ jobs:
 
       - name: Set LATEST_COMMIT
         run: |
-          echo "##[set-env name=LATEST_COMMIT;]$(git log -n 1 origin/master --pretty=format:"%H")"
+          echo "##[set-env name=LATEST_COMMIT;]$(git log -n 1 origin/develop --pretty=format:"%H")"
+        shell: bash
+
+      - name: Set LATEST_COMMIT
+        run: |
+          make lint-ci
         shell: bash
 
   tests:
