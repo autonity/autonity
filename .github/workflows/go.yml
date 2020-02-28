@@ -53,10 +53,9 @@ jobs:
         with:
           clean: 'false'
 
-      - run: |
+      - name: Linters
+        run: |
           git fetch --no-tags --depth=1 origin develop:develop
-          git branch
-          echo "##[set-env name=LATEST_COMMIT;]$(git log -n 1 develop --pretty=format:"%H")"
           make lint-ci
         shell: bash
 
