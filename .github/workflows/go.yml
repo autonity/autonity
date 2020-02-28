@@ -59,6 +59,9 @@ jobs:
           git log --color --pretty=oneline | tail -n 10 | cat
           echo "##[set-env name=LATEST_COMMIT;]$(git log -n 1 origin/develop --pretty=format:"%H")"
           make lint-ci
+        with:
+          fetch-depth: '0'
+          clean: 'false'
         shell: bash
 
   tests:
