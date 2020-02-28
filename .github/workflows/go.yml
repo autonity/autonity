@@ -354,6 +354,7 @@ jobs:
 
 
   contract_tests:
+    runs-on: ubuntu-latest
     env:
       GO111MODULE: on
       GORACE: "history_size=7"
