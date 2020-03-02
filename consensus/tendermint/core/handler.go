@@ -301,10 +301,7 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender ty
 	c.futureRoundChange[msgRound][sender.Address] = struct{}{}
 
 	// TODO(PoS Integration) : Weight by Voting Power
-	totalFutureRoundMessages := 0
-	for _ = range c.futureRoundChange[msgRound] {
-		totalFutureRoundMessages += 1
-	}
+	totalFutureRoundMessages := len(c.futureRoundChange[msgRound])
 
 	if totalFutureRoundMessages > c.CommitteeSet().F() {
 		c.logger.Info("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)

@@ -269,7 +269,7 @@ func TestHandlePrecommit(t *testing.T) {
 		curRoundMessages := messages.getOrCreate(2)
 		curRoundMessages.SetProposal(proposal, nil, true)
 
-		err, msg := preparePrecommitMsg(proposal.ProposalBlock.Hash(), 2, 3, keys, member)
+		msg, err := preparePrecommitMsg(proposal.ProposalBlock.Hash(), 2, 3, keys, member)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
@@ -318,7 +318,7 @@ func TestHandlePrecommit(t *testing.T) {
 		curRoundMessages := messages.getOrCreate(2)
 		curRoundMessages.SetProposal(proposal, nil, true)
 
-		err, msg := preparePrecommitMsg(proposal.ProposalBlock.Hash(), 1, 2, keys, member)
+		msg, err := preparePrecommitMsg(proposal.ProposalBlock.Hash(), 1, 2, keys, member)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
@@ -377,7 +377,7 @@ func TestHandlePrecommit(t *testing.T) {
 
 		for _, member := range committeeSet.Committee()[1:5] {
 
-			err, msg := preparePrecommitMsg(proposal.ProposalBlock.Hash(), 2, 3, keys, member)
+			msg, err := preparePrecommitMsg(proposal.ProposalBlock.Hash(), 2, 3, keys, member)
 			if err != nil {
 				t.Fatalf("Expected nil, got %v", err)
 			}
@@ -386,7 +386,7 @@ func TestHandlePrecommit(t *testing.T) {
 				t.Fatalf("Expected nil, got %v", err)
 			}
 		}
-		err, msg := preparePrecommitMsg(common.Hash{}, 2, 3, keys, me)
+		msg, err := preparePrecommitMsg(common.Hash{}, 2, 3, keys, me)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
@@ -496,7 +496,7 @@ func TestHandleCommit(t *testing.T) {
 	}
 }
 
-func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, keys addressKeyMap, member types.CommitteeMember) (error, *Message) {
+func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, keys addressKeyMap, member types.CommitteeMember) (*Message, error) {
 	var preCommit = Vote{
 		Round:             round,
 		Height:            big.NewInt(height),
@@ -505,14 +505,14 @@ func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, ke
 
 	encodedVote, err := Encode(&preCommit)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	data := PrepareCommittedSeal(proposalHash, preCommit.Round, preCommit.Height)
 	hashData := crypto.Keccak256(data)
 	sig, err := crypto.Sign(hashData, keys[member.Address])
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	expectedMsg := &Message{
@@ -522,5 +522,5 @@ func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, ke
 		CommittedSeal: sig,
 		Signature:     []byte{0x1},
 	}
-	return err, expectedMsg
+	return expectedMsg, err
 }
