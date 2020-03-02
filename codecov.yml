@@ -4,6 +4,7 @@ ignore:
   - "**/mock*.go"
 coverage:
   status:
+    patch: off
     project:
       default:
         target: 30%
@@ -17,4 +18,4 @@ flags:
     paths:
       - consensus/tendermint/
 comment:
-  behavior: new
+  behavior: default

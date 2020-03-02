@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math"
 	"os"
 	"runtime"
@@ -293,6 +294,7 @@ func autonity(ctx *cli.Context) error {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 	prepare(ctx)
+	enode.AutomaticResolveStart()
 	node := makeFullNode(ctx)
 	defer node.Close()
 	startNode(ctx, node)
@@ -439,6 +441,7 @@ func unlockAccounts(ctx *cli.Context, stack *node.Node) {
 	if len(unlocks) == 0 {
 		return
 	}
+
 	// If insecure account unlocking is not allowed if node's APIs are exposed to external.
 	// Print warning log to user and skip unlocking.
 	if !stack.Config().InsecureUnlockAllowed && stack.Config().ExtRPCEnabled() {
