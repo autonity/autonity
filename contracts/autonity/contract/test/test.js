@@ -453,8 +453,8 @@ contract('Autonity', function (accounts) {
             let getStakeResult = await token.getStake({from: accounts[7]});
             assert(0 == getStakeResult, "unexpected tokens");
 
-            await token.addStakeholder(accounts[5], "some enode", 0, {from: operator});
-            getStakeResult = await token.getStake({from: accounts[5]});
+            await token.addStakeholder(accounts[6], "some enode", 0, {from: operator});
+            getStakeResult = await token.getStake({from: accounts[6]});
             assert(0 == getStakeResult, "unexpected tokens");
 
             await token.mintStake(accounts[7], 100, {from: operator});
@@ -462,13 +462,13 @@ contract('Autonity', function (accounts) {
             getStakeResult = await token.getStake({from: accounts[7]});
             assert(100 == getStakeResult, "tokens are not minted");
 
-            let tx = await token.send(accounts[5], 50, {from: accounts[7]});
+            let tx = await token.send(accounts[6], 50, {from: accounts[7]});
             // console.log("\tGas used to send state token = " + tx.receipt.gasUsed.toString() + " gas");
 
             getStakeResult = await token.getStake({from: accounts[7]});
             assert(50 == getStakeResult, "unexpected tokens");
 
-            getStakeResult = await token.getStake({from: accounts[5]});
+            getStakeResult = await token.getStake({from: accounts[6]});
             assert(50 == getStakeResult, "unexpected tokens");
 
             await token.redeemStake(accounts[7], 50, {from: operator});
