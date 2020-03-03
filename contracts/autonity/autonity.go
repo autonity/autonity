@@ -51,7 +51,7 @@ type Blockchainer interface {
 	Config() *params.ChainConfig
 
 	UpdateEnodeWhitelist(newWhitelist *types.Nodes)
-	ReadEnodeWhitelist(openNetwork bool) *types.Nodes
+	ReadEnodeWhitelist() *types.Nodes
 
 	PutKeyValue(key []byte, value []byte) error
 	GetKeyValue(key []byte) ([]byte, error)
@@ -156,7 +156,7 @@ func (ac *Contract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.
 
 	if block.Number().Uint64() == 1 {
 		// use genesis block whitelist
-		newWhitelist = ac.bc.ReadEnodeWhitelist(false)
+		newWhitelist = ac.bc.ReadEnodeWhitelist()
 	} else {
 		// call retrieveWhitelist contract function
 		newWhitelist, err = ac.callGetWhitelist(db, block.Header())
@@ -215,7 +215,7 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 }
 
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
-	log.Info("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
+	log.Error("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
 
 	// dump contract stateBefore first.
 	stateBefore, errState := ac.callRetrieveState(statedb, header)
@@ -297,4 +297,17 @@ func (ac *Contract) upgradeAbiCache(newAbi string) error {
 
 	ac.contractABI = &newABI
 	return nil
+}
+
+func (ac *Contract) GetContractABI() string {
+	ac.Lock()
+	defer ac.Unlock()
+
+	var JSONString = ac.bc.Config().AutonityContractConfig.ABI
+	bytes, err := ac.bc.GetKeyValue([]byte(ABISPEC))
+	if err == nil || bytes != nil {
+		JSONString = string(bytes)
+	}
+
+	return JSONString
 }

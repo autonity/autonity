@@ -8,7 +8,7 @@ import (
 	common "github.com/clearmatics/autonity/common"
 	config "github.com/clearmatics/autonity/consensus/tendermint/config"
 	gomock "github.com/golang/mock/gomock"
-	"math/big"
+	big "math/big"
 	reflect "reflect"
 )
 
@@ -35,7 +35,7 @@ func (m *MockValidator) EXPECT() *MockValidatorMockRecorder {
 	return m.recorder
 }
 
-// Address mocks base method
+// GetAddress mocks base method
 func (m *MockValidator) GetAddress() common.Address {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAddress")
@@ -43,8 +43,8 @@ func (m *MockValidator) GetAddress() common.Address {
 	return ret0
 }
 
-// Address indicates an expected call of Address
-func (mr *MockValidatorMockRecorder) Addr() *gomock.Call {
+// GetAddress indicates an expected call of GetAddress
+func (mr *MockValidatorMockRecorder) GetAddress() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockValidator)(nil).GetAddress))
 }
@@ -63,7 +63,7 @@ func (mr *MockValidatorMockRecorder) String() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockValidator)(nil).String))
 }
 
-// Address mocks base method
+// GetVotingPower mocks base method
 func (m *MockValidator) GetVotingPower() *big.Int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVotingPower")
@@ -71,8 +71,8 @@ func (m *MockValidator) GetVotingPower() *big.Int {
 	return ret0
 }
 
-// Address indicates an expected call of Address
-func (mr *MockValidatorMockRecorder) VP() *gomock.Call {
+// GetVotingPower indicates an expected call of GetVotingPower
+func (mr *MockValidatorMockRecorder) GetVotingPower() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVotingPower", reflect.TypeOf((*MockValidator)(nil).GetVotingPower))
 }

@@ -28,7 +28,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/mclock"
@@ -184,7 +184,6 @@ type BlockChain struct {
 	terminateInsert func(common.Hash, uint64) bool // Testing hook used to terminate ancient receipt chain insertion.
 
 	autonityContract *autonity.Contract
-	//openNetwork      bool // True if we should disable permissioning
 
 	// senderCacher is a concurrent transaction sender recoverer and cacher
 	senderCacher *TxSenderCacher
@@ -2283,8 +2282,8 @@ func (bc *BlockChain) UpdateEnodeWhitelist(newWhitelist *types.Nodes) {
 	go bc.autonityFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
 }
 
-func (bc *BlockChain) ReadEnodeWhitelist(openNetwork bool) *types.Nodes {
-	return rawdb.ReadEnodeWhitelist(bc.db, openNetwork)
+func (bc *BlockChain) ReadEnodeWhitelist() *types.Nodes {
+	return rawdb.ReadEnodeWhitelist(bc.db)
 }
 
 func (bc *BlockChain) PutKeyValue(key []byte, value []byte) error {

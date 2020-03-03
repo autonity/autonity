@@ -10,7 +10,7 @@
 
 GOBIN = ./build/bin
 GO ?= latest
-LATEST_COMMIT ?= $(shell git log -n 1 master --pretty=format:"%H")
+LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
 ifeq ($(LATEST_COMMIT),)
 LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
@@ -87,7 +87,7 @@ test-deps:
 	cd tests/testdata && git checkout b5eb9900ee2147b40d3e681fe86efa4fd693959a
 
 lint-deps:
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.21.0
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.23.7
 
 clean:
 	go clean -cache

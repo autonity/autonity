@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
-	"github.com/clearmatics/autonity/common/keygenerator"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -16,7 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
@@ -29,7 +31,6 @@ import (
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/params"
-	"golang.org/x/sync/errgroup"
 )
 
 func sendTx(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address, transactionGenerator func(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error)) (*types.Transaction, error) {
@@ -240,6 +241,13 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 		})
 	}
 	err := wg.Wait()
+	if err != nil {
+		if test.topology != nil {
+			fmt.Println(test.topology.DumpTopology(validators))
+		}
+		t.Fatal(err)
+	}
+
 	keys := make([]int, 0, len(txs))
 	for key := range txs {
 		keys = append(keys, int(key))
@@ -256,9 +264,6 @@ func sendTransactions(t *testing.T, test *testCase, validators map[string]*testN
 		validator.transactionsMu.Lock()
 		fmt.Printf("Validator %s has %d transactions\n", index, len(validator.transactions))
 		validator.transactionsMu.Unlock()
-	}
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	// no blocks can be mined with no quorum
@@ -359,10 +364,31 @@ func runNode(ctx context.Context, validator *testNode, test *testCase, validator
 	testCanBeStopped := new(uint32)
 	fromAddr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 
+	var noQuorumTimer *time.Timer
+	if test.noQuorumAfterBlock > 0 {
+		noQuorumTimer = time.NewTimer(test.noQuorumTimeout)
+		defer noQuorumTimer.Stop()
+	}
+	periodicChecks := time.NewTicker(100 * time.Millisecond)
+	defer periodicChecks.Stop()
+
+	mux := validator.node.EventMux()
+	chainEvents := mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{})
+	defer chainEvents.Unsubscribe()
+
+	shouldSendTx := validator.service.Miner().IsMining()
+
 wgLoop:
 	for {
 		select {
 		case ev := <-validator.eventChan:
+			if test.topology != nil && test.topology.WithChanges() {
+				err = test.topology.ConnectNodesForIndex(index, validators)
+				if err != nil {
+					return err
+				}
+			}
+
 			if _, ok := validator.blocks[ev.Block.NumberU64()]; ok {
 				continue
 			}
@@ -409,7 +435,9 @@ wgLoop:
 					validator.transactionsMu.Unlock()
 				}
 
-				if int(validator.lastBlock) <= test.numBlocks {
+				currentBlock := validator.service.BlockChain().CurrentHeader().Number.Uint64()
+				isBehind := currentBlock < ev.Block.NumberU64()
+				if !isBehind && shouldSendTx && int(validator.lastBlock) <= test.numBlocks {
 					err = validatorSendTransaction(
 						generateToAddr(txPerPeer, names, index, validators),
 						test,
@@ -426,8 +454,16 @@ wgLoop:
 				return err
 			}
 
+			if test.topology != nil && test.topology.WithChanges() {
+				err := test.topology.CheckTopologyForIndex(index, validators)
+				if err != nil {
+					logger.Error("check topology err", "index", index, "block", validator.lastBlock, "err", err)
+					return err
+				}
+			}
+
 			if int(validator.lastBlock) > test.numBlocks {
-				//all transactions were included into the chain
+				// all transactions were included into the chain
 				if errorOnTx {
 					validator.transactionsMu.Lock()
 					if len(validator.transactions) == 0 {
@@ -498,14 +534,34 @@ wgLoop:
 			}
 		case <-ctx.Done():
 			return ctx.Err()
-		}
-		// allow to exit goroutine when no quorum expected
-		// check that there's no quorum within the given noQuorumTimeout
-		if !hasQuorum(validators) && test.noQuorumAfterBlock > 0 {
-			log.Error("No Quorum", "index", index, "last_block", validator.lastBlock)
-			// wait for quorum to get restored
-			time.Sleep(test.noQuorumTimeout)
-			break wgLoop
+		case <-periodicChecks.C:
+			if test.noQuorumAfterBlock > 0 {
+				if hasQuorum(validators) {
+					if !noQuorumTimer.Stop() {
+						<-noQuorumTimer.C
+					}
+					noQuorumTimer.Reset(test.noQuorumTimeout)
+				} else {
+					select {
+					case <-noQuorumTimer.C:
+						log.Error("No Quorum", "index", index, "last_block", validator.lastBlock)
+						atomic.AddInt64(test.validatorsCanBeStopped, 1)
+						break wgLoop
+					default:
+					}
+				}
+			}
+		case ev := <-chainEvents.Chan():
+			if ev == nil {
+				continue
+			}
+			switch ev.Data.(type) {
+			case downloader.StartEvent:
+				shouldSendTx = false
+
+			case downloader.DoneEvent:
+				shouldSendTx = true
+			}
 		}
 
 		// check transactions status if all blocks are passed
@@ -518,7 +574,6 @@ wgLoop:
 		}
 	}
 	return nil
-
 }
 
 func checkAndReturnMinHeight(t *testing.T, test *testCase, validators map[string]*testNode) uint64 {

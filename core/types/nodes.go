@@ -3,7 +3,6 @@ package types
 import (
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
@@ -15,15 +14,7 @@ type Nodes struct {
 	StrList []string
 }
 
-const (
-	maxParseTries     = 300
-	delayBetweenTries = time.Second
-	defaultTTL        = 120
-)
-
-func NewNodes(strList []string, openNetwork bool) *Nodes {
-	getEnode := getParseFunc(openNetwork)
-
+func NewNodes(strList []string) *Nodes {
 	idx := new(int32)
 	wg := sync.WaitGroup{}
 	errCh := make(chan error, len(strList))
@@ -38,7 +29,7 @@ func NewNodes(strList []string, openNetwork bool) *Nodes {
 
 		go func(enodeStr string) {
 			log.Debug("performing", "node", enodeStr)
-			newEnode, err := cache.Get(enodeStr, getEnode)
+			newEnode, err := enode.ParseWithResolve(enodeStr)
 			if err != nil {
 				errCh <- err
 			}
@@ -63,10 +54,10 @@ func NewNodes(strList []string, openNetwork bool) *Nodes {
 		log.Error("enodes parse errors", "errs", spew.Sdump(errs))
 	}
 
-	return filterNodes(n, openNetwork)
+	return filterNodes(n)
 }
 
-func filterNodes(n *Nodes, openNetwork bool) *Nodes {
+func filterNodes(n *Nodes) *Nodes {
 	filtered := &Nodes{
 		make([]*enode.Node, 0, len(n.List)),
 		make([]string, 0, len(n.StrList)),
@@ -76,58 +67,8 @@ func filterNodes(n *Nodes, openNetwork bool) *Nodes {
 		if node != nil {
 			filtered.List = append(filtered.List, node)
 			filtered.StrList = append(filtered.StrList, n.StrList[i])
-		} else if openNetwork {
-			// we want to store raw enodes for later checks
-			filtered.StrList = append(filtered.StrList, n.StrList[i])
 		}
 	}
 
 	return filtered
-}
-
-func getParseFunc(openNetwork bool) func(string) (*enode.Node, error) {
-	getEnode := enode.ParseV4WithResolve
-	if !openNetwork {
-		getEnode = enode.GetParseV4WithResolveMaxTry(maxParseTries, delayBetweenTries)
-	}
-	return getEnode
-}
-
-var cache = &domainCache{m: make(map[string]resolvedNode)}
-
-type domainCache struct {
-	m map[string]resolvedNode
-	sync.RWMutex
-}
-
-type resolvedNode struct {
-	node  *enode.Node
-	count int
-}
-
-func (c *domainCache) Get(enodeStr string, getter func(string) (*enode.Node, error)) (*enode.Node, error) {
-	c.RLock()
-	node, ok := c.m[enodeStr]
-	c.RUnlock()
-
-	if !ok {
-		// could be slow, so mutex is used
-		n, err := getter(enodeStr)
-		if err != nil {
-			return nil, err
-		}
-		c.Lock()
-		node = resolvedNode{node: n}
-		c.m[enodeStr] = node
-		c.Unlock()
-	}
-
-	c.Lock()
-	node.count++
-	if node.count >= defaultTTL {
-		// reset the cache if TTL is reached
-		delete(c.m, enodeStr)
-	}
-	c.Unlock()
-	return node.node, nil
 }

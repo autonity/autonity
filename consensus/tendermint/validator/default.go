@@ -129,6 +129,9 @@ func (valSet *defaultSet) GetProposer() Validator {
 }
 
 func (valSet *defaultSet) getProposer() Validator {
+	if valSet == nil || valSet.proposer == nil {
+		return nil
+	}
 	return New(valSet.proposer.GetAddress(), valSet.proposer.GetVotingPower())
 }
 
@@ -137,6 +140,10 @@ func (valSet *defaultSet) IsProposer(address common.Address) bool {
 	defer valSet.validatorMu.RUnlock()
 
 	_, val := valSet.GetByAddress(address)
+	proposer := valSet.getProposer()
+	if proposer == nil {
+		return false
+	}
 	return reflect.DeepEqual(valSet.getProposer(), val)
 }
 

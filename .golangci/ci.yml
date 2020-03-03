@@ -1,6 +1,5 @@
 run:
   deadline: 20m
-modules-download-mode: readonly
 
 linters:
   enable:
@@ -25,7 +24,6 @@ linters:
     - gocyclo
     - depguard
     - typecheck
-
 
   disable-all: true
 
