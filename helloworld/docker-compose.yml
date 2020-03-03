@@ -12,6 +12,7 @@ services:
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8541:8545
+      - 8641:8645
       - 30313:30303
       - "30313:30303/udp"
     command: ["./autonity-start.sh"]
@@ -31,6 +32,7 @@ services:
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8542:8545
+      - 8642:8645
       - 30323:30303
       - "30323:30303/udp"
     command: ["./autonity-start.sh"]
@@ -50,6 +52,7 @@ services:
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8543:8545
+      - 8643:8645
       - 30333:30303
       - "30333:30303/udp"
     command: ["./autonity-start.sh"]
@@ -69,6 +72,7 @@ services:
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8544:8545
+      - 8644:8645
       - 30343:30303
       - "30343:30303/udp"
     command: ["./autonity-start.sh"]
@@ -88,6 +92,7 @@ services:
       - ./autonity-start.sh:/autonity-start.sh:ro
     ports:
       - 8545:8545
+      - 8645:8645
       - 30353:30303
       - "30353:30303/udp"
     command: ["./autonity-start.sh"]
