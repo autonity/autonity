@@ -147,11 +147,11 @@ contract Autonity {
         * Removes the user from the relevant lists and updates
         * the user's UserType
         */
-        User memory u = users[_address]
+        User memory u = users[_address];
         removeUser(u.addr);
-        _createUser(u.addr, u.enode, newUserType, u.stake, u.comissionRate);
+        _createUser(u.addr, u.enode, newUserType, u.stake, u.commissionRate);
 
-        emit ChangeUserType(u.addr , newUserType);
+        emit ChangeUserType(u.addr , u.userType , newUserType);
     }
 
 
@@ -574,10 +574,10 @@ contract Autonity {
     function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake, uint256 commissionRate) internal {
         require(_address != address(0), "Addresses must be defined");
 
-        // avoid duplicated user in usersList.
-        require(users[u.addr].addr == 0x0, "This address is already registered");
-
         User memory u = User(_address, _userType, _stake, _enode, commissionRate);
+
+        // avoid duplicated user in usersList.
+        require(users[u.addr].addr == address(0), "This address is already registered");
 
 	      usersList.push(u.addr);
 
