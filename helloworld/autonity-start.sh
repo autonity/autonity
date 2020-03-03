@@ -7,7 +7,7 @@ KEYSTORE=keystore
 NODEKEY=nodekey
 RPC_PORT=8545
 RPC_ADDR=$(awk 'END{print $1}' /etc/hosts)
-RPC_API="istanbul,console,eth,web3,admin,debug,miner,personal,txpool,net"
+RPC_API="tendermint,console,eth,web3,admin,debug,miner,personal,txpool,net"
 
 # init the data directory
 echo "Autonity INIT $RPC_ADDR"
