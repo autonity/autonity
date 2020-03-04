@@ -382,6 +382,7 @@ func TestCore_SyncPeer(t *testing.T) {
 			curRoundMessages: NewRoundMessages(),
 			committeeSet:     committeeSet,
 			round:            1,
+			messages:         newMessagesMap(),
 			height:           big.NewInt(1),
 		}
 

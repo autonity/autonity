@@ -484,6 +484,7 @@ func TestHandleCommit(t *testing.T) {
 		backend:          backendMock,
 		round:            2,
 		height:           big.NewInt(3),
+		messages:         newMessagesMap(),
 		logger:           logger,
 		proposeTimeout:   newTimeout(propose, logger),
 		prevoteTimeout:   newTimeout(prevote, logger),
