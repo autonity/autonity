@@ -134,20 +134,20 @@ contract Autonity {
 
 
     /*
-    * changeUserStatus
+    * changeUserType
     * Change user status
     */
-    function changeUserStatus( address _address , UserType newUserType ) internal onlyOperator(msg.sender) {
+    function changeUserType( address _address , UserType newUserType ) public onlyOperator(msg.sender) {
         require(_address != address(0), "address must be defined");
         require(users[_address].addr != address(0), "user must exist");
 
         require(users[_address].userType != newUserType, "The user is already of this type.");
 
-        /*
-        * Removes the user from the relevant lists and updates
-        * the user's UserType
-        */
+        // Removes the user and adds it again with the new userType
         User memory u = users[_address];
+        if(newUserType == UserType.Participant){
+            require(u.stake == 0);
+        }
         removeUser(u.addr);
         _createUser(u.addr, u.enode, newUserType, u.stake, u.commissionRate);
 
@@ -350,6 +350,15 @@ contract Autonity {
     function getRate(address _account) public view returns(uint256) {
         return users[_account].commissionRate;
     }
+
+    /*
+    * getUserType
+    * Returns sender's userType
+    */
+    function getUserType() public view returns(UserType)  {
+        return users[msg.sender].userType;
+    }
+
 
     /*
     * getMaxCommitteeSize
