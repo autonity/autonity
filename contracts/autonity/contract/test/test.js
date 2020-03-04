@@ -183,6 +183,78 @@ contract('Autonity', function (accounts) {
             assert.deepEqual(validatorsList, getValidatorsResult)
         });
 
+
+        it('test change user status', async function() {
+
+            // Upgrades
+            // participant -> stakeholder (0 -> 1)
+            await token.addParticipant(accounts[6], "some enode", {from: operator});
+            await token.changeUserType(accounts[6], 1, {from: operator});
+            let thisUserType = await token.getUserType({from: accounts[6]});
+            assert (thisUserType == 1, "wrong user type");
+            await token.removeUser(accounts[6], {from: operator});
+
+            // participant -> validator (0 -> 2)
+            await token.addParticipant(accounts[6], "some enode", {from: operator});
+            await token.changeUserType(accounts[6], 2, {from: operator});
+            thisUserType = await token.getUserType({from: accounts[6]});
+            assert (thisUserType == 2, "wrong user type");
+            let thisUserStake = await token.getStake({from: accounts[6]});
+            assert (thisUserStake == 0);
+            await token.removeUser(accounts[6], {from: operator});
+
+            // stakeholder -> validator (1 -> 2)
+            await token.addStakeholder(accounts[6], "some enode", 100, {from: operator});
+            await token.changeUserType(accounts[6], 2, {from: operator});
+            thisUserType = await token.getUserType({from: accounts[6]});
+            assert (thisUserType == 2, "wrong user type");
+            thisUserStake = await token.getStake({from: accounts[6]});
+            assert (thisUserStake == 100);
+            await token.removeUser(accounts[6], {from: operator});
+
+            // Downgrades
+            // valiator -> stakeholder (2 -> 1)
+            await token.addValidator(accounts[6], 100, "some enode", {from: operator});
+            await token.changeUserType(accounts[6], 1, {from: operator});
+            thisUserType = await token.getUserType({from: accounts[6]});
+            assert (thisUserType == 1, "wrong user type");
+            thisUserStake = await token.getStake({from: accounts[6]});
+            assert (thisUserStake == 100);
+            await token.removeUser(accounts[6], {from: operator});
+
+            // validator -> participant (2 -> 0)
+            try {
+              // test that a validator with stake cannot be downgraded
+              await token.addValidator(accounts[6], 100, "some enode", {from: operator});
+              await token.changeUserType(accounts[6], 0, {from: operator});
+              assert.fail('Expected throw not received');
+            } catch (e) {
+              await token.removeUser(accounts[6], {from: operator});
+              await token.addValidator(accounts[6], 0, "some enode", {from: operator});
+              await token.changeUserType(accounts[6], 0, {from: operator});
+              thisUserType = await token.getUserType({from: accounts[6]});
+              assert (thisUserType == 0, "wrong user type");
+              await token.removeUser(accounts[6], {from: operator});
+            }
+
+            // stakeholder -> participant (1 -> 0)
+            try {
+              // test that a participant with stake cannot be downgraded
+              await token.addStakeholder(accounts[6], "some enode", 100, {from: operator});
+              await token.changeUserType(accounts[6], 0, {from: operator});
+              assert.fail('Expected throw not received');
+            } catch (e) {
+              await token.removeUser(accounts[6], {from: operator});
+              await token.addStakeholder(accounts[6], "some enode", 0, {from: operator});
+              await token.changeUserType(accounts[6], 0, {from: operator});
+              thisUserType = await token.getUserType({from: accounts[6]});
+              assert (thisUserType == 0, "wrong user type");
+              await token.removeUser(accounts[6], {from: operator});
+            }
+
+        });
+
+
         it('test create participant account check it and remove it', async function () {
             let tx = await token.addParticipant(accounts[9], "some enode", {from: operator});
             //console.log("\tGas used to add participant = " + tx.receipt.gasUsed.toString() + " gas");
