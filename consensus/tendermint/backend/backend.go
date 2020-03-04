@@ -356,9 +356,9 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			}
 		} else {
 			// genesis block and block #1 have the same committee
-			s, err := sb.savedCommittee(1, sb.blockchain) //genesis block and block #1 have the same committee
-			if err != nil {
-				return 0, err
+			s, error := sb.savedCommittee(1, sb.blockchain) //genesis block and block #1 have the same committee
+			if error != nil {
+				return 0, error
 			}
 			validators = s.Committee()
 		}

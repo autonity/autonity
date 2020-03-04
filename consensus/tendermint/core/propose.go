@@ -59,7 +59,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 	// Ensure we have the same view with the Proposal message
 	if err := c.checkMessage(proposal.Round, proposal.Height, propose); err != nil {
-		// If it's a future round proposal, the only upon conditon
+		// If it's a future round proposal, the only upon condition
 		// that can be triggered is L49, but this requires more than F future round messages
 		// meaning that a future roundchange will happen before, as such, pushing the
 		// message to the backlog is fine.
@@ -81,8 +81,8 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			roundMsgs.SetProposal(&proposal, msg, false)
 
 			if roundMsgs.PrecommitsCount(roundMsgs.GetProposalHash()) >= c.CommitteeSet().Quorum() {
-				if _, err := c.backend.VerifyProposal(*proposal.ProposalBlock); err != nil {
-					return err
+				if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
+					return error
 				}
 				c.logger.Debug("Committing old round proposal")
 				c.commit(proposal.Round, roundMsgs)

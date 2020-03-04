@@ -27,12 +27,13 @@ import (
 
 type messagesMap struct {
 	internal map[int64]*roundMessages
-	mu       sync.RWMutex
+	mu       *sync.RWMutex
 }
 
 func newMessagesMap() messagesMap {
 	return messagesMap{
 		internal: make(map[int64]*roundMessages),
+		mu:       new(sync.RWMutex),
 	}
 }
 
@@ -81,15 +82,6 @@ type roundMessages struct {
 	prevotes         messageSet
 	precommits       messageSet
 	mu               sync.RWMutex
-}
-
-func (s *roundMessages) New(r uint64) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.proposal = new(Proposal)
-	s.proposalMsg = nil
-	s.prevotes = newMessageSet()
-	s.precommits = newMessageSet()
 }
 
 // NewRoundMessages creates a new messages instance with the given view and validatorSet

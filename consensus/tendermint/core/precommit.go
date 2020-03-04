@@ -81,16 +81,16 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 
 		if err == errOldRoundMessage {
 			roundMsgs := c.messages.getOrCreate(preCommit.Round)
-			if err := c.verifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
-				return err
+			if error := c.verifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); error != nil {
+				return error
 			}
 			c.acceptVote(roundMsgs, precommit, precommitHash, *msg)
 			oldRoundProposalHash := roundMsgs.GetProposalHash()
 			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsCount(oldRoundProposalHash) >= c.CommitteeSet().Quorum() {
 				c.logger.Info("Quorum on a old round proposal", "round", preCommit.Round)
 				if !roundMsgs.isProposalVerified() {
-					if _, err := c.backend.VerifyProposal(*roundMsgs.Proposal().ProposalBlock); err != nil {
-						return err
+					if _, error := c.backend.VerifyProposal(*roundMsgs.Proposal().ProposalBlock); error != nil {
+						return error
 					}
 				}
 				c.commit(preCommit.Round, c.curRoundMessages)

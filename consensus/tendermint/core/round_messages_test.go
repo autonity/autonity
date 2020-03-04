@@ -82,40 +82,37 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 	for _, m := range allMessages {
 		switch m.Code {
 		case msgProposal:
-			assert.Equal(t, msgProposal, m.Code)
+			assert.Equal(t, proposalMsg.Code, m.Code)
 
-			r := bytes.Compare([]byte("proposal"), m.Msg)
+			r := bytes.Compare(proposalMsg.Msg, m.Msg)
 			assert.Equal(t, 0, r)
 
-			addr := common.HexToAddress("val1")
-			r = bytes.Compare(addr[:], m.Address[:])
+			r = bytes.Compare(proposalMsg.Address[:], m.Address[:])
 			assert.Equal(t, 0, r)
 
-			r = bytes.Compare([]byte{}, m.CommittedSeal)
+			r = bytes.Compare(proposalMsg.CommittedSeal, m.CommittedSeal)
 			assert.Equal(t, 0, r)
 		case msgPrevote:
-			assert.Equal(t, msgPrevote, m.Code)
+			assert.Equal(t, prevoteMsg.Code, m.Code)
 
-			r := bytes.Compare([]byte("prevote"), m.Msg)
+			r := bytes.Compare(prevoteMsg.Msg, m.Msg)
 			assert.Equal(t, 0, r)
 
-			addr := common.HexToAddress("val1")
-			r = bytes.Compare(addr[:], m.Address[:])
+			r = bytes.Compare(prevoteMsg.Address[:], m.Address[:])
 			assert.Equal(t, 0, r)
 
-			r = bytes.Compare([]byte{}, m.CommittedSeal)
+			r = bytes.Compare(prevoteMsg.CommittedSeal, m.CommittedSeal)
 			assert.Equal(t, 0, r)
 		case msgPrecommit:
-			assert.Equal(t, msgPrecommit, m.Code)
+			assert.Equal(t, precommitMsg.Code, m.Code)
 
-			r := bytes.Compare([]byte("precommit"), m.Msg)
+			r := bytes.Compare(precommitMsg.Msg, m.Msg)
 			assert.Equal(t, 0, r)
 
-			addr := common.HexToAddress("val1")
-			r = bytes.Compare(addr[:], m.Address[:])
+			r = bytes.Compare(precommitMsg.Address[:], m.Address[:])
 			assert.Equal(t, 0, r)
 
-			r = bytes.Compare([]byte("committed seal"), m.CommittedSeal)
+			r = bytes.Compare(precommitMsg.CommittedSeal, m.CommittedSeal)
 			assert.Equal(t, 0, r)
 		}
 	}

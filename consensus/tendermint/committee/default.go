@@ -46,25 +46,25 @@ func NewSet(members types.Committee, policy config.ProposerPolicy, lastProposer 
 		return nil, ErrEmptyCommitteeSet
 	}
 
-	commitee := &defaultSet{}
-	commitee.policy = policy
-	commitee.members = members
-	commitee.proposer = make(map[int64]types.CommitteeMember)
+	committee := &defaultSet{}
+	committee.policy = policy
+	committee.members = members
+	committee.proposer = make(map[int64]types.CommitteeMember)
 	// sort validator
-	sort.Sort(commitee.members)
+	sort.Sort(committee.members)
 
 	switch policy {
 	case config.Sticky:
-		commitee.selector = stickyProposer
+		committee.selector = stickyProposer
 	case config.RoundRobin:
-		commitee.selector = roundRobinProposer
+		committee.selector = roundRobinProposer
 	default:
-		commitee.selector = roundRobinProposer
+		committee.selector = roundRobinProposer
 	}
 
-	commitee.lastProposer = lastProposer
-	commitee.proposer[0] = commitee.selector(commitee, lastProposer, 0)
-	return commitee, nil
+	committee.lastProposer = lastProposer
+	committee.proposer[0] = committee.selector(committee, lastProposer, 0)
+	return committee, nil
 }
 
 func copyMembers(members types.Committee) types.Committee {

@@ -49,7 +49,7 @@ func testNewValidatorSet(t *testing.T) {
 	for i := 0; i < ValCnt; i++ {
 		key, _ := crypto.GenerateKey()
 		addr := crypto.PubkeyToAddress(key.PublicKey)
-		val := types.CommitteeMember{addr, new(big.Int).SetUint64(1)}
+		val := types.CommitteeMember{Address: addr, VotingPower: new(big.Int).SetUint64(1)}
 		validators = append(validators, val)
 	}
 
@@ -95,8 +95,8 @@ func testNormalValSet(t *testing.T) {
 	b2 := common.Hex2Bytes(testAddress2)
 	addr1 := common.BytesToAddress(b1)
 	addr2 := common.BytesToAddress(b2)
-	val1 := types.CommitteeMember{addr1, new(big.Int).SetUint64(1)}
-	val2 := types.CommitteeMember{addr2, new(big.Int).SetUint64(1)}
+	val1 := types.CommitteeMember{Address: addr1, VotingPower: new(big.Int).SetUint64(1)}
+	val2 := types.CommitteeMember{Address: addr2, VotingPower: new(big.Int).SetUint64(1)}
 
 	committeeSet, err := NewSet(types.Committee{val1, val2}, config.RoundRobin, val1.Address)
 	if committeeSet == nil || err != nil {
@@ -158,8 +158,8 @@ func testStickyProposer(t *testing.T) {
 	b2 := common.Hex2Bytes(testAddress2)
 	addr1 := common.BytesToAddress(b1)
 	addr2 := common.BytesToAddress(b2)
-	val1 := types.CommitteeMember{addr1, new(big.Int).SetUint64(1)}
-	val2 := types.CommitteeMember{addr2, new(big.Int).SetUint64(1)}
+	val1 := types.CommitteeMember{Address: addr1, VotingPower: new(big.Int).SetUint64(1)}
+	val2 := types.CommitteeMember{Address: addr2, VotingPower: new(big.Int).SetUint64(1)}
 
 	set, err := NewSet(types.Committee{val1, val2}, config.Sticky, addr1)
 	if err != nil {
