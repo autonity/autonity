@@ -184,9 +184,20 @@ contract('Autonity', function (accounts) {
         });
 
 
-        it('test change user status', async function() {
+        it('test change user type', async function() {
+
 
             // Upgrades
+            // test that a validator can't call the changeUserType function
+            try {
+              await token.addParticipant(accounts[6], "some enode", {from: operator});
+              await token.addValidator(accounts[7], 100, "some enode", {from: operator});
+              await token.changeUserType(accounts[6], 1, {from: accounts[6]});
+              assert.fail('Expected throw not received');
+            } catch (e) {
+              await token.removeUser(accounts[6], {from: operator});
+              await token.removeUser(accounts[7], {from: operator});
+            }
             // participant -> stakeholder (0 -> 1)
             await token.addParticipant(accounts[6], "some enode", {from: operator});
             await token.changeUserType(accounts[6], 1, {from: operator});
