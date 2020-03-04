@@ -185,8 +185,6 @@ contract('Autonity', function (accounts) {
 
 
         it('test change user type', async function() {
-
-
             // Upgrades
             // test that a validator can't call the changeUserType function
             try {
@@ -292,6 +290,17 @@ contract('Autonity', function (accounts) {
             }
 
             assert.fail('Expected throw not received');
+        });
+
+        it('test that _createUser() does not allow duplicates', async function () {
+            try {
+              await token._createUser(accounts[6], "some enode", 2, 100, 0, {from: operator});
+              // the duplicate
+              await token._createUser(accounts[6], "some enode", 2, 100, 0, {from: operator});
+              assert.fail('Expected throw not received');
+            } catch (e) {
+              return
+            }
         });
 
         it('test non Governance operator cannot add validator', async function () {
