@@ -51,3 +51,9 @@ profile.cov
 **/yarn-error.log
 
 /vendor
+
+#Make targets
+.make.*
+
+# Generated autonity contract files
+common/acdefault/generated

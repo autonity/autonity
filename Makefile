@@ -15,10 +15,38 @@ ifeq ($(LATEST_COMMIT),)
 LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
 
-autonity:
+
+autonity: embed-autonity-contract
 	build/env.sh go run build/ci.go install ./cmd/autonity
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/autonity\" to launch autonity."
+
+
+embed-autonity-contract: .make.embed-autonity-contract
+
+# Compiles the autonity contract and embeds it into the go source, depends on
+# the autonity contract file so only runs when that changes.
+.make.embed-autonity-contract: AUTONITY_CONTRACT_PATH = contracts/autonity/contract/contracts/Autonity.sol
+.make.embed-autonity-contract: GENERATED_DIR = common/acdefault/generated
+.make.embed-autonity-contract: $(AUTONITY_CONTRACT_PATH)
+	mkdir $(GENERATED_DIR)
+	solc --overwrite --abi --bin -o $(GENERATED_DIR) $(AUTONITY_CONTRACT_PATH)
+
+	@echo Generating $(GENERATED_DIR)/bytecode.go
+	@> $(GENERATED_DIR)/bytecode.go
+	@echo 'package generated' >> $(GENERATED_DIR)/bytecode.go
+	@echo -n 'const Bytecode = "' >> $(GENERATED_DIR)/bytecode.go
+	@cat  $(GENERATED_DIR)/Autonity.bin >> $(GENERATED_DIR)/bytecode.go
+	@echo '"' >> $(GENERATED_DIR)/bytecode.go
+
+	@echo Generating $(GENERATED_DIR)/abi.go
+	@> $(GENERATED_DIR)/abi.go
+	@echo 'package generated' >> $(GENERATED_DIR)/abi.go
+	@echo -n 'const Abi = `' >> $(GENERATED_DIR)/abi.go
+	@cat  $(GENERATED_DIR)/Autonity.abi | json_pp  >> $(GENERATED_DIR)/abi.go
+	@echo '`' >> $(GENERATED_DIR)/abi.go
+
+	@touch .make.embed-autonity-contract
 
 all:
 	build/env.sh go run build/ci.go install
@@ -92,6 +120,7 @@ lint-deps:
 clean:
 	go clean -cache
 	rm -fr build/_workspace/pkg/ $(GOBIN)/*
+	rm .make.*
 
 # The devtools target installs tools required for 'go generate'.
 # You need to put $GOBIN (or $GOPATH/bin) in your PATH to use 'go generate'.

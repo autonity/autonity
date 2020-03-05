@@ -3,12 +3,13 @@ package params
 import (
 	"errors"
 	"fmt"
+	"reflect"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
-	"reflect"
 )
 
 const (

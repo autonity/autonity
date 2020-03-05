@@ -19,7 +19,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math"
 	"os"
 	"runtime"
@@ -28,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/clearmatics/autonity/p2p/enode"
 
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/keystore"
