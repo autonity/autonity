@@ -104,11 +104,11 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 		var nodeType params.UserType
 		stake := uint64(100)
 		switch {
-		case strings.HasPrefix(n, ValidatorPrefix):
+		case isValidator(n):
 			nodeType = params.UserValidator
-		case strings.HasPrefix(n, StakeholderPrefix):
+		case isStakeholder(n):
 			nodeType = params.UserStakeHolder
-		case strings.HasPrefix(n, ParticipantPrefix):
+		case isParticipant(n):
 			nodeType = params.UserParticipant
 			stake = 0
 		default:
@@ -715,4 +715,12 @@ func checkNodesDontContainMaliciousBlock(t *testing.T, minHeight uint64, validat
 
 func isValidator(s string) bool {
 	return strings.HasPrefix(s, ValidatorPrefix)
+}
+
+func isStakeholder(s string) bool {
+	return strings.HasPrefix(s, StakeholderPrefix)
+}
+
+func isParticipant(s string) bool {
+	return strings.HasPrefix(s, ParticipantPrefix)
 }
