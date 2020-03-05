@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,6 +47,7 @@ type testNode struct {
 	txsSendCount   *int64
 	txsChainCount  map[uint64]int64
 	isMalicious    bool
+	Name           string
 }
 
 type block struct {
@@ -178,13 +180,16 @@ func (validator *testNode) startService() error {
 	}
 
 	validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
+	fmt.Println(validator.Name)
+	if strings.HasPrefix(validator.Name, ValidatorPrefix) {
+		fmt.Println(validator.Name, "in")
+		if err := ethereum.StartMining(1); err != nil {
+			return fmt.Errorf("cant start mining %s", err)
+		}
 
-	if err := ethereum.StartMining(1); err != nil {
-		return fmt.Errorf("cant start mining %s", err)
-	}
-
-	for !ethereum.IsMining() {
-		time.Sleep(50 * time.Millisecond)
+		for !ethereum.IsMining() {
+			time.Sleep(50 * time.Millisecond)
+		}
 	}
 
 	validator.isRunning = true

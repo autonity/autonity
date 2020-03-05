@@ -42,8 +42,9 @@ func (h *expHeap) add(item string, exp time.Time) {
 
 // contains checks whether an item is present.
 func (h expHeap) contains(item string) bool {
+	now := time.Now()
 	for _, v := range h {
-		if v.item == item {
+		if v.item == item && !v.exp.Before(now) {
 			return true
 		}
 	}

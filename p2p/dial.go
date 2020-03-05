@@ -73,12 +73,13 @@ type dialstate struct {
 	bootnodes   []*enode.Node // default dials when there are no peers
 	log         log.Logger
 
-	start         time.Time // time when the dialer was first used
-	lookupRunning bool
-	dialing       map[enode.ID]connFlag
-	lookupBuf     []*enode.Node // current discovery lookup results
-	static        map[enode.ID]*dialTask
-	hist          expHeap
+	start                 time.Time // time when the dialer was first used
+	lookupRunning         bool
+	dialing               map[enode.ID]connFlag
+	lookupBuf             []*enode.Node // current discovery lookup results
+	static                map[enode.ID]*dialTask
+	hist                  expHeap
+	dialHistoryExpiration time.Duration
 }
 
 type task interface {
@@ -87,13 +88,17 @@ type task interface {
 
 func newDialState(self enode.ID, maxdyn int, cfg *Config) *dialstate {
 	s := &dialstate{
-		maxDynDials: maxdyn,
-		self:        self,
-		netrestrict: cfg.NetRestrict,
-		log:         cfg.Logger,
-		static:      make(map[enode.ID]*dialTask),
-		dialing:     make(map[enode.ID]connFlag),
-		bootnodes:   make([]*enode.Node, len(cfg.BootstrapNodes)),
+		maxDynDials:           maxdyn,
+		self:                  self,
+		netrestrict:           cfg.NetRestrict,
+		log:                   cfg.Logger,
+		static:                make(map[enode.ID]*dialTask),
+		dialing:               make(map[enode.ID]connFlag),
+		bootnodes:             make([]*enode.Node, len(cfg.BootstrapNodes)),
+		dialHistoryExpiration: cfg.DialHistoryExpiration,
+	}
+	if s.dialHistoryExpiration == 0 {
+		s.dialHistoryExpiration = dialHistoryExpiration
 	}
 	copy(s.bootnodes, cfg.BootstrapNodes)
 	if s.log == nil {
@@ -225,7 +230,7 @@ func (s *dialstate) checkDial(n *enode.Node, peers map[enode.ID]*Peer) error {
 func (s *dialstate) taskDone(t task, now time.Time) {
 	switch t := t.(type) {
 	case *dialTask:
-		s.hist.add(string(t.dest.ID().Bytes()), now.Add(dialHistoryExpiration))
+		s.hist.add(string(t.dest.ID().Bytes()), now.Add(s.dialHistoryExpiration))
 		delete(s.dialing, t.dest.ID())
 	case *discoverTask:
 		s.lookupRunning = false

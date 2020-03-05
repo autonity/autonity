@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/log"
 )
 
 func TestTendermintStopUpToFNodes(t *testing.T) {
@@ -88,7 +90,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -143,7 +145,7 @@ func TestTendermintStartStopSingleNode(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -249,7 +251,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -355,7 +357,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -473,7 +475,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -573,7 +575,7 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }

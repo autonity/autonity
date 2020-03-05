@@ -20,8 +20,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"time"
+
+	"github.com/clearmatics/autonity/common/debug"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
@@ -413,6 +416,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	// Bail out if we're unauthorized to sign a block
 	if _, v := sb.Validators(number).GetByAddress(sb.Address()); v == nil {
 		sb.logger.Error("error validator errUnauthorized", "addr", sb.address.String())
+		fmt.Println(debug.Callers(5))
 		return errUnauthorized
 	}
 

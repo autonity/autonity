@@ -7,6 +7,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/log"
 )
 
 func TestTendermintOneMalicious(t *testing.T) {
@@ -80,7 +81,7 @@ func TestTendermintOneMalicious(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/clearmatics/autonity/log"
+
 	"github.com/clearmatics/autonity/common/graph"
 )
 
@@ -37,7 +39,7 @@ func TestTendermintStarSuccess(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -73,7 +75,7 @@ func TestTendermintStarOverParticipantSuccess(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -108,7 +110,7 @@ func TestTendermintBusSuccess(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -153,7 +155,7 @@ func TestTendermintChangeTopologyFromBusToStarSuccess(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -199,7 +201,7 @@ func TestTendermintChangeTopologyFromStarToBusSuccess(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -245,7 +247,7 @@ func TestTendermintAddConnectionToTopologySuccess(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -293,13 +295,12 @@ func TestTendermintAddValidatorsToTopologySuccess(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
 
 func TestTendermintAddParticipantsToTopologySuccess(t *testing.T) {
-	t.Skip("should be fixed by https://github.com/clearmatics/autonity/issues/431")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -331,7 +332,7 @@ func TestTendermintAddParticipantsToTopologySuccess(t *testing.T) {
 		{
 			name:          "no malicious",
 			numValidators: 5,
-			numBlocks:     30,
+			numBlocks:     40,
 			txPerPeer:     1,
 			topology: &Topology{
 				graph: *topology,
@@ -342,13 +343,12 @@ func TestTendermintAddParticipantsToTopologySuccess(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
 
 func TestTendermintAddStakeholdersToTopologySuccess(t *testing.T) {
-	t.Skip("should be fixed by https://github.com/clearmatics/autonity/issues/431")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -380,7 +380,7 @@ func TestTendermintAddStakeholdersToTopologySuccess(t *testing.T) {
 		{
 			name:          "no malicious",
 			numValidators: 5,
-			numBlocks:     30,
+			numBlocks:     40,
 			txPerPeer:     1,
 			topology: &Topology{
 				graph: *topology,
@@ -391,7 +391,7 @@ func TestTendermintAddStakeholdersToTopologySuccess(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }

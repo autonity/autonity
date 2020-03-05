@@ -4,17 +4,18 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/common/acdefault"
-	"github.com/clearmatics/autonity/common/graph"
-	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/common/acdefault"
+	"github.com/clearmatics/autonity/common/graph"
+	"github.com/clearmatics/autonity/common/keygenerator"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/log"
 
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/ethclient"
@@ -124,7 +125,7 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 
 		})
 	}
@@ -233,7 +234,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -337,7 +338,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 
 		return skip, nil, nil
 	}
-	runTest(t, testCase)
+	runTest(t, testCase, log.LvlError)
 }
 
 func TestContractUpgrade_Success(t *testing.T) {
@@ -373,7 +374,7 @@ func TestContractUpgrade_Success(t *testing.T) {
 				operatorKey),
 		},
 	}
-	runTest(t, testCase)
+	runTest(t, testCase, log.LvlError)
 }
 
 func TestContractUpgradeSeveralUpgrades(t *testing.T) {
@@ -411,7 +412,7 @@ func TestContractUpgradeSeveralUpgrades(t *testing.T) {
 				operatorKey),
 		},
 	}
-	runTest(t, testCase)
+	runTest(t, testCase, log.LvlError)
 }
 
 func TestContractUpgradeSeveralUpgradesOnBusTopology(t *testing.T) {
@@ -464,7 +465,7 @@ func TestContractUpgradeSeveralUpgradesOnBusTopology(t *testing.T) {
 			graph: *topology,
 		},
 	}
-	runTest(t, testCase)
+	runTest(t, testCase, log.LvlError)
 }
 
 func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
@@ -517,7 +518,7 @@ func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
 			graph: *topology,
 		},
 	}
-	runTest(t, testCase)
+	runTest(t, testCase, log.LvlError)
 }
 
 func upgradeHook(t *testing.T, upgradeBlocks map[uint64]struct{}, operatorAddress common.Address, operatorKey *ecdsa.PrivateKey) hook {

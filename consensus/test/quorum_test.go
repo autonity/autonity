@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/log"
 )
 
 func TestTendermintNoQuorum(t *testing.T) {
@@ -43,7 +45,7 @@ func TestTendermintNoQuorum(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }

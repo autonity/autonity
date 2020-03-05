@@ -2,11 +2,12 @@ package test
 
 import (
 	"fmt"
+	"github.com/zimmski/go-leak"
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity/log"
 	"gonum.org/v1/gonum/stat"
-	"github.com/zimmski/go-leak"
 )
 
 func TestTendermintSuccess(t *testing.T) {
@@ -26,7 +27,7 @@ func TestTendermintSuccess(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -64,7 +65,7 @@ func TestTendermintSlowConnections(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -111,7 +112,7 @@ func TestTendermintMemoryLeak(t *testing.T) {
 			n := n
 			t.Run(fmt.Sprintf("test case %s, try %d", testCase.name, n), func(t *testing.T) {
 				m := leak.MarkMemory()
-				runTest(t, testCase)
+				runTest(t, testCase, log.LvlError)
 				leaks[n] = float64(m.Release()) / float64(testCase.numBlocks)
 			})
 		}
@@ -163,7 +164,7 @@ func TestTendermintLongRun(t *testing.T) {
 	for _, testCase := range cases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
+			runTest(t, testCase, log.LvlError)
 		})
 	}
 }
@@ -195,7 +196,7 @@ func TestTendermintTC7(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 		t.Run(fmt.Sprintf("test case %s - %d", test.name, i), func(t *testing.T) {
-			runTest(t, test)
+			runTest(t, test, log.LvlError)
 		})
 	}
 }

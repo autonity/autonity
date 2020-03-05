@@ -116,7 +116,7 @@ func (test *testCase) getStopTime(index string) time.Time {
 
 type hook func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error
 
-func runTest(t *testing.T, test *testCase) {
+func runTest(t *testing.T, test *testCase, lvl log.Lvl) {
 	if test.isSkipped {
 		t.SkipNow()
 	}
@@ -136,7 +136,7 @@ func runTest(t *testing.T, test *testCase) {
 	// see: metrics/meter.go:55
 	defer metrics.DefaultRegistry.UnregisterAll()
 
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(lvl, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numValidators))
 	if err != nil {
 		t.Log("can't rise file description limit. errors are possible")
@@ -181,7 +181,7 @@ func runTest(t *testing.T, test *testCase) {
 
 		rates := test.networkRates[i]
 
-		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, validator.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor)
+		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, validator.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor, i)
 		if err != nil {
 			t.Fatal("cant make a node", i, err)
 		}
@@ -202,8 +202,7 @@ func runTest(t *testing.T, test *testCase) {
 
 	s := ""
 	for i, v := range nodes {
-		s += fmt.Sprintf("%s %s === %s  -- %s\n", s, i, v.enode.URLv4(), crypto.PubkeyToAddress(v.privateKey.PublicKey).String())
-
+		s += fmt.Sprintf("\n----------------------\n name - %s\n enode - %s\n  address - %s \n id - %s\n", i, v.enode.URLv4(), crypto.PubkeyToAddress(v.privateKey.PublicKey).String(), v.enode.ID().String())
 	}
 	fmt.Println(s)
 
@@ -250,6 +249,7 @@ func runTest(t *testing.T, test *testCase) {
 			return validator.startService()
 		})
 	}
+
 	err = wg.Wait()
 	if err != nil {
 		t.Fatal(err)
@@ -369,7 +369,6 @@ func (t *Topology) getEdges(blockNum uint64) []*graph.Edge {
 			}
 		}
 		if edges == nil {
-			fmt.Println("empty edges")
 			return nil
 		}
 	} else {
@@ -462,7 +461,6 @@ func (t *Topology) CheckTopologyForIndex(index string, nodes map[string]*testNod
 	node := nodes[index]
 	blockNum := node.lastBlock
 
-	fmt.Println("check topology", index, blockNum)
 	if t.WithChanges() {
 		m, err := t.getChangesBlocks()
 		if err != nil {
@@ -470,7 +468,6 @@ func (t *Topology) CheckTopologyForIndex(index string, nodes map[string]*testNod
 		}
 		for i := uint64(0); i < 10; i++ {
 			if _, ok := m[blockNum-i]; ok {
-				fmt.Println("blocknum check exit")
 				return nil
 			}
 
@@ -480,7 +477,7 @@ func (t *Topology) CheckTopologyForIndex(index string, nodes map[string]*testNod
 	if edges == nil {
 		return nil
 	}
-	fmt.Println("check started", index, blockNum)
+
 	allConnections := t.getPeerConnections(edges)
 	indexConnections := allConnections[index]
 	peers := node.node.Server().Peers()
@@ -502,37 +499,39 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 	if err != nil {
 		return err
 	}
-	if _, ok := ch[blockNum]; !ok {
+	_, dropOk := ch[blockNum]
+	_, connectOk := ch[blockNum-1]
+	if !(dropOk || connectOk) {
 		return nil
 	}
 	edges := t.getEdges(blockNum)
 	if len(edges) == 0 {
 		return nil
 	}
-	fmt.Println("+ConnectNodesForIndex", index)
-	defer fmt.Println("-ConnectNodesForIndex", index)
 	allConnections := t.getPeerConnections(edges)
 	graphConnections := allConnections[index]
-	fmt.Println(dumpConnections(index, graphConnections))
-	fmt.Println()
 	peers := nodes[index].node.Server().Peers()
 	currentConnections := t.transformPeerListToMap(peers, nodes)
-	for k := range currentConnections {
-		if _, ok := graphConnections[k]; ok {
-			continue
+	if dropOk {
+		for k := range currentConnections {
+			if _, ok := graphConnections[k]; ok {
+				continue
+			}
+			fmt.Println("node", index, "removes to", k)
+			nodes[index].node.Server().RemovePeer(nodes[k].node.Server().Self())
+			nodes[index].node.Server().RemoveTrustedPeer(nodes[k].node.Server().Self())
 		}
-		fmt.Println("node", index, "removes to", k)
-		nodes[index].node.Server().RemovePeer(nodes[k].node.Server().Self())
-		nodes[index].node.Server().RemoveTrustedPeer(nodes[k].node.Server().Self())
 	}
 
-	for k := range graphConnections {
-		if _, ok := currentConnections[k]; ok {
-			continue
+	if connectOk {
+		for k := range graphConnections {
+			if _, ok := currentConnections[k]; ok {
+				continue
+			}
+			fmt.Println("node", index, "connects to", k)
+			nodes[index].node.Server().AddPeer(nodes[k].node.Server().Self())
+			nodes[index].node.Server().AddTrustedPeer(nodes[k].node.Server().Self())
 		}
-		fmt.Println("node", index, "connects to", k)
-		nodes[index].node.Server().AddPeer(nodes[k].node.Server().Self())
-		nodes[index].node.Server().AddTrustedPeer(nodes[k].node.Server().Self())
 	}
 
 	return nil
@@ -546,7 +545,9 @@ func getNodeNames() []string {
 func generateNodesPrivateKey(t *testing.T, nodes map[string]*testNode, nodeNames []string, nodesNum int) {
 	var err error
 	for i := 0; i < nodesNum; i++ {
-		nodes[nodeNames[i]] = new(testNode)
+		nodes[nodeNames[i]] = &testNode{
+			Name: nodeNames[i],
+		}
 		nodes[nodeNames[i]].privateKey, err = keygenerator.Next()
 		if err != nil {
 			t.Fatal("cant make pk", err)
