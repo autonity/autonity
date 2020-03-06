@@ -116,7 +116,7 @@ func (test *testCase) getStopTime(index string) time.Time {
 
 type hook func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error
 
-func runTest(t *testing.T, test *testCase, lvl log.Lvl) {
+func runTest(t *testing.T, test *testCase, lvl log.Lvl) { //nolint
 	if test.isSkipped {
 		t.SkipNow()
 	}
