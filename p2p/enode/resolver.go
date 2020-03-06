@@ -29,6 +29,10 @@ func AutomaticResolveStop() {
 	rs.Stop()
 }
 
+func SetResolveFunc(f func(host string) ([]net.IP, error)) {
+	rs.resolveFunc = f
+}
+
 func NewResolveSet() *resolveSet {
 	return &resolveSet{
 		cache:             make(map[string]*Node),
