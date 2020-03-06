@@ -230,6 +230,7 @@ func (s *dialstate) checkDial(n *enode.Node, peers map[enode.ID]*Peer) error {
 func (s *dialstate) taskDone(t task, now time.Time) {
 	switch t := t.(type) {
 	case *dialTask:
+		fmt.Println("add", s.dialHistoryExpiration)
 		s.hist.add(string(t.dest.ID().Bytes()), now.Add(s.dialHistoryExpiration))
 		delete(s.dialing, t.dest.ID())
 	case *discoverTask:
