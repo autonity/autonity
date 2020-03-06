@@ -170,6 +170,7 @@ func TestTendermintLongRun(t *testing.T) {
 }
 
 func TestTendermintTC7(t *testing.T) {
+	t.Skip("too long for 10 minutes")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
