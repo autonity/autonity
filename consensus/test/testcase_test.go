@@ -161,7 +161,9 @@ func runTest(t *testing.T, test *testCase) {
 	// Generate a batch of accounts to seal and fund with
 	nodes := make(map[string]*testNode, nodesNum)
 	enode.SetResolveFunc(func(host string) (ips []net.IP, e error) {
-		if _, ok := nodes["host"]; !ok {
+		if len(host) > 4 || !(strings.HasPrefix(host, ValidatorPrefix) ||
+			strings.HasPrefix(host, StakeholderPrefix) ||
+			strings.HasPrefix(host, ParticipantPrefix)) {
 			return nil, &net.DNSError{Err: "not found", Name: host, IsNotFound: true}
 		}
 
@@ -301,6 +303,22 @@ func runTest(t *testing.T, test *testCase) {
 
 	if len(test.maliciousPeers) != 0 {
 		maliciousTest(t, test, nodes)
+	}
+}
+
+func TestName(t *testing.T) {
+	enode.SetResolveFunc(func(host string) (ips []net.IP, e error) {
+		fmt.Println("call custom resolve func")
+
+		return []net.IP{
+			net.ParseIP("127.0.0.1"),
+		}, nil
+	})
+
+	en := "enode://57fa76dc95ef02461ce1a38d70181c27384f628a23a98fa801933ac2a45709b847d4ab42ed0fe0ebd03df5d464c064585a85a154e4443fb9143bfb6c369d5544@VD:45736"
+	_, err := enode.ParseV4WithResolve(en)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
