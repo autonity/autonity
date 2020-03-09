@@ -11,8 +11,8 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -369,24 +369,21 @@ func TestCore_SyncPeer(t *testing.T) {
 		defer ctrl.Finish()
 
 		addr := common.HexToAddress("0x0123456789")
-		curRoundState := NewRoundState(big.NewInt(2), big.NewInt(1))
+		val := types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)}
 
-		val := validator.NewMockValidator(ctrl)
-
-		valSetMock := validator.NewMockSet(ctrl)
-		valSetMock.EXPECT().GetByAddress(addr).Return(1, val)
-
-		valSet := &validatorSet{
-			Set: valSetMock,
-		}
+		committeeSet := committee.NewMockSet(ctrl)
+		committeeSet.EXPECT().GetByAddress(addr).Return(1, val, nil)
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().SyncPeer(addr, gomock.Any())
 
 		c := &core{
-			backend:           backendMock,
-			currentRoundState: curRoundState,
-			valSet:            valSet,
+			backend:          backendMock,
+			curRoundMessages: NewRoundMessages(),
+			committeeSet:     committeeSet,
+			round:            1,
+			messages:         newMessagesMap(),
+			height:           big.NewInt(1),
 		}
 
 		c.SyncPeer(addr)

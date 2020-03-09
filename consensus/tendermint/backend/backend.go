@@ -26,10 +26,10 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
@@ -45,7 +45,7 @@ import (
 const (
 	// fetcherID is the ID indicates the block is from BFT engine
 	fetcherID = "tendermint"
-	// ring buffer to be able to handle at maximum 10 rounds, 20 validators and 3 messages types
+	// ring buffer to be able to handle at maximum 10 rounds, 20 committee and 3 messages types
 	ringCapacity = 10 * 20 * 3
 )
 
@@ -146,17 +146,17 @@ func (sb *Backend) Address() common.Address {
 	return sb.address
 }
 
-func (sb *Backend) Validators(number uint64) validator.Set {
-	validators, err := sb.retrieveSavedCommittee(number, sb.blockchain)
-	proposerPolicy := sb.config.GetProposerPolicy()
+func (sb *Backend) Committee(number uint64) (committee.Set, error) {
+	validators, err := sb.savedCommittee(number, sb.blockchain)
 	if err != nil {
-		return validator.NewSet(nil, proposerPolicy)
+		sb.logger.Error("could not retrieve saved committee", "height", number, "err", err)
+		return nil, err
 	}
-	return validator.NewSet(validators, proposerPolicy)
+	return validators, nil
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(ctx context.Context, valSet validator.Set, payload []byte) error {
+func (sb *Backend) Broadcast(ctx context.Context, valSet committee.Set, payload []byte) error {
 	// send to others
 	sb.Gossip(ctx, valSet, payload)
 	// send to self
@@ -171,13 +171,13 @@ func (sb *Backend) postEvent(event interface{}) {
 	go sb.Post(event)
 }
 
-func (sb *Backend) AskSync(valSet validator.Set) {
+func (sb *Backend) AskSync(valSet committee.Set) {
 	sb.logger.Info("Broadcasting consensus sync-me")
 
 	targets := make(map[common.Address]struct{})
-	for _, val := range valSet.List() {
-		if val.GetAddress() != sb.Address() {
-			targets[val.GetAddress()] = struct{}{}
+	for _, val := range valSet.Committee() {
+		if val.Address != sb.Address() {
+			targets[val.Address] = struct{}{}
 		}
 	}
 
@@ -197,14 +197,14 @@ func (sb *Backend) AskSync(valSet validator.Set) {
 }
 
 // Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, valSet validator.Set, payload []byte) {
+func (sb *Backend) Gossip(ctx context.Context, valSet committee.Set, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
 	targets := make(map[common.Address]struct{})
-	for _, val := range valSet.List() {
-		if val.GetAddress() != sb.Address() {
-			targets[val.GetAddress()] = struct{}{}
+	for _, val := range valSet.Committee() {
+		if val.Address != sb.Address() {
+			targets[val.Address] = struct{}{}
 		}
 	}
 
@@ -232,7 +232,7 @@ func (sb *Backend) Gossip(ctx context.Context, valSet validator.Set, payload []b
 }
 
 // Commit implements tendermint.Backend.Commit
-func (sb *Backend) Commit(proposal *types.Block, round *big.Int, seals [][]byte) error {
+func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) error {
 	h := proposal.Header()
 	// Append seals and round into extra-data
 	if err := types.WriteCommittedSeals(h, seals); err != nil {
@@ -293,8 +293,8 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
 		var (
-			receipts  types.Receipts
-			committee types.Committee
+			receipts   types.Receipts
+			validators types.Committee
 
 			usedGas        = new(uint64)
 			gp             = new(core.GasPool).AddGas(block.GasLimit())
@@ -350,42 +350,43 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		if proposalNumber > 1 {
-			committee, err = sb.blockchain.GetAutonityContract().ContractGetCommittee(sb.blockchain, header, state)
+			validators, err = sb.blockchain.GetAutonityContract().GetCommittee(sb.blockchain, header, state)
 			if err != nil {
 				return 0, err
 			}
 		} else {
-			// genesis block and block #1 have the same validators
-			committee, err = sb.retrieveSavedCommittee(1, sb.blockchain) //genesis block and block #1 have the same committee
-			if err != nil {
-				return 0, err
+			// genesis block and block #1 have the same committee
+			s, error := sb.savedCommittee(1, sb.blockchain) //genesis block and block #1 have the same committee
+			if error != nil {
+				return 0, error
 			}
+			validators = s.Committee()
 		}
 
 		//Perform the actual comparison
-		if len(header.Committee) != len(committee) {
+		if len(header.Committee) != len(validators) {
 			sb.logger.Error("wrong committee set",
 				"proposalNumber", proposalNumber,
 				"extraLen", len(header.Committee),
-				"currentLen", len(committee),
+				"currentLen", len(validators),
 				"committee", header.Committee,
-				"current", committee,
+				"current", validators,
 			)
-			return 0, consensus.ErrInconsistentValidatorSet
+			return 0, consensus.ErrInconsistentCommitteeSet
 		}
 
-		for i := range committee {
-			if header.Committee[i].Address != committee[i].Address {
+		for i := range validators {
+			if header.Committee[i].Address != validators[i].Address {
 				sb.logger.Error("wrong committee member in the set",
 					"index", i,
 					"currentVerifier", sb.address.String(),
 					"proposalNumber", proposalNumber,
 					"extraValidator", header.Committee[i].Address,
-					"currentCommittee", committee[i],
+					"currentCommittee", validators[i],
 					"headerCommittee", header.Committee,
-					"current", committee,
+					"current", validators,
 				)
-				return 0, consensus.ErrInconsistentValidatorSet
+				return 0, consensus.ErrInconsistentCommitteeSet
 			}
 		}
 		// At this stage committee field is consistent with the validator list returned by Soma-contract

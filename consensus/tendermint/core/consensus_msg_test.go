@@ -2,7 +2,6 @@ package core
 
 import (
 	"bytes"
-	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"reflect"
 	"testing"
@@ -15,11 +14,10 @@ import (
 func TestProposalEncodeDecode(t *testing.T) {
 	t.Run("Valid round is positive", func(t *testing.T) {
 		proposal := NewProposal(
-			big.NewInt(1),
+			1,
 			big.NewInt(2),
-			big.NewInt(1),
-			types.NewBlockWithHeader(&types.Header{}),
-			log.New("backend", "test", "id", 0))
+			3,
+			types.NewBlockWithHeader(&types.Header{}))
 
 		buf := &bytes.Buffer{}
 		err := proposal.EncodeRLP(buf)
@@ -35,26 +33,25 @@ func TestProposalEncodeDecode(t *testing.T) {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		if decProposal.Round.Uint64() != proposal.Round.Uint64() {
-			t.Errorf("Rounds are not the same: have %v, want %v", decProposal.Round.Uint64(), proposal.Round.Uint64())
+		if decProposal.Round != proposal.Round {
+			t.Errorf("Rounds are not the same: have %v, want %v", decProposal.Round, proposal.Round)
 		}
 
 		if decProposal.Height.Uint64() != proposal.Height.Uint64() {
 			t.Errorf("Heights are not the same: have %v, want %v", decProposal.Height.Uint64(), proposal.Height.Uint64())
 		}
 
-		if decProposal.ValidRound.Uint64() != proposal.ValidRound.Uint64() {
-			t.Errorf("Valid Rounds are not the same: have %v, want %v", decProposal.ValidRound.Uint64(), proposal.ValidRound.Uint64())
+		if decProposal.ValidRound != proposal.ValidRound {
+			t.Errorf("Valid Rounds are not the same: have %v, want %v", decProposal.ValidRound, proposal.ValidRound)
 		}
 	})
 
 	t.Run("Valid round is negative", func(t *testing.T) {
 		proposal := NewProposal(
-			big.NewInt(1),
+			1,
 			big.NewInt(2),
-			big.NewInt(-1),
-			types.NewBlockWithHeader(&types.Header{}),
-			log.New("backend", "test", "id", 0))
+			-1,
+			types.NewBlockWithHeader(&types.Header{}))
 
 		buf := &bytes.Buffer{}
 		err := proposal.EncodeRLP(buf)
@@ -70,15 +67,15 @@ func TestProposalEncodeDecode(t *testing.T) {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		if decProposal.Round.Int64() != proposal.Round.Int64() {
-			t.Errorf("Rounds are not the same: have %v, want %v", decProposal.Round.Int64(), proposal.Round.Int64())
+		if decProposal.Round != proposal.Round {
+			t.Errorf("Rounds are not the same: have %v, want %v", decProposal.Round, proposal.Round)
 		}
 
 		if decProposal.Height.Int64() != proposal.Height.Int64() {
 			t.Errorf("Heights are not the same: have %v, want %v", decProposal.Height.Int64(), proposal.Height.Int64())
 		}
 
-		if decProposal.ValidRound.Int64() != -1 {
+		if decProposal.ValidRound != -1 {
 			t.Errorf("Valid Rounds are not the same: have %v, want %v", decProposal.ValidRound, proposal.ValidRound)
 		}
 	})
@@ -87,7 +84,7 @@ func TestProposalEncodeDecode(t *testing.T) {
 
 func TestVoteEncodeDecode(t *testing.T) {
 	vote := &Vote{
-		Round:             big.NewInt(1),
+		Round:             1,
 		Height:            big.NewInt(2),
 		ProposedBlockHash: common.BytesToHash([]byte("1234567890")),
 	}
@@ -113,7 +110,7 @@ func TestVoteEncodeDecode(t *testing.T) {
 
 func TestVoteString(t *testing.T) {
 	vote := &Vote{
-		Round:             big.NewInt(1),
+		Round:             1,
 		Height:            big.NewInt(2),
 		ProposedBlockHash: common.BytesToHash([]byte("1")),
 	}

@@ -20,12 +20,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
-
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
+	"io"
+	"math/big"
+	"reflect"
 )
 
 const (
@@ -34,12 +36,18 @@ const (
 	msgPrecommit
 )
 
+var (
+	errMsgPayloadNotDecoded = errors.New("msg not decoded")
+)
+
 type Message struct {
 	Code          uint64
 	Msg           []byte
 	Address       common.Address
 	Signature     []byte
 	CommittedSeal []byte
+
+	decodedMsg ConsensusMsg // cached decoded Msg
 }
 
 // ==============================================
@@ -82,7 +90,7 @@ var ErrUnauthorizedAddress = errors.New("unauthorized address")
 //
 // define the functions that needs to be provided for core.
 
-func (m *Message) FromPayload(b []byte, valSet validator.Set, validateFn func(validator.Set, []byte, []byte) (common.Address, error)) (*validator.Validator, error) {
+func (m *Message) FromPayload(b []byte, valSet committee.Set, validateFn func(committee.Set, []byte, []byte) (common.Address, error)) (*types.CommitteeMember, error) {
 	// Decode message
 	err := rlp.DecodeBytes(b, m)
 	if err != nil {
@@ -112,7 +120,11 @@ func (m *Message) FromPayload(b []byte, valSet validator.Set, validateFn func(va
 		return nil, ErrUnauthorizedAddress
 	}
 
-	_, v := valSet.GetByAddress(addr)
+	_, v, err := valSet.GetByAddress(addr)
+	if err != nil {
+		return nil, err
+	}
+
 	return &v, nil
 }
 
@@ -131,11 +143,51 @@ func (m *Message) PayloadNoSig() ([]byte, error) {
 }
 
 func (m *Message) Decode(val interface{}) error {
-	return rlp.DecodeBytes(m.Msg, val)
+	//Decode is responsible to rlp-decode m.Msg. It is meant to only perform the actual decoding once,
+	//saving a cached value in m.decodedMsg.
+
+	rval := reflect.ValueOf(val)
+	if rval.Kind() != reflect.Ptr {
+		return errors.New("decode arg must be a pointer")
+	}
+
+	// check if we already have a cached value decoded
+	if m.decodedMsg != nil {
+		if !rval.Type().AssignableTo(reflect.TypeOf(m.decodedMsg)) {
+			return errors.New("type mismatch with decoded value")
+		}
+		rval.Elem().Set(reflect.ValueOf(m.decodedMsg).Elem())
+		return nil
+	}
+
+	err := rlp.DecodeBytes(m.Msg, val)
+	if err != nil {
+		return err
+	}
+
+	// copy the result via Set (shallow)
+	nval := reflect.New(rval.Elem().Type()) // we need first to allocate memory
+	nval.Elem().Set(rval.Elem())
+	m.decodedMsg = nval.Interface().(ConsensusMsg)
+	return nil
 }
 
 func (m *Message) String() string {
 	return fmt.Sprintf("{Code: %v, Address: %v}", m.Code, m.Address.String())
+}
+
+func (m *Message) Round() (int64, error) {
+	if m.decodedMsg == nil {
+		return 0, errMsgPayloadNotDecoded
+	}
+	return m.decodedMsg.GetRound(), nil
+}
+
+func (m *Message) Height() (*big.Int, error) {
+	if m.decodedMsg == nil {
+		return nil, errMsgPayloadNotDecoded
+	}
+	return m.decodedMsg.GetHeight(), nil
 }
 
 // ==============================================

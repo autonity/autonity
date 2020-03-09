@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/crypto"
 )
 
@@ -31,9 +31,9 @@ func TestCheckValidatorSignature(t *testing.T) {
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
-		val := vset.GetByIndex(uint64(i))
-		if addr != val.GetAddress() {
-			t.Errorf("validator address mismatch: have %v, want %v", addr, val.GetAddress())
+		val, _ := vset.GetByIndex(i)
+		if addr != val.Address {
+			t.Errorf("validator address mismatch: have %v, want %v", addr, val.Address)
 		}
 	}
 
@@ -81,9 +81,9 @@ func TestCheckValidatorSignatureInvalid(t *testing.T) {
 			t.Errorf("check error mismatch: have %v, want ErrUnauthorizedAddress", err)
 		}
 
-		val := vset.GetByIndex(uint64(i))
-		if addr == val.GetAddress() {
-			t.Errorf("validator address match: have %v, want != %v", addr, val.GetAddress())
+		val, _ := vset.GetByIndex(i)
+		if addr == val.Address {
+			t.Errorf("validator address match: have %v, want != %v", addr, val.Address)
 		}
 	}
 
@@ -135,9 +135,9 @@ func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
 			t.Errorf("check error mismatch: have %v, want ErrUnauthorizedAddress", err)
 		}
 
-		val := vset.GetByIndex(uint64(i))
-		if addr == val.GetAddress() {
-			t.Errorf("validator address match: have %v, want != %v", addr, val.GetAddress())
+		val, _ := vset.GetByIndex(i)
+		if addr == val.Address {
+			t.Errorf("validator address match: have %v, want != %v", addr, val.Address)
 		}
 	}
 
@@ -164,7 +164,7 @@ func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
 	}
 }
 
-func newTestValidatorSet(n int) (validator.Set, []*ecdsa.PrivateKey) {
+func newTestValidatorSet(n int) (committee.Set, []*ecdsa.PrivateKey) {
 	// generate validators
 	keys := make(Keys, n)
 	addrs := make(types.Committee, n)
@@ -176,7 +176,7 @@ func newTestValidatorSet(n int) (validator.Set, []*ecdsa.PrivateKey) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 	}
-	vset := validator.NewSet(addrs, config.RoundRobin)
+	vset, _ := committee.NewSet(addrs, config.RoundRobin, addrs[0].Address)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
 	return vset, keys
 }

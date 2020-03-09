@@ -17,10 +17,9 @@
 package core
 
 import (
-	"math/big"
-
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
+	"github.com/clearmatics/autonity/core/types"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
+	"math/big"
 )
 
 var (
@@ -34,39 +33,39 @@ var (
 )
 
 type backlogEvent struct {
-	src validator.Validator
+	src types.CommitteeMember
 	msg *Message
 }
 
 // checkMessage checks the message step
 // return errInvalidMessage if the message is invalid
-// return errFutureHeightMessage if the message view is larger than currentRoundState view
-// return errOldHeightMessage if the message view is smaller than currentRoundState view
+// return errFutureHeightMessage if the message view is larger than curRoundMessages view
+// return errOldHeightMessage if the message view is smaller than curRoundMessages view
 // return errFutureStepMessage if we are at the same view but at the propose step and it's a voting message.
-func (c *core) checkMessage(round *big.Int, height *big.Int, step Step) error {
-	if height == nil || round == nil {
+func (c *core) checkMessage(round int64, height *big.Int, step Step) error {
+	if height == nil || round < 0 || round > MaxRound {
 		return errInvalidMessage
 	}
 
-	if height.Cmp(c.currentRoundState.Height()) > 0 {
+	if height.Cmp(c.Height()) > 0 {
 		return errFutureHeightMessage
-	} else if height.Cmp(c.currentRoundState.Height()) < 0 {
+	} else if height.Cmp(c.Height()) < 0 {
 		return errOldHeightMessage
-	} else if round.Cmp(c.currentRoundState.Round()) > 0 {
+	} else if round > c.Round() {
 		return errFutureRoundMessage
-	} else if round.Cmp(c.currentRoundState.Round()) < 0 {
+	} else if round < c.Round() {
 		return errOldRoundMessage
-	} else if c.currentRoundState.step == propose && step > propose {
+	} else if c.step == propose && step > propose {
 		return errFutureStepMessage
 	}
 
 	return nil
 }
 
-func (c *core) storeBacklog(msg *Message, src validator.Validator) {
-	logger := c.logger.New("from", src, "step", c.currentRoundState.Step())
+func (c *core) storeBacklog(msg *Message, src types.CommitteeMember) {
+	logger := c.logger.New("from", src, "step", c.step)
 
-	if src.GetAddress() == c.address {
+	if src.Address == c.address {
 		logger.Warn("Backlog from self")
 		return
 	}
@@ -80,21 +79,12 @@ func (c *core) storeBacklog(msg *Message, src validator.Validator) {
 	if backlogPrque == nil {
 		backlogPrque = prque.New()
 	}
-	switch msg.Code {
-	case msgProposal:
-		var p Proposal
-		err := msg.Decode(&p)
-		if err == nil {
-			backlogPrque.Push(msg, toPriority(msg.Code, p.Round, p.Height))
-		}
-		// for msgPrevote and msgPrecommit cases
-	default:
-		var p Vote
-		err := msg.Decode(&p)
-		if err == nil {
-			backlogPrque.Push(msg, toPriority(msg.Code, p.Round, p.Height))
-		}
+	msgRound, errRound := msg.Round()
+	msgHeight, errHeight := msg.Height()
+	if errRound == nil && errHeight == nil {
+		backlogPrque.Push(msg, toPriority(msg.Code, msgRound, msgHeight))
 	}
+
 	c.backlogs[src] = backlogPrque
 }
 
@@ -107,7 +97,7 @@ func (c *core) processBacklog() {
 			continue
 		}
 
-		logger := c.logger.New("from", src, "step", c.currentRoundState.Step())
+		logger := c.logger.New("from", src, "step", c.step)
 		var isFuture bool
 
 		// We stop processing if
@@ -116,28 +106,11 @@ func (c *core) processBacklog() {
 		for !(backlog.Empty() || isFuture) {
 			m, prio := backlog.Pop()
 			msg := m.(*Message)
-			var round, height *big.Int
-			switch msg.Code {
-			case msgProposal:
-				var m Proposal
-				err := msg.Decode(&m)
-				if err == nil {
-					round, height = m.Round, m.Height
-				}
-				// for msgPrevote and msgPrecommit cases
-			default:
-				var sub Vote
-				err := msg.Decode(&sub)
-				if err == nil {
-					round, height = sub.Round, sub.Height
-				}
-			}
-			if round == nil || height == nil {
-				logger.Debug("Nil round or height", "msg", msg)
-				continue
-			}
+			msgRound, _ := msg.Round() // error checking done before push
+			msgHeight, _ := msg.Height()
+
 			// Push back if it's a future message
-			err := c.checkMessage(round, height, Step(msg.Code))
+			err := c.checkMessage(msgRound, msgHeight, Step(msg.Code))
 			if err != nil {
 				if err == errFutureHeightMessage || err == errFutureRoundMessage || err == errFutureStepMessage {
 					logger.Debug("Stop processing backlog", "msg", msg, "err", err)
@@ -158,9 +131,9 @@ func (c *core) processBacklog() {
 	}
 }
 
-func toPriority(msgCode uint64, r *big.Int, h *big.Int) float32 {
-	// FIXME: round will be reset as 0 while new height
+func toPriority(msgCode uint64, r int64, h *big.Int) float32 {
+	// TODO check for overflows!!
 	// 10 * Round limits the range of message code is from 0 to 9
 	// 1000 * Height limits the range of round is from 0 to 99
-	return -float32(h.Uint64()*1000 + r.Uint64()*10 + uint64(msgPriority[msgCode]))
+	return -float32(h.Uint64()*10*(MaxRound+1) + uint64(r)*10 + uint64(msgPriority[msgCode]))
 }

@@ -24,79 +24,70 @@ import (
 func newMessageSet() messageSet {
 	return messageSet{
 		votes:      map[common.Hash]map[common.Address]Message{},
-		nilvotes:   map[common.Address]Message{},
-		messages:   make([]*Message, 0),
+		messages:   make(map[common.Address]*Message),
 		messagesMu: new(sync.RWMutex),
 	}
 }
 
 type messageSet struct {
+	// In some conditions we might receive prevotes or precommit before
+	// receiving a proposal, so we must save received message with differents proposed block hash.
 	votes      map[common.Hash]map[common.Address]Message // map[proposedBlockHash]map[validatorAddress]vote
-	nilvotes   map[common.Address]Message                 // map[validatorAddress]vote
-	messages   []*Message
+	messages   map[common.Address]*Message
 	messagesMu *sync.RWMutex
 }
 
 func (ms *messageSet) AddVote(blockHash common.Hash, msg Message) {
-	var addressesMap map[common.Address]Message
-	var ok bool
+	ms.messagesMu.Lock()
+	defer ms.messagesMu.Unlock()
 
-	if _, ok = ms.votes[blockHash]; !ok {
+	// Check first if we already received a message from this pal.
+	if _, ok := ms.messages[msg.Address]; ok {
+		// TODO : double signing fault ! Accountability
+		return
+	}
+
+	var addressesMap map[common.Address]Message
+
+	if _, ok := ms.votes[blockHash]; !ok {
 		ms.votes[blockHash] = make(map[common.Address]Message)
 	}
 
 	addressesMap = ms.votes[blockHash]
-
-	if _, ok := addressesMap[msg.Address]; ok {
-		return
-	}
-
 	addressesMap[msg.Address] = msg
-
-	ms.messagesMu.Lock()
-	ms.messages = append(ms.messages, &msg)
-	ms.messagesMu.Unlock()
-}
-
-func (ms *messageSet) AddNilVote(msg Message) {
-	if _, ok := ms.nilvotes[msg.Address]; !ok {
-		ms.nilvotes[msg.Address] = msg
-		ms.messagesMu.Lock()
-		ms.messages = append(ms.messages, &msg)
-		ms.messagesMu.Unlock()
-	}
+	ms.messages[msg.Address] = &msg
 }
 
 func (ms *messageSet) GetMessages() []*Message {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
 	result := make([]*Message, len(ms.messages))
-	copy(result, ms.messages)
+	k := 0
+	for _, v := range ms.messages {
+		result[k] = v
+		k++
+	}
 	return result
 }
 
-func (ms *messageSet) VotesSize(h common.Hash) int {
+func (ms *messageSet) VoteCount(h common.Hash) int {
+	ms.messagesMu.RLock()
+	defer ms.messagesMu.RUnlock()
 	if m, ok := ms.votes[h]; ok {
 		return len(m)
 	}
 	return 0
 }
 
-func (ms *messageSet) NilVotesSize() int {
-	return len(ms.nilvotes)
-}
-
-func (ms *messageSet) TotalSize() int {
-	total := ms.NilVotesSize()
-
-	for _, v := range ms.votes {
-		total = total + len(v)
-	}
-
-	return total
+func (ms *messageSet) TotalVoteCount() int {
+	ms.messagesMu.RLock()
+	defer ms.messagesMu.RUnlock()
+	return len(ms.messages)
 }
 
 func (ms *messageSet) Values(blockHash common.Hash) []Message {
+	ms.messagesMu.RLock()
+	defer ms.messagesMu.RUnlock()
 	if _, ok := ms.votes[blockHash]; !ok {
 		return nil
 	}
