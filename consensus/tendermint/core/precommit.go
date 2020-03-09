@@ -26,21 +26,21 @@ import (
 )
 
 func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
-	logger := c.logger.New("step", c.currentRoundState.Step())
+	logger := c.logger.New("step", c.step)
 
 	var precommit = Vote{
-		Round:  big.NewInt(c.currentRoundState.Round().Int64()),
-		Height: big.NewInt(c.currentRoundState.Height().Int64()),
+		Round:  c.Round(),
+		Height: c.Height(),
 	}
 
 	if isNil {
 		precommit.ProposedBlockHash = common.Hash{}
 	} else {
-		if h := c.currentRoundState.GetCurrentProposalHash(); h == (common.Hash{}) {
+		if h := c.curRoundMessages.GetProposalHash(); h == (common.Hash{}) {
 			c.logger.Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit.ProposedBlockHash = c.currentRoundState.GetCurrentProposalHash()
+		precommit.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
 	}
 
 	encodedVote, err := Encode(&precommit)
@@ -59,7 +59,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	}
 
 	// Create committed seal
-	seal := PrepareCommittedSeal(precommit.ProposedBlockHash, c.currentRoundState.Round(), c.currentRoundState.Height())
+	seal := PrepareCommittedSeal(precommit.ProposedBlockHash, c.Round(), c.Height())
 	msg.CommittedSeal, err = c.backend.Sign(seal)
 	if err != nil {
 		c.logger.Error("core.sendPrecommit error while signing committed seal", "err", err)
@@ -75,48 +75,43 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 	if err != nil {
 		return errFailedDecodePrecommit
 	}
+	precommitHash := preCommit.ProposedBlockHash
 
 	if err := c.checkMessage(preCommit.Round, preCommit.Height, precommit); err != nil {
-		// Store old precommits because if there is a quorum of precommits in the previous round we need to go to the next height
-		//if err == errOldRoundMessage {
-		//	// The roundstate must exist as every roundstate is added to c.currentHeightRoundsState at startRound
-		//	// And we only process old rounds while future rounds messages are pushed on to the backlog
-		//	oldRoundState := c.currentHeightOldRoundsStates[preCommit.Round.Int64()]
-		//	c.acceptVote(&oldRoundState, precommit, preCommit.ProposedBlockHash, *msg)
-		//
-		//	// Check for old round precommit quorum
-		//	if c.Quorum(oldRoundState.Precommits.VotesSize(oldRoundState.GetCurrentProposalHash())) {
-		//		select {
-		//		case <-ctx.Done():
-		//			return ctx.Err()
-		//		default:
-		//			c.commit()
-		//		}
-		//
-		//		return nil
-		//	}
-		//}
+
+		if err == errOldRoundMessage {
+			roundMsgs := c.messages.getOrCreate(preCommit.Round)
+			if error := c.verifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); error != nil {
+				return error
+			}
+			c.acceptVote(roundMsgs, precommit, precommitHash, *msg)
+			oldRoundProposalHash := roundMsgs.GetProposalHash()
+			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsCount(oldRoundProposalHash) >= c.CommitteeSet().Quorum() {
+				c.logger.Info("Quorum on a old round proposal", "round", preCommit.Round)
+				if !roundMsgs.isProposalVerified() {
+					if _, error := c.backend.VerifyProposal(*roundMsgs.Proposal().ProposalBlock); error != nil {
+						return error
+					}
+				}
+				c.commit(preCommit.Round, c.curRoundMessages)
+				return nil
+			}
+		}
 
 		return err
 	}
 
 	// Don't want to decode twice, hence sending preCommit with message
-	if err := c.verifyPrecommitCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
+	if err := c.verifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
 		return err
 	}
-
-	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
-	precommitHash := preCommit.ProposedBlockHash
-	curR := c.currentRoundState.Round().Int64()
-	curH := c.currentRoundState.Height().Int64()
-
-	c.acceptVote(c.currentRoundState, precommit, precommitHash, *msg)
-
-	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
-
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	curProposalHash := c.currentRoundState.GetCurrentProposalHash()
-	if curProposalHash != (common.Hash{}) && c.Quorum(c.currentRoundState.Precommits.VotesSize(curProposalHash)) {
+	curProposalHash := c.curRoundMessages.GetProposalHash()
+	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
+
+	c.acceptVote(c.curRoundMessages, precommit, precommitHash, *msg)
+	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
+	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsCount(curProposalHash) >= c.CommitteeSet().Quorum() {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
 		}
@@ -126,31 +121,31 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			c.commit()
+			c.commit(c.Round(), c.curRoundMessages)
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.timerStarted() && c.Quorum(c.currentRoundState.Precommits.TotalSize()) {
-		timeoutDuration := timeoutPrecommit(curR)
-		c.precommitTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrecommit)
+	} else if !c.precommitTimeout.timerStarted() && c.curRoundMessages.PrecommitsTotalCount() >= c.CommitteeSet().Quorum() {
+		timeoutDuration := timeoutPrecommit(c.Round())
+		c.precommitTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
 	}
 
 	return nil
 }
 
-func (c *core) verifyPrecommitCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round *big.Int, height *big.Int) error {
+func (c *core) verifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error {
 	committedSeal := PrepareCommittedSeal(proposedBlockHash, round, height)
 
-	addressOfSignerOfCommittedSeal, err := types.GetSignatureAddress(committedSeal, committedSealMsg)
+	sealerAddress, err := types.GetSignatureAddress(committedSeal, committedSealMsg)
 	if err != nil {
 		c.logger.Error("Failed to get signer address", "err", err)
 		return err
 	}
 
 	// ensure sender signed the committed seal
-	if !bytes.Equal(addressOfSignerOfCommittedSeal.Bytes(), addressMsg.Bytes()) {
-		c.logger.Error("verify precommit seal error", "got", addressMsg.String(), "expected", addressOfSignerOfCommittedSeal.String())
+	if !bytes.Equal(sealerAddress.Bytes(), addressMsg.Bytes()) {
+		c.logger.Error("verify precommit seal error", "got", addressMsg.String(), "expected", sealerAddress.String())
 
 		return errInvalidSenderOfCommittedSeal
 	}
@@ -159,36 +154,34 @@ func (c *core) verifyPrecommitCommittedSeal(addressMsg common.Address, committed
 }
 
 func (c *core) handleCommit(ctx context.Context) {
-	c.logger.Debug("Received a final committed proposal", "step", c.currentRoundState.Step())
+	c.logger.Debug("Received a final committed proposal", "step", c.step)
 	lastBlock, _ := c.backend.LastCommittedProposal()
-	height := new(big.Int).Add(lastBlock.Number(), common.Big1).Uint64()
-	if height == c.currentRoundState.Height().Uint64() {
-		c.logger.Debug("Discarding event as core is at the same height", "state_height", c.currentRoundState.Height().Uint64())
+	height := new(big.Int).Add(lastBlock.Number(), common.Big1)
+	if height.Cmp(c.Height()) == 0 {
+		c.logger.Debug("Discarding event as core is at the same height", "height", c.Height())
 	} else {
-		c.logger.Debug("Received proposal is ahead", "state_height", c.currentRoundState.Height().Uint64(), "block_height", height)
-		c.startRound(ctx, common.Big0)
+		c.logger.Debug("Received proposal is ahead", "height", c.Height(), "block_height", height)
+		c.startRound(ctx, 0)
 	}
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to string) {
-	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
+	currentProposalHash := c.curRoundMessages.GetProposalHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
-		"currentHeight", c.currentRoundState.Height(),
+		"currentHeight", c.Height(),
 		"msgHeight", precommit.Height,
-		"currentRound", c.currentRoundState.Round(),
+		"currentRound", c.Round(),
 		"msgRound", precommit.Round,
-		"currentStep", c.currentRoundState.Step(),
+		"currentStep", c.step,
 		"isProposer", c.isProposer(),
-		"currentProposer", c.valSet.GetProposer(),
+		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
 		"hash", precommit.ProposedBlockHash,
 		"type", "Precommit",
-		"totalVotes", c.currentRoundState.Precommits.TotalSize(),
-		"totalNilVotes", c.currentRoundState.Precommits.NilVotesSize(),
-		"quorumReject", c.Quorum(c.currentRoundState.Precommits.NilVotesSize()),
-		"totalNonNilVotes", c.currentRoundState.Precommits.VotesSize(currentProposalHash),
-		"quorumAccept", c.Quorum(c.currentRoundState.Precommits.VotesSize(currentProposalHash)),
+		"totalVotes", c.curRoundMessages.PrecommitsTotalCount(),
+		"totalNilVotes", c.curRoundMessages.PrecommitsCount(common.Hash{}),
+		"proposedBlockVote", c.curRoundMessages.PrecommitsCount(currentProposalHash),
 	)
 }

@@ -1,8 +1,9 @@
-package validator
+package committee
 
 import (
 	"bytes"
 	"fmt"
+	"github.com/clearmatics/autonity/core/types"
 	"reflect"
 	"testing"
 
@@ -10,87 +11,15 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
-func TestRoundRobinProposerZeroSize(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	proposerAddress := common.BytesToAddress(bytes.Repeat([]byte{1}, common.AddressLength))
-	proposerZeroAddress := common.Address{}
-
-	testCases := []struct {
-		size     int
-		round    uint64
-		proposer common.Address
-	}{
-		{
-			size:     0,
-			round:    0,
-			proposer: proposerZeroAddress,
-		},
-		{
-			size:     0,
-			round:    1,
-			proposer: proposerZeroAddress,
-		},
-		{
-			size:     0,
-			round:    2,
-			proposer: proposerZeroAddress,
-		},
-		{
-			size:     0,
-			round:    10,
-			proposer: proposerZeroAddress,
-		},
-
-		{
-			size:     0,
-			round:    0,
-			proposer: proposerAddress,
-		},
-		{
-			size:     0,
-			round:    1,
-			proposer: proposerAddress,
-		},
-		{
-			size:     0,
-			round:    2,
-			proposer: proposerAddress,
-		},
-		{
-			size:     0,
-			round:    10,
-			proposer: proposerAddress,
-		},
-	}
-
-	for _, testCase := range testCases {
-		testCase := testCase
-		t.Run(fmt.Sprintf("validator is zero address, round %d", testCase.round), func(t *testing.T) {
-			validatorSet := NewMockSet(ctrl)
-
-			validatorSet.EXPECT().
-				Size().
-				Return(testCase.size)
-
-			val := roundRobinProposer(validatorSet, proposerAddress, testCase.round)
-			if val != nil {
-				t.Errorf("got wrond validator %v, expected nil", val)
-			}
-		})
-	}
-}
-
 func TestRoundRobinProposer(t *testing.T) {
 	proposerAddress := common.BytesToAddress(bytes.Repeat([]byte{1}, common.AddressLength))
 	proposerZeroAddress := common.Address{}
 
 	testCases := []struct {
 		size     int
-		round    uint64
+		round    int64
 		proposer common.Address
-		pick     uint64
+		pick     int
 	}{
 		// size is greater than pick
 		{
@@ -216,16 +145,16 @@ func TestRoundRobinProposer(t *testing.T) {
 
 			if testCase.proposer != proposerZeroAddress {
 				index := 1
-				validator := NewMockValidator(ctrl)
+				validator := types.CommitteeMember{}
 				validatorSet.EXPECT().
 					GetByAddress(gomock.Eq(testCase.proposer)).
-					Return(index, validator)
+					Return(index, validator, nil)
 			}
 
-			expectedValidator := NewMockValidator(ctrl)
+			expectedValidator := types.CommitteeMember{}
 			validatorSet.EXPECT().
 				GetByIndex(gomock.Eq(testCase.pick)).
-				Return(expectedValidator)
+				Return(expectedValidator, nil)
 
 			val := roundRobinProposer(validatorSet, testCase.proposer, testCase.round)
 			if !reflect.DeepEqual(val, expectedValidator) {

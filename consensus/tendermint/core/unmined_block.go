@@ -17,13 +17,12 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/types"
 )
 
 func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
-	c.logNewUnminedBlockEvent(unminedBlock)
+	// c.logNewUnminedBlockEvent(unminedBlock) NOT SAFE !
 	if err := c.checkUnminedBlockMsg(unminedBlock); err != nil {
 		if err == errInvalidMessage {
 			c.logger.Error("NewUnminedBlockEvent: invalid unminedBlock", "err", err)
@@ -49,7 +48,7 @@ func (c *core) updatePendingUnminedBlocks(unminedBlock *types.Block) {
 		heights = append(heights, h)
 	}
 	for _, ub := range heights {
-		if ub < c.currentRoundState.Height().Uint64() {
+		if ub < c.Height().Uint64() {
 			delete(c.pendingUnminedBlocks, ub)
 		}
 	}
@@ -65,7 +64,7 @@ func (c *core) getUnminedBlock() *types.Block {
 	c.pendingUnminedBlocksMu.Lock()
 	defer c.pendingUnminedBlocksMu.Unlock()
 
-	ub, ok := c.pendingUnminedBlocks[c.currentRoundState.Height().Uint64()]
+	ub, ok := c.pendingUnminedBlocks[c.Height().Uint64()]
 
 	if ok {
 		return ub
@@ -78,35 +77,19 @@ func (c *core) getUnminedBlock() *types.Block {
 
 // check request step
 // return errInvalidMessage if the message is invalid
-// return errFutureHeightMessage if the height of proposal is larger than currentRoundState height
-// return errOldHeightMessage if the height of proposal is smaller than currentRoundState height
+// return errFutureHeightMessage if the height of proposal is larger than curRoundMessages height
+// return errOldHeightMessage if the height of proposal is smaller than curRoundMessages height
 func (c *core) checkUnminedBlockMsg(unminedBlock *types.Block) error {
 	if unminedBlock == nil {
 		return errInvalidMessage
 	}
 
 	number := unminedBlock.Number()
-	if currentIsHigher := c.currentRoundState.Height().Cmp(number); currentIsHigher > 0 {
+	if currentIsHigher := c.Height().Cmp(number); currentIsHigher > 0 {
 		return errOldHeightMessage
 	} else if currentIsHigher < 0 {
 		return consensus.ErrFutureBlock
 	} else {
 		return nil
 	}
-}
-
-func (c *core) logNewUnminedBlockEvent(ub *types.Block) {
-	h, r, s := c.currentRoundState.State()
-
-	c.logger.Debug("NewUnminedBlockEvent: Received",
-		"from", c.address.String(),
-		"type", "New Unmined Block",
-		"hash", ub.Hash(),
-		"currentHeight", h,
-		"currentRound", r,
-		"currentStep", s,
-		"currentProposer", c.isProposer(),
-		"msgHeight", ub.Header().Number.Uint64(),
-		"isNilMsg", ub.Hash() == common.Hash{},
-	)
 }

@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"sync"
@@ -20,7 +19,7 @@ const (
 
 type TimeoutEvent struct {
 	roundWhenCalled  int64
-	heightWhenCalled int64
+	heightWhenCalled *big.Int
 	// message type: msgProposal msgPrevote	msgPrecommit
 	step uint64
 }
@@ -45,7 +44,7 @@ func newTimeout(s Step, logger log.Logger) *timeout {
 }
 
 // runAfterTimeout() will be run in a separate go routine, so values used inside the function needs to be managed separately
-func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height int64, runAfterTimeout func(r int64, h int64)) {
+func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height *big.Int, runAfterTimeout func(r int64, h *big.Int)) {
 	t.Lock()
 	defer t.Unlock()
 	t.started = true
@@ -123,42 +122,43 @@ func (c *core) measureMetricsOnTimeOut(step uint64, r int64) {
 	}
 }
 
-func (c *core) onTimeoutPropose(r int64, h int64) {
+func (c *core) onTimeoutPropose(r int64, h *big.Int) {
 	msg := TimeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
 		step:             msgProposal,
 	}
-	c.logTimeoutEvent("TimeoutEvent(Propose): Sent", "Propose", msg)
+	// It's unsafe to call logTimeoutEvent here !
+	c.logger.Debug("TimeoutEvent(Propose): Sent", "round", r, "height", h)
 	c.measureMetricsOnTimeOut(msg.step, r)
 	c.sendEvent(msg)
 }
 
-func (c *core) onTimeoutPrevote(r int64, h int64) {
+func (c *core) onTimeoutPrevote(r int64, h *big.Int) {
 	msg := TimeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
 		step:             msgPrevote,
 	}
-	c.logTimeoutEvent("TimeoutEvent(Prevote): Sent", "Prevote", msg)
+	c.logger.Debug("TimeoutEvent(Prevote): Sent", "round", r, "height", h)
 	c.measureMetricsOnTimeOut(msg.step, r)
 	c.sendEvent(msg)
 }
 
-func (c *core) onTimeoutPrecommit(r int64, h int64) {
+func (c *core) onTimeoutPrecommit(r int64, h *big.Int) {
 	msg := TimeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
 		step:             msgPrecommit,
 	}
-	c.logTimeoutEvent("TimeoutEvent(Precommit): Sent", "Precommit", msg)
+	c.logger.Debug("TimeoutEvent(Precommit): Sent", "round", r, "height", h)
 	c.measureMetricsOnTimeOut(msg.step, r)
 	c.sendEvent(msg)
 }
 
 /////////////// Handle Timeout Functions ///////////////
 func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == propose {
+	if msg.heightWhenCalled.Cmp(c.Height()) == 0 && msg.roundWhenCalled == c.Round() && c.step == propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 		c.sendPrevote(ctx, true)
 		c.setStep(prevote)
@@ -166,7 +166,7 @@ func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 }
 
 func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() && c.currentRoundState.Step() == prevote {
+	if msg.heightWhenCalled.Cmp(c.Height()) == 0 && msg.roundWhenCalled == c.Round() && c.step == prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 		c.sendPrecommit(ctx, true)
 		c.setStep(precommit)
@@ -175,10 +175,9 @@ func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 
 func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
 
-	if msg.heightWhenCalled == c.currentRoundState.Height().Int64() && msg.roundWhenCalled == c.currentRoundState.Round().Int64() {
+	if msg.heightWhenCalled.Cmp(c.Height()) == 0 && msg.roundWhenCalled == c.Round() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
-
-		c.startRound(ctx, new(big.Int).Add(c.currentRoundState.Round(), common.Big1))
+		c.startRound(ctx, c.Round()+1)
 	}
 }
 
@@ -197,14 +196,15 @@ func timeoutPrecommit(round int64) time.Duration {
 }
 
 func (c *core) logTimeoutEvent(message string, msgType string, timeout TimeoutEvent) {
+
 	c.logger.Debug(message,
 		"from", c.address.String(),
 		"type", msgType,
-		"currentHeight", c.currentRoundState.Height(),
+		"currentHeight", c.Height(),
 		"msgHeight", timeout.heightWhenCalled,
-		"currentRound", c.currentRoundState.Round(),
+		"currentRound", c.Round(),
 		"msgRound", timeout.roundWhenCalled,
-		"currentStep", c.currentRoundState.Step(),
+		"currentStep", c.step,
 		"msgStep", timeout.step,
 	)
 }
