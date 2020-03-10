@@ -101,7 +101,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Install
-        run: go run build/ci.go install
+        run: make all
 
       - name: unit tests
         run: go run build/ci.go test -coverage
