@@ -57,6 +57,9 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
         with:
@@ -104,7 +107,7 @@ jobs:
         run: make all
 
       - name: unit tests
-        run: go run build/ci.go test -coverage
+        run: make test
 
       - uses: codecov/codecov-action@v1
         with:
@@ -138,6 +141,9 @@ jobs:
           echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
@@ -179,6 +185,9 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
@@ -212,6 +221,9 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
@@ -243,6 +255,9 @@ jobs:
           echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
@@ -277,6 +292,9 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
@@ -308,6 +326,9 @@ jobs:
           echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
@@ -342,6 +363,9 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
@@ -374,6 +398,9 @@ jobs:
           echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
@@ -409,6 +436,9 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
@@ -441,6 +471,9 @@ jobs:
           echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
