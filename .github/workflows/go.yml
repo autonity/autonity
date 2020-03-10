@@ -8,8 +8,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -39,8 +39,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -76,8 +76,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -121,8 +121,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -161,8 +161,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -194,8 +194,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -226,8 +226,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -259,8 +259,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -291,8 +291,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -324,8 +324,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -357,8 +357,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -391,8 +391,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
@@ -424,8 +424,8 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-          chmod +x /usr/bin/solc
+          sudo wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          sudo chmod +x /usr/bin/solc
         shell: bash
 
       - name: Set up Go 1.13
