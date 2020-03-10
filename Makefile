@@ -29,7 +29,7 @@ embed-autonity-contract: .make.embed-autonity-contract
 .make.embed-autonity-contract: AUTONITY_CONTRACT_PATH = contracts/autonity/contract/contracts/Autonity.sol
 .make.embed-autonity-contract: GENERATED_DIR = common/acdefault/generated
 .make.embed-autonity-contract: $(AUTONITY_CONTRACT_PATH)
-	mkdir $(GENERATED_DIR)
+	mkdir -p $(GENERATED_DIR)
 	solc --overwrite --abi --bin -o $(GENERATED_DIR) $(AUTONITY_CONTRACT_PATH)
 
 	@echo Generating $(GENERATED_DIR)/bytecode.go
@@ -48,7 +48,7 @@ embed-autonity-contract: .make.embed-autonity-contract
 
 	@touch .make.embed-autonity-contract
 
-all:
+all: embed-autonity-contract
 	build/env.sh go run build/ci.go install
 
 android:
