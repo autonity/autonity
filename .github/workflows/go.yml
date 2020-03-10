@@ -8,7 +8,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -39,7 +39,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -76,7 +76,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -121,7 +121,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -161,7 +161,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -194,7 +194,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -226,7 +226,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -259,7 +259,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -291,7 +291,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -324,7 +324,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -357,7 +357,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -391,7 +391,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
@@ -424,7 +424,7 @@ jobs:
     steps:
       - name: Install Solidity
         run: |
-          wget --directory-prefix=/usr/bin --output-document=solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+          wget --output-document=/usr/bin/solc /usr/bin https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
           chmod +x /usr/bin/solc
         shell: bash
 
