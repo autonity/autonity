@@ -57,13 +57,13 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
         with:
           clean: 'false'
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: Linters
         run: |
@@ -142,11 +142,11 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: success_test_e2e
         run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
@@ -185,11 +185,11 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: Test
         run: go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 40m
@@ -221,11 +221,11 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: unit
         run: go test -race -v ./consensus/tendermint/... -timeout 30m
@@ -256,11 +256,11 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: e2e
         run: go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 40m
@@ -292,11 +292,11 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: TestCheckBlockWithSmallFee
         run: go test ./consensus/test/... -v -run 'TestCheckBlockWithSmallFee' -timeout 40m
@@ -327,11 +327,11 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: TestCheckFeeRedirectionAndRedistribution
         run: go test ./consensus/test/... -v -run 'TestCheckFeeRedirectionAndRedistribution' -timeout 40m
@@ -363,11 +363,11 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: TestTendermintStartStopFNodes
         run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 40m
@@ -399,11 +399,11 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: TestTendermintStartStopFPlusTwoNodes
         run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 40m
@@ -436,11 +436,11 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: TestTendermintStartStopFPlusOneNodes
         run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 40m
@@ -472,11 +472,11 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
 
       - name: TestTendermintStartStopAllNodes
         run: go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 40m
