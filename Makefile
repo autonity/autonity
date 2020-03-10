@@ -38,6 +38,7 @@ embed-autonity-contract: .make.embed-autonity-contract
 	@echo -n 'const Bytecode = "' >> $(GENERATED_DIR)/bytecode.go
 	@cat  $(GENERATED_DIR)/Autonity.bin >> $(GENERATED_DIR)/bytecode.go
 	@echo '"' >> $(GENERATED_DIR)/bytecode.go
+	@gofmt -s -w $(GENERATED_DIR)/bytecode.go
 
 	@echo Generating $(GENERATED_DIR)/abi.go
 	@> $(GENERATED_DIR)/abi.go
@@ -45,6 +46,7 @@ embed-autonity-contract: .make.embed-autonity-contract
 	@echo -n 'const Abi = `' >> $(GENERATED_DIR)/abi.go
 	@cat  $(GENERATED_DIR)/Autonity.abi | json_pp  >> $(GENERATED_DIR)/abi.go
 	@echo '`' >> $(GENERATED_DIR)/abi.go
+	@gofmt -s -w $(GENERATED_DIR)/abi.go
 
 	@touch .make.embed-autonity-contract
 
