@@ -4,16 +4,17 @@ import (
 	"crypto/ecdsa"
 	"github.com/clearmatics/autonity/core/types"
 	"math/big"
+	"sort"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/crypto"
 )
 
 type addressKeyMap map[common.Address]*ecdsa.PrivateKey
 
-func generateValidators(n int) (types.Committee, addressKeyMap) {
+func generateCommittee(n int) (types.Committee, addressKeyMap) {
 	vals := make(types.Committee, 0)
 	keymap := make(addressKeyMap)
 	for i := 0; i < n; i++ {
@@ -25,17 +26,21 @@ func generateValidators(n int) (types.Committee, addressKeyMap) {
 		vals = append(vals, committeeMember)
 		keymap[committeeMember.Address] = privateKey
 	}
+	sort.Sort(vals)
 	return vals, keymap
 }
 
-func newTestValidatorSet(n int) validator.Set {
-	validators, _ := generateValidators(n)
-	return validator.NewSet(validators, config.RoundRobin)
+func newTestCommitteeSet(n int) committee.Set {
+
+	validators, _ := generateCommittee(n)
+	set, _ := committee.NewSet(validators, config.RoundRobin, validators[0].Address)
+	return set
 }
 
-func newTestValidatorSetWithKeys(n int) (validator.Set, addressKeyMap) {
-	validators, keyMap := generateValidators(n)
-	return validator.NewSet(validators, config.RoundRobin), keyMap
+func newTestCommitteeSetWithKeys(n int) (committee.Set, addressKeyMap) {
+	validators, keyMap := generateCommittee(n)
+	set, _ := committee.NewSet(validators, config.RoundRobin, validators[0].Address)
+	return set, keyMap
 }
 
 func generatePrivateKey() (*ecdsa.PrivateKey, error) {

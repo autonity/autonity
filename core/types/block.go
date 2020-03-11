@@ -91,7 +91,7 @@ type Header struct {
 	*/
 	Committee          Committee `json:"committee"           gencodec:"required"`
 	ProposerSeal       []byte    `json:"proposerSeal"        gencodec:"required"`
-	Round              *big.Int  `json:"round"               gencodec:"required"`
+	Round              uint64    `json:"round"               gencodec:"required"`
 	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"`
 	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
 }
@@ -125,7 +125,7 @@ type originalHeader struct {
 type headerExtra struct {
 	Committee          Committee `json:"committee"           gencodec:"required"`
 	ProposerSeal       []byte    `json:"proposerSeal"        gencodec:"required"`
-	Round              *big.Int  `json:"round"               gencodec:"required"`
+	Round              uint64    `json:"round"               gencodec:"required"`
 	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"`
 	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
 }
@@ -229,12 +229,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.Time = origin.Time
 	h.MixDigest = origin.MixDigest
 	h.Nonce = origin.Nonce
-
 	h.Extra = origin.Extra
-
-	if h.Round == nil {
-		h.Round = big.NewInt(0)
-	}
 
 	return nil
 }
@@ -382,10 +377,6 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 		}
 	}
 
-	if b.header.Round == nil {
-		b.header.Round = big.NewInt(0)
-	}
-
 	return b
 }
 
@@ -422,11 +413,7 @@ func CopyHeader(h *Header) *Header {
 		}
 	}
 
-	if h.Round != nil {
-		cpy.Round = new(big.Int).Set(h.Round)
-	}
-
-	if len(h.ProposerSeal) > 0 {
+	if len(h.CommittedSeals) > 0 {
 		cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
 		copy(cpy.ProposerSeal, h.ProposerSeal)
 	}

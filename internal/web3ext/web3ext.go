@@ -806,13 +806,13 @@ web3._extend({
 	methods:
 	[
 		new web3._extend.Method({
-			name: 'getValidators',
-			call: 'tendermint_getValidators',
+			name: 'getCommittee',
+			call: 'tendermint_getCommittee',
 			params: 1
 		}),
 		new web3._extend.Method({
-			name: 'getValidatorsAtHash',
-			call: 'tendermint_getValidatorsAtHash',
+			name: 'getCommitteeAtHash',
+			call: 'tendermint_getCommitteeAtHash',
 			params: 1
 		}),
 		new web3._extend.Method({
