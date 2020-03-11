@@ -306,10 +306,8 @@ func runTest(t *testing.T, test *testCase) {
 	}
 }
 
-func TestName(t *testing.T) {
+func TestResolve(t *testing.T) {
 	enode.SetResolveFunc(func(host string) (ips []net.IP, e error) {
-		fmt.Println("call custom resolve func")
-
 		return []net.IP{
 			net.ParseIP("127.0.0.1"),
 		}, nil
