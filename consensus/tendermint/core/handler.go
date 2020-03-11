@@ -23,14 +23,13 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/types"
 )
 
 // Start implements core.Engine.Start
-func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+func (c *core) Start(ctx context.Context) error {
 	// prevent double start
 	if atomic.LoadUint32(c.isStarted) == 1 {
 		return nil
@@ -45,11 +44,6 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 	}()
 
 	ctx, c.cancel = context.WithCancel(ctx)
-
-	err := c.backend.Start(ctx, chain, currentBlock, hasBadBlock)
-	if err != nil {
-		return err
-	}
 
 	c.subscribeEvents()
 
@@ -98,11 +92,6 @@ func (c *core) Stop() error {
 
 	<-c.stopped
 	<-c.stopped
-
-	err := c.backend.Close()
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -261,7 +250,7 @@ func (c *core) syncLoop(ctx context.Context) {
 			}
 			event := ev.Data.(events.SyncEvent)
 			c.logger.Info("Processing sync message", "from", event.Addr)
-			c.SyncPeer(event.Addr)
+			c.backend.SyncPeer(event.Addr)
 		case <-ctx.Done():
 			return
 		}
