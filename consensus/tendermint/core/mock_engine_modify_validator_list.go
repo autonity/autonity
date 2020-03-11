@@ -26,7 +26,7 @@ func (*ModifyCommitteeEngine) VerifyHeader(_ consensus.ChainReader, _ *types.Hea
 
 func (c *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// create a normal block and check for errors
-	block, err := c.core.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
+	block, err := c.core.backend.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
 	if err != nil {
 		c.T.Error("c.core.FinalizeAndAssemble returned error:", err, "Expected nil")
 	}
@@ -79,7 +79,7 @@ func (c *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 type addValidatorCore Changes
 
 func NewAddValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
-	basicCore, ok := c.(*core)
+	basicCore, ok := c.(*Core)
 	if !ok {
 		panic("*core type is expected")
 	}

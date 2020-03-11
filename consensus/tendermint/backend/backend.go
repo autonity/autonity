@@ -118,6 +118,7 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
+	core              tendermintCore.CoreEngine
 	stopped           chan struct{}
 	coreMu            sync.RWMutex
 
@@ -495,7 +496,7 @@ func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
 }
 
 // Synchronize new connected peer with current height state
-func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.Message) {
+func (sb *Backend) SyncPeer(address common.Address) {
 	if sb.broadcaster == nil {
 		return
 	}
@@ -507,6 +508,7 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 	if !connected {
 		return
 	}
+	messages := sb.core.GetCurrentHeightMessages()
 	for _, msg := range messages {
 		payload, err := msg.Payload()
 		if err != nil {

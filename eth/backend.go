@@ -271,7 +271,12 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 		if backendConstructor != nil {
 			back = backendConstructor(back)
 		}
-		return tendermintCore.New(back, &config.Tendermint)
+		consensusEng, ok := back.(consensus.Engine)
+		if !ok {
+			// TODO: probably don't need to crash the program
+			panic("failed to create consensus engine")
+		}
+		return consensusEng
 	}
 
 	// Otherwise assume proof-of-work

@@ -532,6 +532,9 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 	sb.currentBlock = currentBlock
 	sb.hasBadBlock = hasBadBlock
 
+	if err := sb.core.Start(ctx); err != nil {
+		return err
+	}
 	sb.coreStarted = true
 
 	return nil
@@ -541,11 +544,18 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 func (sb *Backend) Close() error {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
+
 	if !sb.coreStarted {
 		return ErrStoppedEngine
 	}
+
+	if err := sb.core.Stop(); err != nil {
+		return err
+	}
+
 	sb.coreStarted = false
 
+	// TODO: think more carefully about double stop and starts, migrate all the changes from core regarding double stop and starts into backend
 	close(sb.stopped)
 
 	return nil
