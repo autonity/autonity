@@ -29,6 +29,10 @@ func AutomaticResolveStop() {
 	rs.Stop()
 }
 
+func SetResolveFunc(f func(host string) ([]net.IP, error)) {
+	rs.resolveFunc = f
+}
+
 func NewResolveSet() *resolveSet {
 	return &resolveSet{
 		cache:             make(map[string]*Node),
@@ -118,7 +122,7 @@ func (rs *resolveSet) ParseV4WithResolveMaxTry(rawurl string, maxTry int, wait t
 			break
 		}
 		time.Sleep(wait)
-		log.Error("trying to parse", "enode", rawurl, "attempt", i)
+		log.Error("trying to parse", "enode", rawurl, "attempt", i, "err", err)
 	}
 	if node == nil {
 		return nil, errors.New("have not parsed")

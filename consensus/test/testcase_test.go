@@ -160,6 +160,17 @@ func runTest(t *testing.T, test *testCase) {
 	nodesNum := len(nodeNames)
 	// Generate a batch of accounts to seal and fund with
 	nodes := make(map[string]*testNode, nodesNum)
+	enode.SetResolveFunc(func(host string) (ips []net.IP, e error) {
+		if len(host) > 4 || !(strings.HasPrefix(host, ValidatorPrefix) ||
+			strings.HasPrefix(host, StakeholderPrefix) ||
+			strings.HasPrefix(host, ParticipantPrefix)) {
+			return nil, &net.DNSError{Err: "not found", Name: host, IsNotFound: true}
+		}
+
+		return []net.IP{
+			net.ParseIP("127.0.0.1"),
+		}, nil
+	})
 
 	generateNodesPrivateKey(t, nodes, nodeNames, nodesNum)
 	setNodesPortAndEnode(t, nodes)
@@ -180,8 +191,7 @@ func runTest(t *testing.T, test *testCase) {
 		validator.listener[1].Close()
 
 		rates := test.networkRates[i]
-
-		validator.node, err = makeValidator(genesis, validator.privateKey, validator.address, validator.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor)
+		validator.node, err = makeValidator(genesis, validator.privateKey, fmt.Sprintf("127.0.0.1:%d", validator.port), validator.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor)
 		if err != nil {
 			t.Fatal("cant make a node", i, err)
 		}
@@ -293,6 +303,20 @@ func runTest(t *testing.T, test *testCase) {
 
 	if len(test.maliciousPeers) != 0 {
 		maliciousTest(t, test, nodes)
+	}
+}
+
+func TestResolve(t *testing.T) {
+	enode.SetResolveFunc(func(host string) (ips []net.IP, e error) {
+		return []net.IP{
+			net.ParseIP("127.0.0.1"),
+		}, nil
+	})
+
+	en := "enode://57fa76dc95ef02461ce1a38d70181c27384f628a23a98fa801933ac2a45709b847d4ab42ed0fe0ebd03df5d464c064585a85a154e4443fb9143bfb6c369d5544@VD:45736"
+	_, err := enode.ParseV4WithResolve(en)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -573,8 +597,8 @@ func setNodesPortAndEnode(t *testing.T, nodes map[string]*testNode) {
 
 	for i, node := range nodes {
 		listener := node.listener[0]
-		node.address = listener.Addr().String()
 		port := strings.Split(listener.Addr().String(), ":")[1]
+		node.address = fmt.Sprintf("%s:%s", i, port)
 		node.port, _ = strconv.Atoi(port)
 
 		rpcListener := node.listener[1]
@@ -589,9 +613,9 @@ func setNodesPortAndEnode(t *testing.T, nodes map[string]*testNode) {
 			t.Fatal("On node", i, "port equals 0")
 		}
 
-		node.url = enode.V4URL(
+		node.url = enode.V4DNSUrl(
 			node.privateKey.PublicKey,
-			net.IPv4(127, 0, 0, 1),
+			node.address,
 			node.port,
 			node.port,
 		)
