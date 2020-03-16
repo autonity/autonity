@@ -88,7 +88,7 @@ jobs:
         run: go run build/ci.go install
 
       - name: unit tests
-        run: go run build/ci.go test -coverage
+        run: go test -p 1 -timeout 30m -short -covermode=atomic -cover -test.coverprofile=coverage.out $(go list ./... | grep -v /consensus/tendermint)
 
       - uses: codecov/codecov-action@v1
         with:
@@ -137,28 +137,35 @@ jobs:
     strategy:
       matrix:
         e2e: [TestCheckFeeRedirectionAndRedistribution,
-              TestCheckBlockWithSmallFee,
-              TestRemoveFromValidatorsList,
-              TestContractUpgrade_Success,
-              TestContractUpgradeSeveralUpgrades,
-              TestTendermintSuccess,
-              TestTendermintSlowConnections,
-              TestTendermintMemoryLeak,
-              TestTendermintLongRun,
-              TestTendermintOneMalicious,
-              TestTendermintNoQuorum,
-              TestTendermintStopUpToFNodes,
-              TestTendermintStartStopSingleNode,
-              TestTendermintStartStopFNodes,
-              TestTendermintStartStopFPlusOneNodes,
-              TestTendermintStartStopFPlusTwoNodes,
-              TestTendermintStartStopAllNodes,
-              TestResolve,
-              TestTendermintStarSuccess,
-              TestTendermintStarOverParticipantSuccess,
-              TestTendermintBusSuccess,
-              TestContractUpgradeSeveralUpgradesOnBusTopology,
-              TestContractUpgradeSeveralUpgradesOnStarTopology
+                TestCheckBlockWithSmallFee,
+                TestRemoveFromValidatorsList,
+                TestContractUpgrade_Success,
+                TestContractUpgradeSeveralUpgrades,
+                TestContractUpgradeSeveralUpgradesOnBusTopology,
+                TestContractUpgradeSeveralUpgradesOnStarTopology,
+                TestTendermintSuccess,
+                TestTendermintSlowConnections,
+                TestTendermintMemoryLeak,
+                TestTendermintLongRun,
+                TestTendermintTC7,
+                TestTendermintOneMalicious,
+                TestTendermintNoQuorum,
+                TestTendermintStopUpToFNodes,
+                TestTendermintStartStopSingleNode,
+                TestTendermintStartStopFNodes,
+                TestTendermintStartStopFPlusOneNodes,
+                TestTendermintStartStopFPlusTwoNodes,
+                TestTendermintStartStopAllNodes,
+                TestResolve,
+                TestTendermintStarSuccess,
+                TestTendermintStarOverParticipantSuccess,
+                TestTendermintBusSuccess,
+                TestTendermintChangeTopologyFromBusToStarSuccess,
+                TestTendermintChangeTopologyFromStarToBusSuccess,
+                TestTendermintAddConnectionToTopologySuccess,
+                TestTendermintAddValidatorsToTopologySuccess,
+                TestTendermintAddParticipantsToTopologySuccess,
+                TestTendermintAddStakeholdersToTopologySuccess
         ]
 
     name: Tendermint ${{ matrix.e2e }} test
