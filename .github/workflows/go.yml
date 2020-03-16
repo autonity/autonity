@@ -179,7 +179,7 @@ jobs:
 
       - uses: actions/cache@v1
         with:
-          path: {$GITHUB_WORKSPACE}/autonity/tests/testdata
+          path: /home/runner/work/autonity/autonity/tests/testdata
           key: ${{ runner.os }}-go-testdata-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-testdata-
