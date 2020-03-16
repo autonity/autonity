@@ -1,4 +1,4 @@
-package core
+package backend
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 
 type VerifySelfProposalAlwaysTrueBackend struct {
 	*testing.T
-	Backend
+	*Backend
 	marker
 }
 
@@ -38,10 +38,6 @@ func (b *VerifySelfProposalAlwaysTrueBackend) VerifyHeader(chain consensus.Chain
 	return nil
 }
 
-func (b *VerifySelfProposalAlwaysTrueBackend) GetOriginal() Backend {
-	return b.Backend
-}
-
 type changeValidatorBackend struct {
 	*testing.T
 	blocksFromRemoved map[common.Hash]uint64
@@ -49,10 +45,15 @@ type changeValidatorBackend struct {
 	brokenValidators  Changes
 }
 
-func NewChangeValidatorBackend(t *testing.T, basicCore Backend, brokenValidators Changes, blocksFromRemoved, blocksFromAdded map[common.Hash]uint64) *VerifySelfProposalAlwaysTrueBackend {
+func NewChangeValidatorBackend(t *testing.T, basicBackend consensus.Engine, brokenValidators Changes, blocksFromRemoved, blocksFromAdded map[common.Hash]uint64) *VerifySelfProposalAlwaysTrueBackend {
+	basicEngine, ok := basicBackend.(*Backend)
+	if !ok {
+		panic("*Backend type is expected")
+	}
+
 	return &VerifySelfProposalAlwaysTrueBackend{
 		T:       t,
-		Backend: basicCore,
+		Backend: basicEngine,
 		marker: changeValidatorBackend{
 			T:                 t,
 			blocksFromRemoved: blocksFromRemoved,

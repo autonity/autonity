@@ -19,7 +19,6 @@ package core
 import (
 	"context"
 	"math/big"
-	"sync/atomic"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -30,19 +29,6 @@ import (
 
 // Start implements core.Engine.Start
 func (c *core) Start(ctx context.Context) error {
-	// prevent double start
-	if atomic.LoadUint32(c.isStarted) == 1 {
-		return nil
-	}
-	if !atomic.CompareAndSwapUint32(c.isStarting, 0, 1) {
-		return nil
-	}
-	defer func() {
-		atomic.StoreUint32(c.isStarting, 0)
-		atomic.StoreUint32(c.isStopped, 0)
-		atomic.StoreUint32(c.isStarted, 1)
-	}()
-
 	ctx, c.cancel = context.WithCancel(ctx)
 
 	c.subscribeEvents()
@@ -63,22 +49,6 @@ func (c *core) Start(ctx context.Context) error {
 
 // Stop implements core.Engine.Stop
 func (c *core) Stop() error {
-	// prevent double stop
-	if atomic.LoadUint32(c.isStarted) != 1 {
-		return nil
-	}
-	if atomic.LoadUint32(c.isStopped) == 1 {
-		return nil
-	}
-	if !atomic.CompareAndSwapUint32(c.isStopping, 0, 1) {
-		return nil
-	}
-	defer func() {
-		atomic.StoreUint32(c.isStopping, 0)
-		atomic.StoreUint32(c.isStopped, 1)
-		atomic.StoreUint32(c.isStarted, 0)
-	}()
-
 	c.logger.Info("stopping tendermint.core", "addr", c.address.String())
 
 	_ = c.proposeTimeout.stopTimer()
@@ -90,6 +60,8 @@ func (c *core) Stop() error {
 	c.stopFutureProposalTimer()
 	c.unsubscribeEvents()
 
+	// Ensure all event handling go routines exit
+	<-c.stopped
 	<-c.stopped
 	<-c.stopped
 
@@ -230,6 +202,7 @@ func (c *core) syncLoop(ctx context.Context) {
 	// Ask for sync when the engine starts
 	c.backend.AskSync(c.CommitteeSet())
 
+eventLoop:
 	for {
 		select {
 		case <-timer.C:
@@ -246,15 +219,18 @@ func (c *core) syncLoop(ctx context.Context) {
 
 		case ev, ok := <-c.syncEventSub.Chan():
 			if !ok {
-				return
+				break eventLoop
 			}
 			event := ev.Data.(events.SyncEvent)
 			c.logger.Info("Processing sync message", "from", event.Addr)
 			c.backend.SyncPeer(event.Addr)
 		case <-ctx.Done():
-			return
+			c.logger.Info("syncLoop is stopped", "event", ctx.Err())
+			break eventLoop
 		}
 	}
+
+	c.stopped <- struct{}{}
 }
 
 // sendEvent sends event to mux

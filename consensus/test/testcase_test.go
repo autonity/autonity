@@ -16,7 +16,7 @@ import (
 	"github.com/clearmatics/autonity/common/graph"
 	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/consensus"
-	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -47,8 +47,8 @@ type testCase struct {
 	maliciousPeers          map[string]injectors
 	removedPeers            map[common.Address]uint64
 	addedValidatorsBlocks   map[common.Hash]uint64
-	removedValidatorsBlocks map[common.Hash]uint64 //nolint: unused, structcheck
-	changedValidators       tendermintCore.Changes //nolint: unused,structcheck
+	removedValidatorsBlocks map[common.Hash]uint64    //nolint: unused, structcheck
+	changedValidators       tendermintBackend.Changes //nolint: unused,structcheck
 
 	networkRates         map[string]networkRate //map[validatorIndex]networkRate
 	beforeHooks          map[string]hook        //map[validatorIndex]beforeHook
@@ -65,8 +65,7 @@ type testCase struct {
 }
 
 type injectors struct {
-	cons  func(basic consensus.Engine) consensus.Engine
-	backs func(basic tendermintCore.Backend) tendermintCore.Backend
+	cons []func(basic consensus.Engine) consensus.Engine
 }
 
 func (test *testCase) getBeforeHook(index string) hook {
@@ -192,18 +191,16 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	for i, peer := range nodes {
-		var engineConstructor func(basic consensus.Engine) consensus.Engine
-		var backendConstructor func(basic tendermintCore.Backend) tendermintCore.Backend
+		var engineConstructors []func(basic consensus.Engine) consensus.Engine
 		if test.maliciousPeers != nil {
-			engineConstructor = test.maliciousPeers[i].cons
-			backendConstructor = test.maliciousPeers[i].backs
+			engineConstructors = test.maliciousPeers[i].cons
 		}
 
 		peer.listener[0].Close()
 		peer.listener[1].Close()
 
 		rates := test.networkRates[i]
-		peer.node, err = makePeer(genesis, peer.privateKey, fmt.Sprintf("127.0.0.1:%d", peer.port), peer.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor)
+		peer.node, err = makePeer(genesis, peer.privateKey, fmt.Sprintf("127.0.0.1:%d", peer.port), peer.rpcPort, rates.in, rates.out, engineConstructors)
 		if err != nil {
 			t.Fatal("cant make a node", i, err)
 		}

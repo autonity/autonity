@@ -495,13 +495,14 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "tendermint",
 		Version:   "1.0",
-		Service:   &API{chain: chain, tendermint: sb},
+		Service:   &API{chain: chain, tendermint: *sb},
 		Public:    true,
 	}}
 }
 
 // Start implements consensus.tendermint.Start
 func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+	// the mutex along with coreStarted should prevent double start
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if sb.coreStarted {
@@ -530,6 +531,7 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 
 // Stop implements consensus.tendermint.Stop
 func (sb *Backend) Close() error {
+	// the mutex along with coreStarted should prevent double start
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 
@@ -542,8 +544,6 @@ func (sb *Backend) Close() error {
 	}
 
 	sb.coreStarted = false
-
-	// TODO: think more carefully about double stop and starts, migrate all the changes from core regarding double stop and starts into backend
 	close(sb.stopped)
 
 	return nil
