@@ -170,20 +170,6 @@ jobs:
     name: Tendermint ${{ matrix.e2e }} test
 
     steps:
-      - uses: actions/cache@v1
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - uses: actions/cache@v1
-        with:
-          path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-go-testdata-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-testdata-
-
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
         with:
