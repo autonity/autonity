@@ -19,7 +19,6 @@ package backend
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
 )
@@ -27,7 +26,7 @@ import (
 // API is a user facing RPC API to dump BFT state
 type API struct {
 	chain      consensus.ChainReader
-	tendermint core.Backend
+	tendermint Backend
 }
 
 // GetCommittee retrieves the list of authorized committee at the specified block.

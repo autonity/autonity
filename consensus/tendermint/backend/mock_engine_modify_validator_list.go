@@ -1,4 +1,4 @@
-package core
+package backend
 
 import (
 	"math/big"
@@ -10,25 +10,25 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
-type Modifier interface {
-	ModifyHeader(header *types.Header) *types.Header
-}
-
 type ModifyCommitteeEngine struct {
 	*testing.T
-	*core
+	*Backend
 	Modifier
+}
+
+type Modifier interface {
+	ModifyHeader(header *types.Header) *types.Header
 }
 
 func (*ModifyCommitteeEngine) VerifyHeader(_ consensus.ChainReader, _ *types.Header, _ bool) error {
 	return nil
 }
 
-func (c *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// create a normal block and check for errors
-	block, err := c.core.backend.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
+	block, err := m.Backend.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
 	if err != nil {
-		c.T.Error("c.core.FinalizeAndAssemble returned error:", err, "Expected nil")
+		m.T.Error("m.core.FinalizeAndAssemble returned error:", err, "Expected nil")
 	}
 
 	if header.Number.Cmp(big.NewInt(0)) == 0 {
@@ -36,41 +36,32 @@ func (c *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 		return block, nil
 	}
 
-	if c.address != header.Coinbase {
+	if m.address != header.Coinbase {
 		// if the malicious validator is a proposer
 		return block, nil
 	}
 
-	if c.curRoundMessages == nil || c.curRoundMessages != nil || c.Height().Cmp(header.Number) != 0 {
+	lastMinedBlock, _ := m.Backend.LastCommittedProposal()
+	if lastMinedBlock.Number().Cmp(header.Number) != 0 {
 		return block, nil
 	}
 
-	header = c.Modifier.ModifyHeader(block.Header())
+	header = m.Modifier.ModifyHeader(block.Header())
 
 	// create a new block with the modified header
 	newBlock := types.NewBlock(header, block.Transactions(), block.Uncles(), receipts)
 
-	newBlock, err = c.backend.AddSeal(newBlock)
+	newBlock, err = m.Backend.AddSeal(newBlock)
 	if err != nil {
-		c.Errorf("cant seal the block: %v - %v", err, newBlock)
-	}
-
-	type originalBackend interface {
-		GetOriginal() Backend
-	}
-
-	back := c.core.backend
-	original, ok := c.core.backend.(originalBackend)
-	if ok {
-		back = original.GetOriginal()
+		m.Errorf("cant seal the block: %v - %v", err, newBlock)
 	}
 
 	// we want be sure that the block is modified but not broken
-	switch _, err = back.VerifyProposal(*newBlock); err {
+	switch _, err = m.Backend.VerifyProposal(*newBlock); err {
 	case consensus.ErrInconsistentCommitteeSet:
 	// nothing to do
 	default:
-		c.Error("Mock FinalizeAndAssemble created incorrect block:", err, newBlock)
+		m.Error("Mock FinalizeAndAssemble created incorrect block:", err, newBlock)
 	}
 
 	return newBlock, nil
@@ -78,13 +69,13 @@ func (c *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 
 type addValidatorCore Changes
 
-func NewAddValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
-	basicCore, ok := c.(*Core)
+func NewAddValidatorCore(engine consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
+	basicEngine, ok := engine.(*Backend)
 	if !ok {
-		panic("*core type is expected")
+		panic("*Backend type is expected")
 	}
 	return &ModifyCommitteeEngine{
-		core:     basicCore,
+		Backend:  basicEngine,
 		Modifier: addValidatorCore(changedValidators),
 	}
 }
@@ -103,13 +94,13 @@ func (p addValidatorCore) ModifyHeader(header *types.Header) *types.Header {
 
 type removeValidatorCore Changes
 
-func NewRemoveValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
-	basicCore, ok := c.(*core)
+func NewRemoveValidatorCore(engine consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
+	basicEngine, ok := engine.(*Backend)
 	if !ok {
-		panic("*core type is expected")
+		panic("*Backend type is expected")
 	}
 	return &ModifyCommitteeEngine{
-		core:     basicCore,
+		Backend:  basicEngine,
 		Modifier: removeValidatorCore(changedValidators),
 	}
 }
@@ -134,13 +125,13 @@ func NewChanges() Changes {
 
 type replaceValidatorCore Changes
 
-func NewReplaceValidatorCore(c consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
-	basicCore, ok := c.(*core)
+func NewReplaceValidatorCore(engine consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
+	basicEngine, ok := engine.(*Backend)
 	if !ok {
-		panic("*core type is expected")
+		panic("*Backend type is expected")
 	}
 	return &ModifyCommitteeEngine{
-		core:     basicCore,
+		Backend:  basicEngine,
 		Modifier: replaceValidatorCore(changedValidators),
 	}
 }

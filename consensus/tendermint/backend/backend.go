@@ -96,6 +96,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
+	backend.core = tendermintCore.New(backend)
 	return backend
 }
 
@@ -118,7 +119,7 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
-	core              tendermintCore.CoreEngine
+	core              tendermintCore.Tendermint
 	stopped           chan struct{}
 	coreMu            sync.RWMutex
 
