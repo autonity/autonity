@@ -352,10 +352,10 @@ contract Autonity {
     }
 
     /*
-    * currentUserType
+    * myUserType
     * Returns sender's userType
     */
-    function currentUserType() public view returns(UserType)  {
+    function myUserType() public view returns(UserType)  {
         return users[msg.sender].userType;
     }
 

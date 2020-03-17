@@ -202,7 +202,7 @@ contract('Autonity', function (accounts) {
             // participant -> stakeholder (0 -> 1)
             await token.addParticipant(accounts[6], "some enode", {from: operator});
             await token.changeUserType(accounts[6], 1, {from: operator});
-            let thisUserType = await token.currentUserType({from: accounts[6]});
+            let thisUserType = await token.myUserType({from: accounts[6]});
             assert (thisUserType == 1, "wrong user type");
             await token.removeUser(accounts[6], {from: operator});
           });
@@ -211,7 +211,7 @@ contract('Autonity', function (accounts) {
             // participant -> validator (0 -> 2)
             await token.addParticipant(accounts[6], "some enode", {from: operator});
             await token.changeUserType(accounts[6], 2, {from: operator});
-            let thisUserType = await token.currentUserType({from: accounts[6]});
+            let thisUserType = await token.myUserType({from: accounts[6]});
             assert (thisUserType == 2, "wrong user type");
             let thisUserStake = await token.getStake({from: accounts[6]});
             assert (thisUserStake == 0);
@@ -222,7 +222,7 @@ contract('Autonity', function (accounts) {
             // stakeholder -> validator (1 -> 2)
             await token.addStakeholder(accounts[6], "some enode", 100, {from: operator});
             await token.changeUserType(accounts[6], 2, {from: operator});
-            let thisUserType = await token.currentUserType({from: accounts[6]});
+            let thisUserType = await token.myUserType({from: accounts[6]});
             assert (thisUserType == 2, "wrong user type");
             let thisUserStake = await token.getStake({from: accounts[6]});
             assert (thisUserStake == 100);
@@ -233,7 +233,7 @@ contract('Autonity', function (accounts) {
             // valiator -> stakeholder (2 -> 1)
             await token.addValidator(accounts[6], 100, "some enode", {from: operator});
             await token.changeUserType(accounts[6], 1, {from: operator});
-            let thisUserType = await token.currentUserType({from: accounts[6]});
+            let thisUserType = await token.myUserType({from: accounts[6]});
             assert (thisUserType == 1, "wrong user type");
             let thisUserStake = await token.getStake({from: accounts[6]});
             assert (thisUserStake == 100);
@@ -251,7 +251,7 @@ contract('Autonity', function (accounts) {
               await token.removeUser(accounts[6], {from: operator});
               await token.addValidator(accounts[6], 0, "some enode", {from: operator});
               await token.changeUserType(accounts[6], 0, {from: operator});
-              let thisUserType = await token.currentUserType({from: accounts[6]});
+              let thisUserType = await token.myUserType({from: accounts[6]});
               assert (thisUserType == 0, "wrong user type");
               await token.removeUser(accounts[6], {from: operator});
             }
@@ -268,7 +268,7 @@ contract('Autonity', function (accounts) {
               await token.removeUser(accounts[6], {from: operator});
               await token.addStakeholder(accounts[6], "some enode", 0, {from: operator});
               await token.changeUserType(accounts[6], 0, {from: operator});
-              let thisUserType = await token.currentUserType({from: accounts[6]});
+              let thisUserType = await token.myUserType({from: accounts[6]});
               assert (thisUserType == 0, "wrong user type");
               await token.removeUser(accounts[6], {from: operator});
             }
