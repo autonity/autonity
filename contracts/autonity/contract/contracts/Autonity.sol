@@ -352,15 +352,6 @@ contract Autonity {
     }
 
     /*
-    * getUserType
-    * Returns sender's userType
-    */
-    function getUserType() public view returns(UserType)  {
-        return users[msg.sender].userType;
-    }
-
-
-    /*
     * getMaxCommitteeSize
     * Returns the maximum possible size of the committee - set of validators participating in consensus.
     */
