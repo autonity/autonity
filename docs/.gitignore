@@ -1,0 +1,10 @@
+# OSX
+.DS_Store
+Thumbs.db
+*.swp
+
+# generated docs dir
+/build
+
+# python virtual environment
+/venv
