@@ -3,7 +3,7 @@ ignore:
   - "**/*_gen.go"  # ignore generated client
   - "**/mock*.go"
   - "**/*.^go"
-  - "docs"
+  - "**/docs/**/*"
 coverage:
   precision: 2
   round: nearest
