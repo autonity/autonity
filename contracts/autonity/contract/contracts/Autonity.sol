@@ -588,7 +588,7 @@ contract Autonity {
         // avoid duplicated user in usersList.
         require(users[u.addr].addr == address(0), "This address is already registered");
 
-	      usersList.push(u.addr);
+        usersList.push(u.addr);
 
         users[u.addr] = u;
 
