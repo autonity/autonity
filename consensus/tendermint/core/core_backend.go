@@ -27,6 +27,10 @@ type Backend interface {
 	// Validators returns the committee set
 	Committee(number uint64) (committee.Set, error)
 
+	GetContractABI() string
+
+	GetContractAddress() common.Address
+
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(ctx context.Context, valSet committee.Set, payload []byte)
 
@@ -50,6 +54,8 @@ type Backend interface {
 	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
 	VerifyProposal(types.Block) (time.Duration, error)
+
+	WhiteList() []string
 }
 
 type Tendermint interface {

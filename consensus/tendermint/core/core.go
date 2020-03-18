@@ -86,7 +86,7 @@ func New(backend Backend) *core {
 		backlogs:              make(map[types.CommitteeMember]*prque.Prque),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
-		stopped:               make(chan struct{}, 3),
+		stopped:               make(chan struct{}, 4),
 		committeeSet:          nil,
 		futureRoundChange:     make(map[int64]map[common.Address]uint64),
 		messages:              messagesMap,

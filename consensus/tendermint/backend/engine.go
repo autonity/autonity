@@ -495,7 +495,7 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "tendermint",
 		Version:   "1.0",
-		Service:   &API{chain: chain, tendermint: *sb},
+		Service:   &API{chain: chain, tendermint: sb},
 		Public:    true,
 	}}
 }
@@ -531,7 +531,7 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 
 // Stop implements consensus.tendermint.Stop
 func (sb *Backend) Close() error {
-	// the mutex along with coreStarted should prevent double start
+	// the mutex along with coreStarted should prevent double stop
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 

@@ -3,12 +3,13 @@ package core
 import (
 	"context"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/golang/mock/gomock"
-	"golang.org/x/sync/errgroup"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 	"testing"
@@ -163,46 +164,20 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 	backendMock := NewMockBackend(ctrl)
 	backendMock.EXPECT().Address().AnyTimes().Return(addr)
 
-	c := New(backendMock, nil)
-	if err := c.Stop(); err != nil {
-		t.Fatal(err)
-	}
-}
+	logger := log.New("testAddress", "0x0000")
+	eMux := event.NewTypeMuxSilent(logger)
+	sub := eMux.Subscribe(events.MessageEvent{})
 
-func TestCoreMultipleStopsDontPanic(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	addr := common.HexToAddress("0x0123456789")
+	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)
 
-	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().AnyTimes().Return(addr)
-
-	c := New(backendMock, nil)
-	if err := c.Stop(); err != nil {
-		t.Fatal(err)
-	}
+	c := New(backendMock)
+	_, c.cancel = context.WithCancel(context.Background())
+	c.subscribeEvents()
+	c.stopped <- struct{}{}
+	c.stopped <- struct{}{}
+	c.stopped <- struct{}{}
 
 	if err := c.Stop(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestCoreMultipleConcurrentStopsDontPanic(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	addr := common.HexToAddress("0x0123456789")
-
-	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().AnyTimes().Return(addr)
-
-	c := New(backendMock, nil)
-
-	wg := errgroup.Group{}
-	for i := 0; i < 10; i++ {
-		wg.Go(c.Stop)
-	}
-
-	if err := wg.Wait(); err != nil {
 		t.Fatal(err)
 	}
 }

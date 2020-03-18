@@ -456,7 +456,7 @@ func TestGetProposer(t *testing.T) {
 func TestSyncPeer(t *testing.T) {
 	t.Run("no broadcaster set, nothing done", func(t *testing.T) {
 		b := &Backend{}
-		b.SyncPeer(common.HexToAddress("0x0123456789"), nil)
+		b.SyncPeer(common.HexToAddress("0x0123456789"))
 	})
 
 	t.Run("valid params given, messages sent", func(t *testing.T) {
@@ -492,13 +492,17 @@ func TestSyncPeer(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().GetCurrentHeightMessages().Return(messages)
+
 		b := &Backend{
 			logger:         log.New("backend", "test", "id", 0),
 			recentMessages: recentMessages,
+			core:           tendermintC,
 		}
 		b.SetBroadcaster(broadcaster)
 
-		b.SyncPeer(peerAddr1, messages)
+		b.SyncPeer(peerAddr1)
 
 		wait := time.NewTimer(time.Second)
 		<-wait.C
@@ -664,15 +668,14 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	cfg := config.DefaultConfig()
 	// Use the first key as private key
 	b := New(cfg, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
-	c := tendermintCore.New(b, cfg)
 
 	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, c, vm.Config{}, nil, core.NewTxSenderCacher())
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher())
 	if err != nil {
 		panic(err)
 	}
 
-	err = c.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	err = b.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
 	if err != nil {
 		panic(err)
 	}
