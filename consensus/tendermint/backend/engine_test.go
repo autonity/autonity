@@ -18,8 +18,13 @@ package backend
 
 import (
 	"bytes"
+	"context"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/core"
+	"github.com/golang/mock/gomock"
 	"math/big"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -460,7 +465,14 @@ func TestClose(t *testing.T) {
 	})
 
 	t.Run("engine is running, no errors", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Stop().MaxTimes(1)
+
 		b := &Backend{
+			core:        tendermintC,
 			coreStarted: true,
 			stopped:     make(chan struct{}),
 		}
@@ -468,6 +480,186 @@ func TestClose(t *testing.T) {
 		err := b.Close()
 		if err != nil {
 			t.Fatalf("expected <nil>, got %v", err)
+		}
+	})
+
+	t.Run("engine is running, stopped twice", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Stop().MaxTimes(1)
+
+		b := &Backend{
+			core:        tendermintC,
+			coreStarted: true,
+			stopped:     make(chan struct{}),
+		}
+
+		err := b.Close()
+		if err != nil {
+			t.Fatalf("expected <nil>, got %v", err)
+		}
+
+		err = b.Close()
+		if err != ErrStoppedEngine {
+			t.Fatalf("expected %v, got %v", ErrStoppedEngine, err)
+		}
+	})
+
+	t.Run("engine is running, stopped multiple times", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Stop().MaxTimes(1)
+
+		b := &Backend{
+			core:        tendermintC,
+			coreStarted: true,
+			stopped:     make(chan struct{}),
+		}
+
+		var wg sync.WaitGroup
+		stop := 10
+		errC := make(chan error, 10)
+
+		for i := 0; i < stop; i++ {
+			wg.Add(1)
+
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+
+				err := b.Close()
+				errC <- err
+			}(&wg)
+
+		}
+
+		wg.Wait()
+		close(errC)
+
+		var sawNil bool
+
+		// Want nil once and ErrStoppedEngine 9 times
+		for e := range errC {
+			if e != ErrStoppedEngine {
+				if e == nil {
+					if sawNil {
+						t.Fatalf("<nil> returned more than once, b.Close() should have only returned nil the first time it was closed")
+					} else {
+						sawNil = true
+					}
+				} else {
+					t.Fatalf("expected %v, got %v", ErrStoppedEngine, e)
+				}
+			}
+		}
+	})
+}
+
+func TestStart(t *testing.T) {
+	t.Run("engine is not running, no errors", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		ctx := context.Background()
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Start(ctx).Return(nil).MaxTimes(1)
+
+		b := &Backend{
+			core:        tendermintC,
+			coreStarted: false,
+		}
+
+		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		if err != nil {
+			t.Fatalf("expected <nil>, got %v", err)
+		}
+	})
+
+	t.Run("engine is running, error returned", func(t *testing.T) {
+		b := &Backend{
+			coreStarted: true,
+		}
+
+		err := b.Start(context.Background(), &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		if err != ErrStartedEngine {
+			t.Fatalf("expected %v, got %v", ErrStartedEngine, err)
+		}
+	})
+
+	t.Run("engine is not running, started twice", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		ctx := context.Background()
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Start(ctx).Return(nil).MaxTimes(1)
+
+		b := &Backend{
+			core:        tendermintC,
+			coreStarted: false,
+		}
+
+		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		if err != nil {
+			t.Fatalf("expected <nil>, got %v", err)
+		}
+
+		err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		if err != ErrStartedEngine {
+			t.Fatalf("expected %v, got %v", ErrStoppedEngine, err)
+		}
+	})
+
+	t.Run("engine is running, stopped multiple times", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		ctx := context.Background()
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Start(ctx).Return(nil).MaxTimes(1)
+
+		b := &Backend{
+			core:        tendermintC,
+			coreStarted: false,
+		}
+
+		var wg sync.WaitGroup
+		stop := 10
+		errC := make(chan error, 10)
+
+		for i := 0; i < stop; i++ {
+			wg.Add(1)
+
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+
+				err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+				errC <- err
+			}(&wg)
+
+		}
+
+		wg.Wait()
+		close(errC)
+
+		var sawNil bool
+
+		// Want nil once and ErrStartedEngine 9 times
+		for e := range errC {
+			if e != ErrStartedEngine {
+				if e == nil {
+					if sawNil {
+						t.Fatalf("<nil> returned more than once, b.Close() should have only returned nil the first time it was closed")
+					} else {
+						sawNil = true
+					}
+				} else {
+					t.Fatalf("expected %v, got %v", ErrStoppedEngine, e)
+				}
+			}
 		}
 	})
 }
