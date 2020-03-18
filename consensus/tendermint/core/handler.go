@@ -26,7 +26,6 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	"github.com/clearmatics/autonity/consensus/tendermint/validator"
 	"github.com/clearmatics/autonity/core/types"
 )
 
@@ -54,16 +53,14 @@ func (c *core) Start(ctx context.Context, chain consensus.ChainReader, currentBl
 
 	c.subscribeEvents()
 
-	// set currentRoundState before starting go routines
-	lastCommittedProposalBlock, _ := c.backend.LastCommittedProposal()
-	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
-	c.currentRoundState.Update(big.NewInt(0), height)
-
+	// core.height needs to be set beforehand for unmined block's logic.
+	lastBlockMined, _ := c.backend.LastCommittedProposal()
+	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 	// We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent(ctx)
 
-	// We want to sequentially handle all the event which modify the current consensus state
-	go c.handleConsensusEvents(ctx)
+	// Tendermint Finite State Machine discrete event loop
+	go c.mainEventLoop(ctx)
 
 	go c.backend.HandleUnhandledMsgs(ctx)
 
@@ -158,9 +155,9 @@ eventLoop:
 	c.stopped <- struct{}{}
 }
 
-func (c *core) handleConsensusEvents(ctx context.Context) {
+func (c *core) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
-	c.startRound(ctx, common.Big0)
+	c.startRound(ctx, 0)
 
 	go c.syncLoop(ctx)
 
@@ -175,30 +172,30 @@ eventLoop:
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
 				if len(e.Payload) == 0 {
-					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) empty payload")
+					c.logger.Error("core.mainEventLoop Get message(MessageEvent) empty payload")
 				}
 
 				if err := c.handleMsg(ctx, e.Payload); err != nil {
-					c.logger.Debug("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
+					c.logger.Debug("core.mainEventLoop Get message(MessageEvent) payload failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(ctx, c.valSet.Copy(), e.Payload)
+				c.backend.Gossip(ctx, c.CommitteeSet(), e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling backlogEvent")
 				err := c.handleCheckedMsg(ctx, e.msg, e.src)
 				if err != nil {
-					c.logger.Debug("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
+					c.logger.Debug("core.mainEventLoop handleCheckedMsg message failed", "err", err)
 					continue
 				}
 
 				p, err := e.msg.Payload()
 				if err != nil {
-					c.logger.Debug("core.handleConsensusEvents Get message payload failed", "err", err)
+					c.logger.Debug("core.mainEventLoop Get message payload failed", "err", err)
 					continue
 				}
 
-				c.backend.Gossip(ctx, c.valSet.Copy(), p)
+				c.backend.Gossip(ctx, c.CommitteeSet(), p)
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
@@ -223,7 +220,7 @@ eventLoop:
 				c.handleCommit(ctx)
 			}
 		case <-ctx.Done():
-			c.logger.Info("handleConsensusEvents is stopped", "event", ctx.Err())
+			c.logger.Info("mainEventLoop is stopped", "event", ctx.Err())
 			break eventLoop
 		}
 	}
@@ -238,25 +235,26 @@ func (c *core) syncLoop(ctx context.Context) {
 	*/
 	timer := time.NewTimer(10 * time.Second)
 
-	round := c.currentRoundState.Round()
-	height := c.currentRoundState.Height()
+	round := c.Round()
+	height := c.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.valSet.Copy())
+	c.backend.AskSync(c.CommitteeSet())
 
 	for {
 		select {
 		case <-timer.C:
-			currentRound := c.currentRoundState.Round()
-			currentHeight := c.currentRoundState.Height()
+			currentRound := c.Round()
+			currentHeight := c.Height()
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
-			if currentHeight.Cmp(height) == 0 && currentRound.Cmp(round) == 0 {
-				c.backend.AskSync(c.valSet.Copy())
+			if currentHeight.Cmp(height) == 0 && currentRound == round {
+				c.backend.AskSync(c.CommitteeSet())
 			}
 			round = currentRound
 			height = currentHeight
 			timer = time.NewTimer(10 * time.Second)
+
 		case ev, ok := <-c.syncEventSub.Chan():
 			if !ok {
 				return
@@ -281,7 +279,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// Decode message and check its signature
 	msg := new(Message)
 
-	sender, err := msg.FromPayload(payload, c.valSet.Copy(), crypto.CheckValidatorSignature)
+	sender, err := msg.FromPayload(payload, c.CommitteeSet().Copy(), crypto.CheckValidatorSignature)
 	if err != nil {
 		logger.Error("Failed to decode message from payload", "err", err)
 		return err
@@ -290,7 +288,28 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	return c.handleCheckedMsg(ctx, msg, *sender)
 }
 
-func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender validator.Validator) error {
+func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) {
+	// Decoding functions can't fail here
+	msgRound, err := msg.Round()
+	if err != nil {
+		c.logger.Error("handleFutureRoundMsg msgRound", "err", err)
+		return
+	}
+	if _, ok := c.futureRoundChange[msgRound]; !ok {
+		c.futureRoundChange[msgRound] = make(map[common.Address]struct{})
+	}
+	c.futureRoundChange[msgRound][sender.Address] = struct{}{}
+
+	// TODO(PoS Integration) : Weight by Voting Power
+	totalFutureRoundMessages := len(c.futureRoundChange[msgRound])
+
+	if totalFutureRoundMessages > c.CommitteeSet().F() {
+		c.logger.Info("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
+		c.startRound(ctx, msgRound)
+	}
+}
+
+func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) error {
 	logger := c.logger.New("address", c.address, "from", sender)
 
 	// Store the message if it's a future message
@@ -302,30 +321,8 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender valida
 		} else if err == errFutureRoundMessage {
 			logger.Debug("Storing future round message in backlog")
 			c.storeBacklog(msg, sender)
-			//We cannot move to a round in a new height without receiving a new block
-			var msgRound int64
-			if msg.Code == msgProposal {
-				var p Proposal
-				if e := msg.Decode(&p); e != nil {
-					return errFailedDecodeProposal
-				}
-				msgRound = p.Round.Int64()
-
-			} else {
-				var v Vote
-				if e := msg.Decode(&v); e != nil {
-					return errFailedDecodeVote
-				}
-				msgRound = v.Round.Int64()
-			}
-
-			c.futureRoundsChange[msgRound] = c.futureRoundsChange[msgRound] + 1
-			totalFutureRoundMessages := c.futureRoundsChange[msgRound]
-
-			if totalFutureRoundMessages > int64(c.valSet.F()) {
-				logger.Debug("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
-				c.startRound(ctx, big.NewInt(msgRound))
-			}
+			// decoding must have been successful to return
+			c.handleFutureRoundMsg(ctx, msg, sender)
 		} else if err == errFutureStepMessage {
 			logger.Debug("Storing future step message in backlog")
 			c.storeBacklog(msg, sender)

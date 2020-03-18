@@ -275,7 +275,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			validatorList, err := validators["VE"].service.BlockChain().GetAutonityContract().ContractGetCommittee(
+			validatorList, err := validators["VE"].service.BlockChain().GetAutonityContract().GetCommittee(
 				validators["VE"].service.BlockChain(),
 				validators["VE"].service.BlockChain().CurrentHeader(),
 				stateDB,

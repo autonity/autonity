@@ -18,27 +18,25 @@ package core
 
 import (
 	"context"
-	"math/big"
-
 	"github.com/clearmatics/autonity/common"
 )
 
 func (c *core) sendPrevote(ctx context.Context, isNil bool) {
-	logger := c.logger.New("step", c.currentRoundState.Step())
+	logger := c.logger.New("step", c.step)
 
 	var prevote = Vote{
-		Round:  big.NewInt(c.currentRoundState.Round().Int64()),
-		Height: big.NewInt(c.currentRoundState.Height().Int64()),
+		Round:  c.Round(),
+		Height: c.Height(),
 	}
 
 	if isNil {
 		prevote.ProposedBlockHash = common.Hash{}
 	} else {
-		if h := c.currentRoundState.GetCurrentProposalHash(); h == (common.Hash{}) {
+		if h := c.curRoundMessages.GetProposalHash(); h == (common.Hash{}) {
 			c.logger.Error("sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		prevote.ProposedBlockHash = c.currentRoundState.GetCurrentProposalHash()
+		prevote.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
 	}
 
 	encodedVote, err := Encode(&prevote)
@@ -69,55 +67,44 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 		// Store old round prevote messages for future rounds since it is required for validRound
 		if err == errOldRoundMessage {
 			// We only process old rounds while future rounds messages are pushed on to the backlog
-			c.currentHeightOldRoundsStatesMu.Lock()
-			defer c.currentHeightOldRoundsStatesMu.Unlock()
-			oldRoundState, ok := c.currentHeightOldRoundsStates[preVote.Round.Int64()]
-			if !ok {
-				oldRoundState = NewRoundState(
-					big.NewInt(preVote.Round.Int64()),
-					big.NewInt(c.currentRoundState.Height().Int64()),
-				)
-				c.currentHeightOldRoundsStates[preVote.Round.Int64()] = oldRoundState
-			}
-			c.acceptVote(oldRoundState, prevote, preVote.ProposedBlockHash, *msg)
+			oldRoundMessages := c.messages.getOrCreate(preVote.Round)
+			c.acceptVote(oldRoundMessages, prevote, preVote.ProposedBlockHash, *msg)
 		}
 		return err
 	}
 
 	// After checking the message we know it is from the same height and round, so we should store it even if
-	// c.currentRoundState.Step() < prevote. The propose timeout which is started at the beginning of the round
+	// c.curRoundMessages.Step() < prevote. The propose timeout which is started at the beginning of the round
 	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
 	// votes from other nodes.
 	prevoteHash := preVote.ProposedBlockHash
-	c.acceptVote(c.currentRoundState, prevote, prevoteHash, *msg)
+	c.acceptVote(c.curRoundMessages, prevote, prevoteHash, *msg)
 
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", preVote, msg.Address.String(), c.address.String())
 
 	// Now we can add the preVote to our current round state
-	if c.currentRoundState.Step() >= prevote {
-		curProposalHash := c.currentRoundState.GetCurrentProposalHash()
-		curR := c.currentRoundState.Round().Int64()
-		curH := c.currentRoundState.Height().Int64()
+	if c.step >= prevote {
+		curProposalHash := c.curRoundMessages.GetProposalHash()
 
 		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
-		if curProposalHash != (common.Hash{}) && c.Quorum(c.currentRoundState.Prevotes.VotesSize(curProposalHash)) && !c.setValidRoundAndValue {
+		if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrevotesCount(curProposalHash) >= c.CommitteeSet().Quorum() && !c.setValidRoundAndValue {
 			// this piece of code should only run once
 			if err := c.prevoteTimeout.stopTimer(); err != nil {
 				return err
 			}
 			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 
-			if c.currentRoundState.Step() == prevote {
-				c.lockedValue = c.currentRoundState.Proposal().ProposalBlock
-				c.lockedRound = big.NewInt(curR)
+			if c.step == prevote {
+				c.lockedValue = c.curRoundMessages.Proposal().ProposalBlock
+				c.lockedRound = c.Round()
 				c.sendPrecommit(ctx, false)
 				c.setStep(precommit)
 			}
-			c.validValue = c.currentRoundState.Proposal().ProposalBlock
-			c.validRound = big.NewInt(curR)
+			c.validValue = c.curRoundMessages.Proposal().ProposalBlock
+			c.validRound = c.Round()
 			c.setValidRoundAndValue = true
 			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.currentRoundState.Step() == prevote && c.Quorum(c.currentRoundState.Prevotes.NilVotesSize()) {
+		} else if c.step == prevote && c.curRoundMessages.PrevotesCount(common.Hash{}) >= c.CommitteeSet().Quorum() {
 			if err := c.prevoteTimeout.stopTimer(); err != nil {
 				return err
 			}
@@ -127,9 +114,9 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 			c.setStep(precommit)
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.currentRoundState.Step() == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.Quorum(c.currentRoundState.Prevotes.TotalSize()) {
-			timeoutDuration := timeoutPrevote(curR)
-			c.prevoteTimeout.scheduleTimeout(timeoutDuration, curR, curH, c.onTimeoutPrevote)
+		} else if c.step == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalCount() >= c.CommitteeSet().Quorum() {
+			timeoutDuration := timeoutPrevote(c.Round())
+			c.prevoteTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
 			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
 		}
 	}
@@ -138,24 +125,22 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 }
 
 func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to string) {
-	currentProposalHash := c.currentRoundState.GetCurrentProposalHash()
+	currentProposalHash := c.curRoundMessages.GetProposalHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
-		"currentHeight", c.currentRoundState.Height(),
+		"currentHeight", c.Height(),
 		"msgHeight", prevote.Height,
-		"currentRound", c.currentRoundState.Round(),
+		"currentRound", c.Round(),
 		"msgRound", prevote.Round,
-		"currentStep", c.currentRoundState.Step(),
+		"currentStep", c.step,
 		"isProposer", c.isProposer(),
-		"currentProposer", c.valSet.GetProposer(),
+		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
 		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
 		"hash", prevote.ProposedBlockHash,
 		"type", "Prevote",
-		"totalVotes", c.currentRoundState.Prevotes.TotalSize(),
-		"totalNilVotes", c.currentRoundState.Prevotes.NilVotesSize(),
-		"quorumReject", c.Quorum(c.currentRoundState.Prevotes.NilVotesSize()),
-		"totalNonNilVotes", c.currentRoundState.Prevotes.VotesSize(currentProposalHash),
-		"quorumAccept", c.Quorum(c.currentRoundState.Prevotes.VotesSize(currentProposalHash)),
+		"totalVotes", c.curRoundMessages.PrevotesTotalCount(),
+		"totalNilVotes", c.curRoundMessages.PrevotesCount(common.Hash{}),
+		"VoteProposedBlock", c.curRoundMessages.PrevotesCount(currentProposalHash),
 	)
 }

@@ -5,9 +5,12 @@ AUTONITY=autonity
 DATADIR=autonity-data
 KEYSTORE=keystore
 NODEKEY=nodekey
+WS_PORT=8645
+WS_ADDR=$(awk 'END{print $1}' /etc/hosts)
+WS_API="tendermint,console,eth,web3,admin,debug,miner,personal,txpool,net"
 RPC_PORT=8545
 RPC_ADDR=$(awk 'END{print $1}' /etc/hosts)
-RPC_API="istanbul,console,eth,web3,admin,debug,miner,personal,txpool,net"
+RPC_API="tendermint,console,eth,web3,admin,debug,miner,personal,txpool,net"
 
 # init the data directory
 echo "Autonity INIT $RPC_ADDR"
@@ -19,6 +22,10 @@ $AUTONITY \
   --datadir $DATADIR \
   --nodekey $NODEKEY \
   --keystore $KEYSTORE \
+  --ws \
+  --wsaddr $WS_ADDR \
+  --wsport $WS_PORT \
+  --wsapi "$WS_API" \
   --rpc \
   --rpcaddr $RPC_ADDR \
   --rpcport $RPC_PORT \

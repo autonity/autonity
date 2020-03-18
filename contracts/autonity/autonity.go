@@ -58,11 +58,10 @@ type Blockchainer interface {
 }
 
 type Contract struct {
-	address                 common.Address
-	contractABI             *abi.ABI
-	bc                      Blockchainer
-	SavedCommitteeRetriever func(i uint64) (types.Committee, error)
-	metrics                 EconomicMetrics
+	address     common.Address
+	contractABI *abi.ABI
+	bc          Blockchainer
+	metrics     EconomicMetrics
 
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool
 	transfer    func(db vm.StateDB, sender, recipient common.Address, amount *big.Int)
@@ -115,9 +114,10 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	ac.metrics.SubmitEconomicMetrics(&v, stateDB, header.Number.Uint64(), ac.bc.Config().AutonityContractConfig.Operator)
 }
 
-func (ac *Contract) ContractGetCommittee(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (types.Committee, error) {
-	if header.Number.Cmp(big.NewInt(1)) == 0 && ac.SavedCommitteeRetriever != nil {
-		return ac.SavedCommitteeRetriever(1)
+func (ac *Contract) GetCommittee(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (types.Committee, error) {
+	// The Autonity Contract is not deployed yet at block #1, the committee is supposed to remains the same as genesis.
+	if header.Number.Cmp(big.NewInt(1)) == 0 {
+		return chain.GetHeaderByNumber(0).Committee, nil
 	}
 
 	var addresses []common.Address

@@ -576,7 +576,7 @@ func (_Autonity *AutonityCallerSession) GetStakeholders() ([]common.Address, err
 	return _Autonity.Contract.GetStakeholders(&_Autonity.CallOpts)
 }
 
-// GetValidators is a free data retrieval call binding the contract method 0xb7ab4db5.
+// GetCommittee is a free data retrieval call binding the contract method 0xb7ab4db5.
 //
 // Solidity: function getValidators() constant returns(address[])
 func (_Autonity *AutonityCaller) GetValidators(opts *bind.CallOpts) ([]common.Address, error) {
@@ -588,14 +588,14 @@ func (_Autonity *AutonityCaller) GetValidators(opts *bind.CallOpts) ([]common.Ad
 	return *ret0, err
 }
 
-// GetValidators is a free data retrieval call binding the contract method 0xb7ab4db5.
+// GetCommittee is a free data retrieval call binding the contract method 0xb7ab4db5.
 //
 // Solidity: function getValidators() constant returns(address[])
 func (_Autonity *AutonitySession) GetValidators() ([]common.Address, error) {
 	return _Autonity.Contract.GetValidators(&_Autonity.CallOpts)
 }
 
-// GetValidators is a free data retrieval call binding the contract method 0xb7ab4db5.
+// GetCommittee is a free data retrieval call binding the contract method 0xb7ab4db5.
 //
 // Solidity: function getValidators() constant returns(address[])
 func (_Autonity *AutonityCallerSession) GetValidators() ([]common.Address, error) {
@@ -754,7 +754,7 @@ func (_Autonity *AutonityCallerSession) TotalSupply() (*big.Int, error) {
 	return _Autonity.Contract.TotalSupply(&_Autonity.CallOpts)
 }
 
-// Validators is a free data retrieval call binding the contract method 0x35aa2e44.
+// Committee is a free data retrieval call binding the contract method 0x35aa2e44.
 //
 // Solidity: function validators(uint256 ) constant returns(address)
 func (_Autonity *AutonityCaller) Validators(opts *bind.CallOpts, arg0 *big.Int) (common.Address, error) {
@@ -766,14 +766,14 @@ func (_Autonity *AutonityCaller) Validators(opts *bind.CallOpts, arg0 *big.Int) 
 	return *ret0, err
 }
 
-// Validators is a free data retrieval call binding the contract method 0x35aa2e44.
+// Committee is a free data retrieval call binding the contract method 0x35aa2e44.
 //
 // Solidity: function validators(uint256 ) constant returns(address)
 func (_Autonity *AutonitySession) Validators(arg0 *big.Int) (common.Address, error) {
 	return _Autonity.Contract.Validators(&_Autonity.CallOpts, arg0)
 }
 
-// Validators is a free data retrieval call binding the contract method 0x35aa2e44.
+// Committee is a free data retrieval call binding the contract method 0x35aa2e44.
 //
 // Solidity: function validators(uint256 ) constant returns(address)
 func (_Autonity *AutonityCallerSession) Validators(arg0 *big.Int) (common.Address, error) {

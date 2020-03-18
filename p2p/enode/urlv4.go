@@ -151,7 +151,7 @@ func parseComplete(rawurl string, resolveFunc func(host string) ([]net.IP, error
 		// if host is not IPV4/6, resolve host is a domain
 		ips, err := resolveFunc(host)
 		if err != nil {
-			return NewV4(id, nil, 0, 0), errors.New("invalid domain or IP address")
+			return NewV4(id, nil, 0, 0), fmt.Errorf("invalid domain or IP address: %w", err)
 		}
 		if len(ips) > 1 {
 			ip = ips[len(ips)-1]
@@ -226,6 +226,19 @@ func V4URL(key ecdsa.PublicKey, ip net.IP, tcp, udp int) string {
 	addr := net.TCPAddr{IP: ip, Port: tcp}
 	u.User = url.User(nodeid)
 	u.Host = addr.String()
+	if udp != tcp {
+		u.RawQuery = "discport=" + strconv.Itoa(udp)
+	}
+	return u.String()
+}
+
+func V4DNSUrl(key ecdsa.PublicKey, dns string, tcp, udp int) string {
+	nodeid := fmt.Sprintf("%x", crypto.FromECDSAPub(&key)[1:])
+
+	u := url.URL{Scheme: "enode"}
+
+	u.User = url.User(nodeid)
+	u.Host = dns
 	if udp != tcp {
 		u.RawQuery = "discport=" + strconv.Itoa(udp)
 	}

@@ -37,7 +37,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	type ExtraHeader struct {
 		Committee          Committee       `json:"committee"           gencodec:"required"`
 		ProposerSeal       hexutil.Bytes   `json:"proposerSeal"        gencodec:"required"`
-		Round              *hexutil.Big    `json:"round"               gencodec:"required"`
+		Round              hexutil.Uint64  `json:"round"               gencodec:"required"`
 		CommittedSeals     []hexutil.Bytes `json:"committedSeals"      gencodec:"required"`
 		PastCommittedSeals []hexutil.Bytes `json:"pastCommittedSeals"  gencodec:"required"`
 	}
@@ -61,15 +61,13 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.MixDigest = h.MixDigest
 	enc.Nonce = h.Nonce
 
-	if len(h.Committee) != 0 {
+	if h.Committee != nil {
 		encExtra.Committee = h.Committee
 	}
-	if len(h.ProposerSeal) != 0 {
+	if h.ProposerSeal != nil {
 		encExtra.ProposerSeal = h.ProposerSeal
 	}
-	if h.Round != nil {
-		encExtra.Round = (*hexutil.Big)(h.Round)
-	}
+	encExtra.Round = hexutil.Uint64(h.Round)
 	if encExtra.CommittedSeals != nil {
 		encExtra.CommittedSeals = make([]hexutil.Bytes, len(h.CommittedSeals))
 		for k, v := range h.CommittedSeals {
@@ -115,7 +113,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	type ExtraHeader struct {
 		Committee          *Committee       `json:"committee"           gencodec:"required"`
 		ProposerSeal       *hexutil.Bytes   `json:"proposerSeal"        gencodec:"required"`
-		Round              *hexutil.Big     `json:"round"               gencodec:"required"`
+		Round              *hexutil.Uint64  `json:"round"               gencodec:"required"`
 		CommittedSeals     *[]hexutil.Bytes `json:"committedSeals"      gencodec:"required"`
 		PastCommittedSeals *[]hexutil.Bytes `json:"pastCommittedSeals"  gencodec:"required"`
 	}
@@ -197,11 +195,11 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	if decExtra.ProposerSeal != nil {
 		h.ProposerSeal = *decExtra.ProposerSeal
 	}
-
 	if decExtra.Round != nil {
-		h.Round = (*big.Int)(decExtra.Round)
-	} else {
-		h.Round = big.NewInt(0)
+		h.Round = uint64(*decExtra.Round)
+	}
+	if decExtra.CommittedSeals == nil {
+		return errors.New("missing required field 'committedSeals' for Header")
 	}
 
 	if decExtra.CommittedSeals != nil {
