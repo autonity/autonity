@@ -2306,9 +2306,7 @@ func (bc *BlockChain) GetMinGasPrice(blockNumber ...uint64) (*big.Int, error) {
 		block = bc.CurrentBlock()
 	}
 
-	parent := bc.GetHeader(block.ParentHash(), block.NumberU64()-1)
-
-	statedb, err := state.New(parent.Root, bc.stateCache)
+	statedb, err := state.New(block.Root(), bc.stateCache)
 	if err != nil {
 		return nil, err
 	}

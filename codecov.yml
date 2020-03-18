@@ -2,12 +2,6 @@ ignore:
   - "**/*_mock.go"  # ignore mock files
   - "**/*_gen.go"  # ignore generated client
   - "**/mock*.go"
-  - ".github/**/*"
-  - ".golangci/**/*"
-  - "build/**/*"
-  - "cmd/**/*"
-  - "docs/**/*"
-  - "helloworld/**/*"
 coverage:
   status:
     patch: off
