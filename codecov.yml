@@ -8,9 +8,17 @@ coverage:
   round: nearest
 
   status:
-    patch: off
+    patch:
+      if_not_found: success
+      if_ci_failed: success
+      informational: true
+      if_no_uploads: success
     project:
-      default: off
+      default:
+        if_not_found: success
+        if_ci_failed: success
+        informational: true
+        if_no_uploads: success
       autonity:
         flags:
           - autonity
