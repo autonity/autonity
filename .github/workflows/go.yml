@@ -1,7 +1,66 @@
 name: Go
 on: [push]
 jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on
+    steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Cache code
+        uses: actions/cache@v1
+        id: cache-code
+        env:
+          cache-name: cache-code
+        with:
+          path: ~/
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      - name: Check out code into the Go module directory
+        if: steps.cache-code.outputs.cache-hit != 'true'
+        uses: actions/checkout@v2
+        with:
+          clean: 'false'
+
+      - name: Cache git modules
+        uses: actions/cache@v1
+        id: cache-git-modules
+        env:
+          cache-name: cache-git-modules
+        with:
+          path: ~/tests/testdata
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      - name: conformance tests
+        if: steps.cache-git-modules.outputs.cache-hit != 'true'
+        run: git submodule update --init --recursive
+
+      - name: Cache golang modules
+        uses: actions/cache@v1
+        id: cache-golang-modules
+        env:
+          cache-name: cache-golang-modules
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      - name: gomod
+        if: steps.cache-golang-modules.outputs.cache-hit != 'true'
+        run: go mod download
+
   build:
+    needs: bootstrap
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -20,10 +79,25 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-code
         with:
-          clean: 'false'
+          path: ~/
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      - name: Cache git modules
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-git-modules
+        with:
+          path: ~/tests/testdata
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -60,10 +134,35 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-code
         with:
-          clean: 'false'
+          path: ~/
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      - name: Cache git modules
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-git-modules
+        with:
+          path: ~/tests/testdata
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      - name: Cache golang modules
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-golang-modules
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
 
       - name: Linters
         run: |
@@ -90,19 +189,18 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Cache golang modules
+      - name: Cache code
         uses: actions/cache@v1
         env:
-          cache-name: cache-golang-modules
+          cache-name: cache-code
         with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          path: ~/
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
-        id: cache
         env:
           cache-name: cache-git-modules
         with:
@@ -110,15 +208,6 @@ jobs:
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-        with:
-          clean: 'false'
-
-      - name: conformance tests
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: git submodule update --init --recursive
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -165,10 +254,25 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-code
         with:
-          clean: 'false'
+          path: ~/
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      - name: Cache git modules
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-git-modules
+        with:
+          path: ~/tests/testdata
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -247,10 +351,25 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-code
         with:
-          clean: 'false'
+          path: ~/
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      - name: Cache git modules
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-git-modules
+        with:
+          path: ~/tests/testdata
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -285,10 +404,25 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-code
         with:
-          clean: 'false'
+          path: ~/
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      - name: Cache git modules
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-git-modules
+        with:
+          path: ~/tests/testdata
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
