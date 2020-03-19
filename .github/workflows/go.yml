@@ -1,7 +1,7 @@
 name: Go
 on: [push]
 jobs:
-  bootstrap:
+  bootstrap-checkout:
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -29,6 +29,17 @@ jobs:
         with:
           clean: 'false'
 
+  bootstrap-git-modules:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on
+    steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
       - name: Cache git modules
         uses: actions/cache@v1
         id: cache-git-modules
@@ -43,6 +54,17 @@ jobs:
       - name: conformance tests
         if: steps.cache-git-modules.outputs.cache-hit != 'true'
         run: git submodule update --init --recursive
+
+  bootstrap-gomod:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on
+    steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -61,16 +83,19 @@ jobs:
 
       - name: fmt
         run: |
-          la -la /
-          la -la /home/
-          la -la /home/runner/
-          la -la /home/runner/work/
-          la -la /home/runner/work/autonity/
-          la -la /home/runner/work/autonity/autonity/
-          la -la /home/runner/work/autonity/autonity/go
-          la -la /home/runner/work/autonity/autonity/go/pkg
-          la -la /home/runner/work/autonity/autonity/go/pkg/mod
+          ls -la /
+          ls -la /home/
+          ls -la /home/runner/
+          ls -la /home/runner/work/
+          ls -la /home/runner/work/autonity/
+          ls -la /home/runner/work/autonity/autonity/
+          ls -la /home/runner/work/autonity/autonity/go
+          ls -la /home/runner/work/autonity/autonity/go/pkg
+          ls -la /home/runner/work/autonity/autonity/go/pkg/mod
         shell: bash
+
+  bootstrap:
+    needs: [bootstrap-checkout bootstrap-git-modules bootstrap-gomod]
 
   build:
     needs: bootstrap
