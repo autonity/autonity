@@ -89,7 +89,7 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
+          file: coverage.out
           yml: codecov.yml
           flags: autonity
           name: autonity
