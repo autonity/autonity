@@ -95,7 +95,7 @@ jobs:
         shell: bash
 
   bootstrap:
-    needs: [bootstrap-checkout bootstrap-git-modules bootstrap-gomod]
+    needs: [bootstrap-checkout, bootstrap-git-modules, bootstrap-gomod]
     runs-on: ubuntu-latest
     steps:
       - name: nothing to do
