@@ -19,35 +19,8 @@ jobs:
         with:
           clean: 'false'
 
-  bootstrap-git-modules:
+  tests:
     needs: bootstrap-checkout
-    runs-on: ubuntu-latest
-    steps:
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
-
-      - name: Cache git modules
-        uses: actions/cache@v1
-        id: cache-git-modules
-        env:
-          cache-name: cache-git-modules
-        with:
-          path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
-          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
-
-      - name: conformance tests
-        if: steps.cache-git-modules.outputs.cache-hit != 'true'
-        run: git submodule update --init --recursive
-
-  Autonity-tests:
-    needs: [bootstrap-checkout, bootstrap-git-modules]
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.13
@@ -63,22 +36,27 @@ jobs:
         shell: bash
 
       - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
+          uses: actions/cache@v1
+          env:
+            cache-name: cache-autonity-code
+          with:
+            path: /home/runner/work/autonity/autonity/
+            key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+            restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
+        id: cache-git-modules
         env:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
+
+      - name: conformance tests
+        if: steps.cache-git-modules.outputs.cache-hit != 'true'
+        run: git submodule update --init --recursive
 
       - name: Install
         run: go run build/ci.go install
@@ -94,8 +72,8 @@ jobs:
           flags: autonity
           name: autonity
 
-  Autonity-tendermint-test:
-    needs: Autonity-tests
+  tendermint-test:
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.13
