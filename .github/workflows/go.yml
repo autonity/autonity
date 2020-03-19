@@ -97,6 +97,7 @@ jobs:
           file: coverage*.out
           yml: codecov.yml
           flags: autonity
+          name: autonity
           fail_ci_if_error: true
 
   tests-tendermint:
