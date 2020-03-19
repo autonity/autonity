@@ -2,21 +2,40 @@ ignore:
   - "**/*_mock.go"  # ignore mock files
   - "**/*_gen.go"  # ignore generated client
   - "**/mock*.go"
-  - "docs"
+  - "**/*.^go"
 coverage:
+  precision: 2
+  round: nearest
+
   status:
     patch: off
     project:
       default:
+        if_not_found: success
+        if_ci_failed: success
+        informational: true
+        if_no_uploads: success
+        flags:
+          - doesntexists
+        target: 1%
+        threshold: null
+      autonity:
+        flags:
+          - autonity
         target: 30%
         threshold: null
       tendermint:
         flags:
           - tendermint
         target: 65%
+
 flags:
   tendermint:
     paths:
-      - consensus/tendermint/
+      - "consensus/tendermint/"
+  autonity:
+    paths:
+      - "!consensus/tendermint/"
+
 comment:
   behavior: default
