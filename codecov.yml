@@ -16,7 +16,7 @@ coverage:
         informational: true
         if_no_uploads: success
         flags:
-          - autonity
+          - doesntexists
         target: 1%
         threshold: null
       autonity:
