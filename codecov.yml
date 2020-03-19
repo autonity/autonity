@@ -14,7 +14,7 @@ coverage:
       informational: true
       if_no_uploads: success
     project:
-      default: off
+      default: false
       autonity:
         flags:
           - autonity
@@ -28,10 +28,10 @@ coverage:
 flags:
   tendermint:
     paths:
-      - consensus/tendermint/
+      - "consensus/tendermint/"
   autonity:
     paths:
-      - ./
+      - "!consensus/tendermint/"
 
 comment:
   behavior: default
