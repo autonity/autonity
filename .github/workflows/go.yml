@@ -146,6 +146,7 @@ jobs:
           fail_ci_if_error: true
 
   tests-tendermint:
+    needs: tests
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
