@@ -116,6 +116,7 @@ jobs:
         run: go run build/ci.go install
 
   linters:
+    needs: bootstrap
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -171,6 +172,7 @@ jobs:
         shell: bash
 
   tests:
+    needs: bootstrap
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -297,6 +299,7 @@ jobs:
           fail_ci_if_error: true
 
   tendermint_e2e_tests:
+    needs: bootstrap
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -385,6 +388,7 @@ jobs:
         run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
 
   race_tests:
+    needs: bootstrap
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
