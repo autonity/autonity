@@ -98,6 +98,8 @@ jobs:
     needs: [bootstrap-checkout bootstrap-git-modules bootstrap-gomod]
     steps:
       - name: nothing to do
+      run: |
+        echo "nothing to do"
 
   build:
     needs: bootstrap
