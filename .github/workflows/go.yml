@@ -12,8 +12,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-aut-${{ env.cache-name }}-
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -31,8 +30,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-aut-${{ env.cache-name }}-
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -42,8 +40,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
-          restore-keys: |
-            ${{ runner.os }}-aut-${{ env.cache-name }}-
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: conformance tests
         if: steps.cache-git-modules.outputs.cache-hit != 'true'
@@ -60,7 +57,6 @@ jobs:
         id: go
 
       - name: Set GOPATH
-        # temporary fix
         # see https://github.com/actions/setup-go/issues/14
         run: |
           echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
@@ -74,8 +70,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-aut-${{ env.cache-name }}-
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: Build
         run: make autonity
@@ -100,8 +95,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-aut-${{ env.cache-name }}-
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: Linters
         run: |
@@ -120,8 +114,6 @@ jobs:
         id: go
 
       - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
         run: |
           echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
@@ -134,8 +126,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-aut-${{ env.cache-name }}-
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -144,8 +135,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
-          restore-keys: |
-            ${{ runner.os }}-aut-${{ env.cache-name }}-
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: Install
         run: go run build/ci.go install
@@ -179,8 +169,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-aut-${{ env.cache-name }}-
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
       
       - name: success_test_e2e
         run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
@@ -247,8 +236,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-aut-${{ env.cache-name }}-
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: Test
         run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
