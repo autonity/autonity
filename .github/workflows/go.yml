@@ -153,7 +153,7 @@ jobs:
           fail_ci_if_error: true
 
   tests-tendermint:
-    needs: tests
+    needs: bootstrap-checkout
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.13
