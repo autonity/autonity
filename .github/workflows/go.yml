@@ -58,9 +58,6 @@ jobs:
         if: steps.cache-git-modules.outputs.cache-hit != 'true'
         run: git submodule update --init --recursive
 
-      - name: Install
-        run: go run build/ci.go install
-
       - name: unit tests
         run: go test -p 1 -timeout 30m -short -covermode=atomic -cover -test.coverprofile=coverage.out $(go list ./... | grep -v /consensus/tendermint)
 
