@@ -103,6 +103,8 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 	for n, validator := range nodes {
 		var nodeType params.UserType
 		stake := uint64(100)
+
+		var skip bool
 		switch {
 		case strings.HasPrefix(n, ValidatorPrefix):
 			nodeType = params.UserValidator
@@ -111,10 +113,17 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 		case strings.HasPrefix(n, ParticipantPrefix):
 			nodeType = params.UserParticipant
 			stake = 0
+		case strings.HasPrefix(n, ExternalPrefix):
+			//an unknown user
+			skip = true
 		default:
 			panic("incorrect node type")
-
 		}
+
+		if skip {
+			continue
+		}
+
 		users = append(users, params.User{
 			Address: crypto.PubkeyToAddress(validator.privateKey.PublicKey),
 			Enode:   validator.url,
@@ -122,6 +131,7 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 			Stake:   stake,
 		})
 	}
+
 	//generate one sh
 	shKey, err := keygenerator.Next()
 	if err != nil {

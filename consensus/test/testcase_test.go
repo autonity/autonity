@@ -33,6 +33,7 @@ const (
 	ValidatorPrefix   = "V"
 	StakeholderPrefix = "S"
 	ParticipantPrefix = "P"
+	ExternalPrefix = "E"
 )
 
 type testCase struct {
@@ -153,8 +154,11 @@ func runTest(t *testing.T, test *testCase) {
 
 		stakeholderNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), StakeholderPrefix)
 		participantNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), ParticipantPrefix)
+		externalNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), ExternalPrefix)
+
 		nodeNames = append(nodeNames, stakeholderNames...)
 		nodeNames = append(nodeNames, participantNames...)
+		nodeNames = append(nodeNames, externalNames...)
 	}
 
 	nodesNum := len(nodeNames)
@@ -163,7 +167,8 @@ func runTest(t *testing.T, test *testCase) {
 	enode.SetResolveFunc(func(host string) (ips []net.IP, e error) {
 		if len(host) > 4 || !(strings.HasPrefix(host, ValidatorPrefix) ||
 			strings.HasPrefix(host, StakeholderPrefix) ||
-			strings.HasPrefix(host, ParticipantPrefix)) {
+			strings.HasPrefix(host, ParticipantPrefix) ||
+			strings.HasPrefix(host, ExternalPrefix)) {
 			return nil, &net.DNSError{Err: "not found", Name: host, IsNotFound: true}
 		}
 
