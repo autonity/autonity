@@ -59,6 +59,19 @@ jobs:
         if: steps.cache-golang-modules.outputs.cache-hit != 'true'
         run: go mod download
 
+      - name: fmt
+        run: |
+          la -la /
+          la -la /home/
+          la -la /home/runner/
+          la -la /home/runner/work/
+          la -la /home/runner/work/autonity/
+          la -la /home/runner/work/autonity/autonity/
+          la -la /home/runner/work/autonity/autonity/go
+          la -la /home/runner/work/autonity/autonity/go/pkg
+          la -la /home/runner/work/autonity/autonity/go/pkg/mod
+        shell: bash
+
   build:
     needs: bootstrap
     runs-on: ubuntu-latest
