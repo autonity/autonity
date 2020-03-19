@@ -19,7 +19,7 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ci-${{ env.cache-name }}-
 
@@ -85,7 +85,7 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ci-${{ env.cache-name }}-
 
@@ -141,7 +141,7 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ci-${{ env.cache-name }}-
 
@@ -197,7 +197,7 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ci-${{ env.cache-name }}-
 
@@ -262,7 +262,7 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ci-${{ env.cache-name }}-
 
@@ -360,7 +360,7 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ci-${{ env.cache-name }}-
 
@@ -414,7 +414,7 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-ci-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ci-${{ env.cache-name }}-
 
