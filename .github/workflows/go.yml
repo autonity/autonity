@@ -72,7 +72,7 @@ jobs:
           flags: autonity
           name: autonity
 
-  tendermint-test:
+  tests-tendermint:
     needs: tests
     runs-on: ubuntu-latest
     steps:
