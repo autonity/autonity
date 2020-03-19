@@ -10,18 +10,24 @@ coverage:
   status:
     patch: off
     project:
-      default:
+      default: off
+      autonity:
+        flags:
+          - autonity
         target: 30%
         threshold: null
       tendermint:
         flags:
           - tendermint
         target: 65%
+
 flags:
   tendermint:
     paths:
       - consensus/tendermint/
+  autonity:
+    paths:
+      - ./
 
 comment:
   behavior: default
-  require_changes: yes
