@@ -31,7 +31,7 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
@@ -96,7 +96,7 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
@@ -107,7 +107,7 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: ~/tests/testdata
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
@@ -126,7 +126,7 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
@@ -176,7 +176,7 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
@@ -258,7 +258,7 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
@@ -296,7 +296,7 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: ~/go/pkg/mod
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
