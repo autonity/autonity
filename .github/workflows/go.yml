@@ -93,7 +93,6 @@ jobs:
           yml: codecov.yml
           flags: autonity
           name: autonity
-          fail_ci_if_error: true
 
   tests-tendermint:
     needs: tests
@@ -124,7 +123,6 @@ jobs:
           flags: tendermint
           name: tendermint
           yml: codecov.yml
-          fail_ci_if_error: true
 
   build:
     needs: bootstrap-checkout
