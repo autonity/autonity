@@ -85,7 +85,7 @@ jobs:
           cache-name: cache-code
         with:
           path: ~/
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-$GITHUB_SHA
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
@@ -141,7 +141,7 @@ jobs:
           cache-name: cache-code
         with:
           path: ~/
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-$GITHUB_SHA
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
@@ -197,7 +197,7 @@ jobs:
           cache-name: cache-code
         with:
           path: ~/
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-$GITHUB_SHA
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
@@ -262,7 +262,7 @@ jobs:
           cache-name: cache-code
         with:
           path: ~/
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-$GITHUB_SHA
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
@@ -360,7 +360,7 @@ jobs:
           cache-name: cache-code
         with:
           path: ~/
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-$GITHUB_SHA
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
@@ -414,7 +414,7 @@ jobs:
           cache-name: cache-code
         with:
           path: ~/
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ GITHUB_SHA }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-$GITHUB_SHA
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
 
