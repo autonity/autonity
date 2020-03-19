@@ -95,7 +95,7 @@ jobs:
           name: autonity
 
   Autonity-tendermint-test:
-    needs: tests
+    needs: Autonity-test
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.13
