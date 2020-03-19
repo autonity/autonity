@@ -46,7 +46,7 @@ jobs:
         if: steps.cache-git-modules.outputs.cache-hit != 'true'
         run: git submodule update --init --recursive
 
-  ATests:
+  Autonity-tests:
     needs: [bootstrap-checkout, bootstrap-git-modules]
     runs-on: ubuntu-latest
     steps:
@@ -94,7 +94,7 @@ jobs:
           flags: autonity
           name: autonity
 
-  ATests-tendermint:
+  Autonity-tendermint-test:
     needs: tests
     runs-on: ubuntu-latest
     steps:
