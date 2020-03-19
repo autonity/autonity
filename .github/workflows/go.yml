@@ -125,7 +125,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: unit tests
-        run: go test -timeout 30m ./tests/... -v
+        run: go test -timeout 30m ./tests/...
 
   build:
     needs: bootstrap-checkout
