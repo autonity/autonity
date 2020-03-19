@@ -3,8 +3,6 @@ on: [push]
 jobs:
   bootstrap-checkout:
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
     steps:
       - name: Cache code
         uses: actions/cache@v1
@@ -13,9 +11,9 @@ jobs:
           cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Check out code into the Go module directory
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -26,8 +24,6 @@ jobs:
   bootstrap-git-modules:
     needs: bootstrap-checkout
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
     steps:
       - name: Cache code
         uses: actions/cache@v1
@@ -35,9 +31,9 @@ jobs:
           cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -46,53 +42,16 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: conformance tests
         if: steps.cache-git-modules.outputs.cache-hit != 'true'
         run: git submodule update --init --recursive
 
-  bootstrap-gomod:
-    needs: bootstrap-checkout
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
-
-      - name: Cache golang modules
-        uses: actions/cache@v1
-        id: cache-golang-modules
-        env:
-          cache-name: cache-golang-modules
-        with:
-          path: /home/runner/go/pkg/mod
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
-
-      - name: gomod
-        if: steps.cache-golang-modules.outputs.cache-hit != 'true'
-        run: go mod download
-
   bootstrap-go:
-    needs: [bootstrap-checkout, bootstrap-git-modules, bootstrap-gomod]
+    needs: [bootstrap-checkout, bootstrap-git-modules]
     runs-on: ubuntu-latest
     steps:
       - name: nothing to do
@@ -102,8 +61,6 @@ jobs:
   build:
     needs: bootstrap-go
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
     steps:
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
@@ -111,23 +68,15 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
       - name: Cache code
         uses: actions/cache@v1
         env:
           cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -135,9 +84,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -145,9 +94,9 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Build
         run: make autonity
@@ -158,8 +107,6 @@ jobs:
   linters:
     needs: bootstrap-go
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
     steps:
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
@@ -167,23 +114,15 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
       - name: Cache code
         uses: actions/cache@v1
         env:
           cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -191,9 +130,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -201,9 +140,9 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Linters
         run: |
@@ -214,8 +153,6 @@ jobs:
   tests:
     needs: bootstrap-go
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
     steps:
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
@@ -223,23 +160,15 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
       - name: Cache code
         uses: actions/cache@v1
         env:
           cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -247,9 +176,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -257,9 +186,9 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Install
         run: go run build/ci.go install
@@ -279,8 +208,6 @@ jobs:
   tests-tendermint:
     needs: tests
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
     steps:
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
@@ -288,23 +215,15 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
       - name: Cache code
         uses: actions/cache@v1
         env:
           cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -312,9 +231,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -322,9 +241,9 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: success_test_e2e
         run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
@@ -341,8 +260,6 @@ jobs:
   tendermint_e2e_tests:
     needs: bootstrap-go
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
     strategy:
       matrix:
         e2e: [TestCheckFeeRedirectionAndRedistribution,
@@ -386,23 +303,15 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
       - name: Cache code
         uses: actions/cache@v1
         env:
           cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -410,9 +319,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -420,9 +329,9 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Test
         run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
@@ -431,7 +340,6 @@ jobs:
     needs: bootstrap-go
     runs-on: ubuntu-latest
     env:
-      GO111MODULE: on
       GORACE: "history_size=7"
     steps:
       - name: Set up Go 1.13
@@ -440,23 +348,15 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
       - name: Cache code
         uses: actions/cache@v1
         env:
           cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -464,9 +364,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -474,17 +374,15 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-codev5-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-acache-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-codev5-${{ env.cache-name }}-
+            ${{ runner.os }}-acache-${{ env.cache-name }}-
 
       - name: unit
         run: go test -race -v ./consensus/tendermint/... -timeout 30m
 
   contract_tests:
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
     steps:
       - name: Setup Node
         uses: actions/setup-node@v1
