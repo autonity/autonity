@@ -45,64 +45,6 @@ jobs:
       - name: conformance tests
         if: steps.cache-git-modules.outputs.cache-hit != 'true'
         run: git submodule update --init --recursive
-
-  build:
-    needs: bootstrap-checkout
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Set GOPATH
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
-
-      - name: Build
-        run: make autonity
-
-      - name: Install
-        run: go run build/ci.go install
-
-  linters:
-    needs: bootstrap-checkout
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
-
-      - name: Linters
-        run: |
-          git fetch --no-tags --depth=1 origin develop:develop
-          make lint-ci
-        shell: bash
-
   tests:
     needs: [bootstrap-checkout, bootstrap-git-modules]
     runs-on: ubuntu-latest
@@ -170,7 +112,7 @@ jobs:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
-      
+
       - name: success_test_e2e
         run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
 
@@ -182,6 +124,63 @@ jobs:
           name: tendermint
           yml: codecov.yml
           fail_ci_if_error: true
+
+  build:
+    needs: bootstrap-checkout
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Set GOPATH
+        # see https://github.com/actions/setup-go/issues/14
+        run: |
+          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+        shell: bash
+
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
+
+      - name: Build
+        run: make autonity
+
+      - name: Install
+        run: go run build/ci.go install
+
+  linters:
+    needs: bootstrap-checkout
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
+
+      - name: Linters
+        run: |
+          git fetch --no-tags --depth=1 origin develop:develop
+          make lint-ci
+        shell: bash
 
   tendermint_e2e_tests:
     needs: bootstrap-checkout
