@@ -2302,6 +2302,9 @@ func (bc *BlockChain) GetMinGasPrice(blockNumber ...uint64) (*big.Int, error) {
 	var block *types.Block
 	if len(blockNumber) > 0 {
 		block = bc.GetBlockByNumber(blockNumber[0])
+		if block == nil {
+			return nil, fmt.Errorf("there is no block for number %d", blockNumber[0])
+		}
 	} else {
 		block = bc.CurrentBlock()
 	}
