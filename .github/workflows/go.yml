@@ -84,7 +84,7 @@ jobs:
         env:
           cache-name: cache-golang-modules
         with:
-          path: /home/runner/work/autonity/autonity/go/pkg/mod
+          path: /home/runner/work/autonity/autonity/go/_temp
           key: ${{ runner.os }}-codev2-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-codev2-${{ env.cache-name }}-
@@ -102,8 +102,8 @@ jobs:
           ls -la /home/runner/work/autonity/
           ls -la /home/runner/work/autonity/autonity/
           ls -la /home/runner/work/autonity/autonity/go
-          ls -la /home/runner/work/autonity/autonity/go/pkg
-          ls -la /home/runner/work/autonity/autonity/go/pkg/mod
+          ls -la /home/runner/work/autonity/autonity/go/_temp
+          ls -la /home/runner/work/autonity/autonity/go/_temp/pkg/mod
         shell: bash
 
   bootstrap-go:
