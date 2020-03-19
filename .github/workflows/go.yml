@@ -103,7 +103,7 @@ jobs:
         shell: bash
 
   tests:
-    needs: [bootstrap-go, bootstrap-git-modules]
+    needs: [bootstrap-checkout, bootstrap-git-modules]
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.13
