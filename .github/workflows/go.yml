@@ -99,8 +99,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: nothing to do
-      run: echo "nothing to do"
-      shell: bash
+        run: echo "nothing to do"
+        shell: bash
 
   build:
     needs: bootstrap
