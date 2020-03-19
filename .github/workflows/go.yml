@@ -6,12 +6,6 @@ jobs:
     env:
       GO111MODULE: on
     steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
       - name: Cache code
         uses: actions/cache@v1
         id: cache-code
@@ -19,9 +13,9 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Check out code into the Go module directory
         if: steps.cache-code.outputs.cache-hit != 'true'
@@ -34,12 +28,6 @@ jobs:
     env:
       GO111MODULE: on
     steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
       - name: Cache git modules
         uses: actions/cache@v1
         id: cache-git-modules
@@ -47,9 +35,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: conformance tests
         if: steps.cache-git-modules.outputs.cache-hit != 'true'
@@ -73,9 +61,9 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: gomod
         if: steps.cache-golang-modules.outputs.cache-hit != 'true'
@@ -94,7 +82,7 @@ jobs:
           ls -la /home/runner/work/autonity/autonity/go/pkg/mod
         shell: bash
 
-  bootstrap:
+  bootstrap-go:
     needs: [bootstrap-checkout, bootstrap-git-modules, bootstrap-gomod]
     runs-on: ubuntu-latest
     steps:
@@ -103,7 +91,7 @@ jobs:
         shell: bash
 
   build:
-    needs: bootstrap
+    needs: bootstrap-go
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -128,9 +116,9 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -138,9 +126,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -148,9 +136,9 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Build
         run: make autonity
@@ -159,7 +147,7 @@ jobs:
         run: go run build/ci.go install
 
   linters:
-    needs: bootstrap
+    needs: bootstrap-go
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -184,9 +172,9 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -194,9 +182,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -204,9 +192,9 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Linters
         run: |
@@ -215,7 +203,7 @@ jobs:
         shell: bash
 
   tests:
-    needs: bootstrap
+    needs: bootstrap-go
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -240,9 +228,9 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -250,9 +238,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -260,9 +248,9 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Install
         run: go run build/ci.go install
@@ -305,9 +293,9 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -315,9 +303,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -325,9 +313,9 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: success_test_e2e
         run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
@@ -342,7 +330,7 @@ jobs:
           fail_ci_if_error: true
 
   tendermint_e2e_tests:
-    needs: bootstrap
+    needs: bootstrap-go
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -403,9 +391,9 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -413,9 +401,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -423,15 +411,15 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Test
         run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
 
   race_tests:
-    needs: bootstrap
+    needs: bootstrap-go
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
@@ -457,9 +445,9 @@ jobs:
           cache-name: cache-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache git modules
         uses: actions/cache@v1
@@ -467,9 +455,9 @@ jobs:
           cache-name: cache-git-modules
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: Cache golang modules
         uses: actions/cache@v1
@@ -477,9 +465,9 @@ jobs:
           cache-name: cache-golang-modules
         with:
           path: /home/runner/work/autonity/autonity/go/pkg/mod
-          key: ${{ runner.os }}-bootstrap-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-code-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-bootstrap-${{ env.cache-name }}-
+            ${{ runner.os }}-code-${{ env.cache-name }}-
 
       - name: unit
         run: go test -race -v ./consensus/tendermint/... -timeout 30m
