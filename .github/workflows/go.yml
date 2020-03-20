@@ -45,15 +45,7 @@ jobs:
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: unit tests
-        run: go test -p 1 -timeout 30m -short -covermode=atomic -cover -test.coverprofile=coverage.out $(go list ./... | grep -v /consensus/tendermint)
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage.out
-          yml: codecov.yml
-          flags: autonity
-          name: autonity
+        run: go test -p 1 -timeout 30m -short $(go list ./... | grep -v /consensus/tendermint)
 
   tests-tendermint:
     needs: tests
@@ -81,8 +73,6 @@ jobs:
         with:
           token: ${{ secrets.codecov_upload }}
           file: coverage_tendermint.out
-          flags: tendermint
-          name: tendermint
           yml: codecov.yml
 
   tests-conformance:
