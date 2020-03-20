@@ -45,18 +45,10 @@ jobs:
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: unit tests
-        run: go test -p 1 -timeout 30m -short -covermode=atomic -cover -test.coverprofile=coverage.out $(go list ./... | grep -v /consensus/tendermint)
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage.out
-          yml: codecov.yml
-          flags: autonity
-          name: autonity
+        run: go test -p 1 -timeout 30m -short $(go list ./... | grep -v /consensus/tendermint)
 
   tests-tendermint:
-    needs: tests
+    needs: bootstrap-checkout
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.13
@@ -74,15 +66,13 @@ jobs:
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
-      - name: success_test_e2e
+      - name: tendermint_tests
         run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
 
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
           file: coverage_tendermint.out
-          flags: tendermint
-          name: tendermint
           yml: codecov.yml
 
   tests-conformance:
@@ -190,35 +180,35 @@ jobs:
     strategy:
       matrix:
         e2e: [TestCheckFeeRedirectionAndRedistribution,
-                TestCheckBlockWithSmallFee,
-                TestRemoveFromValidatorsList,
-                TestContractUpgrade_Success,
-                TestContractUpgradeSeveralUpgrades,
-                TestContractUpgradeSeveralUpgradesOnBusTopology,
-                TestContractUpgradeSeveralUpgradesOnStarTopology,
-                TestTendermintSuccess,
-                TestTendermintSlowConnections,
-                TestTendermintMemoryLeak,
-                TestTendermintLongRun,
-                TestTendermintTC7,
-                TestTendermintOneMalicious,
-                TestTendermintNoQuorum,
-                TestTendermintStopUpToFNodes,
-                TestTendermintStartStopSingleNode,
-                TestTendermintStartStopFNodes,
-                TestTendermintStartStopFPlusOneNodes,
-                TestTendermintStartStopFPlusTwoNodes,
-                TestTendermintStartStopAllNodes,
-                TestResolve,
-                TestTendermintStarSuccess,
-                TestTendermintStarOverParticipantSuccess,
-                TestTendermintBusSuccess,
-                TestTendermintChangeTopologyFromBusToStarSuccess,
-                TestTendermintChangeTopologyFromStarToBusSuccess,
-                TestTendermintAddConnectionToTopologySuccess,
-                TestTendermintAddValidatorsToTopologySuccess,
-                TestTendermintAddParticipantsToTopologySuccess,
-                TestTendermintAddStakeholdersToTopologySuccess
+              TestCheckBlockWithSmallFee,
+              TestRemoveFromValidatorsList,
+              TestContractUpgrade_Success,
+              TestContractUpgradeSeveralUpgrades,
+              TestContractUpgradeSeveralUpgradesOnBusTopology,
+              TestContractUpgradeSeveralUpgradesOnStarTopology,
+              TestTendermintSuccess,
+              TestTendermintSlowConnections,
+              TestTendermintMemoryLeak,
+              TestTendermintLongRun,
+              TestTendermintTC7,
+              TestTendermintOneMalicious,
+              TestTendermintNoQuorum,
+              TestTendermintStopUpToFNodes,
+              TestTendermintStartStopSingleNode,
+              TestTendermintStartStopFNodes,
+              TestTendermintStartStopFPlusOneNodes,
+              TestTendermintStartStopFPlusTwoNodes,
+              TestTendermintStartStopAllNodes,
+              TestResolve,
+              TestTendermintStarSuccess,
+              TestTendermintStarOverParticipantSuccess,
+              TestTendermintBusSuccess,
+              TestTendermintChangeTopologyFromBusToStarSuccess,
+              TestTendermintChangeTopologyFromStarToBusSuccess,
+              TestTendermintAddConnectionToTopologySuccess,
+              TestTendermintAddValidatorsToTopologySuccess,
+              TestTendermintAddParticipantsToTopologySuccess,
+              TestTendermintAddStakeholdersToTopologySuccess
         ]
 
     name: Tendermint ${{ matrix.e2e }} test

@@ -11,31 +11,7 @@ coverage:
     patch: off
     project:
       default:
-        if_not_found: success
-        if_ci_failed: success
-        informational: true
-        if_no_uploads: success
-        flags:
-          - doesntexists
-        target: 1%
-        threshold: null
-      autonity:
-        flags:
-          - autonity
-        target: 30%
-        threshold: null
-      tendermint:
-        flags:
-          - tendermint
-        target: 65%
-
-flags:
-  tendermint:
-    paths:
-      - "consensus/tendermint/"
-  autonity:
-    paths:
-      - "!consensus/tendermint/"
+        target: 72.5%
 
 comment:
   behavior: default
