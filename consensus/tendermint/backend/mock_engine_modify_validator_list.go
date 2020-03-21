@@ -3,6 +3,7 @@ package backend
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -14,13 +15,33 @@ type ModifyCommitteeEngine struct {
 	*testing.T
 	*Backend
 	Modifier
+	marker
 }
 
 type Modifier interface {
 	ModifyHeader(header *types.Header) *types.Header
 }
 
-func (*ModifyCommitteeEngine) VerifyHeader(_ consensus.ChainReader, _ *types.Header, _ bool) error {
+type marker interface {
+	markMalicious(types.Block)
+}
+
+func (m *ModifyCommitteeEngine) VerifyProposal(block types.Block) (time.Duration, error) {
+	if block.Number().Uint64() < 2 {
+		// skip genesis and the first block
+		return m.Backend.VerifyProposal(block)
+	}
+
+	m.marker.markMalicious(block)
+
+	return 0, nil
+}
+
+func (m *ModifyCommitteeEngine) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+	if header.Number.Uint64() < 2 {
+		// skip genesis and the first block
+		return m.Backend.VerifyHeader(chain, header, seal)
+	}
 	return nil
 }
 
@@ -67,50 +88,6 @@ func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 	return newBlock, nil
 }
 
-type addValidatorCore Changes
-
-func NewAddValidatorCore(engine consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
-	basicEngine, ok := engine.(*Backend)
-	if !ok {
-		panic("*Backend type is expected")
-	}
-	return &ModifyCommitteeEngine{
-		Backend:  basicEngine,
-		Modifier: addValidatorCore(changedValidators),
-	}
-}
-
-func (p addValidatorCore) ModifyHeader(header *types.Header) *types.Header {
-	additionalValidator := types.CommitteeMember{
-		Address:     common.Address{3},
-		VotingPower: new(big.Int).SetUint64(1),
-	}
-	p.added[additionalValidator.Address] = struct{}{}
-
-	header.Committee = append(header.Committee, additionalValidator)
-
-	return header
-}
-
-type removeValidatorCore Changes
-
-func NewRemoveValidatorCore(engine consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
-	basicEngine, ok := engine.(*Backend)
-	if !ok {
-		panic("*Backend type is expected")
-	}
-	return &ModifyCommitteeEngine{
-		Backend:  basicEngine,
-		Modifier: removeValidatorCore(changedValidators),
-	}
-}
-
-func (p removeValidatorCore) ModifyHeader(header *types.Header) *types.Header {
-	p.removed[header.Committee[len(header.Committee)-1].Address] = struct{}{}
-	header.Committee = header.Committee[:len(header.Committee)-1]
-	return header
-}
-
 type Changes struct {
 	added   map[common.Address]struct{}
 	removed map[common.Address]struct{}
@@ -123,20 +100,94 @@ func NewChanges() Changes {
 	}
 }
 
-type replaceValidatorCore Changes
+type changeValidator struct {
+	blocksFromRemoved map[common.Hash]uint64
+	blocksFromAdded   map[common.Hash]uint64
+	brokenValidators  Changes
+}
 
-func NewReplaceValidatorCore(engine consensus.Engine, changedValidators Changes) *ModifyCommitteeEngine {
+func newChangeValidator(blocksFromRemoved map[common.Hash]uint64, blocksFromAdded map[common.Hash]uint64, changedValidators Changes) changeValidator {
+	return changeValidator{
+		blocksFromRemoved: blocksFromRemoved,
+		blocksFromAdded:   blocksFromAdded,
+		brokenValidators:  changedValidators,
+	}
+}
+
+func (o changeValidator) markMalicious(block types.Block) {
+	if _, ok := o.brokenValidators.added[block.Coinbase()]; ok {
+		o.blocksFromAdded[block.Hash()] = block.Number().Uint64()
+	}
+
+	if _, ok := o.brokenValidators.removed[block.Coinbase()]; ok {
+		o.blocksFromRemoved[block.Hash()] = block.Number().Uint64()
+	}
+}
+
+type addValidator Changes
+
+func NewAddValidator(t *testing.T, engine consensus.Engine, changedValidators Changes, blocksFromRemoved, blocksFromAdded map[common.Hash]uint64) *ModifyCommitteeEngine {
 	basicEngine, ok := engine.(*Backend)
 	if !ok {
 		panic("*Backend type is expected")
 	}
 	return &ModifyCommitteeEngine{
+		T:        t,
 		Backend:  basicEngine,
-		Modifier: replaceValidatorCore(changedValidators),
+		Modifier: addValidator(changedValidators),
+		marker:   newChangeValidator(blocksFromRemoved, blocksFromAdded, changedValidators),
 	}
 }
 
-func (p replaceValidatorCore) ModifyHeader(header *types.Header) *types.Header {
+func (p addValidator) ModifyHeader(header *types.Header) *types.Header {
+	additionalValidator := types.CommitteeMember{
+		Address:     common.Address{3},
+		VotingPower: new(big.Int).SetUint64(1),
+	}
+	p.added[additionalValidator.Address] = struct{}{}
+
+	header.Committee = append(header.Committee, additionalValidator)
+
+	return header
+}
+
+type removeValidator Changes
+
+func NewRemoveValidator(t *testing.T, engine consensus.Engine, changedValidators Changes, blocksFromRemoved, blocksFromAdded map[common.Hash]uint64) *ModifyCommitteeEngine {
+	basicEngine, ok := engine.(*Backend)
+	if !ok {
+		panic("*Backend type is expected")
+	}
+	return &ModifyCommitteeEngine{
+		T:        t,
+		Backend:  basicEngine,
+		Modifier: removeValidator(changedValidators),
+		marker:   newChangeValidator(blocksFromRemoved, blocksFromAdded, changedValidators),
+	}
+}
+
+func (p removeValidator) ModifyHeader(header *types.Header) *types.Header {
+	p.removed[header.Committee[len(header.Committee)-1].Address] = struct{}{}
+	header.Committee = header.Committee[:len(header.Committee)-1]
+	return header
+}
+
+type replaceValidator Changes
+
+func NewReplaceValidator(t *testing.T, engine consensus.Engine, changedValidators Changes, blocksFromRemoved, blocksFromAdded map[common.Hash]uint64) *ModifyCommitteeEngine {
+	basicEngine, ok := engine.(*Backend)
+	if !ok {
+		panic("*Backend type is expected")
+	}
+	return &ModifyCommitteeEngine{
+		T:        t,
+		Backend:  basicEngine,
+		Modifier: replaceValidator(changedValidators),
+		marker:   newChangeValidator(blocksFromRemoved, blocksFromAdded, changedValidators),
+	}
+}
+
+func (p replaceValidator) ModifyHeader(header *types.Header) *types.Header {
 	maliciousValidator := types.CommitteeMember{
 		Address:     common.Address{3},
 		VotingPower: new(big.Int).SetUint64(1),
