@@ -25,13 +25,8 @@ func TestTendermintOneMalicious(t *testing.T) {
 			txPerPeer:     1,
 			maliciousPeers: map[string]injectors{
 				"VE": {
-					cons: []func(basic consensus.Engine) consensus.Engine{
-						func(basic consensus.Engine) consensus.Engine {
-							return tendermintBackend.NewReplaceValidatorCore(basic, changedValidators)
-						},
-						func(basic consensus.Engine) consensus.Engine {
-							return tendermintBackend.NewChangeValidatorBackend(t, basic, changedValidators, removedValidatorsBlocks, addedValidatorsBlocks)
-						},
+					cons: func(basic consensus.Engine) consensus.Engine {
+						return tendermintBackend.NewReplaceValidator(t, basic, changedValidators, removedValidatorsBlocks, addedValidatorsBlocks)
 					},
 				},
 			},
@@ -46,13 +41,8 @@ func TestTendermintOneMalicious(t *testing.T) {
 			txPerPeer:     1,
 			maliciousPeers: map[string]injectors{
 				"VE": {
-					cons: []func(basic consensus.Engine) consensus.Engine{
-						func(basic consensus.Engine) consensus.Engine {
-							return tendermintBackend.NewAddValidatorCore(basic, changedValidators)
-						},
-						func(basic consensus.Engine) consensus.Engine {
-							return tendermintBackend.NewChangeValidatorBackend(t, basic, changedValidators, removedValidatorsBlocks, addedValidatorsBlocks)
-						},
+					cons: func(basic consensus.Engine) consensus.Engine {
+						return tendermintBackend.NewAddValidator(t, basic, changedValidators, removedValidatorsBlocks, addedValidatorsBlocks)
 					},
 				},
 			},
@@ -67,13 +57,8 @@ func TestTendermintOneMalicious(t *testing.T) {
 			txPerPeer:     1,
 			maliciousPeers: map[string]injectors{
 				"VE": {
-					cons: []func(basic consensus.Engine) consensus.Engine{
-						func(basic consensus.Engine) consensus.Engine {
-							return tendermintBackend.NewRemoveValidatorCore(basic, changedValidators)
-						},
-						func(basic consensus.Engine) consensus.Engine {
-							return tendermintBackend.NewChangeValidatorBackend(t, basic, changedValidators, removedValidatorsBlocks, addedValidatorsBlocks)
-						},
+					cons: func(basic consensus.Engine) consensus.Engine {
+						return tendermintBackend.NewRemoveValidator(t, basic, changedValidators, removedValidatorsBlocks, addedValidatorsBlocks)
 					},
 				},
 			},

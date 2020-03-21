@@ -145,7 +145,7 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 	return genesis
 }
 
-func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64, cons []func(basic consensus.Engine) consensus.Engine) (*node.Node, error) { //здесь эта переменная-функция называется cons
+func makeValidator(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) { //здесь эта переменная-функция называется cons
 	// Define the basic configurations for the Ethereum node
 	datadir, err := ioutil.TempDir("", "")
 	if err != nil {

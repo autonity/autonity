@@ -64,7 +64,7 @@ type testCase struct {
 }
 
 type injectors struct {
-	cons []func(basic consensus.Engine) consensus.Engine
+	cons func(basic consensus.Engine) consensus.Engine
 }
 
 func (test *testCase) getBeforeHook(index string) hook {
@@ -179,16 +179,16 @@ func runTest(t *testing.T, test *testCase) {
 		genesis = test.genesisHook(genesis)
 	}
 	for i, validator := range nodes {
-		var engineConstructors []func(basic consensus.Engine) consensus.Engine
+		var engineConstructor func(basic consensus.Engine) consensus.Engine
 		if test.maliciousPeers != nil {
-			engineConstructors = test.maliciousPeers[i].cons
+			engineConstructor = test.maliciousPeers[i].cons
 		}
 
 		validator.listener[0].Close()
 		validator.listener[1].Close()
 
 		rates := test.networkRates[i]
-		validator.node, err = makeValidator(genesis, validator.privateKey, fmt.Sprintf("127.0.0.1:%d", validator.port), validator.rpcPort, rates.in, rates.out, engineConstructors)
+		validator.node, err = makeValidator(genesis, validator.privateKey, fmt.Sprintf("127.0.0.1:%d", validator.port), validator.rpcPort, rates.in, rates.out, engineConstructor)
 		if err != nil {
 			t.Fatal("cant make a node", i, err)
 		}
