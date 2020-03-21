@@ -127,6 +127,8 @@ func runTest(t *testing.T, test *testCase) {
 			goleak.IgnoreTopFunction("github.com/JekaMas/notify._Cfunc_CFRunLoopRun"),
 			goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
 			goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
+			goleak.IgnoreTopFunction("github.com/clearmatics/autonity/miner.(*worker).loop"),
+			goleak.IgnoreTopFunction("github.com/clearmatics/autonity/miner.(*worker).updater"),
 			goleak.IgnoreTopFunction("github.com/clearmatics/autonity/miner.(*worker).newWorkLoop.func1"),
 		)
 	}

@@ -2,21 +2,16 @@ ignore:
   - "**/*_mock.go"  # ignore mock files
   - "**/*_gen.go"  # ignore generated client
   - "**/mock*.go"
-  - "docs"
+  - "**/*.^go"
 coverage:
+  precision: 2
+  round: nearest
+
   status:
     patch: off
     project:
       default:
-        target: 30%
-        threshold: null
-      tendermint:
-        flags:
-          - tendermint
-        target: 65%
-flags:
-  tendermint:
-    paths:
-      - consensus/tendermint/
+        target: 72.5%
+
 comment:
   behavior: default
