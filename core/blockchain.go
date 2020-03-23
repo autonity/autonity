@@ -2294,6 +2294,37 @@ func (bc *BlockChain) GetKeyValue(key []byte) ([]byte, error) {
 	return rawdb.GetKeyValue(bc.db, key)
 }
 
+func (bc *BlockChain) GetMinGasPrice(blockNumber ...uint64) (*big.Int, error) {
+	if bc.autonityContract == nil {
+		return nil, errors.New("the autonity contract is not specified")
+	}
+
+	var block *types.Block
+	if len(blockNumber) > 0 {
+		block = bc.GetBlockByNumber(blockNumber[0])
+		if block == nil {
+			return nil, fmt.Errorf("there is no block for number %d", blockNumber[0])
+		}
+	} else {
+		block = bc.CurrentBlock()
+	}
+
+	statedb, err := state.New(block.Root(), bc.stateCache)
+	if err != nil {
+		return nil, err
+	}
+
+	var contractMinGasPrice = new(big.Int)
+	minGasPrice, err := bc.autonityContract.GetMinimumGasPrice(block, statedb)
+	if err != nil {
+		return nil, err
+	}
+
+	contractMinGasPrice.SetUint64(minGasPrice)
+
+	return contractMinGasPrice, nil
+}
+
 // addJob should be called only for public methods
 func (bc *BlockChain) addJob() error {
 	bc.quitMu.RLock()

@@ -1,10 +1,27 @@
 name: Go
 on: [push]
 jobs:
-  build:
+  bootstrap-checkout:
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
+    steps:
+      - name: Cache code
+        uses: actions/cache@v1
+        id: cache-autonity-code
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
+
+      - uses: actions/checkout@v2
+        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+        with:
+          clean: 'false'
+
+  tests:
+    needs: bootstrap-checkout
+    runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
@@ -13,15 +30,118 @@ jobs:
         id: go
 
       - name: Set GOPATH
-        # temporary fix
+        run: |
+          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+        shell: bash
+
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
+
+      - name: unit tests
+        run: go test -p 1 -timeout 30m -short $(go list ./... | grep -v /consensus/tendermint)
+
+  tests-tendermint:
+    needs: bootstrap-checkout
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
+
+      - name: tendermint_tests
+        run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }}
+          file: coverage_tendermint.out
+          yml: codecov.yml
+
+  tests-conformance:
+    needs: bootstrap-checkout
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Set GOPATH
+        run: |
+          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+        shell: bash
+
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
+
+      - name: Cache git modules
+        uses: actions/cache@v1
+        id: cache-git-modules
+        env:
+          cache-name: cache-git-modules
+        with:
+          path: /home/runner/work/autonity/autonity/tests/testdata
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
+
+      - name: conformance tests
+        if: steps.cache-git-modules.outputs.cache-hit != 'true'
+        run: git submodule update --init --recursive
+
+      - name: unit tests
+        run: go test -timeout 30m ./tests/...
+
+  build:
+    needs: bootstrap-checkout
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Set GOPATH
         # see https://github.com/actions/setup-go/issues/14
         run: |
           echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: Build
         run: make autonity
@@ -30,9 +150,8 @@ jobs:
         run: go run build/ci.go install
 
   linters:
+    needs: bootstrap-checkout
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
     steps:
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
@@ -40,18 +159,14 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
         with:
-          clean: 'false'
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: Linters
         run: |
@@ -59,11 +174,45 @@ jobs:
           make lint-ci
         shell: bash
 
-  tests:
+  tendermint_e2e_tests:
+    needs: bootstrap-checkout
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
+    strategy:
+      matrix:
+        e2e: [TestCheckFeeRedirectionAndRedistribution,
+              TestCheckBlockWithSmallFee,
+              TestRemoveFromValidatorsList,
+              TestContractUpgrade_Success,
+              TestContractUpgradeSeveralUpgrades,
+              TestContractUpgradeSeveralUpgradesOnBusTopology,
+              TestContractUpgradeSeveralUpgradesOnStarTopology,
+              TestTendermintSuccess,
+              TestTendermintSlowConnections,
+              TestTendermintMemoryLeak,
+              TestTendermintLongRun,
+              TestTendermintTC7,
+              TestTendermintOneMalicious,
+              TestTendermintNoQuorum,
+              TestTendermintStopUpToFNodes,
+              TestTendermintStartStopSingleNode,
+              TestTendermintStartStopFNodes,
+              TestTendermintStartStopFPlusOneNodes,
+              TestTendermintStartStopFPlusTwoNodes,
+              TestTendermintStartStopAllNodes,
+              TestResolve,
+              TestTendermintStarSuccess,
+              TestTendermintStarOverParticipantSuccess,
+              TestTendermintBusSuccess,
+              TestTendermintChangeTopologyFromBusToStarSuccess,
+              TestTendermintChangeTopologyFromStarToBusSuccess,
+              TestTendermintAddConnectionToTopologySuccess,
+              TestTendermintAddValidatorsToTopologySuccess,
+              TestTendermintAddParticipantsToTopologySuccess,
+              TestTendermintAddStakeholdersToTopologySuccess
+        ]
+
+    name: Tendermint ${{ matrix.e2e }} test
+
     steps:
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
@@ -71,99 +220,22 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: conformance tests
-        run: git submodule update --init --recursive
-
-      - name: Install
-        run: go run build/ci.go install
-
-      - name: unit tests
-        run: go run build/ci.go test -coverage
-
-      - uses: codecov/codecov-action@v1
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
         with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage*.out
-          yml: codecov.yml
-          flags: autonity
-          fail_ci_if_error: true
-
-  tests-tendermint:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: success_test_e2e
-        run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
-
-      - uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          file: coverage_tendermint.out
-          flags: tendermint
-          yml: codecov.yml
-          fail_ci_if_error: true
-
-  start_stop_tests:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: Test
-        run: go test ./consensus/test/... -v -run='TestTendermintSuccess|TestTendermintOneMalicious|TestTendermintSlowConnections|TestTendermintLongRun|TestTendermintStartStopSingleNode|TestTendermintStopUpToFNodes' -timeout 40m
-
+        run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
 
   race_tests:
+    needs: bootstrap-checkout
     runs-on: ubuntu-latest
     env:
-      GO111MODULE: on
       GORACE: "history_size=7"
     steps:
       - name: Set up Go 1.13
@@ -172,214 +244,21 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - name: unit
         run: go test -race -v ./consensus/tendermint/... -timeout 30m
 
-  tendermint-success-test:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: e2e
-        run: go test ./consensus/test/... -v -run 'TestTendermintSuccess' -timeout 40m
-
-
-  autonity_test-small-fee:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: TestCheckBlockWithSmallFee
-        run: go test ./consensus/test/... -v -run 'TestCheckBlockWithSmallFee' -timeout 40m
-
-  autonity_test-fee-redistribution:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: TestCheckFeeRedirectionAndRedistribution
-        run: go test ./consensus/test/... -v -run 'TestCheckFeeRedirectionAndRedistribution' -timeout 40m
-
-
-  start_stop_test-f:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: TestTendermintStartStopFNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFNodes' -timeout 40m
-
-
-  start_stop_test-f-plus-2:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: TestTendermintStartStopFPlusTwoNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusTwoNodes' -timeout 40m
-
-
-
-  start_stop_test-f-plus-1:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: TestTendermintStartStopFPlusOneNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopFPlusOneNodes' -timeout 40m
-
-
-  start_stop_test-all-nodes:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
-    steps:
-      - name: Set up Go 1.13
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Set GOPATH
-        # temporary fix
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: TestTendermintStartStopAllNodes
-        run: go test ./consensus/test/... -v -run 'TestTendermintStartStopAllNodes' -timeout 40m
-
-
   contract_tests:
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-      GORACE: "history_size=7"
     steps:
       - name: Setup Node
         uses: actions/setup-node@v1
