@@ -19,6 +19,9 @@ jobs:
         with:
           clean: 'false'
 
+      - name: Embed Autonity contract
+        run: make embed-autonity-contract
+
   tests:
     needs: bootstrap-checkout
     runs-on: ubuntu-latest
