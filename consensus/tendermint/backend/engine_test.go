@@ -652,7 +652,7 @@ func TestStart(t *testing.T) {
 			if e != ErrStartedEngine {
 				if e == nil {
 					if sawNil {
-						t.Fatalf("<nil> returned more than once, b.Close() should have only returned nil the first time it was started")
+						t.Fatalf("<nil> returned more than once, b.Start() should have only returned nil the first time it was started")
 					} else {
 						sawNil = true
 					}
