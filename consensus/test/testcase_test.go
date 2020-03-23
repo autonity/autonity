@@ -145,7 +145,9 @@ func runTest(t *testing.T, test *testCase) {
 		t.Log("can't rise file description limit. errors are possible")
 	}
 
+	// default topology if not set anything
 	nodeNames := getNodeNames()[:test.numValidators]
+
 	if test.topology != nil {
 		err := test.topology.Validate()
 		if err != nil {
@@ -183,10 +185,12 @@ func runTest(t *testing.T, test *testCase) {
 	setNodesPortAndEnode(t, nodes)
 
 	genesis := makeGenesis(nodes)
+
 	if test.genesisHook != nil {
 		genesis = test.genesisHook(genesis)
 	}
-	for i, validator := range nodes {
+
+	for i, peer := range nodes {
 		var engineConstructor func(basic consensus.Engine) consensus.Engine
 		var backendConstructor func(basic tendermintCore.Backend) tendermintCore.Backend
 		if test.maliciousPeers != nil {
@@ -194,22 +198,22 @@ func runTest(t *testing.T, test *testCase) {
 			backendConstructor = test.maliciousPeers[i].backs
 		}
 
-		validator.listener[0].Close()
-		validator.listener[1].Close()
+		peer.listener[0].Close()
+		peer.listener[1].Close()
 
 		rates := test.networkRates[i]
-		validator.node, err = makeValidator(genesis, validator.privateKey, fmt.Sprintf("127.0.0.1:%d", validator.port), validator.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor)
+		peer.node, err = makePeer(genesis, peer.privateKey, fmt.Sprintf("127.0.0.1:%d", peer.port), peer.rpcPort, rates.in, rates.out, engineConstructor, backendConstructor)
 		if err != nil {
 			t.Fatal("cant make a node", i, err)
 		}
 	}
 
 	wg := &errgroup.Group{}
-	for _, validator := range nodes {
-		validator := validator
+	for _, peer := range nodes {
+		peer := peer
 
 		wg.Go(func() error {
-			return validator.startNode()
+			return peer.startNode()
 		})
 	}
 	err = wg.Wait()
@@ -217,9 +221,9 @@ func runTest(t *testing.T, test *testCase) {
 		t.Fatal(err)
 	}
 
-	s := ""
-	for i, v := range nodes {
-		s += fmt.Sprintf("%s %s === %s  -- %s\n", s, i, v.enode.URLv4(), crypto.PubkeyToAddress(v.privateKey.PublicKey).String())
+	s := " "
+	for i, p := range nodes {
+		s += fmt.Sprintf("%s %s === %s  -- %s\n", s, i, p.enode.URLv4(), crypto.PubkeyToAddress(p.privateKey.PublicKey).String())
 
 	}
 	fmt.Println(s)
@@ -233,19 +237,20 @@ func runTest(t *testing.T, test *testCase) {
 
 	defer func() {
 		wgClose := &errgroup.Group{}
-		for _, validator := range nodes {
-			validatorInner := validator
+		for _, peer := range nodes {
+			peer := peer
+
 			wgClose.Go(func() error {
-				if !validatorInner.isRunning {
+				if !peer.isRunning {
 					return nil
 				}
 
-				errInner := validatorInner.node.Close()
+				errInner := peer.node.Close()
 				if errInner != nil {
 					return fmt.Errorf("error on node close %v", err)
 				}
 
-				validatorInner.node.Wait()
+				peer.node.Wait()
 
 				return nil
 			})
@@ -256,32 +261,16 @@ func runTest(t *testing.T, test *testCase) {
 			t.Fatal(err)
 		}
 
-		time.Sleep(time.Second) //level DB needs a second to close
+		// level DB needs a second to close
+		time.Sleep(time.Second)
 	}()
 
 	wg = &errgroup.Group{}
-	for _, validator := range nodes {
-		validator := validator
+	for _, peer := range nodes {
+		peer := peer
 
 		wg.Go(func() error {
-			return validator.startService()
-		})
-	}
-	err = wg.Wait()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	wg = &errgroup.Group{}
-	for i, validator := range nodes {
-		validator := validator
-		i := i
-
-		wg.Go(func() error {
-			log.Debug("peers", "i", i,
-				"peers", len(validator.node.Server().Peers()),
-				"nodes", len(nodes))
-			return nil
+			return peer.startService()
 		})
 	}
 	err = wg.Wait()
@@ -290,8 +279,8 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	defer func() {
-		for _, validator := range nodes {
-			validator.subscription.Unsubscribe()
+		for _, peer := range nodes {
+			peer.subscription.Unsubscribe()
 		}
 	}()
 
@@ -300,7 +289,8 @@ func runTest(t *testing.T, test *testCase) {
 	if test.finalAssert != nil {
 		test.finalAssert(t, nodes)
 	}
-	//check topology
+
+	// check topology
 	if test.topology != nil {
 		err := test.topology.CheckTopology(nodes)
 		if err != nil {

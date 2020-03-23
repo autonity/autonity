@@ -41,6 +41,8 @@ type testNode struct {
 	subscription   event.Subscription
 	transactions   map[common.Hash]struct{}
 	transactionsMu sync.Mutex
+	untrustedTransactions   map[common.Hash]struct{}
+	untrustedTransactionsMu sync.Mutex
 	blocks         map[uint64]block
 	lastBlock      uint64
 	txsSendCount   *int64
@@ -159,6 +161,7 @@ func (validator *testNode) startService() error {
 	if validator.eventChan == nil {
 		validator.eventChan = make(chan core.ChainEvent, 1024)
 		validator.transactions = make(map[common.Hash]struct{})
+		validator.untrustedTransactions = make(map[common.Hash]struct{})
 		validator.blocks = make(map[uint64]block)
 		validator.txsSendCount = new(int64)
 		validator.txsChainCount = make(map[uint64]int64)
