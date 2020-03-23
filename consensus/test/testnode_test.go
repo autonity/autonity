@@ -25,29 +25,29 @@ type networkRate struct {
 }
 
 type testNode struct {
-	isRunning      bool
-	isInited       bool
-	wasStopped     bool //fixme should be removed
-	privateKey     *ecdsa.PrivateKey
-	address        string
-	port           int
-	url            string
-	listener       []net.Listener
-	rpcPort        int
-	node           *node.Node
-	enode          *enode.Node
-	service        *eth.Ethereum
-	eventChan      chan core.ChainEvent
-	subscription   event.Subscription
-	transactions   map[common.Hash]struct{}
-	transactionsMu sync.Mutex
+	isRunning               bool
+	isInited                bool
+	wasStopped              bool //fixme should be removed
+	privateKey              *ecdsa.PrivateKey
+	address                 string
+	port                    int
+	url                     string
+	listener                []net.Listener
+	rpcPort                 int
+	node                    *node.Node
+	enode                   *enode.Node
+	service                 *eth.Ethereum
+	eventChan               chan core.ChainEvent
+	subscription            event.Subscription
+	transactions            map[common.Hash]struct{}
+	transactionsMu          sync.Mutex
 	untrustedTransactions   map[common.Hash]struct{}
 	untrustedTransactionsMu sync.Mutex
-	blocks         map[uint64]block
-	lastBlock      uint64
-	txsSendCount   *int64
-	txsChainCount  map[uint64]int64
-	isMalicious    bool
+	blocks                  map[uint64]block
+	lastBlock               uint64
+	txsSendCount            *int64
+	txsChainCount           map[uint64]int64
+	isMalicious             bool
 }
 
 type block struct {

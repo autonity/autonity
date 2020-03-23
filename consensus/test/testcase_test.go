@@ -33,7 +33,7 @@ const (
 	ValidatorPrefix   = "V"
 	StakeholderPrefix = "S"
 	ParticipantPrefix = "P"
-	ExternalPrefix = "E"
+	ExternalPrefix    = "E"
 )
 
 type testCase struct {
