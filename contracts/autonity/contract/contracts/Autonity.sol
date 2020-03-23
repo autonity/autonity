@@ -132,7 +132,6 @@ contract Autonity {
         emit AddParticipant(_address, 0);
     }
 
-
     /*
     * changeUserType
     * Change user status
@@ -153,7 +152,6 @@ contract Autonity {
 
         emit ChangeUserType(u.addr , u.userType , newUserType);
     }
-
 
     /*
     * removeUser
