@@ -217,7 +217,9 @@ jobs:
               TestTendermintAddConnectionToTopologySuccessWithExternalUser,
               TestTendermintAddValidatorsToTopologySuccessWithExternalUser,
               TestTendermintAddParticipantsToTopologySuccessWithExternalUser,
-              TestTendermintAddStakeholdersToTopologySuccessWithExternalUser
+              TestTendermintAddStakeholdersToTopologySuccessWithExternalUser,
+              TestTendermintMajorityExternalUsers,
+              TestTendermintMajorityExternalUsersFullyConnected
         ]
 
     name: Tendermint ${{ matrix.e2e }} test
