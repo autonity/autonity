@@ -1038,5 +1038,6 @@ func ABI() string {
     ],
     "name": "Version",
     "type": "event"
-  }`
+  }
+]`
 }
