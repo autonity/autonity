@@ -609,11 +609,11 @@ func TestStart(t *testing.T) {
 
 		err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
 		if err != ErrStartedEngine {
-			t.Fatalf("expected %v, got %v", ErrStoppedEngine, err)
+			t.Fatalf("expected %v, got %v", ErrStartedEngine, err)
 		}
 	})
 
-	t.Run("engine is running, stopped multiple times", func(t *testing.T) {
+	t.Run("engine is not running, started multiple times", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -652,12 +652,12 @@ func TestStart(t *testing.T) {
 			if e != ErrStartedEngine {
 				if e == nil {
 					if sawNil {
-						t.Fatalf("<nil> returned more than once, b.Close() should have only returned nil the first time it was closed")
+						t.Fatalf("<nil> returned more than once, b.Close() should have only returned nil the first time it was started")
 					} else {
 						sawNil = true
 					}
 				} else {
-					t.Fatalf("expected %v, got %v", ErrStoppedEngine, e)
+					t.Fatalf("expected %v, got %v", ErrStartedEngine, e)
 				}
 			}
 		}
