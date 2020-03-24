@@ -298,7 +298,6 @@ func sendTransactions(t *testing.T, test *testCase, peers map[string]*testNode, 
 func hasQuorum(validators map[string]*testNode) bool {
 	active := 0
 	for _, val := range validators {
-		// fixme !!!
 		if val.isRunning {
 			active++
 		}
@@ -397,7 +396,7 @@ wgLoop:
 	for {
 		select {
 		case ev := <-peer.eventChan:
-			err := peer.service.APIBackend.IsSelfInWhitelist()
+			err = peer.service.APIBackend.IsSelfInWhitelist()
 			if !isExternalUser && err != nil {
 				return fmt.Errorf("a user %q should be in the whitelist: %v on block %d", index, err, ev.Block.NumberU64())
 			}
@@ -448,17 +447,6 @@ wgLoop:
 					txs[peer.lastBlock] = ev.Block.Transactions().Len()
 				}
 				txsMu.Unlock()
-
-				if isExternalUser {
-					txsMu.Lock()
-					gotTxs := len(txs)
-					txsMu.Unlock()
-
-					if gotTxs > 0 {
-						return fmt.Errorf("external user %v got transactions %v, topology %v",
-							index, gotTxs, test.topology.DumpTopology(peers))
-					}
-				}
 
 				for _, tx := range ev.Block.Transactions() {
 					peer.transactionsMu.Lock()
@@ -624,10 +612,8 @@ wgLoop:
 		// check transactions status if all blocks are passed
 		txRemoveBlock, ok := test.removedPeers[fromAddr]
 		if ok && (peer.lastBlock >= txRemoveBlock) {
-			fmt.Println("xxx2", peer.lastBlock, index, len(peer.transactions), ok, (peer.lastBlock >= txRemoveBlock))
 			if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
 				atomic.AddInt64(test.validatorsCanBeStopped, 1)
-				fmt.Println("+++ 4:", peer.lastBlock, index)
 				break wgLoop
 			}
 		}
