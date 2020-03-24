@@ -25,7 +25,6 @@ linters:
     - depguard
     - typecheck
 
-
   disable-all: true
 
 linters-settings:
