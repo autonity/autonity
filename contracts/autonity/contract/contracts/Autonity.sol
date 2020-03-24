@@ -71,6 +71,7 @@ contract Autonity {
     event AddStakeholder(address _address, uint256 _stake);
     event AddParticipant(address _address, uint256 _stake);
     event RemoveUser(address _address, UserType _type);
+    event ChangeUserType(address _address, UserType _oldType, UserType _newType);
     event SetMinimumGasPrice(uint256 _gasPrice);
     event SetCommissionRate(address _address, uint256 _value);
     event MintStake(address _address, uint256 _amount);
@@ -129,6 +130,27 @@ contract Autonity {
     function addParticipant(address payable _address, string memory _enode) public onlyOperator(msg.sender) {
         _createUser(_address, _enode, UserType.Participant, 0, 0);
         emit AddParticipant(_address, 0);
+    }
+
+    /*
+    * changeUserType
+    * Change user status
+    */
+    function changeUserType( address _address , UserType newUserType ) public onlyOperator(msg.sender) {
+        require(_address != address(0), "address must be defined");
+        require(users[_address].addr != address(0), "user must exist");
+
+        require(users[_address].userType != newUserType, "The user is already of this type.");
+
+        // Removes the user and adds it again with the new userType
+        User memory u = users[_address];
+        if(newUserType == UserType.Participant){
+            require(u.stake == 0);
+        }
+        removeUser(u.addr);
+        _createUser(u.addr, u.enode, newUserType, u.stake, u.commissionRate);
+
+        emit ChangeUserType(u.addr , u.userType , newUserType);
     }
 
     /*
@@ -326,6 +348,15 @@ contract Autonity {
     function getRate(address _account) public view returns(uint256) {
         return users[_account].commissionRate;
     }
+
+    /*
+    * myUserType
+    * Returns sender's userType
+    */
+    function myUserType() public view returns(UserType)  {
+        return users[msg.sender].userType;
+    }
+
 
     /*
     * getMaxCommitteeSize
@@ -549,12 +580,13 @@ contract Autonity {
 
     function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake, uint256 commissionRate) internal {
         require(_address != address(0), "Addresses must be defined");
+
         User memory u = User(_address, _userType, _stake, _enode, commissionRate);
 
         // avoid duplicated user in usersList.
-        if (users[u.addr].addr != u.addr) {
-            usersList.push(u.addr);
-        }
+        require(users[u.addr].addr == address(0), "This address is already registered");
+
+        usersList.push(u.addr);
 
         users[u.addr] = u;
 
@@ -588,4 +620,3 @@ contract Autonity {
     function () external payable {
     }
 }
-
