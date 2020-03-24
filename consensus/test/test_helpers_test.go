@@ -397,6 +397,14 @@ wgLoop:
 	for {
 		select {
 		case ev := <-peer.eventChan:
+			err := peer.service.APIBackend.IsSelfInWhitelist()
+			if !isExternalUser && err != nil {
+				return fmt.Errorf("a user %q should be in the whitelist: %v on block %d", index, err, ev.Block.NumberU64())
+			}
+			if isExternalUser && err == nil {
+				return fmt.Errorf("a user %q shoulnd't be in the whitelist on block %d", index, ev.Block.NumberU64())
+			}
+
 			if test.topology != nil && test.topology.WithChanges() {
 				err = test.topology.ConnectNodesForIndex(index, peers)
 				if err != nil {
@@ -494,7 +502,7 @@ wgLoop:
 			}
 
 			if test.topology != nil && test.topology.WithChanges() {
-				err := test.topology.CheckTopologyForIndex(index, peers)
+				err = test.topology.CheckTopologyForIndex(index, peers)
 				if err != nil {
 					logger.Error("check topology err", "index", index, "block", peer.lastBlock, "err", err)
 					return err

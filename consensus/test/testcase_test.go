@@ -127,6 +127,7 @@ func runTest(t *testing.T, test *testCase) {
 		// TODO: (screwyprof) Fix the following gorotine leaks
 		defer goleak.VerifyNone(t,
 			goleak.IgnoreTopFunction("github.com/JekaMas/notify._Cfunc_CFRunLoopRun"),
+			goleak.IgnoreTopFunction("github.com/JekaMas/notify.(*nonrecursiveTree).internal"),
 			goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
 			goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
 			goleak.IgnoreTopFunction("github.com/clearmatics/autonity/miner.(*worker).loop"),
