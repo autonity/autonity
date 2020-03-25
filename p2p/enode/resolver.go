@@ -17,7 +17,7 @@ const (
 )
 
 var rs *resolveSet
-var NotParsedErr = errors.New("not parsed")
+var ErrCannotParse = errors.New("not parsed")
 
 func init() {
 	rs = NewResolveSet()
@@ -77,7 +77,7 @@ func (rs *resolveSet) Start(resoveCycleSleepDuration time.Duration) {
 
 				node, err := rs.ParseV4WithResolveMaxTry(en, rs.maxTries, rs.delayBetweenTries)
 				if err != nil {
-					if err == NotParsedErr {
+					if err == ErrCannotParse {
 						log.Warn("Node not resolved", "enode", en)
 						continue
 					}
@@ -140,7 +140,7 @@ func (rs *resolveSet) ParseV4WithResolveMaxTry(rawurl string, maxTry int, wait t
 		time.Sleep(wait)
 	}
 	if node == nil {
-		return nil, NotParsedErr
+		return nil, ErrCannotParse
 	}
 	return node, err
 
