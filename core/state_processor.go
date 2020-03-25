@@ -85,7 +85,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	for i, tx := range block.Transactions() {
 		if contractMinGasPrice.Uint64() != 0 {
 			if tx.GasPrice().Cmp(contractMinGasPrice) == -1 {
-				return nil, nil, 0, errors.New("gas price must be greater minGasPrice")
+				return nil, nil, 0, errors.New("transaction gas price must be greater than Autonity minGasPrice")
 			}
 		}
 
@@ -97,14 +97,14 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
-	if p.autonityContract != nil {
-		err := p.autonityContract.ApplyFinalize(block.Transactions(), receipts, block.Header(), statedb)
-		if err != nil {
-			return nil, nil, 0, err
-		}
-	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
+	statedb.Prepare(common.ACHash(block.Number()), block.Hash(), len(block.Transactions()))
+	_, receipt, err := p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	receipts = append(receipts, receipt)
+	allLogs = append(allLogs, receipt.Logs...)
 
 	return receipts, allLogs, *usedGas, nil
 }

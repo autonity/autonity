@@ -97,7 +97,7 @@ type Header struct {
 }
 
 type CommitteeMember struct {
-	Address     common.Address `json:"address"            gencodec:"required"`
+	Address     common.Address `json:"address"            gencodec:"required"       abi:"addr"`
 	VotingPower *big.Int       `json:"votingPower"        gencodec:"required"`
 }
 
@@ -413,7 +413,7 @@ func CopyHeader(h *Header) *Header {
 		}
 	}
 
-	if len(h.CommittedSeals) > 0 {
+	if len(h.ProposerSeal) > 0 {
 		cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
 		copy(cpy.ProposerSeal, h.ProposerSeal)
 	}

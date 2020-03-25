@@ -53,6 +53,8 @@ var (
 	errUnknownBlock = errors.New("unknown block")
 	// errUnauthorized is returned if a header is signed by a non authorized entity.
 	errUnauthorized = errors.New("unauthorized")
+	// errInvalidCoindbase is returned if the signer is not the coinbase address,
+	errInvalidCoinbase = errors.New("invalid coinbase")
 	// errInvalidDifficulty is returned if the difficulty of a block is not 1
 	errInvalidDifficulty = errors.New("invalid difficulty")
 	// errInvalidMixDigest is returned if a block's mix digest is not BFT digest.
@@ -207,13 +209,17 @@ func (sb *Backend) verifySigner(chain consensus.ChainReader, header *types.Heade
 		return err
 	}
 
-	// Signer should be in the validator set of previous block's extraData.
+	if header.Coinbase != signer {
+		return errInvalidCoinbase
+	}
 
+	// Signer should be in the validator set of previous block's extraData.
 	for _, committeeMember := range committee.Committee() {
 		if committeeMember.Address == signer {
 			return nil
 		}
 	}
+
 	return errUnauthorized
 }
 
@@ -307,66 +313,48 @@ func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 }
 
 // Finalize runs any post-transaction state modifications (e.g. block rewards)
-// and assembles the final block.
-//
-// Note, the block header and state database might be updated to reflect any
-// consensus rules that happen at finalization (e.g. block rewards).
-func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) {
+// Finaize doesn't modify the passed header.
+func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+	uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
 	sb.blockchainInitMu.Lock()
 	if sb.blockchain == nil {
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
 	sb.blockchainInitMu.Unlock()
 
-	committeeSet, err := sb.AutonityContractFinalize(header, chain, state)
+	committeeSet, receipt, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
 	if err != nil {
-		sb.logger.Error("finalize. after AutonityContractFinalize", "err", err.Error())
-		return
+		sb.logger.Error("AutonityContractFinalize", "err", err.Error())
+		return nil, nil, err
 	}
 
+	return committeeSet, receipt, nil
+}
+
+// FinalizeAndAssemble call Finaize to compute post transacation state modifications
+// and assembles the final block.
+func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
+	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+
+	statedb.Prepare(common.ACHash(header.Number), common.Hash{}, len(txs))
+	committeeSet, receipt, err := sb.Finalize(chain, header, statedb, txs, uncles, receipts)
+	if err != nil {
+		return nil, err
+	}
+	receipts = append(receipts, receipt)
 	// No block rewards in BFT, so the state remains as is and uncles are dropped
-	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 
 	// add committee to extraData's committee section
 	header.Committee = committeeSet
-}
-
-func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
-
-	sb.blockchainInitMu.Lock()
-	if sb.blockchain == nil {
-		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
-	}
-	sb.blockchainInitMu.Unlock()
-
-	validators, err := sb.AutonityContractFinalize(header, chain, statedb)
-	if err != nil {
-		sb.logger.Error("FinalizeAndAssemble. after AutonityContractFinalize", "err", err.Error())
-		return nil, err
-	}
-	ac := sb.blockchain.GetAutonityContract()
-	if ac != nil && header.Number.Uint64() > 1 {
-		err = ac.ApplyFinalize(txs, receipts, header, statedb)
-		if err != nil {
-			sb.logger.Error("ApplyFinalize", "err", err.Error())
-			return nil, err
-		}
-	}
-
-	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
-	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	header.UncleHash = nilUncleHash
-	header.Committee = validators
-
-	// Assemble and return the final block for sealing
 	return types.NewBlock(header, txs, nil, receipts), nil
 }
 
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
 // committee field containaining the list of committee members allowed to participate in consensus for the next block.
-func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensus.ChainReader, state *state.StateDB) (types.Committee, error) {
+func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensus.ChainReader, state *state.StateDB,
+	txs []*types.Transaction, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
@@ -374,26 +362,21 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 		contractAddress, err := sb.blockchain.GetAutonityContract().DeployAutonityContract(chain, header, state)
 		if err != nil {
 			sb.logger.Error("Deploy autonity contract error", "error", err)
-			return nil, err
+			return nil, nil, err
 		}
 		sb.autonityContractAddress = contractAddress
-		set, err := sb.savedCommittee(1, chain)
-		if err != nil {
-			return nil, err
-		}
-		return set.Committee(), nil
 	}
 
 	if sb.autonityContractAddress == (common.Address{}) {
 		sb.autonityContractAddress = crypto.CreateAddress(sb.blockchain.Config().AutonityContractConfig.Deployer, 0)
 	}
 
-	validators, err := sb.blockchain.GetAutonityContract().GetCommittee(chain, header, state)
+	committeeSet, receipt, err := sb.blockchain.GetAutonityContract().FinalizeAndGetCommittee(txs, receipts, header, state)
 	if err != nil {
-		sb.logger.Error("GetCommittee returns err", "err", err)
-		return nil, err
+		sb.logger.Error("Autonity Contract finalize returns err", "err", err)
+		return nil, nil, err
 	}
-	return validators, nil
+	return committeeSet, receipt, nil
 }
 
 // Seal generates a new block for the given input block with the local miner's

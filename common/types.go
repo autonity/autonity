@@ -64,6 +64,13 @@ func BytesToHash(b []byte) Hash {
 // If b is larger than len(h), b will be cropped from the left.
 func BigToHash(b *big.Int) Hash { return BytesToHash(b.Bytes()) }
 
+// ACHash returns the Autonity Contract Finalize transaction Hash.
+func ACHash(b *big.Int) Hash {
+	hash := BigToHash(b)
+	hash[0] = 0xAC
+	return hash
+}
+
 // HexToHash sets byte representation of s to hash.
 // If b is larger than len(h), b will be cropped from the left.
 func HexToHash(s string) Hash { return BytesToHash(FromHex(s)) }
