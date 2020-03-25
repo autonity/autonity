@@ -31,7 +31,7 @@ type ContractState struct {
 
 type raw []byte
 
-//// Instantiates a new EVM object which is required when creating or calling a deployed contract
+// Instantiates a new EVM object which is required when creating or calling a deployed contract
 func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
 	coinbase, _ := types.Ecrecover(header)
 	evmContext := vm.Context{
@@ -57,13 +57,6 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
-
-	//todo do we need it?
-	//validators, err = ac.SavedValidatorsRetriever(1)
-	//sort.Sort(validators)
-
-	//We need to append to data the constructor's parameters
-	//That should always be genesis validators
 
 	contractABI, err := ac.abi()
 
@@ -91,7 +84,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
 		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
 
-		//TODO: default commission rate is 0, should use a config file...
+		// TODO: default commission rate is 0, should use a config file...
 		commissionRate = append(commissionRate, big.NewInt(0))
 	}
 

@@ -22,7 +22,7 @@ func TestAsyncResolver(t *testing.T) {
 
 		case "domainfail.com":
 			if atomic.LoadInt32(failResolved) != 1 {
-				return nil, errors.New("resolve err")
+				return nil, &net.DNSError{}
 			}
 			return []net.IP{
 				net.ParseIP("127.0.0.1"),
@@ -69,7 +69,7 @@ func TestAsyncResolver(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	rs.RLock()
-	v, okFail = rs.cache[failResolveEnode]
+	_, okFail = rs.cache[failResolveEnode]
 	_, okSuccess = rs.cache[successResolveEnode]
 	rs.RUnlock()
 

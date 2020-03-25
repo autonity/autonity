@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	maxParseTries     = 300
-	delayBetweenTries = time.Second
+	maxParseTries     = 3
+	delayBetweenTries = 5 * time.Second
 	resolveSetTTL     = 10 * time.Minute
 )
 
 var rs *resolveSet
-
+var NotParsedErr = errors.New("not parsed")
 func init() {
 	rs = NewResolveSet()
 }
@@ -76,7 +76,16 @@ func (rs *resolveSet) Start(resoveCycleSleepDuration time.Duration) {
 
 				node, err := rs.ParseV4WithResolveMaxTry(en, rs.maxTries, rs.delayBetweenTries)
 				if err != nil {
-					log.Warn("Node not resolved", "enode", en)
+					if err==NotParsedErr  {
+						log.Warn("Node not resolved", "enode", en)
+						continue
+					}
+					if _, ok:=errors.Unwrap(err).(*net.DNSError); ok {
+						log.Warn("Node not resolved", "enode", en, "err", err)
+						continue
+					}
+
+					delete(rs.resolveSet, en)
 					continue
 				}
 
@@ -121,11 +130,16 @@ func (rs *resolveSet) ParseV4WithResolveMaxTry(rawurl string, maxTry int, wait t
 		if err == nil {
 			break
 		}
+		if _, ok:=err.(*net.DNSError); ok {
+			log.Warn("trying to parse", "enode", rawurl, "attempt", i, "err", err)
+		} else {
+			return nil, err
+		}
+
 		time.Sleep(wait)
-		log.Error("trying to parse", "enode", rawurl, "attempt", i, "err", err)
 	}
 	if node == nil {
-		return nil, errors.New("have not parsed")
+		return nil, NotParsedErr
 	}
 	return node, err
 
@@ -148,7 +162,7 @@ func (rs *resolveSet) Get(enodeStr string) (*Node, error) {
 			rs.addNoLock(enodeStr)
 		}
 		rs.Unlock()
-		node, err = rs.ParseV4WithResolveMaxTry(enodeStr, rs.maxTries, rs.delayBetweenTries)
+		node, err = rs.ParseV4WithResolveMaxTry(enodeStr, 1, rs.delayBetweenTries)
 		if err != nil {
 			return nil, err
 		}

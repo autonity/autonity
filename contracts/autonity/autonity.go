@@ -89,25 +89,27 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	// pack the function which dump the data from contract.
 	input, err := ABI.Pack("dumpEconomicsMetricData")
 	if err != nil {
-		log.Warn("Cannot pack the method: ", err.Error())
+		log.Warn("Cannot pack the method: ", "err", err.Error())
 		return
 	}
 
 	// call evm.
 	value := new(big.Int).SetUint64(0x00)
 	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
-	log.Debug("bytes return from contract: ", ret)
 	if vmerr != nil {
-		log.Warn("Error Autonity Contract dumpNetworkEconomics")
+		log.Warn("Error Autonity Contract dumpNetworkEconomics", err, vmerr)
 		return
 	}
 
 	// marshal the data from bytes arrays into specified structure.
 	v := EconomicMetaData{make([]common.Address, 32), make([]uint8, 32), make([]*big.Int, 32),
 		make([]*big.Int, 32), new(big.Int), new(big.Int)}
-	if err := ABI.Unpack(&v, "dumpEconomicsMetricData", ret); err != nil { // can't work with aliased types
-		log.Warn("Could not unpack dumpNetworkEconomicsData returned value", "err", err, "header.num",
-			header.Number.Uint64())
+
+	if err := ABI.Unpack(&v, "dumpEconomicsMetricData", ret); err != nil {
+		// can't work with aliased types
+		log.Warn("Could not unpack dumpNetworkEconomicsData returned value",
+			"err", err,
+			"header.num", header.Number.Uint64())
 		return
 	}
 
@@ -189,7 +191,11 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 	for i, tx := range transactions {
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
-	log.Info("ApplyFinalize", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
+
+	log.Info("ApplyFinalize",
+		"balance", statedb.GetBalance(ac.Address()),
+		"block", header.Number.Uint64(),
+		"gas", blockGas.Uint64())
 
 	if header.Number.Uint64() <= 1 {
 		return nil
@@ -207,7 +213,7 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 		// in any failure, the state will be rollback to snapshot.
 		err = ac.performContractUpgrade(statedb, header)
 		if err != nil {
-			log.Warn("Autonity Contract Upgrade Failed")
+			log.Warn("Autonity Contract Upgrade Failed", "err", err)
 		}
 	}
 
@@ -232,7 +238,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	// take snapshot in case of roll back to former view.
 	snapshot := statedb.Snapshot()
 
-	//Create account will delete previous the AC stateobject and carry over the balance
+	// Create account will delete previous the AC stateobject and carry over the balance
 	statedb.CreateAccount(ac.Address())
 
 	if err := ac.UpdateAutonityContract(header, statedb, bytecode, newAbi, stateBefore); err != nil {
@@ -251,7 +257,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}
-	log.Info("Autonity Contract upgrade success 🙌")
+	log.Info("Autonity Contract upgrade success")
 	return nil
 }
 
@@ -307,6 +313,10 @@ func (ac *Contract) GetContractABI() string {
 	bytes, err := ac.bc.GetKeyValue([]byte(ABISPEC))
 	if err == nil || bytes != nil {
 		JSONString = string(bytes)
+	}
+
+	if err != nil {
+		log.Warn("can't get the contract ABI", "err", err)
 	}
 
 	return JSONString

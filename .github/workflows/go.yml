@@ -208,7 +208,9 @@ jobs:
               TestTendermintAddConnectionToTopologySuccess,
               TestTendermintAddValidatorsToTopologySuccess,
               TestTendermintAddParticipantsToTopologySuccess,
-              TestTendermintAddStakeholdersToTopologySuccess
+              TestTendermintAddStakeholdersToTopologySuccess,
+              TestAddStakeholderWithCorruptedEnodeToList,
+              TestAddIncorrectStakeholdersToList
         ]
 
     name: Tendermint ${{ matrix.e2e }} test
