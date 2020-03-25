@@ -102,17 +102,17 @@ func (s *roundMessages) SetProposal(proposal *Proposal, msg *Message, verified b
 	s.proposal = proposal
 }
 
-func (s *roundMessages) PrevotesCount(hash common.Hash) int {
-	return s.prevotes.VoteCount(hash)
+func (s *roundMessages) PrevotesPower(hash common.Hash) uint64 {
+	return s.prevotes.VotePower(hash)
 }
-func (s *roundMessages) PrevotesTotalCount() int {
-	return s.prevotes.TotalVoteCount()
+func (s *roundMessages) PrevotesTotalPower() uint64 {
+	return s.prevotes.TotalVotePower()
 }
-func (s *roundMessages) PrecommitsCount(hash common.Hash) int {
-	return s.precommits.VoteCount(hash)
+func (s *roundMessages) PrecommitsPower(hash common.Hash) uint64 {
+	return s.precommits.VotePower(hash)
 }
-func (s *roundMessages) PrecommitsTotalCount() int {
-	return s.precommits.TotalVoteCount()
+func (s *roundMessages) PrecommitsTotalPower() uint64 {
+	return s.precommits.TotalVotePower()
 }
 
 func (s *roundMessages) AddPrevote(hash common.Hash, msg Message) {

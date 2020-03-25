@@ -413,6 +413,7 @@ contract('Autonity', function (accounts) {
             } catch (e) {
 
             }
+            await token.computeCommittee({from: deployer});
             let committeeResult = await token.getCommittee();
             let committeeValidators = [];
 
@@ -438,6 +439,7 @@ contract('Autonity', function (accounts) {
             } catch (e) {
 
             }
+            await token.computeCommittee({from: deployer});
             let committeeResult = await token.getCommittee();
             let committeeValidators = [];
 
@@ -458,6 +460,7 @@ contract('Autonity', function (accounts) {
                 await token.setCommitteeSize(committeeSize, {from: operator});
                 let maxCommitteeSize = await token.getMaxCommitteeSize();
                 assert(committeeSize == maxCommitteeSize, "maxCommittee size was not set correctly");
+                await token.computeCommittee({from: deployer});
 
                 let r = await token.setCommittee({from: deployer});
                 assert.fail('Expected throw not received', r);

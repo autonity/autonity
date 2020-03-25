@@ -122,21 +122,13 @@ func (ac *Contract) GetCommittee(chain consensus.ChainReader, header *types.Head
 		return chain.GetHeaderByNumber(0).Committee, nil
 	}
 
-	var addresses []common.Address
-	err := ac.AutonityContractCall(statedb, header, "getValidators", &addresses)
-
+	var committeeSet types.Committee
+	err := ac.AutonityContractCall(statedb, header, "getCommittee", &committeeSet)
 	if err != nil {
 		return nil, err
 	}
-
-	sortableAddresses := common.Addresses(addresses)
-	sort.Sort(sortableAddresses)
-
-	var committee types.Committee
-	for _, val := range sortableAddresses {
-		committee = append(committee, types.CommitteeMember{Address: val, VotingPower: new(big.Int).SetUint64(1)})
-	}
-	return committee, nil
+	sort.Sort(committeeSet)
+	return committeeSet, err
 }
 
 func (ac *Contract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
@@ -183,9 +175,9 @@ func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, pr
 	return ac.callSetMinimumGasPrice(db, block.Header(), price)
 }
 
-func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) error {
-	if header.Number.Cmp(big.NewInt(1)) < 1 {
-		return nil
+func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) (types.Committee, *types.Receipt, error) {
+	if header.Number.Uint64() == 0 {
+		return nil, nil, nil
 	}
 	blockGas := new(big.Int)
 	for i, tx := range transactions {
@@ -197,14 +189,20 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 		"block", header.Number.Uint64(),
 		"gas", blockGas.Uint64())
 
-	if header.Number.Uint64() <= 1 {
-		return nil
+	upgradeContract, committee, err := ac.callFinalize(statedb, header, blockGas)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	upgradeContract, err := ac.callFinalize(statedb, header, blockGas)
-	if err != nil {
-		return err
-	}
+	// Create a new receipt for the finalize call
+	receipt := types.NewReceipt(nil, false, 0)
+	receipt.TxHash = common.ACHash(header.Number)
+	receipt.GasUsed = 0
+	receipt.Logs = statedb.GetLogs(receipt.TxHash)
+	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	receipt.BlockHash = statedb.BlockHash()
+	receipt.BlockNumber = header.Number
+	receipt.TransactionIndex = uint(statedb.TxIndex())
 
 	log.Info("ApplyFinalize", "upgradeContract", upgradeContract)
 
@@ -216,8 +214,7 @@ func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts type
 			log.Warn("Autonity Contract Upgrade Failed", "err", err)
 		}
 	}
-
-	return nil
+	return committee, receipt, nil
 }
 
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
