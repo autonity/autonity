@@ -406,7 +406,7 @@ func TestAddIncorrectStakeholdersToList(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			pEnode:=enode.NewV4(&participantKey.PublicKey,net.ParseIP("127.0.0.1"), 8527, 8527)
+			pEnode := enode.NewV4(&participantKey.PublicKey, net.ParseIP("127.0.0.1"), 8527, 8527)
 			_, err = instance.AddParticipant(auth, crypto.PubkeyToAddress(participantKey.PublicKey), pEnode.String())
 			if err != nil {
 				t.Fatal(err)
@@ -483,7 +483,7 @@ func TestAddStakeholderWithCorruptedEnodeToList(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = instance.AddParticipant(auth, crypto.PubkeyToAddress(participantKey.PublicKey),"enode://some_bad_enode@127.0.0.1:8527")
+			_, err = instance.AddParticipant(auth, crypto.PubkeyToAddress(participantKey.PublicKey), "enode://some_bad_enode@127.0.0.1:8527")
 			if err != nil {
 				t.Fatal(err)
 			}
