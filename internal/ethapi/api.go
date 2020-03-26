@@ -1021,6 +1021,10 @@ func FormatLogs(logs []vm.StructLog) []StructLogRes {
 
 // RPCMarshalHeader converts the given header to the RPC output .
 func RPCMarshalHeader(head *types.Header) map[string]interface{} {
+	committedSeals := make([]hexutil.Bytes, len(head.CommittedSeals))
+	for i, s := range head.CommittedSeals {
+		committedSeals[i] = hexutil.Bytes(s)
+	}
 	return map[string]interface{}{
 		"number":             (*hexutil.Big)(head.Number),
 		"hash":               head.Hash(),
@@ -1041,9 +1045,9 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 		"receiptsRoot":       head.ReceiptHash,
 		"committee":          head.Committee,
 		"pastCommittedSeals": head.PastCommittedSeals,
-		"committedSeals":     head.CommittedSeals,
+		"committedSeals":     committedSeals,
 		"round":              head.Round,
-		"proposerSeal":       head.ProposerSeal,
+		"proposerSeal":       hexutil.Bytes(head.ProposerSeal),
 	}
 }
 
