@@ -183,15 +183,20 @@ func (sb *Backend) AskSync(valSet committee.Set) {
 
 	if sb.broadcaster != nil && len(targets) > 0 {
 		ps := sb.broadcaster.FindPeers(targets)
-		count := 0
+		var count uint64
 		for addr, p := range ps {
 			//ask to quorum nodes to sync, 1 must then be honest and updated
-			if count == valSet.Quorum() {
+			if count >= valSet.Quorum() {
 				break
 			}
 			sb.logger.Info("Asking sync to", "addr", addr)
 			go p.Send(tendermintSyncMsg, []byte{}) //nolint
-			count++
+
+			_, member, err := valSet.GetByAddress(addr)
+			if err != nil {
+				sb.logger.Error("could not retrieve member from address")
+			}
+			count += member.VotingPower.Uint64()
 		}
 	}
 }

@@ -35,6 +35,7 @@ type defaultSet struct {
 	policy       config.ProposerPolicy
 	lastProposer common.Address
 	selector     ProposalSelector
+	totalPower   uint64
 
 	mu       sync.RWMutex                    // members doesn't need to be protected as it is read-only
 	proposer map[int64]types.CommitteeMember // cached computed values
@@ -52,6 +53,11 @@ func NewSet(members types.Committee, policy config.ProposerPolicy, lastProposer 
 	committee.proposer = make(map[int64]types.CommitteeMember)
 	// sort validator
 	sort.Sort(committee.members)
+
+	committee.totalPower = 0
+	for i := range members {
+		committee.totalPower += members[i].VotingPower.Uint64()
+	}
 
 	switch policy {
 	case config.Sticky:
@@ -125,8 +131,8 @@ func (set *defaultSet) Copy() Set {
 	return newSet
 }
 
-func (set *defaultSet) F() int { return int(math.Ceil(float64(set.Size())/3)) - 1 }
+func (set *defaultSet) F() uint64 { return uint64(math.Ceil(float64(set.totalPower)/3)) - 1 }
 
-func (set *defaultSet) Quorum() int { return int(math.Ceil((2 * float64(set.Size())) / 3.)) }
+func (set *defaultSet) Quorum() uint64 { return uint64(math.Ceil((2 * float64(set.totalPower)) / 3.)) }
 
 func (set *defaultSet) Policy() config.ProposerPolicy { return set.policy }

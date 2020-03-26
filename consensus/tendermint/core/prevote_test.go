@@ -180,7 +180,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected %v, got %v", errOldHeightMessage, err)
 		}
 
-		if s := curRoundMessages.PrevotesCount(common.Hash{}); s != 0 {
+		if s := curRoundMessages.PrevotesPower(common.Hash{}); s != 0 {
 			t.Fatalf("Expected 0 nil-prevote, but got %d", s)
 		}
 	})
@@ -239,7 +239,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		if s := c.curRoundMessages.PrevotesCount(curRoundMessages.GetProposalHash()); s != 1 {
+		if s := c.curRoundMessages.PrevotesPower(curRoundMessages.GetProposalHash()); s != 1 {
 			t.Fatalf("Expected 1 prevote, but got %d", s)
 		}
 	})
@@ -327,7 +327,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		if s := c.curRoundMessages.PrevotesCount(curRoundMessage.GetProposalHash()); s != 1 {
+		if s := c.curRoundMessages.PrevotesPower(curRoundMessage.GetProposalHash()); s != 1 {
 			t.Fatalf("Expected 1 prevote, but got %d", s)
 		}
 
