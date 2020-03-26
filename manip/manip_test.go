@@ -10,6 +10,7 @@ import (
 )
 
 func TestManip(t *testing.T) {
+	t.SkipNow()
 	client, err := ethclient.Dial("http://localhost:6000")
 	if err != nil {
 		t.Fatal(err)
