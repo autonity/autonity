@@ -2,6 +2,7 @@ package enode
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -11,12 +12,13 @@ import (
 )
 
 const (
-	maxParseTries     = 300
-	delayBetweenTries = time.Second
+	maxParseTries     = 3
+	delayBetweenTries = 5 * time.Second
 	resolveSetTTL     = 10 * time.Minute
 )
 
 var rs *resolveSet
+var ErrCannotParse = errors.New("not parsed")
 
 func init() {
 	rs = NewResolveSet()
@@ -41,6 +43,7 @@ func NewResolveSet() *resolveSet {
 		resolveFunc:       net.LookupIP,
 		maxTries:          maxParseTries,
 		delayBetweenTries: delayBetweenTries,
+		badNodes:          make(map[string]struct{}),
 	}
 }
 
@@ -52,9 +55,11 @@ type resolveSet struct {
 	resolveFunc       func(host string) ([]net.IP, error)
 	maxTries          int
 	delayBetweenTries time.Duration
+	badNodes          map[string]struct{}
+	badNodesMu        sync.RWMutex
 }
 
-func (rs *resolveSet) Start(resoveCycleSleepDuration time.Duration) {
+func (rs *resolveSet) Start(resolveCycleSleepDuration time.Duration) {
 	log.Warn("Async resolve started")
 	swapped := atomic.CompareAndSwapInt32(rs.started, 0, 1)
 	if !swapped {
@@ -66,17 +71,35 @@ func (rs *resolveSet) Start(resoveCycleSleepDuration time.Duration) {
 				return
 			}
 
-			rs.Lock()
 			currentTime := time.Now()
 
+			rs.Lock()
 			for en, v := range rs.resolveSet {
 				if v.resolved && currentTime.Sub(v.resolveTime) < resolveSetTTL {
 					continue
 				}
 
+				rs.badNodesMu.RLock()
+				_, ok := rs.badNodes[en]
+				if ok {
+					delete(rs.resolveSet, en)
+					rs.badNodesMu.RUnlock()
+					continue
+				}
+				rs.badNodesMu.RUnlock()
+
 				node, err := rs.ParseV4WithResolveMaxTry(en, rs.maxTries, rs.delayBetweenTries)
 				if err != nil {
-					log.Warn("Node not resolved", "enode", en)
+					if errors.Is(err, ErrCannotParse) {
+						rs.badNodesMu.Lock()
+						rs.badNodes[en] = struct{}{}
+						rs.badNodesMu.Unlock()
+
+						delete(rs.resolveSet, en)
+					}
+
+					log.Warn("Node not resolved", "enode", en, "err", err)
+
 					continue
 				}
 
@@ -87,7 +110,7 @@ func (rs *resolveSet) Start(resoveCycleSleepDuration time.Duration) {
 				}
 			}
 			rs.Unlock()
-			time.Sleep(resoveCycleSleepDuration)
+			time.Sleep(resolveCycleSleepDuration)
 		}
 	}()
 }
@@ -114,6 +137,13 @@ func (rs *resolveSet) addNoLock(enode string) {
 }
 
 func (rs *resolveSet) ParseV4WithResolveMaxTry(rawurl string, maxTry int, wait time.Duration) (*Node, error) {
+	rs.badNodesMu.RLock()
+	if _, ok := rs.badNodes[rawurl]; ok {
+		rs.badNodesMu.RUnlock()
+		return nil, fmt.Errorf("%w: %v", ErrCannotParse, rawurl)
+	}
+	rs.badNodesMu.RUnlock()
+
 	var node *Node
 	var err error
 	for i := 0; i < maxTry; i++ {
@@ -121,11 +151,21 @@ func (rs *resolveSet) ParseV4WithResolveMaxTry(rawurl string, maxTry int, wait t
 		if err == nil {
 			break
 		}
+		if _, ok := err.(*net.DNSError); ok {
+			log.Warn("trying to parse", "enode", rawurl, "attempt", i, "err", err)
+		}
+		if !errors.Is(err, ErrHostResolution) {
+			rs.badNodesMu.Lock()
+			rs.badNodes[rawurl] = struct{}{}
+			rs.badNodesMu.Unlock()
+
+			return nil, fmt.Errorf("%w: %v", ErrCannotParse, err)
+		}
+
 		time.Sleep(wait)
-		log.Error("trying to parse", "enode", rawurl, "attempt", i, "err", err)
 	}
 	if node == nil {
-		return nil, errors.New("have not parsed")
+		return nil, ErrCannotParse
 	}
 	return node, err
 
@@ -167,10 +207,6 @@ func (rs *resolveSet) Get(enodeStr string) (*Node, error) {
 
 func (rs *resolveSet) ParseV4WithResolve(rawurl string) (*Node, error) {
 	return parseV4(rawurl, rs.resolveFunc)
-}
-
-func ParseV4WithResolveMaxTry(rawurl string, maxTry int, wait time.Duration) (*Node, error) {
-	return rs.ParseV4WithResolveMaxTry(rawurl, maxTry, wait)
 }
 
 func ParseWithResolve(rawURL string) (*Node, error) {
