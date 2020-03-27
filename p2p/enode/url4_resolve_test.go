@@ -142,7 +142,7 @@ var parseNodeWithResolveTests = []struct {
 func TestParseNodeWithDomainResolution(t *testing.T) {
 	for _, test := range parseNodeWithResolveTests {
 		n, err := ParseV4WithResolve(test.rawurl)
-		if test.wantError != "" {
+		if strings.ReplaceAll(test.wantError, "\"", "") != "" {
 			if err == nil {
 				t.Errorf("test %q:\n  got nil error, expected %#q", test.rawurl, test.wantError)
 				continue
