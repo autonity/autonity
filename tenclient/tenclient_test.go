@@ -1,9 +1,12 @@
 package tenclient
 
 import (
+	"context"
 	"testing"
 
+	"github.com/clearmatics/autonity/rpc"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContractAddress(t *testing.T) {
@@ -14,6 +17,18 @@ func TestContractAddress(t *testing.T) {
 		numBlocks:     5,
 		txPerPeer:     1,
 	}
-	nodes := setupNodes(t, test)
-	assert.NotNil(t, nodes)
+
+	nodeNames := []string{"VA", "VB", "VC"}
+	nodes := setupNodes(t, test, nodeNames)
+	require.NotNil(t, nodes)
+
+	addr := nodes[nodeNames[0]].listener[1].Addr().String()
+
+	c, err := rpc.DialContext(context.Background(), "http://"+addr)
+	require.NoError(t, err)
+	tc := TenClient{c}
+
+	contractAddr, err := tc.ContractAddresss(context.Background())
+	require.NoError(t, err)
+	assert.NotEmpty(t, contractAddr)
 }

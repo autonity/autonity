@@ -137,9 +137,8 @@ type testCase struct {
 	skipNoLeakCheck bool
 }
 
-func setupNodes(t *testing.T, test *testCase) map[string]*testNode {
+func setupNodes(t *testing.T, test *testCase, nodeNames []string) map[string]*testNode {
 
-	nodeNames := []string{"VA", "VB", "VC"}
 	nodesNum := len(nodeNames)
 	nodes := make(map[string]*testNode, nodesNum)
 
