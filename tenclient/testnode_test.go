@@ -30,7 +30,7 @@ import (
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -173,7 +173,7 @@ func setupNodes(t *testing.T, test *testCase, nodeNames []string) map[string]*te
 	// start the nodes
 	for _, validator := range nodes {
 		err := validator.startNode()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 	// Connect everyone to everyone here
 	for _, n := range nodes {
@@ -181,6 +181,12 @@ func setupNodes(t *testing.T, test *testCase, nodeNames []string) map[string]*te
 			n.node.Server().AddPeer(nInner.node.Server().Self())
 		}
 	}
+
+	for _, n := range nodes {
+		err := n.startService()
+		require.NoError(t, err)
+	}
+
 	return nodes
 }
 
@@ -356,4 +362,50 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 	}
 
 	return genesis
+}
+
+func (validator *testNode) startService() error {
+	var ethereum *eth.Ethereum
+	if err := validator.node.Service(&ethereum); err != nil {
+		return fmt.Errorf("cant start a node %s", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	validator.service = ethereum
+
+	if validator.eventChan == nil {
+		validator.eventChan = make(chan core.ChainEvent, 1024)
+		validator.transactions = make(map[common.Hash]struct{})
+		validator.blocks = make(map[uint64]block)
+		validator.txsSendCount = new(int64)
+		validator.txsChainCount = make(map[uint64]int64)
+	} else {
+		// validator is restarting
+		// we need to retrieve missed block events since last stop as we're not subscribing fast enough
+		curBlock := validator.service.BlockChain().CurrentBlock().Number().Uint64()
+		for blockNum := validator.lastBlock + 1; blockNum <= curBlock; blockNum++ {
+			block := validator.service.BlockChain().GetBlockByNumber(blockNum)
+			event := core.ChainEvent{
+				Block: block,
+				Hash:  block.Hash(),
+				Logs:  nil,
+			}
+			validator.eventChan <- event
+		}
+	}
+
+	validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
+
+	if err := ethereum.StartMining(1); err != nil {
+		return fmt.Errorf("cant start mining %s", err)
+	}
+
+	for !ethereum.IsMining() {
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	validator.isRunning = true
+
+	return nil
 }
