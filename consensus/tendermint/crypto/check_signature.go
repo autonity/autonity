@@ -11,7 +11,7 @@ import (
 
 var ErrUnauthorizedAddress = errors.New("unauthorized address")
 
-func CheckValidatorSignature(valSet committee.Set, data []byte, sig []byte) (common.Address, error) {
+func CheckValidatorSignature(valSet *committee.Set, data []byte, sig []byte) (common.Address, error) {
 	// 1. Get signature address
 	signer, err := types.GetSignatureAddress(data, sig)
 	if err != nil {

@@ -17,15 +17,17 @@
 package committee
 
 import (
+	"fmt"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/types"
 	"math/big"
+	"math/rand"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/crypto"
 )
 
@@ -34,11 +36,133 @@ var (
 	testAddress2 = "b37866a925bccd69cfa98d43b510f1d23d78a851"
 )
 
+func TestNewSet(t *testing.T) {
+	var committeeSetSizes = []int{1, 2, 10}
+	var assertSet = func(t *testing.T, n int) {
+		t.Helper()
+
+		committeeMembers := createTestCommitteeMembers(t, n)
+		lastBlockProposer := committeeMembers[rand.Intn(n)].Address
+
+		// create copy since slice are pass by references
+		copyCommitteeMembers := copyMembers(committeeMembers)
+
+		// next proposer is chosen after sorting
+		sort.Sort(committeeMembers)
+		proposers := map[int64]types.CommitteeMember{0: committeeMembers[(getMemberIndex(committeeMembers, lastBlockProposer)+1)%len(committeeMembers)]}
+
+		set, err := NewSet(copyCommitteeMembers, lastBlockProposer)
+
+		if err != nil {
+			t.Fatalf("unexpected error %v", err)
+		}
+
+		if lastBlockProposer != set.lastBlockProposer {
+			t.Fatalf("lastBlockProposer not set properly, expected: %v and got: %v", lastBlockProposer, set.lastBlockProposer)
+		}
+
+		// This will also check sorting
+		if !reflect.DeepEqual(committeeMembers, set.members) {
+			t.Fatalf("committee memebers are not set properly, expected: %v and got: %v", committeeMembers, set.members)
+		}
+
+		if !reflect.DeepEqual(proposers, set.proposers) {
+			t.Fatalf("initial round proposer not set properly, expected: %v and got: %v ", proposers, set.proposers)
+		}
+	}
+
+	for _, size := range committeeSetSizes {
+		t.Run(fmt.Sprintf("committee set of %v member/s", size), func(t *testing.T) {
+			assertSet(t, size)
+		})
+	}
+
+	t.Run("cannot create set with lastBlockProposer not in members", func(t *testing.T) {
+		committeeMembers := createTestCommitteeMembers(t, 2)
+		lastBlockProposer := committeeMembers[1]
+		committeeMembers = committeeMembers[:1]
+		_, err := NewSet(committeeMembers, lastBlockProposer.Address)
+		assertError(t, ErrLastBlockProposerNotInCommitteeSet, err)
+
+	})
+
+	t.Run("cannot create empty set with members as nil", func(t *testing.T) {
+		_, err := NewSet(nil, common.Address{})
+		assertError(t, ErrEmptyCommitteeSet, err)
+	})
+
+	t.Run("cannot create empty set with members as types.Committee{}", func(t *testing.T) {
+		_, err := NewSet(types.Committee{}, common.Address{})
+		assertError(t, ErrEmptyCommitteeSet, err)
+	})
+}
+
+func TestSet_Size(t *testing.T) {
+	var committeeSetSizes = []int{1, 2, 10}
+	var assertSetSize = func(t *testing.T, n int) {
+		t.Helper()
+
+		committeeMembers := createTestCommitteeMembers(t, n)
+		set, err := NewSet(committeeMembers, committeeMembers[0].Address)
+
+		if err != nil {
+			t.Fatalf("unexpected error %v", err)
+		}
+
+		setSize := set.Size()
+		if setSize != n {
+			t.Fatalf("expected committee set size: %v and got: %v", n, setSize)
+		}
+	}
+
+	for _, size := range committeeSetSizes {
+		t.Run(fmt.Sprintf("committee size of %v member/s", size), func(t *testing.T) {
+			assertSetSize(t, size)
+		})
+	}
+
+}
+
+func assertError(t *testing.T, want, got error) {
+	t.Helper()
+	if want != got {
+		t.Fatalf("expected an err: %v and got: %v", want, got)
+	}
+}
+
+func createTestCommitteeMembers(t *testing.T, n int) types.Committee {
+	t.Helper()
+
+	var committee types.Committee
+	for i := 0; i < n; i++ {
+		key, err := crypto.GenerateKey()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+		member := types.CommitteeMember{
+			Address:     crypto.PubkeyToAddress(key.PublicKey),
+			VotingPower: new(big.Int).SetUint64(1),
+		}
+		committee = append(committee, member)
+	}
+
+	if n > 0 {
+		// swap 1st and last element if 1st element is less then last to ensure committee is not sorted
+		firstIndex, lastIndex := 0, len(committee)-1
+		comp := strings.Compare(committee[firstIndex].String(), committee[lastIndex].String())
+		if comp < 0 {
+			committee[firstIndex], committee[lastIndex] = committee[lastIndex], committee[firstIndex]
+		}
+	}
+
+	return committee
+}
+
 func TestValidatorSet(t *testing.T) {
 	testNewValidatorSet(t)
 	testNormalValSet(t)
 	testEmptyValSet(t)
-	testStickyProposer(t)
 }
 
 func testNewValidatorSet(t *testing.T) {
@@ -54,7 +178,7 @@ func testNewValidatorSet(t *testing.T) {
 	}
 
 	// Create Set
-	valSet, err := NewSet(validators, config.RoundRobin, validators[0].Address)
+	valSet, err := NewSet(validators, validators[0].Address)
 	if err != nil || valSet == nil {
 		t.Error("the validator byte array cannot be parsed")
 		t.FailNow()
@@ -98,7 +222,7 @@ func testNormalValSet(t *testing.T) {
 	val1 := types.CommitteeMember{Address: addr1, VotingPower: new(big.Int).SetUint64(1)}
 	val2 := types.CommitteeMember{Address: addr2, VotingPower: new(big.Int).SetUint64(1)}
 
-	committeeSet, err := NewSet(types.Committee{val1, val2}, config.RoundRobin, val1.Address)
+	committeeSet, err := NewSet(types.Committee{val1, val2}, val1.Address)
 	if committeeSet == nil || err != nil {
 		t.Errorf("the format of validator set is invalid")
 		t.FailNow()
@@ -125,62 +249,30 @@ func testNormalValSet(t *testing.T) {
 	if _, _, err := committeeSet.GetByAddress(invalidAddr); err != consensus.ErrCommitteeMemberNotFound {
 		t.Errorf("validator mismatch: have %s, want error", err)
 	}
-	// test get proposer
+	// test get proposers
 	if val := committeeSet.GetProposer(0); !reflect.DeepEqual(val, val2) {
-		t.Errorf("proposer mismatch: have %v, want %v", val, val1)
+		t.Errorf("proposers mismatch: have %v, want %v", val, val1)
 	}
-	// test calculate proposer
+	// test calculate proposers
 	lastProposer := addr1
-	committeeSet, _ = NewSet(types.Committee{val1, val2}, config.RoundRobin, lastProposer)
+	committeeSet, _ = NewSet(types.Committee{val1, val2}, lastProposer)
 	if val := committeeSet.GetProposer(0); !reflect.DeepEqual(val, val2) {
-		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
+		t.Errorf("proposers mismatch: have %v, want %v", val, val2)
 	}
 	if val := committeeSet.GetProposer(3); !reflect.DeepEqual(val, val1) {
-		t.Errorf("proposer mismatch: have %v, want %v", val, val1)
+		t.Errorf("proposers mismatch: have %v, want %v", val, val1)
 	}
-	// test empty last proposer
+	// test empty last proposers
 	lastProposer = common.Address{}
-	committeeSet, _ = NewSet(types.Committee{val1, val2}, config.RoundRobin, lastProposer)
+	committeeSet, _ = NewSet(types.Committee{val1, val2}, lastProposer)
 	if val := committeeSet.GetProposer(3); !reflect.DeepEqual(val, val2) {
-		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
+		t.Errorf("proposers mismatch: have %v, want %v", val, val2)
 	}
 }
 
 func testEmptyValSet(t *testing.T) {
-	valSet, err := NewSet(types.Committee{}, config.RoundRobin, common.Address{})
+	valSet, err := NewSet(types.Committee{}, common.Address{})
 	if valSet != nil || err != ErrEmptyCommitteeSet {
 		t.Errorf("validator set should be nil and error returned")
-	}
-}
-
-func testStickyProposer(t *testing.T) {
-	b1 := common.Hex2Bytes(testAddress)
-	b2 := common.Hex2Bytes(testAddress2)
-	addr1 := common.BytesToAddress(b1)
-	addr2 := common.BytesToAddress(b2)
-	val1 := types.CommitteeMember{Address: addr1, VotingPower: new(big.Int).SetUint64(1)}
-	val2 := types.CommitteeMember{Address: addr2, VotingPower: new(big.Int).SetUint64(1)}
-
-	set, err := NewSet(types.Committee{val1, val2}, config.Sticky, addr1)
-	if err != nil {
-		t.Error("error returned when creating committee set")
-	}
-	// test get proposer
-	if val := set.GetProposer(0); !reflect.DeepEqual(val, val1) {
-		t.Errorf("proposer mismatch: have %v, want %v", val, val1)
-	}
-	// test calculate proposer
-	if val := set.GetProposer(0); !reflect.DeepEqual(val, val1) {
-		t.Errorf("proposer mismatch: have %v, want %v", val, val1)
-	}
-
-	if val := set.GetProposer(1); !reflect.DeepEqual(val, val2) {
-		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
-	}
-
-	// test empty last proposer
-	set, _ = NewSet(types.Committee{val1, val2}, config.Sticky, common.Address{})
-	if val := set.GetProposer(1); !reflect.DeepEqual(val, val2) {
-		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
 	}
 }

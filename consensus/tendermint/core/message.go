@@ -90,7 +90,7 @@ var ErrUnauthorizedAddress = errors.New("unauthorized address")
 //
 // define the functions that needs to be provided for core.
 
-func (m *Message) FromPayload(b []byte, valSet committee.Set, validateFn func(committee.Set, []byte, []byte) (common.Address, error)) (*types.CommitteeMember, error) {
+func (m *Message) FromPayload(b []byte, valSet *committee.Set, validateFn func(*committee.Set, []byte, []byte) (common.Address, error)) (*types.CommitteeMember, error) {
 	// Decode message
 	err := rlp.DecodeBytes(b, m)
 	if err != nil {
