@@ -37,7 +37,7 @@ var (
 )
 
 func TestNewSet(t *testing.T) {
-	var committeeSetSizes = []int{1, 2, 10}
+	var committeeSetSizes = []int{1, 2, 10, 100}
 	var assertSet = func(t *testing.T, n int) {
 		t.Helper()
 
@@ -98,7 +98,7 @@ func TestNewSet(t *testing.T) {
 }
 
 func TestSet_Size(t *testing.T) {
-	var committeeSetSizes = []int{1, 2, 10}
+	var committeeSetSizes = []int{1, 2, 10, 100}
 	var assertSetSize = func(t *testing.T, n int) {
 		t.Helper()
 
