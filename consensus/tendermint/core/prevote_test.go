@@ -40,6 +40,7 @@ func TestSendPrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		committeSet := newTestCommitteeSet(4)
+		member := committeSet.Committee()[0]
 		logger := log.New("backend", "test", "id", 0)
 
 		proposal := NewProposal(
@@ -52,26 +53,7 @@ func TestSendPrevote(t *testing.T) {
 		curMessages := messages.getOrCreate(2)
 		curMessages.SetProposal(proposal, nil, true)
 
-		addr := common.HexToAddress("0x0123456789")
-
-		var preVote = Vote{
-			Round:             1,
-			Height:            big.NewInt(2),
-			ProposedBlockHash: curMessages.GetProposalHash(),
-		}
-
-		encodedVote, err := Encode(&preVote)
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
-
-		expectedMsg := &Message{
-			Code:          msgPrevote,
-			Msg:           encodedVote,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-		}
+		expectedMsg := createPrevote(t, curMessages.GetProposalHash(), 1, big.NewInt(2), member)
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil)
@@ -85,7 +67,7 @@ func TestSendPrevote(t *testing.T) {
 
 		c := &core{
 			backend:          backendMock,
-			address:          addr,
+			address:          member.Address,
 			logger:           logger,
 			height:           big.NewInt(2),
 			committeeSet:     committeSet,
@@ -102,30 +84,13 @@ func TestSendPrevote(t *testing.T) {
 func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote with future height given, error returned", func(t *testing.T) {
 		committeeSet := newTestCommitteeSet(4)
+		member := committeeSet.Committee()[0]
 		messages := newMessagesMap()
 		curRoundMessages := messages.getOrCreate(2)
-		addr := common.HexToAddress("0x0123456789")
 
-		var preVote = Vote{
-			Round:  2,
-			Height: big.NewInt(4),
-		}
-
-		encodedVote, err := Encode(&preVote)
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
-
-		expectedMsg := &Message{
-			Code:          msgPrevote,
-			Msg:           encodedVote,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-		}
-
+		expectedMsg := createPrevote(t, common.Hash{}, 2, big.NewInt(4), member)
 		c := &core{
-			address:          addr,
+			address:          member.Address,
 			round:            2,
 			height:           big.NewInt(3),
 			curRoundMessages: curRoundMessages,
@@ -134,7 +99,7 @@ func TestHandlePrevote(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 		}
 
-		err = c.handlePrevote(context.Background(), expectedMsg)
+		err := c.handlePrevote(context.Background(), expectedMsg)
 		if err != errFutureHeightMessage {
 			t.Fatalf("Expected %v, got %v", errFutureHeightMessage, err)
 		}
@@ -142,31 +107,14 @@ func TestHandlePrevote(t *testing.T) {
 
 	t.Run("pre-vote with old height given, pre-vote not added", func(t *testing.T) {
 		committeeSet := newTestCommitteeSet(4)
+		member := committeeSet.Committee()[0]
 		messages := newMessagesMap()
 		curRoundMessages := messages.getOrCreate(2)
-		addr := common.HexToAddress("0x0123456789")
 
-		var preVote = Vote{
-			Round:             1,
-			Height:            big.NewInt(1),
-			ProposedBlockHash: common.Hash{},
-		}
-
-		encodedVote, err := Encode(&preVote)
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
-
-		expectedMsg := &Message{
-			Code:          msgPrevote,
-			Msg:           encodedVote,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-		}
+		expectedMsg := createPrevote(t, common.Hash{}, 1, big.NewInt(1), member)
 
 		c := &core{
-			address:          addr,
+			address:          member.Address,
 			curRoundMessages: curRoundMessages,
 			messages:         messages,
 			logger:           log.New("backend", "test", "id", 0),
@@ -175,7 +123,7 @@ func TestHandlePrevote(t *testing.T) {
 			height:           big.NewInt(3),
 		}
 
-		err = c.handlePrevote(context.Background(), expectedMsg)
+		err := c.handlePrevote(context.Background(), expectedMsg)
 		if err != errOldHeightMessage {
 			t.Fatalf("Expected %v, got %v", errOldHeightMessage, err)
 		}
@@ -190,6 +138,7 @@ func TestHandlePrevote(t *testing.T) {
 		defer ctrl.Finish()
 		messages := newMessagesMap()
 		committeeSet := newTestCommitteeSet(4)
+		member := committeeSet.Committee()[0]
 		curRoundMessages := messages.getOrCreate(2)
 		logger := log.New("backend", "test", "id", 0)
 
@@ -200,29 +149,11 @@ func TestHandlePrevote(t *testing.T) {
 			types.NewBlockWithHeader(&types.Header{}))
 
 		curRoundMessages.SetProposal(proposal, nil, true)
-		addr := common.HexToAddress("0x0123456789")
+		expectedMsg := createPrevote(t, curRoundMessages.GetProposalHash(), 1, big.NewInt(2), member)
 
-		var preVote = Vote{
-			Round:             1,
-			Height:            big.NewInt(2),
-			ProposedBlockHash: curRoundMessages.GetProposalHash(),
-		}
-
-		encodedVote, err := Encode(&preVote)
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
-
-		expectedMsg := &Message{
-			Code:          msgPrevote,
-			Msg:           encodedVote,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-		}
 		backendMock := NewMockBackend(ctrl)
 		c := &core{
-			address:          addr,
+			address:          member.Address,
 			messages:         messages,
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
@@ -234,7 +165,7 @@ func TestHandlePrevote(t *testing.T) {
 			step:             prevote,
 		}
 
-		err = c.handlePrevote(context.Background(), expectedMsg)
+		err := c.handlePrevote(context.Background(), expectedMsg)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
@@ -249,7 +180,7 @@ func TestHandlePrevote(t *testing.T) {
 		defer ctrl.Finish()
 		committeeSet := newTestCommitteeSet(1)
 		logger := log.New("backend", "test", "id", 0)
-
+		member := committeeSet.Committee()[0]
 		proposal := NewProposal(
 			2,
 			big.NewInt(3),
@@ -260,27 +191,7 @@ func TestHandlePrevote(t *testing.T) {
 		curRoundMessage := message.getOrCreate(2)
 		curRoundMessage.SetProposal(proposal, nil, true)
 
-		addr := common.HexToAddress("0x0123456789")
-
-		var preVote = Vote{
-			Round:             2,
-			Height:            big.NewInt(3),
-			ProposedBlockHash: curRoundMessage.GetProposalHash(),
-		}
-
-		encodedVote, err := Encode(&preVote)
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
-
-		expectedMsg := &Message{
-			Code:          msgPrevote,
-			Msg:           encodedVote,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-		}
-
+		expectedMsg := createPrevote(t, curRoundMessage.GetProposalHash(), 2, big.NewInt(3), member)
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil).AnyTimes()
 
@@ -290,7 +201,7 @@ func TestHandlePrevote(t *testing.T) {
 			ProposedBlockHash: curRoundMessage.GetProposalHash(),
 		}
 
-		encodedVote, err = Encode(&precommit)
+		encodedVote, err := Encode(&precommit)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
@@ -298,11 +209,11 @@ func TestHandlePrevote(t *testing.T) {
 		msg := &Message{
 			Code:          msgPrecommit,
 			Msg:           encodedVote,
-			Address:       addr,
+			Address:       member.Address,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
+			power:         1,
 		}
-
 		payload, err := msg.Payload()
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
@@ -311,7 +222,7 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock.EXPECT().Broadcast(context.Background(), gomock.Any(), payload)
 
 		c := &core{
-			address:          addr,
+			address:          member.Address,
 			backend:          backendMock,
 			curRoundMessages: curRoundMessage,
 			logger:           logger,
@@ -341,29 +252,12 @@ func TestHandlePrevote(t *testing.T) {
 		defer ctrl.Finish()
 		committeSet := newTestCommitteeSet(1)
 		messages := newMessagesMap()
+		member := committeSet.Committee()[0]
 		curRoundMessage := messages.getOrCreate(2)
 
 		addr := common.HexToAddress("0x0123456789")
 
-		var preVote = Vote{
-			Round:             2,
-			Height:            big.NewInt(3),
-			ProposedBlockHash: common.Hash{},
-		}
-
-		encodedVote, err := Encode(&preVote)
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
-
-		expectedMsg := &Message{
-			Code:          msgPrevote,
-			Msg:           encodedVote,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-		}
-
+		expectedMsg := createPrevote(t, common.Hash{}, 2, big.NewInt(3), member)
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil).AnyTimes()
 
@@ -373,7 +267,7 @@ func TestHandlePrevote(t *testing.T) {
 			ProposedBlockHash: common.Hash{},
 		}
 
-		encodedVote, err = Encode(&precommit)
+		encodedVote, err := Encode(&precommit)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
@@ -384,6 +278,7 @@ func TestHandlePrevote(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
+			power:         1,
 		}
 
 		payload, err := msg.Payload()
@@ -469,4 +364,28 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 	})
+}
+
+func createPrevote(t *testing.T, proposalHash common.Hash, round int64, height *big.Int, member types.CommitteeMember) *Message {
+	var preVote = Vote{
+		Round:             round,
+		Height:            height,
+		ProposedBlockHash: proposalHash,
+	}
+
+	encodedVote, err := Encode(&preVote)
+	if err != nil {
+		t.Fatalf("Expected nil, got %v", err)
+		return nil
+	}
+
+	expectedMsg := &Message{
+		Code:          msgPrevote,
+		Msg:           encodedVote,
+		Address:       member.Address,
+		CommittedSeal: []byte{},
+		Signature:     []byte{0x1},
+		power:         member.VotingPower.Uint64(),
+	}
+	return expectedMsg
 }
