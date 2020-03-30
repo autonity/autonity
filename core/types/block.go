@@ -130,13 +130,6 @@ type headerExtra struct {
 	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
 }
 
-func (hExtra headerExtra) withExtraData() bool {
-	return len(hExtra.CommittedSeals) != 0 ||
-		len(hExtra.Committee) != 0 ||
-		len(hExtra.PastCommittedSeals) != 0 ||
-		len(hExtra.ProposerSeal) != 0
-}
-
 // field type overrides for gencodec
 type headerMarshaling struct {
 	Difficulty *hexutil.Big
@@ -203,15 +196,13 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	}
 
 	hExtra := &headerExtra{}
-	if len(origin.Extra) > 0 {
+	if origin.MixDigest == BFTDigest {
 		if err := rlp.DecodeBytes(origin.Extra, hExtra); err == nil {
-			if hExtra.withExtraData() {
-				h.CommittedSeals = hExtra.CommittedSeals
-				h.Committee = hExtra.Committee
-				h.PastCommittedSeals = hExtra.PastCommittedSeals
-				h.ProposerSeal = hExtra.ProposerSeal
-				h.Round = hExtra.Round
-			}
+			h.CommittedSeals = hExtra.CommittedSeals
+			h.Committee = hExtra.Committee
+			h.PastCommittedSeals = hExtra.PastCommittedSeals
+			h.ProposerSeal = hExtra.ProposerSeal
+			h.Round = hExtra.Round
 		}
 	}
 
@@ -245,7 +236,7 @@ func (h *Header) EncodeRLP(w io.Writer) error {
 	}
 
 	original := h.original()
-	if hExtra.withExtraData() {
+	if h.MixDigest == BFTDigest {
 		extra, err := rlp.EncodeToBytes(hExtra)
 		if err != nil {
 			return err
