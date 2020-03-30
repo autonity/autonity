@@ -103,9 +103,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	receipts = append(receipts, receipt)
-	allLogs = append(allLogs, receipt.Logs...)
-
+	if receipt != nil {
+		receipts = append(receipts, receipt)
+		allLogs = append(allLogs, receipt.Logs...)
+	}
 	return receipts, allLogs, *usedGas, nil
 }
 
