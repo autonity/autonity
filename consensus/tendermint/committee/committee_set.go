@@ -33,6 +33,7 @@ var ErrLastBlockProposerNotInCommitteeSet = errors.New("lastBlockProposer is not
 type Set struct {
 	members           types.Committee
 	lastBlockProposer common.Address
+	roundRobinOffset  int64
 	proposers         map[int64]types.CommitteeMember // cached computed values
 
 	mu sync.RWMutex // members doesn't need to be protected as it is read-only
@@ -59,7 +60,13 @@ func NewSet(members types.Committee, lastBlockProposer common.Address) (*Set, er
 
 	// sort validator
 	sort.Sort(committee.members)
-	committee.proposers[0] = committee.members[nextProposerIndex(getMemberIndex(committee.members, lastBlockProposer), len(committee.members))]
+
+	// calculate offset for round robin selection of next proposer
+	committee.roundRobinOffset = getMemberIndex(committee.members, lastBlockProposer)
+	if len(members) > 1 {
+		committee.roundRobinOffset += 1
+	}
+	committee.proposers[0] = committee.getNextProposer(0)
 
 	return committee, nil
 }
@@ -77,6 +84,8 @@ func (set *Set) Committee() types.Committee {
 }
 
 func (set *Set) GetByIndex(i int) (types.CommitteeMember, error) {
+	set.mu.RLock()
+	defer set.mu.RUnlock()
 	if i < 0 || i >= len(set.members) {
 		return types.CommitteeMember{}, consensus.ErrCommitteeMemberNotFound
 	}
@@ -84,6 +93,8 @@ func (set *Set) GetByIndex(i int) (types.CommitteeMember, error) {
 }
 
 func (set *Set) GetByAddress(addr common.Address) (int, types.CommitteeMember, error) {
+	set.mu.RLock()
+	defer set.mu.RUnlock()
 	for i, member := range set.members {
 		if addr == member.Address {
 			return i, member, nil
@@ -95,14 +106,14 @@ func (set *Set) GetByAddress(addr common.Address) (int, types.CommitteeMember, e
 func (set *Set) GetProposer(round int64) types.CommitteeMember {
 	set.mu.Lock()
 	defer set.mu.Unlock()
-	return types.CommitteeMember{}
-	//v, ok := set.proposers[round]
-	//if !ok {
-	//	v = set.selector(set, set.lastBlockProposer, round)
-	//	set.proposers[round] = v
-	//}
-	//
-	//return v
+
+	v, ok := set.proposers[round]
+	if !ok {
+		v = set.getNextProposer(round)
+		set.proposers[round] = v
+	}
+
+	return v
 }
 
 func (set *Set) IsProposer(round int64, address common.Address) bool {
@@ -123,19 +134,23 @@ func (set *Set) F() int { return int(math.Ceil(float64(set.Size())/3)) - 1 }
 
 func (set *Set) Quorum() int { return int(math.Ceil((2 * float64(set.Size())) / 3.)) }
 
-func getMemberIndex(members types.Committee, memberAddr common.Address) int {
+func (set *Set) getNextProposer(round int64) types.CommitteeMember {
+	return set.members[nextProposerIndex(set.roundRobinOffset, round, int64(len(set.members)))]
+}
+
+func nextProposerIndex(offset, round, committeeSize int64) int64 {
+	// Round-Robin
+	return (offset + round) % committeeSize
+}
+
+func getMemberIndex(members types.Committee, memberAddr common.Address) int64 {
 	var index = -1
 	for i, member := range members {
 		if memberAddr == member.Address {
 			index = i
 		}
 	}
-	return index
-}
-
-func nextProposerIndex(prevProposerIndex, committeeSize int) int {
-	// Round-Robin
-	return (prevProposerIndex + 1) % committeeSize
+	return int64(index)
 }
 
 func copyMembers(members types.Committee) types.Committee {
