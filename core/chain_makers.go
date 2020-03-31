@@ -262,7 +262,7 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 		Number:    new(big.Int).Add(parent.Number(), common.Big1),
 		Time:      time,
 		Round:     0,
-		MixDigest: types.BFTDigest,
+		MixDigest: common.HexToHash("0x1234"),
 	}
 }
 
