@@ -29,8 +29,6 @@ contract Autonity {
         UserType userType;
         uint256 stake;
         string enode;
-        // uint256 selfStake;
-        // uint256 delegatedStake;
         uint256 commissionRate; // rate must be by default 0 and must remain unchanged if not updated.
     }
 
@@ -38,6 +36,8 @@ contract Autonity {
     address[] private usersList;
     string[] public enodesWhitelist;
     mapping (address => User) private users;
+    mapping (address => mapping (address => uint256)) public delegatedStake;
+    mapping (address => mapping (bool => address[])) public delegatedList;
     address public deployer;
     address public operatorAccount;
     uint256 minGasPrice = 0;
@@ -186,6 +186,130 @@ contract Autonity {
     }
 
     /*
+    * selfStake
+    * returns the user's selfStake, its stake minus that stake delegated to it
+    */
+    function selfStake(address _user) public returns(uint256) {
+      address[] memory delegatedToUser = delegatedList[_user][false];
+      uint256 totalDelegatedStake = 0;
+      for (uint256 i = 0; i < delegatedToUser.length; i++) {
+        totalDelegatedStake = totalDelegatedStake + delegatedStake[delegatedToUser[i]][_user];
+      }
+      return totalDelegatedStake;
+    }
+
+    /*
+    * delegateStake
+    * delegates stake. function MUST be restricted to the Authority Account.
+    */
+    function delegateStake(address _delegating, address _delegated, uint256 _amount) public onlyOperator(msg.sender) {
+      User memory delegating = users[_delegating];
+      User memory delegated = users[_delegated];
+      require(delegating.userType == UserType.Stakeholder || delegating.userType == UserType.Validator,
+              "delegating party must be a stakeholder or a validator");
+      require(delegated.userType == UserType.Validator, "delegated party must be a validator");
+      require(_amount > 0, "must delegate a positive amount");
+      require(selfStake(_delegating) >= _amount, "insufficient stake to delegate");
+      users[_delegating].stake = delegating.stake.sub(_amount);
+      users[_delegated].stake = delegated.stake.add(_amount);
+
+      // Record the delegation
+      delegatedStake[_delegating][_delegated] = delegatedStake[_delegating][_delegated] + _amount;
+      if (!_isInArray(_delegated,delegatedList[_delegating][true])) {
+        delegatedList[_delegating][true].push(_delegated);
+      }
+      if (!_isInArray(_delegating,delegatedList[_delegated][false])) {
+        delegatedList[_delegated][false].push(_delegating);
+      }
+    }
+
+
+    /*
+    * reclaimStake
+    * reclaims stake. function MUST be restricted to the Authority Account.
+    */
+    function reclaimStake(address _reclaiming, address _reclaimed) public onlyOperator(msg.sender) {
+      User memory reclaiming = users[_reclaiming];
+      User memory reclaimed = users[_reclaimed];
+      require(reclaiming.userType == UserType.Stakeholder || reclaiming.userType == UserType.Validator,
+              "reclaiming party must be a stakeholder or a validator");
+      require(reclaimed.userType == UserType.Validator, "reclaimed party must be a validator");
+      uint256 stakeToReclaim = delegatedStake[_reclaiming][_reclaimed];
+      // MYTODO: check that this works
+      require(stakeToReclaim > 0, "no stake to reclaim.");
+
+      // reclaim the stake
+      delete delegatedStake[_reclaiming][_reclaimed];
+
+      if (delegatedList[_reclaiming][true].length <= 1) {
+        delete delegatedList[_reclaiming][true];
+      } else {
+        _removeFromArray(_reclaimed, delegatedList[_reclaiming][true]);
+      }
+
+      if (delegatedList[_reclaimed][false].length <= 1) {
+        delete delegatedList[_reclaimed][false];
+      } else {
+        _removeFromArray(_reclaiming, delegatedList[_reclaimed][false]);
+      }
+
+      users[_reclaimed].stake = reclaimed.stake.sub(stakeToReclaim);
+      users[_reclaiming].stake = reclaiming.stake.add(stakeToReclaim);
+    }
+
+
+    /*
+    * bond
+    * bonds a participant. function MUST be restricted to the Authority Account.
+    */
+    function bond(address payable _participant, UserType newUserType, uint256 requestedStake, address[] memory delegatingTo, uint256[] memory delegatingAmount) public onlyOperator(msg.sender) {
+      User memory participant = users[_participant];
+      require(participant.userType == UserType.Participant, "only participants can bond");
+
+      // Check that all the delegating stake adds up
+      require(delegatingTo.length == delegatingAmount.length, "check the delegatingTo and delegatedFrom arrays");
+      uint256 totalDelegatingStake = 0;
+      for(uint256 i = 0; i < delegatingAmount.length ; i++) {
+        totalDelegatingStake = totalDelegatingStake + delegatingAmount[i];
+      }
+      require(totalDelegatingStake <= requestedStake, "insufficient stake to delegate");
+
+      changeUserType(_participant, newUserType);
+      mintStake(_participant, requestedStake);
+
+      for(uint256 i = 0; i < delegatingTo.length; i++) {
+        delegateStake(_participant, delegatingTo[i], delegatingAmount[i]);
+      }
+    }
+
+
+    /*
+    * unbond
+    * unbonds a validator or stakeholder. function MUST be restricted to the Authority Account.
+    */
+    function unbond(address _user) public onlyOperator(msg.sender) {
+      User memory u = users[_user];
+      require(u.userType == UserType.Validator || u.userType == UserType.Stakeholder,
+             "must unbond a validator or stakeholder");
+      // Reclaim all the stake for each of the users they've delegated to
+      address[] memory delegatedUsers = delegatedList[_user][true];
+      for (uint256 i = 0; i < delegatedUsers.length; i++) {
+          reclaimStake(_user,delegatedUsers[i]);
+      }
+
+      // Return the stake to anyone who has delegated to it
+      address[] memory delegatingUsers = delegatedList[_user][false];
+      for (uint256 i = 0; i < delegatingUsers.length; i++) {
+          reclaimStake(delegatingUsers[i],_user);
+      }
+
+      redeemStake(_user, u.stake);
+      changeUserType(_user, UserType.Participant);
+      // Transfers funds back to the participant
+    }
+
+
+    /*
     * setMinimumGasPrice
     * FM-REQ-4: The Autonity Contract implements the setMinimumGasPrice function that is restricted to the Governance Operator account.
     * The function takes as an argument a positive integer and modify the value of minimumGasPrice
@@ -221,6 +345,7 @@ contract Autonity {
     * The redeemStake(amount, recipient) function MUST be restricted to the Authority Account.
     */
     function redeemStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
+        require(selfStake(_account) <= _amount, "Redeem stake amount exceeds balance");
         users[_account].stake = users[_account].stake.sub(_amount, "Redeem stake amount exceeds balance");
         stakeSupply = stakeSupply.sub(_amount);
         emit RedeemStake(_account, _amount);
@@ -614,6 +739,16 @@ contract Autonity {
                 break;
             }
         }
+    }
+
+    function _isInArray(address _address, address[] storage _array) internal returns(bool) {
+        for (uint256 i = 0; i < _array.length; i++) {
+          if (_array[i] == _address) {
+            return true;
+            break;
+          }
+        }
+        return false;
     }
 
     // @notice Will receive any eth sent to the contract
