@@ -70,8 +70,6 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
 
-	config.SetProposerPolicy(tendermintConfig.ProposerPolicy(chainConfig.Tendermint.ProposerPolicy))
-
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)

@@ -579,7 +579,7 @@ func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (*
 			return nil, err
 		}
 	}
-	return committee.NewSet(parentHeader.Committee, sb.config.GetProposerPolicy(), lastProposer)
+	return committee.NewSet(parentHeader.Committee, lastProposer)
 }
 
 // retrieve list of committee for the block header passed as parameter
@@ -596,7 +596,7 @@ func (sb *Backend) committee(header *types.Header, parents []*types.Header, chai
 		if err != nil {
 			return nil, err
 		}
-		return committee.NewSet(header.Committee, sb.config.GetProposerPolicy(), lastMiner)
+		return committee.NewSet(header.Committee, lastMiner)
 	} else {
 		return sb.savedCommittee(header.Number.Uint64(), chain)
 	}
