@@ -246,6 +246,53 @@ func TestSet_GetProposer(t *testing.T) {
 	}
 }
 
+func TestSet_IsProposer(t *testing.T) {
+	rounds := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8}
+	committeeMembers := createTestCommitteeMembers(t, 4)
+	sort.Sort(committeeMembers)
+	lastBlockProposerIndex := 2
+	lastBlockProposer := committeeMembers[lastBlockProposerIndex].Address
+	roundRobinOffset := int64(lastBlockProposerIndex + 1)
+
+	set, err := NewSet(copyMembers(committeeMembers), lastBlockProposer)
+	assertNilError(t, err)
+
+	for _, r := range rounds {
+		t.Run(fmt.Sprintf("correct proposer for round %v", r), func(t *testing.T) {
+			testAddr := committeeMembers[(roundRobinOffset+r)%4].Address
+			isProposer := set.IsProposer(r, testAddr)
+			if !isProposer {
+				t.Fatalf("expected IsProposer(0, %v) to return true", testAddr)
+			}
+		})
+	}
+	t.Run("false if addres is in committe set but is not the proposer for round", func(t *testing.T) {
+		// committeeMembers[0].Address cannot be the proposer of round 0
+		isProposer := set.IsProposer(0, lastBlockProposer)
+		if isProposer {
+			t.Fatalf("did not expect IsProposer(0, %v) to return true", lastBlockProposer)
+		}
+	})
+	t.Run("false if address is not in committe set", func(t *testing.T) {
+		testAddr := common.HexToAddress("testaddress")
+		isProposer := set.IsProposer(0, common.HexToAddress("testaddress"))
+		if isProposer {
+			t.Fatalf("did not expect IsProposer(0, %v) to return true", testAddr)
+		}
+	})
+}
+
+func TestSet_Copy(t *testing.T) {
+	committeeMembers := createTestCommitteeMembers(t, 4)
+	set, err := NewSet(copyMembers(committeeMembers), committeeMembers[0].Address)
+	assertNilError(t, err)
+
+	copiedSet := set.Copy()
+	if !reflect.DeepEqual(set, copiedSet) {
+		t.Fatalf("failed to correctly copy set, expected: %v and got: %v", set, copiedSet)
+	}
+}
+
 func assertNilError(t *testing.T, got error) {
 	t.Helper()
 	if got != nil {
