@@ -195,6 +195,7 @@ func (sb *Backend) AskSync(valSet committee.Set) {
 			_, member, err := valSet.GetByAddress(addr)
 			if err != nil {
 				sb.logger.Error("could not retrieve member from address")
+				continue
 			}
 			count += member.VotingPower.Uint64()
 		}

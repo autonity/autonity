@@ -339,21 +339,21 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 // FinalizeAndAssemble call Finaize to compute post transacation state modifications
 // and assembles the final block.
 func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 
 	statedb.Prepare(common.ACHash(header.Number), common.Hash{}, len(txs))
-	committeeSet, receipt, err := sb.Finalize(chain, header, statedb, txs, uncles, receipts)
+	committeeSet, receipt, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
 	if err != nil {
 		return nil, err
 	}
-	receipts = append(receipts, receipt)
+	*receipts = append(*receipts, receipt)
 	// No block rewards in BFT, so the state remains as is and uncles are dropped
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 
 	// add committee to extraData's committee section
 	header.Committee = committeeSet
-	return types.NewBlock(header, txs, nil, receipts), nil
+	return types.NewBlock(header, txs, nil, *receipts), nil
 }
 
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the

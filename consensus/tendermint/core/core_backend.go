@@ -45,7 +45,7 @@ func (c *core) Finalize(chain consensus.ChainReader, header *types.Header, state
 }
 
 func (c *core) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 	return c.backend.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
 }
 

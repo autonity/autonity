@@ -146,7 +146,7 @@ func (mr *MockBackendMockRecorder) Finalize(chain, header, state, txs, uncles, r
 }
 
 // FinalizeAndAssemble mocks base method
-func (m *MockBackend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (m *MockBackend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Block)
