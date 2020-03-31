@@ -31,11 +31,6 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 )
 
-var (
-	testAddress  = "70524d664ffe731100208a0154e556f9bb679ae6"
-	testAddress2 = "b37866a925bccd69cfa98d43b510f1d23d78a851"
-)
-
 func TestNewSet(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSet = func(t *testing.T, n int64) {
@@ -209,16 +204,8 @@ func TestSet_GetProposer(t *testing.T) {
 		size  int64
 		round int64
 	}{
-		{size: 3, round: 0},
-		{size: 3, round: 1},
-		{size: 3, round: 2},
-		{size: 3, round: 3},
-		{size: 3, round: 10},
-		{size: 10, round: 0},
-		{size: 10, round: 1},
-		{size: 10, round: 2},
-		{size: 10, round: 8},
-		{size: 10, round: 7},
+		{size: 3, round: 0}, {size: 3, round: 1}, {size: 3, round: 2}, {size: 3, round: 3}, {size: 3, round: 10},
+		{size: 10, round: 0}, {size: 10, round: 1}, {size: 10, round: 2}, {size: 10, round: 8}, {size: 10, round: 7},
 		{size: 10, round: 10},
 	}
 
@@ -293,6 +280,55 @@ func TestSet_Copy(t *testing.T) {
 	}
 }
 
+func TestSet_QandF(t *testing.T) {
+	testCases := []struct {
+		N int
+		Q int
+		F int
+	}{
+		{N: 1, Q: 1, F: 0}, {N: 2, Q: 2, F: 0}, {N: 3, Q: 2, F: 0}, {N: 4, Q: 3, F: 1}, {N: 5, Q: 4, F: 1},
+		{N: 6, Q: 4, F: 1}, {N: 7, Q: 5, F: 2}, {N: 8, Q: 6, F: 2}, {N: 9, Q: 6, F: 2}, {N: 10, Q: 7, F: 3},
+		{N: 11, Q: 8, F: 3}, {N: 12, Q: 8, F: 3}, {N: 13, Q: 9, F: 4}, {N: 14, Q: 10, F: 4}, {N: 15, Q: 10, F: 4},
+		{N: 16, Q: 11, F: 5}, {N: 17, Q: 12, F: 5}, {N: 18, Q: 12, F: 5}, {N: 19, Q: 13, F: 6}, {N: 20, Q: 14, F: 6},
+		{N: 21, Q: 14, F: 6}, {N: 22, Q: 15, F: 7}, {N: 23, Q: 16, F: 7}, {N: 24, Q: 16, F: 7}, {N: 25, Q: 17, F: 8},
+		{N: 26, Q: 18, F: 8}, {N: 27, Q: 18, F: 8}, {N: 28, Q: 19, F: 9}, {N: 29, Q: 20, F: 9}, {N: 30, Q: 20, F: 9},
+		{N: 31, Q: 21, F: 10}, {N: 32, Q: 22, F: 10}, {N: 33, Q: 22, F: 10}, {N: 34, Q: 23, F: 11}, {N: 35, Q: 24, F: 11},
+		{N: 36, Q: 24, F: 11}, {N: 37, Q: 25, F: 12}, {N: 38, Q: 26, F: 12}, {N: 39, Q: 26, F: 12}, {N: 40, Q: 27, F: 13},
+		{N: 41, Q: 28, F: 13}, {N: 42, Q: 28, F: 13}, {N: 43, Q: 29, F: 14}, {N: 44, Q: 30, F: 14}, {N: 45, Q: 30, F: 14},
+		{N: 46, Q: 31, F: 15}, {N: 47, Q: 32, F: 15}, {N: 48, Q: 32, F: 15}, {N: 49, Q: 33, F: 16}, {N: 50, Q: 34, F: 16},
+		{N: 51, Q: 34, F: 16}, {N: 52, Q: 35, F: 17}, {N: 53, Q: 36, F: 17}, {N: 54, Q: 36, F: 17}, {N: 55, Q: 37, F: 18},
+		{N: 56, Q: 38, F: 18}, {N: 57, Q: 38, F: 18}, {N: 58, Q: 39, F: 19}, {N: 59, Q: 40, F: 19}, {N: 60, Q: 40, F: 19},
+		{N: 61, Q: 41, F: 20}, {N: 62, Q: 42, F: 20}, {N: 63, Q: 42, F: 20}, {N: 64, Q: 43, F: 21}, {N: 65, Q: 44, F: 21},
+		{N: 66, Q: 44, F: 21}, {N: 67, Q: 45, F: 22}, {N: 68, Q: 46, F: 22}, {N: 69, Q: 46, F: 22}, {N: 70, Q: 47, F: 23},
+		{N: 71, Q: 48, F: 23}, {N: 72, Q: 48, F: 23}, {N: 73, Q: 49, F: 24}, {N: 74, Q: 50, F: 24}, {N: 75, Q: 50, F: 24},
+		{N: 76, Q: 51, F: 25}, {N: 77, Q: 52, F: 25}, {N: 78, Q: 52, F: 25}, {N: 79, Q: 53, F: 26}, {N: 80, Q: 54, F: 26},
+		{N: 81, Q: 54, F: 26}, {N: 82, Q: 55, F: 27}, {N: 83, Q: 56, F: 27}, {N: 84, Q: 56, F: 27}, {N: 85, Q: 57, F: 28},
+		{N: 86, Q: 58, F: 28}, {N: 87, Q: 58, F: 28}, {N: 88, Q: 59, F: 29}, {N: 89, Q: 60, F: 29}, {N: 90, Q: 60, F: 29},
+		{N: 91, Q: 61, F: 30}, {N: 92, Q: 62, F: 30}, {N: 93, Q: 62, F: 30}, {N: 94, Q: 63, F: 31}, {N: 95, Q: 64, F: 31},
+		{N: 96, Q: 64, F: 31}, {N: 97, Q: 65, F: 32}, {N: 98, Q: 66, F: 32}, {N: 99, Q: 66, F: 32}, {N: 100, Q: 67, F: 33},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(fmt.Sprintf("N: %v, Q: %v, F: %v", testCase.N, testCase.Q, testCase.F), func(t *testing.T) {
+			committeeMembers := createTestCommitteeMembers(t, int64(testCase.N))
+			set, err := NewSet(committeeMembers, committeeMembers[0].Address)
+			assertNilError(t, err)
+
+			gotF := set.F()
+			gotQ := set.Quorum()
+
+			if testCase.F != gotF {
+				t.Errorf("expected F: %v and got: %v", testCase.F, gotF)
+			}
+
+			if testCase.Q != gotQ {
+				t.Errorf("expected Q: %v and got: %v", testCase.Q, gotQ)
+			}
+		})
+	}
+
+}
+
 func assertNilError(t *testing.T, got error) {
 	t.Helper()
 	if got != nil {
@@ -333,122 +369,4 @@ func createTestCommitteeMembers(t *testing.T, n int64) types.Committee {
 	}
 
 	return committee
-}
-
-func TestValidatorSet(t *testing.T) {
-	//testNewValidatorSet(t)
-	//testNormalValSet(t)
-	//testEmptyValSet(t)
-}
-
-func testNewValidatorSet(t *testing.T) {
-	var validators types.Committee
-	const ValCnt = 100
-
-	// Create 100 members with random addresses
-	for i := 0; i < ValCnt; i++ {
-		key, _ := crypto.GenerateKey()
-		addr := crypto.PubkeyToAddress(key.PublicKey)
-		val := types.CommitteeMember{Address: addr, VotingPower: new(big.Int).SetUint64(1)}
-		validators = append(validators, val)
-	}
-
-	// Create Set
-	valSet, err := NewSet(validators, validators[0].Address)
-	if err != nil || valSet == nil {
-		t.Error("the validator byte array cannot be parsed")
-		t.FailNow()
-	}
-
-	if valSet.Size() != ValCnt {
-		t.Errorf("validator set has %d elements instead of %d", valSet.Size(), ValCnt)
-	}
-
-	valsMap := make(map[string]struct{})
-	for _, val := range validators {
-		valsMap[val.String()] = struct{}{}
-	}
-
-	// Check members sorting: should be in ascending order
-	for i := 0; i < ValCnt-1; i++ {
-		val, err := valSet.GetByIndex(i)
-		if err != nil {
-			t.Error("unexpected error")
-		}
-		nextVal, err := valSet.GetByIndex(i + 1)
-		if err != nil {
-			t.Error("unexpected error")
-		}
-		if strings.Compare(val.String(), nextVal.String()) >= 0 {
-			t.Error("validator set is not sorted in ascending order")
-		}
-
-		if _, ok := valsMap[val.String()]; !ok {
-			t.Errorf("validator set has unexpected element %s. Original members %v, given %v",
-				val.String(), validators, valSet.Committee())
-		}
-	}
-}
-
-func testNormalValSet(t *testing.T) {
-	b1 := common.Hex2Bytes(testAddress)
-	b2 := common.Hex2Bytes(testAddress2)
-	addr1 := common.BytesToAddress(b1)
-	addr2 := common.BytesToAddress(b2)
-	val1 := types.CommitteeMember{Address: addr1, VotingPower: new(big.Int).SetUint64(1)}
-	val2 := types.CommitteeMember{Address: addr2, VotingPower: new(big.Int).SetUint64(1)}
-
-	committeeSet, err := NewSet(types.Committee{val1, val2}, val1.Address)
-	if committeeSet == nil || err != nil {
-		t.Errorf("the format of validator set is invalid")
-		t.FailNow()
-	}
-
-	// check size
-	if size := committeeSet.Size(); size != 2 {
-		t.Errorf("the size of validator set is wrong: have %v, want 2", size)
-	}
-	// test get by index
-	if val, err := committeeSet.GetByIndex(0); err != nil || !reflect.DeepEqual(val, val1) {
-		t.Errorf("validator mismatch: have %v, want %v", val, val1)
-	}
-	// test get by invalid index
-	if _, err := committeeSet.GetByIndex(2); err != consensus.ErrCommitteeMemberNotFound {
-		t.Errorf("validator mismatch: have %s, want nil", err)
-	}
-	// test get by address
-	if _, val, err := committeeSet.GetByAddress(addr2); err != nil || !reflect.DeepEqual(val, val2) {
-		t.Errorf("validator mismatch: have %v, want %v", val, val2)
-	}
-	// test get by invalid address
-	invalidAddr := common.HexToAddress("0x9535b2e7faaba5288511d89341d94a38063a349b")
-	if _, _, err := committeeSet.GetByAddress(invalidAddr); err != consensus.ErrCommitteeMemberNotFound {
-		t.Errorf("validator mismatch: have %s, want error", err)
-	}
-	// test get proposers
-	if val := committeeSet.GetProposer(0); !reflect.DeepEqual(val, val2) {
-		t.Errorf("proposers mismatch: have %v, want %v", val, val1)
-	}
-	// test calculate proposers
-	lastProposer := addr1
-	committeeSet, _ = NewSet(types.Committee{val1, val2}, lastProposer)
-	if val := committeeSet.GetProposer(0); !reflect.DeepEqual(val, val2) {
-		t.Errorf("proposers mismatch: have %v, want %v", val, val2)
-	}
-	if val := committeeSet.GetProposer(3); !reflect.DeepEqual(val, val1) {
-		t.Errorf("proposers mismatch: have %v, want %v", val, val1)
-	}
-	// test empty last proposers
-	lastProposer = common.Address{}
-	committeeSet, _ = NewSet(types.Committee{val1, val2}, lastProposer)
-	if val := committeeSet.GetProposer(3); !reflect.DeepEqual(val, val2) {
-		t.Errorf("proposers mismatch: have %v, want %v", val, val2)
-	}
-}
-
-func testEmptyValSet(t *testing.T) {
-	valSet, err := NewSet(types.Committee{}, common.Address{})
-	if valSet != nil || err != ErrEmptyCommitteeSet {
-		t.Errorf("validator set should be nil and error returned")
-	}
 }

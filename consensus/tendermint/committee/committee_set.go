@@ -130,7 +130,7 @@ func (set *Set) Copy() *Set {
 	return newSet
 }
 
-func (set *Set) F() int { return int(math.Ceil(float64(set.Size())/3)) - 1 }
+func (set *Set) F() int { return int(math.Ceil(float64(set.Size())/3.)) - 1 }
 
 func (set *Set) Quorum() int { return int(math.Ceil((2 * float64(set.Size())) / 3.)) }
 
