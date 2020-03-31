@@ -76,6 +76,10 @@ contract Autonity {
     event SetCommissionRate(address _address, uint256 _value);
     event MintStake(address _address, uint256 _amount);
     event RedeemStake(address _address, uint256 _amount);
+    event Bond(address _address, uint256 _stake);
+    event Unbond(address _address);
+    event StakeDelegated(address _delegating, address _delegated, uint256 _amount);
+    event StakeReclaimed(address _reclaiming, address _reclaimed, uint256 _amount);
     event Version(string version);
     // constructor get called at block #1
     // configured in the genesis file.
@@ -221,6 +225,8 @@ contract Autonity {
       if (!_isInArray(_delegating,delegatedList[_delegated][false])) {
         delegatedList[_delegated][false].push(_delegating);
       }
+
+      emit StakeDelegated(_delegating, _delegated, _amount);
     }
 
 
@@ -255,6 +261,8 @@ contract Autonity {
 
       users[_reclaimed].stake = reclaimed.stake.sub(stakeToReclaim);
       users[_reclaiming].stake = reclaiming.stake.add(stakeToReclaim);
+
+      emit StakeReclaimed(_reclaiming, _reclaimed, stakeToReclaim);
     }
 
 
@@ -280,6 +288,8 @@ contract Autonity {
       for(uint256 i = 0; i < delegatingTo.length; i++) {
         delegateStake(_participant, delegatingTo[i], delegatingAmount[i]);
       }
+
+      emit Bond(_participant, requestedStake);
     }
 
 
@@ -305,7 +315,8 @@ contract Autonity {
 
       redeemStake(_user, u.stake);
       changeUserType(_user, UserType.Participant);
-      // Transfers funds back to the participant
+
+      emit Unbond(_user);
     }
 
 
