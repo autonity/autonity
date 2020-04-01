@@ -51,7 +51,7 @@ func TestNewSet(t *testing.T) {
 
 		roundRobinOffset := getMemberIndex(committeeMembers, lastBlockProposer)
 		if len(committeeMembers) > 1 {
-			roundRobinOffset += 1
+			roundRobinOffset++
 		}
 		proposers := map[int64]types.CommitteeMember{0: committeeMembers[nextProposerIndex(roundRobinOffset, 0, int64(len(committeeMembers)))]}
 
@@ -78,6 +78,7 @@ func TestNewSet(t *testing.T) {
 	}
 
 	for _, size := range committeeSetSizes {
+		size := size
 		t.Run(fmt.Sprintf("committee set of %v member/s", size), func(t *testing.T) {
 			assertSet(t, size)
 		})
@@ -111,6 +112,7 @@ func TestSet_Size(t *testing.T) {
 	}
 
 	for _, size := range committeeSetSizes {
+		size := size
 		t.Run(fmt.Sprintf("committee size of %v member/s", size), func(t *testing.T) {
 			assertSetSize(t, size)
 		})
@@ -136,6 +138,7 @@ func TestSet_Committee(t *testing.T) {
 	}
 
 	for _, size := range committeeSetSizes {
+		size := size
 		t.Run(fmt.Sprintf("get committee of %v member/s", size), func(t *testing.T) {
 			assertSetCommittee(t, size)
 		})
@@ -201,13 +204,14 @@ func TestSet_GetProposer(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		testCase := testCase
 		t.Run(fmt.Sprintf("validator set size %v and round %v", testCase.size, testCase.round), func(t *testing.T) {
 			committeeMembers := createTestCommitteeMembers(t, testCase.size)
 			sort.Sort(committeeMembers)
 			lastBlockProposer := committeeMembers[rand.Intn(int(testCase.size))].Address
 			roundRobinOffset := getMemberIndex(committeeMembers, lastBlockProposer)
 			if len(committeeMembers) > 1 {
-				roundRobinOffset += 1
+				roundRobinOffset++
 			}
 			expectedProposerIndex := (roundRobinOffset + testCase.round) % testCase.size
 			expectedProposer := committeeMembers[expectedProposerIndex]
@@ -215,7 +219,7 @@ func TestSet_GetProposer(t *testing.T) {
 			set, err := NewSet(copyMembers(committeeMembers), lastBlockProposer)
 			assertNilError(t, err)
 
-			gotProposer := set.GetProposer(int64(testCase.round))
+			gotProposer := set.GetProposer(testCase.round)
 
 			if expectedProposer != gotProposer {
 				t.Fatalf("expected proposer: %v and got: %v", expectedProposer, gotProposer)
@@ -236,6 +240,7 @@ func TestSet_IsProposer(t *testing.T) {
 	assertNilError(t, err)
 
 	for _, r := range rounds {
+		r := r
 		t.Run(fmt.Sprintf("correct proposer for round %v", r), func(t *testing.T) {
 			testAddr := committeeMembers[(roundRobinOffset+r)%4].Address
 			isProposer := set.IsProposer(r, testAddr)
@@ -244,14 +249,14 @@ func TestSet_IsProposer(t *testing.T) {
 			}
 		})
 	}
-	t.Run("false if addres is in committe set but is not the proposer for round", func(t *testing.T) {
+	t.Run("false if address is in committee set but is not the proposer for round", func(t *testing.T) {
 		// committeeMembers[0].Address cannot be the proposer of round 0
 		isProposer := set.IsProposer(0, lastBlockProposer)
 		if isProposer {
 			t.Fatalf("did not expect IsProposer(0, %v) to return true", lastBlockProposer)
 		}
 	})
-	t.Run("false if address is not in committe set", func(t *testing.T) {
+	t.Run("false if address is not in committee set", func(t *testing.T) {
 		testAddr := common.HexToAddress("testaddress")
 		isProposer := set.IsProposer(0, common.HexToAddress("testaddress"))
 		if isProposer {

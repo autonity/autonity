@@ -58,7 +58,7 @@ func NewSet(members types.Committee, lastBlockProposer common.Address) (*Set, er
 	// calculate offset for round robin selection of next proposer
 	committee.roundRobinOffset = getMemberIndex(committee.members, lastBlockProposer)
 	if len(members) > 1 {
-		committee.roundRobinOffset += 1
+		committee.roundRobinOffset++
 	}
 	committee.proposers[0] = committee.getNextProposer(0)
 
