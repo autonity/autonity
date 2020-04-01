@@ -309,22 +309,20 @@ func TestSet_QandF(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Run(fmt.Sprintf("N: %v, Q: %v, F: %v", testCase.N, testCase.Q, testCase.F), func(t *testing.T) {
-			committeeMembers := createTestCommitteeMembers(t, int64(testCase.N))
-			set, err := NewSet(committeeMembers, committeeMembers[0].Address)
-			assertNilError(t, err)
+		committeeMembers := createTestCommitteeMembers(t, int64(testCase.N))
+		set, err := NewSet(committeeMembers, committeeMembers[0].Address)
+		assertNilError(t, err)
 
-			gotF := set.F()
-			gotQ := set.Quorum()
+		gotF := set.F()
+		gotQ := set.Quorum()
 
-			if testCase.F != gotF {
-				t.Errorf("expected F: %v and got: %v", testCase.F, gotF)
-			}
+		if testCase.F != gotF {
+			t.Errorf("expected F: %v and got: %v", testCase.F, gotF)
+		}
 
-			if testCase.Q != gotQ {
-				t.Errorf("expected Q: %v and got: %v", testCase.Q, gotQ)
-			}
-		})
+		if testCase.Q != gotQ {
+			t.Errorf("expected Q: %v and got: %v", testCase.Q, gotQ)
+		}
 	}
 
 }
