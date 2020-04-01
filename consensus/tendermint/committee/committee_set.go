@@ -28,7 +28,6 @@ import (
 )
 
 var ErrEmptyCommitteeSet = errors.New("committee set can't be empty")
-var ErrLastBlockProposerNotInCommitteeSet = errors.New("lastBlockProposer is not committee set")
 
 type Set struct {
 	members           types.Committee
@@ -44,11 +43,6 @@ func NewSet(members types.Committee, lastBlockProposer common.Address) (*Set, er
 	// Ensure non empty set
 	if len(members) == 0 {
 		return nil, ErrEmptyCommitteeSet
-	}
-
-	// Ensure lastBlockProposer is in committee
-	if getMemberIndex(members, lastBlockProposer) == -1 {
-		return nil, ErrLastBlockProposerNotInCommitteeSet
 	}
 
 	// Create new Set

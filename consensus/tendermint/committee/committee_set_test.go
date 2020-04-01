@@ -83,15 +83,6 @@ func TestNewSet(t *testing.T) {
 		})
 	}
 
-	t.Run("cannot create set with lastBlockProposer not in members", func(t *testing.T) {
-		committeeMembers := createTestCommitteeMembers(t, 2)
-		lastBlockProposer := committeeMembers[1]
-		committeeMembers = committeeMembers[:1]
-		_, err := NewSet(committeeMembers, lastBlockProposer.Address)
-		assertError(t, ErrLastBlockProposerNotInCommitteeSet, err)
-
-	})
-
 	t.Run("cannot create empty set with members as nil", func(t *testing.T) {
 		_, err := NewSet(nil, common.Address{})
 		assertError(t, ErrEmptyCommitteeSet, err)

@@ -620,7 +620,7 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 	return crypto.HexToECDSA(key)
 }
 
-func newTestValidatorSet(n int) (committee.Set, []*ecdsa.PrivateKey) {
+func newTestValidatorSet(n int) (*committee.Set, []*ecdsa.PrivateKey) {
 	// generate committee
 	keys := make(Keys, n)
 	addrs := make(types.Committee, n)
@@ -632,7 +632,7 @@ func newTestValidatorSet(n int) (committee.Set, []*ecdsa.PrivateKey) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 	}
-	vset, _ := committee.NewSet(addrs, config.RoundRobin, addrs[0].Address)
+	vset, _ := committee.NewSet(addrs, addrs[0].Address)
 
 	sort.Sort(keys) //Keys need to be sorted by its public key address
 	return vset, keys
