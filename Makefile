@@ -51,7 +51,6 @@ test-contracts:
 	cd contracts/autonity/contract/ && truffle test && cd -
 
 mock-gen:
-	mockgen -source=consensus/tendermint/committee/committee_interface.go -package=committee -destination=consensus/tendermint/committee/committee_mock.go
 	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go
 	mockgen -source=consensus/protocol.go -package=consensus -destination=consensus/protocol_mock.go
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go

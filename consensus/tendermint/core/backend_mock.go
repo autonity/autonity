@@ -68,7 +68,7 @@ func (mr *MockBackendMockRecorder) AddSeal(block interface{}) *gomock.Call {
 }
 
 // AskSync mocks base method
-func (m *MockBackend) AskSync(set committee.Set) {
+func (m *MockBackend) AskSync(set *committee.Set) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AskSync", set)
 }
@@ -80,7 +80,7 @@ func (mr *MockBackendMockRecorder) AskSync(set interface{}) *gomock.Call {
 }
 
 // Broadcast mocks base method
-func (m *MockBackend) Broadcast(ctx context.Context, valSet committee.Set, payload []byte) error {
+func (m *MockBackend) Broadcast(ctx context.Context, valSet *committee.Set, payload []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Broadcast", ctx, valSet, payload)
 	ret0, _ := ret[0].(error)
@@ -108,10 +108,10 @@ func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, seals interface{
 }
 
 // Committee mocks base method
-func (m *MockBackend) Committee(number uint64) (committee.Set, error) {
+func (m *MockBackend) Committee(number uint64) (*committee.Set, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Committee", number)
-	ret0, _ := ret[0].(committee.Set)
+	ret0, _ := ret[0].(*committee.Set)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -151,7 +151,7 @@ func (mr *MockBackendMockRecorder) GetContractAddress() *gomock.Call {
 }
 
 // Gossip mocks base method
-func (m *MockBackend) Gossip(ctx context.Context, valSet committee.Set, payload []byte) {
+func (m *MockBackend) Gossip(ctx context.Context, valSet *committee.Set, payload []byte) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Gossip", ctx, valSet, payload)
 }
