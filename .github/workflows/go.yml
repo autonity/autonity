@@ -228,6 +228,17 @@ jobs:
               TestTendermintAddValidatorsToTopologySuccess,
               TestTendermintAddParticipantsToTopologySuccess,
               TestTendermintAddStakeholdersToTopologySuccess,
+              TestTendermintExternalUser,
+              TestTendermintStarOverParticipantSuccessWithExternalUser,
+              TestTendermintBusSuccessWithExternalUser,
+              TestTendermintChangeTopologyFromBusToStarSuccessWithExternalUser,
+              TestTendermintChangeTopologyFromStarToBusSuccessWithExternalUser,
+              TestTendermintAddConnectionToTopologySuccessWithExternalUser,
+              TestTendermintAddValidatorsToTopologySuccessWithExternalUser,
+              TestTendermintAddParticipantsToTopologySuccessWithExternalUser,
+              TestTendermintAddStakeholdersToTopologySuccessWithExternalUser,
+              TestTendermintMajorityExternalUsers,
+              TestTendermintMajorityExternalUsersFullyConnected,
               TestAddStakeholderWithCorruptedEnodeToList,
               TestAddIncorrectStakeholdersToList
         ]
