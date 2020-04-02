@@ -88,7 +88,7 @@ func makeGenesis(nodes map[string]*testNode) *core.Genesis {
 	genesis.Mixhash = types.BFTDigest
 
 	genesis.Config = params.TestChainConfig
-	genesis.Config.Tendermint = &params.TendermintConfig{}
+	genesis.Config.Tendermint = &config.Config{}
 	genesis.Config.Ethash = nil
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 
