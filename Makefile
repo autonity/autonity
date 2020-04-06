@@ -34,7 +34,7 @@ embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_ABI)
 # docker image. This was causing tests to fail.
 $(GENERATED_BYTECODE) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT)
 	mkdir -p $(GENERATED_CONTRACT_DIR)
-	docker run --rm -v $(CURDIR)/$(AUTONITY_CONTRACT_DIR):/contracts -v $(CURDIR)/$(GENERATED_CONTRACT_DIR):/output ethereum/solc:0.5.1 --overwrite --abi --bin -o /output /contracts/$(AUTONITY_CONTRACT)
+	docker run --rm -v $(CURDIR)/$(AUTONITY_CONTRACT_DIR):/contracts -v $(CURDIR)/$(GENERATED_CONTRACT_DIR):/output ethereum/solc:0.6.4 --overwrite --abi --bin -o /output /contracts/$(AUTONITY_CONTRACT)
 
 	@echo Generating $(GENERATED_BYTECODE)
 	@echo 'package generated\n' > $(GENERATED_BYTECODE)

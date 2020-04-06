@@ -33,6 +33,7 @@ $AUTONITY \
   --rpccorsdomain "*" \
   --syncmode "full" \
   --mine \
+  --allow-insecure-unlock \
   --miner.threads 1 \
   --verbosity 4 \
   --debug

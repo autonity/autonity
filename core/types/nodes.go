@@ -1,12 +1,12 @@
 package types
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type Nodes struct {
@@ -51,7 +51,13 @@ func NewNodes(strList []string) *Nodes {
 	}
 
 	if len(errs) != 0 {
-		log.Error("enodes parse errors", "errs", spew.Sdump(errs))
+		var msg string
+		for _, err := range errs {
+			if err != nil {
+				msg += fmt.Sprintf("%v\n", err)
+			}
+		}
+		log.Error("enodes parse errors", "errs", msg)
 	}
 
 	return filterNodes(n)
