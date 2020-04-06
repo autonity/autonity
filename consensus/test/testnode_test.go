@@ -25,27 +25,29 @@ type networkRate struct {
 }
 
 type testNode struct {
-	isRunning      bool
-	isInited       bool
-	wasStopped     bool //fixme should be removed
-	privateKey     *ecdsa.PrivateKey
-	address        string
-	port           int
-	url            string
-	listener       []net.Listener
-	rpcPort        int
-	node           *node.Node
-	enode          *enode.Node
-	service        *eth.Ethereum
-	eventChan      chan core.ChainEvent
-	subscription   event.Subscription
-	transactions   map[common.Hash]struct{}
-	transactionsMu sync.Mutex
-	blocks         map[uint64]block
-	lastBlock      uint64
-	txsSendCount   *int64
-	txsChainCount  map[uint64]int64
-	isMalicious    bool
+	isRunning               bool
+	isInited                bool
+	wasStopped              bool //fixme should be removed
+	privateKey              *ecdsa.PrivateKey
+	address                 string
+	port                    int
+	url                     string
+	listener                []net.Listener
+	rpcPort                 int
+	node                    *node.Node
+	enode                   *enode.Node
+	service                 *eth.Ethereum
+	eventChan               chan core.ChainEvent
+	subscription            event.Subscription
+	transactions            map[common.Hash]struct{}
+	transactionsMu          sync.Mutex
+	untrustedTransactions   map[common.Hash]struct{}
+	untrustedTransactionsMu sync.Mutex
+	blocks                  map[uint64]block
+	lastBlock               uint64
+	txsSendCount            *int64
+	txsChainCount           map[uint64]int64
+	isMalicious             bool
 }
 
 type block struct {
@@ -159,6 +161,7 @@ func (validator *testNode) startService() error {
 	if validator.eventChan == nil {
 		validator.eventChan = make(chan core.ChainEvent, 1024)
 		validator.transactions = make(map[common.Hash]struct{})
+		validator.untrustedTransactions = make(map[common.Hash]struct{})
 		validator.blocks = make(map[uint64]block)
 		validator.txsSendCount = new(int64)
 		validator.txsChainCount = make(map[uint64]int64)

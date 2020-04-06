@@ -17,6 +17,7 @@
 package eth
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -106,11 +107,12 @@ type ProtocolManager struct {
 	wg sync.WaitGroup
 
 	engine consensus.Engine
+	pub    *ecdsa.PublicKey
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
@@ -126,6 +128,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		quitSync:    make(chan struct{}),
 		engine:      engine,
 		whitelistCh: make(chan core.WhitelistEvent, 64),
+		pub:         pub,
 	}
 
 	if handler, ok := manager.engine.(consensus.Handler); ok {
@@ -355,25 +358,9 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		return err
 	}
 
-	whitelisted := false
-	pm.enodesWhitelistLock.RLock()
-	for _, enode := range pm.enodesWhitelist {
-		if p.Node().ID() == enode.ID() {
-			whitelisted = true
-			break
-		}
-	}
-
-	pm.enodesWhitelistLock.RUnlock()
-	if !whitelisted && p.td.Uint64() <= head.Number.Uint64()+1 {
-		p.Log().Info("dropping unauthorized peer with old TD",
-			"whitelisted", whitelisted,
-			"enode", p.Node().ID(),
-			"peersTD", p.td.Uint64(),
-			"currentTD", head.Number.Uint64()+1,
-		)
-
-		return errUnauthaurizedPeer
+	err := pm.IsInWhitelist(p.Node().ID(), p.td.Uint64(), p.Log())
+	if err != nil {
+		return err
 	}
 	// Todo : pause relaying if not whitelisted until full sync
 
@@ -433,6 +420,39 @@ func (pm *ProtocolManager) handle(p *peer) error {
 			return err
 		}
 	}
+}
+
+func (pm *ProtocolManager) IsInWhitelist(id enode.ID, td uint64, logger log.Logger) error {
+	head := pm.blockchain.CurrentHeader()
+
+	whitelisted := false
+	pm.enodesWhitelistLock.RLock()
+	for _, enode := range pm.enodesWhitelist {
+		if id == enode.ID() {
+			whitelisted = true
+			break
+		}
+	}
+	pm.enodesWhitelistLock.RUnlock()
+
+	if !whitelisted && td <= head.Number.Uint64()+1 {
+		if logger != nil {
+			logger.Info("dropping unauthorized peer with old TD",
+				"whitelisted", whitelisted,
+				"enode", id,
+				"peersTD", td,
+				"currentTD", head.Number.Uint64()+1,
+			)
+		}
+
+		return errUnauthaurizedPeer
+	}
+
+	return nil
+}
+
+func (pm *ProtocolManager) IsSelfInWhitelist() error {
+	return pm.IsInWhitelist(enode.PubkeyToIDV4(pm.pub), pm.NodeInfo().Difficulty.Uint64(), nil)
 }
 
 // handleMsg is invoked whenever an inbound message is received from a remote

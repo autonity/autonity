@@ -8,13 +8,13 @@ import (
 
 func TestMessageSetAddVote(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
-	msg := Message{Address: common.BytesToAddress([]byte("987654321"))}
+	msg := Message{Address: common.BytesToAddress([]byte("987654321")), power: 1}
 
 	ms := newMessageSet()
 	ms.AddVote(blockHash, msg)
 	ms.AddVote(blockHash, msg)
 
-	if got := ms.VoteCount(blockHash); got != 1 {
+	if got := ms.VotePower(blockHash); got != 1 {
 		t.Fatalf("Expected 1 vote, got %v", got)
 	}
 }
@@ -23,35 +23,82 @@ func TestMessageSetVotesSize(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
 
 	ms := newMessageSet()
-	if got := ms.VoteCount(blockHash); got != 0 {
+	if got := ms.VotePower(blockHash); got != 0 {
 		t.Fatalf("Expected 0, got %v", got)
 	}
 }
 
 func TestMessageSetAddNilVote(t *testing.T) {
-	msg := Message{Address: common.BytesToAddress([]byte("987654321"))}
+	msg := Message{Address: common.BytesToAddress([]byte("987654321")), power: 1}
 
 	ms := newMessageSet()
 	ms.AddVote(common.Hash{}, msg)
 	ms.AddVote(common.Hash{}, msg)
-	if got := ms.VoteCount(common.Hash{}); got != 1 {
+	if got := ms.VotePower(common.Hash{}); got != 1 {
 		t.Fatalf("Expected 1 nil vote, got %v", got)
 	}
 }
 
 func TestMessageSetTotalSize(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
-	msg := Message{Address: common.BytesToAddress([]byte("987654321"))}
-	msg2 := Message{Address: common.BytesToAddress([]byte("989494949"))}
+	blockHash2 := common.BytesToHash([]byte("7890"))
+	nilHash := common.Hash{}
+	type vote struct {
+		msg  Message
+		hash common.Hash
+	}
+	testCases := []struct {
+		voteList      []vote
+		expectedPower uint64
+	}{{
+		[]vote{
+			{Message{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("2")), power: 1}, blockHash},
+		},
+		2,
+	}, {
+		[]vote{
+			{Message{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("2")), power: 3}, blockHash2},
+		},
+		4,
+	}, {
+		[]vote{
+			{Message{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("2")), power: 1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("3")), power: 5}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("4")), power: 1}, nilHash},
+		},
+		8,
+	}, {
+		[]vote{
+			{Message{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("2")), power: 0}, blockHash},
+		},
+		1,
+	}, {
+		[]vote{
+			{Message{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("2")), power: 1}, blockHash2},
+		},
+		2,
+	}, {
+		[]vote{
+			{Message{Address: common.BytesToAddress([]byte("1")), power: 3}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("1")), power: 5}, blockHash2}, // should be discarded
+		},
+		3,
+	}}
 
-	ms := newMessageSet()
-	ms.AddVote(blockHash, msg)
-	ms.AddVote(common.Hash{}, msg2)
-	ms.AddVote(blockHash, msg2)
-	ms.AddVote(common.Hash{}, msg)
+	for _, test := range testCases {
 
-	if got := ms.TotalVoteCount(); got != 2 {
-		t.Fatalf("Expected 2 total votes, got %v", got)
+		ms := newMessageSet()
+		for _, msg := range test.voteList {
+			ms.AddVote(msg.hash, msg.msg)
+		}
+		if got := ms.TotalVotePower(); got != test.expectedPower {
+			t.Fatalf("Expected %v total voting power, got %v", test.expectedPower, got)
+		}
 	}
 }
 

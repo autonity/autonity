@@ -130,19 +130,23 @@ func (mr *MockBackendMockRecorder) Prepare(chain, header interface{}) *gomock.Ca
 }
 
 // Finalize mocks base method
-func (m *MockBackend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) {
+func (m *MockBackend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles)
+	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
+	ret0, _ := ret[0].(types.Committee)
+	ret1, _ := ret[1].(*types.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Finalize indicates an expected call of Finalize
-func (mr *MockBackendMockRecorder) Finalize(chain, header, state, txs, uncles interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Finalize(chain, header, state, txs, uncles, receipts interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockBackend)(nil).Finalize), chain, header, state, txs, uncles)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockBackend)(nil).Finalize), chain, header, state, txs, uncles, receipts)
 }
 
 // FinalizeAndAssemble mocks base method
-func (m *MockBackend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (m *MockBackend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Block)
