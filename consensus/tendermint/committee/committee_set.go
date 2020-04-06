@@ -124,9 +124,9 @@ func (set *Set) Copy() *Set {
 	return newSet
 }
 
-func (set *Set) F() int { return int(math.Ceil(float64(set.Size())/3.)) - 1 }
+func (set *Set) F() uint64 { return uint64(math.Ceil(float64(set.Size())/3.)) - 1 }
 
-func (set *Set) Quorum() int { return int(math.Ceil((2 * float64(set.Size())) / 3.)) }
+func (set *Set) Quorum() uint64 { return uint64(math.Ceil((2 * float64(set.Size())) / 3.)) }
 
 func (set *Set) getNextProposer(round int64) types.CommitteeMember {
 	return set.members[nextProposerIndex(set.roundRobinOffset, round, int64(len(set.members)))]

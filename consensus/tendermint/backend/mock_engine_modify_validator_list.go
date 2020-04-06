@@ -45,7 +45,7 @@ func (m *ModifyCommitteeEngine) VerifyHeader(chain consensus.ChainReader, header
 	return nil
 }
 
-func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 	// create a normal block and check for errors
 	block, err := m.Backend.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
 	if err != nil {
@@ -70,7 +70,7 @@ func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 	header = m.Modifier.ModifyHeader(block.Header())
 
 	// create a new block with the modified header
-	newBlock := types.NewBlock(header, block.Transactions(), block.Uncles(), receipts)
+	newBlock := types.NewBlock(header, block.Transactions(), block.Uncles(), *receipts)
 
 	newBlock, err = m.Backend.AddSeal(newBlock)
 	if err != nil {

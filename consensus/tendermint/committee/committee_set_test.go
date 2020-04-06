@@ -278,9 +278,9 @@ func TestSet_Copy(t *testing.T) {
 
 func TestSet_QandF(t *testing.T) {
 	testCases := []struct {
-		N int
-		Q int
-		F int
+		N uint64
+		Q uint64
+		F uint64
 	}{
 		{N: 1, Q: 1, F: 0}, {N: 2, Q: 2, F: 0}, {N: 3, Q: 2, F: 0}, {N: 4, Q: 3, F: 1}, {N: 5, Q: 4, F: 1},
 		{N: 6, Q: 4, F: 1}, {N: 7, Q: 5, F: 2}, {N: 8, Q: 6, F: 2}, {N: 9, Q: 6, F: 2}, {N: 10, Q: 7, F: 3},
