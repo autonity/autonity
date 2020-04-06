@@ -10,7 +10,6 @@ import (
 	"math"
 	"math/big"
 	"reflect"
-	"sort"
 )
 
 /*
@@ -32,7 +31,7 @@ type ContractState struct {
 
 type raw []byte
 
-// Instantiates a new EVM object which is required when creating or calling a deployed contract
+//// Instantiates a new EVM object which is required when creating or calling a deployed contract
 func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
 	coinbase, _ := types.Ecrecover(header)
 	evmContext := vm.Context{
@@ -58,6 +57,13 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
 	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
 	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
+
+	//todo do we need it?
+	//validators, err = ac.SavedValidatorsRetriever(1)
+	//sort.Sort(validators)
+
+	//We need to append to data the constructor's parameters
+	//That should always be genesis validators
 
 	contractABI, err := ac.abi()
 
@@ -85,7 +91,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
 		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
 
-		// TODO: default commission rate is 0, should use a config file...
+		//TODO: default commission rate is 0, should use a config file...
 		commissionRate = append(commissionRate, big.NewInt(0))
 	}
 
@@ -191,19 +197,16 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 	return minGasPrice.Uint64(), nil
 }
 
-func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, types.Committee, error) {
-
-	var updateReady bool
-	var committee types.Committee
-
-	err := ac.AutonityContractCall(state, header, "finalize", &[]interface{}{&updateReady, &committee}, blockGas)
+func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, error) {
+	v := RewardDistributionMetaData{}
+	err := ac.AutonityContractCall(state, header, "finalize", &v, blockGas)
 	if err != nil {
-		return false, nil, err
+		return false, err
 	}
-	sort.Sort(committee)
+
 	// submit the final reward distribution metrics.
-	//ac.metrics.SubmitRewardDistributionMetrics(&v, header.Number.Uint64())
-	return updateReady, committee, nil
+	ac.metrics.SubmitRewardDistributionMetrics(&v, header.Number.Uint64())
+	return v.Result, nil
 }
 
 func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Header) ([]byte, error) {

@@ -22,8 +22,10 @@ linters:
     - prealloc
     - gosec
     - ineffassign
+    - gocyclo
     - depguard
     - typecheck
+
 
   disable-all: true
 
@@ -37,3 +39,5 @@ linters-settings:
     auto-fix: false
   govet:
     check-shadowing: true
+  gocyclo:
+    min-complexity: 40

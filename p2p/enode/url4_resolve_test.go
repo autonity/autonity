@@ -135,26 +135,19 @@ var parseNodeWithResolveTests = []struct {
 	{
 		// This test checks that errors from url.Parse are handled.
 		rawurl:    "://foo",
-		wantError: `parse "://foo": missing protocol scheme`,
+		wantError: `parse ://foo: missing protocol scheme`,
 	},
 }
 
 func TestParseNodeWithDomainResolution(t *testing.T) {
 	for _, test := range parseNodeWithResolveTests {
 		n, err := ParseV4WithResolve(test.rawurl)
-
-		var gotErr string
-		if err != nil {
-			gotErr = strings.ReplaceAll(err.Error(), "\"", "")
-		}
-
-		wantError := strings.ReplaceAll(test.wantError, "\"", "")
-		if wantError != "" {
+		if test.wantError != "" {
 			if err == nil {
-				t.Errorf("test %q:\n  got nil error, expected %#q", test.rawurl, wantError)
+				t.Errorf("test %q:\n  got nil error, expected %#q", test.rawurl, test.wantError)
 				continue
-			} else if !strings.Contains(gotErr, wantError) {
-				t.Errorf("test %q:\n  got error %#q, expected %#q\n%v", test.rawurl, gotErr, wantError, n)
+			} else if !strings.Contains(err.Error(), test.wantError) {
+				t.Errorf("test %q:\n  got error %#q, expected %#q\n%v", test.rawurl, err.Error(), test.wantError, n)
 				continue
 			}
 		} else {

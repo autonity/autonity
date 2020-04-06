@@ -136,10 +136,10 @@ func (mr *MockSetMockRecorder) Copy() *gomock.Call {
 }
 
 // F mocks base method
-func (m *MockSet) F() uint64 {
+func (m *MockSet) F() int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "F")
-	ret0, _ := ret[0].(uint64)
+	ret0, _ := ret[0].(int)
 	return ret0
 }
 
@@ -150,10 +150,10 @@ func (mr *MockSetMockRecorder) F() *gomock.Call {
 }
 
 // Quorum mocks base method
-func (m *MockSet) Quorum() uint64 {
+func (m *MockSet) Quorum() int {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Quorum")
-	ret0, _ := ret[0].(uint64)
+	ret0, _ := ret[0].(int)
 	return ret0
 }
 

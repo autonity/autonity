@@ -796,7 +796,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	nonce := state.GetNonce(engine.address)
 	gasPrice := new(big.Int).SetUint64(1000000)
 	gasPool := new(core.GasPool).AddGas(header.GasLimit)
-	var receipts []*types.Receipt
+	var receipts types.Receipts
 	for i := range txs {
 		amount := new(big.Int).SetUint64((nonce + 1) * 1000000000)
 		tx := types.NewTransaction(nonce, common.Address{}, amount, params.TxGas, gasPrice, []byte{})
@@ -812,7 +812,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 		nonce++
 		receipts = append(receipts, receipt)
 	}
-	block, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, &receipts)
+	block, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, receipts)
 	if err != nil {
 		return nil, err
 	}

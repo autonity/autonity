@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zimmski/go-leak"
 	"gonum.org/v1/gonum/stat"
+	"github.com/zimmski/go-leak"
 )
 
 func TestTendermintSuccess(t *testing.T) {
@@ -169,8 +169,6 @@ func TestTendermintLongRun(t *testing.T) {
 }
 
 func TestTendermintTC7(t *testing.T) {
-	t.Skip("Too long to run on CI")
-
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}

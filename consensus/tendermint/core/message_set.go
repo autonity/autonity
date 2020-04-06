@@ -70,27 +70,19 @@ func (ms *messageSet) GetMessages() []*Message {
 	return result
 }
 
-func (ms *messageSet) VotePower(h common.Hash) uint64 {
+func (ms *messageSet) VoteCount(h common.Hash) int {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
-	if msgMap, ok := ms.votes[h]; ok {
-		var power uint64
-		for _, msg := range msgMap {
-			power += msg.GetPower()
-		}
-		return power
+	if m, ok := ms.votes[h]; ok {
+		return len(m)
 	}
 	return 0
 }
 
-func (ms *messageSet) TotalVotePower() uint64 {
+func (ms *messageSet) TotalVoteCount() int {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
-	var power uint64
-	for _, msg := range ms.messages {
-		power += msg.GetPower()
-	}
-	return power
+	return len(ms.messages)
 }
 
 func (ms *messageSet) Values(blockHash common.Hash) []Message {

@@ -89,27 +89,25 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	// pack the function which dump the data from contract.
 	input, err := ABI.Pack("dumpEconomicsMetricData")
 	if err != nil {
-		log.Warn("Cannot pack the method: ", "err", err.Error())
+		log.Warn("Cannot pack the method: ", err.Error())
 		return
 	}
 
 	// call evm.
 	value := new(big.Int).SetUint64(0x00)
 	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
+	log.Debug("bytes return from contract: ", ret)
 	if vmerr != nil {
-		log.Warn("Error Autonity Contract dumpNetworkEconomics", err, vmerr)
+		log.Warn("Error Autonity Contract dumpNetworkEconomics")
 		return
 	}
 
 	// marshal the data from bytes arrays into specified structure.
 	v := EconomicMetaData{make([]common.Address, 32), make([]uint8, 32), make([]*big.Int, 32),
 		make([]*big.Int, 32), new(big.Int), new(big.Int)}
-
-	if err := ABI.Unpack(&v, "dumpEconomicsMetricData", ret); err != nil {
-		// can't work with aliased types
-		log.Warn("Could not unpack dumpNetworkEconomicsData returned value",
-			"err", err,
-			"header.num", header.Number.Uint64())
+	if err := ABI.Unpack(&v, "dumpEconomicsMetricData", ret); err != nil { // can't work with aliased types
+		log.Warn("Could not unpack dumpNetworkEconomicsData returned value", "err", err, "header.num",
+			header.Number.Uint64())
 		return
 	}
 
@@ -122,13 +120,21 @@ func (ac *Contract) GetCommittee(chain consensus.ChainReader, header *types.Head
 		return chain.GetHeaderByNumber(0).Committee, nil
 	}
 
-	var committeeSet types.Committee
-	err := ac.AutonityContractCall(statedb, header, "getCommittee", &committeeSet)
+	var addresses []common.Address
+	err := ac.AutonityContractCall(statedb, header, "getValidators", &addresses)
+
 	if err != nil {
 		return nil, err
 	}
-	sort.Sort(committeeSet)
-	return committeeSet, err
+
+	sortableAddresses := common.Addresses(addresses)
+	sort.Sort(sortableAddresses)
+
+	var committee types.Committee
+	for _, val := range sortableAddresses {
+		committee = append(committee, types.CommitteeMember{Address: val, VotingPower: new(big.Int).SetUint64(1)})
+	}
+	return committee, nil
 }
 
 func (ac *Contract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
@@ -175,34 +181,24 @@ func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, pr
 	return ac.callSetMinimumGasPrice(db, block.Header(), price)
 }
 
-func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) (types.Committee, *types.Receipt, error) {
-	if header.Number.Uint64() == 0 {
-		return nil, nil, nil
+func (ac *Contract) ApplyFinalize(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) error {
+	if header.Number.Cmp(big.NewInt(1)) < 1 {
+		return nil
 	}
 	blockGas := new(big.Int)
 	for i, tx := range transactions {
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
+	log.Info("ApplyFinalize", "balance", statedb.GetBalance(ac.Address()), "block", header.Number.Uint64(), "gas", blockGas.Uint64())
 
-	log.Info("ApplyFinalize",
-		"balance", statedb.GetBalance(ac.Address()),
-		"block", header.Number.Uint64(),
-		"gas", blockGas.Uint64())
-
-	upgradeContract, committee, err := ac.callFinalize(statedb, header, blockGas)
-	if err != nil {
-		return nil, nil, err
+	if header.Number.Uint64() <= 1 {
+		return nil
 	}
 
-	// Create a new receipt for the finalize call
-	receipt := types.NewReceipt(nil, false, 0)
-	receipt.TxHash = common.ACHash(header.Number)
-	receipt.GasUsed = 0
-	receipt.Logs = statedb.GetLogs(receipt.TxHash)
-	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	receipt.BlockHash = statedb.BlockHash()
-	receipt.BlockNumber = header.Number
-	receipt.TransactionIndex = uint(statedb.TxIndex())
+	upgradeContract, err := ac.callFinalize(statedb, header, blockGas)
+	if err != nil {
+		return err
+	}
 
 	log.Info("ApplyFinalize", "upgradeContract", upgradeContract)
 
@@ -211,10 +207,11 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 		// in any failure, the state will be rollback to snapshot.
 		err = ac.performContractUpgrade(statedb, header)
 		if err != nil {
-			log.Warn("Autonity Contract Upgrade Failed", "err", err)
+			log.Warn("Autonity Contract Upgrade Failed")
 		}
 	}
-	return committee, receipt, nil
+
+	return nil
 }
 
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
@@ -235,7 +232,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	// take snapshot in case of roll back to former view.
 	snapshot := statedb.Snapshot()
 
-	// Create account will delete previous the AC stateobject and carry over the balance
+	//Create account will delete previous the AC stateobject and carry over the balance
 	statedb.CreateAccount(ac.Address())
 
 	if err := ac.UpdateAutonityContract(header, statedb, bytecode, newAbi, stateBefore); err != nil {
@@ -254,7 +251,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}
-	log.Info("Autonity Contract upgrade success")
+	log.Info("Autonity Contract upgrade success 🙌")
 	return nil
 }
 
@@ -310,10 +307,6 @@ func (ac *Contract) GetContractABI() string {
 	bytes, err := ac.bc.GetKeyValue([]byte(ABISPEC))
 	if err == nil || bytes != nil {
 		JSONString = string(bytes)
-	}
-
-	if err != nil {
-		log.Warn("can't get the contract ABI", "err", err)
 	}
 
 	return JSONString

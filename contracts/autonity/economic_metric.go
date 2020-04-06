@@ -108,6 +108,7 @@ func (em *EconomicMetrics) recordMetric(name string, value *big.Int, isWei bool)
 
 // measure metrics of user's meta data by regarding of network economic.
 func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *state.StateDB, height uint64, operator common.Address) {
+
 	if v == nil || stateDB == nil {
 		return
 	}
@@ -130,23 +131,18 @@ func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *s
 		rate := v.Commissionrates[i]
 		balance := stateDB.GetBalance(user)
 
-		log.Debug("Economic data retrieved",
-			"user", user,
-			"userType", userType,
-			"stake", stake,
-			"rate", rate,
-			"balance", balance)
+		log.Debug("Economic data retrieved", "user: ", user, "userType: ", userType, "stake: ", stake, "rate: ", rate, "balance: ", balance)
 
 		// generate metric ID.
-		stakeID, balanceID, commissionRateID, err := em.generateUserMetricsID(user, userType)
+		stakeID, balanceID, commmissionRateID, err := em.generateUserMetricsID(user, userType)
 		if err != nil {
-			log.Warn("generateUserMetricsID failed")
+			log.Warn("generateUserMetricsID failed.")
 			return
 		}
 
 		em.recordMetric(stakeID, stake, false)
 		em.recordMetric(balanceID, balance, true)
-		em.recordMetric(commissionRateID, rate, false)
+		em.recordMetric(commmissionRateID, rate, false)
 	}
 
 	// clean up useless metrics if there exists.
@@ -155,7 +151,7 @@ func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *s
 
 func (em *EconomicMetrics) SubmitRewardDistributionMetrics(v *RewardDistributionMetaData, height uint64) {
 	if len(v.Holders) != len(v.Rewardfractions) {
-		log.Warn("Reward fractions does not distribute to all stake holder")
+		log.Warn("Reward fractions does not distribute to all stake holder.")
 		return
 	}
 

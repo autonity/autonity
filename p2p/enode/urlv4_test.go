@@ -158,19 +158,12 @@ func hexPubkey(h string) *ecdsa.PublicKey {
 func TestParseNode(t *testing.T) {
 	for _, test := range parseNodeTests {
 		n, err := Parse(ValidSchemes, test.input)
-		var gotErr string
-		if err != nil {
-			gotErr = strings.ReplaceAll(err.Error(), "\"", "")
-		}
-
-		wantError := strings.ReplaceAll(test.wantError, "\"", "")
-
-		if wantError != "" {
+		if test.wantError != "" {
 			if err == nil {
-				t.Errorf("test %q:\n  got nil error, expected %#q", test.input, wantError)
+				t.Errorf("test %q:\n  got nil error, expected %#q", test.input, test.wantError)
 				continue
-			} else if !strings.Contains(gotErr, wantError) {
-				t.Errorf("test %q:\n  got error %#q, expected %#q\n%v", test.input, gotErr, wantError, n)
+			} else if !strings.Contains(err.Error(), test.wantError) {
+				t.Errorf("test %q:\n  got error %#q, expected %#q\n%v", test.input, err.Error(), test.wantError, n)
 				continue
 			}
 		} else {

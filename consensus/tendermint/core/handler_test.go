@@ -129,7 +129,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			round:             testCase.round,
 			height:            testCase.height,
 			step:              testCase.step,
-			futureRoundChange: make(map[int64]map[common.Address]uint64),
+			futureRoundChange: make(map[int64]map[common.Address]struct{}),
 			messages:          message,
 			curRoundMessages:  message.getOrCreate(0),
 			committeeSet:      committeeSet,

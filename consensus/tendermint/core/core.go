@@ -94,7 +94,7 @@ func New(backend Backend, config *config.Config) *core {
 		isStopping:            new(uint32),
 		isStopped:             new(uint32),
 		committeeSet:          nil,
-		futureRoundChange:     make(map[int64]map[common.Address]uint64),
+		futureRoundChange:     make(map[int64]map[common.Address]struct{}),
 		messages:              messagesMap,
 		lockedRound:           -1,
 		validRound:            -1,
@@ -160,7 +160,7 @@ type core struct {
 	prevoteTimeout   *timeout
 	precommitTimeout *timeout
 
-	futureRoundChange map[int64]map[common.Address]uint64
+	futureRoundChange map[int64]map[common.Address]struct{}
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
@@ -236,11 +236,10 @@ func (c *core) commit(round int64, messages *roundMessages) {
 
 	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 
-	committedSeals := make([][]byte, 0)
-	for _, v := range messages.CommitedSeals(proposal.ProposalBlock.Hash()) {
-		seal := make([]byte, types.BFTExtraSeal)
-		copy(seal[:], v.CommittedSeal[:])
-		committedSeals = append(committedSeals, seal)
+	committedSeals := make([][]byte, messages.PrecommitsCount(proposal.ProposalBlock.Hash()))
+	for i, v := range messages.CommitedSeals(proposal.ProposalBlock.Hash()) {
+		committedSeals[i] = make([]byte, types.BFTExtraSeal)
+		copy(committedSeals[i][:], v.CommittedSeal[:])
 	}
 
 	if err := c.backend.Commit(proposal.ProposalBlock, round, committedSeals); err != nil {
@@ -314,7 +313,7 @@ func (c *core) setInitialState(r int64) {
 		c.validRound = -1
 		c.validValue = nil
 		c.messages.reset()
-		c.futureRoundChange = make(map[int64]map[common.Address]uint64)
+		c.futureRoundChange = make(map[int64]map[common.Address]struct{})
 	}
 
 	c.proposeTimeout.reset(propose)

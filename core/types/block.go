@@ -97,7 +97,7 @@ type Header struct {
 }
 
 type CommitteeMember struct {
-	Address     common.Address `json:"address"            gencodec:"required"       abi:"addr"`
+	Address     common.Address `json:"address"            gencodec:"required"`
 	VotingPower *big.Int       `json:"votingPower"        gencodec:"required"`
 }
 
@@ -128,6 +128,13 @@ type headerExtra struct {
 	Round              uint64    `json:"round"               gencodec:"required"`
 	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"`
 	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
+}
+
+func (hExtra headerExtra) withExtraData() bool {
+	return len(hExtra.CommittedSeals) != 0 ||
+		len(hExtra.Committee) != 0 ||
+		len(hExtra.PastCommittedSeals) != 0 ||
+		len(hExtra.ProposerSeal) != 0
 }
 
 // field type overrides for gencodec
@@ -196,13 +203,15 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	}
 
 	hExtra := &headerExtra{}
-	if origin.MixDigest == BFTDigest {
+	if len(origin.Extra) > 0 {
 		if err := rlp.DecodeBytes(origin.Extra, hExtra); err == nil {
-			h.CommittedSeals = hExtra.CommittedSeals
-			h.Committee = hExtra.Committee
-			h.PastCommittedSeals = hExtra.PastCommittedSeals
-			h.ProposerSeal = hExtra.ProposerSeal
-			h.Round = hExtra.Round
+			if hExtra.withExtraData() {
+				h.CommittedSeals = hExtra.CommittedSeals
+				h.Committee = hExtra.Committee
+				h.PastCommittedSeals = hExtra.PastCommittedSeals
+				h.ProposerSeal = hExtra.ProposerSeal
+				h.Round = hExtra.Round
+			}
 		}
 	}
 
@@ -236,7 +245,7 @@ func (h *Header) EncodeRLP(w io.Writer) error {
 	}
 
 	original := h.original()
-	if h.MixDigest == BFTDigest {
+	if hExtra.withExtraData() {
 		extra, err := rlp.EncodeToBytes(hExtra)
 		if err != nil {
 			return err
@@ -404,7 +413,7 @@ func CopyHeader(h *Header) *Header {
 		}
 	}
 
-	if len(h.ProposerSeal) > 0 {
+	if len(h.CommittedSeals) > 0 {
 		cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
 		copy(cpy.ProposerSeal, h.ProposerSeal)
 	}

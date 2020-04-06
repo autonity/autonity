@@ -44,7 +44,7 @@ func TestHeaderHash(t *testing.T) {
 	PosHeader.MixDigest = BFTDigest
 
 	originalHeaderHash := common.HexToHash("0x44381ab449d77774874aca34634cb53bc21bd22aef2d3d4cf40e51176cb585ec")
-	posHeaderHash := common.HexToHash("0x9acfd617b26d948236857039f3e63d48f23cfc6c8693c7a564ce1e67df0f587c")
+	posHeaderHash := common.HexToHash("0xfe5aad27871b04ad6c0815c39a371b369e3537f7f117342181eefbf81ba7a686")
 
 	testCases := []struct {
 		header Header
@@ -100,7 +100,7 @@ func TestHeaderHash(t *testing.T) {
 			setExtra(PosHeader, headerExtra{
 				ProposerSeal: common.Hex2Bytes("0xbebedead"),
 			}),
-			common.HexToHash("0x9acfd617b26d948236857039f3e63d48f23cfc6c8693c7a564ce1e67df0f587c"),
+			common.HexToHash("0xfe5aad27871b04ad6c0815c39a371b369e3537f7f117342181eefbf81ba7a686"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{

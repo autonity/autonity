@@ -229,7 +229,7 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, &ctx.NodeKey().PublicKey); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
@@ -593,8 +593,7 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 					}
 				}
 
-				if !found {
-					// this node is no longer in the whitelist
+				if !found { // this node is no longer in the whitelist
 					peerID := fmt.Sprintf("%x", connectedEnode.ID().Bytes()[:8])
 					peer := s.protocolManager.peers.Peer(peerID)
 					localTd := s.blockchain.CurrentHeader().Number.Uint64() + 1

@@ -183,21 +183,15 @@ func (sb *Backend) AskSync(valSet committee.Set) {
 
 	if sb.broadcaster != nil && len(targets) > 0 {
 		ps := sb.broadcaster.FindPeers(targets)
-		var count uint64
+		count := 0
 		for addr, p := range ps {
 			//ask to quorum nodes to sync, 1 must then be honest and updated
-			if count >= valSet.Quorum() {
+			if count == valSet.Quorum() {
 				break
 			}
 			sb.logger.Info("Asking sync to", "addr", addr)
 			go p.Send(tendermintSyncMsg, []byte{}) //nolint
-
-			_, member, err := valSet.GetByAddress(addr)
-			if err != nil {
-				sb.logger.Error("could not retrieve member from address")
-				continue
-			}
-			count += member.VotingPower.Uint64()
+			count++
 		}
 	}
 }
@@ -299,7 +293,8 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
 		var (
-			receipts types.Receipts
+			receipts   types.Receipts
+			validators types.Committee
 
 			usedGas        = new(uint64)
 			gp             = new(core.GasPool).AddGas(block.GasLimit())
@@ -332,37 +327,64 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			receipts = append(receipts, receipt)
 		}
 
-		state.Prepare(common.ACHash(block.Number()), block.Hash(), len(block.Transactions()))
-		committeeSet, receipt, err := sb.Finalize(sb.blockchain, header, state, block.Transactions(), nil, receipts)
-		receipts = append(receipts, receipt)
+		// Here the order of applying transaction matters
+		// We need to ensure that the block transactions applied before the Autonity contract
+		if proposalNumber == 1 {
+			//Apply the same changes from consensus/tendermint/backend/engine.go:getValidator()349-369
+			sb.logger.Info("Autonity Contract Deployer in test state", "Address", sb.blockchain.Config().AutonityContractConfig.Deployer)
+
+			_, err = sb.blockchain.GetAutonityContract().DeployAutonityContract(sb.blockchain, header, state)
+			if err != nil {
+				return 0, err
+			}
+		} else if proposalNumber > 1 {
+			err = sb.blockchain.GetAutonityContract().ApplyFinalize(block.Transactions(), receipts, block.Header(), state)
+			if err != nil {
+				return 0, err
+			}
+		}
+
 		//Validate the state of the proposal
 		if err = sb.blockchain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
 			return 0, err
 		}
 
+		if proposalNumber > 1 {
+			validators, err = sb.blockchain.GetAutonityContract().GetCommittee(sb.blockchain, header, state)
+			if err != nil {
+				return 0, err
+			}
+		} else {
+			// genesis block and block #1 have the same committee
+			s, error := sb.savedCommittee(1, sb.blockchain) //genesis block and block #1 have the same committee
+			if error != nil {
+				return 0, error
+			}
+			validators = s.Committee()
+		}
+
 		//Perform the actual comparison
-		if len(header.Committee) != len(committeeSet) {
+		if len(header.Committee) != len(validators) {
 			sb.logger.Error("wrong committee set",
 				"proposalNumber", proposalNumber,
 				"extraLen", len(header.Committee),
-				"currentLen", len(committeeSet),
+				"currentLen", len(validators),
 				"committee", header.Committee,
-				"current", committeeSet,
+				"current", validators,
 			)
 			return 0, consensus.ErrInconsistentCommitteeSet
 		}
 
-		for i := range committeeSet {
-			if header.Committee[i].Address != committeeSet[i].Address ||
-				header.Committee[i].VotingPower.Cmp(committeeSet[i].VotingPower) != 0 {
+		for i := range validators {
+			if header.Committee[i].Address != validators[i].Address {
 				sb.logger.Error("wrong committee member in the set",
 					"index", i,
 					"currentVerifier", sb.address.String(),
 					"proposalNumber", proposalNumber,
-					"headerCommittee", header.Committee[i],
-					"computedCommittee", committeeSet[i],
-					"fullHeader", header.Committee,
-					"fullComputed", committeeSet,
+					"extraValidator", header.Committee[i].Address,
+					"currentCommittee", validators[i],
+					"headerCommittee", header.Committee,
+					"current", validators,
 				)
 				return 0, consensus.ErrInconsistentCommitteeSet
 			}

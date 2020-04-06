@@ -191,7 +191,6 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
 		}
 
 		valSetMock := committee.NewMockSet(ctrl)
@@ -221,7 +220,6 @@ func TestHandleProposal(t *testing.T) {
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			power:         1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()
@@ -288,7 +286,6 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
 		}
 
 		valSetMock := committee.NewMockSet(ctrl)
@@ -350,7 +347,6 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
 		}
 
 		valSetMock := committee.NewMockSet(ctrl)
@@ -379,7 +375,6 @@ func TestHandleProposal(t *testing.T) {
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			power:         1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()
@@ -444,14 +439,13 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
 		}
 
 		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(int64(2), addr).Return(true).AnyTimes()
 		valSetMock.EXPECT().GetProposer(int64(2)).AnyTimes()
 		valSetMock.EXPECT().Size().AnyTimes()
-		valSetMock.EXPECT().Quorum().Return(uint64(1))
+		valSetMock.EXPECT().Quorum().Return(1)
 
 		var decProposal Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
@@ -474,7 +468,6 @@ func TestHandleProposal(t *testing.T) {
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			power:         1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()

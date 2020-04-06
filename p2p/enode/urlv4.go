@@ -36,14 +36,6 @@ var (
 	lookupIPFunc      = net.LookupIP
 )
 
-var (
-	ErrHostResolution   = errors.New("invalid domain or IP address")
-	ErrInvalidPublicKey = errors.New("invalid public key")
-	ErrInvalidPort      = errors.New("invalid port")
-	ErrInvalidDisport   = errors.New("invalid discport in query")
-	ErrInvalidHost      = errors.New("invalid host")
-)
-
 const defaultPort = ":30303"
 
 // MustParseV4 parses a node URL. It panics if the URL is not valid.
@@ -87,7 +79,7 @@ func parseV4(rawurl string, resolve func(host string) ([]net.IP, error)) (*Node,
 	if m := incompleteNodeURL.FindStringSubmatch(rawurl); m != nil {
 		id, err := parsePubkey(m[1])
 		if err != nil {
-			return nil, fmt.Errorf("%w (%v)", ErrInvalidPublicKey, err)
+			return nil, fmt.Errorf("invalid public key (%v)", err)
 		}
 		return NewV4(id, nil, 0, 0), nil
 	}
@@ -149,31 +141,17 @@ func parseComplete(rawurl string, resolveFunc func(host string) ([]net.IP, error
 	// Parse the IP address.
 	host, port, err := net.SplitHostPort(u.Host)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidHost, err)
-	}
-
-	// Parse the port numbers.
-	if tcpPort, err = strconv.ParseUint(port, 10, 16); err != nil {
-		return nil, ErrInvalidPort
-	}
-
-	udpPort = tcpPort
-	qv := u.Query()
-	if qv.Get("discport") != "" {
-		udpPort, err = strconv.ParseUint(qv.Get("discport"), 10, 16)
-		if err != nil {
-			return nil, ErrInvalidDisport
-		}
+		return nil, fmt.Errorf("invalid host: %v", err)
 	}
 
 	if ip = net.ParseIP(host); ip == nil {
 		if resolveFunc == nil {
-			return nil, fmt.Errorf("%w (%v)", ErrHostResolution, errors.New("invalid IP address"))
+			return nil, errors.New("invalid IP address")
 		}
 		// if host is not IPV4/6, resolve host is a domain
 		ips, err := resolveFunc(host)
 		if err != nil {
-			return NewV4(id, nil, 0, 0), fmt.Errorf("%w (%v)", ErrHostResolution, err)
+			return NewV4(id, nil, 0, 0), fmt.Errorf("invalid domain or IP address: %w", err)
 		}
 		if len(ips) > 1 {
 			ip = ips[len(ips)-1]
@@ -183,6 +161,18 @@ func parseComplete(rawurl string, resolveFunc func(host string) ([]net.IP, error
 		// Ensure the IP is 4 bytes long for IPv4 addresses.
 		if ipv4 := ip.To4(); ipv4 != nil {
 			ip = ipv4
+		}
+	}
+	// Parse the port numbers.
+	if tcpPort, err = strconv.ParseUint(port, 10, 16); err != nil {
+		return nil, errors.New("invalid port")
+	}
+	udpPort = tcpPort
+	qv := u.Query()
+	if qv.Get("discport") != "" {
+		udpPort, err = strconv.ParseUint(qv.Get("discport"), 10, 16)
+		if err != nil {
+			return nil, errors.New("invalid discport in query")
 		}
 	}
 	return NewV4(id, ip, int(tcpPort), int(udpPort)), nil
