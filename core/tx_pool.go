@@ -560,7 +560,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if pool.chain.GetAutonityContract() != nil {
 		if gp, err := pool.chain.GetAutonityContract().GetMinimumGasPrice(pool.chain.CurrentBlock(), pool.currentState); err == nil {
 			if new(big.Int).SetUint64(gp).Cmp(tx.GasPrice()) > 0 {
-				return errors.New("too low gas price from autonity config")
+				return errors.New("transaction gas price is less than Autonity Contract minimum gas price")
 			}
 		} else {
 			fmt.Println("gp, err", err)

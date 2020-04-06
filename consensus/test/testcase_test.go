@@ -33,6 +33,7 @@ const (
 	ValidatorPrefix   = "V"
 	StakeholderPrefix = "S"
 	ParticipantPrefix = "P"
+	ExternalPrefix    = "E"
 )
 
 type testCase struct {
@@ -125,6 +126,7 @@ func runTest(t *testing.T, test *testCase) {
 		// TODO: (screwyprof) Fix the following gorotine leaks
 		defer goleak.VerifyNone(t,
 			goleak.IgnoreTopFunction("github.com/JekaMas/notify._Cfunc_CFRunLoopRun"),
+			goleak.IgnoreTopFunction("github.com/JekaMas/notify.(*nonrecursiveTree).internal"),
 			goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
 			goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
 			goleak.IgnoreTopFunction("github.com/clearmatics/autonity/miner.(*worker).loop"),
@@ -143,7 +145,9 @@ func runTest(t *testing.T, test *testCase) {
 		t.Log("can't rise file description limit. errors are possible")
 	}
 
+	// default topology if not set anything
 	nodeNames := getNodeNames()[:test.numValidators]
+
 	if test.topology != nil {
 		err := test.topology.Validate()
 		if err != nil {
@@ -154,8 +158,11 @@ func runTest(t *testing.T, test *testCase) {
 
 		stakeholderNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), StakeholderPrefix)
 		participantNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), ParticipantPrefix)
+		externalNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), ExternalPrefix)
+
 		nodeNames = append(nodeNames, stakeholderNames...)
 		nodeNames = append(nodeNames, participantNames...)
+		nodeNames = append(nodeNames, externalNames...)
 	}
 
 	nodesNum := len(nodeNames)
@@ -164,7 +171,8 @@ func runTest(t *testing.T, test *testCase) {
 	enode.SetResolveFunc(func(host string) (ips []net.IP, e error) {
 		if len(host) > 4 || !(strings.HasPrefix(host, ValidatorPrefix) ||
 			strings.HasPrefix(host, StakeholderPrefix) ||
-			strings.HasPrefix(host, ParticipantPrefix)) {
+			strings.HasPrefix(host, ParticipantPrefix) ||
+			strings.HasPrefix(host, ExternalPrefix)) {
 			return nil, &net.DNSError{Err: "not found", Name: host, IsNotFound: true}
 		}
 
@@ -177,31 +185,33 @@ func runTest(t *testing.T, test *testCase) {
 	setNodesPortAndEnode(t, nodes)
 
 	genesis := makeGenesis(nodes)
+
 	if test.genesisHook != nil {
 		genesis = test.genesisHook(genesis)
 	}
-	for i, validator := range nodes {
+
+	for i, peer := range nodes {
 		var engineConstructor func(basic consensus.Engine) consensus.Engine
 		if test.maliciousPeers != nil {
 			engineConstructor = test.maliciousPeers[i].cons
 		}
 
-		validator.listener[0].Close()
-		validator.listener[1].Close()
+		peer.listener[0].Close()
+		peer.listener[1].Close()
 
 		rates := test.networkRates[i]
-		validator.node, err = makeValidator(genesis, validator.privateKey, fmt.Sprintf("127.0.0.1:%d", validator.port), validator.rpcPort, rates.in, rates.out, engineConstructor)
+		peer.node, err = makePeer(genesis, peer.privateKey, fmt.Sprintf("127.0.0.1:%d", peer.port), peer.rpcPort, rates.in, rates.out, engineConstructor)
 		if err != nil {
 			t.Fatal("cant make a node", i, err)
 		}
 	}
 
 	wg := &errgroup.Group{}
-	for _, validator := range nodes {
-		validator := validator
+	for _, peer := range nodes {
+		peer := peer
 
 		wg.Go(func() error {
-			return validator.startNode()
+			return peer.startNode()
 		})
 	}
 	err = wg.Wait()
@@ -209,9 +219,9 @@ func runTest(t *testing.T, test *testCase) {
 		t.Fatal(err)
 	}
 
-	s := ""
-	for i, v := range nodes {
-		s += fmt.Sprintf("%s %s === %s  -- %s\n", s, i, v.enode.URLv4(), crypto.PubkeyToAddress(v.privateKey.PublicKey).String())
+	s := " "
+	for i, p := range nodes {
+		s += fmt.Sprintf("%s %s === %s  -- %s\n", s, i, p.enode.URLv4(), crypto.PubkeyToAddress(p.privateKey.PublicKey).String())
 
 	}
 	fmt.Println(s)
@@ -225,19 +235,20 @@ func runTest(t *testing.T, test *testCase) {
 
 	defer func() {
 		wgClose := &errgroup.Group{}
-		for _, validator := range nodes {
-			validatorInner := validator
+		for _, peer := range nodes {
+			peer := peer
+
 			wgClose.Go(func() error {
-				if !validatorInner.isRunning {
+				if !peer.isRunning {
 					return nil
 				}
 
-				errInner := validatorInner.node.Close()
+				errInner := peer.node.Close()
 				if errInner != nil {
 					return fmt.Errorf("error on node close %v", err)
 				}
 
-				validatorInner.node.Wait()
+				peer.node.Wait()
 
 				return nil
 			})
@@ -248,32 +259,16 @@ func runTest(t *testing.T, test *testCase) {
 			t.Fatal(err)
 		}
 
-		time.Sleep(time.Second) //level DB needs a second to close
+		// level DB needs a second to close
+		time.Sleep(time.Second)
 	}()
 
 	wg = &errgroup.Group{}
-	for _, validator := range nodes {
-		validator := validator
+	for _, peer := range nodes {
+		peer := peer
 
 		wg.Go(func() error {
-			return validator.startService()
-		})
-	}
-	err = wg.Wait()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	wg = &errgroup.Group{}
-	for i, validator := range nodes {
-		validator := validator
-		i := i
-
-		wg.Go(func() error {
-			log.Debug("peers", "i", i,
-				"peers", len(validator.node.Server().Peers()),
-				"nodes", len(nodes))
-			return nil
+			return peer.startService()
 		})
 	}
 	err = wg.Wait()
@@ -282,8 +277,8 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	defer func() {
-		for _, validator := range nodes {
-			validator.subscription.Unsubscribe()
+		for _, peer := range nodes {
+			peer.subscription.Unsubscribe()
 		}
 	}()
 
@@ -292,7 +287,8 @@ func runTest(t *testing.T, test *testCase) {
 	if test.finalAssert != nil {
 		test.finalAssert(t, nodes)
 	}
-	//check topology
+
+	// check topology
 	if test.topology != nil {
 		err := test.topology.CheckTopology(nodes)
 		if err != nil {

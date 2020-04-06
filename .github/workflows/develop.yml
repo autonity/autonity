@@ -1,0 +1,24 @@
+name: develop
+on: [push]
+jobs:
+  long-run_tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        e2e: [TestTendermintTC7]
+
+    name: Tendermint ${{ matrix.e2e }} test
+
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - uses: actions/checkout@v2
+        with:
+          clean: 'false'
+
+      - name: Test
+        run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m

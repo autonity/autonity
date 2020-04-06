@@ -261,15 +261,17 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender ty
 		return
 	}
 	if _, ok := c.futureRoundChange[msgRound]; !ok {
-		c.futureRoundChange[msgRound] = make(map[common.Address]struct{})
+		c.futureRoundChange[msgRound] = make(map[common.Address]uint64)
 	}
-	c.futureRoundChange[msgRound][sender.Address] = struct{}{}
+	c.futureRoundChange[msgRound][sender.Address] = sender.VotingPower.Uint64()
 
-	// TODO(PoS Integration) : Weight by Voting Power
-	totalFutureRoundMessages := len(c.futureRoundChange[msgRound])
+	var totalFutureRoundMessagesPower uint64
+	for _, power := range c.futureRoundChange[msgRound] {
+		totalFutureRoundMessagesPower += power
+	}
 
-	if totalFutureRoundMessages > c.CommitteeSet().F() {
-		c.logger.Info("Received ceil(N/3) - 1 messages for higher round", "New round", msgRound)
+	if totalFutureRoundMessagesPower > c.CommitteeSet().F() {
+		c.logger.Info("Received ceil(N/3) - 1 messages power for higher round", "New round", msgRound)
 		c.startRound(ctx, msgRound)
 	}
 }

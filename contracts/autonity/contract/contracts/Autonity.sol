@@ -1,4 +1,4 @@
-pragma solidity ^0.5.1;
+pragma solidity ^0.6.4;
 pragma experimental ABIEncoderV2;
 import "./SafeMath.sol";
 
@@ -17,6 +17,7 @@ contract Autonity {
 
     struct RewardDistributionData {
         bool result;
+        //RewardDistributionData
         address[] stakeholders;
         uint256[] rewardfractions;
         uint256 amount;
@@ -34,6 +35,11 @@ contract Autonity {
         uint256 commissionRate; // rate must be by default 0 and must remain unchanged if not updated.
     }
 
+    struct CommitteeMember {
+        address payable addr;
+        uint256 votingPower;
+    }
+
     ////////////////////// Contract States need to be dumped for contract upgrade//////////
     address[] private usersList;
     string[] public enodesWhitelist;
@@ -41,18 +47,18 @@ contract Autonity {
     address public deployer;
     address public operatorAccount;
     uint256 minGasPrice = 0;
-    uint256 public bondingPeriod = 100;
-    uint256 public committeeSize = 1000;
+    uint256 public bondingPeriod = 10*60;
+    uint256 public committeeSize = 20;
     string public contractVersion = "v0.0.0";
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ///////////////////// Contract state which can be replay from dumped states////////////
     // Below 4 meta are used in each block generation before or after, so it is more about performance consideration.
     // They are re-playable by constructor function.
-    address[] public validators;
+    address[] private validators;
     address[] private stakeholders;
     uint256 private stakeSupply;
-    User[] public committee;
+    CommitteeMember[] private committee;
     ///////////////////////////////////////////////////////////////////////////////////////
 
     /*
@@ -76,6 +82,7 @@ contract Autonity {
     event SetCommissionRate(address _address, uint256 _value);
     event MintStake(address _address, uint256 _amount);
     event RedeemStake(address _address, uint256 _amount);
+    event BlockReward(address _address, uint256 _amount);
     event Version(string version);
     // constructor get called at block #1
     // configured in the genesis file.
@@ -107,10 +114,7 @@ contract Autonity {
         minGasPrice = _minGasPrice;
         bondingPeriod = _bondingPeriod;
         contractVersion = _contractVersion;
-
-        // to construct the committee:
         committeeSize = _committeeSize;
-        setCommittee();
     }
 
     /*
@@ -174,7 +178,7 @@ contract Autonity {
             for (uint256 i = 0; i < enodesWhitelist.length; i++) {
                 if (compareStringsbyBytes(enodesWhitelist[i], u.enode)) {
                     enodesWhitelist[i] = enodesWhitelist[enodesWhitelist.length - 1];
-                    enodesWhitelist.length--;
+                    enodesWhitelist.pop();
                     break;
                 }
             }
@@ -244,9 +248,9 @@ contract Autonity {
      * The Autonity Contract MUST implements the setCommissionRate(rate)
      * function capable of fixing the caller commission rate for the next bonding period.
      */
-    function setCommissionRate(uint256 rate) public canUseStake(msg.sender) returns(bool) {
-        users[msg.sender].commissionRate = rate;
-        emit SetCommissionRate(msg.sender, rate);
+    function setCommissionRate(uint256 _rate) public canUseStake(msg.sender) returns(bool) {
+        users[msg.sender].commissionRate = _rate;
+        emit SetCommissionRate(msg.sender, _rate);
         return true;
     }
 
@@ -260,6 +264,13 @@ contract Autonity {
 
     function retrieveContract() public view returns(string memory, string memory) {
         return (bytecode, contractAbi);
+    }
+
+    // receive function
+    receive() external payable {
+    }
+    // fallback function
+    fallback() external  payable {
     }
 
     /*
@@ -287,19 +298,19 @@ contract Autonity {
     function retrieveState() public view
     returns (address[] memory, string[] memory, uint256[] memory, uint256[] memory, uint256[] memory, address, uint256, uint256, uint256, string memory) {
 
-        address[] memory addr = new address[](usersList.length);
-        uint256[] memory userType  = new uint256[](usersList.length);
-        uint256[] memory stake = new uint256[](usersList.length);
-        string[] memory enode = new string[](usersList.length);
-        uint256[] memory commissionRate = new uint256[](usersList.length);
+        address[] memory _addr = new address[](usersList.length);
+        uint256[] memory _userType  = new uint256[](usersList.length);
+        uint256[] memory _stake = new uint256[](usersList.length);
+        string[] memory _enode = new string[](usersList.length);
+        uint256[] memory _commissionRate = new uint256[](usersList.length);
         for(uint256 i=0; i<usersList.length; i++ ) {
-            addr[i] = users[usersList[i]].addr;
-            userType[i] = uint256(users[usersList[i]].userType);
-            stake[i] = users[usersList[i]].stake;
-            enode[i] = users[usersList[i]].enode;
-            commissionRate[i] = users[usersList[i]].commissionRate;
+            _addr[i] = users[usersList[i]].addr;
+            _userType[i] = uint256(users[usersList[i]].userType);
+            _stake[i] = users[usersList[i]].stake;
+            _enode[i] = users[usersList[i]].enode;
+            _commissionRate[i] = users[usersList[i]].commissionRate;
         }
-        return (addr, enode, userType, stake, commissionRate, operatorAccount, minGasPrice, bondingPeriod, committeeSize, contractVersion);
+        return (_addr, _enode, _userType, _stake, _commissionRate, operatorAccount, minGasPrice, bondingPeriod, committeeSize, contractVersion);
     }
 
     /*
@@ -311,7 +322,7 @@ contract Autonity {
         return stakeholders;
     }
 
-    function getCommittee() public view returns (User[] memory) {
+    function getCommittee() public view returns (CommitteeMember[] memory) {
         return committee;
     }
 
@@ -386,113 +397,76 @@ contract Autonity {
         return  users[_account].addr == _account;
     }
 
-    /*
-    * sortByStake
-    * Order validators by stake
-    *
-    */
-    function sortByStake(User[] memory _validators) internal pure returns(User[] memory){
-        structQuickSort(_validators, int(0), int(_validators.length - 1));
-        return _validators;
-    }
 
     /*
-    * structQuickSort
-    * QuickSort algorithm sorting in ascending order by stake
+    * computeCommittee
+    * update the current committee by selecting top staking validators
     */
-    function structQuickSort(User[] memory _users, int low, int high) internal pure {
-
-        int i = low;
-        int j = high;
-        if (i==j) return;
-        uint pivot = _users[uint(low + (high - low) / 2)].stake;
-        // Set the pivot element in its right sorted index in the array
-        while (i <= j) {
-            while (_users[uint(i)].stake > pivot) i++;
-            while (pivot > _users[uint(j)].stake) j--;
-            if (i <= j) {
-                (_users[uint(i)], _users[uint(j)]) = (_users[uint(j)], _users[uint(i)]);
-                i++;
-                j--;
-            }
-        }
-        // Recursion call in the left partition of the array
-        if (low < j) {
-            structQuickSort(_users, low, j);
-        }
-        // Recursion call in the right partition
-        if (i < high) {
-            structQuickSort(_users, i , high);
-        }
-    }
-
-    /*
-    * setCommittee
-    * selects the committee of validators to participate in consensus
-    */
-    function setCommittee() public onlyDeployer(msg.sender) returns(User[] memory){
+    function computeCommittee() public onlyDeployer(msg.sender) {
         require(validators.length > 0, "There must be validators");
 
-        uint len = validators.length;
-        uint256 committeeLength = committeeSize;
-        if (committeeLength >= len) {committeeLength = len;}
+        uint _len = validators.length;
+        uint256 _committeeLength = committeeSize;
+        if (_committeeLength >= _len) {_committeeLength = _len;}
 
-        User[] memory validatorList = new User[](len);
-        User[] memory sortedValidatorList = new User[](len);
-        User[] memory committeeList = new User[](committeeLength);
+        User[] memory _validatorList = new User[](_len);
+        User[] memory _committeeList = new User[](_committeeLength);
 
         for (uint256 i = 0;i < validators.length; i++) {
             User memory _user = users[validators[i]];
-            validatorList[i] =_user;
+            _validatorList[i] =_user;
         }
 
         // If there are more validators than seats in the committee
-        if (validatorList.length > committeeSize) {
+        if (_validatorList.length > committeeSize) {
             // sort validators by stake in ascending order
-            sortedValidatorList = sortByStake(validatorList);
+           _sortByStake(_validatorList);
             // choose the top-N (with N=maxCommitteeSize)
-            for (uint256 j = 0; j < committeeSize; j++) {
-                committeeList[j] = sortedValidatorList[j];
+            for (uint256 _j = 0; _j < committeeSize; _j++) {
+                _committeeList[_j] = _validatorList[_j];
             }
         }
         // If all the validators fit in the committee
         else {
-            committeeList = validatorList;
+            _committeeList = _validatorList;
         }
 
         // Update committee in persistent storage
         delete committee;
-        for (uint256 k =0 ; k < committeeLength; k++) {
-            committee.push(committeeList[k]);
+        for (uint256 _k =0 ; _k < _committeeLength; _k++) {
+            CommitteeMember memory _member = CommitteeMember(_committeeList[_k].addr, _committeeList[_k].stake);
+            committee.push(_member);
         }
 
-        return committee;
     }
 
     /*
     * performRedistribution
     * return a structure contains reward distribution.
     */
-    function performRedistribution(uint256 _amount) internal onlyDeployer(msg.sender) returns(RewardDistributionData memory rewarddistribution) {
+    function performRedistribution(uint256 _amount) internal onlyDeployer(msg.sender)  {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
         require(stakeholders.length > 0, "there must be stake holders");
 
-        uint256[] memory rewardfractionlist = new uint256[](stakeholders.length);
         for (uint256 i = 0; i < stakeholders.length; i++) {
             User storage _user = users[stakeholders[i]];
-            uint256 reward = _user.stake.mul(_amount).div(stakeSupply);
-            _user.addr.transfer(reward);
-            rewardfractionlist[i] = reward;
+            uint256 _reward = _user.stake.mul(_amount).div(stakeSupply);
+            _user.addr.transfer(_reward);
+            emit BlockReward(_user.addr, _reward);
         }
-        RewardDistributionData memory rd = RewardDistributionData(true, stakeholders, rewardfractionlist, _amount);
-        return rd;
     }
 
-    //Finalize function called once after every mined block, return if a new contract is ready for update
-    function finalize(uint256 _amount) public onlyDeployer(msg.sender) returns (RewardDistributionData memory rewarddistribution) {
-        RewardDistributionData memory data = performRedistribution(_amount);
-        data.result = bytes(bytecode).length != 0;
-        return data;
+    /*
+    * finalize
+    * function called once after every mined block. To avoid calling the evm multiple times we return
+    * here if there is an update available and the next block committee.
+    */
+    function finalize(uint256 _amount) public onlyDeployer(msg.sender) returns(bool , CommitteeMember[] memory) {
+        performRedistribution(_amount);
+        bool _updateAvailable = bytes(bytecode).length != 0;
+        computeCommittee();
+
+       return (_updateAvailable, committee);
     }
 
     function totalSupply() public view returns (uint) {
@@ -536,12 +510,12 @@ contract Autonity {
     * Modifier that checks if the caller is a Governance Operator
     */
     modifier onlyOperator(address _caller) {
-        require(operatorAccount == _caller, "Caller is not a operator");
+        require(operatorAccount == _caller, "Caller is not the operator");
         _;
     }
 
     modifier onlyDeployer(address _caller) {
-        require(deployer == _caller, "Caller is not a operator");
+        require(deployer == _caller, "Caller is not deployer");
         _;
     }
 
@@ -610,13 +584,49 @@ contract Autonity {
         for (uint256 i = 0; i < _array.length; i++) {
             if (_array[i] == _address) {
                 _array[i] = _array[_array.length - 1];
-                _array.length--;
+                _array.pop();
                 break;
             }
         }
     }
 
-    // @notice Will receive any eth sent to the contract
-    function () external payable {
+    /*
+    * sortByStake
+    * Order validators by stake
+    *
+    */
+    function _sortByStake(User[] memory _validators) internal pure{
+        _structQuickSort(_validators, int(0), int(_validators.length - 1));
     }
+
+    /*
+    * structQuickSort
+    * QuickSort algorithm sorting in ascending order by stake
+    */
+    function _structQuickSort(User[] memory _users, int _low, int _high) internal pure {
+
+        int _i = _low;
+        int _j = _high;
+        if (_i==_j) return;
+        uint _pivot = _users[uint(_low + (_high - _low) / 2)].stake;
+        // Set the pivot element in its right sorted index in the array
+        while (_i <= _j) {
+            while (_users[uint(_i)].stake > _pivot) _i++;
+            while (_pivot > _users[uint(_j)].stake) _j--;
+            if (_i <= _j) {
+                (_users[uint(_i)], _users[uint(_j)]) = (_users[uint(_j)], _users[uint(_i)]);
+                _i++;
+                _j--;
+            }
+        }
+        // Recursion call in the left partition of the array
+        if (_low < _j) {
+            _structQuickSort(_users, _low, _j);
+        }
+        // Recursion call in the right partition
+        if (_i < _high) {
+            _structQuickSort(_users, _i, _high);
+        }
+    }
+
 }
