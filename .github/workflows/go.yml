@@ -209,7 +209,6 @@ jobs:
               TestTendermintSlowConnections,
               TestTendermintMemoryLeak,
               TestTendermintLongRun,
-              TestTendermintTC7,
               TestTendermintOneMalicious,
               TestTendermintNoQuorum,
               TestTendermintStopUpToFNodes,
