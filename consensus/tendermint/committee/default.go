@@ -23,6 +23,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core/types"
 	"math"
+	"math/big"
 	"reflect"
 	"sort"
 	"sync"
@@ -37,8 +38,8 @@ type defaultSet struct {
 	selector     ProposalSelector
 	totalPower   uint64
 
-	mu       sync.RWMutex                    // members doesn't need to be protected as it is read-only
-	proposer map[int64]types.CommitteeMember // cached computed values
+	mu       sync.RWMutex                                 // members doesn't need to be protected as it is read-only
+	proposer map[uint64]map[int64]types.CommitteeMember   // cached computed values, height->round->CommitteeMember
 }
 
 func NewSet(members types.Committee, policy config.ProposerPolicy, lastProposer common.Address) (*defaultSet, error) {
@@ -50,7 +51,7 @@ func NewSet(members types.Committee, policy config.ProposerPolicy, lastProposer 
 	committee := &defaultSet{}
 	committee.policy = policy
 	committee.members = members
-	committee.proposer = make(map[int64]types.CommitteeMember)
+	committee.proposer = make(map[uint64]map[int64]types.CommitteeMember)
 	// sort validator
 	sort.Sort(committee.members)
 
@@ -64,12 +65,15 @@ func NewSet(members types.Committee, policy config.ProposerPolicy, lastProposer 
 		committee.selector = stickyProposer
 	case config.RoundRobin:
 		committee.selector = roundRobinProposer
+	case config.WeightedRoundRobin:
+		committee.selector = weightedRoundRobinProposer
 	default:
 		committee.selector = roundRobinProposer
 	}
 
 	committee.lastProposer = lastProposer
-	committee.proposer[0] = committee.selector(committee, lastProposer, 0)
+	// does not apply to WRR since height is not known yet, let it to be calculated on demand.
+	//committee.proposer[0] = committee.selector(committee, lastProposer, 0, unknownHeight)
 	return committee, nil
 }
 
@@ -105,24 +109,31 @@ func (set *defaultSet) GetByAddress(addr common.Address) (int, types.CommitteeMe
 	return -1, types.CommitteeMember{}, consensus.ErrCommitteeMemberNotFound
 }
 
-func (set *defaultSet) GetProposer(round int64) types.CommitteeMember {
+func (set *defaultSet) GetProposer(round int64, height *big.Int) types.CommitteeMember {
 	set.mu.Lock()
 	defer set.mu.Unlock()
-	v, ok := set.proposer[round]
+	v, ok := set.proposer[height.Uint64()][round]
 	if !ok {
-		v = set.selector(set, set.lastProposer, round)
-		set.proposer[round] = v
+		proposer := set.selector(set, set.lastProposer, round, height)
+		roundMap, ok := set.proposer[height.Uint64()]
+		if !ok {
+			set.proposer[height.Uint64()] = make(map[int64]types.CommitteeMember)
+			set.proposer[height.Uint64()][round] = proposer
+		} else {
+			roundMap[round] = proposer
+		}
+		v = proposer
 	}
 
 	return v
 }
 
-func (set *defaultSet) IsProposer(round int64, address common.Address) bool {
+func (set *defaultSet) IsProposer(round int64, height *big.Int, address common.Address) bool {
 	_, val, err := set.GetByAddress(address)
 	if err != nil {
 		return false
 	}
-	curProposer := set.GetProposer(round)
+	curProposer := set.GetProposer(round, height)
 	return reflect.DeepEqual(curProposer, val)
 }
 

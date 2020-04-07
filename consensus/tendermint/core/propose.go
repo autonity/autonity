@@ -73,7 +73,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 				return err // do not gossip, TODO: accountability
 			}
 
-			if !c.CommitteeSet().IsProposer(proposal.Round, msg.Address) {
+			if !c.CommitteeSet().IsProposer(proposal.Round, proposal.Height, msg.Address) {
 				c.logger.Warn("Ignore proposal messages from non-proposer")
 				return errNotFromProposer
 			}
@@ -93,7 +93,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	}
 
 	// Check if the message comes from curRoundMessages proposer
-	if !c.CommitteeSet().IsProposer(c.Round(), msg.Address) {
+	if !c.CommitteeSet().IsProposer(c.Round(), c.Height(), msg.Address) {
 		c.logger.Warn("Ignore proposal messages from non-proposer")
 		return errNotFromProposer
 	}
@@ -184,7 +184,7 @@ func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, 
 		"msgRound", proposal.Round,
 		"currentStep", c.step,
 		"isProposer", c.isProposer(),
-		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
+		"currentProposer", c.CommitteeSet().GetProposer(c.Round(), c.Height()),
 		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
 		"hash", proposal.ProposalBlock.Hash(),
 	)

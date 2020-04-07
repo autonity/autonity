@@ -126,22 +126,22 @@ func testNormalValSet(t *testing.T) {
 		t.Errorf("validator mismatch: have %s, want error", err)
 	}
 	// test get proposer
-	if val := committeeSet.GetProposer(0); !reflect.DeepEqual(val, val2) {
+	if val := committeeSet.GetProposer(0, big.NewInt(0)); !reflect.DeepEqual(val, val2) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val1)
 	}
 	// test calculate proposer
 	lastProposer := addr1
 	committeeSet, _ = NewSet(types.Committee{val1, val2}, config.RoundRobin, lastProposer)
-	if val := committeeSet.GetProposer(0); !reflect.DeepEqual(val, val2) {
+	if val := committeeSet.GetProposer(0, big.NewInt(0)); !reflect.DeepEqual(val, val2) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
 	}
-	if val := committeeSet.GetProposer(3); !reflect.DeepEqual(val, val1) {
+	if val := committeeSet.GetProposer(3, big.NewInt(0)); !reflect.DeepEqual(val, val1) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val1)
 	}
 	// test empty last proposer
 	lastProposer = common.Address{}
 	committeeSet, _ = NewSet(types.Committee{val1, val2}, config.RoundRobin, lastProposer)
-	if val := committeeSet.GetProposer(3); !reflect.DeepEqual(val, val2) {
+	if val := committeeSet.GetProposer(3, big.NewInt(0)); !reflect.DeepEqual(val, val2) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
 	}
 }
@@ -166,21 +166,21 @@ func testStickyProposer(t *testing.T) {
 		t.Error("error returned when creating committee set")
 	}
 	// test get proposer
-	if val := set.GetProposer(0); !reflect.DeepEqual(val, val1) {
+	if val := set.GetProposer(0, big.NewInt(0)); !reflect.DeepEqual(val, val1) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val1)
 	}
 	// test calculate proposer
-	if val := set.GetProposer(0); !reflect.DeepEqual(val, val1) {
+	if val := set.GetProposer(0, big.NewInt(0)); !reflect.DeepEqual(val, val1) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val1)
 	}
 
-	if val := set.GetProposer(1); !reflect.DeepEqual(val, val2) {
+	if val := set.GetProposer(1, big.NewInt(0)); !reflect.DeepEqual(val, val2) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
 	}
 
 	// test empty last proposer
 	set, _ = NewSet(types.Committee{val1, val2}, config.Sticky, common.Address{})
-	if val := set.GetProposer(1); !reflect.DeepEqual(val, val2) {
+	if val := set.GetProposer(1, big.NewInt(0)); !reflect.DeepEqual(val, val2) {
 		t.Errorf("proposer mismatch: have %v, want %v", val, val2)
 	}
 }

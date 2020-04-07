@@ -681,7 +681,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	if err != nil || validators.Size() == 0 {
 		panic("failed to get committee")
 	}
-	proposerAddr := validators.GetProposer(0).Address
+	proposerAddr := validators.GetProposer(0, big.NewInt(0)).Address
 
 	// find proposer key
 	for _, key := range nodeKeys {

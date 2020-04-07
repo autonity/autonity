@@ -19,6 +19,7 @@ package committee
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
+	"math/big"
 )
 
 type Set interface {
@@ -31,9 +32,9 @@ type Set interface {
 	// Get validator by given address
 	GetByAddress(addr common.Address) (int, types.CommitteeMember, error)
 	// Get the round proposer
-	GetProposer(round int64) types.CommitteeMember
+	GetProposer(round int64, height *big.Int) types.CommitteeMember
 	// Check whether the validator with given address is the round proposer
-	IsProposer(round int64, address common.Address) bool
+	IsProposer(round int64, height *big.Int, address common.Address) bool
 	// Copy validator set
 	Copy() Set
 	// Get the maximum number of faulty nodes
@@ -44,4 +45,4 @@ type Set interface {
 
 // ----------------------------------------------------------------------------
 
-type ProposalSelector func(Set, common.Address, int64) types.CommitteeMember
+type ProposalSelector func(Set, common.Address, int64, *big.Int) types.CommitteeMember

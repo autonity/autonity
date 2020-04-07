@@ -212,7 +212,7 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 }
 
 func (c *core) isProposer() bool {
-	return c.CommitteeSet().IsProposer(c.Round(), c.address)
+	return c.CommitteeSet().IsProposer(c.Round(), c.Height(), c.address)
 }
 
 func (c *core) commit(round int64, messages *roundMessages) {

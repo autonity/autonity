@@ -3,9 +3,10 @@ package committee
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
+	"math/big"
 )
 
-func stickyProposer(valSet Set, proposer common.Address, round int64) types.CommitteeMember {
+func stickyProposer(valSet Set, proposer common.Address, round int64, height *big.Int) types.CommitteeMember {
 	size := valSet.Size()
 	seed := int(round)
 	if proposer != (common.Address{}) {
