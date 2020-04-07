@@ -28,10 +28,8 @@ const (
 )
 
 type Config struct {
-	RequestTimeout uint64         `toml:",omitempty" json:"request-timeout"` // The timeout for each Istanbul round in milliseconds.
-	BlockPeriod    uint64         `toml:",omitempty" json:"block-period"`    // Default minimum difference between two consecutive block's timestamps in second
-	ProposerPolicy ProposerPolicy `toml:",omitempty" json:"policy"`          // The policy for proposer selection
-	Epoch          uint64         `toml:",omitempty" json:"epoch"`           // The number of blocks after which to checkpoint and reset the pending votes
+	BlockPeriod    uint64         `toml:",omitempty" json:"block-period"` // Default minimum difference between two consecutive block's timestamps in second
+	ProposerPolicy ProposerPolicy `toml:",omitempty" json:"policy"`       // The policy for proposer selection
 	sync.RWMutex
 }
 
@@ -41,10 +39,8 @@ func (c *Config) String() string {
 
 func DefaultConfig() *Config {
 	return &Config{
-		RequestTimeout: 10000,
 		BlockPeriod:    1,
 		ProposerPolicy: RoundRobin,
-		Epoch:          30000,
 	}
 }
 
