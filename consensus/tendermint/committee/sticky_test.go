@@ -1,6 +1,5 @@
 package committee
 
-/*
 import (
 	"bytes"
 	"fmt"
@@ -323,4 +322,3 @@ func TestStickyProposer(t *testing.T) {
 		})
 	}
 }
-*/

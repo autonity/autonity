@@ -1,5 +1,5 @@
 package committee
-/*
+
 import (
 	"bytes"
 	"fmt"
@@ -164,4 +164,3 @@ func TestRoundRobinProposer(t *testing.T) {
 		})
 	}
 }
- */
