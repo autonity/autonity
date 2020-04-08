@@ -191,7 +191,6 @@ func TestVerifyHeader(t *testing.T) {
 	}
 	header = block.Header()
 	copy(header.Nonce[:], hexutil.MustDecode("0x111111111111"))
-	header.Number = big.NewInt(int64(engine.config.Epoch))
 	err = engine.VerifyHeader(chain, header, false)
 	if err != errInvalidNonce {
 		t.Errorf("error mismatch: have %v, want %v", err, errInvalidNonce)

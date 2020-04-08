@@ -255,18 +255,8 @@ func setupDefaults(genesis *core.Genesis) {
 	defaultConfig := config.DefaultConfig()
 
 	if genesis.Config.Tendermint != nil {
-		if genesis.Config.Tendermint.Epoch == 0 {
-			genesis.Config.Tendermint.Epoch = defaultConfig.Epoch
-		}
-		if genesis.Config.Tendermint.RequestTimeout == 0 {
-			genesis.Config.Tendermint.RequestTimeout = defaultConfig.RequestTimeout
-		}
 		if genesis.Config.Tendermint.BlockPeriod == 0 {
 			genesis.Config.Tendermint.BlockPeriod = defaultConfig.BlockPeriod
-		}
-
-		if genesis.Config.Tendermint.Epoch == 0 {
-			genesis.Config.Tendermint.Epoch = defaultConfig.Epoch
 		}
 	}
 }
