@@ -64,7 +64,11 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		}
 	)
 	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{
-		Users: []params.User{},
+		Users: []params.User{{
+			Address: common.HexToAddress("0x0000000000000000000000000000000000000000"),
+			Type:    params.UserValidator,
+			Stake:   1,
+		}},
 	}
 
 	for i := range peers {

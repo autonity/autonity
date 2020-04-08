@@ -748,10 +748,6 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 				Enode:   EnodeStub,
 				Stake:   100,
 			})
-		genesis.Committee = append(genesis.Committee, types.CommitteeMember{
-			Address:     addrs[i],
-			VotingPower: new(big.Int).SetUint64(1),
-		})
 	}
 }
 
