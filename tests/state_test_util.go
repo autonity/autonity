@@ -169,7 +169,10 @@ func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config) (*stat
 		return nil, common.Hash{}, UnsupportedForkError{subtest.Fork}
 	}
 	vmconfig.ExtraEips = eips
-	block := t.genesis(config).ToBlock(nil)
+	block, err := t.genesis(config).ToBlock(nil)
+	if err != nil {
+		return nil, common.Hash{}, err
+	}
 	statedb := MakePreState(rawdb.NewMemoryDatabase(), t.json.Pre)
 
 	post := t.json.Post[subtest.Fork][subtest.Index]

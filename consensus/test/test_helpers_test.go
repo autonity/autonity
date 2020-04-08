@@ -157,11 +157,6 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 		panic(err)
 	}
 
-	err = genesis.SetBFT()
-	if err != nil {
-		panic(err)
-	}
-
 	return genesis
 }
 

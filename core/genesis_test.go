@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
@@ -32,11 +33,13 @@ import (
 )
 
 func TestDefaultGenesisBlock(t *testing.T) {
-	block := DefaultGenesisBlock().ToBlock(nil)
+	block, err := DefaultGenesisBlock().ToBlock(nil)
+	assert.NoError(t, err)
 	if block.Hash() != params.MainnetGenesisHash {
 		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash(), params.MainnetGenesisHash)
 	}
-	block = DefaultTestnetGenesisBlock().ToBlock(nil)
+	block, err = DefaultTestnetGenesisBlock().ToBlock(nil)
+	assert.NoError(t, err)
 	if block.Hash() != params.TestnetGenesisHash {
 		t.Errorf("wrong testnet genesis hash, got %v, want %v", block.Hash(), params.TestnetGenesisHash)
 	}
