@@ -189,7 +189,7 @@ jobs:
 
       - name: Linters
         run: |
-          git fetch --no-tags --depth=1 origin develop:develop
+          git fetch -fu --no-tags --depth=2 origin develop:develop
           make lint-ci
         shell: bash
 
@@ -209,7 +209,6 @@ jobs:
               TestTendermintSlowConnections,
               TestTendermintMemoryLeak,
               TestTendermintLongRun,
-              TestTendermintTC7,
               TestTendermintOneMalicious,
               TestTendermintNoQuorum,
               TestTendermintStopUpToFNodes,
@@ -228,6 +227,17 @@ jobs:
               TestTendermintAddValidatorsToTopologySuccess,
               TestTendermintAddParticipantsToTopologySuccess,
               TestTendermintAddStakeholdersToTopologySuccess,
+              TestTendermintExternalUser,
+              TestTendermintStarOverParticipantSuccessWithExternalUser,
+              TestTendermintBusSuccessWithExternalUser,
+              TestTendermintChangeTopologyFromBusToStarSuccessWithExternalUser,
+              TestTendermintChangeTopologyFromStarToBusSuccessWithExternalUser,
+              TestTendermintAddConnectionToTopologySuccessWithExternalUser,
+              TestTendermintAddValidatorsToTopologySuccessWithExternalUser,
+              TestTendermintAddParticipantsToTopologySuccessWithExternalUser,
+              TestTendermintAddStakeholdersToTopologySuccessWithExternalUser,
+              TestTendermintMajorityExternalUsers,
+              TestTendermintMajorityExternalUsersFullyConnected,
               TestAddStakeholderWithCorruptedEnodeToList,
               TestAddIncorrectStakeholdersToList
         ]

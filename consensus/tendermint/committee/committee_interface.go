@@ -37,9 +37,9 @@ type Set interface {
 	// Copy validator set
 	Copy() Set
 	// Get the maximum number of faulty nodes
-	F() int
+	F() uint64
 	// Get the optimal quorum size
-	Quorum() int
+	Quorum() uint64
 }
 
 // ----------------------------------------------------------------------------

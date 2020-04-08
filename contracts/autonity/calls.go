@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"reflect"
+	"sort"
 )
 
 /*
@@ -190,16 +191,19 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 	return minGasPrice.Uint64(), nil
 }
 
-func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, error) {
-	v := RewardDistributionMetaData{}
-	err := ac.AutonityContractCall(state, header, "finalize", &v, blockGas)
-	if err != nil {
-		return false, err
-	}
+func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, types.Committee, error) {
 
+	var updateReady bool
+	var committee types.Committee
+
+	err := ac.AutonityContractCall(state, header, "finalize", &[]interface{}{&updateReady, &committee}, blockGas)
+	if err != nil {
+		return false, nil, err
+	}
+	sort.Sort(committee)
 	// submit the final reward distribution metrics.
-	ac.metrics.SubmitRewardDistributionMetrics(&v, header.Number.Uint64())
-	return v.Result, nil
+	//ac.metrics.SubmitRewardDistributionMetrics(&v, header.Number.Uint64())
+	return updateReady, committee, nil
 }
 
 func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Header) ([]byte, error) {

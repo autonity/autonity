@@ -711,7 +711,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.GasLimit = 10000000
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	// force enable Istanbul engine
-	genesis.Config.Tendermint = &params.TendermintConfig{}
+	genesis.Config.Tendermint = &config.Config{}
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
@@ -796,7 +796,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	nonce := state.GetNonce(engine.address)
 	gasPrice := new(big.Int).SetUint64(1000000)
 	gasPool := new(core.GasPool).AddGas(header.GasLimit)
-	var receipts types.Receipts
+	var receipts []*types.Receipt
 	for i := range txs {
 		amount := new(big.Int).SetUint64((nonce + 1) * 1000000000)
 		tx := types.NewTransaction(nonce, common.Address{}, amount, params.TxGas, gasPrice, []byte{})
@@ -812,7 +812,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 		nonce++
 		receipts = append(receipts, receipt)
 	}
-	block, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, receipts)
+	block, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, &receipts)
 	if err != nil {
 		return nil, err
 	}
