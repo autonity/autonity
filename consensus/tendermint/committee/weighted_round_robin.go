@@ -30,7 +30,7 @@ func weightedRoundRobinProposer(valSet Set, proposer common.Address, round int64
 	selectedIndex := 0
 
 	counter := uint64(0)
-	for i:= 0; i < valSet.Committee().Len(); i ++ {
+	for i := 0; i < valSet.Committee().Len(); i++ {
 		if valSet.Committee()[i].VotingPower.Uint64() == 0 {
 			continue
 		}

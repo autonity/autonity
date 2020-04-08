@@ -37,9 +37,8 @@ type defaultSet struct {
 	lastProposer common.Address
 	selector     ProposalSelector
 	totalPower   uint64
-
-	mu       sync.RWMutex                                 // members doesn't need to be protected as it is read-only
-	proposer map[uint64]map[int64]types.CommitteeMember   // cached computed values, height->round->CommitteeMember
+	mu           sync.RWMutex                               // members doesn't need to be protected as it is read-only
+	proposer     map[uint64]map[int64]types.CommitteeMember // cached computed values, height->round->CommitteeMember
 }
 
 func NewSet(members types.Committee, policy config.ProposerPolicy, lastProposer common.Address) (*defaultSet, error) {

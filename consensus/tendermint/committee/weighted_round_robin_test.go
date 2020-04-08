@@ -47,7 +47,7 @@ func testWRRDetermination(t *testing.T) {
 		t.FailNow()
 	}
 
-	for height:= int64(0); height < 1000; height ++ {
+	for height := int64(0); height < 1000; height++ {
 		for round := int64(0); round < 100; round++ {
 			v1 := committeeSet.GetProposer(round, big.NewInt(height))
 			v2 := committeeSet.GetProposer(round, big.NewInt(height))
@@ -73,14 +73,14 @@ func testZeroVotingPower(t *testing.T) {
 		t.FailNow()
 	}
 
-	for height:= int64(0); height < 1000; height ++ {
-		for round := int64(0); round < 100; round ++ {
-			if round % 2 == 0 {
+	for height := int64(0); height < 1000; height++ {
+		for round := int64(0); round < 100; round++ {
+			if round%2 == 0 {
 				if validator := committeeSet.GetProposer(round, big.NewInt(height)); !reflect.DeepEqual(validator, val2) {
 					t.Errorf("validator mismatch: have %v, want %v", validator, val2)
 				}
 
-			}else{
+			} else {
 				if validator := committeeSet.GetProposer(round, big.NewInt(height)); !reflect.DeepEqual(validator, val1) {
 					t.Errorf("validator mismatch: have %v, want %v", validator, val1)
 				}
@@ -116,7 +116,7 @@ func testNotScheduleZeroStakeHolder(t *testing.T) {
 		t.FailNow()
 	}
 
-	for height := int64(0); height < 10000; height ++ {
+	for height := int64(0); height < 10000; height++ {
 		for round := int64(0); round < 10; round++ {
 			proposer := committeeSet.GetProposer(round, big.NewInt(height))
 			if reflect.DeepEqual(proposer, val2) {
@@ -177,26 +177,27 @@ func testWRRSchedule(t *testing.T) {
 	maxHeight := 100000
 	maxRound := 10
 	totalElection := int64(maxHeight * maxRound)
-	for height := int64(0); height < int64(maxHeight); height ++ {
-		for round := int64(0); round < int64(maxRound); round ++ {
+	for height := int64(0); height < int64(maxHeight); height++ {
+		for round := int64(0); round < int64(maxRound); round++ {
 			proposer := committeeSet.GetProposer(round, big.NewInt(height))
 			_, ok := mapHits[proposer.Address]
 			if !ok {
 				mapHits[proposer.Address] = 1
 			} else {
-				mapHits[proposer.Address] += 1
+				mapHits[proposer.Address]++
 			}
 		}
 	}
 
 	for k, scheduled := range mapHits {
 		expected := expectedRates[k] * 100
-		actualRate := (float64(scheduled)/float64(totalElection)) * 100
+		actualRate := (float64(scheduled) / float64(totalElection)) * 100
 		t.Logf("address: %s, scheduled: %d times, expected rate: %f%%, actual rate: %f%%.", k.String(),
 			scheduled, expected, actualRate)
 		// if the schedule rate is more than 1% unexpected, fail the case.
-		if math.Abs(expected - actualRate) > 1.0 {
-			t.Errorf("the schedule rate delta is unexpected: %f", math.Abs(expected - actualRate))
+		delta := expected - actualRate
+		if math.Abs(delta) > 1.0 {
+			t.Errorf("the schedule rate delta is unexpected: %f", math.Abs(delta))
 		}
 	}
 }
