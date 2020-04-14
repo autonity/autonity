@@ -511,7 +511,6 @@ func (c *blake2F) Run(input []byte) ([]byte, error) {
 	return output, nil
 }
 
-
 // checkEnode implemented as a native contract.
 type checkEnode struct{}
 
