@@ -59,13 +59,6 @@ var (
 
 // New creates an Ethereum Backend for BFT core engine.
 func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
-	if chainConfig.Tendermint.Epoch != 0 {
-		config.Epoch = chainConfig.Tendermint.Epoch
-	}
-
-	if chainConfig.Tendermint.RequestTimeout != 0 {
-		config.RequestTimeout = chainConfig.Tendermint.RequestTimeout
-	}
 	if chainConfig.Tendermint.BlockPeriod != 0 {
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
