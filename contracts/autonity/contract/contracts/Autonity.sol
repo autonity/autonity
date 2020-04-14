@@ -554,7 +554,7 @@ contract Autonity {
 
     function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake, uint256 commissionRate) internal {
         require(_address != address(0), "Addresses must be defined");
-        require(Precompiled.enodeCheck(_enode) != 0, "enode error");
+        require(Precompiled.enodeCheck(_enode)[0] != 0, "enode error");
 
         User memory u = User(_address, _userType, _stake, _enode, commissionRate);
 

@@ -1,9 +1,11 @@
-pragma solidity ^0.5.0;
+pragma solidity ^0.6.4;
 
+// how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
-    function enodeCheck(string enode) internal pure returns (uint[2] memory p) {
+    function enodeCheck(string memory enode) internal view returns (uint[2] memory p) {
         assembly {
-            if iszero(staticcall(gas, 0xff, input, 0x80, p, 0x40)) {
+            // staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(staticcall(gas(), 0xff, enode, 0x80, p, 0x40)) {
                 revert(0, 0)
             }
         }
