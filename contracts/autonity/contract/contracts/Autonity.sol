@@ -459,7 +459,7 @@ contract Autonity {
 
         // fallback to round robin if total voting power is 0.
         if (total_voting_power == 0) {
-            index = (height + round) % committee.length;
+            uint256 index = (height + round) % committee.length;
             return committee[index].addr;
         }
 
