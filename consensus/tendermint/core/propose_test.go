@@ -55,6 +55,7 @@ func TestSendPropose(t *testing.T) {
 
 		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(gomock.Eq(int64(1)), addr).Return(true).AnyTimes()
+		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
 		valSetMock.EXPECT().GetProposer(int64(1))
 
 		backendMock := NewMockBackend(ctrl)
@@ -147,6 +148,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		valSetMock := committee.NewMockSet(ctrl)
+		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
 		valSetMock.EXPECT().IsProposer(int64(2), addr).Return(false)
 
 		c := &core{
@@ -197,6 +199,7 @@ func TestHandleProposal(t *testing.T) {
 		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(int64(2), addr).Return(true).AnyTimes()
 		valSetMock.EXPECT().GetProposer(int64(2))
+		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
 		valSetMock.EXPECT().Size().AnyTimes()
 		valSetMock.EXPECT().GetByAddress(msg.Address).Return(1, sender, nil).AnyTimes()
 
@@ -293,6 +296,7 @@ func TestHandleProposal(t *testing.T) {
 
 		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(int64(2), addr).Return(true).AnyTimes()
+		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
 		valSetMock.EXPECT().GetProposer(int64(2))
 
 		var decProposal Proposal
@@ -355,6 +359,7 @@ func TestHandleProposal(t *testing.T) {
 
 		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(int64(2), addr).Return(true).AnyTimes()
+		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
 		valSetMock.EXPECT().GetProposer(int64(2)).AnyTimes()
 		valSetMock.EXPECT().Size().AnyTimes()
 
@@ -449,6 +454,7 @@ func TestHandleProposal(t *testing.T) {
 
 		valSetMock := committee.NewMockSet(ctrl)
 		valSetMock.EXPECT().IsProposer(int64(2), addr).Return(true).AnyTimes()
+		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
 		valSetMock.EXPECT().GetProposer(int64(2)).AnyTimes()
 		valSetMock.EXPECT().Size().AnyTimes()
 		valSetMock.EXPECT().Quorum().Return(uint64(1))

@@ -472,6 +472,20 @@ func (mr *MockBackendMockRecorder) GetProposer(number interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProposer", reflect.TypeOf((*MockBackend)(nil).GetProposer), number)
 }
 
+// GetProposer mocks base method
+func (m *MockBackend) GetProposerFromL2(height uint64, round int64) common.Address {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProposer", height, round)
+	ret0, _ := ret[0].(common.Address)
+	return ret0
+}
+
+// GetProposer indicates an expected call of GetProposer
+func (mr *MockBackendMockRecorder) GetProposerFromL2(height interface{}, round interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProposer", reflect.TypeOf((*MockBackend)(nil).GetProposer), height, round)
+}
+
 // HasBadProposal mocks base method
 func (m *MockBackend) HasBadProposal(hash common.Hash) bool {
 	m.ctrl.T.Helper()

@@ -475,6 +475,7 @@ func TestHandleCommit(t *testing.T) {
 	backendMock.EXPECT().LastCommittedProposal().MinTimes(1).Return(block, addr)
 
 	committeeSet := committee.NewMockSet(ctrl)
+	committeeSet.EXPECT().IsPoS().Return(false)
 	committeeSet.EXPECT().IsProposer(gomock.Any(), addr).Return(false)
 
 	backendMock.EXPECT().Committee(gomock.Any()).Return(committeeSet, nil)
