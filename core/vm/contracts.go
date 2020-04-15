@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -31,7 +32,7 @@ import (
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 
-	//lint:ignore SA1019 Needed for precompile
+	// lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -514,10 +515,15 @@ func (c *blake2F) Run(input []byte) ([]byte, error) {
 // checkEnode implemented as a native contract.
 type checkEnode struct{}
 
-func (c checkEnode) RequiredGas(input []byte) uint64 {
-	return uint64(len(input)+31)/32*params.Sha256PerWordGas + params.Sha256BaseGas
+func (c checkEnode) RequiredGas(_ []byte) uint64 {
+	return params.EnodeCheckGas
 }
 func (c checkEnode) Run(input []byte) ([]byte, error) {
+	if start := bytes.Index(input, []byte("enode:")); start != -1 {
+		input = input[start:]
+	}
+	input = bytes.Trim(input, "\x00")
+
 	nodeStr := string(input)
 	if _, err := enode.Parse(enode.ValidSchemes, nodeStr); err != nil {
 		return false32Byte, fmt.Errorf("invalid enode %q: %v", nodeStr, err)
