@@ -632,13 +632,23 @@ contract('Autonity', function (accounts) {
         it('get proposer, should schedule proposer on round robin way.', async function () {
             await token.computeCommittee({from: deployer});
             let height;
-            for (height = 0; height < 10; height++) {
+            let counterMap = new Map()
+            let max_height = 10
+            for (height = 0; height < max_height; height++){
                 let round;
                 for (round = 0; round < 1; round ++){
                     let proposer = await token.getProposer(height, round);
-                    console.log("proposer: " + proposer)
-                    //let expected_proposer = accounts[(height + round) % validatorsList.length]
-                    //assert(proposer === expected_proposer, "proposer should be expected.")
+                    if (counterMap.has(proposer) === true) {
+                        counterMap.set(proposer, counterMap.get(proposer) + 1)
+                    } else {
+                        counterMap.set(proposer, 1)
+                    }
+                }
+            }
+
+            for (let [k, v] of counterMap) {
+                if (v !== max_height/validatorsList.length) {
+                    assert.fail("round robin scheduling is not expected.")
                 }
             }
         });
