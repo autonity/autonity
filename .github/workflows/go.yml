@@ -161,6 +161,15 @@ jobs:
       - name: Build
         run: make autonity
 
+      - name: Cache binary
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-bin
+        with:
+          path: /home/runner/work/autonity/autonity/build/bin
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
       - name: Install
         run: go run build/ci.go install
 
@@ -298,6 +307,7 @@ jobs:
 
   contract_tests:
     runs-on: ubuntu-latest
+    needs: build
     steps:
       - name: Setup Node
         uses: actions/setup-node@v1
@@ -306,10 +316,6 @@ jobs:
 
       - name: install truffle
         run: npm install -g truffle
-      - name: install ganache
-        run: npm install -g ganache-cli
-      - name: run ganache
-        run: ganache-cli --gasLimit=0x1fffffffffffff --allowUnlimitedContractSize -e 1000000000 &
 
       - name: Cache code
         uses: actions/cache@v1
@@ -324,6 +330,15 @@ jobs:
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
+
+      - name: Cache binary
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-bin
+        with:
+          path: /home/runner/work/autonity/autonity/build/bin
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
       - name: test contract
         run: make test-contracts
