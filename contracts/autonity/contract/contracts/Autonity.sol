@@ -449,7 +449,7 @@ contract Autonity {
         // calculate total voting power from current committee.
         uint256 total_voting_power = 0;
         for (uint256 i = 0; i < committee.length; i++) {
-            total_voting_power += committee[i].stake;
+            total_voting_power += committee[i].votingPower;
         }
 
         // if no committee set, return operator address.
@@ -472,10 +472,10 @@ contract Autonity {
         uint256 counter = 0;
         for (uint256 i = 0; i < committee.length; i++) {
             // skip those members with 0 stake.
-            if (committee[i].stake == 0) {
+            if (committee[i].votingPower == 0) {
                 continue;
             }
-            counter += committee[i].stake;
+            counter += committee[i].votingPower;
             if (index <= counter - 1) {
                 return committee[i].addr;
             }
