@@ -266,13 +266,6 @@ contract Autonity {
         return (bytecode, contractAbi);
     }
 
-    // receive function
-    receive() external payable {
-    }
-    // fallback function
-    fallback() external  payable {
-    }
-
     /*
     ========================================================================================================================
 
@@ -630,4 +623,7 @@ contract Autonity {
         }
     }
 
+    receive() external payable {}
+
+    fallback() external payable {}
 }

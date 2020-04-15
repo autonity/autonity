@@ -24,7 +24,6 @@ jobs:
           clean: 'false'
 
       - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
 
       - name: Test
