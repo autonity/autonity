@@ -123,6 +123,7 @@ lint-deps:
 clean:
 	go clean -cache
 	rm -fr build/_workspace/pkg/ $(GOBIN)/*
+	rm -rf $(GENERATED_CONTRACT_DIR)
 
 # The devtools target installs tools required for 'go generate'.
 # You need to put $GOBIN (or $GOPATH/bin) in your PATH to use 'go generate'.
