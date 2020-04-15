@@ -521,7 +521,7 @@ func TestClose(t *testing.T) {
 
 		var wg sync.WaitGroup
 		stop := 10
-		errC := make(chan error, 10)
+		errC := make(chan error, stop)
 
 		for i := 0; i < stop; i++ {
 			wg.Add(1)
@@ -627,7 +627,7 @@ func TestStart(t *testing.T) {
 
 		var wg sync.WaitGroup
 		stop := 10
-		errC := make(chan error, 10)
+		errC := make(chan error, stop)
 
 		for i := 0; i < stop; i++ {
 			wg.Add(1)
