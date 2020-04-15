@@ -441,6 +441,48 @@ contract Autonity {
     }
 
     /*
+    * getProposer
+    * Implement a stateless weighted-round-robin proposer election from the committee which is in a consistent view
+    * across the nodes, the view is calculated by function computeCommittee() on each block finalization.
+    */
+    function getProposer(uint256 height, uint256 round) public view returns(address) {
+        // calculate total voting power from current committee.
+        uint256 total_voting_power = 0;
+        for (uint256 i = 0; i < committee.length; i++) {
+            total_voting_power += committee[i].stake;
+        }
+
+        // if no committee set, return operator address.
+        if (committee.length == 0) {
+            return operatorAccount;
+        }
+
+        // fallback to round robin if total voting power is 0.
+        if (total_voting_power == 0) {
+            index = (height + round) % committee.length;
+            return committee[index].addr;
+        }
+
+        // distribute seed into a 256bits key-space.
+        uint256 key = height + round;
+        uint256 value = uint256(keccak256(abi.encodePacked(key)));
+        uint256 index = value % total_voting_power;
+
+        //find the index hit which committee member which line up in a sorted committee list.
+        uint256 counter = 0;
+        for (uint256 i = 0; i < committee.length; i++) {
+            // skip those members with 0 stake.
+            if (committee[i].stake == 0) {
+                continue;
+            }
+            counter += committee[i].stake;
+            if (index <= counter - 1) {
+                return committee[i].addr;
+            }
+        }
+    }
+
+    /*
     * performRedistribution
     * return a structure contains reward distribution.
     */

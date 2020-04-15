@@ -176,7 +176,7 @@ func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to
 		"msgRound", precommit.Round,
 		"currentStep", c.step,
 		"isProposer", c.isProposer(),
-		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
+		"currentProposer", c.getProposer(),
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
 		"hash", precommit.ProposedBlockHash,
 		"type", "Precommit",

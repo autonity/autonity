@@ -135,7 +135,7 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 		"msgRound", prevote.Round,
 		"currentStep", c.step,
 		"isProposer", c.isProposer(),
-		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
+		"currentProposer", c.getProposer(),
 		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
 		"hash", prevote.ProposedBlockHash,
 		"type", "Prevote",

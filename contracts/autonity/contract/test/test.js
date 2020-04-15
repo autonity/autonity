@@ -576,4 +576,93 @@ contract('Autonity', function (accounts) {
             await token.removeUser(accounts[5], {from: operator});
         });
     });
+
+    describe('Proposer selection, Normal case.', function() {
+
+        beforeEach(async function(){
+            token = await utils.deployContract(validatorsList, whiteList,
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
+        });
+
+        it('get proposer, proposer should be determinated across nodes on same height and round.', async function () {
+            await token.computeCommittee({from: deployer});
+            let height;
+            for (height = 0; height < 10; height++) {
+                let round;
+                for (round = 0; round < 3; round ++){
+                    let proposer1 = await token.getProposer(height, round);
+                    let proposer2 = await token.getProposer(height, round);
+                    console.log("height: " + height + " round: " + round + " proposer: ", proposer1)
+                    console.log("height: " + height + " round: " + round + " proposer: ", proposer2)
+                    assert(proposer1 === proposer2, "proposer should be determinated on same height and round")
+                }
+            }
+        });
+
+    });
+
+    describe('Proposer selection, committee size is 0.', function() {
+
+        beforeEach(async function(){
+            token = await utils.deployContract(validatorsList, whiteList,
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, 0, version,  { from:accounts[8]} );
+        });
+
+        it('get proposer, should return operator address when committee size is 0.', async function () {
+            await token.computeCommittee({from: deployer});
+            let height;
+            for (height = 0; height < 10; height++) {
+                let round;
+                for (round = 0; round < 3; round ++){
+                    let proposer1 = await token.getProposer(height, round);
+                    assert(proposer1 === operator, "proposer should be determinated on same height and round")
+                }
+            }
+        });
+
+    });
+
+    describe('Proposer selection, no stakes on committee.', function() {
+
+        beforeEach(async function(){
+            token = await utils.deployContract(validatorsList, whiteList,
+                userTypes, [0,0,0,0,0], commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
+        });
+
+        it('get proposer, should schedule proposer on round robin way.', async function () {
+            await token.computeCommittee({from: deployer});
+            let height;
+            for (height = 0; height < 10; height++) {
+                let round;
+                for (round = 0; round < 1; round ++){
+                    let proposer = await token.getProposer(height, round);
+                    let expected_proposer = accounts[(height + round) % validatorsList.length]
+                    assert(proposer === expected_proposer, "proposer should be expected.")
+                }
+            }
+        });
+
+    });
+
+    describe('Proposer selection, do not schedule 0 stake committee members', function() {
+
+        beforeEach(async function(){
+            token = await utils.deployContract(validatorsList, whiteList,
+                userTypes, [100,0,1000,0,0], commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
+        });
+
+        it('get proposer, should not schedule 0 stake members.', async function () {
+            await token.computeCommittee({from: deployer});
+            let height;
+            for (height = 0; height < 1000; height++) {
+                let round;
+                for (round = 0; round < 2; round ++){
+                    let proposer = await token.getProposer(height, round);
+                    if (proposer === accounts[2] || proposer === accounts[4] || proposer == accounts[5]) {
+                        assert.fail("proposer is not expected.")
+                    }
+                }
+            }
+        });
+    });
 });

@@ -191,6 +191,18 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 	return minGasPrice.Uint64(), nil
 }
 
+func (ac *Contract) callGetProposerFromL2(state *state.StateDB, header *types.Header, height uint64, round int64) common.Address {
+	var proposer common.Address
+	_height := new(big.Int).SetUint64(height)
+	_round := new(big.Int).SetInt64(round)
+	err := ac.AutonityContractCall(state, header, "getProposer", &proposer, _height, _round)
+	if err != nil {
+		log.Error("get proposer failed from contract.", "error", err)
+		return common.Address{}
+	}
+	return proposer
+}
+
 func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, types.Committee, error) {
 
 	var updateReady bool

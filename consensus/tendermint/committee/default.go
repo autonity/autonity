@@ -96,6 +96,10 @@ func (set *defaultSet) GetByIndex(i int) (types.CommitteeMember, error) {
 	return set.members[i], nil
 }
 
+func (set *defaultSet) IsPoS() bool {
+	return set.policy == config.WeightedRoundRobin
+}
+
 func (set *defaultSet) GetByAddress(addr common.Address) (int, types.CommitteeMember, error) {
 	for i, member := range set.members {
 		if addr == member.Address {

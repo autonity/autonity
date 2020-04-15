@@ -34,6 +34,8 @@ type Set interface {
 	GetProposer(round int64) types.CommitteeMember
 	// Check whether the validator with given address is the round proposer
 	IsProposer(round int64, address common.Address) bool
+	// Check if it's using PoS proposer election algorithm.
+	IsPoS() bool
 	// Copy validator set
 	Copy() Set
 	// Get the maximum number of faulty nodes

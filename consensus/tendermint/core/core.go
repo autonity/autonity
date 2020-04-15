@@ -211,8 +211,39 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 	}
 }
 
+// get proposer base on local round state.
+func (c *core) getProposer() types.CommitteeMember {
+	// if sticky or round robin configured for proposer selection.
+	if c.CommitteeSet().IsPoS() == false {
+		return c.CommitteeSet().GetProposer(c.Round())
+	} else {
+		// PoS (voting power) weighted round robin.
+		proposer := c.backend.GetProposerFromL2(c.Height().Uint64(), c.Round())
+		_, member, _ := c.CommitteeSet().GetByAddress(proposer)
+		return member
+	}
+}
+
+// check is proposer base on local round state.
 func (c *core) isProposer() bool {
-	return c.CommitteeSet().IsProposer(c.Round(), c.address)
+	// if sticky or round robin configured for proposer selection.
+	if c.CommitteeSet().IsPoS() == false {
+		return c.CommitteeSet().IsProposer(c.Round(), c.address)
+	} else {
+		// PoS (voting power) weighted round robin.
+		return  c.backend.GetProposerFromL2(c.Height().Uint64(), c.Round()) == c.address
+	}
+}
+
+// check if msg sender is proposer for proposal handling.
+func (c *core) isProposerMsg(height *big.Int, round int64, msgAddress common.Address) bool {
+	// if sticky or round robin configured for proposer selection.
+	if c.CommitteeSet().IsPoS() == false {
+		return c.CommitteeSet().IsProposer(round, msgAddress)
+	} else {
+		// PoS (voting power) weighted round robin.
+		return  c.backend.GetProposerFromL2(height.Uint64(), round) == msgAddress
+	}
 }
 
 func (c *core) commit(round int64, messages *roundMessages) {

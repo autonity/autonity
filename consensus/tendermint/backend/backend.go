@@ -431,6 +431,10 @@ func (sb *Backend) GetContractABI() string {
 	return sb.blockchain.GetAutonityContract().GetContractABI()
 }
 
+func (sb *Backend) GetProposerFromL2(height uint64, round int64) common.Address {
+	return sb.blockchain.GetProposerFromL2(height, round)
+}
+
 // Whitelist for the current block
 func (sb *Backend) WhiteList() []string {
 	db, err := sb.blockchain.State()

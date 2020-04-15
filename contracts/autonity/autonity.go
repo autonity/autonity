@@ -167,6 +167,10 @@ func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (u
 	return ac.callGetMinimumGasPrice(db, block.Header())
 }
 
+func (ac *Contract) GetProposerFromL2(block *types.Block, db *state.StateDB, height uint64, round int64) common.Address {
+	return ac.callGetProposerFromL2(db, block.Header(), height, round)
+}
+
 func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, price *big.Int) error {
 	if block.Number().Uint64() <= 1 {
 		return nil
