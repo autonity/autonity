@@ -20,5 +20,9 @@ jobs:
         with:
           clean: 'false'
 
+      - name: Embed Autonity contract
+        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
+        run: make embed-autonity-contract
+
       - name: Test
         run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
