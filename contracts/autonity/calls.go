@@ -112,7 +112,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	// Deploy the Autonity contract
 	_, contractAddress, _, vmerr := evm.Create(sender, data, gas, value)
 	if vmerr != nil {
-		log.Error("evm.Create returns err", "err", vmerr)
+		log.Error("DeployAutonityContract evm.Create", "err", vmerr)
 		return contractAddress, vmerr
 	}
 	ac.Lock()
@@ -132,7 +132,7 @@ func (ac *Contract) UpdateAutonityContract(header *types.Header, statedb *state.
 	value := new(big.Int).SetUint64(0x00)
 	_, _, _, vmerr := evm.CreateWithAddress(vm.AccountRef(caller), data, gas, value, ac.Address())
 	if vmerr != nil {
-		log.Error("evm.Create returns err", "err", vmerr)
+		log.Error("UpdateAutonityContract evm.Create", "err", vmerr)
 		return vmerr
 	}
 	return nil

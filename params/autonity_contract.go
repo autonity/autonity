@@ -97,7 +97,7 @@ func (ac *AutonityContractGenesis) Validate() error {
 
 	for i := range ac.Users {
 		if err := ac.Users[i].Validate(); err != nil {
-			return err
+			return fmt.Errorf("user %v got validation error %v", ac.Users[i], err)
 		}
 	}
 

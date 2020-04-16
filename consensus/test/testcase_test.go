@@ -1,6 +1,7 @@
 package test
 
 import (
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"net"
@@ -148,6 +149,7 @@ func runTest(t *testing.T, test *testCase) {
 
 	// default topology if not set anything
 	nodeNames := getNodeNames()[:test.numValidators]
+	stakeholderName := nodeNames[len(nodeNames)-1]
 
 	if test.topology != nil {
 		err := test.topology.Validate()
@@ -158,6 +160,10 @@ func runTest(t *testing.T, test *testCase) {
 		test.numValidators = len(nodeNames)
 
 		stakeholderNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), StakeholderPrefix)
+		if len(stakeholderNames) > 0 {
+			stakeholderName = stakeholderNames[0]
+		}
+
 		participantNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), ParticipantPrefix)
 		externalNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), ExternalPrefix)
 
@@ -185,7 +191,7 @@ func runTest(t *testing.T, test *testCase) {
 	generateNodesPrivateKey(t, nodes, nodeNames, nodesNum)
 	setNodesPortAndEnode(t, nodes)
 
-	genesis := makeGenesis(nodes)
+	genesis := makeGenesis(nodes, stakeholderName)
 
 	if test.genesisHook != nil {
 		genesis = test.genesisHook(genesis)
@@ -577,47 +583,58 @@ func generateNodesPrivateKey(t *testing.T, nodes map[string]*testNode, nodeNames
 }
 
 func setNodesPortAndEnode(t *testing.T, nodes map[string]*testNode) {
-	for i := range nodes {
-		//port
-		listener, innerErr := net.Listen("tcp", "127.0.0.1:0")
-		if innerErr != nil {
-			panic(innerErr)
+	for addr, node := range nodes {
+		if n, err := newNode(node.privateKey, addr); err != nil {
+			t.Fatal(err)
+		} else {
+			node.netNode = n
 		}
-		nodes[i].listener = append(nodes[i].listener, listener)
+	}
+}
 
-		//rpc port
-		listener, innerErr = net.Listen("tcp", "127.0.0.1:0")
-		if innerErr != nil {
-			panic(innerErr)
-		}
-		nodes[i].listener = append(nodes[i].listener, listener)
+func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
+	n := netNode{
+		privateKey: privateKey,
 	}
 
-	for i, node := range nodes {
-		listener := node.listener[0]
-		port := strings.Split(listener.Addr().String(), ":")[1]
-		node.address = fmt.Sprintf("%s:%s", i, port)
-		node.port, _ = strconv.Atoi(port)
-
-		rpcListener := node.listener[1]
-		rpcPort, innerErr := strconv.Atoi(strings.Split(rpcListener.Addr().String(), ":")[1])
-		if innerErr != nil {
-			t.Fatal("incorrect rpc port ", innerErr)
-		}
-
-		node.rpcPort = rpcPort
-
-		if node.port == 0 || node.rpcPort == 0 {
-			t.Fatal("On node", i, "port equals 0")
-		}
-
-		node.url = enode.V4DNSUrl(
-			node.privateKey.PublicKey,
-			node.address,
-			node.port,
-			node.port,
-		)
+	//port
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return netNode{}, err
 	}
+	n.listener = append(n.listener, listener)
+
+	//rpc port
+	listener, err = net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return netNode{}, err
+	}
+	n.listener = append(n.listener, listener)
+
+	port := strings.Split(n.listener[0].Addr().String(), ":")[1]
+	n.address = fmt.Sprintf("%s:%s", addr, port)
+	n.port, _ = strconv.Atoi(port)
+
+	rpcListener := n.listener[1]
+	rpcPort, innerErr := strconv.Atoi(strings.Split(rpcListener.Addr().String(), ":")[1])
+	if innerErr != nil {
+		return netNode{}, fmt.Errorf("incorrect rpc port %w", innerErr)
+	}
+
+	n.rpcPort = rpcPort
+
+	if n.port == 0 || n.rpcPort == 0 {
+		return netNode{}, fmt.Errorf("on node %s port equals 0", addr)
+	}
+
+	n.url = enode.V4DNSUrl(
+		n.privateKey.PublicKey,
+		n.address,
+		n.port,
+		n.port,
+	)
+
+	return n, nil
 }
 
 func getNodeNamesByPrefix(names []string, typ string) []string {

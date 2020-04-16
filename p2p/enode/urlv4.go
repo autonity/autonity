@@ -116,6 +116,12 @@ func NewV4(pubkey *ecdsa.PublicKey, ip net.IP, tcp, udp int) *Node {
 	return n
 }
 
+func ParseV4SkipResolve(rawurl string) (*Node, error) {
+	return parseV4(rawurl, func(host string) ([]net.IP, error) {
+		return []net.IP{{127, 0, 0, 1}}, nil
+	})
+}
+
 // isNewV4 returns true for nodes created by NewV4.
 func isNewV4(n *Node) bool {
 	var k s256raw

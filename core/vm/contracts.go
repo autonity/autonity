@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -27,9 +28,10 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/crypto/blake2b"
 	"github.com/clearmatics/autonity/crypto/bn256"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 
-	//lint:ignore SA1019 Needed for precompile
+	// lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -48,6 +50,8 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{2}): &sha256hash{},
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
+
+	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
@@ -61,6 +65,8 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{6}): &bn256AddByzantium{},
 	common.BytesToAddress([]byte{7}): &bn256ScalarMulByzantium{},
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
+
+	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
 // PrecompiledContractsIstanbul contains the default set of pre-compiled Ethereum
@@ -75,6 +81,8 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
+
+	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
@@ -501,4 +509,22 @@ func (c *blake2F) Run(input []byte) ([]byte, error) {
 		binary.LittleEndian.PutUint64(output[offset:offset+8], h[i])
 	}
 	return output, nil
+}
+
+// checkEnode implemented as a native contract.
+type checkEnode struct{}
+func (c checkEnode) RequiredGas(_ []byte) uint64 {
+	return params.EnodeCheckGas
+}
+func (c checkEnode) Run(input []byte) ([]byte, error) {
+	if len(input) == 0 {
+		panic(fmt.Errorf("invalid enode - empty"))
+	}
+	input = common.TrimPrefixAndSuffix(input, []byte("enode:"), []byte{'\x00'})
+	nodeStr := string(input)
+
+	if _, err := enode.ParseV4SkipResolve(nodeStr); err != nil {
+		return false32Byte, fmt.Errorf("invalid enode %q: %v", nodeStr, err)
+	}
+	return true32Byte, nil
 }
