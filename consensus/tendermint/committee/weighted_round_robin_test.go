@@ -60,30 +60,33 @@ func TestWeightedRoundRobinProposerOperatorAttackVector(t *testing.T) {
 	r := int64(1)
 	nextCommitee := vals[:4]
 
+	numOfMaliciousValidators := 0
 	nextLastProposer := addr2
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1000; i++ {
 		fmt.Println(i)
 		committeeSet, _ = NewSet(nextCommitee, config.WeightedRoundRobin, nextLastProposer)
 		c := committeeSet.GetProposer(r, big.NewInt(h))
 		nextLastProposer = c.Address
 		if c.Address == addr1 {
-			fmt.Println("mal")
+			fmt.Println(i, "mal")
+			numOfMaliciousValidators++
 		} else {
-			//fmt.Println("not")
+			fmt.Println(i, "not")
 		}
+
+		//try to manipulate adding or removing validators
 		for j := 5; j > 3; j-- {
-			committeeSet, _ = NewSet(vals[:j], config.WeightedRoundRobin, c.Address)
-			c = committeeSet.GetProposer(r, big.NewInt(h))
+			committeeSet, _ = NewSet(vals[:j], config.WeightedRoundRobin, nextLastProposer)
+			c = committeeSet.GetProposer(r, big.NewInt(h+1))
 			if c.Address == addr1 {
 				nextCommitee = vals[:j]
 				//fmt.Println("c mal")
 				break
-			} else {
-				//fmt.Println("c not")
 			}
 		}
 		h++
 	}
+	t.Log(numOfMaliciousValidators)
 }
 
 func TestWeightedRoundRobinProposerValidatorsAttackVector(t *testing.T) {
