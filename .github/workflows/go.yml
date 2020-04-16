@@ -12,7 +12,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -329,8 +329,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -366,8 +365,7 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
