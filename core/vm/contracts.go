@@ -519,13 +519,22 @@ func (c checkEnode) RequiredGas(_ []byte) uint64 {
 	return params.EnodeCheckGas
 }
 func (c checkEnode) Run(input []byte) ([]byte, error) {
+	var out []string
+	out = append(out, string(input))
+
 	if start := bytes.Index(input, []byte("enode:")); start != -1 {
 		input = input[start:]
 	}
+	out = append(out, string(input))
+
 	input = bytes.Trim(input, "\x00")
+	out = append(out, string(input))
 
 	nodeStr := string(input)
-	if _, err := enode.Parse(enode.ValidSchemes, nodeStr); err != nil {
+	out = append(out, nodeStr)
+
+	if _, err := enode.ParseV4SkipResolve(nodeStr); err != nil {
+		panic(fmt.Errorf("invalid enode %q: %v\n%v", nodeStr, err, out))
 		return false32Byte, fmt.Errorf("invalid enode %q: %v", nodeStr, err)
 	}
 	return true32Byte, nil

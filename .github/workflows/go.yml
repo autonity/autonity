@@ -47,10 +47,12 @@ jobs:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
+
       - name: Embed Autonity contract
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
@@ -76,10 +78,12 @@ jobs:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
+
       - name: Embed Autonity contract
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
@@ -117,10 +121,12 @@ jobs:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
+
       - name: Embed Autonity contract
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
@@ -134,7 +140,8 @@ jobs:
           path: /home/runner/work/autonity/autonity/tests/testdata
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
-      - name: conformance tests
+
+      - name: get conformance tests
         if: steps.cache-git-modules.outputs.cache-hit != 'true'
         run: git submodule update --init --recursive
 
@@ -166,10 +173,12 @@ jobs:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
+
       - name: Embed Autonity contract
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
@@ -207,6 +216,7 @@ jobs:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
@@ -287,10 +297,12 @@ jobs:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
+
       - name: Embed Autonity contract
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
@@ -319,10 +331,12 @@ jobs:
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
+
       - name: Embed Autonity contract
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
@@ -354,10 +368,12 @@ jobs:
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
+
       - name: Embed Autonity contract
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
