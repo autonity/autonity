@@ -2302,7 +2302,7 @@ func (bc *BlockChain) GetProposerFromL2(height uint64, round int64) common.Addre
 
 	block := bc.GetBlockByNumber(height)
 	if block == nil {
-		log.Error("cannot find block at height %v", height)
+		log.Error("GetProposerFromL2 ", "height", height)
 		return common.Address{}
 	}
 

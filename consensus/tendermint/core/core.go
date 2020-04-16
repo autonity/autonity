@@ -213,34 +213,37 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 
 // get proposer base on local round state.
 func (c *core) getProposer() types.CommitteeMember {
-	// if sticky or round robin configured for proposer selection.
-	if !c.CommitteeSet().IsPoS() {
+	// if sticky or round robin configured for proposer selection. L2 is not deployed before Height1 finalized.
+	if !c.CommitteeSet().IsPoS() || c.Height().Uint64() == 1 {
 		return c.CommitteeSet().GetProposer(c.Round())
 	}
 	// PoS (voting power) weighted round robin.
-	proposer := c.backend.GetProposerFromL2(c.Height().Uint64(), c.Round())
+	l2ViewHeight := c.Height().Uint64() - 1
+	proposer := c.backend.GetProposerFromL2(l2ViewHeight, c.Round())
 	_, member, _ := c.CommitteeSet().GetByAddress(proposer)
 	return member
 }
 
 // check is proposer base on local round state.
 func (c *core) isProposer() bool {
-	// if sticky or round robin configured for proposer selection.
-	if !c.CommitteeSet().IsPoS() {
+	// if sticky or round robin configured for proposer selection. L2 is not deployed before Height1 finalized.
+	if !c.CommitteeSet().IsPoS() || c.Height().Uint64() == 1 {
 		return c.CommitteeSet().IsProposer(c.Round(), c.address)
 	}
 	// PoS (voting power) weighted round robin.
-	return c.backend.GetProposerFromL2(c.Height().Uint64(), c.Round()) == c.address
+	l2ViewHeight := c.Height().Uint64() - 1
+	return c.backend.GetProposerFromL2(l2ViewHeight, c.Round()) == c.address
 }
 
 // check if msg sender is proposer for proposal handling.
 func (c *core) isProposerMsg(height *big.Int, round int64, msgAddress common.Address) bool {
-	// if sticky or round robin configured for proposer selection.
-	if !c.CommitteeSet().IsPoS() {
+	// if sticky or round robin configured for proposer selection. L2 is not deployed before Height1 finalized.
+	if !c.CommitteeSet().IsPoS() || height.Uint64() == 1 {
 		return c.CommitteeSet().IsProposer(round, msgAddress)
 	}
 	// PoS (voting power) weighted round robin.
-	return c.backend.GetProposerFromL2(height.Uint64(), round) == msgAddress
+	l2ViewHeight := c.Height().Uint64() - 1
+	return c.backend.GetProposerFromL2(l2ViewHeight, round) == msgAddress
 }
 
 func (c *core) commit(round int64, messages *roundMessages) {
