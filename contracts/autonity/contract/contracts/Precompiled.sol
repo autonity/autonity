@@ -5,6 +5,7 @@ library Precompiled {
     function enodeCheck(string memory enode) internal view returns (uint[2] memory p) {
         assembly {
             // staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            //if iszero(staticcall(gas(), 0xff, enode, 0xf0, p, 0x40)) {
             if iszero(staticcall(gas(), 0xff, enode, 0xc0, p, 0x40)) {
                 revert(0, 0)
             }
