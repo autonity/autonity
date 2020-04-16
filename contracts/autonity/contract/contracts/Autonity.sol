@@ -1,7 +1,7 @@
 pragma solidity ^0.6.4;
 pragma experimental ABIEncoderV2;
 import "./SafeMath.sol";
-
+import "./Precompiled.sol";
 
 contract Autonity {
     using SafeMath for uint256;
@@ -122,7 +122,7 @@ contract Autonity {
     * Add validator to validators list.
     */
     function addValidator(address payable _address, uint256 _stake, string memory _enode) public onlyOperator(msg.sender) {
-        _createUser(_address,_enode, UserType.Validator, _stake, 0);
+        _createUser(_address, _enode, UserType.Validator, _stake, 0);
         emit AddValidator(_address, _stake);
     }
 
@@ -264,13 +264,6 @@ contract Autonity {
 
     function retrieveContract() public view returns(string memory, string memory) {
         return (bytecode, contractAbi);
-    }
-
-    // receive function
-    receive() external payable {
-    }
-    // fallback function
-    fallback() external  payable {
     }
 
     /*
@@ -554,6 +547,7 @@ contract Autonity {
 
     function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake, uint256 commissionRate) internal {
         require(_address != address(0), "Addresses must be defined");
+        require(Precompiled.enodeCheck(_enode)[0] != 0, "enode error");
 
         User memory u = User(_address, _userType, _stake, _enode, commissionRate);
 
@@ -629,4 +623,7 @@ contract Autonity {
         }
     }
 
+    receive() external payable {}
+
+    fallback() external payable {}
 }

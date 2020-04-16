@@ -18,6 +18,7 @@
 package common
 
 import (
+	"bytes"
 	"encoding/hex"
 )
 
@@ -146,4 +147,16 @@ func TrimLeftZeroes(s []byte) []byte {
 		}
 	}
 	return s[idx:]
+}
+
+func TrimPrefixAndSuffix(s []byte, startWith []byte, cut []byte) []byte {
+	if lastPrefixIndex := bytes.Index(s, startWith); lastPrefixIndex != -1 {
+		s = s[lastPrefixIndex:]
+	}
+
+	if firstSuffixIndex := bytes.Index(s, cut); firstSuffixIndex != -1 {
+		s = s[:firstSuffixIndex]
+	}
+
+	return s
 }
