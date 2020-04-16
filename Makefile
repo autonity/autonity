@@ -77,8 +77,6 @@ test-race:
 
 test-contracts:
 	cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
-	sleep 5
-	./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545
 	cd contracts/autonity/contract/ && truffle test && cd -
 
 mock-gen:

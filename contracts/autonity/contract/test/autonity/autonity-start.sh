@@ -35,4 +35,4 @@ $AUTONITY \
   --mine \
   --allow-insecure-unlock \
   --miner.threads 1 \
-  --verbosity 0
+  --verbosity 1

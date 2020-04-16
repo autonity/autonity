@@ -2,223 +2,201 @@ package generated
 
 const Abi = `[
    {
-      "stateMutability" : "nonpayable",
       "type" : "constructor",
+      "stateMutability" : "nonpayable",
       "inputs" : [
          {
             "internalType" : "address[]",
-            "type" : "address[]",
-            "name" : "_participantAddress"
+            "name" : "_participantAddress",
+            "type" : "address[]"
          },
          {
-            "type" : "string[]",
             "internalType" : "string[]",
-            "name" : "_participantEnode"
-         },
-         {
-            "type" : "uint256[]",
-            "internalType" : "uint256[]",
-            "name" : "_participantType"
+            "name" : "_participantEnode",
+            "type" : "string[]"
          },
          {
             "internalType" : "uint256[]",
-            "type" : "uint256[]",
-            "name" : "_participantStake"
+            "name" : "_participantType",
+            "type" : "uint256[]"
          },
          {
             "type" : "uint256[]",
-            "internalType" : "uint256[]",
-            "name" : "_commissionRate"
+            "name" : "_participantStake",
+            "internalType" : "uint256[]"
          },
          {
-            "internalType" : "address",
+            "name" : "_commissionRate",
+            "type" : "uint256[]",
+            "internalType" : "uint256[]"
+         },
+         {
+            "name" : "_operatorAccount",
             "type" : "address",
-            "name" : "_operatorAccount"
+            "internalType" : "address"
          },
          {
             "name" : "_minGasPrice",
-            "internalType" : "uint256",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "uint256",
             "type" : "uint256",
-            "name" : "_bondingPeriod"
+            "internalType" : "uint256"
          },
          {
             "type" : "uint256",
-            "internalType" : "uint256",
-            "name" : "_committeeSize"
+            "name" : "_bondingPeriod",
+            "internalType" : "uint256"
          },
          {
-            "type" : "string",
+            "type" : "uint256",
+            "name" : "_committeeSize",
+            "internalType" : "uint256"
+         },
+         {
             "internalType" : "string",
+            "type" : "string",
             "name" : "_contractVersion"
          }
       ]
    },
    {
+      "type" : "event",
       "name" : "AddParticipant",
-      "type" : "event",
       "inputs" : [
          {
             "internalType" : "address",
+            "indexed" : false,
             "type" : "address",
-            "name" : "_address",
-            "indexed" : false
-         },
-         {
-            "indexed" : false,
-            "name" : "_stake",
-            "internalType" : "uint256",
-            "type" : "uint256"
-         }
-      ],
-      "anonymous" : false
-   },
-   {
-      "name" : "AddStakeholder",
-      "type" : "event",
-      "inputs" : [
-         {
-            "indexed" : false,
-            "name" : "_address",
-            "internalType" : "address",
-            "type" : "address"
+            "name" : "_address"
          },
          {
             "type" : "uint256",
-            "internalType" : "uint256",
-            "name" : "_stake",
-            "indexed" : false
-         }
-      ],
-      "anonymous" : false
-   },
-   {
-      "name" : "AddValidator",
-      "type" : "event",
-      "inputs" : [
-         {
-            "name" : "_address",
-            "indexed" : false,
-            "internalType" : "address",
-            "type" : "address"
-         },
-         {
             "name" : "_stake",
             "indexed" : false,
-            "internalType" : "uint256",
-            "type" : "uint256"
-         }
-      ],
-      "anonymous" : false
-   },
-   {
-      "inputs" : [
-         {
-            "name" : "_address",
-            "indexed" : false,
-            "type" : "address",
-            "internalType" : "address"
-         },
-         {
-            "indexed" : false,
-            "name" : "_amount",
-            "type" : "uint256",
             "internalType" : "uint256"
          }
       ],
-      "type" : "event",
+      "anonymous" : false
+   },
+   {
       "anonymous" : false,
-      "name" : "BlockReward"
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "type" : "address",
+            "indexed" : false,
+            "name" : "_address"
+         },
+         {
+            "type" : "uint256",
+            "indexed" : false,
+            "name" : "_stake",
+            "internalType" : "uint256"
+         }
+      ],
+      "name" : "AddStakeholder",
+      "type" : "event"
    },
    {
       "type" : "event",
+      "name" : "AddValidator",
       "inputs" : [
          {
             "name" : "_address",
+            "type" : "address",
             "indexed" : false,
-            "internalType" : "address",
-            "type" : "address"
+            "internalType" : "address"
          },
          {
-            "type" : "uint8",
+            "internalType" : "uint256",
+            "type" : "uint256",
+            "indexed" : false,
+            "name" : "_stake"
+         }
+      ],
+      "anonymous" : false
+   },
+   {
+      "name" : "BlockReward",
+      "type" : "event",
+      "anonymous" : false,
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "indexed" : false,
+            "type" : "address",
+            "name" : "_address"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "_amount",
+            "type" : "uint256",
+            "indexed" : false
+         }
+      ]
+   },
+   {
+      "anonymous" : false,
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "type" : "address",
+            "name" : "_address",
+            "indexed" : false
+         },
+         {
             "internalType" : "enum Autonity.UserType",
+            "type" : "uint8",
             "indexed" : false,
             "name" : "_oldType"
          },
          {
-            "indexed" : false,
-            "name" : "_newType",
             "internalType" : "enum Autonity.UserType",
-            "type" : "uint8"
-         }
-      ],
-      "anonymous" : false,
-      "name" : "ChangeUserType"
-   },
-   {
-      "anonymous" : false,
-      "inputs" : [
-         {
-            "name" : "_address",
-            "indexed" : false,
-            "type" : "address",
-            "internalType" : "address"
-         },
-         {
-            "name" : "_amount",
-            "indexed" : false,
-            "type" : "uint256",
-            "internalType" : "uint256"
+            "name" : "_newType",
+            "type" : "uint8",
+            "indexed" : false
          }
       ],
       "type" : "event",
-      "name" : "MintStake"
+      "name" : "ChangeUserType"
    },
    {
-      "name" : "RedeemStake",
       "inputs" : [
          {
-            "internalType" : "address",
+            "name" : "_address",
+            "type" : "address",
+            "indexed" : false,
+            "internalType" : "address"
+         },
+         {
+            "indexed" : false,
+            "type" : "uint256",
+            "name" : "_amount",
+            "internalType" : "uint256"
+         }
+      ],
+      "anonymous" : false,
+      "name" : "MintStake",
+      "type" : "event"
+   },
+   {
+      "anonymous" : false,
+      "inputs" : [
+         {
+            "indexed" : false,
             "type" : "address",
             "name" : "_address",
-            "indexed" : false
+            "internalType" : "address"
          },
          {
             "internalType" : "uint256",
             "type" : "uint256",
-            "name" : "_amount",
-            "indexed" : false
-         }
-      ],
-      "type" : "event",
-      "anonymous" : false
-   },
-   {
-      "anonymous" : false,
-      "type" : "event",
-      "inputs" : [
-         {
-            "type" : "address",
-            "internalType" : "address",
-            "name" : "_address",
-            "indexed" : false
-         },
-         {
-            "type" : "uint8",
-            "internalType" : "enum Autonity.UserType",
             "indexed" : false,
-            "name" : "_type"
+            "name" : "_amount"
          }
       ],
-      "name" : "RemoveUser"
+      "name" : "RedeemStake",
+      "type" : "event"
    },
    {
-      "name" : "SetCommissionRate",
-      "anonymous" : false,
-      "type" : "event",
       "inputs" : [
          {
             "internalType" : "address",
@@ -228,68 +206,94 @@ const Abi = `[
          },
          {
             "indexed" : false,
-            "name" : "_value",
-            "type" : "uint256",
-            "internalType" : "uint256"
+            "type" : "uint8",
+            "name" : "_type",
+            "internalType" : "enum Autonity.UserType"
          }
-      ]
+      ],
+      "anonymous" : false,
+      "name" : "RemoveUser",
+      "type" : "event"
    },
    {
       "anonymous" : false,
       "inputs" : [
          {
+            "internalType" : "address",
+            "type" : "address",
+            "indexed" : false,
+            "name" : "_address"
+         },
+         {
             "type" : "uint256",
+            "indexed" : false,
+            "name" : "_value",
+            "internalType" : "uint256"
+         }
+      ],
+      "type" : "event",
+      "name" : "SetCommissionRate"
+   },
+   {
+      "type" : "event",
+      "name" : "SetMinimumGasPrice",
+      "inputs" : [
+         {
             "internalType" : "uint256",
             "indexed" : false,
+            "type" : "uint256",
             "name" : "_gasPrice"
          }
       ],
-      "type" : "event",
-      "name" : "SetMinimumGasPrice"
+      "anonymous" : false
    },
    {
       "inputs" : [
          {
+            "internalType" : "address",
             "name" : "from",
-            "indexed" : true,
-            "internalType" : "address",
-            "type" : "address"
-         },
-         {
             "type" : "address",
-            "internalType" : "address",
-            "name" : "to",
             "indexed" : true
          },
          {
-            "internalType" : "uint256",
+            "name" : "to",
+            "type" : "address",
+            "indexed" : true,
+            "internalType" : "address"
+         },
+         {
+            "indexed" : false,
             "type" : "uint256",
             "name" : "value",
-            "indexed" : false
+            "internalType" : "uint256"
          }
       ],
-      "type" : "event",
       "anonymous" : false,
+      "type" : "event",
       "name" : "Transfer"
    },
    {
       "inputs" : [
          {
-            "type" : "string",
-            "internalType" : "string",
             "indexed" : false,
-            "name" : "version"
+            "type" : "string",
+            "name" : "version",
+            "internalType" : "string"
          }
       ],
-      "type" : "event",
       "anonymous" : false,
-      "name" : "Version"
+      "name" : "Version",
+      "type" : "event"
    },
    {
       "stateMutability" : "payable",
       "type" : "fallback"
    },
    {
+      "outputs" : [],
+      "type" : "function",
+      "name" : "addParticipant",
+      "stateMutability" : "nonpayable",
       "inputs" : [
          {
             "internalType" : "address payable",
@@ -297,26 +301,23 @@ const Abi = `[
             "name" : "_address"
          },
          {
-            "type" : "string",
             "internalType" : "string",
+            "type" : "string",
             "name" : "_enode"
          }
-      ],
-      "type" : "function",
-      "stateMutability" : "nonpayable",
-      "name" : "addParticipant",
-      "outputs" : []
+      ]
    },
    {
+      "stateMutability" : "nonpayable",
       "inputs" : [
          {
-            "type" : "address",
             "internalType" : "address payable",
-            "name" : "_address"
+            "name" : "_address",
+            "type" : "address"
          },
          {
-            "name" : "_enode",
             "internalType" : "string",
+            "name" : "_enode",
             "type" : "string"
          },
          {
@@ -326,50 +327,48 @@ const Abi = `[
          }
       ],
       "type" : "function",
-      "stateMutability" : "nonpayable",
       "name" : "addStakeholder",
       "outputs" : []
    },
    {
-      "type" : "function",
+      "stateMutability" : "nonpayable",
       "inputs" : [
          {
-            "type" : "address",
             "internalType" : "address payable",
-            "name" : "_address"
+            "name" : "_address",
+            "type" : "address"
          },
          {
+            "type" : "uint256",
             "name" : "_stake",
-            "internalType" : "uint256",
-            "type" : "uint256"
+            "internalType" : "uint256"
          },
          {
+            "internalType" : "string",
             "name" : "_enode",
-            "type" : "string",
-            "internalType" : "string"
+            "type" : "string"
          }
       ],
-      "stateMutability" : "nonpayable",
       "name" : "addValidator",
+      "type" : "function",
       "outputs" : []
    },
    {
       "outputs" : [
          {
-            "name" : "",
             "type" : "uint256",
+            "name" : "",
             "internalType" : "uint256"
          }
       ],
-      "name" : "bondingPeriod",
-      "stateMutability" : "view",
       "inputs" : [],
+      "stateMutability" : "view",
+      "name" : "bondingPeriod",
       "type" : "function"
    },
    {
-      "outputs" : [],
       "name" : "changeUserType",
-      "stateMutability" : "nonpayable",
+      "type" : "function",
       "inputs" : [
          {
             "internalType" : "address",
@@ -377,34 +376,34 @@ const Abi = `[
             "name" : "_address"
          },
          {
-            "type" : "uint8",
             "internalType" : "enum Autonity.UserType",
+            "type" : "uint8",
             "name" : "newUserType"
          }
       ],
-      "type" : "function"
+      "stateMutability" : "nonpayable",
+      "outputs" : []
    },
    {
-      "stateMutability" : "view",
       "inputs" : [
          {
-            "name" : "_account",
             "internalType" : "address",
-            "type" : "address"
+            "type" : "address",
+            "name" : "_account"
          }
       ],
+      "stateMutability" : "view",
       "type" : "function",
+      "name" : "checkMember",
       "outputs" : [
          {
-            "internalType" : "bool",
+            "name" : "",
             "type" : "bool",
-            "name" : ""
+            "internalType" : "bool"
          }
-      ],
-      "name" : "checkMember"
+      ]
    },
    {
-      "name" : "committeeSize",
       "outputs" : [
          {
             "internalType" : "uint256",
@@ -413,67 +412,64 @@ const Abi = `[
          }
       ],
       "inputs" : [],
+      "stateMutability" : "view",
       "type" : "function",
-      "stateMutability" : "view"
+      "name" : "committeeSize"
    },
    {
+      "stateMutability" : "nonpayable",
+      "inputs" : [],
       "name" : "computeCommittee",
-      "outputs" : [],
-      "inputs" : [],
       "type" : "function",
-      "stateMutability" : "nonpayable"
+      "outputs" : []
    },
    {
+      "name" : "contractVersion",
+      "type" : "function",
       "stateMutability" : "view",
       "inputs" : [],
-      "type" : "function",
       "outputs" : [
          {
-            "name" : "",
             "type" : "string",
-            "internalType" : "string"
-         }
-      ],
-      "name" : "contractVersion"
-   },
-   {
-      "type" : "function",
-      "inputs" : [],
-      "stateMutability" : "view",
-      "name" : "deployer",
-      "outputs" : [
-         {
             "name" : "",
-            "type" : "address",
-            "internalType" : "address"
+            "internalType" : "string"
          }
       ]
    },
    {
+      "name" : "deployer",
       "type" : "function",
       "inputs" : [],
       "stateMutability" : "view",
-      "name" : "dumpEconomicsMetricData",
       "outputs" : [
          {
-            "type" : "tuple",
+            "internalType" : "address",
+            "name" : "",
+            "type" : "address"
+         }
+      ]
+   },
+   {
+      "outputs" : [
+         {
             "internalType" : "struct Autonity.EconomicsMetricData",
+            "type" : "tuple",
             "name" : "economics",
             "components" : [
                {
-                  "type" : "address[]",
                   "internalType" : "address[]",
-                  "name" : "accounts"
+                  "name" : "accounts",
+                  "type" : "address[]"
                },
                {
                   "internalType" : "enum Autonity.UserType[]",
-                  "type" : "uint8[]",
-                  "name" : "usertypes"
+                  "name" : "usertypes",
+                  "type" : "uint8[]"
                },
                {
                   "internalType" : "uint256[]",
-                  "type" : "uint256[]",
-                  "name" : "stakes"
+                  "name" : "stakes",
+                  "type" : "uint256[]"
                },
                {
                   "internalType" : "uint256[]",
@@ -482,38 +478,52 @@ const Abi = `[
                },
                {
                   "internalType" : "uint256",
-                  "type" : "uint256",
-                  "name" : "mingasprice"
+                  "name" : "mingasprice",
+                  "type" : "uint256"
                },
                {
                   "name" : "stakesupply",
-                  "internalType" : "uint256",
-                  "type" : "uint256"
+                  "type" : "uint256",
+                  "internalType" : "uint256"
                }
             ]
          }
-      ]
+      ],
+      "inputs" : [],
+      "stateMutability" : "view",
+      "name" : "dumpEconomicsMetricData",
+      "type" : "function"
    },
    {
       "outputs" : [
          {
             "name" : "",
-            "internalType" : "string",
-            "type" : "string"
+            "type" : "string",
+            "internalType" : "string"
          }
       ],
       "name" : "enodesWhitelist",
-      "stateMutability" : "view",
       "type" : "function",
+      "stateMutability" : "view",
       "inputs" : [
          {
-            "type" : "uint256",
             "internalType" : "uint256",
-            "name" : ""
+            "name" : "",
+            "type" : "uint256"
          }
       ]
    },
    {
+      "stateMutability" : "nonpayable",
+      "inputs" : [
+         {
+            "type" : "uint256",
+            "name" : "_amount",
+            "internalType" : "uint256"
+         }
+      ],
+      "name" : "finalize",
+      "type" : "function",
       "outputs" : [
          {
             "internalType" : "bool",
@@ -522,7 +532,7 @@ const Abi = `[
          },
          {
             "type" : "tuple[]",
-            "internalType" : "struct Autonity.CommitteeMember[]",
+            "name" : "",
             "components" : [
                {
                   "name" : "addr",
@@ -530,107 +540,97 @@ const Abi = `[
                   "internalType" : "address payable"
                },
                {
-                  "type" : "uint256",
                   "internalType" : "uint256",
-                  "name" : "votingPower"
+                  "name" : "votingPower",
+                  "type" : "uint256"
                }
             ],
-            "name" : ""
+            "internalType" : "struct Autonity.CommitteeMember[]"
+         }
+      ]
+   },
+   {
+      "outputs" : [
+         {
+            "name" : "",
+            "type" : "uint256",
+            "internalType" : "uint256"
          }
       ],
-      "name" : "finalize",
-      "stateMutability" : "nonpayable",
-      "type" : "function",
       "inputs" : [
          {
-            "name" : "_amount",
+            "type" : "address",
+            "name" : "_account",
+            "internalType" : "address"
+         }
+      ],
+      "stateMutability" : "view",
+      "name" : "getAccountStake",
+      "type" : "function"
+   },
+   {
+      "outputs" : [
+         {
+            "components" : [
+               {
+                  "type" : "address",
+                  "name" : "addr",
+                  "internalType" : "address payable"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "votingPower",
+                  "type" : "uint256"
+               }
+            ],
+            "name" : "",
+            "type" : "tuple[]",
+            "internalType" : "struct Autonity.CommitteeMember[]"
+         }
+      ],
+      "inputs" : [],
+      "stateMutability" : "view",
+      "type" : "function",
+      "name" : "getCommittee"
+   },
+   {
+      "type" : "function",
+      "name" : "getCurrentCommiteeSize",
+      "stateMutability" : "view",
+      "inputs" : [],
+      "outputs" : [
+         {
+            "type" : "uint256",
+            "name" : "",
+            "internalType" : "uint256"
+         }
+      ]
+   },
+   {
+      "inputs" : [],
+      "stateMutability" : "view",
+      "type" : "function",
+      "name" : "getMaxCommitteeSize",
+      "outputs" : [
+         {
+            "name" : "",
             "type" : "uint256",
             "internalType" : "uint256"
          }
       ]
    },
    {
-      "name" : "getAccountStake",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "type" : "uint256",
-            "name" : ""
-         }
-      ],
-      "type" : "function",
-      "inputs" : [
-         {
-            "type" : "address",
-            "internalType" : "address",
-            "name" : "_account"
-         }
-      ],
-      "stateMutability" : "view"
-   },
-   {
-      "name" : "getCommittee",
-      "outputs" : [
-         {
-            "components" : [
-               {
-                  "internalType" : "address payable",
-                  "type" : "address",
-                  "name" : "addr"
-               },
-               {
-                  "name" : "votingPower",
-                  "type" : "uint256",
-                  "internalType" : "uint256"
-               }
-            ],
-            "name" : "",
-            "internalType" : "struct Autonity.CommitteeMember[]",
-            "type" : "tuple[]"
-         }
-      ],
-      "inputs" : [],
-      "type" : "function",
-      "stateMutability" : "view"
-   },
-   {
-      "outputs" : [
-         {
-            "type" : "uint256",
-            "internalType" : "uint256",
-            "name" : ""
-         }
-      ],
-      "name" : "getCurrentCommiteeSize",
-      "stateMutability" : "view",
-      "type" : "function",
-      "inputs" : []
-   },
-   {
-      "outputs" : [
-         {
-            "type" : "uint256",
-            "internalType" : "uint256",
-            "name" : ""
-         }
-      ],
-      "name" : "getMaxCommitteeSize",
       "stateMutability" : "view",
       "inputs" : [],
-      "type" : "function"
-   },
-   {
-      "outputs" : [
-         {
-            "type" : "uint256",
-            "internalType" : "uint256",
-            "name" : ""
-         }
-      ],
       "name" : "getMinimumGasPrice",
-      "stateMutability" : "view",
-      "inputs" : [],
-      "type" : "function"
+      "type" : "function",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "type" : "uint256",
+            "name" : ""
+         }
+      ]
    },
    {
       "outputs" : [
@@ -641,127 +641,128 @@ const Abi = `[
          }
       ],
       "name" : "getRate",
+      "type" : "function",
       "stateMutability" : "view",
       "inputs" : [
          {
-            "type" : "address",
             "internalType" : "address",
+            "type" : "address",
             "name" : "_account"
          }
+      ]
+   },
+   {
+      "name" : "getStake",
+      "type" : "function",
+      "inputs" : [],
+      "stateMutability" : "view",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "type" : "uint256",
+            "name" : ""
+         }
+      ]
+   },
+   {
+      "stateMutability" : "view",
+      "inputs" : [],
+      "name" : "getStakeholders",
+      "type" : "function",
+      "outputs" : [
+         {
+            "type" : "address[]",
+            "name" : "",
+            "internalType" : "address[]"
+         }
+      ]
+   },
+   {
+      "outputs" : [
+         {
+            "name" : "",
+            "type" : "address[]",
+            "internalType" : "address[]"
+         }
       ],
+      "stateMutability" : "view",
+      "inputs" : [],
+      "name" : "getValidators",
       "type" : "function"
    },
    {
       "type" : "function",
-      "inputs" : [],
+      "name" : "getVersion",
       "stateMutability" : "view",
-      "name" : "getStake",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "type" : "uint256",
-            "name" : ""
-         }
-      ]
-   },
-   {
-      "inputs" : [],
-      "type" : "function",
-      "stateMutability" : "view",
-      "name" : "getStakeholders",
-      "outputs" : [
-         {
-            "type" : "address[]",
-            "internalType" : "address[]",
-            "name" : ""
-         }
-      ]
-   },
-   {
-      "inputs" : [],
-      "type" : "function",
-      "stateMutability" : "view",
-      "name" : "getValidators",
-      "outputs" : [
-         {
-            "internalType" : "address[]",
-            "type" : "address[]",
-            "name" : ""
-         }
-      ]
-   },
-   {
-      "stateMutability" : "view",
-      "type" : "function",
       "inputs" : [],
       "outputs" : [
          {
-            "type" : "string",
             "internalType" : "string",
-            "name" : ""
+            "name" : "",
+            "type" : "string"
          }
-      ],
-      "name" : "getVersion"
+      ]
    },
    {
-      "stateMutability" : "view",
-      "type" : "function",
-      "inputs" : [],
-      "outputs" : [
-         {
-            "type" : "string[]",
-            "internalType" : "string[]",
-            "name" : ""
-         }
-      ],
-      "name" : "getWhitelist"
-   },
-   {
-      "stateMutability" : "nonpayable",
-      "type" : "function",
-      "inputs" : [
-         {
-            "name" : "_account",
-            "internalType" : "address",
-            "type" : "address"
-         },
-         {
-            "type" : "uint256",
-            "internalType" : "uint256",
-            "name" : "_amount"
-         }
-      ],
-      "outputs" : [],
-      "name" : "mintStake"
-   },
-   {
-      "stateMutability" : "view",
-      "inputs" : [],
-      "type" : "function",
       "outputs" : [
          {
             "name" : "",
-            "internalType" : "enum Autonity.UserType",
-            "type" : "uint8"
+            "type" : "string[]",
+            "internalType" : "string[]"
          }
       ],
-      "name" : "myUserType"
-   },
-   {
+      "stateMutability" : "view",
       "inputs" : [],
       "type" : "function",
-      "stateMutability" : "view",
-      "name" : "operatorAccount",
+      "name" : "getWhitelist"
+   },
+   {
+      "name" : "mintStake",
+      "type" : "function",
+      "stateMutability" : "nonpayable",
+      "inputs" : [
+         {
+            "name" : "_account",
+            "type" : "address",
+            "internalType" : "address"
+         },
+         {
+            "type" : "uint256",
+            "name" : "_amount",
+            "internalType" : "uint256"
+         }
+      ],
+      "outputs" : []
+   },
+   {
       "outputs" : [
          {
-            "internalType" : "address",
-            "type" : "address",
-            "name" : ""
+            "name" : "",
+            "type" : "uint8",
+            "internalType" : "enum Autonity.UserType"
          }
-      ]
+      ],
+      "inputs" : [],
+      "stateMutability" : "view",
+      "name" : "myUserType",
+      "type" : "function"
+   },
+   {
+      "outputs" : [
+         {
+            "name" : "",
+            "type" : "address",
+            "internalType" : "address"
+         }
+      ],
+      "name" : "operatorAccount",
+      "type" : "function",
+      "inputs" : [],
+      "stateMutability" : "view"
    },
    {
       "type" : "function",
+      "name" : "redeemStake",
       "inputs" : [
          {
             "internalType" : "address",
@@ -769,48 +770,46 @@ const Abi = `[
             "name" : "_account"
          },
          {
+            "internalType" : "uint256",
             "name" : "_amount",
-            "type" : "uint256",
-            "internalType" : "uint256"
+            "type" : "uint256"
          }
       ],
       "stateMutability" : "nonpayable",
-      "name" : "redeemStake",
       "outputs" : []
    },
    {
-      "outputs" : [],
       "name" : "removeUser",
-      "stateMutability" : "nonpayable",
       "type" : "function",
       "inputs" : [
          {
-            "name" : "_address",
             "internalType" : "address",
+            "name" : "_address",
             "type" : "address"
+         }
+      ],
+      "stateMutability" : "nonpayable",
+      "outputs" : []
+   },
+   {
+      "inputs" : [],
+      "stateMutability" : "view",
+      "type" : "function",
+      "name" : "retrieveContract",
+      "outputs" : [
+         {
+            "internalType" : "string",
+            "name" : "",
+            "type" : "string"
+         },
+         {
+            "type" : "string",
+            "name" : "",
+            "internalType" : "string"
          }
       ]
    },
    {
-      "name" : "retrieveContract",
-      "outputs" : [
-         {
-            "name" : "",
-            "type" : "string",
-            "internalType" : "string"
-         },
-         {
-            "type" : "string",
-            "internalType" : "string",
-            "name" : ""
-         }
-      ],
-      "inputs" : [],
-      "type" : "function",
-      "stateMutability" : "view"
-   },
-   {
-      "name" : "retrieveState",
       "outputs" : [
          {
             "internalType" : "address[]",
@@ -823,84 +822,76 @@ const Abi = `[
             "internalType" : "string[]"
          },
          {
+            "internalType" : "uint256[]",
             "name" : "",
+            "type" : "uint256[]"
+         },
+         {
+            "internalType" : "uint256[]",
             "type" : "uint256[]",
+            "name" : ""
+         },
+         {
+            "type" : "uint256[]",
+            "name" : "",
             "internalType" : "uint256[]"
          },
          {
-            "type" : "uint256[]",
-            "internalType" : "uint256[]",
-            "name" : ""
+            "name" : "",
+            "type" : "address",
+            "internalType" : "address"
          },
          {
-            "internalType" : "uint256[]",
-            "type" : "uint256[]",
+            "internalType" : "uint256",
+            "type" : "uint256",
             "name" : ""
          },
          {
             "name" : "",
-            "internalType" : "address",
-            "type" : "address"
-         },
-         {
             "type" : "uint256",
-            "internalType" : "uint256",
-            "name" : ""
+            "internalType" : "uint256"
          },
          {
-            "internalType" : "uint256",
+            "name" : "",
             "type" : "uint256",
-            "name" : ""
+            "internalType" : "uint256"
          },
          {
-            "type" : "uint256",
-            "internalType" : "uint256",
-            "name" : ""
-         },
-         {
+            "name" : "",
             "type" : "string",
-            "internalType" : "string",
+            "internalType" : "string"
+         }
+      ],
+      "name" : "retrieveState",
+      "type" : "function",
+      "stateMutability" : "view",
+      "inputs" : []
+   },
+   {
+      "outputs" : [
+         {
+            "internalType" : "bool",
+            "type" : "bool",
             "name" : ""
          }
       ],
-      "type" : "function",
-      "inputs" : [],
-      "stateMutability" : "view"
-   },
-   {
       "stateMutability" : "nonpayable",
-      "type" : "function",
       "inputs" : [
          {
-            "internalType" : "address",
+            "name" : "_recipient",
             "type" : "address",
-            "name" : "_recipient"
+            "internalType" : "address"
          },
          {
             "name" : "_amount",
-            "internalType" : "uint256",
-            "type" : "uint256"
+            "type" : "uint256",
+            "internalType" : "uint256"
          }
       ],
-      "outputs" : [
-         {
-            "type" : "bool",
-            "internalType" : "bool",
-            "name" : ""
-         }
-      ],
+      "type" : "function",
       "name" : "send"
    },
    {
-      "stateMutability" : "nonpayable",
-      "type" : "function",
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "type" : "uint256",
-            "name" : "_rate"
-         }
-      ],
       "outputs" : [
          {
             "name" : "",
@@ -908,60 +899,69 @@ const Abi = `[
             "internalType" : "bool"
          }
       ],
-      "name" : "setCommissionRate"
+      "type" : "function",
+      "name" : "setCommissionRate",
+      "inputs" : [
+         {
+            "internalType" : "uint256",
+            "type" : "uint256",
+            "name" : "_rate"
+         }
+      ],
+      "stateMutability" : "nonpayable"
    },
    {
       "stateMutability" : "nonpayable",
-      "type" : "function",
       "inputs" : [
          {
-            "type" : "uint256",
             "internalType" : "uint256",
+            "type" : "uint256",
             "name" : "_size"
          }
       ],
-      "outputs" : [],
-      "name" : "setCommitteeSize"
+      "name" : "setCommitteeSize",
+      "type" : "function",
+      "outputs" : []
    },
    {
-      "stateMutability" : "nonpayable",
-      "type" : "function",
+      "outputs" : [],
       "inputs" : [
          {
+            "type" : "uint256",
             "name" : "_value",
-            "internalType" : "uint256",
-            "type" : "uint256"
+            "internalType" : "uint256"
          }
       ],
-      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function",
       "name" : "setMinimumGasPrice"
    },
    {
       "outputs" : [
          {
+            "name" : "",
             "type" : "uint256",
-            "internalType" : "uint256",
-            "name" : ""
+            "internalType" : "uint256"
          }
       ],
-      "name" : "totalSupply",
       "stateMutability" : "view",
-      "type" : "function",
-      "inputs" : []
+      "inputs" : [],
+      "name" : "totalSupply",
+      "type" : "function"
    },
    {
-      "stateMutability" : "nonpayable",
       "type" : "function",
+      "name" : "upgradeContract",
       "inputs" : [
          {
-            "name" : "_bytecode",
             "internalType" : "string",
+            "name" : "_bytecode",
             "type" : "string"
          },
          {
+            "type" : "string",
             "name" : "_abi",
-            "internalType" : "string",
-            "type" : "string"
+            "internalType" : "string"
          },
          {
             "internalType" : "string",
@@ -969,14 +969,14 @@ const Abi = `[
             "name" : "_version"
          }
       ],
+      "stateMutability" : "nonpayable",
       "outputs" : [
          {
+            "name" : "",
             "type" : "bool",
-            "internalType" : "bool",
-            "name" : ""
+            "internalType" : "bool"
          }
-      ],
-      "name" : "upgradeContract"
+      ]
    },
    {
       "stateMutability" : "payable",
