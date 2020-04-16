@@ -711,7 +711,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.GasLimit = 10000000
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	// force enable Istanbul engine
-	genesis.Config.Tendermint = &params.TendermintConfig{}
+	genesis.Config.Tendermint = &config.Config{}
 	genesis.Config.Ethash = nil
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()

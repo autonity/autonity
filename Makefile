@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity android ios autonity-cross evm all test clean lint lint-deps mock-gen test-fast
+.PHONY: autonity embed-autonity-contract android ios autonity-cross evm all test clean lint lint-deps mock-gen test-fast
 .PHONY: autonity-linux autonity-linux-386 autonity-linux-amd64 autonity-linux-mips64 autonity-linux-mips64le
 .PHONY: autonity-linux-arm autonity-linux-arm-5 autonity-linux-arm-6 autonity-linux-arm-7 autonity-linux-arm64
 .PHONY: autonity-darwin autonity-darwin-386 autonity-darwin-amd64
@@ -15,12 +15,40 @@ ifeq ($(LATEST_COMMIT),)
 LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
 
-autonity:
+AUTONITY_CONTRACT_DIR = ./contracts/autonity/contract/contracts
+AUTONITY_CONTRACT = Autonity.sol
+GENERATED_CONTRACT_DIR = ./common/acdefault/generated
+GENERATED_ABI = $(GENERATED_CONTRACT_DIR)/abi.go
+GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
+
+autonity: embed-autonity-contract
 	build/env.sh go run build/ci.go install ./cmd/autonity
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/autonity\" to launch autonity."
 
-all:
+embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_ABI)
+
+# NOTE previously we were using
+# https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
+# this binary does not produce the same bytecode as the ethereum/solc:0.5.1
+# docker image. This was causing tests to fail.
+$(GENERATED_BYTECODE) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT)
+	mkdir -p $(GENERATED_CONTRACT_DIR)
+	docker run --rm -v $(CURDIR)/$(AUTONITY_CONTRACT_DIR):/contracts -v $(CURDIR)/$(GENERATED_CONTRACT_DIR):/output ethereum/solc:0.6.4 --overwrite --abi --bin -o /output /contracts/$(AUTONITY_CONTRACT)
+
+	@echo Generating $(GENERATED_BYTECODE)
+	@echo 'package generated\n' > $(GENERATED_BYTECODE)
+	@echo -n 'const Bytecode = "' >> $(GENERATED_BYTECODE)
+	@cat  $(GENERATED_CONTRACT_DIR)/Autonity.bin >> $(GENERATED_BYTECODE)
+	@echo '"' >> $(GENERATED_BYTECODE)
+
+	@echo Generating $(GENERATED_ABI)
+	@echo 'package generated\n' > $(GENERATED_ABI)
+	@echo -n 'const Abi = `' >> $(GENERATED_ABI)
+	@cat  $(GENERATED_CONTRACT_DIR)/Autonity.abi | json_pp  >> $(GENERATED_ABI)
+	@echo '`' >> $(GENERATED_ABI)
+
+all: embed-autonity-contract
 	build/env.sh go run build/ci.go install
 
 android:
@@ -48,6 +76,9 @@ test-race:
 	go test -race -v ./consensus/test/... -timeout 30m
 
 test-contracts:
+	cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
+	sleep 5
+	./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545
 	cd contracts/autonity/contract/ && truffle test && cd -
 
 mock-gen:
@@ -92,6 +123,7 @@ lint-deps:
 clean:
 	go clean -cache
 	rm -fr build/_workspace/pkg/ $(GOBIN)/*
+	rm -rf $(GENERATED_CONTRACT_DIR)
 
 # The devtools target installs tools required for 'go generate'.
 # You need to put $GOBIN (or $GOPATH/bin) in your PATH to use 'go generate'.

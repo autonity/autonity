@@ -22,6 +22,7 @@ import (
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
+	tendermint "github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/crypto"
 )
 
@@ -284,7 +285,7 @@ type ChainConfig struct {
 
 	// Various consensus engines
 	Ethash                 *EthashConfig            `json:"ethash,omitempty"`
-	Tendermint             *TendermintConfig        `json:"tendermint,omitempty"`
+	Tendermint             *tendermint.Config       `json:"tendermint,omitempty"`
 	AutonityContractConfig *AutonityContractGenesis `json:"autonityContract,omitempty"`
 }
 
@@ -294,19 +295,6 @@ type EthashConfig struct{}
 // String implements the stringer interface, returning the consensus engine details.
 func (c *EthashConfig) String() string {
 	return "ethash"
-}
-
-// TendermintConfig is the consensus engine configs for Tendermint based sealing.
-type TendermintConfig struct {
-	Epoch          uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
-	ProposerPolicy uint64 `json:"policy"` // The policy for proposer selection
-	BlockPeriod    uint64 `json:"block-period"`
-	RequestTimeout uint64 `json:"request-timeout"`
-}
-
-// String implements the stringer interface, returning the consensus engine details.
-func (c *TendermintConfig) String() string {
-	return "tendermint"
 }
 
 // String implements the fmt.Stringer interface.

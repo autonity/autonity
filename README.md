@@ -8,13 +8,27 @@ Autonity is a generalization of the Ethereum protocol based on a fork of go-ethe
 
 [Autonity Documentation](https://docs.autonity.io)
 
-## Building the source
+## Prerequisites
 
-Building autonity requires both a Go (version 1.9 or later) and a C compiler.
-You can install them using your favourite package manager.
-Once the dependencies are installed, run
+* Go (version 1.9 or later) - https://golang.org/dl
+* A C compiler.
+* Docker
 
-    make autonity
+## Working with the source
+
+Before working with the source you will need to run
+
+```
+make embed-autonity-contract
+```
+
+This generates go source from the autonity contract.
+
+## Building Autonity
+
+```
+make autonity
+```
 
 ## License
 

@@ -16,6 +16,7 @@
 build/_vendor/pkg
 coverage.out
 coverage_all.out
+/common/acdefault/generated
 
 #*
 .#*
