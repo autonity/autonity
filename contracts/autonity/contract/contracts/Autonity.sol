@@ -446,15 +446,14 @@ contract Autonity {
     * across the nodes, the view is calculated by function computeCommittee() on each block finalization.
     */
     function getProposer(uint256 height, uint256 round) public view returns(address) {
+        // if no committee set, return operator address.
+        if (committee.length == 0) {
+            return operatorAccount;
+        }
         // calculate total voting power from current committee.
         uint256 total_voting_power = 0;
         for (uint256 i = 0; i < committee.length; i++) {
             total_voting_power += committee[i].votingPower;
-        }
-
-        // if no committee set, return operator address.
-        if (committee.length == 0) {
-            return operatorAccount;
         }
 
         // fallback to round robin if total voting power is 0.
