@@ -36,4 +36,5 @@ $AUTONITY \
   --allow-insecure-unlock \
   --miner.threads 1 \
   --verbosity 4 \
+  --nousb \
   --debug
