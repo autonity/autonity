@@ -72,6 +72,8 @@ func TestWeightedRoundRobinProposerOperatorAttackVector(t *testing.T) {
 	}
 }
 
+// Idea: consortium of malicious validators is possible to decline blocks from node that not include into consortium.
+// We can't understand that netowork is under attack.
 func TestWeightedRoundRobinProposerValidatorsAttackVector(t *testing.T) {
 	b1 := common.Hex2Bytes(validator1)
 	b2 := common.Hex2Bytes(validator2)
