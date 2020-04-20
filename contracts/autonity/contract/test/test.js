@@ -618,16 +618,20 @@ contract('Autonity', function (accounts) {
                 enode: "01010101"
             },
             {
-                case: "invalid public key (wrong length, want 128 hex chars)",
+                case: "invalid public key (wrong length, want 128 hex chars) with correct prefix",
                 enode: "enode://01010101"
             },
             {
-                case: "invalid public key (wrong length, want 128 hex chars)",
+                case: "invalid public key (wrong length, want 128 hex chars) with correct prefix and IP:PORT",
                 enode: "enode://01010101@123.124.125.126:3"
             },
             {
-                case: "invalid public key",
+                case: "invalid port",
                 enode: "enode://ffffd65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:foo"
+            },
+            {
+                case: "invalid public key",
+                enode: "enode://ffffd65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:30303"
             },
             {
                 case: "invalid URL scheme",

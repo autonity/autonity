@@ -20,7 +20,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -28,7 +27,6 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/crypto/blake2b"
 	"github.com/clearmatics/autonity/crypto/bn256"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 
 	// lint:ignore SA1019 Needed for precompile
@@ -509,22 +507,4 @@ func (c *blake2F) Run(input []byte) ([]byte, error) {
 		binary.LittleEndian.PutUint64(output[offset:offset+8], h[i])
 	}
 	return output, nil
-}
-
-// checkEnode implemented as a native contract.
-type checkEnode struct{}
-func (c checkEnode) RequiredGas(_ []byte) uint64 {
-	return params.EnodeCheckGas
-}
-func (c checkEnode) Run(input []byte) ([]byte, error) {
-	if len(input) == 0 {
-		panic(fmt.Errorf("invalid enode - empty"))
-	}
-	input = common.TrimPrefixAndSuffix(input, []byte("enode:"), []byte{'\x00'})
-	nodeStr := string(input)
-
-	if _, err := enode.ParseV4SkipResolve(nodeStr); err != nil {
-		return false32Byte, fmt.Errorf("invalid enode %q: %v", nodeStr, err)
-	}
-	return true32Byte, nil
 }
