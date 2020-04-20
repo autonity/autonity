@@ -582,4 +582,81 @@ contract('Autonity', function (accounts) {
             await token.removeUser(accounts[5], {from: operator});
         });
     });
+
+    describe('Enode validationof incorrect cases', function() {
+        let incorrectEnodes = [
+            {
+                case: "missing prefix",
+                enode: ""
+            },
+            {
+                case: "invalid signature on node record",
+                enode: "enr:"
+            },
+            {
+                case: "invalid signature on node record",
+                enode: "enr:x"
+            },
+            {
+                case: "invalid signature on node record",
+                enode: "enr:-EmGZm9vYmFyY4JpZIJ2NIJpcIR_AAABiXNlY3AyNTZrMaEDOlFBdkZvqBXtSB_60JEQotNE9sm3jB0Ur8NRw6Ub4z2DdWRwgnZf"
+            },
+            {
+                case: "missing prefix",
+                enode: "1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"
+            },
+            {
+                case: "invalid domain or IP address",
+                enode: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@hostname:3"
+            },
+            {
+                case: "invalid port",
+                enode: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:foo"
+            },
+            {
+                case: "invalid public key (wrong length, want 128 hex chars)",
+                enode: "01010101"
+            },
+            {
+                case: "invalid public key (wrong length, want 128 hex chars)",
+                enode: "enode://01010101"
+            },
+            {
+                case: "invalid public key (wrong length, want 128 hex chars)",
+                enode: "enode://01010101@123.124.125.126:3"
+            },
+            {
+                case: "invalid public key",
+                enode: "enode://ffffd65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:foo"
+            },
+            {
+                case: "invalid URL scheme",
+                enode: "http://foobar"
+            },
+            {
+                case: "missing protocol scheme",
+                enode: "://foo"
+            }
+        ];
+
+        beforeEach(async function() {
+            token = await utils.deployContract(validatorsList, whiteList,
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version, {from: accounts[8]} );
+        });
+
+        let getCallback = function(incorrectEnode) {
+            return async function () {
+                try {
+                    await token.addValidator(accounts[7], 100, incorrectEnode, {from: operator});
+                    assert.fail('Expected throw not received');
+                } catch (e) {
+                    // successful path with an expected exception
+                }
+            }
+        }
+
+        incorrectEnodes.forEach(function(testCase, i, arr) {
+            it('enode should fail ' + i + " '" + testCase.case + "'", getCallback(testCase.enode));
+        });
+    });
 });
