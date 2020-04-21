@@ -16,7 +16,7 @@ func (c checkEnode) RequiredGas(_ []byte) uint64 {
 }
 func (c checkEnode) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
-		panic(fmt.Errorf("invalid enode - empty"))
+		return false32Byte, fmt.Errorf("invalid enode - empty")
 	}
 	input = common.TrimPrefixAndSuffix(input, []byte("enode:"), []byte{'\x00'})
 	nodeStr := string(input)

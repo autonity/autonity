@@ -586,7 +586,7 @@ contract('Autonity', function (accounts) {
     describe('Enode validationof incorrect cases', function() {
         let incorrectEnodes = [
             {
-                case: "missing prefix",
+                case: "empty enode - missing prefix",
                 enode: ""
             },
             {
