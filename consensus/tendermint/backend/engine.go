@@ -550,7 +550,7 @@ func (sb *Backend) Close() error {
 }
 
 // retrieve list of committee for the block at height passed as parameter
-func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (committee.Set, error) {
+func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (*committee.Set, error) {
 	var lastProposer common.Address
 	var err error
 	if number == 0 {
@@ -567,11 +567,11 @@ func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (c
 			return nil, err
 		}
 	}
-	return committee.NewSet(parentHeader.Committee, sb.config.GetProposerPolicy(), lastProposer)
+	return committee.NewSet(parentHeader.Committee, lastProposer)
 }
 
 // retrieve list of committee for the block header passed as parameter
-func (sb *Backend) committee(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error) {
+func (sb *Backend) committee(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (*committee.Set, error) {
 
 	// We can't use savedCommittee if parents are being passed :
 	// those blocks are not yet saved in the blockchain.
@@ -584,7 +584,7 @@ func (sb *Backend) committee(header *types.Header, parents []*types.Header, chai
 		if err != nil {
 			return nil, err
 		}
-		return committee.NewSet(header.Committee, sb.config.GetProposerPolicy(), lastMiner)
+		return committee.NewSet(header.Committee, lastMiner)
 	} else {
 		return sb.savedCommittee(header.Number.Uint64(), chain)
 	}

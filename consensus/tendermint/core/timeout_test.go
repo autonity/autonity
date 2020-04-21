@@ -91,7 +91,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		// should send precommit nil
 		mockBackend.EXPECT().Sign(gomock.Any()).Times(2)
 		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Do(
-			func(ctx context.Context, valSet committee.Set, payload []byte) {
+			func(ctx context.Context, valSet *committee.Set, payload []byte) {
 				message := new(Message)
 				if err := rlp.DecodeBytes(payload, message); err != nil {
 					t.Fatalf("could not decode payload")

@@ -34,8 +34,8 @@ import (
 var maxRange = 100
 
 func TestNewSet(t *testing.T) {
-	var committeeSetSizes = []uint64{1, 2, 10, 100}
-	var assertSet = func(t *testing.T, n uint64) {
+	var committeeSetSizes = []int64{1, 2, 10, 100}
+	var assertSet = func(t *testing.T, n int64) {
 		t.Helper()
 
 		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxRange))
@@ -55,7 +55,7 @@ func TestNewSet(t *testing.T) {
 		if len(committeeMembers) > 1 {
 			roundRobinOffset++
 		}
-		allProposers := map[uint64]types.CommitteeMember{0: committeeMembers[nextProposerIndex(roundRobinOffset, 0, uint64(len(committeeMembers)))]}
+		allProposers := map[int64]types.CommitteeMember{0: committeeMembers[nextProposerIndex(roundRobinOffset, 0, int64(len(committeeMembers)))]}
 
 		var totalPower uint64
 		for _, cm := range committeeMembers {
@@ -107,8 +107,8 @@ func TestNewSet(t *testing.T) {
 }
 
 func TestSet_Size(t *testing.T) {
-	var committeeSetSizes = []uint64{1, 2, 10, 100}
-	var assertSetSize = func(t *testing.T, n uint64) {
+	var committeeSetSizes = []int64{1, 2, 10, 100}
+	var assertSetSize = func(t *testing.T, n int64) {
 		t.Helper()
 
 		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxRange))
@@ -117,7 +117,7 @@ func TestSet_Size(t *testing.T) {
 		assertNilError(t, err)
 
 		setSize := set.Size()
-		if uint64(setSize) != n {
+		if int64(setSize) != n {
 			t.Fatalf("expected committee set size: %v and got: %v", n, setSize)
 		}
 	}
@@ -132,8 +132,8 @@ func TestSet_Size(t *testing.T) {
 }
 
 func TestSet_Committee(t *testing.T) {
-	var committeeSetSizes = []uint64{1, 2, 10, 100}
-	var assertSetCommittee = func(t *testing.T, n uint64) {
+	var committeeSetSizes = []int64{1, 2, 10, 100}
+	var assertSetCommittee = func(t *testing.T, n int64) {
 		t.Helper()
 
 		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxRange))
@@ -206,8 +206,8 @@ func TestSet_GetByAddress(t *testing.T) {
 
 func TestSet_GetProposer(t *testing.T) {
 	testCases := []struct {
-		size  uint64
-		round uint64
+		size  int64
+		round int64
 	}{
 		{size: 3, round: 0}, {size: 3, round: 1}, {size: 3, round: 2}, {size: 3, round: 3}, {size: 3, round: 10},
 		{size: 10, round: 0}, {size: 10, round: 1}, {size: 10, round: 2}, {size: 10, round: 8}, {size: 10, round: 7},
@@ -240,7 +240,7 @@ func TestSet_GetProposer(t *testing.T) {
 }
 
 func TestSet_IsProposer(t *testing.T) {
-	rounds := []uint64{0, 1, 2, 3, 4, 5, 6, 7, 8}
+	rounds := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8}
 	committeeMembers := createTestCommitteeMembers(t, 4, genRandUint64(4, maxRange))
 	sort.Sort(committeeMembers)
 	lastBlockProposerIndex := 2
@@ -253,7 +253,7 @@ func TestSet_IsProposer(t *testing.T) {
 	for _, r := range rounds {
 		r := r
 		t.Run(fmt.Sprintf("correct proposer for round %v", r), func(t *testing.T) {
-			testAddr := committeeMembers[(uint64(roundRobinOffset)+r)%4].Address
+			testAddr := committeeMembers[(int64(roundRobinOffset)+r)%4].Address
 			isProposer := set.IsProposer(r, testAddr)
 			if !isProposer {
 				t.Fatalf("expected IsProposer(0, %v) to return true", testAddr)
@@ -289,7 +289,7 @@ func TestSet_Copy(t *testing.T) {
 
 func TestSet_QandF(t *testing.T) {
 	testCases := []struct {
-		TotalVP uint64
+		TotalVP int64
 		Q       uint64
 		F       uint64
 	}{
@@ -349,7 +349,7 @@ func assertError(t *testing.T, want, got error) {
 }
 
 // totalPower >= n
-func createTestCommitteeMembers(t *testing.T, n, totalPower uint64) types.Committee {
+func createTestCommitteeMembers(t *testing.T, n, totalPower int64) types.Committee {
 	t.Helper()
 	var committee types.Committee
 
@@ -373,7 +373,7 @@ func createTestCommitteeMembers(t *testing.T, n, totalPower uint64) types.Commit
 
 		member := types.CommitteeMember{
 			Address:     crypto.PubkeyToAddress(key.PublicKey),
-			VotingPower: new(big.Int).SetUint64(vp),
+			VotingPower: new(big.Int).SetUint64(uint64(vp)),
 		}
 		committee = append(committee, member)
 	}
@@ -390,12 +390,12 @@ func createTestCommitteeMembers(t *testing.T, n, totalPower uint64) types.Commit
 	return committee
 }
 
-func getTotalPowerDistribution(p uint64, n uint64) (uint64, uint64) {
+func getTotalPowerDistribution(p, n int64) (int64, int64) {
 	return p / n, p % n
 
 }
 
 // generate random voting power in range [min...max]
-func genRandUint64(min, max int) uint64 {
-	return uint64(rand.Intn(max-min+1) + min)
+func genRandUint64(min, max int) int64 {
+	return int64(rand.Intn(max-min+1) + min)
 }

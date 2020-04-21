@@ -33,8 +33,8 @@ type Set struct {
 	members           types.Committee
 	lastBlockProposer common.Address
 	totalPower        uint64
-	allProposers      map[uint64]types.CommitteeMember // cached computed values
-	roundRobinOffset  uint64
+	allProposers      map[int64]types.CommitteeMember // cached computed values
+	roundRobinOffset  int64
 
 	mu sync.RWMutex // members doesn't need to be protected as it is read-only
 }
@@ -49,7 +49,7 @@ func NewSet(members types.Committee, lastBlockProposer common.Address) (*Set, er
 	committee := &Set{
 		members:           members,
 		lastBlockProposer: lastBlockProposer,
-		allProposers:      make(map[uint64]types.CommitteeMember),
+		allProposers:      make(map[int64]types.CommitteeMember),
 	}
 
 	// sort validator
@@ -102,7 +102,7 @@ func (set *Set) GetByAddress(addr common.Address) (int, types.CommitteeMember, e
 	return -1, types.CommitteeMember{}, consensus.ErrCommitteeMemberNotFound
 }
 
-func (set *Set) GetProposer(round uint64) types.CommitteeMember {
+func (set *Set) GetProposer(round int64) types.CommitteeMember {
 	set.mu.Lock()
 	defer set.mu.Unlock()
 
@@ -115,7 +115,7 @@ func (set *Set) GetProposer(round uint64) types.CommitteeMember {
 	return v
 }
 
-func (set *Set) IsProposer(round uint64, address common.Address) bool {
+func (set *Set) IsProposer(round int64, address common.Address) bool {
 	_, val, err := set.GetByAddress(address)
 	if err != nil {
 		return false
@@ -133,22 +133,23 @@ func (set *Set) F() uint64 { return uint64(math.Ceil(float64(set.totalPower)/3))
 
 func (set *Set) Quorum() uint64 { return uint64(math.Ceil((2 * float64(set.totalPower)) / 3.)) }
 
-func (set *Set) getNextProposer(round uint64) types.CommitteeMember {
-	return set.members[nextProposerIndex(set.roundRobinOffset, round, uint64(len(set.members)))]
+func (set *Set) getNextProposer(round int64) types.CommitteeMember {
+	return set.members[nextProposerIndex(set.roundRobinOffset, round, int64(len(set.members)))]
 }
 
-func nextProposerIndex(offset, round, committeeSize uint64) uint64 {
+func nextProposerIndex(offset, round, committeeSize int64) int64 {
 	// Round-Robin
 	return (offset + round) % committeeSize
 }
 
-func getMemberIndex(members types.Committee, memberAddr common.Address) uint64 {
+func getMemberIndex(members types.Committee, memberAddr common.Address) int64 {
+	var index = -1
 	for i, member := range members {
 		if memberAddr == member.Address {
-			return uint64(i)
+			index = i
 		}
 	}
-	return 0
+	return int64(index)
 }
 
 func copyMembers(members types.Committee) types.Committee {

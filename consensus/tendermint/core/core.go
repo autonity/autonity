@@ -128,7 +128,7 @@ type core struct {
 
 	height       *big.Int
 	round        int64
-	committeeSet committee.Set
+	committeeSet *committee.Set
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	stateMu               sync.RWMutex
@@ -354,7 +354,7 @@ func (c *core) setHeight(height *big.Int) {
 	defer c.stateMu.Unlock()
 	c.height = height
 }
-func (c *core) setCommitteeSet(set committee.Set) {
+func (c *core) setCommitteeSet(set *committee.Set) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.committeeSet = set
@@ -371,7 +371,7 @@ func (c *core) Height() *big.Int {
 	defer c.stateMu.RUnlock()
 	return c.height
 }
-func (c *core) CommitteeSet() committee.Set {
+func (c *core) CommitteeSet() *committee.Set {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committeeSet

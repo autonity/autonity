@@ -15,24 +15,24 @@ type Backend interface {
 
 	AddSeal(block *types.Block) (*types.Block, error)
 
-	AskSync(set committee.Set)
+	AskSync(set *committee.Set)
 
 	// Broadcast sends a message to all validators (include self)
-	Broadcast(ctx context.Context, valSet committee.Set, payload []byte) error
+	Broadcast(ctx context.Context, valSet *committee.Set, payload []byte) error
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
 	Commit(proposalBlock *types.Block, round int64, seals [][]byte) error
 
 	// Validators returns the committee set
-	Committee(number uint64) (committee.Set, error)
+	Committee(number uint64) (*committee.Set, error)
 
 	GetContractABI() string
 
 	GetContractAddress() common.Address
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(ctx context.Context, valSet committee.Set, payload []byte)
+	Gossip(ctx context.Context, valSet *committee.Set, payload []byte)
 
 	HandleUnhandledMsgs(ctx context.Context)
 
