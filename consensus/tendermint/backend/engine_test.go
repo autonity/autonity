@@ -458,9 +458,8 @@ func TestClose(t *testing.T) {
 		b := &Backend{}
 
 		err := b.Close()
-		if err != ErrStoppedEngine {
-			t.Fatalf("expected %v, got %v", ErrStoppedEngine, err)
-		}
+		assertNotCoreStarted(t, b)
+		assertError(t, ErrStoppedEngine, err)
 	})
 
 	t.Run("engine is running, no errors", func(t *testing.T) {
@@ -477,9 +476,8 @@ func TestClose(t *testing.T) {
 		}
 
 		err := b.Close()
-		if err != nil {
-			t.Fatalf("expected <nil>, got %v", err)
-		}
+		assertNotCoreStarted(t, b)
+		assertNilError(t, err)
 	})
 
 	t.Run("engine is running, stopped twice", func(t *testing.T) {
@@ -496,14 +494,12 @@ func TestClose(t *testing.T) {
 		}
 
 		err := b.Close()
-		if err != nil {
-			t.Fatalf("expected <nil>, got %v", err)
-		}
+		assertNotCoreStarted(t, b)
+		assertNilError(t, err)
 
 		err = b.Close()
-		if err != ErrStoppedEngine {
-			t.Fatalf("expected %v, got %v", ErrStoppedEngine, err)
-		}
+		assertNotCoreStarted(t, b)
+		assertError(t, ErrStoppedEngine, err)
 	})
 
 	t.Run("engine is running, stopped multiple times", func(t *testing.T) {
@@ -538,6 +534,8 @@ func TestClose(t *testing.T) {
 		wg.Wait()
 		close(errC)
 
+		assertNotCoreStarted(t, b)
+
 		var sawNil bool
 
 		// Want nil once and ErrStoppedEngine 9 times
@@ -550,7 +548,7 @@ func TestClose(t *testing.T) {
 						sawNil = true
 					}
 				} else {
-					t.Fatalf("expected %v, got %v", ErrStoppedEngine, e)
+					assertError(t, ErrStoppedEngine, e)
 				}
 			}
 		}
@@ -572,9 +570,8 @@ func TestStart(t *testing.T) {
 		}
 
 		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-		if err != nil {
-			t.Fatalf("expected <nil>, got %v", err)
-		}
+		assertCoreStarted(t, b)
+		assertNilError(t, err)
 	})
 
 	t.Run("engine is running, error returned", func(t *testing.T) {
@@ -583,9 +580,8 @@ func TestStart(t *testing.T) {
 		}
 
 		err := b.Start(context.Background(), &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-		if err != ErrStartedEngine {
-			t.Fatalf("expected %v, got %v", ErrStartedEngine, err)
-		}
+		assertCoreStarted(t, b)
+		assertError(t, ErrStartedEngine, err)
 	})
 
 	t.Run("engine is not running, started twice", func(t *testing.T) {
@@ -602,14 +598,12 @@ func TestStart(t *testing.T) {
 		}
 
 		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-		if err != nil {
-			t.Fatalf("expected <nil>, got %v", err)
-		}
+		assertCoreStarted(t, b)
+		assertNilError(t, err)
 
 		err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-		if err != ErrStartedEngine {
-			t.Fatalf("expected %v, got %v", ErrStartedEngine, err)
-		}
+		assertCoreStarted(t, b)
+		assertError(t, ErrStartedEngine, err)
 	})
 
 	t.Run("engine is not running, started multiple times", func(t *testing.T) {
@@ -644,6 +638,8 @@ func TestStart(t *testing.T) {
 		wg.Wait()
 		close(errC)
 
+		assertCoreStarted(t, b)
+
 		var sawNil bool
 
 		// Want nil once and ErrStartedEngine 9 times
@@ -656,11 +652,90 @@ func TestStart(t *testing.T) {
 						sawNil = true
 					}
 				} else {
-					t.Fatalf("expected %v, got %v", ErrStartedEngine, e)
+					assertError(t, ErrStartedEngine, e)
 				}
 			}
 		}
 	})
+}
+
+func assertError(t *testing.T, expected, got error) {
+	if expected != got {
+		t.Fatalf("expected %v, got %v", expected, got)
+	}
+}
+
+func assertNilError(t *testing.T, err error) {
+	if err != nil {
+		t.Fatalf("expected <nil>, got %v", err)
+	}
+}
+
+func TestMultipleRestart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	tendermintC := tendermintCore.NewMockTendermint(ctrl)
+	tendermintC.EXPECT().Start(ctx).Return(nil).MaxTimes(5)
+	tendermintC.EXPECT().Stop().MaxTimes(5)
+
+	b := &Backend{
+		core:        tendermintC,
+		coreStarted: false,
+	}
+
+	err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+	assertCoreStarted(t, b)
+	assertNilError(t, err)
+
+	err = b.Close()
+	assertNotCoreStarted(t, b)
+	assertNilError(t, err)
+
+	err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+	assertCoreStarted(t, b)
+	assertNilError(t, err)
+
+	err = b.Close()
+	assertNotCoreStarted(t, b)
+	assertNilError(t, err)
+
+	err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+	assertCoreStarted(t, b)
+	assertNilError(t, err)
+
+	err = b.Close()
+	assertNotCoreStarted(t, b)
+	assertNilError(t, err)
+
+	err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+	assertCoreStarted(t, b)
+	assertNilError(t, err)
+
+	err = b.Close()
+	assertNotCoreStarted(t, b)
+	assertNilError(t, err)
+
+	err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+	assertCoreStarted(t, b)
+	assertNilError(t, err)
+
+	err = b.Close()
+	assertNotCoreStarted(t, b)
+	assertNilError(t, err)
+}
+
+func assertCoreStarted(t *testing.T, b *Backend) {
+	if !b.coreStarted {
+		t.Fatal("expected core to have started")
+	}
+}
+
+func assertNotCoreStarted(t *testing.T, b *Backend) {
+	if b.coreStarted {
+		t.Fatal("expected core to have stopped")
+	}
 }
 
 func TestBackendSealHash(t *testing.T) {
