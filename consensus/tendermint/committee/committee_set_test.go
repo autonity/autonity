@@ -36,34 +36,27 @@ var maxRange = 100
 func TestNewSet(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSet = func(t *testing.T, n int64) {
-		t.Helper()
-
 		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxRange))
 		// Ensure last block proposer is chosen at random to test next proposer is chosen via round-robin
 		lastBlockProposer := committeeMembers[rand.Intn(int(n))].Address
-
 		// create copy since slice are pass by references
 		// need to ensure a different copy of the committeMemebers is passed otherwise the sorting will affect the
 		// committeeMembers and would not give any meaningful tests
 		copyCommitteeMembers := copyMembers(committeeMembers)
-
 		// next proposer is chosen after sorting
 		sort.Sort(committeeMembers)
 		// test the next proposer is chosen through round-robin
-
 		roundRobinOffset := getMemberIndex(committeeMembers, lastBlockProposer)
 		if len(committeeMembers) > 1 {
 			roundRobinOffset++
 		}
 		allProposers := map[int64]types.CommitteeMember{0: committeeMembers[nextProposerIndex(roundRobinOffset, 0, int64(len(committeeMembers)))]}
-
 		var totalPower uint64
 		for _, cm := range committeeMembers {
 			totalPower += cm.VotingPower.Uint64()
 		}
 
 		set, err := NewSet(copyCommitteeMembers, lastBlockProposer)
-
 		assertNilError(t, err)
 
 		if lastBlockProposer != set.lastBlockProposer {
@@ -109,8 +102,6 @@ func TestNewSet(t *testing.T) {
 func TestSet_Size(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSetSize = func(t *testing.T, n int64) {
-		t.Helper()
-
 		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxRange))
 		// only testing size so don't care about sorting
 		set, err := NewSet(committeeMembers, committeeMembers[0].Address)
@@ -134,8 +125,6 @@ func TestSet_Size(t *testing.T) {
 func TestSet_Committee(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSetCommittee = func(t *testing.T, n int64) {
-		t.Helper()
-
 		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxRange))
 		set, err := NewSet(copyMembers(committeeMembers), committeeMembers[0].Address)
 		sort.Sort(committeeMembers)
