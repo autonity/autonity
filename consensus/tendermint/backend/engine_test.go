@@ -19,9 +19,6 @@ package backend
 import (
 	"bytes"
 	"context"
-	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
-	"github.com/clearmatics/autonity/core"
-	"github.com/golang/mock/gomock"
 	"math/big"
 	"reflect"
 	"sync"
@@ -31,9 +28,12 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
+	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/golang/mock/gomock"
 )
 
 func TestPrepare(t *testing.T) {
