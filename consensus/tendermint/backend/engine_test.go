@@ -659,25 +659,14 @@ func TestStart(t *testing.T) {
 	})
 }
 
-func assertError(t *testing.T, expected, got error) {
-	if expected != got {
-		t.Fatalf("expected %v, got %v", expected, got)
-	}
-}
-
-func assertNilError(t *testing.T, err error) {
-	if err != nil {
-		t.Fatalf("expected <nil>, got %v", err)
-	}
-}
-
 func TestMultipleRestart(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	times := 5
 	ctx := context.Background()
 	tendermintC := tendermintCore.NewMockTendermint(ctrl)
-	tendermintC.EXPECT().Start(ctx).Return(nil).MaxTimes(5)
+	tendermintC.EXPECT().Start(ctx).Return(nil).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
 
 	b := &Backend{
@@ -685,54 +674,40 @@ func TestMultipleRestart(t *testing.T) {
 		coreStarted: false,
 	}
 
-	err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-	assertCoreStarted(t, b)
-	assertNilError(t, err)
+	for i := 0; i < times; i++ {
+		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		assertCoreStarted(t, b)
+		assertNilError(t, err)
 
-	err = b.Close()
-	assertNotCoreStarted(t, b)
-	assertNilError(t, err)
+		err = b.Close()
+		assertNotCoreStarted(t, b)
+		assertNilError(t, err)
+	}
+}
 
-	err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-	assertCoreStarted(t, b)
-	assertNilError(t, err)
+func assertError(t *testing.T, expected, got error) {
+	t.Helper()
+	if expected != got {
+		t.Fatalf("expected %v, got %v", expected, got)
+	}
+}
 
-	err = b.Close()
-	assertNotCoreStarted(t, b)
-	assertNilError(t, err)
-
-	err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-	assertCoreStarted(t, b)
-	assertNilError(t, err)
-
-	err = b.Close()
-	assertNotCoreStarted(t, b)
-	assertNilError(t, err)
-
-	err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-	assertCoreStarted(t, b)
-	assertNilError(t, err)
-
-	err = b.Close()
-	assertNotCoreStarted(t, b)
-	assertNilError(t, err)
-
-	err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-	assertCoreStarted(t, b)
-	assertNilError(t, err)
-
-	err = b.Close()
-	assertNotCoreStarted(t, b)
-	assertNilError(t, err)
+func assertNilError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("expected <nil>, got %v", err)
+	}
 }
 
 func assertCoreStarted(t *testing.T, b *Backend) {
+	t.Helper()
 	if !b.coreStarted {
 		t.Fatal("expected core to have started")
 	}
 }
 
 func assertNotCoreStarted(t *testing.T, b *Backend) {
+	t.Helper()
 	if b.coreStarted {
 		t.Fatal("expected core to have stopped")
 	}
