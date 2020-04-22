@@ -540,16 +540,13 @@ func TestClose(t *testing.T) {
 
 		// Want nil once and ErrStoppedEngine 9 times
 		for e := range errC {
-			if e != ErrStoppedEngine {
-				if e == nil {
-					if sawNil {
-						t.Fatalf("<nil> returned more than once, b.Close() should have only returned nil the first time it was closed")
-					} else {
-						sawNil = true
-					}
-				} else {
-					assertError(t, ErrStoppedEngine, e)
+			if e == nil {
+				if sawNil {
+					t.Fatalf("<nil> returned more than once, b.Close() should have only returned nil the first time it was closed")
 				}
+				sawNil = true
+			} else if e != ErrStoppedEngine {
+				assertError(t, ErrStoppedEngine, e)
 			}
 		}
 	})
@@ -644,16 +641,13 @@ func TestStart(t *testing.T) {
 
 		// Want nil once and ErrStartedEngine 9 times
 		for e := range errC {
-			if e != ErrStartedEngine {
-				if e == nil {
-					if sawNil {
-						t.Fatalf("<nil> returned more than once, b.Start() should have only returned nil the first time it was started")
-					} else {
-						sawNil = true
-					}
-				} else {
-					assertError(t, ErrStartedEngine, e)
+			if e == nil {
+				if sawNil {
+					t.Fatalf("<nil> returned more than once, b.Start() should have only returned nil the first time it was started")
 				}
+				sawNil = true
+			} else if e != ErrStartedEngine {
+				assertError(t, ErrStartedEngine, e)
 			}
 		}
 	})
