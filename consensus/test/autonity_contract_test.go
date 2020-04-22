@@ -4,12 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/common/acdefault"
-	"github.com/clearmatics/autonity/common/graph"
-	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"net"
 	"strconv"
@@ -17,6 +11,13 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/common/acdefault"
+	"github.com/clearmatics/autonity/common/graph"
+	"github.com/clearmatics/autonity/common/keygenerator"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p/enode"
 
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/ethclient"
@@ -69,7 +70,7 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 
 			if block.NumberU64() > 1 && len(block.Transactions()) > 0 && block.NumberU64() <= uint64(tCase.numBlocks) {
 				sh := validator.service.BlockChain().Config().AutonityContractConfig.GetStakeHolderUsers()[0]
-				stakeHolderBalance := st.GetBalance(sh.Address)
+				stakeHolderBalance := st.GetBalance(*sh.Address)
 				if stakeHolderBalance.Cmp(prevSTBalance) != 1 {
 					return fmt.Errorf("balance must be increased")
 				}
@@ -329,12 +330,12 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 				t.Fatal(err)
 			}
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-			_, err = instance.RemoveUser(auth, validatorsList[0].Address)
+			_, err = instance.RemoveUser(auth, *validatorsList[0].Address)
 			if err != nil {
 				t.Fatal(err)
 			}
 			skip = false
-			testCase.removedPeers[validatorsList[0].Address] = validator.lastBlock
+			testCase.removedPeers[*validatorsList[0].Address] = validator.lastBlock
 		})
 
 		return skip, nil, nil

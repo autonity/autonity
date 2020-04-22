@@ -493,7 +493,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 		},
 	}
 
-	if err := config.AutonityContractConfig.AddDefault().Validate(); err != nil {
+	if err := config.AutonityContractConfig.Prepare(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -617,7 +617,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 			},
 		)
 	}
-	if err := config.AutonityContractConfig.AddDefault().Validate(); err != nil {
+	if err := config.AutonityContractConfig.Prepare(); err != nil {
 		t.Fatal(err)
 	}
 	gspec.Difficulty = big.NewInt(1)
