@@ -458,8 +458,8 @@ func TestClose(t *testing.T) {
 		b := &Backend{}
 
 		err := b.Close()
-		assertNotCoreStarted(t, b)
 		assertError(t, ErrStoppedEngine, err)
+		assertNotCoreStarted(t, b)
 	})
 
 	t.Run("engine is running, no errors", func(t *testing.T) {
@@ -476,8 +476,8 @@ func TestClose(t *testing.T) {
 		}
 
 		err := b.Close()
-		assertNotCoreStarted(t, b)
 		assertNilError(t, err)
+		assertNotCoreStarted(t, b)
 	})
 
 	t.Run("engine is running, stopped twice", func(t *testing.T) {
@@ -494,12 +494,12 @@ func TestClose(t *testing.T) {
 		}
 
 		err := b.Close()
-		assertNotCoreStarted(t, b)
 		assertNilError(t, err)
+		assertNotCoreStarted(t, b)
 
 		err = b.Close()
-		assertNotCoreStarted(t, b)
 		assertError(t, ErrStoppedEngine, err)
+		assertNotCoreStarted(t, b)
 	})
 
 	t.Run("engine is running, stopped multiple times", func(t *testing.T) {
@@ -565,8 +565,8 @@ func TestStart(t *testing.T) {
 		}
 
 		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-		assertCoreStarted(t, b)
 		assertNilError(t, err)
+		assertCoreStarted(t, b)
 	})
 
 	t.Run("engine is running, error returned", func(t *testing.T) {
@@ -575,8 +575,8 @@ func TestStart(t *testing.T) {
 		}
 
 		err := b.Start(context.Background(), &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-		assertCoreStarted(t, b)
 		assertError(t, ErrStartedEngine, err)
+		assertCoreStarted(t, b)
 	})
 
 	t.Run("engine is not running, started twice", func(t *testing.T) {
@@ -593,12 +593,12 @@ func TestStart(t *testing.T) {
 		}
 
 		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-		assertCoreStarted(t, b)
 		assertNilError(t, err)
+		assertCoreStarted(t, b)
 
 		err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-		assertCoreStarted(t, b)
 		assertError(t, ErrStartedEngine, err)
+		assertCoreStarted(t, b)
 	})
 
 	t.Run("engine is not running, started multiple times", func(t *testing.T) {
@@ -666,12 +666,12 @@ func TestMultipleRestart(t *testing.T) {
 
 	for i := 0; i < times; i++ {
 		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-		assertCoreStarted(t, b)
 		assertNilError(t, err)
+		assertCoreStarted(t, b)
 
 		err = b.Close()
-		assertNotCoreStarted(t, b)
 		assertNilError(t, err)
+		assertNotCoreStarted(t, b)
 	}
 }
 
