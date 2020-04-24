@@ -103,21 +103,6 @@ class Scheduler(object):
             return None
         return True
 
-    def schedule_actions(self, case_name, scenario):
-        self.logger.debug('Start disaster for test case: %s, disaster impacts: %s.', case_name, scenario)
-        try:
-            if scenario is []:
-                self.logger.debug("There is no disaster defined for case, skip scheduling.")
-                return True
-
-            for step in scenario:
-                if self.schedule_action(step) is not True:
-                    return None
-        except (TypeError, KeyError) as e:
-            self.logger.error("Wrong configuration. %s", e)
-            return None
-        return True
-
     def cold_deploy_network(self):
         failed = False
         for index, client in self.clients.items():
