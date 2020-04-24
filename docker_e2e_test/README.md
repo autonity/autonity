@@ -19,7 +19,10 @@ If your linux is on ubuntu-18.04, the script will auto install it for you.
 `sudo apt-get install --yes docker.io`
 
 # How to use it
-Run the script with two parameters, a unique job id and the path of autonity binary.
+You can run it via make:
+`make docker-e2e-test`
+
+or run the script with 1 parameter, the path of autonity binary.
 For example:
 `sudo python3 test_via_docker.py  ~/your_path_to/autonity`
 
