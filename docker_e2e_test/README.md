@@ -19,6 +19,10 @@ If your linux is on ubuntu-18.04, the script will auto install it for you.
 `sudo apt-get install --yes docker.io`
 
 # How to use it
+## block chain genesis configuration
+In the docker_e2e_test/planner/networkplanner.py + line: 122, there are default genesis configuration, update it on your demand.
+
+## run it
 You can run it via make:
 `make docker-e2e-test`
 
