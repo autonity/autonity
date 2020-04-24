@@ -21,7 +21,7 @@ If your linux is on ubuntu-18.04, the script will auto install it for you.
 # How to use it
 Run the script with two parameters, a unique job id and the path of autonity binary.
 For example:
-`sudo python3 test_via_docker.py 100 ~/your_path_to/autonity`
+`sudo python3 test_via_docker.py  ~/your_path_to/autonity`
 
 # Outputs and reports.
 The console will collect test report and it collects system logs of each autontiy client for per failed testcase.

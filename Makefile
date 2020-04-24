@@ -15,6 +15,7 @@ ifeq ($(LATEST_COMMIT),)
 LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
 
+AUTONITY_BIN_PATH = $(GOBIN)/autonity
 AUTONITY_CONTRACT_DIR = ./contracts/autonity/contract/contracts
 AUTONITY_CONTRACT = Autonity.sol
 GENERATED_CONTRACT_DIR = ./common/acdefault/generated
@@ -80,6 +81,10 @@ test-contracts:
 	sleep 5
 	./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545
 	cd contracts/autonity/contract/ && truffle test && cd -
+
+docker-e2e-test: embed-autonity-contract
+	build/env.sh go run build/ci.go install
+	cd docker_e2e_test && sudo python3 test_via_docker.py $(AUTONITY_BIN_PATH)
 
 mock-gen:
 	mockgen -source=consensus/tendermint/validator/validator_interface.go -package=validator -destination=consensus/tendermint/validator/validator_mock.go

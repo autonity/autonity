@@ -4,6 +4,7 @@ import ipaddress
 import argparse
 import threading
 import signal
+import time
 
 TEST_ENGINE_IMAGE_NAME = "enginehost{}/ubuntu"
 TEST_ENGINE_DOCKER_FILE = "./Dockerfile"
@@ -230,10 +231,9 @@ def receive_signal(signal_number, frame):
 if __name__ == "__main__":
     exit_code = 0
     parser = argparse.ArgumentParser()
-    parser.add_argument("job_id", help="An unique job id for this test.")
     parser.add_argument("autonity", help="Autonity Binary Path")
     args = parser.parse_args()
-    job_id = args.job_id
+    job_id =  str(time.time())
     JOB_ID = job_id
     autonity_path = args.autonity
     path_list = autonity_path.split("/")
