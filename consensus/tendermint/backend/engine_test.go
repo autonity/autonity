@@ -502,7 +502,7 @@ func TestClose(t *testing.T) {
 		assertNotCoreStarted(t, b)
 	})
 
-	t.Run("engine is running, stopped multiple times", func(t *testing.T) {
+	t.Run("engine is running, stopped from multiple goroutines", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -601,7 +601,7 @@ func TestStart(t *testing.T) {
 		assertCoreStarted(t, b)
 	})
 
-	t.Run("engine is not running, started multiple times", func(t *testing.T) {
+	t.Run("engine is not running, started from multiple goroutines", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
