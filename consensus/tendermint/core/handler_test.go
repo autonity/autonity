@@ -177,7 +177,5 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 	c.stopped <- struct{}{}
 	c.stopped <- struct{}{}
 
-	if err := c.Stop(); err != nil {
-		t.Fatal(err)
-	}
+	c.Stop()
 }

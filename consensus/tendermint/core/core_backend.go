@@ -59,7 +59,7 @@ type Backend interface {
 }
 
 type Tendermint interface {
-	Start(ctx context.Context) error
-	Stop() error
+	Start(ctx context.Context)
+	Stop()
 	GetCurrentHeightMessages() []*Message
 }

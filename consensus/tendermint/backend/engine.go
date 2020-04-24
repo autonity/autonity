@@ -500,7 +500,7 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
-// Start implements consensus.tendermint.Start
+// Start implements consensus.Start
 func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
 	// the mutex along with coreStarted should prevent double start
 	sb.coreMu.Lock()
@@ -521,15 +521,14 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 	sb.currentBlock = currentBlock
 	sb.hasBadBlock = hasBadBlock
 
-	if err := sb.core.Start(ctx); err != nil {
-		return err
-	}
+	// Start Tendermint
+	sb.core.Start(ctx)
 	sb.coreStarted = true
 
 	return nil
 }
 
-// Stop implements consensus.tendermint.Stop
+// Stop implements consensus.Stop
 func (sb *Backend) Close() error {
 	// the mutex along with coreStarted should prevent double stop
 	sb.coreMu.Lock()
@@ -539,10 +538,8 @@ func (sb *Backend) Close() error {
 		return ErrStoppedEngine
 	}
 
-	if err := sb.core.Stop(); err != nil {
-		return err
-	}
-
+	// Stop Tendermint
+	sb.core.Stop()
 	sb.coreStarted = false
 	close(sb.stopped)
 

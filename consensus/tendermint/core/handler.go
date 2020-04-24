@@ -28,7 +28,7 @@ import (
 )
 
 // Start implements core.Engine.Start
-func (c *core) Start(ctx context.Context) error {
+func (c *core) Start(ctx context.Context) {
 	ctx, c.cancel = context.WithCancel(ctx)
 
 	c.subscribeEvents()
@@ -43,12 +43,10 @@ func (c *core) Start(ctx context.Context) error {
 	go c.mainEventLoop(ctx)
 
 	go c.backend.HandleUnhandledMsgs(ctx)
-
-	return nil
 }
 
 // Stop implements core.Engine.Stop
-func (c *core) Stop() error {
+func (c *core) Stop() {
 	c.logger.Info("stopping tendermint.core", "addr", c.address.String())
 
 	_ = c.proposeTimeout.stopTimer()
@@ -64,8 +62,6 @@ func (c *core) Stop() error {
 	<-c.stopped
 	<-c.stopped
 	<-c.stopped
-
-	return nil
 }
 
 func (c *core) subscribeEvents() {
