@@ -524,9 +524,7 @@ func TestClose(t *testing.T) {
 
 			go func(wg *sync.WaitGroup) {
 				defer wg.Done()
-
-				err := b.Close()
-				errC <- err
+				errC <- b.Close()
 			}(&wg)
 
 		}
@@ -625,9 +623,7 @@ func TestStart(t *testing.T) {
 
 			go func(wg *sync.WaitGroup) {
 				defer wg.Done()
-
-				err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
-				errC <- err
+				errC <- b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
 			}(&wg)
 
 		}
