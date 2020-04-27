@@ -8,6 +8,7 @@
 .PHONY: autonity-darwin autonity-darwin-386 autonity-darwin-amd64
 .PHONY: autonity-windows autonity-windows-386 autonity-windows-amd64
 
+NPMBIN= $(shell npm bin)
 GOBIN = ./build/bin
 GO ?= latest
 LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
@@ -75,11 +76,22 @@ test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 	go test -race -v ./consensus/test/... -timeout 30m
 
+# This runs the contract tests using truffle against an autonity node instance.
 test-contracts:
-	cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
-	sleep 5
-	./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545
-	cd contracts/autonity/contract/ && truffle test && cd -
+	@# npm list returns 0 only if the package is not installed and the shell only
+	@# executes the second part of an or statment if the first fails.
+	@npm list truffle > /dev/null || npm install truffle
+	@npm list web3 > /dev/null || npm install web3
+	@cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
+	@# Autonity can take some time to start listening on port 8545 so we allow multiple connection attempts.
+	@for x in {1..10}; do \
+		sleep 2 ; \
+		./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545 ; \
+		if [ $$? -eq 0 ] ; then \
+			break ; \
+		fi ; \
+	done
+	@cd contracts/autonity/contract/ && $(NPMBIN)/truffle test && cd -
 
 mock-gen:
 	mockgen -source=consensus/tendermint/validator/validator_interface.go -package=validator -destination=consensus/tendermint/validator/validator_mock.go
