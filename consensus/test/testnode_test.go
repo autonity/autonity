@@ -142,7 +142,7 @@ func (validator *testNode) stopNode() error {
 }
 
 func (validator *testNode) forceStopNode() error {
-	if err := validator.node.Stop(); err != nil {
+	if err := validator.node.Close(); err != nil {
 		return fmt.Errorf("cannot stop a node on block %d: %q", validator.lastBlock, err)
 	}
 	validator.node.Wait()
