@@ -10,7 +10,6 @@ RUN echo 'root:root' |chpasswd
 RUN mkdir /root/.ssh
 RUN useradd -m -p '$6$MtwVl8yJ/PeTevqf$C.7ANQ7EzLLP9b6dXte9keVRYeUDDZ2i579yEIA4nPRpx8DMvxkRx3mZSYbZHCdzh8rmvq/PAvV9zTwp/i6o1/' -g sudo -G sudo tester
 COPY . .
-RUN rm *.tar
 RUN pip3 install -r ./requirements.txt
 RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
