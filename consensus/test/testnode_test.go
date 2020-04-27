@@ -25,15 +25,10 @@ type networkRate struct {
 }
 
 type testNode struct {
+	netNode
 	isRunning               bool
 	isInited                bool
 	wasStopped              bool //fixme should be removed
-	privateKey              *ecdsa.PrivateKey
-	address                 string
-	port                    int
-	url                     string
-	listener                []net.Listener
-	rpcPort                 int
 	node                    *node.Node
 	enode                   *enode.Node
 	service                 *eth.Ethereum
@@ -48,6 +43,15 @@ type testNode struct {
 	txsSendCount            *int64
 	txsChainCount           map[uint64]int64
 	isMalicious             bool
+}
+
+type netNode struct {
+	listener                []net.Listener
+	privateKey              *ecdsa.PrivateKey
+	address                 string
+	port                    int
+	url                     string
+	rpcPort                 int
 }
 
 type block struct {
