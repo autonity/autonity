@@ -430,7 +430,7 @@ class Client(object):
                     self.logger.info('SSH executed fine. %s for node: %s', cmd, self.host)
                     return True
                 else:
-                    self.logger.error('## err: %s', result)
+                    self.logger.info('%s', result)
                     return result.stdout.strip()
         except IOError as e:
             self.logger.error("Cannot connect to node: %s via network. %s", self.host, e)
