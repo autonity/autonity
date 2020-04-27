@@ -2,9 +2,6 @@ package committee
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -12,7 +9,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var maxRange = 100
@@ -81,6 +83,16 @@ func TestNewSet(t *testing.T) {
 		_, err := NewSet(types.Committee{}, common.Address{})
 		assertError(t, ErrEmptyCommitteeSet, err)
 	})
+}
+
+// We need to ensure that the committee is sorted, so that block hashes are the same for all validators.
+func TestCommitteeIsSorted(t *testing.T) {
+	committeeMembers := createTestCommitteeMembers(t, 10, 10)
+	require.False(t, sort.IsSorted(committeeMembers))
+
+	set, err := NewSet(committeeMembers, committeeMembers[0].Address)
+	require.NoError(t, err)
+	assert.True(t, sort.IsSorted(set.Committee()))
 }
 
 func TestSet_Size(t *testing.T) {
@@ -177,6 +189,45 @@ func TestSet_GetByAddress(t *testing.T) {
 	})
 }
 
+func TestGetProposer(t *testing.T) {
+	numValidators := genRandUint64(2, maxRange)
+	committeeMembers := createTestCommitteeMembers(t, numValidators, genRandUnit64(numValidators, maxRange))
+
+	lastBlockProposer := committeeMembers[0].Address
+	set, err := NewSet(committeeMembers, lastBlockProposer)
+	require.NoError(t, err)
+
+	//copy of
+	sort.Sort(committeeMembers)
+
+	var firstPass []CommitteeMember
+	for i := 0; i < numValidators; i++ {
+		validator := set.GetProposer(int64(i))
+		firstPass = append(firstPass, validator)
+	}
+
+	var secondPass []CommitteeMember
+	for i := numValidators; i < numValidators*2; i++ {
+		validator := set.GetProposer(int64(i))
+		secondPass = append(firstPass, validator)
+	}
+
+	sharesSameOrdering(t, committeeMembers, firstPass)
+	sharesSameOrdering(t, committeeMembers, secondPass)
+
+}
+
+func sharesSameOrdering(t *testing.T, a, b []types.CommitteeMember){
+	var comitteeStart := a[0]
+		for start, _ := range b{
+			if b[start] == comitteeStart
+			break
+		}
+
+		// Check that the selected proposers were selected in sorted committee set order.
+		assert.Equal(t, committeeMembers, append(firstPass[start:], firstPass[:start]))
+}
+
 func TestSet_GetProposer(t *testing.T) {
 	testCases := []struct {
 		size  int64
@@ -204,7 +255,7 @@ func TestSet_GetProposer(t *testing.T) {
 			assertNilError(t, err)
 
 			gotProposer := set.GetProposer(testCase.round)
-
+			
 			if expectedProposer != gotProposer {
 				t.Fatalf("expected proposer: %v and got: %v", expectedProposer, gotProposer)
 			}
