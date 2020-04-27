@@ -197,9 +197,10 @@ func TestSet_GetProposer(t *testing.T) {
 		74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100}
 
 	for _, size := range setSizes {
+		size := size
 		t.Run(fmt.Sprintf("check round robin for validator set size of %v", size), func(t *testing.T) {
 			committeeMembers := createTestCommitteeMembers(t, int64(size), genRandUint64(size, maxSize))
-			lastBlockProposer := committeeMembers[rand.Intn(int(size))].Address
+			lastBlockProposer := committeeMembers[rand.Intn(size)].Address
 			sort.Sort(committeeMembers)
 
 			set, err := NewSet(copyMembers(committeeMembers), lastBlockProposer)
