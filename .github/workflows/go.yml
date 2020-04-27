@@ -387,3 +387,65 @@ jobs:
 
       - name: test contract
         run: make test-contracts
+
+  docker_e2e_test:
+    needs: bootstrap-checkout
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Set GOPATH
+        # see https://github.com/actions/setup-go/issues/14
+        run: |
+          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+        shell: bash
+
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
+      - uses: actions/checkout@v2
+        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+        with:
+          clean: 'false'
+
+      - name: Embed Autonity contract
+        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
+        run: make embed-autonity-contract
+
+      - name: Build
+        run: make all
+
+      - name: Update apt repo source
+        run: sudo apt-get update
+
+      - name: Install Python3
+        run: sudo apt-get install --yes python3
+
+      - name: Install PIP3
+        run: sudo apt-get install --yes python3-pip
+
+      - name: Install 3rd party lib
+        run: sudo pip3 install -r /home/runner/work/autonity/autonity/docker_e2e_test/requirements_docker_test.txt
+
+      - name: Cache binary
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-bin
+        with:
+          path: /home/runner/work/autonity/autonity/build/bin
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
+      - name: docker_e2e_test
+        run: make docker-e2e-test
