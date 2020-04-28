@@ -202,8 +202,10 @@ func TestSet_GetProposer(t *testing.T) {
 		size := size
 		t.Run(fmt.Sprintf("check round robin for validator set size of %v", size), func(t *testing.T) {
 			committeeMembers := createTestCommitteeMembers(t, int64(size), genRandUint64(size, maxSize))
-			lastBlockProposer := committeeMembers[rand.Intn(size)].Address
 			sort.Sort(committeeMembers)
+			r := rand.Intn(size)
+			lastBlockProposer := committeeMembers[r].Address
+			expectedProposerAddrForRound0 := committeeMembers[(r+1)%size].Address
 
 			set, err := NewSet(copyMembers(committeeMembers), lastBlockProposer)
 			require.NoError(t, err)
@@ -217,6 +219,8 @@ func TestSet_GetProposer(t *testing.T) {
 				for j := startRound; j < endRound; j++ {
 					committeeFromCallingGetProposer = append(committeeFromCallingGetProposer, set.GetProposer(int64(j)))
 				}
+				// Ensure the proposer for round % size = 0 is the next member in the sorted committee set.
+				assert.Equal(t, expectedProposerAddrForRound0, committeeFromCallingGetProposer[0].Address)
 
 				// Determine where committeeFromCallingGetProposer and ordered committeeMembers line up using
 				// firstCommitteeMember.
