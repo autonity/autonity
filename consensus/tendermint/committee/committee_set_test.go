@@ -189,8 +189,12 @@ func TestSet_GetByAddress(t *testing.T) {
 	})
 }
 
-// TestSet_GetProposer tests the round robin selection of proposers by continuously calling GetProposer and checking
-// the resulting Committee is the same as ordered Committee passed to the set
+// TestSet_GetProposer tests the round robin selection of proposers. It validates that as GetProposer is
+// called with consecutive rounds, consecutive proposers are chosen in the sort order defined by
+// types.Committee. The consequence of this is that proposers are selected fairly, with N-1 other proposers
+// being selected between any two instances of the same proposer being selected twice. It also validates that
+// the selection process starts from the committee member that follows lastBlockProposer in a sorted instance
+// of types.Committee.
 func TestSet_GetProposer(t *testing.T) {
 	numOfPasses := 10
 	setSizes := 100
