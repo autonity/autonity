@@ -4,6 +4,7 @@ RUN  apt-get update && \
   apt-get dist-upgrade --yes && \
   apt-get install --yes iptables && \
   apt-get install --yes sudo && \
+  apt-get install --yes iproute2 && \
   apt-get install --yes openssh-server
 RUN mkdir /var/run/sshd
 RUN echo 'root:root' |chpasswd

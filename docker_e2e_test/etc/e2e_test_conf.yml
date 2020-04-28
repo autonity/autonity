@@ -13,7 +13,7 @@ test_bed_template:
     nodes:
       - name: "34.89.63.6" # if you have public DNS of your node, set it with DNS, otherwise set it with public IP.
         role: 'validator' # This conf [validator|participant|stakeholder]
-        ethernetInterfaceID: 'ens4' # This conf depend on your network configuration at test bed.
+        ethernetInterfaceID: 'eth0' # This conf depend on your network configuration at test bed.
         rpcPort: 6000 # must
         p2pPort: 30303
         wsPort: 7000

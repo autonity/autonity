@@ -474,11 +474,6 @@ class Client(object):
         return True
 
     def set_up_link_delay(self, up_link_delay_meta):
-        # since docker is a LXC base container solution, it does not involved the kernel module
-        # which our TC (traffic control) depends on to simulate the traffic delays, so
-        # we remove this from docker based testbed, while in VM based testing, TC is
-        # still valid.
-        return True
         try:
             delay = \
                 DEFAULT_DELAY if up_link_delay_meta['delay'] is None else up_link_delay_meta['delay']
@@ -529,11 +524,6 @@ class Client(object):
         return True
 
     def cancel_up_link_delay(self):
-        # since docker is a LXC base container solution, it does not involved the kernel module
-        # which our TC (traffic control) depends on to simulate the traffic delays, so
-        # we remove this from docker based testbed, while in VM based testing, TC is
-        # still valid.
-        return True
         try:
             ether_id = self.net_interface
             if ether_id is None:

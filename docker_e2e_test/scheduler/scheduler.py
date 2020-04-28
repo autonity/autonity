@@ -216,21 +216,13 @@ class Scheduler(object):
                 return True
 
             if step["action"] == "delay":
-                # since docker is a LXC base container solution, it does not involved the kernel module
-                # which our TC (traffic control) depends on to simulate the traffic delays, so
-                # we remove this from docker based testbed, while in VM based testing, TC is
-                # still valid.
-                #step_copy = copy.deepcopy(step)
-                #self.scheduler.enter(step["delay"], 1, self.set_delays, argument=(1, step_copy))
+                step_copy = copy.deepcopy(step)
+                self.scheduler.enter(step["delay"], 1, self.set_delays, argument=(1, step_copy))
                 return True
 
             if step["action"] == "un-delay":
-                # since docker is a LXC base container solution, it does not involved the kernel module
-                # which our TC (traffic control) depends on to simulate the traffic delays, so
-                # we remove this from docker based testbed, while in VM based testing, TC is
-                # still valid.
-                #step_copy = copy.deepcopy(step)
-                #self.scheduler.enter(step["delay"], 1, self.clear_delays, argument=(1, step_copy))
+                step_copy = copy.deepcopy(step)
+                self.scheduler.enter(step["delay"], 1, self.clear_delays, argument=(1, step_copy))
                 return True
 
         except (KeyError, TypeError) as e:
