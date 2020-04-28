@@ -195,6 +195,7 @@ func TestSet_GetProposer(t *testing.T) {
 	numOfPasses := 10
 	setSizes := 100
 	for size := 1; size <= setSizes; size++ {
+		size := size
 		t.Run(fmt.Sprintf("check round robin for validator set size of %v", size), func(t *testing.T) {
 			committeeMembers := createTestCommitteeMembers(t, int64(size), genRandUint64(size, maxSize))
 			lastBlockProposer := committeeMembers[rand.Intn(size)].Address
