@@ -870,7 +870,7 @@ func retesteth(ctx *cli.Context) error {
 
 	// start http server
 	httpEndpoint := fmt.Sprintf("%s:%d", ctx.GlobalString(utils.RPCListenAddrFlag.Name), ctx.Int(rpcPortFlag.Name))
-	listener, _, err := rpc.StartHTTPEndpoint(httpEndpoint, rpcAPI, []string{"test", "eth", "debug", "web3"}, cors, vhosts, rpc.DefaultHTTPTimeouts)
+	_, httpServer, _, err := rpc.StartHTTPEndpoint(httpEndpoint, rpcAPI, []string{"test", "eth", "debug", "web3"}, cors, vhosts, rpc.DefaultHTTPTimeouts)
 	if err != nil {
 		utils.Fatalf("Could not start RPC api: %v", err)
 	}
@@ -878,7 +878,7 @@ func retesteth(ctx *cli.Context) error {
 	log.Info("HTTP endpoint opened", "url", extapiURL)
 
 	defer func() {
-		listener.Close()
+		httpServer.Close()
 		log.Info("HTTP endpoint closed", "url", httpEndpoint)
 	}()
 

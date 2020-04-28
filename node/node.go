@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -61,7 +62,8 @@ type Node struct {
 
 	httpEndpoint  string       // HTTP endpoint (interface + port) to listen at (empty = HTTP disabled)
 	httpWhitelist []string     // HTTP RPC modules to allow through this endpoint
-	httpListener  net.Listener // HTTP RPC listener socket to server API requests
+	listener      net.Listener // HTTP RPC listener socket to server API requests
+	httpServer    *http.Server // HTTP RPC server to server API requests
 	httpHandler   *rpc.Server  // HTTP RPC request handler to process the API requests
 
 	wsEndpoint string       // Websocket endpoint (interface + port) to listen at (empty = websocket disabled)
@@ -364,14 +366,15 @@ func (n *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, cors
 	if endpoint == "" {
 		return nil
 	}
-	listener, handler, err := rpc.StartHTTPEndpoint(endpoint, apis, modules, cors, vhosts, timeouts)
+	listener, httpServer, handler, err := rpc.StartHTTPEndpoint(endpoint, apis, modules, cors, vhosts, timeouts)
 	if err != nil {
 		return err
 	}
 	n.log.Info("HTTP endpoint opened", "url", fmt.Sprintf("http://%s", endpoint), "cors", strings.Join(cors, ","), "vhosts", strings.Join(vhosts, ","))
 	// All listeners booted successfully
 	n.httpEndpoint = endpoint
-	n.httpListener = listener
+	n.listener = listener
+	n.httpServer = httpServer
 	n.httpHandler = handler
 
 	return nil
@@ -379,9 +382,9 @@ func (n *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, cors
 
 // stopHTTP terminates the HTTP RPC endpoint.
 func (n *Node) stopHTTP() {
-	if n.httpListener != nil {
-		n.httpListener.Close()
-		n.httpListener = nil
+	if n.httpServer != nil {
+		n.httpServer.Close()
+		n.httpServer = nil
 
 		n.log.Info("HTTP endpoint closed", "url", fmt.Sprintf("http://%s", n.httpEndpoint))
 	}
@@ -597,8 +600,8 @@ func (n *Node) HTTPEndpoint() string {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
-	if n.httpListener != nil {
-		return n.httpListener.Addr().String()
+	if n.httpServer != nil {
+		return n.listener.Addr().String()
 	}
 	return n.httpEndpoint
 }

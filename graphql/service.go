@@ -31,13 +31,13 @@ import (
 
 // Service encapsulates a GraphQL service.
 type Service struct {
-	endpoint string           // The host:port endpoint for this service.
-	cors     []string         // Allowed CORS domains
-	vhosts   []string         // Recognised vhosts
-	timeouts rpc.HTTPTimeouts // Timeout settings for HTTP requests.
-	backend  ethapi.Backend   // The backend that queries will operate onn.
-	handler  http.Handler     // The `http.Handler` used to answer queries.
-	listener net.Listener     // The listening socket.
+	endpoint   string           // The host:port endpoint for this service.
+	cors       []string         // Allowed CORS domains
+	vhosts     []string         // Recognised vhosts
+	timeouts   rpc.HTTPTimeouts // Timeout settings for HTTP requests.
+	backend    ethapi.Backend   // The backend that queries will operate onn.
+	handler    http.Handler     // The `http.Handler` used to answer queries.
+	httpServer *http.Server     // The listening socket.
 }
 
 // New constructs a new GraphQL service instance.
@@ -65,10 +65,17 @@ func (s *Service) Start(server *p2p.Server) error {
 	if err != nil {
 		return err
 	}
-	if s.listener, err = net.Listen("tcp", s.endpoint); err != nil {
+	listener, err := net.Listen("tcp", s.endpoint)
+	if err != nil {
 		return err
 	}
-	go rpc.NewHTTPServer(s.cors, s.vhosts, s.timeouts, s.handler).Serve(s.listener)
+	s.httpServer = rpc.NewHTTPServer(s.cors, s.vhosts, s.timeouts, s.handler)
+	go func() {
+		err := s.httpServer.Serve(listener)
+		if err != http.ErrServerClosed {
+			log.Error("GraphQL HTTP server shut down unexpectedly: %v", err)
+		}
+	}()
 	log.Info("GraphQL endpoint opened", "url", fmt.Sprintf("http://%s", s.endpoint))
 	return nil
 }
@@ -94,9 +101,9 @@ func newHandler(backend ethapi.Backend) (http.Handler, error) {
 // Stop terminates all goroutines belonging to the service, blocking until they
 // are all terminated.
 func (s *Service) Stop() error {
-	if s.listener != nil {
-		s.listener.Close()
-		s.listener = nil
+	if s.httpServer != nil {
+		s.httpServer.Close()
+		s.httpServer = nil
 		log.Info("GraphQL endpoint closed", "url", fmt.Sprintf("http://%s", s.endpoint))
 	}
 	return nil
