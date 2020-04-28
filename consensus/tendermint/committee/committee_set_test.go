@@ -205,12 +205,10 @@ func TestSet_GetProposer(t *testing.T) {
 			require.NoError(t, err)
 
 			firstCommitteeMemberAddr := committeeMembers[0].Address
-			startRound, endRound := 0, size
+			var startRound, endRound int
 			for i := 1; i <= numOfPasses; i++ {
-				if i > 1 {
-					startRound = endRound
-					endRound = size * i
-				}
+				startRound = endRound
+				endRound = size * i
 				var committeeFromCallingGetProposer types.Committee
 				for j := startRound; j < endRound; j++ {
 					committeeFromCallingGetProposer = append(committeeFromCallingGetProposer, set.GetProposer(int64(j)))
