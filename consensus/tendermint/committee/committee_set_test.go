@@ -189,15 +189,12 @@ func TestSet_GetByAddress(t *testing.T) {
 	})
 }
 
+// TestSet_GetProposer tests the round robin selection of proposers by continuously calling GetProposer and checking
+// the resulting Committee is the same as ordered Committee passed to the set
 func TestSet_GetProposer(t *testing.T) {
 	numOfPasses := 10
-	setSizes := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-		24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
-		49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73,
-		74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100}
-
-	for _, size := range setSizes {
-		size := size
+	setSizes := 100
+	for size := 1; size <= setSizes; size++ {
 		t.Run(fmt.Sprintf("check round robin for validator set size of %v", size), func(t *testing.T) {
 			committeeMembers := createTestCommitteeMembers(t, int64(size), genRandUint64(size, maxSize))
 			lastBlockProposer := committeeMembers[rand.Intn(size)].Address
@@ -207,12 +204,19 @@ func TestSet_GetProposer(t *testing.T) {
 			require.NoError(t, err)
 
 			firstCommitteeMemberAddr := committeeMembers[0].Address
-			for i := 1; i < numOfPasses; i++ {
+			startRound, endRound := 0, size
+			for i := 1; i <= numOfPasses; i++ {
+				if i > 1 {
+					startRound = endRound
+					endRound = size * i
+				}
 				var committeeFromCallingGetProposer types.Committee
-				for j := 0; j < size; j++ {
+				for j := startRound; j < endRound; j++ {
 					committeeFromCallingGetProposer = append(committeeFromCallingGetProposer, set.GetProposer(int64(j)))
 				}
 
+				// Determine where committeeFromCallingGetProposer and ordered committeeMembers line up using
+				// firstCommitteeMember.
 				var startIndex int
 				for k, m := range committeeFromCallingGetProposer {
 					if m.Address == firstCommitteeMemberAddr {
