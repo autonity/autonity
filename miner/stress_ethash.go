@@ -186,7 +186,7 @@ func makeMiner(genesis *core.Genesis) (*node.Node, error) {
 				GasPrice: big.NewInt(1),
 				Recommit: time.Second,
 			},
-		}, nil, nil)
+		}, nil)
 	}); err != nil {
 		return nil, err
 	}

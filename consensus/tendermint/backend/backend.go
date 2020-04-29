@@ -63,8 +63,6 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
 
-	config.SetProposerPolicy(tendermintConfig.ProposerPolicy(chainConfig.Tendermint.ProposerPolicy))
-
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
@@ -89,6 +87,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
+	backend.core = tendermintCore.New(backend)
 	return backend
 }
 
@@ -111,6 +110,7 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
+	core              tendermintCore.Tendermint
 	stopped           chan struct{}
 	coreMu            sync.RWMutex
 
@@ -139,7 +139,7 @@ func (sb *Backend) Address() common.Address {
 	return sb.address
 }
 
-func (sb *Backend) Committee(number uint64) (committee.Set, error) {
+func (sb *Backend) Committee(number uint64) (*committee.Set, error) {
 	validators, err := sb.savedCommittee(number, sb.blockchain)
 	if err != nil {
 		sb.logger.Error("could not retrieve saved committee", "height", number, "err", err)
@@ -149,7 +149,7 @@ func (sb *Backend) Committee(number uint64) (committee.Set, error) {
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(ctx context.Context, valSet committee.Set, payload []byte) error {
+func (sb *Backend) Broadcast(ctx context.Context, valSet *committee.Set, payload []byte) error {
 	// send to others
 	sb.Gossip(ctx, valSet, payload)
 	// send to self
@@ -164,7 +164,7 @@ func (sb *Backend) postEvent(event interface{}) {
 	go sb.Post(event)
 }
 
-func (sb *Backend) AskSync(valSet committee.Set) {
+func (sb *Backend) AskSync(valSet *committee.Set) {
 	sb.logger.Info("Broadcasting consensus sync-me")
 
 	targets := make(map[common.Address]struct{})
@@ -196,7 +196,7 @@ func (sb *Backend) AskSync(valSet committee.Set) {
 }
 
 // Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, valSet committee.Set, payload []byte) {
+func (sb *Backend) Gossip(ctx context.Context, valSet *committee.Set, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
@@ -466,7 +466,7 @@ func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
 }
 
 // Synchronize new connected peer with current height state
-func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.Message) {
+func (sb *Backend) SyncPeer(address common.Address) {
 	if sb.broadcaster == nil {
 		return
 	}
@@ -478,6 +478,7 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 	if !connected {
 		return
 	}
+	messages := sb.core.GetCurrentHeightMessages()
 	for _, msg := range messages {
 		payload, err := msg.Payload()
 		if err != nil {
