@@ -149,6 +149,24 @@ def prune_unused_volumes():
         print("prune unused volumes: ", e)
 
 
+def prune_unused_network():
+    try:
+        client = docker.from_env()
+        result = client.networks.prune()
+        print("docker prune unused network: ", result)
+    except Exception as e:
+        print("prune unused network: ", e)
+
+
+def remove_test_engine_image(job_id):
+    try:
+        client = docker.from_env()
+        result = client.api.remove_image(TEST_ENGINE_IMAGE_NAME.format(job_id), force=True, noprune=True)
+        print("docker remove image: ", result)
+    except Exception as e:
+        print("docker remove image: ", e)
+
+
 # to stop and remove client and test engine containers.
 def clean_test_bed_containers(job_id):
     print("start clean up current test context: test bed, test engine.")
@@ -205,6 +223,8 @@ def clean_up(job_id):
     clean_test_bed_containers(job_id)
     prune_unused_images()
     prune_unused_volumes()
+    prune_unused_network()
+    remove_test_engine_image(job_id)
 
 
 def thread_func_copy_system_logs(job_id, path):
@@ -233,7 +253,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("autonity", help="Autonity Binary Path")
     args = parser.parse_args()
-    job_id =  str(time.time())
+    job_id = str(time.time())
     JOB_ID = job_id
     autonity_path = args.autonity
     path_list = autonity_path.split("/")
@@ -254,6 +274,7 @@ if __name__ == "__main__":
         # release unused docker resources if there exists.
         prune_unused_images()
         prune_unused_volumes()
+        prune_unused_network()
 
         # build autonity client image.
         check_to_build_client_images()
