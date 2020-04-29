@@ -2,8 +2,8 @@
 Python3 and docker based e2e testing framework for autonity.
 
 # Dependencies
+Run install_dep.sh to install all the dependencies. Or you can install them manually as below steps tells:
 In most linux distribution, python3 and pip3 are included, follow below guide in case your linux need them:
-
 ## update repo source
 `sudo apt-get update`
 ## Python3
