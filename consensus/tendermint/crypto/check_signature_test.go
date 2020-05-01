@@ -10,7 +10,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/crypto"
 )
 
@@ -164,7 +163,7 @@ func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
 	}
 }
 
-func newTestValidatorSet(n int) (committee.Set, []*ecdsa.PrivateKey) {
+func newTestValidatorSet(n int) (*committee.Set, []*ecdsa.PrivateKey) {
 	// generate validators
 	keys := make(Keys, n)
 	addrs := make(types.Committee, n)
@@ -176,7 +175,7 @@ func newTestValidatorSet(n int) (committee.Set, []*ecdsa.PrivateKey) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 	}
-	vset, _ := committee.NewSet(addrs, config.RoundRobin, addrs[0].Address)
+	vset, _ := committee.NewSet(addrs, addrs[0].Address)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
 	return vset, keys
 }
