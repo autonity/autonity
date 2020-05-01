@@ -592,32 +592,24 @@ playbook:
       condition:
         crashNodes: [] # contain the node domain name we want to crash.
         scenario:
-          # 6 break to 3 + 3 in full mesh.
-          - delay: 5 # on the 10th second, disconnect peers.
+          # 6 break to 3 + 3 in full mesh, then break one of the 3 into 1 + 2.
+          - delay: 2 # on the 10th second, disconnect peers.
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
-            peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2]]
-          # 3 break to 1 + 2.
-          - delay: 20 # on the 20th second, disconnect peers.
-            action: "disconnect" # it apply p2p connection by managing ip-tables in linux kernel.
-            peers: [[0, 1], [0, 2]]
+            peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2], [0, 1], [0, 2]]
           # 3 + 1 alone, producing blocks.
-          - delay: 25 # on the 60th second, connect peers. 3 + 1, start producing block.
+          - delay: 25 # on the 25th second, connect peers. 3 + 1, start producing block.
             action: "connect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4, 0]]
           # break the alone node from 3 full mesh,
-          - delay: 265 # on the 265th second, disconnect peers, on-hold.
+          - delay: 65 # on the 65th second, disconnect peers, on-hold.
             action: "disconnect" # turn to 3 + 1 + 2
             peers: [[4, 0]]
           # connect the left node in bus line 65.198-----79.95-----85.250
-          - delay: 265 # on the 195th second, turn to 6 with 3 node in full mesh + 3 node in bus line.
+          - delay: 125 # on the 125th second, turn to 6 with 3 node in full mesh + 3 node in bus line.
             action: "connect" # it apply p2p connection by managing ip-tables in linux kernel.
-            peers: [[0, 1]]
-          # connect the 3 node of full mesh with the bus line.
-          - delay: 365 # on the 195th second, turn to 6 with 3 node in full mesh + 3 node in bus line.
-            action: "connect" # it apply p2p connection by managing ip-tables in linux kernel.
-            peers: [[4, 0]]
+            peers: [[0, 1], [4, 0]]
       input:
-        duration: 500 # num of seconds the transaction sending duration.
+        duration: 300 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
