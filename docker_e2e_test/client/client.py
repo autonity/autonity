@@ -426,10 +426,10 @@ class Client(object):
                 )
                 result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
-                    self.logger.info('SSH executed fine. %s for node: %s', cmd, self.host)
+                    self.logger.debug('SSH executed fine. %s for node: %s', cmd, self.host)
                     return True
                 else:
-                    self.logger.info('%s', result)
+                    self.logger.debug('%s', result)
                     return result.stdout.strip()
         except IOError as e:
             self.logger.error("Cannot connect to node: %s via network. %s", self.host, e)
