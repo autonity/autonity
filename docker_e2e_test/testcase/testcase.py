@@ -75,7 +75,7 @@ class TestCase:
         if self.is_healed() is True:
             self.end_chain_height_after_recover = self.get_chain_height()
             self.end_recover_time = time.time()
-            self.generate_report()
+            #self.generate_report()
 
     def tx_send(self):
         try:
@@ -303,7 +303,7 @@ class TestCase:
             self.end_chain_height_after_recover = self.get_chain_height()
             self.end_recover_time = time.time()
             self.logger.info("TESTCASE: %s is passed.", self.test_case_conf["name"])
-            self.generate_report()
+            #self.generate_report()
             self.scheduler.try_join()
             return True
 
