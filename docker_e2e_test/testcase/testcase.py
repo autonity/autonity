@@ -203,6 +203,8 @@ class TestCase:
                 reference_height = self.get_chain_height()
                 for node in alive_nodes:
                     block_hash = self.clients[node].get_block_hash_by_height(reference_height)
+                    if block_hash is None:
+                        continue
                     if reference_height in map_height_hash:
                         if map_height_hash.get(reference_height) != block_hash and block_hash is not None:
                             self.logger.error("BLOCK INCONSISTENT in round: %d, at height: %d", r, reference_height)
