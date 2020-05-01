@@ -317,10 +317,10 @@ playbook:
             peers: [[2, 0], [2, 4], [2, 5]]
           - delay: 10 # on the 10th second, disconnect peers.
             action: "disconnect" # it apply p2p connection by managing ip-tables in linux kernel.
-            peers: [[1, 4], [1, 5], [1,3]]
+            peers: [[1, 4], [1, 5], [1, 3]]
           - delay: 15 # on the 15th second, disconnect peers.
             action: "disconnect" # it apply p2p connection by managing ip-tables in linux kernel.
-            peers: [[0, 5], [0,3]]
+            peers: [[0, 5], [0, 3]]
           - delay: 20 # on the 20th second, disconnect peers.
             action: "disconnect" # it apply p2p connection by managing ip-tables in linux kernel.
             peers: [[4,3]]
@@ -333,30 +333,30 @@ playbook:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: true # false means consensus engine should on-hold.
 
-#    - name: "TC-15: 6 nodes in bus line network topology, should not on-hold."
-#      condition:
-#        crashNodes: [] # contain the nodes which leave the main party.
-#        scenario:
-#          - delay: 5 # on the 10th second, disconnect peers.
-#            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
-#            peers: [[2, 0], [2, 4], [2, 5]]
-#          - delay: 10 # on the 10th second, disconnect peers.
-#            action: "disconnect" # it apply p2p connection by managing ip-tables in linux kernel.
-#            peers: [[1, 4], [1, 5], [1,3]]
-#          - delay: 15 # on the 15th second, disconnect peers.
-#            action: "disconnect" # it apply p2p connection by managing ip-tables in linux kernel.
-#            peers: [[0, 5], [0,3]]
-#          - delay: 20 # on the 20th second, disconnect peers.
-#            action: "disconnect" # it apply p2p connection by managing ip-tables in linux kernel.
-#            peers: [[4,3], [4, 0]]
-#      input:
-#        duration: 300 # num of seconds the transaction sending duration.
-#        senderNode: 0  # node coin_base address will be used as default sender address.
-#        receiverNode: 3  # node coin_base address wil be used as default receiver address.
-#        amountperTX: 10 # 10 tokens to be transfer per transaction.
-#      output:
-#        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
-#        engineAlive: true # false means consensus engine should on-hold.
+    - name: "TC-15: 6 nodes in bus line network topology, should not on-hold."
+      condition:
+        crashNodes: [] # contain the nodes which leave the main party.
+        scenario:
+          - delay: 5 # on the 10th second, disconnect peers.
+            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[2, 0], [2, 4], [2, 5]]
+          - delay: 10 # on the 10th second, disconnect peers.
+            action: "disconnect" # it apply p2p connection by managing ip-tables in linux kernel.
+            peers: [[1, 4], [1, 5], [1,3]]
+          - delay: 15 # on the 15th second, disconnect peers.
+            action: "disconnect" # it apply p2p connection by managing ip-tables in linux kernel.
+            peers: [[0, 5], [0,3]]
+          - delay: 20 # on the 20th second, disconnect peers.
+            action: "disconnect" # it apply p2p connection by managing ip-tables in linux kernel.
+            peers: [[4,3], [4, 0]]
+      input:
+        duration: 300 # num of seconds the transaction sending duration.
+        senderNode: 0  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
 
     - name: "TC-16: 6 nodes in star network topology, should not on-hold."
       condition:

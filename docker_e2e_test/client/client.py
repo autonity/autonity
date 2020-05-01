@@ -1,7 +1,6 @@
 import os
 import re
-
-import ipaddress
+import copy
 import log
 import utility
 from web3.auto import w3
@@ -459,6 +458,7 @@ class Client(object):
 
         peer = "{}:{}".format(host, port)
         if peer in self.disconnected_peers:
+            self.logger.info("peer connected: %s to %s", self.host, host)
             self.disconnected_peers.remove(peer)
         return True
 
@@ -470,6 +470,7 @@ class Client(object):
             return False
         peer = "{}:{}".format(host, port)
         if peer not in self.disconnected_peers:
+            self.logger.info("peer disconnected: %s to %s", self.host, host)
             self.disconnected_peers.append(peer)
         return True
 
@@ -667,8 +668,10 @@ class Client(object):
         if self.client_stopped:
             if self.start_client() is not True:
                 failed = True
-        if len(self.disconnected_peers) > 0:
-            for peer in self.disconnected_peers:
+
+        disconnected_peers = copy.deepcopy(self.disconnected_peers)
+        if len(disconnected_peers) > 0:
+            for peer in disconnected_peers:
                 endpoint = peer.split(":")
                 if self.connect_peer(endpoint[0], endpoint[1]) is not True:
                     failed = True
