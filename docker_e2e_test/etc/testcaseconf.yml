@@ -234,7 +234,7 @@ playbook:
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[1, 0], [1, 4], [1, 5], [1,3], [2, 0], [2, 4], [2, 5], [2,3]]
       input:
-        duration: 90 # num of seconds the transaction sending duration.
+        duration: 180 # num of seconds the transaction sending duration.
         senderNode: 0  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -380,8 +380,8 @@ playbook:
             target: [0, 5, 4] # start the specific node within 30s after test case start.
       input:
         startAt: 130  # start the TX issuing from 180th seconds.
-        duration: 120 # num of seconds the transaction sending duration.
-        senderNode: 0  # node coin_base address will be used as default sender address.
+        duration: 200 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
       output:
@@ -462,8 +462,8 @@ playbook:
       input:
         startAt: 200  # start the TX issuing from 180th seconds.
         duration: 120 # num of seconds the transaction sending duration.
-        senderNode: 2  # node coin_base address will be used as default sender address.
-        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        senderNode: 4  # node coin_base address will be used as default sender address.
+        receiverNode: 5  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
       output:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
@@ -484,7 +484,7 @@ playbook:
             target: [0]
       input:
         duration: 180 # num of seconds the transaction sending duration.
-        senderNode: 0  # node coin_base address will be used as default sender address.
+        senderNode: 1  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
       output:
@@ -526,7 +526,7 @@ playbook:
             target: [0]
       input:
         duration: 180 # num of seconds the transaction sending duration.
-        senderNode: 0  # node coin_base address will be used as default sender address.
+        senderNode: 1  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
       output:
