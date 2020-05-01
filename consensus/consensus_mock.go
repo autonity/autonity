@@ -248,19 +248,23 @@ func (mr *MockEngineMockRecorder) Prepare(chain, header interface{}) *gomock.Cal
 }
 
 // Finalize mocks base method
-func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) {
+func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles)
+	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
+	ret0, _ := ret[0].(types.Committee)
+	ret1, _ := ret[1].(*types.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Finalize indicates an expected call of Finalize
-func (mr *MockEngineMockRecorder) Finalize(chain, header, state, txs, uncles interface{}) *gomock.Call {
+func (mr *MockEngineMockRecorder) Finalize(chain, header, state, txs, uncles, receipts interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockEngine)(nil).Finalize), chain, header, state, txs, uncles)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockEngine)(nil).Finalize), chain, header, state, txs, uncles, receipts)
 }
 
 // FinalizeAndAssemble mocks base method
-func (m *MockEngine) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (m *MockEngine) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Block)
@@ -533,19 +537,23 @@ func (mr *MockPoWMockRecorder) Prepare(chain, header interface{}) *gomock.Call {
 }
 
 // Finalize mocks base method
-func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) {
+func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles)
+	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
+	ret0, _ := ret[0].(types.Committee)
+	ret1, _ := ret[1].(*types.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Finalize indicates an expected call of Finalize
-func (mr *MockPoWMockRecorder) Finalize(chain, header, state, txs, uncles interface{}) *gomock.Call {
+func (mr *MockPoWMockRecorder) Finalize(chain, header, state, txs, uncles, receipts interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockPoW)(nil).Finalize), chain, header, state, txs, uncles)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockPoW)(nil).Finalize), chain, header, state, txs, uncles, receipts)
 }
 
 // FinalizeAndAssemble mocks base method
-func (m *MockPoW) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (m *MockPoW) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Block)
@@ -753,19 +761,23 @@ func (mr *MockBFTMockRecorder) Prepare(chain, header interface{}) *gomock.Call {
 }
 
 // Finalize mocks base method
-func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) {
+func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles)
+	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
+	ret0, _ := ret[0].(types.Committee)
+	ret1, _ := ret[1].(*types.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Finalize indicates an expected call of Finalize
-func (mr *MockBFTMockRecorder) Finalize(chain, header, state, txs, uncles interface{}) *gomock.Call {
+func (mr *MockBFTMockRecorder) Finalize(chain, header, state, txs, uncles, receipts interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockBFT)(nil).Finalize), chain, header, state, txs, uncles)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockBFT)(nil).Finalize), chain, header, state, txs, uncles, receipts)
 }
 
 // FinalizeAndAssemble mocks base method
-func (m *MockBFT) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (m *MockBFT) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Block)

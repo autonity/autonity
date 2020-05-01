@@ -27,7 +27,7 @@ import (
 // API is a user facing RPC API to dump BFT state
 type API struct {
 	chain      consensus.ChainReader
-	tendermint core.Backend
+	tendermint core.Backend //TODO: This is only for testing purposes, should be changed to *Backend but that would mean to fix the api tests (https://github.com/clearmatics/autonity/issues/479)
 }
 
 // GetCommittee retrieves the list of authorized committee at the specified block.

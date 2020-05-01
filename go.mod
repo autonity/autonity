@@ -27,7 +27,7 @@ require (
 	github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-stack/stack v1.8.0
-	github.com/golang/mock v1.3.1
+	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.3.2-0.20190517061210-b285ee9cfc6c
 	github.com/golang/snappy v0.0.1
 	github.com/google/go-cmp v0.3.1 // indirect

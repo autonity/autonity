@@ -10,7 +10,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/rlp"
 )
 
@@ -83,7 +82,7 @@ func TestMessageFromPayload(t *testing.T) {
 		payload, _ := msg.Payload()
 		wantErr := errors.New("some error")
 
-		validateFn := func(set committee.Set, data []byte, sig []byte) (common.Address, error) {
+		validateFn := func(set *committee.Set, data []byte, sig []byte) (common.Address, error) {
 			return common.Address{}, wantErr
 		}
 
@@ -102,7 +101,7 @@ func TestMessageFromPayload(t *testing.T) {
 
 		payload, _ := msg.Payload()
 
-		validateFn := func(set committee.Set, data []byte, sig []byte) (common.Address, error) {
+		validateFn := func(set *committee.Set, data []byte, sig []byte) (common.Address, error) {
 			return common.Address{}, nil
 		}
 
@@ -127,11 +126,11 @@ func TestMessageFromPayload(t *testing.T) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 
-		committeeSet, err := committee.NewSet(types.Committee{val}, config.RoundRobin, val.Address)
+		committeeSet, err := committee.NewSet(types.Committee{val}, val.Address)
 		if err != nil {
 			t.Fatal("error creating committee set")
 		}
-		validateFn := func(set committee.Set, data []byte, sig []byte) (common.Address, error) {
+		validateFn := func(set *committee.Set, data []byte, sig []byte) (common.Address, error) {
 			return authorizedAddress, nil
 		}
 

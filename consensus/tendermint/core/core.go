@@ -27,7 +27,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -76,23 +75,18 @@ const (
 )
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config) *core {
+func New(backend Backend) *core {
 	logger := log.New("addr", backend.Address().String())
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
-		config:                config,
 		address:               backend.Address(),
 		logger:                logger,
 		backend:               backend,
 		backlogs:              make(map[types.CommitteeMember]*prque.Prque),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
-		stopped:               make(chan struct{}, 3),
-		isStarting:            new(uint32),
-		isStarted:             new(uint32),
-		isStopping:            new(uint32),
-		isStopped:             new(uint32),
+		stopped:               make(chan struct{}, 4),
 		committeeSet:          nil,
 		futureRoundChange:     make(map[int64]map[common.Address]uint64),
 		messages:              messagesMap,
@@ -106,7 +100,6 @@ func New(backend Backend, config *config.Config) *core {
 }
 
 type core struct {
-	config  *config.Config
 	address common.Address
 	logger  log.Logger
 
@@ -120,10 +113,6 @@ type core struct {
 	syncEventSub            *event.TypeMuxSubscription
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
-	isStarted               *uint32
-	isStarting              *uint32
-	isStopping              *uint32
-	isStopped               *uint32
 
 	backlogs   map[types.CommitteeMember]*prque.Prque
 	backlogsMu sync.Mutex
@@ -139,7 +128,7 @@ type core struct {
 
 	height       *big.Int
 	round        int64
-	committeeSet committee.Set
+	committeeSet *committee.Set
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	stateMu               sync.RWMutex
@@ -365,7 +354,7 @@ func (c *core) setHeight(height *big.Int) {
 	defer c.stateMu.Unlock()
 	c.height = height
 }
-func (c *core) setCommitteeSet(set committee.Set) {
+func (c *core) setCommitteeSet(set *committee.Set) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.committeeSet = set
@@ -382,7 +371,7 @@ func (c *core) Height() *big.Int {
 	defer c.stateMu.RUnlock()
 	return c.height
 }
-func (c *core) CommitteeSet() committee.Set {
+func (c *core) CommitteeSet() *committee.Set {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committeeSet
