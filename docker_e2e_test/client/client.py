@@ -513,6 +513,7 @@ class Client(object):
             result = self.execute_ssh_cmd(command)
             if result is True:
                 self.up_link_delayed = True
+                self.logger.info("network traffic control rule applied to host: %s", self.host)
             else:
                 self.logger.error('SSH ERR: %s', result)
                 return None
@@ -533,6 +534,7 @@ class Client(object):
             command = SSH_UN_DELAY_TX_COMMAND.format(ether_id)
             result = self.execute_ssh_cmd(command)
             if result is True:
+                self.logger.info("network traffic control rule canceled to host: %s", self.host)
                 self.up_link_delayed = False
             else:
                 self.logger.error('undelay up-link failed for host: %s, error: %s', self.host, result)
