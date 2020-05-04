@@ -174,7 +174,9 @@ func runTest(t *testing.T, test *testCase) {
 	nodesNum := len(nodeNames)
 	// Generate a batch of accounts to seal and fund with
 	nodes := make(map[string]*testNode, nodesNum)
-	enode.SetResolveFunc(func(host string) (ips []net.IP, e error) {
+
+	// Replace normal resolver with resolver that can resolve our test hostnames
+	enode.V4ResolveFunc = func(host string) (ips []net.IP, e error) {
 		if len(host) > 4 || !(strings.HasPrefix(host, ValidatorPrefix) ||
 			strings.HasPrefix(host, StakeholderPrefix) ||
 			strings.HasPrefix(host, ParticipantPrefix) ||
@@ -185,7 +187,7 @@ func runTest(t *testing.T, test *testCase) {
 		return []net.IP{
 			net.ParseIP("127.0.0.1"),
 		}, nil
-	})
+	}
 
 	generateNodesPrivateKey(t, nodes, nodeNames, nodesNum)
 	setNodesPortAndEnode(t, nodes)
@@ -308,14 +310,17 @@ func runTest(t *testing.T, test *testCase) {
 }
 
 func TestResolve(t *testing.T) {
-	enode.SetResolveFunc(func(host string) (ips []net.IP, e error) {
+	customResolve := func(host string) (ips []net.IP, e error) {
 		return []net.IP{
 			net.ParseIP("127.0.0.1"),
 		}, nil
-	})
+	}
+
+	// Set the resolver function for the enode package
+	enode.V4ResolveFunc = customResolve
 
 	en := "enode://57fa76dc95ef02461ce1a38d70181c27384f628a23a98fa801933ac2a45709b847d4ab42ed0fe0ebd03df5d464c064585a85a154e4443fb9143bfb6c369d5544@VD:45736"
-	_, err := enode.ParseV4WithResolve(en)
+	_, err := enode.ParseV4(en)
 	if err != nil {
 		t.Fatal(err)
 	}

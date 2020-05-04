@@ -248,7 +248,16 @@ func (t *dialTask) Do(srv *Server) {
 			return
 		}
 	}
-	err := t.dial(srv, t.dest)
+	err := t.dest.ResolveHost()
+	if err != nil {
+		srv.log.Trace(fmt.Sprintf(
+			"Failed to resolve IP for host %q, dialing with previously resolved IP %q, err: %v",
+			t.dest.Host(),
+			t.dest.IP().String(),
+			err,
+		))
+	}
+	err = t.dial(srv, t.dest)
 	if err != nil {
 		srv.log.Trace("Dial error", "task", t, "err", err)
 		// Try resolving the ID of static nodes if dialing failed.

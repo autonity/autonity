@@ -141,7 +141,7 @@ var parseNodeWithResolveTests = []struct {
 
 func TestParseNodeWithDomainResolution(t *testing.T) {
 	for _, test := range parseNodeWithResolveTests {
-		n, err := ParseV4WithResolve(test.rawurl)
+		n, err := ParseV4(test.rawurl)
 
 		var gotErr string
 		if err != nil {

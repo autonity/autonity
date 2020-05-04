@@ -70,7 +70,7 @@ func (ac *AutonityContractGenesis) AddDefault() *AutonityContractGenesis {
 
 	for i := range ac.Users {
 		if reflect.DeepEqual(ac.Users[i].Address, common.Address{}) {
-			if n, err := enode.ParseV4WithResolve(ac.Users[i].Enode); n != nil {
+			if n, err := enode.ParseV4(ac.Users[i].Enode); n != nil {
 				ac.Users[i].Address = EnodeToAddress(n)
 			} else {
 				log.Error("Error parsing enode", "enode", ac.Users[i].Enode, "err", err)
@@ -140,7 +140,7 @@ func (u *User) Validate() error {
 		return errors.New("if user.type is validator then user.enode must be defined")
 	}
 	if len(u.Enode) > 0 {
-		n, err := enode.ParseV4WithResolve(u.Enode)
+		n, err := enode.ParseV4(u.Enode)
 		if n == nil {
 			return fmt.Errorf("fail to parse enode for account %v, error:%v", u.Address, err)
 		}

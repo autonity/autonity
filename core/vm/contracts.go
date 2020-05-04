@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
@@ -513,6 +514,7 @@ func (c *blake2F) Run(input []byte) ([]byte, error) {
 
 // checkEnode implemented as a native contract.
 type checkEnode struct{}
+
 func (c checkEnode) RequiredGas(_ []byte) uint64 {
 	return params.EnodeCheckGas
 }
@@ -523,7 +525,11 @@ func (c checkEnode) Run(input []byte) ([]byte, error) {
 	input = common.TrimPrefixAndSuffix(input, []byte("enode:"), []byte{'\x00'})
 	nodeStr := string(input)
 
-	if _, err := enode.ParseV4SkipResolve(nodeStr); err != nil {
+	resolveFunc := func(host string) ([]net.IP, error) {
+		return []net.IP{{127, 0, 0, 1}}, nil
+	}
+
+	if _, err := enode.ParseV4CustomResolve(nodeStr, resolveFunc); err != nil {
 		return false32Byte, fmt.Errorf("invalid enode %q: %v", nodeStr, err)
 	}
 	return true32Byte, nil
