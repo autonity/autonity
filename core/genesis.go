@@ -271,6 +271,9 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 
 	var committee types.Committee
 	if g.Config.AutonityContractConfig != nil {
+		if g.Difficulty.Cmp(big.NewInt(1)) != 0 {
+			return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 1, instead got %v", g.Difficulty)
+		}
 		var err error
 		committee, err = extractCommittee(g.Config.AutonityContractConfig.Users)
 		if err != nil {

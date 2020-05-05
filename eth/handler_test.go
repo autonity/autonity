@@ -497,7 +497,10 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 		t.Fatal(err)
 	}
 
-	(&core.Genesis{Config: config}).MustCommit(db) // Commit genesis block
+	(&core.Genesis{
+		Config:     config,
+		Difficulty: big.NewInt(1),
+	}).MustCommit(db) // Commit genesis block
 	// If checkpointing is enabled, create and inject a fake CHT and the corresponding
 	// chllenge response.
 	var response *types.Header

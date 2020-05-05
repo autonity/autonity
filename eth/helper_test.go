@@ -59,8 +59,9 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		gspec  = &core.Genesis{
-			Config: params.TestChainConfig,
-			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
+			Config:     params.TestChainConfig,
+			Alloc:      core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
+			Difficulty: big.NewInt(1),
 		}
 	)
 	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{
