@@ -31,7 +31,7 @@ func prepareCommittee() types.Committee {
 	return types.Committee{member1, member2, member3, member4}
 }
 
-func generateBlock(height *big.Int) *types.Block{
+func generateBlock(height *big.Int) *types.Block {
 	header := &types.Header{Number: height}
 	block := types.NewBlock(header, nil, nil, nil)
 	return block
