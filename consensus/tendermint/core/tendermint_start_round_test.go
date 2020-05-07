@@ -6,6 +6,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
 )
@@ -70,19 +71,15 @@ func TestTendermintProposerStartRound(t *testing.T) {
 	c.sentProposal = false
 	c.height = currentHeight
 	round := int64(0)
+	// since the default value of step and round is are both 0 which is to be one of the expected state, so we set them
+	// into different value.
+	c.step = precommitDone
+	c.round = -1
 	c.startRound(context.Background(), round)
 
-	if c.sentProposal != true {
-		t.Error("Proposer did not send proposal on consensus start round")
-	}
-
-	if c.step != propose {
-		t.Error("Proposer did not step to propose step")
-	}
-
-	if c.Round() != round {
-		t.Error("Proposer round is not expected", "want: ", round, "have: ", c.Round())
-	}
+	assert.Equal(t, c.sentProposal, true)
+	assert.Equal(t, c.step, propose)
+	assert.Equal(t, c.Round(), round)
 }
 
 // It test the page-6, line-11, StartRound() function from follower point of view of tendermint pseudo-code.
@@ -109,16 +106,13 @@ func TestTendermintFollowerStartRound(t *testing.T) {
 	c := New(backendMock)
 	c.committeeSet = committeeSet
 	round := int64(1)
+	// since the default value of step and round is are both 0 which is to be one of the expected state, so we set them
+	// into different value.
+	c.step = precommitDone
+	c.round = -1
 	c.startRound(context.Background(), round)
-	if c.proposeTimeout.started != true {
-		t.Error("Follower did not start proposal timer on consensus start round")
-	}
 
-	if c.step != propose {
-		t.Error("Proposer did not step to propose step")
-	}
-
-	if c.Round() != round {
-		t.Error("Proposer round is not expected", "want: ", round, "have: ", c.Round())
-	}
+	assert.Equal(t, c.proposeTimeout.started, true)
+	assert.Equal(t, c.step, propose)
+	assert.Equal(t, c.Round(), round)
 }
