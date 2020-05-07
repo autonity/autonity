@@ -85,11 +85,14 @@ func TestIPCAttachWelcome(t *testing.T) {
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--ipcpath", ipc)
 
-	waitForEndpoint(t, ipc, 3*time.Second)
-	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs)
+	defer func() {
+		autonity.Interrupt()
+		autonity.ExpectExit()
+	}()
 
-	autonity.Interrupt()
-	autonity.ExpectExit()
+	waitForEndpoint(t, ipc, 3*time.Second)
+	testAttachWelcome(t, geth, "ipc:"+ipc, ipcAPIs)
+
 }
 
 func TestHTTPAttachWelcome(t *testing.T) {
@@ -98,13 +101,14 @@ func TestHTTPAttachWelcome(t *testing.T) {
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--rpc", "--rpcport", port)
+	defer func() {
+		autonity.Interrupt()
+		autonity.ExpectExit()
+	}()
 
 	endpoint := "http://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
 	testAttachWelcome(t, autonity, endpoint, httpAPIs)
-
-	autonity.Interrupt()
-	autonity.ExpectExit()
 }
 
 func TestWSAttachWelcome(t *testing.T) {
@@ -114,13 +118,14 @@ func TestWSAttachWelcome(t *testing.T) {
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--ws", "--wsport", port)
+	defer func() {
+		autonity.Interrupt()
+		autonity.ExpectExit()
+	}()
 
 	endpoint := "ws://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
 	testAttachWelcome(t, autonity, endpoint, httpAPIs)
-
-	autonity.Interrupt()
-	autonity.ExpectExit()
 }
 
 func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis string) {
@@ -133,9 +138,11 @@ func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis stri
 	attach.SetTemplateFunc("goos", func() string { return runtime.GOOS })
 	attach.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	attach.SetTemplateFunc("gover", runtime.Version)
-	attach.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
+	attach.SetTemplateFunc("gethver", func() string { return params.VersionWithCommit("", "") })
 	attach.SetTemplateFunc("etherbase", func() string { return autonity.Etherbase })
-	attach.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
+	attach.SetTemplateFunc("niltime", func() string {
+		return time.Unix(0, 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)")
+	})
 	attach.SetTemplateFunc("ipc", func() bool { return strings.HasPrefix(endpoint, "ipc") })
 	attach.SetTemplateFunc("datadir", func() string { return autonity.Datadir })
 	attach.SetTemplateFunc("apis", func() string { return apis })

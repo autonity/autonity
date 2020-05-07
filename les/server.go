@@ -39,6 +39,7 @@ type LesServer struct {
 	lesCommons
 
 	archiveMode bool // Flag whether the ethereum node runs in archive mode.
+	peers       *clientPeerSet
 	handler     *serverHandler
 	lesTopics   []discv5.Topic
 	privateKey  *ecdsa.PrivateKey
@@ -74,13 +75,13 @@ func NewLesServer(e *eth.Ethereum, config *eth.Config) (*LesServer, error) {
 			chainConfig:      e.BlockChain().Config(),
 			iConfig:          light.DefaultServerIndexerConfig,
 			chainDb:          e.ChainDb(),
-			peers:            newPeerSet(),
 			chainReader:      e.BlockChain(),
 			chtIndexer:       light.NewChtIndexer(e.ChainDb(), nil, params.CHTFrequency, params.HelperTrieProcessConfirmations),
 			bloomTrieIndexer: light.NewBloomTrieIndexer(e.ChainDb(), nil, params.BloomBitsBlocks, params.BloomTrieFrequency),
 			closeCh:          make(chan struct{}),
 		},
 		archiveMode:  e.ArchiveMode(),
+		peers:        newClientPeerSet(),
 		lesTopics:    lesTopics,
 		fcManager:    flowcontrol.NewClientManager(nil, &mclock.System{}),
 		servingQueue: newServingQueue(int64(time.Millisecond*10), float64(config.LightServ)/100),
@@ -96,7 +97,7 @@ func NewLesServer(e *eth.Ethereum, config *eth.Config) (*LesServer, error) {
 	if oracle == nil {
 		oracle = params.CheckpointOracles[e.BlockChain().Genesis().Hash()]
 	}
-	srv.oracle = newCheckpointOracle(oracle, srv.localCheckpoint)
+	srv.oracle = checkpointoracle.New(oracle, srv.localCheckpoint)
 
 	// Initialize server capacity management fields.
 	srv.defParams = flowcontrol.ServerParams{
@@ -114,7 +115,7 @@ func NewLesServer(e *eth.Ethereum, config *eth.Config) (*LesServer, error) {
 		srv.maxCapacity = totalRecharge
 	}
 	srv.fcManager.SetCapacityLimits(srv.freeCapacity, srv.maxCapacity, srv.freeCapacity*2)
-	srv.clientPool = newClientPool(srv.chainDb, srv.freeCapacity, mclock.System{}, func(id enode.ID) { go srv.peers.Unregister(peerIdToString(id)) })
+	srv.clientPool = newClientPool(srv.chainDb, srv.freeCapacity, mclock.System{}, func(id enode.ID) { go srv.peers.unregister(peerIdToString(id)) })
 	srv.clientPool.setDefaultFactors(priceFactors{0, 1, 1}, priceFactors{0, 1, 1})
 
 	checkpoint := srv.latestLocalCheckpoint()
@@ -151,7 +152,7 @@ func (s *LesServer) APIs() []rpc.API {
 
 func (s *LesServer) Protocols() []p2p.Protocol {
 	ps := s.makeProtocols(ServerProtocolVersions, s.handler.runPeer, func(id enode.ID) interface{} {
-		if p := s.peers.Peer(peerIdToString(id)); p != nil {
+		if p := s.peers.peer(peerIdToString(id)); p != nil {
 			return p.Info()
 		}
 		return nil
@@ -193,7 +194,7 @@ func (s *LesServer) Stop() {
 	// This also closes the gate for any new registrations on the peer set.
 	// sessions which are already established but not added to pm.peers yet
 	// will exit when they try to register.
-	s.peers.Close()
+	s.peers.close()
 
 	s.fcManager.Stop()
 	s.costTracker.stop()
@@ -216,7 +217,7 @@ func (s *LesServer) SetContractBackend(backend bind.ContractBackend) {
 	if s.oracle == nil {
 		return
 	}
-	s.oracle.start(backend)
+	s.oracle.Start(backend)
 }
 
 // capacityManagement starts an event handler loop that updates the recharge curve of

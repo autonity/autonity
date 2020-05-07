@@ -19,6 +19,7 @@ package eth
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,7 +46,7 @@ var testAccount, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6
 
 // Tests that handshake failures are detected and reported correctly.
 func TestStatusMsgErrors63(t *testing.T) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil)
 	var (
 		genesis = pm.blockchain.Genesis()
 		head    = pm.blockchain.CurrentHeader()
@@ -59,7 +60,7 @@ func TestStatusMsgErrors63(t *testing.T) {
 		wantError error
 	}{
 		{
-			code: TxMsg, data: []interface{}{},
+			code: TransactionMsg, data: []interface{}{},
 			wantError: errResp(ErrNoStatusMsg, "first msg has code 2 (!= 0)"),
 		},
 		{
@@ -76,8 +77,7 @@ func TestStatusMsgErrors63(t *testing.T) {
 		},
 	}
 	for i, test := range tests {
-		p2pPeer := newTestP2PPeer("peer")
-		p, errc := newTestPeer(p2pPeer, 63, pm, false)
+		p, errc := newTestPeer("peer", 63, pm, false)
 		// The send call might hang until reset because
 		// the protocol might not read the payload.
 		go p2p.Send(p.app, test.code, test.data)
@@ -97,7 +97,7 @@ func TestStatusMsgErrors63(t *testing.T) {
 }
 
 func TestStatusMsgErrors64(t *testing.T) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil)
 	var (
 		genesis = pm.blockchain.Genesis()
 		head    = pm.blockchain.CurrentHeader()
@@ -112,7 +112,7 @@ func TestStatusMsgErrors64(t *testing.T) {
 		wantError error
 	}{
 		{
-			code: TxMsg, data: []interface{}{},
+			code: TransactionMsg, data: []interface{}{},
 			wantError: errResp(ErrNoStatusMsg, "first msg has code 2 (!= 0)"),
 		},
 		{
@@ -133,8 +133,7 @@ func TestStatusMsgErrors64(t *testing.T) {
 		},
 	}
 	for i, test := range tests {
-		p2pPeer := newTestP2PPeer("peer")
-		p, errc := newTestPeer(p2pPeer, 64, pm, false)
+		p, errc := newTestPeer("peer", 64, pm, false)
 		// The send call might hang until reset because
 		// the protocol might not read the payload.
 		go p2p.Send(p.app, test.code, test.data)
@@ -156,20 +155,18 @@ func TestStatusMsgErrors64(t *testing.T) {
 // This test checks that received transactions are added to the local pool.
 func TestRecvTransactions63(t *testing.T) { testRecvTransactions(t, 63) }
 func TestRecvTransactions64(t *testing.T) { testRecvTransactions(t, 64) }
+func TestRecvTransactions65(t *testing.T) { testRecvTransactions(t, 65) }
 
 func testRecvTransactions(t *testing.T, protocol int) {
 	txAdded := make(chan []*types.Transaction)
-
-	p2pPeer := newTestP2PPeer("peer")
-
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, txAdded, []string{p2pPeer.Info().Enode})
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, txAdded)
 	pm.acceptTxs = 1 // mark synced to accept transactions
-	p, _ := newTestPeer(p2pPeer, protocol, pm, true)
+	p, _ := newTestPeer("peer", protocol, pm, true)
 	defer pm.Stop()
 	defer p.close()
 
 	tx := newTestTransaction(testAccount, 0, 0)
-	if err := p2p.Send(p.app, TxMsg, []interface{}{tx}); err != nil {
+	if err := p2p.Send(p.app, TransactionMsg, []interface{}{tx}); err != nil {
 		t.Fatalf("send error: %v", err)
 	}
 	select {
@@ -187,6 +184,7 @@ func testRecvTransactions(t *testing.T, protocol int) {
 // This test checks that pending transactions are sent.
 func TestSendTransactions63(t *testing.T) { testSendTransactions(t, 63) }
 func TestSendTransactions64(t *testing.T) { testSendTransactions(t, 64) }
+func TestSendTransactions65(t *testing.T) { testSendTransactions(t, 65) }
 
 func testSendTransactions(t *testing.T, protocol int) {
 	var (
@@ -312,6 +310,53 @@ func testSendTransactions(t *testing.T, protocol int) {
 		go checktxs(p)
 	}
 	wg.Wait()
+}
+
+func TestTransactionPropagation(t *testing.T)  { testSyncTransaction(t, true) }
+func TestTransactionAnnouncement(t *testing.T) { testSyncTransaction(t, false) }
+
+func testSyncTransaction(t *testing.T, propagtion bool) {
+	// Create a protocol manager for transaction fetcher and sender
+	pmFetcher, _ := newTestProtocolManagerMust(t, downloader.FastSync, 0, nil, nil)
+	defer pmFetcher.Stop()
+	pmSender, _ := newTestProtocolManagerMust(t, downloader.FastSync, 1024, nil, nil)
+	pmSender.broadcastTxAnnouncesOnly = !propagtion
+	defer pmSender.Stop()
+
+	// Sync up the two peers
+	io1, io2 := p2p.MsgPipe()
+
+	go pmSender.handle(pmSender.newPeer(65, p2p.NewPeer(enode.ID{}, "sender", nil), io2, pmSender.txpool.Get))
+	go pmFetcher.handle(pmFetcher.newPeer(65, p2p.NewPeer(enode.ID{}, "fetcher", nil), io1, pmFetcher.txpool.Get))
+
+	time.Sleep(250 * time.Millisecond)
+	pmFetcher.doSync(peerToSyncOp(downloader.FullSync, pmFetcher.peers.BestPeer()))
+	atomic.StoreUint32(&pmFetcher.acceptTxs, 1)
+
+	newTxs := make(chan core.NewTxsEvent, 1024)
+	sub := pmFetcher.txpool.SubscribeNewTxsEvent(newTxs)
+	defer sub.Unsubscribe()
+
+	// Fill the pool with new transactions
+	alltxs := make([]*types.Transaction, 1024)
+	for nonce := range alltxs {
+		alltxs[nonce] = newTestTransaction(testAccount, uint64(nonce), 0)
+	}
+	pmSender.txpool.AddRemotes(alltxs)
+
+	var got int
+loop:
+	for {
+		select {
+		case ev := <-newTxs:
+			got += len(ev.Txs)
+			if got == 1024 {
+				break loop
+			}
+		case <-time.NewTimer(time.Second).C:
+			t.Fatal("Failed to retrieve all transaction")
+		}
+	}
 }
 
 // Tests that the custom union field encoder and decoder works correctly.
