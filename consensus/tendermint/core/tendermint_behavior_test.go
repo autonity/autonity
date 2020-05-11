@@ -173,8 +173,7 @@ func TestTendermintUponProposal(t *testing.T) {
 	})
 
 	// It test line 24 was executed and step was forwarded on line 27 but with below different condition.
-	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1) and lockedValue as a " +
-		"valid value", func(t *testing.T) {
+	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1) and lockedValue as a valid value", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -211,7 +210,7 @@ func TestTendermintUponProposal(t *testing.T) {
 		c := New(backendMock)
 		c.committeeSet = committeeSet
 		c.height = currentHeight
-		c.lockedRound = 1  // set lockedRound as 1.
+		c.lockedRound = 1 // set lockedRound as 1.
 		c.lockedValue = proposalBlock
 
 		err = c.handleProposal(context.Background(), msg)
@@ -224,8 +223,7 @@ func TestTendermintUponProposal(t *testing.T) {
 	})
 
 	// It test line 26 was executed and step was forwarded on line 27 but with below different condition.
-	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1) and lockedValue as a " +
-		"nil value", func(t *testing.T) {
+	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1) and lockedValue as a nil value", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -393,8 +391,7 @@ func TestTendermintUponProposal(t *testing.T) {
 	})
 
 	// It test line 30 was executed and step was forwarded on line 33.
-	t.Run("on proposal with pre-vote power satisfy the quorum and on the same vr view, but lockedRound > vr",
-		func(t *testing.T) {
+	t.Run("on proposal with pre-vote power satisfy the quorum and on the same vr view, but lockedRound > vr", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -461,72 +458,71 @@ func TestTendermintUponProposal(t *testing.T) {
 	})
 
 	// It test line 32 was executed and step was forwarded on line 33.
-	t.Run("on proposal with pre-vote power satisfy the quorum and on the same vr view, but with un-expected " +
-		"locked round and locked value, engine should pre-vote for nil and step to pre-vote", func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
+	t.Run("on proposal with pre-vote power satisfy the quorum and on the same vr view, but with un-expected locked round and locked value, engine should pre-vote for nil and step to pre-vote", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-			currentCommittee := prepareCommittee()
-			committeeSet, err := committee.NewSet(currentCommittee, currentCommittee[3].Address)
-			if err != nil {
-				t.Error(err)
-			}
+		currentCommittee := prepareCommittee()
+		committeeSet, err := committee.NewSet(currentCommittee, currentCommittee[3].Address)
+		if err != nil {
+			t.Error(err)
+		}
 
-			currentHeight := big.NewInt(10)
-			proposalBlock := generateBlock(currentHeight)
-			clientAddr := currentCommittee[0].Address
+		currentHeight := big.NewInt(10)
+		proposalBlock := generateBlock(currentHeight)
+		clientAddr := currentCommittee[0].Address
 
-			backendMock := NewMockBackend(ctrl)
-			backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
-			backendMock.EXPECT().Broadcast(context.Background(), committeeSet, gomock.Any()).AnyTimes().Return(nil)
-			backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
-			backendMock.EXPECT().VerifyProposal(gomock.Any()).AnyTimes().Return(time.Duration(1), nil)
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, gomock.Any()).AnyTimes().Return(nil)
+		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
+		backendMock.EXPECT().VerifyProposal(gomock.Any()).AnyTimes().Return(time.Duration(1), nil)
 
-			// condidtion vr >= 0 && vr < round_p, line 28.
-			validRoundProposed := int64(0)
-			roundProposed := int64(1)
+		// condidtion vr >= 0 && vr < round_p, line 28.
+		validRoundProposed := int64(0)
+		roundProposed := int64(1)
 
-			proposal := NewProposal(roundProposed, currentHeight, validRoundProposed, proposalBlock)
-			encodedProposal, err := Encode(proposal)
-			if err != nil {
-				t.Error(err)
-			}
+		proposal := NewProposal(roundProposed, currentHeight, validRoundProposed, proposalBlock)
+		encodedProposal, err := Encode(proposal)
+		if err != nil {
+			t.Error(err)
+		}
 
-			proposalMsg := &Message{
-				Code:    msgProposal,
-				Msg:     encodedProposal,
-				Address: currentCommittee[1].Address,
-			}
+		proposalMsg := &Message{
+			Code:    msgProposal,
+			Msg:     encodedProposal,
+			Address: currentCommittee[1].Address,
+		}
 
-			// create consensus core.
-			c := New(backendMock)
-			c.committeeSet = committeeSet
-			c.height = currentHeight
-			c.round = roundProposed
+		// create consensus core.
+		c := New(backendMock)
+		c.committeeSet = committeeSet
+		c.height = currentHeight
+		c.round = roundProposed
 
-			// condition (lockedRound_p <= vr || lockedValue_p = v, line 29.
-			c.lockedRound = 1
-			c.lockedValue = nil
+		// condition (lockedRound_p <= vr || lockedValue_p = v, line 29.
+		c.lockedRound = 1
+		c.lockedValue = nil
 
-			// condition step_p = propose, line 28.
-			c.step = propose
+		// condition step_p = propose, line 28.
+		c.step = propose
 
-			// condition 2f+1 <PREVOTE, h_p, vr, id(v)>, power of pre-vote on the same valid round meets quorum, line 28.
-			prevoteMsg := Message{
-				Code:    msgPrevote,
-				Address: currentCommittee[2].Address,
-				power:   3,
-			}
-			c.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), prevoteMsg)
+		// condition 2f+1 <PREVOTE, h_p, vr, id(v)>, power of pre-vote on the same valid round meets quorum, line 28.
+		prevoteMsg := Message{
+			Code:    msgPrevote,
+			Address: currentCommittee[2].Address,
+			power:   3,
+		}
+		c.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), prevoteMsg)
 
-			err = c.handleProposal(context.Background(), proposalMsg)
-			if err != nil {
-				t.Error(err)
-			}
+		err = c.handleProposal(context.Background(), proposalMsg)
+		if err != nil {
+			t.Error(err)
+		}
 
-			assert.Equal(t, c.sentPrevote, true)
-			assert.Equal(t, c.step, prevote)
-		})
+		assert.Equal(t, c.sentPrevote, true)
+		assert.Equal(t, c.step, prevote)
+	})
 
 	// It test line 32 was executed and step was forwarded on line 33.
 	t.Run("on proposal with all condition satisfied but with invalid value(block)", func(t *testing.T) {
