@@ -79,7 +79,7 @@ func TestTendermintProposerStartRound(t *testing.T) {
 	c.round = -1
 	c.startRound(context.Background(), round)
 
-	assert.Equal(t, c.sentProposal, true)
+	assert.True(t, c.sentProposal)
 	assert.Equal(t, c.step, propose)
 	assert.Equal(t, c.Round(), round)
 }
@@ -114,7 +114,7 @@ func TestTendermintFollowerStartRound(t *testing.T) {
 	c.round = -1
 	c.startRound(context.Background(), round)
 
-	assert.Equal(t, c.proposeTimeout.started, true)
+	assert.True(t, c.proposeTimeout.started)
 	assert.Equal(t, c.step, propose)
 	assert.Equal(t, c.Round(), round)
 }
@@ -168,7 +168,7 @@ func TestTendermintUponProposal(t *testing.T) {
 			t.Error(err)
 		}
 
-		assert.Equal(t, c.sentPrevote, true)
+		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 	})
 
@@ -218,7 +218,7 @@ func TestTendermintUponProposal(t *testing.T) {
 			t.Error(err)
 		}
 
-		assert.Equal(t, c.sentPrevote, true)
+		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 	})
 
@@ -268,7 +268,7 @@ func TestTendermintUponProposal(t *testing.T) {
 			t.Error(err)
 		}
 
-		assert.Equal(t, c.sentPrevote, true)
+		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 	})
 
@@ -319,7 +319,7 @@ func TestTendermintUponProposal(t *testing.T) {
 			assert.Equal(t, err.Error(), "invalid block")
 		}
 
-		assert.Equal(t, c.sentPrevote, true)
+		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 	})
 
@@ -345,7 +345,7 @@ func TestTendermintUponProposal(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).AnyTimes().Return(time.Duration(1), nil)
 
-		// condidtion vr >= 0 && vr < round_p, line 28.
+		// condition vr >= 0 && vr < round_p, line 28.
 		validRoundProposed := int64(0)
 		roundProposed := int64(1)
 
@@ -386,7 +386,7 @@ func TestTendermintUponProposal(t *testing.T) {
 			t.Error(err)
 		}
 
-		assert.Equal(t, c.sentPrevote, true)
+		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 	})
 
@@ -411,7 +411,7 @@ func TestTendermintUponProposal(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).AnyTimes().Return(time.Duration(1), nil)
 
-		// condidtion vr >= 0 && vr < round_p, line 28.
+		// condition vr >= 0 && vr < round_p, line 28.
 		validRoundProposed := int64(0)
 		roundProposed := int64(1)
 
@@ -453,7 +453,7 @@ func TestTendermintUponProposal(t *testing.T) {
 			t.Error(err)
 		}
 
-		assert.Equal(t, c.sentPrevote, true)
+		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 	})
 
@@ -478,7 +478,7 @@ func TestTendermintUponProposal(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).AnyTimes().Return(time.Duration(1), nil)
 
-		// condidtion vr >= 0 && vr < round_p, line 28.
+		// condition vr >= 0 && vr < round_p, line 28.
 		validRoundProposed := int64(0)
 		roundProposed := int64(1)
 
@@ -520,7 +520,7 @@ func TestTendermintUponProposal(t *testing.T) {
 			t.Error(err)
 		}
 
-		assert.Equal(t, c.sentPrevote, true)
+		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 	})
 
@@ -545,7 +545,7 @@ func TestTendermintUponProposal(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).AnyTimes().Return(time.Duration(1), errors.New("invalid block"))
 
-		// condidtion vr >= 0 && vr < round_p, line 28.
+		// condition vr >= 0 && vr < round_p, line 28.
 		validRoundProposed := int64(0)
 		roundProposed := int64(1)
 
@@ -587,7 +587,7 @@ func TestTendermintUponProposal(t *testing.T) {
 			assert.Equal(t, err.Error(), "invalid block")
 		}
 
-		assert.Equal(t, c.sentPrevote, true)
+		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 	})
 
