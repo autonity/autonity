@@ -152,9 +152,9 @@ func TestTendermintUponProposal(t *testing.T) {
 		}
 
 		msg := &Message{
-			Code:          msgProposal,
-			Msg:           encodedProposal,
-			Address:       clientAddr,
+			Code:    msgProposal,
+			Msg:     encodedProposal,
+			Address: clientAddr,
 		}
 
 		// create consensus core.
@@ -202,9 +202,9 @@ func TestTendermintUponProposal(t *testing.T) {
 		}
 
 		msg := &Message{
-			Code:          msgProposal,
-			Msg:           encodedProposal,
-			Address:       clientAddr,
+			Code:    msgProposal,
+			Msg:     encodedProposal,
+			Address: clientAddr,
 		}
 
 		// create consensus core.
@@ -253,9 +253,9 @@ func TestTendermintUponProposal(t *testing.T) {
 		}
 
 		msg := &Message{
-			Code:          msgProposal,
-			Msg:           encodedProposal,
-			Address:       clientAddr,
+			Code:    msgProposal,
+			Msg:     encodedProposal,
+			Address: clientAddr,
 		}
 
 		// create consensus core.
@@ -304,9 +304,9 @@ func TestTendermintUponProposal(t *testing.T) {
 		}
 
 		msg := &Message{
-			Code:          msgProposal,
-			Msg:           encodedProposal,
-			Address:       clientAddr,
+			Code:    msgProposal,
+			Msg:     encodedProposal,
+			Address: clientAddr,
 		}
 
 		// create consensus core.
@@ -358,9 +358,9 @@ func TestTendermintUponProposal(t *testing.T) {
 		}
 
 		proposalMsg := &Message{
-			Code:          msgProposal,
-			Msg:           encodedProposal,
-			Address:       currentCommittee[1].Address,
+			Code:    msgProposal,
+			Msg:     encodedProposal,
+			Address: currentCommittee[1].Address,
 		}
 
 		// create consensus core.
@@ -377,9 +377,9 @@ func TestTendermintUponProposal(t *testing.T) {
 
 		// condition 2f+1 <PREVOTE, h_p, vr, id(v)>, power of pre-vote on the same valid round meets quorum, line 28.
 		prevoteMsg := Message{
-			Code:          msgPrevote,
-			Address:       currentCommittee[2].Address,
-			power:         3,
+			Code:    msgPrevote,
+			Address: currentCommittee[2].Address,
+			power:   3,
 		}
 		c.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), prevoteMsg)
 
@@ -425,9 +425,9 @@ func TestTendermintUponProposal(t *testing.T) {
 		}
 
 		proposalMsg := &Message{
-			Code:          msgProposal,
-			Msg:           encodedProposal,
-			Address:       currentCommittee[1].Address,
+			Code:    msgProposal,
+			Msg:     encodedProposal,
+			Address: currentCommittee[1].Address,
 		}
 
 		// create consensus core.
@@ -445,9 +445,9 @@ func TestTendermintUponProposal(t *testing.T) {
 
 		// condition 2f+1 <PREVOTE, h_p, vr, id(v)>, power of pre-vote on the same valid round meets quorum, line 28.
 		prevoteMsg := Message{
-			Code:          msgPrevote,
-			Address:       currentCommittee[2].Address,
-			power:         3,
+			Code:    msgPrevote,
+			Address: currentCommittee[2].Address,
+			power:   3,
 		}
 		c.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), prevoteMsg)
 
@@ -493,9 +493,9 @@ func TestTendermintUponProposal(t *testing.T) {
 			}
 
 			proposalMsg := &Message{
-				Code:          msgProposal,
-				Msg:           encodedProposal,
-				Address:       currentCommittee[1].Address,
+				Code:    msgProposal,
+				Msg:     encodedProposal,
+				Address: currentCommittee[1].Address,
 			}
 
 			// create consensus core.
@@ -513,9 +513,9 @@ func TestTendermintUponProposal(t *testing.T) {
 
 			// condition 2f+1 <PREVOTE, h_p, vr, id(v)>, power of pre-vote on the same valid round meets quorum, line 28.
 			prevoteMsg := Message{
-				Code:          msgPrevote,
-				Address:       currentCommittee[2].Address,
-				power:         3,
+				Code:    msgPrevote,
+				Address: currentCommittee[2].Address,
+				power:   3,
 			}
 			c.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), prevoteMsg)
 
@@ -560,9 +560,9 @@ func TestTendermintUponProposal(t *testing.T) {
 		}
 
 		proposalMsg := &Message{
-			Code:          msgProposal,
-			Msg:           encodedProposal,
-			Address:       currentCommittee[1].Address,
+			Code:    msgProposal,
+			Msg:     encodedProposal,
+			Address: currentCommittee[1].Address,
 		}
 
 		// create consensus core.
@@ -580,9 +580,9 @@ func TestTendermintUponProposal(t *testing.T) {
 
 		// condition 2f+1 <PREVOTE, h_p, vr, id(v)>, power of pre-vote on the same valid round meets quorum, line 28.
 		prevoteMsg := Message{
-			Code:          msgPrevote,
-			Address:       currentCommittee[2].Address,
-			power:         3,
+			Code:    msgPrevote,
+			Address: currentCommittee[2].Address,
+			power:   3,
 		}
 		c.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), prevoteMsg)
 
