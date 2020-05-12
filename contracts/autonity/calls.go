@@ -2,6 +2,7 @@ package autonity
 
 import (
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
@@ -56,8 +57,8 @@ func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb 
 func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error) {
 	// Convert the contract bytecode from hex into bytes
 	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
-	evm := ac.getEVM(header, chain.Config().AutonityContractConfig.Deployer, statedb)
-	sender := vm.AccountRef(chain.Config().AutonityContractConfig.Deployer)
+	evm := ac.getEVM(header, acdefault.Deployer(), statedb)
+	sender := vm.AccountRef(acdefault.Deployer())
 
 	contractABI, err := ac.abi()
 
@@ -124,7 +125,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 }
 
 func (ac *Contract) UpdateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string, abi string, state []byte) error {
-	caller := ac.bc.Config().AutonityContractConfig.Deployer
+	caller := acdefault.Deployer()
 	evm := ac.getEVM(header, caller, statedb)
 	contractBytecode := common.Hex2Bytes(bytecode)
 	data := append(contractBytecode, state...)
@@ -139,7 +140,7 @@ func (ac *Contract) UpdateAutonityContract(header *types.Header, statedb *state.
 }
 
 func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}, args ...interface{}) error {
-	caller := ac.bc.Config().AutonityContractConfig.Deployer
+	caller := acdefault.Deployer()
 	contractABI, err := ac.abi()
 	if err != nil {
 		return err
@@ -229,7 +230,7 @@ func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Hea
 
 func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) error {
 	// Needs to be refactored somehow
-	deployer := ac.bc.Config().AutonityContractConfig.Deployer
+	deployer := acdefault.Deployer()
 	sender := vm.AccountRef(deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.getEVM(header, deployer, state)

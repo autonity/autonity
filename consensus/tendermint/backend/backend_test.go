@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/common/acdefault"
 	"math"
 	"math/big"
 	"reflect"
@@ -556,7 +557,7 @@ func TestBackendGetContractAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	contractAddress := engine.GetContractAddress()
-	expectedAddress := crypto.CreateAddress(chain.Config().AutonityContractConfig.Deployer, 0)
+	expectedAddress := crypto.CreateAddress(acdefault.Deployer(), 0)
 	if !bytes.Equal(contractAddress.Bytes(), expectedAddress.Bytes()) {
 		t.Fatalf("unexpected returned address")
 	}

@@ -6,7 +6,8 @@ import (
 )
 
 func Deployer() common.Address {
-	return common.HexToAddress("0x1336000000000000000000000000000000000000")
+	// "0x0000000000000000000000000000000000000000"
+	return common.Address{}
 }
 
 func Governance() common.Address {

@@ -2,6 +2,7 @@ package autonity
 
 import (
 	"errors"
+	"github.com/clearmatics/autonity/common/acdefault"
 	"math/big"
 	"reflect"
 	"sort"
@@ -76,7 +77,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	}
 
 	// prepare abi and evm context
-	deployer := ac.bc.Config().AutonityContractConfig.Deployer
+	deployer := acdefault.Deployer()
 	sender := vm.AccountRef(deployer)
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.getEVM(header, deployer, stateDB)
