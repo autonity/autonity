@@ -43,12 +43,12 @@ func (ut UserType) GetID() int {
 type AutonityContractGenesis struct {
 	// Bytecode of validators contract
 	// would like this type to be []byte but the unmarshalling is not working
-	Bytecode string `json:"bytecode,omitempty"`
+	Bytecode string `json:"bytecode" toml:",omitempty"`
 	// Json ABI of the contract
-	ABI         string         `json:"abi,omitempty"`
-	MinGasPrice uint64         `json:"minGasPrice,omitempty"`
-	Operator    common.Address `json:"operator,omitempty"`
-	Users       []User         `json:"users,omitempty"`
+	ABI         string         `json:"abi" toml:",omitempty"`
+	MinGasPrice uint64         `json:"minGasPrice" toml:",omitempty"`
+	Operator    common.Address `json:"operator" toml:",omitempty"`
+	Users       []User         `json:"users" toml:",omitempty"`
 }
 
 func (ac *AutonityContractGenesis) AddDefault() *AutonityContractGenesis {
