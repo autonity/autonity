@@ -219,7 +219,7 @@ func (c *core) getProposer() types.CommitteeMember {
 	}
 	// PoS (voting power) weighted round robin.
 	l2ViewHeight := c.Height().Uint64() - 1
-	proposer := c.backend.GetProposerFromL2(l2ViewHeight, c.Round())
+	proposer := c.backend.GetProposerFromAC(l2ViewHeight, c.Round())
 	_, member, _ := c.CommitteeSet().GetByAddress(proposer)
 	return member
 }
@@ -232,7 +232,7 @@ func (c *core) isProposer() bool {
 	}
 	// PoS (voting power) weighted round robin.
 	l2ViewHeight := c.Height().Uint64() - 1
-	return c.backend.GetProposerFromL2(l2ViewHeight, c.Round()) == c.address
+	return c.backend.GetProposerFromAC(l2ViewHeight, c.Round()) == c.address
 }
 
 // check if msg sender is proposer for proposal handling.
@@ -243,7 +243,7 @@ func (c *core) isProposerMsg(height *big.Int, round int64, msgAddress common.Add
 	}
 	// PoS (voting power) weighted round robin.
 	l2ViewHeight := c.Height().Uint64() - 1
-	return c.backend.GetProposerFromL2(l2ViewHeight, round) == msgAddress
+	return c.backend.GetProposerFromAC(l2ViewHeight, round) == msgAddress
 }
 
 func (c *core) commit(round int64, messages *roundMessages) {

@@ -139,8 +139,8 @@ type Backend interface {
 	// GetProposer returns the proposer of the given block height
 	GetProposer(number uint64) common.Address
 
-	// GetProposerFromL2 returns the proposer of the given block height and round from autontiy contract.
-	GetProposerFromL2(height uint64, round int64) common.Address
+	// GetProposerFromAC returns the proposer of the given block height and round from autontiy contract.
+	GetProposerFromAC(height uint64, round int64) common.Address
 
 	// HasBadBlock returns whether the block with the hash is a bad block
 	HasBadProposal(hash common.Hash) bool

@@ -2294,7 +2294,7 @@ func (bc *BlockChain) GetKeyValue(key []byte) ([]byte, error) {
 	return rawdb.GetKeyValue(bc.db, key)
 }
 
-func (bc *BlockChain) GetProposerFromL2(height uint64, round int64) common.Address {
+func (bc *BlockChain) GetProposerFromAC(height uint64, round int64) common.Address {
 	if bc.autonityContract == nil {
 		log.Error("autonity contract is not initialized yet.")
 		return common.Address{}
@@ -2302,7 +2302,7 @@ func (bc *BlockChain) GetProposerFromL2(height uint64, round int64) common.Addre
 
 	block := bc.GetBlockByNumber(height)
 	if block == nil {
-		log.Error("GetProposerFromL2 ", "height", height)
+		log.Error("GetProposerFromAC ", "height", height)
 		return common.Address{}
 	}
 
@@ -2312,7 +2312,7 @@ func (bc *BlockChain) GetProposerFromL2(height uint64, round int64) common.Addre
 		return common.Address{}
 	}
 
-	proposer := bc.autonityContract.GetProposerFromL2(block, statedb, height, round)
+	proposer := bc.autonityContract.GetProposerFromAC(block, statedb, height, round)
 	return proposer
 }
 
