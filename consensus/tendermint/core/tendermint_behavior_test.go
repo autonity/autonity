@@ -117,6 +117,8 @@ func TestTendermintFollowerStartRound(t *testing.T) {
 	assert.True(t, c.proposeTimeout.started)
 	assert.Equal(t, c.step, propose)
 	assert.Equal(t, c.Round(), round)
+	// clean up timer otherwise it would panic due to the core object is released.
+	c.proposeTimeout.stopTimer()
 }
 
 // It test the page-6, upon proposal logic blocks from Line22 to Line33 from tendermint pseudo-code.
@@ -797,6 +799,8 @@ func TestTendermintUponPrevote(t *testing.T) {
 			t.Error(err)
 		}
 		assert.True(t, c.prevoteTimeout.started)
+		// clean up timer otherwise it would panic due to the core object is released.
+		c.prevoteTimeout.stopTimer()
 	})
 
 	t.Run("Line44 to Line46, step from prevote to precommit by voting for nil.", func(t *testing.T) {
