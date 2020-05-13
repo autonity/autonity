@@ -4,12 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/common/acdefault"
-	"github.com/clearmatics/autonity/common/graph"
-	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"net"
 	"strconv"
@@ -17,6 +11,14 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/common/acdefault"
+	"github.com/clearmatics/autonity/common/graph"
+	"github.com/clearmatics/autonity/common/keygenerator"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p/enode"
 
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/ethclient"
@@ -39,27 +41,19 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 		prevSTBalance := new(big.Int)
 
 		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-			addr, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
-			if err != nil {
-				return err
-			}
 			st, _ := validator.service.BlockChain().State()
-			if block.NumberU64() == 1 && st.GetBalance(addr).Uint64() != 0 {
+			if block.NumberU64() == 1 && st.GetBalance(autonity.ContractAddress).Uint64() != 0 {
 				return fmt.Errorf("incorrect balance on the first block")
 			}
 			return nil
 		}
 		fAfter := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-			autonityContractAddress, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
-			if err != nil {
-				return err
-			}
 			st, _ := validator.service.BlockChain().State()
 
 			if block.NumberU64() == 1 && prevBlockBalance != 0 {
 				return fmt.Errorf("incorrect balance on the first block")
 			}
-			contractBalance := st.GetBalance(autonityContractAddress)
+			contractBalance := st.GetBalance(autonity.ContractAddress)
 			if block.NumberU64() > 1 && len(block.Transactions()) > 0 && block.NumberU64() <= uint64(tCase.numBlocks) {
 				if contractBalance.Uint64() < prevBlockBalance {
 					return fmt.Errorf("balance must be increased")
@@ -140,27 +134,19 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 	hookGenerator := func() (hook, hook) {
 		prevBlockBalance := uint64(0)
 		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-			addr, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
-			if err != nil {
-				t.Fatal(err)
-			}
 			st, _ := validator.service.BlockChain().State()
-			if block.NumberU64() == 1 && st.GetBalance(addr).Uint64() != 0 {
+			if block.NumberU64() == 1 && st.GetBalance(autonity.ContractAddress).Uint64() != 0 {
 				t.Fatal("incorrect balance on the first block")
 			}
 			return nil
 		}
 		fAfter := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-			autonityContractAddress, err := validator.service.BlockChain().Config().AutonityContractConfig.GetContractAddress()
-			if err != nil {
-				t.Fatal(err)
-			}
 			st, _ := validator.service.BlockChain().State()
 
 			if block.NumberU64() == 1 && prevBlockBalance != 0 {
 				t.Fatal("incorrect balance on the first block")
 			}
-			contractBalance := st.GetBalance(autonityContractAddress)
+			contractBalance := st.GetBalance(autonity.ContractAddress)
 
 			prevBlockBalance = contractBalance.Uint64()
 			return nil
@@ -323,8 +309,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 			auth.GasLimit = uint64(300000) // in units
 			auth.GasPrice = gasPrice
 
-			contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
-			instance, err := NewAutonity(contractAddress, conn)
+			instance, err := NewAutonity(autonity.ContractAddress, conn)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -401,8 +386,7 @@ func TestAddIncorrectStakeholdersToList(t *testing.T) {
 			auth.GasLimit = uint64(300000) // in units
 			auth.GasPrice = gasPrice
 
-			contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
-			instance, err := NewAutonity(contractAddress, conn)
+			instance, err := NewAutonity(autonity.ContractAddress, conn)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -478,8 +462,7 @@ func TestAddStakeholderWithCorruptedEnodeToList(t *testing.T) {
 			auth.GasLimit = uint64(300000) // in units
 			auth.GasPrice = gasPrice
 
-			contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
-			instance, err := NewAutonity(contractAddress, conn)
+			instance, err := NewAutonity(autonity.ContractAddress, conn)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -705,8 +688,7 @@ func upgradeHook(t *testing.T, upgradeBlocks map[uint64]struct{}, operatorAddres
 		auth.GasLimit = uint64(30000000) // in units
 		auth.GasPrice = gasPrice
 
-		contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
-		instance, err := NewAutonity(contractAddress, conn)
+		instance, err := NewAutonity(autonity.ContractAddress, conn)
 		if err != nil {
 			t.Fatal(err)
 		}

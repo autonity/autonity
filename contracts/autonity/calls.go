@@ -1,17 +1,17 @@
 package autonity
 
 import (
+	"math"
+	"math/big"
+	"reflect"
+	"sort"
+
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/log"
-	"math"
-	"math/big"
-	"reflect"
-	"sort"
 )
 
 /*
@@ -33,38 +33,17 @@ type ContractState struct {
 
 type raw []byte
 
-// Instantiates a new EVM object which is required when creating or calling a deployed contract
-func (ac *Contract) getEVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
-	coinbase, _ := types.Ecrecover(header)
-	evmContext := vm.Context{
-		CanTransfer: ac.canTransfer,
-		Transfer:    ac.transfer,
-		GetHash:     ac.GetHashFn(header, ac.bc),
-		Origin:      origin,
-		Coinbase:    coinbase,
-		BlockNumber: header.Number,
-		Time:        new(big.Int).SetUint64(header.Time),
-		GasLimit:    header.GasLimit,
-		Difficulty:  header.Difficulty,
-		GasPrice:    new(big.Int).SetUint64(0x0),
-	}
-	vmConfig := *ac.bc.GetVMConfig()
-	evm := vm.NewEVM(evmContext, statedb, ac.bc.Config(), vmConfig)
-	return evm
-}
-
 // deployContract deploys the contract contained within the genesis field bytecode
-func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error) {
+func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) error {
 	// Convert the contract bytecode from hex into bytes
 	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
-	evm := ac.getEVM(header, acdefault.Deployer(), statedb)
-	sender := vm.AccountRef(acdefault.Deployer())
+	evm := ac.evmProvider.EVM(header, deployer, statedb)
 
 	contractABI, err := ac.abi()
 
 	if err != nil {
 		log.Error("abi.JSON returns err", "err", err)
-		return common.Address{}, err
+		return err
 	}
 
 	ln := len(chain.Config().AutonityContractConfig.GetValidatorUsers())
@@ -103,7 +82,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		defaultVersion)
 	if err != nil {
 		log.Error("contractABI.Pack returns err", "err", err)
-		return common.Address{}, err
+		return err
 	}
 
 	data := append(contractBytecode, constructorParams...)
@@ -111,27 +90,23 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	value := new(big.Int).SetUint64(0x00)
 
 	// Deploy the Autonity contract
-	_, contractAddress, _, vmerr := evm.Create(sender, data, gas, value)
+	_, _, _, vmerr := evm.Create(vm.AccountRef(deployer), data, gas, value)
 	if vmerr != nil {
 		log.Error("DeployAutonityContract evm.Create", "err", vmerr)
-		return contractAddress, vmerr
+		return vmerr
 	}
-	ac.Lock()
-	ac.address = contractAddress
-	ac.Unlock()
-	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
+	log.Info("Deployed Autonity Contract", "Address", ContractAddress.String())
 
-	return contractAddress, nil
+	return nil
 }
 
 func (ac *Contract) UpdateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string, abi string, state []byte) error {
-	caller := acdefault.Deployer()
-	evm := ac.getEVM(header, caller, statedb)
+	evm := ac.evmProvider.EVM(header, deployer, statedb)
 	contractBytecode := common.Hex2Bytes(bytecode)
 	data := append(contractBytecode, state...)
 	gas := uint64(0xFFFFFFFF)
 	value := new(big.Int).SetUint64(0x00)
-	_, _, _, vmerr := evm.CreateWithAddress(vm.AccountRef(caller), data, gas, value, ac.Address())
+	_, _, _, vmerr := evm.CreateWithAddress(vm.AccountRef(deployer), data, gas, value, ContractAddress)
 	if vmerr != nil {
 		log.Error("UpdateAutonityContract evm.Create", "err", vmerr)
 		return vmerr
@@ -140,21 +115,20 @@ func (ac *Contract) UpdateAutonityContract(header *types.Header, statedb *state.
 }
 
 func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}, args ...interface{}) error {
-	caller := acdefault.Deployer()
 	contractABI, err := ac.abi()
 	if err != nil {
 		return err
 	}
 
 	gas := uint64(math.MaxUint64)
-	evm := ac.getEVM(header, caller, statedb)
+	evm := ac.evmProvider.EVM(header, deployer, statedb)
 
 	input, err := contractABI.Pack(function, args...)
 	if err != nil {
 		return err
 	}
 
-	ret, _, vmerr := evm.Call(vm.AccountRef(caller), ac.Address(), input, gas, new(big.Int))
+	ret, _, vmerr := evm.Call(vm.AccountRef(deployer), ContractAddress, input, gas, new(big.Int))
 	if vmerr != nil {
 		log.Error("Error Autonity Contract", "function", function)
 		return vmerr
@@ -230,10 +204,8 @@ func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Hea
 
 func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) error {
 	// Needs to be refactored somehow
-	deployer := acdefault.Deployer()
-	sender := vm.AccountRef(deployer)
 	gas := uint64(0xFFFFFFFF)
-	evm := ac.getEVM(header, deployer, state)
+	evm := ac.evmProvider.EVM(header, deployer, state)
 
 	ABI, err := ac.abi()
 	if err != nil {
@@ -245,7 +217,7 @@ func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.H
 		return err
 	}
 
-	_, _, vmerr := evm.Call(sender, ac.Address(), input, gas, price)
+	_, _, vmerr := evm.Call(vm.AccountRef(deployer), ContractAddress, input, gas, price)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract getMinimumGasPrice()")
 		return vmerr

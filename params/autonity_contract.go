@@ -3,12 +3,12 @@ package params
 import (
 	"errors"
 	"fmt"
+	"reflect"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/acdefault"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
-	"reflect"
 )
 
 const (
@@ -97,10 +97,6 @@ func (ac *AutonityContractGenesis) Validate() error {
 	}
 
 	return nil
-}
-
-func (ac *AutonityContractGenesis) GetContractAddress() (common.Address, error) {
-	return crypto.CreateAddress(acdefault.Deployer(), 0), nil
 }
 
 //User - is used to put predefined accounts to genesis
