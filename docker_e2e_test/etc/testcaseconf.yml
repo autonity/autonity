@@ -395,20 +395,20 @@ playbook:
         scenario:
           - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
             action: "re-deploy"
-          - delay: 40 # seconds
+          - delay: 60 # seconds
             action: "start"
             target: [0, 1, 2] # start the specific node within 30s after test case start.
-          - delay: 60 # seconds
+          - delay: 90 # seconds
             action: "stop"
             target: [0, 1] # start the specific node within 120s after test case start.
-          - delay: 80 # seconds
+          - delay: 120 # seconds
             action: "start"
             target: [3, 0, 5] # start the specific node within 150s after test case start.
-          - delay: 100 # seconds
+          - delay: 150 # seconds
             action: "start"
             target: [4, 1] # start the specific node within 210s after test case start. action: "start"
       input:
-        startAt: 100  # start the TX issuing from 180th seconds.
+        startAt: 150  # start the TX issuing from 180th seconds.
         duration:  120 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
