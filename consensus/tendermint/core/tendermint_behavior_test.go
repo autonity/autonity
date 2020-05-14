@@ -111,7 +111,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		// checking consensus state machine states
+		// checking internal state of tendermint.
 		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 		assert.Nil(t, c.lockedValue)
@@ -192,7 +192,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		// checking consensus state machine states
+		// checking internal state of tendermint
 		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 		assert.Equal(t, c.lockedValue, proposalBlock)
@@ -273,6 +273,7 @@ func TestTendermintNewProposal(t *testing.T) {
 			t.Error(err)
 		}
 
+		// checking internal state of tendermint.
 		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 		assert.Equal(t, c.lockedValue, lockedValue)
@@ -352,6 +353,7 @@ func TestTendermintNewProposal(t *testing.T) {
 			assert.Equal(t, err.Error(), "invalid block")
 		}
 
+		// checking inernal state of tendermint.
 		assert.True(t, c.sentPrevote)
 		assert.Equal(t, c.step, prevote)
 		assert.Nil(t, c.lockedValue)
