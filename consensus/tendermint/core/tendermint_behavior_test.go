@@ -356,5 +356,6 @@ func TestTendermintNewProposal(t *testing.T) {
 		assert.Nil(t, c.lockedValue)
 		assert.Equal(t, c.lockedRound, int64(-1))
 		assert.Nil(t, c.validValue)
-		assert.Equal(t, c.validRound, int64(-1))	})
+		assert.Equal(t, c.validRound, int64(-1))
+	})
 }
