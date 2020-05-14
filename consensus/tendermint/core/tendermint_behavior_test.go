@@ -121,7 +121,7 @@ func TestTendermintNewProposal(t *testing.T) {
 	})
 
 	// It test line 24 was executed and step was forwarded on line 27 but with below different condition.
-	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1) and lockedValue as the same value proposed", func(t *testing.T) {
+	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1), but locked at the same value as proposed already.", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		// prepare a random size of committee, and the proposer at last committed block.
@@ -170,6 +170,7 @@ func TestTendermintNewProposal(t *testing.T) {
 			Round:             0,
 			Height:            currentHeight,
 			ProposedBlockHash: proposalBlock.Hash(),
+			//ProposedBlockHash: common.Hash{},
 		}
 		prevoteMsg, err := Encode(&vote)
 		if err != nil {
