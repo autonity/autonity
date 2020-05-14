@@ -17,7 +17,7 @@ func prepareCommittee() types.Committee {
 	// prepare committee.
 	minSize := 4
 	maxSize := 15
-	committeeSize := rand.Intn(maxSize - minSize) + minSize
+	committeeSize := rand.Intn(maxSize-minSize) + minSize
 	committeeSet := types.Committee{}
 	for i := 1; i <= committeeSize; i++ {
 		hexString := "0x01234567890" + strconv.Itoa(i)
