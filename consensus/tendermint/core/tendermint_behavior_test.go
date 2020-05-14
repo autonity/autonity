@@ -44,7 +44,7 @@ func TestTendermintProposerStartRound(t *testing.T) {
 
 	// prepare a random size of committee, and the proposer at last committed block.
 	currentCommittee := prepareCommittee()
-	lastProposer := currentCommittee[len(currentCommittee) - 1].Address
+	lastProposer := currentCommittee[len(currentCommittee)-1].Address
 	committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
 	if err != nil {
 		t.Error(err)
@@ -108,7 +108,7 @@ func TestTendermintFollowerStartRound(t *testing.T) {
 	defer ctrl.Finish()
 
 	currentCommittee := prepareCommittee()
-	lastProposer := currentCommittee[len(currentCommittee) - 1].Address
+	lastProposer := currentCommittee[len(currentCommittee)-1].Address
 	committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
 	if err != nil {
 		t.Error(err)
