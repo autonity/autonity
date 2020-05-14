@@ -136,20 +136,6 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
 }
 
-// GetContractAddress mocks base method
-func (m *MockBackend) GetContractAddress() common.Address {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContractAddress")
-	ret0, _ := ret[0].(common.Address)
-	return ret0
-}
-
-// GetContractAddress indicates an expected call of GetContractAddress
-func (mr *MockBackendMockRecorder) GetContractAddress() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractAddress", reflect.TypeOf((*MockBackend)(nil).GetContractAddress))
-}
-
 // Gossip mocks base method
 func (m *MockBackend) Gossip(ctx context.Context, valSet *committee.Set, payload []byte) {
 	m.ctrl.T.Helper()

@@ -21,7 +21,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/common/acdefault"
 	"math"
 	"math/big"
 	"reflect"
@@ -544,23 +543,6 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 			t.Fatalf("expected empty block, got %v", bl)
 		}
 	})
-}
-
-func TestBackendGetContractAddress(t *testing.T) {
-	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = chain.InsertChain(types.Blocks{block})
-	if err != nil {
-		t.Fatal(err)
-	}
-	contractAddress := engine.GetContractAddress()
-	expectedAddress := crypto.CreateAddress(acdefault.Deployer(), 0)
-	if !bytes.Equal(contractAddress.Bytes(), expectedAddress.Bytes()) {
-		t.Fatalf("unexpected returned address")
-	}
 }
 
 // Test get contract ABI, it should have the default abi before contract upgrade.

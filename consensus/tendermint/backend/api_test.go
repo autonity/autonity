@@ -11,6 +11,7 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
 )
@@ -131,18 +132,15 @@ func TestAPIGetContractAddress(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	want := common.HexToAddress("0x0123456789")
-
 	backend := core.NewMockBackend(ctrl)
-	backend.EXPECT().GetContractAddress().Return(want)
 
 	API := &API{
 		tendermint: backend,
 	}
 
 	got := API.GetContractAddress()
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("want %v, got %v", want, got)
+	if !reflect.DeepEqual(got, autonity.ContractAddress) {
+		t.Fatalf("want %v, got %v", autonity.ContractAddress, got)
 	}
 }
 

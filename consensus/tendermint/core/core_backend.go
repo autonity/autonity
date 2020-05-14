@@ -29,8 +29,6 @@ type Backend interface {
 
 	GetContractABI() string
 
-	GetContractAddress() common.Address
-
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(ctx context.Context, valSet *committee.Set, payload []byte)
 

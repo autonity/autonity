@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/clearmatics/autonity/common/acdefault"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"math/big"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
@@ -33,7 +33,6 @@ import (
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/rpc"
 )
 
@@ -365,16 +364,11 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	defer sb.contractsMu.Unlock()
 
 	if header.Number.Int64() == 1 {
-		contractAddress, err := sb.blockchain.GetAutonityContract().DeployAutonityContract(chain, header, state)
+		err := sb.blockchain.GetAutonityContract().DeployAutonityContract(chain, header, state)
 		if err != nil {
 			sb.logger.Error("Deploy autonity contract error", "error", err)
 			return nil, nil, err
 		}
-		sb.autonityContractAddress = contractAddress
-	}
-
-	if sb.autonityContractAddress == (common.Address{}) {
-		sb.autonityContractAddress = crypto.CreateAddress(acdefault.Deployer(), 0)
 	}
 
 	committeeSet, receipt, err := sb.blockchain.GetAutonityContract().FinalizeAndGetCommittee(txs, receipts, header, state)
