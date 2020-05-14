@@ -87,6 +87,9 @@ func TestTendermintProposerStartRound(t *testing.T) {
 		Address:       clientAddr,
 		CommittedSeal: []byte{},
 	})
+	if err != nil {
+		t.Error(err)
+	}
 	// should check if broadcast to wanted committeeSet with wanted MSG.
 	backendMock.EXPECT().Broadcast(context.Background(), committeeSet, wantedMsg).Return(nil)
 	c.startRound(context.Background(), round)
