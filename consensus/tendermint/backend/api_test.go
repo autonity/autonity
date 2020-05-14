@@ -25,8 +25,10 @@ func TestGetCommittee(t *testing.T) {
 	}
 
 	want := types.Committee{val}
-	committeeSet := committee.NewMockSet(ctrl)
-	committeeSet.EXPECT().Committee().Return(types.Committee{val})
+	committeeSet, err := committee.NewRoundRobinSet(want, want[0].Address)
+	if err != nil {
+		t.Error(err)
+	}
 
 	backend := core.NewMockBackend(ctrl)
 	backend.EXPECT().Committee(uint64(1)).Return(committeeSet, nil)
@@ -82,8 +84,10 @@ func TestGetCommitteeAtHash(t *testing.T) {
 		chain := consensus.NewMockChainReader(ctrl)
 		chain.EXPECT().GetHeaderByHash(hash).Return(&types.Header{Number: big.NewInt(1)})
 
-		committeeSet := committee.NewMockSet(ctrl)
-		committeeSet.EXPECT().Committee().Return(types.Committee{val})
+		committeeSet, err := committee.NewRoundRobinSet(want, want[0].Address)
+		if err != nil {
+			t.Error(err)
+		}
 
 		backend := core.NewMockBackend(ctrl)
 		backend.EXPECT().Committee(uint64(1)).Return(committeeSet, nil)

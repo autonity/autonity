@@ -18,17 +18,22 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"math/big"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
+	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/golang/mock/gomock"
 )
 
 func TestPrepare(t *testing.T) {
@@ -453,22 +458,249 @@ func TestClose(t *testing.T) {
 		b := &Backend{}
 
 		err := b.Close()
-		if err != ErrStoppedEngine {
-			t.Fatalf("expected %v, got %v", ErrStoppedEngine, err)
-		}
+		assertError(t, ErrStoppedEngine, err)
+		assertNotCoreStarted(t, b)
 	})
 
 	t.Run("engine is running, no errors", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Stop().MaxTimes(1)
+
 		b := &Backend{
+			core:        tendermintC,
 			coreStarted: true,
 			stopped:     make(chan struct{}),
 		}
 
 		err := b.Close()
-		if err != nil {
-			t.Fatalf("expected <nil>, got %v", err)
+		assertNilError(t, err)
+		assertNotCoreStarted(t, b)
+	})
+
+	t.Run("engine is running, stopped twice", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Stop().MaxTimes(1)
+
+		b := &Backend{
+			core:        tendermintC,
+			coreStarted: true,
+			stopped:     make(chan struct{}),
+		}
+
+		err := b.Close()
+		assertNilError(t, err)
+		assertNotCoreStarted(t, b)
+
+		err = b.Close()
+		assertError(t, ErrStoppedEngine, err)
+		assertNotCoreStarted(t, b)
+	})
+
+	t.Run("engine is running, stopped from multiple goroutines", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Stop().MaxTimes(1)
+
+		b := &Backend{
+			core:        tendermintC,
+			coreStarted: true,
+			stopped:     make(chan struct{}),
+		}
+
+		var wg sync.WaitGroup
+		stop := 10
+		errC := make(chan error, stop)
+
+		for i := 0; i < stop; i++ {
+			wg.Add(1)
+
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+				errC <- b.Close()
+			}(&wg)
+
+		}
+
+		wg.Wait()
+		close(errC)
+
+		assertNotCoreStarted(t, b)
+
+		var sawNil bool
+
+		// Want nil once and ErrStoppedEngine 9 times
+		for e := range errC {
+			if e == nil {
+				if sawNil {
+					t.Fatalf("<nil> returned more than once, b.Close() should have only returned nil the first time it was closed")
+				}
+				sawNil = true
+			} else if e != ErrStoppedEngine {
+				assertError(t, ErrStoppedEngine, e)
+			}
 		}
 	})
+}
+
+func TestStart(t *testing.T) {
+	t.Run("engine is not running, no errors", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		ctx := context.Background()
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+
+		b := &Backend{
+			core:        tendermintC,
+			coreStarted: false,
+		}
+
+		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		assertNilError(t, err)
+		assertCoreStarted(t, b)
+	})
+
+	t.Run("engine is running, error returned", func(t *testing.T) {
+		b := &Backend{
+			coreStarted: true,
+		}
+
+		err := b.Start(context.Background(), &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		assertError(t, ErrStartedEngine, err)
+		assertCoreStarted(t, b)
+	})
+
+	t.Run("engine is not running, started twice", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		ctx := context.Background()
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+
+		b := &Backend{
+			core:        tendermintC,
+			coreStarted: false,
+		}
+
+		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		assertNilError(t, err)
+		assertCoreStarted(t, b)
+
+		err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		assertError(t, ErrStartedEngine, err)
+		assertCoreStarted(t, b)
+	})
+
+	t.Run("engine is not running, started from multiple goroutines", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		ctx := context.Background()
+		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+
+		b := &Backend{
+			core:        tendermintC,
+			coreStarted: false,
+		}
+
+		var wg sync.WaitGroup
+		stop := 10
+		errC := make(chan error, stop)
+
+		for i := 0; i < stop; i++ {
+			wg.Add(1)
+
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+				errC <- b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+			}(&wg)
+
+		}
+
+		wg.Wait()
+		close(errC)
+
+		assertCoreStarted(t, b)
+
+		var sawNil bool
+
+		// Want nil once and ErrStartedEngine 9 times
+		for e := range errC {
+			if e == nil {
+				if sawNil {
+					t.Fatalf("<nil> returned more than once, b.Start() should have only returned nil the first time it was started")
+				}
+				sawNil = true
+			} else if e != ErrStartedEngine {
+				assertError(t, ErrStartedEngine, e)
+			}
+		}
+	})
+}
+
+func TestMultipleRestart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	times := 5
+	ctx := context.Background()
+	tendermintC := tendermintCore.NewMockTendermint(ctrl)
+	tendermintC.EXPECT().Start(ctx).MaxTimes(times)
+	tendermintC.EXPECT().Stop().MaxTimes(5)
+
+	b := &Backend{
+		core:        tendermintC,
+		coreStarted: false,
+	}
+
+	for i := 0; i < times; i++ {
+		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		assertNilError(t, err)
+		assertCoreStarted(t, b)
+
+		err = b.Close()
+		assertNilError(t, err)
+		assertNotCoreStarted(t, b)
+	}
+}
+
+func assertError(t *testing.T, expected, got error) {
+	t.Helper()
+	if expected != got {
+		t.Fatalf("expected %v, got %v", expected, got)
+	}
+}
+
+func assertNilError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("expected <nil>, got %v", err)
+	}
+}
+
+func assertCoreStarted(t *testing.T, b *Backend) {
+	t.Helper()
+	if !b.coreStarted {
+		t.Fatal("expected core to have started")
+	}
+}
+
+func assertNotCoreStarted(t *testing.T, b *Backend) {
+	t.Helper()
+	if b.coreStarted {
+		t.Fatal("expected core to have stopped")
+	}
 }
 
 func TestBackendSealHash(t *testing.T) {

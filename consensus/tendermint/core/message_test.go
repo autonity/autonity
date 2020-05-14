@@ -3,14 +3,14 @@ package core
 import (
 	"bytes"
 	"errors"
-	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"reflect"
 	"testing"
 
+	"github.com/clearmatics/autonity/core/types"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/rlp"
 )
 
@@ -127,7 +127,7 @@ func TestMessageFromPayload(t *testing.T) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 
-		committeeSet, err := committee.NewSet(types.Committee{val}, config.RoundRobin, val.Address)
+		committeeSet, err := committee.NewRoundRobinSet(types.Committee{val}, val.Address)
 		if err != nil {
 			t.Fatal("error creating committee set")
 		}

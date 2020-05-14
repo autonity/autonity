@@ -21,6 +21,15 @@ GENERATED_CONTRACT_DIR = ./common/acdefault/generated
 GENERATED_ABI = $(GENERATED_CONTRACT_DIR)/abi.go
 GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
 
+# This uses 'id -nG $USER' to list all groups that the user is part of and then
+# greps for the word docker in the output, if grep matches the word it returns
+# the successful error code and hence the command after the or '||' will not be
+# executed. This results in DOCKER_SUDO having the value 'sudo' if the current
+# user is not in the docker group and being empty if the current user is in the
+# docker group. This allows us to selectively execute docker with sudo for
+# users that need to execute it with sudo.
+DOCKER_SUDO = $(shell id -nG $(USER) | grep "\<docker\>" > /dev/null || echo sudo)
+
 autonity: embed-autonity-contract
 	build/env.sh go run build/ci.go install ./cmd/autonity
 	@echo "Done building."
@@ -34,7 +43,7 @@ embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_ABI)
 # docker image. This was causing tests to fail.
 $(GENERATED_BYTECODE) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT)
 	mkdir -p $(GENERATED_CONTRACT_DIR)
-	docker run --rm -v $(CURDIR)/$(AUTONITY_CONTRACT_DIR):/contracts -v $(CURDIR)/$(GENERATED_CONTRACT_DIR):/output ethereum/solc:0.6.4 --overwrite --abi --bin -o /output /contracts/$(AUTONITY_CONTRACT)
+	$(DOCKER_SUDO) docker run --rm -v $(CURDIR)/$(AUTONITY_CONTRACT_DIR):/contracts -v $(CURDIR)/$(GENERATED_CONTRACT_DIR):/output ethereum/solc:0.6.4 --overwrite --abi --bin -o /output /contracts/$(AUTONITY_CONTRACT)
 
 	@echo Generating $(GENERATED_BYTECODE)
 	@echo 'package generated\n' > $(GENERATED_BYTECODE)
@@ -76,10 +85,12 @@ test-race:
 	go test -race -v ./consensus/test/... -timeout 30m
 
 test-contracts:
+	cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
+	sleep 5
+	./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545
 	cd contracts/autonity/contract/ && truffle test && cd -
 
 mock-gen:
-	mockgen -source=consensus/tendermint/validator/validator_interface.go -package=validator -destination=consensus/tendermint/validator/validator_mock.go
 	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go
 	mockgen -source=consensus/protocol.go -package=consensus -destination=consensus/protocol_mock.go
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go

@@ -18,6 +18,7 @@ package eth
 
 import (
 	"fmt"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -194,7 +195,10 @@ func testSendTransactions(t *testing.T, protocol int) {
 		pow    = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		config = &params.ChainConfig{}
-		gspec  = &core.Genesis{Config: config}
+		gspec  = &core.Genesis{
+			Config:     config,
+			Difficulty: big.NewInt(1),
+		}
 	)
 	config.AutonityContractConfig = &params.AutonityContractGenesis{}
 

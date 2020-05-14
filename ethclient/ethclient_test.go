@@ -35,6 +35,7 @@ import (
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/params"
+	"github.com/stretchr/testify/assert"
 )
 
 // Verify that Client implements the ethereum interfaces.
@@ -170,7 +171,8 @@ var (
 
 func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	// Generate test chain.
-	genesis, blocks := generateTestChain()
+	genesis, blocks, err := generateTestChain()
+	assert.NoError(t, err)
 
 	// Start Ethereum service.
 	var ethservice *eth.Ethereum
@@ -178,7 +180,7 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	n.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 		config := &eth.Config{Genesis: genesis}
 		config.Ethash.PowMode = ethash.ModeFake
-		ethservice, err = eth.New(ctx, config, nil, nil)
+		ethservice, err = eth.New(ctx, config, nil)
 		return ethservice, err
 	})
 
@@ -192,7 +194,7 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	return n, blocks
 }
 
-func generateTestChain() (*core.Genesis, []*types.Block) {
+func generateTestChain() (*core.Genesis, []*types.Block, error) {
 	db := rawdb.NewMemoryDatabase()
 	config := params.AllEthashProtocolChanges
 	genesis := &core.Genesis{
@@ -205,11 +207,15 @@ func generateTestChain() (*core.Genesis, []*types.Block) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("test"))
 	}
-	gblock := genesis.ToBlock(db)
+	gblock, err := genesis.ToBlock(db)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	engine := ethash.NewFaker()
 	blocks, _ := core.GenerateChain(config, gblock, engine, db, 1, generate)
 	blocks = append([]*types.Block{gblock}, blocks...)
-	return genesis, blocks
+	return genesis, blocks, nil
 }
 
 func TestHeader(t *testing.T) {

@@ -3,13 +3,14 @@ package core
 import (
 	"context"
 	"errors"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/crypto/secp256k1"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/crypto/secp256k1"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -474,9 +475,12 @@ func TestHandleCommit(t *testing.T) {
 	backendMock := NewMockBackend(ctrl)
 	backendMock.EXPECT().LastCommittedProposal().MinTimes(1).Return(block, addr)
 
-	committeeSet := committee.NewMockSet(ctrl)
-	committeeSet.EXPECT().IsPoS().Return(false)
-	committeeSet.EXPECT().IsProposer(gomock.Any(), addr).Return(false)
+	testCommittee, _ := generateCommittee(3)
+	testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
+	committeeSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+	if err != nil {
+		t.Error(err)
+	}
 
 	backendMock.EXPECT().Committee(gomock.Any()).Return(committeeSet, nil)
 

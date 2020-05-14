@@ -2,13 +2,14 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/golang/mock/gomock"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/golang/mock/gomock"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -53,10 +54,16 @@ func TestSendPropose(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		valSetMock := committee.NewMockSet(ctrl)
-		valSetMock.EXPECT().IsProposer(gomock.Eq(int64(1)), addr).Return(true).AnyTimes()
-		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
-		valSetMock.EXPECT().GetProposer(int64(1))
+		testCommittee := types.Committee{
+			types.CommitteeMember{
+				Address:     addr,
+				VotingPower: big.NewInt(1)},
+		}
+
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		if err != nil {
+			t.Error(err)
+		}
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(block.Hash())
@@ -72,7 +79,7 @@ func TestSendPropose(t *testing.T) {
 			round:            1,
 			height:           big.NewInt(1),
 			validRound:       validRound,
-			committeeSet:     valSetMock,
+			committeeSet:     valSet,
 		}
 
 		c.sendProposal(context.Background(), block)
@@ -147,9 +154,13 @@ func TestHandleProposal(t *testing.T) {
 			Signature:     []byte{0x1},
 		}
 
-		valSetMock := committee.NewMockSet(ctrl)
-		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
-		valSetMock.EXPECT().IsProposer(int64(2), addr).Return(false)
+		testCommittee, _ := generateCommittee(3)
+		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
+
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[1].Address)
+		if err != nil {
+			t.Error(err)
+		}
 
 		c := &core{
 			address:          addr,
@@ -158,7 +169,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			round:            2,
 			height:           big.NewInt(1),
-			committeeSet:     valSetMock,
+			committeeSet:     valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -196,12 +207,14 @@ func TestHandleProposal(t *testing.T) {
 			power:         1,
 		}
 
-		valSetMock := committee.NewMockSet(ctrl)
-		valSetMock.EXPECT().IsProposer(int64(2), addr).Return(true).AnyTimes()
-		valSetMock.EXPECT().GetProposer(int64(2))
-		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
-		valSetMock.EXPECT().Size().AnyTimes()
-		valSetMock.EXPECT().GetByAddress(msg.Address).Return(1, sender, nil).AnyTimes()
+		testCommittee := types.Committee{
+			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
+		}
+
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		if err != nil {
+			t.Error(err)
+		}
 
 		var decProposal Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
@@ -255,7 +268,7 @@ func TestHandleProposal(t *testing.T) {
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
 			proposeTimeout:   newTimeout(propose, logger),
-			committeeSet:     valSetMock,
+			committeeSet:     valSet,
 			round:            2,
 			height:           big.NewInt(1),
 		}
@@ -294,10 +307,14 @@ func TestHandleProposal(t *testing.T) {
 			power:         1,
 		}
 
-		valSetMock := committee.NewMockSet(ctrl)
-		valSetMock.EXPECT().IsProposer(int64(2), addr).Return(true).AnyTimes()
-		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
-		valSetMock.EXPECT().GetProposer(int64(2))
+		testCommittee := types.Committee{
+			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
+		}
+
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		if err != nil {
+			t.Error(err)
+		}
 
 		var decProposal Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
@@ -316,7 +333,7 @@ func TestHandleProposal(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(1),
 			proposeTimeout:   newTimeout(propose, logger),
-			committeeSet:     valSetMock,
+			committeeSet:     valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -357,11 +374,14 @@ func TestHandleProposal(t *testing.T) {
 			power:         1,
 		}
 
-		valSetMock := committee.NewMockSet(ctrl)
-		valSetMock.EXPECT().IsProposer(int64(2), addr).Return(true).AnyTimes()
-		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
-		valSetMock.EXPECT().GetProposer(int64(2)).AnyTimes()
-		valSetMock.EXPECT().Size().AnyTimes()
+		testCommittee := types.Committee{
+			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
+		}
+
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		if err != nil {
+			t.Error(err)
+		}
 
 		var decProposal Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
@@ -414,7 +434,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			proposeTimeout:   newTimeout(propose, logger),
 			validRound:       -1,
-			committeeSet:     valSetMock,
+			committeeSet:     valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -452,12 +472,14 @@ func TestHandleProposal(t *testing.T) {
 			power:         1,
 		}
 
-		valSetMock := committee.NewMockSet(ctrl)
-		valSetMock.EXPECT().IsProposer(int64(2), addr).Return(true).AnyTimes()
-		valSetMock.EXPECT().IsPoS().Return(false).AnyTimes()
-		valSetMock.EXPECT().GetProposer(int64(2)).AnyTimes()
-		valSetMock.EXPECT().Size().AnyTimes()
-		valSetMock.EXPECT().Quorum().Return(uint64(1))
+		testCommittee := types.Committee{
+			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
+		}
+
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		if err != nil {
+			t.Error(err)
+		}
 
 		var decProposal Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
@@ -511,7 +533,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			proposeTimeout:   newTimeout(propose, logger),
 			validRound:       0,
-			committeeSet:     valSetMock,
+			committeeSet:     valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)

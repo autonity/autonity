@@ -38,8 +38,8 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
-	"github.com/hashicorp/golang-lru"
-	"github.com/zfjagann/golang-ring"
+	lru "github.com/hashicorp/golang-lru"
+	ring "github.com/zfjagann/golang-ring"
 )
 
 const (
@@ -62,8 +62,6 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	if chainConfig.Tendermint.BlockPeriod != 0 {
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
-
-	config.SetProposerPolicy(tendermintConfig.ProposerPolicy(chainConfig.Tendermint.ProposerPolicy))
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
@@ -89,6 +87,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
+	backend.core = tendermintCore.New(backend)
 	return backend
 }
 
@@ -111,6 +110,7 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
+	core              tendermintCore.Tendermint
 	stopped           chan struct{}
 	coreMu            sync.RWMutex
 
@@ -470,7 +470,7 @@ func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
 }
 
 // Synchronize new connected peer with current height state
-func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.Message) {
+func (sb *Backend) SyncPeer(address common.Address) {
 	if sb.broadcaster == nil {
 		return
 	}
@@ -482,6 +482,7 @@ func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.M
 	if !connected {
 		return
 	}
+	messages := sb.core.GetCurrentHeightMessages()
 	for _, msg := range messages {
 		payload, err := msg.Payload()
 		if err != nil {

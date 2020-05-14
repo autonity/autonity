@@ -59,12 +59,17 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		gspec  = &core.Genesis{
-			Config: params.TestChainConfig,
-			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
+			Config:     params.TestChainConfig,
+			Alloc:      core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
+			Difficulty: big.NewInt(1),
 		}
 	)
 	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{
-		Users: []params.User{},
+		Users: []params.User{{
+			Address: common.HexToAddress("0x0000000000000000000000000000000000000000"),
+			Type:    params.UserValidator,
+			Stake:   1,
+		}},
 	}
 
 	for i := range peers {

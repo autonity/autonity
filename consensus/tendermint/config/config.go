@@ -29,8 +29,7 @@ const (
 )
 
 type Config struct {
-	BlockPeriod    uint64         `toml:",omitempty" json:"block-period"` // Default minimum difference between two consecutive block's timestamps in second
-	ProposerPolicy ProposerPolicy `toml:",omitempty" json:"policy"`       // The policy for proposer selection
+	BlockPeriod uint64 `toml:",omitempty" json:"block-period"` // Default minimum difference between two consecutive block's timestamps in second
 	sync.RWMutex
 }
 
@@ -40,19 +39,6 @@ func (c *Config) String() string {
 
 func DefaultConfig() *Config {
 	return &Config{
-		BlockPeriod:    1,
-		ProposerPolicy: RoundRobin,
+		BlockPeriod: 1,
 	}
-}
-
-func (cfg *Config) SetProposerPolicy(p ProposerPolicy) {
-	cfg.Lock()
-	cfg.ProposerPolicy = p
-	cfg.Unlock()
-}
-
-func (cfg *Config) GetProposerPolicy() ProposerPolicy {
-	cfg.RLock()
-	defer cfg.RUnlock()
-	return cfg.ProposerPolicy
 }

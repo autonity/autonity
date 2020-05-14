@@ -2,15 +2,15 @@ package crypto
 
 import (
 	"crypto/ecdsa"
-	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"sort"
 	"strings"
 	"testing"
 
+	"github.com/clearmatics/autonity/core/types"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/crypto"
 )
 
@@ -176,7 +176,7 @@ func newTestValidatorSet(n int) (committee.Set, []*ecdsa.PrivateKey) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 	}
-	vset, _ := committee.NewSet(addrs, config.RoundRobin, addrs[0].Address)
+	vset, _ := committee.NewRoundRobinSet(addrs, addrs[0].Address)
 	sort.Sort(keys) //Keys need to be sorted by its public key address
 	return vset, keys
 }

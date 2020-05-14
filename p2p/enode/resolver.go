@@ -27,6 +27,7 @@ func init() {
 func AutomaticResolveStart() {
 	rs.Start(10 * time.Second)
 }
+
 func AutomaticResolveStop() {
 	rs.Stop()
 }

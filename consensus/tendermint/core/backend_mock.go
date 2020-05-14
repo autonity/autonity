@@ -7,15 +7,10 @@ package core
 import (
 	context "context"
 	common "github.com/clearmatics/autonity/common"
-	consensus "github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	state "github.com/clearmatics/autonity/core/state"
+	committee "github.com/clearmatics/autonity/consensus/tendermint/committee"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
-	p2p "github.com/clearmatics/autonity/p2p"
-	rpc "github.com/clearmatics/autonity/rpc"
 	gomock "github.com/golang/mock/gomock"
-	big "math/big"
 	reflect "reflect"
 	time "time"
 )
@@ -43,263 +38,6 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
-// Author mocks base method
-func (m *MockBackend) Author(header *types.Header) (common.Address, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Author", header)
-	ret0, _ := ret[0].(common.Address)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Author indicates an expected call of Author
-func (mr *MockBackendMockRecorder) Author(header interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Author", reflect.TypeOf((*MockBackend)(nil).Author), header)
-}
-
-// VerifyHeader mocks base method
-func (m *MockBackend) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerifyHeader", chain, header, seal)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// VerifyHeader indicates an expected call of VerifyHeader
-func (mr *MockBackendMockRecorder) VerifyHeader(chain, header, seal interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyHeader", reflect.TypeOf((*MockBackend)(nil).VerifyHeader), chain, header, seal)
-}
-
-// VerifyHeaders mocks base method
-func (m *MockBackend) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerifyHeaders", chain, headers, seals)
-	ret0, _ := ret[0].(chan<- struct{})
-	ret1, _ := ret[1].(<-chan error)
-	return ret0, ret1
-}
-
-// VerifyHeaders indicates an expected call of VerifyHeaders
-func (mr *MockBackendMockRecorder) VerifyHeaders(chain, headers, seals interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyHeaders", reflect.TypeOf((*MockBackend)(nil).VerifyHeaders), chain, headers, seals)
-}
-
-// VerifyUncles mocks base method
-func (m *MockBackend) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerifyUncles", chain, block)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// VerifyUncles indicates an expected call of VerifyUncles
-func (mr *MockBackendMockRecorder) VerifyUncles(chain, block interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyUncles", reflect.TypeOf((*MockBackend)(nil).VerifyUncles), chain, block)
-}
-
-// VerifySeal mocks base method
-func (m *MockBackend) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerifySeal", chain, header)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// VerifySeal indicates an expected call of VerifySeal
-func (mr *MockBackendMockRecorder) VerifySeal(chain, header interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifySeal", reflect.TypeOf((*MockBackend)(nil).VerifySeal), chain, header)
-}
-
-// Prepare mocks base method
-func (m *MockBackend) Prepare(chain consensus.ChainReader, header *types.Header) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Prepare", chain, header)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Prepare indicates an expected call of Prepare
-func (mr *MockBackendMockRecorder) Prepare(chain, header interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockBackend)(nil).Prepare), chain, header)
-}
-
-// Finalize mocks base method
-func (m *MockBackend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
-	ret0, _ := ret[0].(types.Committee)
-	ret1, _ := ret[1].(*types.Receipt)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// Finalize indicates an expected call of Finalize
-func (mr *MockBackendMockRecorder) Finalize(chain, header, state, txs, uncles, receipts interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockBackend)(nil).Finalize), chain, header, state, txs, uncles, receipts)
-}
-
-// FinalizeAndAssemble mocks base method
-func (m *MockBackend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
-	ret0, _ := ret[0].(*types.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FinalizeAndAssemble indicates an expected call of FinalizeAndAssemble
-func (mr *MockBackendMockRecorder) FinalizeAndAssemble(chain, header, state, txs, uncles, receipts interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeAndAssemble", reflect.TypeOf((*MockBackend)(nil).FinalizeAndAssemble), chain, header, state, txs, uncles, receipts)
-}
-
-// Seal mocks base method
-func (m *MockBackend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Seal", chain, block, results, stop)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Seal indicates an expected call of Seal
-func (mr *MockBackendMockRecorder) Seal(chain, block, results, stop interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockBackend)(nil).Seal), chain, block, results, stop)
-}
-
-// SealHash mocks base method
-func (m *MockBackend) SealHash(header *types.Header) common.Hash {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SealHash", header)
-	ret0, _ := ret[0].(common.Hash)
-	return ret0
-}
-
-// SealHash indicates an expected call of SealHash
-func (mr *MockBackendMockRecorder) SealHash(header interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SealHash", reflect.TypeOf((*MockBackend)(nil).SealHash), header)
-}
-
-// CalcDifficulty mocks base method
-func (m *MockBackend) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CalcDifficulty", chain, time, parent)
-	ret0, _ := ret[0].(*big.Int)
-	return ret0
-}
-
-// CalcDifficulty indicates an expected call of CalcDifficulty
-func (mr *MockBackendMockRecorder) CalcDifficulty(chain, time, parent interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalcDifficulty", reflect.TypeOf((*MockBackend)(nil).CalcDifficulty), chain, time, parent)
-}
-
-// APIs mocks base method
-func (m *MockBackend) APIs(chain consensus.ChainReader) []rpc.API {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIs", chain)
-	ret0, _ := ret[0].([]rpc.API)
-	return ret0
-}
-
-// APIs indicates an expected call of APIs
-func (mr *MockBackendMockRecorder) APIs(chain interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIs", reflect.TypeOf((*MockBackend)(nil).APIs), chain)
-}
-
-// Close mocks base method
-func (m *MockBackend) Close() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Close")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Close indicates an expected call of Close
-func (mr *MockBackendMockRecorder) Close() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockBackend)(nil).Close))
-}
-
-// NewChainHead mocks base method
-func (m *MockBackend) NewChainHead() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewChainHead")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// NewChainHead indicates an expected call of NewChainHead
-func (mr *MockBackendMockRecorder) NewChainHead() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewChainHead", reflect.TypeOf((*MockBackend)(nil).NewChainHead))
-}
-
-// HandleMsg mocks base method
-func (m *MockBackend) HandleMsg(address common.Address, data p2p.Msg) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HandleMsg", address, data)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HandleMsg indicates an expected call of HandleMsg
-func (mr *MockBackendMockRecorder) HandleMsg(address, data interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleMsg", reflect.TypeOf((*MockBackend)(nil).HandleMsg), address, data)
-}
-
-// SetBroadcaster mocks base method
-func (m *MockBackend) SetBroadcaster(arg0 consensus.Broadcaster) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetBroadcaster", arg0)
-}
-
-// SetBroadcaster indicates an expected call of SetBroadcaster
-func (mr *MockBackendMockRecorder) SetBroadcaster(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBroadcaster", reflect.TypeOf((*MockBackend)(nil).SetBroadcaster), arg0)
-}
-
-// Protocol mocks base method
-func (m *MockBackend) Protocol() (string, uint64) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Protocol")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(uint64)
-	return ret0, ret1
-}
-
-// Protocol indicates an expected call of Protocol
-func (mr *MockBackendMockRecorder) Protocol() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Protocol", reflect.TypeOf((*MockBackend)(nil).Protocol))
-}
-
-// Start mocks base method
-func (m *MockBackend) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(common.Hash) bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Start", ctx, chain, currentBlock, hasBadBlock)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Start indicates an expected call of Start
-func (mr *MockBackendMockRecorder) Start(ctx, chain, currentBlock, hasBadBlock interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockBackend)(nil).Start), ctx, chain, currentBlock, hasBadBlock)
-}
-
 // Address mocks base method
 func (m *MockBackend) Address() common.Address {
 	m.ctrl.T.Helper()
@@ -312,6 +50,61 @@ func (m *MockBackend) Address() common.Address {
 func (mr *MockBackendMockRecorder) Address() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockBackend)(nil).Address))
+}
+
+// AddSeal mocks base method
+func (m *MockBackend) AddSeal(block *types.Block) (*types.Block, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddSeal", block)
+	ret0, _ := ret[0].(*types.Block)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddSeal indicates an expected call of AddSeal
+func (mr *MockBackendMockRecorder) AddSeal(block interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSeal", reflect.TypeOf((*MockBackend)(nil).AddSeal), block)
+}
+
+// AskSync mocks base method
+func (m *MockBackend) AskSync(set committee.Set) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AskSync", set)
+}
+
+// AskSync indicates an expected call of AskSync
+func (mr *MockBackendMockRecorder) AskSync(set interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), set)
+}
+
+// Broadcast mocks base method
+func (m *MockBackend) Broadcast(ctx context.Context, valSet committee.Set, payload []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Broadcast", ctx, valSet, payload)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Broadcast indicates an expected call of Broadcast
+func (mr *MockBackendMockRecorder) Broadcast(ctx, valSet, payload interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), ctx, valSet, payload)
+}
+
+// Commit mocks base method
+func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, seals [][]byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Commit", proposalBlock, round, seals)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Commit indicates an expected call of Commit
+func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, seals interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, seals)
 }
 
 // Committee mocks base method
@@ -329,48 +122,32 @@ func (mr *MockBackendMockRecorder) Committee(number interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Committee", reflect.TypeOf((*MockBackend)(nil).Committee), number)
 }
 
-// Subscribe mocks base method
-func (m *MockBackend) Subscribe(types ...interface{}) *event.TypeMuxSubscription {
+// GetContractABI mocks base method
+func (m *MockBackend) GetContractABI() string {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{}
-	for _, a := range types {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "Subscribe", varargs...)
-	ret0, _ := ret[0].(*event.TypeMuxSubscription)
+	ret := m.ctrl.Call(m, "GetContractABI")
+	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// Subscribe indicates an expected call of Subscribe
-func (mr *MockBackendMockRecorder) Subscribe(types ...interface{}) *gomock.Call {
+// GetContractABI indicates an expected call of GetContractABI
+func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockBackend)(nil).Subscribe), types...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
 }
 
-// Post mocks base method
-func (m *MockBackend) Post(ev interface{}) {
+// GetContractAddress mocks base method
+func (m *MockBackend) GetContractAddress() common.Address {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Post", ev)
-}
-
-// Post indicates an expected call of Post
-func (mr *MockBackendMockRecorder) Post(ev interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockBackend)(nil).Post), ev)
-}
-
-// Broadcast mocks base method
-func (m *MockBackend) Broadcast(ctx context.Context, valSet committee.Set, payload []byte) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Broadcast", ctx, valSet, payload)
-	ret0, _ := ret[0].(error)
+	ret := m.ctrl.Call(m, "GetContractAddress")
+	ret0, _ := ret[0].(common.Address)
 	return ret0
 }
 
-// Broadcast indicates an expected call of Broadcast
-func (mr *MockBackendMockRecorder) Broadcast(ctx, valSet, payload interface{}) *gomock.Call {
+// GetContractAddress indicates an expected call of GetContractAddress
+func (mr *MockBackendMockRecorder) GetContractAddress() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), ctx, valSet, payload)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractAddress", reflect.TypeOf((*MockBackend)(nil).GetContractAddress))
 }
 
 // Gossip mocks base method
@@ -385,62 +162,16 @@ func (mr *MockBackendMockRecorder) Gossip(ctx, valSet, payload interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), ctx, valSet, payload)
 }
 
-// Commit mocks base method
-func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, seals [][]byte) error {
+// HandleUnhandledMsgs mocks base method
+func (m *MockBackend) HandleUnhandledMsgs(ctx context.Context) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit", proposalBlock, round, seals)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "HandleUnhandledMsgs", ctx)
 }
 
-// Commit indicates an expected call of Commit
-func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, seals interface{}) *gomock.Call {
+// HandleUnhandledMsgs indicates an expected call of HandleUnhandledMsgs
+func (mr *MockBackendMockRecorder) HandleUnhandledMsgs(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, seals)
-}
-
-// VerifyProposal mocks base method
-func (m *MockBackend) VerifyProposal(arg0 types.Block) (time.Duration, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerifyProposal", arg0)
-	ret0, _ := ret[0].(time.Duration)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// VerifyProposal indicates an expected call of VerifyProposal
-func (mr *MockBackendMockRecorder) VerifyProposal(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyProposal", reflect.TypeOf((*MockBackend)(nil).VerifyProposal), arg0)
-}
-
-// Sign mocks base method
-func (m *MockBackend) Sign(arg0 []byte) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Sign", arg0)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Sign indicates an expected call of Sign
-func (mr *MockBackendMockRecorder) Sign(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockBackend)(nil).Sign), arg0)
-}
-
-// CheckSignature mocks base method
-func (m *MockBackend) CheckSignature(data []byte, addr common.Address, sig []byte) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckSignature", data, addr, sig)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CheckSignature indicates an expected call of CheckSignature
-func (mr *MockBackendMockRecorder) CheckSignature(data, addr, sig interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckSignature", reflect.TypeOf((*MockBackend)(nil).CheckSignature), data, addr, sig)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleUnhandledMsgs", reflect.TypeOf((*MockBackend)(nil).HandleUnhandledMsgs), ctx)
 }
 
 // LastCommittedProposal mocks base method
@@ -472,18 +203,18 @@ func (mr *MockBackendMockRecorder) GetProposer(number interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProposer", reflect.TypeOf((*MockBackend)(nil).GetProposer), number)
 }
 
-// GetProposer mocks base method
+// GetProposerFromAC mocks base method
 func (m *MockBackend) GetProposerFromAC(height uint64, round int64) common.Address {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetProposer", height, round)
+	ret := m.ctrl.Call(m, "GetProposerFromAC", height, round)
 	ret0, _ := ret[0].(common.Address)
 	return ret0
 }
 
-// GetProposer indicates an expected call of GetProposer
-func (mr *MockBackendMockRecorder) GetProposerFromAC(height interface{}, round interface{}) *gomock.Call {
+// GetProposerFromAC indicates an expected call of GetProposerFromAC
+func (mr *MockBackendMockRecorder) GetProposerFromAC(height, round interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProposer", reflect.TypeOf((*MockBackend)(nil).GetProposer), height, round)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProposerFromAC", reflect.TypeOf((*MockBackend)(nil).GetProposerFromAC), height, round)
 }
 
 // HasBadProposal mocks base method
@@ -500,6 +231,18 @@ func (mr *MockBackendMockRecorder) HasBadProposal(hash interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasBadProposal", reflect.TypeOf((*MockBackend)(nil).HasBadProposal), hash)
 }
 
+// Post mocks base method
+func (m *MockBackend) Post(ev interface{}) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Post", ev)
+}
+
+// Post indicates an expected call of Post
+func (mr *MockBackendMockRecorder) Post(ev interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockBackend)(nil).Post), ev)
+}
+
 // SetProposedBlockHash mocks base method
 func (m *MockBackend) SetProposedBlockHash(hash common.Hash) {
 	m.ctrl.T.Helper()
@@ -512,95 +255,64 @@ func (mr *MockBackendMockRecorder) SetProposedBlockHash(hash interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProposedBlockHash", reflect.TypeOf((*MockBackend)(nil).SetProposedBlockHash), hash)
 }
 
-// AddSeal mocks base method
-func (m *MockBackend) AddSeal(block *types.Block) (*types.Block, error) {
+// Sign mocks base method
+func (m *MockBackend) Sign(arg0 []byte) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddSeal", block)
-	ret0, _ := ret[0].(*types.Block)
+	ret := m.ctrl.Call(m, "Sign", arg0)
+	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AddSeal indicates an expected call of AddSeal
-func (mr *MockBackendMockRecorder) AddSeal(block interface{}) *gomock.Call {
+// Sign indicates an expected call of Sign
+func (mr *MockBackendMockRecorder) Sign(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSeal", reflect.TypeOf((*MockBackend)(nil).AddSeal), block)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockBackend)(nil).Sign), arg0)
+}
+
+// Subscribe mocks base method
+func (m *MockBackend) Subscribe(types ...interface{}) *event.TypeMuxSubscription {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range types {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Subscribe", varargs...)
+	ret0, _ := ret[0].(*event.TypeMuxSubscription)
+	return ret0
+}
+
+// Subscribe indicates an expected call of Subscribe
+func (mr *MockBackendMockRecorder) Subscribe(types ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockBackend)(nil).Subscribe), types...)
 }
 
 // SyncPeer mocks base method
-func (m *MockBackend) SyncPeer(address common.Address, messages []*Message) {
+func (m *MockBackend) SyncPeer(address common.Address) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SyncPeer", address, messages)
+	m.ctrl.Call(m, "SyncPeer", address)
 }
 
 // SyncPeer indicates an expected call of SyncPeer
-func (mr *MockBackendMockRecorder) SyncPeer(address, messages interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) SyncPeer(address interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockBackend)(nil).SyncPeer), address, messages)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockBackend)(nil).SyncPeer), address)
 }
 
-// ResetPeerCache mocks base method
-func (m *MockBackend) ResetPeerCache(address common.Address) {
+// VerifyProposal mocks base method
+func (m *MockBackend) VerifyProposal(arg0 types.Block) (time.Duration, error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ResetPeerCache", address)
+	ret := m.ctrl.Call(m, "VerifyProposal", arg0)
+	ret0, _ := ret[0].(time.Duration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// ResetPeerCache indicates an expected call of ResetPeerCache
-func (mr *MockBackendMockRecorder) ResetPeerCache(address interface{}) *gomock.Call {
+// VerifyProposal indicates an expected call of VerifyProposal
+func (mr *MockBackendMockRecorder) VerifyProposal(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetPeerCache", reflect.TypeOf((*MockBackend)(nil).ResetPeerCache), address)
-}
-
-// AskSync mocks base method
-func (m *MockBackend) AskSync(set committee.Set) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AskSync", set)
-}
-
-// AskSync indicates an expected call of AskSync
-func (mr *MockBackendMockRecorder) AskSync(set interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), set)
-}
-
-// HandleUnhandledMsgs mocks base method
-func (m *MockBackend) HandleUnhandledMsgs(ctx context.Context) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "HandleUnhandledMsgs", ctx)
-}
-
-// HandleUnhandledMsgs indicates an expected call of HandleUnhandledMsgs
-func (mr *MockBackendMockRecorder) HandleUnhandledMsgs(ctx interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleUnhandledMsgs", reflect.TypeOf((*MockBackend)(nil).HandleUnhandledMsgs), ctx)
-}
-
-// GetContractAddress mocks base method
-func (m *MockBackend) GetContractAddress() common.Address {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContractAddress")
-	ret0, _ := ret[0].(common.Address)
-	return ret0
-}
-
-// GetContractAddress indicates an expected call of GetContractAddress
-func (mr *MockBackendMockRecorder) GetContractAddress() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractAddress", reflect.TypeOf((*MockBackend)(nil).GetContractAddress))
-}
-
-// GetContractABI mocks base method
-func (m *MockBackend) GetContractABI() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContractABI")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetContractABI indicates an expected call of GetContractABI
-func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyProposal", reflect.TypeOf((*MockBackend)(nil).VerifyProposal), arg0)
 }
 
 // WhiteList mocks base method
@@ -615,4 +327,65 @@ func (m *MockBackend) WhiteList() []string {
 func (mr *MockBackendMockRecorder) WhiteList() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WhiteList", reflect.TypeOf((*MockBackend)(nil).WhiteList))
+}
+
+// MockTendermint is a mock of Tendermint interface
+type MockTendermint struct {
+	ctrl     *gomock.Controller
+	recorder *MockTendermintMockRecorder
+}
+
+// MockTendermintMockRecorder is the mock recorder for MockTendermint
+type MockTendermintMockRecorder struct {
+	mock *MockTendermint
+}
+
+// NewMockTendermint creates a new mock instance
+func NewMockTendermint(ctrl *gomock.Controller) *MockTendermint {
+	mock := &MockTendermint{ctrl: ctrl}
+	mock.recorder = &MockTendermintMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockTendermint) EXPECT() *MockTendermintMockRecorder {
+	return m.recorder
+}
+
+// Start mocks base method
+func (m *MockTendermint) Start(ctx context.Context) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Start", ctx)
+}
+
+// Start indicates an expected call of Start
+func (mr *MockTendermintMockRecorder) Start(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTendermint)(nil).Start), ctx)
+}
+
+// Stop mocks base method
+func (m *MockTendermint) Stop() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Stop")
+}
+
+// Stop indicates an expected call of Stop
+func (mr *MockTendermintMockRecorder) Stop() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockTendermint)(nil).Stop))
+}
+
+// GetCurrentHeightMessages mocks base method
+func (m *MockTendermint) GetCurrentHeightMessages() []*Message {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCurrentHeightMessages")
+	ret0, _ := ret[0].([]*Message)
+	return ret0
+}
+
+// GetCurrentHeightMessages indicates an expected call of GetCurrentHeightMessages
+func (mr *MockTendermintMockRecorder) GetCurrentHeightMessages() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCurrentHeightMessages", reflect.TypeOf((*MockTendermint)(nil).GetCurrentHeightMessages))
 }
