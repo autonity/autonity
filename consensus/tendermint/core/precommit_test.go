@@ -8,9 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/crypto/secp256k1"
+	"github.com/stretchr/testify/require"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -469,20 +471,34 @@ func TestHandleCommit(t *testing.T) {
 
 	logger := log.New("backend", "test", "id", 0)
 
-	block := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
 	addr := common.HexToAddress("0x0123456789")
+	testCommittee, keys := generateCommittee(3)
 
-	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().LastCommittedProposal().MinTimes(1).Return(block, addr)
+	firstKey := keys[testCommittee[0].Address]
 
-	testCommittee, _ := generateCommittee(3)
+	h := &types.Header{Number: big.NewInt(3)}
+
+	// Sign the header so that types.Ecrecover works
+	seal, err := crypto.Sign(crypto.Keccak256(types.SigHash(h).Bytes()), firstKey)
+	require.NoError(t, err)
+
+	err = types.WriteSeal(h, seal)
+	require.NoError(t, err)
+
+	h.Committee = testCommittee
+
+	block := types.NewBlockWithHeader(h)
 	testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
 	committeeSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
-	backendMock.EXPECT().Committee(gomock.Any()).Return(committeeSet, nil)
+	// block = block.WithSeal(h)
+
+	chainReaderMock := consensus.NewMockChainReader(ctrl)
+	backendMock := NewMockBackend(ctrl)
+	backendMock.EXPECT().LastCommittedProposal().MinTimes(1).Return(block, addr)
+	backendMock.EXPECT().BlockChain().Return(chainReaderMock)
+	chainReaderMock.EXPECT().GetHeaderByNumber(gomock.Any()).Return(h)
 
 	c := &core{
 		address:          addr,

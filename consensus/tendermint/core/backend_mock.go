@@ -7,6 +7,7 @@ package core
 import (
 	context "context"
 	common "github.com/clearmatics/autonity/common"
+	consensus "github.com/clearmatics/autonity/consensus"
 	committee "github.com/clearmatics/autonity/consensus/tendermint/committee"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
@@ -105,21 +106,6 @@ func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, seals [][]
 func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, seals interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, seals)
-}
-
-// Committee mocks base method
-func (m *MockBackend) Committee(number uint64) (committee.Set, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Committee", number)
-	ret0, _ := ret[0].(committee.Set)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Committee indicates an expected call of Committee
-func (mr *MockBackendMockRecorder) Committee(number interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Committee", reflect.TypeOf((*MockBackend)(nil).Committee), number)
 }
 
 // GetContractABI mocks base method
@@ -327,6 +313,20 @@ func (m *MockBackend) WhiteList() []string {
 func (mr *MockBackendMockRecorder) WhiteList() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WhiteList", reflect.TypeOf((*MockBackend)(nil).WhiteList))
+}
+
+// BlockChain mocks base method
+func (m *MockBackend) BlockChain() consensus.ChainReader {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockChain")
+	ret0, _ := ret[0].(consensus.ChainReader)
+	return ret0
+}
+
+// BlockChain indicates an expected call of BlockChain
+func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockChain", reflect.TypeOf((*MockBackend)(nil).BlockChain))
 }
 
 // MockTendermint is a mock of Tendermint interface

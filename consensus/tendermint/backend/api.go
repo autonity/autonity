@@ -19,6 +19,7 @@ package backend
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
@@ -26,13 +27,14 @@ import (
 
 // API is a user facing RPC API to dump BFT state
 type API struct {
-	chain      consensus.ChainReader
-	tendermint core.Backend //TODO: This is only for testing purposes, should be changed to *Backend but that would mean to fix the api tests (https://github.com/clearmatics/autonity/issues/479)
+	chain          consensus.ChainReader
+	tendermint     core.Backend //TODO: This is only for testing purposes, should be changed to *Backend but that would mean to fix the api tests (https://github.com/clearmatics/autonity/issues/479)
+	savedCommittee func(number uint64, chain consensus.ChainReader) (committee.Set, error)
 }
 
 // GetCommittee retrieves the list of authorized committee at the specified block.
 func (api *API) GetCommittee(number *rpc.BlockNumber) (types.Committee, error) {
-	committeeSet, err := api.tendermint.Committee(uint64(*number))
+	committeeSet, err := api.savedCommittee(uint64(*number), api.chain)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +47,7 @@ func (api *API) GetCommitteeAtHash(hash common.Hash) (types.Committee, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	committeeSet, err := api.tendermint.Committee(header.Number.Uint64())
+	committeeSet, err := api.savedCommittee(header.Number.Uint64(), api.chain)
 	if err != nil {
 		return nil, err
 	}

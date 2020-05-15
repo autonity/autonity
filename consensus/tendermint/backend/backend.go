@@ -132,20 +132,15 @@ type Backend struct {
 	vmConfig                *vm.Config
 }
 
+func (sb *Backend) BlockChain() consensus.ChainReader {
+	return sb.blockchain
+}
+
 // Address implements tendermint.Backend.Address
 func (sb *Backend) Address() common.Address {
 	sb.privateKeyMu.RLock()
 	defer sb.privateKeyMu.RUnlock()
 	return sb.address
-}
-
-func (sb *Backend) Committee(number uint64) (committee.Set, error) {
-	validators, err := savedCommittee(number, sb.blockchain)
-	if err != nil {
-		sb.logger.Error("could not retrieve saved committee", "height", number, "err", err)
-		return nil, err
-	}
-	return validators, nil
 }
 
 // Broadcast implements tendermint.Backend.Broadcast

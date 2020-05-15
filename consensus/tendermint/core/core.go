@@ -27,6 +27,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/consensus/tendermint/temp"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -323,7 +324,8 @@ func (c *core) setInitialState(r int64) {
 	if r == 0 {
 		lastBlockMined, _ := c.backend.LastCommittedProposal()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-		committeeSet, err := c.backend.Committee(c.Height().Uint64())
+
+		committeeSet, err := temp.SavedCommittee(c.height.Uint64(), c.backend.BlockChain())
 		if err != nil {
 			c.logger.Error("fatal error: could not retrieve saved committee")
 			panic(err)

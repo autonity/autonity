@@ -39,6 +39,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	tendermintCrypto "github.com/clearmatics/autonity/consensus/tendermint/crypto"
+	"github.com/clearmatics/autonity/consensus/tendermint/temp"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
@@ -680,7 +681,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 		panic(err)
 	}
 
-	validators, err := b.Committee(0)
+	validators, err := temp.SavedCommittee(0, blockchain)
 	if err != nil || validators.Size() == 0 {
 		panic("failed to get committee")
 	}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
@@ -24,9 +25,6 @@ type Backend interface {
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
 	Commit(proposalBlock *types.Block, round int64, seals [][]byte) error
-
-	// Validators returns the committee set
-	Committee(number uint64) (committee.Set, error)
 
 	GetContractABI() string
 
@@ -66,6 +64,8 @@ type Backend interface {
 	VerifyProposal(types.Block) (time.Duration, error)
 
 	WhiteList() []string
+
+	BlockChain() consensus.ChainReader
 }
 
 type Tendermint interface {

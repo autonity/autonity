@@ -221,7 +221,7 @@ func TestVerifySeal(t *testing.T) {
 	header.Number = big.NewInt(4)
 	block1 := block.WithSeal(header)
 	err = engine.VerifySeal(chain, block1.Header())
-	if err != errUnknownBlock {
+	if err != errUnknownBlock && err.Error() != "unknown block" {
 		t.Errorf("error mismatch: have %v, want %v", err, errUnknownBlock)
 	}
 

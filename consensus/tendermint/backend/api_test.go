@@ -16,9 +16,6 @@ import (
 )
 
 func TestGetCommittee(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	val := types.CommitteeMember{
 		Address:     common.HexToAddress("0x0123456789"),
 		VotingPower: new(big.Int).SetInt64(132),
@@ -30,11 +27,13 @@ func TestGetCommittee(t *testing.T) {
 		t.Error(err)
 	}
 
-	backend := core.NewMockBackend(ctrl)
-	backend.EXPECT().Committee(uint64(1)).Return(committeeSet, nil)
-
 	API := &API{
-		tendermint: backend,
+		savedCommittee: func(number uint64, chain consensus.ChainReader) (committee.Set, error) {
+			if number == 1 {
+				return committeeSet, nil
+			}
+			return nil, nil
+		},
 	}
 
 	bn := rpc.BlockNumber(1)
@@ -89,12 +88,14 @@ func TestGetCommitteeAtHash(t *testing.T) {
 			t.Error(err)
 		}
 
-		backend := core.NewMockBackend(ctrl)
-		backend.EXPECT().Committee(uint64(1)).Return(committeeSet, nil)
-
 		API := &API{
-			chain:      chain,
-			tendermint: backend,
+			chain: chain,
+			savedCommittee: func(number uint64, chain consensus.ChainReader) (committee.Set, error) {
+				if number == 1 {
+					return committeeSet, nil
+				}
+				return nil, nil
+			},
 		}
 
 		got, err := API.GetCommitteeAtHash(hash)
