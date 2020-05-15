@@ -140,7 +140,7 @@ func (sb *Backend) Address() common.Address {
 }
 
 func (sb *Backend) Committee(number uint64) (committee.Set, error) {
-	validators, err := sb.savedCommittee(number, sb.blockchain)
+	validators, err := savedCommittee(number, sb.blockchain)
 	if err != nil {
 		sb.logger.Error("could not retrieve saved committee", "height", number, "err", err)
 		return nil, err

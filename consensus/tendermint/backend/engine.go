@@ -198,7 +198,7 @@ func (sb *Backend) verifySigner(chain consensus.ChainReader, header *types.Heade
 		return errUnknownBlock
 	}
 
-	committee, err := sb.committee(header, parents, chain)
+	committee, err := getCommittee(header, parents, chain)
 
 	if err != nil {
 		return err
@@ -232,7 +232,7 @@ func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 		return nil
 	}
 
-	committeeSet, err := sb.committee(header, parents, chain)
+	committeeSet, err := getCommittee(header, parents, chain)
 	if err != nil {
 		return err
 	}
@@ -548,7 +548,7 @@ func (sb *Backend) Close() error {
 }
 
 // retrieve list of committee for the block at height passed as parameter
-func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (committee.Set, error) {
+func savedCommittee(number uint64, chain consensus.ChainReader) (committee.Set, error) {
 	var lastProposer common.Address
 	var err error
 	if number == 0 {
@@ -560,7 +560,7 @@ func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (c
 	}
 	// For the genesis block, lastProposer is no one (empty).
 	if number > 1 {
-		lastProposer, err = sb.Author(parentHeader)
+		lastProposer, err = types.Ecrecover(parentHeader)
 		if err != nil {
 			return nil, err
 		}
@@ -568,8 +568,8 @@ func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (c
 	return committee.NewRoundRobinSet(parentHeader.Committee, lastProposer)
 }
 
-// retrieve list of committee for the block header passed as parameter
-func (sb *Backend) committee(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error) {
+// retrieve list of getCommittee for the block header passed as parameter
+func getCommittee(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error) {
 
 	// We can't use savedCommittee if parents are being passed :
 	// those blocks are not yet saved in the blockchain.
@@ -578,13 +578,13 @@ func (sb *Backend) committee(header *types.Header, parents []*types.Header, chai
 
 	if len(parents) > 0 {
 		parent := parents[len(parents)-1]
-		lastMiner, err := sb.Author(parent)
+		lastMiner, err := types.Ecrecover(parent)
 		if err != nil {
 			return nil, err
 		}
 		return committee.NewRoundRobinSet(header.Committee, lastMiner)
 	} else {
-		return sb.savedCommittee(header.Number.Uint64(), chain)
+		return savedCommittee(header.Number.Uint64(), chain)
 	}
 }
 
