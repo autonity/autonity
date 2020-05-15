@@ -19,7 +19,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	"github.com/clearmatics/autonity/metrics"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -157,10 +157,6 @@ The export-preimages command export hash preimages to an RLP encoded stream`,
 			utils.CacheFlag,
 			utils.SyncModeFlag,
 			utils.FakePoWFlag,
-			utils.RopstenFlag,
-			utils.RinkebyFlag,
-			utils.GoerliFlag,
-			utils.LegacyTestnetFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
@@ -206,10 +202,6 @@ Use "ethereum dump 0" to dump the genesis block.`,
 			utils.DataDirFlag,
 			utils.AncientFlag,
 			utils.CacheFlag,
-			utils.RopstenFlag,
-			utils.RinkebyFlag,
-			utils.GoerliFlag,
-			utils.LegacyTestnetFlag,
 			utils.SyncModeFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
@@ -246,8 +238,7 @@ func initGenesis(ctx *cli.Context) error {
 	}
 
 	if err := genesis.Config.AutonityContractConfig.AddDefault().Validate(); err != nil {
-		spew.Dump(genesis.Config.AutonityContractConfig)
-		return fmt.Errorf("autonity contract section is invalid. error:%v", err.Error())
+		utils.Fatalf("autonity contract section is invalid. error: %v", err.Error())
 	}
 
 	setupDefaults(genesis)
@@ -286,10 +277,7 @@ func setupDefaults(genesis *core.Genesis) {
 }
 
 func dumpGenesis(ctx *cli.Context) error {
-	genesis := utils.MakeGenesis(ctx)
-	if genesis == nil {
-		genesis = core.DefaultGenesisBlock()
-	}
+	genesis := core.DefaultGenesisBlock()
 	if err := json.NewEncoder(os.Stdout).Encode(genesis); err != nil {
 		utils.Fatalf("could not encode genesis")
 	}

@@ -20,7 +20,6 @@ import (
 	"hash"
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/rlp"
 	"golang.org/x/crypto/sha3"
 )

@@ -428,7 +428,6 @@ type Ethash struct {
 	threads  int           // Number of threads to mine on if mining
 	update   chan struct{} // Notification channel to update mining parameters
 	hashrate metrics.Meter // Meter tracking the average hashrate
-	remote   *remoteSealer
 
 	// The fields below are hooks for testing
 	shared    *Ethash       // Shared PoW verifier to avoid cache regeneration
@@ -463,7 +462,6 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeterForced(),
 	}
-	ethash.remote = startRemoteSealer(ethash, notify, noverify)
 	return ethash
 }
 
@@ -477,7 +475,6 @@ func NewTester(notify []string, noverify bool) *Ethash {
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeterForced(),
 	}
-	ethash.remote = startRemoteSealer(ethash, notify, noverify)
 	return ethash
 }
 
@@ -540,12 +537,7 @@ func NewShared() *Ethash {
 func (ethash *Ethash) Close() error {
 	var err error
 	ethash.closeOnce.Do(func() {
-		// Short circuit if the exit channel is not allocated.
-		if ethash.remote == nil {
-			return
-		}
-		close(ethash.remote.requestExit)
-		<-ethash.remote.exitCh
+
 	})
 	return err
 }
@@ -644,13 +636,6 @@ func (ethash *Ethash) Hashrate() float64 {
 		return ethash.hashrate.Rate1()
 	}
 	var res = make(chan uint64, 1)
-
-	select {
-	case ethash.remote.fetchRateCh <- res:
-	case <-ethash.remote.exitCh:
-		// Return local hashrate only if ethash is stopped.
-		return ethash.hashrate.Rate1()
-	}
 
 	// Gather total submitted hash rate of remote sealers.
 	return ethash.hashrate.Rate1() + float64(<-res)

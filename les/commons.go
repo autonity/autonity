@@ -18,6 +18,7 @@ package les
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/les/checkpointoracle"
 	"math/big"
 	"sync"
 

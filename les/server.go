@@ -18,6 +18,7 @@ package les
 
 import (
 	"crypto/ecdsa"
+	"github.com/clearmatics/autonity/les/checkpointoracle"
 	"time"
 
 	"github.com/clearmatics/autonity/accounts/abi/bind"

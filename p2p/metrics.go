@@ -21,8 +21,6 @@ package p2p
 import (
 	"net"
 
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
 )
 

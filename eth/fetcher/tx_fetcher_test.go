@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/types"
 )
 
 var (

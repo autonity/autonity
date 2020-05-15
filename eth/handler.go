@@ -913,7 +913,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 }
 
 func (pm *ProtocolManager) Enqueue(id string, block *types.Block) {
-	pm.fetcher.Enqueue(id, block)
+	pm.blockFetcher.Enqueue(id, block)
 }
 
 // BroadcastBlock will either propagate a block to a subset of it's peers, or

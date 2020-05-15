@@ -19,6 +19,8 @@ package console
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/internal/jsre"
 	"io"
 	"reflect"
 	"strings"
@@ -26,7 +28,6 @@ import (
 
 	"github.com/clearmatics/autonity/accounts/scwallet"
 	"github.com/clearmatics/autonity/accounts/usbwallet"
-	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rpc"
 	"github.com/dop251/goja"
 )

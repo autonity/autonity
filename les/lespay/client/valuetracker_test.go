@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/ethdb/memorydb"
-	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/clearmatics/autonity/ethdb/memorydb"
+	"github.com/clearmatics/autonity/p2p/enode"
 
-	"github.com/ethereum/go-ethereum/les/utils"
+	"github.com/clearmatics/autonity/les/utils"
 )
 
 const (

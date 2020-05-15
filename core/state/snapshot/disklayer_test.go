@@ -23,11 +23,11 @@ import (
 	"testing"
 
 	"github.com/VictoriaMetrics/fastcache"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/ethdb/leveldb"
-	"github.com/ethereum/go-ethereum/ethdb/memorydb"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/ethdb/leveldb"
+	"github.com/clearmatics/autonity/ethdb/memorydb"
 )
 
 // reverse reverses the contents of a byte slice. It's used to update random accs

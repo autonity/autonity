@@ -578,7 +578,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 				return errors.New("transaction gas price is less than Autonity Contract minimum gas price")
 			}
 		} else {
-			fmt.Println("gp, err", err)
+			return err
 		}
 	}
 
@@ -1185,7 +1185,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
-	senderCacher.recover(pool.signer, reinject)
+	pool.senderCacher.recover(pool.signer, reinject)
 	pool.addTxsLocked(reinject, false)
 
 	// Update all fork indicator by next pending block number.

@@ -20,6 +20,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/core/state/snapshot"
 	"io"
 	"math/big"
 	mrand "math/rand"
@@ -1580,7 +1581,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		return 0, nil
 	}
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
-	senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
+	bc.senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
 
 	var (
 		stats     = insertStats{startTime: mclock.Now()}
@@ -2369,7 +2370,7 @@ func (bc *BlockChain) GetMinGasPrice(blockNumber ...uint64) (*big.Int, error) {
 		block = bc.CurrentBlock()
 	}
 
-	statedb, err := state.New(block.Root(), bc.stateCache)
+	statedb, err := state.New(block.Root(), bc.stateCache, nil)
 	if err != nil {
 		return nil, err
 	}

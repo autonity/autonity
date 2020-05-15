@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/clearmatics/autonity/rpc"
 	"github.com/stretchr/testify/assert"
 )
 

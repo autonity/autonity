@@ -18,6 +18,8 @@ package discover
 
 import (
 	"crypto/ecdsa"
+	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/clearmatics/autonity/p2p/enr"
 	"net"
 
 	"github.com/clearmatics/autonity/log"

@@ -18,6 +18,7 @@ package graphql
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/node"
 	"net"
 	"net/http"
 

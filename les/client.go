@@ -19,6 +19,8 @@ package les
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/les/checkpointoracle"
+	lpc "github.com/clearmatics/autonity/les/lespay/client"
 	"time"
 
 	"github.com/clearmatics/autonity/accounts"

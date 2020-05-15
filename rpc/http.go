@@ -28,9 +28,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/clearmatics/autonity/log"
-	"github.com/rs/cors"
 )
 
 const (

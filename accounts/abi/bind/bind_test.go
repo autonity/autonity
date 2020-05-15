@@ -1548,10 +1548,10 @@ var bindTests = []struct {
 		`
 			"math/big"
 
-			"github.com/ethereum/go-ethereum/accounts/abi/bind"
-			"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-			"github.com/ethereum/go-ethereum/core"
-			"github.com/ethereum/go-ethereum/crypto"
+			"github.com/clearmatics/autonity/accounts/abi/bind"
+			"github.com/clearmatics/autonity/accounts/abi/bind/backends"
+			"github.com/clearmatics/autonity/core"
+			"github.com/clearmatics/autonity/crypto"
 		`,
 		`
 			// Generate a new random account and a funded simulator
@@ -1613,10 +1613,10 @@ var bindTests = []struct {
 			"bytes"
 			"math/big"
 	
-			"github.com/ethereum/go-ethereum/accounts/abi/bind"
-			"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-			"github.com/ethereum/go-ethereum/core"
-			"github.com/ethereum/go-ethereum/crypto"
+			"github.com/clearmatics/autonity/accounts/abi/bind"
+			"github.com/clearmatics/autonity/accounts/abi/bind/backends"
+			"github.com/clearmatics/autonity/core"
+			"github.com/clearmatics/autonity/crypto"
 	   `,
 		`
 			key, _ := crypto.GenerateKey()

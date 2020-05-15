@@ -94,7 +94,7 @@ func (ctx *ServiceContext) ExtRPCEnabled() bool {
 
 // NodeKey returns node key from config
 func (ctx *ServiceContext) NodeKey() *ecdsa.PrivateKey {
-	return ctx.config.NodeKey()
+	return ctx.Config.NodeKey()
 }
 
 // ServiceConstructor is the function signature of the constructors needed to be

@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/clearmatics/autonity/core/state/snapshot"
 	"math/big"
 	"strconv"
 	"strings"

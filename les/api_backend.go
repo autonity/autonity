@@ -23,7 +23,6 @@ import (
 
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/bloombits"

@@ -19,6 +19,7 @@ package les
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/les/utils"
 	"io"
 	"math"
 	"math/rand"

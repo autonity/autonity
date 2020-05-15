@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/clearmatics/autonity/core/state/snapshot"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -123,7 +124,7 @@ func (t *BlockTest) Run(snapshotter bool) error {
 		cache.SnapshotLimit = 1
 		cache.SnapshotWait = true
 	}
-	chain, err := core.NewBlockChain(db, cache, config, engine, vm.Config{}, nil)
+	chain, err := core.NewBlockChain(db, cache, config, engine, vm.Config{}, nil, &core.TxSenderCacher{})
 	if err != nil {
 		return err
 	}
