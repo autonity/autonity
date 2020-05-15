@@ -160,7 +160,7 @@ func TestTendermintOnOldProposal(t *testing.T) {
 		c := New(backendMock)
 		c.committeeSet = committeeSet
 		c.height = currentHeight
-		c.round = roundProposed
+		c.round = 1
 		// condition (lockedRound_p <= vr || lockedValue_p = v, line 29.
 		c.lockedRound = 1
 		c.lockedValue = proposalBlock
