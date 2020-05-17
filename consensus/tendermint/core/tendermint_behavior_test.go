@@ -9,14 +9,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"math/rand"
+	"sort"
 	"strconv"
 	"testing"
 )
 
+// TODO: We should create a utility function which can we used across different test files, it can be related to this
+// issue https://github.com/clearmatics/autonity/issues/525
 func prepareCommittee() types.Committee {
 	// prepare committee.
 	minSize := 4
-	maxSize := 15
+	maxSize := 100
 	committeeSize := rand.Intn(maxSize-minSize) + minSize
 	committeeSet := types.Committee{}
 	for i := 1; i <= committeeSize; i++ {
@@ -34,6 +37,98 @@ func generateBlock(height *big.Int) *types.Block {
 	header := &types.Header{Number: height}
 	block := types.NewBlock(header, nil, nil, nil)
 	return block
+}
+
+func TestTendermintStartRoundVariables(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	backendMock := NewMockBackend(ctrl)
+
+	prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
+	prevBlock := generateBlock(prevHeight)
+	currentHeight := big.NewInt(prevHeight.Int64() + 1)
+	currentBlock := generateBlock(currentHeight)
+	currentRound := int64(0)
+
+	// We need to sort committee to have deterministic proposer for round 0. Since we have to say who was the last
+	// proposer when calling committee.NewSet(), if the committee set passed to the new set is not sorted then the
+	// index of last proposer will change and thus the index of proposer for round 0 will also change. Therefore
+	// this test will be different every time is run as the client address can be the proposer for round 0 and a
+	// different code path will be executed.
+	currentCommittee := prepareCommittee()
+	sort.Sort(currentCommittee)
+
+	prevBlockProposerIndex := rand.Intn(len(currentCommittee))
+	prevBlockProposer := currentCommittee[prevBlockProposerIndex].Address
+
+	// We don't care who is the next proposer so for simplicity we ensure that clientAddress is not the next
+	// proposer by setting clientAddress to be the address before prevBlockProposer in the ordered list. This will
+	// ensure that the test will not run the broadcast method from backend, since the client will not be proposing
+	// for round 0.
+	clientAddress := currentCommittee[prevBlockProposerIndex-1%len(currentCommittee)].Address
+	committeeSet, err := committee.NewSet(currentCommittee, prevBlockProposer)
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Run("ensure round 0 state variables are set correctly", func(t *testing.T) {
+		backendMock.EXPECT().Address().Return(clientAddress)
+		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, prevBlockProposer)
+		backendMock.EXPECT().Committee(currentHeight.Uint64()).Return(committeeSet, nil)
+
+		core := New(backendMock)
+		core.startRound(context.Background(), currentRound)
+
+		// Check the initial consensus state
+		assert.Equal(t, core.Height(), currentHeight)
+		assert.Equal(t, core.Round(), currentRound)
+		assert.Equal(t, core.step, propose)
+		assert.Nil(t, core.lockedValue)
+		assert.Equal(t, core.lockedRound, int64(-1))
+		assert.Nil(t, core.validValue)
+		assert.Equal(t, core.validRound, int64(-1))
+	})
+
+	t.Run("ensure round x state variables are updated correctly", func(t *testing.T) {
+		// In this test we are interested in making sure that that values which change in the current round that may
+		// have an impact on the actions performed in the following round (in case of round change) are persisted
+		// through to the subsequent round.
+		backendMock.EXPECT().Address().Return(clientAddress)
+		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, prevBlockProposer).MaxTimes(2)
+		backendMock.EXPECT().Committee(currentHeight.Uint64()).Return(committeeSet, nil).MaxTimes(2)
+
+		core := New(backendMock)
+		core.startRound(context.Background(), currentRound)
+
+		// Check the initial consensus state
+		assert.Equal(t, core.Height(), currentHeight)
+		assert.Equal(t, core.Round(), currentRound)
+		assert.Equal(t, core.step, propose)
+		assert.Nil(t, core.lockedValue)
+		assert.Equal(t, core.lockedRound, int64(-1))
+		assert.Nil(t, core.validValue)
+		assert.Equal(t, core.validRound, int64(-1))
+
+		// Update locked and valid Value (if locked value changes then valid value also changes, ie quorum(prevotes)
+		// delivered in prevote step)
+		core.lockedValue = currentBlock
+		core.lockedRound = currentRound
+		core.validValue = currentBlock
+		core.validRound = currentRound
+
+		// Move to next round anc check the expected state
+		core.startRound(context.Background(), currentRound+1)
+
+		// check consensus state
+		assert.Equal(t, core.Height(), currentHeight)
+		assert.Equal(t, core.Round(), currentRound+1)
+		assert.Equal(t, core.step, propose)
+		assert.Equal(t, core.lockedValue, currentBlock)
+		assert.Equal(t, core.lockedRound, currentRound)
+		assert.Equal(t, core.validValue, currentBlock)
+		assert.Equal(t, core.validRound, currentRound)
+	})
 }
 
 // It test the page-6, from Line-14 to Line 19, StartRound() function from proposer point of view of tendermint pseudo-code.
