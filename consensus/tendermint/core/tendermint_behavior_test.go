@@ -14,31 +14,6 @@ import (
 	"testing"
 )
 
-// TODO: We should create a utility function which can we used across different test files, it can be related to this
-// issue https://github.com/clearmatics/autonity/issues/525
-func prepareCommittee() types.Committee {
-	// prepare committee.
-	minSize := 4
-	maxSize := 100
-	committeeSize := rand.Intn(maxSize-minSize) + minSize
-	committeeSet := types.Committee{}
-	for i := 1; i <= committeeSize; i++ {
-		hexString := "0x01234567890" + strconv.Itoa(i)
-		member := types.CommitteeMember{
-			Address:     common.HexToAddress(hexString),
-			VotingPower: new(big.Int).SetInt64(1),
-		}
-		committeeSet = append(committeeSet, member)
-	}
-	return committeeSet
-}
-
-func generateBlock(height *big.Int) *types.Block {
-	header := &types.Header{Number: height}
-	block := types.NewBlock(header, nil, nil, nil)
-	return block
-}
-
 func TestTendermintStartRoundVariables(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -255,4 +230,29 @@ func TestTendermintFollowerStartRound(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+}
+
+// TODO: We should create a utility function which can we used across different test files, it can be related to this
+// issue https://github.com/clearmatics/autonity/issues/525
+func prepareCommittee() types.Committee {
+	// prepare committee.
+	minSize := 4
+	maxSize := 100
+	committeeSize := rand.Intn(maxSize-minSize) + minSize
+	committeeSet := types.Committee{}
+	for i := 1; i <= committeeSize; i++ {
+		hexString := "0x01234567890" + strconv.Itoa(i)
+		member := types.CommitteeMember{
+			Address:     common.HexToAddress(hexString),
+			VotingPower: new(big.Int).SetInt64(1),
+		}
+		committeeSet = append(committeeSet, member)
+	}
+	return committeeSet
+}
+
+func generateBlock(height *big.Int) *types.Block {
+	header := &types.Header{Number: height}
+	block := types.NewBlock(header, nil, nil, nil)
+	return block
 }
