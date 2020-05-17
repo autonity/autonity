@@ -93,10 +93,9 @@ func TestStartRoundVariables(t *testing.T) {
 		core.validValue = currentBlock
 		core.validRound = currentRound
 
-		// Move to next round anc check the expected state
+		// Move to next round and check the expected state
 		core.startRound(context.Background(), currentRound+1)
 
-		// check consensus state
 		assert.Equal(t, core.Height(), currentHeight)
 		assert.Equal(t, core.Round(), currentRound+1)
 		assert.Equal(t, core.step, propose)
