@@ -72,12 +72,23 @@ func TestTendermintStartRoundVariables(t *testing.T) {
 		t.Error(err)
 	}
 
+	overrideDefaultCoreValues := func(core *core) {
+		core.height = big.NewInt(-1)
+		core.round = int64(-1)
+		core.step = precommitDone
+		core.lockedValue = &types.Block{}
+		core.lockedRound = 0
+		core.validValue = &types.Block{}
+		core.validRound = 0
+	}
+
 	t.Run("ensure round 0 state variables are set correctly", func(t *testing.T) {
 		backendMock.EXPECT().Address().Return(clientAddress)
 		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, prevBlockProposer)
 		backendMock.EXPECT().Committee(currentHeight.Uint64()).Return(committeeSet, nil)
 
 		core := New(backendMock)
+		overrideDefaultCoreValues(core)
 		core.startRound(context.Background(), currentRound)
 
 		// Check the initial consensus state
@@ -99,6 +110,7 @@ func TestTendermintStartRoundVariables(t *testing.T) {
 		backendMock.EXPECT().Committee(currentHeight.Uint64()).Return(committeeSet, nil).MaxTimes(2)
 
 		core := New(backendMock)
+		overrideDefaultCoreValues(core)
 		core.startRound(context.Background(), currentRound)
 
 		// Check the initial consensus state
