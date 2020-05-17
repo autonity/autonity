@@ -9,12 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"math/rand"
-	"sort"
 	"strconv"
 	"testing"
 )
 
-func TestTendermintStartRoundVariables(t *testing.T) {
+func TestStartRoundVariables(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -26,23 +25,13 @@ func TestTendermintStartRoundVariables(t *testing.T) {
 	currentBlock := generateBlock(currentHeight)
 	currentRound := int64(0)
 
-	// We need to sort committee to have deterministic proposer for round 0. Since we have to say who was the last
-	// proposer when calling committee.NewSet(), if the committee set passed to the new set is not sorted then the
-	// index of last proposer will change and thus the index of proposer for round 0 will also change. Therefore
-	// this test will be different every time is run as the client address can be the proposer for round 0 and a
-	// different code path will be executed.
-	currentCommittee := prepareCommittee()
-	sort.Sort(currentCommittee)
-
-	prevBlockProposerIndex := rand.Intn(len(currentCommittee))
-	prevBlockProposer := currentCommittee[prevBlockProposerIndex].Address
-
 	// We don't care who is the next proposer so for simplicity we ensure that clientAddress is not the next
-	// proposer by setting clientAddress to be the address before prevBlockProposer in the ordered list. This will
-	// ensure that the test will not run the broadcast method from backend, since the client will not be proposing
-	// for round 0.
-	clientAddress := currentCommittee[prevBlockProposerIndex-1%len(currentCommittee)].Address
-	committeeSet, err := committee.NewSet(currentCommittee, prevBlockProposer)
+	// proposer by setting clientAddress to be the last proposer. This will ensure that the test will not run the
+	// broadcast method from backend (used for sending messages, in this case it would have been a proposal), since the
+	// client will not be proposing for until round round%len(committee)=0
+	currentCommittee := prepareCommittee()
+	clientAddress := currentCommittee[rand.Intn(len(currentCommittee))].Address
+	committeeSet, err := committee.NewSet(currentCommittee, clientAddress)
 	if err != nil {
 		t.Error(err)
 	}
@@ -59,7 +48,7 @@ func TestTendermintStartRoundVariables(t *testing.T) {
 
 	t.Run("ensure round 0 state variables are set correctly", func(t *testing.T) {
 		backendMock.EXPECT().Address().Return(clientAddress)
-		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, prevBlockProposer)
+		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress)
 		backendMock.EXPECT().Committee(currentHeight.Uint64()).Return(committeeSet, nil)
 
 		core := New(backendMock)
@@ -81,7 +70,7 @@ func TestTendermintStartRoundVariables(t *testing.T) {
 		// have an impact on the actions performed in the following round (in case of round change) are persisted
 		// through to the subsequent round.
 		backendMock.EXPECT().Address().Return(clientAddress)
-		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, prevBlockProposer).MaxTimes(2)
+		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress).MaxTimes(2)
 		backendMock.EXPECT().Committee(currentHeight.Uint64()).Return(committeeSet, nil).MaxTimes(2)
 
 		core := New(backendMock)
