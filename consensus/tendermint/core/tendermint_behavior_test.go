@@ -60,13 +60,13 @@ func TestStartRoundVariables(t *testing.T) {
 		core.startRound(context.Background(), currentRound)
 
 		// Check the initial consensus state
-		assert.Equal(t, core.Height(), currentHeight)
-		assert.Equal(t, core.Round(), currentRound)
-		assert.Equal(t, core.step, propose)
+		assert.Equal(t, currentHeight, core.Height())
+		assert.Equal(t, currentRound, core.Round())
+		assert.Equal(t, propose, core.step)
 		assert.Nil(t, core.lockedValue)
-		assert.Equal(t, core.lockedRound, int64(-1))
+		assert.Equal(t, int64(-1), core.lockedRound)
 		assert.Nil(t, core.validValue)
-		assert.Equal(t, core.validRound, int64(-1))
+		assert.Equal(t, int64(-1), core.validRound)
 	})
 
 	t.Run("ensure round x state variables are updated correctly", func(t *testing.T) {
@@ -82,13 +82,13 @@ func TestStartRoundVariables(t *testing.T) {
 		core.startRound(context.Background(), currentRound)
 
 		// Check the initial consensus state
-		assert.Equal(t, core.Height(), currentHeight)
-		assert.Equal(t, core.Round(), currentRound)
-		assert.Equal(t, core.step, propose)
+		assert.Equal(t, currentHeight, core.Height())
+		assert.Equal(t, currentRound, core.Round())
+		assert.Equal(t, propose, core.step)
 		assert.Nil(t, core.lockedValue)
-		assert.Equal(t, core.lockedRound, int64(-1))
+		assert.Equal(t, int64(-1), core.lockedRound)
 		assert.Nil(t, core.validValue)
-		assert.Equal(t, core.validRound, int64(-1))
+		assert.Equal(t, int64(-1), core.validRound)
 
 		// Update locked and valid Value (if locked value changes then valid value also changes, ie quorum(prevotes)
 		// delivered in prevote step)
@@ -101,12 +101,12 @@ func TestStartRoundVariables(t *testing.T) {
 		core.startRound(context.Background(), currentRound+1)
 
 		assert.Equal(t, core.Height(), currentHeight)
-		assert.Equal(t, core.Round(), currentRound+1)
-		assert.Equal(t, core.step, propose)
-		assert.Equal(t, core.lockedValue, currentBlock)
-		assert.Equal(t, core.lockedRound, currentRound)
-		assert.Equal(t, core.validValue, currentBlock)
-		assert.Equal(t, core.validRound, currentRound)
+		assert.Equal(t, currentRound+1, core.Round())
+		assert.Equal(t, propose, core.step)
+		assert.Equal(t, currentBlock, core.lockedValue)
+		assert.Equal(t, currentRound, core.lockedRound)
+		assert.Equal(t, currentBlock, core.validValue)
+		assert.Equal(t, currentRound, core.validRound)
 
 		// Update valid value (we didn't receive quorum prevote in prevote step, also the block changed, ie, locked
 		// value and valid value are different)
@@ -118,40 +118,22 @@ func TestStartRoundVariables(t *testing.T) {
 		core.startRound(context.Background(), currentRound+2)
 
 		assert.Equal(t, core.Height(), currentHeight)
-		assert.Equal(t, core.Round(), currentRound+2)
-		assert.Equal(t, core.step, propose)
-		assert.Equal(t, core.lockedValue, currentBlock)
-		assert.Equal(t, core.lockedRound, currentRound)
-		assert.Equal(t, core.validValue, currentBlock2)
-		assert.Equal(t, core.validRound, currentRound+1)
+		assert.Equal(t, currentRound+2, core.Round())
+		assert.Equal(t, propose, core.step)
+		assert.Equal(t, currentBlock, core.lockedValue)
+		assert.Equal(t, currentRound, core.lockedRound)
+		assert.Equal(t, currentBlock2, core.validValue)
+		assert.Equal(t, currentRound+1, core.validRound)
 	})
 }
 
 func TestStartRound(t *testing.T) {
-	t.Run("client is the proposer and valid value is nil", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-		currentCommittee := prepareCommittee()
-		lastBlockProposerIndex := rand.Intn(len(currentCommittee))
-		lastBlockProposer := currentCommittee[lastBlockProposerIndex].Address
-		clientAddress := currentCommittee[lastBlockProposerIndex+1%(len(currentCommittee))].Address
-		committeeSet, err := committee.NewSet(currentCommittee, lastBlockProposer)
-		if err != nil {
-			t.Errorf("Committee set error: %v", err)
-		}
-
-		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
-		prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
-		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
-		proposalBlock := generateBlock(proposalHeight, types.BlockNonce{12, 23, 34, 45, 56, 67, 78, 89})
-		// Ensure cliendAddress is the proposer by setting the by choosing a round such that
-		// r := randomInt * len(currentCommittee)
-		// r % len(currentCommittee) = 0
-		currentRound := int64(len(currentCommittee) * (rand.Intn(100)))
-
+	prepareProposal := func(t *testing.T, currentRound int64, proposalHeight *big.Int, validR int64, proposalBlock *types.Block, clientAddress common.Address) (*Message, []byte, []byte) {
 		// prepare the proposal message
-		proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, int64(-1), proposalBlock))
+		proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, validR, proposalBlock))
 		if err != nil {
 			t.Errorf("New Proposal error: %v", err)
 		}
@@ -164,6 +146,34 @@ func TestStartRound(t *testing.T) {
 		if err != nil {
 			t.Errorf("Proposal Message RLP with signature error: %v", err)
 		}
+		return proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig
+	}
+
+	creatCommitteeForProposer := func(t *testing.T) (types.Committee, common.Address, common.Address, *committee.Set) {
+		currentCommittee := prepareCommittee()
+		lastBlockProposerIndex := rand.Intn(len(currentCommittee))
+		lastBlockProposer := currentCommittee[lastBlockProposerIndex].Address
+		clientAddress := currentCommittee[lastBlockProposerIndex+1%(len(currentCommittee))].Address
+		committeeSet, err := committee.NewSet(currentCommittee, lastBlockProposer)
+		if err != nil {
+			t.Errorf("Committee set error: %v", err)
+		}
+		return currentCommittee, lastBlockProposer, clientAddress, committeeSet
+	}
+
+	t.Run("client is the proposer and valid value is nil", func(t *testing.T) {
+		currentCommittee, lastBlockProposer, clientAddress, committeeSet := creatCommitteeForProposer(t)
+
+		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
+		prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
+		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
+		proposalBlock := generateBlock(proposalHeight, types.BlockNonce{12, 23, 34, 45, 56, 67, 78, 89})
+		// Ensure cliendAddress is the proposer by setting the by choosing a round such that
+		// r := randomInt * len(currentCommittee)
+		// r % len(currentCommittee) = 0
+		currentRound := int64(len(currentCommittee) * (rand.Intn(100)))
+
+		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, int64(-1), proposalBlock, clientAddress)
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddress)
@@ -194,40 +204,16 @@ func TestStartRound(t *testing.T) {
 	})
 
 	t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		currentCommittee, _, clientAddress, committeeSet := creatCommitteeForProposer(t)
 
-		currentCommittee := prepareCommittee()
-		lastBlockProposerIndex := rand.Intn(len(currentCommittee))
-		lastBlockProposer := currentCommittee[lastBlockProposerIndex].Address
-		clientAddress := currentCommittee[lastBlockProposerIndex+1%(len(currentCommittee))].Address
-		committeeSet, err := committee.NewSet(currentCommittee, lastBlockProposer)
-		if err != nil {
-			t.Errorf("Committee set error: %v", err)
-		}
-
-		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
-		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
+		proposalHeight := big.NewInt(int64(rand.Intn(100) + 1))
 		proposalBlock := generateBlock(proposalHeight, types.BlockNonce{11, 22, 33, 44, 55, 66, 77, 88})
 		// Valid round can only be set after round 0, hence the smallest value the the round can have is 1 for the valid
 		// value to have the smallest value which is 0
 		currentRound := int64(len(currentCommittee) * (rand.Intn(100) + 1))
 		validR := currentRound - 1
 
-		// prepare the proposal message
-		proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, validR, proposalBlock))
-		if err != nil {
-			t.Errorf("New Proposal error: %v", err)
-		}
-		proposalMsg := &Message{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, Signature: []byte("proposal signature")}
-		proposalMsgRLPNoSig, err := proposalMsg.PayloadNoSig()
-		if err != nil {
-			t.Errorf("Proposal Message RLP without signature error: %v", err)
-		}
-		proposalMsgRLPWithSig, err := proposalMsg.Payload()
-		if err != nil {
-			t.Errorf("Proposal Message RLP with signature error: %v", err)
-		}
+		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, validR, proposalBlock, clientAddress)
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddress)
@@ -246,12 +232,8 @@ func TestStartRound(t *testing.T) {
 
 		// There is no need to check for consensus state explicitly here because the broadcasting of proposal message
 		// implies an implicit state.  Otherwise, the expected message that is to be sent will fail.
-
 	})
 	t.Run("client is not the proposer", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
 		currentCommittee := prepareCommittee()
 		clientAddress := currentCommittee[rand.Intn(len(currentCommittee))].Address
 		clientPositionInRoundRobin := len(currentCommittee) - 1
