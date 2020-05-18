@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
@@ -20,9 +21,9 @@ func TestStartRoundVariables(t *testing.T) {
 	backendMock := NewMockBackend(ctrl)
 
 	prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
-	prevBlock := generateBlock(prevHeight)
+	prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
 	currentHeight := big.NewInt(prevHeight.Int64() + 1)
-	currentBlock := generateBlock(currentHeight)
+	currentBlock := generateBlock(currentHeight, types.BlockNonce{11, 22, 33, 44, 55, 66, 77, 88})
 	currentRound := int64(0)
 
 	// We don't care who is the next proposer so for simplicity we ensure that clientAddress is not the next
@@ -103,6 +104,23 @@ func TestStartRoundVariables(t *testing.T) {
 		assert.Equal(t, core.lockedRound, currentRound)
 		assert.Equal(t, core.validValue, currentBlock)
 		assert.Equal(t, core.validRound, currentRound)
+
+		// Update valid value (we didn't receive quorum prevote in prevote step, also the block changed, ie, locked
+		// value and valid value are different)
+		currentBlock2 := generateBlock(currentHeight, types.BlockNonce{12, 23, 34, 45, 56, 67, 78, 89})
+		core.validValue = currentBlock2
+		core.validRound = currentRound + 1
+
+		// Move to next round and check the expected state
+		core.startRound(context.Background(), currentRound+2)
+
+		assert.Equal(t, core.Height(), currentHeight)
+		assert.Equal(t, core.Round(), currentRound+2)
+		assert.Equal(t, core.step, propose)
+		assert.Equal(t, core.lockedValue, currentBlock)
+		assert.Equal(t, core.lockedRound, currentRound)
+		assert.Equal(t, core.validValue, currentBlock2)
+		assert.Equal(t, core.validRound, currentRound+1)
 	})
 }
 
@@ -121,9 +139,9 @@ func TestStartRound(t *testing.T) {
 		}
 
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
-		prevBlock := generateBlock(prevHeight)
+		prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
 		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
-		proposalBlock := generateBlock(proposalHeight)
+		proposalBlock := generateBlock(proposalHeight, types.BlockNonce{12, 23, 34, 45, 56, 67, 78, 89})
 		// Ensure cliendAddress is the proposer by setting the by choosing a round such that
 		// round % (x * len(currentCommittee)) = 0
 		currentRound := int64(len(currentCommittee) * (rand.Intn(10)))
@@ -185,7 +203,7 @@ func TestStartRound(t *testing.T) {
 
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
 		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
-		proposalBlock := generateBlock(proposalHeight)
+		proposalBlock := generateBlock(proposalHeight, types.BlockNonce{11, 22, 33, 44, 55, 66, 77, 88})
 		// Ensure cliendAddress is the proposer by setting the by choosing a round such that
 		// round % (x * len(currentCommittee)) = 0, where x > 0, thus round > len(currentCommittee
 		// Valid round can only be set after round 0, therefore, the smallest value valid round can take is 0
@@ -227,7 +245,6 @@ func TestStartRound(t *testing.T) {
 
 	})
 	t.Run("client is not the proposer", func(t *testing.T) {
-
 	})
 }
 
@@ -364,8 +381,9 @@ func prepareCommittee() types.Committee {
 	return committeeSet
 }
 
-func generateBlock(height *big.Int) *types.Block {
-	header := &types.Header{Number: height}
+func generateBlock(height *big.Int, nonce types.BlockNonce) *types.Block {
+	// use nonce to create different blocks
+	header := &types.Header{Number: height, Nonce: nonce}
 	block := types.NewBlock(header, nil, nil, nil)
 	return block
 }
