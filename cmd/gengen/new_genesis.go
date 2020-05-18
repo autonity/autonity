@@ -164,7 +164,6 @@ func newGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*c
 				BlockPeriod: 1,
 			},
 			AutonityContractConfig: &params.AutonityContractGenesis{
-				Deployer:    deployerAddress,
 				MinGasPrice: minGasPrice,
 				Operator:    *operatorAddress,
 				Users:       genesisUsers,
