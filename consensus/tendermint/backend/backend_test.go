@@ -704,7 +704,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Mixhash = types.BFTDigest
 
 	AppendValidators(genesis, addrs)
-	err := genesis.Config.AutonityContractConfig.AddDefault().Validate()
+	err := genesis.Config.AutonityContractConfig.Prepare()
 	if err != nil {
 		panic(err)
 	}
@@ -726,7 +726,7 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 		genesis.Config.AutonityContractConfig.Users = append(
 			genesis.Config.AutonityContractConfig.Users,
 			params.User{
-				Address: addrs[i],
+				Address: &addrs[i],
 				Type:    params.UserValidator,
 				Enode:   EnodeStub,
 				Stake:   100,

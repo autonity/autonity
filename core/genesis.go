@@ -274,7 +274,10 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		if g.Difficulty.Cmp(big.NewInt(1)) != 0 {
 			return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 1, instead got %v", g.Difficulty)
 		}
-		var err error
+		err := g.Config.AutonityContractConfig.Prepare()
+		if err != nil {
+			return nil, err
+		}
 		committee, err = extractCommittee(g.Config.AutonityContractConfig.Users)
 		if err != nil {
 			return nil, err
@@ -380,7 +383,7 @@ func extractCommittee(users []params.User) (types.Committee, error) {
 	for _, v := range users {
 		if v.Type == params.UserValidator {
 			member := types.CommitteeMember{
-				Address:     v.Address,
+				Address:     *v.Address,
 				VotingPower: new(big.Int).SetUint64(v.Stake),
 			}
 			committee = append(committee, member)
