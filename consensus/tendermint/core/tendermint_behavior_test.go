@@ -107,7 +107,6 @@ func TestStartRoundVariables(t *testing.T) {
 }
 
 func TestStartRound(t *testing.T) {
-
 	t.Run("client is the proposer and valid value is nil", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -122,19 +121,23 @@ func TestStartRound(t *testing.T) {
 		}
 
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
+		prevBlock := generateBlock(prevHeight)
 		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
 		proposalBlock := generateBlock(proposalHeight)
 		// Ensure cliendAddress is the proposer by setting the by choosing a round such that
-		// round % (x * len(currentCommittee)) = 0, where x > 0, thus round will be more than len(currentCommittee)
-		currentRound := int64(len(currentCommittee) * (rand.Intn(10) + 1))
+		// round % (x * len(currentCommittee)) = 0
+		currentRound := int64(len(currentCommittee) * (rand.Intn(10)))
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddress)
 
 		core := New(backendMock)
-		core.committeeSet = committeeSet
-		core.height = prevHeight
-		// add the proposal block to the pending block map for the client to propose
+		// We assume that when round 0 can only happen when we move to a new height, therefore, height is
+		// incremented by 1 in start round when round = 0, and the committee set is updated
+		if currentRound > 0 {
+			core.committeeSet = committeeSet
+			core.height = proposalHeight
+		}
 		core.pendingUnminedBlocks[proposalHeight.Uint64()] = proposalBlock
 
 		// prepare the proposal message
@@ -152,19 +155,27 @@ func TestStartRound(t *testing.T) {
 			t.Errorf("Proposal Message RLP with signature error: %v", err)
 		}
 
+		if currentRound == 0 {
+			// We expect the following extra calls when round = 0
+			backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress)
+			backendMock.EXPECT().Committee(proposalHeight.Uint64()).Return(committeeSet, nil)
+		}
 		backendMock.EXPECT().SetProposedBlockHash(proposalBlock.Hash())
 		backendMock.EXPECT().Sign(proposalMsgRLPNoSig).Return(proposalMsg.Signature, nil)
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, proposalMsgRLPWithSig).Return(nil)
 
 		core.startRound(context.Background(), currentRound)
+
+		// There is no need to check for consensus state explicitly here because the broadcasting of proposal message
+		// implies an implicit state.
 	})
 
-	//t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
-	//
-	//})
-	//t.Run("client is not the proposer", func(t *testing.T) {
-	//
-	//})
+	t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
+
+	})
+	t.Run("client is not the proposer", func(t *testing.T) {
+
+	})
 }
 
 // It test the page-6, from Line-14 to Line 19, StartRound() function from proposer point of view of tendermint pseudo-code.
