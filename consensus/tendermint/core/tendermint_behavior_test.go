@@ -106,6 +106,67 @@ func TestStartRoundVariables(t *testing.T) {
 	})
 }
 
+func TestStartRound(t *testing.T) {
+
+	t.Run("client is the proposer and valid value is nil", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		currentCommittee := prepareCommittee()
+		lastBlockProposerIndex := rand.Intn(len(currentCommittee))
+		lastBlockProposer := currentCommittee[lastBlockProposerIndex].Address
+		clientAddress := currentCommittee[lastBlockProposerIndex+1%(len(currentCommittee))].Address
+		committeeSet, err := committee.NewSet(currentCommittee, lastBlockProposer)
+		if err != nil {
+			t.Errorf("Committee set error: %v", err)
+		}
+
+		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
+		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
+		proposalBlock := generateBlock(proposalHeight)
+		// Ensure cliendAddress is the proposer by setting the by choosing a round such that
+		// round % (x * len(currentCommittee)) = 0, where x > 0, thus round will be more than len(currentCommittee)
+		currentRound := int64(len(currentCommittee) * (rand.Intn(10) + 1))
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddress)
+
+		core := New(backendMock)
+		core.committeeSet = committeeSet
+		core.height = prevHeight
+		// add the proposal block to the pending block map for the client to propose
+		core.pendingUnminedBlocks[proposalHeight.Uint64()] = proposalBlock
+
+		// prepare the proposal message
+		proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, int64(-1), proposalBlock))
+		if err != nil {
+			t.Errorf("New Proposal error: %v", err)
+		}
+		proposalMsg := &Message{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, Signature: []byte("proposal signature")}
+		proposalMsgRLPNoSig, err := proposalMsg.PayloadNoSig()
+		if err != nil {
+			t.Errorf("Proposal Message RLP without signature error: %v", err)
+		}
+		proposalMsgRLPWithSig, err := proposalMsg.Payload()
+		if err != nil {
+			t.Errorf("Proposal Message RLP with signature error: %v", err)
+		}
+
+		backendMock.EXPECT().SetProposedBlockHash(proposalBlock.Hash())
+		backendMock.EXPECT().Sign(proposalMsgRLPNoSig).Return(proposalMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, proposalMsgRLPWithSig).Return(nil)
+
+		core.startRound(context.Background(), currentRound)
+	})
+
+	//t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
+	//
+	//})
+	//t.Run("client is not the proposer", func(t *testing.T) {
+	//
+	//})
+}
+
 // It test the page-6, from Line-14 to Line 19, StartRound() function from proposer point of view of tendermint pseudo-code.
 // Please refer to the algorithm from here: https://arxiv.org/pdf/1807.04938.pdf
 func TestTendermintProposerStartRound(t *testing.T) {
