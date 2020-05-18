@@ -136,7 +136,7 @@ eventLoop:
 					c.logger.Debug("core.mainEventLoop Get message(MessageEvent) payload failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(ctx, c.CommitteeSet(), e.Payload)
+				c.backend.Gossip(ctx, c.committeeSet(), e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling backlogEvent")
@@ -152,7 +152,7 @@ eventLoop:
 					continue
 				}
 
-				c.backend.Gossip(ctx, c.CommitteeSet(), p)
+				c.backend.Gossip(ctx, c.committeeSet(), p)
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
@@ -196,7 +196,7 @@ func (c *core) syncLoop(ctx context.Context) {
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.CommitteeSet())
+	c.backend.AskSync(c.committeeSet())
 
 eventLoop:
 	for {
@@ -207,7 +207,7 @@ eventLoop:
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
-				c.backend.AskSync(c.CommitteeSet())
+				c.backend.AskSync(c.committeeSet())
 			}
 			round = currentRound
 			height = currentHeight
@@ -240,7 +240,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// Decode message and check its signature
 	msg := new(Message)
 
-	sender, err := msg.FromPayload(payload, c.CommitteeSet().Copy(), crypto.CheckValidatorSignature)
+	sender, err := msg.FromPayload(payload, c.committeeSet().Copy(), crypto.CheckValidatorSignature)
 	if err != nil {
 		logger.Error("Failed to decode message from payload", "err", err)
 		return err
@@ -266,7 +266,7 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender ty
 		totalFutureRoundMessagesPower += power
 	}
 
-	if totalFutureRoundMessagesPower > c.CommitteeSet().F() {
+	if totalFutureRoundMessagesPower > c.committeeSet().F() {
 		c.logger.Info("Received ceil(N/3) - 1 messages power for higher round", "New round", msgRound)
 		c.startRound(ctx, msgRound)
 	}

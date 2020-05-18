@@ -80,7 +80,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			// We do not verify the proposal in this case.
 			roundMsgs.SetProposal(&proposal, msg, false)
 
-			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= c.CommitteeSet().Quorum() {
+			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= c.committeeSet().Quorum() {
 				if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
 					return error
 				}
@@ -109,7 +109,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				_, sender, _ := c.CommitteeSet().GetByAddress(msg.Address)
+				_, sender, _ := c.committeeSet().GetByAddress(msg.Address)
 				c.sendEvent(backlogEvent{
 					src: sender,
 					msg: msg,
@@ -154,7 +154,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		// vr >= 0 here
-		if vr < c.Round() && rs.PrevotesPower(h) >= c.CommitteeSet().Quorum() {
+		if vr < c.Round() && rs.PrevotesPower(h) >= c.committeeSet().Quorum() {
 			var voteForProposal = false
 			if c.lockedValue != nil {
 				voteForProposal = c.lockedRound <= vr || h == c.lockedValue.Hash()

@@ -79,7 +79,7 @@ func TestSendPropose(t *testing.T) {
 			round:            1,
 			height:           big.NewInt(1),
 			validRound:       validRound,
-			committeeSet:     valSet,
+			committee:        valSet,
 		}
 
 		c.sendProposal(context.Background(), block)
@@ -169,7 +169,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			round:            2,
 			height:           big.NewInt(1),
-			committeeSet:     valSet,
+			committee:        valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -268,7 +268,7 @@ func TestHandleProposal(t *testing.T) {
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
 			proposeTimeout:   newTimeout(propose, logger),
-			committeeSet:     valSet,
+			committee:        valSet,
 			round:            2,
 			height:           big.NewInt(1),
 		}
@@ -333,7 +333,7 @@ func TestHandleProposal(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(1),
 			proposeTimeout:   newTimeout(propose, logger),
-			committeeSet:     valSet,
+			committee:        valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -434,7 +434,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			proposeTimeout:   newTimeout(propose, logger),
 			validRound:       -1,
-			committeeSet:     valSet,
+			committee:        valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -533,7 +533,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			proposeTimeout:   newTimeout(propose, logger),
 			validRound:       0,
-			committeeSet:     valSet,
+			committee:        valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)

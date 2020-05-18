@@ -98,7 +98,7 @@ func TestSendPrecommit(t *testing.T) {
 			backend:          backendMock,
 			address:          addr,
 			logger:           logger,
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			messages:         messages,
 			curRoundMessages: curRoundMessages,
 			round:            1,
@@ -167,7 +167,7 @@ func TestSendPrecommit(t *testing.T) {
 			logger:           logger,
 			curRoundMessages: curRoundMessages,
 			messages:         messages,
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			height:           big.NewInt(2),
 			round:            1,
 		}
@@ -297,7 +297,7 @@ func TestHandlePrecommit(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(3),
 			step:             precommit,
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			precommitTimeout: newTimeout(precommit, logger),
 		}
 
@@ -333,7 +333,7 @@ func TestHandlePrecommit(t *testing.T) {
 			logger:           logger,
 			round:            1,
 			height:           big.NewInt(2),
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			step:             precommit,
 			precommitTimeout: newTimeout(precommit, logger),
 		}
@@ -373,7 +373,7 @@ func TestHandlePrecommit(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(3),
 			step:             precommit,
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			precommitTimeout: newTimeout(precommit, logger),
 		}
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
@@ -510,7 +510,7 @@ func TestHandleCommit(t *testing.T) {
 		proposeTimeout:   newTimeout(propose, logger),
 		prevoteTimeout:   newTimeout(prevote, logger),
 		precommitTimeout: newTimeout(precommit, logger),
-		committeeSet:     committeeSet,
+		committee:        committeeSet,
 	}
 	c.handleCommit(context.Background())
 	if c.round != 0 || c.height.Cmp(big.NewInt(4)) != 0 {

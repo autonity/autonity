@@ -3,16 +3,17 @@ package core
 import (
 	"context"
 
+	"math/big"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/golang/mock/gomock"
-	"math/big"
-	"sync"
-	"testing"
-	"time"
 )
 
 func TestCore_measureMetricsOnStopTimer(t *testing.T) {
@@ -78,7 +79,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 			messages:         messages,
 			round:            1,
 			height:           big.NewInt(2),
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			step:             prevote,
 			proposeTimeout:   newTimeout(propose, logger),
 			prevoteTimeout:   newTimeout(prevote, logger),
@@ -140,7 +141,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 			step:             prevote,
 			round:            1,
 			height:           big.NewInt(2),
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			proposeTimeout:   newTimeout(propose, logger),
 			prevoteTimeout:   newTimeout(prevote, logger),
 			precommitTimeout: newTimeout(precommit, logger),

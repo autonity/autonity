@@ -2,6 +2,9 @@ package core
 
 import (
 	"context"
+	"math/big"
+	"testing"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/types"
@@ -11,8 +14,6 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/golang/mock/gomock"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"math/big"
-	"testing"
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
@@ -133,7 +134,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			futureRoundChange: make(map[int64]map[common.Address]uint64),
 			messages:          message,
 			curRoundMessages:  message.getOrCreate(0),
-			committeeSet:      committeeSet,
+			committee:         committeeSet,
 			proposeTimeout:    newTimeout(propose, logger),
 			prevoteTimeout:    newTimeout(prevote, logger),
 			precommitTimeout:  newTimeout(precommit, logger),

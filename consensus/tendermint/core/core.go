@@ -88,7 +88,7 @@ func New(backend Backend) *core {
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
-		committeeSet:          nil,
+		committee:             nil,
 		futureRoundChange:     make(map[int64]map[common.Address]uint64),
 		messages:              messagesMap,
 		lockedRound:           -1,
@@ -127,9 +127,9 @@ type core struct {
 	// Tendermint FSM state fields
 	//
 
-	height       *big.Int
-	round        int64
-	committeeSet committee.Set
+	height    *big.Int
+	round     int64
+	committee committee.Set
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	stateMu               sync.RWMutex
@@ -158,7 +158,7 @@ func (c *core) GetCurrentHeightMessages() []*Message {
 }
 
 func (c *core) IsMember(address common.Address) bool {
-	_, _, err := c.CommitteeSet().GetByAddress(address)
+	_, _, err := c.committeeSet().GetByAddress(address)
 	return err == nil
 }
 
@@ -195,7 +195,7 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 
 	// Broadcast payload
 	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(ctx, c.CommitteeSet(), payload); err != nil {
+	if err = c.backend.Broadcast(ctx, c.committeeSet(), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}
@@ -204,21 +204,21 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 // get proposer base on local round state.
 func (c *core) getProposer() types.CommitteeMember {
 	// if sticky or round robin configured for proposer selection. L2 is not deployed before Height1 finalized.
-	if !c.CommitteeSet().IsPoS() || c.Height().Uint64() == 1 {
-		return c.CommitteeSet().GetProposer(c.Round())
+	if !c.committeeSet().IsPoS() || c.Height().Uint64() == 1 {
+		return c.committeeSet().GetProposer(c.Round())
 	}
 	// PoS (voting power) weighted round robin.
 	l2ViewHeight := c.Height().Uint64() - 1
 	proposer := c.backend.GetProposerFromAC(l2ViewHeight, c.Round())
-	_, member, _ := c.CommitteeSet().GetByAddress(proposer)
+	_, member, _ := c.committeeSet().GetByAddress(proposer)
 	return member
 }
 
 // check is proposer base on local round state.
 func (c *core) isProposer() bool {
 	// if sticky or round robin configured for proposer selection. L2 is not deployed before Height1 finalized.
-	if !c.CommitteeSet().IsPoS() || c.Height().Uint64() == 1 {
-		return c.CommitteeSet().IsProposer(c.Round(), c.address)
+	if !c.committeeSet().IsPoS() || c.Height().Uint64() == 1 {
+		return c.committeeSet().IsProposer(c.Round(), c.address)
 	}
 	// PoS (voting power) weighted round robin.
 	l2ViewHeight := c.Height().Uint64() - 1
@@ -228,8 +228,8 @@ func (c *core) isProposer() bool {
 // check if msg sender is proposer for proposal handling.
 func (c *core) isProposerMsg(height *big.Int, round int64, msgAddress common.Address) bool {
 	// if sticky or round robin configured for proposer selection. L2 is not deployed before Height1 finalized.
-	if !c.CommitteeSet().IsPoS() || height.Uint64() == 1 {
-		return c.CommitteeSet().IsProposer(round, msgAddress)
+	if !c.committeeSet().IsPoS() || height.Uint64() == 1 {
+		return c.committeeSet().IsProposer(round, msgAddress)
 	}
 	// PoS (voting power) weighted round robin.
 	l2ViewHeight := c.Height().Uint64() - 1
@@ -390,7 +390,7 @@ func (c *core) setHeight(height *big.Int) {
 func (c *core) setCommitteeSet(set committee.Set) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
-	c.committeeSet = set
+	c.committee = set
 }
 
 func (c *core) Round() int64 {
@@ -404,8 +404,8 @@ func (c *core) Height() *big.Int {
 	defer c.stateMu.RUnlock()
 	return c.height
 }
-func (c *core) CommitteeSet() committee.Set {
+func (c *core) committeeSet() committee.Set {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
-	return c.committeeSet
+	return c.committee
 }
