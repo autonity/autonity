@@ -128,18 +128,6 @@ func TestStartRound(t *testing.T) {
 		// round % (x * len(currentCommittee)) = 0
 		currentRound := int64(len(currentCommittee) * (rand.Intn(10)))
 
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().Return(clientAddress)
-
-		core := New(backendMock)
-		// We assume that when round 0 can only happen when we move to a new height, therefore, height is
-		// incremented by 1 in start round when round = 0, and the committee set is updated
-		if currentRound > 0 {
-			core.committeeSet = committeeSet
-			core.height = proposalHeight
-		}
-		core.pendingUnminedBlocks[proposalHeight.Uint64()] = proposalBlock
-
 		// prepare the proposal message
 		proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, int64(-1), proposalBlock))
 		if err != nil {
@@ -154,6 +142,18 @@ func TestStartRound(t *testing.T) {
 		if err != nil {
 			t.Errorf("Proposal Message RLP with signature error: %v", err)
 		}
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddress)
+
+		core := New(backendMock)
+		// We assume that when round 0 can only happen when we move to a new height, therefore, height is
+		// incremented by 1 in start round when round = 0, and the committee set is updated
+		if currentRound > 0 {
+			core.committeeSet = committeeSet
+			core.height = proposalHeight
+		}
+		core.pendingUnminedBlocks[proposalHeight.Uint64()] = proposalBlock
 
 		if currentRound == 0 {
 			// We expect the following extra calls when round = 0
@@ -171,6 +171,59 @@ func TestStartRound(t *testing.T) {
 	})
 
 	t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		currentCommittee := prepareCommittee()
+		lastBlockProposerIndex := rand.Intn(len(currentCommittee))
+		lastBlockProposer := currentCommittee[lastBlockProposerIndex].Address
+		clientAddress := currentCommittee[lastBlockProposerIndex+1%(len(currentCommittee))].Address
+		committeeSet, err := committee.NewSet(currentCommittee, lastBlockProposer)
+		if err != nil {
+			t.Errorf("Committee set error: %v", err)
+		}
+
+		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
+		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
+		proposalBlock := generateBlock(proposalHeight)
+		// Ensure cliendAddress is the proposer by setting the by choosing a round such that
+		// round % (x * len(currentCommittee)) = 0, where x > 0, thus round > len(currentCommittee
+		// Valid round can only be set after round 0, therefore, the smallest value valid round can take is 0
+		currentRound := int64(len(currentCommittee) * (rand.Intn(10) + 1))
+		validR := currentRound - 1
+
+		// prepare the proposal message
+		proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, validR, proposalBlock))
+		if err != nil {
+			t.Errorf("New Proposal error: %v", err)
+		}
+		proposalMsg := &Message{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, Signature: []byte("proposal signature")}
+		proposalMsgRLPNoSig, err := proposalMsg.PayloadNoSig()
+		if err != nil {
+			t.Errorf("Proposal Message RLP without signature error: %v", err)
+		}
+		proposalMsgRLPWithSig, err := proposalMsg.Payload()
+		if err != nil {
+			t.Errorf("Proposal Message RLP with signature error: %v", err)
+		}
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddress)
+
+		core := New(backendMock)
+		core.committeeSet = committeeSet
+		core.height = proposalHeight
+		core.validRound = validR
+		core.validValue = proposalBlock
+
+		backendMock.EXPECT().SetProposedBlockHash(proposalBlock.Hash())
+		backendMock.EXPECT().Sign(proposalMsgRLPNoSig).Return(proposalMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, proposalMsgRLPWithSig).Return(nil)
+
+		core.startRound(context.Background(), currentRound)
+
+		// There is no need to check for consensus state explicitly here because the broadcasting of proposal message
+		// implies an implicit state.  Otherwise, the expected message that is to be sent will fail.
 
 	})
 	t.Run("client is not the proposer", func(t *testing.T) {
