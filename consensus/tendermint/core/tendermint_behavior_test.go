@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
@@ -13,10 +14,269 @@ import (
 	"testing"
 )
 
+// The following tests aim to test lines 1 - 21 of Tendermint Algorithm described on page 6 of
+// https://arxiv.org/pdf/1807.04938.pdf.
+
+func TestStartRoundVariables(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	backendMock := NewMockBackend(ctrl)
+
+	prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
+	prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
+	currentHeight := big.NewInt(prevHeight.Int64() + 1)
+	currentBlock := generateBlock(currentHeight, types.BlockNonce{11, 22, 33, 44, 55, 66, 77, 88})
+	currentRound := int64(0)
+
+	// We don't care who is the next proposer so for simplicity we ensure that clientAddress is not the next
+	// proposer by setting clientAddress to be the last proposer. This will ensure that the test will not run the
+	// broadcast method from backend (used for sending messages, in this case it would have been a proposal), since the
+	// client will not be proposing for until round round%len(committee)=0
+	currentCommittee := prepareCommittee()
+	clientAddress := currentCommittee[rand.Intn(len(currentCommittee))].Address
+	committeeSet, err := committee.NewSet(currentCommittee, clientAddress)
+	if err != nil {
+		t.Error(err)
+	}
+
+	overrideDefaultCoreValues := func(core *core) {
+		core.height = big.NewInt(-1)
+		core.round = int64(-1)
+		core.step = precommitDone
+		core.lockedValue = &types.Block{}
+		core.lockedRound = 0
+		core.validValue = &types.Block{}
+		core.validRound = 0
+	}
+
+	t.Run("ensure round 0 state variables are set correctly", func(t *testing.T) {
+		backendMock.EXPECT().Address().Return(clientAddress)
+		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress)
+		backendMock.EXPECT().Committee(currentHeight.Uint64()).Return(committeeSet, nil)
+
+		core := New(backendMock)
+		overrideDefaultCoreValues(core)
+		core.startRound(context.Background(), currentRound)
+
+		// Check the initial consensus state
+		assert.Equal(t, currentHeight, core.Height())
+		assert.Equal(t, currentRound, core.Round())
+		assert.Equal(t, propose, core.step)
+		assert.Nil(t, core.lockedValue)
+		assert.Equal(t, int64(-1), core.lockedRound)
+		assert.Nil(t, core.validValue)
+		assert.Equal(t, int64(-1), core.validRound)
+	})
+
+	t.Run("ensure round x state variables are updated correctly", func(t *testing.T) {
+		// In this test we are interested in making sure that that values which change in the current round that may
+		// have an impact on the actions performed in the following round (in case of round change) are persisted
+		// through to the subsequent round.
+		backendMock.EXPECT().Address().Return(clientAddress)
+		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress).MaxTimes(2)
+		backendMock.EXPECT().Committee(currentHeight.Uint64()).Return(committeeSet, nil).MaxTimes(2)
+
+		core := New(backendMock)
+		overrideDefaultCoreValues(core)
+		core.startRound(context.Background(), currentRound)
+
+		// Check the initial consensus state
+		assert.Equal(t, currentHeight, core.Height())
+		assert.Equal(t, currentRound, core.Round())
+		assert.Equal(t, propose, core.step)
+		assert.Nil(t, core.lockedValue)
+		assert.Equal(t, int64(-1), core.lockedRound)
+		assert.Nil(t, core.validValue)
+		assert.Equal(t, int64(-1), core.validRound)
+
+		// Update locked and valid Value (if locked value changes then valid value also changes, ie quorum(prevotes)
+		// delivered in prevote step)
+		core.lockedValue = currentBlock
+		core.lockedRound = currentRound
+		core.validValue = currentBlock
+		core.validRound = currentRound
+
+		// Move to next round and check the expected state
+		core.startRound(context.Background(), currentRound+1)
+
+		assert.Equal(t, core.Height(), currentHeight)
+		assert.Equal(t, currentRound+1, core.Round())
+		assert.Equal(t, propose, core.step)
+		assert.Equal(t, currentBlock, core.lockedValue)
+		assert.Equal(t, currentRound, core.lockedRound)
+		assert.Equal(t, currentBlock, core.validValue)
+		assert.Equal(t, currentRound, core.validRound)
+
+		// Update valid value (we didn't receive quorum prevote in prevote step, also the block changed, ie, locked
+		// value and valid value are different)
+		currentBlock2 := generateBlock(currentHeight, types.BlockNonce{12, 23, 34, 45, 56, 67, 78, 89})
+		core.validValue = currentBlock2
+		core.validRound = currentRound + 1
+
+		// Move to next round and check the expected state
+		core.startRound(context.Background(), currentRound+2)
+
+		assert.Equal(t, core.Height(), currentHeight)
+		assert.Equal(t, currentRound+2, core.Round())
+		assert.Equal(t, propose, core.step)
+		assert.Equal(t, currentBlock, core.lockedValue)
+		assert.Equal(t, currentRound, core.lockedRound)
+		assert.Equal(t, currentBlock2, core.validValue)
+		assert.Equal(t, currentRound+1, core.validRound)
+	})
+}
+
+func TestStartRound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	prepareProposal := func(t *testing.T, currentRound int64, proposalHeight *big.Int, validR int64, proposalBlock *types.Block, clientAddress common.Address) (*Message, []byte, []byte) {
+		// prepare the proposal message
+		proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, validR, proposalBlock))
+		if err != nil {
+			t.Errorf("New Proposal error: %v", err)
+		}
+		proposalMsg := &Message{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, Signature: []byte("proposal signature")}
+		proposalMsgRLPNoSig, err := proposalMsg.PayloadNoSig()
+		if err != nil {
+			t.Errorf("Proposal Message RLP without signature error: %v", err)
+		}
+		proposalMsgRLPWithSig, err := proposalMsg.Payload()
+		if err != nil {
+			t.Errorf("Proposal Message RLP with signature error: %v", err)
+		}
+		return proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig
+	}
+
+	creatCommitteeForProposer := func(t *testing.T) (types.Committee, common.Address, common.Address, *committee.Set) {
+		currentCommittee := prepareCommittee()
+		lastBlockProposerIndex := rand.Intn(len(currentCommittee))
+		lastBlockProposer := currentCommittee[lastBlockProposerIndex].Address
+		clientAddress := currentCommittee[lastBlockProposerIndex+1%(len(currentCommittee))].Address
+		committeeSet, err := committee.NewSet(currentCommittee, lastBlockProposer)
+		if err != nil {
+			t.Errorf("Committee set error: %v", err)
+		}
+		return currentCommittee, lastBlockProposer, clientAddress, committeeSet
+	}
+
+	t.Run("client is the proposer and valid value is nil", func(t *testing.T) {
+		currentCommittee, lastBlockProposer, clientAddress, committeeSet := creatCommitteeForProposer(t)
+
+		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
+		prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
+		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
+		proposalBlock := generateBlock(proposalHeight, types.BlockNonce{12, 23, 34, 45, 56, 67, 78, 89})
+		// Ensure cliendAddress is the proposer by setting the by choosing a round such that
+		// r := randomInt * len(currentCommittee)
+		// r % len(currentCommittee) = 0
+		currentRound := int64(len(currentCommittee) * (rand.Intn(100)))
+
+		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, int64(-1), proposalBlock, clientAddress)
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddress)
+
+		core := New(backendMock)
+		// We assume that when round 0 can only happen when we move to a new height, therefore, height is
+		// incremented by 1 in start round when round = 0, and the committee set is updated. However, in testcase where
+		// round is more than 0, then we need to explicitly update the committee set and height.
+		if currentRound > 0 {
+			core.committeeSet = committeeSet
+			core.height = proposalHeight
+		}
+		core.pendingUnminedBlocks[proposalHeight.Uint64()] = proposalBlock
+
+		if currentRound == 0 {
+			// We expect the following extra calls when round = 0
+			backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, lastBlockProposer)
+			backendMock.EXPECT().Committee(proposalHeight.Uint64()).Return(committeeSet, nil)
+		}
+		backendMock.EXPECT().SetProposedBlockHash(proposalBlock.Hash())
+		backendMock.EXPECT().Sign(proposalMsgRLPNoSig).Return(proposalMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, proposalMsgRLPWithSig).Return(nil)
+
+		core.startRound(context.Background(), currentRound)
+
+		// There is no need to check for consensus state explicitly here because the broadcasting of proposal message
+		// implies an implicit state.
+	})
+
+	t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
+		currentCommittee, _, clientAddress, committeeSet := creatCommitteeForProposer(t)
+
+		proposalHeight := big.NewInt(int64(rand.Intn(100) + 1))
+		proposalBlock := generateBlock(proposalHeight, types.BlockNonce{11, 22, 33, 44, 55, 66, 77, 88})
+		// Valid round can only be set after round 0, hence the smallest value the the round can have is 1 for the valid
+		// value to have the smallest value which is 0
+		currentRound := int64(len(currentCommittee) * (rand.Intn(100) + 1))
+		validR := currentRound - 1
+
+		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, validR, proposalBlock, clientAddress)
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddress)
+
+		core := New(backendMock)
+		core.committeeSet = committeeSet
+		core.height = proposalHeight
+		core.validRound = validR
+		core.validValue = proposalBlock
+
+		backendMock.EXPECT().SetProposedBlockHash(proposalBlock.Hash())
+		backendMock.EXPECT().Sign(proposalMsgRLPNoSig).Return(proposalMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, proposalMsgRLPWithSig).Return(nil)
+
+		core.startRound(context.Background(), currentRound)
+
+		// There is no need to check for consensus state explicitly here because the broadcasting of proposal message
+		// implies an implicit state.  Otherwise, the expected message that is to be sent will fail.
+	})
+	t.Run("client is not the proposer", func(t *testing.T) {
+		currentCommittee := prepareCommittee()
+		clientAddress := currentCommittee[rand.Intn(len(currentCommittee))].Address
+		clientPositionInRoundRobin := len(currentCommittee) - 1
+		committeeSet, err := committee.NewSet(currentCommittee, clientAddress)
+		if err != nil {
+			t.Errorf("Committee set error: %v", err)
+		}
+
+		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
+		prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
+		// ensure the client is not the proposer for current round
+		currentRound := int64(rand.Intn(100))
+		for currentRound/int64(clientPositionInRoundRobin) == 0 {
+			currentRound = int64(rand.Intn(100))
+		}
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddress)
+
+		core := New(backendMock)
+
+		if currentRound > 0 {
+			core.committeeSet = committeeSet
+		}
+
+		if currentRound == 0 {
+			backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress)
+			backendMock.EXPECT().Committee(big.NewInt(prevHeight.Int64()+1)).Return(committeeSet, nil)
+		}
+
+		core.startRound(context.Background(), currentRound)
+
+		assert.Equal(t, currentRound, core.Round())
+		assert.True(t, core.proposeTimeout.timerStarted())
+	})
+}
+
+// TODO: We should create a utility function which can we used across different test files, it can be related to this
+// issue https://github.com/clearmatics/autonity/issues/525
 func prepareCommittee() types.Committee {
 	// prepare committee.
 	minSize := 4
-	maxSize := 15
+	maxSize := 100
 	committeeSize := rand.Intn(maxSize-minSize) + minSize
 	committeeSet := types.Committee{}
 	for i := 1; i <= committeeSize; i++ {
@@ -30,122 +290,9 @@ func prepareCommittee() types.Committee {
 	return committeeSet
 }
 
-func generateBlock(height *big.Int) *types.Block {
-	header := &types.Header{Number: height}
+func generateBlock(height *big.Int, nonce types.BlockNonce) *types.Block {
+	// use nonce to create different blocks
+	header := &types.Header{Number: height, Nonce: nonce}
 	block := types.NewBlock(header, nil, nil, nil)
 	return block
-}
-
-// It test the page-6, from Line-14 to Line 19, StartRound() function from proposer point of view of tendermint pseudo-code.
-// Please refer to the algorithm from here: https://arxiv.org/pdf/1807.04938.pdf
-func TestTendermintProposerStartRound(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	// prepare a random size of committee, and the proposer at last committed block.
-	currentCommittee := prepareCommittee()
-	lastProposer := currentCommittee[len(currentCommittee)-1].Address
-	committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
-	if err != nil {
-		t.Error(err)
-	}
-
-	currentHeight := big.NewInt(10)
-	currentBlock := generateBlock(currentHeight)
-	proposalHeight := big.NewInt(11)
-	proposalBlock := generateBlock(proposalHeight)
-	clientAddr := currentCommittee[0].Address
-
-	// create consensus core.
-	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
-	c := New(backendMock)
-	// init core's context data.
-	c.pendingUnminedBlocks[proposalHeight.Uint64()] = proposalBlock
-	c.committeeSet = committeeSet
-	c.sentProposal = false
-	c.height = currentHeight
-	round := int64(0)
-	// since the default value of step and round is are both 0 which is to be one of the expected state, so we set them
-	// into different value.
-	c.step = precommitDone
-	c.round = -1
-	backendMock.EXPECT().LastCommittedProposal().Return(currentBlock, lastProposer)
-	backendMock.EXPECT().Committee(proposalHeight.Uint64()).Return(committeeSet, nil)
-	backendMock.EXPECT().SetProposedBlockHash(proposalBlock.Hash())
-	backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
-
-	// prepare the wanted msg which will be broadcast.
-	proposal := NewProposal(round, proposalHeight, int64(-1), proposalBlock)
-	proposalMsg, err := Encode(proposal)
-	if err != nil {
-		t.Error("err")
-	}
-	wantedMsg, err := c.finalizeMessage(&Message{
-		Code:          msgProposal,
-		Msg:           proposalMsg,
-		Address:       clientAddr,
-		CommittedSeal: []byte{},
-	})
-	if err != nil {
-		t.Error(err)
-	}
-	// should check if broadcast to wanted committeeSet with wanted MSG.
-	backendMock.EXPECT().Broadcast(context.Background(), committeeSet, wantedMsg).Return(nil)
-	c.startRound(context.Background(), round)
-
-	// checking consensus state machine states
-	assert.True(t, c.sentProposal)
-	assert.Equal(t, c.step, propose)
-	assert.Equal(t, c.Round(), round)
-	assert.Nil(t, c.lockedValue)
-	assert.Equal(t, c.lockedRound, int64(-1))
-	assert.Nil(t, c.validValue)
-	assert.Equal(t, c.validRound, int64(-1))
-}
-
-// It test the page-6, line-21, StartRound() function from follower point of view of tendermint pseudo-code.
-// Please refer to the algorithm from here: https://arxiv.org/pdf/1807.04938.pdf
-func TestTendermintFollowerStartRound(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	currentCommittee := prepareCommittee()
-	lastProposer := currentCommittee[len(currentCommittee)-1].Address
-	committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
-	if err != nil {
-		t.Error(err)
-	}
-
-	currentHeight := big.NewInt(10)
-	currentBlock := generateBlock(currentHeight)
-	clientAddr := currentCommittee[0].Address
-
-	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
-	backendMock.EXPECT().LastCommittedProposal().AnyTimes().Return(currentBlock, lastProposer)
-
-	// create consensus core.
-	c := New(backendMock)
-	c.committeeSet = committeeSet
-	round := int64(1)
-	// since the default value of step and round is are both 0 which is to be one of the expected state, so we set them
-	// into different value.
-	c.step = precommitDone
-	c.round = -1
-	c.startRound(context.Background(), round)
-
-	// checking consensus state machine states
-	assert.True(t, c.proposeTimeout.started)
-	assert.Equal(t, c.step, propose)
-	assert.Equal(t, c.Round(), round)
-	assert.Nil(t, c.lockedValue)
-	assert.Equal(t, c.lockedRound, int64(-1))
-	assert.Nil(t, c.validValue)
-	assert.Equal(t, c.validRound, int64(-1))
-	// clean up timer otherwise it would panic due to the core object is released.
-	err = c.proposeTimeout.stopTimer()
-	if err != nil {
-		t.Error(err)
-	}
 }
