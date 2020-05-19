@@ -27,9 +27,15 @@ func TestGetCommittee(t *testing.T) {
 		t.Error(err)
 	}
 
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	chain := consensus.NewMockChainReader(ctrl)
+	h := &types.Header{Number: big.NewInt(1)}
+	chain.EXPECT().GetHeaderByNumber(uint64(1)).Return(h)
 	API := &API{
-		savedCommittee: func(number uint64, chain consensus.ChainReader) (committee.Set, error) {
-			if number == 1 {
+		chain: chain,
+		getCommittee: func(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error) {
+			if header == h {
 				return committeeSet, nil
 			}
 			return nil, nil
@@ -81,7 +87,8 @@ func TestGetCommitteeAtHash(t *testing.T) {
 		hash := common.HexToHash("0x0123456789")
 
 		chain := consensus.NewMockChainReader(ctrl)
-		chain.EXPECT().GetHeaderByHash(hash).Return(&types.Header{Number: big.NewInt(1)})
+		h := &types.Header{Number: big.NewInt(1)}
+		chain.EXPECT().GetHeaderByHash(hash).Return(h)
 
 		committeeSet, err := committee.NewRoundRobinSet(want, want[0].Address)
 		if err != nil {
@@ -90,8 +97,8 @@ func TestGetCommitteeAtHash(t *testing.T) {
 
 		API := &API{
 			chain: chain,
-			savedCommittee: func(number uint64, chain consensus.ChainReader) (committee.Set, error) {
-				if number == 1 {
+			getCommittee: func(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error) {
+				if header == h {
 					return committeeSet, nil
 				}
 				return nil, nil

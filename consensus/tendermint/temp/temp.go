@@ -9,19 +9,35 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
-// retrieve list of committee for the block at height passed as parameter
-func SavedCommittee(number uint64, chain consensus.ChainReader) (committee.Set, error) {
-	var lastProposer common.Address
-	var err error
+// retrieve list of getCommittee for the block header passed as parameter
+func GetCommittee(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error) {
+
+	// We can't use savedCommittee if parents are being passed :
+	// those blocks are not yet saved in the blockchain.
+	// autonity will stop processing the received blockchain from the moment an error appears.
+	// See insertChain in blockchain.go
+	if len(parents) > 0 {
+		parent := parents[len(parents)-1]
+		lastMiner, err := types.Ecrecover(parent)
+		if err != nil {
+			return nil, err
+		}
+		return committee.NewRoundRobinSet(header.Committee, lastMiner)
+	}
+
+	number := header.Number.Uint64()
 	if number == 0 {
 		number = 1
 	}
+	// Check for existence of parent
 	parentHeader := chain.GetHeaderByNumber(number - 1)
 	if parentHeader == nil {
 		return nil, errors.New("unknown block")
 	}
-	// For the genesis block, lastProposer is no one (empty).
+
+	var lastProposer common.Address
 	if number > 1 {
+		var err error
 		lastProposer, err = types.Ecrecover(parentHeader)
 		if err != nil {
 			return nil, err

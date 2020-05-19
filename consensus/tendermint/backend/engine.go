@@ -23,7 +23,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/consensus/tendermint/temp"
 
 	"github.com/clearmatics/autonity/common"
@@ -199,7 +198,7 @@ func (sb *Backend) verifySigner(chain consensus.ChainReader, header *types.Heade
 		return errUnknownBlock
 	}
 
-	committee, err := getCommittee(header, parents, chain)
+	committee, err := temp.GetCommittee(header, parents, chain)
 
 	if err != nil {
 		return err
@@ -233,7 +232,7 @@ func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 		return nil
 	}
 
-	committeeSet, err := getCommittee(header, parents, chain)
+	committeeSet, err := temp.GetCommittee(header, parents, chain)
 	if err != nil {
 		return err
 	}
@@ -398,20 +397,19 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 
 	// update the block header and signature and propose the block to core engine
 	header := block.Header()
-	number := header.Number.Uint64()
 
 	// Bail out if we're unauthorized to sign a block
-	if committeeSet, err := temp.SavedCommittee(number, sb.blockchain); err == nil {
+	if committeeSet, err := temp.GetCommittee(header, nil, sb.blockchain); err == nil {
 		if _, _, errP := committeeSet.GetByAddress(sb.Address()); errP != nil {
 			sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
 			return errUnauthorized
 		}
 	} else {
-		sb.logger.Error("couldn't retrieve current block committee", "addr", sb.address)
+		sb.logger.Error("couldn't retrieve current block committee", "addr", sb.address, "err", err)
 		return errUnauthorized
 	}
 
-	parent := chain.GetHeader(header.ParentHash, number-1)
+	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
 		sb.logger.Error("Error ancestor")
 		return consensus.ErrUnknownAncestor
@@ -497,7 +495,7 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "tendermint",
 		Version:   "1.0",
-		Service:   &API{chain: chain, tendermint: sb, savedCommittee: temp.SavedCommittee},
+		Service:   &API{chain: chain, tendermint: sb, getCommittee: temp.GetCommittee},
 		Public:    true,
 	}}
 }
@@ -546,26 +544,6 @@ func (sb *Backend) Close() error {
 	close(sb.stopped)
 
 	return nil
-}
-
-// retrieve list of getCommittee for the block header passed as parameter
-func getCommittee(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error) {
-
-	// We can't use savedCommittee if parents are being passed :
-	// those blocks are not yet saved in the blockchain.
-	// autonity will stop processing the received blockchain from the moment an error appears.
-	// See insertChain in blockchain.go
-
-	if len(parents) > 0 {
-		parent := parents[len(parents)-1]
-		lastMiner, err := types.Ecrecover(parent)
-		if err != nil {
-			return nil, err
-		}
-		return committee.NewRoundRobinSet(header.Committee, lastMiner)
-	} else {
-		return temp.SavedCommittee(header.Number.Uint64(), chain)
-	}
 }
 
 func (sb *Backend) SealHash(header *types.Header) common.Hash {
