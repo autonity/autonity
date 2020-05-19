@@ -20,9 +20,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"math/big"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
@@ -581,7 +582,7 @@ func (sb *Backend) committee(header *types.Header, parents []*types.Header, chai
 		if err != nil {
 			return nil, err
 		}
-		return committee.NewSet(header.Committee, lastMiner)
+		return committee.NewSet(parent.Committee, lastMiner)
 	} else {
 		return sb.savedCommittee(header.Number.Uint64(), chain)
 	}
