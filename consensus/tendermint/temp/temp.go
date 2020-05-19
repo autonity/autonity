@@ -10,14 +10,13 @@ import (
 )
 
 // retrieve list of getCommittee for the block header passed as parameter
-func GetCommittee(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error) {
+func GetCommittee(header, parent *types.Header, chain consensus.ChainReader) (committee.Set, error) {
 
 	// We can't use savedCommittee if parents are being passed :
 	// those blocks are not yet saved in the blockchain.
 	// autonity will stop processing the received blockchain from the moment an error appears.
 	// See insertChain in blockchain.go
-	if len(parents) > 0 {
-		parent := parents[len(parents)-1]
+	if parent != nil {
 		lastMiner, err := types.Ecrecover(parent)
 		if err != nil {
 			return nil, err

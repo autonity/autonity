@@ -29,7 +29,7 @@ import (
 type API struct {
 	chain        consensus.ChainReader
 	tendermint   core.Backend //TODO: This is only for testing purposes, should be changed to *Backend but that would mean to fix the api tests (https://github.com/clearmatics/autonity/issues/479)
-	getCommittee func(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error)
+	getCommittee func(header, parent *types.Header, chain consensus.ChainReader) (committee.Set, error)
 }
 
 // GetCommittee retrieves the list of authorized committee at the specified block.

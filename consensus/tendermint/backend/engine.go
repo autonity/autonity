@@ -94,10 +94,10 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainReader, header *types.Heade
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules.The
-// caller may optionally pass in a batch of parents (ascending order) to avoid
-// looking those up from the database. This is useful for concurrently verifying
-// a batch of new headers.
-func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
+// caller may optionally pass in the parent header to avoid looking it up from
+// the database. This can offer better performance when verifying a batch of
+// new headers.
+func (sb *Backend) verifyHeader(chain consensus.ChainReader, header, parent *types.Header) error {
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -126,38 +126,39 @@ func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 		return errInvalidDifficulty
 	}
 
-	return sb.verifyCascadingFields(chain, header, parents)
+	return sb.verifyCascadingFields(chain, header, parent)
 }
 
 // verifyCascadingFields verifies all the header fields that are not standalone,
 // rather depend on a batch of previous headers. The caller may optionally pass
 // in a batch of parents (ascending order) to avoid looking those up from the
 // database. This is useful for concurrently verifying a batch of new headers.
-func (sb *Backend) verifyCascadingFields(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
+func (sb *Backend) verifyCascadingFields(chain consensus.ChainReader, header, parent *types.Header) error {
 	// The genesis block is the always valid dead-end
 	number := header.Number.Uint64()
 	if number == 0 {
 		return nil
 	}
+
+	// We set up a separate variable here since we want to call verifySigner
+	// and verifyCommittedSeals with the parent passed to this function.
+	parentToValidate := parent
 	// Ensure that the block's timestamp isn't too close to it's parent
-	var parent *types.Header
-	if len(parents) > 0 {
-		parent = parents[len(parents)-1]
-	} else {
-		parent = chain.GetHeader(header.ParentHash, number-1)
+	if parentToValidate == nil {
+		parentToValidate = chain.GetHeader(header.ParentHash, number-1)
 	}
-	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
+	if parentToValidate == nil || parentToValidate.Number.Uint64() != number-1 || parentToValidate.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
-	if parent.Time+sb.config.BlockPeriod > header.Time {
+	if parentToValidate.Time+sb.config.BlockPeriod > header.Time {
 		return errInvalidTimestamp
 	}
 
-	if err := sb.verifySigner(chain, header, parents); err != nil {
+	if err := sb.verifySigner(chain, header, parent); err != nil {
 		return err
 	}
 
-	return sb.verifyCommittedSeals(chain, header, parents)
+	return sb.verifyCommittedSeals(chain, header, parent)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -169,7 +170,11 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainReader, headers []*types.H
 	results := make(chan error, len(headers))
 	go func() {
 		for i, header := range headers {
-			err := sb.verifyHeader(chain, header, headers[:i])
+			var parent *types.Header
+			if i > 0 {
+				parent = headers[i-1]
+			}
+			err := sb.verifyHeader(chain, header, parent)
 
 			select {
 			case <-abort:
@@ -191,14 +196,14 @@ func (sb *Backend) VerifyUncles(chain consensus.ChainReader, block *types.Block)
 }
 
 // verifySigner checks whether the signer is in parent's validator set
-func (sb *Backend) verifySigner(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
+func (sb *Backend) verifySigner(chain consensus.ChainReader, header, parent *types.Header) error {
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
 		return errUnknownBlock
 	}
 
-	committee, err := temp.GetCommittee(header, parents, chain)
+	committee, err := temp.GetCommittee(header, parent, chain)
 
 	if err != nil {
 		return err
@@ -225,14 +230,14 @@ func (sb *Backend) verifySigner(chain consensus.ChainReader, header *types.Heade
 }
 
 // verifyCommittedSeals checks whether every committed seal is signed by one of the parent's committee
-func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
+func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header, parent *types.Header) error {
 	number := header.Number.Uint64()
 	// We don't need to verify committed seals in the genesis block
 	if number == 0 {
 		return nil
 	}
 
-	committeeSet, err := temp.GetCommittee(header, parents, chain)
+	committeeSet, err := temp.GetCommittee(header, parent, chain)
 	if err != nil {
 		return err
 	}

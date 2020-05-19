@@ -34,7 +34,7 @@ func TestGetCommittee(t *testing.T) {
 	chain.EXPECT().GetHeaderByNumber(uint64(1)).Return(h)
 	API := &API{
 		chain: chain,
-		getCommittee: func(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error) {
+		getCommittee: func(header, parent *types.Header, chain consensus.ChainReader) (committee.Set, error) {
 			if header == h {
 				return committeeSet, nil
 			}
@@ -97,7 +97,7 @@ func TestGetCommitteeAtHash(t *testing.T) {
 
 		API := &API{
 			chain: chain,
-			getCommittee: func(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error) {
+			getCommittee: func(header, parent *types.Header, chain consensus.ChainReader) (committee.Set, error) {
 				if header == h {
 					return committeeSet, nil
 				}
