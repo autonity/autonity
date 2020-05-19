@@ -64,9 +64,10 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			Difficulty: big.NewInt(1),
 		}
 	)
+	a := common.HexToAddress("0x0000000000000000000000000000000000000000")
 	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{
 		Users: []params.User{{
-			Address: common.HexToAddress("0x0000000000000000000000000000000000000000"),
+			Address: &a,
 			Type:    params.UserValidator,
 			Stake:   1,
 		}},
@@ -82,7 +83,10 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			},
 		)
 	}
-	gspec.Config.AutonityContractConfig.AddDefault()
+	err := gspec.Config.AutonityContractConfig.Prepare()
+	if err != nil {
+		panic(err)
+	}
 
 	genesis := gspec.MustCommit(db)
 	blockchain, err := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher())

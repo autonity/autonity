@@ -19,13 +19,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
@@ -221,7 +222,7 @@ func initGenesis(ctx *cli.Context) error {
 		utils.Fatalf("No Tendermint config section in genesis")
 	}
 
-	if err := genesis.Config.AutonityContractConfig.AddDefault().Validate(); err != nil {
+	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
 		spew.Dump(genesis.Config.AutonityContractConfig)
 		return fmt.Errorf("autonity contract section is invalid. error:%v", err.Error())
 	}

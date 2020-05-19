@@ -22,7 +22,7 @@ func GetCommittee(header *types.Header, parents []*types.Header, chain consensus
 		if err != nil {
 			return nil, err
 		}
-		return committee.NewRoundRobinSet(header.Committee, lastMiner)
+		return committee.NewRoundRobinSet(parent.Committee, lastMiner)
 	}
 
 	number := header.Number.Uint64()

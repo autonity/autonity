@@ -203,20 +203,6 @@ func (mr *MockBackendMockRecorder) GetProposerFromAC(height, round interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProposerFromAC", reflect.TypeOf((*MockBackend)(nil).GetProposerFromAC), height, round)
 }
 
-// HasBadProposal mocks base method
-func (m *MockBackend) HasBadProposal(hash common.Hash) bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasBadProposal", hash)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// HasBadProposal indicates an expected call of HasBadProposal
-func (mr *MockBackendMockRecorder) HasBadProposal(hash interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasBadProposal", reflect.TypeOf((*MockBackend)(nil).HasBadProposal), hash)
-}
-
 // Post mocks base method
 func (m *MockBackend) Post(ev interface{}) {
 	m.ctrl.T.Helper()

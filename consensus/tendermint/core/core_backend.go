@@ -44,9 +44,6 @@ type Backend interface {
 	// GetProposerFromAC returns the proposer of the given block height and round from autontiy contract.
 	GetProposerFromAC(height uint64, round int64) common.Address
 
-	// HasBadBlock returns whether the block with the hash is a bad block
-	HasBadProposal(hash common.Hash) bool
-
 	Post(ev interface{})
 
 	// Setter for proposed block hash
