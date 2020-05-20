@@ -2,41 +2,19 @@ package core
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"math/rand"
-	"strconv"
 	"testing"
 	"time"
 )
-
-func prepareCommittee() types.Committee {
-	// prepare committee.
-	minSize := 4
-	maxSize := 15
-	committeeSize := rand.Intn(maxSize-minSize) + minSize
-	committeeSet := types.Committee{}
-	for i := 1; i <= committeeSize; i++ {
-		hexString := "0x01234567890" + strconv.Itoa(i)
-		member := types.CommitteeMember{
-			Address:     common.HexToAddress(hexString),
-			VotingPower: new(big.Int).SetInt64(1),
-		}
-		committeeSet = append(committeeSet, member)
-	}
-	return committeeSet
-}
-
-func generateBlock(height *big.Int) *types.Block {
-	header := &types.Header{Number: height}
-	block := types.NewBlock(header, nil, nil, nil)
-	return block
-}
 
 // It test the page-6, line 22 to line 27, on new proposal logic of tendermint pseudo-code.
 // Please refer to the algorithm from here: https://arxiv.org/pdf/1807.04938.pdf
@@ -48,7 +26,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee := prepareCommittee()
+		currentCommittee, _ := prepareCommittee(t)
 		lastProposer := currentCommittee[len(currentCommittee)-1].Address
 		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
 		if err != nil {
@@ -125,7 +103,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee := prepareCommittee()
+		currentCommittee, _ := prepareCommittee(t)
 		lastProposer := currentCommittee[len(currentCommittee)-1].Address
 		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
 		if err != nil {
@@ -206,7 +184,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee := prepareCommittee()
+		currentCommittee, _ := prepareCommittee(t)
 		lastProposer := currentCommittee[len(currentCommittee)-1].Address
 		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
 		if err != nil {
@@ -287,7 +265,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee := prepareCommittee()
+		currentCommittee, _ := prepareCommittee(t)
 		lastProposer := currentCommittee[len(currentCommittee)-1].Address
 		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
 		if err != nil {
@@ -361,4 +339,34 @@ func TestTendermintNewProposal(t *testing.T) {
 		assert.Nil(t, c.validValue)
 		assert.Equal(t, c.validRound, int64(-1))
 	})
+}
+
+func prepareCommittee(t *testing.T) (types.Committee, []*ecdsa.PrivateKey) {
+	t.Helper()
+
+	minSize, maxSize := 4, 15
+	committeeSize := rand.Intn(maxSize-minSize) + minSize
+
+	var committeeSet types.Committee
+	var keys []*ecdsa.PrivateKey
+
+	for i := 1; i <= committeeSize; i++ {
+		key, err := crypto.GenerateKey()
+		if err != nil {
+			t.Fatal(err)
+		}
+		member := types.CommitteeMember{
+			Address:     crypto.PubkeyToAddress(key.PublicKey),
+			VotingPower: new(big.Int).SetInt64(1),
+		}
+		committeeSet = append(committeeSet, member)
+		keys = append(keys, key)
+	}
+	return committeeSet, keys
+}
+
+func generateBlock(height *big.Int) *types.Block {
+	header := &types.Header{Number: height}
+	block := types.NewBlock(header, nil, nil, nil)
+	return block
 }
