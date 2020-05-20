@@ -160,7 +160,11 @@ func (set *roundRobinSet) IsPoS() bool {
 func (set *roundRobinSet) F() uint64 { return uint64(math.Ceil(float64(set.totalPower)/3)) - 1 }
 
 func (set *roundRobinSet) Quorum() uint64 {
-	return uint64(math.Ceil((2 * float64(set.totalPower)) / 3.))
+	return Quorum(set.totalPower)
+}
+
+func Quorum(totalVotingPower uint64) uint64 {
+	return uint64(math.Ceil((2 * float64(totalVotingPower)) / 3.))
 }
 
 func (set *roundRobinSet) getNextProposer(round int64) types.CommitteeMember {
