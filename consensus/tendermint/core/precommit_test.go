@@ -498,7 +498,7 @@ func TestHandleCommit(t *testing.T) {
 	backendMock := NewMockBackend(ctrl)
 	backendMock.EXPECT().LastCommittedProposal().MinTimes(1).Return(block, addr)
 	backendMock.EXPECT().BlockChain().Return(chainReaderMock)
-	chainReaderMock.EXPECT().GetHeaderByNumber(gomock.Any()).Return(h)
+	chainReaderMock.EXPECT().GetHeaderByHash(gomock.Any()).Return(h)
 
 	c := &core{
 		address:          addr,

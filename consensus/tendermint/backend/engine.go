@@ -140,17 +140,14 @@ func (sb *Backend) verifyCascadingFields(chain consensus.ChainReader, header, pa
 		return nil
 	}
 
-	// We set up a separate variable here since we want to call verifySigner
-	// and verifyCommittedSeals with the parent passed to this function.
-	parentToValidate := parent
 	// Ensure that the block's timestamp isn't too close to it's parent
-	if parentToValidate == nil {
-		parentToValidate = chain.GetHeader(header.ParentHash, number-1)
+	if parent == nil {
+		parent = chain.GetHeader(header.ParentHash, number-1)
 	}
-	if parentToValidate == nil || parentToValidate.Number.Uint64() != number-1 || parentToValidate.Hash() != header.ParentHash {
+	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
-	if parentToValidate.Time+sb.config.BlockPeriod > header.Time {
+	if parent.Time+sb.config.BlockPeriod > header.Time {
 		return errInvalidTimestamp
 	}
 

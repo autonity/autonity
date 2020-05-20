@@ -9,38 +9,31 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
-// retrieve list of getCommittee for the block header passed as parameter
+// GetCommittee returns the committee to be used for validating the block
+// associated with header. The parent paramer is optional, if it is not
+// provided it will be looked up.
 func GetCommittee(header, parent *types.Header, chain consensus.ChainReader) (committee.Set, error) {
 
-	// We can't use savedCommittee if parents are being passed :
-	// those blocks are not yet saved in the blockchain.
-	// autonity will stop processing the received blockchain from the moment an error appears.
-	// See insertChain in blockchain.go
-	if parent != nil {
-		lastMiner, err := types.Ecrecover(parent)
-		if err != nil {
-			return nil, err
+	var previousProposer common.Address
+	// The genesis block has no parent, so the committee is whatever is defined
+	// in the block.
+	if header.IsGenesis() {
+		return committee.NewRoundRobinSet(header.Committee, previousProposer)
+	}
+	if parent == nil {
+		parent = chain.GetHeaderByHash(header.ParentHash)
+		if parent == nil {
+			return nil, errors.New("unknown block")
 		}
-		return committee.NewRoundRobinSet(parent.Committee, lastMiner)
 	}
-
-	number := header.Number.Uint64()
-	if number == 0 {
-		number = 1
-	}
-	// Check for existence of parent
-	parentHeader := chain.GetHeaderByNumber(number - 1)
-	if parentHeader == nil {
-		return nil, errors.New("unknown block")
-	}
-
-	var lastProposer common.Address
-	if number > 1 {
+	// The genesis block has no ProposerSeal so there is no address to recover
+	// in this case.
+	if !parent.IsGenesis() {
 		var err error
-		lastProposer, err = types.Ecrecover(parentHeader)
+		previousProposer, err = types.Ecrecover(parent)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return committee.NewRoundRobinSet(parentHeader.Committee, lastProposer)
+	return committee.NewRoundRobinSet(parent.Committee, previousProposer)
 }
