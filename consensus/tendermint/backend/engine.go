@@ -399,22 +399,24 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	// update the block header and signature and propose the block to core engine
 	header := block.Header()
 
-	// Bail out if we're unauthorized to sign a block
-	if committeeSet, err := temp.GetCommittee(header, nil, sb.blockchain); err == nil {
-		if _, _, errP := committeeSet.GetByAddress(sb.Address()); errP != nil {
-			sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
-			return errUnauthorized
-		}
-	} else {
-		sb.logger.Error("couldn't retrieve current block committee", "addr", sb.address, "err", err)
-		return errUnauthorized
-	}
-
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
 		sb.logger.Error("Error ancestor")
 		return consensus.ErrUnknownAncestor
 	}
+	inCommittee := false
+	nodeAddress := sb.Address()
+	for _, member := range parent.Committee {
+		if nodeAddress == member.Address {
+			inCommittee = true
+			break
+		}
+	}
+	if !inCommittee {
+		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
+		return errUnauthorized
+	}
+
 	block, err := sb.AddSeal(block)
 	if err != nil {
 		sb.logger.Error("seal error updateBlock", "err", err.Error())
