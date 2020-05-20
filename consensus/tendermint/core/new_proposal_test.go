@@ -16,6 +16,61 @@ import (
 	"time"
 )
 
+// The following tests are not specific to proposal messages but rather apply to all messages
+func TestHandleMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	currentCommittee, keys := prepareCommittee(t)
+	committeeSet, err := committee.NewSet(currentCommittee, currentCommittee[rand.Intn(len(currentCommittee))].Address)
+	assert.Nil(t, err)
+
+	backendMock := NewMockBackend(ctrl)
+	// We don't care what address the client has
+	backendMock.EXPECT().Address().Return(currentCommittee[0].Address).MaxTimes(2)
+	core := New(backendMock)
+
+	t.Run("message sender is not in the committee set", func(t *testing.T) {
+		// Prepare message
+		key, err := crypto.GenerateKey()
+		assert.Nil(t, err)
+
+		msg := &Message{Address: crypto.PubkeyToAddress(key.PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message1")}
+
+		msgRlpNoSig, err := msg.PayloadNoSig()
+		assert.Nil(t, err)
+
+		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), key)
+		assert.Nil(t, err)
+
+		msgRlpWithSig, err := msg.Payload()
+		assert.Nil(t, err)
+
+		core.setCommitteeSet(committeeSet)
+		err = core.handleMsg(context.Background(), msgRlpWithSig)
+
+		assert.Error(t, err, "unauthorised sender, sender is not is committees set")
+	})
+
+	t.Run("message sender is not the message siger", func(t *testing.T) {
+		msg := &Message{Address: crypto.PubkeyToAddress(keys[0].PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message2")}
+
+		msgRlpNoSig, err := msg.PayloadNoSig()
+		assert.Nil(t, err)
+
+		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), keys[1])
+		assert.Nil(t, err)
+
+		msgRlpWithSig, err := msg.Payload()
+		assert.Nil(t, err)
+
+		core.setCommitteeSet(committeeSet)
+		err = core.handleMsg(context.Background(), msgRlpWithSig)
+
+		assert.Error(t, err, "unauthorised sender, sender is not the signer of the message")
+	})
+}
+
 // It test the page-6, line 22 to line 27, on new proposal logic of tendermint pseudo-code.
 // Please refer to the algorithm from here: https://arxiv.org/pdf/1807.04938.pdf
 func TestTendermintNewProposal(t *testing.T) {
