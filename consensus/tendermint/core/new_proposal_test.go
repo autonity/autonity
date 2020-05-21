@@ -69,6 +69,19 @@ func TestHandleMessage(t *testing.T) {
 
 		assert.Error(t, err, "unauthorised sender, sender is not the signer of the message")
 	})
+
+	t.Run("malicious sender sends incorrect signature", func(t *testing.T) {
+		sig, err := crypto.Sign(crypto.Keccak256([]byte("random bytes")), keys[0])
+		assert.Nil(t, err)
+
+		msg := &Message{Address: crypto.PubkeyToAddress(keys[0].PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message2"), Signature: sig}
+		msgRlpWithSig, err := msg.Payload()
+
+		core.setCommitteeSet(committeeSet)
+		err = core.handleMsg(context.Background(), msgRlpWithSig)
+
+		assert.Error(t, err, "malicious sender sends different signature to signature of message")
+	})
 }
 
 // It test the page-6, line 22 to line 27, on new proposal logic of tendermint pseudo-code.
