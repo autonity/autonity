@@ -91,24 +91,25 @@ func TestTendermintNewProposal(t *testing.T) {
 	// Below 4 test cases cover line 22 to line 27 of tendermint pseudo-code.
 	// It test line 24 was executed and step was forwarded on line 27.
 
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	// prepare a random size of committee, and the proposer at last committed block.
+	currentCommittee, _ := prepareCommittee(t)
+	sort.Sort(currentCommittee)
+	lastProposer := currentCommittee[len(currentCommittee)-1].Address
+	committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
+	if err != nil {
+		t.Error(err)
+	}
+
+	currentHeight := big.NewInt(10)
+	proposalBlock := generateBlock(currentHeight)
+	clientAddr := currentCommittee[0].Address
+
+	backendMock := NewMockBackend(ctrl)
+	backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
+
 	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (-1)", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee, _ := prepareCommittee(t)
-		sort.Sort(currentCommittee)
-		lastProposer := currentCommittee[len(currentCommittee)-1].Address
-		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
-		if err != nil {
-			t.Error(err)
-		}
-
-		currentHeight := big.NewInt(10)
-		proposalBlock := generateBlock(currentHeight)
-		clientAddr := currentCommittee[0].Address
-
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
 		// create consensus core.
 		c := New(backendMock)
 		c.committeeSet = committeeSet
@@ -170,23 +171,6 @@ func TestTendermintNewProposal(t *testing.T) {
 
 	// It test line 24 was executed and step was forwarded on line 27 but with below different condition.
 	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1), but locked at the same value as proposed already.", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee, _ := prepareCommittee(t)
-		sort.Sort(currentCommittee)
-		lastProposer := currentCommittee[len(currentCommittee)-1].Address
-		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
-		if err != nil {
-			t.Error(err)
-		}
-
-		currentHeight := big.NewInt(10)
-		proposalBlock := generateBlock(currentHeight)
-		clientAddr := currentCommittee[0].Address
-
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
 		// create consensus core.
 		c := New(backendMock)
 		c.committeeSet = committeeSet
@@ -252,23 +236,6 @@ func TestTendermintNewProposal(t *testing.T) {
 
 	// It test line 26 was executed and step was forwarded on line 27 but with below different condition.
 	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1) and locked at different value, vote for nil", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee, _ := prepareCommittee(t)
-		sort.Sort(currentCommittee)
-		lastProposer := currentCommittee[len(currentCommittee)-1].Address
-		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
-		if err != nil {
-			t.Error(err)
-		}
-
-		currentHeight := big.NewInt(10)
-		proposalBlock := generateBlock(currentHeight)
-		clientAddr := currentCommittee[0].Address
-
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
 		// create consensus core.
 		lockedValue := generateBlock(big.NewInt(11))
 		c := New(backendMock)
@@ -334,23 +301,6 @@ func TestTendermintNewProposal(t *testing.T) {
 
 	// It test line 26 was executed and step was forwarded on line 27 but with invalid value proposed.
 	t.Run("on proposal with invalid block, follower should step forward with voting for nil", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee, _ := prepareCommittee(t)
-		sort.Sort(currentCommittee)
-		lastProposer := currentCommittee[len(currentCommittee)-1].Address
-		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
-		if err != nil {
-			t.Error(err)
-		}
-
-		currentHeight := big.NewInt(10)
-		proposalBlock := generateBlock(currentHeight)
-		clientAddr := currentCommittee[0].Address
-
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
 		// create consensus core.
 		c := New(backendMock)
 		c.committeeSet = committeeSet
