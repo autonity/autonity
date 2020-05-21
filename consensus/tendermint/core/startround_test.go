@@ -36,9 +36,7 @@ func TestStartRoundVariables(t *testing.T) {
 	currentCommittee := prepareCommittee()
 	clientAddress := currentCommittee[rand.Intn(len(currentCommittee))].Address
 	committeeSet, err := committee.NewSet(currentCommittee, clientAddress)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(t, err)
 
 	overrideDefaultCoreValues := func(core *core) {
 		core.height = big.NewInt(-1)
@@ -134,18 +132,12 @@ func TestStartRound(t *testing.T) {
 	prepareProposal := func(t *testing.T, currentRound int64, proposalHeight *big.Int, validR int64, proposalBlock *types.Block, clientAddress common.Address) (*Message, []byte, []byte) {
 		// prepare the proposal message
 		proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, validR, proposalBlock))
-		if err != nil {
-			t.Errorf("New Proposal error: %v", err)
-		}
+		assert.Nil(t, err)
 		proposalMsg := &Message{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, Signature: []byte("proposal signature")}
 		proposalMsgRLPNoSig, err := proposalMsg.PayloadNoSig()
-		if err != nil {
-			t.Errorf("Proposal Message RLP without signature error: %v", err)
-		}
+		assert.Nil(t, err)
 		proposalMsgRLPWithSig, err := proposalMsg.Payload()
-		if err != nil {
-			t.Errorf("Proposal Message RLP with signature error: %v", err)
-		}
+		assert.Nil(t, err)
 		return proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig
 	}
 
@@ -155,9 +147,7 @@ func TestStartRound(t *testing.T) {
 		lastBlockProposer := currentCommittee[lastBlockProposerIndex].Address
 		clientAddress := currentCommittee[lastBlockProposerIndex+1%(len(currentCommittee))].Address
 		committeeSet, err := committee.NewSet(currentCommittee, lastBlockProposer)
-		if err != nil {
-			t.Errorf("Committee set error: %v", err)
-		}
+		assert.Nil(t, err)
 		return currentCommittee, lastBlockProposer, clientAddress, committeeSet
 	}
 
@@ -238,9 +228,7 @@ func TestStartRound(t *testing.T) {
 		clientAddress := currentCommittee[rand.Intn(len(currentCommittee))].Address
 		clientPositionInRoundRobin := len(currentCommittee) - 1
 		committeeSet, err := committee.NewSet(currentCommittee, clientAddress)
-		if err != nil {
-			t.Errorf("Committee set error: %v", err)
-		}
+		assert.Nil(t, err)
 
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
 		prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
