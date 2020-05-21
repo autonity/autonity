@@ -25,9 +25,9 @@ func TestStartRoundVariables(t *testing.T) {
 	backendMock := NewMockBackend(ctrl)
 
 	prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
-	prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
+	prevBlock := generateBlock(prevHeight)
 	currentHeight := big.NewInt(prevHeight.Int64() + 1)
-	currentBlock := generateBlock(currentHeight, types.BlockNonce{11, 22, 33, 44, 55, 66, 77, 88})
+	currentBlock := generateBlock(currentHeight)
 	currentRound := int64(0)
 
 	// We don't care who is the next proposer so for simplicity we ensure that clientAddress is not the next
@@ -107,7 +107,7 @@ func TestStartRoundVariables(t *testing.T) {
 
 		// Update valid value (we didn't receive quorum prevote in prevote step, also the block changed, ie, locked
 		// value and valid value are different)
-		currentBlock2 := generateBlock(currentHeight, types.BlockNonce{12, 23, 34, 45, 56, 67, 78, 89})
+		currentBlock2 := generateBlock(currentHeight)
 		core.validValue = currentBlock2
 		core.validRound = currentRound + 1
 
@@ -147,9 +147,9 @@ func TestStartRound(t *testing.T) {
 		clientAddress := members[0].Address
 
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
-		prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
+		prevBlock := generateBlock(prevHeight)
 		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
-		proposalBlock := generateBlock(proposalHeight, types.BlockNonce{12, 23, 34, 45, 56, 67, 78, 89})
+		proposalBlock := generateBlock(proposalHeight)
 		// Ensure clientAddress is the proposer by choosing a round such that
 		// r := randomInt * len(currentCommittee)
 		// r % len(currentCommittee) = 0
@@ -191,7 +191,7 @@ func TestStartRound(t *testing.T) {
 		clientAddress := members[0].Address
 
 		proposalHeight := big.NewInt(int64(rand.Intn(100) + 1))
-		proposalBlock := generateBlock(proposalHeight, types.BlockNonce{11, 22, 33, 44, 55, 66, 77, 88})
+		proposalBlock := generateBlock(proposalHeight)
 		// Valid round can only be set after round 0, hence the smallest value the the round can have is 1 for the valid
 		// value to have the smallest value which is 0
 		currentRound := int64(len(members) * (rand.Intn(100) + 1))
@@ -225,7 +225,7 @@ func TestStartRound(t *testing.T) {
 		clientPositionInRoundRobin := clientIndex
 
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
-		prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
+		prevBlock := generateBlock(prevHeight)
 		// ensure the client is not the proposer for current round
 		currentRound := int64(rand.Intn(100))
 		for (currentRound >= int64(clientIndex)) && (currentRound/int64(clientPositionInRoundRobin) == 0) {
@@ -277,8 +277,12 @@ func prepareCommittee(t *testing.T) *committee.Set {
 	return committeeSet
 }
 
-func generateBlock(height *big.Int, nonce types.BlockNonce) *types.Block {
-	// use nonce to create different blocks
+func generateBlock(height *big.Int) *types.Block {
+	// use random nonce to create different blocks
+	var nonce types.BlockNonce
+	for i := 0; i < len(nonce); i++ {
+		nonce[0] = byte(rand.Intn(256))
+	}
 	header := &types.Header{Number: height, Nonce: nonce}
 	block := types.NewBlock(header, nil, nil, nil)
 	return block
