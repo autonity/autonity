@@ -228,7 +228,7 @@ func TestStartRound(t *testing.T) {
 		prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
 		// ensure the client is not the proposer for current round
 		currentRound := int64(rand.Intn(100))
-		for currentRound/int64(clientPositionInRoundRobin) == 0 {
+		for (currentRound >= int64(clientIndex)) && (currentRound/int64(clientPositionInRoundRobin) == 0) {
 			currentRound = int64(rand.Intn(100))
 		}
 
