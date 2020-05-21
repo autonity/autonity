@@ -2,6 +2,8 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/crypto"
+	"sort"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
@@ -10,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"math/rand"
-	"strconv"
 	"testing"
 )
 
@@ -31,12 +32,10 @@ func TestStartRoundVariables(t *testing.T) {
 
 	// We don't care who is the next proposer so for simplicity we ensure that clientAddress is not the next
 	// proposer by setting clientAddress to be the last proposer. This will ensure that the test will not run the
-	// broadcast method from backend (used for sending messages, in this case it would have been a proposal), since the
-	// client will not be proposing for until round round%len(committee)=0
-	currentCommittee := prepareCommittee()
-	clientAddress := currentCommittee[rand.Intn(len(currentCommittee))].Address
-	committeeSet, err := committee.NewSet(currentCommittee, clientAddress)
-	assert.Nil(t, err)
+	// broadcast method.
+	committeeSet := prepareCommittee(t)
+	members := committeeSet.Committee()
+	clientAddress := members[len(members)-1].Address
 
 	overrideDefaultCoreValues := func(core *core) {
 		core.height = big.NewInt(-1)
@@ -141,27 +140,20 @@ func TestStartRound(t *testing.T) {
 		return proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig
 	}
 
-	creatCommitteeForProposer := func(t *testing.T) (types.Committee, common.Address, common.Address, *committee.Set) {
-		currentCommittee := prepareCommittee()
-		lastBlockProposerIndex := rand.Intn(len(currentCommittee))
-		lastBlockProposer := currentCommittee[lastBlockProposerIndex].Address
-		clientAddress := currentCommittee[lastBlockProposerIndex+1%(len(currentCommittee))].Address
-		committeeSet, err := committee.NewSet(currentCommittee, lastBlockProposer)
-		assert.Nil(t, err)
-		return currentCommittee, lastBlockProposer, clientAddress, committeeSet
-	}
-
 	t.Run("client is the proposer and valid value is nil", func(t *testing.T) {
-		currentCommittee, lastBlockProposer, clientAddress, committeeSet := creatCommitteeForProposer(t)
+		committeeSet := prepareCommittee(t)
+		members := committeeSet.Committee()
+		lastBlockProposer := members[len(members)-1].Address
+		clientAddress := members[0].Address
 
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
 		prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
 		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
 		proposalBlock := generateBlock(proposalHeight, types.BlockNonce{12, 23, 34, 45, 56, 67, 78, 89})
-		// Ensure cliendAddress is the proposer by setting the by choosing a round such that
+		// Ensure clientAddress is the proposer by choosing a round such that
 		// r := randomInt * len(currentCommittee)
 		// r % len(currentCommittee) = 0
-		currentRound := int64(len(currentCommittee) * (rand.Intn(100)))
+		currentRound := int64(len(members) * (rand.Intn(100)))
 
 		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, int64(-1), proposalBlock, clientAddress)
 
@@ -169,8 +161,8 @@ func TestStartRound(t *testing.T) {
 		backendMock.EXPECT().Address().Return(clientAddress)
 
 		core := New(backendMock)
-		// We assume that when round 0 can only happen when we move to a new height, therefore, height is
-		// incremented by 1 in start round when round = 0, and the committee set is updated. However, in testcase where
+		// We assume that round 0 can only happen when we move to a new height, therefore, height is
+		// incremented by 1 in start round when round = 0, and the committee set is updated. However, in test case where
 		// round is more than 0, then we need to explicitly update the committee set and height.
 		if currentRound > 0 {
 			core.committeeSet = committeeSet
@@ -194,13 +186,15 @@ func TestStartRound(t *testing.T) {
 	})
 
 	t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
-		currentCommittee, _, clientAddress, committeeSet := creatCommitteeForProposer(t)
+		committeeSet := prepareCommittee(t)
+		members := committeeSet.Committee()
+		clientAddress := members[0].Address
 
 		proposalHeight := big.NewInt(int64(rand.Intn(100) + 1))
 		proposalBlock := generateBlock(proposalHeight, types.BlockNonce{11, 22, 33, 44, 55, 66, 77, 88})
 		// Valid round can only be set after round 0, hence the smallest value the the round can have is 1 for the valid
 		// value to have the smallest value which is 0
-		currentRound := int64(len(currentCommittee) * (rand.Intn(100) + 1))
+		currentRound := int64(len(members) * (rand.Intn(100) + 1))
 		validR := currentRound - 1
 
 		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, validR, proposalBlock, clientAddress)
@@ -224,11 +218,11 @@ func TestStartRound(t *testing.T) {
 		// implies an implicit state.  Otherwise, the expected message that is to be sent will fail.
 	})
 	t.Run("client is not the proposer", func(t *testing.T) {
-		currentCommittee := prepareCommittee()
-		clientAddress := currentCommittee[rand.Intn(len(currentCommittee))].Address
-		clientPositionInRoundRobin := len(currentCommittee) - 1
-		committeeSet, err := committee.NewSet(currentCommittee, clientAddress)
-		assert.Nil(t, err)
+		committeeSet := prepareCommittee(t)
+		members := committeeSet.Committee()
+		clientIndex := len(members) - 1
+		clientAddress := members[clientIndex].Address
+		clientPositionInRoundRobin := clientIndex
 
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
 		prevBlock := generateBlock(prevHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
@@ -261,20 +255,25 @@ func TestStartRound(t *testing.T) {
 
 // TODO: We should create a utility function which can we used across different test files, it can be related to this
 // issue https://github.com/clearmatics/autonity/issues/525
-func prepareCommittee() types.Committee {
-	// prepare committee.
+// Committee will be ordered such that the proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
+func prepareCommittee(t *testing.T) *committee.Set {
 	minSize := 4
 	maxSize := 100
-	committeeSize := rand.Intn(maxSize-minSize) + minSize
-	committeeSet := types.Committee{}
-	for i := 1; i <= committeeSize; i++ {
-		hexString := "0x01234567890" + strconv.Itoa(i)
+	cSize := rand.Intn(maxSize-minSize) + minSize
+	c := types.Committee{}
+	for i := 1; i <= cSize; i++ {
+		key, err := crypto.GenerateKey()
+		assert.Nil(t, err)
 		member := types.CommitteeMember{
-			Address:     common.HexToAddress(hexString),
+			Address:     crypto.PubkeyToAddress(key.PublicKey),
 			VotingPower: new(big.Int).SetInt64(1),
 		}
-		committeeSet = append(committeeSet, member)
+		c = append(c, member)
 	}
+
+	sort.Sort(c)
+	committeeSet, err := committee.NewSet(c, c[len(c)-1].Address)
+	assert.Nil(t, err)
 	return committeeSet
 }
 
