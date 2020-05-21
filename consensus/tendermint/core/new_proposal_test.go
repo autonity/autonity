@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"math/rand"
+	"sort"
 	"testing"
 	"time"
 )
@@ -95,6 +96,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		defer ctrl.Finish()
 		// prepare a random size of committee, and the proposer at last committed block.
 		currentCommittee, _ := prepareCommittee(t)
+		sort.Sort(currentCommittee)
 		lastProposer := currentCommittee[len(currentCommittee)-1].Address
 		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
 		if err != nil {
@@ -172,6 +174,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		defer ctrl.Finish()
 		// prepare a random size of committee, and the proposer at last committed block.
 		currentCommittee, _ := prepareCommittee(t)
+		sort.Sort(currentCommittee)
 		lastProposer := currentCommittee[len(currentCommittee)-1].Address
 		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
 		if err != nil {
@@ -253,6 +256,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		defer ctrl.Finish()
 		// prepare a random size of committee, and the proposer at last committed block.
 		currentCommittee, _ := prepareCommittee(t)
+		sort.Sort(currentCommittee)
 		lastProposer := currentCommittee[len(currentCommittee)-1].Address
 		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
 		if err != nil {
@@ -266,7 +270,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
 		// create consensus core.
-		lockedValue := generateBlock(big.NewInt(10))
+		lockedValue := generateBlock(big.NewInt(11))
 		c := New(backendMock)
 		c.committeeSet = committeeSet
 		c.height = currentHeight
@@ -334,6 +338,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		defer ctrl.Finish()
 		// prepare a random size of committee, and the proposer at last committed block.
 		currentCommittee, _ := prepareCommittee(t)
+		sort.Sort(currentCommittee)
 		lastProposer := currentCommittee[len(currentCommittee)-1].Address
 		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
 		if err != nil {
