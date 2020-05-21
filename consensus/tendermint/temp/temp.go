@@ -9,10 +9,22 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
-// GetCommittee returns the committee to be used for validating the block
+// GetCommittee retrieves the committee for the given header.
+func GetCommittee(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
+	if header.IsGenesis() {
+		return header.Committee, nil
+	}
+	parent := chain.GetHeaderByHash(header.ParentHash)
+	if parent == nil {
+		return nil, errors.New("unknown block")
+	}
+	return parent.Committee, nil
+}
+
+// GetCommitteeSet returns the committee to be used for validating the block
 // associated with header. The parent paramer is optional, if it is not
 // provided it will be looked up.
-func GetCommittee(header, parent *types.Header, chain consensus.ChainReader) (committee.Set, error) {
+func GetCommitteeSet(header, parent *types.Header, chain consensus.ChainReader) (committee.Set, error) {
 
 	var previousProposer common.Address
 	// The genesis block has no parent, so the committee is whatever is defined

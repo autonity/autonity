@@ -681,7 +681,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 		panic(err)
 	}
 
-	validators, err := temp.GetCommittee(blockchain.CurrentHeader(), nil, blockchain)
+	validators, err := temp.GetCommitteeSet(blockchain.CurrentHeader(), nil, blockchain)
 	if err != nil || validators.Size() == 0 {
 		panic("failed to get committee")
 	}

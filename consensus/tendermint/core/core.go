@@ -325,7 +325,7 @@ func (c *core) setInitialState(r int64) {
 		lastBlockMined, _ := c.backend.LastCommittedProposal()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 
-		committeeSet, err := temp.GetCommittee(lastBlockMined.Header(), nil, c.backend.BlockChain())
+		committeeSet, err := temp.GetCommitteeSet(lastBlockMined.Header(), nil, c.backend.BlockChain())
 		if err != nil {
 			c.logger.Error("fatal error: could not retrieve saved committee")
 			panic(err)
