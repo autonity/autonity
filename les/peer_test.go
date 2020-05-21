@@ -25,14 +25,8 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/eth"
-	"github.com/clearmatics/autonity/les/flowcontrol"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/rlp"
 )
 
 type testServerPeerSub struct {

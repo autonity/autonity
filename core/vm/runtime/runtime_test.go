@@ -17,6 +17,9 @@
 package runtime
 
 import (
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"strings"
 	"testing"

@@ -17,6 +17,7 @@
 package eth
 
 import (
+	"github.com/clearmatics/autonity/p2p/enode"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -33,22 +34,24 @@ func TestFastSyncDisabling65(t *testing.T) { testFastSyncDisabling(t, 65) }
 // imported into the blockchain.
 func testFastSyncDisabling(t *testing.T, protocol int) {
 	t.Parallel()
-
+	emptyNode := p2p.NewPeer(enode.ID{}, "empty", nil)
+	fullNode := p2p.NewPeer(enode.ID{}, "full", nil)
+	enodes := []string{emptyNode.Info().Enode, fullNode.Info().Enode}
 	// Create a pristine protocol manager, check that fast sync is left enabled
-	pmEmpty, _ := newTestProtocolManagerMust(t, downloader.FastSync, 0, nil, nil)
+	pmEmpty, _ := newTestProtocolManagerMust(t, downloader.FastSync, 0, nil, nil, enodes)
 	if atomic.LoadUint32(&pmEmpty.fastSync) == 0 {
 		t.Fatalf("fast sync disabled on pristine blockchain")
 	}
 	// Create a full protocol manager, check that fast sync gets disabled
-	pmFull, _ := newTestProtocolManagerMust(t, downloader.FastSync, 1024, nil, nil)
+	pmFull, _ := newTestProtocolManagerMust(t, downloader.FastSync, 1024, nil, nil, enodes)
 	if atomic.LoadUint32(&pmFull.fastSync) == 1 {
 		t.Fatalf("fast sync not disabled on non-empty blockchain")
 	}
 
 	// Sync up the two peers
 	io1, io2 := p2p.MsgPipe()
-	go pmFull.handle(pmFull.newPeer(protocol, p2p.NewPeer(enode.ID{}, "empty", nil), io2, pmFull.txpool.Get))
-	go pmEmpty.handle(pmEmpty.newPeer(protocol, p2p.NewPeer(enode.ID{}, "full", nil), io1, pmEmpty.txpool.Get))
+	go pmFull.handle(pmFull.newPeer(protocol, emptyNode, io2, pmFull.txpool.Get))
+	go pmEmpty.handle(pmEmpty.newPeer(protocol, fullNode, io1, pmEmpty.txpool.Get))
 
 	time.Sleep(250 * time.Millisecond)
 	op := peerToSyncOp(downloader.FastSync, pmEmpty.peers.BestPeer())

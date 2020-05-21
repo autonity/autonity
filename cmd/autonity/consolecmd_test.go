@@ -91,7 +91,7 @@ func TestIPCAttachWelcome(t *testing.T) {
 	}()
 
 	waitForEndpoint(t, ipc, 3*time.Second)
-	testAttachWelcome(t, geth, "ipc:"+ipc, ipcAPIs)
+	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs)
 
 }
 

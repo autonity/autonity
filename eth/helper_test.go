@@ -53,7 +53,7 @@ var (
 // newTestProtocolManager creates a new protocol manager for testing purposes,
 // with the given number of blocks already known, and potential notification
 // channels for different events.
-func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func(int, *core.BlockGen), newtx chan<- []*types.Transaction) (*ProtocolManager, ethdb.Database, error) {
+func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func(int, *core.BlockGen), newtx chan<- []*types.Transaction, peers []string) (*ProtocolManager, ethdb.Database, error) {
 	var (
 		evmux  = new(event.TypeMux)
 		engine = ethash.NewFaker()
@@ -187,14 +187,12 @@ type testPeer struct {
 }
 
 // newTestPeer creates a new peer registered at the given protocol manager.
-func newTestPeer(name string, version int, pm *ProtocolManager, shake bool) (*testPeer, <-chan error) {
+func newTestPeer(p2pPeer *p2p.Peer, version int, pm *ProtocolManager, shake bool) (*testPeer, <-chan error) {
 	// Create a message pipe to communicate through
 	app, net := p2p.MsgPipe()
 
 	// Start the peer on a new thread
-	var id enode.ID
-	rand.Read(id[:])
-	peer := pm.newPeer(version, p2p.NewPeer(id, name, nil), net, pm.txpool.Get)
+	peer := pm.newPeer(version, p2pPeer, net, pm.txpool.Get)
 	errc := make(chan error, 1)
 	go func() { errc <- pm.runPeer(peer) }()
 	tp := &testPeer{app: app, net: net, peer: peer}

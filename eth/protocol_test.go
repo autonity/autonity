@@ -18,23 +18,19 @@ package eth
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth/downloader"
-	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
 
@@ -46,7 +42,7 @@ var testAccount, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6
 
 // Tests that handshake failures are detected and reported correctly.
 func TestStatusMsgErrors63(t *testing.T) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, nil)
 	var (
 		genesis = pm.blockchain.Genesis()
 		head    = pm.blockchain.CurrentHeader()
@@ -77,7 +73,8 @@ func TestStatusMsgErrors63(t *testing.T) {
 		},
 	}
 	for i, test := range tests {
-		p, errc := newTestPeer("peer", 63, pm, false)
+		p2pPeer := newTestP2PPeer("peer")
+		p, errc := newTestPeer(p2pPeer, 63, pm, false)
 		// The send call might hang until reset because
 		// the protocol might not read the payload.
 		go p2p.Send(p.app, test.code, test.data)
@@ -97,7 +94,7 @@ func TestStatusMsgErrors63(t *testing.T) {
 }
 
 func TestStatusMsgErrors64(t *testing.T) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, nil)
 	var (
 		genesis = pm.blockchain.Genesis()
 		head    = pm.blockchain.CurrentHeader()
@@ -133,7 +130,8 @@ func TestStatusMsgErrors64(t *testing.T) {
 		},
 	}
 	for i, test := range tests {
-		p, errc := newTestPeer("peer", 64, pm, false)
+		peer := newTestP2PPeer("peer")
+		p, errc := newTestPeer(peer, 64, pm, false)
 		// The send call might hang until reset because
 		// the protocol might not read the payload.
 		go p2p.Send(p.app, test.code, test.data)
@@ -159,9 +157,10 @@ func TestRecvTransactions65(t *testing.T) { testRecvTransactions(t, 65) }
 
 func testRecvTransactions(t *testing.T, protocol int) {
 	txAdded := make(chan []*types.Transaction)
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, txAdded)
+	p2pPeer := newTestP2PPeer("peer")
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, txAdded, []string{p2pPeer.Info().Enode})
 	pm.acceptTxs = 1 // mark synced to accept transactions
-	p, _ := newTestPeer("peer", protocol, pm, true)
+	p, _ := newTestPeer(p2pPeer, protocol, pm, true)
 	defer pm.Stop()
 	defer p.close()
 
@@ -187,112 +186,81 @@ func TestSendTransactions64(t *testing.T) { testSendTransactions(t, 64) }
 func TestSendTransactions65(t *testing.T) { testSendTransactions(t, 65) }
 
 func testSendTransactions(t *testing.T, protocol int) {
-	var (
-		evmux  = new(event.TypeMux)
-		pow    = ethash.NewFaker()
-		db     = rawdb.NewMemoryDatabase()
-		config = &params.ChainConfig{}
-		gspec  = &core.Genesis{Config: config}
-	)
-	config.AutonityContractConfig = &params.AutonityContractGenesis{}
-
-	totalPeers := 3
-	var p2pPeers []*p2p.Peer
-	for i := 0; i < totalPeers; i++ {
-		p2pPeers = append(p2pPeers, newTestP2PPeer(fmt.Sprintf("peer %d", i)))
-
-		config.AutonityContractConfig.Users = append(
-			config.AutonityContractConfig.Users,
-			params.User{
-				Enode: p2pPeers[i].Info().Enode,
-				Type:  params.UserValidator,
-				Stake: 100,
-			},
-		)
+	var enodesList []string
+	var peerList []*p2p.Peer
+	for i := 0; i < 3; i++ {
+		peer := newTestP2PPeer(fmt.Sprintf("peer #%d", i))
+		peerList = append(peerList, peer)
+		enodesList = append(enodesList, peer.Info().Enode)
 	}
-	err := gspec.Config.AutonityContractConfig.AddDefault().Validate()
-	if err != nil {
-		t.Fatal(err)
-	}
-	gspec.MustCommit(db)
-
-	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{}, nil, core.NewTxSenderCacher())
-	if err != nil {
-		t.Fatalf("failed to create new blockchain: %v", err)
-	}
-
-	const txCount = 100
-	txAdded := make(chan []*types.Transaction, txCount)
-	pm, err := NewProtocolManager(config, nil, downloader.FullSync, DefaultConfig.NetworkId, evmux, &testTxPool{added: txAdded}, pow, blockchain, db, 1, nil, nil)
-	if err != nil {
-		t.Fatalf("failed to start test protocol manager: %v", err)
-	}
-	pm.Start(1000)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, enodesList)
 	defer pm.Stop()
 
-	var peers []*testPeer
-	for _, p2pPeer := range p2pPeers {
-		p, _ := newTestPeer(p2pPeer, protocol, pm, true)
-		peers = append(peers, p)
-	}
-
-	// Fill the pool with big transactions.
+	// Fill the pool with big transactions (use a subscription to wait until all
+	// the transactions are announced to avoid spurious events causing extra
+	// broadcasts).
 	const txsize = txsyncPackSize / 10
-	alltxs := make([]*types.Transaction, txCount)
+	alltxs := make([]*types.Transaction, 100)
 	for nonce := range alltxs {
 		alltxs[nonce] = newTestTransaction(testAccount, uint64(nonce), txsize)
 	}
-	pm.BroadcastTxs(alltxs)
+	pm.txpool.AddRemotes(alltxs)
+	time.Sleep(100 * time.Millisecond) // Wait until new tx even gets out of the system (lame)
 
 	// Connect several peers. They should all receive the pending transactions.
 	var wg sync.WaitGroup
-
-	type message struct {
-		msg p2p.Msg
-		err error
-	}
-
 	checktxs := func(p *testPeer) {
 		defer wg.Done()
 		defer p.close()
-
 		seen := make(map[common.Hash]bool)
 		for _, tx := range alltxs {
 			seen[tx.Hash()] = false
 		}
-		msgCh := make(chan message, 1)
-
 		for n := 0; n < len(alltxs) && !t.Failed(); {
-			var txs []*types.Transaction
-
-			go func() {
+			var forAllHashes func(callback func(hash common.Hash))
+			switch protocol {
+			case 63:
+				fallthrough
+			case 64:
 				msg, err := p.app.ReadMsg()
-				msgCh <- message{msg, err}
-			}()
-
-			var readMsg message
-			select {
-			case readMsg = <-msgCh:
-				break
-			case <-time.After(60 * time.Second):
-				t.Fatalf("timeout for peer %v: read error: %v. Tx in pool %d", p.Peer, err, len(txAdded))
+				if err != nil {
+					t.Errorf("%v: read error: %v", p.Peer, err)
+					continue
+				} else if msg.Code != TransactionMsg {
+					t.Errorf("%v: got code %d, want TxMsg", p.Peer, msg.Code)
+					continue
+				}
+				var txs []*types.Transaction
+				if err := msg.Decode(&txs); err != nil {
+					t.Errorf("%v: %v", p.Peer, err)
+					continue
+				}
+				forAllHashes = func(callback func(hash common.Hash)) {
+					for _, tx := range txs {
+						callback(tx.Hash())
+					}
+				}
+			case 65:
+				msg, err := p.app.ReadMsg()
+				if err != nil {
+					t.Errorf("%v: read error: %v", p.Peer, err)
+					continue
+				} else if msg.Code != NewPooledTransactionHashesMsg {
+					t.Errorf("%v: got code %d, want NewPooledTransactionHashesMsg", p.Peer, msg.Code)
+					continue
+				}
+				var hashes []common.Hash
+				if err := msg.Decode(&hashes); err != nil {
+					t.Errorf("%v: %v", p.Peer, err)
+					continue
+				}
+				forAllHashes = func(callback func(hash common.Hash)) {
+					for _, h := range hashes {
+						callback(h)
+					}
+				}
 			}
-
-			msg := readMsg.msg
-
-			if readMsg.err != nil {
-				t.Fatalf("%v: read error: %v, Msg: %v", p.Peer, err, msg.String())
-			} else if msg.Code == 7 {
-				t.Log("genesis block message")
-				continue
-			} else if msg.Code != TxMsg {
-				t.Errorf("%v: got code %d, want TxMsg: %v", p.Peer, msg.Code, msg)
-			}
-			if err := msg.Decode(&txs); err != nil {
-				t.Errorf("%v: %v", p.Peer, err)
-			}
-			for _, tx := range txs {
-				hash := tx.Hash()
+			forAllHashes(func(hash common.Hash) {
 				seentx, want := seen[hash]
 				if seentx {
 					t.Errorf("%v: got tx more than once: %x", p.Peer, hash)
@@ -302,10 +270,11 @@ func testSendTransactions(t *testing.T, protocol int) {
 				}
 				seen[hash] = true
 				n++
-			}
+			})
 		}
 	}
-	for _, p := range peers {
+	for i := 0; i < 3; i++ {
+		p, _ := newTestPeer(peerList[i], protocol, pm, true)
 		wg.Add(1)
 		go checktxs(p)
 	}
@@ -316,18 +285,21 @@ func TestTransactionPropagation(t *testing.T)  { testSyncTransaction(t, true) }
 func TestTransactionAnnouncement(t *testing.T) { testSyncTransaction(t, false) }
 
 func testSyncTransaction(t *testing.T, propagtion bool) {
+	sender := p2p.NewPeer(enode.ID{}, "sender", nil)
+	fetcher := p2p.NewPeer(enode.ID{}, "fetcher", nil)
+	enodes := []string{sender.Info().Enode, fetcher.Info().Enode}
 	// Create a protocol manager for transaction fetcher and sender
-	pmFetcher, _ := newTestProtocolManagerMust(t, downloader.FastSync, 0, nil, nil)
+	pmFetcher, _ := newTestProtocolManagerMust(t, downloader.FastSync, 0, nil, nil, enodes)
 	defer pmFetcher.Stop()
-	pmSender, _ := newTestProtocolManagerMust(t, downloader.FastSync, 1024, nil, nil)
+	pmSender, _ := newTestProtocolManagerMust(t, downloader.FastSync, 1024, nil, nil, enodes)
 	pmSender.broadcastTxAnnouncesOnly = !propagtion
 	defer pmSender.Stop()
 
 	// Sync up the two peers
 	io1, io2 := p2p.MsgPipe()
 
-	go pmSender.handle(pmSender.newPeer(65, p2p.NewPeer(enode.ID{}, "sender", nil), io2, pmSender.txpool.Get))
-	go pmFetcher.handle(pmFetcher.newPeer(65, p2p.NewPeer(enode.ID{}, "fetcher", nil), io1, pmFetcher.txpool.Get))
+	go pmSender.handle(pmSender.newPeer(65, sender, io2, pmSender.txpool.Get))
+	go pmFetcher.handle(pmFetcher.newPeer(65, fetcher, io1, pmFetcher.txpool.Get))
 
 	time.Sleep(250 * time.Millisecond)
 	pmFetcher.doSync(peerToSyncOp(downloader.FullSync, pmFetcher.peers.BestPeer()))

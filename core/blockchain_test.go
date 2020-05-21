@@ -2470,7 +2470,7 @@ func TestDeleteRecreateSlots(t *testing.T) {
 	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{
 		Debug:  true,
 		Tracer: vm.NewJSONLogger(nil, os.Stdout),
-	}, nil)
+	}, nil, &TxSenderCacher{})
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -2550,7 +2550,7 @@ func TestDeleteRecreateAccount(t *testing.T) {
 	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{
 		Debug:  true,
 		Tracer: vm.NewJSONLogger(nil, os.Stdout),
-	}, nil)
+	}, nil, &TxSenderCacher{})
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -2723,7 +2723,7 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{
 		//Debug:  true,
 		//Tracer: vm.NewJSONLogger(nil, os.Stdout),
-	}, nil)
+	}, nil, &TxSenderCacher{})
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -2857,7 +2857,7 @@ func TestInitThenFailCreateContract(t *testing.T) {
 	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{
 		//Debug:  true,
 		//Tracer: vm.NewJSONLogger(nil, os.Stdout),
-	}, nil)
+	}, nil, &TxSenderCacher{})
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}

@@ -43,8 +43,9 @@ func TestGetBlockHeaders63(t *testing.T) { testGetBlockHeaders(t, 63) }
 func TestGetBlockHeaders64(t *testing.T) { testGetBlockHeaders(t, 64) }
 
 func testGetBlockHeaders(t *testing.T, protocol int) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxHashFetch+15, nil, nil)
-	peer, _ := newTestPeer("peer", protocol, pm, true)
+	p2pPeer := newTestP2PPeer("peer")
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxHashFetch+15, nil, nil, []string{p2pPeer.Info().Enode})
+	peer, _ := newTestPeer(p2pPeer, protocol, pm, true)
 	defer peer.close()
 
 	// Create a "random" unknown hash for testing
@@ -202,8 +203,9 @@ func TestGetBlockBodies63(t *testing.T) { testGetBlockBodies(t, 63) }
 func TestGetBlockBodies64(t *testing.T) { testGetBlockBodies(t, 64) }
 
 func testGetBlockBodies(t *testing.T, protocol int) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxBlockFetch+15, nil, nil)
-	peer, _ := newTestPeer("peer", protocol, pm, true)
+	p2pPeer := newTestP2PPeer("peer")
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, downloader.MaxBlockFetch+15, nil, nil, []string{p2pPeer.Info().Enode})
+	peer, _ := newTestPeer(p2pPeer, protocol, pm, true)
 	defer peer.close()
 
 	// Create a batch of tests for various scenarios
@@ -310,8 +312,9 @@ func testGetNodeData(t *testing.T, protocol int) {
 		}
 	}
 	// Assemble the test environment
-	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
-	peer, _ := newTestPeer("peer", protocol, pm, true)
+	p2pPeer := newTestP2PPeer("peer")
+	pm, db := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil, []string{p2pPeer.Info().Enode})
+	peer, _ := newTestPeer(p2pPeer, protocol, pm, true)
 	defer peer.close()
 
 	// Fetch for now the entire chain db
@@ -407,8 +410,9 @@ func testGetReceipt(t *testing.T, protocol int) {
 		}
 	}
 	// Assemble the test environment
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil)
-	peer, _ := newTestPeer("peer", protocol, pm, true)
+	p2pPeer := newTestP2PPeer("peer")
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 4, generator, nil, []string{p2pPeer.Info().Enode})
+	peer, _ := newTestPeer(p2pPeer, protocol, pm, true)
 	defer peer.close()
 
 	// Collect the hashes to request, and the response to expect
@@ -505,11 +509,11 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 		}
 	}
 	// Create a checkpoint aware protocol manager
-	blockchain, err := core.NewBlockChain(db, nil, config, ethash.NewFaker(), vm.Config{}, nil)
+	blockchain, err := core.NewBlockChain(db, nil, config, ethash.NewFaker(), vm.Config{}, nil, &core.TxSenderCacher{})
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
-	pm, err := NewProtocolManager(config, cht, syncmode, DefaultConfig.NetworkId, new(event.TypeMux), &testTxPool{pool: make(map[common.Hash]*types.Transaction)}, ethash.NewFaker(), blockchain, db, 1, nil)
+	pm, err := NewProtocolManager(config, cht, syncmode, DefaultConfig.NetworkId, new(event.TypeMux), &testTxPool{pool: make(map[common.Hash]*types.Transaction)}, ethash.NewFaker(), blockchain, db, 1, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to start test protocol manager: %v", err)
 	}
@@ -517,7 +521,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	defer pm.Stop()
 
 	// Connect a new peer and check that we receive the checkpoint challenge
-	peer, _ := newTestPeer("peer", eth63, pm, true)
+	peer, _ := newTestPeer(p2pPeer, eth63, pm, true)
 	defer peer.close()
 
 	if checkpoint {
@@ -616,7 +620,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
-	pm, err := NewProtocolManager(config, nil, downloader.FullSync, DefaultConfig.NetworkId, evmux, &testTxPool{pool: make(map[common.Hash]*types.Transaction)}, pow, blockchain, db, 1, nil)
+	pm, err := NewProtocolManager(config, nil, downloader.FullSync, DefaultConfig.NetworkId, evmux, &testTxPool{pool: make(map[common.Hash]*types.Transaction)}, pow, blockchain, db, 1, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to start test protocol manager: %v", err)
 	}
@@ -681,11 +685,11 @@ func TestBroadcastMalformedBlock(t *testing.T) {
 		gspec   = &core.Genesis{Config: config}
 		genesis = gspec.MustCommit(db)
 	)
-	blockchain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil)
+	blockchain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil, &core.TxSenderCacher{})
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
-	pm, err := NewProtocolManager(config, nil, downloader.FullSync, DefaultConfig.NetworkId, new(event.TypeMux), new(testTxPool), engine, blockchain, db, 1, nil)
+	pm, err := NewProtocolManager(config, nil, downloader.FullSync, DefaultConfig.NetworkId, new(event.TypeMux), new(testTxPool), engine, blockchain, db, 1, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to start test protocol manager: %v", err)
 	}
@@ -694,10 +698,10 @@ func TestBroadcastMalformedBlock(t *testing.T) {
 
 	// Create two peers, one to send the malformed block with and one to check
 	// propagation
-	source, _ := newTestPeer("source", eth63, pm, true)
+	source, _ := newTestPeer(newTestP2PPeer("source"), eth63, pm, true)
 	defer source.close()
 
-	sink, _ := newTestPeer("sink", eth63, pm, true)
+	sink, _ := newTestPeer(newTestP2PPeer("sink"), eth63, pm, true)
 	defer sink.close()
 
 	// Create various combinations of malformed blocks

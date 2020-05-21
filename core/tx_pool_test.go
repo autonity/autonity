@@ -70,7 +70,7 @@ func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) even
 }
 
 func (bc *testBlockChain) Config() *params.ChainConfig {
-	return params.TestnetChainConfig
+	return params.TestChainConfig
 }
 
 func (bc *testBlockChain) GetAutonityContract() *autonity.Contract {

@@ -19,6 +19,7 @@ package p2p
 import (
 	"crypto/ecdsa"
 	"errors"
+	"golang.org/x/crypto/sha3"
 	"io"
 	"math/rand"
 	"net"
