@@ -17,76 +17,8 @@ import (
 	"time"
 )
 
-// The following tests are not specific to proposal messages but rather apply to all messages
-func TestHandleMessage(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	currentCommittee, keys := prepareCommittee(t)
-	committeeSet, err := committee.NewSet(currentCommittee, currentCommittee[rand.Intn(len(currentCommittee))].Address)
-	assert.Nil(t, err)
-
-	backendMock := NewMockBackend(ctrl)
-	// We don't care what address the client has
-	backendMock.EXPECT().Address().Return(currentCommittee[0].Address).MaxTimes(2)
-	core := New(backendMock)
-
-	t.Run("message sender is not in the committee set", func(t *testing.T) {
-		// Prepare message
-		key, err := crypto.GenerateKey()
-		assert.Nil(t, err)
-
-		msg := &Message{Address: crypto.PubkeyToAddress(key.PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message1")}
-
-		msgRlpNoSig, err := msg.PayloadNoSig()
-		assert.Nil(t, err)
-
-		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), key)
-		assert.Nil(t, err)
-
-		msgRlpWithSig, err := msg.Payload()
-		assert.Nil(t, err)
-
-		core.setCommitteeSet(committeeSet)
-		err = core.handleMsg(context.Background(), msgRlpWithSig)
-
-		assert.Error(t, err, "unauthorised sender, sender is not is committees set")
-	})
-
-	t.Run("message sender is not the message siger", func(t *testing.T) {
-		msg := &Message{Address: crypto.PubkeyToAddress(keys[0].PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message2")}
-
-		msgRlpNoSig, err := msg.PayloadNoSig()
-		assert.Nil(t, err)
-
-		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), keys[1])
-		assert.Nil(t, err)
-
-		msgRlpWithSig, err := msg.Payload()
-		assert.Nil(t, err)
-
-		core.setCommitteeSet(committeeSet)
-		err = core.handleMsg(context.Background(), msgRlpWithSig)
-
-		assert.Error(t, err, "unauthorised sender, sender is not the signer of the message")
-	})
-
-	t.Run("malicious sender sends incorrect signature", func(t *testing.T) {
-		sig, err := crypto.Sign(crypto.Keccak256([]byte("random bytes")), keys[0])
-		assert.Nil(t, err)
-
-		msg := &Message{Address: crypto.PubkeyToAddress(keys[0].PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message2"), Signature: sig}
-		msgRlpWithSig, err := msg.Payload()
-
-		core.setCommitteeSet(committeeSet)
-		err = core.handleMsg(context.Background(), msgRlpWithSig)
-
-		assert.Error(t, err, "malicious sender sends different signature to signature of message")
-	})
-}
-
-// It test the page-6, line 22 to line 27, on new proposal logic of tendermint pseudo-code.
-// Please refer to the algorithm from here: https://arxiv.org/pdf/1807.04938.pdf
+// The following tests aim to test lines 22 - 27 of Tendermint Algorithm described on page 6 of
+// https://arxiv.org/pdf/1807.04938.pdf.
 func TestTendermintNewProposal(t *testing.T) {
 	// Below 4 test cases cover line 22 to line 27 of tendermint pseudo-code.
 	// It test line 24 was executed and step was forwarded on line 27.
@@ -96,8 +28,9 @@ func TestTendermintNewProposal(t *testing.T) {
 	// prepare a random size of committee, and the proposer at last committed block.
 	currentCommittee, _ := prepareCommittee(t)
 	sort.Sort(currentCommittee)
-	lastProposer := currentCommittee[len(currentCommittee)-1].Address
-	committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
+	// Proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
+	// So for round 0 the proposer will be committeeSet.members[0]
+	committeeSet, err := committee.NewSet(currentCommittee, currentCommittee[len(currentCommittee)-1].Address)
 	if err != nil {
 		t.Error(err)
 	}
@@ -106,10 +39,9 @@ func TestTendermintNewProposal(t *testing.T) {
 	proposalBlock := generateBlock(currentHeight)
 	clientAddr := currentCommittee[0].Address
 
-	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
-
 	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (-1)", func(t *testing.T) {
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
 		// create consensus core.
 		c := New(backendMock)
 		c.committeeSet = committeeSet
@@ -171,6 +103,8 @@ func TestTendermintNewProposal(t *testing.T) {
 
 	// It test line 24 was executed and step was forwarded on line 27 but with below different condition.
 	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1), but locked at the same value as proposed already.", func(t *testing.T) {
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
 		// create consensus core.
 		c := New(backendMock)
 		c.committeeSet = committeeSet
@@ -236,6 +170,8 @@ func TestTendermintNewProposal(t *testing.T) {
 
 	// It test line 26 was executed and step was forwarded on line 27 but with below different condition.
 	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1) and locked at different value, vote for nil", func(t *testing.T) {
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
 		// create consensus core.
 		lockedValue := generateBlock(big.NewInt(11))
 		c := New(backendMock)
@@ -301,6 +237,8 @@ func TestTendermintNewProposal(t *testing.T) {
 
 	// It test line 26 was executed and step was forwarded on line 27 but with invalid value proposed.
 	t.Run("on proposal with invalid block, follower should step forward with voting for nil", func(t *testing.T) {
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
 		// create consensus core.
 		c := New(backendMock)
 		c.committeeSet = committeeSet
@@ -361,6 +299,74 @@ func TestTendermintNewProposal(t *testing.T) {
 		assert.Equal(t, c.lockedRound, int64(-1))
 		assert.Nil(t, c.validValue)
 		assert.Equal(t, c.validRound, int64(-1))
+	})
+}
+
+// The following tests are not specific to proposal messages but rather apply to all messages
+func TestHandleMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	currentCommittee, keys := prepareCommittee(t)
+	committeeSet, err := committee.NewSet(currentCommittee, currentCommittee[rand.Intn(len(currentCommittee))].Address)
+	assert.Nil(t, err)
+
+	backendMock := NewMockBackend(ctrl)
+	// We don't care what address the client has
+	backendMock.EXPECT().Address().Return(currentCommittee[0].Address).MaxTimes(2)
+	core := New(backendMock)
+
+	t.Run("message sender is not in the committee set", func(t *testing.T) {
+		// Prepare message
+		key, err := crypto.GenerateKey()
+		assert.Nil(t, err)
+
+		msg := &Message{Address: crypto.PubkeyToAddress(key.PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message1")}
+
+		msgRlpNoSig, err := msg.PayloadNoSig()
+		assert.Nil(t, err)
+
+		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), key)
+		assert.Nil(t, err)
+
+		msgRlpWithSig, err := msg.Payload()
+		assert.Nil(t, err)
+
+		core.setCommitteeSet(committeeSet)
+		err = core.handleMsg(context.Background(), msgRlpWithSig)
+
+		assert.Error(t, err, "unauthorised sender, sender is not is committees set")
+	})
+
+	t.Run("message sender is not the message siger", func(t *testing.T) {
+		msg := &Message{Address: crypto.PubkeyToAddress(keys[0].PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message2")}
+
+		msgRlpNoSig, err := msg.PayloadNoSig()
+		assert.Nil(t, err)
+
+		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), keys[1])
+		assert.Nil(t, err)
+
+		msgRlpWithSig, err := msg.Payload()
+		assert.Nil(t, err)
+
+		core.setCommitteeSet(committeeSet)
+		err = core.handleMsg(context.Background(), msgRlpWithSig)
+
+		assert.Error(t, err, "unauthorised sender, sender is not the signer of the message")
+	})
+
+	t.Run("malicious sender sends incorrect signature", func(t *testing.T) {
+		sig, err := crypto.Sign(crypto.Keccak256([]byte("random bytes")), keys[0])
+		assert.Nil(t, err)
+
+		msg := &Message{Address: crypto.PubkeyToAddress(keys[0].PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message2"), Signature: sig}
+		msgRlpWithSig, err := msg.Payload()
+
+		core.setCommitteeSet(committeeSet)
+		err = core.handleMsg(context.Background(), msgRlpWithSig)
+
+		assert.Error(t, err, "malicious sender sends different signature to signature of message")
 	})
 }
 
