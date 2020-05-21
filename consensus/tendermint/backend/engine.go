@@ -150,8 +150,7 @@ func (sb *Backend) verifyCascadingFields(chain consensus.ChainReader, header, pa
 	if parent.Time+sb.config.BlockPeriod > header.Time {
 		return errInvalidTimestamp
 	}
-
-	if err := sb.verifySigner(chain, header, parent); err != nil {
+	if err := sb.verifySigner(header, parent); err != nil {
 		return err
 	}
 
@@ -192,20 +191,8 @@ func (sb *Backend) VerifyUncles(chain consensus.ChainReader, block *types.Block)
 	return nil
 }
 
-// verifySigner checks whether the signer is in parent's validator set
-func (sb *Backend) verifySigner(chain consensus.ChainReader, header, parent *types.Header) error {
-	// Verifying the genesis block is not supported
-	number := header.Number.Uint64()
-	if number == 0 {
-		return errUnknownBlock
-	}
-
-	committee, err := temp.GetCommittee(header, parent, chain)
-
-	if err != nil {
-		return err
-	}
-
+// verifySigner checks that the signer is part of the committee.
+func (sb *Backend) verifySigner(header, parent *types.Header) error {
 	// resolve the authorization key and check against signers
 	signer, err := types.Ecrecover(header)
 	if err != nil {
@@ -217,7 +204,7 @@ func (sb *Backend) verifySigner(chain consensus.ChainReader, header, parent *typ
 	}
 
 	// Signer should be in the validator set of previous block's extraData.
-	for _, committeeMember := range committee.Committee() {
+	for _, committeeMember := range parent.Committee {
 		if committeeMember.Address == signer {
 			return nil
 		}
@@ -282,9 +269,10 @@ func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header, par
 // VerifySeal checks whether the crypto seal on a header is valid according to
 // the consensus rules of the given engine.
 func (sb *Backend) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
-	// get parent header and ensure the signer is in parent's validator set
-	number := header.Number.Uint64()
-	if number == 0 {
+	// Ensure the signer is part of the committee
+
+	// The genesis block is not signed.
+	if header.IsGenesis() {
 		return errUnknownBlock
 	}
 
@@ -292,7 +280,13 @@ func (sb *Backend) VerifySeal(chain consensus.ChainReader, header *types.Header)
 	if header.Difficulty.Cmp(defaultDifficulty) != 0 {
 		return errInvalidDifficulty
 	}
-	return sb.verifySigner(chain, header, nil)
+
+	parent := chain.GetHeaderByHash(header.ParentHash)
+	if parent == nil {
+		// TODO make this ErrUnknownAncestor
+		return errUnknownBlock
+	}
+	return sb.verifySigner(header, parent)
 }
 
 // Prepare initializes the consensus fields of a block header according to the
