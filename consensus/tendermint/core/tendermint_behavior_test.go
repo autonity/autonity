@@ -73,12 +73,13 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 			if !ok {
 				t.Error("convert event failure.")
 			}
-			assert.Equal(t, timeoutEvent.roundWhenCalled, roundProposed)
-			assert.Equal(t, timeoutEvent.heightWhenCalled.Uint64(), currentHeight.Uint64())
-			assert.Equal(t, timeoutEvent.step, msgPrevote)
+			assert.Equal(t, roundProposed, timeoutEvent.roundWhenCalled,)
+			assert.Equal(t, currentHeight.Uint64(), timeoutEvent.heightWhenCalled.Uint64())
+			assert.Equal(t, msgPrevote, timeoutEvent.step)
 		})
 
-		err = core.handlePrevote(context.Background(), preVoteMsg)
+		_, msgSender, _ := core.committeeSet.GetByAddress(clientAddr)
+		err = core.handleCheckedMsg(context.Background(), preVoteMsg, msgSender)
 		if err != nil {
 			t.Error(err)
 		}
@@ -106,7 +107,6 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		proposalBlock := generateBlock(currentHeight)
 		lockedRound := int64(-1)
 		step := prevote
-		setValidRoundAndValue := true
 		clientAddr := currentCommittee[0].Address
 
 		backendMock := NewMockBackend(ctrl)
@@ -114,7 +114,7 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		core := New(backendMock)
-		initState(core, committeeSet, currentHeight, roundProposed, nil, lockedRound, proposalBlock, roundProposed, step, setValidRoundAndValue)
+		initState(core, committeeSet, currentHeight, roundProposed, nil, lockedRound, proposalBlock, roundProposed, step, true)
 
 		// subscribe for checking the broadcast msg: precommit for nil on the specific view.
 		checkBroadcastMsg(t, backendMock, core, msgPrecommit, currentHeight, roundProposed, common.Hash{})
@@ -170,13 +170,13 @@ func initState(core *core, committee *committee.Set, height *big.Int, round int6
 
 // checking internal state of tendermint.
 func checkState(t *testing.T, core *core, height *big.Int, round int64, lockedValue *types.Block, lockedRound int64, validValue *types.Block, validRound int64, step Step) {
-	assert.Equal(t, core.height, height)
-	assert.Equal(t, core.round, round)
-	assert.Equal(t, core.validValue, validValue)
-	assert.Equal(t, core.validRound, validRound)
-	assert.Equal(t, core.lockedValue, lockedValue)
-	assert.Equal(t, core.lockedRound, lockedRound)
-	assert.Equal(t, core.step, step)
+	assert.Equal(t, height, core.Height())
+	assert.Equal(t, round, core.Round())
+	assert.Equal(t, validValue, core.validValue)
+	assert.Equal(t, validRound, core.validRound)
+	assert.Equal(t, lockedValue, core.lockedValue)
+	assert.Equal(t, lockedRound, core.lockedRound)
+	assert.Equal(t, step, core.step)
 }
 
 func prepareCommittee() (types.Committee, addressKeyMap) {
