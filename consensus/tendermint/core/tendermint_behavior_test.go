@@ -13,25 +13,11 @@ import (
 	"time"
 )
 
-func prepareCommittee() (types.Committee, addressKeyMap) {
-	// prepare committee.
-	minSize := 4
-	maxSize := 15
-	committeeSize := rand.Intn(maxSize - minSize) + minSize
-	committeeSet, keyMap := generateCommittee(committeeSize)
-	return committeeSet, keyMap
-}
-
-func generateBlock(height *big.Int, nonce types.BlockNonce) *types.Block {
-	header := &types.Header{Number: height, Nonce: nonce}
-	block := types.NewBlock(header, nil, nil, nil)
-	return block
-}
-
 // lines 34-35 & 61-64 of page 6 of The latest gossip on BFT consensus to describe the correct behaviours in
 // test function for the current implementation of Tendermint.
+
 func TestTendermintPrevoteTimeout(t *testing.T) {
-		t.Run("Line34 to Line35, schedule for prevote timeout.", func(t *testing.T) {
+	t.Run("Line34 to Line35, schedule for prevote timeout.", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -42,35 +28,28 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		}
 
 		currentHeight := big.NewInt(10)
-		proposalBlock := generateBlock(currentHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
+		proposalBlock := generateBlock(currentHeight)
+		validRoundProposed := int64(0)
+		roundProposed := int64(0)
 		clientAddr := currentCommittee[0].Address
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, gomock.Any()).AnyTimes().Return(nil)
-		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
 
-		validRoundProposed := int64(0)
-		roundProposed := int64(0)
-
+		// create the triggering msg.
 		preVoteMsg := createPrevote(t, proposalBlock.Hash(), roundProposed, currentHeight, committeeSet.Committee()[0])
-		// create consensus core and conditions.
-		c := New(backendMock)
-		c.committeeSet = committeeSet
-		c.height = currentHeight
-		c.round = roundProposed
-		c.lockedRound = -1
-		c.lockedValue = nil
-		c.validRound = roundProposed
-		c.validValue = proposalBlock
-		c.setValidRoundAndValue = true
-		c.step = prevote
 
-		// condition 2f+1 <PREVOTE, h_p, round_p, *>, power of pre-vote. line 34
+		// init tendermint internal states.
+		core := New(backendMock)
+		initState(core, committeeSet, currentHeight, roundProposed, nil, int64(-1), proposalBlock, roundProposed, prevote, true)
+
+		// condition 2f+1 <PREVOTE, h_p, round_p, *>, quorum power of pre-vote for *. line 34
+		// prepare the received prevote msg, and init the round state.
 		receivedPrevoteMsg := Message{
 			Code:    msgPrevote,
 			Address: currentCommittee[2].Address,
-			power:   c.CommitteeSet().Quorum() - 1 ,
+			// the full quorum will be triggered by input msg by counting 1 to below power.
+			power: core.CommitteeSet().Quorum() - 1,
 		}
 		proposal := NewProposal(roundProposed, currentHeight, validRoundProposed, proposalBlock)
 		encodedProposal, err := Encode(proposal)
@@ -84,10 +63,11 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 			Address: currentCommittee[1].Address,
 		}
 
-		c.curRoundMessages.SetProposal(proposal, proposalMsg, true)
-		c.curRoundMessages.AddPrevote(proposalBlock.Hash(), receivedPrevoteMsg)
-		c.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), receivedPrevoteMsg)
+		core.curRoundMessages.SetProposal(proposal, proposalMsg, true)
+		core.curRoundMessages.AddPrevote(proposalBlock.Hash(), receivedPrevoteMsg)
+		core.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), receivedPrevoteMsg)
 
+		// subscribe to check the prevote timeout event is sent to backend at the specific view.
 		backendMock.EXPECT().Post(gomock.Any()).Do(func(ev interface{}) {
 			timeoutEvent, ok := ev.(TimeoutEvent)
 			if !ok {
@@ -98,18 +78,15 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 			assert.Equal(t, timeoutEvent.step, msgPrevote)
 		})
 
-		err = c.handlePrevote(context.Background(), preVoteMsg)
+		err = core.handlePrevote(context.Background(), preVoteMsg)
 		if err != nil {
 			t.Error(err)
 		}
-		// waif for timeout event.
-		time.Sleep(timeoutPrevote(roundProposed)*2)
+		// wait for a duration and check the state changes was triggered handlePrevote.
+		duration := timeoutPrevote(roundProposed) * 2
+		time.Sleep(duration)
 		// checking internal state of tendermint.
-		assert.Equal(t, c.lockedRound, int64(-1))
-		assert.Nil(t, c.lockedValue)
-		assert.Equal(t, c.validRound, roundProposed)
-		assert.Equal(t, c.validValue, proposalBlock)
-		assert.Equal(t, c.step, prevote)
+		checkState(t, core, currentHeight, roundProposed, nil, int64(-1), proposalBlock, roundProposed, prevote)
 	})
 
 	t.Run("Line 61 - 64, precommit for nil on timeout of prevote, the height does not change.", func(t *testing.T) {
@@ -125,46 +102,22 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		}
 
 		currentHeight := big.NewInt(10)
-		proposalBlock := generateBlock(currentHeight, types.BlockNonce{1, 2, 3, 4, 5, 6, 7, 8})
+		roundProposed := int64(1)
+		proposalBlock := generateBlock(currentHeight)
+		lockedRound := int64(-1)
+		step := prevote
+		setValidRoundAndValue := true
 		clientAddr := currentCommittee[0].Address
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
 
-		roundProposed := int64(1)
-		c := New(backendMock)
-		c.committeeSet = committeeSet
-		c.height = currentHeight
-		c.round = roundProposed
-		c.lockedRound = -1
-		c.lockedValue = nil
-		c.validRound = roundProposed
-		c.validValue = proposalBlock
-		c.setValidRoundAndValue = true
-		c.step = prevote
+		core := New(backendMock)
+		initState(core, committeeSet, currentHeight, roundProposed, nil, lockedRound, proposalBlock, roundProposed, step, setValidRoundAndValue)
 
-		// prepare the wanted msg which will be broadcast.
-		vote := Vote{
-			Round:             roundProposed,
-			Height:            currentHeight,
-			ProposedBlockHash: common.Hash{},
-		}
-		preCommitMsg, err := Encode(&vote)
-		if err != nil {
-			t.Error("err")
-		}
-		wantedMsg, err := c.finalizeMessage(&Message{
-			Code:          msgPrecommit,
-			Msg:           preCommitMsg,
-			Address:       clientAddr,
-			CommittedSeal: []byte{},
-		})
-		if err != nil {
-			t.Error(err)
-		}
-		// should check if broadcast to wanted committeeSet with wanted prevote msg.
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, wantedMsg).Return(nil)
+		// subscribe for checking the broadcast msg: precommit for nil on the specific view.
+		checkBroadcastMsg(t, backendMock, core, msgPrecommit, currentHeight, roundProposed, common.Hash{})
 
 		// timeout event.
 		event := TimeoutEvent{
@@ -172,16 +125,76 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 			heightWhenCalled: currentHeight,
 			step:             msgPrevote,
 		}
-		c.handleTimeoutPrevote(context.Background(), event)
+		core.handleTimeoutPrevote(context.Background(), event)
 
 		// checking internal sate of tendermint.
-		assert.Equal(t, c.round, roundProposed)
-		assert.Equal(t, c.height, currentHeight)
-		assert.Equal(t, c.lockedRound, int64(-1))
-		assert.Nil(t, c.lockedValue)
-		assert.Equal(t, c.validRound, roundProposed)
-		assert.Equal(t, c.validValue, proposalBlock)
-		// step from prevote to precommit with voting for nil.
-		assert.Equal(t, c.step, precommit)
+		checkState(t, core, currentHeight, roundProposed, nil, int64(-1), proposalBlock, roundProposed, precommit)
 	})
+}
+
+func checkBroadcastMsg(t *testing.T, backendMock *MockBackend, core *core, msgCode uint64, height *big.Int, round int64, hash common.Hash) {
+	// prepare the wanted msg which will be broadcast.
+	vote := Vote{
+		Round:             round,
+		Height:            height,
+		ProposedBlockHash: hash,
+	}
+	msg, err := Encode(&vote)
+	if err != nil {
+		t.Error("err")
+	}
+	wantedMsg, err := core.finalizeMessage(&Message{
+		Code:          msgPrecommit,
+		Msg:           msg,
+		Address:       core.address,
+		CommittedSeal: []byte{},
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	// should check if broadcast to wanted committeeSet with wanted msg.
+	backendMock.EXPECT().Broadcast(context.Background(), core.committeeSet, wantedMsg).Return(nil)
+}
+
+func initState(core *core, committee *committee.Set, height *big.Int, round int64, lockedValue *types.Block, lockedRound int64, validValue *types.Block, validRound int64, step Step, setValid bool) {
+	core.committeeSet = committee
+	core.height = height
+	core.round = round
+	core.lockedRound = lockedRound
+	core.lockedValue = lockedValue
+	core.validRound = validRound
+	core.validValue = validValue
+	core.setValidRoundAndValue = setValid
+	core.step = step
+}
+
+// checking internal state of tendermint.
+func checkState(t *testing.T, core *core, height *big.Int, round int64, lockedValue *types.Block, lockedRound int64, validValue *types.Block, validRound int64, step Step) {
+	assert.Equal(t, core.height, height)
+	assert.Equal(t, core.round, round)
+	assert.Equal(t, core.validValue, validValue)
+	assert.Equal(t, core.validRound, validRound)
+	assert.Equal(t, core.lockedValue, lockedValue)
+	assert.Equal(t, core.lockedRound, lockedRound)
+	assert.Equal(t, core.step, step)
+}
+
+func prepareCommittee() (types.Committee, addressKeyMap) {
+	// prepare committee.
+	minSize := 4
+	maxSize := 15
+	committeeSize := rand.Intn(maxSize-minSize) + minSize
+	committeeSet, keyMap := generateCommittee(committeeSize)
+	return committeeSet, keyMap
+}
+
+func generateBlock(height *big.Int) *types.Block {
+	// use random nonce to create different blocks
+	var nonce types.BlockNonce
+	for i := 0; i < len(nonce); i++ {
+		nonce[0] = byte(rand.Intn(256))
+	}
+	header := &types.Header{Number: height, Nonce: nonce}
+	block := types.NewBlock(header, nil, nil, nil)
+	return block
 }
