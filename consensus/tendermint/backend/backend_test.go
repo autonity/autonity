@@ -39,7 +39,6 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	tendermintCrypto "github.com/clearmatics/autonity/consensus/tendermint/crypto"
-	"github.com/clearmatics/autonity/consensus/tendermint/temp"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
@@ -256,7 +255,7 @@ func TestHasBadProposal(t *testing.T) {
 }
 
 func TestSign(t *testing.T) {
-	b := newBackend()
+	_, b := newBlockChain(4)
 	data := []byte("Here is a string....")
 	sig, err := b.Sign(data)
 	if err != nil {
@@ -267,7 +266,7 @@ func TestSign(t *testing.T) {
 	pubkey, _ := crypto.Ecrecover(hashData, sig)
 	var signer common.Address
 	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
-	if signer != getAddress() {
+	if signer != b.address {
 		t.Errorf("address mismatch: have %v, want %s", signer.Hex(), getAddress().Hex())
 	}
 }
@@ -277,7 +276,7 @@ func TestCheckSignature(t *testing.T) {
 	data := []byte("Here is a string....")
 	hashData := crypto.Keccak256(data)
 	sig, _ := crypto.Sign(hashData, key)
-	b := newBackend()
+	_, b := newBlockChain(4)
 	a := getAddress()
 	err := b.CheckSignature(data, a, sig)
 	if err != nil {
@@ -337,7 +336,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 
 func TestCommit(t *testing.T) {
 	t.Run("broadcaster is not set", func(t *testing.T) {
-		backend := newBackend()
+		_, backend := newBlockChain(4)
 
 		commitCh := make(chan *types.Block, 1)
 		backend.setResultChan(commitCh)
@@ -653,13 +652,6 @@ func (slice Keys) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
-func newBackend() (b *Backend) {
-	_, b = newBlockChain(4)
-	key, _ := generatePrivateKey()
-	b.SetPrivateKey(key)
-	return
-}
-
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
@@ -679,20 +671,6 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	err = b.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
 	if err != nil {
 		panic(err)
-	}
-
-	validators, err := temp.GetCommitteeSet(blockchain.CurrentHeader(), blockchain)
-	if err != nil || validators.Size() == 0 {
-		panic("failed to get committee")
-	}
-	proposerAddr := validators.GetProposer(0).Address
-
-	// find proposer key
-	for _, key := range nodeKeys {
-		addr := crypto.PubkeyToAddress(key.PublicKey)
-		if addr.String() == proposerAddr.String() {
-			b.SetPrivateKey(key)
-		}
 	}
 
 	return blockchain, b
