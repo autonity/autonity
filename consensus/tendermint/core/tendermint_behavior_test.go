@@ -119,7 +119,7 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		// subscribe for checking the broadcast msg: precommit for nil on the specific view.
 		checkBroadcastMsg(t, backendMock, core, msgPrecommit, currentHeight, roundProposed, common.Hash{})
 
-		// timeout event.
+		// prepare timeout event.
 		event := TimeoutEvent{
 			roundWhenCalled:  roundProposed,
 			heightWhenCalled: currentHeight,
@@ -141,10 +141,10 @@ func checkBroadcastMsg(t *testing.T, backendMock *MockBackend, core *core, msgCo
 	}
 	msg, err := Encode(&vote)
 	if err != nil {
-		t.Error("err")
+		t.Error(err)
 	}
 	wantedMsg, err := core.finalizeMessage(&Message{
-		Code:          msgPrecommit,
+		Code:          msgCode,
 		Msg:           msg,
 		Address:       core.address,
 		CommittedSeal: []byte{},
