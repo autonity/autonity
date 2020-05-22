@@ -24,7 +24,7 @@ func GetCommittee(header *types.Header, chain consensus.ChainReader) (types.Comm
 // GetCommitteeSet returns the committee to be used for validating the block
 // associated with header. The parent paramer is optional, if it is not
 // provided it will be looked up.
-func GetCommitteeSet(header, parent *types.Header, chain consensus.ChainReader) (committee.Set, error) {
+func GetCommitteeSet(header *types.Header, chain consensus.ChainReader) (committee.Set, error) {
 
 	var previousProposer common.Address
 	// The genesis block has no parent, so the committee is whatever is defined
@@ -32,11 +32,9 @@ func GetCommitteeSet(header, parent *types.Header, chain consensus.ChainReader) 
 	if header.IsGenesis() {
 		return committee.NewRoundRobinSet(header.Committee, previousProposer)
 	}
+	parent := chain.GetHeaderByHash(header.ParentHash)
 	if parent == nil {
-		parent = chain.GetHeaderByHash(header.ParentHash)
-		if parent == nil {
-			return nil, errors.New("unknown block")
-		}
+		return nil, errors.New("unknown block")
 	}
 	// The genesis block has no ProposerSeal so there is no address to recover
 	// in this case.
