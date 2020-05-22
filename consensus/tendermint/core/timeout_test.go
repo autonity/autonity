@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/rlp"
@@ -93,7 +93,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		// should send precommit nil
 		mockBackend.EXPECT().Sign(gomock.Any()).Times(2)
 		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Do(
-			func(ctx context.Context, valSet committee.Set, payload []byte) {
+			func(ctx context.Context, c types.Committee, payload []byte) {
 				message := new(Message)
 				if err := rlp.DecodeBytes(payload, message); err != nil {
 					t.Fatalf("could not decode payload")

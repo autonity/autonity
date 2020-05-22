@@ -8,7 +8,6 @@ import (
 	context "context"
 	common "github.com/clearmatics/autonity/common"
 	consensus "github.com/clearmatics/autonity/consensus"
-	committee "github.com/clearmatics/autonity/consensus/tendermint/committee"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
 	gomock "github.com/golang/mock/gomock"
@@ -69,29 +68,29 @@ func (mr *MockBackendMockRecorder) AddSeal(block interface{}) *gomock.Call {
 }
 
 // AskSync mocks base method
-func (m *MockBackend) AskSync(set committee.Set) {
+func (m *MockBackend) AskSync(header *types.Header) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AskSync", set)
+	m.ctrl.Call(m, "AskSync", header)
 }
 
 // AskSync indicates an expected call of AskSync
-func (mr *MockBackendMockRecorder) AskSync(set interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) AskSync(header interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), set)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), header)
 }
 
 // Broadcast mocks base method
-func (m *MockBackend) Broadcast(ctx context.Context, valSet committee.Set, payload []byte) error {
+func (m *MockBackend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Broadcast", ctx, valSet, payload)
+	ret := m.ctrl.Call(m, "Broadcast", ctx, committee, payload)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Broadcast indicates an expected call of Broadcast
-func (mr *MockBackendMockRecorder) Broadcast(ctx, valSet, payload interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Broadcast(ctx, committee, payload interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), ctx, valSet, payload)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), ctx, committee, payload)
 }
 
 // Commit mocks base method
@@ -137,15 +136,15 @@ func (mr *MockBackendMockRecorder) GetContractAddress() *gomock.Call {
 }
 
 // Gossip mocks base method
-func (m *MockBackend) Gossip(ctx context.Context, valSet committee.Set, payload []byte) {
+func (m *MockBackend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Gossip", ctx, valSet, payload)
+	m.ctrl.Call(m, "Gossip", ctx, committee, payload)
 }
 
 // Gossip indicates an expected call of Gossip
-func (mr *MockBackendMockRecorder) Gossip(ctx, valSet, payload interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Gossip(ctx, committee, payload interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), ctx, valSet, payload)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), ctx, committee, payload)
 }
 
 // HandleUnhandledMsgs mocks base method

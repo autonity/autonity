@@ -24,7 +24,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/temp"
 
 	"github.com/clearmatics/autonity/common"
@@ -258,7 +258,7 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	}
 
 	// We need at least a quorum for the block to be considered valid
-	if power < committee.Quorum(committeeVotingPower) {
+	if power < bft.Quorum(committeeVotingPower) {
 		return types.ErrInvalidCommittedSeals
 	}
 

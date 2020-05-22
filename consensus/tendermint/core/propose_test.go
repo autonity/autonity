@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/golang/mock/gomock"
 
 	"github.com/clearmatics/autonity/common"
@@ -60,7 +59,7 @@ func TestSendPropose(t *testing.T) {
 				VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -157,7 +156,7 @@ func TestHandleProposal(t *testing.T) {
 		testCommittee, _ := generateCommittee(3)
 		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
 
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[1].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[1].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -211,7 +210,7 @@ func TestHandleProposal(t *testing.T) {
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -311,7 +310,7 @@ func TestHandleProposal(t *testing.T) {
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -378,7 +377,7 @@ func TestHandleProposal(t *testing.T) {
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -476,7 +475,7 @@ func TestHandleProposal(t *testing.T) {
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}

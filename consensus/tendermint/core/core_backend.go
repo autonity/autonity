@@ -6,7 +6,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 )
@@ -17,10 +16,10 @@ type Backend interface {
 
 	AddSeal(block *types.Block) (*types.Block, error)
 
-	AskSync(set committee.Set)
+	AskSync(header *types.Header)
 
 	// Broadcast sends a message to all validators (include self)
-	Broadcast(ctx context.Context, valSet committee.Set, payload []byte) error
+	Broadcast(ctx context.Context, committee types.Committee, payload []byte) error
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
@@ -31,7 +30,7 @@ type Backend interface {
 	GetContractAddress() common.Address
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(ctx context.Context, valSet committee.Set, payload []byte)
+	Gossip(ctx context.Context, committee types.Committee, payload []byte)
 
 	HandleUnhandledMsgs(ctx context.Context)
 

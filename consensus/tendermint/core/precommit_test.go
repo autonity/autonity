@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/crypto/secp256k1"
 	"github.com/stretchr/testify/require"
@@ -489,16 +487,16 @@ func TestHandleCommit(t *testing.T) {
 
 	block := types.NewBlockWithHeader(h)
 	testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
-	committeeSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+	committeeSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 	require.NoError(t, err)
 
 	// block = block.WithSeal(h)
 
-	chainReaderMock := consensus.NewMockChainReader(ctrl)
+	// chainReaderMock := consensus.NewMockChainReader(ctrl)
 	backendMock := NewMockBackend(ctrl)
 	backendMock.EXPECT().LastCommittedProposal().MinTimes(1).Return(block, addr)
-	backendMock.EXPECT().BlockChain().Return(chainReaderMock)
-	chainReaderMock.EXPECT().GetHeaderByHash(gomock.Any()).Return(h)
+	// backendMock.EXPECT().BlockChain().Return(chainReaderMock)
+	// chainReaderMock.EXPECT().GetHeaderByHash(gomock.Any()).Return(h)
 
 	c := &core{
 		address:          addr,

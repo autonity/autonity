@@ -21,13 +21,13 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/clearmatics/autonity/consensus/tendermint/temp"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -76,11 +76,12 @@ const (
 )
 
 // New creates an Tendermint consensus core
-func New(backend Backend) *core {
+func New(backend Backend, proposerPolicy config.ProposerPolicy) *core {
 	logger := log.New("addr", backend.Address().String())
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
+		proposerPolicy:        proposerPolicy,
 		address:               backend.Address(),
 		logger:                logger,
 		backend:               backend,
@@ -101,8 +102,9 @@ func New(backend Backend) *core {
 }
 
 type core struct {
-	address common.Address
-	logger  log.Logger
+	proposerPolicy config.ProposerPolicy
+	address        common.Address
+	logger         log.Logger
 
 	backend Backend
 	cancel  context.CancelFunc
@@ -127,9 +129,10 @@ type core struct {
 	// Tendermint FSM state fields
 	//
 
-	height    *big.Int
-	round     int64
-	committee committee.Set
+	height     *big.Int
+	round      int64
+	committee  committee
+	lastHeader *types.Header
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	stateMu               sync.RWMutex
@@ -195,45 +198,15 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 
 	// Broadcast payload
 	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(ctx, c.committeeSet(), payload); err != nil {
+	if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}
 }
 
-// get proposer base on local round state.
-func (c *core) getProposer() types.CommitteeMember {
-	// if sticky or round robin configured for proposer selection. L2 is not deployed before Height1 finalized.
-	if !c.committeeSet().IsPoS() || c.Height().Uint64() == 1 {
-		return c.committeeSet().GetProposer(c.Round())
-	}
-	// PoS (voting power) weighted round robin.
-	l2ViewHeight := c.Height().Uint64() - 1
-	proposer := c.backend.GetProposerFromAC(l2ViewHeight, c.Round())
-	_, member, _ := c.committeeSet().GetByAddress(proposer)
-	return member
-}
-
-// check is proposer base on local round state.
-func (c *core) isProposer() bool {
-	// if sticky or round robin configured for proposer selection. L2 is not deployed before Height1 finalized.
-	if !c.committeeSet().IsPoS() || c.Height().Uint64() == 1 {
-		return c.committeeSet().IsProposer(c.Round(), c.address)
-	}
-	// PoS (voting power) weighted round robin.
-	l2ViewHeight := c.Height().Uint64() - 1
-	return c.backend.GetProposerFromAC(l2ViewHeight, c.Round()) == c.address
-}
-
 // check if msg sender is proposer for proposal handling.
 func (c *core) isProposerMsg(height *big.Int, round int64, msgAddress common.Address) bool {
-	// if sticky or round robin configured for proposer selection. L2 is not deployed before Height1 finalized.
-	if !c.committeeSet().IsPoS() || height.Uint64() == 1 {
-		return c.committeeSet().IsProposer(round, msgAddress)
-	}
-	// PoS (voting power) weighted round robin.
-	l2ViewHeight := c.Height().Uint64() - 1
-	return c.backend.GetProposerFromAC(l2ViewHeight, round) == msgAddress
+	return c.committeeSet().GetProposer(c.Round()).Address == msgAddress
 }
 
 func (c *core) commit(round int64, messages *roundMessages) {
@@ -293,7 +266,7 @@ func (c *core) startRound(ctx context.Context, round int64) {
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
 	// proposeTimeout is started, where the node waits for a proposal from the proposer of the current round.
-	if c.isProposer() {
+	if c.committeeSet().GetProposer(c.Round()).Address == c.address {
 		// validValue and validRound represent a block they received a quorum of prevote and the round quorum was
 		// received, respectively. If the block is not committed in that round then the round is changed.
 		// The new proposer will chose the validValue, if present, which was set in one of the previous rounds otherwise
@@ -325,11 +298,30 @@ func (c *core) setInitialState(r int64) {
 		lastBlockMined, _ := c.backend.LastCommittedProposal()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 
-		committeeSet, err := temp.GetCommitteeSet(lastBlockMined.Header(), c.backend.BlockChain())
-		if err != nil {
-			c.logger.Error("fatal error: could not retrieve saved committee")
-			panic(err)
+		lastHeader := lastBlockMined.Header()
+		var committeeSet committee
+		var err error
+		var lastProposer common.Address
+		switch c.proposerPolicy {
+		case config.RoundRobin:
+			if !lastHeader.IsGenesis() {
+				var err error
+				lastProposer, err = types.Ecrecover(lastHeader)
+				if err != nil {
+					panic(fmt.Sprintf("unable to recover proposer address from header %q: %v", lastHeader, err))
+				}
+			}
+			committeeSet, err = newRoundRobinSet(lastHeader.Committee, lastProposer)
+			if err != nil {
+				panic(fmt.Sprintf("failed to construct committee %v", err))
+			}
+		case config.WeightedRoundRobin:
+			committeeSet = newWeightedRoundRobinCommittee(lastHeader, c.backend)
+		default:
+			panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
 		}
+
+		c.lastHeader = lastHeader
 		c.setCommitteeSet(committeeSet)
 		c.lockedRound = -1
 		c.lockedValue = nil
@@ -387,7 +379,7 @@ func (c *core) setHeight(height *big.Int) {
 	defer c.stateMu.Unlock()
 	c.height = height
 }
-func (c *core) setCommitteeSet(set committee.Set) {
+func (c *core) setCommitteeSet(set committee) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.committee = set
@@ -404,7 +396,7 @@ func (c *core) Height() *big.Int {
 	defer c.stateMu.RUnlock()
 	return c.height
 }
-func (c *core) committeeSet() committee.Set {
+func (c *core) committeeSet() committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committee

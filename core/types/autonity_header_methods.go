@@ -18,3 +18,18 @@ func (h *Header) CommitteeMember(address common.Address) *CommitteeMember {
 	}
 	return h.committeeMap[address]
 }
+
+// TotalVotingPower returns the total voting power contained in the committee
+// for the block associated with this header.
+func (h *Header) TotalVotingPower() uint64 {
+	return h.Committee.TotalVotingPower()
+}
+
+// TotalVotingPower returns the total voting power contained in the committee.
+func (c Committee) TotalVotingPower() uint64 {
+	var total uint64
+	for _, m := range c {
+		total += m.VotingPower.Uint64()
+	}
+	return total
+}

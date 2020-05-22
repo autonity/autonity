@@ -25,7 +25,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
@@ -86,7 +86,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	backend.core = tendermintCore.New(backend)
+	backend.core = tendermintCore.New(backend, config.ProposerPolicy)
 	return backend
 }
 
@@ -140,9 +140,9 @@ func (sb *Backend) Address() common.Address {
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(ctx context.Context, valSet committee.Set, payload []byte) error {
+func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
 	// send to others
-	sb.Gossip(ctx, valSet, payload)
+	sb.Gossip(ctx, committee, payload)
 	// send to self
 	msg := events.MessageEvent{
 		Payload: payload,
@@ -155,11 +155,11 @@ func (sb *Backend) postEvent(event interface{}) {
 	go sb.Post(event)
 }
 
-func (sb *Backend) AskSync(valSet committee.Set) {
+func (sb *Backend) AskSync(header *types.Header) {
 	sb.logger.Info("Broadcasting consensus sync-me")
 
 	targets := make(map[common.Address]struct{})
-	for _, val := range valSet.Committee() {
+	for _, val := range header.Committee {
 		if val.Address != sb.Address() {
 			targets[val.Address] = struct{}{}
 		}
@@ -169,15 +169,15 @@ func (sb *Backend) AskSync(valSet committee.Set) {
 		ps := sb.broadcaster.FindPeers(targets)
 		var count uint64
 		for addr, p := range ps {
-			//ask to quorum nodes to sync, 1 must then be honest and updated
-			if count >= valSet.Quorum() {
+			//ask to a quorum nodes to sync, 1 must then be honest and updated
+			if count >= bft.Quorum(header.TotalVotingPower()) {
 				break
 			}
 			sb.logger.Info("Asking sync to", "addr", addr)
 			go p.Send(tendermintSyncMsg, []byte{}) //nolint
 
-			_, member, err := valSet.GetByAddress(addr)
-			if err != nil {
+			member := header.CommitteeMember(addr)
+			if member == nil {
 				sb.logger.Error("could not retrieve member from address")
 				continue
 			}
@@ -187,12 +187,12 @@ func (sb *Backend) AskSync(valSet committee.Set) {
 }
 
 // Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, valSet committee.Set, payload []byte) {
+func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
 	targets := make(map[common.Address]struct{})
-	for _, val := range valSet.Committee() {
+	for _, val := range committee {
 		if val.Address != sb.Address() {
 			targets[val.Address] = struct{}{}
 		}

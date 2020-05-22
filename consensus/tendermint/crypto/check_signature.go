@@ -4,14 +4,13 @@ import (
 	"errors"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 )
 
 var ErrUnauthorizedAddress = errors.New("unauthorized address")
 
-func CheckValidatorSignature(valSet committee.Set, data []byte, sig []byte) (common.Address, error) {
+func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
 	// 1. Get signature address
 	signer, err := types.GetSignatureAddress(data, sig)
 	if err != nil {
@@ -20,8 +19,8 @@ func CheckValidatorSignature(valSet committee.Set, data []byte, sig []byte) (com
 	}
 
 	// 2. Check validator
-	_, val, err := valSet.GetByAddress(signer)
-	if err != nil {
+	val := previousHeader.CommitteeMember(signer)
+	if val == nil {
 		return common.Address{}, ErrUnauthorizedAddress
 	}
 

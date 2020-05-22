@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 )
@@ -351,7 +352,7 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().AnyTimes().Return(addr)
 
-		c := New(backendMock)
+		c := New(backendMock, config.RoundRobin)
 		c.curRoundMessages = curRoundMessages
 		c.height = big.NewInt(2)
 		c.round = 1
