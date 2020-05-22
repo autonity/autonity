@@ -142,4 +142,3 @@ func generateBlock(height *big.Int) *types.Block {
 	block := types.NewBlock(header, nil, nil, nil)
 	return block
 }
-
