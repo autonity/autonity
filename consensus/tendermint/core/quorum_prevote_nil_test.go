@@ -56,7 +56,7 @@ func TestTendermintOn(t *testing.T) {
 		receivedPrevoteMsg := Message{
 			Code:    msgPrevote,
 			Address: currentCommittee[2].Address,
-			power:   core.CommitteeSet().Quorum()-1,
+			power:   core.CommitteeSet().Quorum() - 1,
 		}
 		core.curRoundMessages.AddPrevote(common.Hash{}, receivedPrevoteMsg)
 
@@ -142,3 +142,4 @@ func generateBlock(height *big.Int) *types.Block {
 	block := types.NewBlock(header, nil, nil, nil)
 	return block
 }
+
