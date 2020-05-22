@@ -127,7 +127,7 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		}
 		core.handleTimeoutPrevote(context.Background(), event)
 
-		// checking internal sate of tendermint.
+		// checking internal state of tendermint.
 		checkState(t, core, currentHeight, roundProposed, nil, int64(-1), proposalBlock, roundProposed, precommit)
 	})
 }
