@@ -73,7 +73,7 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 			if !ok {
 				t.Error("convert event failure.")
 			}
-			assert.Equal(t, roundProposed, timeoutEvent.roundWhenCalled,)
+			assert.Equal(t, roundProposed, timeoutEvent.roundWhenCalled)
 			assert.Equal(t, currentHeight.Uint64(), timeoutEvent.heightWhenCalled.Uint64())
 			assert.Equal(t, msgPrevote, timeoutEvent.step)
 		})
