@@ -122,9 +122,9 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 		if skip {
 			continue
 		}
-
+		address := crypto.PubkeyToAddress(node.privateKey.PublicKey)
 		users = append(users, params.User{
-			Address: crypto.PubkeyToAddress(node.privateKey.PublicKey),
+			Address: &address,
 			Enode:   node.url,
 			Type:    nodeType,
 			Stake:   stake,
@@ -142,8 +142,9 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 		log.Error("Make genesis error while adding a stakeholder", "err", err)
 	}
 
+	address := crypto.PubkeyToAddress(shKey.PublicKey)
 	stakeHolder := params.User{
-		Address: crypto.PubkeyToAddress(shKey.PublicKey),
+		Address: &address,
 		Type:    params.UserStakeHolder,
 		Stake:   200,
 	}
@@ -152,12 +153,7 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 
 	users = append(users, stakeHolder)
 	genesis.Config.AutonityContractConfig.Users = users
-	err = genesis.Config.AutonityContractConfig.AddDefault().Validate()
-	if err != nil {
-		panic(err)
-	}
-
-	err = genesis.SetBFT()
+	err = genesis.Config.AutonityContractConfig.Prepare()
 	if err != nil {
 		panic(err)
 	}

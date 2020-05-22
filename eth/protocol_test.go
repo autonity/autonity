@@ -18,6 +18,7 @@ package eth
 
 import (
 	"fmt"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -41,11 +42,15 @@ func init() {
 	// log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 }
 
-var testAccount, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+var (
+	testAccount, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testP2pPeer    = newTestP2PPeer("peer")
+	testP2pPeers   = []string{testP2pPeer.Info().Enode}
+)
 
 // Tests that handshake failures are detected and reported correctly.
 func TestStatusMsgErrors63(t *testing.T) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, testP2pPeers)
 	var (
 		genesis = pm.blockchain.Genesis()
 		head    = pm.blockchain.CurrentHeader()
@@ -97,7 +102,7 @@ func TestStatusMsgErrors63(t *testing.T) {
 }
 
 func TestStatusMsgErrors64(t *testing.T) {
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, nil)
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, nil, testP2pPeers)
 	var (
 		genesis = pm.blockchain.Genesis()
 		head    = pm.blockchain.CurrentHeader()
@@ -160,11 +165,9 @@ func TestRecvTransactions64(t *testing.T) { testRecvTransactions(t, 64) }
 func testRecvTransactions(t *testing.T, protocol int) {
 	txAdded := make(chan []*types.Transaction)
 
-	p2pPeer := newTestP2PPeer("peer")
-
-	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, txAdded, []string{p2pPeer.Info().Enode})
+	pm, _ := newTestProtocolManagerMust(t, downloader.FullSync, 0, nil, txAdded, testP2pPeers)
 	pm.acceptTxs = 1 // mark synced to accept transactions
-	p, _ := newTestPeer(p2pPeer, protocol, pm, true)
+	p, _ := newTestPeer(testP2pPeer, protocol, pm, true)
 	defer pm.Stop()
 	defer p.close()
 
@@ -194,7 +197,10 @@ func testSendTransactions(t *testing.T, protocol int) {
 		pow    = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		config = &params.ChainConfig{}
-		gspec  = &core.Genesis{Config: config}
+		gspec  = &core.Genesis{
+			Config:     config,
+			Difficulty: big.NewInt(1),
+		}
 	)
 	config.AutonityContractConfig = &params.AutonityContractGenesis{}
 
@@ -212,7 +218,7 @@ func testSendTransactions(t *testing.T, protocol int) {
 			},
 		)
 	}
-	err := gspec.Config.AutonityContractConfig.AddDefault().Validate()
+	err := gspec.Config.AutonityContractConfig.Prepare()
 	if err != nil {
 		t.Fatal(err)
 	}
