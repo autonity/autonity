@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
@@ -26,22 +25,15 @@ func TestTendermintNewProposal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	// prepare a random size of committee, and the proposer at last committed block.
-	currentCommittee, _ := prepareCommittee(t)
-	sort.Sort(currentCommittee)
-	// Proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
-	// So for round 0 the proposer will be committeeSet.members[0]
-	committeeSet, err := committee.NewSet(currentCommittee, currentCommittee[len(currentCommittee)-1].Address)
-	if err != nil {
-		t.Error(err)
-	}
-
+	committeeSet := prepareCommittee(t)
+	members := committeeSet.Committee()
 	currentHeight := big.NewInt(10)
 	proposalBlock := generateBlock(currentHeight)
-	clientAddr := currentCommittee[0].Address
+	clientAddr := members[0].Address
 
 	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (-1)", func(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
+		backendMock.EXPECT().Address().Return(clientAddr)
 		// create consensus core.
 		c := New(backendMock)
 		c.committeeSet = committeeSet
@@ -104,7 +96,7 @@ func TestTendermintNewProposal(t *testing.T) {
 	// It test line 24 was executed and step was forwarded on line 27 but with below different condition.
 	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1), but locked at the same value as proposed already.", func(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
+		backendMock.EXPECT().Address().Return(clientAddr)
 		// create consensus core.
 		c := New(backendMock)
 		c.committeeSet = committeeSet
@@ -171,7 +163,7 @@ func TestTendermintNewProposal(t *testing.T) {
 	// It test line 26 was executed and step was forwarded on line 27 but with below different condition.
 	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1) and locked at different value, vote for nil", func(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
+		backendMock.EXPECT().Address().Return(clientAddr)
 		// create consensus core.
 		lockedValue := generateBlock(big.NewInt(11))
 		c := New(backendMock)
@@ -238,7 +230,7 @@ func TestTendermintNewProposal(t *testing.T) {
 	// It test line 26 was executed and step was forwarded on line 27 but with invalid value proposed.
 	t.Run("on proposal with invalid block, follower should step forward with voting for nil", func(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
+		backendMock.EXPECT().Address().Return(clientAddr)
 		// create consensus core.
 		c := New(backendMock)
 		c.committeeSet = committeeSet
@@ -307,26 +299,32 @@ func TestHandleMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	currentCommittee, keys := prepareCommittee(t)
-	committeeSet, err := committee.NewSet(currentCommittee, currentCommittee[rand.Intn(len(currentCommittee))].Address)
+	key1, err := crypto.GenerateKey()
+	assert.Nil(t, err)
+	key2, err := crypto.GenerateKey()
+	assert.Nil(t, err)
+
+	key1PubAddr := crypto.PubkeyToAddress(key1.PublicKey)
+	key2PubAddr := crypto.PubkeyToAddress(key2.PublicKey)
+
+	committeeSet, err := committee.NewSet(types.Committee{types.CommitteeMember{
+		Address:     key1PubAddr,
+		VotingPower: big.NewInt(1),
+	}}, key1PubAddr)
 	assert.Nil(t, err)
 
 	backendMock := NewMockBackend(ctrl)
-	// We don't care what address the client has
-	backendMock.EXPECT().Address().Return(currentCommittee[0].Address).MaxTimes(2)
+	backendMock.EXPECT().Address().Return(key1PubAddr)
 	core := New(backendMock)
 
 	t.Run("message sender is not in the committee set", func(t *testing.T) {
 		// Prepare message
-		key, err := crypto.GenerateKey()
-		assert.Nil(t, err)
-
-		msg := &Message{Address: crypto.PubkeyToAddress(key.PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message1")}
+		msg := &Message{Address: key2PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message1")}
 
 		msgRlpNoSig, err := msg.PayloadNoSig()
 		assert.Nil(t, err)
 
-		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), key)
+		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), key2)
 		assert.Nil(t, err)
 
 		msgRlpWithSig, err := msg.Payload()
@@ -339,12 +337,12 @@ func TestHandleMessage(t *testing.T) {
 	})
 
 	t.Run("message sender is not the message siger", func(t *testing.T) {
-		msg := &Message{Address: crypto.PubkeyToAddress(keys[0].PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message2")}
+		msg := &Message{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2")}
 
 		msgRlpNoSig, err := msg.PayloadNoSig()
 		assert.Nil(t, err)
 
-		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), keys[1])
+		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), key1)
 		assert.Nil(t, err)
 
 		msgRlpWithSig, err := msg.Payload()
@@ -357,10 +355,10 @@ func TestHandleMessage(t *testing.T) {
 	})
 
 	t.Run("malicious sender sends incorrect signature", func(t *testing.T) {
-		sig, err := crypto.Sign(crypto.Keccak256([]byte("random bytes")), keys[0])
+		sig, err := crypto.Sign(crypto.Keccak256([]byte("random bytes")), key1)
 		assert.Nil(t, err)
 
-		msg := &Message{Address: crypto.PubkeyToAddress(keys[0].PublicKey), Code: uint64(rand.Intn(3)), Msg: []byte("random message2"), Signature: sig}
+		msg := &Message{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2"), Signature: sig}
 		msgRlpWithSig, err := msg.Payload()
 
 		core.setCommitteeSet(committeeSet)
@@ -370,28 +368,25 @@ func TestHandleMessage(t *testing.T) {
 	})
 }
 
-func prepareCommittee(t *testing.T) (types.Committee, []*ecdsa.PrivateKey) {
-	t.Helper()
-
-	minSize, maxSize := 4, 15
-	committeeSize := rand.Intn(maxSize-minSize) + minSize
-
-	var committeeSet types.Committee
-	var keys []*ecdsa.PrivateKey
-
-	for i := 1; i <= committeeSize; i++ {
+func prepareCommittee(t *testing.T) *committee.Set {
+	minSize := 4
+	maxSize := 100
+	cSize := rand.Intn(maxSize-minSize) + minSize
+	c := types.Committee{}
+	for i := 1; i <= cSize; i++ {
 		key, err := crypto.GenerateKey()
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.Nil(t, err)
 		member := types.CommitteeMember{
 			Address:     crypto.PubkeyToAddress(key.PublicKey),
 			VotingPower: new(big.Int).SetInt64(1),
 		}
-		committeeSet = append(committeeSet, member)
-		keys = append(keys, key)
+		c = append(c, member)
 	}
-	return committeeSet, keys
+
+	sort.Sort(c)
+	committeeSet, err := committee.NewSet(c, c[len(c)-1].Address)
+	assert.Nil(t, err)
+	return committeeSet
 }
 
 func generateBlock(height *big.Int) *types.Block {
