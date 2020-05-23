@@ -390,7 +390,12 @@ func prepareCommittee(t *testing.T) *committee.Set {
 }
 
 func generateBlock(height *big.Int) *types.Block {
-	header := &types.Header{Number: height}
+	// use random nonce to create different blocks
+	var nonce types.BlockNonce
+	for i := 0; i < len(nonce); i++ {
+		nonce[0] = byte(rand.Intn(256))
+	}
+	header := &types.Header{Number: height, Nonce: nonce}
 	block := types.NewBlock(header, nil, nil, nil)
 	return block
 }
