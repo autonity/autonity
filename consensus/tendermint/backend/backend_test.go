@@ -50,7 +50,7 @@ func TestAskSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	// We are testing for a Quorum Q of peers to be asked for sync.
-	header, _ := newTestHeader(7) // N=7, F=2, Q=5
+	header := newTestHeader(7) // N=7, F=2, Q=5
 	validators := header.Committee
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]consensus.Peer)
@@ -91,7 +91,7 @@ func TestGossip(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	header, _ := newTestHeader(5)
+	header := newTestHeader(5)
 	validators := header.Committee
 	payload, err := rlp.EncodeToBytes([]byte("data"))
 	hash := types.RLPHash(payload)
@@ -572,13 +572,11 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 	return crypto.HexToECDSA(key)
 }
 
-func newTestHeader(n int) (*types.Header, []*ecdsa.PrivateKey) {
+func newTestHeader(n int) *types.Header {
 	// generate committee
-	keys := make(Keys, n)
 	addrs := make(types.Committee, n)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
-		keys[i] = privateKey
 		addrs[i] = types.CommitteeMember{
 			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
 			VotingPower: new(big.Int).SetUint64(1),
@@ -587,7 +585,7 @@ func newTestHeader(n int) (*types.Header, []*ecdsa.PrivateKey) {
 	h := &types.Header{
 		Committee: addrs,
 	}
-	return h, keys
+	return h
 }
 
 type Keys []*ecdsa.PrivateKey

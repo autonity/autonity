@@ -205,8 +205,8 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 }
 
 // check if msg sender is proposer for proposal handling.
-func (c *core) isProposerMsg(height *big.Int, round int64, msgAddress common.Address) bool {
-	return c.committeeSet().GetProposer(c.Round()).Address == msgAddress
+func (c *core) isProposerMsg(round int64, msgAddress common.Address) bool {
+	return c.committeeSet().GetProposer(round).Address == msgAddress
 }
 
 func (c *core) commit(round int64, messages *roundMessages) {

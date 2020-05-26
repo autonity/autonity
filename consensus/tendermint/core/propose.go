@@ -74,7 +74,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 				return err // do not gossip, TODO: accountability
 			}
 
-			if !c.isProposerMsg(proposal.Height, proposal.Round, msg.Address) {
+			if !c.isProposerMsg(proposal.Round, msg.Address) {
 				c.logger.Warn("Ignore proposal messages from non-proposer")
 				return errNotFromProposer
 			}
@@ -94,7 +94,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	}
 
 	// Check if the message comes from curRoundMessages proposer
-	if !c.isProposerMsg(c.Height(), c.Round(), msg.Address) {
+	if !c.isProposerMsg(c.Round(), msg.Address) {
 		c.logger.Warn("Ignore proposal messages from non-proposer")
 		return errNotFromProposer
 	}
