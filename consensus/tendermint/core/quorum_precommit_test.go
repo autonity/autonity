@@ -99,7 +99,7 @@ func TestTendermintQuorumPrecommit(t *testing.T) {
 		// check the behavior to be executed at start round after the commit.
 		backendMock.EXPECT().SetProposedBlockHash(nextProposalBlock.Hash())
 		backendMock.EXPECT().Sign(gomock.Any()).Return(nil, nil)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(),gomock.Any()).Return(nil)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 		err = core.handleCheckedMsg(context.Background(), preCommitMsg, member)
 		if err != nil {
