@@ -79,6 +79,9 @@ func TestTendermintPrecommitTimeout(t *testing.T) {
 		// new precommit msg which vote for different value.
 		member, _ := committeeSet.GetByIndex(1)
 		preCommitMsg, err := preparePrecommitMsg(generateBlock(currentHeight).Hash(), roundProposed, currentHeight.Int64(), keyMap, member)
+		if err != nil {
+			t.Error(err)
+		}
 		checkTimeOutEvent(t, backendMock, msgPrecommit, currentHeight, roundProposed)
 		err = core.handleCheckedMsg(context.Background(), preCommitMsg, member)
 		if err != nil {
