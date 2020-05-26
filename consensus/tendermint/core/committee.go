@@ -8,7 +8,11 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
+	"github.com/clearmatics/autonity/contracts/autonity"
+	ethcore "github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
 )
 
 type committee interface {
@@ -133,14 +137,18 @@ func getMemberIndex(members types.Committee, memberAddr common.Address) int64 {
 }
 
 type weightedRoundRobinCommittee struct {
-	previousHeader *types.Header
-	backend        Backend
+	previousHeader         *types.Header
+	bc                     *ethcore.BlockChain
+	autonityContract       *autonity.Contract
+	previousBlockStateRoot common.Hash
 }
 
-func newWeightedRoundRobinCommittee(previousHeader *types.Header, backend Backend) *weightedRoundRobinCommittee {
+func newWeightedRoundRobinCommittee(previousBlock *types.Block, autonityContract *autonity.Contract, bc *ethcore.BlockChain) *weightedRoundRobinCommittee {
 	return &weightedRoundRobinCommittee{
-		previousHeader: previousHeader,
-		backend:        backend,
+		previousHeader:         previousBlock.Header(),
+		bc:                     bc,
+		autonityContract:       autonityContract,
+		previousBlockStateRoot: previousBlock.Root(),
 	}
 }
 
@@ -180,7 +188,12 @@ func (w *weightedRoundRobinCommittee) GetProposer(round int64) types.CommitteeMe
 		return w.previousHeader.Committee[0]
 	}
 	// PoS (voting power) weighted round robin.
-	proposer := w.backend.GetProposerFromAC(w.previousHeader.Number.Uint64(), round)
+	statedb, err := state.New(w.previousBlockStateRoot, w.bc.StateCache())
+	if err != nil {
+		log.Error("cannot load state from block chain.")
+		return types.CommitteeMember{}
+	}
+	proposer := w.autonityContract.GetProposerFromAC(w.previousHeader, statedb, w.previousHeader.Number.Uint64(), round)
 	member := w.previousHeader.CommitteeMember(proposer)
 	return *member
 	// TODO make this return an error

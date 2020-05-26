@@ -5,7 +5,8 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/contracts/autonity"
+	ethcore "github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 )
@@ -37,12 +38,6 @@ type Backend interface {
 	// LastCommittedProposal retrieves latest committed proposal and the address of proposer
 	LastCommittedProposal() (*types.Block, common.Address)
 
-	// GetProposer returns the proposer of the given block height
-	GetProposer(number uint64) common.Address
-
-	// GetProposerFromAC returns the proposer of the given block height and round from autontiy contract.
-	GetProposerFromAC(height uint64, round int64) common.Address
-
 	Post(ev interface{})
 
 	// Setter for proposed block hash
@@ -61,11 +56,11 @@ type Backend interface {
 
 	WhiteList() []string
 
-	BlockChain() consensus.ChainReader
+	BlockChain() *ethcore.BlockChain
 }
 
 type Tendermint interface {
-	Start(ctx context.Context)
+	Start(ctx context.Context, contract *autonity.Contract)
 	Stop()
 	GetCurrentHeightMessages() []*Message
 }

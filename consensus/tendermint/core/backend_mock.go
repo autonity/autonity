@@ -7,7 +7,8 @@ package core
 import (
 	context "context"
 	common "github.com/clearmatics/autonity/common"
-	consensus "github.com/clearmatics/autonity/consensus"
+	autonity "github.com/clearmatics/autonity/contracts/autonity"
+	ethcore "github.com/clearmatics/autonity/core"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
 	gomock "github.com/golang/mock/gomock"
@@ -174,34 +175,6 @@ func (mr *MockBackendMockRecorder) LastCommittedProposal() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastCommittedProposal", reflect.TypeOf((*MockBackend)(nil).LastCommittedProposal))
 }
 
-// GetProposer mocks base method
-func (m *MockBackend) GetProposer(number uint64) common.Address {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetProposer", number)
-	ret0, _ := ret[0].(common.Address)
-	return ret0
-}
-
-// GetProposer indicates an expected call of GetProposer
-func (mr *MockBackendMockRecorder) GetProposer(number interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProposer", reflect.TypeOf((*MockBackend)(nil).GetProposer), number)
-}
-
-// GetProposerFromAC mocks base method
-func (m *MockBackend) GetProposerFromAC(height uint64, round int64) common.Address {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetProposerFromAC", height, round)
-	ret0, _ := ret[0].(common.Address)
-	return ret0
-}
-
-// GetProposerFromAC indicates an expected call of GetProposerFromAC
-func (mr *MockBackendMockRecorder) GetProposerFromAC(height, round interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProposerFromAC", reflect.TypeOf((*MockBackend)(nil).GetProposerFromAC), height, round)
-}
-
 // Post mocks base method
 func (m *MockBackend) Post(ev interface{}) {
 	m.ctrl.T.Helper()
@@ -301,10 +274,10 @@ func (mr *MockBackendMockRecorder) WhiteList() *gomock.Call {
 }
 
 // BlockChain mocks base method
-func (m *MockBackend) BlockChain() consensus.ChainReader {
+func (m *MockBackend) BlockChain() *ethcore.BlockChain {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockChain")
-	ret0, _ := ret[0].(consensus.ChainReader)
+	ret0, _ := ret[0].(*ethcore.BlockChain)
 	return ret0
 }
 
@@ -338,15 +311,15 @@ func (m *MockTendermint) EXPECT() *MockTendermintMockRecorder {
 }
 
 // Start mocks base method
-func (m *MockTendermint) Start(ctx context.Context) {
+func (m *MockTendermint) Start(ctx context.Context, contract *autonity.Contract) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Start", ctx)
+	m.ctrl.Call(m, "Start", ctx, contract)
 }
 
 // Start indicates an expected call of Start
-func (mr *MockTendermintMockRecorder) Start(ctx interface{}) *gomock.Call {
+func (mr *MockTendermintMockRecorder) Start(ctx, contract interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTendermint)(nil).Start), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTendermint)(nil).Start), ctx, contract)
 }
 
 // Stop mocks base method

@@ -130,7 +130,7 @@ type Backend struct {
 	vmConfig                *vm.Config
 }
 
-func (sb *Backend) BlockChain() consensus.ChainReader {
+func (sb *Backend) BlockChain() *core.BlockChain {
 	return sb.blockchain
 }
 
@@ -380,15 +380,6 @@ func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byt
 	return nil
 }
 
-// GetProposer implements tendermint.Backend.GetProposer
-func (sb *Backend) GetProposer(number uint64) common.Address {
-	if h := sb.blockchain.GetHeaderByNumber(number); h != nil {
-		a, _ := sb.Author(h)
-		return a
-	}
-	return common.Address{}
-}
-
 func (sb *Backend) LastCommittedProposal() (*types.Block, common.Address) {
 	block := sb.currentBlock()
 
@@ -420,10 +411,6 @@ func (sb *Backend) GetContractAddress() common.Address {
 func (sb *Backend) GetContractABI() string {
 	// after the contract is upgradable, call it from contract object rather than from conf.
 	return sb.blockchain.GetAutonityContract().GetContractABI()
-}
-
-func (sb *Backend) GetProposerFromAC(height uint64, round int64) common.Address {
-	return sb.blockchain.GetProposerFromAC(height, round)
 }
 
 // Whitelist for the current block

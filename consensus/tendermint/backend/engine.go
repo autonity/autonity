@@ -520,7 +520,7 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 	sb.hasBadBlock = hasBadBlock
 
 	// Start Tendermint
-	sb.core.Start(ctx)
+	sb.core.Start(ctx, sb.blockchain.GetAutonityContract())
 	sb.coreStarted = true
 
 	return nil

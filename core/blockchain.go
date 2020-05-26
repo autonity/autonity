@@ -2294,28 +2294,6 @@ func (bc *BlockChain) GetKeyValue(key []byte) ([]byte, error) {
 	return rawdb.GetKeyValue(bc.db, key)
 }
 
-func (bc *BlockChain) GetProposerFromAC(height uint64, round int64) common.Address {
-	if bc.autonityContract == nil {
-		log.Error("autonity contract is not initialized yet.")
-		return common.Address{}
-	}
-
-	block := bc.GetBlockByNumber(height)
-	if block == nil {
-		log.Error("GetProposerFromAC ", "height", height)
-		return common.Address{}
-	}
-
-	statedb, err := state.New(block.Root(), bc.stateCache)
-	if err != nil {
-		log.Error("cannot load state from block chain.")
-		return common.Address{}
-	}
-
-	proposer := bc.autonityContract.GetProposerFromAC(block, statedb, height, round)
-	return proposer
-}
-
 func (bc *BlockChain) GetMinGasPrice(blockNumber ...uint64) (*big.Int, error) {
 	if bc.autonityContract == nil {
 		return nil, errors.New("the autonity contract is not specified")

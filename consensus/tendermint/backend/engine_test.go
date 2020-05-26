@@ -557,7 +557,7 @@ func TestStart(t *testing.T) {
 
 		ctx := context.Background()
 		tendermintC := tendermintCore.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
@@ -585,7 +585,7 @@ func TestStart(t *testing.T) {
 
 		ctx := context.Background()
 		tendermintC := tendermintCore.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
@@ -607,7 +607,7 @@ func TestStart(t *testing.T) {
 
 		ctx := context.Background()
 		tendermintC := tendermintCore.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
@@ -656,7 +656,7 @@ func TestMultipleRestart(t *testing.T) {
 	times := 5
 	ctx := context.Background()
 	tendermintC := tendermintCore.NewMockTendermint(ctrl)
-	tendermintC.EXPECT().Start(ctx).MaxTimes(times)
+	tendermintC.EXPECT().Start(ctx, nil).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
 
 	b := &Backend{

@@ -386,25 +386,6 @@ func TestCommit(t *testing.T) {
 	})
 }
 
-func TestGetProposer(t *testing.T) {
-	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = chain.InsertChain(types.Blocks{block})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := engine.GetProposer(1)
-	actual := engine.Address()
-	if actual != expected {
-		t.Errorf("proposer mismatch: have %v, want %v", actual.Hex(), expected.Hex())
-	}
-}
-
 func TestSyncPeer(t *testing.T) {
 	t.Run("no broadcaster set, nothing done", func(t *testing.T) {
 		b := &Backend{}

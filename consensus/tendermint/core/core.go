@@ -28,6 +28,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -154,6 +155,8 @@ type core struct {
 	precommitTimeout *timeout
 
 	futureRoundChange map[int64]map[common.Address]uint64
+
+	autonityContract *autonity.Contract
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
@@ -316,7 +319,7 @@ func (c *core) setInitialState(r int64) {
 				panic(fmt.Sprintf("failed to construct committee %v", err))
 			}
 		case config.WeightedRoundRobin:
-			committeeSet = newWeightedRoundRobinCommittee(lastHeader, c.backend)
+			committeeSet = newWeightedRoundRobinCommittee(lastBlockMined, c.autonityContract, c.backend.BlockChain())
 		default:
 			panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
 		}

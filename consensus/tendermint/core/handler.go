@@ -24,11 +24,14 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 )
 
-// Start implements core.Engine.Start
-func (c *core) Start(ctx context.Context) {
+// Start implements core.Tendermint.Start
+func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
+	// Set the autonity contract
+	c.autonityContract = contract
 	ctx, c.cancel = context.WithCancel(ctx)
 
 	c.subscribeEvents()
