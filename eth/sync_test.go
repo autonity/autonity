@@ -17,7 +17,6 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/p2p/enode"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -33,9 +32,9 @@ func TestFastSyncDisabling65(t *testing.T) { testFastSyncDisabling(t, 65) }
 // Tests that fast sync gets disabled as soon as a real block is successfully
 // imported into the blockchain.
 func testFastSyncDisabling(t *testing.T, protocol int) {
-	t.Parallel()
-	emptyNode := p2p.NewPeer(enode.ID{}, "empty", nil)
-	fullNode := p2p.NewPeer(enode.ID{}, "full", nil)
+	//t.Parallel() (Parrallelisation is unsafe due to the enode package)
+	emptyNode := newTestP2PPeer("empty")
+	fullNode := newTestP2PPeer("full")
 	enodes := []string{emptyNode.Info().Enode, fullNode.Info().Enode}
 	// Create a pristine protocol manager, check that fast sync is left enabled
 	pmEmpty, _ := newTestProtocolManagerMust(t, downloader.FastSync, 0, nil, nil, enodes)

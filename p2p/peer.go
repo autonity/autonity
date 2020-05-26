@@ -120,6 +120,8 @@ type Peer struct {
 }
 
 // NewPeer returns a peer for testing purposes.
+// Warning! Due network permissionning, protocol manager tests with Autonity need a valid enode
+// that is not generated here.
 func NewPeer(id enode.ID, name string, caps []Cap) *Peer {
 	pipe, _ := net.Pipe()
 	node := enode.SignNull(new(enr.Record), id)

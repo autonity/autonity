@@ -485,6 +485,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 			{
 				Enode: p2pPeer.Info().Enode,
 				Type:  params.UserValidator,
+				Stake: 1,
 			},
 		},
 	}
@@ -642,19 +643,18 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	}
 	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *core.BlockGen) {})
 
-	pm.BroadcastBlock(chain[0], true /*propagate*/)
-
 	errCh := make(chan error, totalPeers)
 	doneCh := make(chan struct{}, totalPeers)
 	for _, peer := range peers {
 		go func(p *testPeer) {
-			if err := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: big.NewInt(131136)}); err != nil {
+			if err := p2p.ExpectMsg(p.app, NewBlockMsg, &newBlockData{Block: chain[0], TD: new(big.Int).Add(genesis.Difficulty(), chain[0].Difficulty())}); err != nil {
 				errCh <- err
 			} else {
 				doneCh <- struct{}{}
 			}
 		}(peer)
 	}
+	pm.BroadcastBlock(chain[0], true /*propagate*/)
 	var received int
 	for {
 		select {
@@ -679,17 +679,36 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 func TestBroadcastMalformedBlock(t *testing.T) {
 	// Create a live node to test propagation with
 	var (
-		engine  = ethash.NewFaker()
-		db      = rawdb.NewMemoryDatabase()
-		config  = &params.ChainConfig{}
-		gspec   = &core.Genesis{Config: config}
-		genesis = gspec.MustCommit(db)
+		engine = ethash.NewFaker()
+		db     = rawdb.NewMemoryDatabase()
+		config = &params.ChainConfig{}
+		gspec  = &core.Genesis{Config: config}
 	)
+	config.AutonityContractConfig = &params.AutonityContractGenesis{}
+	sourcePeer := newTestP2PPeer("source")
+	sinkPeer := newTestP2PPeer("sink")
+	config.AutonityContractConfig.Users = []params.User{{
+		Enode: sourcePeer.Info().Enode,
+		Type:  params.UserValidator,
+		Stake: 1,
+	}, {
+		Enode: sinkPeer.Info().Enode,
+		Type:  params.UserValidator,
+		Stake: 1,
+	}}
+
+	if err := config.AutonityContractConfig.AddDefault().Validate(); err != nil {
+		t.Fatal(err)
+	}
+	gspec.Difficulty = big.NewInt(1)
+	genesis := gspec.MustCommit(db)
+
 	blockchain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil, &core.TxSenderCacher{})
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
 	pm, err := NewProtocolManager(config, nil, downloader.FullSync, DefaultConfig.NetworkId, new(event.TypeMux), new(testTxPool), engine, blockchain, db, 1, nil, nil)
+
 	if err != nil {
 		t.Fatalf("failed to start test protocol manager: %v", err)
 	}
@@ -698,10 +717,10 @@ func TestBroadcastMalformedBlock(t *testing.T) {
 
 	// Create two peers, one to send the malformed block with and one to check
 	// propagation
-	source, _ := newTestPeer(newTestP2PPeer("source"), eth63, pm, true)
+	source, _ := newTestPeer(sourcePeer, eth63, pm, true)
 	defer source.close()
 
-	sink, _ := newTestPeer(newTestP2PPeer("sink"), eth63, pm, true)
+	sink, _ := newTestPeer(sinkPeer, eth63, pm, true)
 	defer sink.close()
 
 	// Create various combinations of malformed blocks

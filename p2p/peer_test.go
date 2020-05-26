@@ -87,8 +87,8 @@ func newNode(id enode.ID, addr string) *enode.Node {
 
 func testPeer(protos []Protocol) (func(), *conn, *Peer, <-chan error) {
 	fd1, fd2 := net.Pipe()
-	c1 := &conn{fd: fd1, node: newNode(randomID(), ""), transport: newTestTransport(&newkey().PublicKey, fd1)}
-	c2 := &conn{fd: fd2, node: newNode(randomID(), ""), transport: newTestTransport(&newkey().PublicKey, fd2)}
+	c1 := &conn{fd: fd1, node: newNode(randomID(), ""), transport: NewTestTransport(&newkey().PublicKey, fd1)}
+	c2 := &conn{fd: fd2, node: newNode(randomID(), ""), transport: NewTestTransport(&newkey().PublicKey, fd2)}
 	for _, p := range protos {
 		c1.caps = append(c1.caps, p.cap())
 		c2.caps = append(c2.caps, p.cap())

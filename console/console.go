@@ -18,7 +18,7 @@ package console
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/signer/rules/deps"
+	"github.com/clearmatics/autonity/internal/jsre/deps"
 	"io"
 	"io/ioutil"
 	"os"

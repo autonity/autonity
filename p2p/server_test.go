@@ -19,7 +19,6 @@ package p2p
 import (
 	"crypto/ecdsa"
 	"errors"
-	"golang.org/x/crypto/sha3"
 	"io"
 	"math/rand"
 	"net"
@@ -34,38 +33,6 @@ import (
 	"github.com/clearmatics/autonity/p2p/enr"
 )
 
-type testTransport struct {
-	rpub *ecdsa.PublicKey
-	*rlpx
-
-	closeErr error
-}
-
-func newTestTransport(rpub *ecdsa.PublicKey, fd net.Conn) transport {
-	wrapped := newRLPX(fd).(*rlpx)
-	wrapped.rw = newRLPXFrameRW(fd, secrets{
-		MAC:        zero16,
-		AES:        zero16,
-		IngressMAC: sha3.NewLegacyKeccak256(),
-		EgressMAC:  sha3.NewLegacyKeccak256(),
-	})
-	return &testTransport{rpub: rpub, rlpx: wrapped}
-}
-
-func (c *testTransport) doEncHandshake(prv *ecdsa.PrivateKey, dialDest *ecdsa.PublicKey) (*ecdsa.PublicKey, error) {
-	return c.rpub, nil
-}
-
-func (c *testTransport) doProtoHandshake(our *protoHandshake) (*protoHandshake, error) {
-	pubkey := crypto.FromECDSAPub(c.rpub)[1:]
-	return &protoHandshake{ID: pubkey, Name: "test"}, nil
-}
-
-func (c *testTransport) close(err error) {
-	c.rlpx.fd.Close()
-	c.closeErr = err
-}
-
 func startTestServer(t *testing.T, remoteKey *ecdsa.PublicKey, pf func(*Peer)) *Server {
 	config := Config{
 		Name:        "test",
@@ -78,7 +45,7 @@ func startTestServer(t *testing.T, remoteKey *ecdsa.PublicKey, pf func(*Peer)) *
 	server := &Server{
 		Config:       config,
 		newPeerHook:  pf,
-		newTransport: func(fd net.Conn) transport { return newTestTransport(remoteKey, fd) },
+		newTransport: func(fd net.Conn) transport { return NewTestTransport(remoteKey, fd) },
 	}
 	if err := server.Start(); err != nil {
 		t.Fatalf("Could not start server: %v", err)
@@ -253,7 +220,7 @@ func TestServerAtCap(t *testing.T) {
 
 	newconn := func(id enode.ID) *conn {
 		fd, _ := net.Pipe()
-		tx := newTestTransport(&trustedNode.PublicKey, fd)
+		tx := NewTestTransport(&trustedNode.PublicKey, fd)
 		node := enode.SignNull(new(enr.Record), id)
 		return &conn{fd: fd, transport: tx, flags: inboundConn, node: node, cont: make(chan error)}
 	}

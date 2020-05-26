@@ -18,7 +18,6 @@ package eth
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -285,8 +284,8 @@ func TestTransactionPropagation(t *testing.T)  { testSyncTransaction(t, true) }
 func TestTransactionAnnouncement(t *testing.T) { testSyncTransaction(t, false) }
 
 func testSyncTransaction(t *testing.T, propagtion bool) {
-	sender := p2p.NewPeer(enode.ID{}, "sender", nil)
-	fetcher := p2p.NewPeer(enode.ID{}, "fetcher", nil)
+	sender := newTestP2PPeer("sender")
+	fetcher := newTestP2PPeer("fetcher")
 	enodes := []string{sender.Info().Enode, fetcher.Info().Enode}
 	// Create a protocol manager for transaction fetcher and sender
 	pmFetcher, _ := newTestProtocolManagerMust(t, downloader.FastSync, 0, nil, nil, enodes)
@@ -326,7 +325,7 @@ loop:
 				break loop
 			}
 		case <-time.NewTimer(time.Second).C:
-			t.Fatal("Failed to retrieve all transaction")
+			t.Fatalf("Failed to retrieve all transactions, got: %d", got)
 		}
 	}
 }
