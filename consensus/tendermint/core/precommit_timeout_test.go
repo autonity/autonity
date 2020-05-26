@@ -121,7 +121,7 @@ func TestTendermintPrecommitTimeout(t *testing.T) {
 			step:             msgPrecommit,
 		}
 		core.handleTimeoutPrecommit(context.Background(), event)
-		checkState(t, core, currentHeight, roundProposed + 1, proposalBlock, roundProposed, proposalBlock, roundProposed, propose)
+		checkState(t, core, currentHeight, roundProposed+1, proposalBlock, roundProposed, proposalBlock, roundProposed, propose)
 	})
 }
 
