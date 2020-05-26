@@ -86,7 +86,7 @@ func TestTendermintPrecommitTimeout(t *testing.T) {
 		}
 
 		// waif for timeout event.
-		time.Sleep(timeoutPrecommit(roundProposed)*2)
+		time.Sleep(timeoutPrecommit(roundProposed) * 2)
 		// checking internal state of tendermint.
 		checkState(t, core, currentHeight, roundProposed, proposalBlock, roundProposed, proposalBlock, roundProposed, precommit)
 	})
