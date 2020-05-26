@@ -101,7 +101,7 @@ func TestTendermintQuorumPrecommit(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).Return(nil, nil)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(),gomock.Any()).Return(nil)
 
-		err = core.handlePrecommit(context.Background(), preCommitMsg)
+		err = core.handleCheckedMsg(context.Background(), preCommitMsg, member)
 		if err != nil {
 			t.Error(err)
 		}
@@ -117,30 +117,6 @@ func TestTendermintQuorumPrecommit(t *testing.T) {
 		// round msg should be reset to empty set.
 		assert.Equal(t, len(core.messages.GetMessages()), 0)
 	})
-}
-
-func checkBroadcastMsg(t *testing.T, backendMock *MockBackend, core *core, msgCode uint64, height *big.Int, round int64, hash common.Hash) {
-	// prepare the wanted msg which will be broadcast.
-	vote := Vote{
-		Round:             round,
-		Height:            height,
-		ProposedBlockHash: hash,
-	}
-	msg, err := Encode(&vote)
-	if err != nil {
-		t.Error(err)
-	}
-	wantedMsg, err := core.finalizeMessage(&Message{
-		Code:          msgCode,
-		Msg:           msg,
-		Address:       core.address,
-		CommittedSeal: []byte{},
-	})
-	if err != nil {
-		t.Error(err)
-	}
-	// should check if broadcast to wanted committeeSet with wanted msg.
-	backendMock.EXPECT().Broadcast(context.Background(), core.committeeSet, wantedMsg).Return(nil)
 }
 
 func initState(core *core, committee *committee.Set, height *big.Int, round int64, lockedValue *types.Block, lockedRound int64, validValue *types.Block, validRound int64, step Step, setValid bool) {
