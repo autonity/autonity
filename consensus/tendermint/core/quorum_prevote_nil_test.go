@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func TestTendermintOn(t *testing.T) {
+func TestTendermintOnQuorumPrevoteNil(t *testing.T) {
 	t.Run("Line44 to Line46, step from prevote to precommit by voting for nil.", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
