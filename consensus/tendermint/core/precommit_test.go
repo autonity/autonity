@@ -500,7 +500,7 @@ func TestHandleCommit(t *testing.T) {
 		t.Fatalf("Expected new round")
 	}
 	// to fix the data race detected by CI workflow.
-	err := c.proposeTimeout.stopTimer()
+	err = c.proposeTimeout.stopTimer()
 	if err != nil {
 		t.Error(err)
 	}
