@@ -90,9 +90,10 @@ func TestTendermintQuorumPrecommit(t *testing.T) {
 			t.Error(err)
 		}
 
-		// check the value and round to be commit to backend for view changing.
-		seals := [][]byte{receivedPreCommitMsg.CommittedSeal, preCommitMsg.CommittedSeal}
-		backendMock.EXPECT().Commit(proposalBlock, core.round, seals).Return(nil).AnyTimes()
+		// check wanted commit msg on the specific view.
+		wantSeals := [][]byte{receivedPreCommitMsg.CommittedSeal, preCommitMsg.CommittedSeal}
+		checkCommitMsg(t, backendMock, proposalBlock, roundProposed, wantSeals)
+
 		backendMock.EXPECT().LastCommittedProposal().Return(proposalBlock, clientAddr).AnyTimes()
 		backendMock.EXPECT().Committee(gomock.Any()).Return(committeeSet, nil).AnyTimes()
 
@@ -140,6 +141,31 @@ func checkState(t *testing.T, core *core, height *big.Int, round int64, lockedVa
 	assert.Equal(t, lockedValue, core.lockedValue)
 	assert.Equal(t, lockedRound, core.lockedRound)
 	assert.Equal(t, step, core.step)
+}
+
+func checkCommitMsg(t *testing.T, backendMock *MockBackend, wantValue *types.Block, wantRound int64, wantSeals [][]byte) {
+	backendMock.EXPECT().Commit(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(block interface{}, round interface{}, seal interface{}) {
+		valueBlock, ok := block.(*types.Block)
+		if !ok {
+			t.Error("convert block failed.")
+		}
+
+		rd, ok := round.(int64)
+		if !ok {
+			t.Error("convert int64 failed.")
+		}
+
+		msgSeals, ok := seal.([][]byte)
+		if !ok {
+			t.Error("convert seal failed.")
+		}
+		assert.Equal(t, wantValue, valueBlock)
+		assert.Equal(t, wantRound, rd)
+		if len(msgSeals) != len(wantSeals) {
+			t.Error("seal is not expected.")
+		}
+		assert.Contains(t, wantSeals, msgSeals[0], msgSeals[1])
+	})
 }
 
 func prepareCommittee() (types.Committee, addressKeyMap) {
