@@ -45,7 +45,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		// members[currentRound] means that the sender is the proposer for the current round
 		// assume that the message is from a member of committee set and the signature is signing the contents, however,
 		// the proposal block inside the message is invalid
-		invalidMsg := generateBlockProposal(t, currentRound, currentHeight, -1, members[currentRound].Address, true)
+		invalidMsg := generateBlockProposal(t, currentRound, currentHeight, members[currentRound].Address, true)
 		err := invalidMsg.Decode(&invalidProposal)
 		assert.Nil(t, err)
 
@@ -66,7 +66,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		clientLockedRound := int64(-1)
 
 		var proposal Proposal
-		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, clientLockedRound, members[currentRound].Address, false)
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, members[currentRound].Address, false)
 		err := proposalMsg.Decode(&proposal) // we have to do this because encoding and decoding changes some default values
 		assert.Nil(t, err)
 
@@ -95,7 +95,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		clientLockedRound := int64(0)
 
 		var proposal Proposal
-		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, -1, members[currentRound].Address, false)
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, members[currentRound].Address, false)
 		// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
 		err := proposalMsg.Decode(&proposal)
 		assert.Nil(t, err)
@@ -129,7 +129,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		clientLockedValue := generateBlock(currentHeight)
 
 		var proposal Proposal
-		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, -1, members[currentRound].Address, false)
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, members[currentRound].Address, false)
 		// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
 		err := proposalMsg.Decode(&proposal)
 		assert.Nil(t, err)
@@ -224,6 +224,7 @@ func TestHandleMessage(t *testing.T) {
 
 		msg := &Message{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2"), Signature: sig}
 		msgRlpWithSig, err := msg.Payload()
+		assert.Nil(t, err)
 
 		core.setCommitteeSet(committeeSet)
 		err = core.handleMsg(context.Background(), msgRlpWithSig)
@@ -261,7 +262,7 @@ func generateBlock(height *big.Int) *types.Block {
 	return block
 }
 
-func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src common.Address, invalid bool) *Message {
+func generateBlockProposal(t *testing.T, r int64, h *big.Int, src common.Address, invalid bool) *Message {
 	var block *types.Block
 	if invalid {
 		header := &types.Header{Number: h}
@@ -270,7 +271,7 @@ func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src comm
 	} else {
 		block = generateBlock(h)
 	}
-	proposal := NewProposal(r, h, vr, block)
+	proposal := NewProposal(r, h, -1, block)
 	proposalRlp, err := Encode(proposal)
 	assert.Nil(t, err)
 	return &Message{
