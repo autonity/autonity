@@ -16,28 +16,61 @@ import (
 	"time"
 )
 
+var maxHeightOrRound = 100
+
 // The following tests aim to test lines 22 - 27 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestTendermintNewProposal(t *testing.T) {
-	// Below 4 test cases cover line 22 to line 27 of tendermint pseudo-code.
-	// It test line 24 was executed and step was forwarded on line 27.
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	// prepare a random size of committee, and the proposer at last committed block.
+	backendMock := NewMockBackend(ctrl)
+
 	committeeSet := prepareCommittee(t)
 	members := committeeSet.Committee()
-	currentHeight := big.NewInt(10)
-	proposalBlock := generateBlock(currentHeight)
+	currentHeight := big.NewInt(int64(rand.Intn(maxHeightOrRound) + 1))
+	currentRound := int64(rand.Intn(maxHeightOrRound))
 	clientAddr := members[0].Address
 
-	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (-1)", func(t *testing.T) {
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().Return(clientAddr)
-		// create consensus core.
-		c := New(backendMock)
-		c.committeeSet = committeeSet
-		c.height = currentHeight
+	proposalBlock := generateBlock(currentHeight) //Probably don't need it as it is only required for a few cases
+
+	backendMock.EXPECT().Address().Return(clientAddr)
+	c := New(backendMock)
+	c.setHeight(currentHeight)
+	c.setRound(currentRound)
+	c.setCommitteeSet(committeeSet)
+
+	preparePrevote := func(t *testing.T, round int64, height *big.Int, blockHash common.Hash, clientAddr common.Address) (*Message, []byte, []byte) {
+		// prepare the proposal message
+		voteRLP, err := Encode(&Vote{Round: round, Height: height, ProposedBlockHash: blockHash})
+		assert.Nil(t, err)
+		prevoteMsg := &Message{Code: msgPrevote, Msg: voteRLP, Address: clientAddr, Signature: []byte("prevote signature")}
+		prevoteMsgRLPNoSig, err := prevoteMsg.PayloadNoSig()
+		assert.Nil(t, err)
+		prevoteMsgRLPWithSig, err := prevoteMsg.Payload()
+		assert.Nil(t, err)
+		return prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig
+	}
+
+	t.Run("receive invalid proposal for current round", func(t *testing.T) {
+		c.setStep(propose)
+
+		var invalidProposal Proposal
+		// members[currentRound] means that the sender is the proposer for the current round
+		invalidMsg := generateInvalidBlockProposal(t, currentHeight, currentRound, members[currentRound].Address)
+		err := invalidMsg.Decode(&invalidProposal)
+		assert.Nil(t, err)
+
+		// prepare prevote nil
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := preparePrevote(t, currentRound, currentHeight, common.Hash{}, clientAddr)
+
+		backendMock.EXPECT().VerifyProposal(*invalidProposal.ProposalBlock).Return(time.Duration(1), errors.New("invalid proposal"))
+		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+
+		err = c.handleCheckedMsg(context.Background(), invalidMsg, members[currentRound])
+		assert.Error(t, err, "expected an error for invalid proposal")
+	})
+	t.Run("receive proposal with validRound = -1 and client's lockedRound = -1", func(t *testing.T) {
 		c.lockedRound = -1
 		c.step = propose
 
@@ -46,7 +79,7 @@ func TestTendermintNewProposal(t *testing.T) {
 
 		// prepare input msg
 		validRoundProposed := int64(-1)
-		proposal := NewProposal(0, currentHeight, validRoundProposed, proposalBlock)
+		proposal := NewProposal(currentRound, currentHeight, validRoundProposed, proposalBlock)
 		encodedProposal, err := Encode(proposal)
 		if err != nil {
 			t.Error(err)
@@ -59,7 +92,7 @@ func TestTendermintNewProposal(t *testing.T) {
 
 		// prepare the wanted msg which will be broadcast.
 		vote := Vote{
-			Round:             0,
+			Round:             currentRound,
 			Height:            currentHeight,
 			ProposedBlockHash: proposalBlock.Hash(),
 		}
@@ -95,12 +128,6 @@ func TestTendermintNewProposal(t *testing.T) {
 
 	// It test line 24 was executed and step was forwarded on line 27 but with below different condition.
 	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1), but locked at the same value as proposed already.", func(t *testing.T) {
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().Return(clientAddr)
-		// create consensus core.
-		c := New(backendMock)
-		c.committeeSet = committeeSet
-		c.height = currentHeight
 		c.lockedRound = 1 // set lockedRound as 1.
 		c.lockedValue = proposalBlock
 		c.validRound = 1
@@ -162,13 +189,7 @@ func TestTendermintNewProposal(t *testing.T) {
 
 	// It test line 26 was executed and step was forwarded on line 27 but with below different condition.
 	t.Run("on proposal with validRound as (-1) proposed and local lockedRound as (1) and locked at different value, vote for nil", func(t *testing.T) {
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().Return(clientAddr)
-		// create consensus core.
 		lockedValue := generateBlock(big.NewInt(11))
-		c := New(backendMock)
-		c.committeeSet = committeeSet
-		c.height = currentHeight
 		c.lockedRound = 1
 		c.lockedValue = lockedValue
 		c.validRound = 1
@@ -229,12 +250,6 @@ func TestTendermintNewProposal(t *testing.T) {
 
 	// It test line 26 was executed and step was forwarded on line 27 but with invalid value proposed.
 	t.Run("on proposal with invalid block, follower should step forward with voting for nil", func(t *testing.T) {
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().Return(clientAddr)
-		// create consensus core.
-		c := New(backendMock)
-		c.committeeSet = committeeSet
-		c.height = currentHeight
 		c.lockedRound = -1
 		c.lockedValue = nil
 		c.validRound = -1
@@ -398,4 +413,18 @@ func generateBlock(height *big.Int) *types.Block {
 	header := &types.Header{Number: height, Nonce: nonce}
 	block := types.NewBlock(header, nil, nil, nil)
 	return block
+}
+
+func generateInvalidBlockProposal(t *testing.T, h *big.Int, r int64, src common.Address) *Message {
+	header := &types.Header{Number: big.NewInt(int64(rand.Intn(maxHeightOrRound)))}
+	header.Difficulty = nil
+	block := types.NewBlock(header, nil, nil, nil)
+	proposal := NewProposal(r, h, -1, block)
+	proposalRlp, err := Encode(proposal)
+	assert.Nil(t, err)
+	return &Message{
+		Code:    msgProposal,
+		Msg:     proposalRlp,
+		Address: src,
+	}
 }
