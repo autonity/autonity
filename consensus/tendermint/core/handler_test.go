@@ -2,6 +2,11 @@ package core
 
 import (
 	"context"
+	"math/big"
+	"os"
+	"testing"
+	time "time"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/types"
@@ -11,9 +16,14 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/golang/mock/gomock"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"math/big"
-	"testing"
 )
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	println("sleeeeeeping")
+	time.Sleep(30 * time.Second)
+	os.Exit(code)
+}
 
 func TestHandleCheckedMessage(t *testing.T) {
 	committeeSet, keysMap := newTestCommitteeSetWithKeys(4)
