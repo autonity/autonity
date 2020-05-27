@@ -39,18 +39,6 @@ func TestTendermintNewProposal(t *testing.T) {
 	c.setRound(currentRound)
 	c.setCommitteeSet(committeeSet)
 
-	preparePrevote := func(t *testing.T, round int64, height *big.Int, blockHash common.Hash, clientAddr common.Address) (*Message, []byte, []byte) {
-		// prepare the proposal message
-		voteRLP, err := Encode(&Vote{Round: round, Height: height, ProposedBlockHash: blockHash})
-		assert.Nil(t, err)
-		prevoteMsg := &Message{Code: msgPrevote, Msg: voteRLP, Address: clientAddr, Signature: []byte("prevote signature")}
-		prevoteMsgRLPNoSig, err := prevoteMsg.PayloadNoSig()
-		assert.Nil(t, err)
-		prevoteMsgRLPWithSig, err := prevoteMsg.Payload()
-		assert.Nil(t, err)
-		return prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig
-	}
-
 	t.Run("receive invalid proposal for current round", func(t *testing.T) {
 		c.setStep(propose)
 
@@ -69,6 +57,7 @@ func TestTendermintNewProposal(t *testing.T) {
 
 		err = c.handleCheckedMsg(context.Background(), invalidMsg, members[currentRound])
 		assert.Error(t, err, "expected an error for invalid proposal")
+		assert.Equal(t, prevote, c.step)
 	})
 	t.Run("receive proposal with validRound = -1 and client's lockedRound = -1", func(t *testing.T) {
 		c.lockedRound = -1
@@ -427,4 +416,16 @@ func generateInvalidBlockProposal(t *testing.T, h *big.Int, r int64, src common.
 		Msg:     proposalRlp,
 		Address: src,
 	}
+}
+
+func preparePrevote(t *testing.T, round int64, height *big.Int, blockHash common.Hash, clientAddr common.Address) (*Message, []byte, []byte) {
+	// prepare the proposal message
+	voteRLP, err := Encode(&Vote{Round: round, Height: height, ProposedBlockHash: blockHash})
+	assert.Nil(t, err)
+	prevoteMsg := &Message{Code: msgPrevote, Msg: voteRLP, Address: clientAddr, Signature: []byte("prevote signature")}
+	prevoteMsgRLPNoSig, err := prevoteMsg.PayloadNoSig()
+	assert.Nil(t, err)
+	prevoteMsgRLPWithSig, err := prevoteMsg.Payload()
+	assert.Nil(t, err)
+	return prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig
 }
