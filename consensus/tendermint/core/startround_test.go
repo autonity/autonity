@@ -46,7 +46,6 @@ func TestStartRoundVariables(t *testing.T) {
 		core.validValue = &types.Block{}
 		core.validRound = 0
 	}
-
 	t.Run("ensure round 0 state variables are set correctly", func(t *testing.T) {
 		backendMock.EXPECT().Address().Return(clientAddress)
 		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress)
@@ -65,7 +64,6 @@ func TestStartRoundVariables(t *testing.T) {
 		assert.Nil(t, core.validValue)
 		assert.Equal(t, int64(-1), core.validRound)
 	})
-
 	t.Run("ensure round x state variables are updated correctly", func(t *testing.T) {
 		// In this test we are interested in making sure that that values which change in the current round that may
 		// have an impact on the actions performed in the following round (in case of round change) are persisted
@@ -128,18 +126,6 @@ func TestStartRound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	prepareProposal := func(t *testing.T, currentRound int64, proposalHeight *big.Int, validR int64, proposalBlock *types.Block, clientAddress common.Address) (*Message, []byte, []byte) {
-		// prepare the proposal message
-		proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, validR, proposalBlock))
-		assert.Nil(t, err)
-		proposalMsg := &Message{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, Signature: []byte("proposal signature")}
-		proposalMsgRLPNoSig, err := proposalMsg.PayloadNoSig()
-		assert.Nil(t, err)
-		proposalMsgRLPWithSig, err := proposalMsg.Payload()
-		assert.Nil(t, err)
-		return proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig
-	}
-
 	t.Run("client is the proposer and valid value is nil", func(t *testing.T) {
 		committeeSet := prepareCommittee(t)
 		members := committeeSet.Committee()
@@ -184,7 +170,6 @@ func TestStartRound(t *testing.T) {
 		// There is no need to check for consensus state explicitly here because the broadcasting of proposal message
 		// implies an implicit state.
 	})
-
 	t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
 		committeeSet := prepareCommittee(t)
 		members := committeeSet.Committee()
@@ -251,6 +236,18 @@ func TestStartRound(t *testing.T) {
 		assert.Equal(t, currentRound, core.Round())
 		assert.True(t, core.proposeTimeout.timerStarted())
 	})
+}
+
+func prepareProposal(t *testing.T, currentRound int64, proposalHeight *big.Int, validR int64, proposalBlock *types.Block, clientAddress common.Address) (*Message, []byte, []byte) {
+	// prepare the proposal message
+	proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, validR, proposalBlock))
+	assert.Nil(t, err)
+	proposalMsg := &Message{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, Signature: []byte("proposal signature")}
+	proposalMsgRLPNoSig, err := proposalMsg.PayloadNoSig()
+	assert.Nil(t, err)
+	proposalMsgRLPWithSig, err := proposalMsg.Payload()
+	assert.Nil(t, err)
+	return proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig
 }
 
 // TODO: We should create a utility function which can we used across different test files, it can be related to this
