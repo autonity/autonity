@@ -2,417 +2,216 @@ package core
 
 import (
 	"context"
-	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"math/rand"
-	"strconv"
+	"sort"
 	"testing"
 	"time"
 )
 
-func prepareCommittee() types.Committee {
-	// prepare committee.
-	minSize := 4
-	maxSize := 15
-	committeeSize := rand.Intn(maxSize-minSize) + minSize
-	committeeSet := types.Committee{}
-	for i := 1; i <= committeeSize; i++ {
-		hexString := "0x01234567890" + strconv.Itoa(i)
+// The following tests aim to test lines 28 - 33 of Tendermint Algorithm described on page 6 of
+// https://arxiv.org/pdf/1807.04938.pdf.
+func TestOldProposal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	backendMock := NewMockBackend(ctrl)
+
+	minSize, maxSize := 4, 100
+	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
+	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
+	members := committeeSet.Committee()
+	clientAddr := members[0].Address
+
+	backendMock.EXPECT().Address().Return(clientAddr)
+	c := New(backendMock)
+	c.setCommitteeSet(committeeSet)
+
+	t.Run("receive proposal with vr >= 0 and client's lockedRound <= vr", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+
+		// vr >= 0 && vr < round_p
+		proposalValidRound := int64(rand.Intn(int(currentRound)))
+		// c.lockedRound <= vr
+		choice := rand.Intn(2)
+		clientLockedRound := int64(-1)
+		if choice != 0 {
+			clientLockedRound = int64(rand.Intn(int(proposalValidRound + 1)))
+		}
+
+		var proposal Proposal
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
+		// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
+		err := proposalMsg.Decode(&proposal)
+		assert.Nil(t, err)
+
+		// expected message to be broadcast
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := preparePrevote(t, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
+
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(propose)
+		c.lockedRound = clientLockedRound
+		c.validRound = clientLockedRound
+		// Although the following is not possible it is required to ensure that c.lockRound <= proposalValidRound is
+		// responsible for sending the prevote for the incoming proposal
+		c.lockedValue = nil
+		c.validValue = nil
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.CommitteeSet().Quorum()})
+
+		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+
+		err = c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
+		assert.Nil(t, err)
+		assert.Equal(t, prevote, c.step)
+		assert.Nil(t, c.lockedValue)
+		assert.Equal(t, clientLockedRound, c.lockedRound)
+		assert.Nil(t, c.validValue)
+		assert.Equal(t, clientLockedRound, c.validRound)
+	})
+	t.Run("receive proposal with vr >= 0 and client's lockedValue is same as proposal block", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+
+		// vr >= 0 && vr < round_p
+		proposalValidRound := int64(rand.Intn(int(currentRound)))
+		var proposal Proposal
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
+		// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
+		err := proposalMsg.Decode(&proposal)
+		assert.Nil(t, err)
+
+		// expected message to be broadcast
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := preparePrevote(t, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
+
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(propose)
+		// Although the following is not possible it is required to ensure that c.lockedValue = proposal is responsible
+		// for sending the prevote for the incoming proposal
+		c.lockedRound = proposalValidRound + 1
+		c.validRound = proposalValidRound + 1
+		c.lockedValue = proposal.ProposalBlock
+		c.validValue = proposal.ProposalBlock
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.CommitteeSet().Quorum()})
+
+		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+
+		err = c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
+		assert.Nil(t, err)
+		assert.Equal(t, prevote, c.step)
+		assert.Equal(t, proposalValidRound+1, c.lockedRound)
+		assert.Equal(t, proposalValidRound+1, c.validRound)
+		assert.Equal(t, proposal.ProposalBlock, c.lockedValue)
+		assert.Equal(t, proposal.ProposalBlock, c.validValue)
+	})
+	t.Run("receive proposal with vr >= 0 and clients is lockedRound > vr with a different value", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		clientLockedValue := generateBlock(currentHeight)
+
+		// vr >= 0 && vr < round_p
+		proposalValidRound := int64(rand.Intn(int(currentRound)))
+		var proposal Proposal
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
+		// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
+		err := proposalMsg.Decode(&proposal)
+		assert.Nil(t, err)
+
+		// expected message to be broadcast
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := preparePrevote(t, currentRound, currentHeight, common.Hash{}, clientAddr)
+
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(propose)
+		// Although the following is not possible it is required to ensure that c.lockedValue = proposal is responsible
+		// for sending the prevote for the incoming proposal
+		c.lockedRound = proposalValidRound + 1
+		c.validRound = proposalValidRound + 1
+		c.lockedValue = clientLockedValue
+		c.validValue = clientLockedValue
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.CommitteeSet().Quorum()})
+
+		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+
+		err = c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
+		assert.Nil(t, err)
+		assert.Equal(t, prevote, c.step)
+		assert.Equal(t, proposalValidRound+1, c.lockedRound)
+		assert.Equal(t, proposalValidRound+1, c.validRound)
+		assert.Equal(t, clientLockedValue, c.lockedValue)
+		assert.Equal(t, clientLockedValue, c.validValue)
+	})
+}
+
+func prepareCommittee(t *testing.T, cSize int) *committee.Set {
+	c := types.Committee{}
+	for i := 1; i <= cSize; i++ {
+		key, err := crypto.GenerateKey()
+		assert.Nil(t, err)
 		member := types.CommitteeMember{
-			Address:     common.HexToAddress(hexString),
+			Address:     crypto.PubkeyToAddress(key.PublicKey),
 			VotingPower: new(big.Int).SetInt64(1),
 		}
-		committeeSet = append(committeeSet, member)
+		c = append(c, member)
 	}
+
+	sort.Sort(c)
+	committeeSet, err := committee.NewSet(c, c[len(c)-1].Address)
+	assert.Nil(t, err)
 	return committeeSet
 }
 
 func generateBlock(height *big.Int) *types.Block {
-	header := &types.Header{Number: height}
+	// use random nonce to create different blocks
+	var nonce types.BlockNonce
+	for i := 0; i < len(nonce); i++ {
+		nonce[0] = byte(rand.Intn(256))
+	}
+	header := &types.Header{Number: height, Nonce: nonce}
 	block := types.NewBlock(header, nil, nil, nil)
 	return block
 }
 
+func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src common.Address, invalid bool) *Message {
+	var block *types.Block
+	if invalid {
+		header := &types.Header{Number: h}
+		header.Difficulty = nil
+		block = types.NewBlock(header, nil, nil, nil)
+	} else {
+		block = generateBlock(h)
+	}
+	proposal := NewProposal(r, h, vr, block)
+	proposalRlp, err := Encode(proposal)
+	assert.Nil(t, err)
+	return &Message{
+		Code:    msgProposal,
+		Msg:     proposalRlp,
+		Address: src,
+	}
+}
 
-// It test the page-6, line 28 to line 33, on proposal logic of tendermint pseudo-code.
-// Please refer to the algorithm from here: https://arxiv.org/pdf/1807.04938.pdf
-func TestTendermintOnOldProposal(t *testing.T) {
-	// It test line 30 was executed and step was forwarded on line 33.
-	t.Run("on proposal with pre-vote power satisfy the quorum and on the same vr view", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee := prepareCommittee()
-		lastProposer := currentCommittee[len(currentCommittee)-1].Address
-		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
-		if err != nil {
-			t.Error(err)
-		}
-
-		currentHeight := big.NewInt(10)
-		proposalBlock := generateBlock(currentHeight)
-		clientAddr := currentCommittee[0].Address
-
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
-		// condition vr >= 0 && vr < round_p, line 28.
-		validRoundProposed := int64(0)
-		roundProposed := int64(1)
-
-		// create consensus core, and prepare context.
-		c := New(backendMock)
-		c.committeeSet = committeeSet
-		c.height = currentHeight
-		c.round = roundProposed
-		// condition lockedRound_p <= vr, line 29.
-		c.lockedRound = -1
-		// condition step_p = propose, line 28.
-		c.step = propose
-		// condition 2f+1 <PREVOTE, h_p, vr, id(v)>, power of pre-vote on the same valid round meets quorum, line 28.
-		receivedPrevoteMsg := Message{
-			Code:    msgPrevote,
-			Address: currentCommittee[2].Address,
-			power:   c.CommitteeSet().Quorum(),
-		}
-		c.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), receivedPrevoteMsg)
-
-		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
-		backendMock.EXPECT().VerifyProposal(gomock.Any()).AnyTimes().Return(time.Duration(1), nil)
-
-		// prepare input msg
-		proposal := NewProposal(roundProposed, currentHeight, validRoundProposed, proposalBlock)
-		encodedProposal, err := Encode(proposal)
-		if err != nil {
-			t.Error(err)
-		}
-		proposalMsg := &Message{
-			Code:    msgProposal,
-			Msg:     encodedProposal,
-			Address: currentCommittee[1].Address,
-		}
-		// prepare the wanted msg which will be broadcast.
-		vote := Vote{
-			Round:             roundProposed,
-			Height:            currentHeight,
-			ProposedBlockHash: proposalBlock.Hash(),
-		}
-		prevoteMsg, err := Encode(&vote)
-		if err != nil {
-			t.Error("err")
-		}
-		wantedMsg, err := c.finalizeMessage(&Message{
-			Code:          msgPrevote,
-			Msg:           prevoteMsg,
-			Address:       clientAddr,
-			CommittedSeal: []byte{},
-		})
-		if err != nil {
-			t.Error(err)
-		}
-
-		// should check if broadcast to wanted committeeSet with wanted prevote msg.
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, wantedMsg).Return(nil)
-
-		err = c.handleProposal(context.Background(), proposalMsg)
-		if err != nil {
-			t.Error(err)
-		}
-
-		// checking internal state of tendermint.
-		assert.True(t, c.sentPrevote)
-		assert.Equal(t, c.step, prevote)
-		assert.Nil(t, c.lockedValue)
-		assert.Equal(t, c.lockedRound, int64(-1))
-		assert.Nil(t, c.validValue)
-		assert.Equal(t, c.validRound, int64(-1))
-	})
-
-	// It test line 30 was executed and step was forwarded on line 33.
-	// FAILED TOO.
-	t.Run("on proposal with pre-vote power satisfy the quorum and on the same vr view, but lockedRound > vr", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee := prepareCommittee()
-		lastProposer := currentCommittee[len(currentCommittee)-1].Address
-		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
-		if err != nil {
-			t.Error(err)
-		}
-
-		currentHeight := big.NewInt(10)
-		proposalBlock := generateBlock(currentHeight)
-		clientAddr := currentCommittee[0].Address
-		// condition vr >= 0 && vr < round_p, line 28.
-		validRoundProposed := int64(0)
-		roundProposed := int64(1)
-
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
-		// create consensus core.
-		c := New(backendMock)
-		c.committeeSet = committeeSet
-		c.height = currentHeight
-		c.round = 1
-		// condition (lockedRound_p <= vr || lockedValue_p = v, line 29.
-		c.lockedRound = 1
-		c.lockedValue = proposalBlock
-		c.validRound = 1
-		c.validValue = proposalBlock
-		// condition step_p = propose, line 28.
-		c.step = propose
-		// condition 2f+1 <PREVOTE, h_p, vr, id(v)>, power of pre-vote on the same valid round meets quorum, line 28.
-		receivedPrevoteMsg := Message{
-			Code:    msgPrevote,
-			Address: currentCommittee[2].Address,
-			power:   c.committeeSet.Quorum(),
-		}
-		c.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), receivedPrevoteMsg)
-
-		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
-		backendMock.EXPECT().VerifyProposal(gomock.Any()).AnyTimes().Return(time.Duration(1), nil)
-
-		// prepare input msg.
-		proposal := NewProposal(roundProposed, currentHeight, validRoundProposed, proposalBlock)
-		encodedProposal, err := Encode(proposal)
-		if err != nil {
-			t.Error(err)
-		}
-		proposalMsg := &Message{
-			Code:    msgProposal,
-			Msg:     encodedProposal,
-			Address: currentCommittee[1].Address,
-		}
-
-		// prepare the wanted msg which will be broadcast.
-		vote := Vote{
-			Round:             roundProposed,
-			Height:            currentHeight,
-			ProposedBlockHash: proposalBlock.Hash(),
-			//ProposedBlockHash: common.Hash{},
-		}
-		prevoteMsg, err := Encode(&vote)
-		if err != nil {
-			t.Error("err")
-		}
-		wantedMsg, err := c.finalizeMessage(&Message{
-			Code:          msgPrevote,
-			Msg:           prevoteMsg,
-			Address:       clientAddr,
-			CommittedSeal: []byte{},
-		})
-		if err != nil {
-			t.Error(err)
-		}
-
-		// should check if broadcast to wanted committeeSet with wanted prevote msg.
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, wantedMsg).Return(nil)
-
-		err = c.handleProposal(context.Background(), proposalMsg)
-		if err != nil {
-			t.Error(err)
-		}
-
-		// checking internal state of tendermint.
-		assert.True(t, c.sentPrevote)
-		assert.Equal(t, c.step, prevote)
-		assert.Equal(t, c.lockedValue, proposalBlock)
-		assert.Equal(t, c.lockedRound, int64(1))
-		assert.Equal(t, c.validValue, proposalBlock)
-		assert.Equal(t, c.validRound, int64(1))
-	})
-
-	// It test line 32 was executed and step was forwarded on line 33.
-	t.Run("on proposal with pre-vote power satisfy the quorum and on the same vr view, but with un-expected locked round and locked value, engine should pre-vote for nil and step to pre-vote", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee := prepareCommittee()
-		lastProposer := currentCommittee[len(currentCommittee)-1].Address
-		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
-		if err != nil {
-			t.Error(err)
-		}
-
-		currentHeight := big.NewInt(10)
-		proposalBlock := generateBlock(currentHeight)
-		clientAddr := currentCommittee[0].Address
-		// condition vr >= 0 && vr < round_p, line 28.
-		validRoundProposed := int64(0)
-		roundProposed := int64(1)
-
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
-		// create consensus core.
-		c := New(backendMock)
-		c.committeeSet = committeeSet
-		c.height = currentHeight
-		c.round = roundProposed
-		// condition (lockedRound_p <= vr || lockedValue_p = v, line 29.
-		c.lockedRound = 1
-		lockedValue := generateBlock(currentHeight)
-		c.lockedValue = lockedValue
-		// condition step_p = propose, line 28.
-		c.step = propose
-
-		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
-		backendMock.EXPECT().VerifyProposal(gomock.Any()).AnyTimes().Return(time.Duration(1), nil)
-
-		// condition 2f+1 <PREVOTE, h_p, vr, id(v)>, power of pre-vote on the same valid round meets quorum, line 28.
-		receivedPrevoteMsg := Message{
-			Code:    msgPrevote,
-			Address: currentCommittee[2].Address,
-			power:   c.CommitteeSet().Quorum(),
-		}
-		c.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), receivedPrevoteMsg)
-
-		// prepare input message.
-		proposal := NewProposal(roundProposed, currentHeight, validRoundProposed, proposalBlock)
-		encodedProposal, err := Encode(proposal)
-		if err != nil {
-			t.Error(err)
-		}
-		proposalMsg := &Message{
-			Code:    msgProposal,
-			Msg:     encodedProposal,
-			Address: currentCommittee[1].Address,
-		}
-
-		// prepare the wanted msg which will be broadcast.
-		vote := Vote{
-			Round:             roundProposed,
-			Height:            currentHeight,
-			ProposedBlockHash: common.Hash{},
-		}
-		prevoteMsg, err := Encode(&vote)
-		if err != nil {
-			t.Error("err")
-		}
-		wantedMsg, err := c.finalizeMessage(&Message{
-			Code:          msgPrevote,
-			Msg:           prevoteMsg,
-			Address:       clientAddr,
-			CommittedSeal: []byte{},
-		})
-		if err != nil {
-			t.Error(err)
-		}
-
-		// should check if broadcast to wanted committeeSet with wanted prevote msg.
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, wantedMsg).Return(nil)
-
-		err = c.handleProposal(context.Background(), proposalMsg)
-		if err != nil {
-			t.Error(err)
-		}
-
-		// checking internal state of tendermint.
-		assert.True(t, c.sentPrevote)
-		assert.Equal(t, c.step, prevote)
-		assert.Equal(t, c.lockedValue, lockedValue)
-		assert.Equal(t, c.lockedRound, int64(1))
-		assert.Nil(t, c.validValue)
-		assert.Equal(t, c.validRound, int64(-1))
-	})
-
-	// It test line 32 was executed and step was forwarded on line 33.
-	t.Run("on proposal with all condition satisfied but with invalid value(block)", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		// prepare a random size of committee, and the proposer at last committed block.
-		currentCommittee := prepareCommittee()
-		lastProposer := currentCommittee[len(currentCommittee)-1].Address
-		committeeSet, err := committee.NewSet(currentCommittee, lastProposer)
-		if err != nil {
-			t.Error(err)
-		}
-
-		currentHeight := big.NewInt(10)
-		proposalBlock := generateBlock(currentHeight)
-		clientAddr := currentCommittee[0].Address
-		// condition vr >= 0 && vr < round_p, line 28.
-		validRoundProposed := int64(0)
-		roundProposed := int64(1)
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().AnyTimes().Return(clientAddr)
-		// create consensus core.
-		c := New(backendMock)
-		c.committeeSet = committeeSet
-		c.height = currentHeight
-		c.round = roundProposed
-		// condition (lockedRound_p <= vr || lockedValue_p = v, line 29.
-		c.lockedRound = 0
-		c.lockedValue = proposalBlock
-		// condition step_p = propose, line 28.
-		c.step = propose
-
-		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().Return(nil, nil)
-		backendMock.EXPECT().VerifyProposal(gomock.Any()).AnyTimes().Return(time.Duration(1), errors.New("invalid block"))
-
-		// prepare input message.
-		proposal := NewProposal(roundProposed, currentHeight, validRoundProposed, proposalBlock)
-		encodedProposal, err := Encode(proposal)
-		if err != nil {
-			t.Error(err)
-		}
-
-		proposalMsg := &Message{
-			Code:    msgProposal,
-			Msg:     encodedProposal,
-			Address: currentCommittee[1].Address,
-		}
-
-		// condition 2f+1 <PREVOTE, h_p, vr, id(v)>, power of pre-vote on the same valid round meets quorum, line 28.
-		receivedPrevoteMsg := Message{
-			Code:    msgPrevote,
-			Address: currentCommittee[2].Address,
-			power:   c.CommitteeSet().Quorum(),
-		}
-		c.messages.getOrCreate(validRoundProposed).AddPrevote(proposalBlock.Hash(), receivedPrevoteMsg)
-
-		// prepare the wanted msg which will be broadcast.
-		vote := Vote{
-			Round:             roundProposed,
-			Height:            currentHeight,
-			ProposedBlockHash: common.Hash{},
-		}
-		prevoteMsg, err := Encode(&vote)
-		if err != nil {
-			t.Error("err")
-		}
-		wantedMsg, err := c.finalizeMessage(&Message{
-			Code:          msgPrevote,
-			Msg:           prevoteMsg,
-			Address:       clientAddr,
-			CommittedSeal: []byte{},
-		})
-		if err != nil {
-			t.Error(err)
-		}
-
-		// should check if broadcast to wanted committeeSet with wanted prevote msg.
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, wantedMsg).Return(nil)
-
-		err = c.handleProposal(context.Background(), proposalMsg)
-		if err != nil {
-			assert.Equal(t, err.Error(), "invalid block")
-		}
-
-		// checking internal state of tendermint.
-		assert.True(t, c.sentPrevote)
-		assert.Equal(t, c.step, prevote)
-		assert.Equal(t, c.lockedValue, proposalBlock)
-		assert.Equal(t, c.lockedRound, int64(0))
-		assert.Nil(t, c.validValue)
-		assert.Equal(t, c.validRound, int64(-1))
-	})
+func preparePrevote(t *testing.T, round int64, height *big.Int, blockHash common.Hash, clientAddr common.Address) (*Message, []byte, []byte) {
+	// prepare the proposal message
+	voteRLP, err := Encode(&Vote{Round: round, Height: height, ProposedBlockHash: blockHash})
+	assert.Nil(t, err)
+	prevoteMsg := &Message{Code: msgPrevote, Msg: voteRLP, Address: clientAddr, Signature: []byte("prevote signature")}
+	prevoteMsgRLPNoSig, err := prevoteMsg.PayloadNoSig()
+	assert.Nil(t, err)
+	prevoteMsgRLPWithSig, err := prevoteMsg.Payload()
+	assert.Nil(t, err)
+	return prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig
 }
