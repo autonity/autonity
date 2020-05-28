@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
-	"github.com/clearmatics/autonity/consensus/tendermint/temp"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
@@ -485,9 +484,18 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "tendermint",
 		Version:   "1.0",
-		Service:   &API{chain: chain, tendermint: sb, getCommittee: temp.GetCommittee},
+		Service:   &API{chain: chain, tendermint: sb, getCommittee: getCommittee},
 		Public:    true,
 	}}
+}
+
+// getCommittee retrieves the committee for the given header.
+func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
+	parent := chain.GetHeaderByHash(header.ParentHash)
+	if parent == nil {
+		return nil, errUnknownBlock
+	}
+	return parent.Committee, nil
 }
 
 // Start implements consensus.Start
