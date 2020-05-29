@@ -39,6 +39,7 @@ import (
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/trie"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -233,7 +234,7 @@ func initGenesis(ctx *cli.Context) error {
 	stack := makeFullNode(ctx)
 	defer stack.Close()
 
-	for _, name := range []string{"chaindata", "lightchaindata"} {
+	for _, name := range []string{node.Chaindata, "lightchaindata"} {
 		chaindb, err := stack.OpenDatabase(name, 0, 0, "")
 		if err != nil {
 			utils.Fatalf("Failed to open database: %v", err)
@@ -482,7 +483,7 @@ func removeDB(ctx *cli.Context) error {
 	stack, config := makeConfigNode(ctx)
 
 	// Remove the full node state database
-	path := stack.ResolvePath("chaindata")
+	path := stack.ResolvePath(node.Chaindata)
 	if common.FileExist(path) {
 		confirmAndRemoveDB(path, "full node state database")
 	} else {
@@ -492,7 +493,7 @@ func removeDB(ctx *cli.Context) error {
 	path = config.Eth.DatabaseFreezer
 	switch {
 	case path == "":
-		path = filepath.Join(stack.ResolvePath("chaindata"), "ancient")
+		path = filepath.Join(stack.ResolvePath(node.Chaindata), "ancient")
 	case !filepath.IsAbs(path):
 		path = config.Node.ResolvePath(path)
 	}

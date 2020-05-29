@@ -45,6 +45,7 @@ const (
 	datadirStaticNodes     = "static-nodes.json"  // Path within the datadir to the static node list
 	datadirTrustedNodes    = "trusted-nodes.json" // Path within the datadir to the trusted node list
 	datadirNodeDatabase    = "nodes"              // Path within the datadir to store the node infos
+	Chaindata              = "chaindata"          // Dir under the datadir that contains chaindata
 )
 
 // Config represents a small collection of configuration values to fine tune the
@@ -314,7 +315,7 @@ func (c *Config) name() string {
 
 // These resources are resolved differently for "autonity" instances.
 var isOldAutonityResource = map[string]bool{
-	"chaindata":          true,
+	Chaindata:            true,
 	"nodes":              true,
 	"nodekey":            true,
 	"static-nodes.json":  false, // no warning for these because they have their
