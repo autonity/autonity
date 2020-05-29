@@ -231,7 +231,10 @@ func initGenesis(ctx *cli.Context) error {
 	setupDefaults(genesis)
 
 	// Open an initialise both full and light databases
-	stack := makeFullNode(ctx)
+	stack, err := makeFullNode(ctx)
+	if err != nil {
+		return err
+	}
 	defer stack.Close()
 
 	for _, name := range []string{node.Chaindata, "lightchaindata"} {
@@ -267,7 +270,10 @@ func importChain(ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
-	stack := makeFullNode(ctx)
+	stack, err := makeFullNode(ctx)
+	if err != nil {
+		return err
+	}
 	defer stack.Close()
 
 	chain, db := utils.MakeChain(ctx, stack)
@@ -357,13 +363,15 @@ func exportChain(ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
-	stack := makeFullNode(ctx)
+	stack, err := makeFullNode(ctx)
+	if err != nil {
+		return err
+	}
 	defer stack.Close()
 
 	chain, _ := utils.MakeChain(ctx, stack)
 	start := time.Now()
 
-	var err error
 	fp := ctx.Args().First()
 	if len(ctx.Args()) < 3 {
 		err = utils.ExportChain(chain, fp)
@@ -392,7 +400,10 @@ func importPreimages(ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
-	stack := makeFullNode(ctx)
+	stack, err := makeFullNode(ctx)
+	if err != nil {
+		return err
+	}
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack)
@@ -410,7 +421,10 @@ func exportPreimages(ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
-	stack := makeFullNode(ctx)
+	stack, err := makeFullNode(ctx)
+	if err != nil {
+		return err
+	}
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack)
@@ -432,7 +446,10 @@ func copyDb(ctx *cli.Context) error {
 		utils.Fatalf("Source ancient chain directory path argument missing")
 	}
 	// Initialize a new chain for the running node to sync into
-	stack := makeFullNode(ctx)
+	stack, err := makeFullNode(ctx)
+	if err != nil {
+		return err
+	}
 	defer stack.Close()
 
 	chain, chainDb := utils.MakeChain(ctx, stack)
@@ -540,7 +557,10 @@ func confirmAndRemoveDB(database string, kind string) {
 }
 
 func dump(ctx *cli.Context) error {
-	stack := makeFullNode(ctx)
+	stack, err := makeFullNode(ctx)
+	if err != nil {
+		return err
+	}
 	defer stack.Close()
 
 	chain, chainDb := utils.MakeChain(ctx, stack)

@@ -78,7 +78,10 @@ JavaScript API. See https://github.com/clearmatics/autonity/wiki/JavaScript-Cons
 func localConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
 	prepare(ctx)
-	node := makeFullNode(ctx)
+	node, err := makeFullNode(ctx)
+	if err != nil {
+		return err
+	}
 	startNode(ctx, node)
 	defer node.Close()
 
@@ -179,7 +182,10 @@ func dialRPC(endpoint string) (*rpc.Client, error) {
 // everything down.
 func ephemeralConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
-	node := makeFullNode(ctx)
+	node, err := makeFullNode(ctx)
+	if err != nil {
+		return err
+	}
 	startNode(ctx, node)
 	defer node.Close()
 
