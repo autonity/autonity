@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"os"
 	"reflect"
@@ -131,8 +132,23 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 	return stack, cfg
 }
 
-func makeFullNode(ctx *cli.Context) *node.Node {
+func makeFullNode(ctx *cli.Context) (*node.Node, error) {
 	stack, cfg := makeConfigNode(ctx)
+
+	// check to see if the dbDir is empty or doesn't exist
+	dbDirPath := cfg.Node.ResolvePath(node.Chaindata)
+	dbDir, err := os.Open(dbDirPath)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("database dir %q does not exist, you must initialise the db by running the autonity client init command", dbDirPath)
+	}
+	if err != nil {
+		return nil, err
+	}
+	_, err = dbDir.Readdirnames(1)
+	if err == io.EOF {
+		return nil, fmt.Errorf("database dir %q is empty, you must initialise the db by running the autonity client init command", dbDirPath)
+	}
+
 	if ctx.GlobalIsSet(utils.OverrideIstanbulFlag.Name) {
 		cfg.Eth.OverrideIstanbul = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideIstanbulFlag.Name))
 	}
@@ -149,7 +165,7 @@ func makeFullNode(ctx *cli.Context) *node.Node {
 	if cfg.Ethstats.URL != "" {
 		utils.RegisterEthStatsService(stack, cfg.Ethstats.URL)
 	}
-	return stack
+	return stack, nil
 }
 
 // dumpConfig is the dumpconfig command.
