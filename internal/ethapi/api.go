@@ -524,7 +524,7 @@ func (s *PublicBlockChainAPI) BlockNumber() hexutil.Uint64 {
 	return hexutil.Uint64(header.Number.Uint64())
 }
 
-func (s *PublicBlockChainAPI) AutonityContract() *autonity.Contract {
+func (s *PublicBlockChainAPI) AutonityContract() autonity.Contract {
 	return s.b.AutonityContract()
 }
 
@@ -1393,7 +1393,7 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 		return errors.New(`both "data" and "input" are set and not equal. Please use "input" to pass transaction call data`)
 	}
 	if args.To == nil {
-		// Contract creation
+		// evmContract creation
 		var input []byte
 		if args.Data != nil {
 			input = *args.Data

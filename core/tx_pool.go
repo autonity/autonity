@@ -142,7 +142,7 @@ type blockChain interface {
 	StateAt(root common.Hash) (*state.StateDB, error)
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
-	GetAutonityContract() *autonity.Contract
+	GetAutonityContract() autonity.Contract
 	Config() *params.ChainConfig
 }
 
@@ -575,7 +575,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if pool.chain.GetAutonityContract() != nil {
 		if gp, err := pool.chain.GetAutonityContract().GetMinimumGasPrice(pool.chain.CurrentBlock(), pool.currentState); err == nil {
 			if new(big.Int).SetUint64(gp).Cmp(tx.GasPrice()) > 0 {
-				return errors.New("transaction gas price is less than Autonity Contract minimum gas price")
+				return errors.New("transaction gas price is less than Autonity evmContract minimum gas price")
 			}
 		} else {
 			return err

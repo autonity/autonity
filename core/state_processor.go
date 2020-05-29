@@ -38,7 +38,7 @@ type StateProcessor struct {
 	config           *params.ChainConfig // Chain configuration options
 	bc               *BlockChain         // Canonical block chain
 	engine           consensus.Engine    // Consensus engine used for block rewards
-	autonityContract *autonity.Contract
+	autonityContract autonity.Contract
 }
 
 // NewStateProcessor initialises a new StateProcessor.
@@ -50,7 +50,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 	}
 }
 
-func (p *StateProcessor) SetAutonityContract(contract *autonity.Contract) {
+func (p *StateProcessor) SetAutonityContract(contract autonity.Contract) {
 	p.autonityContract = contract
 }
 

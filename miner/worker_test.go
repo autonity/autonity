@@ -17,10 +17,8 @@
 package miner
 
 import (
-	"crypto/ecdsa"
-	"fmt"
-	"github.com/clearmatics/autonity/accounts"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	tendermint "github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math/big"
 	"math/rand"
 	"sync/atomic"
@@ -80,7 +78,15 @@ func init() {
 	ethashChainConfig = params.TestChainConfig
 	tendermintChainConfig = params.TestChainConfig
 	tendermintChainConfig.Ethash = nil
-	tendermintChainConfig.AutonityContractConfig = &params.AutonityContractGenesis{}
+	tendermintChainConfig.Tendermint = tendermint.DefaultConfig()
+	tendermintChainConfig.AutonityContractConfig = &params.AutonityContractGenesis{
+		Users: []params.User{{
+			Address: testUserAddress,
+			Type:    params.UserValidator,
+			Stake:   1,
+		}},
+	}
+
 	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
 	pendingTxs = append(pendingTxs, tx1)
 	tx2, _ := types.SignTx(types.NewTransaction(1, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
@@ -104,7 +110,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 		Alloc:  core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
 	}
 
-	switch e := engine.(type) {
+	/*switch e := engine.(type) {
 	case *tendermintBackend.Backend:
 		gspec.ExtraData = make([]byte, 32+common.AddressLength+crypto.SignatureLength)
 		copy(gspec.ExtraData[32:32+common.AddressLength], testBankAddress.Bytes())
@@ -115,6 +121,8 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	default:
 		t.Fatalf("unexpected consensus engine type: %T", engine)
 	}
+	*/
+
 	genesis := gspec.MustCommit(db)
 	senderCacher := &core.TxSenderCacher{}
 	chain, _ := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, senderCacher)
@@ -178,7 +186,7 @@ func (b *testWorkerBackend) newRandomTx(creation bool) *types.Transaction {
 func newTestWorker(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db ethdb.Database, blocks int) (*worker, *testWorkerBackend) {
 	backend := newTestWorkerBackend(t, chainConfig, engine, db, blocks)
 	backend.txPool.AddLocals(pendingTxs)
-	w := newWorker(testConfig, chainConfig, engine, backend, new(event.TypeMux), nil, false)
+	w := newWorker(testConfig, chainConfig, engine, backend, new(event.TypeMux), hooks{}, false)
 	w.setEtherbase(testBankAddress)
 	return w, backend
 }
@@ -187,7 +195,7 @@ func TestGenerateBlockAndImportEthash(t *testing.T) {
 	testGenerateBlockAndImport(t, false)
 }
 
-func TestGenerateBlockAndImportClique(t *testing.T) {
+func TestGenerateBlockAndImportTendermint(t *testing.T) {
 	testGenerateBlockAndImport(t, true)
 }
 
@@ -198,9 +206,8 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 		db          = rawdb.NewMemoryDatabase()
 	)
 	if isTendermint {
-		chainConfig = params.AllCliqueProtocolChanges
-		chainConfig.Clique = &params.CliqueConfig{Period: 1, Epoch: 30000}
-		engine = clique.New(chainConfig.Clique, db)
+		chainConfig = tendermintChainConfig
+		engine = tendermintBackend.New(chainConfig.Tendermint, testUserKey, db, chainConfig, &vm.Config{})
 	} else {
 		chainConfig = params.AllEthashProtocolChanges
 		engine = ethash.NewFaker()
@@ -212,7 +219,7 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 	// This test chain imports the mined blocks.
 	db2 := rawdb.NewMemoryDatabase()
 	b.genesis.MustCommit(db2)
-	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil)
+	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, &core.TxSenderCacher{})
 	defer chain.Stop()
 
 	// Ignore empty commit here for less noise.
@@ -248,8 +255,8 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 func TestEmptyWorkEthash(t *testing.T) {
 	testEmptyWork(t, ethashChainConfig, ethash.NewFaker())
 }
-func TestEmptyWorkClique(t *testing.T) {
-	testEmptyWork(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
+func TestEmptyWorkTendermint(t *testing.T) {
+	testEmptyWork(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)))
 }
 
 func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
@@ -354,8 +361,8 @@ func TestRegenerateMiningBlockEthash(t *testing.T) {
 	testRegenerateMiningBlock(t, ethashChainConfig, ethash.NewFaker())
 }
 
-func TestRegenerateMiningBlockClique(t *testing.T) {
-	testRegenerateMiningBlock(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
+func TestRegenerateMiningBlockTendermint(t *testing.T) {
+	testRegenerateMiningBlock(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)))
 }
 
 func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
@@ -415,7 +422,7 @@ func TestAdjustIntervalEthash(t *testing.T) {
 }
 
 func TestAdjustIntervalClique(t *testing.T) {
-	testAdjustInterval(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
+	testAdjustInterval(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)))
 }
 
 func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {

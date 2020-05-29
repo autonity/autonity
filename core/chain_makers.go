@@ -18,6 +18,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -190,7 +191,15 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		config = params.TestChainConfig
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	chainreader := &fakeChainReader{config: config}
+	var autonityContract autonity.Contract
+	if config.AutonityContractConfig != nil {
+		autonityContract = autonity.NewStubContract(config.AutonityContractConfig)
+	}
+	chainreader := &fakeChainReader{
+		config:           config,
+		autonityContract: autonityContract,
+	}
+
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
 		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine}
 		b.header = makeHeader(chainreader, parent, statedb, b.engine)
@@ -285,7 +294,8 @@ func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethd
 }
 
 type fakeChainReader struct {
-	config *params.ChainConfig
+	config           *params.ChainConfig
+	autonityContract autonity.Contract
 }
 
 // Config returns the chain configuration.
@@ -293,9 +303,23 @@ func (cr *fakeChainReader) Config() *params.ChainConfig {
 	return cr.config
 }
 
-func (cr *fakeChainReader) CurrentHeader() *types.Header                            { return nil }
-func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header           { return nil }
+func (cr *fakeChainReader) CurrentHeader() *types.Header { return nil }
+func (cr *fakeChainReader) CurrentBlock() *types.Block   { return nil }
+func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header {
+	if cr.autonityContract == nil {
+		return nil
+	}
+	committee, _ := cr.autonityContract.GetCommittee(nil, nil)
+	return &types.Header{Committee: committee}
+}
 func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
 func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
 func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.Block   { return nil }
 func (cr *fakeChainReader) Engine() consensus.Engine                                { return nil }
+func (cr *fakeChainReader) State() (*state.StateDB, error)                          { return nil, nil }
+func (cr *fakeChainReader) StateAt(root common.Hash) (*state.StateDB, error)        { return nil, nil }
+func (cr *fakeChainReader) GetAutonityContract() autonity.Contract                  { return cr.autonityContract }
+func (cr *fakeChainReader) ValidateBody(*types.Block) error                         { return nil }
+func (cr *fakeChainReader) ValidateState(block *types.Block, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
+	return nil
+}

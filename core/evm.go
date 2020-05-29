@@ -25,14 +25,18 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 )
 
+// This interface was introduced to avoid cyclic imports with the autonity package.
+type HeaderGetter interface {
+	// GetHeader returns the hash corresponding to their hash.
+	GetHeader(common.Hash, uint64) *types.Header
+}
+
 // ChainContext supports retrieving headers and consensus parameters from the
 // current blockchain to be used during transaction processing.
 type ChainContext interface {
+	HeaderGetter
 	// Engine retrieves the chain's consensus engine.
 	Engine() consensus.Engine
-
-	// GetHeader returns the hash corresponding to their hash.
-	GetHeader(common.Hash, uint64) *types.Header
 }
 
 // NewEVMContext creates a new context for use in the EVM.
@@ -59,7 +63,7 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 }
 
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
-func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash {
+func GetHashFn(ref *types.Header, chain HeaderGetter) func(n uint64) common.Hash {
 	// Cache will initially contain [refHash.parent],
 	// Then fill up with [refHash.p, refHash.pp, refHash.ppp, ...]
 	var cache []common.Hash

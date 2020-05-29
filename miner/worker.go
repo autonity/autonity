@@ -281,21 +281,19 @@ func (w *worker) init() {
 }
 
 type starter interface {
-	Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
+	Start(ctx context.Context, chain consensus.FullChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
 }
 
 // start sets the running status as 1 and triggers new work submitting.
 func (w *worker) start() {
 	if atomic.CompareAndSwapInt32(&w.running, 0, 1) {
+		w.init()
 		if pos, ok := w.engine.(starter); ok {
-			w.init()
-
 			err := pos.Start(context.Background(), w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
 			if err != nil {
 				log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)
 			}
 		}
-
 		w.startCh <- struct{}{}
 	}
 }
