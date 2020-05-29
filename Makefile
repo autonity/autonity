@@ -90,6 +90,10 @@ test-contracts:
 	./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545
 	cd contracts/autonity/contract/ && truffle test && cd -
 
+docker-e2e-test: embed-autonity-contract
+	build/env.sh go run build/ci.go install
+	cd docker_e2e_test && sudo python3 test_via_docker.py ../build/bin/autonity
+
 mock-gen:
 	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go
 	mockgen -source=consensus/protocol.go -package=consensus -destination=consensus/protocol_mock.go
