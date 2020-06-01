@@ -67,11 +67,11 @@ func (t TCPDialer) Dial(dest *enode.Node) (net.Conn, error) {
 // It gets a chance to compute new tasks on every iteration
 // of the main loop in Server.run.
 type dialstate struct {
-	maxDynDials           int
-	netrestrict           *netutil.Netlist
-	self                  enode.ID
-	bootnodes             []*enode.Node // default dials when there are no peers
-	log                   log.Logger
+	maxDynDials int
+	netrestrict *netutil.Netlist
+	self        enode.ID
+	bootnodes   []*enode.Node // default dials when there are no peers
+	log         log.Logger
 
 	start                 time.Time // time when the dialer was first used
 	lookupRunning         bool
