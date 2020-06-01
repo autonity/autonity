@@ -236,7 +236,7 @@ func TestStartRound(t *testing.T) {
 
 // The following tests aim to test lines 22 - 27 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
-func TestTendermintNewProposal(t *testing.T) {
+func TestNewProposal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	backendMock := NewMockBackend(ctrl)
@@ -262,7 +262,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		// members[currentRound] means that the sender is the proposer for the current round
 		// assume that the message is from a member of committee set and the signature is signing the contents, however,
 		// the proposal block inside the message is invalid
-		invalidMsg := generateBlockProposal(t, currentRound, currentHeight, members[currentRound].Address, true)
+		invalidMsg := generateBlockProposal(t, currentRound, currentHeight, -1, members[currentRound].Address, true)
 		err := invalidMsg.Decode(&invalidProposal)
 		assert.Nil(t, err)
 
@@ -283,7 +283,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		clientLockedRound := int64(-1)
 
 		var proposal Proposal
-		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, members[currentRound].Address, false)
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, -1, members[currentRound].Address, false)
 		err := proposalMsg.Decode(&proposal) // we have to do this because encoding and decoding changes some default values
 		assert.Nil(t, err)
 
@@ -312,7 +312,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		clientLockedRound := int64(0)
 
 		var proposal Proposal
-		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, members[currentRound].Address, false)
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, -1, members[currentRound].Address, false)
 		// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
 		err := proposalMsg.Decode(&proposal)
 		assert.Nil(t, err)
@@ -346,7 +346,7 @@ func TestTendermintNewProposal(t *testing.T) {
 		clientLockedValue := generateBlock(currentHeight)
 
 		var proposal Proposal
-		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, members[currentRound].Address, false)
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, -1, members[currentRound].Address, false)
 		// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
 		err := proposalMsg.Decode(&proposal)
 		assert.Nil(t, err)
@@ -372,6 +372,147 @@ func TestTendermintNewProposal(t *testing.T) {
 		assert.Equal(t, clientLockedRound, c.lockedRound)
 		assert.Equal(t, clientLockedValue, c.validValue)
 		assert.Equal(t, clientLockedRound, c.validRound)
+	})
+}
+
+// The following tests aim to test lines 28 - 33 of Tendermint Algorithm described on page 6 of
+// https://arxiv.org/pdf/1807.04938.pdf.
+func TestOldProposal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	backendMock := NewMockBackend(ctrl)
+
+	minSize, maxSize := 4, 100
+	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
+	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
+	members := committeeSet.Committee()
+	clientAddr := members[0].Address
+
+	backendMock.EXPECT().Address().Return(clientAddr)
+	c := New(backendMock)
+	c.setCommitteeSet(committeeSet)
+
+	t.Run("receive proposal with vr >= 0 and client's lockedRound <= vr", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+
+		// vr >= 0 && vr < round_p
+		proposalValidRound := int64(rand.Intn(int(currentRound)))
+		// c.lockedRound <= vr
+		choice := rand.Intn(2)
+		clientLockedRound := int64(-1)
+		if choice != 0 {
+			clientLockedRound = int64(rand.Intn(int(proposalValidRound + 1)))
+		}
+
+		var proposal Proposal
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
+		// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
+		err := proposalMsg.Decode(&proposal)
+		assert.Nil(t, err)
+
+		// expected message to be broadcast
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := preparePrevote(t, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
+
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(propose)
+		c.lockedRound = clientLockedRound
+		c.validRound = clientLockedRound
+		// Although the following is not possible it is required to ensure that c.lockRound <= proposalValidRound is
+		// responsible for sending the prevote for the incoming proposal
+		c.lockedValue = nil
+		c.validValue = nil
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.CommitteeSet().Quorum()})
+
+		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+
+		err = c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
+		assert.Nil(t, err)
+		assert.Equal(t, prevote, c.step)
+		assert.Nil(t, c.lockedValue)
+		assert.Equal(t, clientLockedRound, c.lockedRound)
+		assert.Nil(t, c.validValue)
+		assert.Equal(t, clientLockedRound, c.validRound)
+	})
+	t.Run("receive proposal with vr >= 0 and client's lockedValue is same as proposal block", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+
+		// vr >= 0 && vr < round_p
+		proposalValidRound := int64(rand.Intn(int(currentRound)))
+		var proposal Proposal
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
+		// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
+		err := proposalMsg.Decode(&proposal)
+		assert.Nil(t, err)
+
+		// expected message to be broadcast
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := preparePrevote(t, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
+
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(propose)
+		// Although the following is not possible it is required to ensure that c.lockedValue = proposal is responsible
+		// for sending the prevote for the incoming proposal
+		c.lockedRound = proposalValidRound + 1
+		c.validRound = proposalValidRound + 1
+		c.lockedValue = proposal.ProposalBlock
+		c.validValue = proposal.ProposalBlock
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.CommitteeSet().Quorum()})
+
+		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+
+		err = c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
+		assert.Nil(t, err)
+		assert.Equal(t, prevote, c.step)
+		assert.Equal(t, proposalValidRound+1, c.lockedRound)
+		assert.Equal(t, proposalValidRound+1, c.validRound)
+		assert.Equal(t, proposal.ProposalBlock, c.lockedValue)
+		assert.Equal(t, proposal.ProposalBlock, c.validValue)
+	})
+	t.Run("receive proposal with vr >= 0 and clients is lockedRound > vr with a different value", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		clientLockedValue := generateBlock(currentHeight)
+
+		// vr >= 0 && vr < round_p
+		proposalValidRound := int64(rand.Intn(int(currentRound)))
+		var proposal Proposal
+		proposalMsg := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
+		// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
+		err := proposalMsg.Decode(&proposal)
+		assert.Nil(t, err)
+
+		// expected message to be broadcast
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := preparePrevote(t, currentRound, currentHeight, common.Hash{}, clientAddr)
+
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(propose)
+		// Although the following is not possible it is required to ensure that c.lockedValue = proposal is responsible
+		// for sending the prevote for the incoming proposal
+		c.lockedRound = proposalValidRound + 1
+		c.validRound = proposalValidRound + 1
+		c.lockedValue = clientLockedValue
+		c.validValue = clientLockedValue
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.CommitteeSet().Quorum()})
+
+		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+
+		err = c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
+		assert.Nil(t, err)
+		assert.Equal(t, prevote, c.step)
+		assert.Equal(t, proposalValidRound+1, c.lockedRound)
+		assert.Equal(t, proposalValidRound+1, c.validRound)
+		assert.Equal(t, clientLockedValue, c.lockedValue)
+		assert.Equal(t, clientLockedValue, c.validValue)
 	})
 }
 
@@ -474,7 +615,7 @@ func preparePrevote(t *testing.T, round int64, height *big.Int, blockHash common
 	return prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig
 }
 
-func generateBlockProposal(t *testing.T, r int64, h *big.Int, src common.Address, invalid bool) *Message {
+func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src common.Address, invalid bool) *Message {
 	var block *types.Block
 	if invalid {
 		header := &types.Header{Number: h}
@@ -483,7 +624,7 @@ func generateBlockProposal(t *testing.T, r int64, h *big.Int, src common.Address
 	} else {
 		block = generateBlock(h)
 	}
-	proposal := NewProposal(r, h, -1, block)
+	proposal := NewProposal(r, h, vr, block)
 	proposalRlp, err := Encode(proposal)
 	assert.Nil(t, err)
 	return &Message{
