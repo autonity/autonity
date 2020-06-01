@@ -141,11 +141,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
 		if vr == -1 {
-			var voteForProposal = false
-			if c.lockedValue != nil {
-				voteForProposal = c.lockedRound == -1 || h == c.lockedValue.Hash()
-			}
-			c.sendPrevote(ctx, voteForProposal)
+			c.sendPrevote(ctx, !(c.lockedRound == -1 || h == c.lockedValue.Hash()))
 			c.setStep(prevote)
 			return nil
 		}
