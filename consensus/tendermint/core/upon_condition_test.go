@@ -2,17 +2,17 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/crypto"
+	"math/big"
+	"math/rand"
 	"sort"
+	"testing"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"math/big"
-	"math/rand"
-	"testing"
 )
 
 // The following tests aim to test lines 1 - 21 of Tendermint Algorithm described on page 6 of
@@ -250,8 +250,6 @@ func prepareProposal(t *testing.T, currentRound int64, proposalHeight *big.Int, 
 	return proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig
 }
 
-// TODO: We should create a utility function which can we used across different test files, it can be related to this
-// issue https://github.com/clearmatics/autonity/issues/525
 // Committee will be ordered such that the proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
 func prepareCommittee(t *testing.T) *committee.Set {
 	minSize := 4
