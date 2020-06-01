@@ -206,7 +206,7 @@ func runTest(t *testing.T, test *testCase) {
 		peer.listener[1].Close()
 
 		rates := test.networkRates[i]
-		peer.node, err = makePeer(genesis, peer.privateKey, fmt.Sprintf("127.0.0.1:%d", peer.port), peer.rpcPort, rates.in, rates.out, engineConstructor)
+		peer.node, err = makePeer(genesis, peer.privateKey, fmt.Sprintf("127.0.0.1:%d", peer.port), peer.rpcPort, rates.in, rates.out, engineConstructor, i)
 		if err != nil {
 			t.Fatal("cant make a node", i, err)
 		}
@@ -578,6 +578,7 @@ func generateNodesPrivateKey(t *testing.T, nodes map[string]*testNode, nodeNames
 	var err error
 	for i := 0; i < nodesNum; i++ {
 		nodes[nodeNames[i]] = new(testNode)
+		nodes[nodeNames[i]].Name = nodeNames[i]
 		nodes[nodeNames[i]].privateKey, err = keygenerator.Next()
 		if err != nil {
 			t.Fatal("cant make pk", err)

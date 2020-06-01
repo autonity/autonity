@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,6 +44,7 @@ type testNode struct {
 	txsSendCount            *int64
 	txsChainCount           map[uint64]int64
 	isMalicious             bool
+	Name                    string
 }
 
 type netNode struct {
@@ -186,12 +188,15 @@ func (validator *testNode) startService() error {
 
 	validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
 
-	if err := ethereum.StartMining(1); err != nil {
-		return fmt.Errorf("cant start mining %s", err)
-	}
+	// stakeholder or participant shouldn't start mining since errUnauthorized would rise.
+	if strings.HasPrefix(validator.Name, ValidatorPrefix) {
+		if err := ethereum.StartMining(1); err != nil {
+			return fmt.Errorf("cant start mining %s", err)
+		}
 
-	for !ethereum.IsMining() {
-		time.Sleep(50 * time.Millisecond)
+		for !ethereum.IsMining() {
+			time.Sleep(50 * time.Millisecond)
+		}
 	}
 
 	validator.isRunning = true
