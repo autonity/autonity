@@ -65,6 +65,7 @@ require (
 	github.com/zimmski/go-leak v0.0.0-20151016212241-a11b0b936d24
 	go.uber.org/goleak v1.0.0
 	golang.org/x/crypto v0.0.0-20200128174031-69ecbb4d6d5d
+	golang.org/x/exp v0.0.0-20190125153040-c74c464bbbf2
 	golang.org/x/net v0.0.0-20190628185345-da137c7871d7 // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7
