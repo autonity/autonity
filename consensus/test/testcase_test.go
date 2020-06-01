@@ -527,7 +527,9 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 	if err != nil {
 		return err
 	}
-	if _, ok := ch[blockNum]; !ok {
+	_, dropOk := ch[blockNum]
+	_, connectOk := ch[blockNum-1]
+	if !(dropOk || connectOk) {
 		return nil
 	}
 	edges := t.getEdges(blockNum)
@@ -542,22 +544,26 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 	fmt.Println()
 	peers := nodes[index].node.Server().Peers()
 	currentConnections := t.transformPeerListToMap(peers, nodes)
-	for k := range currentConnections {
-		if _, ok := graphConnections[k]; ok {
-			continue
+	if dropOk {
+		for k := range currentConnections {
+			if _, ok := graphConnections[k]; ok {
+				continue
+			}
+			fmt.Println("node", index, "removes to", k)
+			nodes[index].node.Server().RemovePeer(nodes[k].node.Server().Self())
+			nodes[index].node.Server().RemoveTrustedPeer(nodes[k].node.Server().Self())
 		}
-		fmt.Println("node", index, "removes to", k)
-		nodes[index].node.Server().RemovePeer(nodes[k].node.Server().Self())
-		nodes[index].node.Server().RemoveTrustedPeer(nodes[k].node.Server().Self())
 	}
 
-	for k := range graphConnections {
-		if _, ok := currentConnections[k]; ok {
-			continue
+	if connectOk {
+		for k := range graphConnections {
+			if _, ok := currentConnections[k]; ok {
+				continue
+			}
+			fmt.Println("node", index, "connects to", k)
+			nodes[index].node.Server().AddPeer(nodes[k].node.Server().Self())
+			nodes[index].node.Server().AddTrustedPeer(nodes[k].node.Server().Self())
 		}
-		fmt.Println("node", index, "connects to", k)
-		nodes[index].node.Server().AddPeer(nodes[k].node.Server().Self())
-		nodes[index].node.Server().AddTrustedPeer(nodes[k].node.Server().Self())
 	}
 
 	return nil

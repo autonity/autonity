@@ -67,18 +67,19 @@ func (t TCPDialer) Dial(dest *enode.Node) (net.Conn, error) {
 // It gets a chance to compute new tasks on every iteration
 // of the main loop in Server.run.
 type dialstate struct {
-	maxDynDials int
-	netrestrict *netutil.Netlist
-	self        enode.ID
-	bootnodes   []*enode.Node // default dials when there are no peers
-	log         log.Logger
+	maxDynDials           int
+	netrestrict           *netutil.Netlist
+	self                  enode.ID
+	bootnodes             []*enode.Node // default dials when there are no peers
+	log                   log.Logger
 
-	start         time.Time // time when the dialer was first used
-	lookupRunning bool
-	dialing       map[enode.ID]connFlag
-	lookupBuf     []*enode.Node // current discovery lookup results
-	static        map[enode.ID]*dialTask
-	hist          expHeap
+	start                 time.Time // time when the dialer was first used
+	lookupRunning         bool
+	dialing               map[enode.ID]connFlag
+	lookupBuf             []*enode.Node // current discovery lookup results
+	static                map[enode.ID]*dialTask
+	hist                  expHeap
+	dialHistoryExpiration time.Duration
 }
 
 type task interface {
@@ -94,7 +95,13 @@ func newDialState(self enode.ID, maxdyn int, cfg *Config) *dialstate {
 		static:      make(map[enode.ID]*dialTask),
 		dialing:     make(map[enode.ID]connFlag),
 		bootnodes:   make([]*enode.Node, len(cfg.BootstrapNodes)),
+		dialHistoryExpiration: cfg.DialHistoryExpiration,
 	}
+	// set to default value (hard-coded value) if it is not configured.
+	if s.dialHistoryExpiration == 0 {
+		s.dialHistoryExpiration = dialHistoryExpiration
+	}
+
 	copy(s.bootnodes, cfg.BootstrapNodes)
 	if s.log == nil {
 		s.log = log.Root()
@@ -225,7 +232,7 @@ func (s *dialstate) checkDial(n *enode.Node, peers map[enode.ID]*Peer) error {
 func (s *dialstate) taskDone(t task, now time.Time) {
 	switch t := t.(type) {
 	case *dialTask:
-		s.hist.add(string(t.dest.ID().Bytes()), now.Add(dialHistoryExpiration))
+		s.hist.add(string(t.dest.ID().Bytes()), now.Add(s.dialHistoryExpiration))
 		delete(s.dialing, t.dest.ID())
 	case *discoverTask:
 		s.lookupRunning = false

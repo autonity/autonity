@@ -165,6 +165,9 @@ type Config struct {
 
 	// OutRate egress network rate in Bytes
 	OutRate int64 `toml:",omitempty"`
+
+	// DialHistoryExpiration is the time window to dial to the same source peer.
+	DialHistoryExpiration time.Duration
 }
 
 // Server manages all peer connections.
@@ -531,7 +534,10 @@ func (srv *Server) Start() (err error) {
 	srv.NoDiscovery = true
 
 	srv.discmix = enode.NewFairMix(discmixTimeout)
-	dialer = newDialState(srv.localnode.ID(), 0, &Config{NetRestrict: srv.Config.NetRestrict})
+	dialer = newDialState(srv.localnode.ID(), 0, &Config{
+		NetRestrict:           srv.Config.NetRestrict,
+		DialHistoryExpiration: srv.Config.DialHistoryExpiration,
+	})
 
 	srv.loopWG.Add(1)
 	go srv.run(dialer)

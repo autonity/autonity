@@ -375,3 +375,26 @@ jobs:
 
       - name: test contract
         run: make test-contracts
+  topology:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on
+      GORACE: "history_size=7"
+    steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Set GOPATH
+        run: |
+          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+        shell: bash
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: TestTopology
+        run: go test ./consensus/test/... -v -run 'TestTendermintStarSuccess|TestTendermintBusSuccess|TestTendermintChangeTopologyFromStarToBusSuccess|TestTendermintAddValidatorsToTopologySuccess|TestTendermintAddParticipantsToTopologySuccess|TestTendermintAddStakeholdersToTopologySuccess' -timeout 40m
