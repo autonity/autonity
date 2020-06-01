@@ -231,14 +231,11 @@ func initGenesis(ctx *cli.Context) error {
 	setupDefaults(genesis)
 
 	// Open an initialise both full and light databases
-	stack, err := makeFullNode(ctx)
-	if err != nil {
-		return err
-	}
+	stack, cfg := makeConfigNode(ctx)
 	defer stack.Close()
 
 	for _, name := range []string{node.Chaindata, "lightchaindata"} {
-		chaindb, err := stack.OpenDatabase(name, 0, 0, "")
+		chaindb, err := rawdb.NewLevelDBDatabase(cfg.Node.ResolvePath(name), 0, 0, "")
 		if err != nil {
 			utils.Fatalf("Failed to open database: %v", err)
 		}
