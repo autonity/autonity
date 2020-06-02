@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/params"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
@@ -20,13 +20,6 @@ import (
 
 func TestGetCommittee(t *testing.T) {
 	genesis, nodeKeys := getGenesisAndKeys(rand.Intn(30) + 1)
-	// Add non validators to the genesis users
-	part1, part2 := common.HexToAddress("0xabcd1235145"), common.HexToAddress("0x124214643")
-	genesis.Config.AutonityContractConfig.Users = append(genesis.Config.AutonityContractConfig.Users, []params.User{
-		{Address: &part1, Type: params.UserParticipant},
-		{Address: &part2, Type: params.UserStakeHolder, Stake: 2},
-	}...)
-
 	memDB := rawdb.NewMemoryDatabase()
 	backend := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 	genesis.MustCommit(memDB)
@@ -70,13 +63,6 @@ func TestGetCommitteeAtHash(t *testing.T) {
 
 	t.Run("valid block given, committee returned", func(t *testing.T) {
 		genesis, nodeKeys := getGenesisAndKeys(rand.Intn(30) + 1)
-		// Add non validators to the genesis users
-		part1, part2 := common.HexToAddress("0xabcd1235145"), common.HexToAddress("0x124214643")
-		genesis.Config.AutonityContractConfig.Users = append(genesis.Config.AutonityContractConfig.Users, []params.User{
-			{Address: &part1, Type: params.UserParticipant},
-			{Address: &part2, Type: params.UserStakeHolder, Stake: 2},
-		}...)
-
 		memDB := rawdb.NewMemoryDatabase()
 		backend := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 		genesis.MustCommit(memDB)
@@ -110,13 +96,6 @@ func TestGetCommitteeAtHash(t *testing.T) {
 
 func TestAPIGetContractABI(t *testing.T) {
 	genesis, nodeKeys := getGenesisAndKeys(rand.Intn(30) + 1)
-	// Add non validators to the genesis users
-	part1, part2 := common.HexToAddress("0xabcd1235145"), common.HexToAddress("0x124214643")
-	genesis.Config.AutonityContractConfig.Users = append(genesis.Config.AutonityContractConfig.Users, []params.User{
-		{Address: &part1, Type: params.UserParticipant},
-		{Address: &part2, Type: params.UserStakeHolder, Stake: 2},
-	}...)
-
 	memDB := rawdb.NewMemoryDatabase()
 	backend := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 	genesis.MustCommit(memDB)
@@ -138,13 +117,6 @@ func TestAPIGetContractABI(t *testing.T) {
 
 func TestAPIGetContractAddress(t *testing.T) {
 	genesis, nodeKeys := getGenesisAndKeys(rand.Intn(30) + 1)
-	// Add non validators to the genesis users
-	part1, part2 := common.HexToAddress("0xabcd1235145"), common.HexToAddress("0x124214643")
-	genesis.Config.AutonityContractConfig.Users = append(genesis.Config.AutonityContractConfig.Users, []params.User{
-		{Address: &part1, Type: params.UserParticipant},
-		{Address: &part2, Type: params.UserStakeHolder, Stake: 2},
-	}...)
-
 	memDB := rawdb.NewMemoryDatabase()
 	backend := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 	genesis.MustCommit(memDB)
@@ -164,22 +136,28 @@ func TestAPIGetContractAddress(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
-//
-//func TestAPIGetWhitelist(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
-//
-//	want := []string{"d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"}
-//
-//	backend := tendermintCore.NewMockBackend(ctrl)
-//	backend.EXPECT().WhiteList().Return(want)
-//
-//	API := &API{
-//		tendermint: backend,
-//	}
-//
-//	got := API.GetWhitelist()
-//	if !reflect.DeepEqual(got, want) {
-//		t.Fatalf("want %v, got %v", want, got)
-//	}
-//}
+func TestAPIGetWhitelist(t *testing.T) {
+	genesis, nodeKeys := getGenesisAndKeys(1)
+	memDB := rawdb.NewMemoryDatabase()
+	backend := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
+	genesis.MustCommit(memDB)
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, backend, vm.Config{}, nil, core.NewTxSenderCacher())
+	assert.Nil(t, err)
+
+	err = backend.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	assert.Nil(t, err)
+
+	block, err := makeBlock(blockchain, backend, blockchain.Genesis())
+	assert.Nil(t, err)
+	_, err = blockchain.InsertChain(types.Blocks{block})
+
+	want := []string{"enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"}
+
+	API := &API{
+		tendermint: backend,
+	}
+
+	got := API.GetWhitelist()
+
+	assert.Equal(t, want, got)
+}
