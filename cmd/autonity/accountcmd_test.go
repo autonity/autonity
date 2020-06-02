@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/cespare/cp"
+	"github.com/stretchr/testify/require"
 )
 
 // These tests are 'smoke tests' for the account related
@@ -143,6 +144,9 @@ Fatal: could not decrypt key with given password
 
 func TestUnlockFlag(t *testing.T) {
 	datadir := tmpDatadirWithKeystore(t)
+
+	err := app.Run([]string{"autonity-test", "--datadir", datadir, "init", "../../genesis.json"})
+	require.NoError(t, err)
 	autonity := runAutonity(t,
 		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a",

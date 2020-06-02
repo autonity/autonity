@@ -50,12 +50,12 @@ func init() {
 	// Run the app if we've been exec'd as "autonity-test" in runAutonity.
 	reexec.Register("autonity-test", func() {
 
-		if len(os.Args) > 3 {
-			if err := app.Run([]string{"autonity-test", os.Args[1], os.Args[2], "init", "../../helloworld/genesis-tendermint.json"}); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-		}
+		// if len(os.Args) > 3 {
+		// 	if err := app.Run([]string{"autonity-test", os.Args[1], os.Args[2], "init", "../../helloworld/genesis-tendermint.json"}); err != nil {
+		// 		fmt.Fprintln(os.Stderr, err)
+		// 		os.Exit(1)
+		// 	}
+		// }
 		if err := app.Run(os.Args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
