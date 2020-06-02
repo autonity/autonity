@@ -33,6 +33,11 @@ import (
 // For most tests, the test files from package accounts
 // are copied into a temporary keystore directory.
 
+func testInitGenesis(t *testing.T, datadir string) {
+	err := app.Run([]string{"autonity-test", "--datadir", datadir, "init", "../../genesis.json"})
+	require.NoError(t, err)
+}
+
 func tmpDatadirWithKeystore(t *testing.T) string {
 	datadir := tmpdir(t)
 	keystore := filepath.Join(datadir, "keystore")
@@ -144,13 +149,10 @@ Fatal: could not decrypt key with given password
 
 func TestUnlockFlag(t *testing.T) {
 	datadir := tmpDatadirWithKeystore(t)
-
-	err := app.Run([]string{"autonity-test", "--datadir", datadir, "init", "../../genesis.json"})
-	require.NoError(t, err)
+	testInitGenesis(t, datadir)
 	autonity := runAutonity(t,
 		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
-		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a",
-		"js", "testdata/empty.js")
+		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
 	autonity.Expect(`
 Unlocking account f466859ead1932d743d622cb74fc058882e8648a | Attempt 1/3
 !! Unsupported terminal, password will be echoed.
@@ -171,6 +173,7 @@ Password: {{.InputLine "foobar"}}
 
 func TestUnlockFlagWrongPassword(t *testing.T) {
 	datadir := tmpDatadirWithKeystore(t)
+	testInitGenesis(t, datadir)
 	autonity := runAutonity(t,
 		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
@@ -190,10 +193,10 @@ Fatal: Failed to unlock account f466859ead1932d743d622cb74fc058882e8648a (could 
 // https://github.com/clearmatics/autonity/issues/1785
 func TestUnlockFlagMultiIndex(t *testing.T) {
 	datadir := tmpDatadirWithKeystore(t)
+	testInitGenesis(t, datadir)
 	autonity := runAutonity(t,
 		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
-		"--unlock", "0,2",
-		"js", "testdata/empty.js")
+		"--unlock", "0,2")
 	autonity.Expect(`
 Unlocking account 0 | Attempt 1/3
 !! Unsupported terminal, password will be echoed.
@@ -217,10 +220,10 @@ Password: {{.InputLine "foobar"}}
 
 func TestUnlockFlagPasswordFile(t *testing.T) {
 	datadir := tmpDatadirWithKeystore(t)
+	testInitGenesis(t, datadir)
 	autonity := runAutonity(t,
 		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
-		"--password", "testdata/passwords.txt", "--unlock", "0,2",
-		"js", "testdata/empty.js")
+		"--password", "testdata/passwords.txt", "--unlock", "0,2")
 	autonity.ExpectExit()
 
 	wantMessages := []string{
@@ -237,6 +240,7 @@ func TestUnlockFlagPasswordFile(t *testing.T) {
 
 func TestUnlockFlagPasswordFileWrongPassword(t *testing.T) {
 	datadir := tmpDatadirWithKeystore(t)
+	testInitGenesis(t, datadir)
 	autonity := runAutonity(t,
 		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
 		"--password", "testdata/wrong-passwords.txt", "--unlock", "0,2")
@@ -247,11 +251,12 @@ Fatal: Failed to unlock account 0 (could not decrypt key with given password)
 }
 
 func TestUnlockFlagAmbiguous(t *testing.T) {
+	datadir := tmpDatadirWithKeystore(t)
+	testInitGenesis(t, datadir)
 	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
 	autonity := runAutonity(t,
-		"--keystore", store, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
-		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a",
-		"js", "testdata/empty.js")
+		"--keystore", store, "--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
+		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
 	defer autonity.ExpectExit()
 
 	// Helper for the expect template, returns absolute keystore path.
@@ -285,9 +290,11 @@ In order to avoid this warning, you need to remove the following duplicate key f
 }
 
 func TestUnlockFlagAmbiguousWrongPassword(t *testing.T) {
+	datadir := tmpDatadirWithKeystore(t)
+	testInitGenesis(t, datadir)
 	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
 	autonity := runAutonity(t,
-		"--keystore", store, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
+		"--keystore", store, "--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
 	defer autonity.ExpectExit()
 
