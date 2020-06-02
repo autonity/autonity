@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -135,25 +136,34 @@ func TestAPIGetContractABI(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
-//
-//func TestAPIGetContractAddress(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
-//
-//	want := common.HexToAddress("0x0123456789")
-//
-//	backend := tendermintCore.NewMockBackend(ctrl)
-//	backend.EXPECT().GetContractAddress().Return(want)
-//
-//	API := &API{
-//		tendermint: backend,
-//	}
-//
-//	got := API.GetContractAddress()
-//	if !reflect.DeepEqual(got, want) {
-//		t.Fatalf("want %v, got %v", want, got)
-//	}
-//}
+func TestAPIGetContractAddress(t *testing.T) {
+	genesis, nodeKeys := getGenesisAndKeys(rand.Intn(30) + 1)
+	// Add non validators to the genesis users
+	part1, part2 := common.HexToAddress("0xabcd1235145"), common.HexToAddress("0x124214643")
+	genesis.Config.AutonityContractConfig.Users = append(genesis.Config.AutonityContractConfig.Users, []params.User{
+		{Address: &part1, Type: params.UserParticipant},
+		{Address: &part2, Type: params.UserStakeHolder, Stake: 2},
+	}...)
+
+	memDB := rawdb.NewMemoryDatabase()
+	backend := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
+	genesis.MustCommit(memDB)
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, backend, vm.Config{}, nil, core.NewTxSenderCacher())
+	assert.Nil(t, err)
+
+	err = backend.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	assert.Nil(t, err)
+
+	want := crypto.CreateAddress(acdefault.Deployer(), 0)
+
+	API := &API{
+		tendermint: backend,
+	}
+
+	got := API.GetContractAddress()
+	assert.Equal(t, want, got)
+}
+
 //
 //func TestAPIGetWhitelist(t *testing.T) {
 //	ctrl := gomock.NewController(t)
