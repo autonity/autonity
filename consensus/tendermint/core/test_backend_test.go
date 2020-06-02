@@ -8,7 +8,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/crypto"
 )
 
@@ -30,16 +29,16 @@ func generateCommittee(n int) (types.Committee, addressKeyMap) {
 	return vals, keymap
 }
 
-func newTestCommitteeSet(n int) committee.Set {
+func newTestCommitteeSet(n int) *committee.Set {
 
 	validators, _ := generateCommittee(n)
-	set, _ := committee.NewSet(validators, config.RoundRobin, validators[0].Address)
+	set, _ := committee.NewSet(validators, validators[0].Address)
 	return set
 }
 
-func newTestCommitteeSetWithKeys(n int) (committee.Set, addressKeyMap) {
+func newTestCommitteeSetWithKeys(n int) (*committee.Set, addressKeyMap) {
 	validators, keyMap := generateCommittee(n)
-	set, _ := committee.NewSet(validators, config.RoundRobin, validators[0].Address)
+	set, _ := committee.NewSet(validators, validators[0].Address)
 	return set, keyMap
 }
 

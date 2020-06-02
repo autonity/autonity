@@ -20,9 +20,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"math/big"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
@@ -500,8 +501,9 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
-// Start implements consensus.tendermint.Start
+// Start implements consensus.Start
 func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+	// the mutex along with coreStarted should prevent double start
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if sb.coreStarted {
@@ -520,27 +522,33 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 	sb.currentBlock = currentBlock
 	sb.hasBadBlock = hasBadBlock
 
+	// Start Tendermint
+	sb.core.Start(ctx)
 	sb.coreStarted = true
 
 	return nil
 }
 
-// Stop implements consensus.tendermint.Stop
+// Stop implements consensus.Stop
 func (sb *Backend) Close() error {
+	// the mutex along with coreStarted should prevent double stop
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
+
 	if !sb.coreStarted {
 		return ErrStoppedEngine
 	}
-	sb.coreStarted = false
 
+	// Stop Tendermint
+	sb.core.Stop()
+	sb.coreStarted = false
 	close(sb.stopped)
 
 	return nil
 }
 
 // retrieve list of committee for the block at height passed as parameter
-func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (committee.Set, error) {
+func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (*committee.Set, error) {
 	var lastProposer common.Address
 	var err error
 	if number == 0 {
@@ -557,11 +565,11 @@ func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (c
 			return nil, err
 		}
 	}
-	return committee.NewSet(parentHeader.Committee, sb.config.GetProposerPolicy(), lastProposer)
+	return committee.NewSet(parentHeader.Committee, lastProposer)
 }
 
 // retrieve list of committee for the block header passed as parameter
-func (sb *Backend) committee(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (committee.Set, error) {
+func (sb *Backend) committee(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (*committee.Set, error) {
 
 	// We can't use savedCommittee if parents are being passed :
 	// those blocks are not yet saved in the blockchain.
@@ -574,7 +582,7 @@ func (sb *Backend) committee(header *types.Header, parents []*types.Header, chai
 		if err != nil {
 			return nil, err
 		}
-		return committee.NewSet(header.Committee, sb.config.GetProposerPolicy(), lastMiner)
+		return committee.NewSet(parent.Committee, lastMiner)
 	} else {
 		return sb.savedCommittee(header.Number.Uint64(), chain)
 	}

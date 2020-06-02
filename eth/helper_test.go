@@ -59,12 +59,18 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		gspec  = &core.Genesis{
-			Config: params.TestChainConfig,
-			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
+			Config:     params.TestChainConfig,
+			Alloc:      core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
+			Difficulty: big.NewInt(1),
 		}
 	)
+	a := common.HexToAddress("0x0000000000000000000000000000000000000000")
 	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{
-		Users: []params.User{},
+		Users: []params.User{{
+			Address: &a,
+			Type:    params.UserValidator,
+			Stake:   1,
+		}},
 	}
 
 	for i := range peers {
@@ -77,7 +83,10 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			},
 		)
 	}
-	gspec.Config.AutonityContractConfig.AddDefault()
+	err := gspec.Config.AutonityContractConfig.Prepare()
+	if err != nil {
+		panic(err)
+	}
 
 	genesis := gspec.MustCommit(db)
 	blockchain, err := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher())

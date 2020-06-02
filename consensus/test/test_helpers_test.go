@@ -21,7 +21,6 @@ import (
 	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -123,9 +122,9 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 		if skip {
 			continue
 		}
-
+		address := crypto.PubkeyToAddress(node.privateKey.PublicKey)
 		users = append(users, params.User{
-			Address: crypto.PubkeyToAddress(node.privateKey.PublicKey),
+			Address: &address,
 			Enode:   node.url,
 			Type:    nodeType,
 			Stake:   stake,
@@ -143,8 +142,9 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 		log.Error("Make genesis error while adding a stakeholder", "err", err)
 	}
 
+	address := crypto.PubkeyToAddress(shKey.PublicKey)
 	stakeHolder := params.User{
-		Address: crypto.PubkeyToAddress(shKey.PublicKey),
+		Address: &address,
 		Type:    params.UserStakeHolder,
 		Stake:   200,
 	}
@@ -153,12 +153,7 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 
 	users = append(users, stakeHolder)
 	genesis.Config.AutonityContractConfig.Users = users
-	err = genesis.Config.AutonityContractConfig.AddDefault().Validate()
-	if err != nil {
-		panic(err)
-	}
-
-	err = genesis.SetBFT()
+	err = genesis.Config.AutonityContractConfig.Prepare()
 	if err != nil {
 		panic(err)
 	}
@@ -166,7 +161,7 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 	return genesis
 }
 
-func makePeer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64, cons func(basic consensus.Engine) consensus.Engine, backs func(basic tendermintCore.Backend) tendermintCore.Backend) (*node.Node, error) { //здесь эта переменная-функция называется cons
+func makePeer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) { //здесь эта переменная-функция называется cons
 	// Define the basic configurations for the Ethereum node
 	datadir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -212,7 +207,7 @@ func makePeer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr strin
 			DatabaseHandles: 256,
 			TxPool:          core.DefaultTxPoolConfig,
 			Tendermint:      *config.DefaultConfig(),
-		}, cons, backs)
+		}, cons)
 	}); err != nil {
 		return nil, err
 	}

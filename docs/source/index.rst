@@ -38,3 +38,10 @@ and deploy it into the system.
 
 .. _geth: https://github.com/ethereum/go-ethereum
 .. _Tendermint: https://arxiv.org/pdf/1807.04938.pdf
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contents
+
+   genesis_file.rst
