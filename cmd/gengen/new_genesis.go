@@ -146,8 +146,12 @@ func newGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*c
 		// unmarshals to an empty slice.
 		ExtraData: []byte{},
 
-		GasLimit:   math.MaxUint64,
-		Difficulty: big.NewInt(0),
+		GasLimit: math.MaxUint64,
+
+		// Autonity relies on the difficulty always being 1 so that we can
+		// compare chain length by comparing total difficulty during peer
+		// connection handshake.
+		Difficulty: big.NewInt(1),
 
 		Alloc: genesisAlloc,
 
