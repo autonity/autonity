@@ -5,12 +5,15 @@ import argparse
 import threading
 import signal
 import time
+import os
 
 TEST_ENGINE_IMAGE_NAME = "enginehost{}/ubuntu"
 TEST_ENGINE_DOCKER_FILE = "./Dockerfile"
 CLIENT_IMAGE_LATEST = "clienthost/ubuntu:latest"
 CLIENT_IMAGE_NAME = "clienthost/ubuntu"
 CLIENT_DOCKER_FILE = "./clientDockerFile"
+BUILDER_IMAGE_NAME = "go-builder/ubuntu"
+BUILDER_DOCKER_FILE = "./builderDockerfile"
 NUM_OF_CLIENT = 6
 NODE_NAME = "Node{}_{}"
 ENGINE_NAME = "Engine{}"
@@ -256,13 +259,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     job_id = str(time.time())
     JOB_ID = job_id
-    autonity_path = args.autonity
-    path_list = autonity_path.split("/")
-    path_list[len(path_list) - 1] = "bootnode"
-    bootnode_path = "/".join(path_list)
-    # copy binary to binary dir for image building.
-    utility.execute("cp {} ./bin/".format(autonity_path))
-    utility.execute("cp {} ./bin/".format(bootnode_path))
+    autonity_path = os.path.abspath(args.autonity)
+    bootnode_bin= os.path.join(autonity_path,"build/bin/bootnode")
+    autonity_bin= os.path.join(autonity_path,"build/bin/autonity")
 
     # cleanup in case of test is killed by ci.
     signal.signal(signal.SIGTERM, receive_signal)
@@ -277,8 +276,21 @@ if __name__ == "__main__":
         prune_unused_volumes()
         prune_unused_network()
 
+
+        # Build builder image
+        create_image(BUILDER_IMAGE_NAME, BUILDER_DOCKER_FILE)
+        container = docker.from_env().containers.run(BUILDER_IMAGE_NAME, name="go-builder",
+            detach=False, remove=True,
+            volumes={autonity_path: {"bind": "/autonity", "mode": "rw"}})
+
+        # copy binary to binary dir for image building.
+        utility.execute("cp {} ./bin/".format(autonity_bin))
+        utility.execute("cp {} ./bin/".format(bootnode_bin))
+
         # build autonity client image.
         check_to_build_client_images()
+
+
 
         # create test bed for the latter deployment.
         ips = create_test_bed(job_id)
