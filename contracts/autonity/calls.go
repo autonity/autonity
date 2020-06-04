@@ -94,7 +94,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	return nil
 }
 
-func (ac *Contract) UpdateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string, abi string, state []byte) error {
+func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string, state []byte) error {
 	evm := ac.evmProvider.EVM(header, deployer, statedb)
 	contractBytecode := common.Hex2Bytes(bytecode)
 	data := append(contractBytecode, state...)
@@ -102,7 +102,7 @@ func (ac *Contract) UpdateAutonityContract(header *types.Header, statedb *state.
 	value := new(big.Int).SetUint64(0x00)
 	_, _, _, vmerr := evm.CreateWithAddress(vm.AccountRef(deployer), data, gas, value, ContractAddress)
 	if vmerr != nil {
-		log.Error("UpdateAutonityContract evm.Create", "err", vmerr)
+		log.Error("updateAutonityContract evm.Create", "err", vmerr)
 		return vmerr
 	}
 	return nil

@@ -36,19 +36,18 @@ func NewAutonityContract(
 	ABI string,
 	evmProvider EVMProvider,
 ) (*Contract, error) {
-
-	contractABI, err := abi.JSON(strings.NewReader(ABI))
-	if err != nil {
-		return nil, err
-	}
-	return &Contract{
+	contract := Contract{
 		stringContractABI:  ABI,
-		contractABI:        &contractABI,
 		operator:           operator,
 		initialMinGasPrice: minGasPrice,
 		bc:                 bc,
 		evmProvider:        evmProvider,
-	}, nil
+	}
+	err := contract.upgradeAbiCache(ABI)
+	if err != nil {
+		return nil, err
+	}
+	return &contract, nil
 }
 
 type Blockchainer interface {
@@ -233,7 +232,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	// Create account will delete previous the AC stateobject and carry over the balance
 	statedb.CreateAccount(ContractAddress)
 
-	if err := ac.UpdateAutonityContract(header, statedb, bytecode, newAbi, stateBefore); err != nil {
+	if err := ac.updateAutonityContract(header, statedb, bytecode, stateBefore); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}
