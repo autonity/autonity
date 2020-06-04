@@ -7,7 +7,7 @@
 # with ';' or '&&'. So any python commands that depend on a venv needs to be
 # run in the same shell in which the venv is activated.
 docker-e2e-tests: ./venv/bin/activate
-	. venv/bin/activate && sudo -E python3 test_via_docker.py ../build/bin/autonity
+	. venv/bin/activate && python3 test_via_docker.py ..
 
 # Creates venv if not present and then installs dependencies. Executes only if
 # requirements_docker_test.txt has been updated since the last time it ran.
@@ -24,7 +24,7 @@ clean:
 
 # Installs the prerequisites for a Linux user
 install-prerequisites-linux:
-	sudo apt-get install python3 python3-venv python3-pip
+	sudo apt-get install python3 python3-venv python3-pip golang-docker-credential-helpers
 
 # Installs the prerequisites for a mac user
 install-prerequisites-mac:
