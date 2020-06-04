@@ -38,13 +38,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	// Convert the contract bytecode from hex into bytes
 	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
 	evm := ac.evmProvider.EVM(header, deployer, statedb)
-
-	contractABI, err := ac.abi()
-
-	if err != nil {
-		log.Error("abi.JSON returns err", "err", err)
-		return err
-	}
+	contractABI := ac.contractABI
 
 	ln := len(chain.Config().AutonityContractConfig.GetValidatorUsers())
 	validators := make(common.Addresses, 0, ln)
@@ -115,11 +109,7 @@ func (ac *Contract) UpdateAutonityContract(header *types.Header, statedb *state.
 }
 
 func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}, args ...interface{}) error {
-	contractABI, err := ac.abi()
-	if err != nil {
-		return err
-	}
-
+	contractABI := ac.contractABI
 	gas := uint64(math.MaxUint64)
 	evm := ac.evmProvider.EVM(header, deployer, statedb)
 
@@ -206,11 +196,7 @@ func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.H
 	// Needs to be refactored somehow
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.evmProvider.EVM(header, deployer, state)
-
-	ABI, err := ac.abi()
-	if err != nil {
-		return err
-	}
+	ABI := ac.contractABI
 
 	input, err := ABI.Pack("setMinimumGasPrice")
 	if err != nil {

@@ -79,11 +79,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	// prepare abi and evm context
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.evmProvider.EVM(header, deployer, stateDB)
-
-	ABI, err := ac.abi()
-	if err != nil {
-		return
-	}
+	ABI := ac.contractABI
 
 	// pack the function which dump the data from contract.
 	input, err := ABI.Pack("dumpEconomicsMetricData")
@@ -255,10 +251,6 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	}
 	log.Info("Autonity Contract upgrade success")
 	return nil
-}
-
-func (ac *Contract) abi() (*abi.ABI, error) {
-	return ac.contractABI, nil
 }
 
 func (ac *Contract) upgradeAbiCache(newAbi string) error {
