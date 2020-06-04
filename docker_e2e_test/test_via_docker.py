@@ -42,7 +42,7 @@ def init():
 def is_docker_installed():
     try:
         result = utility.execute("docker --version")
-        if result[1] is "":
+        if result[1] == "":
             return True
     except Exception as e:
         print("checking docker failed: ", e)
@@ -67,7 +67,7 @@ def check_docker_daemon():
     except Exception as e:
         print("unknown state of dockerd. ", e)
         utility.execute("sudo service docker start")
-    if result[0] is "" and result[1] is "":
+    if result[0] == "" and result[1] == "":
         utility.execute("sudo service docker start")
         print("docker daemon is started by this script.")
 
@@ -112,7 +112,7 @@ def create_test_bed(job_id):
             print("create new container: ", container.id)
             container.logs()
             result = utility.execute("sudo docker inspect -f \'{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}\' " + node_name)
-            if result[1] is not "":
+            if result[1] != "":
                 print("cannot get container ip: ", result[1])
                 continue
 
