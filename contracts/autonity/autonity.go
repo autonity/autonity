@@ -44,10 +44,7 @@ func NewAutonityContract(
 		evmProvider:        evmProvider,
 	}
 	err := contract.upgradeAbiCache(ABI)
-	if err != nil {
-		return nil, err
-	}
-	return &contract, nil
+	return &contract, err
 }
 
 type Blockchainer interface {
