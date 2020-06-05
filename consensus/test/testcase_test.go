@@ -529,6 +529,7 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 	}
 	_, dropOk := ch[blockNum]
 	_, connectOk := ch[blockNum-1]
+	// return if no topology changes scheduled.
 	if !(dropOk || connectOk) {
 		return nil
 	}
@@ -544,26 +545,24 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 	fmt.Println()
 	peers := nodes[index].node.Server().Peers()
 	currentConnections := t.transformPeerListToMap(peers, nodes)
-	if dropOk {
-		for k := range currentConnections {
-			if _, ok := graphConnections[k]; ok {
-				continue
-			}
-			fmt.Println("node", index, "removes to", k)
-			nodes[index].node.Server().RemovePeer(nodes[k].node.Server().Self())
-			nodes[index].node.Server().RemoveTrustedPeer(nodes[k].node.Server().Self())
-		}
-	}
 
-	if connectOk {
-		for k := range graphConnections {
-			if _, ok := currentConnections[k]; ok {
-				continue
-			}
-			fmt.Println("node", index, "connects to", k)
-			nodes[index].node.Server().AddPeer(nodes[k].node.Server().Self())
-			nodes[index].node.Server().AddTrustedPeer(nodes[k].node.Server().Self())
+	// Always try to disconnect peer which is not expected in topology sub graph.
+	for k := range currentConnections {
+		if _, ok := graphConnections[k]; ok {
+			continue
 		}
+		fmt.Println("node", index, "removes to", k)
+		nodes[index].node.Server().RemovePeer(nodes[k].node.Server().Self())
+		nodes[index].node.Server().RemoveTrustedPeer(nodes[k].node.Server().Self())
+	}
+	// Always try to connect peer which is expected in topology sub graph.
+	for k := range graphConnections {
+		if _, ok := currentConnections[k]; ok {
+			continue
+		}
+		fmt.Println("node", index, "connects to", k)
+		nodes[index].node.Server().AddPeer(nodes[k].node.Server().Self())
+		nodes[index].node.Server().AddTrustedPeer(nodes[k].node.Server().Self())
 	}
 
 	return nil

@@ -188,7 +188,8 @@ func (validator *testNode) startService() error {
 
 	validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
 
-	// stakeholder or participant shouldn't start mining since errUnauthorized would rise.
+	// None validator node shouldn't mine and submit candidate blocks to consensus engine since they are not
+	// the member of committee set, they are un-authorized. It fix the un-authorized error in the mining thread.
 	if strings.HasPrefix(validator.Name, ValidatorPrefix) {
 		if err := ethereum.StartMining(1); err != nil {
 			return fmt.Errorf("cant start mining %s", err)

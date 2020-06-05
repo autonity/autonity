@@ -79,7 +79,7 @@ type dialstate struct {
 	lookupBuf             []*enode.Node // current discovery lookup results
 	static                map[enode.ID]*dialTask
 	hist                  expHeap
-	dialHistoryExpiration time.Duration
+	dialHistoryExpiration time.Duration // time window for a brand new dial to the same target IP.
 }
 
 type task interface {
