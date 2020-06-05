@@ -411,15 +411,6 @@ jobs:
       - name: Update apt repo source
         run: sudo apt-get update
 
-      - name: Install Python3
-        run: sudo apt-get install --yes python3
-
-      - name: Install PIP3
-        run: sudo apt-get install --yes python3-pip
-
-      - name: Install 3rd party lib
-        run: sudo pip3 install -r /home/runner/work/autonity/autonity/docker_e2e_test/requirements_docker_test.txt
-
       - name: Cache binary
         uses: actions/cache@v1
         env:
@@ -430,4 +421,4 @@ jobs:
           restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
       - name: docker_e2e_test
-        run: make docker-e2e-test
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests
