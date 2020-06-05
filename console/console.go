@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -27,7 +28,9 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 
+	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/internal/jsre"
 	"github.com/clearmatics/autonity/internal/web3ext"
 	"github.com/clearmatics/autonity/rpc"
@@ -221,12 +224,29 @@ func (c *Console) init(preload []string) error {
 		c.prompter.SetWordCompleter(c.AutoCompleteInput)
 	}
 	// Bind autontiy contract with JS object.
-	c.contractBinding()
-	return nil
+	return c.contractBinding()
 }
 
 // contractBinding binds JS object with the client's autonity contract in the console context.
-func (c *Console) contractBinding() {
+func (c *Console) contractBinding() error {
+
+	// Wait for block one to be mined, so that the autonity contract is
+	// deployed so that we can access the contract ABI.
+	var number big.Int
+	var one = big.NewInt(1)
+	for {
+		hb := hexutil.Big(number)
+		if err := c.client.Call(&hb, "eth_blockNumber"); err != nil {
+			return fmt.Errorf("failed to retrieve block number whilst waiting for autonity contract to be deployed: %v", err)
+		}
+		println("blocknumber", number.String())
+		if number.Cmp(one) >= 0 {
+			break
+		}
+		time.Sleep(time.Millisecond * 100)
+	}
+
+	// Request the contract ABI
 	if _, err := c.jsre.Run(`
 		if (typeof(tendermint) != 'undefined') {
 			var autonity_contract_abi = JSON.parse(tendermint.getContractABI());
@@ -234,8 +254,9 @@ func (c *Console) contractBinding() {
 			var autonity = eth.contract(autonity_contract_abi).at(autonity_contract_addr);
 		}
 	`); err != nil {
-		fmt.Fprintln(c.printer, "contract binding failed: ", err)
+		return fmt.Errorf("autointy contract binding failed: %v", err)
 	}
+	return nil
 }
 
 func (c *Console) clearHistory() {

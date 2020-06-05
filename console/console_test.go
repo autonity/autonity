@@ -33,6 +33,7 @@ import (
 	"github.com/clearmatics/autonity/internal/jsre"
 	"github.com/clearmatics/autonity/miner"
 	"github.com/clearmatics/autonity/node"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -189,7 +190,8 @@ func TestWelcome(t *testing.T) {
 func TestContractBinding(t *testing.T) {
 	tester := newTester(t, nil)
 	defer tester.Close(t)
-	tester.console.contractBinding()
+	err := tester.console.contractBinding()
+	require.NoError(t, err)
 
 	output := tester.output.String()
 	if want := ""; !strings.Contains(output, want) {
