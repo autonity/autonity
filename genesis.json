@@ -1,0 +1,46 @@
+{
+  "config": {
+    "chainId": 89605396085020931596823485707648952417201126268587943191692098544929060680917,
+    "homesteadBlock": 0,
+    "eip150Block": 0,
+    "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "byzantiumBlock": 0,
+    "constantinopleBlock": 0,
+    "petersburgBlock": 0,
+    "istanbulBlock": 0,
+    "tendermint": {
+      "block-period": 1
+    },
+    "autonityContract": {
+      "deployer": "0xe6191d6b8649b8cfbaf05ba416a35a1c5c868c40",
+      "bytecode": "",
+      "abi": "",
+      "minGasPrice": 1,
+      "operator": "0xb6aa12260f602cdc814c0e960f7dc8cfabf0558d",
+      "users": [
+        {
+          "enode": "enode://f423075988abe9a14f44725c3f4c0eff330d0c94708d0236d3088da01ec6dec89278784bcba0d5116c7dc5e28c8acae7f14be0930bc389b80a9c117c8a25ea38@127.0.0.1:6789",
+          "type": "validator",
+          "stake": 1
+        }
+      ]
+    }
+  },
+  "nonce": "0x0",
+  "timestamp": "0x5ede1454",
+  "extraData": "0x",
+  "gasLimit": "0xffffffffffffffff",
+  "difficulty": "0x1",
+  "mixHash": "0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365",
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "alloc": {
+    "b6aa12260f602cdc814c0e960f7dc8cfabf0558d": {
+      "balance": "0xe8d4a51000"
+    }
+  },
+  "number": "0x0",
+  "gasUsed": "0x0",
+  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+}

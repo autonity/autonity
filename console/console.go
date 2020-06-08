@@ -232,15 +232,14 @@ func (c *Console) contractBinding() error {
 
 	// Wait for block one to be mined, so that the autonity contract is
 	// deployed so that we can access the contract ABI.
-	var number big.Int
-	var one = big.NewInt(1)
+	one := big.NewInt(1)
 	for {
-		hb := hexutil.Big(number)
+		var hb hexutil.Big
 		if err := c.client.Call(&hb, "eth_blockNumber"); err != nil {
 			return fmt.Errorf("failed to retrieve block number whilst waiting for autonity contract to be deployed: %v", err)
 		}
-		println("blocknumber", number.String())
-		if number.Cmp(one) >= 0 {
+		number := big.Int(hb)
+		if (&number).Cmp(one) >= 0 {
 			break
 		}
 		time.Sleep(time.Millisecond * 100)

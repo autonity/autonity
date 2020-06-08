@@ -122,7 +122,7 @@ func TestWSAttachWelcome(t *testing.T) {
 
 	autonity := runAutonity(t,
 		"--datadir", datadir, "--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--etherbase", coinbase, "--ws", "--wsport", port)
+		"--etherbase", coinbase, "--ws", "--wsport", port, "--nodekey", "/home/pierspowlesland/projects/autonity/userkey", "--mine")
 
 	endpoint := "ws://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
