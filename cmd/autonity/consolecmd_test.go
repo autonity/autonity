@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	ipcAPIs  = "admin:1.0 debug:1.0 eth:1.0 ethash:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 txpool:1.0 web3:1.0"
+	ipcAPIs  = "admin:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 tendermint:1.0 txpool:1.0 web3:1.0"
 	httpAPIs = "eth:1.0 net:1.0 rpc:1.0 web3:1.0"
 )
 
@@ -50,28 +50,41 @@ func TestConsoleWelcome(t *testing.T) {
 	// Start a autonity console, make sure it's cleaned up and terminate the console
 	autonity := runAutonity(t,
 		"--datadir", datadir, "--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--etherbase", coinbase, "console")
+		"--etherbase", coinbase, "console", "--nodekey", "/home/pierspowlesland/projects/autonity/userkey", "--mine")
+
+	userKey, err := crypto.LoadECDSA("/home/pierspowlesland/projects/autonity/userkey")
+	require.NoError(t, err)
+	userAddr := crypto.PubkeyToAddress(userKey.PublicKey).Hex()
+	userAddr = strings.ToLower(userAddr)
 
 	// Gather all the infos the welcome message needs to contain
 	autonity.SetTemplateFunc("goos", func() string { return runtime.GOOS })
 	autonity.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	autonity.SetTemplateFunc("gover", runtime.Version)
 	autonity.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
-	autonity.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
+	autonity.SetTemplateFunc("etherbase", func() string { return userAddr })
+	autonity.SetTemplateFunc("datadir", func() string { return datadir })
 	autonity.SetTemplateFunc("apis", func() string { return ipcAPIs })
 
-	// Verify the actual welcome message to the required template
-	autonity.Expect(`
+	templateSource := `
 Welcome to the Autonity JavaScript console!
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
-coinbase: {{.Etherbase}}
-at block: 0 ({{niltime}})
- datadir: {{.Datadir}}
+coinbase: {{etherbase}}
+at block: .*
+ datadir: {{datadir}}
  modules: {{apis}}
 
 > {{.InputLine "exit"}}
-`)
+`
+	tpl := template.Must(template.New("").Funcs(autonity.Func).Parse(templateSource))
+
+	wantbuf := new(bytes.Buffer)
+	if err := tpl.Execute(wantbuf, autonity.Data); err != nil {
+		panic(err)
+	}
+	// Verify the actual welcome message to the required template
+	autonity.ExpectRegexp(wantbuf.String())
 	autonity.ExpectExit()
 }
 
@@ -92,10 +105,14 @@ func TestIPCAttachWelcome(t *testing.T) {
 
 	autonity := runAutonity(t,
 		"--datadir", datadir, "--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--etherbase", coinbase, "--ipcpath", ipc)
+		"--etherbase", coinbase, "--ipcpath", ipc, "--nodekey", "/home/pierspowlesland/projects/autonity/userkey", "--mine")
 
 	waitForEndpoint(t, ipc, 3*time.Second)
-	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs, "")
+	userKey, err := crypto.LoadECDSA("/home/pierspowlesland/projects/autonity/userkey")
+	require.NoError(t, err)
+	userAddr := crypto.PubkeyToAddress(userKey.PublicKey).Hex()
+	userAddr = strings.ToLower(userAddr)
+	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs, userAddr)
 
 	autonity.Interrupt()
 	autonity.ExpectExit()
@@ -108,11 +125,16 @@ func TestHTTPAttachWelcome(t *testing.T) {
 	port := strconv.Itoa(trulyRandInt(1024, 65536)) // Yeah, sometimes this will fail, sorry :P
 	autonity := runAutonity(t,
 		"--datadir", datadir, "--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--etherbase", coinbase, "--rpc", "--rpcport", port)
+		"--etherbase", coinbase, "--rpc", "--rpcport", port, "--nodekey", "/home/pierspowlesland/projects/autonity/userkey", "--mine")
 
 	endpoint := "http://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
-	testAttachWelcome(t, autonity, endpoint, httpAPIs, "")
+
+	userKey, err := crypto.LoadECDSA("/home/pierspowlesland/projects/autonity/userkey")
+	require.NoError(t, err)
+	userAddr := crypto.PubkeyToAddress(userKey.PublicKey).Hex()
+	userAddr = strings.ToLower(userAddr)
+	testAttachWelcome(t, autonity, endpoint, httpAPIs, userAddr)
 
 	autonity.Interrupt()
 	autonity.ExpectExit()
