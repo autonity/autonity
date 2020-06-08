@@ -39,7 +39,26 @@ var customGenesisTests = []struct {
 			"nonce"      : "0x0000000000000042",
 			"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
 			"parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
-			"timestamp"  : "0x00"
+			"timestamp"  : "0x00",
+			"config"	 : {
+				"tendermint": {
+				  "block-period": 1
+				},
+				"autonityContract": {
+				  "deployer": "0xe6191d6b8649b8cfbaf05ba416a35a1c5c868c40",
+				  "bytecode": "",
+				  "abi": "",
+				  "minGasPrice": 1,
+				  "operator": "0xb6aa12260f602cdc814c0e960f7dc8cfabf0558d",
+				  "users": [
+					{
+					  "enode": "enode://f423075988abe9a14f44725c3f4c0eff330d0c94708d0236d3088da01ec6dec89278784bcba0d5116c7dc5e28c8acae7f14be0930bc389b80a9c117c8a25ea38@127.0.0.1:6789",
+					  "type": "validator",
+					  "stake": 1
+					}
+				  ]
+				}
+			}
 		}`,
 		query:  "eth.getBlock(0).nonce",
 		result: "0x0000000000000042",
@@ -56,7 +75,25 @@ var customGenesisTests = []struct {
 			"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
 			"parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
 			"timestamp"  : "0x00",
-			"config"     : {}
+			"config"     : {
+				"tendermint": {
+				  "block-period": 1
+				},
+				"autonityContract": {
+				  "deployer": "0xe6191d6b8649b8cfbaf05ba416a35a1c5c868c40",
+				  "bytecode": "",
+				  "abi": "",
+				  "minGasPrice": 1,
+				  "operator": "0xb6aa12260f602cdc814c0e960f7dc8cfabf0558d",
+				  "users": [
+					{
+					  "enode": "enode://f423075988abe9a14f44725c3f4c0eff330d0c94708d0236d3088da01ec6dec89278784bcba0d5116c7dc5e28c8acae7f14be0930bc389b80a9c117c8a25ea38@127.0.0.1:6789",
+					  "type": "validator",
+					  "stake": 1
+					}
+				  ]
+				}
+			}
 		}`,
 		query:  "eth.getBlock(0).nonce",
 		result: "0x0000000000000042",
@@ -76,7 +113,24 @@ var customGenesisTests = []struct {
 			"config"     : {
 				"homesteadBlock" : 314,
 				"daoForkBlock"   : 141,
-				"daoForkSupport" : true
+				"daoForkSupport" : true,
+				"tendermint": {
+				  "block-period": 1
+				},
+				"autonityContract": {
+				  "deployer": "0xe6191d6b8649b8cfbaf05ba416a35a1c5c868c40",
+				  "bytecode": "",
+				  "abi": "",
+				  "minGasPrice": 1,
+				  "operator": "0xb6aa12260f602cdc814c0e960f7dc8cfabf0558d",
+				  "users": [
+					{
+					  "enode": "enode://f423075988abe9a14f44725c3f4c0eff330d0c94708d0236d3088da01ec6dec89278784bcba0d5116c7dc5e28c8acae7f14be0930bc389b80a9c117c8a25ea38@127.0.0.1:6789",
+					  "type": "validator",
+					  "stake": 1
+					}
+				  ]
+				}
 			}
 		}`,
 		query:  "eth.getBlock(0).nonce",
