@@ -17,6 +17,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"math/big"
 	"os"
@@ -25,9 +26,12 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
 
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -91,7 +95,7 @@ func TestIPCAttachWelcome(t *testing.T) {
 		"--etherbase", coinbase, "--ipcpath", ipc)
 
 	waitForEndpoint(t, ipc, 3*time.Second)
-	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs)
+	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs, "")
 
 	autonity.Interrupt()
 	autonity.ExpectExit()
@@ -108,7 +112,7 @@ func TestHTTPAttachWelcome(t *testing.T) {
 
 	endpoint := "http://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
-	testAttachWelcome(t, autonity, endpoint, httpAPIs)
+	testAttachWelcome(t, autonity, endpoint, httpAPIs, "")
 
 	autonity.Interrupt()
 	autonity.ExpectExit()
@@ -126,13 +130,19 @@ func TestWSAttachWelcome(t *testing.T) {
 
 	endpoint := "ws://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
-	testAttachWelcome(t, autonity, endpoint, httpAPIs)
+
+	userKey, err := crypto.LoadECDSA("/home/pierspowlesland/projects/autonity/userkey")
+	require.NoError(t, err)
+	userAddr := crypto.PubkeyToAddress(userKey.PublicKey).Hex()
+	userAddr = strings.ToLower(userAddr)
+
+	testAttachWelcome(t, autonity, endpoint, httpAPIs, userAddr)
 
 	autonity.Interrupt()
 	autonity.ExpectExit()
 }
 
-func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis string) {
+func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis, userAddr string) {
 	// Attach to a running autonity note and terminate immediately
 	attach := runAutonity(t, "attach", endpoint)
 	defer attach.ExpectExit()
@@ -143,24 +153,31 @@ func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis stri
 	attach.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	attach.SetTemplateFunc("gover", runtime.Version)
 	attach.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
-	attach.SetTemplateFunc("etherbase", func() string { return autonity.Etherbase })
+	attach.SetTemplateFunc("etherbase", func() string { return userAddr })
 	attach.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
 	attach.SetTemplateFunc("ipc", func() bool { return strings.HasPrefix(endpoint, "ipc") })
 	attach.SetTemplateFunc("datadir", func() string { return autonity.Datadir })
 	attach.SetTemplateFunc("apis", func() string { return apis })
-
-	// Verify the actual welcome message to the required template
-	attach.Expect(`
+	templateSource := `
 Welcome to the Autonity JavaScript console!
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
 coinbase: {{etherbase}}
-at block: 0 ({{niltime}}){{if ipc}}
+at block: .*{{if ipc}}
  datadir: {{datadir}}{{end}}
  modules: {{apis}}
 
 > {{.InputLine "exit" }}
-`)
+`
+
+	tpl := template.Must(template.New("").Funcs(attach.Func).Parse(templateSource))
+
+	wantbuf := new(bytes.Buffer)
+	if err := tpl.Execute(wantbuf, attach.Data); err != nil {
+		panic(err)
+	}
+	// Verify the actual welcome message to the required template
+	attach.ExpectRegexp(wantbuf.String())
 	attach.ExpectExit()
 }
 

@@ -160,6 +160,7 @@ func newGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*c
 			ByzantiumBlock:      big.NewInt(0),
 			ConstantinopleBlock: big.NewInt(0),
 			PetersburgBlock:     big.NewInt(0),
+			IstanbulBlock:       big.NewInt(0),
 			Tendermint: &config.Config{
 				BlockPeriod: 1,
 			},
