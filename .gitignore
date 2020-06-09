@@ -52,3 +52,5 @@ profile.cov
 **/yarn-error.log
 
 /vendor
+
+node_modules

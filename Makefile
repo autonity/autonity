@@ -86,7 +86,7 @@ test-race:
 	go test -race -v ./consensus/test/... -timeout 30m
 
 # This runs the contract tests using truffle against an autonity node instance.
-test-contracts:
+test-contracts: autonity
 	@# npm list returns 0 only if the package is not installed and the shell only
 	@# executes the second part of an or statment if the first fails.
 	@npm list truffle > /dev/null || npm install truffle
