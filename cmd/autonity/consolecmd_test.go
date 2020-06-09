@@ -17,6 +17,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"math/big"
 	"os"
@@ -25,13 +26,14 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
 
 	"github.com/clearmatics/autonity/params"
 )
 
 const (
-	ipcAPIs  = "admin:1.0 debug:1.0 eth:1.0 ethash:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 txpool:1.0 web3:1.0"
+	ipcAPIs  = "admin:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 tendermint:1.0 txpool:1.0 web3:1.0"
 	httpAPIs = "eth:1.0 net:1.0 rpc:1.0 web3:1.0"
 )
 
@@ -55,19 +57,30 @@ func TestConsoleWelcome(t *testing.T) {
 	autonity.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
 	autonity.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
 	autonity.SetTemplateFunc("apis", func() string { return ipcAPIs })
+	autonity.SetTemplateFunc("datadir", func() string { return autonity.Datadir })
 
 	// Verify the actual welcome message to the required template
-	autonity.Expect(`
+	templateSource := `
 Welcome to the Autonity JavaScript console!
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
-coinbase: {{.Etherbase}}
-at block: 0 ({{niltime}})
- datadir: {{.Datadir}}
+coinbase: 0x[a-f0-9]{40}
+at block: \d+ .*
+ datadir: {{datadir}}
  modules: {{apis}}
 
-> {{.InputLine "exit"}}
-`)
+> {{.InputLine "exit" }}
+`
+
+	tpl := template.Must(template.New("").Funcs(autonity.Func).Parse(templateSource))
+
+	wantbuf := new(bytes.Buffer)
+	if err := tpl.Execute(wantbuf, autonity.Data); err != nil {
+		panic(err)
+	}
+	// Verify the actual welcome message to the required template
+	autonity.ExpectRegexp(wantbuf.String())
+	autonity.ExpectExit()
 	autonity.ExpectExit()
 }
 
@@ -150,17 +163,26 @@ func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis stri
 	attach.SetTemplateFunc("apis", func() string { return apis })
 
 	// Verify the actual welcome message to the required template
-	attach.Expect(`
+	templateSource := `
 Welcome to the Autonity JavaScript console!
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
-coinbase: {{etherbase}}
-at block: 0 ({{niltime}}){{if ipc}}
+coinbase: 0x[a-f0-9]{40}
+at block: \d+ .*{{if ipc}}
  datadir: {{datadir}}{{end}}
  modules: {{apis}}
 
 > {{.InputLine "exit" }}
-`)
+`
+
+	tpl := template.Must(template.New("").Funcs(attach.Func).Parse(templateSource))
+
+	wantbuf := new(bytes.Buffer)
+	if err := tpl.Execute(wantbuf, attach.Data); err != nil {
+		panic(err)
+	}
+	// Verify the actual welcome message to the required template
+	attach.ExpectRegexp(wantbuf.String())
 	attach.ExpectExit()
 }
 
