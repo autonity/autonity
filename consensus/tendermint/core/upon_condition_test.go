@@ -50,6 +50,17 @@ func TestStartRoundVariables(t *testing.T) {
 		core.validValue = &types.Block{}
 		core.validRound = 0
 	}
+
+	checkConsensusState := func(t *testing.T, h *big.Int, r int64, s Step, lv *types.Block, lr int64, vv *types.Block, vr int64, core *core) {
+		assert.Equal(t, h, core.Height())
+		assert.Equal(t, r, core.Round())
+		assert.Equal(t, s, core.step)
+		assert.Equal(t, lv, core.lockedValue)
+		assert.Equal(t, lr, core.lockedRound)
+		assert.Equal(t, vv, core.validValue)
+		assert.Equal(t, vr, core.validRound)
+	}
+
 	t.Run("ensure round 0 state variables are set correctly", func(t *testing.T) {
 		backendMock.EXPECT().Address().Return(clientAddress)
 		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress)
@@ -60,13 +71,7 @@ func TestStartRoundVariables(t *testing.T) {
 		core.startRound(context.Background(), currentRound)
 
 		// Check the initial consensus state
-		assert.Equal(t, currentHeight, core.Height())
-		assert.Equal(t, currentRound, core.Round())
-		assert.Equal(t, propose, core.step)
-		assert.Nil(t, core.lockedValue)
-		assert.Equal(t, int64(-1), core.lockedRound)
-		assert.Nil(t, core.validValue)
-		assert.Equal(t, int64(-1), core.validRound)
+		checkConsensusState(t, currentHeight, currentRound, propose, nil, int64(-1), nil, int64(-1), core)
 	})
 	t.Run("ensure round x state variables are updated correctly", func(t *testing.T) {
 		// In this test we are interested in making sure that that values which change in the current round that may
@@ -81,13 +86,7 @@ func TestStartRoundVariables(t *testing.T) {
 		core.startRound(context.Background(), currentRound)
 
 		// Check the initial consensus state
-		assert.Equal(t, currentHeight, core.Height())
-		assert.Equal(t, currentRound, core.Round())
-		assert.Equal(t, propose, core.step)
-		assert.Nil(t, core.lockedValue)
-		assert.Equal(t, int64(-1), core.lockedRound)
-		assert.Nil(t, core.validValue)
-		assert.Equal(t, int64(-1), core.validRound)
+		checkConsensusState(t, currentHeight, currentRound, propose, nil, int64(-1), nil, int64(-1), core)
 
 		// Update locked and valid Value (if locked value changes then valid value also changes, ie quorum(prevotes)
 		// delivered in prevote step)
@@ -99,13 +98,7 @@ func TestStartRoundVariables(t *testing.T) {
 		// Move to next round and check the expected state
 		core.startRound(context.Background(), currentRound+1)
 
-		assert.Equal(t, core.Height(), currentHeight)
-		assert.Equal(t, currentRound+1, core.Round())
-		assert.Equal(t, propose, core.step)
-		assert.Equal(t, currentBlock, core.lockedValue)
-		assert.Equal(t, currentRound, core.lockedRound)
-		assert.Equal(t, currentBlock, core.validValue)
-		assert.Equal(t, currentRound, core.validRound)
+		checkConsensusState(t, currentHeight, currentRound+1, propose, currentBlock, currentRound, currentBlock, currentRound, core)
 
 		// Update valid value (we didn't receive quorum prevote in prevote step, also the block changed, ie, locked
 		// value and valid value are different)
@@ -116,13 +109,7 @@ func TestStartRoundVariables(t *testing.T) {
 		// Move to next round and check the expected state
 		core.startRound(context.Background(), currentRound+2)
 
-		assert.Equal(t, core.Height(), currentHeight)
-		assert.Equal(t, currentRound+2, core.Round())
-		assert.Equal(t, propose, core.step)
-		assert.Equal(t, currentBlock, core.lockedValue)
-		assert.Equal(t, currentRound, core.lockedRound)
-		assert.Equal(t, currentBlock2, core.validValue)
-		assert.Equal(t, currentRound+1, core.validRound)
+		checkConsensusState(t, currentHeight, currentRound+2, propose, currentBlock, currentRound, currentBlock2, currentRound+1, core)
 	})
 }
 
