@@ -19,7 +19,7 @@ import (
 
 const minSize, maxSize = 4, 100
 
-// The following tests aim to test lines 1 - 21 of Tendermint Algorithm described on page 6 of
+// The following tests aim to test lines 1 - 21 & 57 - 60 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestStartRoundVariables(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -116,12 +116,13 @@ func TestStartRoundVariables(t *testing.T) {
 func TestStartRound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	backendMock := NewMockBackend(ctrl)
 
 	// Committee will be ordered such that the proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
-	clientAddress := members[0].Address
+	clientAddr := members[0].Address
 
 	t.Run("client is the proposer and valid value is nil", func(t *testing.T) {
 		lastBlockProposer := members[len(members)-1].Address
@@ -134,10 +135,9 @@ func TestStartRound(t *testing.T) {
 			currentRound = int64(rand.Intn(committeeSizeAndMaxRound))
 		}
 
-		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, int64(-1), proposalBlock, clientAddress)
+		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, int64(-1), proposalBlock, clientAddr)
 
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().Return(clientAddress)
+		backendMock.EXPECT().Address().Return(clientAddr)
 
 		core := New(backendMock)
 		// We assume that round 0 can only happen when we move to a new height, therefore, height is
@@ -171,10 +171,9 @@ func TestStartRound(t *testing.T) {
 		}
 		validR := currentRound - 1
 
-		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, validR, proposalBlock, clientAddress)
+		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, validR, proposalBlock, clientAddr)
 
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().Return(clientAddress)
+		backendMock.EXPECT().Address().Return(clientAddr)
 
 		core := New(backendMock)
 		core.committeeSet = committeeSet
@@ -190,7 +189,7 @@ func TestStartRound(t *testing.T) {
 	})
 	t.Run("client is not the proposer", func(t *testing.T) {
 		clientIndex := len(members) - 1
-		clientAddress := members[clientIndex].Address
+		clientAddr := members[clientIndex].Address
 
 		prevHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		prevBlock := generateBlock(prevHeight)
@@ -200,8 +199,7 @@ func TestStartRound(t *testing.T) {
 			currentRound = int64(rand.Intn(committeeSizeAndMaxRound))
 		}
 
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().Return(clientAddress)
+		backendMock.EXPECT().Address().Return(clientAddr)
 
 		core := New(backendMock)
 
@@ -210,7 +208,7 @@ func TestStartRound(t *testing.T) {
 		}
 
 		if currentRound == 0 {
-			backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress)
+			backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddr)
 			backendMock.EXPECT().Committee(big.NewInt(prevHeight.Int64()+1)).Return(committeeSet, nil)
 		}
 
@@ -218,6 +216,40 @@ func TestStartRound(t *testing.T) {
 
 		assert.Equal(t, currentRound, core.Round())
 		assert.True(t, core.proposeTimeout.timerStarted())
+	})
+	t.Run("at proposal timeout expiry timeout event is sent", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+
+		backendMock.EXPECT().Address().Return(clientAddr)
+		c := New(backendMock)
+		c.setCommitteeSet(committeeSet)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+
+		assert.False(t, c.proposeTimeout.timerStarted())
+		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgProposal})
+		c.prevoteTimeout.scheduleTimeout(10*time.Microsecond, c.Round(), c.Height(), c.onTimeoutPropose)
+		assert.True(t, c.prevoteTimeout.timerStarted())
+		time.Sleep(50 * time.Microsecond)
+	})
+	t.Run("at reception of proposal timeout event prevote nil is sent", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		timeoutE := TimeoutEvent{currentRound, currentHeight, msgProposal}
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr)
+
+		backendMock.EXPECT().Address().Return(clientAddr)
+		c := New(backendMock)
+		c.setCommitteeSet(committeeSet)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+
+		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+
+		c.handleTimeoutPropose(context.Background(), timeoutE)
+		assert.Equal(t, prevote, c.step)
 	})
 }
 
@@ -589,6 +621,7 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		timeoutE := TimeoutEvent{currentRound, currentHeight, msgPrevote}
 		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr)
+		committedSeal := PrepareCommittedSeal(common.Hash{}, currentRound, currentHeight)
 
 		backendMock.EXPECT().Address().Return(clientAddr)
 		c := New(backendMock)
@@ -597,11 +630,12 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		c.setRound(currentRound)
 		c.setStep(prevote)
 
-		backendMock.EXPECT().Sign(gomock.Any()).Return(precommitMsg.CommittedSeal, nil)
+		backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
 		backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, precommitMsgRLPWithSig).Return(nil)
 
 		c.handleTimeoutPrevote(context.Background(), timeoutE)
+		assert.Equal(t, precommit, c.step)
 	})
 }
 
@@ -696,15 +730,15 @@ func prepareVote(t *testing.T, step uint64, round int64, height *big.Int, blockH
 	// prepare the proposal message
 	voteRLP, err := Encode(&Vote{Round: round, Height: height, ProposedBlockHash: blockHash})
 	assert.Nil(t, err)
-	prevoteMsg := &Message{Code: step, Msg: voteRLP, Address: clientAddr, Signature: []byte(fmt.Sprintf("%v signature", step)), power: 1}
+	voteMsg := &Message{Code: step, Msg: voteRLP, Address: clientAddr, Signature: []byte(fmt.Sprintf("%v signature", step)), power: 1}
 	if step == msgPrecommit {
-		prevoteMsg.CommittedSeal = []byte("precommit committed seal")
+		voteMsg.CommittedSeal = []byte("precommit committed seal")
 	}
-	prevoteMsgRLPNoSig, err := prevoteMsg.PayloadNoSig()
+	voteMsgRLPNoSig, err := voteMsg.PayloadNoSig()
 	assert.Nil(t, err)
-	prevoteMsgRLPWithSig, err := prevoteMsg.Payload()
+	voteMsgRLPWithSig, err := voteMsg.Payload()
 	assert.Nil(t, err)
-	return prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig
+	return voteMsg, voteMsgRLPNoSig, voteMsgRLPWithSig
 }
 
 func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src common.Address, invalid bool) *Message {
