@@ -1,4 +1,4 @@
-package main
+package gengen
 
 import (
 	"encoding/json"
