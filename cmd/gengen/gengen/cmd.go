@@ -156,7 +156,7 @@ func generateGenesis(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	genesis, userKeys, err := newGenesis(minGasPrice, users, userKeys)
+	genesis, userKeys, err := NewGenesis(minGasPrice, users, userKeys)
 	if err != nil {
 		return fmt.Errorf("failed to generate genesis: %v", err)
 	}

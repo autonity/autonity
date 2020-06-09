@@ -34,13 +34,13 @@ type user struct {
 	nodePort int
 }
 
-// newGenesis parses the input from the commandline and uses it to generate a
+// NewGenesis parses the input from the commandline and uses it to generate a
 // genesis struct. It returns the generated genesis and associated user keys,
 // if user keys were provided they will be returned, otherwise a set of
 // generated keys will be returned. See gengen command help for a description
 // of userStrings and userKeys, userKeys must either have a key for each user
 // or be nil.
-func newGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*core.Genesis, []string, error) {
+func NewGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*core.Genesis, []string, error) {
 	if len(userStrings) < 1 {
 		return nil, nil, fmt.Errorf("at least one user must be specified")
 	}
