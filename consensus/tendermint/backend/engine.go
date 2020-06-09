@@ -495,8 +495,18 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
+func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
+	sb.blockchainInitMu.Lock()
+	sb.blockchain = bc
+	sb.blockchainInitMu.Unlock()
+
+	sb.currentBlock = bc.CurrentBlock
+	sb.hasBadBlock = bc.HasBadBlock
+}
+
 // Start implements consensus.Start
-func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+func (sb *Backend) Start(ctx context.Context) error {
+	// func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
 	// the mutex along with coreStarted should prevent double start
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
@@ -508,13 +518,6 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
-
-	sb.blockchainInitMu.Lock()
-	sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
-	sb.blockchainInitMu.Unlock()
-
-	sb.currentBlock = currentBlock
-	sb.hasBadBlock = hasBadBlock
 
 	// Start Tendermint
 	sb.core.Start(ctx)

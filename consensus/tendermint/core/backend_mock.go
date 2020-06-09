@@ -8,6 +8,7 @@ import (
 	context "context"
 	common "github.com/clearmatics/autonity/common"
 	committee "github.com/clearmatics/autonity/consensus/tendermint/committee"
+	ethcore "github.com/clearmatics/autonity/core"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
 	gomock "github.com/golang/mock/gomock"
@@ -271,6 +272,18 @@ func (m *MockBackend) WhiteList() []string {
 func (mr *MockBackendMockRecorder) WhiteList() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WhiteList", reflect.TypeOf((*MockBackend)(nil).WhiteList))
+}
+
+// SetBlockchain mocks base method
+func (m *MockBackend) SetBlockchain(bc *ethcore.BlockChain) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetBlockchain", bc)
+}
+
+// SetBlockchain indicates an expected call of SetBlockchain
+func (mr *MockBackendMockRecorder) SetBlockchain(bc interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBlockchain", reflect.TypeOf((*MockBackend)(nil).SetBlockchain), bc)
 }
 
 // MockTendermint is a mock of Tendermint interface

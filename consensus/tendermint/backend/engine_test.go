@@ -30,7 +30,6 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/golang/mock/gomock"
@@ -563,8 +562,7 @@ func TestStart(t *testing.T) {
 			core:        tendermintC,
 			coreStarted: false,
 		}
-
-		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		err := b.Start(ctx)
 		assertNilError(t, err)
 		assertCoreStarted(t, b)
 	})
@@ -574,7 +572,7 @@ func TestStart(t *testing.T) {
 			coreStarted: true,
 		}
 
-		err := b.Start(context.Background(), &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		err := b.Start(context.Background())
 		assertError(t, ErrStartedEngine, err)
 		assertCoreStarted(t, b)
 	})
@@ -592,11 +590,11 @@ func TestStart(t *testing.T) {
 			coreStarted: false,
 		}
 
-		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		err := b.Start(ctx)
 		assertNilError(t, err)
 		assertCoreStarted(t, b)
 
-		err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		err = b.Start(ctx)
 		assertError(t, ErrStartedEngine, err)
 		assertCoreStarted(t, b)
 	})
@@ -623,7 +621,7 @@ func TestStart(t *testing.T) {
 
 			go func(wg *sync.WaitGroup) {
 				defer wg.Done()
-				errC <- b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+				errC <- b.Start(ctx)
 			}(&wg)
 
 		}
@@ -665,7 +663,7 @@ func TestMultipleRestart(t *testing.T) {
 	}
 
 	for i := 0; i < times; i++ {
-		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		err := b.Start(ctx)
 		assertNilError(t, err)
 		assertCoreStarted(t, b)
 
