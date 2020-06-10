@@ -409,7 +409,7 @@ jobs:
         run: make all
 
       - name: Update apt repo source
-        run: sudo apt-get update
+        run: apt-get update
 
       - name: Cache binary
         uses: actions/cache@v1

@@ -1,4 +1,4 @@
-# ATAutonity
+# Autonity e2e test framework 
 Python3 and docker based e2e testing framework for autonity.
 
 # Dependencies
@@ -23,7 +23,8 @@ If your linux is on ubuntu-18.04, the script will auto install it for you.
 In the docker_e2e_test/planner/networkplanner.py + line: 122, there are default genesis configuration, update it on your demand.
 
 ## run it
-You can run it via make:
+Run those e2e test cases under the playbook: ./etc/testcase.conf.yml
+
 `make docker-e2e-test`
 
 or run the script with 1 parameter, the path of autonity binary.
