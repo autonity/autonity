@@ -86,7 +86,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			t.Fatalf("could not restart core")
 		}
 		backend.HandleUnhandledMsgs(context.Background())
-		timer := time.NewTimer(time.Second)
+		timer := time.NewTimer(time.Second * 5)
 		i := 0
 		var received [ringCapacity]bool
 		// events can come out of order so we track them using an array.
