@@ -20,6 +20,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
 )
@@ -54,7 +55,7 @@ func (api *API) GetCommitteeAtHash(hash common.Hash) (types.Committee, error) {
 
 // Get Autonity contract address
 func (api *API) GetContractAddress() common.Address {
-	return api.tendermint.GetContractAddress()
+	return autonity.ContractAddress
 }
 
 // Get Autonity contract ABI

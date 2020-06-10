@@ -142,20 +142,6 @@ please note that comments are not permitted in valid JSON_.
 
        "autonityContract": {
 
-         // deployer is a special address used as a mechanism to restrict certain
-         // function calls in the Autonity contract to be called only by the
-         // autonity client. The Autonity contract only accepts calls to the
-         // restricted functions if they come from the deployer address.
-         // Internally the client executes these functions by calling the EVM
-         // directly, bypassing any code that processes transactions and verifies
-         // transaction signatures, when it makes these calls it uses the deployer
-         // address as the sender address. It is important that no participants
-         // know the private key belonging to the deployer address, there is
-         // future work to ensure that participants cannot use the deployer
-         // address. The gengen tool randomly genereates the deployer address.
-
-         "deployer": "0x0000000000000000000000000000000000000000",
-
          // The bytecode of the Autonity contract, if left unset the Autonity
          // client will use the embedded contract bytecode. It is advisable to
          // leave this blank since the embedded contract bytecode should be in
