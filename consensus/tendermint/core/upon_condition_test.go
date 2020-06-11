@@ -747,7 +747,7 @@ func TestQuorumPrevote(t *testing.T) {
 		c.setStep(currentStep)
 		c.setCommitteeSet(committeeSet)
 		c.curRoundMessages.SetProposal(&proposal, proposalMsg, true)
-		c.curRoundMessages.AddPrevote(proposal.ProposalBlock.Hash(), Message{Address: members[2].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum() - 1})
+		c.curRoundMessages.AddPrevote(proposal.ProposalBlock.Hash(), Message{Address: members[3].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum() - 1})
 
 		// receive first prevote to increase the total to quorum
 		if currentStep == prevote {
@@ -786,6 +786,44 @@ func TestQuorumPrevote(t *testing.T) {
 		assert.Equal(t, lockedRoundBefore, c.lockedRound)
 		assert.Equal(t, validRoundBefore, c.validRound)
 	})
+}
+
+// The following tests aim to test lines 44 - 46 of Tendermint Algorithm described on page 6 of
+// https://arxiv.org/pdf/1807.04938.pdf.
+func TestQuorumPrevoteNil(t *testing.T) {
+	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
+	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
+	members := committeeSet.Committee()
+	clientAddr := members[0].Address
+
+	currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+	currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+	sender := 1
+	prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, members[sender].Address)
+	precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr)
+	committedSeal := PrepareCommittedSeal(common.Hash{}, currentRound, currentHeight)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	backendMock := NewMockBackend(ctrl)
+	backendMock.EXPECT().Address().Return(clientAddr)
+
+	c := New(backendMock)
+	c.setHeight(currentHeight)
+	c.setRound(currentRound)
+	c.setStep(prevote)
+	c.setCommitteeSet(committeeSet)
+	c.curRoundMessages.AddPrevote(common.Hash{}, Message{Address: members[2].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum() - 1})
+
+	backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
+	backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
+	backendMock.EXPECT().Broadcast(context.Background(), committeeSet, precommitMsgRLPWithSig).Return(nil)
+
+	err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
+	assert.Nil(t, err)
+
+	assert.Equal(t, precommit, c.step)
 }
 
 // The following tests are not specific to proposal messages but rather apply to all messages
