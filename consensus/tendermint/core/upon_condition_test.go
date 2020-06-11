@@ -22,11 +22,6 @@ const minSize, maxSize = 4, 100
 // The following tests aim to test lines 1 - 21 & 57 - 60 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestStartRoundVariables(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	backendMock := NewMockBackend(ctrl)
-
 	prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
 	prevBlock := generateBlock(prevHeight)
 	currentHeight := big.NewInt(prevHeight.Int64() + 1)
@@ -62,6 +57,10 @@ func TestStartRoundVariables(t *testing.T) {
 	}
 
 	t.Run("ensure round 0 state variables are set correctly", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddress)
 		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress)
 		backendMock.EXPECT().Committee(currentHeight.Uint64()).Return(committeeSet, nil)
@@ -74,9 +73,13 @@ func TestStartRoundVariables(t *testing.T) {
 		checkConsensusState(t, currentHeight, currentRound, propose, nil, int64(-1), nil, int64(-1), core)
 	})
 	t.Run("ensure round x state variables are updated correctly", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
 		// In this test we are interested in making sure that that values which change in the current round that may
 		// have an impact on the actions performed in the following round (in case of round change) are persisted
 		// through to the subsequent round.
+		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddress)
 		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress).MaxTimes(2)
 		backendMock.EXPECT().Committee(currentHeight.Uint64()).Return(committeeSet, nil).MaxTimes(2)
@@ -114,10 +117,6 @@ func TestStartRoundVariables(t *testing.T) {
 }
 
 func TestStartRound(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	backendMock := NewMockBackend(ctrl)
-
 	// Committee will be ordered such that the proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
@@ -137,6 +136,10 @@ func TestStartRound(t *testing.T) {
 
 		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, int64(-1), proposalBlock, clientAddr)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
 		core := New(backendMock)
@@ -173,6 +176,10 @@ func TestStartRound(t *testing.T) {
 
 		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, validR, proposalBlock, clientAddr)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
 		core := New(backendMock)
@@ -199,6 +206,10 @@ func TestStartRound(t *testing.T) {
 			currentRound = int64(rand.Intn(committeeSizeAndMaxRound))
 		}
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
 		core := New(backendMock)
@@ -221,6 +232,10 @@ func TestStartRound(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 		c := New(backendMock)
 		c.setCommitteeSet(committeeSet)
@@ -229,9 +244,9 @@ func TestStartRound(t *testing.T) {
 
 		assert.False(t, c.proposeTimeout.timerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgProposal})
-		c.prevoteTimeout.scheduleTimeout(10*time.Microsecond, c.Round(), c.Height(), c.onTimeoutPropose)
+		c.prevoteTimeout.scheduleTimeout(1*time.Millisecond, c.Round(), c.Height(), c.onTimeoutPropose)
 		assert.True(t, c.prevoteTimeout.timerStarted())
-		time.Sleep(50 * time.Microsecond)
+		time.Sleep(2 * time.Millisecond)
 	})
 	t.Run("at reception of proposal timeout event prevote nil is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -239,6 +254,10 @@ func TestStartRound(t *testing.T) {
 		timeoutE := TimeoutEvent{currentRound, currentHeight, msgProposal}
 		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 		c := New(backendMock)
 		c.setCommitteeSet(committeeSet)
@@ -256,26 +275,26 @@ func TestStartRound(t *testing.T) {
 // The following tests aim to test lines 22 - 27 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestNewProposal(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	backendMock := NewMockBackend(ctrl)
-
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
 	clientAddr := members[0].Address
 
-	backendMock.EXPECT().Address().Return(clientAddr)
-	c := New(backendMock)
-	c.setCommitteeSet(committeeSet)
-
 	t.Run("receive invalid proposal for current round", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
+		c.setCommitteeSet(committeeSet)
 
 		var invalidProposal Proposal
 		// members[currentRound] means that the sender is the proposer for the current round
@@ -308,10 +327,18 @@ func TestNewProposal(t *testing.T) {
 
 		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
 		// if lockedRround = - 1 then lockedValue = nil
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
+		c.setCommitteeSet(committeeSet)
 		c.lockedRound = -1
 		c.lockedValue = nil
 
@@ -338,9 +365,17 @@ func TestNewProposal(t *testing.T) {
 
 		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
+		c.setCommitteeSet(committeeSet)
 		c.lockedRound = clientLockedRound
 		c.lockedValue = proposal.ProposalBlock
 		c.validRound = clientLockedRound
@@ -372,9 +407,17 @@ func TestNewProposal(t *testing.T) {
 
 		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
+		c.setCommitteeSet(committeeSet)
 		c.lockedRound = clientLockedRound
 		c.lockedValue = clientLockedValue
 		c.validRound = clientLockedRound
@@ -397,18 +440,10 @@ func TestNewProposal(t *testing.T) {
 // The following tests aim to test lines 28 - 33 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestOldProposal(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	backendMock := NewMockBackend(ctrl)
-
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
 	clientAddr := members[0].Address
-
-	backendMock.EXPECT().Address().Return(clientAddr)
-	c := New(backendMock)
-	c.setCommitteeSet(committeeSet)
 
 	t.Run("receive proposal with vr >= 0 and client's lockedRound <= vr", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -432,9 +467,17 @@ func TestOldProposal(t *testing.T) {
 		// expected message to be broadcast
 		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
+		c.setCommitteeSet(committeeSet)
 		c.lockedRound = clientLockedRound
 		c.validRound = clientLockedRound
 		// Although the following is not possible it is required to ensure that c.lockRound <= proposalValidRound is
@@ -470,9 +513,17 @@ func TestOldProposal(t *testing.T) {
 		// expected message to be broadcast
 		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
+		c.setCommitteeSet(committeeSet)
 		// Although the following is not possible it is required to ensure that c.lockedValue = proposal is responsible
 		// for sending the prevote for the incoming proposal
 		c.lockedRound = proposalValidRound + 1
@@ -509,9 +560,17 @@ func TestOldProposal(t *testing.T) {
 		// expected message to be broadcast
 		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
+		c.setCommitteeSet(committeeSet)
 		// Although the following is not possible it is required to ensure that c.lockedValue = proposal is responsible
 		// for sending the prevote for the incoming proposal
 		c.lockedRound = proposalValidRound + 1
@@ -537,10 +596,6 @@ func TestOldProposal(t *testing.T) {
 // The following tests aim to test lines 34 - 35 & 61 - 64 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestTendermintPrevoteTimeout(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	backendMock := NewMockBackend(ctrl)
-
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
@@ -552,12 +607,17 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		sender := rand.Intn(committeeSizeAndMaxRound)
 		prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, generateBlock(currentHeight).Hash(), members[sender].Address)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
+
 		c := New(backendMock)
-		c.setCommitteeSet(committeeSet)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(prevote)
+		c.setCommitteeSet(committeeSet)
 		// create quorum prevote messages however there is no quorum on a specific hash
 		c.curRoundMessages.AddPrevote(common.Hash{}, Message{Address: members[0].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum() - 2})
 		c.curRoundMessages.AddPrevote(generateBlock(currentHeight).Hash(), Message{Address: members[1].Address, Code: msgPrevote, power: 1})
@@ -575,12 +635,17 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		sender2 := 2
 		prevote2Msg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, generateBlock(currentHeight).Hash(), members[sender2].Address)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
+
 		c := New(backendMock)
-		c.setCommitteeSet(committeeSet)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(prevote)
+		c.setCommitteeSet(committeeSet)
 		// create quorum prevote messages however there is no quorum on a specific hash
 		c.curRoundMessages.AddPrevote(common.Hash{}, Message{Address: members[3].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum() - 2})
 		c.curRoundMessages.AddPrevote(generateBlock(currentHeight).Hash(), Message{Address: members[4].Address, Code: msgPrevote, power: 1})
@@ -603,12 +668,17 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
+
 		c := New(backendMock)
-		c.setCommitteeSet(committeeSet)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(prevote)
+		c.setCommitteeSet(committeeSet)
 
 		assert.False(t, c.prevoteTimeout.timerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgPrevote})
@@ -623,12 +693,17 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr)
 		committedSeal := PrepareCommittedSeal(common.Hash{}, currentRound, currentHeight)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
+
 		c := New(backendMock)
-		c.setCommitteeSet(committeeSet)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(prevote)
+		c.setCommitteeSet(committeeSet)
 
 		backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
 		backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
@@ -641,9 +716,6 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 
 // The following tests are not specific to proposal messages but rather apply to all messages
 func TestHandleMessage(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	key1, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 	key2, err := crypto.GenerateKey()
@@ -658,10 +730,6 @@ func TestHandleMessage(t *testing.T) {
 	}}, key1PubAddr)
 	assert.Nil(t, err)
 
-	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().Return(key1PubAddr)
-	core := New(backendMock)
-
 	t.Run("message sender is not in the committee set", func(t *testing.T) {
 		// Prepare message
 		msg := &Message{Address: key2PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message1")}
@@ -675,6 +743,13 @@ func TestHandleMessage(t *testing.T) {
 		msgRlpWithSig, err := msg.Payload()
 		assert.Nil(t, err)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(key1PubAddr)
+
+		core := New(backendMock)
 		core.setCommitteeSet(committeeSet)
 		err = core.handleMsg(context.Background(), msgRlpWithSig)
 
@@ -693,6 +768,13 @@ func TestHandleMessage(t *testing.T) {
 		msgRlpWithSig, err := msg.Payload()
 		assert.Nil(t, err)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(key1PubAddr)
+
+		core := New(backendMock)
 		core.setCommitteeSet(committeeSet)
 		err = core.handleMsg(context.Background(), msgRlpWithSig)
 
@@ -707,6 +789,13 @@ func TestHandleMessage(t *testing.T) {
 		msgRlpWithSig, err := msg.Payload()
 		assert.Nil(t, err)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(key1PubAddr)
+
+		core := New(backendMock)
 		core.setCommitteeSet(committeeSet)
 		err = core.handleMsg(context.Background(), msgRlpWithSig)
 
@@ -775,6 +864,6 @@ func generateBlock(height *big.Int) *types.Block {
 		nonce[0] = byte(rand.Intn(256))
 	}
 	header := &types.Header{Number: height, Nonce: nonce}
-	block := types.NewBlock(header, nil, nil, nil)
+	block := types.NewBlockWithHeader(header)
 	return block
 }
