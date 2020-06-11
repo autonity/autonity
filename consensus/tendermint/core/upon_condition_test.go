@@ -682,9 +682,9 @@ func TestTendermintPrevoteTimeout(t *testing.T) {
 
 		assert.False(t, c.prevoteTimeout.timerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgPrevote})
-		c.prevoteTimeout.scheduleTimeout(10*time.Microsecond, c.Round(), c.Height(), c.onTimeoutPrevote)
+		c.prevoteTimeout.scheduleTimeout(1*time.Millisecond, c.Round(), c.Height(), c.onTimeoutPrevote)
 		assert.True(t, c.prevoteTimeout.timerStarted())
-		time.Sleep(50 * time.Microsecond)
+		time.Sleep(2 * time.Millisecond)
 	})
 	t.Run("at reception of prevote timeout event precommit nil is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
