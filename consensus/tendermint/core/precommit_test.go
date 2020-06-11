@@ -499,7 +499,7 @@ func TestHandleCommit(t *testing.T) {
 	if c.round != 0 || c.height.Cmp(big.NewInt(4)) != 0 {
 		t.Fatalf("Expected new round")
 	}
-	// cleanup timer otherwise it would cause panic.
+	// to fix the data race detected by CI workflow.
 	err = c.proposeTimeout.stopTimer()
 	if err != nil {
 		t.Error(err)
