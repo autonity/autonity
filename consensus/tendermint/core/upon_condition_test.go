@@ -595,7 +595,7 @@ func TestOldProposal(t *testing.T) {
 
 // The following tests aim to test lines 34 - 35 & 61 - 64 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
-func TestTendermintPrevoteTimeout(t *testing.T) {
+func TestPrevoteTimeout(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
