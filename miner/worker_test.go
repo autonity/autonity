@@ -76,17 +76,17 @@ func init() {
 	testTxPoolConfig = core.DefaultTxPoolConfig
 	testTxPoolConfig.Journal = ""
 	ethashChainConfig = params.TestChainConfig
-	tendermintChainConfig = params.TestChainConfig
-	tendermintChainConfig.Ethash = nil
-	tendermintChainConfig.Tendermint = tendermint.DefaultConfig()
+	tendermintChainConfig = &params.ChainConfig{}
+	tendermintChainConfig = params.AutonityTestChainConfig
 	tendermintChainConfig.AutonityContractConfig = &params.AutonityContractGenesis{
 		Users: []params.User{{
 			Address: testUserAddress,
+			Enode:   "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
 			Type:    params.UserValidator,
 			Stake:   1,
 		}},
 	}
-
+	tendermintChainConfig.AutonityContractConfig.AddDefault()
 	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
 	pendingTxs = append(pendingTxs, tx1)
 	tx2, _ := types.SignTx(types.NewTransaction(1, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
@@ -110,18 +110,13 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 		Alloc:  core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
 	}
 
-	/*switch e := engine.(type) {
+	switch engine.(type) {
 	case *tendermintBackend.Backend:
-		gspec.ExtraData = make([]byte, 32+common.AddressLength+crypto.SignatureLength)
-		copy(gspec.ExtraData[32:32+common.AddressLength], testBankAddress.Bytes())
-		e.Authorize(testBankAddress, func(account accounts.Account, s string, data []byte) ([]byte, error) {
-			return crypto.Sign(crypto.Keccak256(data), testBankKey)
-		})
+		gspec.Mixhash = types.BFTDigest
 	case *ethash.Ethash:
 	default:
 		t.Fatalf("unexpected consensus engine type: %T", engine)
 	}
-	*/
 
 	genesis := gspec.MustCommit(db)
 	senderCacher := &core.TxSenderCacher{}
@@ -237,9 +232,12 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 	for i := 0; i < 5; i++ {
 		b.txPool.AddLocal(b.newRandomTx(true))
 		b.txPool.AddLocal(b.newRandomTx(false))
-		w.postSideBlock(core.ChainSideEvent{Block: b.newRandomUncle()})
-		w.postSideBlock(core.ChainSideEvent{Block: b.newRandomUncle()})
-
+		if !isTendermint {
+			// Don't create fake uncles as it is in theory an impossible scenario.
+			// We're only testing here the import functionality.
+			w.postSideBlock(core.ChainSideEvent{Block: b.newRandomUncle()})
+			w.postSideBlock(core.ChainSideEvent{Block: b.newRandomUncle()})
+		}
 		select {
 		case ev := <-sub.Chan():
 			block := ev.Data.(core.NewMinedBlockEvent).Block
@@ -253,13 +251,13 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 }
 
 func TestEmptyWorkEthash(t *testing.T) {
-	testEmptyWork(t, ethashChainConfig, ethash.NewFaker())
+	testEmptyWork(t, ethashChainConfig, ethash.NewFaker(), false)
 }
 func TestEmptyWorkTendermint(t *testing.T) {
-	testEmptyWork(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)))
+	testEmptyWork(t, tendermintChainConfig, tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)), true)
 }
 
-func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
+func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
 	defer engine.Close()
 
 	w, _ := newTestWorker(t, chainConfig, engine, rawdb.NewMemoryDatabase(), 0)
@@ -276,6 +274,15 @@ func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consens
 			// The second full work with 1 tx included
 			receiptLen, balance = 1, big.NewInt(1000)
 		}
+		if isTendermint {
+			// With tendermint there is no immediate empty block creation after a newchainhead event.
+			// The first mined block receipts will then cointain both the transaction receipt and the autonity contract
+			// finalize function receipt.
+			receiptLen, balance = 2, big.NewInt(1000)
+			if index == 1 {
+				receiptLen, balance = 1, big.NewInt(1000)
+			}
+		}
 		if len(task.receipts) != receiptLen {
 			t.Fatalf("receipt number mismatch: have %d, want %d", len(task.receipts), receiptLen)
 		}
@@ -286,6 +293,10 @@ func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consens
 	w.newTaskHook = func(task *task) {
 		if task.block.NumberU64() == 1 {
 			checkEqual(t, task, taskIndex)
+			taskIndex += 1
+			taskCh <- struct{}{}
+		}
+		if isTendermint {
 			taskIndex += 1
 			taskCh <- struct{}{}
 		}
@@ -358,14 +369,14 @@ func TestStreamUncleBlock(t *testing.T) {
 }
 
 func TestRegenerateMiningBlockEthash(t *testing.T) {
-	testRegenerateMiningBlock(t, ethashChainConfig, ethash.NewFaker())
+	testRegenerateMiningBlock(t, ethashChainConfig, ethash.NewFaker(), false)
 }
 
 func TestRegenerateMiningBlockTendermint(t *testing.T) {
-	testRegenerateMiningBlock(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)))
+	testRegenerateMiningBlock(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)), true)
 }
 
-func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
+func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
 	defer engine.Close()
 
 	w, b := newTestWorker(t, chainConfig, engine, rawdb.NewMemoryDatabase(), 0)
@@ -378,8 +389,12 @@ func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, en
 		if task.block.NumberU64() == 1 {
 			// The first task is an empty task, the second
 			// one has 1 pending tx, the third one has 2 txs
-			if taskIndex == 2 {
+			// For Tendermint, we don't have the first empty task.
+			if (taskIndex == 2 && !isTendermint) || (isTendermint && taskIndex == 1) {
 				receiptLen, balance := 2, big.NewInt(2000)
+				if isTendermint {
+					receiptLen += 1 // Autonity Contract Finalize additional receipt
+				}
 				if len(task.receipts) != receiptLen {
 					t.Errorf("receipt number mismatch: have %d, want %d", len(task.receipts), receiptLen)
 				}
@@ -399,8 +414,13 @@ func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, en
 	}
 
 	w.start()
-	// Ignore the first two works
-	for i := 0; i < 2; i += 1 {
+	// Ignore the first two works in case of pow
+	// Ignore the first one for Tendermint
+	maxSkippedCases := 2
+	if isTendermint {
+		maxSkippedCases = 1
+	}
+	for i := 0; i < maxSkippedCases; i += 1 {
 		select {
 		case <-taskCh:
 		case <-time.NewTimer(time.Second).C:
