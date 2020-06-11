@@ -138,7 +138,7 @@ class NetworkPlanner(object):
                     "block-period": 1,
                 },
                 "autonityContract": {
-                    "deployer": "0x0000000000000000000000000000000000000002",
+                    #"deployer": "0x0000000000000000000000000000000000000002",
                     "bytecode": "",
                     "abi": "",
                     "minGasPrice": 5000,
