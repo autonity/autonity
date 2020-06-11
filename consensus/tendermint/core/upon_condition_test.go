@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"math/big"
@@ -32,7 +33,7 @@ func TestStartRoundVariables(t *testing.T) {
 	// proposer by setting clientAddress to be the last proposer. This will ensure that the test will not run the
 	// broadcast method.
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
-	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
+	committeeSet, _ := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
 	clientAddress := members[len(members)-1].Address
 
@@ -119,7 +120,7 @@ func TestStartRoundVariables(t *testing.T) {
 func TestStartRound(t *testing.T) {
 	// Committee will be ordered such that the proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
-	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
+	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
 	clientAddr := members[0].Address
 
@@ -134,7 +135,7 @@ func TestStartRound(t *testing.T) {
 			currentRound = int64(rand.Intn(committeeSizeAndMaxRound))
 		}
 
-		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, int64(-1), proposalBlock, clientAddr)
+		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, int64(-1), proposalBlock, clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -174,7 +175,7 @@ func TestStartRound(t *testing.T) {
 		}
 		validR := currentRound - 1
 
-		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, validR, proposalBlock, clientAddr)
+		proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig := prepareProposal(t, currentRound, proposalHeight, validR, proposalBlock, clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -252,7 +253,7 @@ func TestStartRound(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		timeoutE := TimeoutEvent{currentRound, currentHeight, msgProposal}
-		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr)
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -276,7 +277,7 @@ func TestStartRound(t *testing.T) {
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestNewProposal(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
-	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
+	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
 	clientAddr := members[0].Address
 
@@ -302,7 +303,7 @@ func TestNewProposal(t *testing.T) {
 		invalidMsg, invalidProposal := generateBlockProposal(t, currentRound, currentHeight, -1, members[currentRound].Address, true)
 
 		// prepare prevote nil
-		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr)
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr, privateKeys[clientAddr])
 
 		backendMock.EXPECT().VerifyProposal(*invalidProposal.ProposalBlock).Return(time.Duration(1), errors.New("invalid proposal"))
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
@@ -317,7 +318,7 @@ func TestNewProposal(t *testing.T) {
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		clientLockedRound := int64(-1)
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, -1, members[currentRound].Address, false)
-		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -349,7 +350,7 @@ func TestNewProposal(t *testing.T) {
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		clientLockedRound := int64(0)
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, -1, members[currentRound].Address, false)
-		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -385,7 +386,7 @@ func TestNewProposal(t *testing.T) {
 		clientLockedRound := int64(0)
 		clientLockedValue := generateBlock(currentHeight)
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, -1, members[currentRound].Address, false)
-		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr)
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -421,7 +422,7 @@ func TestNewProposal(t *testing.T) {
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestOldProposal(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
-	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
+	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
 	clientAddr := members[0].Address
 
@@ -433,7 +434,7 @@ func TestOldProposal(t *testing.T) {
 		// -1 <= c.lockedRound <= vr
 		clientLockedRound := int64(rand.Intn(int(proposalValidRound+2) - 1))
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
-		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -472,7 +473,7 @@ func TestOldProposal(t *testing.T) {
 		// vr >= 0 && vr < round_p
 		proposalValidRound := int64(rand.Intn(int(currentRound)))
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
-		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -512,7 +513,7 @@ func TestOldProposal(t *testing.T) {
 		// vr >= 0 && vr < round_p
 		proposalValidRound := int64(rand.Intn(int(currentRound)))
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
-		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr)
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -551,7 +552,7 @@ func TestOldProposal(t *testing.T) {
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestPrevoteTimeout(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
-	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
+	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
 	clientAddr := members[0].Address
 
@@ -559,7 +560,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		sender := 1
-		prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, generateBlock(currentHeight).Hash(), members[sender].Address)
+		prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, generateBlock(currentHeight).Hash(), members[sender].Address, privateKeys[members[sender].Address])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -585,9 +586,9 @@ func TestPrevoteTimeout(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		sender1 := 1
-		prevote1Msg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, generateBlock(currentHeight).Hash(), members[sender1].Address)
+		prevote1Msg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, generateBlock(currentHeight).Hash(), members[sender1].Address, privateKeys[members[sender1].Address])
 		sender2 := 2
-		prevote2Msg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, generateBlock(currentHeight).Hash(), members[sender2].Address)
+		prevote2Msg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, generateBlock(currentHeight).Hash(), members[sender2].Address, privateKeys[members[sender2].Address])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -644,7 +645,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		timeoutE := TimeoutEvent{currentRound, currentHeight, msgPrevote}
-		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr)
+		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr, privateKeys[clientAddr])
 		committedSeal := PrepareCommittedSeal(common.Hash{}, currentRound, currentHeight)
 
 		ctrl := gomock.NewController(t)
@@ -672,7 +673,7 @@ func TestPrevoteTimeout(t *testing.T) {
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestQuorumPrevote(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
-	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
+	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
 	clientAddr := members[0].Address
 
@@ -683,8 +684,8 @@ func TestQuorumPrevote(t *testing.T) {
 		currentStep := Step(rand.Intn(2) + 1)
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1)-1)), members[currentRound].Address, false)
 		sender := 1
-		prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender].Address)
-		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
+		prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
+		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -730,10 +731,10 @@ func TestQuorumPrevote(t *testing.T) {
 		currentStep := Step(rand.Intn(2) + 1)
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1)-1)), members[currentRound].Address, false)
 		sender1 := 1
-		prevoteMsg1, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender1].Address)
+		prevoteMsg1, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender1].Address, privateKeys[members[sender1].Address])
 		sender2 := 2
-		prevoteMsg2, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender2].Address)
-		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr)
+		prevoteMsg2, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender2].Address, privateKeys[members[sender2].Address])
+		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -792,15 +793,15 @@ func TestQuorumPrevote(t *testing.T) {
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestQuorumPrevoteNil(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
-	committeeSet := prepareCommittee(t, committeeSizeAndMaxRound)
+	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
 	clientAddr := members[0].Address
 
 	currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 	currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 	sender := 1
-	prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, members[sender].Address)
-	precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr)
+	prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, members[sender].Address, privateKeys[members[sender].Address])
+	precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr, privateKeys[clientAddr])
 	committedSeal := PrepareCommittedSeal(common.Hash{}, currentRound, currentHeight)
 
 	ctrl := gomock.NewController(t)
@@ -915,31 +916,48 @@ func TestHandleMessage(t *testing.T) {
 	})
 }
 
-func prepareProposal(t *testing.T, currentRound int64, proposalHeight *big.Int, validR int64, proposalBlock *types.Block, clientAddress common.Address) (*Message, []byte, []byte) {
+func prepareProposal(t *testing.T, currentRound int64, proposalHeight *big.Int, validR int64, proposalBlock *types.Block, clientAddress common.Address, privateKey *ecdsa.PrivateKey) (*Message, []byte, []byte) {
 	// prepare the proposal message
 	proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, validR, proposalBlock))
 	assert.Nil(t, err)
-	proposalMsg := &Message{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, Signature: []byte("proposal signature"), power: 1}
+
+	proposalMsg := &Message{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, power: 1}
 	proposalMsgRLPNoSig, err := proposalMsg.PayloadNoSig()
 	assert.Nil(t, err)
+
+	proposalMsg.Signature, err = sign(proposalMsgRLPNoSig, privateKey)
+	assert.Nil(t, err)
+
 	proposalMsgRLPWithSig, err := proposalMsg.Payload()
 	assert.Nil(t, err)
+
 	return proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig
 }
 
-func prepareVote(t *testing.T, step uint64, round int64, height *big.Int, blockHash common.Hash, clientAddr common.Address) (*Message, []byte, []byte) {
+func prepareVote(t *testing.T, step uint64, round int64, height *big.Int, blockHash common.Hash, clientAddr common.Address, privateKey *ecdsa.PrivateKey) (*Message, []byte, []byte) {
 	// prepare the proposal message
 	voteRLP, err := Encode(&Vote{Round: round, Height: height, ProposedBlockHash: blockHash})
 	assert.Nil(t, err)
 	voteMsg := &Message{Code: step, Msg: voteRLP, Address: clientAddr, Signature: []byte(fmt.Sprintf("%v signature", step)), power: 1}
 	if step == msgPrecommit {
-		voteMsg.CommittedSeal = []byte("precommit committed seal")
+		voteMsg.CommittedSeal, err = sign(PrepareCommittedSeal(blockHash, round, height), privateKey)
+		assert.Nil(t, err)
 	}
 	voteMsgRLPNoSig, err := voteMsg.PayloadNoSig()
 	assert.Nil(t, err)
+
+	voteMsg.Signature, err = sign(voteMsgRLPNoSig, privateKey)
+	assert.Nil(t, err)
+
 	voteMsgRLPWithSig, err := voteMsg.Payload()
 	assert.Nil(t, err)
+
 	return voteMsg, voteMsgRLPNoSig, voteMsgRLPWithSig
+}
+
+func sign(data []byte, key *ecdsa.PrivateKey) ([]byte, error) {
+	hashData := crypto.Keccak256(data)
+	return crypto.Sign(hashData, key)
 }
 
 func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src common.Address, invalid bool) (*Message, Proposal) {
@@ -966,11 +984,11 @@ func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src comm
 }
 
 // Committee will be ordered such that the proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
-func prepareCommittee(t *testing.T, cSize int) *committee.Set {
-	committeeMembers, _ := generateCommittee(cSize)
+func prepareCommittee(t *testing.T, cSize int) (*committee.Set, addressKeyMap) {
+	committeeMembers, privateKeys := generateCommittee(cSize)
 	committeeSet, err := committee.NewSet(committeeMembers, committeeMembers[len(committeeMembers)-1].Address)
 	assert.Nil(t, err)
-	return committeeSet
+	return committeeSet, privateKeys
 }
 
 func generateBlock(height *big.Int) *types.Block {
