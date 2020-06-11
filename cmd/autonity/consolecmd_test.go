@@ -50,7 +50,7 @@ func TestConsoleWelcome(t *testing.T) {
 	autonity.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	autonity.SetTemplateFunc("gover", runtime.Version)
 	autonity.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
-	autonity.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
+	autonity.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)") })
 	autonity.SetTemplateFunc("apis", func() string { return ipcAPIs })
 
 	// Verify the actual welcome message to the required template
@@ -138,7 +138,7 @@ func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis stri
 	attach.SetTemplateFunc("goos", func() string { return runtime.GOOS })
 	attach.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	attach.SetTemplateFunc("gover", runtime.Version)
-	attach.SetTemplateFunc("gethver", func() string { return params.VersionWithCommit("", "") })
+	attach.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
 	attach.SetTemplateFunc("etherbase", func() string { return autonity.Etherbase })
 	attach.SetTemplateFunc("niltime", func() string {
 		return time.Unix(0, 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)")

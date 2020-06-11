@@ -607,6 +607,7 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Ethereum protocol.
 func (s *Ethereum) Stop() error {
+	s.eventMux.Stop()
 	// Stop all the peer-related stuff first.
 	s.protocolManager.Stop()
 	if s.lesServer != nil {
@@ -617,10 +618,9 @@ func (s *Ethereum) Stop() error {
 	s.bloomIndexer.Close()
 	close(s.closeBloomHandler)
 	s.txPool.Stop()
-	s.miner.Stop()
+	s.miner.Close()
 	s.blockchain.Stop()
 	s.engine.Close()
 	s.chainDb.Close()
-	s.eventMux.Stop()
 	return nil
 }

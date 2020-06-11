@@ -665,7 +665,12 @@ func (f *BlockFetcher) insert(peer string, block *types.Block) {
 	// Run the import on a new thread
 	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
 	go func() {
-		defer func() { f.done <- hash }()
+		defer func() {
+			select {
+			case <-f.quit:
+			case f.done <- hash:
+			}
+		}()
 
 		// If the parent's unknown, abort insertion
 		parent := f.getBlock(block.ParentHash())

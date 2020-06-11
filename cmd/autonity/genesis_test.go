@@ -40,7 +40,18 @@ var customGenesisTests = []struct {
 			"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
 			"parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
 			"timestamp"  : "0x00",
-			"config"     : {}
+			"config"     : {
+				"autonityContract"    : {
+					"users" : [ 
+						{
+							"enode" : "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
+							"type" : "validator",
+							"stake" : 1
+						}
+					]
+				},
+				"tendermint" : {}
+			}
 		}`,
 		query:  "eth.getBlock(0).nonce",
 		result: "0x0000000000001338",
@@ -60,7 +71,17 @@ var customGenesisTests = []struct {
 			"config"     : {
 				"homesteadBlock" : 314,
 				"daoForkBlock"   : 141,
-				"daoForkSupport" : true
+				"daoForkSupport" : true,
+				"autonityContract"    : {
+					"users" : [ 
+						{
+							"enode" : "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
+							"type" : "validator",
+							"stake" : 1
+						}
+					]
+				},
+				"tendermint" : {}
 			}
 		}`,
 		query:  "eth.getBlock(0).nonce",

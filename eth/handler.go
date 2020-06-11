@@ -466,7 +466,8 @@ func (pm *ProtocolManager) IsInWhitelist(id enode.ID, td uint64, logger log.Logg
 }
 
 func (pm *ProtocolManager) IsSelfInWhitelist() error {
-	return pm.IsInWhitelist(enode.PubkeyToIDV4(pm.pub), pm.NodeInfo().Difficulty.Uint64(), nil)
+	td := pm.blockchain.CurrentHeader().Number.Uint64() + 1
+	return pm.IsInWhitelist(enode.PubkeyToIDV4(pm.pub), td, nil)
 }
 
 // handleMsg is invoked whenever an inbound message is received from a remote
