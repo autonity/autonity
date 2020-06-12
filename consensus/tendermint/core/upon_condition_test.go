@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -952,6 +951,67 @@ func TestPrecommitTimeout(t *testing.T) {
 	})
 }
 
+// The following tests aim to test lines 49 - 54 of Tendermint Algorithm described on page 6 of
+// https://arxiv.org/pdf/1807.04938.pdf.
+func TestQuorumPrecommit(t *testing.T) {
+	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
+	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
+	members := committeeSet.Committee()
+	clientAddr := members[0].Address
+	currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+	nextHeight := currentHeight.Uint64() + 1
+	nextProposal := generateBlock(big.NewInt(int64(nextHeight)))
+	nextProposalMsg, nextProposalMsgRLPNoSig, nextProposalMsgRLPWithSig := prepareProposal(t, 0, big.NewInt(int64(nextHeight)), int64(-1), nextProposal, clientAddr, privateKeys[clientAddr])
+	currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+	proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1)-1)), members[currentRound].Address, false)
+	sender := 1
+	precommitMsg, _, _ := prepareVote(t, msgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	backendMock := NewMockBackend(ctrl)
+	backendMock.EXPECT().Address().Return(clientAddr)
+
+	c := New(backendMock)
+	c.setHeight(currentHeight)
+	c.setRound(currentRound)
+	c.setStep(precommit)
+	c.setCommitteeSet(committeeSet)
+	c.curRoundMessages.SetProposal(&proposal, proposalMsg, true)
+	quorumPrecommitMsg := Message{Address: members[2].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum() - 1}
+	c.curRoundMessages.AddPrecommit(proposal.ProposalBlock.Hash(), quorumPrecommitMsg)
+
+	// The committed seal order is unpredictable, therefore, using gomock.Any()
+	// TODO: investigate what order should be on committed seals
+	backendMock.EXPECT().Commit(proposal.ProposalBlock, currentRound, gomock.Any())
+
+	err := c.handleCheckedMsg(context.Background(), precommitMsg, members[sender])
+	assert.Nil(t, err)
+
+	newCommitteeSet, err := committee.NewSet(committeeSet.Committee(), members[currentRound].Address)
+	assert.Nil(t, err)
+	backendMock.EXPECT().LastCommittedProposal().Return(proposal.ProposalBlock, members[currentRound].Address).MaxTimes(2)
+	backendMock.EXPECT().Committee(nextHeight).Return(newCommitteeSet, nil)
+
+	// if the client is the next proposer
+	if newCommitteeSet.IsProposer(0, clientAddr) {
+		c.pendingUnminedBlocks[nextHeight] = nextProposal
+		backendMock.EXPECT().SetProposedBlockHash(nextProposal.Hash())
+		backendMock.EXPECT().Sign(nextProposalMsgRLPNoSig).Return(nextProposalMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, nextProposalMsgRLPWithSig).Return(nil)
+	}
+
+	// It is hard to control tendermint's state machine if we construct the full backend since it overwrites the
+	// state we simulated on this test context again and again. So we assume the CommitEvent is sent from miner/worker
+	// thread via backend's interface, and it is handled to start new round here:
+	c.handleCommit(context.Background())
+
+	assert.Equal(t, big.NewInt(int64(nextHeight)), c.Height())
+	assert.Equal(t, int64(0), c.Round())
+	assert.Equal(t, propose, c.step)
+}
+
 // The following tests are not specific to proposal messages but rather apply to all messages
 func TestHandleMessage(t *testing.T) {
 	key1, err := crypto.GenerateKey()
@@ -1063,7 +1123,7 @@ func prepareVote(t *testing.T, step uint64, round int64, height *big.Int, blockH
 	// prepare the proposal message
 	voteRLP, err := Encode(&Vote{Round: round, Height: height, ProposedBlockHash: blockHash})
 	assert.Nil(t, err)
-	voteMsg := &Message{Code: step, Msg: voteRLP, Address: clientAddr, Signature: []byte(fmt.Sprintf("%v signature", step)), power: 1}
+	voteMsg := &Message{Code: step, Msg: voteRLP, Address: clientAddr, power: 1}
 	if step == msgPrecommit {
 		voteMsg.CommittedSeal, err = sign(PrepareCommittedSeal(blockHash, round, height), privateKey)
 		assert.Nil(t, err)
