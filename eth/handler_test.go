@@ -700,7 +700,7 @@ func TestBroadcastMalformedBlock(t *testing.T) {
 		Stake: 1,
 	}}
 
-	if err := config.AutonityContractConfig.AddDefault().Validate(); err != nil {
+	if err := config.AutonityContractConfig.Prepare(); err != nil {
 		t.Fatal(err)
 	}
 	gspec.Difficulty = big.NewInt(1)

@@ -18,7 +18,7 @@ func NewStubContract(config *params.AutonityContractGenesis) Contract {
 	committee := make(types.Committee, len(validators))
 	for i, val := range validators {
 		committee[i] = types.CommitteeMember{
-			Address:     val.Address,
+			Address:     *val.Address,
 			VotingPower: new(big.Int).SetUint64(val.Stake),
 		}
 	}

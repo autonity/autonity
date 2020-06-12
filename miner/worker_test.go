@@ -80,13 +80,13 @@ func init() {
 	tendermintChainConfig = params.AutonityTestChainConfig
 	tendermintChainConfig.AutonityContractConfig = &params.AutonityContractGenesis{
 		Users: []params.User{{
-			Address: testUserAddress,
+			Address: &testUserAddress,
 			Enode:   "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
 			Type:    params.UserValidator,
 			Stake:   1,
 		}},
 	}
-	tendermintChainConfig.AutonityContractConfig.AddDefault()
+	tendermintChainConfig.AutonityContractConfig.Prepare()
 	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
 	pendingTxs = append(pendingTxs, tx1)
 	tx2, _ := types.SignTx(types.NewTransaction(1, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
@@ -106,8 +106,9 @@ type testWorkerBackend struct {
 
 func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db ethdb.Database, n int) *testWorkerBackend {
 	var gspec = core.Genesis{
-		Config: chainConfig,
-		Alloc:  core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
+		Config:     chainConfig,
+		Alloc:      core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
+		Difficulty: big.NewInt(1),
 	}
 
 	switch engine.(type) {

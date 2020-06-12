@@ -52,6 +52,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/tsdb v0.10.0
 	github.com/rs/cors v1.7.0
+	github.com/spf13/cobra v0.0.3
 	github.com/status-im/keycard-go v0.0.0-20200402102358-957c09536969
 	github.com/steakknife/bloomfilter v0.0.0-20180922174646-6819c0d2a570
 	github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3 // indirect
