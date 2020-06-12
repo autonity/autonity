@@ -280,7 +280,7 @@ if __name__ == "__main__":
         # Build builder image
         create_image(BUILDER_IMAGE_NAME, BUILDER_DOCKER_FILE)
         container = docker.from_env().containers.run(BUILDER_IMAGE_NAME, name="go-builder",
-            detach=False, remove=True,
+            detach=False, remove=True, command='bash -c "cd autonity && make all"',
             volumes={autonity_path: {"bind": "/autonity", "mode": "rw"}})
 
         # copy binary to binary dir for image building.
