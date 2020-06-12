@@ -118,7 +118,7 @@ func (ac *evmContract) DeployAutonityContract(chainConfig *params.ChainConfig, h
 	ac.Lock()
 	ac.address = contractAddress
 	ac.Unlock()
-	log.Info("Deployed Autonity evmContract", "Address", contractAddress.String())
+	log.Info("Deployed Autonity Contract", "Address", contractAddress.String())
 
 	return contractAddress, nil
 }
@@ -155,7 +155,7 @@ func (ac *evmContract) AutonityContractCall(statedb *state.StateDB, header *type
 
 	ret, _, vmerr := evm.Call(vm.AccountRef(caller), ac.Address(), input, gas, new(big.Int))
 	if vmerr != nil {
-		log.Error("Error Autonity evmContract", "function", function)
+		log.Error("Error Autonity Contract", "function", function)
 		return vmerr
 	}
 	// if result's type is "raw" then bypass unpacking
@@ -246,7 +246,7 @@ func (ac *evmContract) callSetMinimumGasPrice(state *state.StateDB, header *type
 
 	_, _, vmerr := evm.Call(sender, ac.Address(), input, gas, price)
 	if vmerr != nil {
-		log.Error("Error Autonity evmContract getMinimumGasPrice()")
+		log.Error("Error Autonity Contract getMinimumGasPrice()")
 		return vmerr
 	}
 	return nil

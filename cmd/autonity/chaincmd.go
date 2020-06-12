@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
@@ -237,8 +239,9 @@ func initGenesis(ctx *cli.Context) error {
 		utils.Fatalf("No Tendermint config section in genesis")
 	}
 
-	if err := genesis.Config.AutonityContractConfig.AddDefault().Validate(); err != nil {
-		utils.Fatalf("autonity contract section is invalid. error: %v", err.Error())
+	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
+		spew.Dump(genesis.Config.AutonityContractConfig)
+		return fmt.Errorf("autonity contract section is invalid. error:%v", err.Error())
 	}
 
 	setupDefaults(genesis)

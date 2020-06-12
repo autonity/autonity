@@ -490,11 +490,14 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 		},
 	}
 
-	if err := config.AutonityContractConfig.AddDefault().Validate(); err != nil {
+	if err := config.AutonityContractConfig.Prepare(); err != nil {
 		t.Fatal(err)
 	}
 
-	(&core.Genesis{Config: config}).MustCommit(db) // Commit genesis block
+	(&core.Genesis{
+		Config:     config,
+		Difficulty: big.NewInt(1),
+	}).MustCommit(db) // Commit genesis block
 	// If checkpointing is enabled, create and inject a fake CHT and the corresponding
 	// chllenge response.
 	var response *types.Header
@@ -610,7 +613,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 			},
 		)
 	}
-	if err := config.AutonityContractConfig.AddDefault().Validate(); err != nil {
+	if err := config.AutonityContractConfig.Prepare(); err != nil {
 		t.Fatal(err)
 	}
 	gspec.Difficulty = big.NewInt(1)
