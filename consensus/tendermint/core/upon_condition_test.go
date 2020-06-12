@@ -827,6 +827,131 @@ func TestQuorumPrevoteNil(t *testing.T) {
 	assert.Equal(t, precommit, c.step)
 }
 
+// The following tests aim to test lines 47 - 48 & 65 - 67 of Tendermint Algorithm described on page 6 of
+// https://arxiv.org/pdf/1807.04938.pdf.
+func TestPrecommitTimeout(t *testing.T) {
+	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
+	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
+	members := committeeSet.Committee()
+	clientAddr := members[0].Address
+
+	t.Run("precommit timeout started after quorum of precommits with different hashes", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		sender := 1
+		precommitMsg, _, _ := prepareVote(t, msgPrecommit, currentRound, currentHeight, generateBlock(currentHeight).Hash(), members[sender].Address, privateKeys[members[sender].Address])
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		//TODO: this should be changed to Step(rand.Intn(3)) to make sure precommit timeout can be started from any step
+		c.setStep(precommit)
+		c.setCommitteeSet(committeeSet)
+		// create quorum precommit messages however there is no quorum on a specific hash
+		c.curRoundMessages.AddPrecommit(common.Hash{}, Message{Address: members[2].Address, Code: msgPrecommit, power: c.CommitteeSet().Quorum() - 2})
+		c.curRoundMessages.AddPrecommit(generateBlock(currentHeight).Hash(), Message{Address: members[3].Address, Code: msgPrecommit, power: 1})
+
+		assert.False(t, c.precommitTimeout.timerStarted())
+		err := c.handleCheckedMsg(context.Background(), precommitMsg, members[sender])
+		assert.Nil(t, err)
+		assert.True(t, c.precommitTimeout.timerStarted())
+	})
+	t.Run("precommit timeout is not started multiple times", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		sender1 := 1
+		precommit1Msg, _, _ := prepareVote(t, msgPrecommit, currentRound, currentHeight, generateBlock(currentHeight).Hash(), members[sender1].Address, privateKeys[members[sender1].Address])
+		sender2 := 2
+		precommit2Msg, _, _ := prepareVote(t, msgPrecommit, currentRound, currentHeight, generateBlock(currentHeight).Hash(), members[sender2].Address, privateKeys[members[sender2].Address])
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		//TODO: this should be changed to Step(rand.Intn(3)) to make sure precommit timeout can be started from any step
+		c.setStep(precommit)
+		c.setCommitteeSet(committeeSet)
+		// create quorum prevote messages however there is no quorum on a specific hash
+		c.curRoundMessages.AddPrecommit(common.Hash{}, Message{Address: members[3].Address, Code: msgPrecommit, power: c.CommitteeSet().Quorum() - 2})
+		c.curRoundMessages.AddPrecommit(generateBlock(currentHeight).Hash(), Message{Address: members[0].Address, Code: msgPrecommit, power: 1})
+
+		assert.False(t, c.precommitTimeout.timerStarted())
+
+		err := c.handleCheckedMsg(context.Background(), precommit1Msg, members[sender1])
+		assert.Nil(t, err)
+		assert.True(t, c.precommitTimeout.timerStarted())
+
+		timeNow := time.Now()
+
+		err = c.handleCheckedMsg(context.Background(), precommit2Msg, members[sender2])
+		assert.Nil(t, err)
+		assert.True(t, c.precommitTimeout.timerStarted())
+		assert.True(t, c.precommitTimeout.start.Before(timeNow))
+
+	})
+	t.Run("at precommit timeout expiry timeout event is sent", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		//TODO: this should be changed to Step(rand.Intn(3)) to make sure precommit timeout can be started from any step
+		c.setStep(precommit)
+		c.setCommitteeSet(committeeSet)
+
+		assert.False(t, c.precommitTimeout.timerStarted())
+		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgPrecommit})
+		c.precommitTimeout.scheduleTimeout(1*time.Millisecond, c.Round(), c.Height(), c.onTimeoutPrecommit)
+		assert.True(t, c.precommitTimeout.timerStarted())
+		time.Sleep(2 * time.Millisecond)
+	})
+	t.Run("at reception of precommit timeout event next round will be started", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		// ensure client is not the proposer for next round
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		for (currentRound+1)%int64(len(members)) == 0 {
+			currentRound = int64(rand.Intn(committeeSizeAndMaxRound))
+		}
+		timeoutE := TimeoutEvent{currentRound, currentHeight, msgPrecommit}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		//TODO: this should be changed to Step(rand.Intn(3)) to make sure precommit timeout can be started from any step
+		c.setStep(precommit)
+		c.setCommitteeSet(committeeSet)
+
+		c.handleTimeoutPrecommit(context.Background(), timeoutE)
+
+		assert.Equal(t, currentRound+1, c.Round())
+		assert.Equal(t, propose, c.step)
+	})
+}
+
 // The following tests are not specific to proposal messages but rather apply to all messages
 func TestHandleMessage(t *testing.T) {
 	key1, err := crypto.GenerateKey()
