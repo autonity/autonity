@@ -1,5 +1,5 @@
 # Autonity e2e test framework 
-It automatic bootstrap an autonity network with 6 validators by default. And run those test cases on the playbook to 
+It automatically bootstrap an autonity network with 6 validators by default. And run those test cases on the playbook to 
 simulate those disasters like: node crash, redeployment, network traffic control, delay and network partitioning ..., 
 on each test case, after the disaster event are scheduled, framework will check if autontiy consensus's state is 
 expected otherwise it would collect the test report and system logs per test case from all clients for a debugging 
