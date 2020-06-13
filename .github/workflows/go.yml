@@ -342,12 +342,6 @@ jobs:
         with:
           node-version: '9.x'
 
-      - name: install truffle
-        run: npm install -g truffle
-
-      - name: install web3
-        run: npm install -g web3
-
       - name: Cache code
         uses: actions/cache@v1
         env:
