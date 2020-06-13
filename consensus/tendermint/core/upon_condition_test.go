@@ -196,7 +196,7 @@ func TestStartRound(t *testing.T) {
 	})
 	t.Run("client is not the proposer", func(t *testing.T) {
 		clientIndex := len(members) - 1
-		clientAddr := members[clientIndex].Address
+		clientAddr = members[clientIndex].Address
 
 		prevHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		prevBlock := generateBlock(prevHeight)
@@ -1010,6 +1010,92 @@ func TestQuorumPrecommit(t *testing.T) {
 	assert.Equal(t, big.NewInt(int64(nextHeight)), c.Height())
 	assert.Equal(t, int64(0), c.Round())
 	assert.Equal(t, propose, c.step)
+}
+
+// The following tests aim to test lines 49 - 54 of Tendermint Algorithm described on page 6 of
+// https://arxiv.org/pdf/1807.04938.pdf.
+func TestFutureRoundChange(t *testing.T) {
+	// In the following tests we are assuming that no committee member has voting power more than or equal to F()
+	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
+	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
+	members := committeeSet.Committee()
+	clientAddr := members[0].Address
+	roundChangeThreshold := committeeSet.F()
+	sender1, sender2 := members[1], members[2]
+	sender1.VotingPower = big.NewInt(int64(roundChangeThreshold - 1))
+	sender2.VotingPower = big.NewInt(int64(roundChangeThreshold - 1))
+
+	t.Run("move to future round after receiving more than F voting power messages", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		// ensure client is not the proposer for next round
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		for (currentRound+1)%int64(len(members)) == 0 {
+			currentRound = int64(rand.Intn(committeeSizeAndMaxRound))
+		}
+		currentStep := Step(rand.Intn(3))
+		// create random prevote or precommit from 2 different
+		msg1, _, _ := prepareVote(t, uint64(rand.Intn(2)+1), currentRound+1, currentHeight, common.Hash{}, sender1.Address, privateKeys[sender1.Address])
+		msg2, _, _ := prepareVote(t, uint64(rand.Intn(2)+1), currentRound+1, currentHeight, common.Hash{}, sender2.Address, privateKeys[sender2.Address])
+		msg1.power = roundChangeThreshold - 1
+		msg2.power = roundChangeThreshold - 1
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(currentStep)
+		c.setCommitteeSet(committeeSet)
+
+		err := c.handleCheckedMsg(context.Background(), msg1, sender1)
+		assert.Equal(t, errFutureRoundMessage, err)
+
+		err = c.handleCheckedMsg(context.Background(), msg2, sender2)
+		assert.Equal(t, errFutureRoundMessage, err)
+
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound+1, c.Round())
+		assert.Equal(t, propose, c.step)
+		assert.Equal(t, 2, c.backlogs[sender1].Size()+c.backlogs[sender2].Size())
+	})
+
+	t.Run("different messages from the same sender cannot cause round change", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		currentStep := Step(rand.Intn(3))
+		prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound+1, currentHeight, common.Hash{}, sender1.Address, privateKeys[sender1.Address])
+		precommitMsg, _, _ := prepareVote(t, msgPrecommit, currentRound+1, currentHeight, common.Hash{}, sender1.Address, privateKeys[sender1.Address])
+		// The collective power of the 2 messages  is more than roundChangeThreshold
+		prevoteMsg.power = roundChangeThreshold - 1
+		precommitMsg.power = roundChangeThreshold - 1
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(currentStep)
+		c.setCommitteeSet(committeeSet)
+
+		err := c.handleCheckedMsg(context.Background(), prevoteMsg, sender1)
+		assert.Equal(t, errFutureRoundMessage, err)
+
+		err = c.handleCheckedMsg(context.Background(), precommitMsg, sender1)
+		assert.Equal(t, errFutureRoundMessage, err)
+
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
+		assert.Equal(t, currentStep, c.step)
+		assert.Equal(t, 2, c.backlogs[sender1].Size())
+	})
 }
 
 // The following tests are not specific to proposal messages but rather apply to all messages
