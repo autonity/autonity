@@ -484,61 +484,6 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	return nil
 }
 
-//func (c *ChainConfig) GetEnodeWhitelist() []string {
-//	c.mu.RLock()
-//	defer c.mu.RUnlock()
-//
-//	return c.EnodeWhitelist
-//}
-//func (c *ChainConfig) SetEnodeWhitelist(l []string) {
-//	c.mu.Lock()
-//	defer c.mu.Unlock()
-//
-//	c.EnodeWhitelist = l
-//}
-//func (c *ChainConfig) SortEnodeWhitelist() {
-//	c.mu.Lock()
-//	defer c.mu.Unlock()
-//
-//	sort.Strings(c.EnodeWhitelist)
-//}
-//
-//func (c *ChainConfig) GetGlienickeDeployer() common.Address {
-//	c.mu.RLock()
-//	defer c.mu.RUnlock()
-//
-//	return c.GlienickeDeployer
-//}
-//func (c *ChainConfig) SetGlienickeDeployer(a common.Address) {
-//	c.mu.Lock()
-//	defer c.mu.Unlock()
-//
-//	c.GlienickeDeployer = a
-//}
-//
-//func (c *ChainConfig) GetGlienickeBytecode() string {
-//	c.mu.RLock()
-//	defer c.mu.RUnlock()
-//
-//	return c.GlienickeBytecode
-//}
-//func (c *ChainConfig) SetGlienickeBytecode(s string) {
-//	c.mu.Lock()
-//	defer c.mu.Unlock()
-//
-//	c.GlienickeBytecode = s
-//}
-//
-//func (c *ChainConfig) GetGlienickeABI() string {
-//	c.mu.RLock()
-//	defer c.mu.RUnlock()
-//
-//	return c.GlienickeABI
-//}
-//func (c *ChainConfig) SetGlienickeABI(s string) {
-//	c.GlienickeABI = s
-//}
-
 func (c *ChainConfig) Copy() *ChainConfig {
 	cfg := &ChainConfig{
 		DAOForkSupport: c.DAOForkSupport,

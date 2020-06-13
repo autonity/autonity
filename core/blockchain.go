@@ -265,13 +265,30 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		return nil, err
 	}
 	if chainConfig.Tendermint != nil {
+
 		if chainConfig.AutonityContractConfig == nil {
 			return nil, errors.New("we need autonity contract specified for tendermint or istanbul consensus")
 		}
 
-		bc.autonityContract = autonity.NewAutonityContract(bc, CanTransfer, Transfer, func(ref *types.Header, chain autonity.ChainContext) func(n uint64) common.Hash {
-			return GetHashFn(ref, chain)
-		})
+		acConfig := bc.Config().AutonityContractConfig
+
+		var JSONString = acConfig.ABI
+		bytes, err := bc.GetKeyValue([]byte(autonity.ABISPEC))
+		if err == nil || bytes != nil {
+			JSONString = string(bytes)
+		}
+		contract, err := autonity.NewAutonityContract(
+			bc,
+			acConfig.Operator,
+			acConfig.MinGasPrice,
+			JSONString,
+			&defaultEVMProvider{bc},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		bc.autonityContract = contract
 		bc.processor.SetAutonityContract(bc.autonityContract)
 	}
 	// The first thing the node will do is reconstruct the verification data for

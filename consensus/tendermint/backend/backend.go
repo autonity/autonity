@@ -38,8 +38,8 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
-	"github.com/hashicorp/golang-lru"
-	"github.com/zfjagann/golang-ring"
+	lru "github.com/hashicorp/golang-lru"
+	ring "github.com/zfjagann/golang-ring"
 )
 
 const (
@@ -127,9 +127,8 @@ type Backend struct {
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
 
-	autonityContractAddress common.Address // Ethereum address of the white list contract
-	contractsMu             sync.RWMutex
-	vmConfig                *vm.Config
+	contractsMu sync.RWMutex
+	vmConfig    *vm.Config
 }
 
 // Address implements tendermint.Backend.Address
@@ -420,10 +419,6 @@ func (sb *Backend) HasBadProposal(hash common.Hash) bool {
 		return false
 	}
 	return sb.hasBadBlock(hash)
-}
-
-func (sb *Backend) GetContractAddress() common.Address {
-	return sb.blockchain.GetAutonityContract().Address()
 }
 
 func (sb *Backend) GetContractABI() string {

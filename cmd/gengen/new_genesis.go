@@ -126,14 +126,6 @@ func newGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*c
 		return nil, nil, fmt.Errorf("failed to generate random chainID: %v", err)
 	}
 
-	// This should to be randomised, essentially we want to create an
-	// uncontrollable address.
-	deployerAddress := common.Address{}
-	_, err = rand.Read(deployerAddress[:])
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate random deployerAddress: %v", err)
-	}
-
 	genesis := &core.Genesis{
 
 		Timestamp: uint64(time.Now().Unix()),
@@ -146,8 +138,12 @@ func newGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*c
 		// unmarshals to an empty slice.
 		ExtraData: []byte{},
 
-		GasLimit:   math.MaxUint64,
-		Difficulty: big.NewInt(0),
+		GasLimit: math.MaxUint64,
+
+		// Autonity relies on the difficulty always being 1 so that we can
+		// compare chain length by comparing total difficulty during peer
+		// connection handshake.
+		Difficulty: big.NewInt(1),
 
 		Alloc: genesisAlloc,
 
@@ -164,7 +160,6 @@ func newGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*c
 				BlockPeriod: 1,
 			},
 			AutonityContractConfig: &params.AutonityContractGenesis{
-				Deployer:    deployerAddress,
 				MinGasPrice: minGasPrice,
 				Operator:    *operatorAddress,
 				Users:       genesisUsers,
