@@ -17,7 +17,6 @@
 package vm
 
 import (
-	"errors"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -28,13 +27,8 @@ import (
 )
 
 var (
-	bigZero                  = new(big.Int)
-	tt255                    = math.BigPow(2, 255)
-	errWriteProtection       = errors.New("evm: write protection")
-	errReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
-	errExecutionReverted     = errors.New("evm: execution reverted")
-	errMaxCodeSizeExceeded   = errors.New("evm: max code size exceeded")
-	errInvalidJump           = errors.New("evm: invalid jump destination")
+	bigZero = new(big.Int)
+	tt255   = math.BigPow(2, 255)
 )
 
 func opAdd(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
@@ -468,7 +462,7 @@ func opReturnDataCopy(pc *uint64, interpreter *EVMInterpreter, callContext *call
 	defer interpreter.intPool.put(memOffset, dataOffset, length, end)
 
 	if !end.IsUint64() || uint64(len(interpreter.returnData)) < end.Uint64() {
-		return nil, errReturnDataOutOfBounds
+		return nil, ErrReturnDataOutOfBounds
 	}
 	callContext.memory.Set(memOffset.Uint64(), length.Uint64(), interpreter.returnData[dataOffset.Uint64():end.Uint64()])
 
@@ -643,7 +637,7 @@ func opSstore(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 func opJump(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	pos := callContext.stack.pop()
 	if !callContext.contract.validJumpdest(pos) {
-		return nil, errInvalidJump
+		return nil, ErrInvalidJump
 	}
 	*pc = pos.Uint64()
 
@@ -655,7 +649,7 @@ func opJumpi(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 	pos, cond := callContext.stack.pop(), callContext.stack.pop()
 	if cond.Sign() != 0 {
 		if !callContext.contract.validJumpdest(pos) {
-			return nil, errInvalidJump
+			return nil, ErrInvalidJump
 		}
 		*pc = pos.Uint64()
 	} else {
@@ -667,6 +661,39 @@ func opJumpi(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 }
 
 func opJumpdest(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
+	return nil, nil
+}
+
+func opBeginSub(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
+	return nil, ErrInvalidSubroutineEntry
+}
+
+func opJumpSub(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
+	if len(callContext.rstack.data) >= 1023 {
+		return nil, ErrReturnStackExceeded
+	}
+	pos := callContext.stack.pop()
+	if !pos.IsUint64() {
+		return nil, ErrInvalidJump
+	}
+	posU64 := pos.Uint64()
+	if !callContext.contract.validJumpSubdest(posU64) {
+		return nil, ErrInvalidJump
+	}
+	callContext.rstack.push(*pc)
+	*pc = posU64 + 1
+	interpreter.intPool.put(pos)
+	return nil, nil
+}
+
+func opReturnSub(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
+	if len(callContext.rstack.data) == 0 {
+		return nil, ErrInvalidRetsub
+	}
+	// Other than the check that the return stack is not empty, there is no
+	// need to validate the pc from 'returns', since we only ever push valid
+	//values onto it via jumpsub.
+	*pc = callContext.rstack.pop() + 1
 	return nil, nil
 }
 
@@ -712,7 +739,7 @@ func opCreate(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 	callContext.contract.Gas += returnGas
 	interpreter.intPool.put(value, offset, size)
 
-	if suberr == errExecutionReverted {
+	if suberr == ErrExecutionReverted {
 		return res, nil
 	}
 	return nil, nil
@@ -740,7 +767,7 @@ func opCreate2(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 	callContext.contract.Gas += returnGas
 	interpreter.intPool.put(endowment, offset, size, salt)
 
-	if suberr == errExecutionReverted {
+	if suberr == ErrExecutionReverted {
 		return res, nil
 	}
 	return nil, nil
@@ -766,7 +793,7 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 	} else {
 		callContext.stack.push(interpreter.intPool.get().SetUint64(1))
 	}
-	if err == nil || err == errExecutionReverted {
+	if err == nil || err == ErrExecutionReverted {
 		callContext.memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
 	}
 	callContext.contract.Gas += returnGas
@@ -795,7 +822,7 @@ func opCallCode(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) (
 	} else {
 		callContext.stack.push(interpreter.intPool.get().SetUint64(1))
 	}
-	if err == nil || err == errExecutionReverted {
+	if err == nil || err == ErrExecutionReverted {
 		callContext.memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
 	}
 	callContext.contract.Gas += returnGas
@@ -820,7 +847,7 @@ func opDelegateCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCt
 	} else {
 		callContext.stack.push(interpreter.intPool.get().SetUint64(1))
 	}
-	if err == nil || err == errExecutionReverted {
+	if err == nil || err == ErrExecutionReverted {
 		callContext.memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
 	}
 	callContext.contract.Gas += returnGas
@@ -845,7 +872,7 @@ func opStaticCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx)
 	} else {
 		callContext.stack.push(interpreter.intPool.get().SetUint64(1))
 	}
-	if err == nil || err == errExecutionReverted {
+	if err == nil || err == ErrExecutionReverted {
 		callContext.memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
 	}
 	callContext.contract.Gas += returnGas

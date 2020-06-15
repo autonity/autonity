@@ -49,7 +49,7 @@ type TransactOpts struct {
 	Nonce  *big.Int       // Nonce to use for the transaction execution (nil = use pending state)
 	Signer SignerFn       // Method to use for signing the transaction (mandatory)
 
-	Value    *big.Int // Funds to transfer along along the transaction (nil = 0 = no funds)
+	Value    *big.Int // Funds to transfer along the transaction (nil = 0 = no funds)
 	GasPrice *big.Int // Gas price to use for the transaction execution (nil = gas price oracle)
 	GasLimit uint64   // Gas limit to set for the transaction execution (0 = estimate)
 
@@ -264,9 +264,9 @@ func (c *BoundContract) FilterLogs(opts *FilterOpts, name string, query ...[]int
 		opts = new(FilterOpts)
 	}
 	// Append the event selector to the query parameters and construct the topic set
-	query = append([][]interface{}{{c.abi.Events[name].ID()}}, query...)
+	query = append([][]interface{}{{c.abi.Events[name].ID}}, query...)
 
-	topics, err := makeTopics(query...)
+	topics, err := abi.MakeTopics(query...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -313,9 +313,9 @@ func (c *BoundContract) WatchLogs(opts *WatchOpts, name string, query ...[]inter
 		opts = new(WatchOpts)
 	}
 	// Append the event selector to the query parameters and construct the topic set
-	query = append([][]interface{}{{c.abi.Events[name].ID()}}, query...)
+	query = append([][]interface{}{{c.abi.Events[name].ID}}, query...)
 
-	topics, err := makeTopics(query...)
+	topics, err := abi.MakeTopics(query...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -349,7 +349,7 @@ func (c *BoundContract) UnpackLog(out interface{}, event string, log types.Log) 
 			indexed = append(indexed, arg)
 		}
 	}
-	return parseTopics(out, indexed, log.Topics[1:])
+	return abi.ParseTopics(out, indexed, log.Topics[1:])
 }
 
 // UnpackLogIntoMap unpacks a retrieved log into the provided map.
@@ -365,7 +365,7 @@ func (c *BoundContract) UnpackLogIntoMap(out map[string]interface{}, event strin
 			indexed = append(indexed, arg)
 		}
 	}
-	return parseTopicsIntoMap(out, indexed, log.Topics[1:])
+	return abi.ParseTopicsIntoMap(out, indexed, log.Topics[1:])
 }
 
 // ensureContext is a helper method to ensure a context is not nil, even if the

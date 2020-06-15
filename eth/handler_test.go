@@ -513,7 +513,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 		}
 	}
 	// Create a checkpoint aware protocol manager
-	blockchain, err := core.NewBlockChain(db, nil, config, ethash.NewFaker(), vm.Config{}, nil, &core.TxSenderCacher{})
+	blockchain, err := core.NewBlockChain(db, nil, config, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil)
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
@@ -620,7 +620,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 
 	genesis := gspec.MustCommit(db)
 
-	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{}, nil, core.NewTxSenderCacher())
+	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
@@ -706,7 +706,7 @@ func TestBroadcastMalformedBlock(t *testing.T) {
 	gspec.Difficulty = big.NewInt(1)
 	genesis := gspec.MustCommit(db)
 
-	blockchain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil, &core.TxSenderCacher{})
+	blockchain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}

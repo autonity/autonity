@@ -1,4 +1,4 @@
-// Copyright 2015 The go-ethereum Authors
+// Copyright 2020 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,31 +14,33 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package abi
+package bls12381
 
 import (
+	"errors"
 	"math/big"
-	"reflect"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
 )
 
-var (
-	bigT      = reflect.TypeOf(&big.Int{})
-	derefbigT = reflect.TypeOf(big.Int{})
-	uint8T    = reflect.TypeOf(uint8(0))
-	uint16T   = reflect.TypeOf(uint16(0))
-	uint32T   = reflect.TypeOf(uint32(0))
-	uint64T   = reflect.TypeOf(uint64(0))
-	int8T     = reflect.TypeOf(int8(0))
-	int16T    = reflect.TypeOf(int16(0))
-	int32T    = reflect.TypeOf(int32(0))
-	int64T    = reflect.TypeOf(int64(0))
-	addressT  = reflect.TypeOf(common.Address{})
-)
+func bigFromHex(hex string) *big.Int {
+	return new(big.Int).SetBytes(common.FromHex(hex))
+}
 
-// U256 converts a big Int into a 256bit EVM number.
-func U256(n *big.Int) []byte {
-	return math.PaddedBigBytes(math.U256(n), 32)
+// decodeFieldElement expects 64 byte input with zero top 16 bytes,
+// returns lower 48 bytes.
+func decodeFieldElement(in []byte) ([]byte, error) {
+	if len(in) != 64 {
+		return nil, errors.New("invalid field element length")
+	}
+	// check top bytes
+	for i := 0; i < 16; i++ {
+		if in[i] != byte(0x00) {
+			return nil, errors.New("invalid field element top bytes")
+		}
+	}
+	out := make([]byte, 48)
+	copy(out[:], in[16:])
+	return out, nil
 }

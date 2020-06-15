@@ -76,6 +76,7 @@ type ProtocolManager struct {
 
 	txpool     txPool
 	blockchain *core.BlockChain
+	chaindb    ethdb.Database
 	maxPeers   int
 
 	downloader   *downloader.Downloader
@@ -115,24 +116,23 @@ type ProtocolManager struct {
 func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:   networkID,
-		forkFilter:  forkid.NewFilter(blockchain),
-		eventMux:    mux,
-		txpool:      txpool,
-		blockchain:  blockchain,
-		peers:       newPeerSet(),
-		whitelist:   whitelist,
-		txsyncCh:    make(chan *txsync),
-		quitSync:    make(chan struct{}),
+		networkID:  networkID,
+		forkFilter: forkid.NewFilter(blockchain),
+		eventMux:   mux,
+		txpool:     txpool,
+		blockchain: blockchain,
+		chaindb:    chaindb,
+		peers:      newPeerSet(),
 		engine:      engine,
+		whitelist:  whitelist,
 		whitelistCh: make(chan core.WhitelistEvent, 64),
+		txsyncCh:   make(chan *txsync),
+		quitSync:   make(chan struct{}),
 		pub:         pub,
 	}
-
 	if handler, ok := manager.engine.(consensus.Handler); ok {
 		handler.SetBroadcaster(manager)
 	}
-
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
 		// block is ahead, so fast sync was enabled for this node at a certain point.

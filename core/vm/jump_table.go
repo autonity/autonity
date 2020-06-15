@@ -17,8 +17,6 @@
 package vm
 
 import (
-	"errors"
-
 	"github.com/clearmatics/autonity/params"
 )
 
@@ -28,8 +26,6 @@ type (
 	// memorySizeFunc returns the required size, and whether the operation overflowed a uint64
 	memorySizeFunc func(*Stack) (size uint64, overflow bool)
 )
-
-var errGasUintOverflow = errors.New("gas uint64 overflow")
 
 type operation struct {
 	// execute is the operation function
@@ -61,10 +57,19 @@ var (
 	byzantiumInstructionSet        = newByzantiumInstructionSet()
 	constantinopleInstructionSet   = newConstantinopleInstructionSet()
 	istanbulInstructionSet         = newIstanbulInstructionSet()
+	yoloV1InstructionSet           = newYoloV1InstructionSet()
 )
 
 // JumpTable contains the EVM opcodes supported at a given fork.
 type JumpTable [256]operation
+
+func newYoloV1InstructionSet() JumpTable {
+	instructionSet := newIstanbulInstructionSet()
+
+	enable2315(&instructionSet) // Subroutines - https://eips.ethereum.org/EIPS/eip-2315
+
+	return instructionSet
+}
 
 // newIstanbulInstructionSet returns the frontier, homestead
 // byzantium, contantinople and petersburg instructions.

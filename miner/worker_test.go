@@ -121,7 +121,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 
 	genesis := gspec.MustCommit(db)
 	senderCacher := &core.TxSenderCacher{}
-	chain, _ := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, senderCacher)
+	chain, _ := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, senderCacher, nil)
 	txpool := core.NewTxPool(testTxPoolConfig, chainConfig, chain, senderCacher)
 
 	// Generate a small n-block chain and an uncle block for it
@@ -215,7 +215,7 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 	// This test chain imports the mined blocks.
 	db2 := rawdb.NewMemoryDatabase()
 	b.genesis.MustCommit(db2)
-	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, &core.TxSenderCacher{})
+	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
 	defer chain.Stop()
 
 	// Ignore empty commit here for less noise.
