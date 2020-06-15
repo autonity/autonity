@@ -2,6 +2,7 @@ package autonity
 
 import (
 	"errors"
+	"github.com/clearmatics/autonity/params"
 	"math/big"
 	"sort"
 	"strings"
@@ -27,7 +28,6 @@ const ABISPEC = "ABISPEC"
 type EVMProvider interface {
 	EVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM
 }
-
 
 type ChainContext interface {
 	// GetHeader returns the hash corresponding to their hash.
@@ -59,9 +59,7 @@ type Contract interface {
 
 	GetContractABI() string
 
-	Address() common.Address
-
-	DeployAutonityContract(chainConfig *params.ChainConfig, header *types.Header, statedb *state.StateDB) (common.Address, error)
+	DeployAutonityContract(chainConfig *params.ChainConfig, header *types.Header, statedb *state.StateDB) error
 
 	GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error)
 }
@@ -74,6 +72,8 @@ type evmContract struct {
 	stringContractABI  string
 	bc                 Blockchainer
 	metrics            EconomicMetrics
+
+	sync.RWMutex
 }
 
 func NewAutonityContract(
@@ -232,14 +232,14 @@ func (ac *evmContract) FinalizeAndGetCommittee(transactions types.Transactions, 
 		// in any failure, the state will be rollback to snapshot.
 		err = ac.performContractUpgrade(statedb, header)
 		if err != nil {
-			log.Warn("Autonity evmContract Upgrade Failed", "err", err)
+			log.Warn("Autonity Contract Upgrade Failed", "err", err)
 		}
 	}
 	return committee, receipt, nil
 }
 
 func (ac *evmContract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
-	log.Error("Initiating Autonity evmContract upgrade", "header", header.Number.Uint64())
+	log.Error("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
 
 	// dump contract stateBefore first.
 	stateBefore, errState := ac.callRetrieveState(statedb, header)

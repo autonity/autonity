@@ -38,7 +38,6 @@ func (s *stubContract) FinalizeAndGetCommittee(txs types.Transactions, r types.R
 }
 
 func (s *stubContract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB) {
-	return
 }
 
 func (s *stubContract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
@@ -53,8 +52,8 @@ func (s *stubContract) Address() common.Address {
 	return common.Address{}
 }
 
-func (s *stubContract) DeployAutonityContract(chainConfig *params.ChainConfig, header *types.Header, statedb *state.StateDB) (common.Address, error) {
-	return common.Address{}, nil
+func (s *stubContract) DeployAutonityContract(chainConfig *params.ChainConfig, header *types.Header, statedb *state.StateDB) error {
+	return nil
 }
 
 func (s *stubContract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error) {

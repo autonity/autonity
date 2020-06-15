@@ -33,9 +33,9 @@ type ContractState struct {
 type raw []byte
 
 // deployContract deploys the contract contained within the genesis field bytecode
-func (ac *evmContract) DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) error {
+func (ac *evmContract) DeployAutonityContract(chainConfig *params.ChainConfig, header *types.Header, statedb *state.StateDB) error {
 	// Convert the contract bytecode from hex into bytes
-	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
+	contractBytecode := common.Hex2Bytes(chainConfig.AutonityContractConfig.Bytecode)
 	evm := ac.evmProvider.EVM(header, deployer, statedb)
 
 	ln := len(chainConfig.AutonityContractConfig.GetValidatorUsers())
