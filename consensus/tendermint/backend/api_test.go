@@ -1,16 +1,16 @@
 package backend
 
 import (
-	"github.com/clearmatics/autonity/common/acdefault"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/acdefault"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetCommittee(t *testing.T) {
@@ -105,7 +105,7 @@ func TestAPIGetContractAddress(t *testing.T) {
 	_, err = chain.InsertChain(types.Blocks{block})
 	assert.Nil(t, err)
 
-	want := crypto.CreateAddress(acdefault.Deployer(), 0)
+	want := autonity.ContractAddress
 
 	API := &API{
 		tendermint: engine,
