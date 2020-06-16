@@ -1,38 +1,29 @@
 package backend
 
 import (
-	"context"
 	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"math/rand"
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/rpc"
 )
 
 func TestGetCommittee(t *testing.T) {
-	genesis, nodeKeys := getGenesisAndKeys(rand.Intn(30) + 1)
-	memDB := rawdb.NewMemoryDatabase()
-	backend := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
-	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, backend, vm.Config{}, nil, core.NewTxSenderCacher())
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	assert.Nil(t, err)
+	_, err = chain.InsertChain(types.Blocks{block})
 	assert.Nil(t, err)
 
-	err = backend.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	want, err := engine.Committee(1)
 	assert.Nil(t, err)
 
-	want, err := backend.Committee(0)
-	assert.Nil(t, err)
-
-	backendAPI := &API{tendermint: backend}
+	backendAPI := &API{tendermint: engine}
 
 	bn := rpc.BlockNumber(0)
 	got, err := backendAPI.GetCommittee(&bn)
@@ -62,32 +53,28 @@ func TestGetCommitteeAtHash(t *testing.T) {
 	})
 
 	t.Run("valid block given, committee returned", func(t *testing.T) {
-		genesis, nodeKeys := getGenesisAndKeys(rand.Intn(30) + 1)
-		memDB := rawdb.NewMemoryDatabase()
-		backend := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
-		genesis.MustCommit(memDB)
-		blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, backend, vm.Config{}, nil, core.NewTxSenderCacher())
+		chain, engine := newBlockChain(1)
+		block, err := makeBlock(chain, engine, chain.Genesis())
+		assert.Nil(t, err)
+		_, err = chain.InsertChain(types.Blocks{block})
 		assert.Nil(t, err)
 
-		err = backend.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
-		assert.Nil(t, err)
-
-		want, err := backend.Committee(0)
+		want, err := engine.Committee(1)
 		assert.Nil(t, err)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		genHash := blockchain.Genesis().Hash()
-		chain := consensus.NewMockChainReader(ctrl)
-		chain.EXPECT().GetHeaderByHash(genHash).Return(blockchain.Genesis().Header())
+		h := block.Hash()
+		mockChain := consensus.NewMockChainReader(ctrl)
+		mockChain.EXPECT().GetHeaderByHash(h).Return(block.Header())
 
 		API := &API{
-			chain:      chain,
-			tendermint: backend,
+			chain:      mockChain,
+			tendermint: engine,
 		}
 
-		got, err := API.GetCommitteeAtHash(genHash)
+		got, err := API.GetCommitteeAtHash(h)
 		assert.Nil(t, err)
 
 		assert.Equal(t, want.Committee(), got)
@@ -95,20 +82,16 @@ func TestGetCommitteeAtHash(t *testing.T) {
 }
 
 func TestAPIGetContractABI(t *testing.T) {
-	genesis, nodeKeys := getGenesisAndKeys(rand.Intn(30) + 1)
-	memDB := rawdb.NewMemoryDatabase()
-	backend := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
-	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, backend, vm.Config{}, nil, core.NewTxSenderCacher())
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
 	assert.Nil(t, err)
-
-	err = backend.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	_, err = chain.InsertChain(types.Blocks{block})
 	assert.Nil(t, err)
 
 	want := acdefault.ABI()
 
 	API := &API{
-		tendermint: backend,
+		tendermint: engine,
 	}
 
 	got := API.GetContractABI()
@@ -116,20 +99,16 @@ func TestAPIGetContractABI(t *testing.T) {
 }
 
 func TestAPIGetContractAddress(t *testing.T) {
-	genesis, nodeKeys := getGenesisAndKeys(rand.Intn(30) + 1)
-	memDB := rawdb.NewMemoryDatabase()
-	backend := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
-	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, backend, vm.Config{}, nil, core.NewTxSenderCacher())
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
 	assert.Nil(t, err)
-
-	err = backend.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	_, err = chain.InsertChain(types.Blocks{block})
 	assert.Nil(t, err)
 
 	want := crypto.CreateAddress(acdefault.Deployer(), 0)
 
 	API := &API{
-		tendermint: backend,
+		tendermint: engine,
 	}
 
 	got := API.GetContractAddress()
@@ -137,24 +116,16 @@ func TestAPIGetContractAddress(t *testing.T) {
 }
 
 func TestAPIGetWhitelist(t *testing.T) {
-	genesis, nodeKeys := getGenesisAndKeys(1)
-	memDB := rawdb.NewMemoryDatabase()
-	backend := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
-	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, backend, vm.Config{}, nil, core.NewTxSenderCacher())
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
 	assert.Nil(t, err)
-
-	err = backend.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	_, err = chain.InsertChain(types.Blocks{block})
 	assert.Nil(t, err)
-
-	block, err := makeBlock(blockchain, backend, blockchain.Genesis())
-	assert.Nil(t, err)
-	_, err = blockchain.InsertChain(types.Blocks{block})
 
 	want := []string{"enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"}
 
 	API := &API{
-		tendermint: backend,
+		tendermint: engine,
 	}
 
 	got := API.GetWhitelist()
