@@ -14,6 +14,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:          "one node stops at block 1",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     10,
 			txPerPeer:     1,
@@ -27,6 +28,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		},
 		{
 			name:          "one node stops at block 5",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     10,
 			txPerPeer:     1,
@@ -40,6 +42,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		},
 		{
 			name:          "F nodes stop at block 1",
+			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     10,
 			txPerPeer:     1,
@@ -55,6 +58,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		},
 		{
 			name:          "F nodes stop at block 5",
+			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     10,
 			txPerPeer:     1,
@@ -70,6 +74,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		},
 		{
 			name:          "F nodes stop at blocks 4,5",
+			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     10,
 			txPerPeer:     1,
@@ -101,6 +106,7 @@ func TestTendermintStartStopSingleNode(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:          "one node stops for 5 seconds",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -114,6 +120,7 @@ func TestTendermintStartStopSingleNode(t *testing.T) {
 		},
 		{
 			name:          "one node stops for 10 seconds",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -127,6 +134,7 @@ func TestTendermintStartStopSingleNode(t *testing.T) {
 		},
 		{
 			name:          "one node stops for 20 seconds",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     30,
 			txPerPeer:     1,
@@ -156,6 +164,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:          "f nodes stop for 5 seconds at the same block",
+			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     15,
 			txPerPeer:     1,
@@ -171,6 +180,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		},
 		{
 			name:          "f nodes stop for 5 seconds at different blocks",
+			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     15,
 			txPerPeer:     1,
@@ -186,6 +196,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		},
 		{
 			name:          "f nodes stop for 10 seconds at the same block",
+			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -201,6 +212,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		},
 		{
 			name:          "f nodes stop for 10 seconds at different blocks",
+			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -216,6 +228,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		},
 		{
 			name:          "f nodes stop for 10 seconds at the same block",
+			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -231,6 +244,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		},
 		{
 			name:          "f nodes stop for 10 seconds at different blocks",
+			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -262,6 +276,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:          "f+1 nodes stop for 5 seconds at the same block",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     15,
 			txPerPeer:     1,
@@ -277,6 +292,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		},
 		{
 			name:          "f+1 nodes stop for 5 seconds at different blocks",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     15,
 			txPerPeer:     1,
@@ -292,6 +308,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		},
 		{
 			name:          "f+1 nodes stop for 10 seconds at the same block",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -307,6 +324,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		},
 		{
 			name:          "f+1 nodes stop for 10 seconds at different blocks",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -322,6 +340,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		},
 		{
 			name:          "f+1 nodes stop for 20 seconds at the same block",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -337,6 +356,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		},
 		{
 			name:          "f+1 nodes stop for 20 seconds at different blocks",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -368,6 +388,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:          "f+2 nodes stop for 5 seconds at the same block",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -385,6 +406,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		},
 		{
 			name:          "f+2 nodes stop for 5 seconds at different blocks",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     20,
 			txPerPeer:     1,
@@ -402,6 +424,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		},
 		{
 			name:          "f+2 nodes stop for 10 seconds at the same block",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     30,
 			txPerPeer:     1,
@@ -419,6 +442,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		},
 		{
 			name:          "f+2 nodes stop for 10 seconds at different blocks",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     30,
 			txPerPeer:     1,
@@ -436,6 +460,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		},
 		{
 			name:          "f+2 nodes stop for 20 seconds at the same block",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     30,
 			txPerPeer:     1,
@@ -453,6 +478,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		},
 		{
 			name:          "f+2 nodes stop for 20 seconds at different blocks",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     30,
 			txPerPeer:     1,
@@ -486,6 +512,7 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:          "all nodes stop for 60 seconds at different blocks(2+2+1)",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     50,
 			txPerPeer:     1,
@@ -507,6 +534,7 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 		},
 		{
 			name:          "all nodes stop for 60 seconds at different blocks (2+3)",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     50,
 			txPerPeer:     1,
@@ -528,6 +556,7 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 		},
 		{
 			name:          "all nodes stop for 30 seconds at the same block",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     50,
 			txPerPeer:     1,
@@ -549,6 +578,7 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 		},
 		{
 			name:          "all nodes stop for 60 seconds at the same block",
+			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     50,
 			txPerPeer:     1,
