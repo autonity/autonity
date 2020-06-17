@@ -14,7 +14,6 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:          "one node stops at block 1",
-			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     10,
 			txPerPeer:     1,
@@ -28,7 +27,6 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		},
 		{
 			name:          "one node stops at block 5",
-			looseTXCheck:  true,
 			numValidators: 5,
 			numBlocks:     10,
 			txPerPeer:     1,
@@ -42,7 +40,6 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		},
 		{
 			name:          "F nodes stop at block 1",
-			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     10,
 			txPerPeer:     1,
@@ -58,7 +55,6 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		},
 		{
 			name:          "F nodes stop at block 5",
-			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     10,
 			txPerPeer:     1,
@@ -74,7 +70,6 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		},
 		{
 			name:          "F nodes stop at blocks 4,5",
-			looseTXCheck:  true,
 			numValidators: 7,
 			numBlocks:     10,
 			txPerPeer:     1,
