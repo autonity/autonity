@@ -256,7 +256,7 @@ func TestTendermintBusSuccessWithExternalUser(t *testing.T) {
 }
 
 func TestTendermintChangeTopologyFromBusToStarSuccessWithExternalUser(t *testing.T) {
-	// t.Skip("Topology tests are not stable")
+	t.Skip("Topology tests are not stable")
 
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -305,7 +305,7 @@ func TestTendermintChangeTopologyFromBusToStarSuccessWithExternalUser(t *testing
 }
 
 func TestTendermintChangeTopologyFromStarToBusSuccessWithExternalUser(t *testing.T) {
-	// t.Skip("Topology tests are not stable")
+	t.Skip("Topology tests are not stable")
 
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -355,7 +355,7 @@ func TestTendermintChangeTopologyFromStarToBusSuccessWithExternalUser(t *testing
 }
 
 func TestTendermintAddConnectionToTopologySuccessWithExternalUser(t *testing.T) {
-	// t.Skip("Topology tests are not stable")
+	t.Skip("Topology tests are not stable")
 
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -405,7 +405,7 @@ func TestTendermintAddConnectionToTopologySuccessWithExternalUser(t *testing.T) 
 }
 
 func TestTendermintAddValidatorsToTopologySuccessWithExternalUser(t *testing.T) {
-	// t.Skip("Topology tests are not stable")
+	t.Skip("Topology tests are not stable")
 
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
