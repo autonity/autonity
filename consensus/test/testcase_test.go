@@ -69,7 +69,7 @@ type testCase struct {
 	// to the end chain height defined by the test case. Following with block sync, the recover node hook function keep
 	// issuing TXs into the TX memory pool. In such case, we check the engine is not on-hold and move to the final chain
 	// height defined by the test case, pending TX shouldn't be a error to cause test failure.
-	looseTXCheck         bool
+	looseTXCheck bool
 }
 
 type injectors struct {
