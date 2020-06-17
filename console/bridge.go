@@ -26,13 +26,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dop251/goja"
 	"github.com/clearmatics/autonity/accounts/scwallet"
 	"github.com/clearmatics/autonity/accounts/usbwallet"
-	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/console/prompt"
-	"github.com/clearmatics/autonity/internal/jsre"
 	"github.com/clearmatics/autonity/rpc"
+	"github.com/dop251/goja"
 )
 
 // bridge is a collection of JavaScript utility methods to bride the .js runtime

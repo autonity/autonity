@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/rpc"
 )
 

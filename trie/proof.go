@@ -23,7 +23,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/ethdb"
-	"github.com/ethereum/go-ethereum/ethdb/memorydb"
+	"github.com/clearmatics/autonity/ethdb/memorydb"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 )

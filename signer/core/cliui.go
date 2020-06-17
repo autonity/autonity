@@ -25,7 +25,7 @@ import (
 	"sync"
 
 	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/ethereum/go-ethereum/console/prompt"
+	"github.com/clearmatics/autonity/console/prompt"
 	"github.com/clearmatics/autonity/internal/ethapi"
 	"github.com/clearmatics/autonity/log"
 )

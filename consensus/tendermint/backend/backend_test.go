@@ -653,7 +653,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	b := New(cfg, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 
 	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher())
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
 	if err != nil {
 		panic(err)
 	}

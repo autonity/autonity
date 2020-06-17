@@ -141,7 +141,6 @@ func (f *freezer) Close() error {
 	if errs != nil {
 		return fmt.Errorf("%v", errs)
 	}
-	close(f.closeCh)
 	return nil
 }
 
@@ -409,15 +408,4 @@ func (f *freezer) repair() error {
 	}
 	atomic.StoreUint64(&f.frozen, min)
 	return nil
-}
-
-func (f *freezer) sleep() error {
-	t := time.NewTimer(freezerRecheckInterval)
-	defer t.Stop()
-	select {
-	case <-t.C:
-		return nil
-	case <-f.closeCh:
-		return errors.New("stopped")
-	}
 }

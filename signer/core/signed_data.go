@@ -34,10 +34,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/consensus/clique"
-	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/rlp"
 )
 
 type SigFormat struct {

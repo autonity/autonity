@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/console/prompt"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"math"
 	"os"
@@ -32,7 +33,6 @@ import (
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/console"
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/ethclient"
@@ -41,7 +41,6 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/node"
-	"github.com/elastic/gosigar"
 	gopsutil "github.com/shirou/gopsutil/mem"
 	cli "gopkg.in/urfave/cli.v1"
 )

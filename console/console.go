@@ -29,12 +29,12 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/dop251/goja"
 	"github.com/clearmatics/autonity/console/prompt"
 	"github.com/clearmatics/autonity/internal/jsre"
 	"github.com/clearmatics/autonity/internal/jsre/deps"
 	"github.com/clearmatics/autonity/internal/web3ext"
 	"github.com/clearmatics/autonity/rpc"
+	"github.com/dop251/goja"
 	"github.com/mattn/go-colorable"
 	"github.com/peterh/liner"
 )

@@ -28,7 +28,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	"github.com/clearmatics/autonity/accounts"
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/accounts/scwallet"
 	"github.com/clearmatics/autonity/common"

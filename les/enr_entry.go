@@ -17,7 +17,7 @@
 package les
 
 import (
-	"github.com/clearmatics/autonitym/p2p"
+	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/p2p/dnsdisc"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/rlp"

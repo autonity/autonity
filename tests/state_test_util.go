@@ -172,7 +172,7 @@ func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapsh
 	vmconfig.ExtraEips = eips
 	block, err := t.genesis(config).ToBlock(nil)
 	if err != nil {
-		return nil, common.Hash{}, err
+		return nil, nil, common.Hash{}, err
 	}
 	snaps, statedb := MakePreState(rawdb.NewMemoryDatabase(), t.json.Pre, snapshotter)
 

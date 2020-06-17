@@ -21,7 +21,6 @@ import (
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
 )
 
 func bigFromHex(hex string) *big.Int {

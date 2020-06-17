@@ -59,34 +59,12 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		gspec  = &core.Genesis{
-			Config:     params.TestChainConfig,
-			Alloc:      core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
-			Difficulty: big.NewInt(1),
+			Config: params.TestChainConfig,
+			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
 		}
 	)
-	a := common.HexToAddress("0x0000000000000000000000000000000000000000")
-	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{
-		Users: []params.User{{
-			Address: &a,
-			Type:    params.UserValidator,
-			Stake:   1,
-		}},
-	}
 
-	for i := range peers {
-		gspec.Config.AutonityContractConfig.Users = append(
-			gspec.Config.AutonityContractConfig.Users,
-			params.User{
-				Enode: peers[i],
-				Type:  params.UserValidator,
-				Stake: 100,
-			},
-		)
-	}
-	err := gspec.Config.AutonityContractConfig.Prepare()
-	if err != nil {
-		panic(err)
-	}
+	setupAutonityContract(gspec, peers)
 
 	genesis := gspec.MustCommit(db)
 	blockchain, err := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
@@ -104,6 +82,28 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 	}
 	pm.Start(1000)
 	return pm, db, nil
+}
+
+// helper that add some required fields in the genesis to bootstrap an Autonity Protocol Manager
+func setupAutonityContract(gspec *core.Genesis, peers []string) *core.Genesis {
+	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
+
+	for i := range peers {
+		gspec.Config.AutonityContractConfig.Users = append(
+			gspec.Config.AutonityContractConfig.Users,
+			params.User{
+				Enode: peers[i],
+				Type:  params.UserValidator,
+				Stake: 100,
+			},
+		)
+	}
+	gspec.Difficulty = big.NewInt(1)
+	err := gspec.Config.AutonityContractConfig.Prepare()
+	if err != nil {
+		panic(err)
+	}
+	return gspec
 }
 
 // newTestProtocolManagerMust creates a new protocol manager for testing purposes,

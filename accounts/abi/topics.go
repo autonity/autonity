@@ -23,7 +23,6 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/crypto"
 )
