@@ -63,6 +63,13 @@ type testCase struct {
 	noQuorumTimeout      time.Duration
 	topology             *Topology
 	skipNoLeakCheck      bool
+
+	// To apply loose TX error check in those disaster test cases. For example, pending TX might happens when
+	// the recover node not yet complete the round state synchronization from peers, while the other nodes already come
+	// to the end chain height defined by the test case. Following with block sync, the recover node hook function keep
+	// issuing TXs into the TX memory pool. In such case, we check the engine is not on-hold and move to the final chain
+	// height defined by the test case, pending TX shouldn't be a error to cause test failure.
+	looseTXCheck         bool
 }
 
 type injectors struct {
@@ -289,7 +296,7 @@ func runTest(t *testing.T, test *testCase) {
 	}()
 
 	// each peer sends one tx per block
-	sendTransactions(t, test, nodes, test.txPerPeer, true, nodeNames)
+	sendTransactions(t, test, nodes, test.txPerPeer, !test.looseTXCheck, nodeNames)
 	if test.finalAssert != nil {
 		test.finalAssert(t, nodes)
 	}
