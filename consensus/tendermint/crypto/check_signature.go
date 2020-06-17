@@ -1,11 +1,13 @@
 package crypto
 
 import (
+	"crypto/ecdsa"
 	"errors"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 )
 
@@ -26,4 +28,9 @@ func CheckValidatorSignature(valSet *committee.Set, data []byte, sig []byte) (co
 	}
 
 	return val.Address, nil
+}
+
+// Sign implements tendermint.Backend.Sign
+func Sign(data []byte, key *ecdsa.PrivateKey) ([]byte, error) {
+	return crypto.Sign(crypto.Keccak256(data), key)
 }

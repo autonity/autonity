@@ -17,7 +17,6 @@
 package backend
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"errors"
 	"math/big"
@@ -29,7 +28,6 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
@@ -64,8 +62,6 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	}
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
-	recentMessages, _ := lru.NewARC(inmemoryPeers)
-	knownMessages, _ := lru.NewARC(inmemoryMessages)
 
 	pub := crypto.PubkeyToAddress(privateKey.PublicKey).String()
 	logger := log.New("addr", pub)
@@ -73,17 +69,15 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	logger.Warn("new backend with public key")
 
 	backend := &Backend{
-		config:         config,
-		eventMux:       event.NewTypeMuxSilent(logger),
-		privateKey:     privateKey,
-		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:         logger,
-		db:             db,
-		recents:        recents,
-		coreStarted:    false,
-		recentMessages: recentMessages,
-		knownMessages:  knownMessages,
-		vmConfig:       vmConfig,
+		config:      config,
+		eventMux:    event.NewTypeMuxSilent(logger),
+		privateKey:  privateKey,
+		address:     crypto.PubkeyToAddress(privateKey.PublicKey),
+		logger:      logger,
+		db:          db,
+		recents:     recents,
+		coreStarted: false,
+		vmConfig:    vmConfig,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
@@ -123,10 +117,6 @@ type Backend struct {
 	// event subscription for ChainHeadEvent event
 	broadcaster consensus.Broadcaster
 
-	//TODO: ARCChace is patented by IBM, so probably need to stop using it
-	recentMessages *lru.ARCCache // the cache of peer's messages
-	knownMessages  *lru.ARCCache // the cache of self messages
-
 	contractsMu sync.RWMutex
 	vmConfig    *vm.Config
 }
@@ -145,22 +135,6 @@ func (sb *Backend) Committee(number uint64) (*committee.Set, error) {
 		return nil, err
 	}
 	return validators, nil
-}
-
-// Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(ctx context.Context, valSet *committee.Set, payload []byte) error {
-	// send to others
-	sb.Gossip(ctx, valSet, payload)
-	// send to self
-	msg := events.MessageEvent{
-		Payload: payload,
-	}
-	sb.postEvent(msg)
-	return nil
-}
-
-func (sb *Backend) postEvent(event interface{}) {
-	go sb.Post(event)
 }
 
 func (sb *Backend) AskSync(valSet *committee.Set) {
@@ -190,41 +164,6 @@ func (sb *Backend) AskSync(valSet *committee.Set) {
 				continue
 			}
 			count += member.VotingPower.Uint64()
-		}
-	}
-}
-
-// Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, valSet *committee.Set, payload []byte) {
-	hash := types.RLPHash(payload)
-	sb.knownMessages.Add(hash, true)
-
-	targets := make(map[common.Address]struct{})
-	for _, val := range valSet.Committee() {
-		if val.Address != sb.Address() {
-			targets[val.Address] = struct{}{}
-		}
-	}
-
-	if sb.broadcaster != nil && len(targets) > 0 {
-		ps := sb.broadcaster.FindPeers(targets)
-		for addr, p := range ps {
-			ms, ok := sb.recentMessages.Get(addr)
-			var m *lru.ARCCache
-			if ok {
-				m, _ = ms.(*lru.ARCCache)
-				if _, k := m.Get(hash); k {
-					// This peer had this event, skip it
-					continue
-				}
-			} else {
-				m, _ = lru.NewARC(inmemoryMessages)
-			}
-
-			m.Add(hash, true)
-			sb.recentMessages.Add(addr, m)
-
-			go p.Send(tendermintMsg, payload) //nolint
 		}
 	}
 }
@@ -366,12 +305,6 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		return time.Unix(int64(block.Header().Time), 0).Sub(now()), consensus.ErrFutureBlock
 	}
 	return 0, err
-}
-
-// Sign implements tendermint.Backend.Sign
-func (sb *Backend) Sign(data []byte) ([]byte, error) {
-	hashData := crypto.Keccak256(data)
-	return crypto.Sign(hashData, sb.GetPrivateKey())
 }
 
 // CheckSignature implements tendermint.Backend.CheckSignature

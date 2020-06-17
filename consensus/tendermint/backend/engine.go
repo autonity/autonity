@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
@@ -409,7 +410,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 		sb.logger.Error("Error ancestor")
 		return consensus.ErrUnknownAncestor
 	}
-	block, err := sb.AddSeal(block)
+	block, err := sb.addSeal(block)
 	if err != nil {
 		sb.logger.Error("seal error updateBlock", "err", err.Error())
 		return err
@@ -469,10 +470,10 @@ func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
 }
 
 // update timestamp and signature of the block based on its number of transactions
-func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
+func (sb *Backend) addSeal(block *types.Block) (*types.Block, error) {
 	header := block.Header()
 	// sign the hash
-	seal, err := sb.Sign(types.SigHash(header).Bytes())
+	seal, err := crypto.Sign(types.SigHash(header).Bytes(), sb.GetPrivateKey())
 	if err != nil {
 		return nil, err
 	}

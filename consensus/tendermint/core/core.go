@@ -161,45 +161,6 @@ func (c *core) IsMember(address common.Address) bool {
 	return err == nil
 }
 
-func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
-	var err error
-
-	// Sign message
-	data, err := msg.PayloadNoSig()
-	if err != nil {
-		return nil, err
-	}
-	msg.Signature, err = c.backend.Sign(data)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to payload
-	payload, err := msg.Payload()
-	if err != nil {
-		return nil, err
-	}
-
-	return payload, nil
-}
-
-func (c *core) broadcast(ctx context.Context, msg *Message) {
-	logger := c.logger.New("step", c.step)
-
-	payload, err := c.finalizeMessage(msg)
-	if err != nil {
-		logger.Error("Failed to finalize message", "msg", msg, "err", err)
-		return
-	}
-
-	// Broadcast payload
-	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(ctx, c.CommitteeSet(), payload); err != nil {
-		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
-		return
-	}
-}
-
 func (c *core) isProposer() bool {
 	return c.CommitteeSet().IsProposer(c.Round(), c.address)
 }
