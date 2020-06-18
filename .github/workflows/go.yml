@@ -230,6 +230,7 @@ jobs:
       matrix:
         e2e: [TestCheckFeeRedirectionAndRedistribution,
               TestCheckBlockWithSmallFee,
+              TestRewardDistribution,
               TestRemoveFromValidatorsList,
               TestContractUpgrade_Success,
               TestContractUpgradeSeveralUpgrades,
