@@ -254,12 +254,11 @@ func TestRewardDistribution(t *testing.T) {
 
 	testCases := []*testCase{
 		{
-			name:          "reward distribution check with fixed staking",
-			numValidators: 6,
-			numBlocks:     30,
-			txPerPeer:     1,
+			name:                 "reward distribution check with fixed staking",
+			numValidators:        6,
+			numBlocks:            30,
+			txPerPeer:            1,
 			sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
-			genesisHook: genesisHook,
 			// Apply reward checker to all nodes:
 			beforeHooks: map[string]hook{
 				"VA": rewardChecker,
@@ -289,7 +288,6 @@ func TestRewardDistribution(t *testing.T) {
 				"VE": rewardChecker,
 				"VF": rewardChecker,
 			},
-			//stopTime: make(map[string]time.Time),
 		},
 		{
 			name:          "reward distribution check with run time stake transfer",
@@ -309,7 +307,6 @@ func TestRewardDistribution(t *testing.T) {
 				"VE": rewardChecker,
 				"VF": rewardChecker,
 			},
-			//stopTime: make(map[string]time.Time),
 		},
 		{
 			name:          "reward distribution check with run time stake redeem",
@@ -329,7 +326,6 @@ func TestRewardDistribution(t *testing.T) {
 				"VE": rewardChecker,
 				"VF": rewardChecker,
 			},
-			//stopTime: make(map[string]time.Time),
 		},
 	}
 
