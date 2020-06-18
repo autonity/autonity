@@ -1,12 +1,17 @@
 package test
 
 import (
+	"context"
 	"fmt"
+	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/ethclient"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -15,8 +20,14 @@ func TestRewardDistribution(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-
-	hookGenerator := func() hook {
+	// prepare chain operator
+	operatorKey, err := keygenerator.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
+	// reward checker hook:
+	rewardCheckHookGenerator := func() hook {
 		type EconomicMetaData struct {
 			Accounts        []common.Address `abi:"accounts"`
 			Usertypes       []uint8          `abi:"usertypes"`
@@ -109,16 +120,147 @@ func TestRewardDistribution(t *testing.T) {
 
 		return fRewardChecker
 	}
+	rewardChecker := rewardCheckHookGenerator()
+	// mint stake hook
+	mintStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
+		if validator.lastBlock <= 3 {
+			return true, nil, nil
+		}
+		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Close()
 
-	rewardChecker := hookGenerator()
+		nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	cases := []*testCase{
+		gasPrice, err := conn.SuggestGasPrice(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		auth := bind.NewKeyedTransactor(operatorKey)
+		auth.From = operatorAddress
+		auth.Nonce = big.NewInt(int64(nonce))
+		auth.GasLimit = uint64(300000) // in units
+		auth.GasPrice = gasPrice
+
+		contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
+		instance, err := NewAutonity(contractAddress, conn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+		index := validator.lastBlock % uint64(len(validatorsList))
+		tx, err := instance.MintStake(auth, *validatorsList[index].Address, new(big.Int).SetUint64(100))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return false, tx, nil
+	}
+	// send stake hook
+	transferStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
+		if validator.lastBlock <= 3 {
+			return true, nil, nil
+		}
+		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Close()
+
+		nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		gasPrice, err := conn.SuggestGasPrice(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		auth := bind.NewKeyedTransactor(operatorKey)
+		auth.From = operatorAddress
+		auth.Nonce = big.NewInt(int64(nonce))
+		auth.GasLimit = uint64(300000) // in units
+		auth.GasPrice = gasPrice
+
+		contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
+		instance, err := NewAutonity(contractAddress, conn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+		to := validator.lastBlock % uint64(len(validatorsList))
+		tx, err := instance.Send(auth, *validatorsList[to].Address, new(big.Int).SetUint64(1))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return false, tx, nil
+	}
+	// redeem stake hook
+	redeemStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
+		if validator.lastBlock <= 3 {
+			return true, nil, nil
+		}
+		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Close()
+
+		nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		gasPrice, err := conn.SuggestGasPrice(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		auth := bind.NewKeyedTransactor(operatorKey)
+		auth.From = operatorAddress
+		auth.Nonce = big.NewInt(int64(nonce))
+		auth.GasLimit = uint64(300000) // in units
+		auth.GasPrice = gasPrice
+
+		contractAddress := validator.service.BlockChain().GetAutonityContract().Address()
+		instance, err := NewAutonity(contractAddress, conn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+		from := validator.lastBlock % uint64(len(validatorsList))
+		tx, err := instance.RedeemStake(auth, *validatorsList[from].Address, new(big.Int).SetUint64(1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return false, tx, nil
+	}
+	// genesis hook
+	genesisHook := func(g *core.Genesis) *core.Genesis {
+		g.Config.AutonityContractConfig.Operator = operatorAddress
+		g.Alloc[operatorAddress] = core.GenesisAccount{
+			Balance: big.NewInt(100000000000000000),
+		}
+		return g
+	}
+
+	testCases := []*testCase{
 		{
-			name:          "check reward distribution per block",
+			name:          "reward distribution check with fixed staking",
 			numValidators: 6,
 			numBlocks:     30,
 			txPerPeer:     1,
-			// All nodes in the network check its reward distribution.
+			sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+			genesisHook: genesisHook,
+			// Apply reward checker to all nodes:
 			beforeHooks: map[string]hook{
 				"VA": rewardChecker,
 				"VB": rewardChecker,
@@ -129,9 +271,69 @@ func TestRewardDistribution(t *testing.T) {
 			},
 			stopTime: make(map[string]time.Time),
 		},
+		{
+			name:          "reward distribution check with run time stake mint",
+			numValidators: 6,
+			numBlocks:     30,
+			txPerPeer:     1,
+			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+				"VA": mintStakeHook,
+			},
+			genesisHook: genesisHook,
+			// All nodes in the network check its reward distribution.
+			beforeHooks: map[string]hook{
+				"VA": rewardChecker,
+				"VB": rewardChecker,
+				"VC": rewardChecker,
+				"VD": rewardChecker,
+				"VE": rewardChecker,
+				"VF": rewardChecker,
+			},
+			//stopTime: make(map[string]time.Time),
+		},
+		{
+			name:          "reward distribution check with run time stake transfer",
+			numValidators: 6,
+			numBlocks:     30,
+			txPerPeer:     1,
+			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+				"VA": transferStakeHook,
+			},
+			genesisHook: genesisHook,
+			// All nodes in the network check its reward distribution.
+			beforeHooks: map[string]hook{
+				"VA": rewardChecker,
+				"VB": rewardChecker,
+				"VC": rewardChecker,
+				"VD": rewardChecker,
+				"VE": rewardChecker,
+				"VF": rewardChecker,
+			},
+			//stopTime: make(map[string]time.Time),
+		},
+		{
+			name:          "reward distribution check with run time stake redeem",
+			numValidators: 6,
+			numBlocks:     30,
+			txPerPeer:     1,
+			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+				"VA": redeemStakeHook,
+			},
+			genesisHook: genesisHook,
+			// All nodes in the network check its reward distribution.
+			beforeHooks: map[string]hook{
+				"VA": rewardChecker,
+				"VB": rewardChecker,
+				"VC": rewardChecker,
+				"VD": rewardChecker,
+				"VE": rewardChecker,
+				"VF": rewardChecker,
+			},
+			//stopTime: make(map[string]time.Time),
+		},
 	}
 
-	for _, testCase := range cases {
+	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
 			runTest(t, testCase)
