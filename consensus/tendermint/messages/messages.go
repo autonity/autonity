@@ -33,6 +33,15 @@ type Precommit struct {
 	Prevote
 }
 
+type EncodablePrecommit Precommit
+
+func (e EncodablePrecommit)
+
+type TendermintMessage struct{
+	Msg int
+	encodedMsg []bytes
+}
+
 // RLP encoding doesn't support negative big.Int, so we have to pass one additionnal field to represents validRound = -1.
 // Note that we could have as well indexed rounds starting by 1, but we want to stay close as possible to the spec.
 func (p *Proposal) EncodeRLP(w io.Writer) error {

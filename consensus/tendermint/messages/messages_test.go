@@ -2,8 +2,10 @@ package messages
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"math/rand"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,8 +19,12 @@ type ValidatableStub types.Block
 
 func (v ValidatableStub) Valid() bool { return true }
 
-func (v ValidatableStub) EncodeRLP(w io.Writer)   {}
-func (v ValidatableStub) DecodeRLP(s *rlp.Stream) {}
+func (v ValidatableStub) EncodeRLP(w io.Writer) error {
+	return nil
+}
+func (v ValidatableStub) DecodeRLP(s *rlp.Stream) error {
+	return nil
+}
 
 func TestEncodeDecodeProposal(t *testing.T) {
 	buf := &bytes.Buffer{}
@@ -30,10 +36,11 @@ func TestEncodeDecodeProposal(t *testing.T) {
 	proposal := Proposal{
 		Round:      int64(rand.Intn(100)),
 		Height:     uint64(rand.Intn(100)),
-		ValidRound: int64(rand.Intn(100) - 1),
+		ValidRound: int64(rand.Intn(100)),
 		NodeId:     id,
 		Value:      ValidatableStub{},
 	}
+	fmt.Printf("type: %v\n", reflect.TypeOf(proposal.Value).Kind())
 	err = rlp.Encode(buf, &proposal)
 	assert.NoError(t, err)
 
