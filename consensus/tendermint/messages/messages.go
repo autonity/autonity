@@ -1,13 +1,9 @@
-package messges
+package messages
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rlp"
 )
 
@@ -20,7 +16,7 @@ type NodeId interface {
 
 type Proposal struct {
 	Round      int64
-	Height     *big.Int
+	Height     uint64
 	ValidRound int64
 	NodeId     NodeId
 	Value      Validatable
@@ -28,7 +24,7 @@ type Proposal struct {
 
 type Prevote struct {
 	Round     int64
-	Height    *big.Int
+	Height    uint64
 	NodeId    NodeId
 	ValueHash []byte
 }
@@ -40,11 +36,6 @@ type Precommit struct {
 // RLP encoding doesn't support negative big.Int, so we have to pass one additionnal field to represents validRound = -1.
 // Note that we could have as well indexed rounds starting by 1, but we want to stay close as possible to the spec.
 func (p *Proposal) EncodeRLP(w io.Writer) error {
-	if p.ProposalBlock == nil {
-		// Should never happen
-		return errors.New("encoderlp proposal with nil block")
-	}
-
 	isValidRoundNil := false
 	var validRound uint64
 	if p.ValidRound == -1 {
@@ -59,7 +50,7 @@ func (p *Proposal) EncodeRLP(w io.Writer) error {
 		p.Height,
 		validRound,
 		isValidRoundNil,
-		p.ProposalBlock,
+		p.Value,
 	})
 }
 
@@ -67,10 +58,10 @@ func (p *Proposal) EncodeRLP(w io.Writer) error {
 func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 	var proposal struct {
 		Round           uint64
-		Height          *big.Int
+		Height          uint64
 		ValidRound      uint64
 		IsValidRoundNil bool
-		ProposalBlock   *types.Block
+		Value           Validatable
 	}
 
 	if err := s.Decode(&proposal); err != nil {
@@ -86,47 +77,43 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 		validRound = int64(proposal.ValidRound)
 	}
 
-	if !(validRound <= MaxRound && proposal.Round <= MaxRound) {
-		return errors.New("bad proposal with invalid rounds")
-	}
-
-	if proposal.ProposalBlock == nil {
-		return errors.New("bad proposal with nil decoded block")
+	if proposal.Value == nil {
+		return errors.New("bad proposal with nil value")
 	}
 
 	p.Round = int64(proposal.Round)
 	p.Height = proposal.Height
 	p.ValidRound = validRound
-	p.ProposalBlock = proposal.ProposalBlock
+	p.Value = proposal.Value
 
 	return nil
 }
 
-// EncodeRLP serializes b into the Ethereum RLP format.
-func (sub *Vote) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{uint64(sub.Round), sub.Height, sub.ProposedBlockHash})
-}
+// // EncodeRLP serializes b into the Ethereum RLP format.
+// func (sub *Vote) EncodeRLP(w io.Writer) error {
+// 	return rlp.Encode(w, []interface{}{uint64(sub.Round), sub.Height, sub.ProposedBlockHash})
+// }
 
-// DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
-	var vote struct {
-		Round             uint64
-		Height            *big.Int
-		ProposedBlockHash common.Hash
-	}
+// // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
+// func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
+// 	var vote struct {
+// 		Round             uint64
+// 		Height            *big.Int
+// 		ProposedBlockHash common.Hash
+// 	}
 
-	if err := s.Decode(&vote); err != nil {
-		return err
-	}
-	sub.Round = int64(vote.Round)
-	if sub.Round > MaxRound {
-		return errInvalidMessage
-	}
-	sub.Height = vote.Height
-	sub.ProposedBlockHash = vote.ProposedBlockHash
-	return nil
-}
+// 	if err := s.Decode(&vote); err != nil {
+// 		return err
+// 	}
+// 	sub.Round = int64(vote.Round)
+// 	if sub.Round > MaxRound {
+// 		return errInvalidMessage
+// 	}
+// 	sub.Height = vote.Height
+// 	sub.ProposedBlockHash = vote.ProposedBlockHash
+// 	return nil
+// }
 
-func (sub *Vote) String() string {
-	return fmt.Sprintf("{Round: %v, Height: %v ProposedBlockHash: %v}", sub.Round, sub.Height, sub.ProposedBlockHash.String())
-}
+// func (sub *Vote) String() string {
+// 	return fmt.Sprintf("{Round: %v, Height: %v ProposedBlockHash: %v}", sub.Round, sub.Height, sub.ProposedBlockHash.String())
+// }
