@@ -331,7 +331,7 @@ func TestNewProposal(t *testing.T) {
 		c.setRound(currentRound)
 		c.setStep(propose)
 		c.setCommitteeSet(committeeSet)
-		c.lockedRound = -1
+		c.lockedRound = clientLockedRound
 		c.lockedValue = nil
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
