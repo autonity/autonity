@@ -181,10 +181,6 @@ func (n *Node) ResolveHost() error {
 	return nil
 }
 
-// // Ensure the IP is 4 bytes long for IPv4 addresses.
-// if ipv4 := ip.To4(); ipv4 != nil {
-// 	ip = ipv4
-// }
 
 // Record returns the node's record. The return value is a copy and may
 // be modified by the caller.
