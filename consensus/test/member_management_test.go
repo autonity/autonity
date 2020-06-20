@@ -145,6 +145,9 @@ func TestMemberManagementAddNewValidator(t *testing.T) {
 		// compare the total stake supply before and after new node added.
 		auth.BlockNumber.SetUint64(3)
 		initNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64() != stakeBalance.Uint64() {
 			t.Fatal("stake total supply is not expected")
 		}
@@ -296,6 +299,9 @@ func TestMemberManagementAddNewStakeHolder(t *testing.T) {
 		// compare the total stake supply before and after new node added.
 		auth.BlockNumber.SetUint64(3)
 		initNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64() != stakeBalance.Uint64() {
 			t.Fatal("stake total supply is not expected")
 		}
@@ -445,6 +451,9 @@ func TestMemberManagementAddNewParticipant(t *testing.T) {
 		// compare the total stake supply before and after new node added.
 		auth.BlockNumber.SetUint64(3)
 		initNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64() != 0 {
 			t.Fatal("stake total supply is not expected")
 		}
