@@ -142,20 +142,6 @@ please note that comments are not permitted in valid JSON_.
 
        "autonityContract": {
 
-         // deployer is a special address used as a mechanism to restrict certain
-         // function calls in the Autonity contract to be called only by the
-         // autonity client. The Autonity contract only accepts calls to the
-         // restricted functions if they come from the deployer address.
-         // Internally the client executes these functions by calling the EVM
-         // directly, bypassing any code that processes transactions and verifies
-         // transaction signatures, when it makes these calls it uses the deployer
-         // address as the sender address. It is important that no participants
-         // know the private key belonging to the deployer address, there is
-         // future work to ensure that participants cannot use the deployer
-         // address. The gengen tool randomly genereates the deployer address.
-
-         "deployer": "0x0000000000000000000000000000000000000000",
-
          // The bytecode of the Autonity contract, if left unset the Autonity
          // client will use the embedded contract bytecode. It is advisable to
          // leave this blank since the embedded contract bytecode should be in
@@ -283,9 +269,12 @@ please note that comments are not permitted in valid JSON_.
 
      "gasLimit": "0x0",
 
-     // difficulty is unused by Autonity but is required to be part of the block
-     // header for the virtual machine to function correctly. The gengen tool
-     // leaves this unset.
+    // difficulty is not a concept that makes sense in BFT consensus protocols.
+    // Despite this Autonity still makes use of difficulty by hardcoding it to 1,
+    // which allows us to use the total difficulty field exchanged during peer
+    // connection handshake as a means to decide which peer is ahead. This information
+    // is used to determine whether or not a peer should be allowed to connect to the
+    // network. The gengen tool sets this to 1.
 
      "difficulty": "0x0",
 

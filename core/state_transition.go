@@ -22,6 +22,7 @@ import (
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
@@ -230,11 +231,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	address := st.evm.Coinbase
 
 	if st.evm.ChainConfig().AutonityContractConfig != nil && st.evm.ChainConfig().Tendermint != nil {
-		addr, innerErr := st.evm.ChainConfig().AutonityContractConfig.GetContractAddress()
-		if innerErr != nil {
-			return nil, 0, true, innerErr
-		}
-		address = addr
+		address = autonity.ContractAddress
 	}
 	st.state.AddBalance(address, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
