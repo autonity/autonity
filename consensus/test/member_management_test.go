@@ -109,6 +109,9 @@ func TestMemberManagementAddNewValidator(t *testing.T) {
 		// check node presented in white list.
 		eNode := enode.V4DNSUrl(newValidatorKey.PublicKey, "VN:8527", 8527, 8527)
 		whiteList, err := instance.GetWhitelist(&auth)
+		if err != nil {
+			t.Fatal(err)
+		}
 		whiteListed := false
 		for _, node := range whiteList {
 			if node == eNode {
@@ -257,6 +260,9 @@ func TestMemberManagementAddNewStakeHolder(t *testing.T) {
 		// check node presented in white list.
 		eNode := enode.V4DNSUrl(newStakeHolderKey.PublicKey, "SN:8527", 8527, 8527)
 		whiteList, err := instance.GetWhitelist(&auth)
+		if err != nil {
+			t.Fatal(err)
+		}
 		whiteListed := false
 		for _, node := range whiteList {
 			if node == eNode {
@@ -403,6 +409,9 @@ func TestMemberManagementAddNewParticipant(t *testing.T) {
 		// check node presented in white list.
 		eNode := enode.V4DNSUrl(newParticipantKey.PublicKey, "PN:8527", 8527, 8527)
 		whiteList, err := instance.GetWhitelist(&auth)
+		if err != nil {
+			t.Fatal(err)
+		}
 		whiteListed := false
 		for _, node := range whiteList {
 			if node == eNode {
