@@ -518,6 +518,9 @@ func TestMemberManagementRemoveUser(t *testing.T) {
 		}
 		validatorsList := validators["VD"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		isMember, err := instance.CheckMember(&auth, *validatorsList[0].Address)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if isMember {
 			t.Fatal("Wrong membership for removed user")
 		}
