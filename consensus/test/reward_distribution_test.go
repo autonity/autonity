@@ -173,7 +173,7 @@ func TestRewardDistribution(t *testing.T) {
 		}
 		defer conn.Close()
 
-		nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
+		nonce, err := conn.PendingNonceAt(context.Background(), crypto.PubkeyToAddress(validator.privateKey.PublicKey))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -183,8 +183,8 @@ func TestRewardDistribution(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		auth := bind.NewKeyedTransactor(operatorKey)
-		auth.From = operatorAddress
+		auth := bind.NewKeyedTransactor(validator.privateKey)
+		auth.From = crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 		auth.Nonce = big.NewInt(int64(nonce))
 		auth.GasLimit = uint64(300000) // in units
 		auth.GasPrice = gasPrice
