@@ -35,6 +35,7 @@ const (
 	StakeholderPrefix = "S"
 	ParticipantPrefix = "P"
 	ExternalPrefix    = "E"
+	InitStake         = 100
 )
 
 type testCase struct {
