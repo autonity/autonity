@@ -146,7 +146,7 @@ func TestMemberManagementAddNewValidator(t *testing.T) {
 			t.Fatal("stake total supply is not expected")
 		}
 
-		if !whiteListed || !founded{
+		if !whiteListed || !founded {
 			t.Fatal("new validator is not presented")
 		}
 	}
@@ -294,7 +294,7 @@ func TestMemberManagementAddNewStakeHolder(t *testing.T) {
 			t.Fatal("stake total supply is not expected")
 		}
 
-		if !whiteListed || !founded{
+		if !whiteListed || !founded {
 			t.Fatal("new stakeholder is not presented")
 		}
 	}
@@ -440,7 +440,7 @@ func TestMemberManagementAddNewParticipant(t *testing.T) {
 			t.Fatal("stake total supply is not expected")
 		}
 
-		if !whiteListed || !founded{
+		if !whiteListed || !founded {
 			t.Fatal("new participant is not presented")
 		}
 	}
@@ -506,14 +506,14 @@ func TestMemberManagementRemoveUser(t *testing.T) {
 	}
 
 	testCase := &testCase{
-		name:          "member management test remove user",
-		numValidators: 6,
-		numBlocks:     10,
-		txPerPeer:     1,
+		name:                 "member management test remove user",
+		numValidators:        6,
+		numBlocks:            10,
+		txPerPeer:            1,
 		removedPeers:         make(map[common.Address]uint64),
 		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
-		genesisHook: genesisHook,
-		finalAssert: removeUserCheckerHook,
+		genesisHook:          genesisHook,
+		finalAssert:          removeUserCheckerHook,
 	}
 	testCase.sendTransactionHooks["VD"] = func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock <= 3 {

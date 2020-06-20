@@ -114,7 +114,6 @@ func TestStakeManagement(t *testing.T) {
 		return false, nil, nil
 	}
 
-
 	sendStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock <= 3 {
 			return true, nil, nil
