@@ -2,11 +2,12 @@ package autonity
 
 import (
 	"errors"
-	"github.com/clearmatics/autonity/params"
 	"math/big"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/clearmatics/autonity/params"
 
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
@@ -29,13 +30,7 @@ type EVMProvider interface {
 	EVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM
 }
 
-type ChainContext interface {
-	// GetHeader returns the hash corresponding to their hash.
-	GetHeader(common.Hash, uint64) *types.Header
-}
-
 type Blockchainer interface {
-	ChainContext
 	UpdateEnodeWhitelist(newWhitelist *types.Nodes)
 	ReadEnodeWhitelist() *types.Nodes
 
