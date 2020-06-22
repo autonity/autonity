@@ -101,7 +101,7 @@ type Backend struct {
 	address          common.Address
 	logger           log.Logger
 	db               ethdb.Database
-	blockchain       consensus.FullChainReader
+	blockchain       *core.BlockChain
 	blockchainInitMu sync.Mutex
 	currentBlock     func() *types.Block
 	hasBadBlock      func(hash common.Hash) bool

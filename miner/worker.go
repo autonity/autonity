@@ -293,7 +293,7 @@ func (w *worker) init() {
 }
 
 type starter interface {
-	Start(ctx context.Context, chain consensus.FullChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
+	Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
 }
 
 // start sets the running status as 1 and triggers new work submitting.

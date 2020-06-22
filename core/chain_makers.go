@@ -18,8 +18,9 @@ package core
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"math/big"
+
+	"github.com/clearmatics/autonity/contracts/autonity"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -304,7 +305,6 @@ func (cr *fakeChainReader) Config() *params.ChainConfig {
 }
 
 func (cr *fakeChainReader) CurrentHeader() *types.Header { return nil }
-func (cr *fakeChainReader) CurrentBlock() *types.Block   { return nil }
 func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header {
 	if cr.autonityContract == nil {
 		return nil
@@ -316,10 +316,3 @@ func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header      
 func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
 func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.Block   { return nil }
 func (cr *fakeChainReader) Engine() consensus.Engine                                { return nil }
-func (cr *fakeChainReader) State() (*state.StateDB, error)                          { return nil, nil }
-func (cr *fakeChainReader) StateAt(root common.Hash) (*state.StateDB, error)        { return nil, nil }
-func (cr *fakeChainReader) GetAutonityContract() autonity.Contract                  { return cr.autonityContract }
-func (cr *fakeChainReader) ValidateBody(*types.Block) error                         { return nil }
-func (cr *fakeChainReader) ValidateState(block *types.Block, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
-	return nil
-}
