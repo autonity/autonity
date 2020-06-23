@@ -19,8 +19,9 @@ package ethapi
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"math/big"
+
+	"github.com/clearmatics/autonity/contracts/autonity"
 
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/common"
@@ -40,7 +41,7 @@ import (
 // both full and light clients) with access to necessary functions.
 type Backend interface {
 	// General Ethereum API
-	AutonityContract() autonity.Contract
+	AutonityContract() *autonity.Contract
 	Downloader() *downloader.Downloader
 	ProtocolVersion() int
 	SuggestPrice(ctx context.Context) (*big.Int, error)

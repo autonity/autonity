@@ -525,7 +525,7 @@ func (s *PublicBlockChainAPI) BlockNumber() hexutil.Uint64 {
 	return hexutil.Uint64(header.Number.Uint64())
 }
 
-func (s *PublicBlockChainAPI) AutonityContract() autonity.Contract {
+func (s *PublicBlockChainAPI) AutonityContract() *autonity.Contract {
 	return s.b.AutonityContract()
 }
 

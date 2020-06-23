@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/clearmatics/autonity/params"
-
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/state"
@@ -37,29 +35,7 @@ type Blockchainer interface {
 	PutKeyValue(key []byte, value []byte) error
 }
 
-type Contract interface {
-	// GetCommittee returns the current block consensus committee.
-	GetCommittee(header *types.Header, statedb *state.StateDB) (types.Committee, error)
-
-	// GetMinimumGasPrice returns the current block minimum gas price.
-	GetMinimumGasPrice(block *types.Block, db *state.StateDB) (uint64, error)
-
-	// FinalizeAndGetCommittee calls the contract's finalize function that normally perform reward redistribution.
-	// This method returns the next block committee to avoid a further EVM call.
-	FinalizeAndGetCommittee(txs types.Transactions, r types.Receipts, h *types.Header, db *state.StateDB) (types.Committee, *types.Receipt, error)
-
-	MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB)
-
-	UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error
-
-	GetContractABI() string
-
-	DeployAutonityContract(chainConfig *params.ChainConfig, header *types.Header, statedb *state.StateDB) error
-
-	GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error)
-}
-
-type evmContract struct {
+type Contract struct {
 	evmProvider        EVMProvider
 	operator           common.Address
 	initialMinGasPrice uint64
@@ -77,8 +53,8 @@ func NewAutonityContract(
 	minGasPrice uint64,
 	ABI string,
 	evmProvider EVMProvider,
-) (*evmContract, error) {
-	contract := evmContract{
+) (*Contract, error) {
+	contract := Contract{
 		stringContractABI:  ABI,
 		operator:           operator,
 		initialMinGasPrice: minGasPrice,
@@ -90,7 +66,7 @@ func NewAutonityContract(
 }
 
 // measure metrics of user's meta data by regarding of network economic.
-func (ac *evmContract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB) {
+func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB) {
 	if header == nil || stateDB == nil || header.Number.Uint64() < 1 {
 		return
 	}
@@ -130,7 +106,7 @@ func (ac *evmContract) MeasureMetricsOfNetworkEconomic(header *types.Header, sta
 	ac.metrics.SubmitEconomicMetrics(&v, stateDB, header.Number.Uint64(), ac.operator)
 }
 
-func (ac *evmContract) GetCommittee(header *types.Header, statedb *state.StateDB) (types.Committee, error) {
+func (ac *Contract) GetCommittee(header *types.Header, statedb *state.StateDB) (types.Committee, error) {
 	// The Autonity Contract is not deployed yet at block #1, we return an error if this
 	// function is called at this height. In a past version we were returning the genesis committee field
 	// but this was at the cost of having a parameter causing circular imports.
@@ -147,7 +123,7 @@ func (ac *evmContract) GetCommittee(header *types.Header, statedb *state.StateDB
 	return committeeSet, err
 }
 
-func (ac *evmContract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
+func (ac *Contract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
 	newWhitelist, err := ac.GetWhitelist(block, state)
 	if err != nil {
 		log.Error("Could not call contract", "err", err)
@@ -158,7 +134,7 @@ func (ac *evmContract) UpdateEnodesWhitelist(state *state.StateDB, block *types.
 	return nil
 }
 
-func (ac *evmContract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
+func (ac *Contract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
 	var (
 		newWhitelist *types.Nodes
 		err          error
@@ -175,7 +151,7 @@ func (ac *evmContract) GetWhitelist(block *types.Block, db *state.StateDB) (*typ
 	return newWhitelist, err
 }
 
-func (ac *evmContract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (uint64, error) {
+func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (uint64, error) {
 	if block.Number().Uint64() <= 1 {
 		return ac.initialMinGasPrice, nil
 	}
@@ -183,7 +159,7 @@ func (ac *evmContract) GetMinimumGasPrice(block *types.Block, db *state.StateDB)
 	return ac.callGetMinimumGasPrice(db, block.Header())
 }
 
-func (ac *evmContract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, price *big.Int) error {
+func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, price *big.Int) error {
 	if block.Number().Uint64() <= 1 {
 		return nil
 	}
@@ -191,7 +167,7 @@ func (ac *evmContract) SetMinimumGasPrice(block *types.Block, db *state.StateDB,
 	return ac.callSetMinimumGasPrice(db, block.Header(), price)
 }
 
-func (ac *evmContract) FinalizeAndGetCommittee(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) (types.Committee, *types.Receipt, error) {
+func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) (types.Committee, *types.Receipt, error) {
 	if header.Number.Uint64() == 0 {
 		return nil, nil, nil
 	}
@@ -233,7 +209,7 @@ func (ac *evmContract) FinalizeAndGetCommittee(transactions types.Transactions, 
 	return committee, receipt, nil
 }
 
-func (ac *evmContract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
+func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
 	log.Error("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
 
 	// dump contract stateBefore first.
@@ -274,7 +250,7 @@ func (ac *evmContract) performContractUpgrade(statedb *state.StateDB, header *ty
 	return nil
 }
 
-func (ac *evmContract) upgradeAbiCache(newAbi string) error {
+func (ac *Contract) upgradeAbiCache(newAbi string) error {
 	ac.Lock()
 	defer ac.Unlock()
 	newABI, err := abi.JSON(strings.NewReader(newAbi))
@@ -286,6 +262,6 @@ func (ac *evmContract) upgradeAbiCache(newAbi string) error {
 	return nil
 }
 
-func (ac *evmContract) GetContractABI() string {
+func (ac *Contract) GetContractABI() string {
 	return ac.stringContractABI
 }

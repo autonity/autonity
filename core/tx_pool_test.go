@@ -73,7 +73,7 @@ func (bc *testBlockChain) Config() *params.ChainConfig {
 	return params.TestChainConfig
 }
 
-func (bc *testBlockChain) GetAutonityContract() autonity.Contract {
+func (bc *testBlockChain) GetAutonityContract() *autonity.Contract {
 	return nil
 }
 

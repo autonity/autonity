@@ -1,16 +1,17 @@
 package autonity
 
 import (
+	"math"
+	"math/big"
+	"reflect"
+	"sort"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
-	"math"
-	"math/big"
-	"reflect"
-	"sort"
 )
 
 /*
@@ -33,7 +34,7 @@ type ContractState struct {
 type raw []byte
 
 // deployContract deploys the contract contained within the genesis field bytecode
-func (ac *evmContract) DeployAutonityContract(chainConfig *params.ChainConfig, header *types.Header, statedb *state.StateDB) error {
+func (ac *Contract) DeployAutonityContract(chainConfig *params.ChainConfig, header *types.Header, statedb *state.StateDB) error {
 	// Convert the contract bytecode from hex into bytes
 	contractBytecode := common.Hex2Bytes(chainConfig.AutonityContractConfig.Bytecode)
 	evm := ac.evmProvider.EVM(header, deployer, statedb)
@@ -92,7 +93,7 @@ func (ac *evmContract) DeployAutonityContract(chainConfig *params.ChainConfig, h
 	return nil
 }
 
-func (ac *evmContract) updateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string, state []byte) error {
+func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string, state []byte) error {
 	evm := ac.evmProvider.EVM(header, deployer, statedb)
 	contractBytecode := common.Hex2Bytes(bytecode)
 	data := append(contractBytecode, state...)
@@ -106,7 +107,7 @@ func (ac *evmContract) updateAutonityContract(header *types.Header, statedb *sta
 	return nil
 }
 
-func (ac *evmContract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}, args ...interface{}) error {
+func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}, args ...interface{}) error {
 	gas := uint64(math.MaxUint64)
 	evm := ac.evmProvider.EVM(header, deployer, statedb)
 
@@ -135,7 +136,7 @@ func (ac *evmContract) AutonityContractCall(statedb *state.StateDB, header *type
 	return nil
 }
 
-func (ac *evmContract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
+func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
 	var returnedEnodes []string
 	err := ac.AutonityContractCall(state, header, "getWhitelist", &returnedEnodes)
 	if err != nil {
@@ -144,7 +145,7 @@ func (ac *evmContract) callGetWhitelist(state *state.StateDB, header *types.Head
 	return types.NewNodes(returnedEnodes), nil
 }
 
-func (ac *evmContract) callGetMinimumGasPrice(state *state.StateDB, header *types.Header) (uint64, error) {
+func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.Header) (uint64, error) {
 	minGasPrice := new(big.Int)
 	err := ac.AutonityContractCall(state, header, "getMinimumGasPrice", &minGasPrice)
 	if err != nil {
@@ -153,7 +154,7 @@ func (ac *evmContract) callGetMinimumGasPrice(state *state.StateDB, header *type
 	return minGasPrice.Uint64(), nil
 }
 
-func (ac *evmContract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, types.Committee, error) {
+func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, types.Committee, error) {
 
 	var updateReady bool
 	var committee types.Committee
@@ -168,7 +169,7 @@ func (ac *evmContract) callFinalize(state *state.StateDB, header *types.Header, 
 	return updateReady, committee, nil
 }
 
-func (ac *evmContract) callRetrieveState(statedb *state.StateDB, header *types.Header) ([]byte, error) {
+func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Header) ([]byte, error) {
 	var state raw
 
 	err := ac.AutonityContractCall(statedb, header, "retrieveState", &state)
@@ -179,7 +180,7 @@ func (ac *evmContract) callRetrieveState(statedb *state.StateDB, header *types.H
 	return state, nil
 }
 
-func (ac *evmContract) callRetrieveContract(state *state.StateDB, header *types.Header) (string, string, error) {
+func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Header) (string, string, error) {
 	var bytecode string
 	var abi string
 	err := ac.AutonityContractCall(state, header, "retrieveContract", &[]interface{}{&bytecode, &abi})
@@ -189,7 +190,7 @@ func (ac *evmContract) callRetrieveContract(state *state.StateDB, header *types.
 	return bytecode, abi, nil
 }
 
-func (ac *evmContract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) error {
+func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) error {
 	// Needs to be refactored somehow
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.evmProvider.EVM(header, deployer, state)

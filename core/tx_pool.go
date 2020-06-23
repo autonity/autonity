@@ -130,7 +130,7 @@ type blockChain interface {
 	StateAt(root common.Hash) (*state.StateDB, error)
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
-	GetAutonityContract() autonity.Contract
+	GetAutonityContract() *autonity.Contract
 	Config() *params.ChainConfig
 }
 

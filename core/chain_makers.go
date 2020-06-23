@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/clearmatics/autonity/contracts/autonity"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/misc"
@@ -192,13 +190,20 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		config = params.TestChainConfig
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	var autonityContract autonity.Contract
+	var committee types.Committee
 	if config.AutonityContractConfig != nil {
-		autonityContract = autonity.NewStubContract(config.AutonityContractConfig)
+		validators := config.AutonityContractConfig.GetValidatorUsers()
+		committee = make(types.Committee, len(validators))
+		for i, val := range validators {
+			committee[i] = types.CommitteeMember{
+				Address:     *val.Address,
+				VotingPower: new(big.Int).SetUint64(val.Stake),
+			}
+		}
 	}
 	chainreader := &fakeChainReader{
-		config:           config,
-		autonityContract: autonityContract,
+		config:    config,
+		committee: committee,
 	}
 
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
@@ -295,8 +300,8 @@ func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethd
 }
 
 type fakeChainReader struct {
-	config           *params.ChainConfig
-	autonityContract autonity.Contract
+	config    *params.ChainConfig
+	committee types.Committee
 }
 
 // Config returns the chain configuration.
@@ -306,11 +311,10 @@ func (cr *fakeChainReader) Config() *params.ChainConfig {
 
 func (cr *fakeChainReader) CurrentHeader() *types.Header { return nil }
 func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header {
-	if cr.autonityContract == nil {
+	if cr.committee == nil {
 		return nil
 	}
-	committee, _ := cr.autonityContract.GetCommittee(nil, nil)
-	return &types.Header{Committee: committee}
+	return &types.Header{Committee: cr.committee}
 }
 func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
 func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
