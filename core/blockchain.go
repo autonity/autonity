@@ -593,14 +593,6 @@ func (bc *BlockChain) Validator() Validator {
 	return bc.validator
 }
 
-func (bc *BlockChain) ValidateBody(block *types.Block) error {
-	return bc.validator.ValidateBody(block)
-}
-
-func (bc *BlockChain) ValidateState(block *types.Block, state *state.StateDB, receipts types.Receipts, usedGas uint64) error {
-	return bc.validator.ValidateState(block, state, receipts, usedGas)
-}
-
 // Processor returns the current processor.
 func (bc *BlockChain) Processor() Processor {
 	return bc.processor

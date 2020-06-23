@@ -306,7 +306,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		// Validate the body of the proposal
-		if err = sb.blockchain.ValidateBody(block); err != nil {
+		if err = sb.blockchain.Validator().ValidateBody(block); err != nil {
 			return 0, err
 		}
 
@@ -327,7 +327,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		committeeSet, receipt, err := sb.Finalize(sb.blockchain, header, state, block.Transactions(), nil, receipts)
 		receipts = append(receipts, receipt)
 		//Validate the state of the proposal
-		if err = sb.blockchain.ValidateState(block, state, receipts, *usedGas); err != nil {
+		if err = sb.blockchain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
 			return 0, err
 		}
 
