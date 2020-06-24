@@ -1187,6 +1187,35 @@ func TestHandleMessage(t *testing.T) {
 	})
 }
 
+// The following tests aim to test multiple common upon conditions on consensus msg handling.
+func TestMultipleConditionsOnTendermintMsgHandling(t *testing.T) {
+	t.Run("multiple conditions checking on proposal handling", func(t *testing.T) {
+
+	})
+
+	t.Run("multiple conditions checking on prevote handling", func(t *testing.T) {
+
+	})
+
+	t.Run("multiple conditions checking on precommit handling", func(t *testing.T) {
+
+	})
+}
+// The following tests aim to test multiple upon conditions when tendermint state machine move to a certain step.
+func TestMultipleConditionsOnTendermintStepChange(t *testing.T) {
+	t.Run("multiple conditions checking on step to propose", func(t *testing.T) {
+
+	})
+
+	t.Run("multiple conditions checking on step to prevote", func(t *testing.T) {
+
+	})
+
+	t.Run("multiple conditions checking on step to precommit", func(t *testing.T) {
+
+	})
+}
+
 func prepareProposal(t *testing.T, currentRound int64, proposalHeight *big.Int, validR int64, proposalBlock *types.Block, clientAddress common.Address, privateKey *ecdsa.PrivateKey) (*Message, []byte, []byte) {
 	// prepare the proposal message
 	proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, validR, proposalBlock))
