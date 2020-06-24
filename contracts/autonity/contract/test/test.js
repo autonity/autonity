@@ -605,27 +605,6 @@ contract('Autonity', function (accounts) {
 
     });
 
-    describe('Proposer selection, committee size is 0.', function() {
-
-        beforeEach(async function(){
-            token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, 0, version,  { from:accounts[8]} );
-        });
-
-        it('get proposer, should return operator address when committee size is 0.', async function () {
-            await token.computeCommittee({from: deployer});
-            let height;
-            for (height = 0; height < 10; height++) {
-                let round;
-                for (round = 0; round < 3; round ++){
-                    let proposer1 = await token.getProposer(height, round);
-                    assert(proposer1 === operator, "proposer should be determinated on same height and round")
-                }
-            }
-        });
-
-    });
-
     describe('Proposer selection, no stakes on committee.', function() {
 
         beforeEach(async function(){
