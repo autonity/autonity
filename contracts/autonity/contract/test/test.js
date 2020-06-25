@@ -670,10 +670,13 @@ contract('Autonity', function (accounts) {
         it('get proposer, print and compare the scheduling rate with same stake.', async function () {
             await token.computeCommittee({from: deployer});
             let height;
+            let maxHeight = 10000;
+            let maxRound = 4;
+            let expectedRatioDelta = 0.01;
             let counterMap = new Map();
-            for (height = 0; height < 10000; height++) {
+            for (height = 0; height < maxHeight; height++) {
                 let round;
-                for (round = 0; round < 2; round ++){
+                for (round = 0; round < maxRound; round ++){
                     let proposer = await token.getProposer(height, round);
                     if (counterMap.has(proposer) === true) {
                         counterMap.set(proposer, counterMap.get(proposer) + 1)
@@ -683,29 +686,45 @@ contract('Autonity', function (accounts) {
                 }
             }
 
+            let totalStake = 0;
+            stakes.forEach(function (v, index) {
+               totalStake += v
+            });
+
             validatorsList.forEach(function (addr, index) {
                 let stake = stakes[index];
+                let expectedRatio = stake / totalStake;
                 let scheduled = counterMap.get(addr);
-                console.log("\t proposer: " + addr + " stake: " + stake + " was scheduled: " + scheduled + " times of 20000 times scheduling");
+                let actualRatio = scheduled / (maxHeight * maxRound);
+                let delta = Math.abs(expectedRatio - actualRatio);
+                console.log("\t proposer: " + addr + " stake: " + stake + " was scheduled: " + scheduled + " times of " + maxHeight*maxRound + " times scheduling"
+                 + " expectedRatio: " + expectedRatio + " actualRatio: " + actualRatio + " delta: " + delta);
+
+                if (delta > expectedRatioDelta) {
+                    assert.fail("Unexpected proposer scheduling rate delta.")
+                }
+
             });
         });
     });
 
     describe('Proposer selection, print and compare the scheduling rate with different stake.', function() {
-
         let stakes = [100, 200, 400, 800, 1600];
         beforeEach(async function(){
             token = await utils.deployContract(validatorsList, whiteList,
                 userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
         });
 
-        it('get proposer, print and compare the scheduling rate with different stake.', async function () {
+        it('get proposer, print and compare the scheduling rate with same stake.', async function () {
             await token.computeCommittee({from: deployer});
             let height;
+            let maxHeight = 10000;
+            let maxRound = 4;
+            let expectedRatioDelta = 0.01;
             let counterMap = new Map();
-            for (height = 0; height < 10000; height++) {
+            for (height = 0; height < maxHeight; height++) {
                 let round;
-                for (round = 0; round < 2; round ++){
+                for (round = 0; round < maxRound; round ++){
                     let proposer = await token.getProposer(height, round);
                     if (counterMap.has(proposer) === true) {
                         counterMap.set(proposer, counterMap.get(proposer) + 1)
@@ -715,10 +734,24 @@ contract('Autonity', function (accounts) {
                 }
             }
 
+            let totalStake = 0;
+            stakes.forEach(function (v, index) {
+                totalStake += v
+            });
+
             validatorsList.forEach(function (addr, index) {
                 let stake = stakes[index];
+                let expectedRatio = stake / totalStake;
                 let scheduled = counterMap.get(addr);
-                console.log("\t proposer: " + addr + " stake: " + stake + " was scheduled: " + scheduled + " times of 20000 times scheduling");
+                let actualRatio = scheduled / (maxHeight * maxRound);
+                let delta = Math.abs(expectedRatio - actualRatio);
+                console.log("\t proposer: " + addr + " stake: " + stake + " was scheduled: " + scheduled + " times of " + maxHeight*maxRound + " times scheduling"
+                    + " expectedRatio: " + expectedRatio + " actualRatio: " + actualRatio + " delta: " + delta);
+
+                if (delta > expectedRatioDelta) {
+                    assert.fail("Unexpected proposer scheduling rate delta.")
+                }
+
             });
         });
     });
