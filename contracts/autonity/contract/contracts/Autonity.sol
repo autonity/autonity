@@ -466,7 +466,7 @@ contract Autonity {
 
             // if total voting power is 0, it fallback to round robin and returned at the beginning.
             // at this point, there must be at least one none 0 stake validator, so it always return an address here.
-            counter = counter.add(committee[i].votingPower)
+            counter = counter.add(committee[i].votingPower);
             if (index <= counter - 1) {
                 return committee[i].addr;
             }
