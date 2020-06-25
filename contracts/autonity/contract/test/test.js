@@ -659,4 +659,68 @@ contract('Autonity', function (accounts) {
             }
         });
     });
+
+    describe('Proposer selection, print and compare the scheduling rate with same stake.', function() {
+        let stakes = [100, 100, 100, 100, 100];
+        beforeEach(async function(){
+            token = await utils.deployContract(validatorsList, whiteList,
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
+        });
+
+        it('get proposer, print and compare the scheduling rate with same stake.', async function () {
+            await token.computeCommittee({from: deployer});
+            let height;
+            let counterMap = new Map();
+            for (height = 0; height < 10000; height++) {
+                let round;
+                for (round = 0; round < 2; round ++){
+                    let proposer = await token.getProposer(height, round);
+                    if (counterMap.has(proposer) === true) {
+                        counterMap.set(proposer, counterMap.get(proposer) + 1)
+                    } else {
+                        counterMap.set(proposer, 1)
+                    }
+                }
+            }
+
+            validatorsList.forEach(function (addr, index) {
+                let stake = stakes[index];
+                let scheduled = counterMap.get(addr);
+                console.log("\t proposer: " + addr + " stake: " + stake + " was scheduled: " + scheduled + " times of 20000 times scheduling");
+            });
+        });
+    });
+
+    describe('Proposer selection, print and compare the scheduling rate with different stake.', function() {
+
+        let stakes = [100, 200, 400, 800, 1600];
+        beforeEach(async function(){
+            token = await utils.deployContract(validatorsList, whiteList,
+                userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
+        });
+
+        it('get proposer, print and compare the scheduling rate with different stake.', async function () {
+            await token.computeCommittee({from: deployer});
+            let height;
+            let counterMap = new Map();
+            for (height = 0; height < 10000; height++) {
+                let round;
+                for (round = 0; round < 2; round ++){
+                    let proposer = await token.getProposer(height, round);
+                    if (counterMap.has(proposer) === true) {
+                        counterMap.set(proposer, counterMap.get(proposer) + 1)
+                    } else {
+                        counterMap.set(proposer, 1)
+                    }
+                }
+            }
+
+            validatorsList.forEach(function (addr, index) {
+                let stake = stakes[index];
+                let scheduled = counterMap.get(addr);
+                console.log("\t proposer: " + addr + " stake: " + stake + " was scheduled: " + scheduled + " times of 20000 times scheduling");
+            });
+        });
+    });
+
 });

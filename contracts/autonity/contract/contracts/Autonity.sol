@@ -456,7 +456,7 @@ contract Autonity {
         uint256 value = uint256(keccak256(abi.encodePacked(key)));
         uint256 index = value % total_voting_power;
 
-        //find the index hit which committee member which line up in a sorted committee list.
+        //find the index hit which committee member which line up in the committee list.
         uint256 counter = 0;
         for (uint256 i = 0; i < committee.length; i++) {
             // skip those members with 0 stake.
