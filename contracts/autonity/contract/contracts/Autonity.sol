@@ -447,23 +447,26 @@ contract Autonity {
 
         // fallback to round robin if total voting power is 0.
         if (total_voting_power == 0) {
-            uint256 index = (height + round) % committee.length;
+            uint256 index = height.add(round) % committee.length;
             return committee[index].addr;
         }
 
         // distribute seed into a 256bits key-space.
-        uint256 key = height + round;
+        uint256 key = height.add(round);
         uint256 value = uint256(keccak256(abi.encodePacked(key)));
         uint256 index = value % total_voting_power;
 
         //find the index hit which committee member which line up in the committee list.
         uint256 counter = 0;
         for (uint256 i = 0; i < committee.length; i++) {
-            // skip those members with 0 stake.
+            // skip those members with 0 stake, it happens when redeem and transfer stake is called.
             if (committee[i].votingPower == 0) {
                 continue;
             }
-            counter += committee[i].votingPower;
+
+            // if total voting power is 0, it fallback to round robin and returned at the beginning.
+            // at this point, there must be at least one none 0 stake validator, so it always return an address here.
+            counter = counter.add(committee[i].votingPower)
             if (index <= counter - 1) {
                 return committee[i].addr;
             }
