@@ -498,6 +498,23 @@ contract('Autonity', function (accounts) {
                 userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
         });
 
+        it('test user type downgrade on redeem stake', async function f() {
+            let initStake = 100;
+            await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
+            await token.redeemStake(accounts[8], initStake, {from: operator});
+
+            let userType = await token.myUserType({from: accounts[8]});
+            assert (userType == 0, "wrong user type");
+        });
+
+        it('test user type downgrade on send stake', async function f() {
+            let initStake = 100;
+            await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
+            await token.send(accounts[2], initStake, {from: accounts[8]});
+            let userType = await token.myUserType({from: accounts[8]});
+            assert (userType == 0, "wrong user type");
+        });
+
         it('test create account, add stake, check that it is added, remove stake', async function () {
             await token.addStakeholder(accounts[7], freeEnodes[0], 0, {from: operator});
             let getStakeResult = await token.getStake({from: accounts[7]});
@@ -636,28 +653,6 @@ contract('Autonity', function (accounts) {
             }
         });
 
-    });
-
-    describe('Proposer selection, do not schedule 0 stake committee members', function() {
-
-        beforeEach(async function(){
-            token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, [100,0,1000,0,0], commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
-        });
-
-        it('get proposer, should not schedule 0 stake members.', async function () {
-            await token.computeCommittee({from: deployer});
-            let height;
-            for (height = 0; height < 1000; height++) {
-                let round;
-                for (round = 0; round < 2; round ++){
-                    let proposer = await token.getProposer(height, round);
-                    if (proposer === accounts[2] || proposer === accounts[4] || proposer == accounts[5]) {
-                        assert.fail("proposer is not expected.")
-                    }
-                }
-            }
-        });
     });
 
     describe('Proposer selection, print and compare the scheduling rate with same stake.', function() {

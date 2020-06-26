@@ -227,6 +227,8 @@ contract Autonity {
     function redeemStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
         users[_account].stake = users[_account].stake.sub(_amount, "Redeem stake amount exceeds balance");
         stakeSupply = stakeSupply.sub(_amount);
+        // todo check 0 balance, and downgrade user role.
+        _checkDowngradeUserType(_account);
         emit RedeemStake(_account, _amount);
     }
 
@@ -240,6 +242,8 @@ contract Autonity {
     */
     function send(address _recipient, uint256 _amount) external returns (bool) {
         _transfer(msg.sender, _recipient, _amount);
+        // todo check 0 balance, and downgrade user role.
+        _checkDowngradeUserType(msg.sender);
         return true;
     }
 
@@ -439,16 +443,10 @@ contract Autonity {
     * across the nodes, the view is calculated by function computeCommittee() on each block finalization.
     */
     function getProposer(uint256 height, uint256 round) public view returns(address) {
-        // calculate total voting power from current committee.
+        // calculate total voting power from current committee, the system does not allow validator with 0 stake/power.
         uint256 total_voting_power = 0;
         for (uint256 i = 0; i < committee.length; i++) {
             total_voting_power = total_voting_power.add(committee[i].votingPower);
-        }
-
-        // fallback to round robin if total voting power is 0.
-        if (total_voting_power == 0) {
-            uint256 index = height.add(round) % committee.length;
-            return committee[index].addr;
         }
 
         // distribute seed into a 256bits key-space.
@@ -456,21 +454,17 @@ contract Autonity {
         uint256 value = uint256(keccak256(abi.encodePacked(key)));
         uint256 index = value % total_voting_power;
 
-        //find the index hit which committee member which line up in the committee list.
+        // find the index hit which committee member which line up in the committee list.
+        // we assume there is no 0 stake/power validators.
         uint256 counter = 0;
         for (uint256 i = 0; i < committee.length; i++) {
-            // skip those members with 0 stake, it happens when redeem and transfer stake is called.
-            if (committee[i].votingPower == 0) {
-                continue;
-            }
-
-            // if total voting power is 0, it fallback to round robin and returned at the beginning.
-            // at this point, there must be at least one none 0 stake validator, so it always return an address here.
             counter = counter.add(committee[i].votingPower);
             if (index <= counter - 1) {
                 return committee[i].addr;
             }
         }
+        // in case of any exceptions, to return the first validator for liveness.
+        return committee[0].addr;
     }
 
     /*
@@ -580,6 +574,32 @@ contract Autonity {
         emit Transfer(sender, recipient, amount);
     }
 
+    function _checkDowngradeUserType(address payable _address) internal {
+        require(_address != address(0), "address must be defined");
+        require(users[_address].addr != address(0), "user must exist");
+
+        // check if it is a validator with 0 stake.
+        User memory u = users[_address];
+        if (u.stake != 0 || u.userType != UserType.Validator) {
+            return;
+        }
+        // remove node from validator and stakeholder community.
+        _removeFromArray(u.addr, stakeholders);
+        _removeFromArray(u.addr, validators);
+        _removeFromArray(u.addr, usersList);
+        if (!(bytes(u.enode).length == 0)) {
+            for (uint256 i = 0; i < enodesWhitelist.length; i++) {
+                if (compareStringsbyBytes(enodesWhitelist[i], u.enode)) {
+                    enodesWhitelist[i] = enodesWhitelist[enodesWhitelist.length - 1];
+                    enodesWhitelist.pop();
+                    break;
+                }
+            }
+        }
+        delete users[_address];
+        // add node into the participant community.
+        _createUser(u.addr, u.enode, UserType.Participant, u.stake, u.commissionRate);
+    }
 
     function compareStringsbyBytes(string memory s1, string memory s2) internal pure returns(bool){
         return keccak256(abi.encodePacked(s1)) == keccak256(abi.encodePacked(s2));
