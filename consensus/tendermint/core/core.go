@@ -227,9 +227,7 @@ func (c *core) commit(round int64, messages *roundMessages) {
 
 	committedSeals := make([][]byte, 0)
 	for _, v := range messages.CommitedSeals(proposal.ProposalBlock.Hash()) {
-		seal := make([]byte, types.BFTExtraSeal)
-		copy(seal[:], v.CommittedSeal[:])
-		committedSeals = append(committedSeals, seal)
+		committedSeals = append(committedSeals, v.CommittedSeal)
 	}
 
 	if err := c.backend.Commit(proposal.ProposalBlock, round, committedSeals); err != nil {
