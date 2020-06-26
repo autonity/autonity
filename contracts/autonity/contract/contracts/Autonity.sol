@@ -574,7 +574,7 @@ contract Autonity {
         emit Transfer(sender, recipient, amount);
     }
 
-    function _checkDowngradeUserType(address payable _address) internal {
+    function _checkDowngradeUserType(address _address) internal {
         require(_address != address(0), "address must be defined");
         require(users[_address].addr != address(0), "user must exist");
 
