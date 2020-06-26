@@ -578,27 +578,15 @@ contract Autonity {
         require(_address != address(0), "address must be defined");
         require(users[_address].addr != address(0), "user must exist");
 
-        // check if it is a validator with 0 stake.
         User memory u = users[_address];
         if (u.stake != 0 || u.userType != UserType.Validator) {
             return;
         }
-        // remove node from validator and stakeholder community.
+
         _removeFromArray(u.addr, stakeholders);
         _removeFromArray(u.addr, validators);
-        _removeFromArray(u.addr, usersList);
-        if (!(bytes(u.enode).length == 0)) {
-            for (uint256 i = 0; i < enodesWhitelist.length; i++) {
-                if (compareStringsbyBytes(enodesWhitelist[i], u.enode)) {
-                    enodesWhitelist[i] = enodesWhitelist[enodesWhitelist.length - 1];
-                    enodesWhitelist.pop();
-                    break;
-                }
-            }
-        }
-        delete users[_address];
-        // add node into the participant community.
-        _createUser(u.addr, u.enode, UserType.Participant, u.stake, u.commissionRate);
+        usersList.push(u.addr);
+        users[_address].userType = UserType.Participant;
     }
 
     function compareStringsbyBytes(string memory s1, string memory s2) internal pure returns(bool){

@@ -646,30 +646,6 @@ contract('Autonity', function (accounts) {
                 userTypes, [0,0,0,0,0], commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
         });
 
-        it('get proposer, should schedule proposer on round robin way.', async function () {
-            await token.computeCommittee({from: deployer});
-            let height;
-            let counterMap = new Map()
-            let max_height = 10
-            for (height = 0; height < max_height; height++){
-                let round;
-                for (round = 0; round < 1; round ++){
-                    let proposer = await token.getProposer(height, round);
-                    if (counterMap.has(proposer) === true) {
-                        counterMap.set(proposer, counterMap.get(proposer) + 1)
-                    } else {
-                        counterMap.set(proposer, 1)
-                    }
-                }
-            }
-
-            for (let [k, v] of counterMap) {
-                if (v !== max_height/validatorsList.length) {
-                    assert.fail("round robin scheduling is not expected.")
-                }
-            }
-        });
-
     });
 
     describe('Proposer selection, print and compare the scheduling rate with same stake.', function() {
