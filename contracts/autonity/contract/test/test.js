@@ -507,12 +507,29 @@ contract('Autonity', function (accounts) {
             assert (userType == 0, "wrong user type");
         });
 
+        it('test user type node downgrade on redeem stake', async function f() {
+            let initStake = 100;
+            await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
+            await token.redeemStake(accounts[8], 50, {from: operator});
+
+            let userType = await token.myUserType({from: accounts[8]});
+            assert (userType == 2, "wrong user type");
+        });
+
         it('test user type downgrade on send stake', async function f() {
             let initStake = 100;
             await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
             await token.send(accounts[2], initStake, {from: accounts[8]});
             let userType = await token.myUserType({from: accounts[8]});
             assert (userType == 0, "wrong user type");
+        });
+
+        it('test user type not downgrade on send stake', async function f() {
+            let initStake = 100;
+            await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
+            await token.send(accounts[2], 50, {from: accounts[8]});
+            let userType = await token.myUserType({from: accounts[8]});
+            assert (userType == 2, "wrong user type");
         });
 
         it('test create account, add stake, check that it is added, remove stake', async function () {
