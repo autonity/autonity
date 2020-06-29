@@ -319,7 +319,7 @@ func (c *core) setInitialState(r int64) {
 				panic(fmt.Sprintf("failed to construct committee %v", err))
 			}
 		case config.WeightedRandomSampling:
-			committeeSet = newWeightedRoundRobinCommittee(lastBlockMined, c.autonityContract, c.backend.BlockChain())
+			committeeSet = newWeightedRandomSamplingCommittee(lastBlockMined, c.autonityContract, c.backend.BlockChain())
 		default:
 			panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
 		}

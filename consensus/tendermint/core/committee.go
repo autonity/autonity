@@ -136,15 +136,15 @@ func getMemberIndex(members types.Committee, memberAddr common.Address) int64 {
 	return int64(index)
 }
 
-type weightedRoundRobinCommittee struct {
+type weightedRandomSamplingCommittee struct {
 	previousHeader         *types.Header
 	bc                     *ethcore.BlockChain
 	autonityContract       *autonity.Contract
 	previousBlockStateRoot common.Hash
 }
 
-func newWeightedRoundRobinCommittee(previousBlock *types.Block, autonityContract *autonity.Contract, bc *ethcore.BlockChain) *weightedRoundRobinCommittee {
-	return &weightedRoundRobinCommittee{
+func newWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityContract *autonity.Contract, bc *ethcore.BlockChain) *weightedRandomSamplingCommittee {
+	return &weightedRandomSamplingCommittee{
 		previousHeader:         previousBlock.Header(),
 		bc:                     bc,
 		autonityContract:       autonityContract,
@@ -153,12 +153,12 @@ func newWeightedRoundRobinCommittee(previousBlock *types.Block, autonityContract
 }
 
 // Return the underlying types.Committee
-func (w *weightedRoundRobinCommittee) Committee() types.Committee {
+func (w *weightedRandomSamplingCommittee) Committee() types.Committee {
 	return w.previousHeader.Committee
 }
 
 // Get validator by index
-func (w *weightedRoundRobinCommittee) GetByIndex(i int) (types.CommitteeMember, error) {
+func (w *weightedRandomSamplingCommittee) GetByIndex(i int) (types.CommitteeMember, error) {
 	if i < 0 || i >= len(w.previousHeader.Committee) {
 		return types.CommitteeMember{}, consensus.ErrCommitteeMemberNotFound
 	}
@@ -166,7 +166,7 @@ func (w *weightedRoundRobinCommittee) GetByIndex(i int) (types.CommitteeMember, 
 }
 
 // Get validator by given address
-func (w *weightedRoundRobinCommittee) GetByAddress(addr common.Address) (int, types.CommitteeMember, error) {
+func (w *weightedRandomSamplingCommittee) GetByAddress(addr common.Address) (int, types.CommitteeMember, error) {
 	// TODO Promote types.Committee to a struct containing a slice, this will
 	// allow for caching of other information like total power ... etc.
 	m := w.previousHeader.CommitteeMember(addr)
@@ -178,7 +178,7 @@ func (w *weightedRoundRobinCommittee) GetByAddress(addr common.Address) (int, ty
 }
 
 // Get the round proposer
-func (w *weightedRoundRobinCommittee) GetProposer(round int64) types.CommitteeMember {
+func (w *weightedRandomSamplingCommittee) GetProposer(round int64) types.CommitteeMember {
 
 	// If previous header was the genesis block then we will not yet have
 	// deployed the autonity contract so will take the proposer as the first
@@ -187,7 +187,6 @@ func (w *weightedRoundRobinCommittee) GetProposer(round int64) types.CommitteeMe
 		sort.Sort(w.previousHeader.Committee)
 		return w.previousHeader.Committee[0]
 	}
-	// PoS (voting power) weighted round robin.
 	statedb, err := state.New(w.previousBlockStateRoot, w.bc.StateCache())
 	if err != nil {
 		log.Error("cannot load state from block chain.")
@@ -200,11 +199,11 @@ func (w *weightedRoundRobinCommittee) GetProposer(round int64) types.CommitteeMe
 }
 
 // Get the optimal quorum size
-func (w *weightedRoundRobinCommittee) Quorum() uint64 {
+func (w *weightedRandomSamplingCommittee) Quorum() uint64 {
 	return bft.Quorum(w.previousHeader.TotalVotingPower())
 }
 
-func (w *weightedRoundRobinCommittee) F() uint64 {
+func (w *weightedRandomSamplingCommittee) F() uint64 {
 	return bft.F(w.previousHeader.TotalVotingPower())
 }
 
