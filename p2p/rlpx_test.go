@@ -56,7 +56,7 @@ func TestSharedSecret(t *testing.T) {
 	}
 	t.Logf("Secret:\n%v %x\n%v %x", len(ss0), ss0, len(ss0), ss1)
 	if !bytes.Equal(ss0, ss1) {
-		t.Errorf("dont match :(")
+		t.Errorf("don't match :(")
 	}
 }
 
