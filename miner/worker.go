@@ -585,6 +585,51 @@ func (w *worker) taskLoop() {
 
 // resultLoop is a standalone goroutine to handle sealing result submitting
 // and flush relative data to the database.
+
+// This loop just gets completed (mined) blocks and then gets the receipts from
+// the task that kicked off the block and puts the receipts into a log and then
+// writes the block.
+//
+// Then it broadcasts the block on the mux which results in
+// the eth handler picking it up and sending it to the peers and then
+// broadcasting a new block announcement to the network.
+//
+// Then it inserts the block in the unconfirmed block pool, this is the only
+// place that inserts into the uncomfirmed pool. The unconfirmed pool only
+// serves to log a message once the mined block can be considered confirmed
+// (I.E X blocks have been mined on top of it), we don't really need to worry
+// about it.
+//
+// The only significant functional difference between fetcher.insert is the
+// unconfirmed block pool, which we do not need. Non functionally
+// fetcher.insert has to process the block since it assumes a block was
+// received from a peer. Since blocks are verified during the proposer step, we
+// should cache the results of that and then we could avoid the re-processing.
+// Then we could simply do away with the code here and only propagate blocks by
+// fetcher.insert/Enqueue which just simplifies things for us.  What then is
+// the meaning of calling Seal? Seal simply serves as a way to emit an
+// UnminedBlockEvent which adds the block into a queue for tendermint core. But
+// this is pointless since then we wait till we receive a CommitEvent to
+// actually start work on the block but the commit event is triggered by the
+// same thing that ultimately triggers a seal event, whic is a NewChainHead
+// event.
+//
+// If we look in the newWorkLoop L389 we see that an event on chainHeadCh
+// triggers h.NewChainHead (which just delivers a commit event) and then calls
+// commit, which eventually filters down to making a NewUnminedBlock event from
+// within Seal, with the result ending up here. Inside Start round we then wait
+// on an unmined block channel to get the block that would be sent by calling
+// seal. When the worker is started we don't call newChainHead, so we don't
+// start emit any commit event for starting but we do call commit which will
+// add a block to the unmined block channel. We also add blocks to the unmined
+// blocks  periodically, to scrape up more transactions, but I don't think this
+// is helpful because we will just need to skip those blocks later, but this is
+// not helpful since most nodes will not be proposers and so this is a waste,
+// although it does update the block n unmined blocks so could be helpful but
+// much worse than getting the block when you need a block in the StartRound
+// method. The start channel in newWorkLoop is being fed by worker.Start which
+// seems to be doing something slightly more than just calling StartRound but
+// it does eventually invoke StartRound indirectly.
 func (w *worker) resultLoop() {
 	for {
 		select {
@@ -859,6 +904,8 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 }
 
 // commitNewWork generates several new sealing tasks based on the parent block.
+//
+// This essentially scrapes up transactions into a new block and then sends it off to be sealed.
 func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()

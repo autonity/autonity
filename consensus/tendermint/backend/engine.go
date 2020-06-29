@@ -381,6 +381,12 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
+//
+// This should really kick off a new round of consensus right? If we are the
+// proposer then we propose the provided block otherwise we just start the
+// round. In fact though this does not kick off a new round instead it adds a
+// new unmined block into a queue that is held by our engine. The queue is read
+// when a commit event is received.
 func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	sb.coreMu.RLock()
 	isStarted := sb.coreStarted

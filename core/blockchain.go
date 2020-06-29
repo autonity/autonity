@@ -1531,6 +1531,13 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // racey behaviour. If a sidechain import is in progress, and the historic state
 // is imported, but then new canon-head is added before the actual sidechain
 // completes, then the historic state could be pruned again
+//
+// How does this differ from reading from resultChan in resultLoop? Basically
+// the block is, reprocessed, rather than using the cached results of the block
+// creation. It also handles chains of blocks but it doesn't look like we ever
+// call it with a chain, or at least not from our tendermint code, maybe it is
+// called with a chain while syncing. Also this does not perform any
+// announcement or perform any broadcast.
 func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, error) {
 	// If the chain is terminating, don't even bother starting up
 	if bc.getProcInterrupt() {

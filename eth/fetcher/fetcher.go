@@ -633,6 +633,9 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 // insert spawns a new goroutine to run a block insertion into the chain. If the
 // block's number is at the same height as the current import phase, it updates
 // the phase states accordingly.
+//
+// This function broadcasts the block to peers then tries to insert the block
+// and if it succeeds, broadcasts an announcement for a new block.
 func (f *Fetcher) insert(peer string, block *types.Block) {
 	hash := block.Hash()
 
