@@ -77,7 +77,6 @@ func init() {
 	testTxPoolConfig = core.DefaultTxPoolConfig
 	testTxPoolConfig.Journal = ""
 	ethashChainConfig = params.TestChainConfig
-	tendermintChainConfig = &params.ChainConfig{}
 	tendermintChainConfig = params.AutonityTestChainConfig
 	tendermintChainConfig.AutonityContractConfig = &params.AutonityContractGenesis{
 		Users: []params.User{{
