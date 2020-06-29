@@ -28,3 +28,4 @@ PWD="$ethdir/autonity"
 
 # Launch the arguments with the configured environment.
 exec "$@"
+

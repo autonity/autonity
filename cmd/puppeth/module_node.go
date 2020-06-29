@@ -41,7 +41,7 @@ ADD genesis.json /genesis.json
 {{end}}
 RUN \
   echo 'autonity --cache 512 init /genesis.json' > autonity.sh && \{{if .Unlock}}
-	echo 'mkdir -p /root/.ethereum/keystore/ && cp /signer.json /root/.ethereum/keystore/' >> autonity.sh && \{{end}}
+	echo 'mkdir -p /root/.autonity/keystore/ && cp /signer.json /root/.ethereum/keystore/' >> autonity.sh && \{{end}}
 	echo $'exec autonity --networkid {{.NetworkID}} --cache 512 --port {{.Port}} --nat extip:{{.IP}} --maxpeers {{.Peers}} {{.LightFlag}} --ethstats \'{{.Ethstats}}\' {{if .Bootnodes}}--bootnodes {{.Bootnodes}}{{end}} {{if .Etherbase}}--miner.etherbase {{.Etherbase}} --mine --miner.threads 1{{end}} {{if .Unlock}}--unlock 0 --password /signer.pass --mine{{end}} --miner.gastarget {{.GasTarget}} --miner.gaslimit {{.GasLimit}} --miner.gasprice {{.GasPrice}}' >> autonity.sh
 
 ENTRYPOINT ["/bin/sh", "autonity.sh"]
@@ -254,8 +254,8 @@ func checkNode(client *sshClient, network string, boot bool) (*nodeInfos, error)
 	// Assemble and return the useful infos
 	stats := &nodeInfos{
 		genesis:    genesis,
-		datadir:    infos.volumes["/root/.ethereum"],
-		ethashdir:  infos.volumes["/root/.ethash"],
+		datadir:    infos.volumes["/root/.autonity"],
+		ethashdir:  infos.volumes["/root/.autonity"],
 		port:       port,
 		peersTotal: totalPeers,
 		peersLight: lightPeers,
