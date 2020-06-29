@@ -367,6 +367,9 @@ func TestCommit(t *testing.T) {
 }
 
 func TestGetProposer(t *testing.T) {
+	// This is a weird test it relies on there being a blockchain to manipulate
+	// the backend to check that  the backend gives the right value for
+	// GetProposer, and the only call to get proposer is here
 	chain, engine := newBlockChain(1)
 	block, err := makeBlock(chain, engine, chain.Genesis())
 	if err != nil {
@@ -682,6 +685,11 @@ func makeHeader(parent *types.Block, config *config.Config) *types.Header {
 }
 
 func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
+
+	// Looks like we don't have the infrastructure here for this to work (no real broadcaster)
+	ch := make(chan core.ChainHeadEvent)
+	chain.SubscribeChainHeadEvent(ch)
+
 	block, err := makeBlockWithoutSeal(chain, engine, parent)
 	if err != nil {
 		return nil, err
@@ -693,7 +701,8 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 		return nil, err
 	}
 
-	return <-resultCh, nil
+	che := <-ch
+	return che.Block, nil
 }
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {

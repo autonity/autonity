@@ -450,13 +450,6 @@ func (sb *Backend) sendResultChan(block *types.Block) {
 	sb.commitCh <- block
 }
 
-func (sb *Backend) isResultChanNil() bool {
-	sb.coreMu.RLock()
-	defer sb.coreMu.RUnlock()
-
-	return sb.commitCh == nil
-}
-
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have based on the previous blocks in the blockchain and the
 // current signer.
