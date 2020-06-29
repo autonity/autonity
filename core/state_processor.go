@@ -18,6 +18,8 @@ package core
 
 import (
 	"errors"
+	"math/big"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/misc"
@@ -27,7 +29,6 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
-	"math/big"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -38,7 +39,7 @@ type StateProcessor struct {
 	config           *params.ChainConfig // Chain configuration options
 	bc               *BlockChain         // Canonical block chain
 	engine           consensus.Engine    // Consensus engine used for block rewards
-	autonityContract autonity.Contract
+	autonityContract *autonity.Contract
 }
 
 // NewStateProcessor initialises a new StateProcessor.
@@ -50,7 +51,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 	}
 }
 
-func (p *StateProcessor) SetAutonityContract(contract autonity.Contract) {
+func (p *StateProcessor) SetAutonityContract(contract *autonity.Contract) {
 	p.autonityContract = contract
 }
 

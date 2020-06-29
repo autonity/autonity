@@ -19,9 +19,9 @@ package consensus
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/contracts/autonity"
-	"github.com/clearmatics/autonity/p2p"
 	"math/big"
+
+	"github.com/clearmatics/autonity/p2p"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/state"
@@ -53,26 +53,6 @@ type ChainReader interface {
 
 	// Engine retrieves the chain's consensus engine.
 	Engine() Engine
-}
-
-// FullChain reader is an extension of ChainReader with some
-// methods needed for block creation and verification. It is meant to be implemented
-// by the blockchain object.
-type FullChainReader interface {
-	ChainReader
-
-	State() (*state.StateDB, error)
-
-	StateAt(root common.Hash) (*state.StateDB, error)
-
-	// Having ValidateBlock and ValidateState avoid having Validator() causing a core import.
-	ValidateBody(*types.Block) error
-
-	ValidateState(block *types.Block, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error
-
-	GetAutonityContract() autonity.Contract
-
-	CurrentBlock() *types.Block
 }
 
 // Engine is an algorithm agnostic consensus engine.
@@ -110,7 +90,7 @@ type Engine interface {
 	//
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain FullChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 		uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error)
 
 	// FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
@@ -118,7 +98,7 @@ type Engine interface {
 	//
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	FinalizeAndAssemble(chain FullChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+	FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 		uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error)
 
 	// Seal generates a new sealing request for the given input block and pushes
@@ -170,7 +150,7 @@ type BFT interface {
 	Engine
 
 	// Start starts the engine
-	Start(ctx context.Context, chain FullChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
+	Start(ctx context.Context) error
 }
 
 type Syncer interface {

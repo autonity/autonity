@@ -20,13 +20,14 @@ package eth
 import (
 	"errors"
 	"fmt"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"runtime"
 	"sync"
 	"sync/atomic"
+
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/p2p/enode"
 
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/abi/bind"
@@ -34,6 +35,7 @@ import (
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/ethash"
+	tendermintcore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/bloombits"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -209,6 +211,10 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, senderCacher, &config.TxLookupLimit)
 	if err != nil {
 		return nil, err
+	}
+
+	if be, ok := consEngine.(tendermintcore.Backend); ok {
+		be.SetBlockchain(eth.blockchain)
 	}
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {

@@ -20,7 +20,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/core/state/snapshot"
 	"io"
 	"math/big"
 	mrand "math/rand"
@@ -28,6 +27,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/clearmatics/autonity/core/state/snapshot"
 
 	lru "github.com/hashicorp/golang-lru"
 
@@ -198,7 +199,7 @@ type BlockChain struct {
 	shouldPreserve  func(*types.Block) bool        // Function used to determine whether should preserve the given block.
 	terminateInsert func(common.Hash, uint64) bool // Testing hook used to terminate ancient receipt chain insertion.
 
-	autonityContract autonity.Contract
+	autonityContract *autonity.Contract
 
 	// senderCacher is a concurrent transaction sender recoverer and cacher
 	senderCacher *TxSenderCacher
@@ -590,14 +591,6 @@ func (bc *BlockChain) CurrentFastBlock() *types.Block {
 // Validator returns the current validator.
 func (bc *BlockChain) Validator() Validator {
 	return bc.validator
-}
-
-func (bc *BlockChain) ValidateBody(block *types.Block) error {
-	return bc.validator.ValidateBody(block)
-}
-
-func (bc *BlockChain) ValidateState(block *types.Block, state *state.StateDB, receipts types.Receipts, usedGas uint64) error {
-	return bc.validator.ValidateState(block, state, receipts, usedGas)
 }
 
 // Processor returns the current processor.
@@ -2481,8 +2474,8 @@ func (bc *BlockChain) GetTransactionLookup(hash common.Hash) *rawdb.LegacyTxLook
 }
 
 // Config retrieves the chain's fork configuration.
-func (bc *BlockChain) Config() *params.ChainConfig            { return bc.chainConfig }
-func (bc *BlockChain) GetAutonityContract() autonity.Contract { return bc.autonityContract }
+func (bc *BlockChain) Config() *params.ChainConfig             { return bc.chainConfig }
+func (bc *BlockChain) GetAutonityContract() *autonity.Contract { return bc.autonityContract }
 
 // Engine retrieves the blockchain's consensus engine.
 func (bc *BlockChain) Engine() consensus.Engine { return bc.engine }

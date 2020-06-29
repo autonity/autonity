@@ -17,13 +17,14 @@
 package miner
 
 import (
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	tendermint "github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math/big"
 	"math/rand"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	tendermint "github.com/clearmatics/autonity/consensus/tendermint/config"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -123,6 +124,11 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	senderCacher := &core.TxSenderCacher{}
 	chain, _ := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, senderCacher, nil)
 	txpool := core.NewTxPool(testTxPoolConfig, chainConfig, chain, senderCacher)
+
+	te, ok := engine.(*tendermintBackend.Backend)
+	if ok {
+		te.SetBlockchain(chain)
+	}
 
 	// Generate a small n-block chain and an uncle block for it
 	if n > 0 {

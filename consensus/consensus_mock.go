@@ -862,17 +862,17 @@ func (mr *MockBFTMockRecorder) Close() *gomock.Call {
 }
 
 // Start mocks base method
-func (m *MockBFT) Start(ctx context.Context, chain ChainReader, currentBlock func() *types.Block, hasBadBlock func(common.Hash) bool) error {
+func (m *MockBFT) Start(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Start", ctx, chain, currentBlock, hasBadBlock)
+	ret := m.ctrl.Call(m, "Start", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Start indicates an expected call of Start
-func (mr *MockBFTMockRecorder) Start(ctx, chain, currentBlock, hasBadBlock interface{}) *gomock.Call {
+func (mr *MockBFTMockRecorder) Start(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockBFT)(nil).Start), ctx, chain, currentBlock, hasBadBlock)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockBFT)(nil).Start), ctx)
 }
 
 // MockSyncer is a mock of Syncer interface

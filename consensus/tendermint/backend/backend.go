@@ -94,17 +94,16 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 // ----------------------------------------------------------------------------
 
 type Backend struct {
-	config           *tendermintConfig.Config
-	eventMux         *event.TypeMuxSilent
-	privateKey       *ecdsa.PrivateKey
-	privateKeyMu     sync.RWMutex
-	address          common.Address
-	logger           log.Logger
-	db               ethdb.Database
-	blockchain       consensus.FullChainReader
-	blockchainInitMu sync.Mutex
-	currentBlock     func() *types.Block
-	hasBadBlock      func(hash common.Hash) bool
+	config       *tendermintConfig.Config
+	eventMux     *event.TypeMuxSilent
+	privateKey   *ecdsa.PrivateKey
+	privateKeyMu sync.RWMutex
+	address      common.Address
+	logger       log.Logger
+	db           ethdb.Database
+	blockchain   *core.BlockChain
+	currentBlock func() *types.Block
+	hasBadBlock  func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
@@ -307,7 +306,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		// Validate the body of the proposal
-		if err = sb.blockchain.ValidateBody(block); err != nil {
+		if err = sb.blockchain.Validator().ValidateBody(block); err != nil {
 			return 0, err
 		}
 
@@ -328,7 +327,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		committeeSet, receipt, err := sb.Finalize(sb.blockchain, header, state, block.Transactions(), nil, receipts)
 		receipts = append(receipts, receipt)
 		//Validate the state of the proposal
-		if err = sb.blockchain.ValidateState(block, state, receipts, *usedGas); err != nil {
+		if err = sb.blockchain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
 			return 0, err
 		}
 

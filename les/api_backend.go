@@ -254,7 +254,7 @@ func (b *LesApiBackend) ChainDb() ethdb.Database {
 func (b *LesApiBackend) AccountManager() *accounts.Manager {
 	return b.eth.accountManager
 }
-func (b *LesApiBackend) AutonityContract() autonity.Contract {
+func (b *LesApiBackend) AutonityContract() *autonity.Contract {
 	//todo add autonity contract integration to LES
 	return nil
 }
