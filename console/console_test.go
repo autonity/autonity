@@ -28,6 +28,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
+	"github.com/clearmatics/autonity/console/prompt"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/internal/jsre"
@@ -67,10 +68,10 @@ func (p *hookedPrompter) PromptPassword(prompt string) (string, error) {
 func (p *hookedPrompter) PromptConfirm(prompt string) (bool, error) {
 	return false, errors.New("not implemented")
 }
-func (p *hookedPrompter) SetHistory(history []string)              {}
-func (p *hookedPrompter) AppendHistory(command string)             {}
-func (p *hookedPrompter) ClearHistory()                            {}
-func (p *hookedPrompter) SetWordCompleter(completer WordCompleter) {}
+func (p *hookedPrompter) SetHistory(history []string)                     {}
+func (p *hookedPrompter) AppendHistory(command string)                    {}
+func (p *hookedPrompter) ClearHistory()                                   {}
+func (p *hookedPrompter) SetWordCompleter(completer prompt.WordCompleter) {}
 
 // tester is a console test environment for the console tests to operate on.
 type tester struct {
@@ -97,7 +98,7 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 		t.Fatalf("failed to create node: %v", err)
 	}
 	ethConf := &eth.Config{
-		Genesis: core.DefaultTestnetGenesisBlock(),
+		Genesis: core.DefaultGenesisBlock(),
 		Miner: miner.Config{
 			Etherbase: common.HexToAddress(testAddress),
 		},
@@ -301,7 +302,7 @@ func TestPrettyError(t *testing.T) {
 	defer tester.Close(t)
 	tester.console.Evaluate("throw 'hello'")
 
-	want := jsre.ErrorColor("hello") + "\n"
+	want := jsre.ErrorColor("hello") + "\n\tat <eval>:1:7(1)\n\n"
 	if output := tester.output.String(); output != want {
 		t.Fatalf("pretty error mismatch: have %s, want %s", output, want)
 	}
