@@ -191,7 +191,7 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 	return minGasPrice.Uint64(), nil
 }
 
-func (ac *Contract) callGetProposerFromAC(state *state.StateDB, header *types.Header, height uint64, round int64) common.Address {
+func (ac *Contract) callGetProposer(state *state.StateDB, header *types.Header, height uint64, round int64) common.Address {
 	var proposer common.Address
 	h := new(big.Int).SetUint64(height)
 	r := new(big.Int).SetInt64(round)

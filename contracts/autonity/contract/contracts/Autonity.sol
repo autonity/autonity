@@ -463,8 +463,6 @@ contract Autonity {
                 return committee[i].addr;
             }
         }
-        // in case of any exceptions, to return the first validator for liveness.
-        return committee[0].addr;
     }
 
     /*
@@ -575,9 +573,6 @@ contract Autonity {
     }
 
     function _checkDowngradeUserType(address _address) internal {
-        require(_address != address(0), "address must be defined");
-        require(users[_address].addr != address(0), "user must exist");
-
         User memory u = users[_address];
         if (u.stake != 0 || u.userType != UserType.Validator) {
             return;
@@ -585,7 +580,6 @@ contract Autonity {
 
         _removeFromArray(u.addr, stakeholders);
         _removeFromArray(u.addr, validators);
-        usersList.push(u.addr);
         users[_address].userType = UserType.Participant;
     }
 
