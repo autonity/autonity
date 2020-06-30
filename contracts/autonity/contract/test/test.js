@@ -549,12 +549,12 @@ contract('Autonity', function (accounts) {
             let initialUserType = await token.myUserType({from: accounts[8]});
             assert(initialUserType == roleValidator, "wrong user type");
 
-            // remove users except accounts[8]
-            await token.removeUser(accounts[1], {from: operator});
-            await token.removeUser(accounts[2], {from: operator});
-            await token.removeUser(accounts[3], {from: operator});
-            await token.removeUser(accounts[4], {from: operator});
-            await token.removeUser(accounts[5], {from: operator});
+            await token.redeemStake(accounts[1], initStake, {from: operator});
+            await token.redeemStake(accounts[2], initStake, {from: operator});
+            await token.redeemStake(accounts[3], initStake, {from: operator});
+            await token.redeemStake(accounts[4], initStake, {from: operator});
+            await token.redeemStake(accounts[5], initStake, {from: operator});
+
             let getValidatorsResult = await token.getValidators({from: operator});
             assert(getValidatorsResult.length != 1, "wrong number of validators");
 
@@ -564,6 +564,8 @@ contract('Autonity', function (accounts) {
             } catch (e) {
                 let userType = await token.myUserType({from: accounts[8]});
                 assert(userType == roleValidator, "wrong user type");
+                let getValidatorsResult = await token.getValidators({from: operator});
+                assert(getValidatorsResult.length != 1, "wrong number of validators");
             }
         });
 
