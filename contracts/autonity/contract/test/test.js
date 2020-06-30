@@ -565,7 +565,7 @@ contract('Autonity', function (accounts) {
             await token.redeemStake(accounts[5], balance, {from: operator});
 
             let getValidatorsResult = await token.getValidators({from: operator});
-            assert(getValidatorsResult.length != 1, "wrong number of validators");
+            assert(getValidatorsResult.length == 1, "wrong number of validators");
 
             try {
                 await token.redeemStake(accounts[8], initStake, {from: operator});
@@ -574,7 +574,7 @@ contract('Autonity', function (accounts) {
                 let userType = await token.myUserType({from: accounts[8]});
                 assert(userType == roleValidator, "wrong user type");
                 let getValidatorsResult = await token.getValidators({from: operator});
-                assert(getValidatorsResult.length != 1, "wrong number of validators");
+                assert(getValidatorsResult.length == 1, "wrong number of validators");
             }
         });
 
