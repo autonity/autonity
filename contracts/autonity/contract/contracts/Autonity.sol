@@ -242,8 +242,6 @@ contract Autonity {
     */
     function send(address _recipient, uint256 _amount) external returns (bool) {
         _transfer(msg.sender, _recipient, _amount);
-        // todo check 0 balance, and downgrade user role.
-        _checkDowngradeUserType(msg.sender);
         return true;
     }
 
@@ -573,10 +571,14 @@ contract Autonity {
     function _transfer(address sender, address recipient, uint256 amount) internal canUseStake(sender) canUseStake(recipient) {
         users[sender].stake = users[sender].stake.sub(amount, "Transfer amount exceeds balance");
         users[recipient].stake = users[recipient].stake.add(amount);
+        // todo check 0 balance, and downgrade user role.
+        _checkDowngradeUserType(sender);
         emit Transfer(sender, recipient, amount);
     }
 
     function _checkDowngradeUserType(address _address) internal {
+        require(validators.length > 1, "Downgrade user failed due to keep at least 1 validator in the network");
+
         User memory u = users[_address];
         if (u.stake != 0 || u.userType != UserType.Validator) {
             return;

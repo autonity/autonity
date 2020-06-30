@@ -4,6 +4,9 @@ const utils = require('./test-utils');
 //todo: move gas analysis to separate js file
 
 contract('Autonity', function (accounts) {
+    const roleValidator = 2;
+    const roleStakeHolder = 1;
+    const roleParticipant = 0;
     const validatorsList = [
         accounts[1],
         accounts[2],
@@ -208,25 +211,25 @@ contract('Autonity', function (accounts) {
           it('test upgrades to userType', async function() {
             // participant -> stakeholder (0 -> 1)
             await token.addParticipant(accounts[6], freeEnodes[0], {from: operator});
-            await token.changeUserType(accounts[6], 1, {from: operator});
+            await token.changeUserType(accounts[6], roleStakeHolder, {from: operator});
             let thisUserType = await token.myUserType({from: accounts[6]});
-            assert (thisUserType == 1, "wrong user type");
+            assert (thisUserType == roleStakeHolder, "wrong user type");
             await token.removeUser(accounts[6], {from: operator});
 
             // participant -> validator (0 -> 2)
             await token.addParticipant(accounts[6], freeEnodes[0], {from: operator});
-            await token.changeUserType(accounts[6], 2, {from: operator});
+            await token.changeUserType(accounts[6], roleValidator, {from: operator});
             thisUserType = await token.myUserType({from: accounts[6]});
-            assert (thisUserType == 2, "wrong user type");
+            assert (thisUserType == roleValidator, "wrong user type");
             let thisUserStake = await token.getStake({from: accounts[6]});
             assert (thisUserStake == 0);
             await token.removeUser(accounts[6], {from: operator});
 
             // stakeholder -> validator (1 -> 2)
             await token.addStakeholder(accounts[6], freeEnodes[0], 100, {from: operator});
-            await token.changeUserType(accounts[6], 2, {from: operator});
+            await token.changeUserType(accounts[6], roleValidator, {from: operator});
             thisUserType = await token.myUserType({from: accounts[6]});
-            assert (thisUserType == 2, "wrong user type");
+            assert (thisUserType == roleValidator, "wrong user type");
             thisUserStake = await token.getStake({from: accounts[6]});
             assert (thisUserStake == 100);
             await token.removeUser(accounts[6], {from: operator});
@@ -235,9 +238,9 @@ contract('Autonity', function (accounts) {
           it('test downgrades to userType', async function() {
             // valiator -> stakeholder (2 -> 1)
             await token.addValidator(accounts[6], 100, freeEnodes[0], {from: operator});
-            await token.changeUserType(accounts[6], 1, {from: operator});
+            await token.changeUserType(accounts[6], roleStakeHolder, {from: operator});
             let thisUserType = await token.myUserType({from: accounts[6]});
-            assert (thisUserType == 1, "wrong user type");
+            assert (thisUserType == roleStakeHolder, "wrong user type");
             let thisUserStake = await token.getStake({from: accounts[6]});
             assert (thisUserStake == 100);
             await token.removeUser(accounts[6], {from: operator});
@@ -246,14 +249,14 @@ contract('Autonity', function (accounts) {
             try {
               // ensure that a validator with stake cannot be downgraded
               await token.addValidator(accounts[6], 100, freeEnodes[0], {from: operator});
-              await token.changeUserType(accounts[6], 0, {from: operator});
+              await token.changeUserType(accounts[6], roleParticipant, {from: operator});
               assert.fail('Expected throw not received');
             } catch (e) {
               await token.removeUser(accounts[6], {from: operator});
               await token.addValidator(accounts[6], 0, freeEnodes[0], {from: operator});
-              await token.changeUserType(accounts[6], 0, {from: operator});
+              await token.changeUserType(accounts[6], roleParticipant, {from: operator});
               thisUserType = await token.myUserType({from: accounts[6]});
-              assert (thisUserType == 0, "wrong user type");
+              assert (thisUserType == roleParticipant, "wrong user type");
               await token.removeUser(accounts[6], {from: operator});
             }
 
@@ -261,14 +264,14 @@ contract('Autonity', function (accounts) {
             try {
               // ensure that a participant with stake cannot be downgraded
               await token.addStakeholder(accounts[6], freeEnodes[0], 100, {from: operator});
-              await token.changeUserType(accounts[6], 0, {from: operator});
+              await token.changeUserType(accounts[6], roleParticipant, {from: operator});
               assert.fail('Expected throw not received');
             } catch (e) {
               await token.removeUser(accounts[6], {from: operator});
               await token.addStakeholder(accounts[6], freeEnodes[0], 0, {from: operator});
-              await token.changeUserType(accounts[6], 0, {from: operator});
+              await token.changeUserType(accounts[6], roleParticipant, {from: operator});
               thisUserType = await token.myUserType({from: accounts[6]});
-              assert (thisUserType == 0, "wrong user type");
+              assert (thisUserType == roleParticipant, "wrong user type");
               await token.removeUser(accounts[6], {from: operator});
             }
 
@@ -304,9 +307,9 @@ contract('Autonity', function (accounts) {
 
         it('test that _createUser() does not allow duplicates', async function () {
             try {
-              await token._createUser(accounts[6], freeEnodes[0], 2, 100, 0, {from: operator});
+              await token._createUser(accounts[6], freeEnodes[0], roleValidator, 100, 0, {from: operator});
               // the duplicate
-              await token._createUser(accounts[6], freeEnodes[0], 2, 100, 0, {from: operator});
+              await token._createUser(accounts[6], freeEnodes[0], roleValidator, 100, 0, {from: operator});
               assert.fail('Expected throw not received');
             } catch (e) {
               return
@@ -501,35 +504,67 @@ contract('Autonity', function (accounts) {
         it('test user type downgrade on redeem stake', async function f() {
             let initStake = 100;
             await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
-            await token.redeemStake(accounts[8], initStake, {from: operator});
+            let initialUserType = await token.myUserType({from: accounts[8]});
+            assert(initialUserType == roleValidator, "wrong user type");
 
-            let userType = await token.myUserType({from: accounts[8]});
-            assert (userType == 0, "wrong user type");
+            await token.redeemStake(accounts[8], initStake, {from: operator});
+            let newUserType = await token.myUserType({from: accounts[8]});
+            assert (newUserType == roleParticipant, "wrong user type");
         });
 
         it('test user type not downgrade on redeem stake', async function f() {
             let initStake = 100;
             await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
+            let initialUserType = await token.myUserType({from: accounts[8]});
+            assert(initialUserType == roleValidator, "wrong user type");
             await token.redeemStake(accounts[8], 50, {from: operator});
 
             let userType = await token.myUserType({from: accounts[8]});
-            assert (userType == 2, "wrong user type");
+            assert (userType == roleValidator, "wrong user type");
         });
 
         it('test user type downgrade on send stake', async function f() {
             let initStake = 100;
             await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
+            let initialUserType = await token.myUserType({from: accounts[8]});
+            assert(initialUserType == roleValidator, "wrong user type");
             await token.send(accounts[2], initStake, {from: accounts[8]});
             let userType = await token.myUserType({from: accounts[8]});
-            assert (userType == 0, "wrong user type");
+            assert (userType == roleParticipant, "wrong user type");
         });
 
         it('test user type not downgrade on send stake', async function f() {
             let initStake = 100;
             await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
+            let initialUserType = await token.myUserType({from: accounts[8]});
+            assert(initialUserType == roleValidator, "wrong user type");
             await token.send(accounts[2], 50, {from: accounts[8]});
             let userType = await token.myUserType({from: accounts[8]});
-            assert (userType == 2, "wrong user type");
+            assert (userType == roleValidator, "wrong user type");
+        });
+
+        it('test user type downgrade of last validator in the network', async function f() {
+            let initStake = 100;
+            await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
+            let initialUserType = await token.myUserType({from: accounts[8]});
+            assert(initialUserType == roleValidator, "wrong user type");
+
+            // remove users except accounts[8]
+            await token.removeUser(accounts[1], {from: operator});
+            await token.removeUser(accounts[2], {from: operator});
+            await token.removeUser(accounts[3], {from: operator});
+            await token.removeUser(accounts[4], {from: operator});
+            await token.removeUser(accounts[5], {from: operator});
+            let getValidatorsResult = await token.getValidators({from: operator});
+            assert(getValidatorsResult.length != 1, "wrong number of validators");
+
+            try {
+                await token.redeemStake(accounts[8], initStake, {from: operator});
+                assert.fail('Expected throw not received');
+            } catch (e) {
+                let userType = await token.myUserType({from: accounts[8]});
+                assert(userType == roleValidator, "wrong user type");
+            }
         });
 
         it('test create account, add stake, check that it is added, remove stake', async function () {
