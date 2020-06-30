@@ -415,6 +415,15 @@ func TestNewProposal(t *testing.T) {
 		assert.Equal(t, clientLockedValue, c.validValue)
 		assert.Equal(t, clientLockedRound, c.validRound)
 	})
+	t.Run("step to propose then to check buffered proposal, with client's lockedRound = -1", func(t *testing.T) {
+
+	})
+	t.Run("step to propose then to check buffered proposal, with client's lockedRound is same as proposal block", func(t *testing.T) {
+
+	})
+	t.Run("step to propose then to check buffered proposal, with client's lockedRound is different from proposal block", func(t *testing.T) {
+
+	})
 }
 
 // The following tests aim to test lines 28 - 33 of Tendermint Algorithm described on page 6 of
@@ -545,6 +554,66 @@ func TestOldProposal(t *testing.T) {
 		assert.Equal(t, clientLockedValue, c.lockedValue)
 		assert.Equal(t, clientLockedValue, c.validValue)
 	})
+	t.Run("step to propose then to check buffered proposal, with vr >= 0, lockedRound <= vr", func(t *testing.T) {
+
+	})
+	t.Run("step to propose then to check buffered proposal, with vr >= 0, lockedRound is same as proposal block", func(t *testing.T) {
+		
+	})
+	t.Run("step to propose then to check buffered proposal, with vr >= 0, lockedRound > vr and a different value", func(t *testing.T) {
+		
+	})
+	// line 28, re-order the MSG handling.
+	// todo: don't discard those prevote msg via errFutureStepMessage. We need apply it to round state too.
+	// todo: prevote handler apply prevote msg only with the client's step is >= prevote step. We need apply it to round state too.
+	t.Run("handle old proposal before quorum prevote is satisfied, finally exe action by prevote MSG", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		// vr >= 0 && vr < round_p
+		proposalValidRound := int64(rand.Intn(int(currentRound)))
+		// -1 <= c.lockedRound <= vr
+		clientLockedRound := int64(rand.Intn(int(proposalValidRound+2) - 1))
+		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(propose)
+		c.setCommitteeSet(committeeSet)
+		c.lockedRound = clientLockedRound
+		c.validRound = clientLockedRound
+		// Although the following is not possible it is required to ensure that c.lockRound <= proposalValidRound is
+		// responsible for sending the prevote for the incoming proposal
+		c.lockedValue = nil
+		c.validValue = nil
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.CommitteeSet().Quorum() - 1})
+
+		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+
+		// receive proposal before the full quorum prevote is received.
+		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
+		assert.Nil(t, err)
+
+		// receive the last prevote MSG to get quorum prevote and trigger the action.
+		sender := 0
+		err = c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
+
+		assert.Nil(t, err)
+		assert.Equal(t, prevote, c.step)
+		assert.Nil(t, c.lockedValue)
+		assert.Equal(t, clientLockedRound, c.lockedRound)
+		assert.Nil(t, c.validValue)
+		assert.Equal(t, clientLockedRound, c.validRound)
+	})
 }
 
 // The following tests aim to test lines 34 - 35 & 61 - 64 of Tendermint Algorithm described on page 6 of
@@ -666,6 +735,10 @@ func TestPrevoteTimeout(t *testing.T) {
 		c.handleTimeoutPrevote(context.Background(), timeoutE)
 		assert.Equal(t, precommit, c.step)
 	})
+	// line 34, step to prevote and check if to start timer.
+	t.Run("step to prevote then to check if exist quorum prevote buffered to start timer", func(t *testing.T) {
+
+	})
 }
 
 // The following tests aim to test lines 34 - 43 of Tendermint Algorithm described on page 6 of
@@ -786,6 +859,77 @@ func TestQuorumPrevote(t *testing.T) {
 		assert.Equal(t, lockedRoundBefore, c.lockedRound)
 		assert.Equal(t, validRoundBefore, c.validRound)
 	})
+
+	// line 36 step to prevote test.
+	t.Run("step to prevote then to check if exist proposal and quorum prevote buffered to exe action", func(t *testing.T) {
+
+	})
+
+	// line 36 step to precommit test.
+	t.Run("step to precommit then to check if exist proposal and quorum prevote buffered to exe action", func(t *testing.T) {
+
+	})
+
+	// line 36, re-order the MSG handling.
+	// todo: condtion was only checked if client is on the propose step. We need apply proposal msg into round state without this assumption.
+	// todo: check line 36 condition in proposal msg handler...
+	t.Run("handle proposal after quorum prevote is satisfied, finally exe action by proposal MSG", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		//randomly choose prevote or precommit step
+		currentStep := Step(rand.Intn(2) + 1)
+		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1)-1)), members[currentRound].Address, false)
+		/*
+		sender := 1
+		prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
+		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
+		*/
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(currentStep)
+		c.setCommitteeSet(committeeSet)
+
+		// received quorum prevote.
+		c.curRoundMessages.AddPrevote(proposal.ProposalBlock.Hash(), Message{Address: members[2].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum()})
+
+		// handle proposal msg to exe the action.
+		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+		// receive proposal before the full quorum prevote is received.
+		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
+		assert.Nil(t, err)
+
+		if currentStep == prevote {
+			/*
+			committedSeal := PrepareCommittedSeal(proposal.ProposalBlock.Hash(), currentRound, currentHeight)
+
+			backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
+			backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
+			backendMock.EXPECT().Broadcast(context.Background(), committeeSet, precommitMsgRLPWithSig).Return(nil)
+
+			err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
+			assert.Nil(t, err)
+			 */
+			assert.Equal(t, proposal.ProposalBlock, c.lockedValue)
+			assert.Equal(t, currentRound, c.lockedRound)
+			assert.Equal(t, precommit, c.step)
+
+		} else if currentStep == precommit {
+			/*
+			err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
+			assert.Nil(t, err)
+			*/
+			assert.Equal(t, proposal.ProposalBlock, c.validValue)
+			assert.Equal(t, currentRound, c.validRound)
+		}
+	})
+
 }
 
 // The following tests aim to test lines 44 - 46 of Tendermint Algorithm described on page 6 of
@@ -795,35 +939,41 @@ func TestQuorumPrevoteNil(t *testing.T) {
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
 	clientAddr := members[0].Address
+	t.Run("Happy case to start timer on quorum prevote", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		sender := 1
+		prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, members[sender].Address, privateKeys[members[sender].Address])
+		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr, privateKeys[clientAddr])
+		committedSeal := PrepareCommittedSeal(common.Hash{}, currentRound, currentHeight)
 
-	currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
-	currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
-	sender := 1
-	prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, common.Hash{}, members[sender].Address, privateKeys[members[sender].Address])
-	precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr, privateKeys[clientAddr])
-	committedSeal := PrepareCommittedSeal(common.Hash{}, currentRound, currentHeight)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
 
-	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().Return(clientAddr)
+		c := New(backendMock)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(prevote)
+		c.setCommitteeSet(committeeSet)
+		c.curRoundMessages.AddPrevote(common.Hash{}, Message{Address: members[2].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum() - 1})
 
-	c := New(backendMock)
-	c.setHeight(currentHeight)
-	c.setRound(currentRound)
-	c.setStep(prevote)
-	c.setCommitteeSet(committeeSet)
-	c.curRoundMessages.AddPrevote(common.Hash{}, Message{Address: members[2].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum() - 1})
+		backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
+		backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, precommitMsgRLPWithSig).Return(nil)
 
-	backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
-	backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
-	backendMock.EXPECT().Broadcast(context.Background(), committeeSet, precommitMsgRLPWithSig).Return(nil)
+		err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
+		assert.Nil(t, err)
 
-	err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
-	assert.Nil(t, err)
-
-	assert.Equal(t, precommit, c.step)
+		assert.Equal(t, precommit, c.step)
+	})
+	
+	// line 44, step to prevote and check to start timer.
+	t.Run("step to prevote, and check if to start timer", func(t *testing.T) {
+		
+	})
 }
 
 // The following tests aim to test lines 47 - 48 & 65 - 67 of Tendermint Algorithm described on page 6 of
@@ -958,58 +1108,118 @@ func TestQuorumPrecommit(t *testing.T) {
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
 	clientAddr := members[0].Address
-	currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
-	nextHeight := currentHeight.Uint64() + 1
-	nextProposal := generateBlock(big.NewInt(int64(nextHeight)))
-	nextProposalMsg, nextProposalMsgRLPNoSig, nextProposalMsgRLPWithSig := prepareProposal(t, 0, big.NewInt(int64(nextHeight)), int64(-1), nextProposal, clientAddr, privateKeys[clientAddr])
-	currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
-	proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1)-1)), members[currentRound].Address, false)
-	sender := 1
-	precommitMsg, _, _ := prepareVote(t, msgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
+	t.Run("Test quorum precommit happy case", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		nextHeight := currentHeight.Uint64() + 1
+		nextProposal := generateBlock(big.NewInt(int64(nextHeight)))
+		nextProposalMsg, nextProposalMsgRLPNoSig, nextProposalMsgRLPWithSig := prepareProposal(t, 0, big.NewInt(int64(nextHeight)), int64(-1), nextProposal, clientAddr, privateKeys[clientAddr])
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1)-1)), members[currentRound].Address, false)
+		sender := 1
+		precommitMsg, _, _ := prepareVote(t, msgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().Return(clientAddr)
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
 
-	c := New(backendMock)
-	c.setHeight(currentHeight)
-	c.setRound(currentRound)
-	c.setStep(precommit)
-	c.setCommitteeSet(committeeSet)
-	c.curRoundMessages.SetProposal(&proposal, proposalMsg, true)
-	quorumPrecommitMsg := Message{Address: members[2].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum() - 1}
-	c.curRoundMessages.AddPrecommit(proposal.ProposalBlock.Hash(), quorumPrecommitMsg)
+		c := New(backendMock)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(precommit)
+		c.setCommitteeSet(committeeSet)
+		c.curRoundMessages.SetProposal(&proposal, proposalMsg, true)
+		quorumPrecommitMsg := Message{Address: members[2].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum() - 1}
+		c.curRoundMessages.AddPrecommit(proposal.ProposalBlock.Hash(), quorumPrecommitMsg)
 
-	// The committed seal order is unpredictable, therefore, using gomock.Any()
-	// TODO: investigate what order should be on committed seals
-	backendMock.EXPECT().Commit(proposal.ProposalBlock, currentRound, gomock.Any())
+		// The committed seal order is unpredictable, therefore, using gomock.Any()
+		// TODO: investigate what order should be on committed seals
+		backendMock.EXPECT().Commit(proposal.ProposalBlock, currentRound, gomock.Any())
 
-	err := c.handleCheckedMsg(context.Background(), precommitMsg, members[sender])
-	assert.Nil(t, err)
+		err := c.handleCheckedMsg(context.Background(), precommitMsg, members[sender])
+		assert.Nil(t, err)
 
-	newCommitteeSet, err := committee.NewSet(committeeSet.Committee(), members[currentRound].Address)
-	assert.Nil(t, err)
-	backendMock.EXPECT().LastCommittedProposal().Return(proposal.ProposalBlock, members[currentRound].Address).MaxTimes(2)
-	backendMock.EXPECT().Committee(nextHeight).Return(newCommitteeSet, nil)
+		newCommitteeSet, err := committee.NewSet(committeeSet.Committee(), members[currentRound].Address)
+		assert.Nil(t, err)
+		backendMock.EXPECT().LastCommittedProposal().Return(proposal.ProposalBlock, members[currentRound].Address).MaxTimes(2)
+		backendMock.EXPECT().Committee(nextHeight).Return(newCommitteeSet, nil)
 
-	// if the client is the next proposer
-	if newCommitteeSet.IsProposer(0, clientAddr) {
-		c.pendingUnminedBlocks[nextHeight] = nextProposal
-		backendMock.EXPECT().SetProposedBlockHash(nextProposal.Hash())
-		backendMock.EXPECT().Sign(nextProposalMsgRLPNoSig).Return(nextProposalMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, nextProposalMsgRLPWithSig).Return(nil)
-	}
+		// if the client is the next proposer
+		if newCommitteeSet.IsProposer(0, clientAddr) {
+			c.pendingUnminedBlocks[nextHeight] = nextProposal
+			backendMock.EXPECT().SetProposedBlockHash(nextProposal.Hash())
+			backendMock.EXPECT().Sign(nextProposalMsgRLPNoSig).Return(nextProposalMsg.Signature, nil)
+			backendMock.EXPECT().Broadcast(context.Background(), committeeSet, nextProposalMsgRLPWithSig).Return(nil)
+		}
 
-	// It is hard to control tendermint's state machine if we construct the full backend since it overwrites the
-	// state we simulated on this test context again and again. So we assume the CommitEvent is sent from miner/worker
-	// thread via backend's interface, and it is handled to start new round here:
-	c.handleCommit(context.Background())
+		// It is hard to control tendermint's state machine if we construct the full backend since it overwrites the
+		// state we simulated on this test context again and again. So we assume the CommitEvent is sent from miner/worker
+		// thread via backend's interface, and it is handled to start new round here:
+		c.handleCommit(context.Background())
 
-	assert.Equal(t, big.NewInt(int64(nextHeight)), c.Height())
-	assert.Equal(t, int64(0), c.Round())
-	assert.Equal(t, propose, c.step)
+		assert.Equal(t, big.NewInt(int64(nextHeight)), c.Height())
+		assert.Equal(t, int64(0), c.Round())
+		assert.Equal(t, propose, c.step)
+
+	})
+	// line 49, re-order the MSG handling.
+	// todo: proposal msg is only applly to round state when client is on propose step. We should remove this.
+	// todo: common condition checking was not implemented on proposal handler.
+	t.Run("handle quorum precommit before proposal is presented, finally exe action by proposal MSG", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		nextHeight := currentHeight.Uint64() + 1
+		nextProposal := generateBlock(big.NewInt(int64(nextHeight)))
+		nextProposalMsg, nextProposalMsgRLPNoSig, nextProposalMsgRLPWithSig := prepareProposal(t, 0, big.NewInt(int64(nextHeight)), int64(-1), nextProposal, clientAddr, privateKeys[clientAddr])
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1)-1)), members[currentRound].Address, false)
+		//sender := 1
+		//precommitMsg, _, _ := prepareVote(t, msgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(precommit)
+		c.setCommitteeSet(committeeSet)
+		//c.curRoundMessages.SetProposal(&proposal, proposalMsg, true)
+		quorumPrecommitMsg := Message{Address: members[2].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum()}
+		c.curRoundMessages.AddPrecommit(proposal.ProposalBlock.Hash(), quorumPrecommitMsg)
+
+		// The committed seal order is unpredictable, therefore, using gomock.Any()
+		// TODO: investigate what order should be on committed seals
+		backendMock.EXPECT().Commit(proposal.ProposalBlock, currentRound, gomock.Any())
+		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
+		assert.Nil(t, err)
+
+		newCommitteeSet, err := committee.NewSet(committeeSet.Committee(), members[currentRound].Address)
+		assert.Nil(t, err)
+		backendMock.EXPECT().LastCommittedProposal().Return(proposal.ProposalBlock, members[currentRound].Address).MaxTimes(2)
+		backendMock.EXPECT().Committee(nextHeight).Return(newCommitteeSet, nil)
+
+		// if the client is the next proposer
+		if newCommitteeSet.IsProposer(0, clientAddr) {
+			c.pendingUnminedBlocks[nextHeight] = nextProposal
+			backendMock.EXPECT().SetProposedBlockHash(nextProposal.Hash())
+			backendMock.EXPECT().Sign(nextProposalMsgRLPNoSig).Return(nextProposalMsg.Signature, nil)
+			backendMock.EXPECT().Broadcast(context.Background(), committeeSet, nextProposalMsgRLPWithSig).Return(nil)
+		}
+
+		// It is hard to control tendermint's state machine if we construct the full backend since it overwrites the
+		// state we simulated on this test context again and again. So we assume the CommitEvent is sent from miner/worker
+		// thread via backend's interface, and it is handled to start new round here:
+		c.handleCommit(context.Background())
+
+		assert.Equal(t, big.NewInt(int64(nextHeight)), c.Height())
+		assert.Equal(t, int64(0), c.Round())
+		assert.Equal(t, propose, c.step)
+	})
 }
 
 // The following tests aim to test lines 49 - 54 of Tendermint Algorithm described on page 6 of
