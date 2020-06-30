@@ -24,7 +24,7 @@ type ProposerPolicy uint64
 
 const (
 	RoundRobin ProposerPolicy = iota
-	WeightedRoundRobin
+	WeightedRandomSampling
 )
 
 type Config struct {

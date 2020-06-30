@@ -439,8 +439,12 @@ contract Autonity {
 
     /*
     * getProposer
-    * Implement a stateless weighted-round-robin proposer election from the committee which is in a consistent view
-    * across the nodes, the view is calculated by function computeCommittee() on each block finalization.
+    * getProposer returns the address of the proposer for the given height and
+    * round. The proposer is selected from the committee via weighted random
+    * sampling, with selection probability determined by the voting power of
+    * each committee member. The selection mechanism is deterministic and will
+    * always select the same address, given the same height, round and contract
+    * state.
     */
     function getProposer(uint256 height, uint256 round) public view returns(address) {
         // calculate total voting power from current committee, the system does not allow validator with 0 stake/power.
