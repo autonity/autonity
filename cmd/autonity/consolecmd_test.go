@@ -50,7 +50,7 @@ func TestConsoleWelcome(t *testing.T) {
 	autonity.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	autonity.SetTemplateFunc("gover", runtime.Version)
 	autonity.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
-	autonity.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
+	autonity.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)") })
 	autonity.SetTemplateFunc("apis", func() string { return ipcAPIs })
 
 	// Verify the actual welcome message to the required template
@@ -70,7 +70,7 @@ at block: 0 ({{niltime}})
 
 // Tests that a console can be attached to a running node via various means.
 func TestIPCAttachWelcome(t *testing.T) {
-	// Configure the instance for IPC attachement
+	// Configure the instance for IPC attachment
 	coinbase := "0x8605cdbbdb6d264aa742e77020dcbc58fcdce182"
 	var ipc string
 	if runtime.GOOS == "windows" {
@@ -85,11 +85,14 @@ func TestIPCAttachWelcome(t *testing.T) {
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--ipcpath", ipc)
 
+	defer func() {
+		autonity.Interrupt()
+		autonity.ExpectExit()
+	}()
+
 	waitForEndpoint(t, ipc, 3*time.Second)
 	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs)
 
-	autonity.Interrupt()
-	autonity.ExpectExit()
 }
 
 func TestHTTPAttachWelcome(t *testing.T) {
@@ -98,13 +101,14 @@ func TestHTTPAttachWelcome(t *testing.T) {
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--rpc", "--rpcport", port)
+	defer func() {
+		autonity.Interrupt()
+		autonity.ExpectExit()
+	}()
 
 	endpoint := "http://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
 	testAttachWelcome(t, autonity, endpoint, httpAPIs)
-
-	autonity.Interrupt()
-	autonity.ExpectExit()
 }
 
 func TestWSAttachWelcome(t *testing.T) {
@@ -114,13 +118,14 @@ func TestWSAttachWelcome(t *testing.T) {
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--etherbase", coinbase, "--ws", "--wsport", port)
+	defer func() {
+		autonity.Interrupt()
+		autonity.ExpectExit()
+	}()
 
 	endpoint := "ws://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
 	testAttachWelcome(t, autonity, endpoint, httpAPIs)
-
-	autonity.Interrupt()
-	autonity.ExpectExit()
 }
 
 func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis string) {
@@ -135,7 +140,9 @@ func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis stri
 	attach.SetTemplateFunc("gover", runtime.Version)
 	attach.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
 	attach.SetTemplateFunc("etherbase", func() string { return autonity.Etherbase })
-	attach.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
+	attach.SetTemplateFunc("niltime", func() string {
+		return time.Unix(0, 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)")
+	})
 	attach.SetTemplateFunc("ipc", func() bool { return strings.HasPrefix(endpoint, "ipc") })
 	attach.SetTemplateFunc("datadir", func() string { return autonity.Datadir })
 	attach.SetTemplateFunc("apis", func() string { return apis })

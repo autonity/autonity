@@ -20,19 +20,19 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"math/big"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/core"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/rpc"
 )
 
@@ -321,11 +321,6 @@ func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 // Finaize doesn't modify the passed header.
 func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
-	sb.blockchainInitMu.Lock()
-	if sb.blockchain == nil {
-		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
-	}
-	sb.blockchainInitMu.Unlock()
 
 	committeeSet, receipt, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
 	if err != nil {
@@ -364,16 +359,11 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	defer sb.contractsMu.Unlock()
 
 	if header.Number.Int64() == 1 {
-		contractAddress, err := sb.blockchain.GetAutonityContract().DeployAutonityContract(chain, header, state)
+		err := sb.blockchain.GetAutonityContract().DeployAutonityContract(sb.blockchain.Config(), header, state)
 		if err != nil {
 			sb.logger.Error("Deploy autonity contract error", "error", err)
 			return nil, nil, err
 		}
-		sb.autonityContractAddress = contractAddress
-	}
-
-	if sb.autonityContractAddress == (common.Address{}) {
-		sb.autonityContractAddress = crypto.CreateAddress(sb.blockchain.Config().AutonityContractConfig.Deployer, 0)
 	}
 
 	committeeSet, receipt, err := sb.blockchain.GetAutonityContract().FinalizeAndGetCommittee(txs, receipts, header, state)
@@ -501,7 +491,7 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 }
 
 // Start implements consensus.Start
-func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+func (sb *Backend) Start(ctx context.Context) error {
 	// the mutex along with coreStarted should prevent double start
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
@@ -513,13 +503,6 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
-
-	sb.blockchainInitMu.Lock()
-	sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
-	sb.blockchainInitMu.Unlock()
-
-	sb.currentBlock = currentBlock
-	sb.hasBadBlock = hasBadBlock
 
 	// Start Tendermint
 	sb.core.Start(ctx)
@@ -581,7 +564,7 @@ func (sb *Backend) committee(header *types.Header, parents []*types.Header, chai
 		if err != nil {
 			return nil, err
 		}
-		return committee.NewSet(header.Committee, lastMiner)
+		return committee.NewSet(parent.Committee, lastMiner)
 	} else {
 		return sb.savedCommittee(header.Number.Uint64(), chain)
 	}
@@ -589,4 +572,11 @@ func (sb *Backend) committee(header *types.Header, parents []*types.Header, chai
 
 func (sb *Backend) SealHash(header *types.Header) common.Hash {
 	return types.SigHash(header)
+}
+
+func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
+	sb.blockchain = bc
+
+	sb.currentBlock = bc.CurrentBlock
+	sb.hasBadBlock = bc.HasBadBlock
 }

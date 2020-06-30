@@ -8,6 +8,7 @@
 .PHONY: autonity-darwin autonity-darwin-386 autonity-darwin-amd64
 .PHONY: autonity-windows autonity-windows-386 autonity-windows-amd64
 
+NPMBIN= $(shell npm bin)
 GOBIN = ./build/bin
 GO ?= latest
 LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
@@ -20,6 +21,15 @@ AUTONITY_CONTRACT = Autonity.sol
 GENERATED_CONTRACT_DIR = ./common/acdefault/generated
 GENERATED_ABI = $(GENERATED_CONTRACT_DIR)/abi.go
 GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
+
+# This uses 'id -nG $USER' to list all groups that the user is part of and then
+# greps for the word docker in the output, if grep matches the word it returns
+# the successful error code and hence the command after the or '||' will not be
+# executed. This results in DOCKER_SUDO having the value 'sudo' if the current
+# user is not in the docker group and being empty if the current user is in the
+# docker group. This allows us to selectively execute docker with sudo for
+# users that need to execute it with sudo.
+DOCKER_SUDO = $(shell id -nG $(USER) | grep "\<docker\>" > /dev/null || echo sudo)
 
 autonity: embed-autonity-contract
 	build/env.sh go run build/ci.go install ./cmd/autonity
@@ -34,7 +44,7 @@ embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_ABI)
 # docker image. This was causing tests to fail.
 $(GENERATED_BYTECODE) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT)
 	mkdir -p $(GENERATED_CONTRACT_DIR)
-	docker run --rm -v $(CURDIR)/$(AUTONITY_CONTRACT_DIR):/contracts -v $(CURDIR)/$(GENERATED_CONTRACT_DIR):/output ethereum/solc:0.6.4 --overwrite --abi --bin -o /output /contracts/$(AUTONITY_CONTRACT)
+	$(DOCKER_SUDO) docker run --rm -v $(CURDIR)/$(AUTONITY_CONTRACT_DIR):/contracts -v $(CURDIR)/$(GENERATED_CONTRACT_DIR):/output ethereum/solc:0.6.4 --overwrite --abi --bin -o /output /contracts/$(AUTONITY_CONTRACT)
 
 	@echo Generating $(GENERATED_BYTECODE)
 	@echo 'package generated\n' > $(GENERATED_BYTECODE)
@@ -75,11 +85,22 @@ test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 	go test -race -v ./consensus/test/... -timeout 30m
 
+# This runs the contract tests using truffle against an autonity node instance.
 test-contracts:
-	cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
-	sleep 5
-	./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545
-	cd contracts/autonity/contract/ && truffle test && cd -
+	@# npm list returns 0 only if the package is not installed and the shell only
+	@# executes the second part of an or statment if the first fails.
+	@npm list truffle > /dev/null || npm install truffle
+	@npm list web3 > /dev/null || npm install web3
+	@cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
+	@# Autonity can take some time to start listening on port 8545 so we allow multiple connection attempts.
+	@for x in {1..10}; do \
+		sleep 2 ; \
+		./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545 ; \
+		if [ $$? -eq 0 ] ; then \
+			break ; \
+		fi ; \
+	done
+	@cd contracts/autonity/contract/ && $(NPMBIN)/truffle test && cd -
 
 mock-gen:
 	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go

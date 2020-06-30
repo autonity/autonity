@@ -2,11 +2,13 @@ package core
 
 import (
 	"context"
+	"time"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	ethcore "github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
-	"time"
 )
 
 // Backend provides application specific functions for Istanbul core
@@ -28,8 +30,6 @@ type Backend interface {
 	Committee(number uint64) (*committee.Set, error)
 
 	GetContractABI() string
-
-	GetContractAddress() common.Address
 
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(ctx context.Context, valSet *committee.Set, payload []byte)
@@ -56,6 +56,9 @@ type Backend interface {
 	VerifyProposal(types.Block) (time.Duration, error)
 
 	WhiteList() []string
+
+	//Used to set the blockchain on this
+	SetBlockchain(bc *ethcore.BlockChain)
 }
 
 type Tendermint interface {

@@ -8,6 +8,7 @@ import (
 	context "context"
 	common "github.com/clearmatics/autonity/common"
 	committee "github.com/clearmatics/autonity/consensus/tendermint/committee"
+	ethcore "github.com/clearmatics/autonity/core"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
 	gomock "github.com/golang/mock/gomock"
@@ -134,20 +135,6 @@ func (m *MockBackend) GetContractABI() string {
 func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
-}
-
-// GetContractAddress mocks base method
-func (m *MockBackend) GetContractAddress() common.Address {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContractAddress")
-	ret0, _ := ret[0].(common.Address)
-	return ret0
-}
-
-// GetContractAddress indicates an expected call of GetContractAddress
-func (mr *MockBackendMockRecorder) GetContractAddress() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractAddress", reflect.TypeOf((*MockBackend)(nil).GetContractAddress))
 }
 
 // Gossip mocks base method
@@ -285,6 +272,18 @@ func (m *MockBackend) WhiteList() []string {
 func (mr *MockBackendMockRecorder) WhiteList() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WhiteList", reflect.TypeOf((*MockBackend)(nil).WhiteList))
+}
+
+// SetBlockchain mocks base method
+func (m *MockBackend) SetBlockchain(bc *ethcore.BlockChain) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetBlockchain", bc)
+}
+
+// SetBlockchain indicates an expected call of SetBlockchain
+func (mr *MockBackendMockRecorder) SetBlockchain(bc interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBlockchain", reflect.TypeOf((*MockBackend)(nil).SetBlockchain), bc)
 }
 
 // MockTendermint is a mock of Tendermint interface

@@ -79,9 +79,10 @@ func MustParseV4(rawurl string) *Node {
 //
 // For complete nodes, the node ID is encoded in the username portion
 // of the URL, separated from the host by an @ sign. The hostname can
-// be given as an IP address or DNS domain name. The port in the host
-// name section is the TCP listening port. If the TCP and UDP (discovery)
-// ports differ, the UDP port is specified as query parameter "discport".
+// only be given as an IP address or using DNS domain name.
+// The port in the host name section is the TCP listening port. If the
+// TCP and UDP (discovery) ports differ, the UDP port is specified as
+// query parameter "discport".
 //
 // In the following example, the node URL describes
 // a node with IP address 10.3.58.6, TCP listening port 30303

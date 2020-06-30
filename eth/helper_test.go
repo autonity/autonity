@@ -63,9 +63,30 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
 		}
 	)
-	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{
-		Users: []params.User{},
+
+	setupAutonityContract(gspec, peers)
+
+	genesis := gspec.MustCommit(db)
+	blockchain, err := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
+	if err != nil {
+		panic(err)
 	}
+
+	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, blocks, generator)
+	if _, err := blockchain.InsertChain(chain); err != nil {
+		panic(err)
+	}
+	pm, err := NewProtocolManager(gspec.Config, nil, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx, pool: map[common.Hash]*types.Transaction{}}, engine, blockchain, db, 1, nil, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	pm.Start(1000)
+	return pm, db, nil
+}
+
+// helper that add some required fields in the genesis to bootstrap an Autonity Protocol Manager
+func setupAutonityContract(gspec *core.Genesis, peers []string) *core.Genesis {
+	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 
 	for i := range peers {
 		gspec.Config.AutonityContractConfig.Users = append(
@@ -77,24 +98,12 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			},
 		)
 	}
-	gspec.Config.AutonityContractConfig.AddDefault()
-
-	genesis := gspec.MustCommit(db)
-	blockchain, err := core.NewBlockChain(db, nil, gspec.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher())
+	gspec.Difficulty = big.NewInt(1)
+	err := gspec.Config.AutonityContractConfig.Prepare()
 	if err != nil {
 		panic(err)
 	}
-
-	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, blocks, generator)
-	if _, err := blockchain.InsertChain(chain); err != nil {
-		panic(err)
-	}
-	pm, err := NewProtocolManager(gspec.Config, nil, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx}, engine, blockchain, db, 1, nil, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	pm.Start(1000)
-	return pm, db, nil
+	return gspec
 }
 
 // newTestProtocolManagerMust creates a new protocol manager for testing purposes,
@@ -112,10 +121,28 @@ func newTestProtocolManagerMust(t *testing.T, mode downloader.SyncMode, blocks i
 // testTxPool is a fake, helper transaction pool for testing purposes
 type testTxPool struct {
 	txFeed event.Feed
-	pool   []*types.Transaction        // Collection of all transactions
-	added  chan<- []*types.Transaction // Notification channel for new transactions
+	pool   map[common.Hash]*types.Transaction // Hash map of collected transactions
+	added  chan<- []*types.Transaction        // Notification channel for new transactions
 
 	lock sync.RWMutex // Protects the transaction pool
+}
+
+// Has returns an indicator whether txpool has a transaction
+// cached with the given hash.
+func (p *testTxPool) Has(hash common.Hash) bool {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	return p.pool[hash] != nil
+}
+
+// Get retrieves the transaction from local txpool with given
+// tx hash.
+func (p *testTxPool) Get(hash common.Hash) *types.Transaction {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	return p.pool[hash]
 }
 
 // AddRemotes appends a batch of transactions to the pool, and notifies any
@@ -124,10 +151,13 @@ func (p *testTxPool) AddRemotes(txs []*types.Transaction) []error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	p.pool = append(p.pool, txs...)
+	for _, tx := range txs {
+		p.pool[tx.Hash()] = tx
+	}
 	if p.added != nil {
 		p.added <- txs
 	}
+	p.txFeed.Send(core.NewTxsEvent{Txs: txs})
 	return make([]error, len(txs))
 }
 
@@ -170,19 +200,12 @@ func newTestPeer(p2pPeer *p2p.Peer, version int, pm *ProtocolManager, shake bool
 	// Create a message pipe to communicate through
 	app, net := p2p.MsgPipe()
 
-	peer := pm.newPeer(version, p2pPeer, net)
-
 	// Start the peer on a new thread
+	peer := pm.newPeer(version, p2pPeer, net, pm.txpool.Get)
 	errc := make(chan error, 1)
-	go func() {
-		select {
-		case pm.newPeerCh <- peer:
-			errc <- pm.handle(peer)
-		case <-pm.quitSync:
-			errc <- p2p.DiscQuitting
-		}
-	}()
+	go func() { errc <- pm.runPeer(peer) }()
 	tp := &testPeer{app: app, net: net, peer: peer}
+
 	// Execute any implicitly requested handshakes and return
 	if shake {
 		var (
@@ -220,7 +243,7 @@ func (p *testPeer) handshake(t *testing.T, td *big.Int, head common.Hash, genesi
 			CurrentBlock:    head,
 			GenesisBlock:    genesis,
 		}
-	case p.version == eth64:
+	case p.version >= eth64:
 		msg = &statusData{
 			ProtocolVersion: uint32(p.version),
 			NetworkID:       DefaultConfig.NetworkId,

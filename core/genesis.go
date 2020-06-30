@@ -63,9 +63,6 @@ type Genesis struct {
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
 
-	//PoS Fields
-	Committee types.Committee `json:"committee"           gencodec:"required"`
-
 	mu sync.RWMutex
 }
 
@@ -104,7 +101,6 @@ type genesisSpecMarshaling struct {
 	Difficulty *math.HexOrDecimal256
 	Alloc      map[common.UnprefixedAddress]GenesisAccount
 
-	Committee    []common.UnprefixedAddress
 	VotingPowers []math.HexOrDecimal64
 }
 
@@ -160,10 +156,6 @@ func (e *GenesisMismatchError) Error() string {
 //
 // The returned chain configuration is never nil.
 func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
-	return SetupGenesisBlockWithOverride(db, genesis, nil, nil)
-}
-
-func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, overrideIstanbul, overrideMuirGlacier *big.Int) (*params.ChainConfig, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
 		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
 	}
@@ -186,12 +178,16 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, override
 	// We have the genesis block in database(perhaps in ancient database)
 	// but the corresponding state is missing.
 	header := rawdb.ReadHeader(db, stored, 0)
-	if _, err := state.New(header.Root, state.NewDatabaseWithCache(db, 0)); err != nil {
+	if _, err := state.New(header.Root, state.NewDatabaseWithCache(db, 0), nil); err != nil {
 		if genesis == nil {
 			genesis = DefaultGenesisBlock()
 		}
 		// Ensure the stored genesis matches with the given one.
-		hash := genesis.ToBlock(nil).Hash()
+		b, err := genesis.ToBlock(nil)
+		if err != nil {
+			return nil, common.Hash{}, err
+		}
+		hash := b.Hash()
 		if hash != stored {
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
@@ -204,7 +200,11 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, override
 
 	// Check whether the genesis block is already written.
 	if genesis != nil {
-		hash := genesis.ToBlock(nil).Hash()
+		b, err := genesis.ToBlock(nil)
+		if err != nil {
+			return nil, common.Hash{}, err
+		}
+		hash := b.Hash()
 		if hash != stored {
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
@@ -212,12 +212,6 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, override
 
 	// Get the existing chain configuration.
 	newcfg := genesis.configOrDefault(stored)
-	if overrideIstanbul != nil {
-		newcfg.IstanbulBlock = overrideIstanbul
-	}
-	if overrideMuirGlacier != nil {
-		newcfg.MuirGlacierBlock = overrideMuirGlacier
-	}
 	if err := newcfg.CheckConfigForkOrder(); err != nil {
 		return newcfg, common.Hash{}, err
 	}
@@ -254,8 +248,14 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return g.Config
 	case ghash == params.MainnetGenesisHash:
 		return params.MainnetChainConfig
-	case ghash == params.TestnetGenesisHash:
-		return params.TestnetChainConfig
+	case ghash == params.RopstenGenesisHash:
+		return params.RopstenChainConfig
+	case ghash == params.RinkebyGenesisHash:
+		return params.RinkebyChainConfig
+	case ghash == params.GoerliGenesisHash:
+		return params.GoerliChainConfig
+	case ghash == params.YoloV1GenesisHash:
+		return params.YoloV1ChainConfig
 	default:
 		return params.AllEthashProtocolChanges
 	}
@@ -263,11 +263,27 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 
 // ToBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
-func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
+func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
+
+	var committee types.Committee
+	if g.Config.AutonityContractConfig != nil {
+		if g.Difficulty.Cmp(big.NewInt(1)) != 0 {
+			return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 1, instead got %v", g.Difficulty)
+		}
+		err := g.Config.AutonityContractConfig.Prepare()
+		if err != nil {
+			return nil, err
+		}
+		committee, err = extractCommittee(g.Config.AutonityContractConfig.Users)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if db == nil {
 		db = rawdb.NewMemoryDatabase()
 	}
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(addr, account.Balance)
 		statedb.SetCode(addr, account.Code)
@@ -299,8 +315,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
 		Root:       root,
-		Committee:  g.Committee,
 		Round:      0,
+		Committee:  committee,
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
@@ -308,7 +324,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 
-	return types.NewBlock(head, nil, nil, nil)
+	return types.NewBlock(head, nil, nil, nil), nil
 }
 
 // Commit writes the block and state of a genesis specification to the database.
@@ -322,17 +338,15 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 		return nil, err
 	}
 
-	if g.Config != nil && g.Config.Tendermint != nil {
-		err := g.SetBFT()
-		if err != nil {
-			return nil, err
-		}
+	block, err := g.ToBlock(db)
+	if err != nil {
+		return nil, err
 	}
 
-	block := g.ToBlock(db)
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")
 	}
+
 	g.mu.RLock()
 	rawdb.WriteTd(db, block.Hash(), block.NumberU64(), g.Difficulty)
 	g.mu.RUnlock()
@@ -357,35 +371,28 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	return block, nil
 }
 
-// SetBFT sets default BFT(IBFT or Tendermint) config values
-func (g *Genesis) SetBFT() error {
-
+// extractCommittee takes a slice of autonity users and extracts the validators
+// into a new type 'types.Committee' which is returned. It returns an error if
+// the provided users contained no validators.
+func extractCommittee(users []params.User) (types.Committee, error) {
 	var committee types.Committee
-	for _, v := range g.Config.AutonityContractConfig.Users {
+	for _, v := range users {
 		if v.Type == params.UserValidator {
 			member := types.CommitteeMember{
-				Address:     v.Address,
+				Address:     *v.Address,
 				VotingPower: new(big.Int).SetUint64(v.Stake),
 			}
 			committee = append(committee, member)
 		}
 	}
 
-	if len(committee) == 0 { // we already have this check before, but just to make sure..
-		return fmt.Errorf("autonity Network requires at least 1 validator")
+	if len(committee) == 0 {
+		return nil, fmt.Errorf("no validators specified in the initial autonity users")
 	}
 
 	sort.Sort(committee)
-	g.Committee = committee
-
 	log.Info("starting BFT consensus", "validators", committee)
-
-	// we have to use '1' to have TD == BlockNumber for xBFT consensus
-	g.mu.Lock()
-	g.Difficulty = big.NewInt(1)
-	g.mu.Unlock()
-
-	return nil
+	return committee, nil
 }
 
 // MustCommit writes the genesis block and state to db, panicking on error.
@@ -430,15 +437,15 @@ func DefaultGenesisBlock() *Genesis {
 	}
 }
 
-// DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
-func DefaultTestnetGenesisBlock() *Genesis {
+// DefaultRopstenGenesisBlock returns the Ropsten network genesis block.
+func DefaultRopstenGenesisBlock() *Genesis {
 	return &Genesis{
-		Config:     params.TestnetChainConfig,
+		Config:     params.RopstenChainConfig,
 		Nonce:      66,
 		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
 		GasLimit:   16777216,
 		Difficulty: big.NewInt(1048576),
-		Alloc:      decodePrealloc(testnetAllocData),
+		Alloc:      decodePrealloc(ropstenAllocData),
 	}
 }
 
