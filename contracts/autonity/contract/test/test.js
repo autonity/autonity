@@ -216,13 +216,24 @@ contract('Autonity', function (accounts) {
             assert (thisUserType == roleStakeHolder, "wrong user type");
             await token.removeUser(accounts[6], {from: operator});
 
-            // participant -> validator (0 -> 2)
-            await token.addParticipant(accounts[6], freeEnodes[0], {from: operator});
+            // participant -> stakeholder -> validator (0 -> 1 -> 2)
+            try {
+                await token.addParticipant(accounts[6], freeEnodes[0], {from: operator});
+                await token.changeUserType(accounts[6], roleValidator, {from: operator});
+                assert.fail('Expected throw not received');
+            } catch (e) {
+                // user type shouldn't change since 0 stake of validator is not permitted.
+                thisUserType = await token.myUserType({from: accounts[6]});
+                assert (thisUserType == roleParticipant, "wrong user type");
+            }
+            // upgrade to stakeholder and mint stake for it.
+            await token.changeUserType(accounts[6], roleStakeHolder, {from: operator});
+            await token.mintStake(accounts[6], 20, {from: operator});
+            // upgrade to validator
             await token.changeUserType(accounts[6], roleValidator, {from: operator});
-            thisUserType = await token.myUserType({from: accounts[6]});
             assert (thisUserType == roleValidator, "wrong user type");
             let thisUserStake = await token.getStake({from: accounts[6]});
-            assert (thisUserStake == 0);
+            assert (thisUserStake == 20);
             await token.removeUser(accounts[6], {from: operator});
 
             // stakeholder -> validator (1 -> 2)
@@ -254,6 +265,8 @@ contract('Autonity', function (accounts) {
             } catch (e) {
               await token.removeUser(accounts[6], {from: operator});
               await token.addValidator(accounts[6], 10, freeEnodes[0], {from: operator});
+              await token.changeUserType(accounts[6], roleStakeHolder, {from: operator});
+              await token.redeemStake(accounts[6], 10, {from: operator});
               await token.changeUserType(accounts[6], roleParticipant, {from: operator});
               thisUserType = await token.myUserType({from: accounts[6]});
               assert (thisUserType == roleParticipant, "wrong user type");
