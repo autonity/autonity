@@ -253,7 +253,7 @@ contract('Autonity', function (accounts) {
               assert.fail('Expected throw not received');
             } catch (e) {
               await token.removeUser(accounts[6], {from: operator});
-              await token.addValidator(accounts[6], 0, freeEnodes[0], {from: operator});
+              await token.addValidator(accounts[6], 10, freeEnodes[0], {from: operator});
               await token.changeUserType(accounts[6], roleParticipant, {from: operator});
               thisUserType = await token.myUserType({from: accounts[6]});
               assert (thisUserType == roleParticipant, "wrong user type");
@@ -292,9 +292,9 @@ contract('Autonity', function (accounts) {
         });
 
         it('test non validator cannot add validator', async function () {
-
+            let enode = freeEnodes[0];
             try {
-                let r = await token.addValidator(accounts[7], {from: accounts[6]})
+                let r = await token.addValidator(accounts[7], 20, enode, {from: accounts[6]})
 
             } catch (e) {
                 let getValidatorsResult = await token.getValidators({from: operator});
@@ -681,15 +681,6 @@ contract('Autonity', function (accounts) {
                     assert(proposer1 === proposer2, "proposer should be determinated on same height and round")
                 }
             }
-        });
-
-    });
-
-    describe('Proposer selection, no stakes on committee.', function() {
-
-        beforeEach(async function(){
-            token = await utils.deployContract(validatorsList, whiteList,
-                userTypes, [0,0,0,0,0], commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
         });
 
     });
