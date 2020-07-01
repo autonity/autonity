@@ -609,6 +609,7 @@ contract Autonity {
         if (u.userType == UserType.Stakeholder){
             stakeholders.push(u.addr);
         } else if(u.userType == UserType.Validator){
+            require(u.stake != 0, "Validator with 0 stake is not permitted");
             validators.push(u.addr);
             stakeholders.push(u.addr);
         }
