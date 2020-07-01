@@ -252,31 +252,32 @@ func TestSet_IsProposer(t *testing.T) {
 	})
 }
 
-func TestSet_Q(t *testing.T) {
+func TestSet_QandF(t *testing.T) {
 	testCases := []struct {
 		TotalVP int64
 		Q       uint64
+		F       uint64
 	}{
-		{TotalVP: 1, Q: 1}, {TotalVP: 2, Q: 2}, {TotalVP: 3, Q: 2}, {TotalVP: 4, Q: 3}, {TotalVP: 5, Q: 4},
-		{TotalVP: 6, Q: 4}, {TotalVP: 7, Q: 5}, {TotalVP: 8, Q: 6}, {TotalVP: 9, Q: 6}, {TotalVP: 10, Q: 7},
-		{TotalVP: 11, Q: 8}, {TotalVP: 12, Q: 8}, {TotalVP: 13, Q: 9}, {TotalVP: 14, Q: 10}, {TotalVP: 15, Q: 10},
-		{TotalVP: 16, Q: 11}, {TotalVP: 17, Q: 12}, {TotalVP: 18, Q: 12}, {TotalVP: 19, Q: 13}, {TotalVP: 20, Q: 14},
-		{TotalVP: 21, Q: 14}, {TotalVP: 22, Q: 15}, {TotalVP: 23, Q: 16}, {TotalVP: 24, Q: 16}, {TotalVP: 25, Q: 17},
-		{TotalVP: 26, Q: 18}, {TotalVP: 27, Q: 18}, {TotalVP: 28, Q: 19}, {TotalVP: 29, Q: 20}, {TotalVP: 30, Q: 20},
-		{TotalVP: 31, Q: 21}, {TotalVP: 32, Q: 22}, {TotalVP: 33, Q: 22}, {TotalVP: 34, Q: 23}, {TotalVP: 35, Q: 24},
-		{TotalVP: 36, Q: 24}, {TotalVP: 37, Q: 25}, {TotalVP: 38, Q: 26}, {TotalVP: 39, Q: 26}, {TotalVP: 40, Q: 27},
-		{TotalVP: 41, Q: 28}, {TotalVP: 42, Q: 28}, {TotalVP: 43, Q: 29}, {TotalVP: 44, Q: 30}, {TotalVP: 45, Q: 30},
-		{TotalVP: 46, Q: 31}, {TotalVP: 47, Q: 32}, {TotalVP: 48, Q: 32}, {TotalVP: 49, Q: 33}, {TotalVP: 50, Q: 34},
-		{TotalVP: 51, Q: 34}, {TotalVP: 52, Q: 35}, {TotalVP: 53, Q: 36}, {TotalVP: 54, Q: 36}, {TotalVP: 55, Q: 37},
-		{TotalVP: 56, Q: 38}, {TotalVP: 57, Q: 38}, {TotalVP: 58, Q: 39}, {TotalVP: 59, Q: 40}, {TotalVP: 60, Q: 40},
-		{TotalVP: 61, Q: 41}, {TotalVP: 62, Q: 42}, {TotalVP: 63, Q: 42}, {TotalVP: 64, Q: 43}, {TotalVP: 65, Q: 44},
-		{TotalVP: 66, Q: 44}, {TotalVP: 67, Q: 45}, {TotalVP: 68, Q: 46}, {TotalVP: 69, Q: 46}, {TotalVP: 70, Q: 47},
-		{TotalVP: 71, Q: 48}, {TotalVP: 72, Q: 48}, {TotalVP: 73, Q: 49}, {TotalVP: 74, Q: 50}, {TotalVP: 75, Q: 50},
-		{TotalVP: 76, Q: 51}, {TotalVP: 77, Q: 52}, {TotalVP: 78, Q: 52}, {TotalVP: 79, Q: 53}, {TotalVP: 80, Q: 54},
-		{TotalVP: 81, Q: 54}, {TotalVP: 82, Q: 55}, {TotalVP: 83, Q: 56}, {TotalVP: 84, Q: 56}, {TotalVP: 85, Q: 57},
-		{TotalVP: 86, Q: 58}, {TotalVP: 87, Q: 58}, {TotalVP: 88, Q: 59}, {TotalVP: 89, Q: 60}, {TotalVP: 90, Q: 60},
-		{TotalVP: 91, Q: 61}, {TotalVP: 92, Q: 62}, {TotalVP: 93, Q: 62}, {TotalVP: 94, Q: 63}, {TotalVP: 95, Q: 64},
-		{TotalVP: 96, Q: 64}, {TotalVP: 97, Q: 65}, {TotalVP: 98, Q: 66}, {TotalVP: 99, Q: 66}, {TotalVP: 100, Q: 67},
+		{TotalVP: 1, Q: 1, F: 0}, {TotalVP: 2, Q: 2, F: 0}, {TotalVP: 3, Q: 2, F: 0}, {TotalVP: 4, Q: 3, F: 1}, {TotalVP: 5, Q: 4, F: 1},
+		{TotalVP: 6, Q: 4, F: 1}, {TotalVP: 7, Q: 5, F: 2}, {TotalVP: 8, Q: 6, F: 2}, {TotalVP: 9, Q: 6, F: 2}, {TotalVP: 10, Q: 7, F: 3},
+		{TotalVP: 11, Q: 8, F: 3}, {TotalVP: 12, Q: 8, F: 3}, {TotalVP: 13, Q: 9, F: 4}, {TotalVP: 14, Q: 10, F: 4}, {TotalVP: 15, Q: 10, F: 4},
+		{TotalVP: 16, Q: 11, F: 5}, {TotalVP: 17, Q: 12, F: 5}, {TotalVP: 18, Q: 12, F: 5}, {TotalVP: 19, Q: 13, F: 6}, {TotalVP: 20, Q: 14, F: 6},
+		{TotalVP: 21, Q: 14, F: 6}, {TotalVP: 22, Q: 15, F: 7}, {TotalVP: 23, Q: 16, F: 7}, {TotalVP: 24, Q: 16, F: 7}, {TotalVP: 25, Q: 17, F: 8},
+		{TotalVP: 26, Q: 18, F: 8}, {TotalVP: 27, Q: 18, F: 8}, {TotalVP: 28, Q: 19, F: 9}, {TotalVP: 29, Q: 20, F: 9}, {TotalVP: 30, Q: 20, F: 9},
+		{TotalVP: 31, Q: 21, F: 10}, {TotalVP: 32, Q: 22, F: 10}, {TotalVP: 33, Q: 22, F: 10}, {TotalVP: 34, Q: 23, F: 11}, {TotalVP: 35, Q: 24, F: 11},
+		{TotalVP: 36, Q: 24, F: 11}, {TotalVP: 37, Q: 25, F: 12}, {TotalVP: 38, Q: 26, F: 12}, {TotalVP: 39, Q: 26, F: 12}, {TotalVP: 40, Q: 27, F: 13},
+		{TotalVP: 41, Q: 28, F: 13}, {TotalVP: 42, Q: 28, F: 13}, {TotalVP: 43, Q: 29, F: 14}, {TotalVP: 44, Q: 30, F: 14}, {TotalVP: 45, Q: 30, F: 14},
+		{TotalVP: 46, Q: 31, F: 15}, {TotalVP: 47, Q: 32, F: 15}, {TotalVP: 48, Q: 32, F: 15}, {TotalVP: 49, Q: 33, F: 16}, {TotalVP: 50, Q: 34, F: 16},
+		{TotalVP: 51, Q: 34, F: 16}, {TotalVP: 52, Q: 35, F: 17}, {TotalVP: 53, Q: 36, F: 17}, {TotalVP: 54, Q: 36, F: 17}, {TotalVP: 55, Q: 37, F: 18},
+		{TotalVP: 56, Q: 38, F: 18}, {TotalVP: 57, Q: 38, F: 18}, {TotalVP: 58, Q: 39, F: 19}, {TotalVP: 59, Q: 40, F: 19}, {TotalVP: 60, Q: 40, F: 19},
+		{TotalVP: 61, Q: 41, F: 20}, {TotalVP: 62, Q: 42, F: 20}, {TotalVP: 63, Q: 42, F: 20}, {TotalVP: 64, Q: 43, F: 21}, {TotalVP: 65, Q: 44, F: 21},
+		{TotalVP: 66, Q: 44, F: 21}, {TotalVP: 67, Q: 45, F: 22}, {TotalVP: 68, Q: 46, F: 22}, {TotalVP: 69, Q: 46, F: 22}, {TotalVP: 70, Q: 47, F: 23},
+		{TotalVP: 71, Q: 48, F: 23}, {TotalVP: 72, Q: 48, F: 23}, {TotalVP: 73, Q: 49, F: 24}, {TotalVP: 74, Q: 50, F: 24}, {TotalVP: 75, Q: 50, F: 24},
+		{TotalVP: 76, Q: 51, F: 25}, {TotalVP: 77, Q: 52, F: 25}, {TotalVP: 78, Q: 52, F: 25}, {TotalVP: 79, Q: 53, F: 26}, {TotalVP: 80, Q: 54, F: 26},
+		{TotalVP: 81, Q: 54, F: 26}, {TotalVP: 82, Q: 55, F: 27}, {TotalVP: 83, Q: 56, F: 27}, {TotalVP: 84, Q: 56, F: 27}, {TotalVP: 85, Q: 57, F: 28},
+		{TotalVP: 86, Q: 58, F: 28}, {TotalVP: 87, Q: 58, F: 28}, {TotalVP: 88, Q: 59, F: 29}, {TotalVP: 89, Q: 60, F: 29}, {TotalVP: 90, Q: 60, F: 29},
+		{TotalVP: 91, Q: 61, F: 30}, {TotalVP: 92, Q: 62, F: 30}, {TotalVP: 93, Q: 62, F: 30}, {TotalVP: 94, Q: 63, F: 31}, {TotalVP: 95, Q: 64, F: 31},
+		{TotalVP: 96, Q: 64, F: 31}, {TotalVP: 97, Q: 65, F: 32}, {TotalVP: 98, Q: 66, F: 32}, {TotalVP: 99, Q: 66, F: 32}, {TotalVP: 100, Q: 67, F: 33},
 	}
 
 	for _, testCase := range testCases {
@@ -285,6 +286,11 @@ func TestSet_Q(t *testing.T) {
 		assertNilError(t, err)
 
 		gotQ := set.Quorum()
+		gotF := set.F()
+
+		if testCase.F != gotF {
+			t.Errorf("expected F: %v and got: %v", testCase.F, gotF)
+		}
 
 		if testCase.Q != gotQ {
 			t.Errorf("expected Q: %v and got: %v", testCase.Q, gotQ)
