@@ -231,6 +231,7 @@ contract('Autonity', function (accounts) {
             await token.mintStake(accounts[6], 20, {from: operator});
             // upgrade to validator
             await token.changeUserType(accounts[6], roleValidator, {from: operator});
+            thisUserType = await token.myUserType({from: accounts[6]});
             assert (thisUserType == roleValidator, "wrong user type");
             let thisUserStake = await token.getStake({from: accounts[6]});
             assert (thisUserStake == 20);
