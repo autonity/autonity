@@ -574,7 +574,8 @@ func TestOldProposal(t *testing.T) {
 		// -1 <= c.lockedRound <= vr
 		clientLockedRound := int64(rand.Intn(int(proposalValidRound+2) - 1))
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
-		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
+		// the last prevote msg on vr round to meet the full quorum prevote on vr with value v.
+		prevoteMsg, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, proposalValidRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -589,21 +590,21 @@ func TestOldProposal(t *testing.T) {
 		c.setCommitteeSet(committeeSet)
 		c.lockedRound = clientLockedRound
 		c.validRound = clientLockedRound
-		// Although the following is not possible it is required to ensure that c.lockRound <= proposalValidRound is
-		// responsible for sending the prevote for the incoming proposal
 		c.lockedValue = nil
 		c.validValue = nil
+
+		// got quorum-1 prevote for v on valid round.
 		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.CommitteeSet().Quorum() - 1})
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
 
-		// receive proposal before the full quorum prevote is received.
+		// receive proposal with vr before the full quorum prevote is received on vr.
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
 		assert.Nil(t, err)
 
-		// receive the last prevote MSG to get quorum prevote and trigger the action.
+		// receive the last prevote MSG to get quorum prevote on vr and trigger the action.
 		sender := 0
 		err = c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
 
@@ -878,12 +879,11 @@ func TestQuorumPrevote(t *testing.T) {
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		//randomly choose prevote or precommit step
 		currentStep := Step(rand.Intn(2) + 1)
+		//create proposal with random valid round.
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1)-1)), members[currentRound].Address, false)
-		/*
-		sender := 1
-		prevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
+
+		// simulate precommitMsg which will be expected to be broadcast on step prevote.
 		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, msgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
-		*/
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -896,7 +896,7 @@ func TestQuorumPrevote(t *testing.T) {
 		c.setStep(currentStep)
 		c.setCommitteeSet(committeeSet)
 
-		// received quorum prevote.
+		// received quorum prevote on current round with same value.
 		c.curRoundMessages.AddPrevote(proposal.ProposalBlock.Hash(), Message{Address: members[2].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum()})
 
 		// handle proposal msg to exe the action.
@@ -906,25 +906,16 @@ func TestQuorumPrevote(t *testing.T) {
 		assert.Nil(t, err)
 
 		if currentStep == prevote {
-			/*
 			committedSeal := PrepareCommittedSeal(proposal.ProposalBlock.Hash(), currentRound, currentHeight)
-
 			backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
 			backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
 			backendMock.EXPECT().Broadcast(context.Background(), committeeSet, precommitMsgRLPWithSig).Return(nil)
 
-			err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
-			assert.Nil(t, err)
-			 */
 			assert.Equal(t, proposal.ProposalBlock, c.lockedValue)
 			assert.Equal(t, currentRound, c.lockedRound)
 			assert.Equal(t, precommit, c.step)
 
 		} else if currentStep == precommit {
-			/*
-			err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
-			assert.Nil(t, err)
-			*/
 			assert.Equal(t, proposal.ProposalBlock, c.validValue)
 			assert.Equal(t, currentRound, c.validRound)
 		}
@@ -1187,14 +1178,15 @@ func TestQuorumPrecommit(t *testing.T) {
 		c.setRound(currentRound)
 		c.setStep(precommit)
 		c.setCommitteeSet(committeeSet)
-		//c.curRoundMessages.SetProposal(&proposal, proposalMsg, true)
+
+		// create quorum of precommit msg on current round with the proposed value v.
 		quorumPrecommitMsg := Message{Address: members[2].Address, Code: msgPrevote, power: c.CommitteeSet().Quorum()}
 		c.curRoundMessages.AddPrecommit(proposal.ProposalBlock.Hash(), quorumPrecommitMsg)
 
-		// The committed seal order is unpredictable, therefore, using gomock.Any()
-		// TODO: investigate what order should be on committed seals
 		backendMock.EXPECT().Commit(proposal.ProposalBlock, currentRound, gomock.Any())
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+
+		// handle the proposal msg to exe the action of line 49.
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
 		assert.Nil(t, err)
 
