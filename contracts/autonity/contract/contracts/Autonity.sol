@@ -577,12 +577,12 @@ contract Autonity {
     }
 
     function _checkDowngradeUserType(address _address) internal {
-        require(validators.length > 1, "Downgrade user failed due to keep at least 1 validator in the network");
-
         User memory u = users[_address];
         if (u.stake != 0 || u.userType != UserType.Validator) {
             return;
         }
+
+        require(validators.length > 1, "Downgrade user failed due to keep at least 1 validator in the network");
 
         _removeFromArray(u.addr, stakeholders);
         _removeFromArray(u.addr, validators);
