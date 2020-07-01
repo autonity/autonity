@@ -29,7 +29,7 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 	logger := c.logger.New("step", c.step)
 
 	// If I'm the proposer and I have the same height with the proposal
-	if c.Height().Cmp(p.Number()) == 0 && c.committeeSet().GetProposer(c.Round()).Address == c.address && !c.sentProposal {
+	if c.Height().Cmp(p.Number()) == 0 && c.isProposer() && !c.sentProposal {
 		proposalBlock := NewProposal(c.Round(), c.Height(), c.validRound, p)
 		proposal, err := Encode(proposalBlock)
 		if err != nil {
@@ -184,7 +184,7 @@ func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, 
 		"currentRound", c.Round(),
 		"msgRound", proposal.Round,
 		"currentStep", c.step,
-		"isProposer", c.committeeSet().GetProposer(c.Round()).Address == c.address,
+		"isProposer", c.isProposer(),
 		"currentProposer", c.committeeSet().GetProposer(c.Round()),
 		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
 		"hash", proposal.ProposalBlock.Hash(),

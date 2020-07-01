@@ -211,6 +211,9 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 func (c *core) isProposerMsg(round int64, msgAddress common.Address) bool {
 	return c.committeeSet().GetProposer(round).Address == msgAddress
 }
+func (c *core) isProposer() bool {
+	return c.committeeSet().GetProposer(c.Round()).Address == c.address
+}
 
 func (c *core) commit(round int64, messages *roundMessages) {
 	c.setStep(precommitDone)
@@ -269,7 +272,7 @@ func (c *core) startRound(ctx context.Context, round int64) {
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
 	// proposeTimeout is started, where the node waits for a proposal from the proposer of the current round.
-	if c.committeeSet().GetProposer(c.Round()).Address == c.address {
+	if c.isProposer() {
 		// validValue and validRound represent a block they received a quorum of prevote and the round quorum was
 		// received, respectively. If the block is not committed in that round then the round is changed.
 		// The new proposer will chose the validValue, if present, which was set in one of the previous rounds otherwise
