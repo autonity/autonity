@@ -30,6 +30,7 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
+	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/golang/mock/gomock"
@@ -561,6 +562,7 @@ func TestStart(t *testing.T) {
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
+			blockchain:  &core.BlockChain{},
 		}
 
 		err := b.Start(ctx)
@@ -589,6 +591,7 @@ func TestStart(t *testing.T) {
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
+			blockchain:  &core.BlockChain{},
 		}
 
 		err := b.Start(ctx)
@@ -611,6 +614,7 @@ func TestStart(t *testing.T) {
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
+			blockchain:  &core.BlockChain{},
 		}
 
 		var wg sync.WaitGroup
@@ -661,6 +665,7 @@ func TestMultipleRestart(t *testing.T) {
 	b := &Backend{
 		core:        tendermintC,
 		coreStarted: false,
+		blockchain:  &core.BlockChain{},
 	}
 
 	for i := 0; i < times; i++ {

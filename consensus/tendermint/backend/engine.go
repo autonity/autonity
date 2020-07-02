@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
+	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/core"
 
 	"github.com/clearmatics/autonity/common"
@@ -454,13 +455,8 @@ func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
 // update timestamp and signature of the block based on its number of transactions
 func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
 	header := block.Header()
-	// sign the hash
-	seal, err := sb.Sign(types.SigHash(header).Bytes())
-	if err != nil {
-		return nil, err
-	}
 
-	err = types.WriteSeal(header, seal)
+	err := crypto.SignHeader(header, sb.privateKey)
 	if err != nil {
 		return nil, err
 	}
