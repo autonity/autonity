@@ -550,6 +550,7 @@ func TestOldProposal(t *testing.T) {
 // The following tests aim to test lines 34 - 35 & 61 - 64 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestPrevoteTimeout(t *testing.T) {
+	t.Skip("Fails randomly see https://github.com/clearmatics/autonity/issues/606")
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
