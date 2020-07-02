@@ -92,12 +92,6 @@ func DeployAutonityContractStandalone(abi *abi.ABI, autonityConfig *params.Auton
 	return nil
 }
 
-// deployContract deploys the contract contained within the genesis field bytecode
-func (ac *Contract) DeployAutonityContract(chainConfig *params.ChainConfig, header *types.Header, statedb *state.StateDB) error {
-	evm := ac.evmProvider.EVM(header, Deployer, statedb)
-	return DeployAutonityContractStandalone(ac.contractABI, chainConfig.AutonityContractConfig, evm)
-}
-
 func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string, state []byte) error {
 	evm := ac.evmProvider.EVM(header, Deployer, statedb)
 	contractBytecode := common.Hex2Bytes(bytecode)
