@@ -515,7 +515,7 @@ contract('Autonity', function (accounts) {
                 userTypes, stakes, commisionRate, operator, minGasPrice, bondPeriod, committeeSize, version,  { from:accounts[8]} );
         });
 
-        it('test user type downgrade on redeem stake', async function f() {
+        it('test user type downgraded when all stake redeemed', async function f() {
             let initStake = 100;
             await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
             let initialUserType = await token.myUserType({from: accounts[8]});
@@ -523,10 +523,10 @@ contract('Autonity', function (accounts) {
 
             await token.redeemStake(accounts[8], initStake, {from: operator});
             let newUserType = await token.myUserType({from: accounts[8]});
-            assert (newUserType == roleParticipant, "wrong user type");
+            assert (newUserType == roleStakeHolder, "wrong user type");
         });
 
-        it('test user type not downgrade on redeem stake', async function f() {
+        it('test user type not downgraded when not all stake redeemed', async function f() {
             let initStake = 100;
             await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
             let initialUserType = await token.myUserType({from: accounts[8]});
@@ -537,17 +537,17 @@ contract('Autonity', function (accounts) {
             assert (userType == roleValidator, "wrong user type");
         });
 
-        it('test user type downgrade on send stake', async function f() {
+        it('test user type downgraded when all stake transferred', async function f() {
             let initStake = 100;
             await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
             let initialUserType = await token.myUserType({from: accounts[8]});
             assert(initialUserType == roleValidator, "wrong user type");
             await token.send(accounts[2], initStake, {from: accounts[8]});
             let userType = await token.myUserType({from: accounts[8]});
-            assert (userType == roleParticipant, "wrong user type");
+            assert (userType == roleStakeHolder, "wrong user type");
         });
 
-        it('test user type not downgrade on send stake', async function f() {
+        it('test user type not downgraded when not all stake transferred', async function f() {
             let initStake = 100;
             await token.addValidator(accounts[8], initStake, freeEnodes[0], {from: operator});
             let initialUserType = await token.myUserType({from: accounts[8]});

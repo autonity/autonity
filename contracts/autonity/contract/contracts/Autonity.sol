@@ -236,8 +236,7 @@ contract Autonity {
     function redeemStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
         users[_account].stake = users[_account].stake.sub(_amount, "Redeem stake amount exceeds balance");
         stakeSupply = stakeSupply.sub(_amount);
-        // todo check 0 balance, and downgrade user role.
-        _checkDowngradeUserType(_account);
+        _checkDowngradeValidator(_account);
         emit RedeemStake(_account, _amount);
     }
 
@@ -583,19 +582,26 @@ contract Autonity {
     function _transfer(address sender, address recipient, uint256 amount) internal canUseStake(sender) canUseStake(recipient) {
         users[sender].stake = users[sender].stake.sub(amount, "Transfer amount exceeds balance");
         users[recipient].stake = users[recipient].stake.add(amount);
-        // todo check 0 balance, and downgrade user role.
-        _checkDowngradeUserType(sender);
+        _checkDowngradeValidator(sender);
         emit Transfer(sender, recipient, amount);
     }
 
-    function _checkDowngradeUserType(address _address) internal {
+    /*
+    * If the user is a validator and its stake is zero downgrade it to a
+    * stakeholder. Unless the user is the only validator in which case the
+    * transaction is reverted.
+    *
+    * This check is used to ensure that we do not end up in a situation where
+    * the system has no validators.
+    */
+    function _checkDowngradeValidator(address _address) internal {
         User memory u = users[_address];
         if (u.stake != 0 || u.userType != UserType.Validator) {
             return;
         }
 
         require(validators.length > 1, "Downgrade user failed due to keep at least 1 validator in the network");
-        _changeUserType(u.addr, UserType.Participant);
+        _changeUserType(u.addr, UserType.Stakeholder);
     }
 
     function compareStringsbyBytes(string memory s1, string memory s2) internal pure returns(bool){
