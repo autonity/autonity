@@ -185,7 +185,7 @@ func (w *weightedRandomSamplingCommittee) GetProposer(round int64) types.Committ
 	// defined validator of the genesis block.
 	if w.previousHeader.IsGenesis() {
 		sort.Sort(w.previousHeader.Committee)
-		return w.previousHeader.Committee[0]
+		return w.previousHeader.Committee[round%int64(len(w.previousHeader.Committee))]
 	}
 	statedb, err := state.New(w.previousBlockStateRoot, w.bc.StateCache())
 	if err != nil {
