@@ -477,7 +477,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	// Initialize a chain and generate a fake CHT if checkpointing is enabled
 	var (
 		db     = rawdb.NewMemoryDatabase()
-		config = new(params.ChainConfig)
+		config = params.TestChainConfig
 	)
 	p2pPeer := newTestP2PPeer("peer")
 	config.AutonityContractConfig = &params.AutonityContractGenesis{
@@ -596,7 +596,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		evmux  = new(event.TypeMux)
 		pow    = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
-		config = &params.ChainConfig{}
+		config = params.TestChainConfig
 		gspec  = &core.Genesis{Config: config}
 	)
 	config.AutonityContractConfig = &params.AutonityContractGenesis{}
@@ -684,7 +684,7 @@ func TestBroadcastMalformedBlock(t *testing.T) {
 	var (
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
-		config = &params.ChainConfig{}
+		config = params.TestChainConfig
 		gspec  = &core.Genesis{Config: config}
 	)
 	config.AutonityContractConfig = &params.AutonityContractGenesis{}

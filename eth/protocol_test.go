@@ -18,16 +18,17 @@ package eth
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/params"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus/ethash"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/params"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
@@ -160,6 +161,7 @@ func TestStatusMsgErrors64(t *testing.T) {
 }
 
 func TestForkIDSplit(t *testing.T) {
+	t.Skip("Autonity requires at least constantinopleBlock to be deployed on init, this test doesn't really reflect any valid possible autonity configuration")
 	var (
 		peerA     = newTestP2PPeer("1")
 		peerB     = newTestP2PPeer("2")
