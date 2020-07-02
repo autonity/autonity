@@ -171,6 +171,7 @@ contract Autonity {
         }
 
         if(u.userType == UserType.Validator){
+            require(validators.length > 1, "There must be at least 1 validator in the network");
             _removeFromArray(u.addr, validators);
         }
 
@@ -451,6 +452,8 @@ contract Autonity {
             total_voting_power = total_voting_power.add(committee[i].votingPower);
         }
 
+        require(total_voting_power != 0, "The committee is not staking");
+
         // distribute seed into a 256bits key-space.
         uint256 key = height.add(round);
         uint256 value = uint256(keccak256(abi.encodePacked(key)));
@@ -465,6 +468,7 @@ contract Autonity {
                 return committee[i].addr;
             }
         }
+        revert("There is no validator left in the network");
     }
 
     /*
