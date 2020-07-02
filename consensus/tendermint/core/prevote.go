@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+
 	"github.com/clearmatics/autonity/common"
 )
 
@@ -134,7 +135,7 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 		"currentRound", c.Round(),
 		"msgRound", prevote.Round,
 		"currentStep", c.step,
-		"isProposer", c.committeeSet().GetProposer(c.Round()).Address == c.address,
+		"isProposer", c.isProposer(),
 		"currentProposer", c.committeeSet().GetProposer(c.Round()),
 		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
 		"hash", prevote.ProposedBlockHash,

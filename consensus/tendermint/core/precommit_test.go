@@ -490,13 +490,8 @@ func TestHandleCommit(t *testing.T) {
 	committeeSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 	require.NoError(t, err)
 
-	// block = block.WithSeal(h)
-
-	// chainReaderMock := consensus.NewMockChainReader(ctrl)
 	backendMock := NewMockBackend(ctrl)
 	backendMock.EXPECT().LastCommittedProposal().MinTimes(1).Return(block, addr)
-	// backendMock.EXPECT().BlockChain().Return(chainReaderMock)
-	// chainReaderMock.EXPECT().GetHeaderByHash(gomock.Any()).Return(h)
 
 	c := &core{
 		address:          addr,
