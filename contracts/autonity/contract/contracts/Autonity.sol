@@ -141,6 +141,10 @@ contract Autonity {
     * Change user status
     */
     function changeUserType( address _address , UserType newUserType ) public onlyOperator(msg.sender) {
+        _changeUserType(_address, newUserType);
+    }
+
+    function _changeUserType( address _address , UserType newUserType ) internal {
         require(_address != address(0), "address must be defined");
         require(users[_address].addr != address(0), "user must exist");
 
@@ -151,7 +155,7 @@ contract Autonity {
         if(newUserType == UserType.Participant){
             require(u.stake == 0);
         }
-        removeUser(u.addr);
+        _removeUser(u.addr);
         _createUser(u.addr, u.enode, newUserType, u.stake, u.commissionRate);
 
         emit ChangeUserType(u.addr , u.userType , newUserType);
@@ -162,6 +166,10 @@ contract Autonity {
     * remove user. function MUST be restricted to the Authority Account.
     */
     function removeUser(address _address) public onlyOperator(msg.sender) {
+        _removeUser(_address);
+    }
+
+    function _removeUser(address _address) internal {
         require(_address != address(0), "address must be defined");
         require(users[_address].addr != address(0), "user must exists");
         User storage u = users[_address];
@@ -587,10 +595,7 @@ contract Autonity {
         }
 
         require(validators.length > 1, "Downgrade user failed due to keep at least 1 validator in the network");
-
-        _removeFromArray(u.addr, stakeholders);
-        _removeFromArray(u.addr, validators);
-        users[_address].userType = UserType.Participant;
+        _changeUserType(u.addr, UserType.Participant);
     }
 
     function compareStringsbyBytes(string memory s1, string memory s2) internal pure returns(bool){
