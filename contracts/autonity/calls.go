@@ -7,11 +7,11 @@ import (
 	"sort"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/params"
 )
 
 /*
@@ -34,12 +34,12 @@ type ContractState struct {
 type raw []byte
 
 // deployContract deploys the contract contained within the genesis field bytecode
-func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) error {
+func (ac *Contract) DeployAutonityContract(chainConfig *params.ChainConfig, header *types.Header, statedb *state.StateDB) error {
 	// Convert the contract bytecode from hex into bytes
-	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
+	contractBytecode := common.Hex2Bytes(chainConfig.AutonityContractConfig.Bytecode)
 	evm := ac.evmProvider.EVM(header, deployer, statedb)
 
-	ln := len(chain.Config().AutonityContractConfig.GetValidatorUsers())
+	ln := len(chainConfig.AutonityContractConfig.GetValidatorUsers())
 	validators := make(common.Addresses, 0, ln)
 	enodes := make([]string, 0, ln)
 	accTypes := make([]*big.Int, 0, ln)
@@ -52,7 +52,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	defaultCommitteeSize := big.NewInt(1000)
 	defaultVersion := "v0.0.0"
 
-	for _, v := range chain.Config().AutonityContractConfig.Users {
+	for _, v := range chainConfig.AutonityContractConfig.Users {
 		validators = append(validators, *v.Address)
 		enodes = append(enodes, v.Enode)
 		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
@@ -68,8 +68,8 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		accTypes,
 		participantStake,
 		commissionRate,
-		chain.Config().AutonityContractConfig.Operator,
-		new(big.Int).SetUint64(chain.Config().AutonityContractConfig.MinGasPrice),
+		chainConfig.AutonityContractConfig.Operator,
+		new(big.Int).SetUint64(chainConfig.AutonityContractConfig.MinGasPrice),
 		defaultBondPeriod,
 		defaultCommitteeSize,
 		defaultVersion)

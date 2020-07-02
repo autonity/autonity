@@ -149,6 +149,17 @@ func TrimLeftZeroes(s []byte) []byte {
 	return s[idx:]
 }
 
+// TrimRightZeroes returns a subslice of s without trailing zeroes
+func TrimRightZeroes(s []byte) []byte {
+	idx := len(s)
+	for ; idx > 0; idx-- {
+		if s[idx-1] != 0 {
+			break
+		}
+	}
+	return s[:idx]
+}
+
 func TrimPrefixAndSuffix(s []byte, startWith []byte, cut []byte) []byte {
 	if lastPrefixIndex := bytes.Index(s, startWith); lastPrefixIndex != -1 {
 		s = s[lastPrefixIndex:]
