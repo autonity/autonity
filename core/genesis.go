@@ -304,7 +304,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 			return nil, err
 		}
 
-		err = autonity.DeployAutonityContractStandalone(&abi, g.Config.AutonityContractConfig, evm)
+		err = autonity.DeployContract(&abi, g.Config.AutonityContractConfig, evm)
 		if err != nil {
 			return nil, err
 		}

@@ -34,7 +34,7 @@ type ContractState struct {
 
 type raw []byte
 
-func DeployAutonityContractStandalone(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis, evm *vm.EVM) error {
+func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis, evm *vm.EVM) error {
 	// Convert the contract bytecode from hex into bytes
 	contractBytecode := common.Hex2Bytes(autonityConfig.Bytecode)
 
