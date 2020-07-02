@@ -15,6 +15,42 @@ import (
 	"github.com/clearmatics/autonity/log"
 )
 
+type ProposerSelector interface {
+	Proposer(height uint64, round int64) types.CommitteeMember
+}
+
+type weightedRandomSamplingProposerSelector struct {
+	bc               *ethcore.BlockChain
+	autonityContract *autonity.Contract
+}
+
+func NewWeightedRandomSamplingProposerSelector(bc *ethcore.BlockChain, ac *autonity.Contract) ProposerSelector {
+	return &weightedRandomSamplingProposerSelector{
+		bc:               bc,
+		autonityContract: ac,
+	}
+}
+
+func (w *weightedRandomSamplingProposerSelector) GetProposer(height uint64, round int64) types.CommitteeMember {
+
+	previousBlock := w.bc.GetBlockByNumber(height - 1)
+	previousHeader := previousBlock.Header()
+
+	// If this is block 1 then the autonity contract hasn't been deployed yet, so revert to round robin
+	if previousHeader.IsGenesis() {
+		return previousHeader.Committee[round%int64(len(previousHeader.Committee))]
+	}
+	statedb, err := state.New(previousBlock.Root(), w.bc.StateCache())
+	if err != nil {
+		log.Error("cannot load state from block chain.")
+		return types.CommitteeMember{}
+	}
+	proposer := w.autonityContract.GetProposerFromAC(previousHeader, statedb, previousHeader.Number.Uint64(), round)
+	member := previousHeader.CommitteeMember(proposer)
+	return *member
+	// TODO make this return an error
+}
+
 type committee interface {
 	// Return the underlying types.Committee
 	Committee() types.Committee

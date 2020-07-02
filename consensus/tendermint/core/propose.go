@@ -22,6 +22,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/core/types"
 )
 
@@ -81,7 +82,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			// We do not verify the proposal in this case.
 			roundMsgs.SetProposal(&proposal, msg, false)
 
-			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= c.committeeSet().Quorum() {
+			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= bft.Quorum(c.previousHeader().TotalVotingPower()) {
 				if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
 					return error
 				}
@@ -110,7 +111,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				_, sender, _ := c.committeeSet().GetByAddress(msg.Address)
+				sender := c.previousHeader().CommitteeMember(msg.Address)
 				c.sendEvent(backlogEvent{
 					src: sender,
 					msg: msg,
@@ -155,7 +156,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		// vr >= 0 here
-		if vr < c.Round() && rs.PrevotesPower(h) >= c.committeeSet().Quorum() {
+		if vr < c.Round() && rs.PrevotesPower(h) >= bft.Quorum(c.previousHeader().TotalVotingPower()) {
 			var voteForProposal = false
 			if c.lockedValue != nil {
 				voteForProposal = c.lockedRound <= vr || h == c.lockedValue.Hash()
@@ -185,7 +186,7 @@ func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, 
 		"msgRound", proposal.Round,
 		"currentStep", c.step,
 		"isProposer", c.isProposer(),
-		"currentProposer", c.committeeSet().GetProposer(c.Round()),
+		"currentProposer", c.proposer(),
 		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
 		"hash", proposal.ProposalBlock.Hash(),
 	)

@@ -75,7 +75,7 @@ const (
 )
 
 // New creates an Tendermint consensus core
-func New(backend Backend) *core {
+func New(backend Backend, proposerSelector ProposerSelector) *core {
 	logger := log.New("addr", backend.Address().String())
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
@@ -87,7 +87,6 @@ func New(backend Backend) *core {
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
-		committee:             nil,
 		futureRoundChange:     make(map[int64]map[common.Address]uint64),
 		messages:              messagesMap,
 		lockedRound:           -1,
@@ -96,6 +95,7 @@ func New(backend Backend) *core {
 		proposeTimeout:        newTimeout(propose, logger),
 		prevoteTimeout:        newTimeout(prevote, logger),
 		precommitTimeout:      newTimeout(precommit, logger),
+		proposerSelector:      proposerSelector,
 	}
 }
 
@@ -126,10 +126,10 @@ type core struct {
 	// Tendermint FSM state fields
 	//
 
-	height     *big.Int
-	round      int64
-	committee  committee
-	lastHeader *types.Header
+	height           *big.Int
+	round            int64
+	proposerSelector ProposerSelector
+	lastHeader       *types.Header
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	stateMu               sync.RWMutex
@@ -160,7 +160,7 @@ func (c *core) GetCurrentHeightMessages() []*Message {
 }
 
 func (c *core) IsMember(address common.Address) bool {
-	_, _, err := c.committeeSet().GetByAddress(address)
+	_, _, err := c.previousHeader().CommitteeMember(address)
 	return err == nil
 }
 
@@ -197,18 +197,22 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 
 	// Broadcast payload
 	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), payload); err != nil {
+	if err = c.backend.Broadcast(ctx, c.previousHeader().Committee, payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}
 }
 
+func (c *core) proposer() types.CommitteeMember {
+	return c.proposerSelector.Proposer(c.previousHeader().Number.Uint64(), c.Round())
+}
+
 // check if msg sender is proposer for proposal handling.
-func (c *core) isProposerMsg(round int64, msgAddress common.Address) bool {
-	return c.committeeSet().GetProposer(round).Address == msgAddress
+func (c *core) isProposrMsg(round int64, msgAddress common.Address) bool {
+	return c.proposer().Address == msgAddress
 }
 func (c *core) isProposer() bool {
-	return c.committeeSet().GetProposer(c.Round()).Address == c.address
+	return c.proposer().Address == c.address
 }
 
 func (c *core) commit(round int64, messages *roundMessages) {
@@ -300,9 +304,8 @@ func (c *core) setInitialState(r int64) {
 		lastBlockMined, _ := c.backend.LastCommittedProposal()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 
-		lastHeader := lastBlockMined.Header()
-		c.lastHeader = lastHeader
-		c.setCommitteeSet(newWeightedRandomSamplingCommittee(lastBlockMined, c.autonityContract, c.backend.BlockChain()))
+		c.setPreviousHeader(lastBlockMined.Header())
+
 		c.lockedRound = -1
 		c.lockedValue = nil
 		c.validRound = -1
@@ -359,11 +362,6 @@ func (c *core) setHeight(height *big.Int) {
 	defer c.stateMu.Unlock()
 	c.height = height
 }
-func (c *core) setCommitteeSet(set committee) {
-	c.stateMu.Lock()
-	defer c.stateMu.Unlock()
-	c.committee = set
-}
 
 func (c *core) Round() int64 {
 	c.stateMu.RLock()
@@ -376,8 +374,15 @@ func (c *core) Height() *big.Int {
 	defer c.stateMu.RUnlock()
 	return c.height
 }
-func (c *core) committeeSet() committee {
+
+func (c *core) setPreviousHeader(h *types.Header) {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
-	return c.committee
+	c.lastHeader = h
+}
+
+func (c *core) previousHeader() *types.Header {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.lastHeader
 }

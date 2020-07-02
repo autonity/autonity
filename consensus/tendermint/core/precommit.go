@@ -22,6 +22,7 @@ import (
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/core/types"
 )
 
@@ -86,7 +87,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 			}
 			c.acceptVote(roundMsgs, precommit, precommitHash, *msg)
 			oldRoundProposalHash := roundMsgs.GetProposalHash()
-			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsPower(oldRoundProposalHash) >= c.committeeSet().Quorum() {
+			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsPower(oldRoundProposalHash) >= bft.Quorum(c.previousHeader().TotalVotingPower()) {
 				c.logger.Info("Quorum on a old round proposal", "round", preCommit.Round)
 				if !roundMsgs.isProposalVerified() {
 					if _, error := c.backend.VerifyProposal(*roundMsgs.Proposal().ProposalBlock); error != nil {
@@ -111,7 +112,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 
 	c.acceptVote(c.curRoundMessages, precommit, precommitHash, *msg)
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
-	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash) >= c.committeeSet().Quorum() {
+	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash) >= bft.Quorum(c.previousHeader().TotalVotingPower()) {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
 		}
@@ -125,7 +126,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.timerStarted() && c.curRoundMessages.PrecommitsTotalPower() >= c.committeeSet().Quorum() {
+	} else if !c.precommitTimeout.timerStarted() && c.curRoundMessages.PrecommitsTotalPower() >= bft.Quorum(c.previousHeader().TotalVotingPower()) {
 		timeoutDuration := timeoutPrecommit(c.Round())
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
@@ -176,7 +177,7 @@ func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to
 		"msgRound", precommit.Round,
 		"currentStep", c.step,
 		"isProposer", c.isProposer(),
-		"currentProposer", c.committeeSet().GetProposer(c.Round()),
+		"currentProposer", c.proposer(),
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
 		"hash", precommit.ProposedBlockHash,
 		"type", "Precommit",

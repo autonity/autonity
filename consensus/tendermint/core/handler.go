@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/contracts/autonity"
@@ -139,7 +140,7 @@ eventLoop:
 					c.logger.Debug("core.mainEventLoop Get message(MessageEvent) payload failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
+				c.backend.Gossip(ctx, c.previousHeader().Committee, e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling backlogEvent")
@@ -155,7 +156,7 @@ eventLoop:
 					continue
 				}
 
-				c.backend.Gossip(ctx, c.committeeSet().Committee(), p)
+				c.backend.Gossip(ctx, c.previousHeader().Committee, p)
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
@@ -199,7 +200,7 @@ func (c *core) syncLoop(ctx context.Context) {
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.lastHeader)
+	c.backend.AskSync(c.previousHeader())
 
 eventLoop:
 	for {
@@ -210,7 +211,7 @@ eventLoop:
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
-				c.backend.AskSync(c.lastHeader)
+				c.backend.AskSync(c.previousHeader())
 			}
 			round = currentRound
 			height = currentHeight
@@ -269,7 +270,7 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender ty
 		totalFutureRoundMessagesPower += power
 	}
 
-	if totalFutureRoundMessagesPower > c.committeeSet().F() {
+	if totalFutureRoundMessagesPower > bft.F(c.previousHeader().TotalVotingPower()) {
 		c.logger.Info("Received ceil(N/3) - 1 messages power for higher round", "New round", msgRound)
 		c.startRound(ctx, msgRound)
 	}
