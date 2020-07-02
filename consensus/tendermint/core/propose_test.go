@@ -390,7 +390,7 @@ func TestHandleProposal(t *testing.T) {
 		var prevote = Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
-			ProposedBlockHash: common.Hash{},
+			ProposedBlockHash: block.Hash(),
 		}
 
 		encodedVote, err := Encode(&prevote)

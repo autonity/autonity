@@ -5,12 +5,13 @@ package backend
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 
 	"github.com/clearmatics/autonity/common"
 )
@@ -79,7 +80,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			}
 		}
 		sub := backend.eventMux.Subscribe(events.MessageEvent{})
-		if err := backend.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock); err != nil {
+		if err := backend.Start(context.Background()); err != nil {
 			t.Fatalf("could not restart core")
 		}
 		backend.HandleUnhandledMsgs(context.Background())

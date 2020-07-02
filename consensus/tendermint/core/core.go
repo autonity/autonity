@@ -78,12 +78,13 @@ const (
 
 // New creates an Tendermint consensus core
 func New(backend Backend, proposerPolicy config.ProposerPolicy) *core {
-	logger := log.New("addr", backend.Address().String())
+	addr := backend.Address()
+	logger := log.New("addr", addr.String())
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
 		proposerPolicy:        proposerPolicy,
-		address:               backend.Address(),
+		address:               addr,
 		logger:                logger,
 		backend:               backend,
 		backlogs:              make(map[types.CommitteeMember]*prque.Prque),

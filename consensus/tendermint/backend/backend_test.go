@@ -478,23 +478,6 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 	})
 }
 
-func TestBackendGetContractAddress(t *testing.T) {
-	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = chain.InsertChain(types.Blocks{block})
-	if err != nil {
-		t.Fatal(err)
-	}
-	contractAddress := engine.GetContractAddress()
-	expectedAddress := crypto.CreateAddress(chain.Config().AutonityContractConfig.Deployer, 0)
-	if !bytes.Equal(contractAddress.Bytes(), expectedAddress.Bytes()) {
-		t.Fatalf("unexpected returned address")
-	}
-}
-
 // Test get contract ABI, it should have the default abi before contract upgrade.
 func TestBackendGetContractABI(t *testing.T) {
 	chain, engine := newBlockChain(1)
@@ -594,12 +577,13 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	b := New(cfg, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 
 	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher())
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
 	if err != nil {
 		panic(err)
 	}
+	b.SetBlockchain(blockchain)
 
-	err = b.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	err = b.Start(context.Background())
 	if err != nil {
 		panic(err)
 	}

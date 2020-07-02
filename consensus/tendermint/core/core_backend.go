@@ -28,8 +28,6 @@ type Backend interface {
 
 	GetContractABI() string
 
-	GetContractAddress() common.Address
-
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(ctx context.Context, committee types.Committee, payload []byte)
 
@@ -57,6 +55,9 @@ type Backend interface {
 	WhiteList() []string
 
 	BlockChain() *ethcore.BlockChain
+
+	//Used to set the blockchain on this
+	SetBlockchain(bc *ethcore.BlockChain)
 }
 
 type Tendermint interface {

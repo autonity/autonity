@@ -187,7 +187,9 @@ func (w *weightedRandomSamplingCommittee) GetProposer(round int64) types.Committ
 		sort.Sort(w.previousHeader.Committee)
 		return w.previousHeader.Committee[round%int64(len(w.previousHeader.Committee))]
 	}
-	statedb, err := state.New(w.previousBlockStateRoot, w.bc.StateCache())
+	// state.New has started takig a snapshot.Tree but it seems to be only for
+	// performance, see - https://github.com/ethereum/go-ethereum/pull/20152
+	statedb, err := state.New(w.previousBlockStateRoot, w.bc.StateCache(), nil)
 	if err != nil {
 		log.Error("cannot load state from block chain.")
 		return types.CommitteeMember{}

@@ -122,20 +122,6 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
 }
 
-// GetContractAddress mocks base method
-func (m *MockBackend) GetContractAddress() common.Address {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContractAddress")
-	ret0, _ := ret[0].(common.Address)
-	return ret0
-}
-
-// GetContractAddress indicates an expected call of GetContractAddress
-func (mr *MockBackendMockRecorder) GetContractAddress() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractAddress", reflect.TypeOf((*MockBackend)(nil).GetContractAddress))
-}
-
 // Gossip mocks base method
 func (m *MockBackend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
 	m.ctrl.T.Helper()
@@ -285,6 +271,18 @@ func (m *MockBackend) BlockChain() *ethcore.BlockChain {
 func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockChain", reflect.TypeOf((*MockBackend)(nil).BlockChain))
+}
+
+// SetBlockchain mocks base method
+func (m *MockBackend) SetBlockchain(bc *ethcore.BlockChain) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetBlockchain", bc)
+}
+
+// SetBlockchain indicates an expected call of SetBlockchain
+func (mr *MockBackendMockRecorder) SetBlockchain(bc interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBlockchain", reflect.TypeOf((*MockBackend)(nil).SetBlockchain), bc)
 }
 
 // MockTendermint is a mock of Tendermint interface

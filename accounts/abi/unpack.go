@@ -27,46 +27,46 @@ import (
 
 var (
 	// MaxUint256 is the maximum value that can be represented by a uint256
-	MaxUint256 = big.NewInt(0).Add(
-		big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil),
-		big.NewInt(-1))
+	MaxUint256 = new(big.Int).Sub(new(big.Int).Lsh(common.Big1, 256), common.Big1)
 	// MaxInt256 is the maximum value that can be represented by a int256
-	MaxInt256 = big.NewInt(0).Add(
-		big.NewInt(0).Exp(big.NewInt(2), big.NewInt(255), nil),
-		big.NewInt(-1))
+	MaxInt256 = new(big.Int).Sub(new(big.Int).Lsh(common.Big1, 255), common.Big1)
 )
 
 // ReadInteger reads the integer based on its kind and returns the appropriate value
-func ReadInteger(typ byte, kind reflect.Kind, b []byte) interface{} {
-	switch kind {
-	case reflect.Uint8:
-		return b[len(b)-1]
-	case reflect.Uint16:
-		return binary.BigEndian.Uint16(b[len(b)-2:])
-	case reflect.Uint32:
-		return binary.BigEndian.Uint32(b[len(b)-4:])
-	case reflect.Uint64:
-		return binary.BigEndian.Uint64(b[len(b)-8:])
-	case reflect.Int8:
+func ReadInteger(typ Type, b []byte) interface{} {
+	if typ.T == UintTy {
+		switch typ.Size {
+		case 8:
+			return b[len(b)-1]
+		case 16:
+			return binary.BigEndian.Uint16(b[len(b)-2:])
+		case 32:
+			return binary.BigEndian.Uint32(b[len(b)-4:])
+		case 64:
+			return binary.BigEndian.Uint64(b[len(b)-8:])
+		default:
+			// the only case left for unsigned integer is uint256.
+			return new(big.Int).SetBytes(b)
+		}
+	}
+	switch typ.Size {
+	case 8:
 		return int8(b[len(b)-1])
-	case reflect.Int16:
+	case 16:
 		return int16(binary.BigEndian.Uint16(b[len(b)-2:]))
-	case reflect.Int32:
+	case 32:
 		return int32(binary.BigEndian.Uint32(b[len(b)-4:]))
-	case reflect.Int64:
+	case 64:
 		return int64(binary.BigEndian.Uint64(b[len(b)-8:]))
 	default:
-		// the only case lefts for integer is int256/uint256.
-		// big.SetBytes can't tell if a number is negative, positive on itself.
+		// the only case left for integer is int256
+		// big.SetBytes can't tell if a number is negative or positive in itself.
 		// On EVM, if the returned number > max int256, it is negative.
+		// A number is > max int256 if the bit at position 255 is set.
 		ret := new(big.Int).SetBytes(b)
-		if typ == UintTy {
-			return ret
-		}
-
-		if ret.Cmp(MaxInt256) > 0 {
-			ret.Add(MaxUint256, big.NewInt(0).Neg(ret))
-			ret.Add(ret, big.NewInt(1))
+		if ret.Bit(255) == 1 {
+			ret.Add(MaxUint256, new(big.Int).Neg(ret))
+			ret.Add(ret, common.Big1)
 			ret.Neg(ret)
 		}
 		return ret
@@ -110,7 +110,7 @@ func ReadFixedBytes(t Type, word []byte) (interface{}, error) {
 		return nil, fmt.Errorf("abi: invalid type in call to make fixed byte array")
 	}
 	// convert
-	array := reflect.New(t.Type).Elem()
+	array := reflect.New(t.getType()).Elem()
 
 	reflect.Copy(array, reflect.ValueOf(word[0:t.Size]))
 	return array.Interface(), nil
@@ -131,10 +131,10 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 
 	if t.T == SliceTy {
 		// declare our slice
-		refSlice = reflect.MakeSlice(t.Type, size, size)
+		refSlice = reflect.MakeSlice(t.getType(), size, size)
 	} else if t.T == ArrayTy {
 		// declare our array
-		refSlice = reflect.New(t.Type).Elem()
+		refSlice = reflect.New(t.getType()).Elem()
 	} else {
 		return nil, fmt.Errorf("abi: invalid type in array/slice unpacking stage")
 	}
@@ -144,15 +144,7 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 	elemSize := getTypeSize(*t.Elem)
 
 	for i, j := start, 0; j < size; i, j = i+elemSize, j+1 {
-		var inter interface{}
-		var err error
-		if t.T == SliceTy && t.Elem.T == StringTy {
-			offset := binary.BigEndian.Uint64(output[i+32-8 : i+32])
-			stringStart := start + int(offset)
-			inter, err = toGoType(stringStart, *t.Elem, output, true)
-		} else {
-			inter, err = toGoType(i, *t.Elem, output, false)
-		}
+		inter, err := toGoType(i, *t.Elem, output)
 		if err != nil {
 			return nil, err
 		}
@@ -166,10 +158,10 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 }
 
 func forTupleUnpack(t Type, output []byte) (interface{}, error) {
-	retval := reflect.New(t.Type).Elem()
+	retval := reflect.New(t.getType()).Elem()
 	virtualArgs := 0
 	for index, elem := range t.TupleElems {
-		marshalledValue, err := toGoType((index+virtualArgs)*32, *elem, output, false)
+		marshalledValue, err := toGoType((index+virtualArgs)*32, *elem, output)
 		if elem.T == ArrayTy && !isDynamicType(*elem) {
 			// If we have a static array, like [3]uint256, these are coded as
 			// just like uint256,uint256,uint256.
@@ -197,7 +189,7 @@ func forTupleUnpack(t Type, output []byte) (interface{}, error) {
 
 // toGoType parses the output bytes and recursively assigns the value of these bytes
 // into a go type with accordance with the ABI spec.
-func toGoType(index int, t Type, output []byte, ABIv2Hack bool) (interface{}, error) {
+func toGoType(index int, t Type, output []byte) (interface{}, error) {
 	if index+32 > len(output) {
 		return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+32)
 	}
@@ -210,13 +202,7 @@ func toGoType(index int, t Type, output []byte, ABIv2Hack bool) (interface{}, er
 
 	// if we require a length prefix, find the beginning word and size returned.
 	if t.requiresLengthPrefix() {
-		if ABIv2Hack {
-			begin = index + 32
-			length = int(big.NewInt(0).SetBytes(output[index : index+32]).Uint64())
-		} else {
-			begin, length, err = lengthPrefixPointsTo(index, output)
-		}
-
+		begin, length, err = lengthPrefixPointsTo(index, output)
 		if err != nil {
 			return nil, err
 		}
@@ -227,7 +213,7 @@ func toGoType(index int, t Type, output []byte, ABIv2Hack bool) (interface{}, er
 	switch t.T {
 	case TupleTy:
 		if isDynamicType(t) {
-			begin, err = tuplePointsTo(index, output)
+			begin, err := tuplePointsTo(index, output)
 			if err != nil {
 				return nil, err
 			}
@@ -245,7 +231,7 @@ func toGoType(index int, t Type, output []byte, ABIv2Hack bool) (interface{}, er
 	case StringTy: // variable arrays are written at the end of the return bytes
 		return string(output[begin : begin+length]), nil
 	case IntTy, UintTy:
-		return ReadInteger(t.T, t.Kind, returnOutput), nil
+		return ReadInteger(t, returnOutput), nil
 	case BoolTy:
 		return readBool(returnOutput)
 	case AddressTy:

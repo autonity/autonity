@@ -509,6 +509,11 @@ func TestHandleCommit(t *testing.T) {
 	if c.round != 0 || c.height.Cmp(big.NewInt(4)) != 0 {
 		t.Fatalf("Expected new round")
 	}
+	// to fix the data race detected by CI workflow.
+	err = c.proposeTimeout.stopTimer()
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, keys addressKeyMap, member types.CommitteeMember) (*Message, error) {

@@ -93,16 +93,15 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 // ----------------------------------------------------------------------------
 
 type Backend struct {
-	config           *tendermintConfig.Config
-	eventMux         *event.TypeMuxSilent
-	privateKey       *ecdsa.PrivateKey
-	address          common.Address
-	logger           log.Logger
-	db               ethdb.Database
-	blockchain       *core.BlockChain
-	blockchainInitMu sync.Mutex
-	currentBlock     func() *types.Block
-	hasBadBlock      func(hash common.Hash) bool
+	config       *tendermintConfig.Config
+	eventMux     *event.TypeMuxSilent
+	privateKey   *ecdsa.PrivateKey
+	address      common.Address
+	logger       log.Logger
+	db           ethdb.Database
+	blockchain   *core.BlockChain
+	currentBlock func() *types.Block
+	hasBadBlock  func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
@@ -125,9 +124,8 @@ type Backend struct {
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
 
-	autonityContractAddress common.Address // Ethereum address of the white list contract
-	contractsMu             sync.RWMutex
-	vmConfig                *vm.Config
+	contractsMu sync.RWMutex
+	vmConfig    *vm.Config
 }
 
 func (sb *Backend) BlockChain() *core.BlockChain {
@@ -402,10 +400,6 @@ func (sb *Backend) HasBadProposal(hash common.Hash) bool {
 		return false
 	}
 	return sb.hasBadBlock(hash)
-}
-
-func (sb *Backend) GetContractAddress() common.Address {
-	return sb.blockchain.GetAutonityContract().Address()
 }
 
 func (sb *Backend) GetContractABI() string {

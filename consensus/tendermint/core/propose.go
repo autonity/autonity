@@ -142,11 +142,10 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
 		if vr == -1 {
-			var voteForProposal = false
-			if c.lockedValue != nil {
-				voteForProposal = c.lockedRound == -1 || h == c.lockedValue.Hash()
-			}
-			c.sendPrevote(ctx, voteForProposal)
+			// When lockedRound is set to any value other than -1 lockedValue is also
+			// set to a non nil value. So we can be sure that we will only try to access
+			// lockedValue when it is non nil.
+			c.sendPrevote(ctx, !(c.lockedRound == -1 || h == c.lockedValue.Hash()))
 			c.setStep(prevote)
 			return nil
 		}
@@ -156,11 +155,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		// vr >= 0 here
 		if vr < c.Round() && rs.PrevotesPower(h) >= c.committeeSet().Quorum() {
-			var voteForProposal = false
-			if c.lockedValue != nil {
-				voteForProposal = c.lockedRound <= vr || h == c.lockedValue.Hash()
-			}
-			c.sendPrevote(ctx, voteForProposal)
+			c.sendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
 			c.setStep(prevote)
 		}
 	}
