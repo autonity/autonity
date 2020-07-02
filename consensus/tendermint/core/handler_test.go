@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -172,7 +171,7 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 
 	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)
 
-	c := New(backendMock, config.RoundRobin)
+	c := New(backendMock)
 	_, c.cancel = context.WithCancel(context.Background())
 	c.subscribeEvents()
 	c.stopped <- struct{}{}
