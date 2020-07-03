@@ -136,7 +136,6 @@ func TestStartRound(t *testing.T) {
 	clientAddr := members[0].Address
 
 	t.Run("client is the proposer and valid value is nil", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 
 		lastBlockProposer := members[len(members)-1].Address
 		prevHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -173,12 +172,11 @@ func TestStartRound(t *testing.T) {
 		}
 		backendMock.EXPECT().SetProposedBlockHash(proposalBlock.Hash())
 		backendMock.EXPECT().Sign(proposalMsgRLPNoSig).Return(proposalMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, proposalMsgRLPWithSig).Return(nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), proposalMsgRLPWithSig).Return(nil)
 
 		core.startRound(context.Background(), currentRound)
 	})
 	t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		proposalHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		proposalBlock := generateBlock(proposalHeight)
 		// Valid round can only be set after round 0, hence the smallest value the the round can have is 1 for the valid
@@ -205,7 +203,7 @@ func TestStartRound(t *testing.T) {
 
 		backendMock.EXPECT().SetProposedBlockHash(proposalBlock.Hash())
 		backendMock.EXPECT().Sign(proposalMsgRLPNoSig).Return(proposalMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, proposalMsgRLPWithSig).Return(nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), proposalMsgRLPWithSig).Return(nil)
 
 		core.startRound(context.Background(), currentRound)
 	})
@@ -263,7 +261,6 @@ func TestStartRound(t *testing.T) {
 		time.Sleep(2 * time.Millisecond)
 	})
 	t.Run("at reception of proposal timeout event prevote nil is sent", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		timeoutE := TimeoutEvent{currentRound, currentHeight, msgProposal}
@@ -280,7 +277,7 @@ func TestStartRound(t *testing.T) {
 		c.setRound(currentRound)
 
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		c.handleTimeoutPropose(context.Background(), timeoutE)
 		assert.Equal(t, prevote, c.step)
@@ -296,7 +293,6 @@ func TestNewProposal(t *testing.T) {
 	clientAddr := members[0].Address
 
 	t.Run("receive invalid proposal for current round", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 
@@ -322,14 +318,13 @@ func TestNewProposal(t *testing.T) {
 
 		backendMock.EXPECT().VerifyProposal(*invalidProposal.ProposalBlock).Return(time.Duration(1), errors.New("invalid proposal"))
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), invalidMsg, members[currentRound])
 		assert.Error(t, err, "expected an error for invalid proposal")
 		assert.Equal(t, prevote, c.step)
 	})
 	t.Run("receive proposal with validRound = -1 and client's lockedRound = -1", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		clientLockedRound := int64(-1)
@@ -353,7 +348,7 @@ func TestNewProposal(t *testing.T) {
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
 		assert.Nil(t, err)
@@ -362,7 +357,6 @@ func TestNewProposal(t *testing.T) {
 		assert.Equal(t, clientLockedRound, c.lockedRound)
 	})
 	t.Run("receive proposal with validRound = -1 and client's lockedValue is same as proposal block", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		clientLockedRound := int64(0)
@@ -387,7 +381,7 @@ func TestNewProposal(t *testing.T) {
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
 		assert.Nil(t, err)
@@ -398,7 +392,6 @@ func TestNewProposal(t *testing.T) {
 		assert.Equal(t, clientLockedRound, c.validRound)
 	})
 	t.Run("receive proposal with validRound = -1 and client's lockedValue is different from proposal block", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		clientLockedRound := int64(0)
@@ -424,7 +417,7 @@ func TestNewProposal(t *testing.T) {
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
 		assert.Nil(t, err)
@@ -445,7 +438,6 @@ func TestOldProposal(t *testing.T) {
 	clientAddr := members[0].Address
 
 	t.Run("receive proposal with vr >= 0 and client's lockedRound <= vr", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		// vr >= 0 && vr < round_p
@@ -476,7 +468,7 @@ func TestOldProposal(t *testing.T) {
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
 		assert.Nil(t, err)
@@ -487,7 +479,6 @@ func TestOldProposal(t *testing.T) {
 		assert.Equal(t, clientLockedRound, c.validRound)
 	})
 	t.Run("receive proposal with vr >= 0 and client's lockedValue is same as proposal block", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		// vr >= 0 && vr < round_p
@@ -516,7 +507,7 @@ func TestOldProposal(t *testing.T) {
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
 		assert.Nil(t, err)
@@ -527,7 +518,6 @@ func TestOldProposal(t *testing.T) {
 		assert.Equal(t, proposal.ProposalBlock, c.validValue)
 	})
 	t.Run("receive proposal with vr >= 0 and clients is lockedRound > vr with a different value", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		clientLockedValue := generateBlock(currentHeight)
@@ -557,7 +547,7 @@ func TestOldProposal(t *testing.T) {
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, prevoteMsgRLPWithSig).Return(nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
 		assert.Nil(t, err)
@@ -663,7 +653,6 @@ func TestPrevoteTimeout(t *testing.T) {
 		time.Sleep(2 * time.Millisecond)
 	})
 	t.Run("at reception of prevote timeout event precommit nil is sent", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		timeoutE := TimeoutEvent{currentRound, currentHeight, msgPrevote}
@@ -684,7 +673,7 @@ func TestPrevoteTimeout(t *testing.T) {
 
 		backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
 		backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
-		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, precommitMsgRLPWithSig).Return(nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), precommitMsgRLPWithSig).Return(nil)
 
 		c.handleTimeoutPrevote(context.Background(), timeoutE)
 		assert.Equal(t, precommit, c.step)
@@ -700,7 +689,6 @@ func TestQuorumPrevote(t *testing.T) {
 	clientAddr := members[0].Address
 
 	t.Run("receive quroum prevote for proposal block when in step >= prevote", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		//randomly choose prevote or precommit step
@@ -729,7 +717,7 @@ func TestQuorumPrevote(t *testing.T) {
 
 			backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
 			backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
-			backendMock.EXPECT().Broadcast(context.Background(), committeeSet, precommitMsgRLPWithSig).Return(nil)
+			backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), precommitMsgRLPWithSig).Return(nil)
 
 			err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
 			assert.Nil(t, err)
@@ -748,7 +736,6 @@ func TestQuorumPrevote(t *testing.T) {
 	})
 
 	t.Run("receive more than quorum prevote for proposal block when in step >= prevote", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		//randomly choose prevote or precommit step
@@ -780,7 +767,7 @@ func TestQuorumPrevote(t *testing.T) {
 
 			backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
 			backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
-			backendMock.EXPECT().Broadcast(context.Background(), committeeSet, precommitMsgRLPWithSig).Return(nil)
+			backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), precommitMsgRLPWithSig).Return(nil)
 
 			err := c.handleCheckedMsg(context.Background(), prevoteMsg1, members[sender1])
 			assert.Nil(t, err)
@@ -816,7 +803,6 @@ func TestQuorumPrevote(t *testing.T) {
 // The following tests aim to test lines 44 - 46 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestQuorumPrevoteNil(t *testing.T) {
-	t.Skip("test case should be fixed after wrr proposer election introduced")
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
@@ -844,7 +830,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 
 	backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
 	backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
-	backendMock.EXPECT().Broadcast(context.Background(), committeeSet, precommitMsgRLPWithSig).Return(nil)
+	backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), precommitMsgRLPWithSig).Return(nil)
 
 	err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
 	assert.Nil(t, err)
@@ -1168,7 +1154,7 @@ func TestHandleMessage(t *testing.T) {
 		assert.Error(t, err, "unauthorised sender, sender is not is committees set")
 	})
 
-	t.Run("message sender is not the message siger", func(t *testing.T) {
+	t.Run("message sender is not the message signer", func(t *testing.T) {
 		t.Skip("test case should be fixed after wrr proposer election introduced")
 		msg := &Message{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2")}
 
