@@ -1038,7 +1038,6 @@ func TestFutureRoundChange(t *testing.T) {
 	sender2.VotingPower = big.NewInt(int64(roundChangeThreshold - 1))
 
 	t.Run("move to future round after receiving more than F voting power messages", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		// ensure client is not the proposer for next round
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
@@ -1128,7 +1127,9 @@ func TestHandleMessage(t *testing.T) {
 	assert.Nil(t, err)
 
 	t.Run("message sender is not in the committee set", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
+		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
+		prevBlock := generateBlock(prevHeight)
+
 		// Prepare message
 		msg := &Message{Address: key2PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message1")}
 
@@ -1149,13 +1150,15 @@ func TestHandleMessage(t *testing.T) {
 
 		core := New(backendMock, config.RoundRobin)
 		core.setCommitteeSet(committeeSet)
+		core.lastHeader = prevBlock.Header()
 		err = core.handleMsg(context.Background(), msgRlpWithSig)
 
 		assert.Error(t, err, "unauthorised sender, sender is not is committees set")
 	})
 
 	t.Run("message sender is not the message signer", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
+		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
+		prevBlock := generateBlock(prevHeight)
 		msg := &Message{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2")}
 
 		msgRlpNoSig, err := msg.PayloadNoSig()
@@ -1175,13 +1178,15 @@ func TestHandleMessage(t *testing.T) {
 
 		core := New(backendMock, config.RoundRobin)
 		core.setCommitteeSet(committeeSet)
+		core.lastHeader = prevBlock.Header()
 		err = core.handleMsg(context.Background(), msgRlpWithSig)
 
 		assert.Error(t, err, "unauthorised sender, sender is not the signer of the message")
 	})
 
 	t.Run("malicious sender sends incorrect signature", func(t *testing.T) {
-		t.Skip("test case should be fixed after wrr proposer election introduced")
+		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
+		prevBlock := generateBlock(prevHeight)
 		sig, err := crypto.Sign(crypto.Keccak256([]byte("random bytes")), key1)
 		assert.Nil(t, err)
 
@@ -1197,6 +1202,7 @@ func TestHandleMessage(t *testing.T) {
 
 		core := New(backendMock, config.RoundRobin)
 		core.setCommitteeSet(committeeSet)
+		core.lastHeader = prevBlock.Header()
 		err = core.handleMsg(context.Background(), msgRlpWithSig)
 
 		assert.Error(t, err, "malicious sender sends different signature to signature of message")
