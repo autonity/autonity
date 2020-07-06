@@ -18,7 +18,7 @@ import (
 )
 
 const minSize, maxSize = 4, 100
-const timeoutDuration, sleepDuration = 1 * time.Microsecond, 100 * time.Microsecond
+const timeoutDuration, sleepDuration = 1 * time.Microsecond, 1 * time.Millisecond
 
 // The following tests aim to test lines 1 - 21 & 57 - 60 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
