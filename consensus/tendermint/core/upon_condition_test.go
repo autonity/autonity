@@ -416,13 +416,13 @@ func TestNewProposal(t *testing.T) {
 		assert.Equal(t, clientLockedRound, c.validRound)
 	})
 	t.Run("step to propose then to check buffered proposal, with client's lockedRound = -1", func(t *testing.T) {
-
+		// todo:
 	})
 	t.Run("step to propose then to check buffered proposal, with client's lockedRound is same as proposal block", func(t *testing.T) {
-
+		// todo:
 	})
 	t.Run("step to propose then to check buffered proposal, with client's lockedRound is different from proposal block", func(t *testing.T) {
-
+		// todo:
 	})
 }
 
@@ -555,13 +555,13 @@ func TestOldProposal(t *testing.T) {
 		assert.Equal(t, clientLockedValue, c.validValue)
 	})
 	t.Run("step to propose then to check buffered proposal, with vr >= 0, lockedRound <= vr", func(t *testing.T) {
-
+		// todo:
 	})
 	t.Run("step to propose then to check buffered proposal, with vr >= 0, lockedRound is same as proposal block", func(t *testing.T) {
-		
+		// todo:
 	})
 	t.Run("step to propose then to check buffered proposal, with vr >= 0, lockedRound > vr and a different value", func(t *testing.T) {
-		
+		// todo:
 	})
 	// line 28, re-order the MSG handling.
 	// todo: don't discard those prevote msg via errFutureStepMessage. We need apply it to round state too.
@@ -738,7 +738,7 @@ func TestPrevoteTimeout(t *testing.T) {
 	})
 	// line 34, step to prevote and check if to start timer.
 	t.Run("step to prevote then to check if exist quorum prevote buffered to start timer", func(t *testing.T) {
-
+		// todo:
 	})
 }
 
@@ -863,12 +863,12 @@ func TestQuorumPrevote(t *testing.T) {
 
 	// line 36 step to prevote test.
 	t.Run("step to prevote then to check if exist proposal and quorum prevote buffered to exe action", func(t *testing.T) {
-
+		// todo:
 	})
 
 	// line 36 step to precommit test.
 	t.Run("step to precommit then to check if exist proposal and quorum prevote buffered to exe action", func(t *testing.T) {
-
+		// todo:
 	})
 
 	// line 36, re-order the MSG handling.
@@ -963,7 +963,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 	
 	// line 44, step to prevote and check to start timer.
 	t.Run("step to prevote, and check if to start timer", func(t *testing.T) {
-		
+		// todo:
 	})
 }
 
@@ -1386,35 +1386,6 @@ func TestHandleMessage(t *testing.T) {
 		err = core.handleMsg(context.Background(), msgRlpWithSig)
 
 		assert.Error(t, err, "malicious sender sends different signature to signature of message")
-	})
-}
-
-// The following tests aim to test multiple common upon conditions on consensus msg handling.
-func TestMultipleConditionsOnTendermintMsgHandling(t *testing.T) {
-	t.Run("multiple conditions checking on proposal handling", func(t *testing.T) {
-
-	})
-
-	t.Run("multiple conditions checking on prevote handling", func(t *testing.T) {
-
-	})
-
-	t.Run("multiple conditions checking on precommit handling", func(t *testing.T) {
-
-	})
-}
-// The following tests aim to test multiple upon conditions when tendermint state machine move to a certain step.
-func TestMultipleConditionsOnTendermintStepChange(t *testing.T) {
-	t.Run("multiple conditions checking on step to propose", func(t *testing.T) {
-
-	})
-
-	t.Run("multiple conditions checking on step to prevote", func(t *testing.T) {
-
-	})
-
-	t.Run("multiple conditions checking on step to precommit", func(t *testing.T) {
-
 	})
 }
 
