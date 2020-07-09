@@ -77,13 +77,14 @@ const (
 )
 
 // New creates an Tendermint consensus core
-func New(backend Backend, proposerPolicy config.ProposerPolicy) *core {
+func New(backend Backend, config *config.Config) *core {
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
-		proposerPolicy:        proposerPolicy,
+		proposerPolicy:        config.ProposerPolicy,
+		blockPeriod:           config.BlockPeriod,
 		address:               addr,
 		logger:                logger,
 		backend:               backend,
@@ -105,6 +106,7 @@ func New(backend Backend, proposerPolicy config.ProposerPolicy) *core {
 
 type core struct {
 	proposerPolicy config.ProposerPolicy
+	blockPeriod    uint64
 	address        common.Address
 	logger         log.Logger
 
@@ -293,7 +295,7 @@ func (c *core) startRound(ctx context.Context, round int64) {
 		}
 		c.sendProposal(ctx, p)
 	} else {
-		timeoutDuration := timeoutPropose(round)
+		timeoutDuration := c.timeoutPropose(round)
 		c.proposeTimeout.scheduleTimeout(timeoutDuration, round, c.Height(), c.onTimeoutPropose)
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
