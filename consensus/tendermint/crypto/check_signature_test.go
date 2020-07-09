@@ -2,19 +2,18 @@ package crypto
 
 import (
 	"crypto/ecdsa"
-	"github.com/clearmatics/autonity/core/types"
 	"math/big"
-	"sort"
 	"strings"
 	"testing"
 
+	"github.com/clearmatics/autonity/core/types"
+
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/crypto"
 )
 
 func TestCheckValidatorSignature(t *testing.T) {
-	vset, keys := newTestValidatorSet(5)
+	header, keys := newTestHeader(5)
 
 	// 1. Positive test: sign with validator's key should succeed
 	data := []byte("dummy data")
@@ -26,11 +25,11 @@ func TestCheckValidatorSignature(t *testing.T) {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
 		// CheckValidatorSignature should succeed
-		addr, err := CheckValidatorSignature(vset, data, sig)
+		addr, err := CheckValidatorSignature(header, data, sig)
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
-		val, _ := vset.GetByIndex(i)
+		val := header.Committee[i]
 		if addr != val.Address {
 			t.Errorf("validator address mismatch: have %v, want %v", addr, val.Address)
 		}
@@ -48,7 +47,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 	}
 
 	// CheckValidatorSignature should return ErrUnauthorizedAddress
-	addr, err := CheckValidatorSignature(vset, data, sig)
+	addr, err := CheckValidatorSignature(header, data, sig)
 	if err.Error() != ErrUnauthorizedAddress.Error() {
 		t.Errorf("error mismatch: have %v, want %v", err, ErrUnauthorizedAddress)
 	}
@@ -60,7 +59,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 }
 
 func TestCheckValidatorSignatureInvalid(t *testing.T) {
-	vset, keys := newTestValidatorSet(5)
+	header, keys := newTestHeader(5)
 
 	// 1. Positive test: sign with validator's key should succeed
 	data := []byte("dummy data")
@@ -75,12 +74,12 @@ func TestCheckValidatorSignatureInvalid(t *testing.T) {
 		sig = sig[1:]
 
 		// CheckValidatorSignature should succeed
-		addr, err := CheckValidatorSignature(vset, data, sig)
+		addr, err := CheckValidatorSignature(header, data, sig)
 		if err.Error() != "invalid signature length" {
 			t.Errorf("check error mismatch: have %v, want ErrUnauthorizedAddress", err)
 		}
 
-		val, _ := vset.GetByIndex(i)
+		val := header.Committee[i]
 		if addr == val.Address {
 			t.Errorf("validator address match: have %v, want != %v", addr, val.Address)
 		}
@@ -98,7 +97,7 @@ func TestCheckValidatorSignatureInvalid(t *testing.T) {
 	}
 
 	// CheckValidatorSignature should return ErrUnauthorizedAddress
-	addr, err := CheckValidatorSignature(vset, data, sig)
+	addr, err := CheckValidatorSignature(header, data, sig)
 	if err.Error() != ErrUnauthorizedAddress.Error() {
 		t.Errorf("error mismatch: have %v, want %v", err, ErrUnauthorizedAddress)
 	}
@@ -110,7 +109,7 @@ func TestCheckValidatorSignatureInvalid(t *testing.T) {
 }
 
 func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
-	vset, keys := newTestValidatorSet(5)
+	header, keys := newTestHeader(5)
 
 	// 1. Positive test: sign with validator's key should succeed
 	data := []byte("dummy data")
@@ -129,12 +128,12 @@ func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
 		}
 
 		// CheckValidatorSignature should succeed
-		addr, err := CheckValidatorSignature(vset, data, sig)
+		addr, err := CheckValidatorSignature(header, data, sig)
 		if err != ErrUnauthorizedAddress {
 			t.Errorf("check error mismatch: have %v, want ErrUnauthorizedAddress", err)
 		}
 
-		val, _ := vset.GetByIndex(i)
+		val := header.Committee[i]
 		if addr == val.Address {
 			t.Errorf("validator address match: have %v, want != %v", addr, val.Address)
 		}
@@ -152,7 +151,7 @@ func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
 	}
 
 	// CheckValidatorSignature should return ErrUnauthorizedAddress
-	addr, err := CheckValidatorSignature(vset, data, sig)
+	addr, err := CheckValidatorSignature(header, data, sig)
 	if err.Error() != ErrUnauthorizedAddress.Error() {
 		t.Errorf("error mismatch: have %v, want %v", err, ErrUnauthorizedAddress)
 	}
@@ -163,7 +162,7 @@ func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
 	}
 }
 
-func newTestValidatorSet(n int) (*committee.Set, []*ecdsa.PrivateKey) {
+func newTestHeader(n int) (*types.Header, []*ecdsa.PrivateKey) {
 	// generate validators
 	keys := make(Keys, n)
 	addrs := make(types.Committee, n)
@@ -175,9 +174,10 @@ func newTestValidatorSet(n int) (*committee.Set, []*ecdsa.PrivateKey) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 	}
-	vset, _ := committee.NewSet(addrs, addrs[0].Address)
-	sort.Sort(keys) //Keys need to be sorted by its public key address
-	return vset, keys
+	h := &types.Header{
+		Committee: addrs,
+	}
+	return h, keys
 }
 
 type Keys []*ecdsa.PrivateKey

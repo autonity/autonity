@@ -30,6 +30,7 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
+	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/golang/mock/gomock"
@@ -220,13 +221,13 @@ func TestVerifySeal(t *testing.T) {
 	header.Number = big.NewInt(4)
 	block1 := block.WithSeal(header)
 	err = engine.VerifySeal(chain, block1.Header())
-	if err != errUnknownBlock {
+	if err != errInvalidCoinbase {
 		t.Errorf("error mismatch: have %v, want %v", err, errUnknownBlock)
 	}
 
 	// unauthorized users but still can get correct signer address
 	privateKey, _ := crypto.GenerateKey()
-	engine.SetPrivateKey(privateKey)
+	engine.privateKey = privateKey
 	err = engine.VerifySeal(chain, block.Header())
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -556,11 +557,12 @@ func TestStart(t *testing.T) {
 
 		ctx := context.Background()
 		tendermintC := tendermintCore.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
+			blockchain:  &core.BlockChain{},
 		}
 
 		err := b.Start(ctx)
@@ -584,11 +586,12 @@ func TestStart(t *testing.T) {
 
 		ctx := context.Background()
 		tendermintC := tendermintCore.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
+			blockchain:  &core.BlockChain{},
 		}
 
 		err := b.Start(ctx)
@@ -606,11 +609,12 @@ func TestStart(t *testing.T) {
 
 		ctx := context.Background()
 		tendermintC := tendermintCore.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
+			blockchain:  &core.BlockChain{},
 		}
 
 		var wg sync.WaitGroup
@@ -655,12 +659,13 @@ func TestMultipleRestart(t *testing.T) {
 	times := 5
 	ctx := context.Background()
 	tendermintC := tendermintCore.NewMockTendermint(ctrl)
-	tendermintC.EXPECT().Start(ctx).MaxTimes(times)
+	tendermintC.EXPECT().Start(ctx, nil).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
 
 	b := &Backend{
 		core:        tendermintC,
 		coreStarted: false,
+		blockchain:  &core.BlockChain{},
 	}
 
 	for i := 0; i < times; i++ {
