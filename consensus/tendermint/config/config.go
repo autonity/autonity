@@ -38,3 +38,10 @@ func DefaultConfig() *Config {
 		ProposerPolicy: WeightedRandomSampling,
 	}
 }
+
+func RoundRobinConfig() *Config {
+	return &Config{
+		BlockPeriod:    1,
+		ProposerPolicy: RoundRobin,
+	}
+}

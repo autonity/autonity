@@ -352,7 +352,7 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().AnyTimes().Return(addr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.curRoundMessages = curRoundMessages
 		c.height = big.NewInt(2)
 		c.round = 1
