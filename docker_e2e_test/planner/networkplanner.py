@@ -134,11 +134,10 @@ class NetworkPlanner(object):
                 "constantinopleBlock": 0,
                 "petersburgBlock": 0,
                 "tendermint": {
-                    "policy": 0,
+                    "policy": 1,
                     "block-period": 1,
                 },
                 "autonityContract": {
-                    #"deployer": "0x0000000000000000000000000000000000000002",
                     "bytecode": "",
                     "abi": "",
                     "minGasPrice": 5000,
