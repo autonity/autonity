@@ -16,7 +16,7 @@ docker-e2e-tests: ./venv/bin/activate
 # as autocomplete options.
 ./venv/bin/activate: requirements_docker_test.txt
 	test -d venv || python3 -m venv venv
-	. venv/bin/activate && pip3 install -r requirements_docker_test.txt
+	. venv/bin/activate && sudo pip3 install -r requirements_docker_test.txt
 	touch ./venv/bin/activate
 
 clean:
@@ -24,7 +24,8 @@ clean:
 
 # Installs the prerequisites for a Linux user
 install-prerequisites-linux:
-	sudo apt-get install python3 python3-venv python3-pip golang-docker-credential-helpers docker.io
+	sudo apt-get install python3 python3-venv python3-pip golang-docker-credential-helpers
+	./install
 
 # Installs the prerequisites for a mac user
 install-prerequisites-mac:
