@@ -557,6 +557,64 @@ func TestOldProposal(t *testing.T) {
 		assert.Equal(t, clientLockedValue, c.lockedValue)
 		assert.Equal(t, clientLockedValue, c.validValue)
 	})
+
+	// line 28 check upon condition on prevote handler.
+	t.Run("handle proposal before full quorum prevote on valid round is satisfied, exe action by applying old round prevote into round state", func(t *testing.T) {
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		// vr >= 0 && vr < round_p
+		proposalValidRound := int64(rand.Intn(int(currentRound)))
+		// -1 <= c.lockedRound <= vr
+		clientLockedRound := int64(rand.Intn(int(proposalValidRound+2) - 1))
+		// the new round proposal
+		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
+
+		// the old round prevote msg to be handled to get the full quorum prevote on old round vr with value v.
+		prevoteMsg, _, _ := prepareVote(t, msgPrevote, proposalValidRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
+
+		// the expected prevote msg to be broadcast for the new round with <currentHeight, currentRound, proposal.ProposalBlock.Hash()>
+		prevoteMsgToBroadcast, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock, config.RoundRobin)
+		c.setCommitteeSet(committeeSet)
+		// construct round state with: old round's quorum-1 prevote for v on valid round.
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.committeeSet().Quorum() - 1})
+
+		// client on new round's step propose.
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(propose)
+		c.lockedRound = clientLockedRound
+		c.validRound = clientLockedRound
+		c.lockedValue = nil
+		c.validValue = nil
+
+		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsgToBroadcast.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
+
+		// now we handle new round's proposal with round_p > vr on value v.
+		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
+		assert.Nil(t, err)
+
+		// now we receive the last old round's prevote MSG to get quorum prevote on vr for value v.
+		// the old round's prevote is accepted into the round state which now have the line 28 condition satisfied.
+		// now to take the action of line 28 which was not align with pseudo code before.
+		sender := 0
+		err = c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
+		assert.Nil(t, err)
+		assert.Equal(t, prevote, c.step)
+		assert.Nil(t, c.lockedValue)
+		assert.Equal(t, clientLockedRound, c.lockedRound)
+		assert.Nil(t, c.validValue)
+		assert.Equal(t, clientLockedRound, c.validRound)
+	})
 }
 
 // The following tests aim to test lines 34 - 35 & 61 - 64 of Tendermint Algorithm described on page 6 of
