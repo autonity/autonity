@@ -887,6 +887,16 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	if parent.Time() >= uint64(timestamp) {
 		timestamp = int64(parent.Time() + 1)
 	}
+
+	// We must account here for the block period in case of Tendermint consensus.
+	// Another strategy would have been to sleep before submitting a new work request
+	// within the newWorkLoop's commit closure.
+	if w.chainConfig.Tendermint != nil {
+		if parent.Time()+w.chainConfig.Tendermint.BlockPeriod >= uint64(timestamp) {
+			timestamp = int64(parent.Time() + w.chainConfig.Tendermint.BlockPeriod)
+		}
+	}
+
 	// this will ensure we're not going off too far in the future
 	if now := time.Now().Unix(); timestamp > now+1 {
 		wait := time.Duration(timestamp-now) * time.Second
@@ -900,7 +910,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, w.config.GasFloor, w.config.GasCeil),
 		Extra:      w.extra,
-		Time:       uint64(timestamp),
+		Time:       uint64(timestamp), // redundant with Tendermint Prepare logic.
 	}
 	// Only set the coinbase if our consensus engine is running (avoid spurious block rewards)
 	if w.isRunning() {

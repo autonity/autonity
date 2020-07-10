@@ -116,7 +116,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 		} else if c.step == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower() >= c.committeeSet().Quorum() {
-			timeoutDuration := timeoutPrevote(c.Round())
+			timeoutDuration := c.timeoutPrevote(c.Round())
 			c.prevoteTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
 			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
 		}
