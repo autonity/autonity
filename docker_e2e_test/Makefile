@@ -24,7 +24,7 @@ clean:
 
 # Installs the prerequisites for a Linux user
 install-prerequisites-linux:
-	sudo apt-get install python3 python3-venv python3-pip golang-docker-credential-helpers
+	sudo apt-get install python3 python3-venv python3-pip golang-docker-credential-helpers docker.io
 
 # Installs the prerequisites for a mac user
 install-prerequisites-mac:
