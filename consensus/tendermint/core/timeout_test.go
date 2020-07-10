@@ -2,16 +2,18 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
-	"github.com/clearmatics/autonity/rlp"
-	"github.com/golang/mock/gomock"
+
 	"math/big"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/metrics"
+	"github.com/clearmatics/autonity/rlp"
+	"github.com/golang/mock/gomock"
 )
 
 func TestCore_measureMetricsOnStopTimer(t *testing.T) {
@@ -77,7 +79,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 			messages:         messages,
 			round:            1,
 			height:           big.NewInt(2),
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			step:             prevote,
 			proposeTimeout:   newTimeout(propose, logger),
 			prevoteTimeout:   newTimeout(prevote, logger),
@@ -91,7 +93,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		// should send precommit nil
 		mockBackend.EXPECT().Sign(gomock.Any()).Times(2)
 		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Do(
-			func(ctx context.Context, valSet *committee.Set, payload []byte) {
+			func(ctx context.Context, c types.Committee, payload []byte) {
 				message := new(Message)
 				if err := rlp.DecodeBytes(payload, message); err != nil {
 					t.Fatalf("could not decode payload")
@@ -139,7 +141,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 			step:             prevote,
 			round:            1,
 			height:           big.NewInt(2),
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			proposeTimeout:   newTimeout(propose, logger),
 			prevoteTimeout:   newTimeout(prevote, logger),
 			precommitTimeout: newTimeout(precommit, logger),

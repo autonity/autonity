@@ -21,12 +21,14 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -75,12 +77,13 @@ const (
 )
 
 // New creates an Tendermint consensus core
-func New(backend Backend) *core {
+func New(backend Backend, proposerPolicy config.ProposerPolicy) *core {
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
+		proposerPolicy:        proposerPolicy,
 		address:               addr,
 		logger:                logger,
 		backend:               backend,
@@ -88,7 +91,7 @@ func New(backend Backend) *core {
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
-		committeeSet:          nil,
+		committee:             nil,
 		futureRoundChange:     make(map[int64]map[common.Address]uint64),
 		messages:              messagesMap,
 		lockedRound:           -1,
@@ -101,8 +104,9 @@ func New(backend Backend) *core {
 }
 
 type core struct {
-	address common.Address
-	logger  log.Logger
+	proposerPolicy config.ProposerPolicy
+	address        common.Address
+	logger         log.Logger
 
 	backend Backend
 	cancel  context.CancelFunc
@@ -127,9 +131,10 @@ type core struct {
 	// Tendermint FSM state fields
 	//
 
-	height       *big.Int
-	round        int64
-	committeeSet *committee.Set
+	height     *big.Int
+	round      int64
+	committee  committee
+	lastHeader *types.Header
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	stateMu               sync.RWMutex
@@ -151,6 +156,8 @@ type core struct {
 	precommitTimeout *timeout
 
 	futureRoundChange map[int64]map[common.Address]uint64
+
+	autonityContract *autonity.Contract
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
@@ -158,7 +165,7 @@ func (c *core) GetCurrentHeightMessages() []*Message {
 }
 
 func (c *core) IsMember(address common.Address) bool {
-	_, _, err := c.CommitteeSet().GetByAddress(address)
+	_, _, err := c.committeeSet().GetByAddress(address)
 	return err == nil
 }
 
@@ -195,14 +202,18 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 
 	// Broadcast payload
 	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(ctx, c.CommitteeSet(), payload); err != nil {
+	if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}
 }
 
+// check if msg sender is proposer for proposal handling.
+func (c *core) isProposerMsg(round int64, msgAddress common.Address) bool {
+	return c.committeeSet().GetProposer(round).Address == msgAddress
+}
 func (c *core) isProposer() bool {
-	return c.CommitteeSet().IsProposer(c.Round(), c.address)
+	return c.committeeSet().GetProposer(c.Round()).Address == c.address
 }
 
 func (c *core) commit(round int64, messages *roundMessages) {
@@ -293,11 +304,31 @@ func (c *core) setInitialState(r int64) {
 	if r == 0 {
 		lastBlockMined, _ := c.backend.LastCommittedProposal()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-		committeeSet, err := c.backend.Committee(c.Height().Uint64())
-		if err != nil {
-			c.logger.Error("fatal error: could not retrieve saved committee")
-			panic(err)
+
+		lastHeader := lastBlockMined.Header()
+		var committeeSet committee
+		var err error
+		var lastProposer common.Address
+		switch c.proposerPolicy {
+		case config.RoundRobin:
+			if !lastHeader.IsGenesis() {
+				var err error
+				lastProposer, err = types.Ecrecover(lastHeader)
+				if err != nil {
+					panic(fmt.Sprintf("unable to recover proposer address from header %q: %v", lastHeader, err))
+				}
+			}
+			committeeSet, err = newRoundRobinSet(lastHeader.Committee, lastProposer)
+			if err != nil {
+				panic(fmt.Sprintf("failed to construct committee %v", err))
+			}
+		case config.WeightedRandomSampling:
+			committeeSet = newWeightedRandomSamplingCommittee(lastBlockMined, c.autonityContract, c.backend.BlockChain())
+		default:
+			panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
 		}
+
+		c.lastHeader = lastHeader
 		c.setCommitteeSet(committeeSet)
 		c.lockedRound = -1
 		c.lockedValue = nil
@@ -355,10 +386,10 @@ func (c *core) setHeight(height *big.Int) {
 	defer c.stateMu.Unlock()
 	c.height = height
 }
-func (c *core) setCommitteeSet(set *committee.Set) {
+func (c *core) setCommitteeSet(set committee) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
-	c.committeeSet = set
+	c.committee = set
 }
 
 func (c *core) Round() int64 {
@@ -372,8 +403,8 @@ func (c *core) Height() *big.Int {
 	defer c.stateMu.RUnlock()
 	return c.height
 }
-func (c *core) CommitteeSet() *committee.Set {
+func (c *core) committeeSet() committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
-	return c.committeeSet
+	return c.committee
 }
