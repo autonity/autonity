@@ -31,7 +31,7 @@ Run test cases of the playbook: ./etc/testcase.conf.yml by:
 
 `make docker-e2e-test`
 
-or run the script with 1 parameter, the path of autonity binary.
+or run the script with 1 parameter, the path of autonity work dir.
 For example:
 `sudo python3 test_via_docker.py  ~/your_path_to/autonity`
 

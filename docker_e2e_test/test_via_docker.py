@@ -255,7 +255,7 @@ def receive_signal(signal_number, frame):
 if __name__ == "__main__":
     exit_code = 1
     parser = argparse.ArgumentParser()
-    parser.add_argument("autonity", help="Autonity Binary Path")
+    parser.add_argument("autonity", help="Autonity WorkDir Path")
     args = parser.parse_args()
     job_id = str(time.time())
     JOB_ID = job_id
