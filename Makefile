@@ -22,14 +22,20 @@ GENERATED_CONTRACT_DIR = ./common/acdefault/generated
 GENERATED_ABI = $(GENERATED_CONTRACT_DIR)/abi.go
 GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
 
-# This uses 'id -nG $USER' to list all groups that the user is part of and then
-# greps for the word docker in the output, if grep matches the word it returns
-# the successful error code and hence the command after the or '||' will not be
-# executed. This results in DOCKER_SUDO having the value 'sudo' if the current
-# user is not in the docker group and being empty if the current user is in the
-# docker group. This allows us to selectively execute docker with sudo for
-# users that need to execute it with sudo.
-DOCKER_SUDO = $(shell id -nG $(USER) | grep "\<docker\>" > /dev/null || echo sudo)
+# DOCKER_SUDO is set to either the empty string or "sudo" and is used to
+# control whether docker is executed with sudo or not. If the user is root or
+# the user is in the docker group then this will be set to the empty string,
+# otherwise it will be set to "sudo".
+#
+# We make use of posix's short-circuit evaluation of "or" expressions
+# (https://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#tag_02_09_03)
+# where the second part of the expression is only executed if the first part
+# evaluates to false. We first check to see if the user id is 0 since this
+# indicates that the user is root. If not we then use 'id -nG $USER' to list
+# all groups that the user is part of and then grep for the word docker in the
+# output, if grep matches the word it returns the successful error code. If not
+# we then echo "sudo".
+DOCKER_SUDO = $(shell [ `id -u` -eq 0 ] || id -nG $(USER) | grep "\<docker\>" > /dev/null || echo sudo )
 
 autonity: embed-autonity-contract
 	build/env.sh go run build/ci.go install ./cmd/autonity
