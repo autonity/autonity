@@ -107,6 +107,10 @@ type ProtocolManager struct {
 	enodesWhitelist     []*enode.Node
 	enodesWhitelistLock sync.RWMutex
 
+	// Autonity network permission control with un-trusted participants.
+	untrustedPeers     map[enode.ID]struct{}
+	untrustedPeersLock sync.RWMutex
+
 	engine consensus.Engine
 	pub    *ecdsa.PublicKey
 }
@@ -125,6 +129,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		peers:      newPeerSet(),
 		engine:      engine,
 		whitelist:  whitelist,
+		untrustedPeers: make(map[enode.ID]struct{}),
 		whitelistCh: make(chan core.WhitelistEvent, 64),
 		txsyncCh:   make(chan *txsync),
 		quitSync:   make(chan struct{}),
@@ -219,6 +224,52 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	manager.chainSync = newChainSyncer(manager)
 	manager.enodesWhitelist = rawdb.ReadEnodeWhitelist(chaindb).List
 	return manager, nil
+}
+
+func (pm *ProtocolManager) RefreshUntrustedPeers(participants []*enode.Node) {
+
+	connected := pm.peers.Peers()
+	pm.untrustedPeersLock.Lock()
+	defer pm.untrustedPeersLock.Unlock()
+
+	for k := range pm.untrustedPeers {
+		delete(pm.untrustedPeers, k)
+	}
+
+	for _, connectedPeer := range connected {
+		found := false
+		connectedEnode := connectedPeer.Node()
+		for _, whitelistedEnode := range participants {
+			if connectedEnode.ID() == whitelistedEnode.ID() {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			// this node is not in the whitelist, put it into untrusted list.
+			pm.untrustedPeers[connectedEnode.ID()] = struct{}{}
+		}
+	}
+}
+
+func (pm *ProtocolManager) AddUntrustedPeer(id enode.ID) {
+	pm.untrustedPeersLock.Lock()
+	defer pm.untrustedPeersLock.Unlock()
+	pm.untrustedPeers[id] = struct{}{}
+}
+
+func (pm *ProtocolManager) GetUntrustedPeers() map[enode.ID]struct{} {
+	pm.untrustedPeersLock.RLock()
+	defer pm.untrustedPeersLock.RUnlock()
+
+	m := make(map[enode.ID]struct{})
+
+	for k, v := range pm.untrustedPeers {
+		m[k] = v
+	}
+
+	return m
 }
 
 func (pm *ProtocolManager) makeProtocol(version uint) p2p.Protocol {
