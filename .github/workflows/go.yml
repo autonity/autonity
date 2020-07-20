@@ -299,7 +299,8 @@ jobs:
         run: make embed-autonity-contract
 
       - name: Test
-        run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
+        # \b matches a word boundary
+        run: go test ./consensus/test/... -v -run='\b${{ matrix.e2e }}\b' -timeout 40m
 
   race_tests:
     needs: bootstrap-checkout
