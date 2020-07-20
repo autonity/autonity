@@ -37,6 +37,11 @@ GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
 # we then echo "sudo".
 DOCKER_SUDO = $(shell [ `id -u` -eq 0 ] || id -nG $(USER) | grep "\<docker\>" > /dev/null || echo sudo )
 
+# Builds the docker image and checks that we can run the autonity binary inside it
+build-docker-image:
+	@$(DOCKER_SUDO) docker build -t autonity .
+	@$(DOCKER_SUDO) docker run --rm autonity -h > /dev/null
+
 autonity: embed-autonity-contract
 	build/env.sh go run build/ci.go install ./cmd/autonity
 	@echo "Done building."
