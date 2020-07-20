@@ -20,14 +20,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/rlp"
 	"io"
 	"math/big"
 	"reflect"
+
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 const (
@@ -91,7 +91,7 @@ var ErrUnauthorizedAddress = errors.New("unauthorized address")
 //
 // define the functions that needs to be provided for core.
 
-func (m *Message) FromPayload(b []byte, valSet *committee.Set, validateFn func(*committee.Set, []byte, []byte) (common.Address, error)) (*types.CommitteeMember, error) {
+func (m *Message) FromPayload(b []byte, previousHeader *types.Header, validateFn func(*types.Header, []byte, []byte) (common.Address, error)) (*types.CommitteeMember, error) {
 	// Decode message
 	err := rlp.DecodeBytes(b, m)
 	if err != nil {
@@ -111,7 +111,7 @@ func (m *Message) FromPayload(b []byte, valSet *committee.Set, validateFn func(*
 		return nil, err
 	}
 
-	addr, err := validateFn(valSet, payload, m.Signature)
+	addr, err := validateFn(previousHeader, payload, m.Signature)
 	if err != nil {
 		return nil, err
 	}
@@ -121,13 +121,13 @@ func (m *Message) FromPayload(b []byte, valSet *committee.Set, validateFn func(*
 		return nil, ErrUnauthorizedAddress
 	}
 
-	_, v, err := valSet.GetByAddress(addr)
-	if err != nil {
-		return nil, err
+	v := previousHeader.CommitteeMember(addr)
+	if v == nil {
+		return nil, fmt.Errorf("validator was not a committee member %q", v)
 	}
 
 	m.power = v.VotingPower.Uint64()
-	return &v, nil
+	return v, nil
 }
 
 func (m *Message) Payload() ([]byte, error) {
