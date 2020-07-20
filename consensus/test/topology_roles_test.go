@@ -92,6 +92,7 @@ func TestTendermintMajorityExternalUsers(t *testing.T) {
 }
 
 func TestTendermintMajorityExternalUsersFullyConnected(t *testing.T) {
+	t.Skip("This test is intermittently failing, see - https://github.com/clearmatics/autonity/issues/619")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
