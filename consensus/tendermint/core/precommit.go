@@ -86,7 +86,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 			}
 			c.acceptVote(roundMsgs, precommit, precommitHash, *msg)
 			oldRoundProposalHash := roundMsgs.GetProposalHash()
-			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsPower(oldRoundProposalHash) >= c.CommitteeSet().Quorum() {
+			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsPower(oldRoundProposalHash) >= c.committeeSet().Quorum() {
 				c.logger.Info("Quorum on a old round proposal", "round", preCommit.Round)
 				if !roundMsgs.isProposalVerified() {
 					if _, error := c.backend.VerifyProposal(*roundMsgs.Proposal().ProposalBlock); error != nil {
@@ -111,7 +111,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 
 	c.acceptVote(c.curRoundMessages, precommit, precommitHash, *msg)
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
-	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash) >= c.CommitteeSet().Quorum() {
+	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash) >= c.committeeSet().Quorum() {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
 		}
@@ -125,8 +125,8 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.timerStarted() && c.curRoundMessages.PrecommitsTotalPower() >= c.CommitteeSet().Quorum() {
-		timeoutDuration := timeoutPrecommit(c.Round())
+	} else if !c.precommitTimeout.timerStarted() && c.curRoundMessages.PrecommitsTotalPower() >= c.committeeSet().Quorum() {
+		timeoutDuration := c.timeoutPrecommit(c.Round())
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
 	}
@@ -176,7 +176,7 @@ func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to
 		"msgRound", precommit.Round,
 		"currentStep", c.step,
 		"isProposer", c.isProposer(),
-		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
+		"currentProposer", c.committeeSet().GetProposer(c.Round()),
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
 		"hash", precommit.ProposedBlockHash,
 		"type", "Precommit",

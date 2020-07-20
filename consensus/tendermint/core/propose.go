@@ -18,10 +18,11 @@ package core
 
 import (
 	"context"
+	"time"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/types"
-	"time"
 )
 
 func (c *core) sendProposal(ctx context.Context, p *types.Block) {
@@ -73,14 +74,14 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 				return err // do not gossip, TODO: accountability
 			}
 
-			if !c.CommitteeSet().IsProposer(proposal.Round, msg.Address) {
+			if !c.isProposerMsg(proposal.Round, msg.Address) {
 				c.logger.Warn("Ignore proposal messages from non-proposer")
 				return errNotFromProposer
 			}
 			// We do not verify the proposal in this case.
 			roundMsgs.SetProposal(&proposal, msg, false)
 
-			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= c.CommitteeSet().Quorum() {
+			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= c.committeeSet().Quorum() {
 				if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
 					return error
 				}
@@ -93,7 +94,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	}
 
 	// Check if the message comes from curRoundMessages proposer
-	if !c.CommitteeSet().IsProposer(c.Round(), msg.Address) {
+	if !c.isProposerMsg(c.Round(), msg.Address) {
 		c.logger.Warn("Ignore proposal messages from non-proposer")
 		return errNotFromProposer
 	}
@@ -109,7 +110,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				_, sender, _ := c.CommitteeSet().GetByAddress(msg.Address)
+				_, sender, _ := c.committeeSet().GetByAddress(msg.Address)
 				c.sendEvent(backlogEvent{
 					src: sender,
 					msg: msg,
@@ -153,7 +154,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		// vr >= 0 here
-		if vr < c.Round() && rs.PrevotesPower(h) >= c.CommitteeSet().Quorum() {
+		if vr < c.Round() && rs.PrevotesPower(h) >= c.committeeSet().Quorum() {
 			c.sendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
 			c.setStep(prevote)
 		}
@@ -179,7 +180,7 @@ func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, 
 		"msgRound", proposal.Round,
 		"currentStep", c.step,
 		"isProposer", c.isProposer(),
-		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
+		"currentProposer", c.committeeSet().GetProposer(c.Round()),
 		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
 		"hash", proposal.ProposalBlock.Hash(),
 	)
