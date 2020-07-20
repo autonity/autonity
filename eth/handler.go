@@ -392,6 +392,10 @@ func (pm *ProtocolManager) glienickeEventLoop() {
 	for {
 		select {
 		case event := <-pm.whitelistCh:
+			// refresh untrusted list with white list on each new block.
+			pm.RefreshUntrustedPeers(event.Whitelist)
+
+			// save latest network participant list.
 			pm.enodesWhitelistLock.Lock()
 			pm.enodesWhitelist = event.Whitelist
 			pm.enodesWhitelistLock.Unlock()
@@ -499,6 +503,11 @@ func (pm *ProtocolManager) IsInWhitelist(id enode.ID, td uint64, logger log.Logg
 		}
 	}
 	pm.enodesWhitelistLock.RUnlock()
+
+	// after Eth handshake, if remote peer is not whitelisted add it as untrusted peers.
+	if !whitelisted && id != enode.PubkeyToIDV4(pm.pub){
+		pm.AddUntrustedPeer(id)
+	}
 
 	if !whitelisted && td <= head.Number.Uint64()+1 {
 		if logger != nil {
