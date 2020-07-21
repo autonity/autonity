@@ -28,6 +28,8 @@ type Broadcaster interface {
 	Enqueue(id string, block *types.Block)
 	// FindPeers retrives connected peers by addresses
 	FindPeers(map[common.Address]struct{}) map[common.Address]Peer
+	// IsTrustedPeer check if peer is trusted.
+	IsTrustedPeer(peer common.Address) bool
 }
 
 // Peer defines the interface to communicate with peer

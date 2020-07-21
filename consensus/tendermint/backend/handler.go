@@ -88,6 +88,12 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 			return true, nil //return nil to avoid shutting down connection during block sync.
 		}
 
+		// Autonity yellow paper, Figure 4: Reliable broadcast at participant pi line 15.
+		// do not handle consensus msg from untrusted peer.
+		if !sb.broadcaster.IsTrustedPeer(addr) {
+			return true, nil
+		}
+
 		var data []byte
 		if err := msg.Decode(&data); err != nil {
 			return true, errDecodeFailed

@@ -108,7 +108,7 @@ type ProtocolManager struct {
 	enodesWhitelistLock sync.RWMutex
 
 	// Autonity network permission control with un-trusted participants.
-	untrustedPeers     map[enode.ID]struct{}
+	untrustedPeers     map[common.Address]struct{}
 	untrustedPeersLock sync.RWMutex
 
 	engine consensus.Engine
@@ -129,7 +129,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		peers:      newPeerSet(),
 		engine:      engine,
 		whitelist:  whitelist,
-		untrustedPeers: make(map[enode.ID]struct{}),
+		untrustedPeers: make(map[common.Address]struct{}),
 		whitelistCh: make(chan core.WhitelistEvent, 64),
 		txsyncCh:   make(chan *txsync),
 		quitSync:   make(chan struct{}),
@@ -248,22 +248,26 @@ func (pm *ProtocolManager) RefreshUntrustedPeers(participants []*enode.Node) {
 
 		if !found {
 			// this node is not in the whitelist, put it into untrusted list.
-			pm.untrustedPeers[connectedEnode.ID()] = struct{}{}
+			pubKey := connectedEnode.Pubkey()
+			if pubKey != nil {
+				addr := crypto.PubkeyToAddress(*pubKey)
+				pm.untrustedPeers[addr] = struct{}{}
+			}
 		}
 	}
 }
 
-func (pm *ProtocolManager) AddUntrustedPeer(id enode.ID) {
+func (pm *ProtocolManager) AddUntrustedPeer(peer common.Address) {
 	pm.untrustedPeersLock.Lock()
 	defer pm.untrustedPeersLock.Unlock()
-	pm.untrustedPeers[id] = struct{}{}
+	pm.untrustedPeers[peer] = struct{}{}
 }
 
-func (pm *ProtocolManager) isUnTrustedPeer(peer enode.ID) bool {
+func (pm *ProtocolManager) IsTrustedPeer(peer common.Address) bool {
 	pm.untrustedPeersLock.RLock()
 	defer pm.untrustedPeersLock.RUnlock()
 	_, unTrusted := pm.untrustedPeers[peer]
-	return unTrusted
+	return !unTrusted
 }
 
 func (pm *ProtocolManager) makeProtocol(version uint) p2p.Protocol {
@@ -426,6 +430,11 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	if err != nil {
 		return err
 	}
+
+	// Autonity yellow paper, Figure 3: Permissioning protocol and block synchronization at participant pi, line 12.
+	// add peer into untrusted peer set if it is not presented in white list.
+	pm.tryAddUntrustedPeer(p.Node())
+
 	// Todo : pause relaying if not whitelisted until full sync
 
 	// Register the peer locally
@@ -485,6 +494,26 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	}
 }
 
+func (pm *ProtocolManager) tryAddUntrustedPeer(peer *enode.Node) {
+	whitelisted := false
+	pm.enodesWhitelistLock.RLock()
+	for _, enode := range pm.enodesWhitelist {
+		if peer.ID() == enode.ID() {
+			whitelisted = true
+			break
+		}
+	}
+	pm.enodesWhitelistLock.RUnlock()
+
+	if !whitelisted {
+		pubKey := peer.Pubkey()
+		if pubKey != nil {
+			addr := crypto.PubkeyToAddress(*pubKey)
+			pm.AddUntrustedPeer(addr)
+		}
+	}
+}
+
 func (pm *ProtocolManager) IsInWhitelist(id enode.ID, td uint64, logger log.Logger) error {
 	head := pm.blockchain.CurrentHeader()
 
@@ -497,11 +526,6 @@ func (pm *ProtocolManager) IsInWhitelist(id enode.ID, td uint64, logger log.Logg
 		}
 	}
 	pm.enodesWhitelistLock.RUnlock()
-
-	// after Eth handshake, if remote peer is not whitelisted add it as untrusted peers.
-	if !whitelisted && id != enode.PubkeyToIDV4(pm.pub){
-		pm.AddUntrustedPeer(id)
-	}
 
 	if !whitelisted && td <= head.Number.Uint64()+1 {
 		if logger != nil {
@@ -537,21 +561,16 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	defer msg.Discard()
 
+
+	pubKey := p.Node().Pubkey()
+	if pubKey == nil {
+		return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
+	}
+	peerAddr := crypto.PubkeyToAddress(*pubKey)
+
 	// handle consensus layer protocol msg first before handling ETh layer's protocol msg.
 	if handler, ok := pm.engine.(consensus.Handler); ok {
-		pubKey := p.Node().Pubkey()
-		if pubKey == nil {
-			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
-		}
-		addr := crypto.PubkeyToAddress(*pubKey)
-
-		// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15.
-		// Skip consensus msg handling if remote peer is untrusted.
-		if pm.isUnTrustedPeer(p.ID()) {
-			return nil
-		}
-
-		handled, err := handler.HandleMsg(addr, msg)
+		handled, err := handler.HandleMsg(peerAddr, msg)
 		if handled {
 			return err
 		}
@@ -842,7 +861,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			log.Debug("Failed to deliver receipts", "err", err)
 		}
 	// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15 and line 35.
-	case msg.Code == NewBlockHashesMsg && !pm.isUnTrustedPeer(p.ID()):
+	case msg.Code == NewBlockHashesMsg && pm.IsTrustedPeer(peerAddr):
 		var announces newBlockHashesData
 		if err := msg.Decode(&announces); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -902,7 +921,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15 and line 28.
 	// Skip to handle TX and TX announcement from untrusted peer.
-	case msg.Code == NewPooledTransactionHashesMsg && p.version >= eth65 && !pm.isUnTrustedPeer(p.ID()):
+	case msg.Code == NewPooledTransactionHashesMsg && p.version >= eth65 && pm.IsTrustedPeer(peerAddr):
 		// New transaction announcement arrived, make sure we have
 		// a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
@@ -956,7 +975,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15 and line 28.
 	// Skip to handle TX and TX announcement from untrusted peer.
-	case (msg.Code == TransactionMsg || (msg.Code == PooledTransactionsMsg && p.version >= eth65)) && !pm.isUnTrustedPeer(p.ID()):
+	case (msg.Code == TransactionMsg || (msg.Code == PooledTransactionsMsg && p.version >= eth65)) && pm.IsTrustedPeer(peerAddr):
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			break
