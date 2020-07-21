@@ -27,7 +27,7 @@ import (
 // API is a user facing RPC API to dump BFT state
 type API struct {
 	chain        consensus.ChainReader
-	tendermint *Backend
+	tendermint   *Backend
 	getCommittee func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
 }
 
