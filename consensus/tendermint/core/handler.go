@@ -135,11 +135,14 @@ eventLoop:
 					c.logger.Error("core.mainEventLoop Get message(MessageEvent) empty payload")
 				}
 
-				if err := c.handleMsg(ctx, e.Payload); err != nil {
-					c.logger.Debug("core.mainEventLoop Get message(MessageEvent) payload failed", "err", err)
-					continue
+				// Autonity yellow paper, Figure 5: Consensus state synchronization module at participant pi line 10.
+				if c.IsMember(c.address) {
+					if err := c.handleMsg(ctx, e.Payload); err != nil {
+						c.logger.Debug("core.mainEventLoop Get message(MessageEvent) payload failed", "err", err)
+						continue
+					}
+					c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
 				}
-				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling backlogEvent")
@@ -222,7 +225,12 @@ eventLoop:
 			}
 			event := ev.Data.(events.SyncEvent)
 			c.logger.Info("Processing sync message", "from", event.Addr)
-			c.backend.SyncPeer(event.Addr)
+			// Autonity yellow paper, Figure 6: Consensus state synchronization module at participant pi, line 10.
+			// the remote peer is always belong to (connected peer V untrusted peer), so we just check if sender is
+			// presented in committee, otherwise we don't send the consensus state msg.
+			if c.IsMember(c.address) {
+				c.backend.SyncPeer(event.Addr)
+			}
 		case <-ctx.Done():
 			c.logger.Info("syncLoop is stopped", "event", ctx.Err())
 			break eventLoop

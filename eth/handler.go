@@ -861,6 +861,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			log.Debug("Failed to deliver receipts", "err", err)
 		}
 	// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15 and line 35.
+	// not to handle and relay new block announce from untrusted peer.
 	case msg.Code == NewBlockHashesMsg && pm.IsTrustedPeer(peerAddr):
 		var announces newBlockHashesData
 		if err := msg.Decode(&announces); err != nil {
@@ -880,9 +881,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, block := range unknown {
 			pm.blockFetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
 		}
-	// todo: discuss this condition is valid, autonity yellow paper: Block synchronization module at participant pi, line 09
-	//  if (!isValid(B) ∨ p_j ∈/ connected_peers_i U untrusted_peers_i then return endIf
-	//  it looks like we need to allow block download from untrusted peer to let client get sync.
+	// Autonity yellow paper, Figure 5: Block synchronization module at participant pi, line 09 always satisfied.
+	// since the remote peer must be belong to (connected peer V untrusted peer)
 	case msg.Code == NewBlockMsg:
 		// Retrieve and decode the propagated block
 		var request newBlockData
@@ -920,7 +920,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15 and line 28.
-	// Skip to handle TX and TX announcement from untrusted peer.
+	// not to handle and relay TX announcement from untrusted peer.
 	case msg.Code == NewPooledTransactionHashesMsg && p.version >= eth65 && pm.IsTrustedPeer(peerAddr):
 		// New transaction announcement arrived, make sure we have
 		// a valid and fresh chain to handle them
@@ -974,7 +974,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendPooledTransactionsRLP(hashes, txs)
 
 	// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15 and line 28.
-	// Skip to handle TX and TX announcement from untrusted peer.
+	// not to handle and relay TX from untrusted peer.
 	case (msg.Code == TransactionMsg || (msg.Code == PooledTransactionsMsg && p.version >= eth65)) && pm.IsTrustedPeer(peerAddr):
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {

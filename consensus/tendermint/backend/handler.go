@@ -89,7 +89,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		}
 
 		// Autonity yellow paper, Figure 4: Reliable broadcast at participant pi line 15.
-		// do not handle consensus msg from untrusted peer.
+		// do not handle and relay consensus msg from untrusted peer.
 		if !sb.broadcaster.IsTrustedPeer(addr) {
 			return true, nil
 		}
