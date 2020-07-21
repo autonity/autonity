@@ -272,6 +272,13 @@ func (pm *ProtocolManager) GetUntrustedPeers() map[enode.ID]struct{} {
 	return m
 }
 
+func (pm *ProtocolManager) isUnTrustedPeer(peer enode.ID) bool {
+	pm.untrustedPeersLock.RLock()
+	defer pm.untrustedPeersLock.RUnlock()
+	_, unTrusted := pm.untrustedPeers[peer]
+	return unTrusted
+}
+
 func (pm *ProtocolManager) makeProtocol(version uint) p2p.Protocol {
 	length, ok := protocolLengths[version]
 	if !ok {
@@ -543,12 +550,20 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	defer msg.Discard()
 
+	// handle consensus layer protocol msg first before handling ETh layer's protocol msg.
 	if handler, ok := pm.engine.(consensus.Handler); ok {
 		pubKey := p.Node().Pubkey()
 		if pubKey == nil {
 			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
 		}
 		addr := crypto.PubkeyToAddress(*pubKey)
+
+		// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15.
+		// Skip consensus msg handling if remote peer is untrusted.
+		if pm.isUnTrustedPeer(p.ID()) {
+			return nil
+		}
+
 		handled, err := handler.HandleMsg(addr, msg)
 		if handled {
 			return err
@@ -839,8 +854,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := pm.downloader.DeliverReceipts(p.id, receipts); err != nil {
 			log.Debug("Failed to deliver receipts", "err", err)
 		}
-
-	case msg.Code == NewBlockHashesMsg:
+	// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15 and line 35.
+	case msg.Code == NewBlockHashesMsg && !pm.isUnTrustedPeer(p.ID()):
 		var announces newBlockHashesData
 		if err := msg.Decode(&announces); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -896,7 +911,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			pm.chainSync.handlePeerEvent(p)
 		}
 
-	case msg.Code == NewPooledTransactionHashesMsg && p.version >= eth65:
+	// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15 and line 28.
+	case msg.Code == NewPooledTransactionHashesMsg && p.version >= eth65 && !pm.isUnTrustedPeer(p.ID()):
 		// New transaction announcement arrived, make sure we have
 		// a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
