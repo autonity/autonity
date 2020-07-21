@@ -89,11 +89,14 @@ type Header struct {
 		PoS header fields, round & committedSeals not taken into account
 		for computing the sigHash.
 	*/
-	Committee          Committee `json:"committee"           gencodec:"required"`
-	ProposerSeal       []byte    `json:"proposerSeal"        gencodec:"required"`
-	Round              uint64    `json:"round"               gencodec:"required"`
-	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"`
-	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
+	Committee Committee `json:"committee"           gencodec:"required"`
+	// used for committee member lookup, lazily initialised.
+	committeeMap map[common.Address]*CommitteeMember
+
+	ProposerSeal       []byte   `json:"proposerSeal"        gencodec:"required"`
+	Round              uint64   `json:"round"               gencodec:"required"`
+	CommittedSeals     [][]byte `json:"committedSeals"      gencodec:"required"`
+	PastCommittedSeals [][]byte `json:"pastCommittedSeals"  gencodec:"required"`
 }
 
 type CommitteeMember struct {
