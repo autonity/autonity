@@ -559,15 +559,23 @@ func TestOldProposal(t *testing.T) {
 	})
 
 	// line 28 check upon condition on prevote handler.
+// line 28 check upon condition on prevote handler.
 	t.Run("handle proposal before full quorum prevote on valid round is satisfied, exe action by applying old round prevote into round state", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+
 		// vr >= 0 && vr < round_p
 		proposalValidRound := int64(rand.Intn(int(currentRound)))
-		// -1 <= c.lockedRound <= vr
-		clientLockedRound := int64(rand.Intn(int(proposalValidRound+2) - 1))
+
+		// -1 <= c.lockedRound < vr, if the client lockedValue = vr then the client had received the prevotes in a
+		// timely manner thus there are no old prevote yet to arrive
+		clientLockedRound := int64(rand.Intn(int(proposalValidRound)) - 1)
+
 		// the new round proposal
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
+
+		// old proposal some random block
+		clientLockedValue := generateBlock(currentHeight)
 
 		// the old round prevote msg to be handled to get the full quorum prevote on old round vr with value v.
 		prevoteMsg, _, _ := prepareVote(t, msgPrevote, proposalValidRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
@@ -592,8 +600,8 @@ func TestOldProposal(t *testing.T) {
 		c.setStep(propose)
 		c.lockedRound = clientLockedRound
 		c.validRound = clientLockedRound
-		c.lockedValue = nil
-		c.validValue = nil
+		c.lockedValue = clientLockedValue
+		c.validValue = clientLockedValue
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsgToBroadcast.Signature, nil)
@@ -610,9 +618,9 @@ func TestOldProposal(t *testing.T) {
 		err = c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
 		assert.Nil(t, err)
 		assert.Equal(t, prevote, c.step)
-		assert.Nil(t, c.lockedValue)
+		assert.Equal(t, clientLockedValue, c.lockedValue)
 		assert.Equal(t, clientLockedRound, c.lockedRound)
-		assert.Nil(t, c.validValue)
+		assert.Equal(t, clientLockedValue, c.validValue)
 		assert.Equal(t, clientLockedRound, c.validRound)
 	})
 }
