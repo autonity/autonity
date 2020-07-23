@@ -582,8 +582,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Status messages should never arrive after the handshake
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
 
-	// Block header query, collect the requested headers and reply
-	case msg.Code == GetBlockHeadersMsg:
+	// Block header query, collect the requested headers and reply only for trusted peer.
+	case msg.Code == GetBlockHeadersMsg && pm.IsTrustedPeer(peerAddr):
 		// Decode the complex header query
 		var query getBlockHeadersData
 		if err := msg.Decode(&query); err != nil {
@@ -723,7 +723,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 
-	case msg.Code == GetBlockBodiesMsg:
+	// Block body query, collect the requested bodies and reply only for trusted peer.
+	case msg.Code == GetBlockBodiesMsg && pm.IsTrustedPeer(peerAddr):
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -776,7 +777,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 
-	case p.version >= eth63 && msg.Code == GetNodeDataMsg:
+	// State data query, collect the requested state data and reply only for trusted peer.
+	case p.version >= eth63 && msg.Code == GetNodeDataMsg && pm.IsTrustedPeer(peerAddr):
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -814,7 +816,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			log.Debug("Failed to deliver node state data", "err", err)
 		}
 
-	case p.version >= eth63 && msg.Code == GetReceiptsMsg:
+	// Transaction receipt query, collect the requested TX receipts and reply only for trusted peer.
+	case p.version >= eth63 && msg.Code == GetReceiptsMsg && pm.IsTrustedPeer(peerAddr):
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -860,8 +863,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := pm.downloader.DeliverReceipts(p.id, receipts); err != nil {
 			log.Debug("Failed to deliver receipts", "err", err)
 		}
-	// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15 and line 35.
-	// not to handle and relay new block announce from untrusted peer.
+
+	// New block announce, mark the hash as present at the remote peer and start download block only from trusted peer.
 	case msg.Code == NewBlockHashesMsg && pm.IsTrustedPeer(peerAddr):
 		var announces newBlockHashesData
 		if err := msg.Decode(&announces); err != nil {
@@ -881,8 +884,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, block := range unknown {
 			pm.blockFetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
 		}
-	// Autonity yellow paper, Figure 5: Block synchronization module at participant pi, line 09 always satisfied.
-	// since the remote peer must be belong to (connected peer V untrusted peer)
+
 	case msg.Code == NewBlockMsg:
 		// Retrieve and decode the propagated block
 		var request newBlockData
@@ -919,8 +921,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			pm.chainSync.handlePeerEvent(p)
 		}
 
-	// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15 and line 28.
-	// not to handle and relay TX announcement from untrusted peer.
+	// New pooled-TX announce, make sure we are ready (chain synced) to download it and download it only from trusted peer.
 	case msg.Code == NewPooledTransactionHashesMsg && p.version >= eth65 && pm.IsTrustedPeer(peerAddr):
 		// New transaction announcement arrived, make sure we have
 		// a valid and fresh chain to handle them
@@ -937,7 +938,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		pm.txFetcher.Notify(p.id, hashes)
 
-	case msg.Code == GetPooledTransactionsMsg && p.version >= eth65:
+	// Pooled-TX query, collect the data and reply only for trusted peer.
+	case msg.Code == GetPooledTransactionsMsg && p.version >= eth65 && pm.IsTrustedPeer(peerAddr):
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -973,8 +975,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		return p.SendPooledTransactionsRLP(hashes, txs)
 
-	// Autonity yellow paper, Figure 4: Reliable broadcast at participant p_i, line 15 and line 28.
-	// not to handle and relay TX from untrusted peer.
+	// New pooled-TX arrive, make sure we are ready (chain synced) to put them which is from trusted peer into TX pool.
 	case (msg.Code == TransactionMsg || (msg.Code == PooledTransactionsMsg && p.version >= eth65)) && pm.IsTrustedPeer(peerAddr):
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
