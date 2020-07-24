@@ -561,7 +561,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	defer msg.Discard()
 
-
 	pubKey := p.Node().Pubkey()
 	if pubKey == nil {
 		return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
