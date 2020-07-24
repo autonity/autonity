@@ -228,6 +228,10 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 
 func (pm *ProtocolManager) RefreshUntrustedPeers(participants []*enode.Node) {
 
+	if len(participants) == 0 {
+		// it shouldn't happens.
+		return
+	}
 	connected := pm.peers.Peers()
 	pm.untrustedPeersLock.Lock()
 	defer pm.untrustedPeersLock.Unlock()

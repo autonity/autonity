@@ -18,6 +18,7 @@ package eth
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math"
 	"math/big"
 	"math/rand"
@@ -725,6 +726,117 @@ func TestBroadcastMalformedBlock(t *testing.T) {
 
 	sink, _ := newTestPeer(sinkPeer, eth63, pm, true)
 	defer sink.close()
+
+	// Create various combinations of malformed blocks
+	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *core.BlockGen) {})
+
+	malformedUncles := chain[0].Header()
+	malformedUncles.UncleHash[0]++
+	malformedTransactions := chain[0].Header()
+	malformedTransactions.TxHash[0]++
+	malformedEverything := chain[0].Header()
+	malformedEverything.UncleHash[0]++
+	malformedEverything.TxHash[0]++
+
+	// Keep listening to broadcasts and notify if any arrives
+	notify := make(chan struct{}, 1)
+	go func() {
+		if _, err := sink.app.ReadMsg(); err == nil {
+			notify <- struct{}{}
+		}
+	}()
+	// Try to broadcast all malformations and ensure they all get discarded
+	for _, header := range []*types.Header{malformedUncles, malformedTransactions, malformedEverything} {
+		block := types.NewBlockWithHeader(header).WithBody(chain[0].Transactions(), chain[0].Uncles())
+		if err := p2p.Send(source.app, NewBlockMsg, []interface{}{block, big.NewInt(131136)}); err != nil {
+			t.Fatalf("failed to broadcast block: %v", err)
+		}
+		select {
+		case <-notify:
+			t.Fatalf("malformed block forwarded")
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+func TestBroadcastMalformedBlockBetweenTrustedPeer(t *testing.T) {
+	// Create a live node to test propagation with
+	var (
+		engine = ethash.NewFaker()
+		db     = rawdb.NewMemoryDatabase()
+		config = &params.ChainConfig{}
+		gspec  = &core.Genesis{Config: config}
+	)
+	config.AutonityContractConfig = &params.AutonityContractGenesis{}
+	sourcePeer := newTestP2PPeer("source")
+	sinkPeer := newTestP2PPeer("sink")
+	fakePeer1 := newTestP2PPeer("fake1")
+	fakePeer2 := newTestP2PPeer("fake2")
+	config.AutonityContractConfig.Users = []params.User{{
+		Enode: sourcePeer.Info().Enode,
+		Type:  params.UserValidator,
+		Stake: 1,
+	}, {
+		Enode: sinkPeer.Info().Enode,
+		Type:  params.UserValidator,
+		Stake: 1,
+	},
+	{
+		Enode: fakePeer1.Info().Enode,
+		Type:  params.UserValidator,
+		Stake: 1,
+	},
+	{
+		Enode: fakePeer2.Info().Enode,
+		Type:  params.UserValidator,
+		Stake: 1,
+	}}
+
+	if err := config.AutonityContractConfig.Prepare(); err != nil {
+		t.Fatal(err)
+	}
+	gspec.Difficulty = big.NewInt(1)
+	genesis := gspec.MustCommit(db)
+
+	blockchain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
+	if err != nil {
+		t.Fatalf("failed to create new blockchain: %v", err)
+	}
+	pm, err := NewProtocolManager(config, nil, downloader.FullSync, DefaultConfig.NetworkId, new(event.TypeMux), new(testTxPool), engine, blockchain, db, 1, nil, nil)
+	if err != nil {
+		t.Fatalf("failed to start test protocol manager: %v", err)
+	}
+
+	pm.Start(4)
+	defer pm.Stop()
+
+	// Create two peers, one to send the malformed block with and one to check
+	// propagation
+	source, _ := newTestPeer(sourcePeer, eth63, pm, true)
+	defer source.close()
+
+	sink, _ := newTestPeer(sinkPeer, eth63, pm, true)
+	defer sink.close()
+
+	fake1, _ := newTestPeer(fakePeer1, eth63, pm, true)
+	defer fake1.close()
+
+	fake2, _ := newTestPeer(fakePeer2, eth63, pm, true)
+	defer fake2.close()
+
+	// refresh untrusted peer list with 2 nodes in white list.
+	whiteList := []*enode.Node{source.Node(), sink.Node()}
+	pm.RefreshUntrustedPeers(whiteList)
+
+	if pm.IsTrustedPeer(crypto.PubkeyToAddress(*fake1.Node().Pubkey())) {
+		t.Fatalf("fakePeer1 should be untrusted.")
+	}
+
+	// add another untrusted peer.
+	pm.AddUntrustedPeer(crypto.PubkeyToAddress(*source.Node().Pubkey()))
+	if pm.IsTrustedPeer(crypto.PubkeyToAddress(*source.Node().Pubkey())) {
+		t.Fatalf("peer should be untrusted.")
+	}
 
 	// Create various combinations of malformed blocks
 	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *core.BlockGen) {})
