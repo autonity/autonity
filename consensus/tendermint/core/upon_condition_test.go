@@ -20,6 +20,7 @@ import (
 )
 
 const minSize, maxSize = 4, 100
+const timeoutDuration, sleepDuration = 1 * time.Microsecond, 1 * time.Millisecond
 
 func setCommitteeAndSealOnBlock(t *testing.T, b *types.Block, c committee, keys map[common.Address]*ecdsa.PrivateKey, signerIndex int) {
 	h := b.Header()
@@ -256,9 +257,9 @@ func TestStartRound(t *testing.T) {
 
 		assert.False(t, c.proposeTimeout.timerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgProposal})
-		c.prevoteTimeout.scheduleTimeout(1*time.Millisecond, c.Round(), c.Height(), c.onTimeoutPropose)
+		c.prevoteTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPropose)
 		assert.True(t, c.prevoteTimeout.timerStarted())
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of proposal timeout event prevote nil is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -648,9 +649,9 @@ func TestPrevoteTimeout(t *testing.T) {
 
 		assert.False(t, c.prevoteTimeout.timerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgPrevote})
-		c.prevoteTimeout.scheduleTimeout(1*time.Millisecond, c.Round(), c.Height(), c.onTimeoutPrevote)
+		c.prevoteTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
 		assert.True(t, c.prevoteTimeout.timerStarted())
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of prevote timeout event precommit nil is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -930,9 +931,9 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		assert.False(t, c.precommitTimeout.timerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgPrecommit})
-		c.precommitTimeout.scheduleTimeout(1*time.Millisecond, c.Round(), c.Height(), c.onTimeoutPrecommit)
+		c.precommitTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		assert.True(t, c.precommitTimeout.timerStarted())
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of precommit timeout event next round will be started", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
