@@ -2,13 +2,13 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
-	"github.com/golang/mock/gomock"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/golang/mock/gomock"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -59,7 +59,7 @@ func TestSendPropose(t *testing.T) {
 				VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := committee.NewSet(testCommittee, testCommittee[0].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -78,7 +78,7 @@ func TestSendPropose(t *testing.T) {
 			round:            1,
 			height:           big.NewInt(1),
 			validRound:       validRound,
-			committeeSet:     valSet,
+			committee:        valSet,
 		}
 
 		c.sendProposal(context.Background(), block)
@@ -156,7 +156,7 @@ func TestHandleProposal(t *testing.T) {
 		testCommittee, _ := generateCommittee(3)
 		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
 
-		valSet, err := committee.NewSet(testCommittee, testCommittee[1].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[1].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -168,7 +168,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			round:            2,
 			height:           big.NewInt(1),
-			committeeSet:     valSet,
+			committee:        valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -210,7 +210,7 @@ func TestHandleProposal(t *testing.T) {
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := committee.NewSet(testCommittee, testCommittee[0].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -267,7 +267,7 @@ func TestHandleProposal(t *testing.T) {
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
 			proposeTimeout:   newTimeout(propose, logger),
-			committeeSet:     valSet,
+			committee:        valSet,
 			round:            2,
 			height:           big.NewInt(1),
 		}
@@ -310,7 +310,7 @@ func TestHandleProposal(t *testing.T) {
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := committee.NewSet(testCommittee, testCommittee[0].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -332,7 +332,7 @@ func TestHandleProposal(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(1),
 			proposeTimeout:   newTimeout(propose, logger),
-			committeeSet:     valSet,
+			committee:        valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -377,7 +377,7 @@ func TestHandleProposal(t *testing.T) {
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := committee.NewSet(testCommittee, testCommittee[0].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -390,7 +390,7 @@ func TestHandleProposal(t *testing.T) {
 		var prevote = Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
-			ProposedBlockHash: common.Hash{},
+			ProposedBlockHash: block.Hash(),
 		}
 
 		encodedVote, err := Encode(&prevote)
@@ -433,7 +433,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			proposeTimeout:   newTimeout(propose, logger),
 			validRound:       -1,
-			committeeSet:     valSet,
+			committee:        valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)
@@ -475,7 +475,7 @@ func TestHandleProposal(t *testing.T) {
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := committee.NewSet(testCommittee, testCommittee[0].Address)
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -532,7 +532,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			proposeTimeout:   newTimeout(propose, logger),
 			validRound:       0,
-			committeeSet:     valSet,
+			committee:        valSet,
 		}
 
 		err = c.handleProposal(context.Background(), msg)

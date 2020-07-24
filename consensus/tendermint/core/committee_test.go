@@ -1,4 +1,4 @@
-package committee
+package core
 
 import (
 	"fmt"
@@ -17,9 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const maxSize = 100
-
-func TestNewSet(t *testing.T) {
+func TestNewRoundRobinSet(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSet = func(t *testing.T, n int64) {
 		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxSize))
@@ -42,7 +40,7 @@ func TestNewSet(t *testing.T) {
 			totalPower += cm.VotingPower.Uint64()
 		}
 
-		set, err := NewSet(copyCommitteeMembers, lastBlockProposer)
+		set, err := newRoundRobinSet(copyCommitteeMembers, lastBlockProposer)
 		assertNilError(t, err)
 
 		if lastBlockProposer != set.lastBlockProposer {
@@ -75,12 +73,12 @@ func TestNewSet(t *testing.T) {
 	}
 
 	t.Run("cannot create empty set with members as nil", func(t *testing.T) {
-		_, err := NewSet(nil, common.Address{})
+		_, err := newRoundRobinSet(nil, common.Address{})
 		assertError(t, ErrEmptyCommitteeSet, err)
 	})
 
 	t.Run("cannot create empty set with members as types.Committee{}", func(t *testing.T) {
-		_, err := NewSet(types.Committee{}, common.Address{})
+		_, err := newRoundRobinSet(types.Committee{}, common.Address{})
 		assertError(t, ErrEmptyCommitteeSet, err)
 	})
 }
@@ -90,39 +88,16 @@ func TestCommitteeIsSorted(t *testing.T) {
 	committeeMembers := createTestCommitteeMembers(t, 10, 10)
 	require.False(t, sort.IsSorted(committeeMembers))
 
-	set, err := NewSet(committeeMembers, committeeMembers[0].Address)
+	set, err := newRoundRobinSet(committeeMembers, committeeMembers[0].Address)
 	require.NoError(t, err)
 	assert.True(t, sort.IsSorted(set.Committee()))
-}
-
-func TestSet_Size(t *testing.T) {
-	var committeeSetSizes = []int64{1, 2, 10, 100}
-	var assertSetSize = func(t *testing.T, n int64) {
-		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxSize))
-		// only testing size so don't care about sorting
-		set, err := NewSet(committeeMembers, committeeMembers[0].Address)
-		assertNilError(t, err)
-
-		setSize := set.Size()
-		if int64(setSize) != n {
-			t.Fatalf("expected committee set size: %v and got: %v", n, setSize)
-		}
-	}
-
-	for _, size := range committeeSetSizes {
-		size := size
-		t.Run(fmt.Sprintf("committee size of %v member/s", size), func(t *testing.T) {
-			assertSetSize(t, size)
-		})
-	}
-
 }
 
 func TestSet_Committee(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSetCommittee = func(t *testing.T, n int64) {
 		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxSize))
-		set, err := NewSet(copyMembers(committeeMembers), committeeMembers[0].Address)
+		set, err := newRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
 		sort.Sort(committeeMembers)
 		assertNilError(t, err)
 
@@ -144,7 +119,7 @@ func TestSet_Committee(t *testing.T) {
 func TestSet_GetByIndex(t *testing.T) {
 	committeeMembers := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
 	sort.Sort(committeeMembers)
-	set, err := NewSet(copyMembers(committeeMembers), committeeMembers[0].Address)
+	set, err := newRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
 	assertNilError(t, err)
 
 	t.Run("can get member by index", func(t *testing.T) {
@@ -166,7 +141,7 @@ func TestSet_GetByIndex(t *testing.T) {
 func TestSet_GetByAddress(t *testing.T) {
 	committeeMembers := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
 	sort.Sort(committeeMembers)
-	set, err := NewSet(copyMembers(committeeMembers), committeeMembers[0].Address)
+	set, err := newRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
 	assertNilError(t, err)
 
 	t.Run("can get member by Address", func(t *testing.T) {
@@ -207,7 +182,7 @@ func TestSet_GetProposer(t *testing.T) {
 			lastBlockProposer := committeeMembers[r].Address
 			expectedProposerAddrForRound0 := committeeMembers[(r+1)%size].Address
 
-			set, err := NewSet(copyMembers(committeeMembers), lastBlockProposer)
+			set, err := newRoundRobinSet(copyMembers(committeeMembers), lastBlockProposer)
 			require.NoError(t, err)
 
 			firstCommitteeMemberAddr := committeeMembers[0].Address
@@ -246,14 +221,14 @@ func TestSet_IsProposer(t *testing.T) {
 	lastBlockProposer := committeeMembers[lastBlockProposerIndex].Address
 	roundRobinOffset := lastBlockProposerIndex + 1
 
-	set, err := NewSet(copyMembers(committeeMembers), lastBlockProposer)
+	set, err := newRoundRobinSet(copyMembers(committeeMembers), lastBlockProposer)
 	assertNilError(t, err)
 
 	for _, r := range rounds {
 		r := r
 		t.Run(fmt.Sprintf("correct proposer for round %v", r), func(t *testing.T) {
 			testAddr := committeeMembers[(int64(roundRobinOffset)+r)%4].Address
-			isProposer := set.IsProposer(r, testAddr)
+			isProposer := set.GetProposer(r).Address == testAddr
 			if !isProposer {
 				t.Fatalf("expected IsProposer(0, %v) to return true", testAddr)
 			}
@@ -261,29 +236,18 @@ func TestSet_IsProposer(t *testing.T) {
 	}
 	t.Run("false if address is in committee set but is not the proposer for round", func(t *testing.T) {
 		// committeeMembers[0].Address cannot be the proposer of round 0
-		isProposer := set.IsProposer(0, lastBlockProposer)
+		isProposer := set.GetProposer(0).Address == lastBlockProposer
 		if isProposer {
 			t.Fatalf("did not expect IsProposer(0, %v) to return true", lastBlockProposer)
 		}
 	})
 	t.Run("false if address is not in committee set", func(t *testing.T) {
 		testAddr := common.HexToAddress("testaddress")
-		isProposer := set.IsProposer(0, common.HexToAddress("testaddress"))
+		isProposer := set.GetProposer(0).Address == common.HexToAddress("testaddress")
 		if isProposer {
 			t.Fatalf("did not expect IsProposer(0, %v) to return true", testAddr)
 		}
 	})
-}
-
-func TestSet_Copy(t *testing.T) {
-	committeeMembers := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
-	set, err := NewSet(copyMembers(committeeMembers), committeeMembers[0].Address)
-	assertNilError(t, err)
-
-	copiedSet := set.Copy()
-	if !reflect.DeepEqual(set, copiedSet) {
-		t.Fatalf("failed to correctly copy set, expected: %v and got: %v", set, copiedSet)
-	}
 }
 
 func TestSet_QandF(t *testing.T) {
@@ -316,11 +280,11 @@ func TestSet_QandF(t *testing.T) {
 
 	for _, testCase := range testCases {
 		committeeMembers := createTestCommitteeMembers(t, genRandUint64(1, int(testCase.TotalVP)), testCase.TotalVP)
-		set, err := NewSet(committeeMembers, committeeMembers[0].Address)
+		set, err := newRoundRobinSet(committeeMembers, committeeMembers[0].Address)
 		assertNilError(t, err)
 
-		gotF := set.F()
 		gotQ := set.Quorum()
+		gotF := set.F()
 
 		if testCase.F != gotF {
 			t.Errorf("expected F: %v and got: %v", testCase.F, gotF)

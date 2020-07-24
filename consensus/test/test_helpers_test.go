@@ -87,7 +87,7 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 	genesis.Mixhash = types.BFTDigest
 
 	genesis.Config = params.TestChainConfig
-	genesis.Config.Tendermint = &config.Config{}
+	genesis.Config.Tendermint = config.DefaultConfig()
 	genesis.Config.Ethash = nil
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 
@@ -206,7 +206,7 @@ func makePeer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr strin
 			DatabaseCache:   256,
 			DatabaseHandles: 256,
 			TxPool:          core.DefaultTxPoolConfig,
-			Tendermint:      *config.DefaultConfig(),
+			Tendermint:      *genesis.Config.Tendermint,
 		}, cons)
 	}); err != nil {
 		return nil, err
