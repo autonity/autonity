@@ -2,15 +2,14 @@ package backend
 
 import (
 	"math/big"
-	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
@@ -89,55 +88,53 @@ func TestGetCommitteeAtHash(t *testing.T) {
 }
 
 func TestAPIGetContractABI(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	assert.Nil(t, err)
+	_, err = chain.InsertChain(types.Blocks{block})
+	assert.Nil(t, err)
 
-	want := "CONTRACT ABI DATA"
-
-	backend := core.NewMockBackend(ctrl)
-	backend.EXPECT().GetContractABI().Return(want)
+	want := acdefault.ABI()
 
 	API := &API{
-		tendermint: backend,
+		tendermint: engine,
 	}
 
 	got := API.GetContractABI()
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("want %v, got %v", want, got)
-	}
+	assert.Equal(t, want, got)
 }
 
 func TestAPIGetContractAddress(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	assert.Nil(t, err)
+	_, err = chain.InsertChain(types.Blocks{block})
+	assert.Nil(t, err)
 
-	backend := core.NewMockBackend(ctrl)
+	want := autonity.ContractAddress
 
 	API := &API{
-		tendermint: backend,
+		tendermint: engine,
 	}
 
 	got := API.GetContractAddress()
-	if !reflect.DeepEqual(got, autonity.ContractAddress) {
-		t.Fatalf("want %v, got %v", autonity.ContractAddress, got)
-	}
+	assert.Equal(t, want, got)
 }
 
 func TestAPIGetWhitelist(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	assert.Nil(t, err)
+	_, err = chain.InsertChain(types.Blocks{block})
+	assert.Nil(t, err)
 
-	want := []string{"d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"}
-
-	backend := core.NewMockBackend(ctrl)
-	backend.EXPECT().WhiteList().Return(want)
+	want := []string{"enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"}
 
 	API := &API{
-		tendermint: backend,
+		tendermint: engine,
 	}
 
 	got := API.GetWhitelist()
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("want %v, got %v", want, got)
-	}
+
+	assert.Equal(t, want, got)
 }
