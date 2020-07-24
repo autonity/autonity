@@ -17,7 +17,9 @@
 package backend
 
 import (
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
+	"github.com/golang/mock/gomock"
 	"testing"
 	"time"
 
@@ -32,7 +34,10 @@ import (
 
 func TestTendermintMessage(t *testing.T) {
 	_, backend := newBlockChain(1)
-
+	ctrl := gomock.NewController(t)
+	broadcaster := consensus.NewMockBroadcaster(ctrl)
+	broadcaster.EXPECT().IsTrustedPeer(gomock.Any()).Return(true)
+	backend.SetBroadcaster(broadcaster)
 	// generate one msg
 	data := []byte("data1")
 	hash := types.RLPHash(data)
