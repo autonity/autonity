@@ -559,7 +559,6 @@ func TestOldProposal(t *testing.T) {
 	})
 
 	// line 28 check upon condition on prevote handler.
-// line 28 check upon condition on prevote handler.
 	t.Run("handle proposal before full quorum prevote on valid round is satisfied, exe action by applying old round prevote into round state", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
