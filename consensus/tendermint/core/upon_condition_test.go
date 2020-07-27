@@ -20,6 +20,7 @@ import (
 )
 
 const minSize, maxSize = 4, 100
+const timeoutDuration, sleepDuration = 1 * time.Microsecond, 1 * time.Millisecond
 
 func setCommitteeAndSealOnBlock(t *testing.T, b *types.Block, c committee, keys map[common.Address]*ecdsa.PrivateKey, signerIndex int) {
 	h := b.Header()
@@ -77,7 +78,7 @@ func TestStartRoundVariables(t *testing.T) {
 		backendMock.EXPECT().Address().Return(clientAddress)
 		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress)
 
-		core := New(backendMock, config.RoundRobin)
+		core := New(backendMock, config.RoundRobinConfig())
 
 		overrideDefaultCoreValues(core)
 		core.startRound(context.Background(), currentRound)
@@ -96,7 +97,7 @@ func TestStartRoundVariables(t *testing.T) {
 		backendMock.EXPECT().Address().Return(clientAddress)
 		backendMock.EXPECT().LastCommittedProposal().Return(prevBlock, clientAddress).MaxTimes(2)
 
-		core := New(backendMock, config.RoundRobin)
+		core := New(backendMock, config.RoundRobinConfig())
 		overrideDefaultCoreValues(core)
 		core.startRound(context.Background(), currentRound)
 
@@ -156,7 +157,7 @@ func TestStartRound(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		core := New(backendMock, config.RoundRobin)
+		core := New(backendMock, config.RoundRobinConfig())
 		// We assume that round 0 can only happen when we move to a new height, therefore, height is
 		// incremented by 1 in start round when round = 0, and the committee set is updated. However, in test case where
 		// round is more than 0, then we need to explicitly update the committee set and height.
@@ -195,7 +196,7 @@ func TestStartRound(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		core := New(backendMock, config.RoundRobin)
+		core := New(backendMock, config.DefaultConfig())
 		core.committee = committeeSet
 		core.height = proposalHeight
 		core.validRound = validR
@@ -225,7 +226,7 @@ func TestStartRound(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		core := New(backendMock, config.RoundRobin)
+		core := New(backendMock, config.DefaultConfig())
 
 		if currentRound > 0 {
 			core.committee = committeeSet
@@ -249,16 +250,16 @@ func TestStartRound(t *testing.T) {
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setCommitteeSet(committeeSet)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 
 		assert.False(t, c.proposeTimeout.timerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgProposal})
-		c.prevoteTimeout.scheduleTimeout(1*time.Millisecond, c.Round(), c.Height(), c.onTimeoutPropose)
+		c.prevoteTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPropose)
 		assert.True(t, c.prevoteTimeout.timerStarted())
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of proposal timeout event prevote nil is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -271,7 +272,7 @@ func TestStartRound(t *testing.T) {
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setCommitteeSet(committeeSet)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
@@ -302,7 +303,7 @@ func TestNewProposal(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
@@ -337,7 +338,7 @@ func TestNewProposal(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		// if lockedRround = - 1 then lockedValue = nil
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
@@ -369,7 +370,7 @@ func TestNewProposal(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
@@ -405,7 +406,7 @@ func TestNewProposal(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
@@ -453,7 +454,7 @@ func TestOldProposal(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
@@ -492,7 +493,7 @@ func TestOldProposal(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
@@ -532,7 +533,7 @@ func TestOldProposal(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(propose)
@@ -659,7 +660,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(prevote)
@@ -687,7 +688,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(prevote)
@@ -720,7 +721,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(prevote)
@@ -728,9 +729,9 @@ func TestPrevoteTimeout(t *testing.T) {
 
 		assert.False(t, c.prevoteTimeout.timerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgPrevote})
-		c.prevoteTimeout.scheduleTimeout(1*time.Millisecond, c.Round(), c.Height(), c.onTimeoutPrevote)
+		c.prevoteTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
 		assert.True(t, c.prevoteTimeout.timerStarted())
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of prevote timeout event precommit nil is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -745,7 +746,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(prevote)
@@ -784,7 +785,7 @@ func TestQuorumPrevote(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(currentStep)
@@ -833,7 +834,7 @@ func TestQuorumPrevote(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(currentStep)
@@ -901,7 +902,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 	backendMock := NewMockBackend(ctrl)
 	backendMock.EXPECT().Address().Return(clientAddr)
 
-	c := New(backendMock, config.RoundRobin)
+	c := New(backendMock, config.DefaultConfig())
 	c.setHeight(currentHeight)
 	c.setRound(currentRound)
 	c.setStep(prevote)
@@ -938,7 +939,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		//TODO: this should be changed to Step(rand.Intn(3)) to make sure precommit timeout can be started from any step
@@ -967,7 +968,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		//TODO: this should be changed to Step(rand.Intn(3)) to make sure precommit timeout can be started from any step
@@ -1001,7 +1002,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		//TODO: this should be changed to Step(rand.Intn(3)) to make sure precommit timeout can be started from any step
@@ -1010,9 +1011,9 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		assert.False(t, c.precommitTimeout.timerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgPrecommit})
-		c.precommitTimeout.scheduleTimeout(1*time.Millisecond, c.Round(), c.Height(), c.onTimeoutPrecommit)
+		c.precommitTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		assert.True(t, c.precommitTimeout.timerStarted())
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of precommit timeout event next round will be started", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -1029,7 +1030,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		//TODO: this should be changed to Step(rand.Intn(3)) to make sure precommit timeout can be started from any step
@@ -1066,7 +1067,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	backendMock := NewMockBackend(ctrl)
 	backendMock.EXPECT().Address().Return(clientAddr)
 
-	c := New(backendMock, config.RoundRobin)
+	c := New(backendMock, config.RoundRobinConfig())
 	c.setHeight(currentHeight)
 	c.setRound(currentRound)
 	c.setStep(precommit)
@@ -1137,7 +1138,7 @@ func TestFutureRoundChange(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(currentStep)
@@ -1171,7 +1172,7 @@ func TestFutureRoundChange(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setStep(currentStep)
@@ -1228,7 +1229,7 @@ func TestHandleMessage(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(key1PubAddr)
 
-		core := New(backendMock, config.RoundRobin)
+		core := New(backendMock, config.DefaultConfig())
 		core.setCommitteeSet(committeeSet)
 		core.lastHeader = prevBlock.Header()
 		err = core.handleMsg(context.Background(), msgRlpWithSig)
@@ -1256,7 +1257,7 @@ func TestHandleMessage(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(key1PubAddr)
 
-		core := New(backendMock, config.RoundRobin)
+		core := New(backendMock, config.DefaultConfig())
 		core.setCommitteeSet(committeeSet)
 		core.lastHeader = prevBlock.Header()
 		err = core.handleMsg(context.Background(), msgRlpWithSig)
@@ -1280,7 +1281,7 @@ func TestHandleMessage(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(key1PubAddr)
 
-		core := New(backendMock, config.RoundRobin)
+		core := New(backendMock, config.DefaultConfig())
 		core.setCommitteeSet(committeeSet)
 		core.lastHeader = prevBlock.Header()
 		err = core.handleMsg(context.Background(), msgRlpWithSig)

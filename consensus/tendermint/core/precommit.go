@@ -126,7 +126,7 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 	} else if !c.precommitTimeout.timerStarted() && c.curRoundMessages.PrecommitsTotalPower() >= c.committeeSet().Quorum() {
-		timeoutDuration := timeoutPrecommit(c.Round())
+		timeoutDuration := c.timeoutPrecommit(c.Round())
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
 	}
