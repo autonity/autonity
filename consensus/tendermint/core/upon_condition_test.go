@@ -560,8 +560,16 @@ func TestOldProposal(t *testing.T) {
 
 	// line 28 check upon condition on prevote handler.
 	t.Run("handle proposal before full quorum prevote on valid round is satisfied, exe action by applying old round prevote into round state", func(t *testing.T) {
+		clientIndex := len(members) - 1
+		clientAddr = members[clientIndex].Address
+
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+
+		// ensure the client is not the proposer for current round
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		for currentRound%int64(clientIndex) == 0 {
+			currentRound = int64(rand.Intn(committeeSizeAndMaxRound))
+		}
 
 		// vr >= 0 && vr < round_p
 		proposalValidRound := int64(rand.Intn(int(currentRound)))
@@ -602,6 +610,9 @@ func TestOldProposal(t *testing.T) {
 		c.lockedValue = clientLockedValue
 		c.validValue = clientLockedValue
 
+		//schedule the proposer timeout since the client is not the proposer for this round
+		c.proposeTimeout.scheduleTimeout(1*time.Second, c.Round(), c.Height(), c.onTimeoutPropose)
+
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsgToBroadcast.Signature, nil)
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
@@ -610,12 +621,16 @@ func TestOldProposal(t *testing.T) {
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
 		assert.Nil(t, err)
 
+		// check timer was stopped after receiving the proposal
+		assert.False(t, c.proposeTimeout.timerStarted())
+
 		// now we receive the last old round's prevote MSG to get quorum prevote on vr for value v.
 		// the old round's prevote is accepted into the round state which now have the line 28 condition satisfied.
 		// now to take the action of line 28 which was not align with pseudo code before.
 		sender := 0
 		err = c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
 		assert.Nil(t, err)
+
 		assert.Equal(t, prevote, c.step)
 		assert.Equal(t, clientLockedValue, c.lockedValue)
 		assert.Equal(t, clientLockedRound, c.lockedRound)
