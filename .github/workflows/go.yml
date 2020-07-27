@@ -22,6 +22,19 @@ jobs:
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
 
+  print-gopath:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Print gopath
+        run: echo GOPATH $GOPATH
+
   tests:
     needs: bootstrap-checkout
     runs-on: ubuntu-latest
