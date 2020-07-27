@@ -194,6 +194,7 @@ func (validator *testNode) startService() error {
 			return fmt.Errorf("cant start mining %s", err)
 		}
 
+		// Wait for eth node to start mining
 		for !ethereum.IsMining() {
 			time.Sleep(50 * time.Millisecond)
 		}
