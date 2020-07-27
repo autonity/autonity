@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -67,7 +66,6 @@ type Miner struct {
 	startStopMutex sync.Mutex
 	canStart       bool // can start indicates whether we can start the mining operation
 	shouldStart    bool // should start indicates whether we should start after sync
-	isMining       int32
 }
 
 func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(block *types.Block) bool) *Miner {
@@ -103,17 +101,15 @@ func (miner *Miner) update() {
 				miner.startStopMutex.Lock()
 				miner.canStart = false
 				if miner.Mining() {
-					miner.Stop()
-					miner.shouldStart = true
+					miner.stop()
 					log.Info("Mining aborted due to sync")
 				}
 				miner.startStopMutex.Unlock()
 			case downloader.DoneEvent, downloader.FailedEvent:
-
 				miner.startStopMutex.Lock()
 				miner.canStart = true
 				if miner.shouldStart {
-					miner.Start(miner.Coinbase())
+					miner.start(miner.Coinbase())
 				}
 				miner.startStopMutex.Unlock()
 				// stop immediately and ignore all further pending events
@@ -128,29 +124,29 @@ func (miner *Miner) update() {
 func (miner *Miner) Start(coinbase common.Address) {
 	miner.startStopMutex.Lock()
 	defer miner.startStopMutex.Unlock()
-
 	miner.shouldStart = true
-	miner.SetEtherbase(coinbase)
-
 	if !miner.canStart {
 		log.Info("Network syncing, will start miner afterwards")
 		return
 	}
-	miner.worker.start()
-	atomic.StoreInt32(&miner.isMining, 1)
+	miner.start(coinbase)
 
+}
+
+func (miner *Miner) start(coinbase common.Address) {
+	miner.SetEtherbase(coinbase)
+	miner.worker.start()
 }
 
 func (miner *Miner) Stop() {
 	miner.startStopMutex.Lock()
 	defer miner.startStopMutex.Unlock()
-
 	miner.shouldStart = false
-	if miner.IsMining() {
-		miner.worker.stop()
-	}
+	miner.stop()
+}
 
-	atomic.StoreInt32(&miner.isMining, 0)
+func (miner *Miner) stop() {
+	miner.worker.stop()
 }
 
 func (miner *Miner) Close() {
@@ -164,7 +160,9 @@ func (miner *Miner) Mining() bool {
 }
 
 func (miner *Miner) IsMining() bool {
-	return atomic.LoadInt32(&miner.isMining) == 1
+	miner.startStopMutex.Lock()
+	defer miner.startStopMutex.Unlock()
+	return miner.shouldStart
 }
 
 func (miner *Miner) HashRate() uint64 {
