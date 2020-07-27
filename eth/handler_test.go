@@ -810,7 +810,7 @@ func TestBroadcastMalformedBlockBetweenTrustedPeer(t *testing.T) {
 	pm.Start(4)
 	defer pm.Stop()
 
-	// Create two peers, one to send the malformed block with and one to check
+	// Create 4 peers, one to send the malformed block with and one to check
 	// propagation
 	source, _ := newTestPeer(sourcePeer, eth63, pm, true)
 	defer source.close()
