@@ -64,9 +64,10 @@ type Miner struct {
 	engine     consensus.Engine
 	exitCh     chan struct{}
 
-	canStart    int32 // can start indicates whether we can start the mining operation
-	shouldStart int32 // should start indicates whether we should start after sync
-	isMining    int32
+	startStopMutex sync.Mutex
+	canStart       bool // can start indicates whether we can start the mining operation
+	shouldStart    bool // should start indicates whether we should start after sync
+	isMining       int32
 }
 
 func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(block *types.Block) bool) *Miner {
@@ -76,7 +77,7 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 		engine:   engine,
 		exitCh:   make(chan struct{}),
 		worker:   newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, false),
-		canStart: 1,
+		canStart: true,
 	}
 	go miner.update()
 
@@ -99,20 +100,22 @@ func (miner *Miner) update() {
 			}
 			switch ev.Data.(type) {
 			case downloader.StartEvent:
-				atomic.StoreInt32(&miner.canStart, 0)
+				miner.startStopMutex.Lock()
+				miner.canStart = false
 				if miner.Mining() {
 					miner.Stop()
-					atomic.StoreInt32(&miner.shouldStart, 1)
+					miner.shouldStart = true
 					log.Info("Mining aborted due to sync")
 				}
+				miner.startStopMutex.Unlock()
 			case downloader.DoneEvent, downloader.FailedEvent:
-				shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
 
-				atomic.StoreInt32(&miner.canStart, 1)
-				atomic.StoreInt32(&miner.shouldStart, 0)
-				if shouldStart {
+				miner.startStopMutex.Lock()
+				miner.canStart = true
+				if miner.shouldStart {
 					miner.Start(miner.Coinbase())
 				}
+				miner.startStopMutex.Unlock()
 				// stop immediately and ignore all further pending events
 				return
 			}
@@ -123,25 +126,35 @@ func (miner *Miner) update() {
 }
 
 func (miner *Miner) Start(coinbase common.Address) {
-	atomic.StoreInt32(&miner.shouldStart, 1)
+	miner.startStopMutex.Lock()
+	defer miner.startStopMutex.Unlock()
+
+	miner.shouldStart = true
 	miner.SetEtherbase(coinbase)
 
-	if atomic.LoadInt32(&miner.canStart) == 0 {
+	if !miner.canStart {
 		log.Info("Network syncing, will start miner afterwards")
 		return
 	}
 	miner.worker.start()
 	atomic.StoreInt32(&miner.isMining, 1)
+
 }
 
 func (miner *Miner) Stop() {
-	miner.worker.stop()
-	atomic.StoreInt32(&miner.shouldStart, 0)
+	miner.startStopMutex.Lock()
+	defer miner.startStopMutex.Unlock()
+
+	miner.shouldStart = false
+	if miner.IsMining() {
+		miner.worker.stop()
+	}
+
 	atomic.StoreInt32(&miner.isMining, 0)
 }
 
 func (miner *Miner) Close() {
-	miner.worker.stop()
+	miner.Stop()
 	miner.worker.close()
 	close(miner.exitCh)
 }
