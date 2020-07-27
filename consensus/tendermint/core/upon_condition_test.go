@@ -597,7 +597,7 @@ func TestOldProposal(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 
-		c := New(backendMock, config.RoundRobin)
+		c := New(backendMock, config.DefaultConfig())
 		c.setCommitteeSet(committeeSet)
 		// construct round state with: old round's quorum-1 prevote for v on valid round.
 		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.committeeSet().Quorum() - 1})
