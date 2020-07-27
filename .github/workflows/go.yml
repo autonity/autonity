@@ -33,7 +33,10 @@ jobs:
         id: go
 
       - name: Print gopath
-        run: echo GOPATH $GOPATH
+        run: echo GOPATH $GOPATH HOME $HOME 
+
+      - name: Print env
+        run: echo ${{ env }}
 
   tests:
     needs: bootstrap-checkout
