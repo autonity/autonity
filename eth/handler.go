@@ -44,6 +44,7 @@ import (
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/clearmatics/autonity/trie"
+	"github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -116,18 +117,18 @@ type ProtocolManager struct {
 func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:  networkID,
-		forkFilter: forkid.NewFilter(blockchain),
-		eventMux:   mux,
-		txpool:     txpool,
-		blockchain: blockchain,
-		chaindb:    chaindb,
-		peers:      newPeerSet(),
+		networkID:   networkID,
+		forkFilter:  forkid.NewFilter(blockchain),
+		eventMux:    mux,
+		txpool:      txpool,
+		blockchain:  blockchain,
+		chaindb:     chaindb,
+		peers:       newPeerSet(),
 		engine:      engine,
-		whitelist:  whitelist,
+		whitelist:   whitelist,
 		whitelistCh: make(chan core.WhitelistEvent, 64),
-		txsyncCh:   make(chan *txsync),
-		quitSync:   make(chan struct{}),
+		txsyncCh:    make(chan *txsync),
+		quitSync:    make(chan struct{}),
 		pub:         pub,
 	}
 	if handler, ok := manager.engine.(consensus.Handler); ok {
@@ -928,7 +929,17 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 		// Calculate the TD of the block (it's not imported yet, so block.Td is not valid)
 		var td *big.Int
 		if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent != nil {
-			td = new(big.Int).Add(block.Difficulty(), pm.blockchain.GetTd(block.ParentHash(), block.NumberU64()-1))
+			parentTd := pm.blockchain.GetTd(block.ParentHash(), block.NumberU64()-1)
+			// TODO remove this debug block when https://github.com/clearmatics/autonity/issues/624 is resolved.
+			if parentTd == nil {
+				panic(fmt.Sprintf(
+					"expecting valid td to be returned for call to pm.blockchain.GetTd(%v,%v)\n Child block: %v",
+					block.ParentHash(),
+					block.NumberU64()-1,
+					spew.Sdump(block),
+				))
+			}
+			td = new(big.Int).Add(block.Difficulty(), parentTd)
 		} else {
 			log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
 			return
