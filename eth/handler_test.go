@@ -59,14 +59,17 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 	tests := []struct {
 		query  *getBlockHeadersData // The query to execute for header retrieval
 		expect []common.Hash        // The hashes of the block whose headers are expected
+		drop bool                   // Peer is dropped if peer is untrusted.
 	}{
 		// A single random block should be retrievable by hash and number too
 		{
 			&getBlockHeadersData{Origin: hashOrNumber{Hash: pm.blockchain.GetBlockByNumber(limit / 2).Hash()}, Amount: 1},
 			[]common.Hash{pm.blockchain.GetBlockByNumber(limit / 2).Hash()},
+			false,
 		}, {
 			&getBlockHeadersData{Origin: hashOrNumber{Number: limit / 2}, Amount: 1},
 			[]common.Hash{pm.blockchain.GetBlockByNumber(limit / 2).Hash()},
+			false,
 		},
 		// Multiple headers should be retrievable in both directions
 		{
@@ -76,6 +79,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 				pm.blockchain.GetBlockByNumber(limit/2 + 1).Hash(),
 				pm.blockchain.GetBlockByNumber(limit/2 + 2).Hash(),
 			},
+			false,
 		}, {
 			&getBlockHeadersData{Origin: hashOrNumber{Number: limit / 2}, Amount: 3, Reverse: true},
 			[]common.Hash{
@@ -83,6 +87,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 				pm.blockchain.GetBlockByNumber(limit/2 - 1).Hash(),
 				pm.blockchain.GetBlockByNumber(limit/2 - 2).Hash(),
 			},
+			false,
 		},
 		// Multiple headers with skip lists should be retrievable
 		{
@@ -92,6 +97,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 				pm.blockchain.GetBlockByNumber(limit/2 + 4).Hash(),
 				pm.blockchain.GetBlockByNumber(limit/2 + 8).Hash(),
 			},
+			false,
 		}, {
 			&getBlockHeadersData{Origin: hashOrNumber{Number: limit / 2}, Skip: 3, Amount: 3, Reverse: true},
 			[]common.Hash{
@@ -99,19 +105,23 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 				pm.blockchain.GetBlockByNumber(limit/2 - 4).Hash(),
 				pm.blockchain.GetBlockByNumber(limit/2 - 8).Hash(),
 			},
+			false,
 		},
 		// The chain endpoints should be retrievable
 		{
 			&getBlockHeadersData{Origin: hashOrNumber{Number: 0}, Amount: 1},
 			[]common.Hash{pm.blockchain.GetBlockByNumber(0).Hash()},
+			false,
 		}, {
 			&getBlockHeadersData{Origin: hashOrNumber{Number: pm.blockchain.CurrentBlock().NumberU64()}, Amount: 1},
 			[]common.Hash{pm.blockchain.CurrentBlock().Hash()},
+			false,
 		},
 		// Ensure protocol limits are honored
 		{
 			&getBlockHeadersData{Origin: hashOrNumber{Number: pm.blockchain.CurrentBlock().NumberU64() - 1}, Amount: limit + 10, Reverse: true},
 			pm.blockchain.GetBlockHashesFromHash(pm.blockchain.CurrentBlock().Hash(), limit),
+			false,
 		},
 		// Check that requesting more than available is handled gracefully
 		{
@@ -120,12 +130,14 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 				pm.blockchain.GetBlockByNumber(pm.blockchain.CurrentBlock().NumberU64() - 4).Hash(),
 				pm.blockchain.GetBlockByNumber(pm.blockchain.CurrentBlock().NumberU64()).Hash(),
 			},
+			false,
 		}, {
 			&getBlockHeadersData{Origin: hashOrNumber{Number: 4}, Skip: 3, Amount: 3, Reverse: true},
 			[]common.Hash{
 				pm.blockchain.GetBlockByNumber(4).Hash(),
 				pm.blockchain.GetBlockByNumber(0).Hash(),
 			},
+			false,
 		},
 		// Check that requesting more than available is handled gracefully, even if mid skip
 		{
@@ -134,12 +146,14 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 				pm.blockchain.GetBlockByNumber(pm.blockchain.CurrentBlock().NumberU64() - 4).Hash(),
 				pm.blockchain.GetBlockByNumber(pm.blockchain.CurrentBlock().NumberU64() - 1).Hash(),
 			},
+			false,
 		}, {
 			&getBlockHeadersData{Origin: hashOrNumber{Number: 4}, Skip: 2, Amount: 3, Reverse: true},
 			[]common.Hash{
 				pm.blockchain.GetBlockByNumber(4).Hash(),
 				pm.blockchain.GetBlockByNumber(1).Hash(),
 			},
+			false,
 		},
 		// Check a corner case where requesting more can iterate past the endpoints
 		{
@@ -149,6 +163,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 				pm.blockchain.GetBlockByNumber(1).Hash(),
 				pm.blockchain.GetBlockByNumber(0).Hash(),
 			},
+			false,
 		},
 		// Check a corner case where skipping overflow loops back into the chain start
 		{
@@ -156,6 +171,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 			[]common.Hash{
 				pm.blockchain.GetBlockByNumber(3).Hash(),
 			},
+			false,
 		},
 		// Check a corner case where skipping overflow loops back to the same header
 		{
@@ -163,14 +179,23 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 			[]common.Hash{
 				pm.blockchain.GetBlockByNumber(1).Hash(),
 			},
+			false,
 		},
 		// Check that non existing headers aren't returned
 		{
 			&getBlockHeadersData{Origin: hashOrNumber{Hash: unknown}, Amount: 1},
 			[]common.Hash{},
+			false,
 		}, {
 			&getBlockHeadersData{Origin: hashOrNumber{Number: pm.blockchain.CurrentBlock().NumberU64() + 1}, Amount: 1},
 			[]common.Hash{},
+			false,
+		},
+		// Check that an untrusted peer should be dropped when it query block header data.
+		{
+			&getBlockHeadersData{Origin: hashOrNumber{Hash: pm.blockchain.GetBlockByNumber(limit / 2).Hash()}, Amount: 1},
+			[]common.Hash{pm.blockchain.GetBlockByNumber(limit / 2).Hash()},
+			true,
 		},
 	}
 	// Run each of the tests and verify the results against the chain
@@ -180,20 +205,35 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 		for _, hash := range tt.expect {
 			headers = append(headers, pm.blockchain.GetBlockByHash(hash).Header())
 		}
-		// Send the hash request and verify the response
-		p2p.Send(peer.app, 0x03, tt.query)
-		if err := p2p.ExpectMsg(peer.app, 0x04, headers); err != nil {
-			t.Errorf("test %d: headers mismatch: %v", i, err)
-		}
-		// If the test used number origins, repeat with hashes as the too
-		if tt.query.Origin.Hash == (common.Hash{}) {
-			if origin := pm.blockchain.GetBlockByNumber(tt.query.Origin.Number); origin != nil {
-				tt.query.Origin.Hash, tt.query.Origin.Number = origin.Hash(), 0
 
-				p2p.Send(peer.app, 0x03, tt.query)
-				if err := p2p.ExpectMsg(peer.app, 0x04, headers); err != nil {
-					t.Errorf("test %d: headers mismatch: %v", i, err)
+		if !tt.drop {
+			// refresh untrusted peer list with white list
+			whiteList := []*enode.Node{peer.Node()}
+			pm.RefreshUntrustedPeers(whiteList)
+
+			// Send the hash request and verify the response
+			p2p.Send(peer.app, 0x03, tt.query)
+			if err := p2p.ExpectMsg(peer.app, 0x04, headers); err != nil {
+				t.Errorf("test %d: headers mismatch: %v", i, err)
+			}
+			// If the test used number origins, repeat with hashes as the too
+			if tt.query.Origin.Hash == (common.Hash{}) {
+				if origin := pm.blockchain.GetBlockByNumber(tt.query.Origin.Number); origin != nil {
+					tt.query.Origin.Hash, tt.query.Origin.Number = origin.Hash(), 0
+
+					p2p.Send(peer.app, 0x03, tt.query)
+					if err := p2p.ExpectMsg(peer.app, 0x04, headers); err != nil {
+						t.Errorf("test %d: headers mismatch: %v", i, err)
+					}
 				}
+			}
+		} else {
+			pm.AddUntrustedPeer(crypto.PubkeyToAddress(*peer.Node().Pubkey()))
+			// Send the hash request and verify the response
+			p2p.Send(peer.app, 0x03, tt.query)
+			// Verify that the remote peer is maintained or dropped
+			if peers := pm.peers.Len(); peers != 0 {
+				t.Fatalf("peer count mismatch: have %d, want %d", peers, 0)
 			}
 		}
 	}
@@ -216,14 +256,15 @@ func testGetBlockBodies(t *testing.T, protocol int) {
 		explicit  []common.Hash // Explicitly requested blocks
 		available []bool        // Availability of explicitly requested blocks
 		expected  int           // Total number of existing blocks to expect
+		drop      bool          // Peer is dropped if peer is untrusted.
 	}{
-		{1, nil, nil, 1},             // A single random block should be retrievable
-		{10, nil, nil, 10},           // Multiple random blocks should be retrievable
-		{limit, nil, nil, limit},     // The maximum possible blocks should be retrievable
-		{limit + 1, nil, nil, limit}, // No more than the possible block count should be returned
-		{0, []common.Hash{pm.blockchain.Genesis().Hash()}, []bool{true}, 1},      // The genesis block should be retrievable
-		{0, []common.Hash{pm.blockchain.CurrentBlock().Hash()}, []bool{true}, 1}, // The chains head block should be retrievable
-		{0, []common.Hash{{}}, []bool{false}, 0},                                 // A non existent block should not be returned
+		{1, nil, nil, 1, false},             // A single random block should be retrievable
+		{10, nil, nil, 10, false},           // Multiple random blocks should be retrievable
+		{limit, nil, nil, limit, false},     // The maximum possible blocks should be retrievable
+		{limit + 1, nil, nil, limit, false}, // No more than the possible block count should be returned
+		{0, []common.Hash{pm.blockchain.Genesis().Hash()}, []bool{true}, 1, false},      // The genesis block should be retrievable
+		{0, []common.Hash{pm.blockchain.CurrentBlock().Hash()}, []bool{true}, 1, false}, // The chains head block should be retrievable
+		{0, []common.Hash{{}}, []bool{false}, 0, false},                                 // A non existent block should not be returned
 
 		// Existing and non-existing blocks interleaved should not cause problems
 		{0, []common.Hash{
@@ -234,7 +275,9 @@ func testGetBlockBodies(t *testing.T, protocol int) {
 			{},
 			pm.blockchain.GetBlockByNumber(100).Hash(),
 			{},
-		}, []bool{false, true, false, true, false, true, false}, 3},
+		}, []bool{false, true, false, true, false, true, false}, 3, false},
+		// Check that an untrusted peer should be dropped when it query block body data.
+		{1, nil, nil, 1, true},
 	}
 	// Run each of the tests and verify the results against the chain
 	for i, tt := range tests {
@@ -264,10 +307,24 @@ func testGetBlockBodies(t *testing.T, protocol int) {
 				bodies = append(bodies, &blockBody{Transactions: block.Transactions(), Uncles: block.Uncles()})
 			}
 		}
-		// Send the hash request and verify the response
-		p2p.Send(peer.app, 0x05, hashes)
-		if err := p2p.ExpectMsg(peer.app, 0x06, bodies); err != nil {
-			t.Errorf("test %d: bodies mismatch: %v", i, err)
+
+		if !tt.drop {
+			// refresh untrusted peer list with white list
+			whiteList := []*enode.Node{peer.Node()}
+			pm.RefreshUntrustedPeers(whiteList)
+			// Send the hash request and verify the response
+			p2p.Send(peer.app, 0x05, hashes)
+			if err := p2p.ExpectMsg(peer.app, 0x06, bodies); err != nil {
+				t.Errorf("test %d: bodies mismatch: %v", i, err)
+			}
+		} else {
+			pm.AddUntrustedPeer(crypto.PubkeyToAddress(*peer.Node().Pubkey()))
+			// Send the hash request and verify the response
+			p2p.Send(peer.app, 0x05, hashes)
+			// Verify that the remote peer is maintained or dropped
+			if peers := pm.peers.Len(); peers != 0 {
+				t.Fatalf("peer count mismatch: have %d, want %d", peers, 0)
+			}
 		}
 	}
 }
@@ -277,6 +334,14 @@ func TestGetNodeData63(t *testing.T) { testGetNodeData(t, 63) }
 func TestGetNodeData64(t *testing.T) { testGetNodeData(t, 64) }
 
 func testGetNodeData(t *testing.T, protocol int) {
+	tests := []struct{
+		name string
+		drop bool
+	}{
+		{"Handle get node data from trusted peer", false},
+		{"Handle get node data from un-trusted peer", true},
+	}
+
 	// Define three accounts to simulate transactions with
 	acc1Key, _ := crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
 	acc2Key, _ := crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
@@ -329,42 +394,57 @@ func testGetNodeData(t *testing.T, protocol int) {
 	}
 	it.Release()
 
-	p2p.Send(peer.app, 0x0d, hashes)
-	msg, err := peer.app.ReadMsg()
-	if err != nil {
-		t.Fatalf("failed to read node data response: %v", err)
-	}
-	if msg.Code != 0x0e {
-		t.Fatalf("response packet code mismatch: have %x, want %x", msg.Code, 0x0c)
-	}
-	var data [][]byte
-	if err := msg.Decode(&data); err != nil {
-		t.Fatalf("failed to decode response node data: %v", err)
-	}
-	// Verify that all hashes correspond to the requested data, and reconstruct a state tree
-	for i, want := range hashes {
-		if hash := crypto.Keccak256Hash(data[i]); hash != want {
-			t.Errorf("data hash mismatch: have %x, want %x", hash, want)
-		}
-	}
-	statedb := rawdb.NewMemoryDatabase()
-	for i := 0; i < len(data); i++ {
-		statedb.Put(hashes[i].Bytes(), data[i])
-	}
-	accounts := []common.Address{testBank, acc1Addr, acc2Addr}
-	for i := uint64(0); i <= pm.blockchain.CurrentBlock().NumberU64(); i++ {
-		trie, _ := state.New(pm.blockchain.GetBlockByNumber(i).Root(), state.NewDatabase(statedb), nil)
+	for _, tt := range tests {
+		if !tt.drop {
+			// refresh untrusted peer list with white list
+			whiteList := []*enode.Node{peer.Node()}
+			pm.RefreshUntrustedPeers(whiteList)
 
-		for j, acc := range accounts {
-			state, _ := pm.blockchain.State()
-			bw := state.GetBalance(acc)
-			bh := trie.GetBalance(acc)
-
-			if (bw != nil && bh == nil) || (bw == nil && bh != nil) {
-				t.Errorf("test %d, account %d: balance mismatch: have %v, want %v", i, j, bh, bw)
+			p2p.Send(peer.app, 0x0d, hashes)
+			msg, err := peer.app.ReadMsg()
+			if err != nil {
+				t.Fatalf("failed to read node data response: %v", err)
 			}
-			if bw != nil && bh != nil && bw.Cmp(bw) != 0 {
-				t.Errorf("test %d, account %d: balance mismatch: have %v, want %v", i, j, bh, bw)
+			if msg.Code != 0x0e {
+				t.Fatalf("response packet code mismatch: have %x, want %x", msg.Code, 0x0c)
+			}
+			var data [][]byte
+			if err := msg.Decode(&data); err != nil {
+				t.Fatalf("failed to decode response node data: %v", err)
+			}
+			// Verify that all hashes correspond to the requested data, and reconstruct a state tree
+			for i, want := range hashes {
+				if hash := crypto.Keccak256Hash(data[i]); hash != want {
+					t.Errorf("data hash mismatch: have %x, want %x", hash, want)
+				}
+			}
+			statedb := rawdb.NewMemoryDatabase()
+			for i := 0; i < len(data); i++ {
+				statedb.Put(hashes[i].Bytes(), data[i])
+			}
+			accounts := []common.Address{testBank, acc1Addr, acc2Addr}
+			for i := uint64(0); i <= pm.blockchain.CurrentBlock().NumberU64(); i++ {
+				trie, _ := state.New(pm.blockchain.GetBlockByNumber(i).Root(), state.NewDatabase(statedb), nil)
+
+				for j, acc := range accounts {
+					state, _ := pm.blockchain.State()
+					bw := state.GetBalance(acc)
+					bh := trie.GetBalance(acc)
+
+					if (bw != nil && bh == nil) || (bw == nil && bh != nil) {
+						t.Errorf("test %d, account %d: balance mismatch: have %v, want %v", i, j, bh, bw)
+					}
+					if bw != nil && bh != nil && bw.Cmp(bw) != 0 {
+						t.Errorf("test %d, account %d: balance mismatch: have %v, want %v", i, j, bh, bw)
+					}
+				}
+			}
+		} else {
+			pm.AddUntrustedPeer(crypto.PubkeyToAddress(*peer.Node().Pubkey()))
+			p2p.Send(peer.app, 0x0d, hashes)
+			// Verify that the remote peer is maintained or dropped
+			if peers := pm.peers.Len(); peers != 0 {
+				t.Fatalf("peer count mismatch: have %d, want %d", peers, 0)
 			}
 		}
 	}
@@ -375,6 +455,14 @@ func TestGetReceipt63(t *testing.T) { testGetReceipt(t, 63) }
 func TestGetReceipt64(t *testing.T) { testGetReceipt(t, 64) }
 
 func testGetReceipt(t *testing.T, protocol int) {
+	tests := []struct{
+		name string
+		drop bool
+	}{
+		{"Handle get transaction receipt from trusted peer", false},
+		{"Handle get transaction receipt un-trusted peer", true},
+	}
+
 	// Define three accounts to simulate transactions with
 	acc1Key, _ := crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
 	acc2Key, _ := crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
@@ -424,10 +512,26 @@ func testGetReceipt(t *testing.T, protocol int) {
 		hashes = append(hashes, block.Hash())
 		receipts = append(receipts, pm.blockchain.GetReceiptsByHash(block.Hash()))
 	}
-	// Send the hash request and verify the response
-	p2p.Send(peer.app, 0x0f, hashes)
-	if err := p2p.ExpectMsg(peer.app, 0x10, receipts); err != nil {
-		t.Errorf("receipts mismatch: %v", err)
+
+	for _, tt := range tests {
+		if !tt.drop {
+			// refresh untrusted peer list with white list
+			whiteList := []*enode.Node{peer.Node()}
+			pm.RefreshUntrustedPeers(whiteList)
+			// Send the hash request and verify the response
+			p2p.Send(peer.app, 0x0f, hashes)
+			if err := p2p.ExpectMsg(peer.app, 0x10, receipts); err != nil {
+				t.Errorf("receipts mismatch: %v", err)
+			}
+		} else {
+			pm.AddUntrustedPeer(crypto.PubkeyToAddress(*peer.Node().Pubkey()))
+			// Send the hash request and verify the response
+			p2p.Send(peer.app, 0x0f, hashes)
+			// Verify that the remote peer is maintained or dropped
+			if peers := pm.peers.Len(); peers != 0 {
+				t.Fatalf("peer count mismatch: have %d, want %d", peers, 0)
+			}
+		}
 	}
 }
 
@@ -437,40 +541,51 @@ func testGetReceipt(t *testing.T, protocol int) {
 func TestCheckpointChallenge(t *testing.T) {
 	tests := []struct {
 		syncmode   downloader.SyncMode
-		checkpoint bool
-		timeout    bool
-		empty      bool
-		match      bool
-		drop       bool
+		checkpoint  bool
+		timeout     bool
+		empty       bool
+		match       bool
+		drop        bool
+		trustedPeer bool
 	}{
 		// If checkpointing is not enabled locally, don't challenge and don't drop
-		{downloader.FullSync, false, false, false, false, false},
-		{downloader.FastSync, false, false, false, false, false},
+		{downloader.FullSync, false, false, false, false, false, true},
+		{downloader.FastSync, false, false, false, false, false, true},
+		{downloader.FullSync, false, false, false, false, false, false},
+		{downloader.FastSync, false, false, false, false, false, false},
 
 		// If checkpointing is enabled locally and remote response is empty, only drop during fast sync
-		{downloader.FullSync, true, false, true, false, false},
-		{downloader.FastSync, true, false, true, false, true}, // Special case, fast sync, unsynced peer
+		{downloader.FullSync, true, false, true, false, false, true},
+		{downloader.FastSync, true, false, true, false, true, true}, // Special case, fast sync, unsynced peer
+		{downloader.FullSync, true, false, true, false, false, false},
+		{downloader.FastSync, true, false, true, false, true, false}, // Special case, fast sync, unsynced peer
 
 		// If checkpointing is enabled locally and remote response mismatches, always drop
-		{downloader.FullSync, true, false, false, false, true},
-		{downloader.FastSync, true, false, false, false, true},
+		{downloader.FullSync, true, false, false, false, true, true},
+		{downloader.FastSync, true, false, false, false, true, true},
+		{downloader.FullSync, true, false, false, false, true, false},
+		{downloader.FastSync, true, false, false, false, true, false},
 
 		// If checkpointing is enabled locally and remote response matches, never drop
-		{downloader.FullSync, true, false, false, true, false},
-		{downloader.FastSync, true, false, false, true, false},
+		{downloader.FullSync, true, false, false, true, false, true},
+		{downloader.FastSync, true, false, false, true, false, true},
+		{downloader.FullSync, true, false, false, true, false, false},
+		{downloader.FastSync, true, false, false, true, false, false},
 
 		// If checkpointing is enabled locally and remote times out, always drop
-		{downloader.FullSync, true, true, false, true, true},
-		{downloader.FastSync, true, true, false, true, true},
+		{downloader.FullSync, true, true, false, true, true, true},
+		{downloader.FastSync, true, true, false, true, true, true},
+		{downloader.FullSync, true, true, false, true, true, false},
+		{downloader.FastSync, true, true, false, true, true, false},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("sync %v checkpoint %v timeout %v empty %v match %v", tt.syncmode, tt.checkpoint, tt.timeout, tt.empty, tt.match), func(t *testing.T) {
-			testCheckpointChallenge(t, tt.syncmode, tt.checkpoint, tt.timeout, tt.empty, tt.match, tt.drop)
+			testCheckpointChallenge(t, tt.syncmode, tt.checkpoint, tt.timeout, tt.empty, tt.match, tt.drop, tt.trustedPeer)
 		})
 	}
 }
 
-func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpoint bool, timeout bool, empty bool, match bool, drop bool) {
+func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpoint bool, timeout bool, empty bool, match bool, drop bool, trustedPeer bool) {
 	// Reduce the checkpoint handshake challenge timeout
 	defer func(old time.Duration) { syncChallengeTimeout = old }(syncChallengeTimeout)
 	syncChallengeTimeout = 250 * time.Millisecond
@@ -528,6 +643,15 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	// Connect a new peer and check that we receive the checkpoint challenge
 	peer, _ := newTestPeer(p2pPeer, eth63, pm, true)
 	defer peer.close()
+
+	// the hand-shake and checkpoint checking should always works for node to get sync from untrusted peer before it get fully synced.
+	if !trustedPeer {
+		// refresh untrusted peer list with white list
+		whiteList := []*enode.Node{peer.Node()}
+		pm.RefreshUntrustedPeers(whiteList)
+	} else {
+		pm.AddUntrustedPeer(crypto.PubkeyToAddress(*peer.Node().Pubkey()))
+	}
 
 	if checkpoint {
 		challenge := &getBlockHeadersData{
@@ -726,117 +850,6 @@ func TestBroadcastMalformedBlock(t *testing.T) {
 
 	sink, _ := newTestPeer(sinkPeer, eth63, pm, true)
 	defer sink.close()
-
-	// Create various combinations of malformed blocks
-	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *core.BlockGen) {})
-
-	malformedUncles := chain[0].Header()
-	malformedUncles.UncleHash[0]++
-	malformedTransactions := chain[0].Header()
-	malformedTransactions.TxHash[0]++
-	malformedEverything := chain[0].Header()
-	malformedEverything.UncleHash[0]++
-	malformedEverything.TxHash[0]++
-
-	// Keep listening to broadcasts and notify if any arrives
-	notify := make(chan struct{}, 1)
-	go func() {
-		if _, err := sink.app.ReadMsg(); err == nil {
-			notify <- struct{}{}
-		}
-	}()
-	// Try to broadcast all malformations and ensure they all get discarded
-	for _, header := range []*types.Header{malformedUncles, malformedTransactions, malformedEverything} {
-		block := types.NewBlockWithHeader(header).WithBody(chain[0].Transactions(), chain[0].Uncles())
-		if err := p2p.Send(source.app, NewBlockMsg, []interface{}{block, big.NewInt(131136)}); err != nil {
-			t.Fatalf("failed to broadcast block: %v", err)
-		}
-		select {
-		case <-notify:
-			t.Fatalf("malformed block forwarded")
-		case <-time.After(100 * time.Millisecond):
-		}
-	}
-}
-
-func TestBroadcastMalformedBlockBetweenTrustedPeer(t *testing.T) {
-	// Create a live node to test propagation with
-	var (
-		engine = ethash.NewFaker()
-		db     = rawdb.NewMemoryDatabase()
-		config = &params.ChainConfig{}
-		gspec  = &core.Genesis{Config: config}
-	)
-	config.AutonityContractConfig = &params.AutonityContractGenesis{}
-	sourcePeer := newTestP2PPeer("source")
-	sinkPeer := newTestP2PPeer("sink")
-	fakePeer1 := newTestP2PPeer("fake1")
-	fakePeer2 := newTestP2PPeer("fake2")
-	config.AutonityContractConfig.Users = []params.User{{
-		Enode: sourcePeer.Info().Enode,
-		Type:  params.UserValidator,
-		Stake: 1,
-	}, {
-		Enode: sinkPeer.Info().Enode,
-		Type:  params.UserValidator,
-		Stake: 1,
-	},
-	{
-		Enode: fakePeer1.Info().Enode,
-		Type:  params.UserValidator,
-		Stake: 1,
-	},
-	{
-		Enode: fakePeer2.Info().Enode,
-		Type:  params.UserValidator,
-		Stake: 1,
-	}}
-
-	if err := config.AutonityContractConfig.Prepare(); err != nil {
-		t.Fatal(err)
-	}
-	gspec.Difficulty = big.NewInt(1)
-	genesis := gspec.MustCommit(db)
-
-	blockchain, err := core.NewBlockChain(db, nil, config, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
-	if err != nil {
-		t.Fatalf("failed to create new blockchain: %v", err)
-	}
-	pm, err := NewProtocolManager(config, nil, downloader.FullSync, DefaultConfig.NetworkId, new(event.TypeMux), new(testTxPool), engine, blockchain, db, 1, nil, nil)
-	if err != nil {
-		t.Fatalf("failed to start test protocol manager: %v", err)
-	}
-
-	pm.Start(4)
-	defer pm.Stop()
-
-	// Create 4 peers, one to send the malformed block with and one to check
-	// propagation
-	source, _ := newTestPeer(sourcePeer, eth63, pm, true)
-	defer source.close()
-
-	sink, _ := newTestPeer(sinkPeer, eth63, pm, true)
-	defer sink.close()
-
-	fake1, _ := newTestPeer(fakePeer1, eth63, pm, true)
-	defer fake1.close()
-
-	fake2, _ := newTestPeer(fakePeer2, eth63, pm, true)
-	defer fake2.close()
-
-	// refresh untrusted peer list with 2 nodes in white list.
-	whiteList := []*enode.Node{source.Node(), sink.Node()}
-	pm.RefreshUntrustedPeers(whiteList)
-
-	if pm.IsTrustedPeer(crypto.PubkeyToAddress(*fake1.Node().Pubkey())) {
-		t.Fatalf("fakePeer1 should be untrusted.")
-	}
-
-	// add another untrusted peer.
-	pm.AddUntrustedPeer(crypto.PubkeyToAddress(*source.Node().Pubkey()))
-	if pm.IsTrustedPeer(crypto.PubkeyToAddress(*source.Node().Pubkey())) {
-		t.Fatalf("peer should be untrusted.")
-	}
 
 	// Create various combinations of malformed blocks
 	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *core.BlockGen) {})
