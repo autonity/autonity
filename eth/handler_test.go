@@ -231,6 +231,8 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 			pm.AddUntrustedPeer(crypto.PubkeyToAddress(*peer.Node().Pubkey()))
 			// Send the hash request and verify the response
 			p2p.Send(peer.app, 0x03, tt.query)
+			// Wait to let protocol manager to clean up peer.
+			time.Sleep(time.Millisecond*200)
 			// Verify that the remote peer is maintained or dropped
 			if peers := pm.peers.Len(); peers != 0 {
 				t.Fatalf("peer count mismatch: have %d, want %d", peers, 0)
@@ -321,6 +323,8 @@ func testGetBlockBodies(t *testing.T, protocol int) {
 			pm.AddUntrustedPeer(crypto.PubkeyToAddress(*peer.Node().Pubkey()))
 			// Send the hash request and verify the response
 			p2p.Send(peer.app, 0x05, hashes)
+			// Wait to let protocol manager to clean up peer.
+			time.Sleep(time.Millisecond*200)
 			// Verify that the remote peer is maintained or dropped
 			if peers := pm.peers.Len(); peers != 0 {
 				t.Fatalf("peer count mismatch: have %d, want %d", peers, 0)
@@ -527,6 +531,8 @@ func testGetReceipt(t *testing.T, protocol int) {
 			pm.AddUntrustedPeer(crypto.PubkeyToAddress(*peer.Node().Pubkey()))
 			// Send the hash request and verify the response
 			p2p.Send(peer.app, 0x0f, hashes)
+			// Wait to let protocol manager to clean up peer.
+			time.Sleep(time.Millisecond*200)
 			// Verify that the remote peer is maintained or dropped
 			if peers := pm.peers.Len(); peers != 0 {
 				t.Fatalf("peer count mismatch: have %d, want %d", peers, 0)
