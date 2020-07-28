@@ -33,7 +33,10 @@ jobs:
         id: go
 
       - name: Print gopath
-        run: echo GOPATH $GOPATH HOME $HOME 
+        run: echo GOPATH $GOPATH HOME $HOME
+
+      - name: Tree home
+        run: tree $HOME
 
       - name: Print env
         run: echo ${{ env }}
