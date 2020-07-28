@@ -320,6 +320,9 @@ jobs:
       - name: Test
         run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
 
+      - name: Tree home
+        run: ls $HOME
+
   race_tests:
     needs: bootstrap-checkout
     runs-on: ubuntu-latest
