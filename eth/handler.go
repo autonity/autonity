@@ -868,7 +868,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	// New block announce, mark the hash as present at the remote peer and start download block only from trusted peer.
-	case msg.Code == NewBlockHashesMsg && pm.IsTrustedPeer(peerAddr):
+	case msg.Code == NewBlockHashesMsg:
+		// break the handling rather than return the error on the last default case to keep the peer alive for the
+		// chain sync task, once the chain get synced, for those malicious peer connection will be dropped via latest
+		// whitelist.
+		if !pm.IsTrustedPeer(peerAddr) {
+			break
+		}
+
 		var announces newBlockHashesData
 		if err := msg.Decode(&announces); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -925,7 +932,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	// New pooled-TX announce, make sure we are ready (chain synced) to download it and download it only from trusted peer.
-	case msg.Code == NewPooledTransactionHashesMsg && p.version >= eth65 && pm.IsTrustedPeer(peerAddr):
+	case msg.Code == NewPooledTransactionHashesMsg && p.version >= eth65:
+		// break the handling rather than return the error on the last default case to keep the peer alive for the
+		// chain sync task, once the chain get synced, for those malicious peer connection will be dropped via latest
+		// whitelist.
+		if !pm.IsTrustedPeer(peerAddr) {
+			break
+		}
+
 		// New transaction announcement arrived, make sure we have
 		// a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
@@ -942,7 +956,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.txFetcher.Notify(p.id, hashes)
 
 	// Pooled-TX query, collect the data and reply only for trusted peer.
-	case msg.Code == GetPooledTransactionsMsg && p.version >= eth65 && pm.IsTrustedPeer(peerAddr):
+	case msg.Code == GetPooledTransactionsMsg && p.version >= eth65:
+		if !pm.IsTrustedPeer(peerAddr) {
+			break
+		}
+
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -979,7 +997,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendPooledTransactionsRLP(hashes, txs)
 
 	// New pooled-TX arrive, make sure we are ready (chain synced) to put them which is from trusted peer into TX pool.
-	case (msg.Code == TransactionMsg || (msg.Code == PooledTransactionsMsg && p.version >= eth65)) && pm.IsTrustedPeer(peerAddr):
+	case msg.Code == TransactionMsg || (msg.Code == PooledTransactionsMsg && p.version >= eth65):
+		if !pm.IsTrustedPeer(peerAddr) {
+			break
+		}
+
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			break
