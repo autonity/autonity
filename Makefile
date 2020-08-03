@@ -37,8 +37,14 @@ GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
 # we then echo "sudo".
 DOCKER_SUDO = $(shell [ `id -u` -eq 0 ] || id -nG $(USER) | grep "\<docker\>" > /dev/null || echo sudo )
 
-# Builds the docker image and checks that we can run the autonity binary inside it
+# Builds the docker image and checks that we can run the autonity binary inside
+# it. We need to run embed-autonity-contract before running the docker build
+# here since embed-autonity-contract makes use of "docker run" which cannot be
+# run inside of a "docker build", by running it before we ensure that the make
+# targets are up to date and that when running make inside the docker image
+# there is nothing to do for the embed-autonity-contract rule. 
 build-docker-image:
+	make embed-autonity-contract
 	@$(DOCKER_SUDO) docker build -t autonity .
 	@$(DOCKER_SUDO) docker run --rm autonity -h > /dev/null
 

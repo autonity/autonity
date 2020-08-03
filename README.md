@@ -30,6 +30,12 @@ This generates go source from the autonity contract.
 make autonity
 ```
 
+## Build Autonity docker image
+
+```
+make build-docker-image
+```
+
 ## License
 
 The go-ethereum library (i.e. all code outside of the `cmd` directory) is licensed under the
