@@ -132,6 +132,85 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 	}
 }
 
+func TestToReproduceFreezerIssueV0_4_0(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	cases := []*testCase{
+		{
+			name:          "to reproduce freezer issue",
+			numValidators: 5,
+			numBlocks:     1800,
+			txPerPeer:     3,
+			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+				"VD": func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) { //nolint
+					if len(validator.blocks) > 1200 {
+						blockNum1 := 1
+						block := validator.service.BlockChain().GetBlockByNumber(uint64(blockNum1))
+						if block == nil {
+							panic("freezer issue reproduced")
+						}
+					}
+
+					nonce := validator.service.TxPool().Nonce(fromAddr)
+
+					tx, err := types.SignTx(
+						types.NewTransaction(
+							nonce,
+							toAddr,
+							big.NewInt(1),
+							210000000,
+							big.NewInt(DefaultTestGasPrice-200),
+							nil,
+						),
+						types.HomesteadSigner{}, validator.privateKey)
+					if err != nil {
+						return false, nil, err
+					}
+					err = validator.service.TxPool().AddLocal(tx)
+					if err == nil {
+						return false, nil, err
+					}
+
+					//step 2 valid transaction
+					tx, err = types.SignTx(
+						types.NewTransaction(
+							nonce,
+							toAddr,
+							big.NewInt(1),
+							210000000,
+							big.NewInt(DefaultTestGasPrice+200),
+							nil,
+						),
+						types.HomesteadSigner{}, validator.privateKey)
+					if err != nil {
+						return false, nil, err
+					}
+					err = validator.service.TxPool().AddLocal(tx)
+					if err != nil {
+						return false, nil, err
+					}
+
+					return false, tx, nil
+				},
+			},
+
+			genesisHook: func(g *core.Genesis) *core.Genesis {
+				g.Config.AutonityContractConfig.MinGasPrice = DefaultTestGasPrice - 100
+				return g
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+			runTest(t, testCase)
+		})
+	}
+}
+
 func TestCheckBlockWithSmallFee(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
