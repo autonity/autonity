@@ -141,11 +141,11 @@ func TestToReproduceFreezerIssueV0_4_0(t *testing.T) {
 		{
 			name:          "to reproduce freezer issue",
 			numValidators: 5,
-			numBlocks:     1800,
+			numBlocks:     400,
 			txPerPeer:     3,
 			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
 				"VD": func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) { //nolint
-					if len(validator.blocks) > 1200 {
+					if len(validator.blocks) > 350 {
 						blockNum1 := 1
 						block := validator.service.BlockChain().GetBlockByNumber(uint64(blockNum1))
 						if block == nil {

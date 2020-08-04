@@ -55,7 +55,7 @@ const (
 
 	// freezerBatchLimit is the maximum number of blocks to freeze in one batch
 	// before doing an fsync and deleting it from the key-value store.
-	freezerBatchLimit = 300
+	freezerBatchLimit = 100
 )
 
 // freezer is an memory mapped append-only database to store immutable chain data
