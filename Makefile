@@ -64,16 +64,18 @@ $(GENERATED_BYTECODE) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONT
 	$(DOCKER_SUDO) docker run --rm -v $(CURDIR)/$(AUTONITY_CONTRACT_DIR):/contracts -v $(CURDIR)/$(GENERATED_CONTRACT_DIR):/output ethereum/solc:0.6.4 --overwrite --abi --bin -o /output /contracts/$(AUTONITY_CONTRACT)
 
 	@echo Generating $(GENERATED_BYTECODE)
-	@echo 'package generated\n' > $(GENERATED_BYTECODE)
+	@echo 'package generated' > $(GENERATED_BYTECODE)
 	@echo -n 'const Bytecode = "' >> $(GENERATED_BYTECODE)
 	@cat  $(GENERATED_CONTRACT_DIR)/Autonity.bin >> $(GENERATED_BYTECODE)
 	@echo '"' >> $(GENERATED_BYTECODE)
+	@gofmt -s -w $(GENERATED_BYTECODE)
 
 	@echo Generating $(GENERATED_ABI)
-	@echo 'package generated\n' > $(GENERATED_ABI)
+	@echo 'package generated' > $(GENERATED_ABI)
 	@echo -n 'const Abi = `' >> $(GENERATED_ABI)
 	@cat  $(GENERATED_CONTRACT_DIR)/Autonity.abi | json_pp  >> $(GENERATED_ABI)
 	@echo '`' >> $(GENERATED_ABI)
+	@gofmt -s -w $(GENERATED_ABI)
 
 all: embed-autonity-contract
 	build/env.sh go run build/ci.go install
