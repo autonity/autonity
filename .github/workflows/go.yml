@@ -383,28 +383,17 @@ jobs:
         run: make test-contracts
 
   # Builds the docker image. We don't intend to use the built image as part of
-  # a workflow, but we want to know the image can be built.
+  # a workflow, but we want to know the image can be built. We don't want to
+  # use any cache here since we want a clean checkout before any code
+  # generation has taken place.
   docker-image-build:
-    # Don't try to build the docker image unless autonity itself builds.
     runs-on: ubuntu-latest
+    # Don't try to build the docker image unless autonity itself builds.
     needs: build
     steps:
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
-
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
 
       - name: Build
         run: make build-docker-image
