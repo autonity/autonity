@@ -1,6 +1,6 @@
-# This Makefile is meant to be used by people that do not usually work
-# with Go source code. If you know what GOPATH is then you probably
-# don't need to bother with make.
+# Note: This makefile should refrain from using docker in any build step
+# required by the 'autonity' rule. This is so that it remains possible to run
+# 'make autonity' inside a docker build.
 
 .PHONY: autonity embed-autonity-contract android ios autonity-cross evm all test clean lint lint-deps mock-gen test-fast
 .PHONY: autonity-linux autonity-linux-386 autonity-linux-amd64 autonity-linux-mips64 autonity-linux-mips64le
@@ -15,6 +15,8 @@ LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
 ifeq ($(LATEST_COMMIT),)
 LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
+SOLC_VERSION = 0.6.4
+SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 
 AUTONITY_CONTRACT_DIR = ./contracts/autonity/contract/contracts
 AUTONITY_CONTRACT = Autonity.sol
@@ -38,13 +40,8 @@ GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
 DOCKER_SUDO = $(shell [ `id -u` -eq 0 ] || id -nG $(USER) | grep "\<docker\>" > /dev/null || echo sudo )
 
 # Builds the docker image and checks that we can run the autonity binary inside
-# it. We need to run embed-autonity-contract before running the docker build
-# here since embed-autonity-contract makes use of "docker run" which cannot be
-# run inside of a "docker build", by running it before we ensure that the make
-# targets are up to date and that when running make inside the docker image
-# there is nothing to do for the embed-autonity-contract rule. 
+# it.
 build-docker-image:
-	make embed-autonity-contract
 	@$(DOCKER_SUDO) docker build -t autonity .
 	@$(DOCKER_SUDO) docker run --rm autonity -h > /dev/null
 
@@ -53,15 +50,12 @@ autonity: embed-autonity-contract
 	@echo "Done building."
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
+# Genreates go source files containing the contract bytecode and abi.
 embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_ABI)
 
-# NOTE previously we were using
-# https://github.com/ethereum/solidity/releases/download/v0.5.1/solc-static-linux
-# this binary does not produce the same bytecode as the ethereum/solc:0.5.1
-# docker image. This was causing tests to fail.
-$(GENERATED_BYTECODE) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT)
-	mkdir -p $(GENERATED_CONTRACT_DIR)
-	$(DOCKER_SUDO) docker run --rm -v $(CURDIR)/$(AUTONITY_CONTRACT_DIR):/contracts -v $(CURDIR)/$(GENERATED_CONTRACT_DIR):/output ethereum/solc:0.6.4 --overwrite --abi --bin -o /output /contracts/$(AUTONITY_CONTRACT)
+$(GENERATED_BYTECODE) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT) $(SOLC_BINARY)
+	@mkdir -p $(GENERATED_CONTRACT_DIR)
+	$(SOLC_BINARY) --overwrite --abi --bin -o $(GENERATED_CONTRACT_DIR) $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT)
 
 	@echo Generating $(GENERATED_BYTECODE)
 	@echo 'package generated' > $(GENERATED_BYTECODE)
@@ -76,6 +70,11 @@ $(GENERATED_BYTECODE) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONT
 	@cat  $(GENERATED_CONTRACT_DIR)/Autonity.abi | json_pp  >> $(GENERATED_ABI)
 	@echo '`' >> $(GENERATED_ABI)
 	@gofmt -s -w $(GENERATED_ABI)
+
+$(SOLC_BINARY):
+	mkdir -p $(BINDIR)
+	wget -O $(SOLC_BINARY) https://github.com/ethereum/solidity/releases/download/v$(SOLC_VERSION)/solc-static-linux
+	chmod +x $(SOLC_BINARY)
 
 all: embed-autonity-contract
 	build/env.sh go run build/ci.go install
