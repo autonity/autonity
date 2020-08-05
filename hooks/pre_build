@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# This file is a docker hub hook.
+make embed-autonity-contract
