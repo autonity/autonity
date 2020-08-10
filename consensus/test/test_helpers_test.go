@@ -229,7 +229,7 @@ func maliciousTest(t *testing.T, test *testCase, validators map[string]*testNode
 }
 
 func sendTransactions(t *testing.T, test *testCase, peers map[string]*testNode, txPerPeer int, errorOnTx bool, names []string) {
-	const blocksToWait = 50
+	const blocksToWait = 100
 
 	txs := make(map[uint64]int) // blockNumber to count
 	txsMu := &sync.Mutex{}
