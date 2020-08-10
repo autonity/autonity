@@ -20,8 +20,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"math/big"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -30,6 +28,7 @@ import (
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
+	"math/big"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -268,7 +267,7 @@ func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValu
 	// comparison is necessary since ancient database only maintains
 	// the canonical data.
 	data, _ := db.Ancient(freezerHeaderTable, number)
-	if len(data) > 0 && crypto.Keccak256Hash(data) == hash {
+	if len(data) > 0 && compareHeaderHash(data, hash) {
 		return data
 	}
 	// Then try to look up the data in leveldb.
@@ -281,10 +280,26 @@ func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValu
 	// but when we reach into leveldb, the data was already moved. That would
 	// result in a not found error.
 	data, _ = db.Ancient(freezerHeaderTable, number)
-	if len(data) > 0 && crypto.Keccak256Hash(data) == hash {
+	if len(data) > 0 && compareHeaderHash(data, hash) {
 		return data
 	}
 	return nil // Can't find the data anywhere.
+}
+
+func compareHeaderHash(data []byte, h common.Hash) bool {
+	// if block header is go-ethereum's original header and the hash matches then return
+	if crypto.Keccak256Hash(data) == h {
+		return true
+	}
+
+	var header types.Header
+	err := rlp.DecodeBytes(data, &header)
+	if err != nil {
+		log.Error("Invalid block header RLP", "hash", h, "err", err)
+		return false
+	}
+
+	return header.Hash() == h
 }
 
 // HasHeader verifies the existence of a block header corresponding to the hash.
