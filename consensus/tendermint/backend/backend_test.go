@@ -611,6 +611,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.BFTDigest
+	genesis.Timestamp = 1
 
 	AppendValidators(genesis, addrs)
 	err := genesis.Config.AutonityContractConfig.Prepare()
