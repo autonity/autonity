@@ -2317,6 +2317,10 @@ func (bc *BlockChain) maintainTxIndex(ancients uint64) {
 		case <-done:
 			done = nil
 		case <-bc.quit:
+			// Ensure that we wait for indexing to stop
+			if done != nil {
+				<-done
+			}
 			return
 		}
 	}
