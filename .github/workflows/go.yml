@@ -75,7 +75,7 @@ jobs:
         run: make embed-autonity-contract
 
       - name: unit tests
-        run: go test -p 1 -timeout 30m -short $(go list ./... | grep -v /consensus/tendermint)
+        run: go test -timeout 30m -short $(go list ./... | grep -v /consensus/tendermint)
 
   tests-tendermint:
     needs: bootstrap-checkout
