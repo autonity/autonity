@@ -4,12 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/common/acdefault"
-	"github.com/clearmatics/autonity/common/graph"
-	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"net"
 	"strconv"
@@ -17,6 +11,13 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/common/acdefault"
+	"github.com/clearmatics/autonity/common/graph"
+	"github.com/clearmatics/autonity/common/keygenerator"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p/enode"
 
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/ethclient"
@@ -142,9 +143,8 @@ func TestToReproduceFreezerIssueV0_4_0(t *testing.T) {
 			name:          "to reproduce freezer issue",
 			numValidators: 5,
 			numBlocks:     400,
-			txPerPeer:     3,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
-				"VD": func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) { //nolint
+			beforeHooks: map[string]hook{
+				"VD": func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error { //nolint
 					if len(validator.blocks) > 350 {
 						blockNum1 := 1
 						block := validator.service.BlockChain().GetBlockByNumber(uint64(blockNum1))
@@ -152,53 +152,8 @@ func TestToReproduceFreezerIssueV0_4_0(t *testing.T) {
 							panic("freezer issue reproduced")
 						}
 					}
-
-					nonce := validator.service.TxPool().Nonce(fromAddr)
-
-					tx, err := types.SignTx(
-						types.NewTransaction(
-							nonce,
-							toAddr,
-							big.NewInt(1),
-							210000000,
-							big.NewInt(DefaultTestGasPrice-200),
-							nil,
-						),
-						types.HomesteadSigner{}, validator.privateKey)
-					if err != nil {
-						return false, nil, err
-					}
-					err = validator.service.TxPool().AddLocal(tx)
-					if err == nil {
-						return false, nil, err
-					}
-
-					//step 2 valid transaction
-					tx, err = types.SignTx(
-						types.NewTransaction(
-							nonce,
-							toAddr,
-							big.NewInt(1),
-							210000000,
-							big.NewInt(DefaultTestGasPrice+200),
-							nil,
-						),
-						types.HomesteadSigner{}, validator.privateKey)
-					if err != nil {
-						return false, nil, err
-					}
-					err = validator.service.TxPool().AddLocal(tx)
-					if err != nil {
-						return false, nil, err
-					}
-
-					return false, tx, nil
+					return nil
 				},
-			},
-
-			genesisHook: func(g *core.Genesis) *core.Genesis {
-				g.Config.AutonityContractConfig.MinGasPrice = DefaultTestGasPrice - 100
-				return g
 			},
 		},
 	}
