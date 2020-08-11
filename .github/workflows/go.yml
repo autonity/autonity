@@ -7,11 +7,9 @@ jobs:
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
-        env:
-          cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -51,11 +49,9 @@ jobs:
 
       - name: Cache code
         uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -79,11 +75,9 @@ jobs:
 
       - name: Cache code
         uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -113,11 +107,9 @@ jobs:
 
       - name: Cache code
         uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -126,14 +118,12 @@ jobs:
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
 
-      - name: Cache git modules
+      - name: Cache testdata
         uses: actions/cache@v1
-        id: cache-git-modules
-        env:
-          cache-name: cache-git-modules
+        id: cache-autonity-test-data
         with:
           path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+          key: ${{ runner.os }}-autonity-testdata-${{ hashFiles('.git/modules/tests/HEAD') }}
 
       - name: get conformance tests
         if: steps.cache-git-modules.outputs.cache-hit != 'true'
@@ -154,11 +144,9 @@ jobs:
 
       - name: Cache code
         uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -172,11 +160,9 @@ jobs:
 
       - name: Cache binary
         uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-bin
         with:
           path: /home/runner/work/autonity/autonity/build/bin
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-autonity-bin-${{ github.sha }}
 
       - name: Install
         run: go run build/ci.go install
@@ -193,11 +179,9 @@ jobs:
 
       - name: Cache code
         uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -272,11 +256,9 @@ jobs:
 
       - name: Cache code
         uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -305,11 +287,9 @@ jobs:
 
       - name: Cache code
         uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -332,11 +312,9 @@ jobs:
 
       - name: Cache code
         uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
         with:
           path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
@@ -347,11 +325,9 @@ jobs:
 
       - name: Cache binary
         uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-bin
         with:
           path: /home/runner/work/autonity/autonity/build/bin
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          key: ${{ runner.os }}-autonity-bin-${{ github.sha }}
 
       - name: test contract
         run: make test-contracts
