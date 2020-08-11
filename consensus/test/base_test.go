@@ -184,7 +184,7 @@ func TestTendermintTC7(t *testing.T) {
 			"VF": hookStopNode("VF", 20),
 		},
 		afterHooks: map[string]hook{
-			"VD": hookStartNode("VD", 40),
+			"VD": hookStartNode("VD", 4),
 		},
 		maliciousPeers: map[string]injectors{
 			"VE": {},
@@ -193,9 +193,7 @@ func TestTendermintTC7(t *testing.T) {
 		stopTime: make(map[string]time.Time),
 	}
 
-	for i := 0; i < 20; i++ {
-		t.Run(fmt.Sprintf("test case %s - %d", test.name, i), func(t *testing.T) {
-			runTest(t, test)
-		})
-	}
+	t.Run(fmt.Sprintf("test case %s", test.name), func(t *testing.T) {
+		runTest(t, test)
+	})
 }
