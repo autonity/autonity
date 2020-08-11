@@ -19,8 +19,9 @@ package consensus
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/p2p"
 	"math/big"
+
+	"github.com/clearmatics/autonity/p2p"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/state"
@@ -149,7 +150,7 @@ type BFT interface {
 	Engine
 
 	// Start starts the engine
-	Start(ctx context.Context, chain ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
+	Start(ctx context.Context) error
 }
 
 type Syncer interface {

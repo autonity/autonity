@@ -126,14 +126,6 @@ func newGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*c
 		return nil, nil, fmt.Errorf("failed to generate random chainID: %v", err)
 	}
 
-	// This should to be randomised, essentially we want to create an
-	// uncontrollable address.
-	deployerAddress := common.Address{}
-	_, err = rand.Read(deployerAddress[:])
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate random deployerAddress: %v", err)
-	}
-
 	genesis := &core.Genesis{
 
 		Timestamp: uint64(time.Now().Unix()),
@@ -168,7 +160,6 @@ func newGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*c
 				BlockPeriod: 1,
 			},
 			AutonityContractConfig: &params.AutonityContractGenesis{
-				Deployer:    deployerAddress,
 				MinGasPrice: minGasPrice,
 				Operator:    *operatorAddress,
 				Users:       genesisUsers,

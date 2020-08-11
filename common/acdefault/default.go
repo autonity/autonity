@@ -5,10 +5,6 @@ import (
 	"github.com/clearmatics/autonity/common/acdefault/generated"
 )
 
-func Deployer() common.Address {
-	return common.HexToAddress("0x1336000000000000000000000000000000000000")
-}
-
 func Governance() common.Address {
 	return common.HexToAddress("0x1336000000000000000000000000000000000000")
 }

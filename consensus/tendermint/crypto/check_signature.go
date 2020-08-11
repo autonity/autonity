@@ -1,17 +1,32 @@
 package crypto
 
 import (
+	"crypto/ecdsa"
 	"errors"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 )
 
 var ErrUnauthorizedAddress = errors.New("unauthorized address")
 
-func CheckValidatorSignature(valSet *committee.Set, data []byte, sig []byte) (common.Address, error) {
+// SignHeader signs the given header with the given private key.
+func SignHeader(h *types.Header, priv *ecdsa.PrivateKey) error {
+	hashData := crypto.Keccak256(types.SigHash(h).Bytes())
+	signature, err := crypto.Sign(hashData, priv)
+	if err != nil {
+		return err
+	}
+	err = types.WriteSeal(h, signature)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
 	// 1. Get signature address
 	signer, err := types.GetSignatureAddress(data, sig)
 	if err != nil {
@@ -20,8 +35,8 @@ func CheckValidatorSignature(valSet *committee.Set, data []byte, sig []byte) (co
 	}
 
 	// 2. Check validator
-	_, val, err := valSet.GetByAddress(signer)
-	if err != nil {
+	val := previousHeader.CommitteeMember(signer)
+	if val == nil {
 		return common.Address{}, ErrUnauthorizedAddress
 	}
 

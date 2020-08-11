@@ -24,7 +24,6 @@ import (
 	"math"
 	"math/big"
 	"reflect"
-	"sort"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -35,10 +34,8 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
-	tendermintCrypto "github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
@@ -53,8 +50,8 @@ func TestAskSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	// We are testing for a Quorum Q of peers to be asked for sync.
-	valSet, _ := newTestValidatorSet(7) // N=7, F=2, Q=5
-	validators := valSet.Committee()
+	header := newTestHeader(7) // N=7, F=2, Q=5
+	validators := header.Committee
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
@@ -83,7 +80,7 @@ func TestAskSync(t *testing.T) {
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)
-	b.AskSync(valSet)
+	b.AskSync(header)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 5 {
 		t.Fatalf("ask sync message transmission failure")
@@ -94,8 +91,8 @@ func TestGossip(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	valSet, _ := newTestValidatorSet(5)
-	validators := valSet.Committee()
+	header := newTestHeader(5)
+	validators := header.Committee
 	payload, err := rlp.EncodeToBytes([]byte("data"))
 	hash := types.RLPHash(payload)
 	if err != nil {
@@ -149,7 +146,7 @@ func TestGossip(t *testing.T) {
 	}
 	b.SetBroadcaster(broadcaster)
 
-	b.Gossip(context.Background(), valSet, payload)
+	b.Gossip(context.Background(), validators, payload)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 4 {
 		t.Fatalf("gossip message transmission failure")
@@ -255,7 +252,7 @@ func TestHasBadProposal(t *testing.T) {
 }
 
 func TestSign(t *testing.T) {
-	b := newBackend()
+	_, b := newBlockChain(4)
 	data := []byte("Here is a string....")
 	sig, err := b.Sign(data)
 	if err != nil {
@@ -266,7 +263,7 @@ func TestSign(t *testing.T) {
 	pubkey, _ := crypto.Ecrecover(hashData, sig)
 	var signer common.Address
 	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
-	if signer != getAddress() {
+	if signer != b.address {
 		t.Errorf("address mismatch: have %v, want %s", signer.Hex(), getAddress().Hex())
 	}
 }
@@ -276,7 +273,7 @@ func TestCheckSignature(t *testing.T) {
 	data := []byte("Here is a string....")
 	hashData := crypto.Keccak256(data)
 	sig, _ := crypto.Sign(hashData, key)
-	b := newBackend()
+	_, b := newBlockChain(4)
 	a := getAddress()
 	err := b.CheckSignature(data, a, sig)
 	if err != nil {
@@ -289,54 +286,9 @@ func TestCheckSignature(t *testing.T) {
 	}
 }
 
-func TestCheckValidatorSignature(t *testing.T) {
-	vset, keys := newTestValidatorSet(5)
-
-	// 1. Positive test: sign with validator's key should succeed
-	data := []byte("dummy data")
-	hashData := crypto.Keccak256(data)
-	for i, k := range keys {
-		// Sign
-		sig, err := crypto.Sign(hashData, k)
-		if err != nil {
-			t.Errorf("error mismatch: have %v, want nil", err)
-		}
-		// CheckValidatorSignature should succeed
-		addr, err := tendermintCrypto.CheckValidatorSignature(vset, data, sig)
-		if err != nil {
-			t.Errorf("error mismatch: have %v, want nil", err)
-		}
-		val, err := vset.GetByIndex(i)
-		if err != nil || addr != val.Address {
-			t.Errorf("validator address mismatch: have %v, want %v", addr, val.Address)
-		}
-	}
-
-	// 2. Negative test: sign with any key other than validator's key should return error
-	key, err := crypto.GenerateKey()
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
-	}
-	// Sign
-	sig, err := crypto.Sign(hashData, key)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
-	}
-
-	// CheckValidatorSignature should return ErrUnauthorizedAddress
-	addr, err := tendermintCrypto.CheckValidatorSignature(vset, data, sig)
-	if err != tendermintCrypto.ErrUnauthorizedAddress {
-		t.Errorf("error mismatch: have %v, want %v", err, ErrUnauthorizedAddress)
-	}
-	emptyAddr := common.Address{}
-	if addr != emptyAddr {
-		t.Errorf("address mismatch: have %v, want %v", addr, emptyAddr)
-	}
-}
-
 func TestCommit(t *testing.T) {
 	t.Run("broadcaster is not set", func(t *testing.T) {
-		backend := newBackend()
+		_, backend := newBlockChain(4)
 
 		commitCh := make(chan *types.Block, 1)
 		backend.setResultChan(commitCh)
@@ -434,25 +386,6 @@ func TestCommit(t *testing.T) {
 	})
 }
 
-func TestGetProposer(t *testing.T) {
-	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = chain.InsertChain(types.Blocks{block})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := engine.GetProposer(1)
-	actual := engine.Address()
-	if actual != expected {
-		t.Errorf("proposer mismatch: have %v, want %v", actual.Hex(), expected.Hex())
-	}
-}
-
 func TestSyncPeer(t *testing.T) {
 	t.Run("no broadcaster set, nothing done", func(t *testing.T) {
 		b := &Backend{}
@@ -545,23 +478,6 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 	})
 }
 
-func TestBackendGetContractAddress(t *testing.T) {
-	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = chain.InsertChain(types.Blocks{block})
-	if err != nil {
-		t.Fatal(err)
-	}
-	contractAddress := engine.GetContractAddress()
-	expectedAddress := crypto.CreateAddress(chain.Config().AutonityContractConfig.Deployer, 0)
-	if !bytes.Equal(contractAddress.Bytes(), expectedAddress.Bytes()) {
-		t.Fatalf("unexpected returned address")
-	}
-}
-
 // Test get contract ABI, it should have the default abi before contract upgrade.
 func TestBackendGetContractABI(t *testing.T) {
 	chain, engine := newBlockChain(1)
@@ -620,22 +536,20 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 	return crypto.HexToECDSA(key)
 }
 
-func newTestValidatorSet(n int) (*committee.Set, []*ecdsa.PrivateKey) {
+func newTestHeader(n int) *types.Header {
 	// generate committee
-	keys := make(Keys, n)
 	addrs := make(types.Committee, n)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
-		keys[i] = privateKey
 		addrs[i] = types.CommitteeMember{
 			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 	}
-	vset, _ := committee.NewSet(addrs, addrs[0].Address)
-
-	sort.Sort(keys) //Keys need to be sorted by its public key address
-	return vset, keys
+	h := &types.Header{
+		Committee: addrs,
+	}
+	return h
 }
 
 type Keys []*ecdsa.PrivateKey
@@ -652,46 +566,25 @@ func (slice Keys) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
-func newBackend() (b *Backend) {
-	_, b = newBlockChain(4)
-	key, _ := generatePrivateKey()
-	b.SetPrivateKey(key)
-	return
-}
-
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := rawdb.NewMemoryDatabase()
-	cfg := config.DefaultConfig()
 	// Use the first key as private key
-	b := New(cfg, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
+	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 
 	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher())
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
 	if err != nil {
 		panic(err)
 	}
+	b.SetBlockchain(blockchain)
 
-	err = b.Start(context.Background(), blockchain, blockchain.CurrentBlock, blockchain.HasBadBlock)
+	err = b.Start(context.Background())
 	if err != nil {
 		panic(err)
-	}
-
-	validators, err := b.Committee(0)
-	if err != nil || validators.Size() == 0 {
-		panic("failed to get committee")
-	}
-	proposerAddr := validators.GetProposer(0).Address
-
-	// find proposer key
-	for _, key := range nodeKeys {
-		addr := crypto.PubkeyToAddress(key.PublicKey)
-		if addr.String() == proposerAddr.String() {
-			b.SetPrivateKey(key)
-		}
 	}
 
 	return blockchain, b
@@ -713,9 +606,8 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Config = params.TestChainConfig
 	genesis.GasLimit = 10000000
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
-	// force enable Istanbul engine
-	genesis.Config.Tendermint = &config.Config{}
-	genesis.Config.Ethash = nil
+	// force enable Tendermint engine
+	genesis.Config.Tendermint = config.DefaultConfig()
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.BFTDigest

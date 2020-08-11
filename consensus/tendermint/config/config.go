@@ -16,13 +16,16 @@
 
 package config
 
-import (
-	"sync"
+type ProposerPolicy uint64
+
+const (
+	RoundRobin ProposerPolicy = iota
+	WeightedRandomSampling
 )
 
 type Config struct {
-	BlockPeriod uint64 `toml:",omitempty" json:"block-period"` // Default minimum difference between two consecutive block's timestamps in second
-	sync.RWMutex
+	BlockPeriod    uint64         `toml:",omitempty" json:"block-period"` // Default minimum difference between two consecutive block's timestamps in second
+	ProposerPolicy ProposerPolicy `toml:",omitempty" json:"policy"`       // The policy for proposer selection
 }
 
 func (c *Config) String() string {
@@ -31,6 +34,14 @@ func (c *Config) String() string {
 
 func DefaultConfig() *Config {
 	return &Config{
-		BlockPeriod: 1,
+		BlockPeriod:    1,
+		ProposerPolicy: WeightedRandomSampling,
+	}
+}
+
+func RoundRobinConfig() *Config {
+	return &Config{
+		BlockPeriod:    1,
+		ProposerPolicy: RoundRobin,
 	}
 }

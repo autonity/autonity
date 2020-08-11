@@ -21,7 +21,6 @@ func TestPrepareAutonityContract(t *testing.T) {
 	node2 := enode.NewV4(&key2.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
 
 	contractConfig := AutonityContractGenesis{
-		Deployer: common.HexToAddress("0xff"),
 		Operator: common.HexToAddress("0xff"),
 		Bytecode: "some code",
 		ABI:      "some abi",
@@ -43,7 +42,6 @@ func TestPrepareAutonityContract(t *testing.T) {
 
 func TestPrepareAutonityContract_ParticipantHaveStake_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
-		Deployer: common.HexToAddress("0xff"),
 		Bytecode: "some code",
 		ABI:      "some abi",
 		Operator: common.HexToAddress("0xff"),
@@ -61,7 +59,6 @@ func TestPrepareAutonityContract_ParticipantHaveStake_Fail(t *testing.T) {
 func TestPrepareAutonityContract_ByteCodeMissed_Fail(t *testing.T) {
 	address := common.HexToAddress("0x123")
 	contractConfig := AutonityContractGenesis{
-		Deployer: common.HexToAddress("0xff"),
 		ABI:      "some abi",
 		Operator: common.HexToAddress("0xff"),
 		Users: []User{
@@ -80,7 +77,6 @@ func TestPrepareAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
 	t.Skip("Do we need it?")
 	address := common.HexToAddress("0x123")
 	contractConfig := AutonityContractGenesis{
-		Deployer: common.HexToAddress("0xff"),
 		Bytecode: "some code",
 		ABI:      "some abi",
 		Operator: common.HexToAddress("0xff"),
@@ -98,7 +94,6 @@ func TestPrepareAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
 
 func TestPrepareAutonityContract_GovernanceOperatorNotExisted_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
-		Deployer: common.HexToAddress("0xff"),
 		Bytecode: "some code",
 		ABI:      "some abi",
 		Users:    []User{},
@@ -107,7 +102,6 @@ func TestPrepareAutonityContract_GovernanceOperatorNotExisted_Fail(t *testing.T)
 }
 func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 	contractConfig := &AutonityContractGenesis{
-		Deployer: common.HexToAddress("0xff"),
 		Bytecode: "some code",
 		ABI:      "some abi",
 		Users: []User{

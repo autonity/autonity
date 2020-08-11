@@ -7,7 +7,8 @@ package core
 import (
 	context "context"
 	common "github.com/clearmatics/autonity/common"
-	committee "github.com/clearmatics/autonity/consensus/tendermint/committee"
+	autonity "github.com/clearmatics/autonity/contracts/autonity"
+	ethcore "github.com/clearmatics/autonity/core"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
 	gomock "github.com/golang/mock/gomock"
@@ -68,29 +69,29 @@ func (mr *MockBackendMockRecorder) AddSeal(block interface{}) *gomock.Call {
 }
 
 // AskSync mocks base method
-func (m *MockBackend) AskSync(set *committee.Set) {
+func (m *MockBackend) AskSync(header *types.Header) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AskSync", set)
+	m.ctrl.Call(m, "AskSync", header)
 }
 
 // AskSync indicates an expected call of AskSync
-func (mr *MockBackendMockRecorder) AskSync(set interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) AskSync(header interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), set)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), header)
 }
 
 // Broadcast mocks base method
-func (m *MockBackend) Broadcast(ctx context.Context, valSet *committee.Set, payload []byte) error {
+func (m *MockBackend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Broadcast", ctx, valSet, payload)
+	ret := m.ctrl.Call(m, "Broadcast", ctx, committee, payload)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Broadcast indicates an expected call of Broadcast
-func (mr *MockBackendMockRecorder) Broadcast(ctx, valSet, payload interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Broadcast(ctx, committee, payload interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), ctx, valSet, payload)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), ctx, committee, payload)
 }
 
 // Commit mocks base method
@@ -107,21 +108,6 @@ func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, seals interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, seals)
 }
 
-// Committee mocks base method
-func (m *MockBackend) Committee(number uint64) (*committee.Set, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Committee", number)
-	ret0, _ := ret[0].(*committee.Set)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Committee indicates an expected call of Committee
-func (mr *MockBackendMockRecorder) Committee(number interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Committee", reflect.TypeOf((*MockBackend)(nil).Committee), number)
-}
-
 // GetContractABI mocks base method
 func (m *MockBackend) GetContractABI() string {
 	m.ctrl.T.Helper()
@@ -136,30 +122,16 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
 }
 
-// GetContractAddress mocks base method
-func (m *MockBackend) GetContractAddress() common.Address {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContractAddress")
-	ret0, _ := ret[0].(common.Address)
-	return ret0
-}
-
-// GetContractAddress indicates an expected call of GetContractAddress
-func (mr *MockBackendMockRecorder) GetContractAddress() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractAddress", reflect.TypeOf((*MockBackend)(nil).GetContractAddress))
-}
-
 // Gossip mocks base method
-func (m *MockBackend) Gossip(ctx context.Context, valSet *committee.Set, payload []byte) {
+func (m *MockBackend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Gossip", ctx, valSet, payload)
+	m.ctrl.Call(m, "Gossip", ctx, committee, payload)
 }
 
 // Gossip indicates an expected call of Gossip
-func (mr *MockBackendMockRecorder) Gossip(ctx, valSet, payload interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Gossip(ctx, committee, payload interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), ctx, valSet, payload)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), ctx, committee, payload)
 }
 
 // HandleUnhandledMsgs mocks base method
@@ -287,6 +259,32 @@ func (mr *MockBackendMockRecorder) WhiteList() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WhiteList", reflect.TypeOf((*MockBackend)(nil).WhiteList))
 }
 
+// BlockChain mocks base method
+func (m *MockBackend) BlockChain() *ethcore.BlockChain {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockChain")
+	ret0, _ := ret[0].(*ethcore.BlockChain)
+	return ret0
+}
+
+// BlockChain indicates an expected call of BlockChain
+func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockChain", reflect.TypeOf((*MockBackend)(nil).BlockChain))
+}
+
+// SetBlockchain mocks base method
+func (m *MockBackend) SetBlockchain(bc *ethcore.BlockChain) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetBlockchain", bc)
+}
+
+// SetBlockchain indicates an expected call of SetBlockchain
+func (mr *MockBackendMockRecorder) SetBlockchain(bc interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBlockchain", reflect.TypeOf((*MockBackend)(nil).SetBlockchain), bc)
+}
+
 // MockTendermint is a mock of Tendermint interface
 type MockTendermint struct {
 	ctrl     *gomock.Controller
@@ -311,15 +309,15 @@ func (m *MockTendermint) EXPECT() *MockTendermintMockRecorder {
 }
 
 // Start mocks base method
-func (m *MockTendermint) Start(ctx context.Context) {
+func (m *MockTendermint) Start(ctx context.Context, contract *autonity.Contract) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Start", ctx)
+	m.ctrl.Call(m, "Start", ctx, contract)
 }
 
 // Start indicates an expected call of Start
-func (mr *MockTendermintMockRecorder) Start(ctx interface{}) *gomock.Call {
+func (mr *MockTendermintMockRecorder) Start(ctx, contract interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTendermint)(nil).Start), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTendermint)(nil).Start), ctx, contract)
 }
 
 // Stop mocks base method

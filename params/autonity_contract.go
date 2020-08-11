@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/clearmatics/autonity/crypto"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/acdefault"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 )
@@ -42,13 +43,11 @@ func (ut UserType) GetID() int {
 
 // Autonity contract config. It'is used for deployment.
 type AutonityContractGenesis struct {
-	// Address of the validator who deploys contract stored in bytecode
-	Deployer common.Address `json:"deployer" toml:",omitempty"`
 	// Bytecode of validators contract
 	// would like this type to be []byte but the unmarshalling is not working
-	Bytecode string `json:"bytecode" toml:",omitempty"`
+	Bytecode string `json:"bytecode,omitempty" toml:",omitempty"`
 	// Json ABI of the contract
-	ABI         string         `json:"abi" toml:",omitempty"`
+	ABI         string         `json:"abi,omitempty" toml:",omitempty"`
 	MinGasPrice uint64         `json:"minGasPrice" toml:",omitempty"`
 	Operator    common.Address `json:"operator" toml:",omitempty"`
 	Users       []User         `json:"users" toml:",omitempty"`
@@ -69,9 +68,6 @@ func (ac *AutonityContractGenesis) Prepare() error {
 		ac.Bytecode = acdefault.Bytecode()
 	} else {
 		log.Info("User specified Validator smart contract set")
-	}
-	if reflect.DeepEqual(ac.Deployer, common.Address{}) {
-		ac.Deployer = acdefault.Deployer()
 	}
 	if reflect.DeepEqual(ac.Operator, common.Address{}) {
 		ac.Operator = acdefault.Governance()
@@ -95,13 +91,6 @@ func (ac *AutonityContractGenesis) Prepare() error {
 		return errors.New("validators list is empty")
 	}
 	return nil
-}
-
-func (ac *AutonityContractGenesis) GetContractAddress() (common.Address, error) {
-	if reflect.DeepEqual(ac.Deployer, common.Address{}) {
-		return common.Address{}, errors.New("deployer must be not nil")
-	}
-	return crypto.CreateAddress(ac.Deployer, 0), nil
 }
 
 //User - is used to put predefined accounts to genesis

@@ -17,13 +17,14 @@
 package miner
 
 import (
-	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	tendermint "github.com/clearmatics/autonity/consensus/tendermint/config"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -47,73 +48,50 @@ const (
 	testGas = 144109
 )
 
-type testCase struct {
-	testTxPoolConfig  core.TxPoolConfig
-	ethashChainConfig *params.ChainConfig
+var (
+	// Test chain configurations
+	testTxPoolConfig      core.TxPoolConfig
+	ethashChainConfig     *params.ChainConfig
+	tendermintChainConfig *params.ChainConfig
 
-	testBankKey     *ecdsa.PrivateKey
-	testBankAddress common.Address
-	testBankFunds   *big.Int
+	// Test accounts
+	testBankKey, _  = crypto.GenerateKey()
+	testBankAddress = crypto.PubkeyToAddress(testBankKey.PublicKey)
+	testBankFunds   = big.NewInt(1000000000000000000)
 
-	testUserKey     *ecdsa.PrivateKey
-	testUserAddress common.Address
-	testUserFunds   *big.Int
+	testUserKey, _  = crypto.GenerateKey()
+	testUserAddress = crypto.PubkeyToAddress(testUserKey.PublicKey)
 
 	// Test transactions
 	pendingTxs []*types.Transaction
 	newTxs     []*types.Transaction
 
-	testConfig *Config
-}
-
-func getTestCase() (*testCase, error) {
-	testBankKey, err := crypto.GenerateKey()
-	if err != nil {
-		return nil, err
+	testConfig = &Config{
+		Recommit: time.Second,
+		GasFloor: params.GenesisGasLimit,
+		GasCeil:  params.GenesisGasLimit,
 	}
+)
 
-	testUserKey, err := crypto.GenerateKey()
-	if err != nil {
-		return nil, err
+func init() {
+	testTxPoolConfig = core.DefaultTxPoolConfig
+	testTxPoolConfig.Journal = ""
+	ethashChainConfig = params.TestChainConfig
+	tendermintChainConfig = params.AutonityTestChainConfig
+	tendermintChainConfig.AutonityContractConfig = &params.AutonityContractGenesis{
+		Users: []params.User{{
+			Address: &testUserAddress,
+			Enode:   "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
+			Type:    params.UserValidator,
+			Stake:   1,
+		}},
 	}
-
-	t := &testCase{
-		testBankKey:     testBankKey,
-		testBankAddress: crypto.PubkeyToAddress(testBankKey.PublicKey),
-		testBankFunds:   big.NewInt(1000000000000000000),
-
-		testUserKey:     testUserKey,
-		testUserAddress: crypto.PubkeyToAddress(testUserKey.PublicKey),
-		testUserFunds:   big.NewInt(1000),
-
-		testConfig: &Config{
-			Recommit: time.Second,
-			GasFloor: params.GenesisGasLimit,
-			GasCeil:  params.GenesisGasLimit,
-		},
-	}
-
-	t.testTxPoolConfig = core.DefaultTxPoolConfig
-	t.testTxPoolConfig.Journal = ""
-
-	t.ethashChainConfig = &params.ChainConfig{}
-	*t.ethashChainConfig = *params.TestChainConfig
-
-	tx1, err := types.SignTx(types.NewTransaction(0, t.testUserAddress, t.testUserFunds, params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
-	if err != nil {
-		return nil, err
-	}
-	t.pendingTxs = append(t.pendingTxs, tx1)
-
-	tx2, err := types.SignTx(types.NewTransaction(1, t.testUserAddress, t.testUserFunds, params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
-	if err != nil {
-		return nil, err
-	}
-	t.newTxs = append(t.newTxs, tx2)
-
+	tendermintChainConfig.AutonityContractConfig.Prepare()
+	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
+	pendingTxs = append(pendingTxs, tx1)
+	tx2, _ := types.SignTx(types.NewTransaction(1, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
+	newTxs = append(newTxs, tx2)
 	rand.Seed(time.Now().UnixNano())
-
-	return t, nil
 }
 
 // testWorkerBackend implements worker.Backend interfaces and wraps all information needed during the testing.
@@ -126,29 +104,35 @@ type testWorkerBackend struct {
 	uncleBlock *types.Block
 }
 
-func newTestWorkerBackend(t *testing.T, testCase *testCase, chainConfig *params.ChainConfig, engine consensus.Engine, db ethdb.Database, n int) *testWorkerBackend {
-	gspec := core.Genesis{
-		Config: chainConfig,
-		Alloc: core.GenesisAlloc{
-			testCase.testBankAddress: {Balance: testCase.testBankFunds},
-		},
+func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db ethdb.Database, n int) *testWorkerBackend {
+	var gspec = core.Genesis{
+		Config:     chainConfig,
+		Alloc:      core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
+		Difficulty: big.NewInt(1),
 	}
 
 	switch engine.(type) {
+	case *tendermintBackend.Backend:
+		gspec.Mixhash = types.BFTDigest
 	case *ethash.Ethash:
 	default:
 		t.Fatalf("unexpected consensus engine type: %T", engine)
 	}
-	genesis := gspec.MustCommit(db)
 
-	cacher := core.NewTxSenderCacher()
-	chain, _ := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, cacher)
-	txpool := core.NewTxPool(testCase.testTxPoolConfig, chainConfig, chain, cacher)
+	genesis := gspec.MustCommit(db)
+	senderCacher := &core.TxSenderCacher{}
+	chain, _ := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, senderCacher, nil)
+	txpool := core.NewTxPool(testTxPoolConfig, chainConfig, chain, senderCacher)
+
+	te, ok := engine.(*tendermintBackend.Backend)
+	if ok {
+		te.SetBlockchain(chain)
+	}
 
 	// Generate a small n-block chain and an uncle block for it
 	if n > 0 {
 		blocks, _ := core.GenerateChain(chainConfig, genesis, engine, db, n, func(i int, gen *core.BlockGen) {
-			gen.SetCoinbase(testCase.testBankAddress)
+			gen.SetCoinbase(testBankAddress)
 		})
 		if _, err := chain.InsertChain(blocks); err != nil {
 			t.Fatalf("failed to insert origin chain: %v", err)
@@ -159,7 +143,7 @@ func newTestWorkerBackend(t *testing.T, testCase *testCase, chainConfig *params.
 		parent = chain.GetBlockByHash(chain.CurrentBlock().ParentHash())
 	}
 	blocks, _ := core.GenerateChain(chainConfig, parent, engine, db, 1, func(i int, gen *core.BlockGen) {
-		gen.SetCoinbase(testCase.testUserAddress)
+		gen.SetCoinbase(testUserAddress)
 	})
 
 	return &testWorkerBackend{
@@ -173,38 +157,6 @@ func newTestWorkerBackend(t *testing.T, testCase *testCase, chainConfig *params.
 
 func (b *testWorkerBackend) BlockChain() *core.BlockChain { return b.chain }
 func (b *testWorkerBackend) TxPool() *core.TxPool         { return b.txPool }
-
-func newTestWorker(t *testCase, chainConfig *params.ChainConfig, engine consensus.Engine, backend Backend, h hooks, waitStart bool) *worker {
-	w := newWorker(t.testConfig, chainConfig, engine, backend, new(event.TypeMux), h, true)
-	w.setEtherbase(t.testBankAddress)
-	if waitStart {
-		w.start()
-
-		// Ensure worker has finished initialization
-		timer := time.NewTicker(10 * time.Millisecond)
-		defer timer.Stop()
-		for range timer.C {
-			b := w.pendingBlock()
-			if b != nil && b.NumberU64() >= 1 {
-				break
-			}
-		}
-	}
-	return w
-}
-
-func newTestBackend(t *testing.T, testCase *testCase, chainConfig *params.ChainConfig, engine consensus.Engine, db ethdb.Database, blocks int) *testWorkerBackend {
-	backend := newTestWorkerBackend(t, testCase, chainConfig, engine, db, blocks)
-
-	errs := backend.txPool.AddLocals(testCase.pendingTxs)
-	for _, err := range errs {
-		if err != nil {
-			t.Fatal(errs)
-		}
-	}
-
-	return backend
-}
 
 func (b *testWorkerBackend) newRandomUncle() *types.Block {
 	var parent *types.Block
@@ -222,98 +174,101 @@ func (b *testWorkerBackend) newRandomUncle() *types.Block {
 	return blocks[0]
 }
 
-func (b *testWorkerBackend) newRandomTx(testCase *testCase, creation bool) *types.Transaction {
+func (b *testWorkerBackend) newRandomTx(creation bool) *types.Transaction {
 	var tx *types.Transaction
 	if creation {
-		tx, _ = types.SignTx(types.NewContractCreation(b.txPool.Nonce(testCase.testBankAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), types.HomesteadSigner{}, testCase.testBankKey)
+		tx, _ = types.SignTx(types.NewContractCreation(b.txPool.Nonce(testBankAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), types.HomesteadSigner{}, testBankKey)
 	} else {
-		tx, _ = types.SignTx(types.NewTransaction(b.txPool.Nonce(testCase.testBankAddress), testCase.testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testCase.testBankKey)
+		tx, _ = types.SignTx(types.NewTransaction(b.txPool.Nonce(testBankAddress), testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
 	}
 	return tx
 }
 
-func TestGenerateBlockAndImportEthash(t *testing.T) {
-	testCase, err := getTestCase()
-	if err != nil {
-		t.Error(err)
-	}
-	testGenerateBlockAndImport(t, testCase)
+func newTestWorker(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db ethdb.Database, blocks int) (*worker, *testWorkerBackend) {
+	backend := newTestWorkerBackend(t, chainConfig, engine, db, blocks)
+	backend.txPool.AddLocals(pendingTxs)
+	w := newWorker(testConfig, chainConfig, engine, backend, new(event.TypeMux), nil, false)
+	w.setEtherbase(testBankAddress)
+	return w, backend
 }
 
-func testGenerateBlockAndImport(t *testing.T, testCase *testCase) {
-	var (
-		engine consensus.Engine
-		db     = rawdb.NewMemoryDatabase()
-	)
-	testCase.ethashChainConfig = params.AllEthashProtocolChanges
-	engine = ethash.NewFaker()
+func TestGenerateBlockAndImportEthash(t *testing.T) {
+	testGenerateBlockAndImport(t, false)
+}
 
-	b := newTestBackend(t, testCase, testCase.ethashChainConfig, engine, db, 0)
-	w := newTestWorker(testCase, testCase.ethashChainConfig, engine, b, hooks{}, false)
+func TestGenerateBlockAndImportTendermint(t *testing.T) {
+	testGenerateBlockAndImport(t, true)
+}
+
+func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
+	var (
+		engine      consensus.Engine
+		chainConfig *params.ChainConfig
+		db          = rawdb.NewMemoryDatabase()
+	)
+	if isTendermint {
+		chainConfig = tendermintChainConfig
+		engine = tendermintBackend.New(chainConfig.Tendermint, testUserKey, db, chainConfig, &vm.Config{})
+	} else {
+		chainConfig = params.AllEthashProtocolChanges
+		engine = ethash.NewFaker()
+	}
+
+	w, b := newTestWorker(t, chainConfig, engine, db, 0)
 	defer w.close()
 
+	// This test chain imports the mined blocks.
 	db2 := rawdb.NewMemoryDatabase()
 	b.genesis.MustCommit(db2)
-	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, core.NewTxSenderCacher())
+	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
 	defer chain.Stop()
 
-	loopErr := make(chan error)
-	newBlock := make(chan struct{})
-	listenNewBlock := func() {
-		sub := w.mux.Subscribe(core.NewMinedBlockEvent{})
-		defer sub.Unsubscribe()
-
-		for item := range sub.Chan() {
-			block := item.Data.(core.NewMinedBlockEvent).Block
-			_, err := chain.InsertChain([]*types.Block{block})
-			if err != nil {
-				loopErr <- fmt.Errorf("failed to insert new mined block:%d, error:%v", block.NumberU64(), err)
-			}
-			newBlock <- struct{}{}
-		}
-	}
-	// Ignore empty commit here for less noise
+	// Ignore empty commit here for less noise.
 	w.skipSealHook = func(task *task) bool {
 		return len(task.receipts) == 0
 	}
 
-	w.start() // Start mining!
+	// Wait for mined blocks.
+	sub := w.mux.Subscribe(core.NewMinedBlockEvent{})
+	defer sub.Unsubscribe()
 
-	go listenNewBlock()
+	// Start mining!
+	w.start()
 
 	for i := 0; i < 5; i++ {
-		if err := b.txPool.AddLocal(b.newRandomTx(testCase, true)); err != nil {
-			t.Fatal(err)
+		b.txPool.AddLocal(b.newRandomTx(true))
+		b.txPool.AddLocal(b.newRandomTx(false))
+		if !isTendermint {
+			// Don't create fake uncles as it is in theory an impossible scenario.
+			// We're only testing here the import functionality.
+			w.postSideBlock(core.ChainSideEvent{Block: b.newRandomUncle()})
+			w.postSideBlock(core.ChainSideEvent{Block: b.newRandomUncle()})
 		}
-		if err := b.txPool.AddLocal(b.newRandomTx(testCase, false)); err != nil {
-			t.Fatal(err)
-		}
-
-		w.postSideBlock(core.ChainSideEvent{Block: b.newRandomUncle()})
-		w.postSideBlock(core.ChainSideEvent{Block: b.newRandomUncle()})
-
 		select {
-		case e := <-loopErr:
-			t.Fatal(e)
-		case <-newBlock:
-		case <-time.NewTimer(3 * time.Second).C: // Worker needs 1s to include new changes.
+		case ev := <-sub.Chan():
+			block := ev.Data.(core.NewMinedBlockEvent).Block
+			if _, err := chain.InsertChain([]*types.Block{block}); err != nil {
+				t.Fatalf("failed to insert new mined block %d: %v", block.NumberU64(), err)
+			}
+		case <-time.After(3 * time.Second): // Worker needs 1s to include new changes.
 			t.Fatalf("timeout")
 		}
 	}
 }
 
 func TestEmptyWorkEthash(t *testing.T) {
-	testCase, err := getTestCase()
-	if err != nil {
-		t.Error(err)
-	}
-	testEmptyWork(t, testCase, testCase.ethashChainConfig, ethash.NewFaker())
+	testEmptyWork(t, ethashChainConfig, ethash.NewFaker(), false)
+}
+func TestEmptyWorkTendermint(t *testing.T) {
+	testEmptyWork(t, tendermintChainConfig, tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)), true)
 }
 
-func testEmptyWork(t *testing.T, testCase *testCase, chainConfig *params.ChainConfig, engine consensus.Engine) {
+func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
 	defer engine.Close()
 
-	backend := newTestBackend(t, testCase, chainConfig, engine, rawdb.NewMemoryDatabase(), 0)
+	w, _ := newTestWorker(t, chainConfig, engine, rawdb.NewMemoryDatabase(), 0)
+	defer w.close()
+
 	var (
 		taskIndex int
 		taskCh    = make(chan struct{}, 2)
@@ -325,34 +280,41 @@ func testEmptyWork(t *testing.T, testCase *testCase, chainConfig *params.ChainCo
 			// The second full work with 1 tx included
 			receiptLen, balance = 1, big.NewInt(1000)
 		}
+		if isTendermint {
+			// With tendermint there is no immediate empty block creation after a newchainhead event.
+			// The first mined block receipts will then cointain both the transaction receipt and the autonity contract
+			// finalize function receipt.
+			receiptLen, balance = 2, big.NewInt(1000)
+			if index == 1 {
+				receiptLen, balance = 1, big.NewInt(1000)
+			}
+		}
 		if len(task.receipts) != receiptLen {
 			t.Fatalf("receipt number mismatch: have %d, want %d", len(task.receipts), receiptLen)
 		}
-		if task.state.GetBalance(testCase.testUserAddress).Cmp(balance) != 0 {
-			t.Fatalf("account balance mismatch: have %d, want %d", task.state.GetBalance(testCase.testUserAddress), balance)
+		if task.state.GetBalance(testUserAddress).Cmp(balance) != 0 {
+			t.Fatalf("account balance mismatch: have %d, want %d", task.state.GetBalance(testUserAddress), balance)
 		}
 	}
-
-	h := hooks{
-		newTaskHook: func(task *task) {
-			if task.block.NumberU64() == 1 {
-				checkEqual(t, task, taskIndex)
-				taskIndex++
-				taskCh <- struct{}{}
-			}
-		},
-		skipSealHook: func(task *task) bool { return true },
-		fullTaskHook: func() {
-			// Arch64 unit tests are running in a VM on travis, they must
-			// be given more time to execute.
-			time.Sleep(time.Second)
-		},
+	w.newTaskHook = func(task *task) {
+		if task.block.NumberU64() == 1 {
+			checkEqual(t, task, taskIndex)
+			taskIndex += 1
+			taskCh <- struct{}{}
+		}
+		if isTendermint {
+			taskIndex += 1
+			taskCh <- struct{}{}
+		}
 	}
-
-	w := newTestWorker(testCase, chainConfig, engine, backend, h, true)
-	defer w.close()
-
-	for i := 0; i < 2; i++ {
+	w.skipSealHook = func(task *task) bool { return true }
+	w.fullTaskHook = func() {
+		// Arch64 unit tests are running in a VM on travis, they must
+		// be given more time to execute.
+		time.Sleep(time.Second)
+	}
+	w.start() // Start mining!
+	for i := 0; i < 2; i += 1 {
 		select {
 		case <-taskCh:
 		case <-time.NewTimer(3 * time.Second).C:
@@ -365,17 +327,13 @@ func TestStreamUncleBlock(t *testing.T) {
 	ethash := ethash.NewFaker()
 	defer ethash.Close()
 
-	testCase, err := getTestCase()
-	if err != nil {
-		t.Error(err)
-	}
-
-	b := newTestBackend(t, testCase, testCase.ethashChainConfig, ethash, rawdb.NewMemoryDatabase(), 1)
+	w, b := newTestWorker(t, ethashChainConfig, ethash, rawdb.NewMemoryDatabase(), 1)
+	defer w.close()
 
 	var taskCh = make(chan struct{})
-	var h hooks
+
 	taskIndex := 0
-	h.newTaskHook = func(task *task) {
+	w.newTaskHook = func(task *task) {
 		if task.block.NumberU64() == 2 {
 			// The first task is an empty task, the second
 			// one has 1 pending tx, the third one has 1 tx
@@ -388,20 +346,18 @@ func TestStreamUncleBlock(t *testing.T) {
 				}
 			}
 			taskCh <- struct{}{}
-			taskIndex++
+			taskIndex += 1
 		}
 	}
-	h.skipSealHook = func(task *task) bool {
+	w.skipSealHook = func(task *task) bool {
 		return true
 	}
-	h.fullTaskHook = func() {
+	w.fullTaskHook = func() {
 		time.Sleep(100 * time.Millisecond)
 	}
+	w.start()
 
-	w := newTestWorker(testCase, testCase.ethashChainConfig, ethash, b, h, true)
-	defer w.close()
-
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 2; i += 1 {
 		select {
 		case <-taskCh:
 		case <-time.NewTimer(time.Second).C:
@@ -419,58 +375,65 @@ func TestStreamUncleBlock(t *testing.T) {
 }
 
 func TestRegenerateMiningBlockEthash(t *testing.T) {
-	testCase, err := getTestCase()
-	if err != nil {
-		t.Error(err)
-	}
-	testRegenerateMiningBlock(t, testCase, testCase.ethashChainConfig, ethash.NewFaker())
+	testRegenerateMiningBlock(t, ethashChainConfig, ethash.NewFaker(), false)
 }
 
-func testRegenerateMiningBlock(t *testing.T, testCase *testCase, chainConfig *params.ChainConfig, engine consensus.Engine) {
+func TestRegenerateMiningBlockTendermint(t *testing.T) {
+	testRegenerateMiningBlock(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)), true)
+}
+
+func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
 	defer engine.Close()
 
-	b := newTestBackend(t, testCase, chainConfig, engine, rawdb.NewMemoryDatabase(), 0)
+	w, b := newTestWorker(t, chainConfig, engine, rawdb.NewMemoryDatabase(), 0)
+	defer w.close()
 
 	var taskCh = make(chan struct{})
-	var h hooks
 
 	taskIndex := 0
-	h.newTaskHook = func(task *task) {
+	w.newTaskHook = func(task *task) {
 		if task.block.NumberU64() == 1 {
 			// The first task is an empty task, the second
 			// one has 1 pending tx, the third one has 2 txs
-			if taskIndex == 2 {
+			// For Tendermint, we don't have the first empty task.
+			if (taskIndex == 2 && !isTendermint) || (isTendermint && taskIndex == 1) {
 				receiptLen, balance := 2, big.NewInt(2000)
+				if isTendermint {
+					receiptLen += 1 // Autonity Contract Finalize additional receipt
+				}
 				if len(task.receipts) != receiptLen {
 					t.Errorf("receipt number mismatch: have %d, want %d", len(task.receipts), receiptLen)
 				}
-				if task.state.GetBalance(testCase.testUserAddress).Cmp(balance) != 0 {
-					t.Errorf("account balance mismatch: have %d, want %d", task.state.GetBalance(testCase.testUserAddress), balance)
+				if task.state.GetBalance(testUserAddress).Cmp(balance) != 0 {
+					t.Errorf("account balance mismatch: have %d, want %d", task.state.GetBalance(testUserAddress), balance)
 				}
 			}
 			taskCh <- struct{}{}
-			taskIndex++
+			taskIndex += 1
 		}
 	}
-	h.skipSealHook = func(task *task) bool {
+	w.skipSealHook = func(task *task) bool {
 		return true
 	}
-	h.fullTaskHook = func() {
+	w.fullTaskHook = func() {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	w := newTestWorker(testCase, chainConfig, engine, b, h, true)
-	defer w.close()
-
-	// Ignore the first two works
-	for i := 0; i < 2; i++ {
+	w.start()
+	// Ignore the first two works in case of pow
+	// Ignore the first one for Tendermint
+	maxSkippedCases := 2
+	if isTendermint {
+		maxSkippedCases = 1
+	}
+	for i := 0; i < maxSkippedCases; i += 1 {
 		select {
 		case <-taskCh:
 		case <-time.NewTimer(time.Second).C:
-			t.Error("new task timeout on first 2 works")
+			t.Error("new task timeout")
 		}
 	}
-	b.txPool.AddLocals(testCase.newTxs)
+	b.txPool.AddLocals(newTxs)
 	time.Sleep(time.Second)
 
 	select {
@@ -481,23 +444,23 @@ func testRegenerateMiningBlock(t *testing.T, testCase *testCase, chainConfig *pa
 }
 
 func TestAdjustIntervalEthash(t *testing.T) {
-	testCase, err := getTestCase()
-	if err != nil {
-		t.Error(err)
-	}
-	testAdjustInterval(t, testCase, testCase.ethashChainConfig, ethash.NewFaker())
+	testAdjustInterval(t, ethashChainConfig, ethash.NewFaker())
 }
 
-func testAdjustInterval(t *testing.T, testCase *testCase, chainConfig *params.ChainConfig, engine consensus.Engine) {
+func TestAdjustIntervalClique(t *testing.T) {
+	testAdjustInterval(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)))
+}
+
+func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
 	defer engine.Close()
 
-	backend := newTestBackend(t, testCase, chainConfig, engine, rawdb.NewMemoryDatabase(), 0)
+	w, _ := newTestWorker(t, chainConfig, engine, rawdb.NewMemoryDatabase(), 0)
+	defer w.close()
 
-	var h hooks
-	h.skipSealHook = func(task *task) bool {
+	w.skipSealHook = func(task *task) bool {
 		return true
 	}
-	h.fullTaskHook = func() {
+	w.fullTaskHook = func() {
 		time.Sleep(100 * time.Millisecond)
 	}
 	var (
@@ -506,7 +469,7 @@ func testAdjustInterval(t *testing.T, testCase *testCase, chainConfig *params.Ch
 		index    = 0
 		start    uint32
 	)
-	h.resubmitHook = func(minInterval time.Duration, recommitInterval time.Duration) {
+	w.resubmitHook = func(minInterval time.Duration, recommitInterval time.Duration) {
 		// Short circuit if interval checking hasn't started.
 		if atomic.LoadUint32(&start) == 0 {
 			return
@@ -537,12 +500,10 @@ func testAdjustInterval(t *testing.T, testCase *testCase, chainConfig *params.Ch
 			t.Errorf("resubmit interval mismatch: have %v, want %v", recommitInterval, wantRecommitInterval)
 		}
 		result = append(result, float64(recommitInterval.Nanoseconds()))
-		index++
+		index += 1
 		progress <- struct{}{}
 	}
-
-	w := newTestWorker(testCase, chainConfig, engine, backend, h, true)
-	defer w.close()
+	w.start()
 
 	time.Sleep(time.Second) // Ensure two tasks have been summitted due to start opt
 	atomic.StoreUint32(&start, 1)

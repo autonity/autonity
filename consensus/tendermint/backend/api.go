@@ -19,24 +19,29 @@ package backend
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
 )
 
 // API is a user facing RPC API to dump BFT state
 type API struct {
-	chain      consensus.ChainReader
-	tendermint core.Backend //TODO: This is only for testing purposes, should be changed to *Backend but that would mean to fix the api tests (https://github.com/clearmatics/autonity/issues/479)
+	chain        consensus.ChainReader
+	tendermint   *Backend
+	getCommittee func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
 }
 
 // GetCommittee retrieves the list of authorized committee at the specified block.
 func (api *API) GetCommittee(number *rpc.BlockNumber) (types.Committee, error) {
-	committeeSet, err := api.tendermint.Committee(uint64(*number))
+	header := api.chain.GetHeaderByNumber(uint64(*number))
+	if header == nil {
+		return nil, errUnknownBlock
+	}
+	committee, err := api.getCommittee(header, api.chain)
 	if err != nil {
 		return nil, err
 	}
-	return committeeSet.Committee(), nil
+	return committee, nil
 }
 
 // GetCommitteeAtHash retrieves the state snapshot at a given block.
@@ -45,16 +50,16 @@ func (api *API) GetCommitteeAtHash(hash common.Hash) (types.Committee, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	committeeSet, err := api.tendermint.Committee(header.Number.Uint64())
+	committee, err := api.getCommittee(header, api.chain)
 	if err != nil {
 		return nil, err
 	}
-	return committeeSet.Committee(), nil
+	return committee, nil
 }
 
 // Get Autonity contract address
 func (api *API) GetContractAddress() common.Address {
-	return api.tendermint.GetContractAddress()
+	return autonity.ContractAddress
 }
 
 // Get Autonity contract ABI

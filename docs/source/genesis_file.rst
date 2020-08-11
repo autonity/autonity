@@ -142,38 +142,6 @@ please note that comments are not permitted in valid JSON_.
 
        "autonityContract": {
 
-         // deployer is a special address used as a mechanism to restrict certain
-         // function calls in the Autonity contract to be called only by the
-         // autonity client. The Autonity contract only accepts calls to the
-         // restricted functions if they come from the deployer address.
-         // Internally the client executes these functions by calling the EVM
-         // directly, bypassing any code that processes transactions and verifies
-         // transaction signatures, when it makes these calls it uses the deployer
-         // address as the sender address. It is important that no participants
-         // know the private key belonging to the deployer address, there is
-         // future work to ensure that participants cannot use the deployer
-         // address. The gengen tool randomly genereates the deployer address.
-
-         "deployer": "0x0000000000000000000000000000000000000000",
-
-         // The bytecode of the Autonity contract, if left unset the Autonity
-         // client will use the embedded contract bytecode. It is advisable to
-         // leave this blank since the embedded contract bytecode should be in
-         // sync with the Autonity client code. The gengen tool leaves this blank.
-         // If this is set then the abi field should be set with an ABI generated
-         // from the same contract source.
-
-         "bytecode": "",
-
-         // The ABI (Application Binary Interface) of the Autonity contract, if
-         // left unset the Autonity client will use the embedded contract ABI. It
-         // is advisable to leave this blank since the embedded contract ABI
-         // should be in sync with the Autonity client code. The gengen tool
-         // leaves this blank. If this is set then the bytecode field should be
-         // set with bytecode generated from the same contract source.
-
-         "abi": "",
-
          // minGasPrice sets the minimum gas price for submitting transactions to
          // the network. Transactions submitted with a gas price lower than this
          // will be ignored. This is what will determine the minimum cost for
