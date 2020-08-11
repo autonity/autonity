@@ -95,43 +95,6 @@ jobs:
           file: coverage_tendermint.out
           yml: codecov.yml
 
-  tests-conformance:
-    needs: bootstrap
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Cache code
-        uses: actions/cache@v1
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
-
-      - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
-
-      - name: Cache testdata
-        uses: actions/cache@v1
-        id: cache-autonity-test-data
-        with:
-          path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-autonity-testdata-${{ hashFiles('.git/modules/tests/HEAD') }}
-
-      - name: get conformance tests
-        if: steps.cache-git-modules.outputs.cache-hit != 'true'
-        run: git submodule update --init --recursive
-
-      - name: unit tests
-        run: go test -timeout 30m ./tests/...
-
   linters:
     needs: bootstrap
     runs-on: ubuntu-latest
