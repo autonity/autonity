@@ -22,7 +22,7 @@ jobs:
           key: ${{ runner.os }}-autonity-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Fetch all modules
-        if:  steps.cache-autonity-modules.outputs.cache-hit != 'true'
+        #if:  steps.cache-autonity-modules.outputs.cache-hit != 'true'
         run: go mod download
 
       - name: Build
