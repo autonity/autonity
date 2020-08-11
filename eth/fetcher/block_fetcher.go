@@ -20,6 +20,7 @@ package fetcher
 import (
 	"errors"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -139,6 +140,8 @@ type BlockFetcher struct {
 
 	done chan common.Hash
 	quit chan struct{}
+	// Used to wait till all goroutines have finished
+	wg sync.WaitGroup
 
 	// Announce states
 	announces  map[string]int                   // Per peer blockAnnounce counts to prevent memory exhaustion
@@ -197,13 +200,18 @@ func NewBlockFetcher(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, b
 // Start boots up the announcement based synchroniser, accepting and processing
 // hash notifications and block fetches until termination requested.
 func (f *BlockFetcher) Start() {
-	go f.loop()
+	f.wg.Add(1)
+	go func() {
+		defer f.wg.Done()
+		f.loop()
+	}()
 }
 
 // Stop terminates the announcement based synchroniser, canceling all pending
 // operations.
 func (f *BlockFetcher) Stop() {
 	close(f.quit)
+	f.wg.Wait()
 }
 
 // Notify announces the fetcher of the potential availability of a new block in
@@ -409,7 +417,9 @@ func (f *BlockFetcher) loop() {
 
 				// Create a closure of the fetch and schedule in on a new thread
 				fetchHeader, hashes := f.fetching[hashes[0]].fetchHeader, hashes
+				f.wg.Add(1)
 				go func() {
+					defer f.wg.Done()
 					if f.fetchingHook != nil {
 						f.fetchingHook(hashes)
 					}
@@ -446,7 +456,11 @@ func (f *BlockFetcher) loop() {
 					f.completingHook(hashes)
 				}
 				bodyFetchMeter.Mark(int64(len(hashes)))
-				go f.completing[hashes[0]].fetchBodies(hashes)
+				f.wg.Add(1)
+				go func(hashes []common.Hash) {
+					defer f.wg.Done()
+					f.completing[hashes[0]].fetchBodies(hashes) //nolint
+				}(hashes)
 			}
 			// Schedule the next fetch if blocks are still pending
 			f.rescheduleComplete(completeTimer)
@@ -664,7 +678,9 @@ func (f *BlockFetcher) insert(peer string, block *types.Block) {
 
 	// Run the import on a new thread
 	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
+	f.wg.Add(1)
 	go func() {
+		defer f.wg.Done()
 		defer func() {
 			select {
 			case <-f.quit:
@@ -683,7 +699,11 @@ func (f *BlockFetcher) insert(peer string, block *types.Block) {
 		case nil:
 			// All ok, quickly propagate to our peers
 			blockBroadcastOutTimer.UpdateSince(block.ReceivedAt)
-			go f.broadcastBlock(block, true)
+			f.wg.Add(1)
+			go func() {
+				defer f.wg.Done()
+				f.broadcastBlock(block, true)
+			}()
 
 		case consensus.ErrFutureBlock:
 			// Weird future block, don't fail, but neither propagate
@@ -701,7 +721,11 @@ func (f *BlockFetcher) insert(peer string, block *types.Block) {
 		}
 		// If import succeeded, broadcast the block
 		blockAnnounceOutTimer.UpdateSince(block.ReceivedAt)
-		go f.broadcastBlock(block, false)
+		f.wg.Add(1)
+		go func() {
+			defer f.wg.Done()
+			f.broadcastBlock(block, false)
+		}()
 
 		// Invoke the testing hook if needed
 		if f.importedHook != nil {
