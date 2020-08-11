@@ -98,6 +98,16 @@ func (miner *Miner) update() {
 			}
 			switch ev.Data.(type) {
 			case downloader.StartEvent:
+				// When syncing begins we pause the miner and set a flag to
+				// ensure calls to Start do not start the miner before sync is
+				// finished.
+
+				// We need to lock over setting canStart, checking Mining and
+				// the call to stop, to prevent the race condition where a
+				// prior concurrent call to Start which has passed all its
+				// checks then calls start after stop is called here. Resulting
+				// in the miner starting immediately after this call to stop
+				// whilst canstart is set to false.
 				miner.startStopMutex.Lock()
 				miner.canStart = false
 				if miner.Mining() {
@@ -106,6 +116,15 @@ func (miner *Miner) update() {
 				}
 				miner.startStopMutex.Unlock()
 			case downloader.DoneEvent, downloader.FailedEvent:
+				// When syncing completes, we start the miner if it is expected
+				// to start, we also unset the flag preventing calls to Start
+				// from starting the miner.
+
+				// We need to lock over both the check on shouldStart and the
+				// call to start, to prevent the race condition where a
+				// concurrent call to Stop occurs between the check of
+				// shouldStart and the call to start resulting in the miner
+				// being started after Stop has been called.
 				miner.startStopMutex.Lock()
 				miner.canStart = true
 				if miner.shouldStart {
@@ -121,6 +140,8 @@ func (miner *Miner) update() {
 	}
 }
 
+// Start starts the miner mining, unless it has been paused by the downloader
+// during sync, in which case it will start mining once the sync has completed.
 func (miner *Miner) Start(coinbase common.Address) {
 	miner.startStopMutex.Lock()
 	defer miner.startStopMutex.Unlock()
@@ -130,14 +151,16 @@ func (miner *Miner) Start(coinbase common.Address) {
 		return
 	}
 	miner.start(coinbase)
-
 }
 
+// start performs the action of starting without managing mutexes or state
+// flags.
 func (miner *Miner) start(coinbase common.Address) {
 	miner.SetEtherbase(coinbase)
 	miner.worker.start()
 }
 
+// Stop stops the miner from mining.
 func (miner *Miner) Stop() {
 	miner.startStopMutex.Lock()
 	defer miner.startStopMutex.Unlock()
@@ -145,10 +168,13 @@ func (miner *Miner) Stop() {
 	miner.stop()
 }
 
+// stop performs the action of stopping without managing mutexes or state
+// flags.
 func (miner *Miner) stop() {
 	miner.worker.stop()
 }
 
+// Close stops the miner and releases any resources associated with it.
 func (miner *Miner) Close() {
 	miner.Stop()
 	miner.worker.close()
