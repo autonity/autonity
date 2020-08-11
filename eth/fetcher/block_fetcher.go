@@ -456,10 +456,11 @@ func (f *BlockFetcher) loop() {
 					f.completingHook(hashes)
 				}
 				bodyFetchMeter.Mark(int64(len(hashes)))
+				announce := f.completing[hashes[0]]
 				f.wg.Add(1)
 				go func(hashes []common.Hash) {
 					defer f.wg.Done()
-					f.completing[hashes[0]].fetchBodies(hashes) //nolint
+					announce.fetchBodies(hashes) //nolint
 				}(hashes)
 			}
 			// Schedule the next fetch if blocks are still pending
