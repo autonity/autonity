@@ -23,7 +23,11 @@ jobs:
 
       - name: Fetch all modules
         #if:  steps.cache-autonity-modules.outputs.cache-hit != 'true'
-        run: go mod download
+        run: go mod download -x
+
+      - name: show git
+        #if:  steps.cache-autonity-modules.outputs.cache-hit != 'true'
+        run: git status
 
       - name: Build
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
