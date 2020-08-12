@@ -4,6 +4,9 @@ jobs:
   bootstrap:
     runs-on: ubuntu-latest
     steps:
+      - name: Print go version
+        run: go version
+
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
@@ -37,6 +40,9 @@ jobs:
         uses: actions/setup-go@v1
         with:
          go-version: 1.13
+
+      - name: Print go version
+        run: go version
 
       - name: Cache code
         uses: actions/cache@v1
