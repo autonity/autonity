@@ -182,6 +182,12 @@ jobs:
     name: Tendermint ${{ matrix.e2e }} test
 
     steps:
+
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+         go-version: 1.14.7
+
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
 
