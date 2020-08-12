@@ -16,17 +16,17 @@ jobs:
 
       - name: Cache modules
         uses: actions/cache@v1
-        id: cache-autonity-modules
+        id: cache-autonity-go-modules
         with:
           path: /home/runner/go/pkg
-          key: ${{ runner.os }}-autonity-modules-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Fetch all modules
-        #if:  steps.cache-autonity-modules.outputs.cache-hit != 'true'
+        #if:  steps.cache-autonity-go-modules.outputs.cache-hit != 'true'
         run: go mod download -x
 
       - name: show git
-        #if:  steps.cache-autonity-modules.outputs.cache-hit != 'true'
+        #if:  steps.cache-autonity-go-modules.outputs.cache-hit != 'true'
         run: git status
 
       - name: Build
@@ -80,7 +80,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /home/runner/go/pkg
-          key: ${{ runner.os }}-autonity-modules-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: unit tests
         run: go test -timeout 30m -short $(go list ./... | grep -v /consensus/tendermint)
@@ -113,7 +113,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /home/runner/go/pkg
-          key: ${{ runner.os }}-autonity-modules-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: tendermint_tests
         run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
@@ -152,7 +152,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /home/runner/go/pkg
-          key: ${{ runner.os }}-autonity-modules-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Linters
         run: |
@@ -230,7 +230,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /home/runner/go/pkg
-          key: ${{ runner.os }}-autonity-modules-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Test
         run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
@@ -265,7 +265,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /home/runner/go/pkg
-          key: ${{ runner.os }}-autonity-modules-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: unit
         run: go test -race -v ./consensus/tendermint/... -timeout 30m
