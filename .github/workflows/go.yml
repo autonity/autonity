@@ -212,12 +212,6 @@ jobs:
     name: Tendermint ${{ matrix.e2e }} test
 
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
@@ -240,9 +234,6 @@ jobs:
 
       - name: Test
         run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
-
-      - name: Show go
-        run: find $HOME/go
 
   race_tests:
     needs: bootstrap
