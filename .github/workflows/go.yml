@@ -22,46 +22,17 @@ jobs:
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Fetch all modules
-        #if:  steps.cache-autonity-go-modules.outputs.cache-hit != 'true'
+        if:  steps.cache-autonity-go-modules.outputs.cache-hit != 'true'
         run: go mod download -x
-
-      - name: show git
-        #if:  steps.cache-autonity-go-modules.outputs.cache-hit != 'true'
-        run: git status
 
       - name: Build
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make autonity
 
-  print-gopath:
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Print gopath
-        run: echo GOPATH $GOPATH HOME $HOME
-
-      - name: Tree home
-        run: ls $HOME
-
-      - name: Print env
-        run: echo ${{ env }}
-
   tests:
     needs: bootstrap
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
@@ -89,12 +60,6 @@ jobs:
     needs: bootstrap
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
@@ -128,12 +93,6 @@ jobs:
     needs: bootstrap
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
@@ -212,13 +171,6 @@ jobs:
     name: Tendermint ${{ matrix.e2e }} test
 
     steps:
-      - name: Cache code
-        uses: actions/cache@v1
-        id: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
-
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
 
@@ -241,12 +193,6 @@ jobs:
     env:
       GORACE: "history_size=7"
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
