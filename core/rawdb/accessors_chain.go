@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -241,7 +242,7 @@ func ReadTxIndexTail(db ethdb.KeyValueReader) *uint64 {
 // into database.
 func WriteTxIndexTail(db ethdb.KeyValueWriter, number uint64) {
 	if err := db.Put(txIndexTailKey, encodeBlockNumber(number)); err != nil {
-		log.Crit("Failed to store the transaction index tail", "err", err)
+		panic(fmt.Sprintf("Failed to store the transaction index: %v", err))
 	}
 }
 
