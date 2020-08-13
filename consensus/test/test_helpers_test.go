@@ -334,6 +334,7 @@ func hookStopNode(nodeIndex string, blockNum uint64) hook {
 			println("stopping node", nodeIndex)
 			err := validator.stopNode()
 			if err != nil {
+				println("failed to stop node", nodeIndex, err.Error())
 				return err
 			}
 
@@ -568,6 +569,7 @@ wgLoop:
 			}
 		case innerErr := <-peer.subscription.Err():
 			if innerErr != nil {
+				println("subscription stopped with error", index, innerErr.Error())
 				return fmt.Errorf("error in blockchain %q", innerErr)
 			}
 
