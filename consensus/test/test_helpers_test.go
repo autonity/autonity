@@ -331,6 +331,7 @@ func runHook(validatorHook hook, test *testCase, block *types.Block, validator *
 func hookStopNode(nodeIndex string, blockNum uint64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		if block.Number().Uint64() == blockNum {
+			println("stopping node", nodeIndex)
 			err := validator.stopNode()
 			if err != nil {
 				return err
@@ -360,6 +361,7 @@ func hookStartNode(nodeIndex string, durationAfterStop float64) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		stopTime := tCase.getStopTime(nodeIndex)
 		if block == nil && currentTime.Sub(stopTime).Seconds() >= durationAfterStop {
+			println("starting node", nodeIndex)
 			if err := validator.startNode(); err != nil {
 				return err
 			}
@@ -571,6 +573,7 @@ wgLoop:
 
 			time.Sleep(500 * time.Millisecond)
 
+			println("subscription ended", index)
 			// after hook
 			err = runHook(test.getAfterHook(index), test, nil, peer, index)
 			if err != nil {
