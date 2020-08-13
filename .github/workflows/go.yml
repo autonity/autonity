@@ -65,7 +65,7 @@ jobs:
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: unit tests
-        run: go test -timeout 30m -short $(go list ./... | grep -v /consensus/tendermint)
+        run: go test -timeout 20m -short $(go list ./... | grep -v /consensus/tendermint)
 
   tests-tendermint:
     needs: bootstrap
@@ -92,7 +92,7 @@ jobs:
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: tendermint_tests
-        run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
+        run: go test -v ./consensus/tendermint/... -timeout 5m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
 
       - uses: codecov/codecov-action@v1
         with:
@@ -202,7 +202,7 @@ jobs:
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Test
-        run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
+        run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 10m
 
   race_tests:
     needs: bootstrap
@@ -231,7 +231,7 @@ jobs:
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: unit
-        run: go test -race -v ./consensus/tendermint/... -timeout 30m
+        run: go test -race -v ./consensus/tendermint/... -timeout 5m
 
   contract_tests:
     runs-on: ubuntu-latest
