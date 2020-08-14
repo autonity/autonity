@@ -32,7 +32,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
+	"github.com/clearmatics/autonity_cookiejar/collections/prque"
 )
 
 var (

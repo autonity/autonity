@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity_cookiejar/collections/prque"
 	"github.com/golang/mock/gomock"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
