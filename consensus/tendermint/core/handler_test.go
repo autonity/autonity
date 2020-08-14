@@ -13,8 +13,8 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
+	"github.com/clearmatics/autonity_cookiejar/collections/prque"
 	"github.com/golang/mock/gomock"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
