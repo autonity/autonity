@@ -40,6 +40,10 @@ jobs:
       GORACE: "history_size=7"
     strategy:
       matrix:
+        # Here we set up a matrix to control our tests, we use go list and
+        # negative grep to get most of the test packages for the main tests
+        # excluding packages of particular interest. The excluded package are
+        # those that are slow to test, our e2e tests and tendermint core.
         tests: [[Main tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test")],
                 [Slow tests, ./les/... ./p2p/... ./eth/...],
                 [Tendermint core tests, ./consensus/tendermint/... -timeout 5m -race],
