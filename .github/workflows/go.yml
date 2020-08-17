@@ -35,6 +35,17 @@ jobs:
   tests:
     needs: bootstrap
     runs-on: ubuntu-latest
+    env:
+      # helps prevent '[failed to restore the stack]' messages when race detected.
+      GORACE: "history_size=7"
+    strategy:
+      matrix:
+        tests: [$(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test"),
+                ./les/... ./p2p/... ./eth/...,
+                ./consensus/test/...,
+                ./consensus/tendermint/... -timeout 5m -race,
+            ]
+
     steps:
       - name: Cache code
         uses: actions/cache@v1
@@ -57,9 +68,9 @@ jobs:
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: unit tests
-        run: go test -timeout 20m -short $(go list ./... | grep -v /consensus/tendermint)
+        run: go test ${{ matrix.tests }}
 
-  tests-tendermint:
+  tendermint-coverage:
     needs: bootstrap
     runs-on: ubuntu-latest
     steps:
@@ -83,8 +94,8 @@ jobs:
           path: /home/runner/go/pkg
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: tendermint_tests
-        run: go test -v ./consensus/tendermint/... -timeout 5m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
+      - name: Run coverage
+        run: go test ./consensus/tendermint/... -timeout 5m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
 
       - uses: codecov/codecov-action@v1
         with:
@@ -121,104 +132,6 @@ jobs:
           git fetch -fu --no-tags --depth=2 origin develop:develop
           make lint-ci
         shell: bash
-
-  tendermint_e2e_tests:
-    needs: bootstrap
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        e2e: [TestCheckFeeRedirectionAndRedistribution,
-              TestCheckBlockWithSmallFee,
-              TestRemoveFromValidatorsList,
-              TestContractUpgrade_Success,
-              TestContractUpgradeSeveralUpgrades,
-              TestContractUpgradeSeveralUpgradesOnBusTopology,
-              TestContractUpgradeSeveralUpgradesOnStarTopology,
-              TestTendermintSuccess,
-              TestTendermintSlowConnections,
-              TestTendermintMemoryLeak,
-              TestTendermintLongRun,
-              TestTendermintOneMalicious,
-              TestTendermintNoQuorum,
-              TestTendermintStopUpToFNodes,
-              TestTendermintStartStopSingleNode,
-              TestTendermintStartStopFNodes,
-              TestTendermintStartStopFPlusOneNodes,
-              TestTendermintStartStopFPlusTwoNodes,
-              TestTendermintStartStopAllNodes,
-              TestResolve,
-              TestTendermintStarSuccess,
-              TestTendermintStarOverParticipantSuccess,
-              TestTendermintBusSuccess,
-              TestTendermintChangeTopologyFromBusToStarSuccess,
-              TestTendermintChangeTopologyFromStarToBusSuccess,
-              TestTendermintAddConnectionToTopologySuccess,
-              TestTendermintAddValidatorsToTopologySuccess,
-              TestTendermintAddParticipantsToTopologySuccess,
-              TestTendermintAddStakeholdersToTopologySuccess,
-              TestTendermintExternalUser,
-              TestTendermintStarOverParticipantSuccessWithExternalUser,
-              TestTendermintBusSuccessWithExternalUser,
-              TestTendermintChangeTopologyFromBusToStarSuccessWithExternalUser,
-              TestTendermintChangeTopologyFromStarToBusSuccessWithExternalUser,
-              TestTendermintAddConnectionToTopologySuccessWithExternalUser,
-              TestTendermintAddValidatorsToTopologySuccessWithExternalUser,
-              TestTendermintAddParticipantsToTopologySuccessWithExternalUser,
-              TestTendermintAddStakeholdersToTopologySuccessWithExternalUser,
-              TestTendermintMajorityExternalUsers,
-              TestTendermintMajorityExternalUsersFullyConnected,
-              TestAddStakeholderWithCorruptedEnodeToList,
-              TestAddIncorrectStakeholdersToList
-        ]
-
-    name: Tendermint ${{ matrix.e2e }} test
-
-    steps:
-
-      - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
-
-      - name: Cache modules
-        uses: actions/cache@v1
-        with:
-          path: /home/runner/go/pkg
-          key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Test
-        run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 10m
-
-  race_tests:
-    needs: bootstrap
-    runs-on: ubuntu-latest
-    env:
-      GORACE: "history_size=7"
-    steps:
-      - name: Cache code
-        uses: actions/cache@v1
-        id: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
-
-      - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
-
-      - name: Cache modules
-        uses: actions/cache@v1
-        with:
-          path: /home/runner/go/pkg
-          key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: unit
-        run: go test -race -v ./consensus/tendermint/... -timeout 5m
 
   contract_tests:
     runs-on: ubuntu-latest
