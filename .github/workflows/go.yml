@@ -40,21 +40,21 @@ jobs:
       GORACE: "history_size=7"
     strategy:
       matrix:
-        tests: []
-        include:
-          - tests: $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test")
-            name: Main tests
+        tests: [[E2E tests, ./consensus/test/...]]
+        # include:
+        #   - tests: $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test")
+        #     name: Main tests
 
-          - tests: ./les/... ./p2p/... ./eth/...
-            name: Slow tests
+        #   - tests: ./les/... ./p2p/... ./eth/...
+        #     name: Slow tests
 
-          - tests: ./consensus/test/...
-            name: E2E tests
+        #   - tests: ./consensus/test/...
+        #     name: E2E tests
 
-          - tests: ./consensus/tendermint/... -timeout 5m -race
-            name: Tendermint core tests
+        #   - tests: ./consensus/tendermint/... -timeout 5m -race
+        #     name: Tendermint core tests
 
-    name: ${{ matrix.name }}
+    name: ${{ matrix.tests[0] }}
 
     steps:
       - name: Cache code
@@ -78,7 +78,7 @@ jobs:
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Run tests
-        run: go test ${{ matrix.tests }}
+        run: go test ${{ matrix.tests[1] }}
 
   tendermint-coverage:
     needs: bootstrap
