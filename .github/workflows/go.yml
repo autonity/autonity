@@ -30,9 +30,44 @@ jobs:
         if:  steps.cache-autonity-go-modules.outputs.cache-hit != 'true'
         run: go mod download -x
 
-      - name: Build
+      - name: Embed Autonity contract
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
+        run: make embed-autonity-contract
+
+  build:
+    needs: bootstrap
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.15
+
+      - name: Cache code
+        uses: actions/cache@v1
+        id: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
+
+      - uses: actions/checkout@v2
+        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+
+      - name: Cache modules
+        uses: actions/cache@v1
+        id: cache-autonity-go-modules
+        with:
+          path: /home/runner/go/pkg
+          key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
+
+      - name: Build
         run: make autonity
+
+      - name: Upload Autonity bin
+        uses: actions/upload-artifact@v2
+        with:
+          name: autonity
+          path: /home/runner/work/autonity/autonity/build/bin
 
   tests:
     needs: bootstrap
@@ -157,26 +192,18 @@ jobs:
 
   contract_tests:
     runs-on: ubuntu-latest
-    needs: bootstrap
+    needs: build
     steps:
       - name: Setup Node
         uses: actions/setup-node@v1
         with:
           node-version: '9.x'
 
-      - name: Cache code
-        uses: actions/cache@v1
-        id: cache-autonity-code
+      - name: Download Autonity bin
+        uses: actions/download-artifact@v2
         with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
-
-      - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-
-      - name: Build
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make autonity
+          name: autonity
+          path: /home/runner/work/autonity/autonity/build/bin
 
       - name: test contract
         run: make test-contracts
