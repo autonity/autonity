@@ -64,7 +64,7 @@ jobs:
         run: make autonity
 
       - name: Upload Autonity bin
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v1
         with:
           name: autonity
           path: /home/runner/work/autonity/autonity/build/bin/autonity
@@ -210,10 +210,18 @@ jobs:
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
 
       - name: Download Autonity bin
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v1
         with:
           name: autonity
-          path: /home/runner/work/autonity/autonity/build/bin/autonity
+
+      - name: ls autonity
+        run: ls -l build/bin/autonity
+
+      - name: mk exec autonity
+        run: chmod +x build/bin/autonity
+
+      - name: ls autonity 2
+        run: ls -l build/bin/autonity
 
       - name: test contract
-        run: chmod +x /home/runner/work/autonity/autonity/build/bin/autonity && make test-contracts
+        run: make test-contracts
