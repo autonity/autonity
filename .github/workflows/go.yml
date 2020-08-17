@@ -67,7 +67,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: autonity
-          path: /home/runner/work/autonity/autonity/build/bin
+          path: /home/runner/work/autonity/autonity/build/bin/autonity
 
   tests:
     needs: bootstrap
@@ -213,7 +213,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: autonity
-          path: /home/runner/work/autonity/autonity/build/bin
+          path: /home/runner/work/autonity/autonity/build/bin/autonity
 
       - name: test contract
-        run: chmod +x /home/runner/work/autonity/autonity/build/bin && make test-contracts
+        run: make test-contracts
