@@ -213,6 +213,7 @@ jobs:
         uses: actions/download-artifact@v1
         with:
           name: autonity
+          path: /home/runner/work/autonity/autonity/build/bin/autonity
 
       - name: ls autonity
         run: ls -l build/bin/autonity
