@@ -10,6 +10,7 @@ import (
 )
 
 func TestTendermintOneMalicious(t *testing.T) {
+	t.Skip("This test fails intermittently see - https://github.com/clearmatics/autonity/issues/641")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
