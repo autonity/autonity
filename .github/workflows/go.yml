@@ -216,4 +216,4 @@ jobs:
           path: /home/runner/work/autonity/autonity/build/bin
 
       - name: test contract
-        run: make test-contracts
+        run: chmod +x /home/runner/work/autonity/autonity/build/bin && make test-contracts
