@@ -11,11 +11,10 @@
     "istanbulBlock": 0,
     "tendermint": {
       "policy": 0,
-      "block-period": 1
+      "block-period": 0
     },
     "chainId": 1488,
     "autonityContract": {
-      "deployer": "0x850c1eb8d190e05845ad7f84ac95a318c8aab07f",
       "bytecode": "",
       "abi": "",
       "minGasPrice": 5000,
