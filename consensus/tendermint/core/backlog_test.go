@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -166,7 +165,7 @@ func TestStoreBacklog(t *testing.T) {
 		c := &core{
 			logger:   log.New("backend", "test", "id", 0),
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[types.CommitteeMember][]*Message),
 		}
 
 		vote := &Vote{
@@ -193,7 +192,7 @@ func TestStoreBacklog(t *testing.T) {
 
 		pque := c.backlogs[val]
 
-		savedMsg, _ := pque.Pop()
+		savedMsg := pque[0]
 		if !reflect.DeepEqual(msg, savedMsg) {
 			t.Fatalf("Expected message %+v, but got %+v", msg, savedMsg)
 		}
@@ -203,7 +202,7 @@ func TestStoreBacklog(t *testing.T) {
 		c := &core{
 			logger:   log.New("backend", "test", "id", 0),
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[types.CommitteeMember][]*Message),
 		}
 
 		proposal := &Proposal{
@@ -232,7 +231,7 @@ func TestStoreBacklog(t *testing.T) {
 		c.storeBacklog(msg, val)
 		pque := c.backlogs[val]
 
-		savedMsg, _ := pque.Pop()
+		savedMsg := pque[0]
 		if !reflect.DeepEqual(msg, savedMsg) {
 			t.Fatalf("Expected message %+v, but got %+v", msg, savedMsg)
 		}
@@ -281,7 +280,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[types.CommitteeMember][]*Message),
 			step:     propose,
 			round:    1,
 			height:   big.NewInt(2),
@@ -344,7 +343,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[types.CommitteeMember][]*Message),
 			step:     propose,
 			round:    1,
 			height:   big.NewInt(2),
@@ -407,7 +406,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[types.CommitteeMember][]*Message),
 			round:    1,
 			height:   big.NewInt(1),
 		}
@@ -446,7 +445,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[types.CommitteeMember][]*Message),
 			round:    2,
 			height:   big.NewInt(3),
 		}
@@ -489,7 +488,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[types.CommitteeMember][]*Message),
 			round:    2,
 			height:   big.NewInt(3),
 		}
@@ -539,7 +538,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[types.CommitteeMember][]*Message),
 			step:     prevote,
 			round:    1,
 			height:   big.NewInt(4),

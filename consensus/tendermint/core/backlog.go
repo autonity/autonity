@@ -18,7 +18,6 @@ package core
 
 import (
 	"github.com/clearmatics/autonity/core/types"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 )
 
@@ -75,59 +74,65 @@ func (c *core) storeBacklog(msg *Message, src types.CommitteeMember) {
 	c.backlogsMu.Lock()
 	defer c.backlogsMu.Unlock()
 
-	backlogPrque := c.backlogs[src]
-	if backlogPrque == nil {
-		backlogPrque = prque.New()
-	}
-	msgRound, errRound := msg.Round()
-	msgHeight, errHeight := msg.Height()
-	if errRound == nil && errHeight == nil {
-		backlogPrque.Push(msg, toPriority(msg.Code, msgRound, msgHeight))
-	}
-
-	c.backlogs[src] = backlogPrque
+	c.backlogs[src] = append(c.backlogs[src], msg)
 }
 
 func (c *core) processBacklog() {
+	var capToLenRatio = 5
 	c.backlogsMu.Lock()
 	defer c.backlogsMu.Unlock()
 
 	for src, backlog := range c.backlogs {
-		if backlog == nil {
-			continue
-		}
-
 		logger := c.logger.New("from", src, "step", c.step)
-		var isFuture bool
 
-		// We stop processing if
-		//   1. backlog is empty
-		//   2. The first message in queue is a future message
-		for !(backlog.Empty() || isFuture) {
-			m, prio := backlog.Pop()
-			msg := m.(*Message)
-			msgRound, _ := msg.Round() // error checking done before push
-			msgHeight, _ := msg.Height()
+		initialLen := len(backlog)
+		if initialLen > 0 {
+			// For loop will change the size for backlog therefore we need to keep track of the initial length and
+			// adjust for index change. This is done by keeping track of how many elements have been removed and
+			// subtracting it from the for-loop iterator, since each removed element will cause the index to change for
+			// each element after the removed element.
+			//
+			// If the message is a future height, round or step message then the for-loop will move on to the next
+			// iteration, however, if any other error occurs then the message is removed from the backlog and for-loop
+			// moves to the next iteration.
+			//
+			// If there are no errors when checking the message then the message is sent to the handler via a goroutine
+			// and this message is removed from the backlog.
+			totalElemRemoved := 0
+			for i := 0; i < initialLen; i++ {
+				offset := i - totalElemRemoved
+				curMsg := backlog[offset]
 
-			// Push back if it's a future message
-			err := c.checkMessage(msgRound, msgHeight, Step(msg.Code))
-			if err != nil {
-				if err == errFutureHeightMessage || err == errFutureRoundMessage || err == errFutureStepMessage {
-					logger.Debug("Stop processing backlog", "msg", msg, "err", err)
-					backlog.Push(msg, prio)
-					isFuture = true
-					break
+				r, _ := curMsg.Round()
+				h, _ := curMsg.Height()
+				if err := c.checkMessage(r, h, Step(curMsg.Code)); err != nil {
+					if err == errFutureHeightMessage || err == errFutureRoundMessage || err == errFutureStepMessage {
+						logger.Debug("Futrue message in backlog", "msg", curMsg, "err", err)
+						continue
+					}
+					logger.Debug("Skipping the backlog message", "msg", curMsg, "err", err)
+				} else {
+					logger.Debug("Post backlog event", "msg", curMsg)
+
+					go c.sendEvent(backlogEvent{
+						src: src,
+						msg: curMsg,
+					})
 				}
-				logger.Debug("Skip the backlog event", "msg", msg, "err", err)
-				continue
-			}
-			logger.Debug("Post backlog event", "msg", msg)
 
-			go c.sendEvent(backlogEvent{
-				src: src,
-				msg: msg,
-			})
+				backlog = append(backlog[:offset], backlog[offset+1:]...)
+				totalElemRemoved++
+			}
+			// We need to ensure that there is no memory leak by reallocating new memory if the original underlying
+			// array become very large and only a small part of it is being used by the slice. We need len(backlog) > 0
+			// check again since the backlog size can change and cause division by zero errors.
+			if len(backlog) > 0 && cap(backlog)/len(backlog) > capToLenRatio {
+				tmp := make([]*Message, len(backlog))
+				copy(tmp, backlog)
+				backlog = tmp
+			}
 		}
+		c.backlogs[src] = backlog
 	}
 }
 
