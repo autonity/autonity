@@ -30,6 +30,10 @@ jobs:
         if:  steps.cache-autonity-go-modules.outputs.cache-hit != 'true'
         run: go mod download -x
 
+      - name: Embed Autonity contract
+        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
+        run: make embed-autonity-contract
+
   build:
     needs: bootstrap
     runs-on: ubuntu-latest
