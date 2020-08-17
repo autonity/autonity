@@ -85,6 +85,10 @@ func TestStartRoundVariables(t *testing.T) {
 
 		// Check the initial consensus state
 		checkConsensusState(t, currentHeight, currentRound, propose, nil, int64(-1), nil, int64(-1), core)
+
+		// stop the timer to clean up
+		err := core.proposeTimeout.stopTimer()
+		assert.NoError(t, err)
 	})
 	t.Run("ensure round x state variables are updated correctly", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -126,6 +130,10 @@ func TestStartRoundVariables(t *testing.T) {
 		core.startRound(context.Background(), currentRound+2)
 
 		checkConsensusState(t, currentHeight, currentRound+2, propose, currentBlock, currentRound, currentBlock2, currentRound+1, core)
+
+		// stop the timer to clean up
+		err := core.proposeTimeout.stopTimer()
+		assert.NoError(t, err)
 	})
 }
 
@@ -240,6 +248,10 @@ func TestStartRound(t *testing.T) {
 
 		assert.Equal(t, currentRound, core.Round())
 		assert.True(t, core.proposeTimeout.timerStarted())
+
+		// stop the timer to clean up
+		err := core.proposeTimeout.stopTimer()
+		assert.NoError(t, err)
 	})
 	t.Run("at proposal timeout expiry timeout event is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -593,6 +605,10 @@ func TestPrevoteTimeout(t *testing.T) {
 		err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
 		assert.Nil(t, err)
 		assert.True(t, c.prevoteTimeout.timerStarted())
+
+		// stop the timer to clean up
+		err = c.prevoteTimeout.stopTimer()
+		assert.NoError(t, err)
 	})
 	t.Run("prevote timeout is not started multiple times", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -630,6 +646,9 @@ func TestPrevoteTimeout(t *testing.T) {
 		assert.True(t, c.prevoteTimeout.timerStarted())
 		assert.True(t, c.prevoteTimeout.start.Before(timeNow))
 
+		// stop the timer to clean up
+		err = c.prevoteTimeout.stopTimer()
+		assert.NoError(t, err)
 	})
 	t.Run("at prevote timeout expiry timeout event is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -873,6 +892,10 @@ func TestPrecommitTimeout(t *testing.T) {
 		err := c.handleCheckedMsg(context.Background(), precommitMsg, members[sender])
 		assert.Nil(t, err)
 		assert.True(t, c.precommitTimeout.timerStarted())
+
+		// stop the timer to clean up
+		err = c.precommitTimeout.stopTimer()
+		assert.NoError(t, err)
 	})
 	t.Run("precommit timeout is not started multiple times", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -911,6 +934,9 @@ func TestPrecommitTimeout(t *testing.T) {
 		assert.True(t, c.precommitTimeout.timerStarted())
 		assert.True(t, c.precommitTimeout.start.Before(timeNow))
 
+		// stop the timer to clean up
+		err = c.precommitTimeout.stopTimer()
+		assert.NoError(t, err)
 	})
 	t.Run("at precommit timeout expiry timeout event is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -961,6 +987,10 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		assert.Equal(t, currentRound+1, c.Round())
 		assert.Equal(t, propose, c.step)
+
+		// stop the timer to clean up, since start round can start propose timeout
+		err := c.proposeTimeout.stopTimer()
+		assert.NoError(t, err)
 	})
 }
 
