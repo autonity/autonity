@@ -331,6 +331,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 }
 
 func TestAddIncorrectStakeholdersToList(t *testing.T) {
+	t.Skip("Fails intermittently, see - https://github.com/clearmatics/autonity/issues/653")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
