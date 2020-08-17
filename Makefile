@@ -85,18 +85,20 @@ test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 	go test -race -v ./consensus/test/... -timeout 30m
 
-# This runs the contract tests using truffle against an autonity node instance.
+# This runs the contract tests using truffle against an Autonity node instance.
 test-contracts:
 	@# npm list returns 0 only if the package is not installed and the shell only
-	@# executes the second part of an or statment if the first fails.
+	@# executes the second part of an or statement if the first fails.
 	@npm list truffle > /dev/null || npm install truffle
 	@npm list web3 > /dev/null || npm install web3
 	@cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
 	@# Autonity can take some time to start listening on port 8545 so we allow multiple connection attempts.
 	@for x in {1..10}; do \
 		sleep 2 ; \
+		echo Attempting unlock \
 		./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545 ; \
 		if [ $$? -eq 0 ] ; then \
+			echo Unlock successful \
 			break ; \
 		fi ; \
 	done
