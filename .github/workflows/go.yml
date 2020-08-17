@@ -40,19 +40,10 @@ jobs:
       GORACE: "history_size=7"
     strategy:
       matrix:
-        tests: [[E2E tests, ./consensus/test/...]]
-        # include:
-        #   - tests: $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test")
-        #     name: Main tests
-
-        #   - tests: ./les/... ./p2p/... ./eth/...
-        #     name: Slow tests
-
-        #   - tests: ./consensus/test/...
-        #     name: E2E tests
-
-        #   - tests: ./consensus/tendermint/... -timeout 5m -race
-        #     name: Tendermint core tests
+        tests: [[Main tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test")],
+                [Slow tests, ./les/... ./p2p/... ./eth/...],
+                [Tendermint core tests, ./consensus/tendermint/... -timeout 5m -race],
+                [E2E tests, ./consensus/test/...]]
 
     name: ${{ matrix.tests[0] }}
 
