@@ -95,14 +95,14 @@ test-contracts:
 	@# Autonity can take some time to start listening on port 8545 so we allow multiple connection attempts.
 	@for x in {1..10}; do \
 		sleep 2 ; \
-		echo Attempting unlock \
+		echo Attempting unlock; \
 		./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545 ; \
 		if [ $$? -eq 0 ] ; then \
-			echo Unlock successful \
+			echo Unlock successful; \
 			break ; \
 		fi ; \
 	done \
-	sleep 2
+	sleep 2;
 
 	@cd contracts/autonity/contract/ && $(NPMBIN)/truffle test && cd -
 
