@@ -2091,6 +2091,7 @@ func TestTransactionIndices(t *testing.T) {
 	check := func(tail *uint64, chain *BlockChain) {
 		stored := rawdb.ReadTxIndexTail(chain.db)
 		if tail == nil && stored != nil {
+			panic(fmt.Sprintf("Oldest indexded block mismatch, want nil, have %d", *stored))
 			t.Fatalf("Oldest indexded block mismatch, want nil, have %d", *stored)
 		}
 		if tail != nil && *stored != *tail {
