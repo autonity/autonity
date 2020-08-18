@@ -34,5 +34,7 @@ $AUTONITY \
   --syncmode "full" \
   --mine \
   --allow-insecure-unlock \
+  --unlock 0x850c1eb8d190e05845ad7f84ac95a318c8aab07f \
+  --password password \
   --miner.threads 1 \
   --verbosity 1
