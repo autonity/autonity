@@ -18,6 +18,8 @@ module.exports = function(deployer, network, accounts) {
   web3.eth.personal.unlockAccount(accounts[7], "test", 36000);
   web3.eth.personal.unlockAccount(accounts[8], "test", 36000);
 
+  // Sleep for 2 seconds
+  await new Promise(r => setTimeout(r, 2000));
   console.log('>> Deploying migration');
   deployer.deploy(Migrations);
 };
