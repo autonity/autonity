@@ -18,6 +18,9 @@ jobs:
         with:
           go-version: 1.15
 
+      - name: Print go cache
+        run: go env GOCACHE
+
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
