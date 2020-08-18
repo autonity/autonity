@@ -102,7 +102,7 @@ test-contracts:
 			break ; \
 		fi ; \
 	done
-	@ sleep 2;
+	sleep 10;
 
 	@cd contracts/autonity/contract/ && $(NPMBIN)/truffle test && cd -
 
