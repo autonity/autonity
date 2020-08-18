@@ -361,11 +361,19 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if bc.cacheConfig.SnapshotLimit > 0 {
 		bc.snaps = snapshot.New(bc.db, bc.stateCache.TrieDB(), bc.cacheConfig.SnapshotLimit, bc.CurrentBlock().Root(), !bc.cacheConfig.SnapshotWait)
 	}
-	// Take ownership of this particular state
-	go bc.update()
+	bc.wg.Add(1)
+	go func() {
+		// Take ownership of this particular state
+		bc.update()
+		bc.wg.Done()
+	}()
 	if txLookupLimit != nil {
 		bc.txLookupLimit = *txLookupLimit
-		go bc.maintainTxIndex(txIndexBlock)
+		bc.wg.Add(1)
+		go func() {
+			bc.maintainTxIndex(txIndexBlock)
+			bc.wg.Done()
+		}()
 	}
 	return bc, nil
 }
@@ -1825,6 +1833,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		if !bc.cacheConfig.TrieCleanNoPrefetch {
 			if followup, err := it.peek(); followup != nil && err == nil {
 				throwaway, _ := state.New(parent.Root, bc.stateCache, bc.snaps)
+				bc.wg.Add(1)
 				go func(start time.Time, followup *types.Block, throwaway *state.StateDB, interrupt *uint32) {
 					bc.prefetcher.Prefetch(followup, throwaway, bc.vmConfig, &followupInterrupt)
 
@@ -1832,6 +1841,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 					if atomic.LoadUint32(interrupt) == 1 {
 						blockPrefetchInterruptMeter.Mark(1)
 					}
+					bc.wg.Done()
 				}(time.Now(), followup, throwaway, &followupInterrupt)
 			}
 		}
@@ -2312,15 +2322,15 @@ func (bc *BlockChain) maintainTxIndex(ancients uint64) {
 		case head := <-headCh:
 			if done == nil {
 				done = make(chan struct{})
-				go indexBlocks(rawdb.ReadTxIndexTail(bc.db), head.Block.NumberU64(), done)
+				bc.wg.Add(1)
+				go func() {
+					indexBlocks(rawdb.ReadTxIndexTail(bc.db), head.Block.NumberU64(), done)
+					bc.wg.Done()
+				}()
 			}
 		case <-done:
 			done = nil
 		case <-bc.quit:
-			// Ensure that we wait for indexing to stop
-			if done != nil {
-				<-done
-			}
 			return
 		}
 	}
@@ -2521,7 +2531,11 @@ func (bc *BlockChain) SubscribeAutonityEvents(ch chan<- WhitelistEvent) event.Su
 
 func (bc *BlockChain) UpdateEnodeWhitelist(newWhitelist *types.Nodes) {
 	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-	go bc.autonityFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
+	bc.wg.Add(1)
+	go func() {
+		bc.autonityFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
+		bc.wg.Done()
+	}()
 }
 
 func (bc *BlockChain) ReadEnodeWhitelist() *types.Nodes {
