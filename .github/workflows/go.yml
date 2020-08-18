@@ -1,8 +1,8 @@
 name: Go
 on: [push]
 env:
-  GO_MODULES_CACHE: $HOME/go/pkg
-  AUTONITY_REPO_ROOT: $HOME/work/autonity/autonity/
+  GO_MODULES_CACHE: ${{ env.HOME }}/go/pkg
+  AUTONITY_REPO_ROOT: ${{ env.HOME }}/work/autonity/autonity/
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
