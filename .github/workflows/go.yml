@@ -219,7 +219,7 @@ jobs:
         run: ls -l build/bin/autonity
 
       - name: mk exec autonity
-        run: chmod +x build/bin/autonity
+        run: chmod +x build/bin/autonity && ls -l build/bin/autonity
 
       - name: ls autonity 2
         run: ls -l build/bin/autonity
