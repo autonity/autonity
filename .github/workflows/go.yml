@@ -1,8 +1,14 @@
 name: Go
 on: [push]
 env:
+  # We don't have access to the HOME environemnt variable here since we are not
+  # inside a runner at this point, so we just have to hardcode '/home/runner',
+  # if we instead defined these environment variables when we did have access
+  # to HOME we would need to define them for each job, which would defeat the
+  # purpose of defining them here.
   GO_MODULES_CACHE: /home/runner/go/pkg
   AUTONITY_REPO_ROOT: /home/runner/work/autonity/autonity/
+
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
