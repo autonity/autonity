@@ -101,7 +101,9 @@ test-contracts:
 			echo Unlock successful \
 			break ; \
 		fi ; \
-	done
+	done \
+	sleep 2
+
 	@cd contracts/autonity/contract/ && $(NPMBIN)/truffle test && cd -
 
 mock-gen:
