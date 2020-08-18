@@ -1,5 +1,8 @@
 name: Go
 on: [push]
+env:
+  GO_MODULES_CACHE: $HOME/go/pkg
+  AUTONITY_REPO_ROOT: $HOME/work/autonity/autonity/
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
@@ -13,7 +16,7 @@ jobs:
         uses: actions/cache@v1
         id: cache-autonity-code
         with:
-          path: /home/runner/work/autonity/autonity/
+          path: $AUTONITY_REPO_ROOT
           key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
@@ -23,7 +26,7 @@ jobs:
         uses: actions/cache@v1
         id: cache-autonity-go-modules
         with:
-          path: /home/runner/go/pkg
+          path: $GO_MODULES_CACHE
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Fetch all modules
@@ -47,7 +50,7 @@ jobs:
         uses: actions/cache@v1
         id: cache-autonity-code
         with:
-          path: /home/runner/work/autonity/autonity/
+          path: $AUTONITY_REPO_ROOT
           key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
@@ -57,7 +60,7 @@ jobs:
         uses: actions/cache@v1
         id: cache-autonity-go-modules
         with:
-          path: /home/runner/go/pkg
+          path: $GO_MODULES_CACHE
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
@@ -67,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: autonity
-          path: /home/runner/work/autonity/autonity/build/bin/autonity
+          path: $AUTONITY_REPO_ROOTbuild/bin/autonity
 
   tests:
     needs: bootstrap
@@ -98,7 +101,7 @@ jobs:
         uses: actions/cache@v1
         id: cache-autonity-code
         with:
-          path: /home/runner/work/autonity/autonity/
+          path: $AUTONITY_REPO_ROOT
           key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
@@ -111,7 +114,7 @@ jobs:
       - name: Cache modules
         uses: actions/cache@v1
         with:
-          path: /home/runner/go/pkg
+          path: $GO_MODULES_CACHE
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Run tests
@@ -130,7 +133,7 @@ jobs:
         uses: actions/cache@v1
         id: cache-autonity-code
         with:
-          path: /home/runner/work/autonity/autonity/
+          path: $AUTONITY_REPO_ROOT
           key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
@@ -143,7 +146,7 @@ jobs:
       - name: Cache modules
         uses: actions/cache@v1
         with:
-          path: /home/runner/go/pkg
+          path: $GO_MODULES_CACHE
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Run coverage
@@ -168,7 +171,7 @@ jobs:
         uses: actions/cache@v1
         id: cache-autonity-code
         with:
-          path: /home/runner/work/autonity/autonity/
+          path: $AUTONITY_REPO_ROOT
           key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
@@ -181,7 +184,7 @@ jobs:
       - name: Cache modules
         uses: actions/cache@v1
         with:
-          path: /home/runner/go/pkg
+          path: $GO_MODULES_CACHE
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Linters
@@ -203,7 +206,7 @@ jobs:
         uses: actions/cache@v1
         id: cache-autonity-code
         with:
-          path: /home/runner/work/autonity/autonity/
+          path: $AUTONITY_REPO_ROOT
           key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
@@ -213,7 +216,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: autonity
-          path: /home/runner/work/autonity/autonity/build/bin/autonity
+          path: $AUTONITY_REPO_ROOTbuild/bin/autonity
 
       - name: ls autonity
         run: ls -l build/bin/autonity
