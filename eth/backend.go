@@ -239,6 +239,7 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 		return nil, err
 	}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
+	//eth.miner.DisablePreseal()
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 
 	eth.APIBackend = &EthAPIBackend{ctx.ExtRPCEnabled(), eth, nil}

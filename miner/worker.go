@@ -402,7 +402,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		case <-w.startCh:
 			clearPending(w.chain.CurrentBlock().NumberU64())
 			timestamp = time.Now().Unix()
-			commit(false, commitInterruptNewHead)
+			commit(true, commitInterruptNewHead)
 
 		case head := <-w.chainHeadCh:
 			clearPending(head.Block.NumberU64())
@@ -410,7 +410,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			if h, ok := w.engine.(consensus.Handler); ok {
 				h.NewChainHead()
 			}
-			commit(false, commitInterruptNewHead)
+			commit(true, commitInterruptNewHead)
 
 		case <-timer.C:
 			// If mining is running resubmit a new work cycle periodically to pull in
@@ -505,6 +505,7 @@ func (w *worker) mainLoop() {
 						uncles = append(uncles, uncle.Header())
 						return false
 					})
+					println("sidechaincommit")
 					w.commit(uncles, nil, true, start)
 				}
 			}
@@ -976,6 +977,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	if !noempty && w.chainConfig.Tendermint == nil && atomic.LoadUint32(&w.noempty) == 0 {
 		// Create an empty block based on temporary copied state for sealing in advance without waiting block
 		// execution finished.
+		println("emptyblockcommit")
 		w.commit(uncles, nil, false, tstart)
 	}
 
@@ -986,7 +988,8 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		return
 	}
 	// Short circuit if there is no available pending transactions
-	if len(pending) == 0 && w.chainConfig.Tendermint == nil && atomic.LoadUint32(&w.noempty) == 0 {
+	println("pending", len(pending), "noempty", atomic.LoadUint32(&w.noempty))
+	if len(pending) == 0 && atomic.LoadUint32(&w.noempty) == 0 {
 		w.updateSnapshot()
 		return
 	}
@@ -1010,6 +1013,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 			return
 		}
 	}
+	println("realblockcommit")
 	w.commit(uncles, w.fullTaskHook, true, tstart)
 }
 
