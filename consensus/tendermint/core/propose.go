@@ -65,6 +65,9 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		// meaning that a future roundchange will happen before, as such, pushing the
 		// message to the backlog is fine.
 		if err == errOldRoundMessage {
+			// If this is an old round message we potentially may be able to
+			// commit, in the case that we have enough precommits for this
+			// proposal.
 
 			roundMsgs := c.messages.getOrCreate(proposal.Round)
 
