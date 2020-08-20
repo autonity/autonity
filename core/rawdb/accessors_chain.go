@@ -22,7 +22,6 @@ import (
 	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
@@ -262,44 +261,54 @@ func WriteFastTxLookupLimit(db ethdb.KeyValueWriter, number uint64) {
 }
 
 // ReadHeaderRLP retrieves a block header in its raw RLP database encoding.
-func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValue {
+func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) (rlp.RawValue, *types.Header) {
 	// First try to look up the data in ancient database. Extra hash
 	// comparison is necessary since ancient database only maintains
 	// the canonical data.
 	data, _ := db.Ancient(freezerHeaderTable, number)
-	if len(data) > 0 && compareHeaderHash(data, hash) {
-		return data
+	if len(data) > 0 {
+		if b, h := compareHeaderHash(data, hash); b {
+			return data, h
+
+		}
 	}
 	// Then try to look up the data in leveldb.
 	data, _ = db.Get(headerKey(number, hash))
 	if len(data) > 0 {
-		return data
+		header := decodeHeader(data)
+		return data, header
 	}
 	// In the background freezer is moving data from leveldb to flatten files.
 	// So during the first check for ancient db, the data is not yet in there,
 	// but when we reach into leveldb, the data was already moved. That would
 	// result in a not found error.
 	data, _ = db.Ancient(freezerHeaderTable, number)
-	if len(data) > 0 && compareHeaderHash(data, hash) {
-		return data
+	if len(data) > 0 {
+		if b, h := compareHeaderHash(data, hash); b {
+			return data, h
+
+		}
 	}
-	return nil // Can't find the data anywhere.
+	return nil, nil // Can't find the data anywhere.
 }
 
-func compareHeaderHash(data []byte, h common.Hash) bool {
-	// if block header is go-ethereum's original header and the hash matches then return
-	if crypto.Keccak256Hash(data) == h {
-		return true
+func compareHeaderHash(data []byte, h common.Hash) (bool, *types.Header) {
+	header := decodeHeader(data)
+	if header.Hash() == h {
+		return true, header
 	}
 
+	return false, nil
+}
+
+func decodeHeader(data []byte) *types.Header {
 	var header types.Header
 	err := rlp.DecodeBytes(data, &header)
 	if err != nil {
-		log.Error("Invalid block header RLP", "hash", h, "err", err)
-		return false
+		log.Error("Invalid block header RLP", "err", err)
+		return nil
 	}
-
-	return header.Hash() == h
+	return &header
 }
 
 // HasHeader verifies the existence of a block header corresponding to the hash.
@@ -315,17 +324,10 @@ func HasHeader(db ethdb.Reader, hash common.Hash, number uint64) bool {
 
 // ReadHeader retrieves the block header corresponding to the hash.
 func ReadHeader(db ethdb.Reader, hash common.Hash, number uint64) *types.Header {
-	data := ReadHeaderRLP(db, hash, number)
-	if len(data) == 0 {
-		return nil
+	if _, header := ReadHeaderRLP(db, hash, number); header != nil {
+		return header
 	}
-	header := new(types.Header)
-	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
-		log.Error("Invalid block header RLP", "hash", hash, "err", err)
-		return nil
-	}
-
-	return header
+	return nil
 }
 
 // WriteHeader stores a block header into the database and also stores the hash-
