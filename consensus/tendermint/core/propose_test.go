@@ -203,7 +203,6 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
 		}
 
 		testCommittee := types.Committee{
@@ -236,7 +235,6 @@ func TestHandleProposal(t *testing.T) {
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			power:         1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()
@@ -303,7 +301,6 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
 		}
 
 		testCommittee := types.Committee{
@@ -370,7 +367,6 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
 		}
 
 		testCommittee := types.Committee{
@@ -403,7 +399,6 @@ func TestHandleProposal(t *testing.T) {
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			power:         1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()
@@ -468,7 +463,6 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
 		}
 
 		testCommittee := types.Committee{
@@ -501,7 +495,6 @@ func TestHandleProposal(t *testing.T) {
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			power:         1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()

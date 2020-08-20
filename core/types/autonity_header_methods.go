@@ -9,6 +9,10 @@ func (h *Header) IsGenesis() bool {
 // CommitteeMember returns the committee member having the given address or
 // nil if there is none.
 func (h *Header) CommitteeMember(address common.Address) *CommitteeMember {
+	return h.CommitteMemberMap()[address]
+}
+
+func (h *Header) CommitteMemberMap() map[common.Address]*CommitteeMember {
 	if h.committeeMap == nil {
 		h.committeeMap = make(map[common.Address]*CommitteeMember)
 		for i := range h.Committee {
@@ -16,7 +20,7 @@ func (h *Header) CommitteeMember(address common.Address) *CommitteeMember {
 			h.committeeMap[member.Address] = &member
 		}
 	}
-	return h.committeeMap[address]
+	return h.committeeMap
 }
 
 // TotalVotingPower returns the total voting power contained in the committee

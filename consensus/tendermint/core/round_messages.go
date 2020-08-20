@@ -17,6 +17,7 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/core/types"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
@@ -102,17 +103,17 @@ func (s *roundMessages) SetProposal(proposal *Proposal, msg *Message, verified b
 	s.proposal = proposal
 }
 
-func (s *roundMessages) PrevotesPower(hash common.Hash) uint64 {
-	return s.prevotes.VotePower(hash)
+func (s *roundMessages) PrevotesPower(hash common.Hash, cm map[common.Address]*types.CommitteeMember) uint64 {
+	return s.prevotes.VotePower(hash, cm)
 }
-func (s *roundMessages) PrevotesTotalPower() uint64 {
-	return s.prevotes.TotalVotePower()
+func (s *roundMessages) PrevotesTotalPower(cm map[common.Address]*types.CommitteeMember) uint64 {
+	return s.prevotes.TotalVotePower(cm)
 }
-func (s *roundMessages) PrecommitsPower(hash common.Hash) uint64 {
-	return s.precommits.VotePower(hash)
+func (s *roundMessages) PrecommitsPower(hash common.Hash, cm map[common.Address]*types.CommitteeMember) uint64 {
+	return s.precommits.VotePower(hash, cm)
 }
-func (s *roundMessages) PrecommitsTotalPower() uint64 {
-	return s.precommits.TotalVotePower()
+func (s *roundMessages) PrecommitsTotalPower(cm map[common.Address]*types.CommitteeMember) uint64 {
+	return s.precommits.TotalVotePower(cm)
 }
 
 func (s *roundMessages) AddPrevote(hash common.Hash, msg Message) {

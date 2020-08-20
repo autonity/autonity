@@ -129,7 +129,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected %v, got %v", errOldHeightMessage, err)
 		}
 
-		if s := curRoundMessages.PrevotesPower(common.Hash{}); s != 0 {
+		if s := curRoundMessages.PrevotesPower(common.Hash{}, c.lastHeader.CommitteMemberMap()); s != 0 {
 			t.Fatalf("Expected 0 nil-prevote, but got %d", s)
 		}
 	})
@@ -171,7 +171,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		if s := c.curRoundMessages.PrevotesPower(curRoundMessages.GetProposalHash()); s != 1 {
+		if s := c.curRoundMessages.PrevotesPower(curRoundMessages.GetProposalHash(), c.lastHeader.CommitteMemberMap()); s != 1 {
 			t.Fatalf("Expected 1 prevote, but got %d", s)
 		}
 	})
@@ -213,7 +213,6 @@ func TestHandlePrevote(t *testing.T) {
 			Address:       member.Address,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
-			power:         1,
 		}
 		payload, err := msg.Payload()
 		if err != nil {
@@ -239,7 +238,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		if s := c.curRoundMessages.PrevotesPower(curRoundMessage.GetProposalHash()); s != 1 {
+		if s := c.curRoundMessages.PrevotesPower(curRoundMessage.GetProposalHash(), c.lastHeader.CommitteMemberMap()); s != 1 {
 			t.Fatalf("Expected 1 prevote, but got %d", s)
 		}
 
@@ -279,7 +278,6 @@ func TestHandlePrevote(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
-			power:         1,
 		}
 
 		payload, err := msg.Payload()
@@ -386,7 +384,6 @@ func createPrevote(t *testing.T, proposalHash common.Hash, round int64, height *
 		Address:       member.Address,
 		CommittedSeal: []byte{},
 		Signature:     []byte{0x1},
-		power:         member.VotingPower.Uint64(),
 	}
 	return expectedMsg
 }

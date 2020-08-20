@@ -81,7 +81,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			// We do not verify the proposal in this case.
 			roundMsgs.SetProposal(&proposal, msg, false)
 
-			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= c.committeeSet().Quorum() {
+			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash(), c.lastHeader.CommitteMemberMap()) >= c.committeeSet().Quorum() {
 				if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
 					return error
 				}
@@ -154,7 +154,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		// vr >= 0 here
-		if vr < c.Round() && rs.PrevotesPower(h) >= c.committeeSet().Quorum() {
+		if vr < c.Round() && rs.PrevotesPower(h, c.lastHeader.CommitteMemberMap()) >= c.committeeSet().Quorum() {
 			c.sendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
 			c.setStep(prevote)
 		}

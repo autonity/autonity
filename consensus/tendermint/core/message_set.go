@@ -18,6 +18,7 @@ package core
 
 import (
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
 	"sync"
 )
 
@@ -70,25 +71,25 @@ func (ms *messageSet) GetMessages() []*Message {
 	return result
 }
 
-func (ms *messageSet) VotePower(h common.Hash) uint64 {
+func (ms *messageSet) VotePower(h common.Hash, cm map[common.Address]*types.CommitteeMember) uint64 {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
 	if msgMap, ok := ms.votes[h]; ok {
 		var power uint64
 		for _, msg := range msgMap {
-			power += msg.GetPower()
+			power += cm[msg.Address].VotingPower.Uint64()
 		}
 		return power
 	}
 	return 0
 }
 
-func (ms *messageSet) TotalVotePower() uint64 {
+func (ms *messageSet) TotalVotePower(cm map[common.Address]*types.CommitteeMember) uint64 {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
 	var power uint64
 	for _, msg := range ms.messages {
-		power += msg.GetPower()
+		power += cm[msg.Address].VotingPower.Uint64()
 	}
 	return power
 }
