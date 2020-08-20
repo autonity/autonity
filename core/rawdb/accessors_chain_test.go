@@ -413,6 +413,7 @@ func TestAncientStorage(t *testing.T) {
 	}
 
 	for _, b := range blocks {
+		b := b
 		t.Run(b.name, func(t *testing.T) {
 			// Ensure nothing non-existent will be read
 			hash, number := b.block.Hash(), b.block.NumberU64()
