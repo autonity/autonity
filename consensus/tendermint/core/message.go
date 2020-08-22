@@ -49,6 +49,7 @@ type Message struct {
 
 	power      uint64
 	decodedMsg ConsensusMsg // cached decoded Msg
+	Hash       common.Hash  // cached hash
 }
 
 // ==============================================

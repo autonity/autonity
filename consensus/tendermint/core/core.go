@@ -32,6 +32,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
+	"github.com/davecgh/go-spew/spew"
 )
 
 var (
@@ -120,6 +121,7 @@ type core struct {
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
 
+	msgCache   *messageCache
 	backlogs   map[types.CommitteeMember][]*Message
 	backlogsMu sync.Mutex
 	// map[Height]UnminedBlock
@@ -217,37 +219,19 @@ func (c *core) isProposer() bool {
 	return c.committeeSet().GetProposer(c.Round()).Address == c.address
 }
 
-func (c *core) commit(round int64, messages *roundMessages) {
+func (c *core) commit(proposal *Proposal) {
 	c.setStep(precommitDone)
 
-	proposal := messages.Proposal()
-	if proposal == nil {
-		// Should never happen really.
-		c.logger.Error("core commit called with empty proposal ")
-		return
-	}
-
+	// Sanity check
 	if proposal.ProposalBlock == nil {
-		// Again should never happen.
-		c.logger.Error("commit a NIL block",
-			"block", proposal.ProposalBlock,
-			"height", c.Height(),
-			"round", round)
-		return
+		panic(fmt.Sprintf("Attempted to commit proposal with nil block: %s", spew.Sdump(proposal)))
 	}
 
-	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
+	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Hash())
 
-	committedSeals := make([][]byte, 0)
-	for _, v := range messages.CommitedSeals(proposal.ProposalBlock.Hash()) {
-		seal := make([]byte, types.BFTExtraSeal)
-		copy(seal[:], v.CommittedSeal[:])
-		committedSeals = append(committedSeals, seal)
-	}
-
-	if err := c.backend.Commit(proposal.ProposalBlock, round, committedSeals); err != nil {
+	committedSeals := c.msgCache.signatures(proposal.ProposalBlock.Hash())
+	if err := c.backend.Commit(proposal.ProposalBlock, proposal.Round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
-		return
 	}
 }
 

@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -26,6 +27,8 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
+	autonitycrypto "github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 // Start implements core.Tendermint.Start
@@ -241,15 +244,173 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	logger := c.logger.New()
 
 	// Decode message and check its signature
-	msg := new(Message)
+	m := new(Message)
 
-	sender, err := msg.FromPayload(payload, c.lastHeader, crypto.CheckValidatorSignature)
+	// Decode message
+	err := rlp.DecodeBytes(payload, m)
 	if err != nil {
-		logger.Error("Failed to decode message from payload", "err", err)
 		return err
 	}
 
-	return c.handleCheckedMsg(ctx, msg, *sender)
+	payload, err = m.PayloadNoSig()
+	if err != nil {
+		return err
+	}
+
+	hash := autonitycrypto.Keccak256(payload)
+
+	// Set the hash on the message so that it can be used for indexing.
+	m.Hash = common.BytesToHash(hash)
+
+	// Check we haven't already processed this message
+	if c.msgCache.Message(m.Hash) != nil {
+		// Message was already processed
+		return nil
+	}
+
+	var proposal Proposal
+	var preVote Vote
+	var preCommit Vote
+	var cm ConsensusMsg
+	switch m.Code {
+	case msgProposal:
+		err := m.Decode(&proposal)
+		if err != nil {
+			return errFailedDecodeProposal
+		}
+		err = c.msgCache.addProposal(&proposal, m)
+		if err != nil {
+			// could be multipe proposal messages from the same proposer
+			return err
+		}
+		cm = &proposal
+	case msgPrevote:
+		err := m.Decode(&preVote)
+		if err != nil {
+			return errFailedDecodePrevote
+		}
+
+		err = c.msgCache.addPrevote(&preVote, m)
+		if err != nil {
+			// could be multipe prevotes from same validator
+			return err
+		}
+		cm = &preVote
+	case msgPrecommit:
+		err := m.Decode(&preCommit)
+		if err != nil {
+			return errFailedDecodePrecommit
+		}
+
+		err = c.msgCache.addPrecommit(&preCommit, m)
+		if err != nil {
+			// could be multipe precommits from same validator
+			return err
+		}
+		cm = &preCommit
+	default:
+		return fmt.Errorf("unrecognised consensus message code %q", m.Code)
+	}
+
+	header := c.backend.BlockChain().GetHeaderByNumber(cm.GetHeight().Uint64())
+
+	// Check that the message came from a committee member
+	if header.CommitteeMember(m.Address) == nil {
+		// TODO turn this into an error type that can be checked for at a
+		// higher level to close the connection to this peer.
+		return fmt.Errorf("received message from non committee member: %v", m)
+	}
+
+	// TODO replace crypto.CheckValidatorSignature with something more
+	// efficient, so we don't have to hash twice.
+	address, err := crypto.CheckValidatorSignature(header, payload, m.Signature)
+	if err != nil {
+		return err
+	}
+
+	if address != m.Address {
+		// TODO why is Address even a field of Message when the address can be derived?
+		return fmt.Errorf("address in message %q and address derived from signature %q don't match", m.Address, address)
+	}
+
+	switch m.Code {
+	case msgProposal:
+
+		if !c.isProposerMsg(proposal.Round, m.Address) {
+			c.logger.Warn("Ignore proposal messages from non-proposer")
+			return errNotFromProposer
+		}
+
+		err = c.msgCache.addProposal(&proposal, m)
+		if err != nil {
+			// could be multipe proposal messages from the same proposer
+			return err
+		}
+	case msgPrevote:
+		err = c.msgCache.addPrevote(&preVote, m)
+		if err != nil {
+			// could be multipe prevotes from same validator
+			return err
+		}
+	case msgPrecommit:
+		// Check the committed seal matches the block hash if its a precommit.
+		err := c.verifyCommittedSeal(m.Address, append([]byte(nil), m.CommittedSeal...), cm.ProposedBlockHash(), cm.GetRound(), cm.GetHeight())
+		if err != nil {
+			return err
+		}
+		err = c.msgCache.addPrecommit(&preCommit, m)
+		if err != nil {
+			// could be multipe precommits from same validator
+			return err
+		}
+	default:
+		panic("should never happen")
+	}
+
+	if cm.GetHeight().Uint64() != c.Height().Uint64() {
+		// Nothing to do here
+		return nil
+	}
+
+	switch m.Code {
+	case msgProposal:
+		err := c.handleProposal(ctx, &proposal)
+		if err != nil {
+			return err
+		}
+	case msgPrevote:
+		err := c.handlePrevote(ctx, &prevote)
+		if err != nil {
+			return err
+		}
+	case msgPrecommit:
+		err := c.handlePrecommit(ctx, &preCommit)
+		if err != nil {
+			return err
+		}
+	default:
+		panic("should never happen")
+	}
+
+	//addr, err := validateFn(previousHeader, payload, m.Signature)
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	////ensure message was singed by the sender
+	//if !bytes.Equal(m.Address.Bytes(), addr.Bytes()) {
+	//	return nil, ErrUnauthorizedAddress
+	//}
+
+	//v := previousHeader.CommitteeMember(addr)
+	//if v == nil {
+	//	return nil, fmt.Errorf("validator was not a committee member %q", v)
+	//}
+
+	//m.power = v.VotingPower.Uint64()
+	//return v, nil
+
+	//return c.handleCheckedMsg(ctx, msg, *sender)
 }
 
 func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) {
@@ -276,37 +437,37 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender ty
 }
 
 func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) error {
-	logger := c.logger.New("address", c.address, "from", sender)
+	logger := c.logger.New("address", c.address, "from", msg.Address)
 
-	// Store the message if it's a future message
-	testBacklog := func(err error) error {
-		// We want to store only future messages in backlog
-		if err == errFutureHeightMessage {
-			logger.Debug("Storing future height message in backlog")
-			c.storeBacklog(msg, sender)
-		} else if err == errFutureRoundMessage {
-			logger.Debug("Storing future round message in backlog")
-			c.storeBacklog(msg, sender)
-			// decoding must have been successful to return
-			c.handleFutureRoundMsg(ctx, msg, sender)
-		} else if err == errFutureStepMessage {
-			logger.Debug("Storing future step message in backlog")
-			c.storeBacklog(msg, sender)
-		}
+	// // Store the message if it's a future message
+	// testBacklog := func(err error) error {
+	// 	// We want to store only future messages in backlog
+	// 	if err == errFutureHeightMessage {
+	// 		logger.Debug("Storing future height message in backlog")
+	// 		c.storeBacklog(msg, sender)
+	// 	} else if err == errFutureRoundMessage {
+	// 		logger.Debug("Storing future round message in backlog")
+	// 		c.storeBacklog(msg, sender)
+	// 		// decoding must have been successful to return
+	// 		c.handleFutureRoundMsg(ctx, msg, sender)
+	// 	} else if err == errFutureStepMessage {
+	// 		logger.Debug("Storing future step message in backlog")
+	// 		c.storeBacklog(msg, sender)
+	// 	}
 
-		return err
-	}
+	// 	return err
+	// }
 
 	switch msg.Code {
 	case msgProposal:
 		logger.Debug("tendermint.MessageEvent: PROPOSAL")
-		return testBacklog(c.handleProposal(ctx, msg))
+		return c.handleProposal(ctx, msg)
 	case msgPrevote:
 		logger.Debug("tendermint.MessageEvent: PREVOTE")
-		return testBacklog(c.handlePrevote(ctx, msg))
+		return c.handlePrevote(ctx, msg)
 	case msgPrecommit:
 		logger.Debug("tendermint.MessageEvent: PRECOMMIT")
-		return testBacklog(c.handlePrecommit(ctx, msg))
+		return c.handlePrecommit(ctx, msg)
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}

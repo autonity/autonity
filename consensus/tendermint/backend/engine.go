@@ -106,7 +106,7 @@ func (sb *Backend) verifyHeader(header, parent *types.Header) error {
 	}
 	// Don't waste time checking blocks from the future
 	if big.NewInt(int64(header.Time)).Cmp(big.NewInt(now().Unix())) > 0 {
-		return consensus.ErrFutureBlock
+		return consensus.ErrFutureBlock // This looks wrong, what if my clock has slipped slightly?
 	}
 
 	// Ensure that the coinbase is valid

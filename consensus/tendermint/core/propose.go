@@ -51,55 +51,27 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 	}
 }
 
-func (c *core) handleProposal(ctx context.Context, msg *Message) error {
-	var proposal Proposal
-	err := msg.Decode(&proposal)
-	if err != nil {
-		return errFailedDecodeProposal
-	}
-
-	// Ensure we have the same view with the Proposal message
-	if err := c.checkMessage(proposal.Round, proposal.Height, propose); err != nil {
+func (c *core) handleProposal(ctx context.Context, proposal *Proposal) error {
+	if proposal.Round > c.Round() {
 		// If it's a future round proposal, the only upon condition
 		// that can be triggered is L49, but this requires more than F future round messages
 		// meaning that a future roundchange will happen before, as such, pushing the
 		// message to the backlog is fine.
-		if err == errOldRoundMessage {
-			// If this is an old round message we potentially may be able to
-			// commit, in the case that we have enough precommits for this
-			// proposal.
-
-			roundMsgs := c.messages.getOrCreate(proposal.Round)
-
-			// if we already have a proposal then it must be different than the current one
-			// it can't happen unless someone's byzantine.
-			if roundMsgs.proposal != nil {
-				return err // do not gossip, TODO: accountability
-			}
-
-			if !c.isProposerMsg(proposal.Round, msg.Address) {
-				c.logger.Warn("Ignore proposal messages from non-proposer")
-				return errNotFromProposer
-			}
-			// We do not verify the proposal in this case.
-			roundMsgs.SetProposal(&proposal, msg, false)
-
-			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= c.committeeSet().Quorum() {
-				if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
-					return error
-				}
-				c.logger.Debug("Committing old round proposal")
-				c.commit(proposal.Round, roundMsgs)
-				return nil
-			}
-		}
-		return err
+		return nil
 	}
 
-	// Check if the message comes from curRoundMessages proposer
-	if !c.isProposerMsg(c.Round(), msg.Address) {
-		c.logger.Warn("Ignore proposal messages from non-proposer")
-		return errNotFromProposer
+	if proposal.Round < c.Round() {
+		// If this is an old round message we potentially may be able to
+		// commit, in the case that we have enough precommits for this
+		// proposal.
+		if c.msgCache.precommitPower(proposal.ProposalBlock.Hash(), c.lastHeader) >= c.committeeSet().Quorum() {
+			if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
+				return error
+			}
+			c.logger.Debug("Committing old round proposal")
+			c.commit(proposal)
+			return nil
+		}
 	}
 
 	// Verify the proposal we received
@@ -113,11 +85,12 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				_, sender, _ := c.committeeSet().GetByAddress(msg.Address)
-				c.sendEvent(backlogEvent{
-					src: sender,
-					msg: msg,
-				})
+				// _, sender, _ := c.committeeSet().GetByAddress(msg.Address)
+				// c.sendEvent(backlogEvent{
+				// 	src: sender,
+				// 	msg: msg,
+				// })
+				// TODO deal with this
 			})
 		}
 		c.sendPrevote(ctx, true)
@@ -135,11 +108,6 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			return err
 		}
 
-		// Set the proposal for the current round
-		c.curRoundMessages.SetProposal(&proposal, msg, true)
-
-		c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
-
 		vr := proposal.ValidRound
 		h := proposal.ProposalBlock.Hash()
 
@@ -153,11 +121,9 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			return nil
 		}
 
-		rs := c.messages.getOrCreate(vr)
-
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		// vr >= 0 here
-		if vr < c.Round() && rs.PrevotesPower(h) >= c.committeeSet().Quorum() {
+		if vr < c.Round() && c.msgCache.prevotePower(h, c.lastHeader) >= c.committeeSet().Quorum() {
 			c.sendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
 			c.setStep(prevote)
 		}

@@ -69,18 +69,21 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	c.broadcast(ctx, msg)
 }
 
-func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
-	var preCommit Vote
-	err := msg.Decode(&preCommit)
-	if err != nil {
-		return errFailedDecodePrecommit
+func (c *core) handlePrecommit(ctx context.Context, preCommit *Vote) error {
+	if preCommit.Round > c.Round() || preCommit.Round < c.Round() {
+		// If it's a future or past round prevote leave it.
+		return nil
 	}
+
 	precommitHash := preCommit.ProposedBlockHash
 
 	if err := c.checkMessage(preCommit.Round, preCommit.Height, precommit); err != nil {
 
 		if err == errOldRoundMessage {
 			roundMsgs := c.messages.getOrCreate(preCommit.Round)
+			// what is this! So we want to verify the comitted seal but looks
+			// like they didn't want to check for messages that are future
+			// round messages, we want to reject messages, that fail this seal. But we do want to broadcast them.
 			if error := c.verifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); error != nil {
 				return error
 			}

@@ -64,7 +64,6 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
-	knownMessages, _ := lru.NewARC(inmemoryMessages)
 
 	pub := crypto.PubkeyToAddress(privateKey.PublicKey).String()
 	logger := log.New("addr", pub)
@@ -81,7 +80,6 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		recents:        recents,
 		coreStarted:    false,
 		recentMessages: recentMessages,
-		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
 	}
 

@@ -17,9 +17,11 @@
 package backend
 
 import (
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -27,7 +29,6 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rlp"
-	"github.com/hashicorp/golang-lru"
 )
 
 func TestTendermintMessage(t *testing.T) {
@@ -45,11 +46,6 @@ func TestTendermintMessage(t *testing.T) {
 		t.Fatalf("the cache of messages for this peer should be nil")
 	}
 
-	// for self
-	if _, ok := backend.knownMessages.Get(hash); ok {
-		t.Fatalf("the cache of messages should be nil")
-	}
-
 	// 2. this message should be in cache after we handle it
 	_, err := backend.HandleMsg(addr, msg)
 	if err != nil {
@@ -64,10 +60,6 @@ func TestTendermintMessage(t *testing.T) {
 		t.Fatalf("the cache of messages for this peer cannot be found")
 	}
 
-	// for self
-	if _, ok := backend.knownMessages.Get(hash); !ok {
-		t.Fatalf("the cache of messages cannot be found")
-	}
 }
 
 func TestSynchronisationMessage(t *testing.T) {

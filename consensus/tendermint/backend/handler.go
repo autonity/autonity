@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/p2p"
-	"github.com/hashicorp/golang-lru"
-	"io"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -105,12 +106,6 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 			sb.recentMessages.Add(addr, m)
 		}
 		m.Add(hash, true)
-
-		// Mark self known message
-		if _, ok := sb.knownMessages.Get(hash); ok {
-			return true, nil
-		}
-		sb.knownMessages.Add(hash, true)
 
 		sb.postEvent(events.MessageEvent{
 			Payload: data,

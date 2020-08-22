@@ -18,9 +18,10 @@ package core
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
 	"math/big"
+
+	"github.com/pkg/errors"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -30,6 +31,7 @@ import (
 type ConsensusMsg interface {
 	GetRound() int64
 	GetHeight() *big.Int
+	ProposedBlockHash() common.Hash
 }
 
 type Proposal struct {
@@ -45,6 +47,10 @@ func (p *Proposal) GetRound() int64 {
 
 func (p *Proposal) GetHeight() *big.Int {
 	return p.Height
+}
+
+func (p *Proposal) ProposedBlockHash() common.Address {
+	return p.ProposalBlock.Header().Hash()
 }
 
 func NewProposal(r int64, h *big.Int, vr int64, p *types.Block) *Proposal {
@@ -133,6 +139,10 @@ func (sub *Vote) GetRound() int64 {
 
 func (sub *Vote) GetHeight() *big.Int {
 	return sub.Height
+}
+
+func (p *Proposal) ProposedBlockHash() common.Address {
+	return p.ProposedBlockHash
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
