@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/clearmatics/autonity/common"
+	types "github.com/clearmatics/autonity/core/types"
 )
 
 func (c *core) sendPrevote(ctx context.Context, isNil bool) {
@@ -57,16 +58,16 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	})
 }
 
-func (c *core) handlePrevote(ctx context.Context, preVote *Vote) error {
+func (c *core) handlePrevote(ctx context.Context, preVote *Vote, header *types.Header) error {
 	if preVote.Round > c.Round() || preVote.Round < c.Round() {
 		// If it's a future or past round prevote leave it.
 		return nil
 	}
 
-	proposal := c.msgCache.proposal(c.Height().Uint64(), c.Round(), c.committee.GetProposer(c.Round()).Address)
+	proposal := c.msgCache.proposal(preVote.Height.Uint64(), preVote.Round, c.committee.GetProposer(preVote.Round).Address)
 
 	// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
-	if proposal != nil && c.step >= prevote && c.curRoundMessages.PrevotesPower(proposal.ProposalBlock.Hash()) >= c.committeeSet().Quorum() && !c.setValidRoundAndValue {
+	if proposal != nil && c.step >= prevote && c.msgCache.prevotePower(proposal.ProposedValueHash(), header) >= c.committeeSet().Quorum() && !c.setValidRoundAndValue {
 		// this piece of code should only run once
 		if err := c.prevoteTimeout.stopTimer(); err != nil {
 			return err
@@ -74,16 +75,16 @@ func (c *core) handlePrevote(ctx context.Context, preVote *Vote) error {
 		c.logger.Debug("Stopped Scheduled Prevote Timeout")
 
 		if c.step == prevote {
-			c.lockedValue = c.curRoundMessages.Proposal().ProposalBlock
-			c.lockedRound = c.Round()
+			c.lockedValue = proposal.ProposalBlock
+			c.lockedRound = proposal.Round
 			c.sendPrecommit(ctx, false)
 			c.setStep(precommit)
 		}
-		c.validValue = c.curRoundMessages.Proposal().ProposalBlock
-		c.validRound = c.Round()
+		c.validValue = proposal.ProposalBlock
+		c.validRound = proposal.Round
 		c.setValidRoundAndValue = true
 		// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if c.step == prevote && c.curRoundMessages.PrevotesPower(common.Hash{}) >= c.committeeSet().Quorum() {
+	} else if c.step == prevote && c.msgCache.prevotePower(common.Hash{}, header) >= c.committeeSet().Quorum() {
 		if err := c.prevoteTimeout.stopTimer(); err != nil {
 			return err
 		}
@@ -93,7 +94,7 @@ func (c *core) handlePrevote(ctx context.Context, preVote *Vote) error {
 		c.setStep(precommit)
 
 		// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if c.step == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.msgCache.totalPrevotePower() >= c.committeeSet().Quorum() {
+	} else if c.step == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.msgCache.totalPrevotePower(preVote.Round, header) >= c.committeeSet().Quorum() {
 		timeoutDuration := c.timeoutPrevote(c.Round())
 		c.prevoteTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
 		c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)

@@ -31,7 +31,7 @@ import (
 type ConsensusMsg interface {
 	GetRound() int64
 	GetHeight() *big.Int
-	ProposedBlockHash() common.Hash
+	ProposedValueHash() common.Hash
 }
 
 type Proposal struct {
@@ -49,7 +49,7 @@ func (p *Proposal) GetHeight() *big.Int {
 	return p.Height
 }
 
-func (p *Proposal) ProposedBlockHash() common.Address {
+func (p *Proposal) ProposedValueHash() common.Hash {
 	return p.ProposalBlock.Header().Hash()
 }
 
@@ -141,7 +141,7 @@ func (sub *Vote) GetHeight() *big.Int {
 	return sub.Height
 }
 
-func (p *Proposal) ProposedBlockHash() common.Address {
+func (p *Vote) ProposedValueHash() common.Hash {
 	return p.ProposedBlockHash
 }
 

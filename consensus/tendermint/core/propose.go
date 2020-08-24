@@ -25,6 +25,10 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
+type proposalEvent struct {
+	proposal *Proposal
+}
+
 func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 	logger := c.logger.New("step", c.step)
 
@@ -85,12 +89,7 @@ func (c *core) handleProposal(ctx context.Context, proposal *Proposal) error {
 		if err == consensus.ErrFutureBlock {
 			c.stopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				// _, sender, _ := c.committeeSet().GetByAddress(msg.Address)
-				// c.sendEvent(backlogEvent{
-				// 	src: sender,
-				// 	msg: msg,
-				// })
-				// TODO deal with this
+				c.sendEvent(proposalEvent{proposal})
 			})
 		}
 		c.sendPrevote(ctx, true)

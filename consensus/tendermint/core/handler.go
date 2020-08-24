@@ -143,22 +143,11 @@ eventLoop:
 					continue
 				}
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
-			case backlogEvent:
-				// No need to check signature for internal messages
-				c.logger.Debug("Started handling backlogEvent")
-				err := c.handleCheckedMsg(ctx, e.msg, e.src)
+			case proposalEvent:
+				err := c.handleProposal(ctx, e.proposal)
 				if err != nil {
-					c.logger.Debug("core.mainEventLoop handleCheckedMsg message failed", "err", err)
-					continue
+					c.logger.Debug("core.mainEventLoop handleProposal message failed", "err", err)
 				}
-
-				p, err := e.msg.Payload()
-				if err != nil {
-					c.logger.Debug("core.mainEventLoop Get message payload failed", "err", err)
-					continue
-				}
-
-				c.backend.Gossip(ctx, c.committeeSet().Committee(), p)
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
@@ -241,8 +230,6 @@ func (c *core) sendEvent(ev interface{}) {
 }
 
 func (c *core) handleMsg(ctx context.Context, payload []byte) error {
-	logger := c.logger.New()
-
 	// Decode message and check its signature
 	m := new(Message)
 
@@ -278,34 +265,17 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		if err != nil {
 			return errFailedDecodeProposal
 		}
-		err = c.msgCache.addProposal(&proposal, m)
-		if err != nil {
-			// could be multipe proposal messages from the same proposer
-			return err
-		}
 		cm = &proposal
 	case msgPrevote:
 		err := m.Decode(&preVote)
 		if err != nil {
 			return errFailedDecodePrevote
 		}
-
-		err = c.msgCache.addPrevote(&preVote, m)
-		if err != nil {
-			// could be multipe prevotes from same validator
-			return err
-		}
 		cm = &preVote
 	case msgPrecommit:
 		err := m.Decode(&preCommit)
 		if err != nil {
 			return errFailedDecodePrecommit
-		}
-
-		err = c.msgCache.addPrecommit(&preCommit, m)
-		if err != nil {
-			// could be multipe precommits from same validator
-			return err
 		}
 		cm = &preCommit
 	default:
@@ -314,13 +284,14 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 
 	header := c.backend.BlockChain().GetHeaderByNumber(cm.GetHeight().Uint64())
 
-	// Check that the message came from a committee member
+	// Check that the message came from a committee member, if not we ignore it.
 	if header.CommitteeMember(m.Address) == nil {
 		// TODO turn this into an error type that can be checked for at a
 		// higher level to close the connection to this peer.
 		return fmt.Errorf("received message from non committee member: %v", m)
 	}
 
+	// Again we ignore messges with invalid signatures, they cannot be trusted.
 	// TODO replace crypto.CheckValidatorSignature with something more
 	// efficient, so we don't have to hash twice.
 	address, err := crypto.CheckValidatorSignature(header, payload, m.Signature)
@@ -336,6 +307,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	switch m.Code {
 	case msgProposal:
 
+		// We ignore proposals from non proposers
 		if !c.isProposerMsg(proposal.Round, m.Address) {
 			c.logger.Warn("Ignore proposal messages from non-proposer")
 			return errNotFromProposer
@@ -354,7 +326,8 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		}
 	case msgPrecommit:
 		// Check the committed seal matches the block hash if its a precommit.
-		err := c.verifyCommittedSeal(m.Address, append([]byte(nil), m.CommittedSeal...), cm.ProposedBlockHash(), cm.GetRound(), cm.GetHeight())
+		// If not we ignore the message.
+		err := c.verifyCommittedSeal(m.Address, append([]byte(nil), m.CommittedSeal...), cm.ProposedValueHash(), cm.GetRound(), cm.GetHeight())
 		if err != nil {
 			return err
 		}
@@ -363,6 +336,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 			// could be multipe precommits from same validator
 			return err
 		}
+		c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, m.Address.String(), c.address.String())
 	default:
 		panic("should never happen")
 	}
@@ -374,23 +348,15 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 
 	switch m.Code {
 	case msgProposal:
-		err := c.handleProposal(ctx, &proposal)
-		if err != nil {
-			return err
-		}
+		err = c.handleProposal(ctx, &proposal)
 	case msgPrevote:
-		err := c.handlePrevote(ctx, &prevote)
-		if err != nil {
-			return err
-		}
+		err = c.handlePrevote(ctx, &preVote, header)
 	case msgPrecommit:
-		err := c.handlePrecommit(ctx, &preCommit)
-		if err != nil {
-			return err
-		}
+		err = c.handlePrecommit(ctx, &preCommit, header)
 	default:
 		panic("should never happen")
 	}
+	return err
 
 	//addr, err := validateFn(previousHeader, payload, m.Signature)
 	//if err != nil {
@@ -434,43 +400,4 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender ty
 		c.logger.Info("Received ceil(N/3) - 1 messages power for higher round", "New round", msgRound)
 		c.startRound(ctx, msgRound)
 	}
-}
-
-func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) error {
-	logger := c.logger.New("address", c.address, "from", msg.Address)
-
-	// // Store the message if it's a future message
-	// testBacklog := func(err error) error {
-	// 	// We want to store only future messages in backlog
-	// 	if err == errFutureHeightMessage {
-	// 		logger.Debug("Storing future height message in backlog")
-	// 		c.storeBacklog(msg, sender)
-	// 	} else if err == errFutureRoundMessage {
-	// 		logger.Debug("Storing future round message in backlog")
-	// 		c.storeBacklog(msg, sender)
-	// 		// decoding must have been successful to return
-	// 		c.handleFutureRoundMsg(ctx, msg, sender)
-	// 	} else if err == errFutureStepMessage {
-	// 		logger.Debug("Storing future step message in backlog")
-	// 		c.storeBacklog(msg, sender)
-	// 	}
-
-	// 	return err
-	// }
-
-	switch msg.Code {
-	case msgProposal:
-		logger.Debug("tendermint.MessageEvent: PROPOSAL")
-		return c.handleProposal(ctx, msg)
-	case msgPrevote:
-		logger.Debug("tendermint.MessageEvent: PREVOTE")
-		return c.handlePrevote(ctx, msg)
-	case msgPrecommit:
-		logger.Debug("tendermint.MessageEvent: PRECOMMIT")
-		return c.handlePrecommit(ctx, msg)
-	default:
-		logger.Error("Invalid message", "msg", msg)
-	}
-
-	return errInvalidMessage
 }

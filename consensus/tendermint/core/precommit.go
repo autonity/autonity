@@ -69,52 +69,34 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	c.broadcast(ctx, msg)
 }
 
-func (c *core) handlePrecommit(ctx context.Context, preCommit *Vote) error {
-	if preCommit.Round > c.Round() || preCommit.Round < c.Round() {
-		// If it's a future or past round prevote leave it.
+func (c *core) handlePrecommit(ctx context.Context, preCommit *Vote, header *types.Header) error {
+	if preCommit.Round > c.Round() {
+		// If it's a future round precommit leave it.
 		return nil
 	}
 
-	precommitHash := preCommit.ProposedBlockHash
+	proposal := c.msgCache.proposal(preCommit.Height.Uint64(), preCommit.Round, c.committee.GetProposer(preCommit.Round).Address)
+	proposalHash := proposal.ProposedValueHash()
 
-	if err := c.checkMessage(preCommit.Round, preCommit.Height, precommit); err != nil {
-
-		if err == errOldRoundMessage {
-			roundMsgs := c.messages.getOrCreate(preCommit.Round)
-			// what is this! So we want to verify the comitted seal but looks
-			// like they didn't want to check for messages that are future
-			// round messages, we want to reject messages, that fail this seal. But we do want to broadcast them.
-			if error := c.verifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); error != nil {
-				return error
+	if preCommit.Round < c.Round() {
+		if proposalHash != (common.Hash{}) && c.msgCache.precommitPower(proposalHash, header) >= c.committeeSet().Quorum() {
+			c.logger.Info("Quorum on a old round proposal", "round",
+				preCommit.Round)
+			if c.msgCache.proposalVerified(proposalHash) {
+				c.commit(proposal)
 			}
-			c.acceptVote(roundMsgs, precommit, precommitHash, *msg)
-			oldRoundProposalHash := roundMsgs.GetProposalHash()
-			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsPower(oldRoundProposalHash) >= c.committeeSet().Quorum() {
-				c.logger.Info("Quorum on a old round proposal", "round", preCommit.Round)
-				if !roundMsgs.isProposalVerified() {
-					if _, error := c.backend.VerifyProposal(*roundMsgs.Proposal().ProposalBlock); error != nil {
-						return error
-					}
-				}
-				c.commit(preCommit.Round, c.curRoundMessages)
-				return nil
-			}
+			return nil
 		}
-
-		return err
 	}
 
-	// Don't want to decode twice, hence sending preCommit with message
-	if err := c.verifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
-		return err
-	}
+	// At this point we know we have a precommit that has the same height and
+	// round as core. We don't know if it is a vote for the proposal we looked
+	// up though.
+
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	curProposalHash := c.curRoundMessages.GetProposalHash()
 	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
 
-	c.acceptVote(c.curRoundMessages, precommit, precommitHash, *msg)
-	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
-	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash) >= c.committeeSet().Quorum() {
+	if proposalHash != (common.Hash{}) && c.msgCache.precommitPower(proposalHash, header) >= c.committeeSet().Quorum() {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
 		}
@@ -124,13 +106,13 @@ func (c *core) handlePrecommit(ctx context.Context, preCommit *Vote) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			c.commit(c.Round(), c.curRoundMessages)
+			c.commit(proposal)
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.timerStarted() && c.curRoundMessages.PrecommitsTotalPower() >= c.committeeSet().Quorum() {
-		timeoutDuration := c.timeoutPrecommit(c.Round())
-		c.precommitTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
+	} else if !c.precommitTimeout.timerStarted() && c.msgCache.totalPrecommitPower(proposal.Round, header) >= c.committeeSet().Quorum() {
+		timeoutDuration := c.timeoutPrecommit(proposal.Round)
+		c.precommitTimeout.scheduleTimeout(timeoutDuration, proposal.Round, proposal.Height, c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
 	}
 

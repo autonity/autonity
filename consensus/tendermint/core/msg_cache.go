@@ -110,10 +110,21 @@ func (m *messageCache) prevotePower(valueHash common.Hash, header *types.Header)
 	return votePower(m.valueHashToPrevotes, valueHash, header)
 }
 
-func (m *messageCache) totalPrevotePower(header *types.Header, round int64) uint64 {
-	// get all messages for a round and height
-	// iterate then and add the power
-	return 0
+func (m *messageCache) totalPrevotePower(round int64, header *types.Header) uint64 {
+	return totalVotePower(m.prevoteMsgHashes, round, header)
+}
+
+func (m *messageCache) totalPrecommitPower(round int64, header *types.Header) uint64 {
+	return totalVotePower(m.precommitMsgHashes, round, header)
+}
+
+func totalVotePower(voteMsgHashes map[uint64]map[int64]map[common.Address]common.Hash, round int64, header *types.Header) uint64 {
+	var total uint64
+	// Iterate all prevotes for the round and total their voting power.
+	for address := range voteMsgHashes[header.Number.Uint64()][round] {
+		total += header.CommitteeMember(address).VotingPower.Uint64()
+	}
+	return total
 }
 
 func (m *messageCache) precommitPower(valueHash common.Hash, header *types.Header) uint64 {
@@ -159,6 +170,10 @@ func (m *messageCache) proposal(height uint64, round int64, proposerAddress comm
 		return nil
 	}
 	return m.msgHashToProposal[msgHash]
+}
+
+func (m *messageCache) proposalVerified(proposalHash common.Hash) bool {
+	return false
 }
 
 // func (m *messageCache) getproposals(height uint64, round int64) map[common.Address]*Proposal {
