@@ -8,17 +8,14 @@ import (
 // Message cache caches messages
 
 type messageCache struct {
-	proposalMsgHashes    map[uint64]map[int64]map[common.Address]common.Hash
-	msgHashToProposal    map[common.Hash]*Proposal
-	valueHashToProposals map[common.Hash]map[common.Address]*Proposal
+	proposalMsgHashes map[uint64]map[int64]map[common.Address]common.Hash
+	msgHashToProposal map[common.Hash]*Proposal
 
-	prevoteMsgHashes    map[uint64]map[int64]map[common.Address]common.Hash
-	msgHashToPrevote    map[common.Hash]*Vote
-	valueHashToPrevotes map[common.Hash]map[common.Address]*Vote
+	prevoteMsgHashes map[uint64]map[int64]map[common.Address]common.Hash
+	msgHashToPrevote map[common.Hash]*Vote
 
-	precommitMsgHashes    map[uint64]map[int64]map[common.Address]common.Hash
-	msgHashToPrecommit    map[common.Hash]*Vote
-	valueHashToSignatures map[common.Hash]map[common.Address][]byte
+	precommitMsgHashes map[uint64]map[int64]map[common.Address]common.Hash
+	msgHashToPrecommit map[common.Hash]*Vote
 
 	rawMessages map[common.Hash]*Message
 
@@ -26,6 +23,9 @@ type messageCache struct {
 	// message cache.
 	currentHeight uint64
 }
+
+// func roundMap(msgHashes map[uint64]map[int64]map[common.Address]common.Hash) map[int64]map[common.Address]common.Hash {
+// }
 
 // func (m *messageCache) addMessage(msg *Message) error {
 // 	// TODO check bounds and reject message
@@ -82,7 +82,6 @@ func (m *messageCache) addPrevote(p *Vote, msg *Message) error {
 	}
 	m.msgHashToPrevote[msg.Hash] = p
 	m.rawMessages[msg.Hash] = msg
-	addVoteForValue(m.valueHashToPrevotes, p.ProposedBlockHash, msg.Address, p)
 	return nil
 }
 
@@ -94,11 +93,6 @@ func (m *messageCache) addPrecommit(p *Vote, msg *Message) error {
 	m.msgHashToPrecommit[msg.Hash] = p
 	m.rawMessages[msg.Hash] = msg
 
-	addressMap, ok := m.valueHashToSignatures[p.ProposedBlockHash]
-	if !ok {
-		addressMap = make(map[common.Address][]byte)
-	}
-	addressMap[msg.Address] = msg.CommittedSeal
 	return nil
 }
 
@@ -106,8 +100,12 @@ func (m *messageCache) Message(h common.Hash) *Message {
 	return m.rawMessages[h]
 }
 
-func (m *messageCache) prevotePower(valueHash common.Hash, header *types.Header) uint64 {
-	return votePower(m.valueHashToPrevotes, valueHash, header)
+func (m *messageCache) prevotePower(valueHash common.Hash, round int64, header *types.Header) uint64 {
+	return votePower(m.prevoteMsgHashes, m.msgHashToPrevote, valueHash, round, header)
+}
+
+func (m *messageCache) precommitPower(valueHash common.Hash, round int64, header *types.Header) uint64 {
+	return votePower(m.precommitMsgHashes, m.msgHashToPrecommit, valueHash, round, header)
 }
 
 func (m *messageCache) totalPrevotePower(round int64, header *types.Header) uint64 {
@@ -127,31 +125,25 @@ func totalVotePower(voteMsgHashes map[uint64]map[int64]map[common.Address]common
 	return total
 }
 
-func (m *messageCache) precommitPower(valueHash common.Hash, header *types.Header) uint64 {
-	// Temp figure out what i need here
-	// return votePower(m.valueHashToPrecommits, valueHash, header)
-
-	return 0
-}
-
-func (m *messageCache) signatures(valueHash common.Hash) [][]byte {
-	signaturesByAddress := m.valueHashToSignatures[valueHash]
-	// Find all the signatures for this value
-	sigs := make([][]byte, len(signaturesByAddress))
-	for _, sig := range signaturesByAddress {
-		sigs = append(sigs, sig)
+func (m *messageCache) signatures(valueHash common.Hash, round int64, height uint64) [][]byte {
+	var sigs [][]byte
+	for _, msgHash := range m.precommitMsgHashes[height][round] {
+		if valueHash == m.msgHashToPrecommit[msgHash].ProposedBlockHash {
+			sigs = append(sigs, m.rawMessages[msgHash].CommittedSeal)
+		}
 	}
 	return sigs
 }
 
-func votePower(valueHashToVotes map[common.Hash]map[common.Address]*Vote, valueHash common.Hash, header *types.Header) uint64 {
-	votesByAddress := valueHashToVotes[valueHash]
-	// Total the power of all votes for this value, failure to find a committee
-	// member in the header indicates a programming error and an invalid memory
-	// acccess panic will ensue.
+func votePower(voteMsgHashes map[uint64]map[int64]map[common.Address]common.Hash, msgHashToVote map[common.Hash]*Vote, valueHash common.Hash, round int64, header *types.Header) uint64 {
+	// Total the power of all votes in this height and round for this value,
+	// failure to find a committee member in the header indicates a programming
+	// error and an invalid memory acccess panic will ensue.
 	var power uint64
-	for address := range votesByAddress {
-		power += header.CommitteeMember(address).VotingPower.Uint64()
+	for address, msgHash := range voteMsgHashes[header.Number.Uint64()][round] {
+		if msgHashToVote[msgHash].ProposedBlockHash == valueHash {
+			power += header.CommitteeMember(address).VotingPower.Uint64()
+		}
 	}
 	return power
 }
@@ -229,4 +221,21 @@ func addProposeForValue(proposals map[common.Hash]map[common.Address]*Proposal, 
 		addressMap = make(map[common.Address]*Proposal)
 	}
 	addressMap[address] = vote
+}
+
+func (m *messageCache) heightMessages(height uint64) []*Message {
+	var messages []*Message
+	accumulateMessagesForHeight(m.proposalMsgHashes, m.rawMessages, height, messages)
+	accumulateMessagesForHeight(m.prevoteMsgHashes, m.rawMessages, height, messages)
+	accumulateMessagesForHeight(m.precommitMsgHashes, m.rawMessages, height, messages)
+	return messages
+}
+
+func accumulateMessagesForHeight(msgHashes map[uint64]map[int64]map[common.Address]common.Hash, msgHashToMsg map[common.Hash]*Message, height uint64, accumulator []*Message) {
+	// Accumuate all messages for all rounds at the given height
+	for _, addressMap := range msgHashes[height] {
+		for _, hash := range addressMap {
+			accumulator = append(accumulator, msgHashToMsg[hash])
+		}
+	}
 }

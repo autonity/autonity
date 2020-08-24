@@ -80,8 +80,6 @@ const (
 func New(backend Backend, config *config.Config) *core {
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
-	messagesMap := newMessagesMap()
-	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
 		proposerPolicy:        config.ProposerPolicy,
 		blockPeriod:           config.BlockPeriod,
@@ -94,10 +92,8 @@ func New(backend Backend, config *config.Config) *core {
 		stopped:               make(chan struct{}, 4),
 		committee:             nil,
 		futureRoundChange:     make(map[int64]map[common.Address]uint64),
-		messages:              messagesMap,
 		lockedRound:           -1,
 		validRound:            -1,
-		curRoundMessages:      roundMessage,
 		proposeTimeout:        newTimeout(propose, logger),
 		prevoteTimeout:        newTimeout(prevote, logger),
 		precommitTimeout:      newTimeout(precommit, logger),
@@ -142,8 +138,6 @@ type core struct {
 	// everything else MUST be accessed only by the main thread.
 	stateMu               sync.RWMutex
 	step                  Step
-	curRoundMessages      *roundMessages
-	messages              messagesMap
 	sentProposal          bool
 	sentPrevote           bool
 	sentPrecommit         bool
@@ -164,7 +158,7 @@ type core struct {
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
-	return c.messages.GetMessages()
+	return c.msgCache.heightMessages(c.Height().Uint64())
 }
 
 func (c *core) IsMember(address common.Address) bool {
@@ -229,7 +223,7 @@ func (c *core) commit(proposal *Proposal) {
 
 	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Hash())
 
-	committedSeals := c.msgCache.signatures(proposal.ProposalBlock.Hash())
+	committedSeals := c.msgCache.signatures(proposal.ProposalBlock.Hash(), proposal.Round, proposal.Height.Uint64())
 	if err := c.backend.Commit(proposal.ProposalBlock, proposal.Round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 	}
@@ -319,28 +313,17 @@ func (c *core) setInitialState(r int64) {
 		c.lockedValue = nil
 		c.validRound = -1
 		c.validValue = nil
-		c.messages.reset()
 		c.futureRoundChange = make(map[int64]map[common.Address]uint64)
 	}
 
 	c.proposeTimeout.reset(propose)
 	c.prevoteTimeout.reset(prevote)
 	c.precommitTimeout.reset(precommit)
-	c.curRoundMessages = c.messages.getOrCreate(r)
 	c.sentProposal = false
 	c.sentPrevote = false
 	c.sentPrecommit = false
 	c.setValidRoundAndValue = false
 	c.setRound(r)
-}
-
-func (c *core) acceptVote(roundMsgs *roundMessages, step Step, hash common.Hash, msg Message) {
-	switch step {
-	case prevote:
-		roundMsgs.AddPrevote(hash, msg)
-	case precommit:
-		roundMsgs.AddPrecommit(hash, msg)
-	}
 }
 
 func (c *core) setStep(step Step) {

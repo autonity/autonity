@@ -34,11 +34,12 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	if isNil {
 		prevote.ProposedBlockHash = common.Hash{}
 	} else {
-		if h := c.curRoundMessages.GetProposalHash(); h == (common.Hash{}) {
+		hash := c.msgCache.proposal(c.Height().Uint64(), c.Round(), c.committee.GetProposer(c.Round()).Address).ProposedValueHash()
+		if hash == (common.Hash{}) {
 			c.logger.Error("sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		prevote.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
+		prevote.ProposedBlockHash = hash
 	}
 
 	encodedVote, err := Encode(&prevote)
@@ -67,7 +68,7 @@ func (c *core) handlePrevote(ctx context.Context, preVote *Vote, header *types.H
 	proposal := c.msgCache.proposal(preVote.Height.Uint64(), preVote.Round, c.committee.GetProposer(preVote.Round).Address)
 
 	// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
-	if proposal != nil && c.step >= prevote && c.msgCache.prevotePower(proposal.ProposedValueHash(), header) >= c.committeeSet().Quorum() && !c.setValidRoundAndValue {
+	if proposal != nil && c.step >= prevote && c.msgCache.prevotePower(proposal.ProposedValueHash(), proposal.Round, header) >= c.committeeSet().Quorum() && !c.setValidRoundAndValue {
 		// this piece of code should only run once
 		if err := c.prevoteTimeout.stopTimer(); err != nil {
 			return err
@@ -84,7 +85,7 @@ func (c *core) handlePrevote(ctx context.Context, preVote *Vote, header *types.H
 		c.validRound = proposal.Round
 		c.setValidRoundAndValue = true
 		// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if c.step == prevote && c.msgCache.prevotePower(common.Hash{}, header) >= c.committeeSet().Quorum() {
+	} else if c.step == prevote && c.msgCache.prevotePower(common.Hash{}, preVote.Round, header) >= c.committeeSet().Quorum() {
 		if err := c.prevoteTimeout.stopTimer(); err != nil {
 			return err
 		}
@@ -104,7 +105,7 @@ func (c *core) handlePrevote(ctx context.Context, preVote *Vote, header *types.H
 }
 
 func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to string) {
-	currentProposalHash := c.curRoundMessages.GetProposalHash()
+	currentProposalHash := c.msgCache.proposal(prevote.Height.Uint64(), prevote.Round, c.committee.GetProposer(prevote.Round).Address).ProposedValueHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
@@ -118,8 +119,8 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
 		"hash", prevote.ProposedBlockHash,
 		"type", "Prevote",
-		"totalVotes", c.curRoundMessages.PrevotesTotalPower(),
-		"totalNilVotes", c.curRoundMessages.PrevotesPower(common.Hash{}),
-		"VoteProposedBlock", c.curRoundMessages.PrevotesPower(currentProposalHash),
+		"totalVotes", c.msgCache.totalPrevotePower(prevote.Round, c.lastHeader),
+		"totalNilVotes", c.msgCache.prevotePower(common.Hash{}, prevote.Round, c.lastHeader),
+		"VoteProposedBlock", c.msgCache.prevotePower(currentProposalHash, prevote.Round, c.lastHeader),
 	)
 }

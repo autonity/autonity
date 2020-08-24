@@ -68,7 +68,7 @@ func (c *core) handleProposal(ctx context.Context, proposal *Proposal) error {
 		// If this is an old round message we potentially may be able to
 		// commit, in the case that we have enough precommits for this
 		// proposal.
-		if c.msgCache.precommitPower(proposal.ProposalBlock.Hash(), c.lastHeader) >= c.committeeSet().Quorum() {
+		if c.msgCache.precommitPower(proposal.ProposalBlock.Hash(), proposal.Round, c.lastHeader) >= c.committeeSet().Quorum() {
 			if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
 				return error
 			}
@@ -122,7 +122,7 @@ func (c *core) handleProposal(ctx context.Context, proposal *Proposal) error {
 
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		// vr >= 0 here
-		if vr < c.Round() && c.msgCache.prevotePower(h, c.lastHeader) >= c.committeeSet().Quorum() {
+		if vr < proposal.Round && c.msgCache.prevotePower(h, proposal.Round, c.lastHeader) >= c.committeeSet().Quorum() {
 			c.sendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
 			c.setStep(prevote)
 		}

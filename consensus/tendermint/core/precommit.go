@@ -36,11 +36,12 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	if isNil {
 		precommit.ProposedBlockHash = common.Hash{}
 	} else {
-		if h := c.curRoundMessages.GetProposalHash(); h == (common.Hash{}) {
+		hash := c.msgCache.proposal(c.Height().Uint64(), c.Round(), c.committee.GetProposer(c.Round()).Address).ProposedValueHash()
+		if hash == (common.Hash{}) {
 			c.logger.Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
+		precommit.ProposedBlockHash = hash
 	}
 
 	encodedVote, err := Encode(&precommit)
@@ -79,7 +80,7 @@ func (c *core) handlePrecommit(ctx context.Context, preCommit *Vote, header *typ
 	proposalHash := proposal.ProposedValueHash()
 
 	if preCommit.Round < c.Round() {
-		if proposalHash != (common.Hash{}) && c.msgCache.precommitPower(proposalHash, header) >= c.committeeSet().Quorum() {
+		if proposalHash != (common.Hash{}) && c.msgCache.precommitPower(proposalHash, proposal.Round, header) >= c.committeeSet().Quorum() {
 			c.logger.Info("Quorum on a old round proposal", "round",
 				preCommit.Round)
 			if c.msgCache.proposalVerified(proposalHash) {
@@ -96,7 +97,7 @@ func (c *core) handlePrecommit(ctx context.Context, preCommit *Vote, header *typ
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
 
-	if proposalHash != (common.Hash{}) && c.msgCache.precommitPower(proposalHash, header) >= c.committeeSet().Quorum() {
+	if proposalHash != (common.Hash{}) && c.msgCache.precommitPower(proposalHash, proposal.Round, header) >= c.committeeSet().Quorum() {
 		if err := c.precommitTimeout.stopTimer(); err != nil {
 			return err
 		}
@@ -151,7 +152,7 @@ func (c *core) handleCommit(ctx context.Context) {
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to string) {
-	currentProposalHash := c.curRoundMessages.GetProposalHash()
+	currentProposalHash := c.msgCache.proposal(precommit.Height.Uint64(), precommit.Round, c.committee.GetProposer(precommit.Round).Address).ProposedValueHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
@@ -165,8 +166,8 @@ func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
 		"hash", precommit.ProposedBlockHash,
 		"type", "Precommit",
-		"totalVotes", c.curRoundMessages.PrecommitsTotalPower(),
-		"totalNilVotes", c.curRoundMessages.PrecommitsPower(common.Hash{}),
-		"proposedBlockVote", c.curRoundMessages.PrecommitsPower(currentProposalHash),
+		"totalVotes", c.msgCache.totalPrecommitPower(precommit.Round, c.lastHeader),
+		"totalNilVotes", c.msgCache.precommitPower(common.Hash{}, precommit.Round, c.lastHeader),
+		"VoteProposedBlock", c.msgCache.precommitPower(currentProposalHash, precommit.Round, c.lastHeader),
 	)
 }
