@@ -18,8 +18,8 @@ import (
 
 var ErrAutonityContract = errors.New("could not call Autonity contract")
 var ErrWrongParameter = errors.New("wrong parameter")
-var deployer = common.Address{}
-var ContractAddress = crypto.CreateAddress(deployer, 0)
+var Deployer = common.Address{}
+var ContractAddress = crypto.CreateAddress(Deployer, 0)
 
 const ABISPEC = "ABISPEC"
 
@@ -73,7 +73,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 
 	// prepare abi and evm context
 	gas := uint64(0xFFFFFFFF)
-	evm := ac.evmProvider.EVM(header, deployer, stateDB)
+	evm := ac.evmProvider.EVM(header, Deployer, stateDB)
 	ABI := ac.contractABI
 
 	// pack the function which dump the data from contract.
@@ -85,7 +85,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 
 	// call evm.
 	value := new(big.Int).SetUint64(0x00)
-	ret, _, vmerr := evm.Call(vm.AccountRef(deployer), ContractAddress, input, gas, value)
+	ret, _, vmerr := evm.Call(vm.AccountRef(Deployer), ContractAddress, input, gas, value)
 	if vmerr != nil {
 		log.Warn("Error Autonity Contract dumpNetworkEconomics", err, vmerr)
 		return
