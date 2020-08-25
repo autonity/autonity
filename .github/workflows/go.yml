@@ -385,11 +385,30 @@ jobs:
   # Execute the commands from the Hello World documentation
   helloworld_tests:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: helloworld
     steps:
       - uses: actions/checkout@v2
 
       - name: Build and start helloworld
-        run: cd helloworld && docker-compose up -d
+        run: docker-compose up -d
+
+      - name: Test helloworld console access
+        run: |
+          set -e && \
+          for x in 11 12 13 14 15; do \
+            docker run \
+            --network helloworld_chainnet \
+            --rm \
+            autonity attach http://172.25.0.$x:8545 \
+            --exec '[eth.coinbase, eth.getBlock("latest").number, eth.getBlock("latest").hash, eth.mining]'; \
+          done
+
+      - name: Stop helloworld
+        run: docker-compose down
+
 
   # Builds the docker image. We don't intend to use the built image as part of
   # a workflow, but we want to know the image can be built. We don't want to
