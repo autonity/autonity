@@ -320,7 +320,7 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 				log.Error("Canonical hash missing, can't freeze", "number", f.frozen)
 				break
 			}
-			header := ReadHeaderRLP(nfdb, hash, f.frozen)
+			header, _ := ReadHeaderRLP(nfdb, hash, f.frozen)
 			if len(header) == 0 {
 				log.Error("Block header missing, can't freeze", "number", f.frozen, "hash", hash)
 				break
