@@ -29,7 +29,7 @@ func NewNodes(strList []string) *Nodes {
 
 		go func(enodeStr string) {
 			log.Debug("performing", "node", enodeStr)
-			newEnode, err := enode.ParseWithResolve(enodeStr)
+			newEnode, err := enode.ParseV4(enodeStr)
 			if err != nil {
 				errCh <- err
 			}

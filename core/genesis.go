@@ -27,12 +27,15 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
@@ -292,6 +295,21 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 			statedb.SetState(addr, key, value)
 		}
 	}
+
+	if g.Config.AutonityContractConfig != nil {
+		evm := genesisEVM(g, statedb)
+
+		abi, err := abi.JSON(strings.NewReader(g.Config.AutonityContractConfig.ABI))
+		if err != nil {
+			return nil, err
+		}
+
+		err = autonity.DeployContract(&abi, g.Config.AutonityContractConfig, evm)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	root := statedb.IntermediateRoot(false)
 
 	g.mu.RLock()
@@ -325,6 +343,24 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	statedb.Database().TrieDB().Commit(root, true)
 
 	return types.NewBlock(head, nil, nil, nil), nil
+}
+
+func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
+
+	evmContext := vm.Context{
+		CanTransfer: CanTransfer,
+		Transfer:    Transfer,
+		GetHash:     func(n uint64) common.Hash { return common.Hash{} },
+		Origin:      autonity.Deployer,
+		Coinbase:    genesis.Coinbase,
+		BlockNumber: big.NewInt(0),
+		Time:        new(big.Int).SetUint64(genesis.Timestamp),
+		GasLimit:    genesis.GasLimit,
+		Difficulty:  genesis.Difficulty,
+		GasPrice:    new(big.Int).SetUint64(0x0),
+	}
+
+	return vm.NewEVM(evmContext, statedb, genesis.Config, vm.Config{})
 }
 
 // Commit writes the block and state of a genesis specification to the database.
