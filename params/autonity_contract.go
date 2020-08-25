@@ -103,7 +103,7 @@ type User struct {
 
 // getAddressFromEnode gets the account address from the user enode.
 func (u *User) getAddressFromEnode() (common.Address, error) {
-	n, err := enode.ParseV4WithResolve(u.Enode)
+	n, err := enode.ParseV4(u.Enode)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to parse enode %q, error:%v", u.Enode, err)
 	}

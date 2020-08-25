@@ -37,6 +37,8 @@ var errMissingPrefix = errors.New("missing 'enr:' prefix for base64-encoded reco
 type Node struct {
 	r  enr.Record
 	id ID
+	// Only required to be set for Nodes that have a host entry
+	resolveFunc func(host string) ([]net.IP, error)
 }
 
 // New wraps a node record. The record must be valid according to the given
@@ -136,6 +138,47 @@ func (n *Node) Pubkey() *ecdsa.PublicKey {
 		return nil
 	}
 	return &key
+}
+
+// Host returns the host if set or an empty string otherwise.
+func (n *Node) Host() string {
+	var host enr.HOST
+	if n.Load(&host) != nil {
+		// In case of an error, return the empty string
+		return ""
+	}
+	return string(host)
+}
+
+// ResolveHost tries to resolve the IP of the host if this node has a 'host'
+// entry, if successful it will set the IP to the resolved IP. If it fails then
+// an error will be returned. If this node has no entry then this function does
+// nothing and returns nil.
+func (n *Node) ResolveHost() error {
+	host := n.Host()
+
+	// If no host is defined then return
+	if host == "" {
+		return nil
+	}
+
+	// try to resolve host
+	ips, err := n.resolveFunc(host)
+	if err != nil {
+		return err
+	}
+	if len(ips) == 0 {
+		return fmt.Errorf("failed to resolve IP for host %q, no IPs returned", host)
+	}
+
+	ip := ips[0]
+
+	// Ensure the IP is 4 bytes long for IPv4 addresses.
+	if ipv4 := ip.To4(); ipv4 != nil {
+		ip = ipv4
+	}
+	n.r.Set(enr.IP(ip))
+	return nil
 }
 
 // Record returns the node's record. The return value is a copy and may
