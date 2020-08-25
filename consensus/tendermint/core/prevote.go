@@ -73,7 +73,8 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 
 			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus.
 			if c.step == propose {
-				if c.curRoundMessages.proposal != nil {
+				// ProposalBlock would be nil if node haven't receive proposal yet.
+				if c.curRoundMessages.proposal.ProposalBlock != nil {
 					vr := c.curRoundMessages.proposal.ValidRound
 					h := c.curRoundMessages.proposal.ProposalBlock.Hash()
 					rs := c.messages.getOrCreate(vr)
