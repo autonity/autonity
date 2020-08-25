@@ -1,5 +1,8 @@
 ## Autonity Hello World
 
+Note all commands provided here assume the current directory is the helloworld
+directory.
+
 ### tl;dr;
 
 Run `docker-compose up -d` and off you go!
@@ -51,29 +54,52 @@ When the nodes have all been deployed and connected to each other, the `nodes-co
 
 ```bash
 $ docker-compose ps
-     Name                Command          State                                      Ports
-     -----------------------------------------------------------------------------------------------------------------------------
-     autonity-node-1   ./autonity-start.sh     Up       0.0.0.0:30313->30303/tcp, 0.0.0.0:30313->30303/udp, 0.0.0.0:8541->8545/tcp
-     autonity-node-2   ./autonity-start.sh     Up       0.0.0.0:30323->30303/tcp, 0.0.0.0:30323->30303/udp, 0.0.0.0:8542->8545/tcp
-     autonity-node-3   ./autonity-start.sh     Up       0.0.0.0:30333->30303/tcp, 0.0.0.0:30333->30303/udp, 0.0.0.0:8543->8545/tcp
-     autonity-node-4   ./autonity-start.sh     Up       0.0.0.0:30343->30303/tcp, 0.0.0.0:30343->30303/udp, 0.0.0.0:8544->8545/tcp
-     autonity-node-5   ./autonity-start.sh     Up       0.0.0.0:30353->30303/tcp, 0.0.0.0:30353->30303/udp, 0.0.0.0:8545->8545/tcp
-     nodes-connector   ./autonity-connect.sh   Exit 0
+     Name               Command         State                                                           Ports
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+autonity-node-1   ./autonity-start.sh   Up      0.0.0.0:30313->30303/tcp, 0.0.0.0:30313->30303/udp, 0.0.0.0:8541->8545/tcp, 8546/tcp, 8547/tcp, 0.0.0.0:8641->8645/tcp
+autonity-node-2   ./autonity-start.sh   Up      0.0.0.0:30323->30303/tcp, 0.0.0.0:30323->30303/udp, 0.0.0.0:8542->8545/tcp, 8546/tcp, 8547/tcp, 0.0.0.0:8642->8645/tcp
+autonity-node-3   ./autonity-start.sh   Up      0.0.0.0:30333->30303/tcp, 0.0.0.0:30333->30303/udp, 0.0.0.0:8543->8545/tcp, 8546/tcp, 8547/tcp, 0.0.0.0:8643->8645/tcp
+autonity-node-4   ./autonity-start.sh   Up      0.0.0.0:30343->30303/tcp, 0.0.0.0:30343->30303/udp, 0.0.0.0:8544->8545/tcp, 8546/tcp, 8547/tcp, 0.0.0.0:8644->8645/tcp
+autonity-node-5   ./autonity-start.sh   Up      30303/tcp, 30303/udp, 8545/tcp, 8546/tcp, 8547/tcp
 ```
 
 ### How can I use the nodes?
 
-You can connect to the nodes, through the autonity console all the RPC ports are open. Here is an example of attaching a console to `autonity-node-1`:
+You can connect to the nodes, through the autonity console all the RPC ports
+are have been mapped to the host.
+
+Here is an example of attaching a console to `autonity-node-1` via docker, note
+that 172.25.0.11 is the ip address assigned to the container by docker and is
+defined in `docker-compose.yml`
 
 ```bash
-$ autonity attach http://0.0.0.0:8541
+$
+docker run --network helloworld_chainnet -ti --rm autonity attach http://172.25.0.11:8545
 Welcome to the Autonity JavaScript console!
 
-instance: Autonity/v1.0.0-alpha-7bcaa485/linux-amd64/go1.11.5
+instance: Autonity/v0.5.0-b4d1f51f-20200812/linux-amd64/go1.14.7
 coinbase: 0x850c1eb8d190e05845ad7f84ac95a318c8aab07f
-at block: 298 (Wed, 13 Feb 2019 15:31:50 GMT)
-datadir: /autonity-data
-modules: admin:1.0 istanbul:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 txpool:1.0 web3:1.0
+at block: 414 (Tue Aug 25 2020 12:55:11 GMT+0000 (UTC))
+ datadir: /autonity-data
+ modules: admin:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 tendermint:1.0 txpool:1.0 web3:1.0
+
+>
+```
+
+Here is an example of attaching a console to `autonity-node-1` from the host
+machine, note that the host port for a container that corresponds to 8545 can
+be found from the output of `docker-compose ps` in this case the port is 8541.
+
+```bash
+$
+../build/bin/autonity attach http://0.0.0.0:8541
+Welcome to the Autonity JavaScript console!
+
+instance: Autonity/v0.5.0-b4d1f51f-20200812/linux-amd64/go1.14.7
+coinbase: 0x850c1eb8d190e05845ad7f84ac95a318c8aab07f
+at block: 1181 (Tue Aug 25 2020 14:07:58 GMT+0100 (BST))
+ datadir: /autonity-data
+ modules: admin:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 tendermint:1.0 txpool:1.0 web3:1.0
 
 >
 ```
@@ -81,8 +107,8 @@ modules: admin:1.0 istanbul:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0
 You can also run a simple Javascript command without having an interactive console:
 
 ```bash
-$ autonity attach http://0.0.0.0:8541 --exec '[eth.coinbase, eth.getBlock("latest").number, eth.getBlock("latest").hash, eth.mining]'
-["0x850c1eb8d190e05845ad7f84ac95a318c8aab07f", 298, "0xba609a7786a70a0c1be27c3f3325279512c004ba48c3a82e945cc3f45f1d045d", true]
+$ docker run --network helloworld_chainnet -ti --rm autonity attach http://172.25.0.11:8545 --exec '[eth.coinbase, eth.getBlock("latest").number, eth.getBlock("latest").hash, eth.mining]'
+["0x850c1eb8d190e05845ad7f84ac95a318c8aab07f", 493, "0xcffb1c661b4bd87430079656fa8b233fb0a0585250282f46506b7d44151560f0", true]
 ```
 
 ### What are all these files in the `helloword` directory?
