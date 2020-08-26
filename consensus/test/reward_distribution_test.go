@@ -33,7 +33,7 @@ import (
   simple formula on each account: balanceOnParentBlock + reward + received - sent - gasUsed == balanceOnNewBlock.
 
   The TX issuing and reward checking work flow are keep running during each new block is mined.
- */
+*/
 
 func TestRewardDistribution(t *testing.T) {
 	if testing.Short() {
