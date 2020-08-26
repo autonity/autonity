@@ -19,7 +19,6 @@ package backend
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
@@ -28,7 +27,7 @@ import (
 // API is a user facing RPC API to dump BFT state
 type API struct {
 	chain        consensus.ChainReader
-	tendermint   core.Backend //TODO: This is only for testing purposes, should be changed to *Backend but that would mean to fix the api tests (https://github.com/clearmatics/autonity/issues/479)
+	tendermint   *Backend
 	getCommittee func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
 }
 

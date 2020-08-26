@@ -572,9 +572,8 @@ func (slice Keys) Swap(i, j int) {
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := rawdb.NewMemoryDatabase()
-	cfg := config.DefaultConfig()
 	// Use the first key as private key
-	b := New(cfg, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
+	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
 
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
@@ -607,9 +606,8 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Config = params.TestChainConfig
 	genesis.GasLimit = 10000000
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
-	// force enable Istanbul engine
-	genesis.Config.Tendermint = &config.Config{}
-	genesis.Config.Ethash = nil
+	// force enable Tendermint engine
+	genesis.Config.Tendermint = config.DefaultConfig()
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.BFTDigest

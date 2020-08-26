@@ -4,6 +4,18 @@ jobs:
   bootstrap-checkout:
     runs-on: ubuntu-latest
     steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Set GOPATH
+        run: |
+          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+        shell: bash
+
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
@@ -419,3 +431,19 @@ jobs:
 
       - name: docker_e2e_test
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests
+
+  # Builds the docker image. We don't intend to use the built image as part of
+  # a workflow, but we want to know the image can be built. We don't want to
+  # use any cache here since we want a clean checkout before any code
+  # generation has taken place.
+  docker-image-build:
+    runs-on: ubuntu-latest
+    # Don't try to build the docker image unless autonity itself builds.
+    needs: build
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          clean: 'false'
+
+      - name: Build
+        run: make build-docker-image
