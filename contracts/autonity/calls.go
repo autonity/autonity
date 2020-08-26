@@ -6,12 +6,13 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/params"
 )
 
 /*
@@ -33,13 +34,11 @@ type ContractState struct {
 
 type raw []byte
 
-// deployContract deploys the contract contained within the genesis field bytecode
-func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) error {
+func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis, evm *vm.EVM) error {
 	// Convert the contract bytecode from hex into bytes
-	contractBytecode := common.Hex2Bytes(chain.Config().AutonityContractConfig.Bytecode)
-	evm := ac.evmProvider.EVM(header, deployer, statedb)
+	contractBytecode := common.Hex2Bytes(autonityConfig.Bytecode)
 
-	ln := len(chain.Config().AutonityContractConfig.GetValidatorUsers())
+	ln := len(autonityConfig.GetValidatorUsers())
 	validators := make(common.Addresses, 0, ln)
 	enodes := make([]string, 0, ln)
 	accTypes := make([]*big.Int, 0, ln)
@@ -52,7 +51,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	defaultCommitteeSize := big.NewInt(1000)
 	defaultVersion := "v0.0.0"
 
-	for _, v := range chain.Config().AutonityContractConfig.Users {
+	for _, v := range autonityConfig.Users {
 		validators = append(validators, *v.Address)
 		enodes = append(enodes, v.Enode)
 		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
@@ -62,14 +61,14 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 		commissionRate = append(commissionRate, big.NewInt(0))
 	}
 
-	constructorParams, err := ac.contractABI.Pack("",
+	constructorParams, err := abi.Pack("",
 		validators,
 		enodes,
 		accTypes,
 		participantStake,
 		commissionRate,
-		chain.Config().AutonityContractConfig.Operator,
-		new(big.Int).SetUint64(chain.Config().AutonityContractConfig.MinGasPrice),
+		autonityConfig.Operator,
+		new(big.Int).SetUint64(autonityConfig.MinGasPrice),
 		defaultBondPeriod,
 		defaultCommitteeSize,
 		defaultVersion)
@@ -83,7 +82,7 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	value := new(big.Int).SetUint64(0x00)
 
 	// Deploy the Autonity contract
-	_, _, _, vmerr := evm.Create(vm.AccountRef(deployer), data, gas, value)
+	_, _, _, vmerr := evm.Create(vm.AccountRef(Deployer), data, gas, value)
 	if vmerr != nil {
 		log.Error("DeployAutonityContract evm.Create", "err", vmerr)
 		return vmerr
@@ -94,12 +93,12 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 }
 
 func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string, state []byte) error {
-	evm := ac.evmProvider.EVM(header, deployer, statedb)
+	evm := ac.evmProvider.EVM(header, Deployer, statedb)
 	contractBytecode := common.Hex2Bytes(bytecode)
 	data := append(contractBytecode, state...)
 	gas := uint64(0xFFFFFFFF)
 	value := new(big.Int).SetUint64(0x00)
-	_, _, _, vmerr := evm.CreateWithAddress(vm.AccountRef(deployer), data, gas, value, ContractAddress)
+	_, _, _, vmerr := evm.CreateWithAddress(vm.AccountRef(Deployer), data, gas, value, ContractAddress)
 	if vmerr != nil {
 		log.Error("updateAutonityContract evm.Create", "err", vmerr)
 		return vmerr
@@ -109,14 +108,14 @@ func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.
 
 func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}, args ...interface{}) error {
 	gas := uint64(math.MaxUint64)
-	evm := ac.evmProvider.EVM(header, deployer, statedb)
+	evm := ac.evmProvider.EVM(header, Deployer, statedb)
 
 	input, err := ac.contractABI.Pack(function, args...)
 	if err != nil {
 		return err
 	}
 
-	ret, _, vmerr := evm.Call(vm.AccountRef(deployer), ContractAddress, input, gas, new(big.Int))
+	ret, _, vmerr := evm.Call(vm.AccountRef(Deployer), ContractAddress, input, gas, new(big.Int))
 	if vmerr != nil {
 		log.Error("Error Autonity Contract", "function", function)
 		return vmerr
@@ -152,6 +151,18 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 		return 0, err
 	}
 	return minGasPrice.Uint64(), nil
+}
+
+func (ac *Contract) callGetProposer(state *state.StateDB, header *types.Header, height uint64, round int64) common.Address {
+	var proposer common.Address
+	h := new(big.Int).SetUint64(height)
+	r := new(big.Int).SetInt64(round)
+	err := ac.AutonityContractCall(state, header, "getProposer", &proposer, h, r)
+	if err != nil {
+		log.Error("get proposer failed from contract.", "error", err)
+		return common.Address{}
+	}
+	return proposer
 }
 
 func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, types.Committee, error) {
@@ -193,14 +204,14 @@ func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Hea
 func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) error {
 	// Needs to be refactored somehow
 	gas := uint64(0xFFFFFFFF)
-	evm := ac.evmProvider.EVM(header, deployer, state)
+	evm := ac.evmProvider.EVM(header, Deployer, state)
 
 	input, err := ac.contractABI.Pack("setMinimumGasPrice")
 	if err != nil {
 		return err
 	}
 
-	_, _, vmerr := evm.Call(vm.AccountRef(deployer), ContractAddress, input, gas, price)
+	_, _, vmerr := evm.Call(vm.AccountRef(Deployer), ContractAddress, input, gas, price)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract getMinimumGasPrice()")
 		return vmerr

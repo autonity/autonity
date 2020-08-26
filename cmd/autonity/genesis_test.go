@@ -28,59 +28,44 @@ var customGenesisTests = []struct {
 	query   string
 	result  string
 }{
-	// Plain genesis file without anything extra
-	{
-		genesis: `{
-			"alloc"      : {},
-			"coinbase"   : "0x0000000000000000000000000000000000000000",
-			"difficulty" : "0x20000",
-			"extraData"  : "",
-			"gasLimit"   : "0x2fefd8",
-			"nonce"      : "0x0000000000000042",
-			"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
-			"parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
-			"timestamp"  : "0x00"
-		}`,
-		query:  "eth.getBlock(0).nonce",
-		result: "0x0000000000000042",
-	},
-	// Genesis file with an empty chain configuration (ensure missing fields work)
-	{
-		genesis: `{
-			"alloc"      : {},
-			"coinbase"   : "0x0000000000000000000000000000000000000000",
-			"difficulty" : "0x20000",
-			"extraData"  : "",
-			"gasLimit"   : "0x2fefd8",
-			"nonce"      : "0x0000000000000042",
-			"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
-			"parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
-			"timestamp"  : "0x00",
-			"config"     : {}
-		}`,
-		query:  "eth.getBlock(0).nonce",
-		result: "0x0000000000000042",
-	},
 	// Genesis file with specific chain configurations
 	{
 		genesis: `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
-			"difficulty" : "0x20000",
+			"difficulty" : "0x1",
 			"extraData"  : "",
 			"gasLimit"   : "0x2fefd8",
-			"nonce"      : "0x0000000000000042",
+			"nonce"      : "0x0000000000001339",
 			"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
 			"parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
 			"timestamp"  : "0x00",
 			"config"     : {
-				"homesteadBlock" : 314,
-				"daoForkBlock"   : 141,
-				"daoForkSupport" : true
+				"homesteadBlock" : 0,
+				"daoForkBlock"   : 0,
+				"daoForkSupport" : true,
+				"homesteadBlock": 0,
+				"eip150Block": 0,
+				"eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"eip155Block": 0,
+				"eip158Block": 0,
+				"byzantiumBlock": 0,
+				"constantinopleBlock": 0,
+				"petersburgBlock": 0,
+				"autonityContract"    : {
+					"users" : [ 
+						{
+							"enode" : "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
+							"type" : "validator",
+							"stake" : 1
+						}
+					]
+				},
+				"tendermint" : {}
 			}
 		}`,
 		query:  "eth.getBlock(0).nonce",
-		result: "0x0000000000000042",
+		result: "0x0000000000001339",
 	},
 }
 
@@ -97,10 +82,10 @@ func TestCustomGenesis(t *testing.T) {
 		if err := ioutil.WriteFile(json, []byte(tt.genesis), 0600); err != nil {
 			t.Fatalf("test %d: failed to write genesis file: %v", i, err)
 		}
-		runAutonity(t, "--datadir", datadir, "init", json).WaitExit()
+		runAutonity(t, "--nousb", "--datadir", datadir, "init", json).WaitExit()
 
 		// Query the custom genesis block
-		autonity := runAutonity(t,
+		autonity := runAutonity(t, "--nousb",
 			"--datadir", datadir, "--maxpeers", "0", "--port", "0",
 			"--nodiscover", "--nat", "none", "--ipcdisable",
 			"--exec", tt.query, "console")

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	initialProposeTimeout   = 3000 * time.Millisecond
+	initialProposeTimeout   = 2000 * time.Millisecond
 	proposeTimeoutDelta     = 500 * time.Millisecond
 	initialPrevoteTimeout   = 1000 * time.Millisecond
 	prevoteTimeoutDelta     = 500 * time.Millisecond
@@ -108,15 +108,15 @@ func (t *timeout) reset(s Step) {
 func (c *core) measureMetricsOnTimeOut(step uint64, r int64) {
 	switch step {
 	case msgProposal:
-		duration := timeoutPropose(r)
+		duration := c.timeoutPropose(r)
 		tendermintProposeTimer.Update(duration)
 		return
 	case msgPrevote:
-		duration := timeoutPrevote(r)
+		duration := c.timeoutPrevote(r)
 		tendermintPrevoteTimer.Update(duration)
 		return
 	case msgPrecommit:
-		duration := timeoutPrecommit(r)
+		duration := c.timeoutPrecommit(r)
 		tendermintPrecommitTimer.Update(duration)
 		return
 	}
@@ -183,15 +183,15 @@ func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
 
 /////////////// Calculate Timeout Duration Functions ///////////////
 // The timeout may need to be changed depending on the Step
-func timeoutPropose(round int64) time.Duration {
-	return initialProposeTimeout + time.Duration(round)*proposeTimeoutDelta
+func (c *core) timeoutPropose(round int64) time.Duration {
+	return initialProposeTimeout + time.Duration(c.blockPeriod)*time.Second + time.Duration(round)*proposeTimeoutDelta
 }
 
-func timeoutPrevote(round int64) time.Duration {
+func (c *core) timeoutPrevote(round int64) time.Duration {
 	return initialPrevoteTimeout + time.Duration(round)*prevoteTimeoutDelta
 }
 
-func timeoutPrecommit(round int64) time.Duration {
+func (c *core) timeoutPrecommit(round int64) time.Duration {
 	return initialPrecommitTimeout + time.Duration(round)*precommitTimeoutDelta
 }
 

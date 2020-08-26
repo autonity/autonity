@@ -2,12 +2,12 @@ package core
 
 import (
 	"crypto/ecdsa"
-	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"sort"
 
+	"github.com/clearmatics/autonity/core/types"
+
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
 	"github.com/clearmatics/autonity/crypto"
 )
 
@@ -29,16 +29,16 @@ func generateCommittee(n int) (types.Committee, addressKeyMap) {
 	return vals, keymap
 }
 
-func newTestCommitteeSet(n int) *committee.Set {
+func newTestCommitteeSet(n int) committee {
 
 	validators, _ := generateCommittee(n)
-	set, _ := committee.NewSet(validators, validators[0].Address)
+	set, _ := newRoundRobinSet(validators, validators[0].Address)
 	return set
 }
 
-func newTestCommitteeSetWithKeys(n int) (*committee.Set, addressKeyMap) {
+func newTestCommitteeSetWithKeys(n int) (committee, addressKeyMap) {
 	validators, keyMap := generateCommittee(n)
-	set, _ := committee.NewSet(validators, validators[0].Address)
+	set, _ := newRoundRobinSet(validators, validators[0].Address)
 	return set, keyMap
 }
 

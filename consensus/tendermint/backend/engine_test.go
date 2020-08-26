@@ -221,13 +221,13 @@ func TestVerifySeal(t *testing.T) {
 	header.Number = big.NewInt(4)
 	block1 := block.WithSeal(header)
 	err = engine.VerifySeal(chain, block1.Header())
-	if err != errUnknownBlock {
+	if err != errInvalidCoinbase {
 		t.Errorf("error mismatch: have %v, want %v", err, errUnknownBlock)
 	}
 
 	// unauthorized users but still can get correct signer address
 	privateKey, _ := crypto.GenerateKey()
-	engine.SetPrivateKey(privateKey)
+	engine.privateKey = privateKey
 	err = engine.VerifySeal(chain, block.Header())
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -557,14 +557,15 @@ func TestStart(t *testing.T) {
 
 		ctx := context.Background()
 		tendermintC := tendermintCore.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
+			blockchain:  &core.BlockChain{},
 		}
 
-		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		err := b.Start(ctx)
 		assertNilError(t, err)
 		assertCoreStarted(t, b)
 	})
@@ -574,7 +575,7 @@ func TestStart(t *testing.T) {
 			coreStarted: true,
 		}
 
-		err := b.Start(context.Background(), &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		err := b.Start(context.Background())
 		assertError(t, ErrStartedEngine, err)
 		assertCoreStarted(t, b)
 	})
@@ -585,18 +586,19 @@ func TestStart(t *testing.T) {
 
 		ctx := context.Background()
 		tendermintC := tendermintCore.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
+			blockchain:  &core.BlockChain{},
 		}
 
-		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		err := b.Start(ctx)
 		assertNilError(t, err)
 		assertCoreStarted(t, b)
 
-		err = b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		err = b.Start(ctx)
 		assertError(t, ErrStartedEngine, err)
 		assertCoreStarted(t, b)
 	})
@@ -607,11 +609,12 @@ func TestStart(t *testing.T) {
 
 		ctx := context.Background()
 		tendermintC := tendermintCore.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx).MaxTimes(1)
+		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
+			blockchain:  &core.BlockChain{},
 		}
 
 		var wg sync.WaitGroup
@@ -623,7 +626,7 @@ func TestStart(t *testing.T) {
 
 			go func(wg *sync.WaitGroup) {
 				defer wg.Done()
-				errC <- b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+				errC <- b.Start(ctx)
 			}(&wg)
 
 		}
@@ -656,16 +659,17 @@ func TestMultipleRestart(t *testing.T) {
 	times := 5
 	ctx := context.Background()
 	tendermintC := tendermintCore.NewMockTendermint(ctrl)
-	tendermintC.EXPECT().Start(ctx).MaxTimes(times)
+	tendermintC.EXPECT().Start(ctx, nil).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
 
 	b := &Backend{
 		core:        tendermintC,
 		coreStarted: false,
+		blockchain:  &core.BlockChain{},
 	}
 
 	for i := 0; i < times; i++ {
-		err := b.Start(ctx, &core.BlockChain{}, func() *types.Block { return &types.Block{} }, func(hash common.Hash) bool { return false })
+		err := b.Start(ctx)
 		assertNilError(t, err)
 		assertCoreStarted(t, b)
 

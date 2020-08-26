@@ -142,24 +142,6 @@ please note that comments are not permitted in valid JSON_.
 
        "autonityContract": {
 
-         // The bytecode of the Autonity contract, if left unset the Autonity
-         // client will use the embedded contract bytecode. It is advisable to
-         // leave this blank since the embedded contract bytecode should be in
-         // sync with the Autonity client code. The gengen tool leaves this blank.
-         // If this is set then the abi field should be set with an ABI generated
-         // from the same contract source.
-
-         "bytecode": "",
-
-         // The ABI (Application Binary Interface) of the Autonity contract, if
-         // left unset the Autonity client will use the embedded contract ABI. It
-         // is advisable to leave this blank since the embedded contract ABI
-         // should be in sync with the Autonity client code. The gengen tool
-         // leaves this blank. If this is set then the bytecode field should be
-         // set with bytecode generated from the same contract source.
-
-         "abi": "",
-
          // minGasPrice sets the minimum gas price for submitting transactions to
          // the network. Transactions submitted with a gas price lower than this
          // will be ignored. This is what will determine the minimum cost for

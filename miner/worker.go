@@ -171,12 +171,13 @@ type worker struct {
 	running int32 // The indicator whether the consensus engine is running or not.
 	newTxs  int32 // New arrival transaction count since last sealing work submitting.
 
-	hooks
+	// noempty is the flag used to control whether the feature of pre-seal empty
+	// block is enabled. The default value is false(pre-seal is enabled by default).
+	// But in some special scenario the consensus engine will seal blocks instantaneously,
+	// in this case this feature will add all empty blocks into canonical chain
+	// non-stop and no real transaction will be included.
+	noempty uint32
 
-	initOnce sync.Once
-}
-
-type hooks struct {
 	// External functions
 	isLocalBlock func(block *types.Block) bool // Function used to determine whether the specified block is mined by local miner.
 
@@ -185,9 +186,10 @@ type hooks struct {
 	skipSealHook func(*task) bool                   // Method to decide whether skipping the sealing.
 	fullTaskHook func()                             // Method to call before pushing the full sealing task.
 	resubmitHook func(time.Duration, time.Duration) // Method to call upon updating resubmitting interval.
+	initOnce     sync.Once
 }
 
-func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, h hooks, init bool) *worker {
+func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool) *worker {
 	worker := &worker{
 		config:             config,
 		chainConfig:        chainConfig,
@@ -195,16 +197,16 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		eth:                eth,
 		mux:                mux,
 		chain:              eth.BlockChain(),
-		hooks:              h,
+		isLocalBlock:       isLocalBlock,
 		localUncles:        make(map[common.Hash]*types.Block),
 		remoteUncles:       make(map[common.Hash]*types.Block),
 		unconfirmed:        newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),
 		pendingTasks:       make(map[common.Hash]*task),
-		newWorkCh:          make(chan *newWorkReq, 1),
-		taskCh:             make(chan *task, 1),
 		txsCh:              make(chan core.NewTxsEvent, txChanSize),
 		chainHeadCh:        make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:        make(chan core.ChainSideEvent, chainSideChanSize),
+		newWorkCh:          make(chan *newWorkReq),
+		taskCh:             make(chan *task),
 		resultCh:           make(chan *types.Block, resultQueueSize),
 		exitCh:             make(chan struct{}),
 		startCh:            make(chan struct{}, 1),
@@ -236,6 +238,16 @@ func (w *worker) setExtra(extra []byte) {
 // setRecommitInterval updates the interval for miner sealing work recommitting.
 func (w *worker) setRecommitInterval(interval time.Duration) {
 	w.resubmitIntervalCh <- interval
+}
+
+// disablePreseal disables pre-sealing mining feature
+func (w *worker) disablePreseal() {
+	atomic.StoreUint32(&w.noempty, 1)
+}
+
+// enablePreseal enables pre-sealing mining feature
+func (w *worker) enablePreseal() {
+	atomic.StoreUint32(&w.noempty, 0)
 }
 
 // pending returns the pending state and corresponding block.
@@ -280,22 +292,27 @@ func (w *worker) init() {
 	})
 }
 
+// This is an interface for the Start method defined on
+// consensus/tendermint/backend.Backend. It allows the miner package to not
+// have any compile dependencies on the tendermint packages, but it is very
+// hacky and it would be nice if we could avoid doing this. It is very easy to
+// change the start method and not realise that this needs to be modified, not
+// updating this to match the start method breaks a lot of stuff since the
+// tendermint consensus engine is never started.
 type starter interface {
-	Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
+	Start(ctx context.Context) error
 }
 
 // start sets the running status as 1 and triggers new work submitting.
 func (w *worker) start() {
 	if atomic.CompareAndSwapInt32(&w.running, 0, 1) {
+		w.init()
 		if pos, ok := w.engine.(starter); ok {
-			w.init()
-
-			err := pos.Start(context.Background(), w.chain, w.chain.CurrentBlock, w.chain.HasBadBlock)
+			err := pos.Start(context.Background())
 			if err != nil {
 				log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)
 			}
 		}
-
 		w.startCh <- struct{}{}
 	}
 }
@@ -335,6 +352,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 	)
 
 	timer := time.NewTimer(0)
+	defer timer.Stop()
 	<-timer.C // discard the initial tick
 
 	// commit aborts in-flight transaction execution with given signal and resubmits a new one.
@@ -869,6 +887,16 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	if parent.Time() >= uint64(timestamp) {
 		timestamp = int64(parent.Time() + 1)
 	}
+
+	// We must account here for the block period in case of Tendermint consensus.
+	// Another strategy would have been to sleep before submitting a new work request
+	// within the newWorkLoop's commit closure.
+	if w.chainConfig.Tendermint != nil {
+		if parent.Time()+w.chainConfig.Tendermint.BlockPeriod >= uint64(timestamp) {
+			timestamp = int64(parent.Time() + w.chainConfig.Tendermint.BlockPeriod)
+		}
+	}
+
 	// this will ensure we're not going off too far in the future
 	if now := time.Now().Unix(); timestamp > now+1 {
 		wait := time.Duration(timestamp-now) * time.Second
@@ -882,7 +910,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, w.config.GasFloor, w.config.GasCeil),
 		Extra:      w.extra,
-		Time:       uint64(timestamp),
+		Time:       uint64(timestamp), // redundant with Tendermint Prepare logic.
 	}
 	// Only set the coinbase if our consensus engine is running (avoid spurious block rewards)
 	if w.isRunning() {
@@ -945,7 +973,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	commitUncles(w.localUncles)
 	commitUncles(w.remoteUncles)
 
-	if !noempty && w.chainConfig.Tendermint == nil {
+	if !noempty && w.chainConfig.Tendermint == nil && atomic.LoadUint32(&w.noempty) == 0 {
 		// Create an empty block based on temporary copied state for sealing in advance without waiting block
 		// execution finished.
 		w.commit(uncles, nil, false, tstart)
@@ -958,7 +986,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		return
 	}
 	// Short circuit if there is no available pending transactions
-	if len(pending) == 0 && w.chainConfig.Tendermint == nil {
+	if len(pending) == 0 && w.chainConfig.Tendermint == nil && atomic.LoadUint32(&w.noempty) == 0 {
 		w.updateSnapshot()
 		return
 	}

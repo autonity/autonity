@@ -20,13 +20,12 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
-	"math/big"
 	"sync"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
@@ -87,24 +86,22 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	backend.core = tendermintCore.New(backend)
+	backend.core = tendermintCore.New(backend, config)
 	return backend
 }
 
 // ----------------------------------------------------------------------------
 
 type Backend struct {
-	config           *tendermintConfig.Config
-	eventMux         *event.TypeMuxSilent
-	privateKey       *ecdsa.PrivateKey
-	privateKeyMu     sync.RWMutex
-	address          common.Address
-	logger           log.Logger
-	db               ethdb.Database
-	blockchain       *core.BlockChain
-	blockchainInitMu sync.Mutex
-	currentBlock     func() *types.Block
-	hasBadBlock      func(hash common.Hash) bool
+	config       *tendermintConfig.Config
+	eventMux     *event.TypeMuxSilent
+	privateKey   *ecdsa.PrivateKey
+	address      common.Address
+	logger       log.Logger
+	db           ethdb.Database
+	blockchain   *core.BlockChain
+	currentBlock func() *types.Block
+	hasBadBlock  func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
@@ -131,26 +128,19 @@ type Backend struct {
 	vmConfig    *vm.Config
 }
 
+func (sb *Backend) BlockChain() *core.BlockChain {
+	return sb.blockchain
+}
+
 // Address implements tendermint.Backend.Address
 func (sb *Backend) Address() common.Address {
-	sb.privateKeyMu.RLock()
-	defer sb.privateKeyMu.RUnlock()
 	return sb.address
 }
 
-func (sb *Backend) Committee(number uint64) (*committee.Set, error) {
-	validators, err := sb.savedCommittee(number, sb.blockchain)
-	if err != nil {
-		sb.logger.Error("could not retrieve saved committee", "height", number, "err", err)
-		return nil, err
-	}
-	return validators, nil
-}
-
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(ctx context.Context, valSet *committee.Set, payload []byte) error {
+func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
 	// send to others
-	sb.Gossip(ctx, valSet, payload)
+	sb.Gossip(ctx, committee, payload)
 	// send to self
 	msg := events.MessageEvent{
 		Payload: payload,
@@ -163,11 +153,11 @@ func (sb *Backend) postEvent(event interface{}) {
 	go sb.Post(event)
 }
 
-func (sb *Backend) AskSync(valSet *committee.Set) {
+func (sb *Backend) AskSync(header *types.Header) {
 	sb.logger.Info("Broadcasting consensus sync-me")
 
 	targets := make(map[common.Address]struct{})
-	for _, val := range valSet.Committee() {
+	for _, val := range header.Committee {
 		if val.Address != sb.Address() {
 			targets[val.Address] = struct{}{}
 		}
@@ -177,15 +167,15 @@ func (sb *Backend) AskSync(valSet *committee.Set) {
 		ps := sb.broadcaster.FindPeers(targets)
 		var count uint64
 		for addr, p := range ps {
-			//ask to quorum nodes to sync, 1 must then be honest and updated
-			if count >= valSet.Quorum() {
+			//ask to a quorum nodes to sync, 1 must then be honest and updated
+			if count >= bft.Quorum(header.TotalVotingPower()) {
 				break
 			}
 			sb.logger.Info("Asking sync to", "addr", addr)
 			go p.Send(tendermintSyncMsg, []byte{}) //nolint
 
-			_, member, err := valSet.GetByAddress(addr)
-			if err != nil {
+			member := header.CommitteeMember(addr)
+			if member == nil {
 				sb.logger.Error("could not retrieve member from address")
 				continue
 			}
@@ -195,12 +185,12 @@ func (sb *Backend) AskSync(valSet *committee.Set) {
 }
 
 // Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, valSet *committee.Set, payload []byte) {
+func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
 	targets := make(map[common.Address]struct{})
-	for _, val := range valSet.Committee() {
+	for _, val := range committee {
 		if val.Address != sb.Address() {
 			targets[val.Address] = struct{}{}
 		}
@@ -371,7 +361,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 // Sign implements tendermint.Backend.Sign
 func (sb *Backend) Sign(data []byte) ([]byte, error) {
 	hashData := crypto.Keccak256(data)
-	return crypto.Sign(hashData, sb.GetPrivateKey())
+	return crypto.Sign(hashData, sb.privateKey)
 }
 
 // CheckSignature implements tendermint.Backend.CheckSignature
@@ -386,15 +376,6 @@ func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byt
 		return types.ErrInvalidSignature
 	}
 	return nil
-}
-
-// GetProposer implements tendermint.Backend.GetProposer
-func (sb *Backend) GetProposer(number uint64) common.Address {
-	if h := sb.blockchain.GetHeaderByNumber(number); h != nil {
-		a, _ := sb.Author(h)
-		return a
-	}
-	return common.Address{}
 }
 
 func (sb *Backend) LastCommittedProposal() (*types.Block, common.Address) {
@@ -441,23 +422,6 @@ func (sb *Backend) WhiteList() []string {
 	}
 
 	return enodes.StrList
-}
-
-func (sb *Backend) GetPrivateKey() *ecdsa.PrivateKey {
-	sb.privateKeyMu.RLock()
-	defer sb.privateKeyMu.RUnlock()
-
-	pk := sb.privateKey.PublicKey
-	d := big.NewInt(0).Set(sb.privateKey.D)
-	return &ecdsa.PrivateKey{PublicKey: pk, D: d}
-}
-
-func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
-	sb.privateKeyMu.Lock()
-	defer sb.privateKeyMu.Unlock()
-
-	sb.privateKey = key
-	sb.address = crypto.PubkeyToAddress(key.PublicKey)
 }
 
 // Synchronize new connected peer with current height state

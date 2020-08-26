@@ -11,6 +11,7 @@ import (
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 )
@@ -20,7 +21,7 @@ var (
 	_ = big.NewInt
 	_ = strings.NewReader
 	_ = ethereum.NotFound
-	_ = abi.U256
+	_ = math.U256
 	_ = bind.Bind
 	_ = common.Big1
 	_ = types.BloomLookup

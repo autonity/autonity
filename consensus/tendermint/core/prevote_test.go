@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 )
@@ -29,7 +30,7 @@ func TestSendPrevote(t *testing.T) {
 			messages:         messages,
 			curRoundMessages: curRoundMessages,
 			round:            2,
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			height:           big.NewInt(3),
 		}
 
@@ -70,7 +71,7 @@ func TestSendPrevote(t *testing.T) {
 			address:          member.Address,
 			logger:           logger,
 			height:           big.NewInt(2),
-			committeeSet:     committeSet,
+			committee:        committeSet,
 			messages:         messages,
 			round:            1,
 			step:             prevote,
@@ -95,7 +96,7 @@ func TestHandlePrevote(t *testing.T) {
 			height:           big.NewInt(3),
 			curRoundMessages: curRoundMessages,
 			messages:         messages,
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			logger:           log.New("backend", "test", "id", 0),
 		}
 
@@ -118,7 +119,7 @@ func TestHandlePrevote(t *testing.T) {
 			curRoundMessages: curRoundMessages,
 			messages:         messages,
 			logger:           log.New("backend", "test", "id", 0),
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			round:            1,
 			height:           big.NewInt(3),
 		}
@@ -159,7 +160,7 @@ func TestHandlePrevote(t *testing.T) {
 			logger:           logger,
 			round:            1,
 			height:           big.NewInt(2),
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			prevoteTimeout:   newTimeout(prevote, logger),
 			backend:          backendMock,
 			step:             prevote,
@@ -227,7 +228,7 @@ func TestHandlePrevote(t *testing.T) {
 			curRoundMessages: curRoundMessage,
 			logger:           logger,
 			prevoteTimeout:   newTimeout(prevote, logger),
-			committeeSet:     committeeSet,
+			committee:        committeeSet,
 			round:            2,
 			height:           big.NewInt(3),
 			step:             prevote,
@@ -300,7 +301,7 @@ func TestHandlePrevote(t *testing.T) {
 			height:           big.NewInt(3),
 			step:             prevote,
 			prevoteTimeout:   newTimeout(prevote, logger),
-			committeeSet:     committeSet,
+			committee:        committeSet,
 		}
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
@@ -351,13 +352,13 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().AnyTimes().Return(addr)
 
-		c := New(backendMock)
+		c := New(backendMock, config.DefaultConfig())
 		c.curRoundMessages = curRoundMessages
 		c.height = big.NewInt(2)
 		c.round = 1
 		c.step = prevote
 		c.prevoteTimeout = newTimeout(prevote, logger)
-		c.committeeSet = committeeSet
+		c.committee = committeeSet
 
 		err = c.handlePrevote(context.Background(), expectedMsg)
 		if err != nil {

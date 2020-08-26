@@ -141,6 +141,10 @@ contract Autonity {
     * Change user status
     */
     function changeUserType( address _address , UserType newUserType ) public onlyOperator(msg.sender) {
+        _changeUserType(_address, newUserType);
+    }
+
+    function _changeUserType( address _address , UserType newUserType ) internal {
         require(_address != address(0), "address must be defined");
         require(users[_address].addr != address(0), "user must exist");
 
@@ -151,7 +155,7 @@ contract Autonity {
         if(newUserType == UserType.Participant){
             require(u.stake == 0);
         }
-        removeUser(u.addr);
+        _removeUser(u.addr);
         _createUser(u.addr, u.enode, newUserType, u.stake, u.commissionRate);
 
         emit ChangeUserType(u.addr , u.userType , newUserType);
@@ -162,6 +166,10 @@ contract Autonity {
     * remove user. function MUST be restricted to the Authority Account.
     */
     function removeUser(address _address) public onlyOperator(msg.sender) {
+        _removeUser(_address);
+    }
+
+    function _removeUser(address _address) internal {
         require(_address != address(0), "address must be defined");
         require(users[_address].addr != address(0), "user must exists");
         User storage u = users[_address];
@@ -171,6 +179,7 @@ contract Autonity {
         }
 
         if(u.userType == UserType.Validator){
+            require(validators.length > 1, "There must be at least 1 validator in the network");
             _removeFromArray(u.addr, validators);
         }
 
@@ -227,6 +236,7 @@ contract Autonity {
     function redeemStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
         users[_account].stake = users[_account].stake.sub(_amount, "Redeem stake amount exceeds balance");
         stakeSupply = stakeSupply.sub(_amount);
+        _checkDowngradeValidator(_account);
         emit RedeemStake(_account, _amount);
     }
 
@@ -434,6 +444,41 @@ contract Autonity {
     }
 
     /*
+    * getProposer
+    * getProposer returns the address of the proposer for the given height and
+    * round. The proposer is selected from the committee via weighted random
+    * sampling, with selection probability determined by the voting power of
+    * each committee member. The selection mechanism is deterministic and will
+    * always select the same address, given the same height, round and contract
+    * state.
+    */
+    function getProposer(uint256 height, uint256 round) public view returns(address) {
+        // calculate total voting power from current committee, the system does not allow validator with 0 stake/power.
+        uint256 total_voting_power = 0;
+        for (uint256 i = 0; i < committee.length; i++) {
+            total_voting_power = total_voting_power.add(committee[i].votingPower);
+        }
+
+        require(total_voting_power != 0, "The committee is not staking");
+
+        // distribute seed into a 256bits key-space.
+        uint256 key = height.add(round);
+        uint256 value = uint256(keccak256(abi.encodePacked(key)));
+        uint256 index = value % total_voting_power;
+
+        // find the index hit which committee member which line up in the committee list.
+        // we assume there is no 0 stake/power validators.
+        uint256 counter = 0;
+        for (uint256 i = 0; i < committee.length; i++) {
+            counter = counter.add(committee[i].votingPower);
+            if (index <= counter - 1) {
+                return committee[i].addr;
+            }
+        }
+        revert("There is no validator left in the network");
+    }
+
+    /*
     * performRedistribution
     * return a structure contains reward distribution.
     */
@@ -537,9 +582,27 @@ contract Autonity {
     function _transfer(address sender, address recipient, uint256 amount) internal canUseStake(sender) canUseStake(recipient) {
         users[sender].stake = users[sender].stake.sub(amount, "Transfer amount exceeds balance");
         users[recipient].stake = users[recipient].stake.add(amount);
+        _checkDowngradeValidator(sender);
         emit Transfer(sender, recipient, amount);
     }
 
+    /*
+    * If the user is a validator and its stake is zero downgrade it to a
+    * stakeholder. Unless the user is the only validator in which case the
+    * transaction is reverted.
+    *
+    * This check is used to ensure that we do not end up in a situation where
+    * the system has no validators.
+    */
+    function _checkDowngradeValidator(address _address) internal {
+        User memory u = users[_address];
+        if (u.stake != 0 || u.userType != UserType.Validator) {
+            return;
+        }
+
+        require(validators.length > 1, "Downgrade user failed due to keep at least 1 validator in the network");
+        _changeUserType(u.addr, UserType.Stakeholder);
+    }
 
     function compareStringsbyBytes(string memory s1, string memory s2) internal pure returns(bool){
         return keccak256(abi.encodePacked(s1)) == keccak256(abi.encodePacked(s2));
@@ -561,6 +624,7 @@ contract Autonity {
         if (u.userType == UserType.Stakeholder){
             stakeholders.push(u.addr);
         } else if(u.userType == UserType.Validator){
+            require(u.stake != 0, "Validator with 0 stake is not permitted");
             validators.push(u.addr);
             stakeholders.push(u.addr);
         }

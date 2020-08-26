@@ -3,8 +3,9 @@ package params
 import (
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/crypto"
 	"reflect"
+
+	"github.com/clearmatics/autonity/crypto"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/acdefault"
@@ -44,9 +45,9 @@ func (ut UserType) GetID() int {
 type AutonityContractGenesis struct {
 	// Bytecode of validators contract
 	// would like this type to be []byte but the unmarshalling is not working
-	Bytecode string `json:"bytecode" toml:",omitempty"`
+	Bytecode string `json:"bytecode,omitempty" toml:",omitempty"`
 	// Json ABI of the contract
-	ABI         string         `json:"abi" toml:",omitempty"`
+	ABI         string         `json:"abi,omitempty" toml:",omitempty"`
 	MinGasPrice uint64         `json:"minGasPrice" toml:",omitempty"`
 	Operator    common.Address `json:"operator" toml:",omitempty"`
 	Users       []User         `json:"users" toml:",omitempty"`
@@ -102,7 +103,7 @@ type User struct {
 
 // getAddressFromEnode gets the account address from the user enode.
 func (u *User) getAddressFromEnode() (common.Address, error) {
-	n, err := enode.ParseV4WithResolve(u.Enode)
+	n, err := enode.ParseV4(u.Enode)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to parse enode %q, error:%v", u.Enode, err)
 	}

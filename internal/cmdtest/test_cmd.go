@@ -77,7 +77,7 @@ func (tt *TestCmd) Run(name string, args ...string) {
 	}
 }
 
-// InputLine writes the given text to the childs stdin.
+// InputLine writes the given text to the child's stdin.
 // This method can also be called from an expect template, e.g.:
 //
 //     autonity.expect(`Passphrase: {{.InputLine "password"}}`)
@@ -227,7 +227,7 @@ func (tt *TestCmd) Kill() {
 }
 
 func (tt *TestCmd) withKillTimeout(fn func()) {
-	timeout := time.AfterFunc(5*time.Second, func() {
+	timeout := time.AfterFunc(6*time.Second, func() {
 		tt.Log("killing the child process (timeout)")
 		tt.Kill()
 	})

@@ -9,7 +9,6 @@ import (
 
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
@@ -19,32 +18,14 @@ import (
 
 var ErrAutonityContract = errors.New("could not call Autonity contract")
 var ErrWrongParameter = errors.New("wrong parameter")
-var deployer = common.Address{}
-var ContractAddress = crypto.CreateAddress(deployer, 0)
+var Deployer = common.Address{}
+var ContractAddress = crypto.CreateAddress(Deployer, 0)
 
 const ABISPEC = "ABISPEC"
 
 // EVMProvider provides a new evm. This allows us to decouple the contract from *params.ChainConfig which is required to build a new evm.
 type EVMProvider interface {
 	EVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM
-}
-
-func NewAutonityContract(
-	bc Blockchainer,
-	operator common.Address,
-	minGasPrice uint64,
-	ABI string,
-	evmProvider EVMProvider,
-) (*Contract, error) {
-	contract := Contract{
-		stringContractABI:  ABI,
-		operator:           operator,
-		initialMinGasPrice: minGasPrice,
-		bc:                 bc,
-		evmProvider:        evmProvider,
-	}
-	err := contract.upgradeAbiCache(ABI)
-	return &contract, err
 }
 
 type Blockchainer interface {
@@ -66,6 +47,24 @@ type Contract struct {
 	sync.RWMutex
 }
 
+func NewAutonityContract(
+	bc Blockchainer,
+	operator common.Address,
+	minGasPrice uint64,
+	ABI string,
+	evmProvider EVMProvider,
+) (*Contract, error) {
+	contract := Contract{
+		stringContractABI:  ABI,
+		operator:           operator,
+		initialMinGasPrice: minGasPrice,
+		bc:                 bc,
+		evmProvider:        evmProvider,
+	}
+	err := contract.upgradeAbiCache(ABI)
+	return &contract, err
+}
+
 // measure metrics of user's meta data by regarding of network economic.
 func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB) {
 	if header == nil || stateDB == nil || header.Number.Uint64() < 1 {
@@ -74,7 +73,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 
 	// prepare abi and evm context
 	gas := uint64(0xFFFFFFFF)
-	evm := ac.evmProvider.EVM(header, deployer, stateDB)
+	evm := ac.evmProvider.EVM(header, Deployer, stateDB)
 	ABI := ac.contractABI
 
 	// pack the function which dump the data from contract.
@@ -86,7 +85,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 
 	// call evm.
 	value := new(big.Int).SetUint64(0x00)
-	ret, _, vmerr := evm.Call(vm.AccountRef(deployer), ContractAddress, input, gas, value)
+	ret, _, vmerr := evm.Call(vm.AccountRef(Deployer), ContractAddress, input, gas, value)
 	if vmerr != nil {
 		log.Warn("Error Autonity Contract dumpNetworkEconomics", err, vmerr)
 		return
@@ -107,10 +106,12 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	ac.metrics.SubmitEconomicMetrics(&v, stateDB, header.Number.Uint64(), ac.operator)
 }
 
-func (ac *Contract) GetCommittee(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (types.Committee, error) {
-	// The Autonity Contract is not deployed yet at block #1, the committee is supposed to remains the same as genesis.
-	if header.Number.Cmp(big.NewInt(1)) == 0 {
-		return chain.GetHeaderByNumber(0).Committee, nil
+func (ac *Contract) GetCommittee(header *types.Header, statedb *state.StateDB) (types.Committee, error) {
+	// The Autonity Contract is not deployed yet at block #1, we return an error if this
+	// function is called at this height. In a past version we were returning the genesis committee field
+	// but this was at the cost of having a parameter causing circular imports.
+	if header.Number.Uint64() <= 1 {
+		return nil, errors.New("calling GetCommittee for block #1 or #0")
 	}
 
 	var committeeSet types.Committee
@@ -156,6 +157,10 @@ func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (u
 	}
 
 	return ac.callGetMinimumGasPrice(db, block.Header())
+}
+
+func (ac *Contract) GetProposerFromAC(header *types.Header, db *state.StateDB, height uint64, round int64) common.Address {
+	return ac.callGetProposer(db, header, height, round)
 }
 
 func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, price *big.Int) error {

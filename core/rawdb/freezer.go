@@ -73,7 +73,7 @@ type freezer struct {
 
 	tables       map[string]*freezerTable // Data tables for storing everything
 	instanceLock fileutil.Releaser        // File-system lock to prevent double opens
-	closeCh      chan struct{}
+	quit         chan struct{}
 }
 
 // newFreezer creates a chain freezer that moves ancient chain data into
@@ -102,7 +102,7 @@ func newFreezer(datadir string, namespace string) (*freezer, error) {
 	freezer := &freezer{
 		tables:       make(map[string]*freezerTable),
 		instanceLock: lock,
-		closeCh:      make(chan struct{}, 1),
+		quit:         make(chan struct{}),
 	}
 	for name, disableSnappy := range freezerNoSnappy {
 		table, err := newTable(datadir, name, readMeter, writeMeter, sizeGauge, disableSnappy)
@@ -128,6 +128,7 @@ func newFreezer(datadir string, namespace string) (*freezer, error) {
 
 // Close terminates the chain freezer, unmapping all the data files.
 func (f *freezer) Close() error {
+	f.quit <- struct{}{}
 	var errs []error
 	for _, table := range f.tables {
 		if err := table.Close(); err != nil {
@@ -140,7 +141,6 @@ func (f *freezer) Close() error {
 	if errs != nil {
 		return fmt.Errorf("%v", errs)
 	}
-	close(f.closeCh)
 	return nil
 }
 
@@ -257,139 +257,137 @@ func (f *freezer) Sync() error {
 func (f *freezer) freeze(db ethdb.KeyValueStore) {
 	nfdb := &nofreezedb{KeyValueStore: db}
 
+	backoff := false
 	for {
 		select {
-		case <-f.closeCh:
+		case <-f.quit:
+			log.Info("Freezer shutting down")
 			return
 		default:
-			// Retrieve the freezing threshold.
-			hash := ReadHeadBlockHash(nfdb)
+		}
+		if backoff {
+			select {
+			case <-time.NewTimer(freezerRecheckInterval).C:
+				backoff = false
+			case <-f.quit:
+				return
+			}
+		}
+		// Retrieve the freezing threshold.
+		hash := ReadHeadBlockHash(nfdb)
+		if hash == (common.Hash{}) {
+			log.Debug("Current full block hash unavailable") // new chain, empty database
+			backoff = true
+			continue
+		}
+		number := ReadHeaderNumber(nfdb, hash)
+		switch {
+		case number == nil:
+			log.Error("Current full block number unavailable", "hash", hash)
+			backoff = true
+			continue
+
+		case *number < params.ImmutabilityThreshold:
+			log.Debug("Current full block not old enough", "number", *number, "hash", hash, "delay", params.ImmutabilityThreshold)
+			backoff = true
+			continue
+
+		case *number-params.ImmutabilityThreshold <= f.frozen:
+			log.Debug("Ancient blocks frozen already", "number", *number, "hash", hash, "frozen", f.frozen)
+			backoff = true
+			continue
+		}
+		head := ReadHeader(nfdb, hash, *number)
+		if head == nil {
+			log.Error("Current full block unavailable", "number", *number, "hash", hash)
+			backoff = true
+			continue
+		}
+		// Seems we have data ready to be frozen, process in usable batches
+		limit := *number - params.ImmutabilityThreshold
+		if limit-f.frozen > freezerBatchLimit {
+			limit = f.frozen + freezerBatchLimit
+		}
+		var (
+			start    = time.Now()
+			first    = f.frozen
+			ancients = make([]common.Hash, 0, limit)
+		)
+		for f.frozen < limit {
+			// Retrieves all the components of the canonical block
+			hash := ReadCanonicalHash(nfdb, f.frozen)
 			if hash == (common.Hash{}) {
-				log.Debug("Current full block hash unavailable") // new chain, empty database
-				if err := f.sleep(); err != nil {
-					return
-				}
-				continue
+				log.Error("Canonical hash missing, can't freeze", "number", f.frozen)
+				break
 			}
-			number := ReadHeaderNumber(nfdb, hash)
-			switch {
-			case number == nil:
-				log.Error("Current full block number unavailable", "hash", hash)
-				if err := f.sleep(); err != nil {
-					return
+			header, _ := ReadHeaderRLP(nfdb, hash, f.frozen)
+			if len(header) == 0 {
+				log.Error("Block header missing, can't freeze", "number", f.frozen, "hash", hash)
+				break
+			}
+			body := ReadBodyRLP(nfdb, hash, f.frozen)
+			if len(body) == 0 {
+				log.Error("Block body missing, can't freeze", "number", f.frozen, "hash", hash)
+				break
+			}
+			receipts := ReadReceiptsRLP(nfdb, hash, f.frozen)
+			if len(receipts) == 0 {
+				log.Error("Block receipts missing, can't freeze", "number", f.frozen, "hash", hash)
+				break
+			}
+			td := ReadTdRLP(nfdb, hash, f.frozen)
+			if len(td) == 0 {
+				log.Error("Total difficulty missing, can't freeze", "number", f.frozen, "hash", hash)
+				break
+			}
+			log.Trace("Deep froze ancient block", "number", f.frozen, "hash", hash)
+			// Inject all the components into the relevant data tables
+			if err := f.AppendAncient(f.frozen, hash[:], header, body, receipts, td); err != nil {
+				break
+			}
+			ancients = append(ancients, hash)
+		}
+		// Batch of blocks have been frozen, flush them before wiping from leveldb
+		if err := f.Sync(); err != nil {
+			log.Crit("Failed to flush frozen tables", "err", err)
+		}
+		// Wipe out all data from the active database
+		batch := db.NewBatch()
+		for i := 0; i < len(ancients); i++ {
+			// Always keep the genesis block in active database
+			if first+uint64(i) != 0 {
+				DeleteBlockWithoutNumber(batch, ancients[i], first+uint64(i))
+				DeleteCanonicalHash(batch, first+uint64(i))
+			}
+		}
+		if err := batch.Write(); err != nil {
+			log.Crit("Failed to delete frozen canonical blocks", "err", err)
+		}
+		batch.Reset()
+		// Wipe out side chain also.
+		for number := first; number < f.frozen; number++ {
+			// Always keep the genesis block in active database
+			if number != 0 {
+				for _, hash := range ReadAllHashes(db, number) {
+					DeleteBlock(batch, hash, number)
 				}
-				continue
+			}
+		}
+		if err := batch.Write(); err != nil {
+			log.Crit("Failed to delete frozen side blocks", "err", err)
+		}
+		// Log something friendly for the user
+		context := []interface{}{
+			"blocks", f.frozen - first, "elapsed", common.PrettyDuration(time.Since(start)), "number", f.frozen - 1,
+		}
+		if n := len(ancients); n > 0 {
+			context = append(context, []interface{}{"hash", ancients[n-1]}...)
+		}
+		log.Info("Deep froze chain segment", context...)
 
-			case *number < params.ImmutabilityThreshold:
-				log.Debug("Current full block not old enough", "number", *number, "hash", hash, "delay", params.ImmutabilityThreshold)
-				if err := f.sleep(); err != nil {
-					return
-				}
-				continue
-
-			case *number-params.ImmutabilityThreshold <= f.frozen:
-				log.Debug("Ancient blocks frozen already", "number", *number, "hash", hash, "frozen", f.frozen)
-				if err := f.sleep(); err != nil {
-					return
-				}
-				continue
-			}
-			head := ReadHeader(nfdb, hash, *number)
-			if head == nil {
-				log.Error("Current full block unavailable", "number", *number, "hash", hash)
-				if err := f.sleep(); err != nil {
-					return
-				}
-				continue
-			}
-			// Seems we have data ready to be frozen, process in usable batches
-			limit := *number - params.ImmutabilityThreshold
-			if limit-f.frozen > freezerBatchLimit {
-				limit = f.frozen + freezerBatchLimit
-			}
-			var (
-				start    = time.Now()
-				first    = f.frozen
-				ancients = make([]common.Hash, 0, limit)
-			)
-			for f.frozen < limit {
-				// Retrieves all the components of the canonical block
-				hash := ReadCanonicalHash(nfdb, f.frozen)
-				if hash == (common.Hash{}) {
-					log.Error("Canonical hash missing, can't freeze", "number", f.frozen)
-					break
-				}
-				header := ReadHeaderRLP(nfdb, hash, f.frozen)
-				if len(header) == 0 {
-					log.Error("Block header missing, can't freeze", "number", f.frozen, "hash", hash)
-					break
-				}
-				body := ReadBodyRLP(nfdb, hash, f.frozen)
-				if len(body) == 0 {
-					log.Error("Block body missing, can't freeze", "number", f.frozen, "hash", hash)
-					break
-				}
-				receipts := ReadReceiptsRLP(nfdb, hash, f.frozen)
-				if len(receipts) == 0 {
-					log.Error("Block receipts missing, can't freeze", "number", f.frozen, "hash", hash)
-					break
-				}
-				td := ReadTdRLP(nfdb, hash, f.frozen)
-				if len(td) == 0 {
-					log.Error("Total difficulty missing, can't freeze", "number", f.frozen, "hash", hash)
-					break
-				}
-				log.Trace("Deep froze ancient block", "number", f.frozen, "hash", hash)
-				// Inject all the components into the relevant data tables
-				if err := f.AppendAncient(f.frozen, hash[:], header, body, receipts, td); err != nil {
-					break
-				}
-				ancients = append(ancients, hash)
-			}
-			// Batch of blocks have been frozen, flush them before wiping from leveldb
-			if err := f.Sync(); err != nil {
-				log.Crit("Failed to flush frozen tables", "err", err)
-			}
-			// Wipe out all data from the active database
-			batch := db.NewBatch()
-			for i := 0; i < len(ancients); i++ {
-				// Always keep the genesis block in active database
-				if first+uint64(i) != 0 {
-					DeleteBlockWithoutNumber(batch, ancients[i], first+uint64(i))
-					DeleteCanonicalHash(batch, first+uint64(i))
-				}
-			}
-			if err := batch.Write(); err != nil {
-				log.Crit("Failed to delete frozen canonical blocks", "err", err)
-			}
-			batch.Reset()
-			// Wipe out side chain also.
-			for number := first; number < f.frozen; number++ {
-				// Always keep the genesis block in active database
-				if number != 0 {
-					for _, hash := range ReadAllHashes(db, number) {
-						DeleteBlock(batch, hash, number)
-					}
-				}
-			}
-			if err := batch.Write(); err != nil {
-				log.Crit("Failed to delete frozen side blocks", "err", err)
-			}
-			// Log something friendly for the user
-			context := []interface{}{
-				"blocks", f.frozen - first, "elapsed", common.PrettyDuration(time.Since(start)), "number", f.frozen - 1,
-			}
-			if n := len(ancients); n > 0 {
-				context = append(context, []interface{}{"hash", ancients[n-1]}...)
-			}
-			log.Info("Deep froze chain segment", context...)
-
-			// Avoid database thrashing with tiny writes
-			if f.frozen-first < freezerBatchLimit {
-				if err := f.sleep(); err != nil {
-					return
-				}
-			}
+		// Avoid database thrashing with tiny writes
+		if f.frozen-first < freezerBatchLimit {
+			backoff = true
 		}
 	}
 }
@@ -410,15 +408,4 @@ func (f *freezer) repair() error {
 	}
 	atomic.StoreUint64(&f.frozen, min)
 	return nil
-}
-
-func (f *freezer) sleep() error {
-	t := time.NewTimer(freezerRecheckInterval)
-	defer t.Stop()
-	select {
-	case <-t.C:
-		return nil
-	case <-f.closeCh:
-		return errors.New("stopped")
-	}
 }

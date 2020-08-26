@@ -20,17 +20,19 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"time"
 
-	"github.com/clearmatics/autonity/consensus/tendermint/committee"
+	"github.com/clearmatics/autonity/consensus/tendermint/bft"
+	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
+	"github.com/clearmatics/autonity/core"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
@@ -89,14 +91,13 @@ func (sb *Backend) Author(header *types.Header) (common.Address, error) {
 // given engine. Verifying the seal may be done optionally here, or explicitly
 // via the VerifySeal method.
 func (sb *Backend) VerifyHeader(chain consensus.ChainReader, header *types.Header, _ bool) error {
-	return sb.verifyHeader(chain, header, nil)
+	return sb.verifyHeader(header, chain.GetHeaderByHash(header.ParentHash))
 }
 
-// verifyHeader checks whether a header conforms to the consensus rules.The
-// caller may optionally pass in a batch of parents (ascending order) to avoid
-// looking those up from the database. This is useful for concurrently verifying
-// a batch of new headers.
-func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
+// verifyHeader checks whether a header conforms to the consensus rules. It
+// expects the parent header to be provided unless header is the genesis
+// header.
+func (sb *Backend) verifyHeader(header, parent *types.Header) error {
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -125,38 +126,32 @@ func (sb *Backend) verifyHeader(chain consensus.ChainReader, header *types.Heade
 		return errInvalidDifficulty
 	}
 
-	return sb.verifyCascadingFields(chain, header, parents)
-}
-
-// verifyCascadingFields verifies all the header fields that are not standalone,
-// rather depend on a batch of previous headers. The caller may optionally pass
-// in a batch of parents (ascending order) to avoid looking those up from the
-// database. This is useful for concurrently verifying a batch of new headers.
-func (sb *Backend) verifyCascadingFields(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
-	// The genesis block is the always valid dead-end
-	number := header.Number.Uint64()
-	if number == 0 {
+	// If this is the genesis block there is no further verification to be
+	// done.
+	if header.IsGenesis() {
 		return nil
 	}
-	// Ensure that the block's timestamp isn't too close to it's parent
-	var parent *types.Header
-	if len(parents) > 0 {
-		parent = parents[len(parents)-1]
-	} else {
-		parent = chain.GetHeader(header.ParentHash, number-1)
+	// We expect the parent to be non nil when header is not the genesis header.
+	if parent == nil {
+		return errUnknownBlock
 	}
-	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
+	return sb.verifyHeaderAgainstParent(header, parent)
+}
+
+// verifyHeaderAgainstParent verifies that the given header is valid with respect to its parent.
+func (sb *Backend) verifyHeaderAgainstParent(header, parent *types.Header) error {
+	if parent.Number.Uint64() != header.Number.Uint64()-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
+	// Ensure that the block's timestamp isn't too close to it's parent
 	if parent.Time+sb.config.BlockPeriod > header.Time {
 		return errInvalidTimestamp
 	}
-
-	if err := sb.verifySigner(chain, header, parents); err != nil {
+	if err := sb.verifySigner(header, parent); err != nil {
 		return err
 	}
 
-	return sb.verifyCommittedSeals(chain, header, parents)
+	return sb.verifyCommittedSeals(header, parent)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -168,8 +163,14 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainReader, headers []*types.H
 	results := make(chan error, len(headers))
 	go func() {
 		for i, header := range headers {
-			err := sb.verifyHeader(chain, header, headers[:i])
-
+			var parent *types.Header
+			switch {
+			case i > 0:
+				parent = headers[i-1]
+			case i == 0:
+				parent = chain.GetHeaderByHash(header.ParentHash)
+			}
+			err := sb.verifyHeader(header, parent)
 			select {
 			case <-abort:
 				return
@@ -189,20 +190,8 @@ func (sb *Backend) VerifyUncles(chain consensus.ChainReader, block *types.Block)
 	return nil
 }
 
-// verifySigner checks whether the signer is in parent's validator set
-func (sb *Backend) verifySigner(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
-	// Verifying the genesis block is not supported
-	number := header.Number.Uint64()
-	if number == 0 {
-		return errUnknownBlock
-	}
-
-	committee, err := sb.committee(header, parents, chain)
-
-	if err != nil {
-		return err
-	}
-
+// verifySigner checks that the signer is part of the committee.
+func (sb *Backend) verifySigner(header, parent *types.Header) error {
 	// resolve the authorization key and check against signers
 	signer, err := types.Ecrecover(header)
 	if err != nil {
@@ -214,62 +203,61 @@ func (sb *Backend) verifySigner(chain consensus.ChainReader, header *types.Heade
 	}
 
 	// Signer should be in the validator set of previous block's extraData.
-	for _, committeeMember := range committee.Committee() {
-		if committeeMember.Address == signer {
-			return nil
-		}
+	if parent.CommitteeMember(signer) != nil {
+		return nil
 	}
 
 	return errUnauthorized
 }
 
-// verifyCommittedSeals checks whether every committed seal is signed by one of the parent's committee
-func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
-	number := header.Number.Uint64()
-	// We don't need to verify committed seals in the genesis block
-	if number == 0 {
-		return nil
-	}
-
-	committeeSet, err := sb.committee(header, parents, chain)
-	if err != nil {
-		return err
-	}
-	sealed := make(map[common.Address]struct{})
-
+// verifyCommittedSeals validates that the committed seals for header come from
+// committee members and that the voting power of the committed seals constitutes
+// a quorum.
+func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	// The length of Committed seals should be larger than 0
 	if len(header.CommittedSeals) == 0 {
 		return types.ErrEmptyCommittedSeals
 	}
 
-	// Check whether the committed seals are generated by parent's committee
-	var power uint64 // Total Voting power for this block
-	proposalSeal := tendermintCore.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
+	// Setup map to track votes made by committee members
+	votes := make(map[common.Address]int, len(parent.Committee))
+
+	// Calculate total voting power
+	var committeeVotingPower uint64
+	for _, member := range parent.Committee {
+		committeeVotingPower += member.VotingPower.Uint64()
+	}
+
+	// Total Voting power for this block
+	var power uint64
+	// The data that was sined over for this block
+	headerSeal := tendermintCore.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
+
 	// 1. Get committed seals from current header
-	for _, seal := range header.CommittedSeals {
-		// 2. Get the original address by seal and parent block hash
-		addr, err := types.GetSignatureAddress(proposalSeal, seal)
+	for _, signedSeal := range header.CommittedSeals {
+		// 2. Get the address from signature
+		addr, err := types.GetSignatureAddress(headerSeal, signedSeal)
 		if err != nil {
 			sb.logger.Error("not a valid address", "err", err)
 			return types.ErrInvalidSignature
 		}
-		// Every validator can have only one seal. If more than one seals are signed by a
-		// validator, the validator cannot be found and errInvalidCommittedSeals is returned.
-		if _, ok := sealed[addr]; !ok {
-			sealed[addr] = struct{}{}
-			_, member, err := committeeSet.GetByAddress(addr)
-			if err != nil {
-				sb.logger.Error("could not retrieve member")
-				return types.ErrInvalidCommittedSeals
-			}
-			power += member.VotingPower.Uint64()
-		} else {
+
+		member := parent.CommitteeMember(addr)
+		if member == nil {
+			sb.logger.Error(fmt.Sprintf("block had seal from non committee member %q", addr))
 			return types.ErrInvalidCommittedSeals
 		}
+
+		votes[member.Address]++
+		if votes[member.Address] > 1 {
+			sb.logger.Error(fmt.Sprintf("committee member %q had multiple seals on block", addr))
+			return types.ErrInvalidCommittedSeals
+		}
+		power += member.VotingPower.Uint64()
 	}
 
-	// The amount of power should be larger than a Quorum
-	if power < committeeSet.Quorum() {
+	// We need at least a quorum for the block to be considered valid
+	if power < bft.Quorum(committeeVotingPower) {
 		return types.ErrInvalidCommittedSeals
 	}
 
@@ -279,9 +267,10 @@ func (sb *Backend) verifyCommittedSeals(chain consensus.ChainReader, header *typ
 // VerifySeal checks whether the crypto seal on a header is valid according to
 // the consensus rules of the given engine.
 func (sb *Backend) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
-	// get parent header and ensure the signer is in parent's validator set
-	number := header.Number.Uint64()
-	if number == 0 {
+	// Ensure the signer is part of the committee
+
+	// The genesis block is not signed.
+	if header.IsGenesis() {
 		return errUnknownBlock
 	}
 
@@ -289,7 +278,13 @@ func (sb *Backend) VerifySeal(chain consensus.ChainReader, header *types.Header)
 	if header.Difficulty.Cmp(defaultDifficulty) != 0 {
 		return errInvalidDifficulty
 	}
-	return sb.verifySigner(chain, header, nil)
+
+	parent := chain.GetHeaderByHash(header.ParentHash)
+	if parent == nil {
+		// TODO make this ErrUnknownAncestor
+		return errUnknownBlock
+	}
+	return sb.verifySigner(header, parent)
 }
 
 // Prepare initializes the consensus fields of a block header according to the
@@ -321,11 +316,6 @@ func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 // Finaize doesn't modify the passed header.
 func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
-	sb.blockchainInitMu.Lock()
-	if sb.blockchain == nil {
-		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
-	}
-	sb.blockchainInitMu.Unlock()
 
 	committeeSet, receipt, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
 	if err != nil {
@@ -363,14 +353,6 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
-	if header.Number.Int64() == 1 {
-		err := sb.blockchain.GetAutonityContract().DeployAutonityContract(chain, header, state)
-		if err != nil {
-			sb.logger.Error("Deploy autonity contract error", "error", err)
-			return nil, nil, err
-		}
-	}
-
 	committeeSet, receipt, err := sb.blockchain.GetAutonityContract().FinalizeAndGetCommittee(txs, receipts, header, state)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize returns err", "err", err)
@@ -391,24 +373,18 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 
 	// update the block header and signature and propose the block to core engine
 	header := block.Header()
-	number := header.Number.Uint64()
 
-	// Bail out if we're unauthorized to sign a block
-	if committeeSet, err := sb.Committee(number); err == nil {
-		if _, _, errP := committeeSet.GetByAddress(sb.Address()); errP != nil {
-			sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
-			return errUnauthorized
-		}
-	} else {
-		sb.logger.Error("couldn't retrieve current block committee", "addr", sb.address)
-		return errUnauthorized
-	}
-
-	parent := chain.GetHeader(header.ParentHash, number-1)
+	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
 		sb.logger.Error("Error ancestor")
 		return consensus.ErrUnknownAncestor
 	}
+	nodeAddress := sb.Address()
+	if parent.CommitteeMember(nodeAddress) == nil {
+		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
+		return errUnauthorized
+	}
+
 	block, err := sb.AddSeal(block)
 	if err != nil {
 		sb.logger.Error("seal error updateBlock", "err", err.Error())
@@ -471,13 +447,8 @@ func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
 // update timestamp and signature of the block based on its number of transactions
 func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
 	header := block.Header()
-	// sign the hash
-	seal, err := sb.Sign(types.SigHash(header).Bytes())
-	if err != nil {
-		return nil, err
-	}
 
-	err = types.WriteSeal(header, seal)
+	err := crypto.SignHeader(header, sb.privateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -490,13 +461,22 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "tendermint",
 		Version:   "1.0",
-		Service:   &API{chain: chain, tendermint: sb},
+		Service:   &API{chain: chain, tendermint: sb, getCommittee: getCommittee},
 		Public:    true,
 	}}
 }
 
+// getCommittee retrieves the committee for the given header.
+func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
+	parent := chain.GetHeaderByHash(header.ParentHash)
+	if parent == nil {
+		return nil, errUnknownBlock
+	}
+	return parent.Committee, nil
+}
+
 // Start implements consensus.Start
-func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
+func (sb *Backend) Start(ctx context.Context) error {
 	// the mutex along with coreStarted should prevent double start
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
@@ -509,15 +489,8 @@ func (sb *Backend) Start(ctx context.Context, chain consensus.ChainReader, curre
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
 
-	sb.blockchainInitMu.Lock()
-	sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
-	sb.blockchainInitMu.Unlock()
-
-	sb.currentBlock = currentBlock
-	sb.hasBadBlock = hasBadBlock
-
 	// Start Tendermint
-	sb.core.Start(ctx)
+	sb.core.Start(ctx, sb.blockchain.GetAutonityContract())
 	sb.coreStarted = true
 
 	return nil
@@ -541,47 +514,13 @@ func (sb *Backend) Close() error {
 	return nil
 }
 
-// retrieve list of committee for the block at height passed as parameter
-func (sb *Backend) savedCommittee(number uint64, chain consensus.ChainReader) (*committee.Set, error) {
-	var lastProposer common.Address
-	var err error
-	if number == 0 {
-		number = 1
-	}
-	parentHeader := chain.GetHeaderByNumber(number - 1)
-	if parentHeader == nil {
-		return nil, errUnknownBlock
-	}
-	// For the genesis block, lastProposer is no one (empty).
-	if number > 1 {
-		lastProposer, err = sb.Author(parentHeader)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return committee.NewSet(parentHeader.Committee, lastProposer)
-}
-
-// retrieve list of committee for the block header passed as parameter
-func (sb *Backend) committee(header *types.Header, parents []*types.Header, chain consensus.ChainReader) (*committee.Set, error) {
-
-	// We can't use savedCommittee if parents are being passed :
-	// those blocks are not yet saved in the blockchain.
-	// autonity will stop processing the received blockchain from the moment an error appears.
-	// See insertChain in blockchain.go
-
-	if len(parents) > 0 {
-		parent := parents[len(parents)-1]
-		lastMiner, err := sb.Author(parent)
-		if err != nil {
-			return nil, err
-		}
-		return committee.NewSet(parent.Committee, lastMiner)
-	} else {
-		return sb.savedCommittee(header.Number.Uint64(), chain)
-	}
-}
-
 func (sb *Backend) SealHash(header *types.Header) common.Hash {
 	return types.SigHash(header)
+}
+
+func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
+	sb.blockchain = bc
+
+	sb.currentBlock = bc.CurrentBlock
+	sb.hasBadBlock = bc.HasBadBlock
 }
