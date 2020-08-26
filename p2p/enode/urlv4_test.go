@@ -19,12 +19,12 @@ package enode
 import (
 	"crypto/ecdsa"
 	"net"
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p/enr"
+	"github.com/stretchr/testify/assert"
 )
 
 var parseNodeTests = []struct {
@@ -62,7 +62,7 @@ var parseNodeTests = []struct {
 	// Complete node URLs with IP address and ports
 	{
 		input:     "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@hostname:3",
-		wantError: `invalid IP address`,
+		wantError: `lookup hostname: `,
 	},
 	{
 		input:     "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:foo",
@@ -178,9 +178,7 @@ func TestParseNode(t *testing.T) {
 				t.Errorf("test %q:\n  unexpected error: %v", test.input, err)
 				continue
 			}
-			if !reflect.DeepEqual(n, test.wantResult) {
-				t.Errorf("test %q:\n  result mismatch:\ngot:  %#v\nwant: %#v", test.input, n, test.wantResult)
-			}
+			assert.Equal(t, test.wantResult, n)
 		}
 	}
 }

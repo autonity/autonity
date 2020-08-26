@@ -484,8 +484,16 @@ func (t *dialTask) run(d *dialScheduler) {
 	if t.needResolve() && !t.resolve(d) {
 		return
 	}
-
-	err := t.dial(d, t.dest)
+	err := t.dest.ResolveHost()
+	if err != nil {
+		d.log.Trace(fmt.Sprintf(
+			"Failed to resolve IP for host %q, dialing with previously resolved IP %q, err: %v",
+			t.dest.Host(),
+			t.dest.IP().String(),
+			err,
+		))
+	}
+	err = t.dial(d, t.dest)
 	if err != nil {
 		// For static nodes, resolve one more time if dialing fails.
 		if _, ok := err.(*dialError); ok && t.flags&staticDialedConn != 0 {

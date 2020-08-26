@@ -877,7 +877,8 @@ func (h *serverHandler) getAuxiliaryHeaders(req HelperTrieReq) []byte {
 	if req.Type == htCanonical && req.AuxReq == auxHeader && len(req.Key) == 8 {
 		blockNum := binary.BigEndian.Uint64(req.Key)
 		hash := rawdb.ReadCanonicalHash(h.chainDb, blockNum)
-		return rawdb.ReadHeaderRLP(h.chainDb, hash, blockNum)
+		headerRLP, _ := rawdb.ReadHeaderRLP(h.chainDb, hash, blockNum)
+		return headerRLP
 	}
 	return nil
 }

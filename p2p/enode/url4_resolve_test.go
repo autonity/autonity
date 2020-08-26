@@ -1,147 +1,163 @@
 package enode
 
 import (
+	"crypto/ecdsa"
 	"net"
-	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/clearmatics/autonity/p2p/enr"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-var parseNodeWithResolveTests = []struct {
-	rawurl     string
-	wantError  string
-	wantResult *Node
-	host       string
-}{
-	{
-		rawurl:    "http://foobar",
-		wantError: `invalid URL scheme, want "enode"`,
-	},
-	{
-		rawurl:    "enode://01010101@123.124.125.126:3",
-		wantError: `invalid public key (wrong length, want 128 hex chars)`,
-	},
-	// Complete nodes with IP address.
-	{
-		rawurl:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@hostname:3",
-		wantError: `invalid domain or IP address`,
-	},
-	{
-		rawurl:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:foo",
-		wantError: `invalid port`,
-	},
-	{
-		rawurl:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:3?discport=foo",
-		wantError: `invalid discport in query`,
-	},
-	{
-		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
-		wantResult: NewV4(
-			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
-			net.IP{0x7f, 0x0, 0x0, 0x1},
-			3,
-			3,
-		),
-	},
-	{
-		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost",
-		wantResult: NewV4(
-			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
-			net.IP{0x7f, 0x0, 0x0, 0x1},
-			30303,
-			30303,
-		),
-	},
-	{
-		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@gdns.oogle.com:3",
-		wantResult: NewV4(
-			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
-			net.IP{0xd8, 0xef, 0x20, 0x3b},
-			3,
-			3,
-		),
-		host: "any-in-",
-	},
-	{
-		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@dns.google.com",
-		wantResult: NewV4(
-			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
-			net.IP{0xd8, 0xef, 0x20, 0x3b},
-			30303,
-			30303,
-		),
-		host: "any-in-",
-	},
-	{
-		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:52150",
-		wantResult: NewV4(
-			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
-			net.IP{0x7f, 0x0, 0x0, 0x1},
-			52150,
-			52150,
-		),
-	},
-	{
-		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@[::]:52150",
-		wantResult: NewV4(
-			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
-			net.ParseIP("::"),
-			52150,
-			52150,
-		),
-	},
-	{
-		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@[2001:db8:3c4d:15::abcd:ef12]:52150",
-		wantResult: NewV4(
-			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
-			net.ParseIP("2001:db8:3c4d:15::abcd:ef12"),
-			52150,
-			52150,
-		),
-	},
-	{
-		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:52150?discport=22334",
-		wantResult: NewV4(
-			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
-			net.IP{0x7f, 0x0, 0x0, 0x1},
-			52150,
-			22334,
-		),
-	},
-	// Incomplete nodes with no address.
-	{
-		rawurl: "1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439",
-		wantResult: NewV4(
-			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
-			nil, 0, 0,
-		),
-	},
-	{
-		rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439",
-		wantResult: NewV4(
-			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
-			nil, 0, 0,
-		),
-	},
-	// Invalid URLs
-	{
-		rawurl:    "01010101",
-		wantError: `invalid public key (wrong length, want 128 hex chars)`,
-	},
-	{
-		rawurl:    "enode://01010101",
-		wantError: `invalid public key (wrong length, want 128 hex chars)`,
-	},
-	{
-		// This test checks that errors from url.Parse are handled.
-		rawurl:    "://foo",
-		wantError: `parse "://foo": missing protocol scheme`,
-	},
+func newV4WithHostNoError(t *testing.T, pubkey *ecdsa.PublicKey, host string, tcp, udp int, resolveFunc func(host string) ([]net.IP, error)) *Node {
+	n, err := NewV4WithHost(pubkey, host, tcp, udp, resolveFunc)
+	require.NoError(t, err)
+	return n
 }
 
 func TestParseNodeWithDomainResolution(t *testing.T) {
+
+	var parseNodeWithResolveTests = []struct {
+		rawurl     string
+		wantError  string
+		wantResult *Node
+	}{
+		{
+			rawurl:    "http://foobar",
+			wantError: `invalid URL scheme, want "enode"`,
+		},
+		{
+			rawurl:    "enode://01010101@123.124.125.126:3",
+			wantError: `invalid public key (wrong length, want 128 hex chars)`,
+		},
+		// Complete nodes with IP address.
+		{
+			rawurl:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@hostname:3",
+			wantError: `lookup hostname: `,
+		},
+		{
+			rawurl:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:foo",
+			wantError: `invalid port`,
+		},
+		{
+			rawurl:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:3?discport=foo",
+			wantError: `invalid discport in query`,
+		},
+		{
+			rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
+			wantResult: newV4WithHostNoError(
+				t,
+				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+				"localhost",
+				3,
+				3,
+				net.LookupIP,
+			),
+		},
+		{
+			rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost",
+			wantResult: newV4WithHostNoError(
+				t,
+				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+				"localhost",
+				30303,
+				30303,
+				net.LookupIP,
+			),
+		},
+		{
+			rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@gdns.oogle.com:3",
+			wantResult: newV4WithHostNoError(
+				t,
+				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+				"gdns.oogle.com",
+				3,
+				3,
+				net.LookupIP,
+			),
+		},
+		{
+			rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@dns.google.com",
+			wantResult: newV4WithHostNoError(
+				t,
+				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+				"dns.google.com",
+				30303,
+				30303,
+				net.LookupIP,
+			),
+		},
+		{
+			rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:52150",
+			wantResult: NewV4(
+				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+				net.IP{0x7f, 0x0, 0x0, 0x1},
+				52150,
+				52150,
+			),
+		},
+		{
+			rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@[::]:52150",
+			wantResult: NewV4(
+				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+				net.ParseIP("::"),
+				52150,
+				52150,
+			),
+		},
+		{
+			rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@[2001:db8:3c4d:15::abcd:ef12]:52150",
+			wantResult: NewV4(
+				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+				net.ParseIP("2001:db8:3c4d:15::abcd:ef12"),
+				52150,
+				52150,
+			),
+		},
+		{
+			rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:52150?discport=22334",
+			wantResult: NewV4(
+				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+				net.IP{0x7f, 0x0, 0x0, 0x1},
+				52150,
+				22334,
+			),
+		},
+		// Incomplete nodes with no address.
+		{
+			rawurl: "1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439",
+			wantResult: NewV4(
+				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+				nil, 0, 0,
+			),
+		},
+		{
+			rawurl: "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439",
+			wantResult: NewV4(
+				hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+				nil, 0, 0,
+			),
+		},
+		// Invalid URLs
+		{
+			rawurl:    "01010101",
+			wantError: `invalid public key (wrong length, want 128 hex chars)`,
+		},
+		{
+			rawurl:    "enode://01010101",
+			wantError: `invalid public key (wrong length, want 128 hex chars)`,
+		},
+		{
+			// This test checks that errors from url.Parse are handled.
+			rawurl:    "://foo",
+			wantError: `parse "://foo": missing protocol scheme`,
+		},
+	}
+
 	for _, test := range parseNodeWithResolveTests {
-		n, err := ParseV4WithResolve(test.rawurl)
+		n, err := ParseV4(test.rawurl)
 
 		var gotErr string
 		if err != nil {
@@ -161,32 +177,21 @@ func TestParseNodeWithDomainResolution(t *testing.T) {
 			if err != nil {
 				t.Errorf("test %q:\n  unexpected error: %v", test.rawurl, err)
 				continue
-			}
-			if test.host != "" {
-				hosts, err := net.LookupAddr(test.wantResult.IP().String())
-				if err != nil {
-					t.Errorf("failed to resolve host: %s", err)
-				}
+			} else {
+				// Check that an IP was set
+				assert.True(t, len(n.IP().String()) > 0)
 
-				if len(hosts) == 0 {
-					t.Errorf("failed to resolve host. Hosts list is empty")
-				}
+				// Nullify the IPs since dns resolution can return different
+				// results, for example when round robining is setup.
+				zeroIP := net.IPv4(0, 0, 0, 0)
+				n.r.Set(enr.IP(zeroIP))
+				test.wantResult.r.Set(enr.IP(zeroIP))
 
-				if !strings.HasPrefix(hosts[0], test.host) {
-					t.Errorf("got wrong host. got: %#v\nwant: %#v\n", hosts[0], test.host)
-				}
-			} else if !reflect.DeepEqual(n, test.wantResult) {
-				t.Errorf("test %q:\n result mismatch:\n"+
-					"got PubKey: %#v\nwant: %#v\n\n"+
-					"got IP: %#v\nwant: %#v(equal %v)\n\n"+
-					"got TCP: %#v\nwant: %#v\n\n"+
-					"got UPD: %#v\nwant: %#v\n",
-					test.rawurl,
-					n.Pubkey(), test.wantResult.Pubkey(),
-					n.IP().String(), test.wantResult.IP().String(),
-					n.IP().Equal(test.wantResult.IP()),
-					n.TCP(), test.wantResult.TCP(),
-					n.UDP(), test.wantResult.UDP())
+				// Function references are not comparable, so we nullify them
+				// to allow comparing the remaining fields.
+				n.resolveFunc = nil
+				test.wantResult.resolveFunc = nil
+				assert.Equal(t, test.wantResult, n)
 			}
 		}
 	}
