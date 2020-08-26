@@ -175,7 +175,7 @@ func TestMemberManagementAddNewValidator(t *testing.T) {
 	testCase := &testCase{
 		name:          "member management test add validator",
 		numValidators: 6,
-		numBlocks:     10,
+		numBlocks:     20,
 		txPerPeer:     1,
 		sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
 			"VA": addValidatorHook,
@@ -329,7 +329,7 @@ func TestMemberManagementAddNewStakeHolder(t *testing.T) {
 	testCase := &testCase{
 		name:          "member management test add stakeholder",
 		numValidators: 6,
-		numBlocks:     10,
+		numBlocks:     20,
 		txPerPeer:     1,
 		sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
 			"VA": addStakeHolderHook,
@@ -481,7 +481,7 @@ func TestMemberManagementAddNewParticipant(t *testing.T) {
 	testCase := &testCase{
 		name:          "member management test add participant",
 		numValidators: 6,
-		numBlocks:     10,
+		numBlocks:     20,
 		txPerPeer:     1,
 		sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
 			"VA": addParticipantHook,
@@ -544,7 +544,7 @@ func TestMemberManagementRemoveUser(t *testing.T) {
 	testCase := &testCase{
 		name:                 "member management test remove user",
 		numValidators:        6,
-		numBlocks:            10,
+		numBlocks:            20,
 		txPerPeer:            1,
 		removedPeers:         make(map[common.Address]uint64),
 		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),

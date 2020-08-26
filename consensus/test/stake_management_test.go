@@ -308,7 +308,7 @@ func TestStakeManagement(t *testing.T) {
 		{
 			name:          "stake management test mint stake",
 			numValidators: 6,
-			numBlocks:     10,
+			numBlocks:     20,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
 				"VA": mintStakeHook,
@@ -319,7 +319,7 @@ func TestStakeManagement(t *testing.T) {
 		{
 			name:          "stake management test redeem stake",
 			numValidators: 6,
-			numBlocks:     10,
+			numBlocks:     20,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
 				"VA": redeemStakeHook,
@@ -330,7 +330,7 @@ func TestStakeManagement(t *testing.T) {
 		{
 			name:          "stake management test send stake",
 			numValidators: 6,
-			numBlocks:     10,
+			numBlocks:     20,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
 				"VA": sendStakeHook,
