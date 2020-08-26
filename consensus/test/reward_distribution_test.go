@@ -23,7 +23,7 @@ import (
 
   First it setup an autontiy network by according to the genesis hook function, then from the specific chain height, it
   start to issue transaction via the transaction hook function specified for the target node on each height, for example
-  in the mintStakeHook, redeemStakeHook, transferStakeHook, it keep issueing transactions to call autonity contract to
+  in the mintStakeHook, redeemStakeHook, transferStakeHook, it keep issuing transactions to call autonity contract to
   manage stake for members on each height.
 
   About the reward checking, in the beforeHooks set, we apply rewardChecker function to each member on the network on
