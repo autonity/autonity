@@ -17,6 +17,21 @@ import (
 	"testing"
 )
 
+/*
+  In this file, it create 4 test cases which have similar work flow base on the local e2e test framework's main flow.
+
+  First it setup an autontiy network by according to the genesis hook function, then from the specific chain height, it
+  start to issue transactions via the transaction hook function specified for the target node, for example in the
+  addValidatorHook, it issues transaction to call autonity contract via operator account to add a new validator.
+
+  Then the test case verify the output from its finalAssert hook function on the specified height of the blockchain, for
+  example the addValidatorCheckerHook checks if the new validator is presented in the white list, and its stake balance
+  checked too, and finally it checks the total stake supply after the membership updates.
+
+  for the other cases in the file: add stake_holder, participants, or remove user, they follow the same work flow and
+  some rules to check the outputs.
+*/
+
 func TestMemberManagementAddNewValidator(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")

@@ -17,6 +17,18 @@ import (
 	"testing"
 )
 
+/*
+  In this file, it create 3 test cases which have similar work flow base on the local e2e test framework's main flow.
+
+  First it setup an autontiy network by according to the genesis hook function, then from the specific chain height, it
+  start to issue transactions via the transaction hook function specified for the target node, for example in the
+  mintStakeHook, redeemStakeHook, and sendStakeHook, it issues transaction to call autonity contract via operator account
+  to manage the stakes on the members.
+
+  Then the test case verify the output from its finalAssert hook function on the specified height of the blockchain, for
+  example, it checks the stake balance in different height to compare if the balance is expected.
+*/
+
 func TestStakeManagement(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -199,7 +211,7 @@ func TestStakeManagement(t *testing.T) {
 			t.Fatal(err)
 		}
 		validatorsList := validators["VA"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-		// check acount stake balance.
+		// check account stake balance.
 		founded := false
 		for index, v := range initNetworkMetrics.Accounts {
 			if v == *validatorsList[0].Address {
