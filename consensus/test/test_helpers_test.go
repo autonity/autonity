@@ -177,10 +177,11 @@ func makePeer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr strin
 		Version: params.Version,
 		DataDir: datadir,
 		P2P: p2p.Config{
-			ListenAddr:  listenAddr,
-			NoDiscovery: true,
-			MaxPeers:    25,
-			PrivateKey:  nodekey,
+			ListenAddr:            listenAddr,
+			NoDiscovery:           true,
+			MaxPeers:              25,
+			PrivateKey:            nodekey,
+			DialHistoryExpiration: time.Millisecond,
 		},
 		NoUSB: true,
 	}
