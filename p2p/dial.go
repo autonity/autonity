@@ -139,7 +139,7 @@ type dialConfig struct {
 	log                   log.Logger
 	clock                 mclock.Clock
 	rand                  *mrand.Rand
-	dialHistoryExpiration time.Duration    // DialHistoryExpiration is the time window to re-dial to the same source peer.
+	dialHistoryExpiration time.Duration // DialHistoryExpiration is the time window to re-dial to the same source peer.
 }
 
 func (cfg dialConfig) withDefaults() dialConfig {
