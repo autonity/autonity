@@ -87,7 +87,7 @@ func New(backend Backend, config *config.Config) *core {
 		address:               addr,
 		logger:                logger,
 		backend:               backend,
-		backlogs:              make(map[types.CommitteeMember][]*Message),
+		backlogs:              make(map[common.Address][]*Message),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
@@ -120,7 +120,7 @@ type core struct {
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
 
-	backlogs   map[types.CommitteeMember][]*Message
+	backlogs   map[common.Address][]*Message
 	backlogsMu sync.Mutex
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
