@@ -588,7 +588,7 @@ func TestOldProposal(t *testing.T) {
 		pseudo code, however, the prevotes from the previous round are yet to arrive. Since the proposal of the current
 		round has been received the timer would be stopped.
 
-		autonity/consensus/tendermint/core/propose.go, Lines 131 to 133 in 78f199d
+		autonity/consensus/tendermint/core/propose.go, Lines 131 to 133 at 78f199d
 
 		 if err := c.proposeTimeout.stopTimer(); err != nil {
 		 	return err
