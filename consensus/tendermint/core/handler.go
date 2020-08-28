@@ -229,8 +229,20 @@ func (c *core) sendEvent(ev interface{}) {
 	c.backend.Post(ev)
 }
 
+type consensusMessage struct {
+	step       uint8
+	height     uint64
+	round      int64
+	value      common.Hash
+	validRound int64
+}
+
 func (c *core) handleMsg(ctx context.Context, payload []byte) error {
-	// Decode message and check its signature
+
+	/*
+		Basic validity checks
+	*/
+
 	m := new(Message)
 
 	// Decode message
@@ -266,26 +278,60 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 			return errFailedDecodeProposal
 		}
 		cm = &proposal
+		err = c.msgCache.addProposal(&proposal, m)
+		if err != nil {
+			// could be multipe proposal messages from the same proposer
+			return err
+		}
 	case msgPrevote:
 		err := m.Decode(&preVote)
 		if err != nil {
 			return errFailedDecodePrevote
 		}
 		cm = &preVote
+		err = c.msgCache.addPrevote(&preVote, m)
+		if err != nil {
+			// could be multipe prevotes from same validator
+			return err
+		}
 	case msgPrecommit:
 		err := m.Decode(&preCommit)
 		if err != nil {
 			return errFailedDecodePrecommit
 		}
+		// Check the committed seal matches the block hash if its a precommit.
+		// If not we ignore the message.
+		err := c.verifyCommittedSeal(m.Address, append([]byte(nil), m.CommittedSeal...), cm.ProposedValueHash(), cm.GetRound(), cm.GetHeight())
+		if err != nil {
+			return err
+		}
 		cm = &preCommit
+		err = c.msgCache.addPrecommit(&preCommit, m)
+		if err != nil {
+			// could be multipe precommits from same validator
+			return err
+		}
 	default:
 		return fmt.Errorf("unrecognised consensus message code %q", m.Code)
 	}
 
-	header := c.backend.BlockChain().GetHeaderByNumber(cm.GetHeight().Uint64())
+	// If this message is for a future height then we cannot validate it
+	// because we lack the relevant header, we will process it when we reach
+	// that height. If it is for a previous height then we are not intersted in
+	// it. But it has been added to the msg cache in case other peers would
+	// like to sync it.
+	if cm.GetHeight().Uint64() != c.Height().Uint64() {
+		// Nothing to do here
+		return nil
+	}
+
+	/*
+		Domain specific validity checks, now we know that we are at the same
+		height as this message we can rely on lastHeader.
+	*/
 
 	// Check that the message came from a committee member, if not we ignore it.
-	if header.CommitteeMember(m.Address) == nil {
+	if c.lastHeader.CommitteeMember(m.Address) == nil {
 		// TODO turn this into an error type that can be checked for at a
 		// higher level to close the connection to this peer.
 		return fmt.Errorf("received message from non committee member: %v", m)
@@ -294,7 +340,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// Again we ignore messges with invalid signatures, they cannot be trusted.
 	// TODO replace crypto.CheckValidatorSignature with something more
 	// efficient, so we don't have to hash twice.
-	address, err := crypto.CheckValidatorSignature(header, payload, m.Signature)
+	address, err := crypto.CheckValidatorSignature(c.lastHeader, payload, m.Signature)
 	if err != nil {
 		return err
 	}
@@ -306,77 +352,25 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 
 	switch m.Code {
 	case msgProposal:
-
 		// We ignore proposals from non proposers
 		if !c.isProposerMsg(proposal.Round, m.Address) {
 			c.logger.Warn("Ignore proposal messages from non-proposer")
 			return errNotFromProposer
 		}
-
-		err = c.msgCache.addProposal(&proposal, m)
-		if err != nil {
-			// could be multipe proposal messages from the same proposer
-			return err
-		}
-	case msgPrevote:
-		err = c.msgCache.addPrevote(&preVote, m)
-		if err != nil {
-			// could be multipe prevotes from same validator
-			return err
-		}
-	case msgPrecommit:
-		// Check the committed seal matches the block hash if its a precommit.
-		// If not we ignore the message.
-		err := c.verifyCommittedSeal(m.Address, append([]byte(nil), m.CommittedSeal...), cm.ProposedValueHash(), cm.GetRound(), cm.GetHeight())
-		if err != nil {
-			return err
-		}
-		err = c.msgCache.addPrecommit(&preCommit, m)
-		if err != nil {
-			// could be multipe precommits from same validator
-			return err
-		}
-		c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, m.Address.String(), c.address.String())
-	default:
-		panic("should never happen")
-	}
-
-	if cm.GetHeight().Uint64() != c.Height().Uint64() {
-		// Nothing to do here
-		return nil
 	}
 
 	switch m.Code {
 	case msgProposal:
 		err = c.handleProposal(ctx, &proposal)
 	case msgPrevote:
-		err = c.handlePrevote(ctx, &preVote, header)
+		err = c.handlePrevote(ctx, &preVote, c.lastHeader)
 	case msgPrecommit:
-		err = c.handlePrecommit(ctx, &preCommit, header)
+		err = c.handlePrecommit(ctx, &preCommit, c.lastHeader)
 	default:
 		panic("should never happen")
 	}
 	return err
 
-	//addr, err := validateFn(previousHeader, payload, m.Signature)
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	////ensure message was singed by the sender
-	//if !bytes.Equal(m.Address.Bytes(), addr.Bytes()) {
-	//	return nil, ErrUnauthorizedAddress
-	//}
-
-	//v := previousHeader.CommitteeMember(addr)
-	//if v == nil {
-	//	return nil, fmt.Errorf("validator was not a committee member %q", v)
-	//}
-
-	//m.power = v.VotingPower.Uint64()
-	//return v, nil
-
-	//return c.handleCheckedMsg(ctx, msg, *sender)
 }
 
 func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) {
