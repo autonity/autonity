@@ -594,9 +594,12 @@ func TestOldProposal(t *testing.T) {
 		 	return err
 		 }
 
-		A quorum prevotes for round 0 finally arrive, however, these will be added to message set but nothing will happen
-		even though enough messages are present in the message set to send a prevote for the old proposal.
-		autonity/consensus/tendermint/core/prevote.go, Lines 69 to 74 in 78f199d
+		A quorum prevotes for round 0 finally arrive, however, these will be added to message set and without 
+		the existence of the line 28 upon condition nothing would happen, even though enough  messages 
+		are present in the message set to send a prevote for the old proposal.
+	
+		This was previously the case in:
+		autonity/consensus/tendermint/core/prevote.go, Lines 69 to 74 at 78f199d
 
 		 if err == errOldRoundMessage {
 		 	// We only process old rounds while future rounds messages are pushed on to the backlog
