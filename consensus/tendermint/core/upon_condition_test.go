@@ -573,46 +573,46 @@ func TestOldProposal(t *testing.T) {
 
 	// line 28 check upon condition on prevote handler.
 	/*
-	  Please refer to the discussion history: https://github.com/clearmatics/autonity/pull/615, this test case address
-	the un-handled valid scenario which is not processed by our Tendermint implementation. The scene is depicted here
-	is a follows:
+		  Please refer to the discussion history: https://github.com/clearmatics/autonity/pull/615, this test case address
+		the un-handled valid scenario which is not processed by our Tendermint implementation. The scene is depicted here
+		is a follows:
 
-	Round 0:
-		Quorum clients sent precommit nil hence there was a round change
-	Round 1:
-		The proposer of round 1 had received quorum prevotes for the proposal of round 0, thus, the proposer of round 1
-	re-proposes the proposal with vr = 0, More than quorum of the network is yet to receive the prevotes from the
-	previous round, thus the are their lockedValue = nil and lockedRound = -1. The proposer of round 1 has a really good
-	connection with the rest of the network, thus it is able to send the proposal to its peers before they receive enough
-	prevotes from round 0 to form a quorum.	Now the proposal will only be able to satisfy line 28 of the Tendermint
-	pseudo code, however, the prevotes from the previous round are yet to arrive. Since the proposal of the current
-	round has been received the timer would be stopped.
+		Round 0:
+			Quorum clients sent precommit nil hence there was a round change
+		Round 1:
+			The proposer of round 1 had received quorum prevotes for the proposal of round 0, thus, the proposer of round 1
+		re-proposes the proposal with vr = 0, More than quorum of the network is yet to receive the prevotes from the
+		previous round, thus the are their lockedValue = nil and lockedRound = -1. The proposer of round 1 has a really good
+		connection with the rest of the network, thus it is able to send the proposal to its peers before they receive enough
+		prevotes from round 0 to form a quorum.	Now the proposal will only be able to satisfy line 28 of the Tendermint
+		pseudo code, however, the prevotes from the previous round are yet to arrive. Since the proposal of the current
+		round has been received the timer would be stopped.
 
-	autonity/consensus/tendermint/core/propose.go, Lines 131 to 133 in 78f199d
+		autonity/consensus/tendermint/core/propose.go, Lines 131 to 133 in 78f199d
 
-	 if err := c.proposeTimeout.stopTimer(); err != nil {
-	 	return err
-	 }
+		 if err := c.proposeTimeout.stopTimer(); err != nil {
+		 	return err
+		 }
 
-	A quorum prevotes for round 0 finally arrive, however, these will be added to message set but nothing will happen
-	even though enough messages are present in the message set to send a prevote for the old proposal.
-	autonity/consensus/tendermint/core/prevote.go, Lines 69 to 74 in 78f199d
+		A quorum prevotes for round 0 finally arrive, however, these will be added to message set but nothing will happen
+		even though enough messages are present in the message set to send a prevote for the old proposal.
+		autonity/consensus/tendermint/core/prevote.go, Lines 69 to 74 in 78f199d
 
-	 if err == errOldRoundMessage {
-	 	// We only process old rounds while future rounds messages are pushed on to the backlog
-	 	oldRoundMessages := c.messages.getOrCreate(preVote.Round)
-	 	c.acceptVote(oldRoundMessages, prevote, preVote.ProposedBlockHash, *msg)
-	 }
-	 return err
+		 if err == errOldRoundMessage {
+		 	// We only process old rounds while future rounds messages are pushed on to the backlog
+		 	oldRoundMessages := c.messages.getOrCreate(preVote.Round)
+		 	c.acceptVote(oldRoundMessages, prevote, preVote.ProposedBlockHash, *msg)
+		 }
+		 return err
 
-	Now the client is stuck since the timer has been stopped thus a prevote nil cannot be sent and the timer cannot be
-	restarted until startRound() is called for a new round. The resending of the message set will also not help because
-	it would only send messages to peers which they haven't seen and since there were no new messages the peers will not
-	be able to make progress. This can also happen where the client's lockedRound < vr, it cannot happen for
-	lockedRound = vr because that means the client had received enough prevote in a timely manner and there are no old
-	prevote to arrive.
+		Now the client is stuck since the timer has been stopped thus a prevote nil cannot be sent and the timer cannot be
+		restarted until startRound() is called for a new round. The resending of the message set will also not help because
+		it would only send messages to peers which they haven't seen and since there were no new messages the peers will not
+		be able to make progress. This can also happen where the client's lockedRound < vr, it cannot happen for
+		lockedRound = vr because that means the client had received enough prevote in a timely manner and there are no old
+		prevote to arrive.
 
-	Therefore we have a liveness bug in the current implementation of Tendermint.
+		Therefore we have a liveness bug in the current implementation of Tendermint.
 	*/
 	t.Run("handle proposal before full quorum prevote on valid round is satisfied, exe action by applying old round prevote into round state", func(t *testing.T) {
 		clientIndex := len(members) - 1
