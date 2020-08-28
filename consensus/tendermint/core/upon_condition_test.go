@@ -573,10 +573,9 @@ func TestOldProposal(t *testing.T) {
 
 	// line 28 check upon condition on prevote handler.
 	/*
-	  Please refer to the discussion history: https://github.com/clearmatics/autonity/pull/615, this testcase address the
-	un-handled valid scenario which is not processed us, and it enhance the behavior on our Tendermint implementation.
-
-	The scene is depicted here is a follows:
+	  Please refer to the discussion history: https://github.com/clearmatics/autonity/pull/615, this test case address
+	the un-handled valid scenario which is not processed by our Tendermint implementation. The scene is depicted here
+	is a follows:
 
 	Round 0:
 		Quorum clients sent precommit nil hence there was a round change
