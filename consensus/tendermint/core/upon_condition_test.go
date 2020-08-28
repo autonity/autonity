@@ -584,9 +584,9 @@ func TestOldProposal(t *testing.T) {
 		re-proposes the proposal with vr = 0, More than quorum of the network is yet to receive the prevotes from the
 		previous round, thus the are their lockedValue = nil and lockedRound = -1. The proposer of round 1 has a really good
 		connection with the rest of the network, thus it is able to send the proposal to its peers before they receive enough
-		prevotes from round 0 to form a quorum.	Now the proposal will only be able to satisfy line 28 of the Tendermint
-		pseudo code, however, the prevotes from the previous round are yet to arrive. Since the proposal of the current
-		round has been received the timer would be stopped.
+		prevotes from round 0 to form a quorum. Now the proposal received by the peers would only be able to satisfy line
+		28 of the Tendermint pseudo code, however, the prevotes from the previous round are yet to arrive. Since the
+		proposal of the current round has been received the timer would be stopped.
 
 		autonity/consensus/tendermint/core/propose.go, Lines 131 to 133 at 78f199d
 
