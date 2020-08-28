@@ -64,11 +64,8 @@ type testCase struct {
 	topology             *Topology
 	skipNoLeakCheck      bool
 
-	// To apply loose TX error check in those disaster test cases. For example, pending TX might happens when
-	// the recover node not yet complete the round state synchronization from peers, while the other nodes already come
-	// to the end chain height defined by the test case. Following with block sync, the recover node hook function keep
-	// issuing TXs into the TX memory pool. In such case, we check the engine is not on-hold and move to the final chain
-	// height defined by the test case, pending TX shouldn't be a error to cause test failure.
+	// When set to true, this disables the check for un-mined transactions at the end of the test,
+	// which if found would normally cause the test to fail.
 	looseTXCheck bool
 }
 
