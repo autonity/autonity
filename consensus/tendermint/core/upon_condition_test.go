@@ -573,8 +573,9 @@ func TestOldProposal(t *testing.T) {
 
 	// line 28 check upon condition on prevote handler.
 	/*
-		  Please refer to the discussion history: https://github.com/clearmatics/autonity/pull/615
-		This test case address the scenario laid out below.
+		Please refer to the discussion history: https://github.com/clearmatics/autonity/pull/615
+		This test case validates the need for the upon condition defined in line 28 of the tendermint
+		whitepaper, which addresses the scenario laid out below. 
 
 		Round 0:
 			Quorum clients sent precommit nil hence there was a round change
