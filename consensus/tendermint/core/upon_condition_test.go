@@ -608,14 +608,14 @@ func TestOldProposal(t *testing.T) {
 		 }
 		 return err
 
-		Now the client is stuck since the timer has been stopped thus a prevote nil cannot be sent and the timer cannot be
-		restarted until startRound() is called for a new round. The resending of the message set will also not help because
-		it would only send messages to peers which they haven't seen and since there were no new messages the peers will not
-		be able to make progress. This can also happen where the client's lockedRound < vr, it cannot happen for
-		lockedRound = vr because that means the client had received enough prevote in a timely manner and there are no old
-		prevote to arrive.
+		Without the line 28 upon conditoin the client is stuck since the timer has been stopped, thus a prevote nil
+		cannot be sent and the timer cannot be restarted until startRound() is called for a new round. The
+		resending of the message set will also not help because it would only send messages to peers which they
+		haven't seen and since there were no new messages the peers will not be able to make progress. This can
+		also happen where the client's lockedRound < vr, it cannot happen for lockedRound = vr because that means
+		the client had received enough prevote in a timely manner and there are no old prevote to arrive.
 
-		Therefore we have a liveness bug in the current implementation of Tendermint.
+		Therefore we had a liveness bug in implementations of Tendermint in commits prior to this one.
 	*/
 	t.Run("handle proposal before full quorum prevote on valid round is satisfied, exe action by applying old round prevote into round state", func(t *testing.T) {
 		clientIndex := len(members) - 1
