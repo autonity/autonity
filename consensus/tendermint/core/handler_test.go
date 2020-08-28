@@ -8,13 +8,11 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/golang/mock/gomock"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
@@ -128,7 +126,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		engine := core{
 			logger:            logger,
 			address:           currentValidator.Address,
-			backlogs:          make(map[types.CommitteeMember]*prque.Prque),
+			backlogs:          make(map[common.Address][]*Message),
 			round:             testCase.round,
 			height:            testCase.height,
 			step:              testCase.step,
@@ -149,9 +147,8 @@ func TestHandleCheckedMessage(t *testing.T) {
 		}
 
 		if err != nil {
-			backlogValue, _ := engine.backlogs[sender].Pop()
-			msg := backlogValue.(*Message)
-			if msg != testCase.message {
+			backlogValue := engine.backlogs[sender.Address][0]
+			if backlogValue != testCase.message {
 				t.Fatal("unexpected backlog message")
 			}
 		}
