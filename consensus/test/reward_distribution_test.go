@@ -1,18 +1,13 @@
 package test
 
 import (
-	"context"
 	"fmt"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethclient"
 	"math/big"
-	"strconv"
 	"testing"
 	"time"
 )
@@ -145,33 +140,14 @@ func TestRewardDistribution(t *testing.T) {
 		if validator.lastBlock <= 3 {
 			return true, nil, nil
 		}
-		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
-		if err != nil {
-			t.Fatal(err)
-		}
+
+		instance, auth, conn, err := autonityInstance(t, operatorKey, validator)
 		defer conn.Close()
 
-		nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		gasPrice, err := conn.SuggestGasPrice(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		auth := bind.NewKeyedTransactor(operatorKey)
-		auth.From = operatorAddress
-		auth.Nonce = big.NewInt(int64(nonce))
-		auth.GasLimit = uint64(300000) // in units
-		auth.GasPrice = gasPrice
-
-		contractAddress := autonity.ContractAddress
-		instance, err := NewAutonity(contractAddress, conn)
-		if err != nil {
-			t.Fatal(err)
-		}
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		index := validator.lastBlock % uint64(len(validatorsList))
 		tx, err := instance.MintStake(auth, *validatorsList[index].Address, new(big.Int).SetUint64(100))
@@ -186,33 +162,14 @@ func TestRewardDistribution(t *testing.T) {
 		if validator.lastBlock <= 3 {
 			return true, nil, nil
 		}
-		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
-		if err != nil {
-			t.Fatal(err)
-		}
+
+		instance, auth, conn, err := autonityInstance(t, validator.privateKey, validator)
 		defer conn.Close()
 
-		nonce, err := conn.PendingNonceAt(context.Background(), crypto.PubkeyToAddress(validator.privateKey.PublicKey))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		gasPrice, err := conn.SuggestGasPrice(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		auth := bind.NewKeyedTransactor(validator.privateKey)
-		auth.From = crypto.PubkeyToAddress(validator.privateKey.PublicKey)
-		auth.Nonce = big.NewInt(int64(nonce))
-		auth.GasLimit = uint64(300000) // in units
-		auth.GasPrice = gasPrice
-
-		contractAddress := autonity.ContractAddress
-		instance, err := NewAutonity(contractAddress, conn)
-		if err != nil {
-			t.Fatal(err)
-		}
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		to := validator.lastBlock % uint64(len(validatorsList))
 		tx, err := instance.Send(auth, *validatorsList[to].Address, new(big.Int).SetUint64(1))
@@ -227,33 +184,14 @@ func TestRewardDistribution(t *testing.T) {
 		if validator.lastBlock <= 3 {
 			return true, nil, nil
 		}
-		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
-		if err != nil {
-			t.Fatal(err)
-		}
+
+		instance, auth, conn, err := autonityInstance(t, operatorKey, validator)
 		defer conn.Close()
 
-		nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		gasPrice, err := conn.SuggestGasPrice(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		auth := bind.NewKeyedTransactor(operatorKey)
-		auth.From = operatorAddress
-		auth.Nonce = big.NewInt(int64(nonce))
-		auth.GasLimit = uint64(300000) // in units
-		auth.GasPrice = gasPrice
-
-		contractAddress := autonity.ContractAddress
-		instance, err := NewAutonity(contractAddress, conn)
-		if err != nil {
-			t.Fatal(err)
-		}
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		from := validator.lastBlock % uint64(len(validatorsList))
 		tx, err := instance.RedeemStake(auth, *validatorsList[from].Address, new(big.Int).SetUint64(1))

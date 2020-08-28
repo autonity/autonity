@@ -56,33 +56,13 @@ func TestMemberManagementAddNewValidator(t *testing.T) {
 			return true, nil, nil
 		}
 		once.Do(func() {
-			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
-			if err != nil {
-				t.Fatal(err)
-			}
+			instance, auth, conn, err := autonityInstance(t, operatorKey, validator)
 			defer conn.Close()
 
-			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			gasPrice, err := conn.SuggestGasPrice(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			auth := bind.NewKeyedTransactor(operatorKey)
-			auth.From = operatorAddress
-			auth.Nonce = big.NewInt(int64(nonce))
-			auth.GasLimit = uint64(30000000) // in units
-			auth.GasPrice = gasPrice
-
-			contractAddress := autonity.ContractAddress
-			instance, err := NewAutonity(contractAddress, conn)
-			if err != nil {
-				t.Fatal(err)
-			}
 			eNode := enode.V4DNSUrl(newValidatorKey.PublicKey, "VN:8527", 8527, 8527)
 			_, err = instance.AddValidator(auth, crypto.PubkeyToAddress(newValidatorKey.PublicKey), stakeBalance, eNode)
 			if err != nil {
@@ -210,33 +190,13 @@ func TestMemberManagementAddNewStakeHolder(t *testing.T) {
 			return true, nil, nil
 		}
 		once.Do(func() {
-			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
-			if err != nil {
-				t.Fatal(err)
-			}
+			instance, auth, conn, err := autonityInstance(t, operatorKey, validator)
 			defer conn.Close()
 
-			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			gasPrice, err := conn.SuggestGasPrice(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			auth := bind.NewKeyedTransactor(operatorKey)
-			auth.From = operatorAddress
-			auth.Nonce = big.NewInt(int64(nonce))
-			auth.GasLimit = uint64(30000000) // in units
-			auth.GasPrice = gasPrice
-
-			contractAddress := autonity.ContractAddress
-			instance, err := NewAutonity(contractAddress, conn)
-			if err != nil {
-				t.Fatal(err)
-			}
 			eNode := enode.V4DNSUrl(newStakeHolderKey.PublicKey, "SN:8527", 8527, 8527)
 			_, err = instance.AddStakeholder(auth, crypto.PubkeyToAddress(newStakeHolderKey.PublicKey), eNode, stakeBalance)
 			if err != nil {
@@ -362,33 +322,13 @@ func TestMemberManagementAddNewParticipant(t *testing.T) {
 			return true, nil, nil
 		}
 		once.Do(func() {
-			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
-			if err != nil {
-				t.Fatal(err)
-			}
+			instance, auth, conn, err := autonityInstance(t, operatorKey, validator)
 			defer conn.Close()
 
-			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			gasPrice, err := conn.SuggestGasPrice(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			auth := bind.NewKeyedTransactor(operatorKey)
-			auth.From = operatorAddress
-			auth.Nonce = big.NewInt(int64(nonce))
-			auth.GasLimit = uint64(30000000) // in units
-			auth.GasPrice = gasPrice
-
-			contractAddress := autonity.ContractAddress
-			instance, err := NewAutonity(contractAddress, conn)
-			if err != nil {
-				t.Fatal(err)
-			}
 			eNode := enode.V4DNSUrl(newParticipantKey.PublicKey, "PN:8527", 8527, 8527)
 			_, err = instance.AddParticipant(auth, crypto.PubkeyToAddress(newParticipantKey.PublicKey), eNode)
 			if err != nil {
@@ -556,33 +496,13 @@ func TestMemberManagementRemoveUser(t *testing.T) {
 			return true, nil, nil
 		}
 		once.Do(func() {
-			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
-			if err != nil {
-				t.Fatal(err)
-			}
+			instance, auth, conn, err := autonityInstance(t, operatorKey, validator)
 			defer conn.Close()
 
-			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			gasPrice, err := conn.SuggestGasPrice(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			auth := bind.NewKeyedTransactor(operatorKey)
-			auth.From = operatorAddress
-			auth.Nonce = big.NewInt(int64(nonce))
-			auth.GasLimit = uint64(30000000) // in units
-			auth.GasPrice = gasPrice
-
-			contractAddress := autonity.ContractAddress
-			instance, err := NewAutonity(contractAddress, conn)
-			if err != nil {
-				t.Fatal(err)
-			}
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = instance.RemoveUser(auth, *validatorsList[0].Address)
 			if err != nil {

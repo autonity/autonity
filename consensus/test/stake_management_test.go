@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common"
@@ -29,6 +30,38 @@ import (
   example, it checks the stake balance in different height to compare if the balance is expected.
 */
 
+func autonityInstance(t *testing.T, operatorKey *ecdsa.PrivateKey, node *testNode) (*Autonity, *bind.TransactOpts, *ethclient.Client, error) {
+	conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(node.rpcPort))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
+	nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
+	if err != nil {
+		return nil, nil, conn, err
+	}
+
+	gasPrice, err := conn.SuggestGasPrice(context.Background())
+	if err != nil {
+		return nil, nil, conn, err
+	}
+
+	auth := bind.NewKeyedTransactor(operatorKey)
+	auth.From = operatorAddress
+	auth.Nonce = big.NewInt(int64(nonce))
+	//auth.GasLimit = uint64(300000) // in units
+	auth.GasLimit = uint64(300000000) // in units
+	auth.GasPrice = gasPrice
+	contractAddress := autonity.ContractAddress
+	instance, err := NewAutonity(contractAddress, conn)
+	if err != nil {
+		return nil, nil, conn, err
+	}
+
+	return instance, auth, conn, nil
+}
+
 func TestStakeManagement(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -49,33 +82,14 @@ func TestStakeManagement(t *testing.T) {
 			return true, nil, nil
 		}
 		onceMint.Do(func() {
-			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
-			if err != nil {
-				t.Fatal(err)
-			}
+
+			instance, auth, conn, err := autonityInstance(t, operatorKey, validator)
 			defer conn.Close()
 
-			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			gasPrice, err := conn.SuggestGasPrice(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			auth := bind.NewKeyedTransactor(operatorKey)
-			auth.From = operatorAddress
-			auth.Nonce = big.NewInt(int64(nonce))
-			auth.GasLimit = uint64(300000) // in units
-			auth.GasPrice = gasPrice
-
-			contractAddress := autonity.ContractAddress
-			instance, err := NewAutonity(contractAddress, conn)
-			if err != nil {
-				t.Fatal(err)
-			}
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = instance.MintStake(auth, *validatorsList[0].Address, stakeDelta)
 			if err != nil {
@@ -90,33 +104,14 @@ func TestStakeManagement(t *testing.T) {
 			return true, nil, nil
 		}
 		onceRedeem.Do(func() {
-			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
-			if err != nil {
-				t.Fatal(err)
-			}
+
+			instance, auth, conn, err := autonityInstance(t, operatorKey, validator)
 			defer conn.Close()
 
-			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			gasPrice, err := conn.SuggestGasPrice(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			auth := bind.NewKeyedTransactor(operatorKey)
-			auth.From = operatorAddress
-			auth.Nonce = big.NewInt(int64(nonce))
-			auth.GasLimit = uint64(300000) // in units
-			auth.GasPrice = gasPrice
-
-			contractAddress := autonity.ContractAddress
-			instance, err := NewAutonity(contractAddress, conn)
-			if err != nil {
-				t.Fatal(err)
-			}
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = instance.RedeemStake(auth, *validatorsList[0].Address, stakeDelta)
 			if err != nil {
@@ -131,34 +126,14 @@ func TestStakeManagement(t *testing.T) {
 			return true, nil, nil
 		}
 		onceSend.Do(func() {
-			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
+
+			instance, auth, conn, err := autonityInstance(t, validator.privateKey, validator)
+			defer conn.Close()
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer conn.Close()
 
 			senderAddress := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
-			nonce, err := conn.PendingNonceAt(context.Background(), senderAddress)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			gasPrice, err := conn.SuggestGasPrice(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			auth := bind.NewKeyedTransactor(validator.privateKey)
-			auth.From = senderAddress
-			auth.Nonce = big.NewInt(int64(nonce))
-			auth.GasLimit = uint64(30000000) // in units
-			auth.GasPrice = gasPrice
-
-			contractAddress := autonity.ContractAddress
-			instance, err := NewAutonity(contractAddress, conn)
-			if err != nil {
-				t.Fatal(err)
-			}
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			toIndex := 0
 			if senderAddress == *validatorsList[toIndex].Address {
@@ -182,13 +157,9 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	stakeCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validators["VA"].rpcPort))
-		if err != nil {
-			t.Fatal(err)
-		}
+		instance, _, conn, err := autonityInstance(t, operatorKey, validators["VA"])
 		defer conn.Close()
-		contractAddress := autonity.ContractAddress
-		instance, err := NewAutonity(contractAddress, conn)
+
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -234,13 +205,9 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	stakeSendCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validators["VA"].rpcPort))
-		if err != nil {
-			t.Fatal(err)
-		}
+		instance, _, conn, err := autonityInstance(t, operatorKey, validators["VA"])
 		defer conn.Close()
-		contractAddress := autonity.ContractAddress
-		instance, err := NewAutonity(contractAddress, conn)
+
 		if err != nil {
 			t.Fatal(err)
 		}
