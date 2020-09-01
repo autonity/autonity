@@ -318,6 +318,9 @@ func (m *messageCache) addMessage(msg *Message, cm *consensusMessage) error {
 func (m *messageCache) addValue(valueHash common.Hash, value *types.Block) {
 	m.values[valueHash] = value
 }
+func (m *messageCache) value(valueHash common.Hash) *types.Block {
+	return m.values[valueHash]
+}
 func (m *messageCache) setValid(msgHash common.Hash) {
 	m.valid[msgHash] = struct{}{}
 }

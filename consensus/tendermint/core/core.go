@@ -157,6 +157,8 @@ type core struct {
 	autonityContract *autonity.Contract
 
 	line34Executed bool
+	line36Executed bool
+	line47Executed bool
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
@@ -215,18 +217,18 @@ func (c *core) isProposer() bool {
 	return c.committeeSet().GetProposer(c.Round()).Address == c.address
 }
 
-func (c *core) commit(proposal *Proposal) {
+func (c *core) commit(block *types.Block, round int64) {
 	c.setStep(precommitDone)
 
 	// Sanity check
-	if proposal.ProposalBlock == nil {
-		panic(fmt.Sprintf("Attempted to commit proposal with nil block: %s", spew.Sdump(proposal)))
+	if block == nil {
+		panic(fmt.Sprintf("Attempted to commit nil block: %s", spew.Sdump(block)))
 	}
 
-	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Hash())
+	c.logger.Info("commit a block", "hash", block.Hash())
 
-	committedSeals := c.msgCache.signatures(proposal.ProposalBlock.Hash(), proposal.Round, proposal.Height.Uint64())
-	if err := c.backend.Commit(proposal.ProposalBlock, proposal.Round, committedSeals); err != nil {
+	committedSeals := c.msgCache.signatures(block.Hash(), round, block.NumberU64())
+	if err := c.backend.Commit(block, round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 	}
 }

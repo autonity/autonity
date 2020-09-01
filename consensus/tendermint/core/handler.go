@@ -411,10 +411,17 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *consensusMessage) erro
 	return nil
 }
 
-var voteForNil bool = true
-var voteForValue bool = false
+var (
+	voteForNil   bool        = true
+	voteForValue bool        = false
+	nilValue     common.Hash = common.Hash{}
+)
 
 func (c *core) checkUponConditions(cm *consensusMessage) {
+	r := c.Round()
+	h := c.Height()
+	lh := c.lastHeader
+	s := c.step
 
 	// Some of the checks in these upon conditions are omitted because they have alrady been checked.
 	//
@@ -430,7 +437,7 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	// valid.
 
 	// Line 22
-	if cm.msgType == uint8(msgProposal) && cm.round == c.round && cm.validRound == -1 && c.step == propose {
+	if cm.msgType == uint8(msgProposal) && cm.round == r && cm.validRound == -1 && c.step == propose {
 		if c.lockedRound == -1 || c.lockedValue.Hash() == cm.value {
 			c.sendPrevote(nil, voteForValue)
 		} else {
@@ -439,7 +446,7 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	}
 
 	// Line 28
-	if cm.msgType == uint8(msgProposal) && cm.round == c.round && c.msgCache.prevoteQuorum(&cm.value, cm.validRound, c.lastHeader) && c.step == propose && (cm.validRound >= 0 && cm.validRound < cm.round) {
+	if cm.msgType == uint8(msgProposal) && cm.round == r && c.msgCache.prevoteQuorum(&cm.value, cm.validRound, lh) && s == propose && (cm.validRound >= 0 && cm.validRound < r) {
 		if c.lockedRound <= cm.validRound || c.lockedValue.Hash() == cm.value {
 			c.sendPrevote(nil, voteForValue)
 		} else {
@@ -448,9 +455,60 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	}
 
 	// Line 34
-	if c.msgCache.prevoteQuorum(nil, cm.round, c.lastHeader) && c.step == prevote && !c.line34Executed {
-		// Schedule on timeout prevote
+	if c.msgCache.prevoteQuorum(nil, cm.round, lh) && s == prevote && !c.line34Executed {
+		c.prevoteTimeout.scheduleTimeout(c.timeoutPrevote(r), r, h, c.onTimeoutPrecommit)
 	}
+
+	// Line 36
+	if cm.msgType == uint8(msgProposal) && cm.round == r && c.msgCache.prevoteQuorum(&cm.value, r, lh) && s >= prevote && !c.line36Executed {
+		block := c.msgCache.value(cm.value) // TODO remove references to block from core
+		if s == prevote {
+			c.lockedValue = block
+			c.lockedRound = r
+			c.sendPrecommit(nil, voteForValue)
+			s = precommit
+			c.step = s
+		}
+		c.validValue = block
+		c.validRound = cm.round
+	}
+
+	// Line 44
+	if c.msgCache.prevoteQuorum(&nilValue, r, lh) && s == prevote {
+		c.sendPrecommit(nil, voteForValue)
+		s = precommit
+		c.step = s
+	}
+
+	// Line 47
+	if c.msgCache.precommitQuorum(nil, cm.round, lh) && !c.line47Executed {
+		c.precommitTimeout.scheduleTimeout(c.timeoutPrecommit(r), r, h, c.onTimeoutPrecommit)
+	}
+
+	// Line 49
+	if cm.msgType == uint8(msgProposal) && c.msgCache.precommitQuorum(&cm.value, cm.round, lh) {
+		block := c.msgCache.value(cm.value) // TODO remove references to block from core
+		if s == prevote {
+			c.commit(block)
+			c.setHeight(block.NumberU64() + 1)
+			c.lockedRound = -1
+			c.lockedValue = nil
+			c.validRound = -1
+			c.validValue = nil
+
+			// Not quite sure how to start the round nicely
+			// need to ensure that we don't stack overflow in the case that the
+			// next height messages are sufficient for consensus when we
+			// process them and so on and so on.  So I need to set the start
+			// round states and then queue the messages for processing. And I
+			// need to ensure that I get a list of messages to process in an
+			// atomic step from the msg cache so that I don't end up trying to
+			// process the same message twice.
+		}
+	}
+
+	// TODO need to re-write all these rules to take into account all message
+	// types that could match eg line 49 could be a propsal or a precommit.
 }
 
 func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) {
