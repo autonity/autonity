@@ -277,6 +277,18 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		if err != nil {
 			return errFailedDecodeProposal
 		}
+
+		conMsg := &consensusMessage{
+			step:       uint8(m.Code),
+			height:     proposal.Height.Uint64(),
+			round:      proposal.Round,
+			value:      proposal.ProposalBlock.Hash(),
+			validRound: proposal.ValidRound,
+		}
+
+		c.msgCache.addMsg(m, conMsg)
+		c.msgCache.addValue(proposal.ProposalBlock)
+
 		cm = &proposal
 		err = c.msgCache.addProposal(&proposal, m)
 		if err != nil {
@@ -301,7 +313,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		}
 		// Check the committed seal matches the block hash if its a precommit.
 		// If not we ignore the message.
-		err := c.verifyCommittedSeal(m.Address, append([]byte(nil), m.CommittedSeal...), cm.ProposedValueHash(), cm.GetRound(), cm.GetHeight())
+		err = c.verifyCommittedSeal(m.Address, append([]byte(nil), m.CommittedSeal...), cm.ProposedValueHash(), cm.GetRound(), cm.GetHeight())
 		if err != nil {
 			return err
 		}
