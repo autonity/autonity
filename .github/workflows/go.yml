@@ -388,18 +388,32 @@ jobs:
       - name: test contract
         run: make test-contracts
 
-  # Builds the docker image. We don't intend to use the built image as part of
-  # a workflow, but we want to know the image can be built. We don't want to
-  # use any cache here since we want a clean checkout before any code
+  # Tests the helloworld example, this indirectly ensures that the autonity
+  # docker image can be built since the helloworld example uses it. We don't
+  # want to use any cache here since we want a clean checkout before any code
   # generation has taken place.
-  docker-image-build:
+  helloworld_tests:
     runs-on: ubuntu-latest
-    # Don't try to build the docker image unless autonity itself builds.
-    needs: build
+    defaults:
+      run:
+        shell: bash
+        working-directory: helloworld
     steps:
       - uses: actions/checkout@v2
-        with:
-          clean: 'false'
 
-      - name: Build
-        run: make build-docker-image
+      - name: Build and start helloworld
+        run: docker-compose up -d
+
+      - name: Test helloworld console access
+        run: |
+          set -e && \
+          for x in 11 12 13 14 15; do \
+            docker run \
+            --network helloworld_chainnet \
+            --rm \
+            autonity attach http://172.25.0.$x:8545 \
+            --exec '[eth.coinbase, eth.getBlock("latest").number, eth.getBlock("latest").hash, eth.mining]'; \
+          done
+
+      - name: Stop helloworld
+        run: docker-compose down

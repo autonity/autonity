@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -155,9 +154,9 @@ func TestStoreBacklog(t *testing.T) {
 			VotingPower: big.NewInt(1),
 		}
 
-		c.storeBacklog(nil, val)
+		c.storeBacklog(nil, val.Address)
 
-		if c.backlogs[val] != nil {
+		if c.backlogs[val.Address] != nil {
 			t.Fatal("Backlog must be empty!")
 		}
 	})
@@ -166,7 +165,7 @@ func TestStoreBacklog(t *testing.T) {
 		c := &core{
 			logger:   log.New("backend", "test", "id", 0),
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[common.Address][]*Message),
 		}
 
 		vote := &Vote{
@@ -189,11 +188,11 @@ func TestStoreBacklog(t *testing.T) {
 			Address:     common.HexToAddress("0x0987654321"),
 			VotingPower: big.NewInt(1),
 		}
-		c.storeBacklog(msg, val)
+		c.storeBacklog(msg, val.Address)
 
-		pque := c.backlogs[val]
+		pque := c.backlogs[val.Address]
 
-		savedMsg, _ := pque.Pop()
+		savedMsg := pque[0]
 		if !reflect.DeepEqual(msg, savedMsg) {
 			t.Fatalf("Expected message %+v, but got %+v", msg, savedMsg)
 		}
@@ -203,7 +202,7 @@ func TestStoreBacklog(t *testing.T) {
 		c := &core{
 			logger:   log.New("backend", "test", "id", 0),
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[common.Address][]*Message),
 		}
 
 		proposal := &Proposal{
@@ -229,10 +228,10 @@ func TestStoreBacklog(t *testing.T) {
 			VotingPower: big.NewInt(1),
 		}
 
-		c.storeBacklog(msg, val)
-		pque := c.backlogs[val]
+		c.storeBacklog(msg, val.Address)
+		pque := c.backlogs[val.Address]
 
-		savedMsg, _ := pque.Pop()
+		savedMsg := pque[0]
 		if !reflect.DeepEqual(msg, savedMsg) {
 			t.Fatalf("Expected message %+v, but got %+v", msg, savedMsg)
 		}
@@ -281,13 +280,15 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[common.Address][]*Message),
 			step:     propose,
 			round:    1,
 			height:   big.NewInt(2),
 		}
 
-		c.storeBacklog(msg, val)
+		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+
+		c.storeBacklog(msg, val.Address)
 		c.processBacklog()
 
 		timeout := time.NewTimer(2 * time.Second)
@@ -344,12 +345,15 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[common.Address][]*Message),
 			step:     propose,
 			round:    1,
 			height:   big.NewInt(2),
 		}
-		c.storeBacklog(msg, val)
+
+		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+
+		c.storeBacklog(msg, val.Address)
 		c.processBacklog()
 
 		timeout := time.NewTimer(2 * time.Second)
@@ -397,23 +401,49 @@ func TestProcessBacklog(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-
 		committeeSet := newTestCommitteeSet(1)
 		val, _ := committeeSet.GetByIndex(0)
+
+		expected := backlogEvent{
+			src: val,
+			msg: msg,
+		}
+
+		evChan := make(chan interface{}, 1)
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Post(expected).Do(func(ev interface{}) {
+			evChan <- ev
+		})
 
 		c := &core{
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[common.Address][]*Message),
 			round:    1,
+			step:     prevote,
 			height:   big.NewInt(1),
 		}
 
-		c.storeBacklog(msg, val)
+		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+
+		c.storeBacklog(msg, val.Address)
 		c.processBacklog()
+
+		timeout := time.NewTimer(2 * time.Second)
+		select {
+		case ev := <-evChan:
+			e, ok := ev.(backlogEvent)
+			if !ok {
+				t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev))
+			}
+			if e.msg.Code != msg.Code {
+				t.Errorf("message code mismatch: have %v, want %v", e.msg.Code, msg.Code)
+			}
+		case <-timeout.C:
+			t.Error("unexpected timeout occurs")
+		}
 	})
 
 	t.Run("future height message are not processed", func(t *testing.T) {
@@ -446,12 +476,14 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[common.Address][]*Message),
 			round:    2,
 			height:   big.NewInt(3),
 		}
 
-		c.storeBacklog(msg, val)
+		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+
+		c.storeBacklog(msg, val.Address)
 		c.processBacklog()
 	})
 
@@ -489,12 +521,15 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[common.Address][]*Message),
 			round:    2,
 			height:   big.NewInt(3),
 		}
-		c.storeBacklog(msg, val)
-		c.storeBacklog(msg2, val)
+
+		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+
+		c.storeBacklog(msg, val.Address)
+		c.storeBacklog(msg2, val.Address)
 		c.setStep(prevote)
 		c.processBacklog()
 		c.setHeight(big.NewInt(4))
@@ -539,12 +574,15 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[types.CommitteeMember]*prque.Prque),
+			backlogs: make(map[common.Address][]*Message),
 			step:     prevote,
 			round:    1,
 			height:   big.NewInt(4),
 		}
-		c.storeBacklog(msg, val)
+
+		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+
+		c.storeBacklog(msg, val.Address)
 		c.processBacklog()
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
 		c.setRound(2)
