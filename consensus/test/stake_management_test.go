@@ -30,34 +30,62 @@ import (
   example, it checks the stake balance in different height to compare if the balance is expected.
 */
 
-func autonityInstance(t *testing.T, operatorKey *ecdsa.PrivateKey, node *testNode) (*Autonity, *bind.TransactOpts, *ethclient.Client, error) {
+type testAutonity struct {
+	autonity *Autonity
+	transactionOpt *bind.TransactOpts
+	callOpt *bind.CallOpts
+	client *ethclient.Client
+}
+
+func (a *testAutonity) Close() {
+	if a.client != nil {
+		a.client.Close()
+	}
+}
+
+func autonityInstance(operatorKey *ecdsa.PrivateKey, node *testNode) (*testAutonity, error) {
+
+	contract := new(testAutonity)
+
 	conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(node.rpcPort))
+	contract.client = conn
 	if err != nil {
-		t.Fatal(err)
+		return contract, err
 	}
 
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 	nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 	if err != nil {
-		return nil, nil, conn, err
+		return contract, err
 	}
 
 	gasPrice, err := conn.SuggestGasPrice(context.Background())
 	if err != nil {
-		return nil, nil, conn, err
+		return contract, err
 	}
 
-	auth := bind.NewKeyedTransactor(operatorKey)
-	auth.From = operatorAddress
-	auth.Nonce = big.NewInt(int64(nonce))
-	auth.GasLimit = uint64(300000000) // in units
-	auth.GasPrice = gasPrice
+	txOpt := bind.NewKeyedTransactor(operatorKey)
+	txOpt.From = operatorAddress
+	txOpt.Nonce = big.NewInt(int64(nonce))
+	txOpt.GasLimit = uint64(300000000) // in units
+	txOpt.GasPrice = gasPrice
 	instance, err := NewAutonity(autonity.ContractAddress, conn)
 	if err != nil {
-		return nil, nil, conn, err
+		return contract, err
 	}
 
-	return instance, auth, conn, nil
+	callOpt := &bind.CallOpts{
+		Pending:     false,
+		From:        common.Address{},
+		BlockNumber: new(big.Int),
+		Context:     context.Background(),
+	}
+
+	contract.autonity = instance
+	contract.client = conn
+	contract.transactionOpt = txOpt
+	contract.callOpt = callOpt
+	return contract, nil
 }
 
 func TestStakeManagement(t *testing.T) {
@@ -81,15 +109,15 @@ func TestStakeManagement(t *testing.T) {
 		}
 		onceMint.Do(func() {
 
-			instance, auth, conn, err := autonityInstance(t, operatorKey, validator)
-			defer conn.Close()
+			contract, err := autonityInstance(operatorKey, validator)
+			defer contract.Close()
 
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-			_, err = instance.MintStake(auth, *validatorsList[0].Address, stakeDelta)
+			_, err = contract.autonity.MintStake(contract.transactionOpt, *validatorsList[0].Address, stakeDelta)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -103,15 +131,15 @@ func TestStakeManagement(t *testing.T) {
 		}
 		onceRedeem.Do(func() {
 
-			instance, auth, conn, err := autonityInstance(t, operatorKey, validator)
-			defer conn.Close()
+			contract, err := autonityInstance(operatorKey, validator)
+			defer contract.Close()
 
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-			_, err = instance.RedeemStake(auth, *validatorsList[0].Address, stakeDelta)
+			_, err = contract.autonity.RedeemStake(contract.transactionOpt, *validatorsList[0].Address, stakeDelta)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -125,8 +153,8 @@ func TestStakeManagement(t *testing.T) {
 		}
 		onceSend.Do(func() {
 
-			instance, auth, conn, err := autonityInstance(t, validator.privateKey, validator)
-			defer conn.Close()
+			contract, err := autonityInstance(validator.privateKey, validator)
+			defer contract.Close()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -137,7 +165,7 @@ func TestStakeManagement(t *testing.T) {
 			if senderAddress == *validatorsList[toIndex].Address {
 				toIndex = 1
 			}
-			_, err = instance.Send(auth, *validatorsList[toIndex].Address, stakeDelta)
+			_, err = contract.autonity.Send(contract.transactionOpt, *validatorsList[toIndex].Address, stakeDelta)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -155,27 +183,21 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	stakeCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-		instance, _, conn, err := autonityInstance(t, operatorKey, validators["VA"])
-		defer conn.Close()
+		contract, err := autonityInstance(operatorKey, validators["VA"])
+		defer contract.Close()
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		auth := bind.CallOpts{
-			Pending:     false,
-			From:        common.Address{},
-			BlockNumber: new(big.Int).SetUint64(3),
-			Context:     context.Background(),
-		}
-
-		initNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		contract.callOpt.BlockNumber.SetUint64(3)
+		initNetworkMetrics, err := contract.autonity.DumpEconomicsMetricData(contract.callOpt)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		auth.BlockNumber.SetUint64(validators["VA"].lastBlock)
-		curNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		contract.callOpt.BlockNumber.SetUint64(validators["VA"].lastBlock)
+		curNetworkMetrics, err := contract.autonity.DumpEconomicsMetricData(contract.callOpt)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -203,27 +225,21 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	stakeSendCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-		instance, _, conn, err := autonityInstance(t, operatorKey, validators["VA"])
-		defer conn.Close()
+		contract, err := autonityInstance(operatorKey, validators["VA"])
+		defer contract.Close()
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		auth := bind.CallOpts{
-			Pending:     false,
-			From:        common.Address{},
-			BlockNumber: new(big.Int).SetUint64(3),
-			Context:     context.Background(),
-		}
-
-		initNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		contract.callOpt.BlockNumber.SetUint64(3)
+		initNetworkMetrics, err := contract.autonity.DumpEconomicsMetricData(contract.callOpt)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		auth.BlockNumber.SetUint64(validators["VA"].lastBlock)
-		curNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		contract.callOpt.BlockNumber.SetUint64(validators["VA"].lastBlock)
+		curNetworkMetrics, err := contract.autonity.DumpEconomicsMetricData(contract.callOpt)
 		if err != nil {
 			t.Fatal(err)
 		}
