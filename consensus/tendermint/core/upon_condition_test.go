@@ -594,10 +594,10 @@ func TestOldProposal(t *testing.T) {
 		 	return err
 		 }
 
-		A quorum prevotes for round 0 finally arrive, however, these will be added to message set and without 
-		the existence of the line 28 upon condition nothing would happen, even though enough  messages 
+		A quorum prevote for round 0 finally arrive, however, these will be added to message set and without
+		the existence of the line 28 upon condition nothing would happen, even though enough  messages
 		are present in the message set to send a prevote for the old proposal.
-	
+
 		This was previously the case in:
 		autonity/consensus/tendermint/core/prevote.go, Lines 69 to 74 at 78f199d
 
@@ -608,7 +608,7 @@ func TestOldProposal(t *testing.T) {
 		 }
 		 return err
 
-		Without the line 28 upon conditoin the client is stuck since the timer has been stopped, thus a prevote nil
+		Without the line 28 upon condition the client is stuck since the timer has been stopped, thus a prevote nil
 		cannot be sent and the timer cannot be restarted until startRound() is called for a new round. The
 		resending of the message set will also not help because it would only send messages to peers which they
 		haven't seen and since there were no new messages the peers will not be able to make progress. This can
