@@ -1228,7 +1228,7 @@ func TestFutureRoundChange(t *testing.T) {
 		assert.Equal(t, currentHeight, c.Height())
 		assert.Equal(t, currentRound+1, c.Round())
 		assert.Equal(t, propose, c.step)
-		assert.Equal(t, 2, c.backlogs[sender1].Size()+c.backlogs[sender2].Size())
+		assert.Equal(t, 2, len(c.backlogs[sender1.Address])+len(c.backlogs[sender2.Address]))
 	})
 
 	t.Run("different messages from the same sender cannot cause round change", func(t *testing.T) {
@@ -1262,7 +1262,7 @@ func TestFutureRoundChange(t *testing.T) {
 		assert.Equal(t, currentHeight, c.Height())
 		assert.Equal(t, currentRound, c.Round())
 		assert.Equal(t, currentStep, c.step)
-		assert.Equal(t, 2, c.backlogs[sender1].Size())
+		assert.Equal(t, 2, len(c.backlogs[sender1.Address]))
 	})
 }
 
