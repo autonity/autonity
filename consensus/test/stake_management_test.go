@@ -31,10 +31,10 @@ import (
 */
 
 type testAutonity struct {
-	autonity *Autonity
+	autonity       *Autonity
 	transactionOpt *bind.TransactOpts
-	callOpt *bind.CallOpts
-	client *ethclient.Client
+	callOpt        *bind.CallOpts
+	client         *ethclient.Client
 }
 
 func (a *testAutonity) Close() {
