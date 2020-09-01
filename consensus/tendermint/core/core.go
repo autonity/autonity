@@ -155,6 +155,8 @@ type core struct {
 	futureRoundChange map[int64]map[common.Address]uint64
 
 	autonityContract *autonity.Contract
+
+	line34Executed bool
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {

@@ -230,7 +230,7 @@ func (c *core) sendEvent(ev interface{}) {
 }
 
 type consensusMessage struct {
-	step       uint8
+	msgType    uint8
 	height     uint64
 	round      int64
 	value      common.Hash
@@ -245,21 +245,8 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 
 	m := new(Message)
 
-	// Decode message
-	err := rlp.DecodeBytes(payload, m)
-	if err != nil {
-		return err
-	}
-
-	payload, err = m.PayloadNoSig()
-	if err != nil {
-		return err
-	}
-
-	hash := autonitycrypto.Keccak256(payload)
-
 	// Set the hash on the message so that it can be used for indexing.
-	m.Hash = common.BytesToHash(hash)
+	m.Hash = common.BytesToHash(autonitycrypto.Keccak256(payload))
 
 	// Check we haven't already processed this message
 	if c.msgCache.Message(m.Hash) != nil {
@@ -267,10 +254,16 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		return nil
 	}
 
+	// Decode message
+	err := rlp.DecodeBytes(payload, m)
+	if err != nil {
+		return err
+	}
+
 	var proposal Proposal
 	var preVote Vote
 	var preCommit Vote
-	var cm ConsensusMsg
+	var conMsg *consensusMessage
 	switch m.Code {
 	case msgProposal:
 		err := m.Decode(&proposal)
@@ -278,32 +271,37 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 			return errFailedDecodeProposal
 		}
 
-		conMsg := &consensusMessage{
-			step:       uint8(m.Code),
+		valueHash := proposal.ProposalBlock.Hash()
+		conMsg = &consensusMessage{
+			msgType:    uint8(m.Code),
 			height:     proposal.Height.Uint64(),
 			round:      proposal.Round,
-			value:      proposal.ProposalBlock.Hash(),
+			value:      valueHash,
 			validRound: proposal.ValidRound,
 		}
 
-		c.msgCache.addMsg(m, conMsg)
-		c.msgCache.addValue(proposal.ProposalBlock)
-
-		cm = &proposal
-		err = c.msgCache.addProposal(&proposal, m)
+		err = c.msgCache.addMessage(m, conMsg)
 		if err != nil {
 			// could be multipe proposal messages from the same proposer
 			return err
 		}
+		c.msgCache.addValue(valueHash, proposal.ProposalBlock)
+
 	case msgPrevote:
 		err := m.Decode(&preVote)
 		if err != nil {
 			return errFailedDecodePrevote
 		}
-		cm = &preVote
-		err = c.msgCache.addPrevote(&preVote, m)
+		conMsg = &consensusMessage{
+			msgType: uint8(m.Code),
+			height:  preVote.Height.Uint64(),
+			round:   preVote.Round,
+			value:   preVote.ProposedBlockHash,
+		}
+
+		err = c.msgCache.addMessage(m, conMsg)
 		if err != nil {
-			// could be multipe prevotes from same validator
+			// could be multipe precommits from same validator
 			return err
 		}
 	case msgPrecommit:
@@ -313,12 +311,22 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		}
 		// Check the committed seal matches the block hash if its a precommit.
 		// If not we ignore the message.
-		err = c.verifyCommittedSeal(m.Address, append([]byte(nil), m.CommittedSeal...), cm.ProposedValueHash(), cm.GetRound(), cm.GetHeight())
+		//
+		// Note this method does not make use of any blockchain state, so it is
+		// safe to call it now. In fact it only uses the logger of c so I think
+		// it could easily be detached from c.
+		err = c.verifyCommittedSeal(m.Address, append([]byte(nil), m.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height)
 		if err != nil {
 			return err
 		}
-		cm = &preCommit
-		err = c.msgCache.addPrecommit(&preCommit, m)
+		conMsg = &consensusMessage{
+			msgType: uint8(m.Code),
+			height:  preCommit.Height.Uint64(),
+			round:   preCommit.Round,
+			value:   preCommit.ProposedBlockHash,
+		}
+
+		err = c.msgCache.addMessage(m, conMsg)
 		if err != nil {
 			// could be multipe precommits from same validator
 			return err
@@ -332,28 +340,16 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// that height. If it is for a previous height then we are not intersted in
 	// it. But it has been added to the msg cache in case other peers would
 	// like to sync it.
-	if cm.GetHeight().Uint64() != c.Height().Uint64() {
+	if conMsg.height != c.Height().Uint64() {
 		// Nothing to do here
 		return nil
 	}
 
-	var vr int64
-	if m.Code == msgProposal {
-		vr = proposal.ValidRound
-	}
-	conMsg := &consensusMessage{
-		step:       uint8(m.Code),
-		height:     cm.GetHeight().Uint64(),
-		round:      cm.GetRound(),
-		value:      cm.ProposedValueHash(),
-		validRound: vr,
-	}
-
-	return handleCurrentHeightMessage(conMsg)
+	return handleCurrentHeightMessage(m, conMsg)
 
 }
 
-func (c *core) handleCurrentHeightMessage(cm consensusMessage) error {
+func (c *core) handleCurrentHeightMessage(m *Message, cm *consensusMessage) error {
 	/*
 		Domain specific validity checks, now we know that we are at the same
 		height as this message we can rely on lastHeader.
@@ -366,9 +362,14 @@ func (c *core) handleCurrentHeightMessage(cm consensusMessage) error {
 		return fmt.Errorf("received message from non committee member: %v", m)
 	}
 
+	payload, err := m.PayloadNoSig()
+	if err != nil {
+		return err
+	}
+
 	// Again we ignore messges with invalid signatures, they cannot be trusted.
-	// TODO replace crypto.CheckValidatorSignature with something more
-	// efficient, so we don't have to hash twice.
+	// TODO make crypto.CheckValidatorSignature accept Message so that it can
+	// handle generating the payload and checking it with the sig and address.
 	address, err := crypto.CheckValidatorSignature(c.lastHeader, payload, m.Signature)
 	if err != nil {
 		return err
@@ -385,21 +386,71 @@ func (c *core) handleCurrentHeightMessage(cm consensusMessage) error {
 		if !c.isProposerMsg(proposal.Round, m.Address) {
 			c.logger.Warn("Ignore proposal messages from non-proposer")
 			return errNotFromProposer
+
+			// TODO verify proposal here.
+			//
+			// If we are introducing time into the mix then what we are saying
+			// is that we don't expect different participants' clocks to drift
+			// out of sync more than some delta. And if they do then we don't
+			// expect consensus to work.
+			//
+			// So in the case that clocks drift too far out of sync and say a
+			// node considers a proposal invalid that 2f+1 other nodes
+			// precommit for that node becomes stuck and can only continue in
+			// consensus by re-syncing the blocks.
+			//
+			// So in verifying the proposal wrt time we should verify once
+			// within reasonable clock sync bounds and then set the validity
+			// based on that and never re-process the message again.
 		}
 	}
 
-	switch m.Code {
-	case msgProposal:
-		err = c.handleProposal(ctx, &proposal)
-	case msgPrevote:
-		err = c.handlePrevote(ctx, &preVote, c.lastHeader)
-	case msgPrecommit:
-		err = c.handlePrecommit(ctx, &preCommit, c.lastHeader)
-	default:
-		panic("should never happen")
-	}
-	return err
+	c.msgCache.setValid(m.Hash)
+	c.checkUponConditions(cm)
 
+	return nil
+}
+
+var voteForNil bool = true
+var voteForValue bool = false
+
+func (c *core) checkUponConditions(cm *consensusMessage) {
+
+	// Some of the checks in these upon conditions are omitted because they have alrady been checked.
+	//
+	// - We do not check height because we only execute this code when the
+	// message height matches the current height.
+	//
+	// - We do not check whether the message comes from a proposer since this
+	// is checkded before calling this method and we do not process proposals
+	// from non proposers.
+	//
+	// - We do not whether proposal values are valid since this is checked
+	// before calling this method and we do not process proposals that are not
+	// valid.
+
+	// Line 22
+	if cm.msgType == uint8(msgProposal) && cm.round == c.round && cm.validRound == -1 && c.step == propose {
+		if c.lockedRound == -1 || c.lockedValue.Hash() == cm.value {
+			c.sendPrevote(nil, voteForValue)
+		} else {
+			c.sendPrevote(nil, voteForNil)
+		}
+	}
+
+	// Line 28
+	if cm.msgType == uint8(msgProposal) && cm.round == c.round && c.msgCache.prevoteQuorum(&cm.value, cm.validRound, c.lastHeader) && c.step == propose && (cm.validRound >= 0 && cm.validRound < cm.round) {
+		if c.lockedRound <= cm.validRound || c.lockedValue.Hash() == cm.value {
+			c.sendPrevote(nil, voteForValue)
+		} else {
+			c.sendPrevote(nil, voteForNil)
+		}
+	}
+
+	// Line 34
+	if c.msgCache.prevoteQuorum(nil, cm.round, c.lastHeader) && c.step == prevote && !c.line34Executed {
+		// Schedule on timeout prevote
+	}
 }
 
 func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) {

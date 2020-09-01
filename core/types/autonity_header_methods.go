@@ -1,6 +1,10 @@
 package types
 
-import "github.com/clearmatics/autonity/common"
+import (
+	"math"
+
+	"github.com/clearmatics/autonity/common"
+)
 
 func (h *Header) IsGenesis() bool {
 	return h.Number.Uint64() == 0
@@ -32,4 +36,14 @@ func (c Committee) TotalVotingPower() uint64 {
 		total += m.VotingPower.Uint64()
 	}
 	return total
+}
+
+// Qurum returns the voting power that constitutes a quorum.
+func (c Committee) Quorum() uint64 {
+	return uint64(math.Ceil((2 * float64(c.TotalVotingPower())) / 3.))
+}
+
+// F returns the voting power that constitutes the maximum tolerable failures.
+func (c Committee) F() uint64 {
+	return uint64(math.Ceil(float64(c.TotalVotingPower())/3)) - 1
 }

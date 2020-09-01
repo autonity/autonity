@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+
 	common "github.com/clearmatics/autonity/common"
 	types "github.com/clearmatics/autonity/core/types"
 )
@@ -17,7 +19,16 @@ type messageCache struct {
 	precommitMsgHashes map[uint64]map[int64]map[common.Address]common.Hash
 	msgHashToPrecommit map[common.Hash]*Vote
 
+	// msgHashes maps height, round, message type and address to message hash.
+	msgHashes map[uint64]map[int64]map[uint8]map[common.Address]common.Hash
+	// valid is a set containing message hashes for messages considered valid.
+	valid map[common.Hash]struct{}
+	// consensusMsgs maps message hash to consensus message.
+	consensusMsgs map[common.Hash]*consensusMessage
+	// rawMessages maps message hash to raw message.
 	rawMessages map[common.Hash]*Message
+	// values maps value hash to value.
+	values map[common.Hash]*types.Block
 
 	// TODO use this to impose upper and lower limits on what can go in the
 	// message cache.
@@ -65,36 +76,36 @@ type messageCache struct {
 // 	return nil
 // }
 
-func (m *messageCache) addProposal(p *Proposal, msg *Message) error {
-	err := addMsgHash(m.proposalMsgHashes, p.Height.Uint64(), p.Round, msg.Address, msg.Hash)
-	if err != nil {
-		return err
-	}
-	m.msgHashToProposal[msg.Hash] = p
-	m.rawMessages[msg.Hash] = msg
-	return nil
-}
+// func (m *messageCache) addProposal(p *Proposal, msg *Message) error {
+// 	err := addMsgHash(m.proposalMsgHashes, p.Height.Uint64(), p.Round, msg.Address, msg.Hash)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	m.msgHashToProposal[msg.Hash] = p
+// 	m.rawMessages[msg.Hash] = msg
+// 	return nil
+// }
 
-func (m *messageCache) addPrevote(p *Vote, msg *Message) error {
-	err := addMsgHash(m.prevoteMsgHashes, p.Height.Uint64(), p.Round, msg.Address, msg.Hash)
-	if err != nil {
-		return err
-	}
-	m.msgHashToPrevote[msg.Hash] = p
-	m.rawMessages[msg.Hash] = msg
-	return nil
-}
+// func (m *messageCache) addPrevote(p *Vote, msg *Message) error {
+// 	err := addMsgHash(m.prevoteMsgHashes, p.Height.Uint64(), p.Round, msg.Address, msg.Hash)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	m.msgHashToPrevote[msg.Hash] = p
+// 	m.rawMessages[msg.Hash] = msg
+// 	return nil
+// }
 
-func (m *messageCache) addPrecommit(p *Vote, msg *Message) error {
-	err := addMsgHash(m.precommitMsgHashes, p.Height.Uint64(), p.Round, msg.Address, msg.Hash)
-	if err != nil {
-		return err
-	}
-	m.msgHashToPrecommit[msg.Hash] = p
-	m.rawMessages[msg.Hash] = msg
+// func (m *messageCache) addPrecommit(p *Vote, msg *Message) error {
+// 	err := addMsgHash(m.precommitMsgHashes, p.Height.Uint64(), p.Round, msg.Address, msg.Hash)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	m.msgHashToPrecommit[msg.Hash] = p
+// 	m.rawMessages[msg.Hash] = msg
 
-	return nil
-}
+// 	return nil
+// }
 
 func (m *messageCache) Message(h common.Hash) *Message {
 	return m.rawMessages[h]
@@ -134,16 +145,59 @@ func (m *messageCache) signatures(valueHash common.Hash, round int64, height uin
 	}
 	return sigs
 }
+func (m *messageCache) prevoteQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
+	return m.votePower(valueHash, round, uint8(msgPrevote), header) >= header.Committee.Quorum()
+}
 
-func votePower(voteMsgHashes map[uint64]map[int64]map[common.Address]common.Hash, msgHashToVote map[common.Hash]*Vote, valueHash common.Hash, round int64, header *types.Header) uint64 {
+func (m *messageCache) precommitQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
+	return m.votePower(valueHash, round, uint8(msgPrecommit), header) >= header.Committee.Quorum()
+}
+
+func (m *messageCache) hasQuorum(
+	valueHash *common.Hash,
+	round int64,
+	msgType uint8,
+	header *types.Header,
+
+) bool {
+	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
+}
+
+func (m *messageCache) votePower(
+	valueHash *common.Hash, // A nil value hash indicates that we match any value
+	round int64,
+	msgType uint8,
+	header *types.Header,
+) uint64 {
+
+	// Only prevotes and precommits impart vote power.
+	if uint8(msgType) != msgPrevote || uint8(msgType) != msgPrecommit {
+		panic(fmt.Sprintf(
+			"Unexpected msgType %d, expecting either %d or %d",
+			msgType,
+			msgPrevote,
+			msgPrecommit,
+		))
+	}
+
 	// Total the power of all votes in this height and round for this value,
 	// failure to find a committee member in the header indicates a programming
 	// error and an invalid memory acccess panic will ensue.
 	var power uint64
-	for address, msgHash := range voteMsgHashes[header.Number.Uint64()][round] {
-		if msgHashToVote[msgHash].ProposedBlockHash == valueHash {
-			power += header.CommitteeMember(address).VotingPower.Uint64()
+	// For all messages at the given height in the given round of the given type ...
+	for address, msgHash := range m.msgHashes[header.Number.Uint64()][round][msgType] {
+		// Skip messages not considered valid
+		_, ok := m.valid[msgHash]
+		if !ok {
+			continue
 		}
+
+		// Skip messages with differing values
+		if valueHash != nil && *valueHash != m.consensusMsgs[msgHash].value {
+			continue
+		}
+		// Now either value hash is nil (matches everything) or it actually matches the msg's value.
+		power += header.CommitteeMember(address).VotingPower.Uint64()
 	}
 	return power
 }
@@ -192,13 +246,24 @@ func getVotes(height uint64, round int64, votes map[uint64]map[int64]map[common.
 	return roundMap[round]
 }
 
-func addMsgHash(hashes map[uint64]map[int64]map[common.Address]common.Hash, height uint64, round int64, address common.Address, hash common.Hash) error {
+func addMsgHash(
+	hashes map[uint64]map[int64]map[common.Address]common.Hash,
+	height uint64,
+	round int64,
+	msgType uint8,
+	address common.Address,
+	hash common.Hash,
+) error {
 	// todo check bounds
 	roundMap, ok := hashes[height]
 	if !ok {
-		roundMap = make(map[int64]map[common.Address]common.Hash)
+		roundMap = make(map[int64]map[uint8]map[common.Address]common.Hash)
 	}
-	addressMap, ok := roundMap[round]
+	msgTypeMap, ok := roundMap[round]
+	if !ok {
+		msgTypeMap = make(map[uint8]map[common.Address]common.Hash)
+	}
+	addressMap, ok := msgTypeMap[msgType]
 	if !ok {
 		addressMap = make(map[common.Address]common.Hash)
 	}
@@ -238,4 +303,21 @@ func accumulateMessagesForHeight(msgHashes map[uint64]map[int64]map[common.Addre
 			accumulator = append(accumulator, msgHashToMsg[hash])
 		}
 	}
+}
+
+func (m *messageCache) addMessage(msg *Message, cm *consensusMessage) error {
+	err := addMsgHash(m.msgHashes, cm.height, cm.round, cm.msgType, msg.Address, msg.Hash)
+	if err != nil {
+		return err
+	}
+	m.consensusMsgs[msg.Hash] = cm
+	m.rawMessages[msg.Hash] = msg
+
+	return nil
+}
+func (m *messageCache) addValue(valueHash common.Hash, value *types.Block) {
+	m.values[valueHash] = value
+}
+func (m *messageCache) setValid(msgHash common.Hash) {
+	m.valid[msgHash] = struct{}{}
 }
