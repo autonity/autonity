@@ -325,6 +325,23 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		return nil
 	}
 
+	var vr int64
+	if m.Code == msgProposal {
+		vr = proposal.ValidRound
+	}
+	conMsg := &consensusMessage{
+		step:       uint8(m.Code),
+		height:     cm.GetHeight().Uint64(),
+		round:      cm.GetRound(),
+		value:      cm.ProposedValueHash(),
+		validRound: vr,
+	}
+
+	return handleCurrentHeightMessage(conMsg)
+
+}
+
+func (c *core) handleCurrentHeightMessage(cm consensusMessage) error {
 	/*
 		Domain specific validity checks, now we know that we are at the same
 		height as this message we can rely on lastHeader.
