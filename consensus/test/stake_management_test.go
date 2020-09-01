@@ -53,8 +53,7 @@ func autonityInstance(t *testing.T, operatorKey *ecdsa.PrivateKey, node *testNod
 	//auth.GasLimit = uint64(300000) // in units
 	auth.GasLimit = uint64(300000000) // in units
 	auth.GasPrice = gasPrice
-	contractAddress := autonity.ContractAddress
-	instance, err := NewAutonity(contractAddress, conn)
+	instance, err := NewAutonity(autonity.ContractAddress, conn)
 	if err != nil {
 		return nil, nil, conn, err
 	}
