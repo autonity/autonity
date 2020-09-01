@@ -3,8 +3,8 @@ services:
   node1:
     build:
       context: ../
-      dockerfile: ./helloworld/Dockerfile
-    image: autonity:helloworld
+      dockerfile: ./Dockerfile
+    image: autonity
     volumes:
       - ./nodekey1:/nodekey:ro
       - ./keystore:/keystore:ro
@@ -15,6 +15,7 @@ services:
       - 8641:8645
       - 30313:30303
       - "30313:30303/udp"
+    entrypoint: ''
     command: ["./autonity-start.sh"]
     container_name: autonity-node-1
     networks:
@@ -23,8 +24,8 @@ services:
   node2:
     build:
       context: ../
-      dockerfile: ./helloworld/Dockerfile
-    image: autonity:helloworld
+      dockerfile: ./Dockerfile
+    image: autonity
     volumes:
       - ./nodekey2:/nodekey:ro
       - ./keystore:/keystore:ro
@@ -35,6 +36,7 @@ services:
       - 8642:8645
       - 30323:30303
       - "30323:30303/udp"
+    entrypoint: ''
     command: ["./autonity-start.sh"]
     container_name: autonity-node-2
     networks:
@@ -43,8 +45,8 @@ services:
   node3:
     build:
       context: ../
-      dockerfile: ./helloworld/Dockerfile
-    image: autonity:helloworld
+      dockerfile: ./Dockerfile
+    image: autonity
     volumes:
       - ./nodekey3:/nodekey:ro
       - ./keystore:/keystore:ro
@@ -55,6 +57,7 @@ services:
       - 8643:8645
       - 30333:30303
       - "30333:30303/udp"
+    entrypoint: ''
     command: ["./autonity-start.sh"]
     container_name: autonity-node-3
     networks:
@@ -63,8 +66,8 @@ services:
   node4:
     build:
       context: ../
-      dockerfile: ./helloworld/Dockerfile
-    image: autonity:helloworld
+      dockerfile: ./Dockerfile
+    image: autonity
     volumes:
       - ./nodekey4:/nodekey:ro
       - ./keystore:/keystore:ro
@@ -75,6 +78,7 @@ services:
       - 8644:8645
       - 30343:30303
       - "30343:30303/udp"
+    entrypoint: ''
     command: ["./autonity-start.sh"]
     container_name: autonity-node-4
     networks:
@@ -83,8 +87,8 @@ services:
   node5:
     build:
       context: ../
-      dockerfile: ./helloworld/Dockerfile
-    image: autonity:helloworld
+      dockerfile: ./Dockerfile
+    image: autonity
     volumes:
       - ./nodekey5:/nodekey:ro
       - ./keystore:/keystore:ro
@@ -95,6 +99,7 @@ services:
       - 8645:8645
       - 30353:30303
       - "30353:30303/udp"
+    entrypoint: ''
     command: ["./autonity-start.sh"]
     container_name: autonity-node-5
     networks:
