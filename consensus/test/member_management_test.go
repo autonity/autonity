@@ -56,12 +56,10 @@ func TestMemberManagementAddNewValidator(t *testing.T) {
 		}
 		once.Do(func() {
 			contract, err := autonityInstance(operatorKey, validator)
-			defer contract.Close()
-
 			if err != nil {
 				t.Fatal(err)
 			}
-
+			defer contract.Close()
 			eNode := enode.V4DNSUrl(newValidatorKey.PublicKey, "VN:8527", 8527, 8527)
 			_, err = contract.autonity.AddValidator(contract.transactionOpt, crypto.PubkeyToAddress(newValidatorKey.PublicKey), stakeBalance, eNode)
 			if err != nil {
@@ -190,11 +188,10 @@ func TestMemberManagementAddNewStakeHolder(t *testing.T) {
 		}
 		once.Do(func() {
 			contract, err := autonityInstance(operatorKey, validator)
-			defer contract.Close()
-
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer contract.Close()
 
 			eNode := enode.V4DNSUrl(newStakeHolderKey.PublicKey, "SN:8527", 8527, 8527)
 			_, err = contract.autonity.AddStakeholder(contract.transactionOpt, crypto.PubkeyToAddress(newStakeHolderKey.PublicKey), eNode, stakeBalance)
@@ -322,11 +319,10 @@ func TestMemberManagementAddNewParticipant(t *testing.T) {
 		}
 		once.Do(func() {
 			contract, err := autonityInstance(operatorKey, validator)
-			defer contract.Close()
-
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer contract.Close()
 
 			eNode := enode.V4DNSUrl(newParticipantKey.PublicKey, "PN:8527", 8527, 8527)
 			_, err = contract.autonity.AddParticipant(contract.transactionOpt, crypto.PubkeyToAddress(newParticipantKey.PublicKey), eNode)
@@ -496,11 +492,10 @@ func TestMemberManagementRemoveUser(t *testing.T) {
 		}
 		once.Do(func() {
 			contract, err := autonityInstance(operatorKey, validator)
-			defer contract.Close()
-
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer contract.Close()
 
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = contract.autonity.RemoveUser(contract.transactionOpt, *validatorsList[0].Address)

@@ -110,11 +110,10 @@ func TestStakeManagement(t *testing.T) {
 		onceMint.Do(func() {
 
 			contract, err := autonityInstance(operatorKey, validator)
-			defer contract.Close()
-
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer contract.Close()
 
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = contract.autonity.MintStake(contract.transactionOpt, *validatorsList[0].Address, stakeDelta)
@@ -132,11 +131,10 @@ func TestStakeManagement(t *testing.T) {
 		onceRedeem.Do(func() {
 
 			contract, err := autonityInstance(operatorKey, validator)
-			defer contract.Close()
-
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer contract.Close()
 
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = contract.autonity.RedeemStake(contract.transactionOpt, *validatorsList[0].Address, stakeDelta)
@@ -154,10 +152,10 @@ func TestStakeManagement(t *testing.T) {
 		onceSend.Do(func() {
 
 			contract, err := autonityInstance(validator.privateKey, validator)
-			defer contract.Close()
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer contract.Close()
 
 			senderAddress := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
@@ -184,11 +182,10 @@ func TestStakeManagement(t *testing.T) {
 
 	stakeCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 		contract, err := autonityInstance(operatorKey, validators["VA"])
-		defer contract.Close()
-
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer contract.Close()
 
 		contract.callOpt.BlockNumber.SetUint64(3)
 		initNetworkMetrics, err := contract.autonity.DumpEconomicsMetricData(contract.callOpt)
@@ -226,11 +223,10 @@ func TestStakeManagement(t *testing.T) {
 
 	stakeSendCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 		contract, err := autonityInstance(operatorKey, validators["VA"])
-		defer contract.Close()
-
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer contract.Close()
 
 		contract.callOpt.BlockNumber.SetUint64(3)
 		initNetworkMetrics, err := contract.autonity.DumpEconomicsMetricData(contract.callOpt)

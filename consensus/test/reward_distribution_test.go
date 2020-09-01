@@ -142,11 +142,10 @@ func TestRewardDistribution(t *testing.T) {
 		}
 
 		contract, err := autonityInstance(operatorKey, validator)
-		defer contract.Close()
-
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer contract.Close()
 
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		index := validator.lastBlock % uint64(len(validatorsList))
@@ -164,11 +163,10 @@ func TestRewardDistribution(t *testing.T) {
 		}
 
 		contract, err := autonityInstance(validator.privateKey, validator)
-		defer contract.Close()
-
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer contract.Close()
 
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		to := validator.lastBlock % uint64(len(validatorsList))
@@ -186,11 +184,10 @@ func TestRewardDistribution(t *testing.T) {
 		}
 
 		contract, err := autonityInstance(operatorKey, validator)
-		defer contract.Close()
-
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer contract.Close()
 
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		from := validator.lastBlock % uint64(len(validatorsList))
