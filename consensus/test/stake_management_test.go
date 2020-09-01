@@ -50,7 +50,6 @@ func autonityInstance(t *testing.T, operatorKey *ecdsa.PrivateKey, node *testNod
 	auth := bind.NewKeyedTransactor(operatorKey)
 	auth.From = operatorAddress
 	auth.Nonce = big.NewInt(int64(nonce))
-	//auth.GasLimit = uint64(300000) // in units
 	auth.GasLimit = uint64(300000000) // in units
 	auth.GasPrice = gasPrice
 	instance, err := NewAutonity(autonity.ContractAddress, conn)
