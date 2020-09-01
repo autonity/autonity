@@ -45,9 +45,7 @@ func TestMemberManagementAddNewValidator(t *testing.T) {
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 
 	newValidatorKey, err := keygenerator.Next()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoiError(t, err)
 
 	stakeBalance := new(big.Int).SetUint64(300)
 
