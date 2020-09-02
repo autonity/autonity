@@ -346,26 +346,30 @@ class TestCase:
         self.logger.info('statistics: $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
 
     def collect_test_case_context_log(self):
-        self.test_case_conf['testcase_start_time'] = time.ctime(self.start_time)
-        self.test_case_conf['testcase_start_height'] = self.start_chain_height
-        self.test_case_conf['testcase_end_height'] = self.end_chain_height_before_recover
-        self.test_case_conf['testcase_end_time'] = time.ctime(time.time())
-        self.test_case_conf['ip_mapping'] = []
-        for index, client in self.clients.items():
-            self.test_case_conf['ip_mapping'].append("{}:{}".format(index, client.host))
+        try:
+            # try to create dirs
+            os.makedirs(SYSTEM_LOG_DIR, exist_ok=True)  # It never fail even if the dir is existed.
+            os.makedirs(TEST_CASE_SYSTEM_LOG_DIR.format(self.start_time), exist_ok=True)
 
-        ret = conf.write_yaml(TEST_CASE_CONTEXT_FILE_NAME.format(self.start_time), self.test_case_conf)
-        if ret is not True:
-            self.logger.warning('cannot save test case context.')
-            return False
+            self.test_case_conf['testcase_start_time'] = time.ctime(self.start_time)
+            self.test_case_conf['testcase_start_height'] = self.start_chain_height
+            self.test_case_conf['testcase_end_height'] = self.end_chain_height_before_recover
+            self.test_case_conf['testcase_end_time'] = time.ctime(time.time())
+            self.test_case_conf['ip_mapping'] = []
+            for index, client in self.clients.items():
+                self.test_case_conf['ip_mapping'].append("{}:{}".format(index, client.host))
 
-        # print test case context in log file.
-        self.logger.info("\n\n\n")
-        self.logger.info("The failed test case context is collected as below:")
-        self.logger.info(self.test_case_conf)
-        self.logger.info("\n\n\n")
+            ret = conf.write_yaml(TEST_CASE_CONTEXT_FILE_NAME.format(self.start_time), self.test_case_conf)
+            if ret is not True:
+                self.logger.warning('cannot save test case context.')
 
-        return True
+            # print test case context in log file.
+            self.logger.info("\n\n\n")
+            self.logger.info("The failed test case context is collected as below:")
+            self.logger.info(self.test_case_conf)
+            self.logger.info("\n\n\n")
+        except Exception as e:
+            self.logger.error("Cannot collect test case context logs. %s", e)
 
     def recover(self):
         failed = False
