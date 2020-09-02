@@ -420,3 +420,19 @@ func (m *messageCache) isValid(itemHash common.Hash) bool {
 	_, ok := m.valid[itemHash]
 	return ok
 }
+
+type messageProcessor func(cm *consensusMessage) error
+
+func (m *messageCache) roundMessages(height uint64, round int64, p messageProcessor) error {
+	for _, addressMap := range m.msgHashes[height][round] {
+		for _, msgHash := range addressMap {
+			if _, ok := m.valid[msgHash]; ok {
+				err := p(m.consensusMsgs[msgHash])
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}

@@ -85,6 +85,8 @@ func (c *core) subscribeEvents() {
 
 	s4 := c.backend.Subscribe(events.SyncEvent{})
 	c.syncEventSub = s4
+
+	c.consensusMessageSub = c.backend.Subscribe(&consensusMessage{})
 }
 
 // Unsubscribe all messageEventSub
@@ -94,6 +96,7 @@ func (c *core) unsubscribeEvents() {
 	c.timeoutEventSub.Unsubscribe()
 	c.committedSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
+	c.consensusMessageSub.Unsubscribe()
 }
 
 // TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, TimeoutEvent
@@ -233,7 +236,7 @@ type consensusMessageType uint8
 
 func (cmt consensusMessageType) in(types ...uint64) bool {
 	for _, t := range types {
-		if cmt == uint8(t) {
+		if cmt == consensusMessageType(t) {
 			return true
 		}
 	}

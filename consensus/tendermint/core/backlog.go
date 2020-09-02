@@ -17,8 +17,9 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/core/types"
 	"math/big"
+
+	"github.com/clearmatics/autonity/core/types"
 )
 
 var (

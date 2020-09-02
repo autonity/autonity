@@ -113,6 +113,7 @@ type core struct {
 	newUnminedBlockEventSub *event.TypeMuxSubscription
 	committedSub            *event.TypeMuxSubscription
 	timeoutEventSub         *event.TypeMuxSubscription
+	consensusMessageSub     *event.TypeMuxSubscription
 	syncEventSub            *event.TypeMuxSubscription
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
@@ -236,12 +237,9 @@ func (c *core) commit(block *types.Block, round int64) {
 // Metric collecton of round change and height change.
 func (c *core) measureHeightRoundMetrics(round int64) {
 	if round == 0 {
-		// in case of height change, round changed too, so count it also.
-		tendermintRoundChangeMeter.Mark(1)
 		tendermintHeightChangeMeter.Mark(1)
-	} else {
-		tendermintRoundChangeMeter.Mark(1)
 	}
+	tendermintRoundChangeMeter.Mark(1)
 }
 
 // startRound starts a new round. if round equals to 0, it means to starts a new height
@@ -280,6 +278,47 @@ func (c *core) startRound(ctx context.Context, round int64) {
 		c.proposeTimeout.scheduleTimeout(timeoutDuration, round, c.Height(), c.onTimeoutPropose)
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
+
+	// Need to handle the messages for this new round.  TODO I think this is
+	// wrong, we need to map state changes to the upon conditions. To see what
+	// conditiions to execute based on the state change.
+
+	// For a height change its easy, since every upon condition is height
+	// specific, we execute them all with all the messaages for that height.
+	// This could cascade into further round or step changes.
+
+	// For a round change lets look at what we need to reprocess in detail.
+	//
+	// Note when entering a round change the step will be propose.
+	//
+	// It will be every step with a roundp value
+	// Line 22 & 28 we can reprocess the proposals from that round
+	// Line 34 no check because its prevote step.
+	// Line 36 no check because step >= prevote.
+	// Line 44 no check because its prevote step.
+	// Line 47 precommit powers for the round.
+	// Line 49 no check because it is not round specific.
+	// Line 55 no check becsudr it would have already been triggered.
+
+	// For step change propose to prevote
+	//
+	// Line 22 no check because locked to propose step.
+	// Line 28 no check because locked to propose step.
+	// Line 34 check prevotes power for the round.
+	// Line 36 reprocess the proposals from that round.
+	// Line 44 no check because its prevote step.
+	// Line 47 precommit powers for the round.
+	// Line 49 no check because it is not round specific.
+	// Line 55 no check becsudr it would have already been triggered.
+
+	// Hmm simpler to just reprocess all messages on a round change and then
+	// reprocess proposals and prevotes on a step change. I think this catches
+	// everything.
+	reprocess := func(cm *consensusMessage) error {
+		go c.sendEvent(cm) // Could we use less go routines?
+		return nil
+	}
+	c.msgCache.roundMessages(c.height.Uint64(), c.round, reprocess)
 }
 
 func (c *core) setInitialState(r int64) {
