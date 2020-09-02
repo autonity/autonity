@@ -20,7 +20,7 @@ type messageCache struct {
 	msgHashToPrecommit map[common.Hash]*Vote
 
 	// msgHashes maps height, round, message type and address to message hash.
-	msgHashes map[uint64]map[int64]map[uint8]map[common.Address]common.Hash
+	msgHashes map[uint64]map[int64]map[consensusMessageType]map[common.Address]common.Hash
 	// valid is a set containing message hashes for messages considered valid.
 	valid map[common.Hash]struct{}
 	// consensusMsgs maps message hash to consensus message.
@@ -146,35 +146,119 @@ func (m *messageCache) signatures(valueHash common.Hash, round int64, height uin
 	return sigs
 }
 func (m *messageCache) prevoteQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
-	return m.votePower(valueHash, round, uint8(msgPrevote), header) >= header.Committee.Quorum()
-}
-
-func (m *messageCache) precommitQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
-	return m.votePower(valueHash, round, uint8(msgPrecommit), header) >= header.Committee.Quorum()
-}
-
-func (m *messageCache) hasQuorum(
-	valueHash *common.Hash,
-	round int64,
-	msgType uint8,
-	header *types.Header,
-
-) bool {
+	msgType := &uint8(msgPrevote)
 	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
 }
 
+func (m *messageCache) precommitQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
+	msgType := &uint8(msgPrecommit)
+	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
+}
+
+func (m *messageCache) fail(round int64, header *types.Header) bool {
+	return m.votePower(nil, round, nil, header) >= header.Committee.Quorum()
+}
+
+// func (m *messageCache) futureRoundFail(round int64, header *types.Header) bool {
+// 	// Only prevotes and precommits impart vote power.
+// 	if uint8(msgType) != msgPrevote || uint8(msgType) != msgPrecommit {
+// 		panic(fmt.Sprintf(
+// 			"Unexpected msgType %d, expecting either %d or %d",
+// 			msgType,
+// 			msgPrevote,
+// 			msgPrecommit,
+// 		))
+// 	}
+
+// 	// Total the power of all votes in this height and round for this value,
+// 	// failure to find a committee member in the header indicates a programming
+// 	// error and an invalid memory acccess panic will ensue.
+// 	var power uint64
+// 	// For all messages at the given height in the given round of the given type ...
+// 	for address, msgHash := range m.msgHashes[header.Number.Uint64()][round][msgType] {
+// 		// Skip messages not considered valid
+// 		_, ok := m.valid[msgHash]
+// 		if !ok {
+// 			continue
+// 		}
+
+// 		// Skip messages with differing values
+// 		if valueHash != nil && *valueHash != m.consensusMsgs[msgHash].value {
+// 			continue
+// 		}
+// 		// Now either value hash is nil (matches everything) or it actually matches the msg's value.
+// 		power += header.CommitteeMember(address).VotingPower.Uint64()
+// 	}
+// 	return power
+// }
+
+// func (m *messageCache) hasQuorum(
+// 	valueHash *common.Hash,
+// 	round int64,
+// 	msgType uint8,
+// 	header *types.Header,
+
+// ) bool {
+// 	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
+// }
+
+// type messageMatcher func(valueHash *common.Hash, round int64, msgType uint8)
+
+// var defaultMatcher messageMatcher = func(m messageCache, valueHash *common.Hash, round int64, msgType uint8) bool {
+// 	// Skip messages not considered valid
+// 	_, ok := m.valid[msgHash]
+// 	if !ok {
+// 		continue
+// 	}
+
+// 	// Skip messages with differing values
+// 	if valueHash != nil && *valueHash != m.consensusMsgs[msgHash].value {
+// 		continue
+// 	}
+// 	return false
+// }
+
+// // This is required in order to be able to support aggregating votes from multiple rounds. See the upon condition from line 55.
+// type roundIterator interface {
+// 	// Next returns the next msgTypeMap from the round map provided, a return
+// 	// value of nil indicates that the iteration has finished.
+// 	next(roundMap map[int64]map[uint8]map[common.Address]common.Hash) (msgTypeMap map[uint8]map[common.Address]common.Hash)
+// }
+
+// // singleRoundIterator returns the msgTypeMap for a single round only.
+// type singleRoundIterator struct {
+// 	round int64
+// }
+
+// func (sr *singleRoundIterator) next(roundMap map[int64]map[uint8]map[common.Address]common.Hash) map[uint8]map[common.Address]common.Hash {
+// 	return roundMap[sr.round]
+// }
+
+// // higerRoundIterator returns the msgTypeMap for a single round only.
+// type higerRoundIterator struct {
+// 	round int64
+// }
+
+// func (hr *higerRoundIterator) next(roundMap map[int64]map[uint8]map[common.Address]common.Hash) map[uint8]map[common.Address]common.Hash {
+// 	for round, msgTypeMap := range roundMap {
+// 		if
+// 		// return roundMap[sr.round]
+
+// 	}
+// }
+
 func (m *messageCache) votePower(
-	valueHash *common.Hash, // A nil value hash indicates that we match any value
+	valueHash *common.Hash, // A nil value hash indicates that we match any value.
 	round int64,
-	msgType uint8,
+	msgType *consensusMessageType, // A nil value hash indicates that we match both prevote and precommit.
 	header *types.Header,
 ) uint64 {
 
 	// Only prevotes and precommits impart vote power.
-	if uint8(msgType) != msgPrevote || uint8(msgType) != msgPrecommit {
+	if msgType != nil && !msgType.in(msgPrevote, msgPrecommit) {
 		panic(fmt.Sprintf(
 			"Unexpected msgType %d, expecting either %d or %d",
-			msgType,
+			*msgType,
 			msgPrevote,
 			msgPrecommit,
 		))
@@ -184,20 +268,26 @@ func (m *messageCache) votePower(
 	// failure to find a committee member in the header indicates a programming
 	// error and an invalid memory acccess panic will ensue.
 	var power uint64
-	// For all messages at the given height in the given round of the given type ...
-	for address, msgHash := range m.msgHashes[header.Number.Uint64()][round][msgType] {
-		// Skip messages not considered valid
-		_, ok := m.valid[msgHash]
-		if !ok {
+	// For all messages at the given height in the given round ...
+	for mType, addressMap := range m.msgHashes[header.Number.Uint64()][round] {
+		// Skip in the case that this is not a message type we are considering.
+		if msgType != nil && *msgType != mType {
 			continue
 		}
+		for address, msgHash := range addressMap {
+			// Skip messages not considered valid
+			_, ok := m.valid[msgHash]
+			if !ok {
+				continue
+			}
 
-		// Skip messages with differing values
-		if valueHash != nil && *valueHash != m.consensusMsgs[msgHash].value {
-			continue
+			// Skip messages with differing values
+			if valueHash != nil && *valueHash != m.consensusMsgs[msgHash].value {
+				continue
+			}
+			// Now either value hash is nil (matches everything) or it actually matches the msg's value.
+			power += header.CommitteeMember(address).VotingPower.Uint64()
 		}
-		// Now either value hash is nil (matches everything) or it actually matches the msg's value.
-		power += header.CommitteeMember(address).VotingPower.Uint64()
 	}
 	return power
 }
@@ -321,6 +411,12 @@ func (m *messageCache) addValue(valueHash common.Hash, value *types.Block) {
 func (m *messageCache) value(valueHash common.Hash) *types.Block {
 	return m.values[valueHash]
 }
-func (m *messageCache) setValid(msgHash common.Hash) {
-	m.valid[msgHash] = struct{}{}
+
+// Mark the hash of something valid, it could be a message hash or a value hash
+func (m *messageCache) setValid(itemHash common.Hash) {
+	m.valid[itemHash] = struct{}{}
+}
+func (m *messageCache) isValid(itemHash common.Hash) bool {
+	_, ok := m.valid[itemHash]
+	return ok
 }

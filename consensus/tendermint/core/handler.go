@@ -229,8 +229,19 @@ func (c *core) sendEvent(ev interface{}) {
 	c.backend.Post(ev)
 }
 
+type consensusMessageType uint8
+
+func (cmt consensusMessageType) in(types ...uint64) bool {
+	for _, t := range types {
+		if cmt == uint8(t) {
+			return true
+		}
+	}
+	return false
+}
+
 type consensusMessage struct {
-	msgType    uint8
+	msgType    consensusMessageType
 	height     uint64
 	round      int64
 	value      common.Hash
@@ -345,7 +356,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		return nil
 	}
 
-	return handleCurrentHeightMessage(m, conMsg)
+	return c.handleCurrentHeightMessage(m, conMsg)
 
 }
 
@@ -383,7 +394,7 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *consensusMessage) erro
 	switch m.Code {
 	case msgProposal:
 		// We ignore proposals from non proposers
-		if !c.isProposerMsg(proposal.Round, m.Address) {
+		if !c.isProposerMsg(cm.round, m.Address) {
 			c.logger.Warn("Ignore proposal messages from non-proposer")
 			return errNotFromProposer
 
@@ -402,10 +413,18 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *consensusMessage) erro
 			// So in verifying the proposal wrt time we should verify once
 			// within reasonable clock sync bounds and then set the validity
 			// based on that and never re-process the message again.
+
+			// Proposals values are allowed to be invalid.
+			if _, err := c.backend.VerifyProposal(*c.msgCache.values[cm.value]); err == nil {
+				c.msgCache.setValid(cm.value)
+			}
+
 		}
+	default:
+		c.msgCache.setValid(m.Hash)
+
 	}
 
-	c.msgCache.setValid(m.Hash)
 	c.checkUponConditions(cm)
 
 	return nil
@@ -422,6 +441,7 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	h := c.Height()
 	lh := c.lastHeader
 	s := c.step
+	t := cm.msgType
 
 	// Some of the checks in these upon conditions are omitted because they have alrady been checked.
 	//
@@ -431,14 +451,10 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	// - We do not check whether the message comes from a proposer since this
 	// is checkded before calling this method and we do not process proposals
 	// from non proposers.
-	//
-	// - We do not whether proposal values are valid since this is checked
-	// before calling this method and we do not process proposals that are not
-	// valid.
 
 	// Line 22
-	if cm.msgType == uint8(msgProposal) && cm.round == r && cm.validRound == -1 && c.step == propose {
-		if c.lockedRound == -1 || c.lockedValue.Hash() == cm.value {
+	if t.in(msgProposal) && cm.round == r && cm.validRound == -1 && c.step == propose {
+		if c.msgCache.isValid(cm.value) && c.lockedRound == -1 || c.lockedValue.Hash() == cm.value {
 			c.sendPrevote(nil, voteForValue)
 		} else {
 			c.sendPrevote(nil, voteForNil)
@@ -446,8 +462,8 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	}
 
 	// Line 28
-	if cm.msgType == uint8(msgProposal) && cm.round == r && c.msgCache.prevoteQuorum(&cm.value, cm.validRound, lh) && s == propose && (cm.validRound >= 0 && cm.validRound < r) {
-		if c.lockedRound <= cm.validRound || c.lockedValue.Hash() == cm.value {
+	if t.in(msgProposal, msgPrevote) && cm.round == r && c.msgCache.prevoteQuorum(&cm.value, cm.validRound, lh) && s == propose && (cm.validRound >= 0 && cm.validRound < r) {
+		if c.msgCache.isValid(cm.value) && c.lockedRound <= cm.validRound || c.lockedValue.Hash() == cm.value {
 			c.sendPrevote(nil, voteForValue)
 		} else {
 			c.sendPrevote(nil, voteForNil)
@@ -455,12 +471,12 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	}
 
 	// Line 34
-	if c.msgCache.prevoteQuorum(nil, cm.round, lh) && s == prevote && !c.line34Executed {
+	if t.in(msgPrevote) && c.msgCache.prevoteQuorum(nil, cm.round, lh) && s == prevote && !c.line34Executed {
 		c.prevoteTimeout.scheduleTimeout(c.timeoutPrevote(r), r, h, c.onTimeoutPrecommit)
 	}
 
 	// Line 36
-	if cm.msgType == uint8(msgProposal) && cm.round == r && c.msgCache.prevoteQuorum(&cm.value, r, lh) && s >= prevote && !c.line36Executed {
+	if t.in(msgProposal, msgPrevote) && cm.round == r && c.msgCache.prevoteQuorum(&cm.value, r, lh) && c.msgCache.isValid(cm.value) && s >= prevote && !c.line36Executed {
 		block := c.msgCache.value(cm.value) // TODO remove references to block from core
 		if s == prevote {
 			c.lockedValue = block
@@ -474,41 +490,44 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	}
 
 	// Line 44
-	if c.msgCache.prevoteQuorum(&nilValue, r, lh) && s == prevote {
+	if t.in(msgPrevote) && c.msgCache.prevoteQuorum(&nilValue, r, lh) && s == prevote {
 		c.sendPrecommit(nil, voteForValue)
 		s = precommit
 		c.step = s
 	}
 
 	// Line 47
-	if c.msgCache.precommitQuorum(nil, cm.round, lh) && !c.line47Executed {
+	if t.in(msgPrecommit) && c.msgCache.precommitQuorum(nil, cm.round, lh) && !c.line47Executed {
 		c.precommitTimeout.scheduleTimeout(c.timeoutPrecommit(r), r, h, c.onTimeoutPrecommit)
 	}
 
 	// Line 49
-	if cm.msgType == uint8(msgProposal) && c.msgCache.precommitQuorum(&cm.value, cm.round, lh) {
-		block := c.msgCache.value(cm.value) // TODO remove references to block from core
-		if s == prevote {
-			c.commit(block)
-			c.setHeight(block.NumberU64() + 1)
+	if t.in(msgProposal, msgPrecommit) && c.msgCache.precommitQuorum(&cm.value, cm.round, lh) {
+		if c.msgCache.isValid(cm.value) {
+			block := c.msgCache.value(cm.value) // TODO remove references to block from core
+			c.commit(block, cm.round)
+			c.setHeight(block.Number().Add(block.Number(), big.NewInt(1)))
 			c.lockedRound = -1
 			c.lockedValue = nil
 			c.validRound = -1
 			c.validValue = nil
-
-			// Not quite sure how to start the round nicely
-			// need to ensure that we don't stack overflow in the case that the
-			// next height messages are sufficient for consensus when we
-			// process them and so on and so on.  So I need to set the start
-			// round states and then queue the messages for processing. And I
-			// need to ensure that I get a list of messages to process in an
-			// atomic step from the msg cache so that I don't end up trying to
-			// process the same message twice.
 		}
+
+		// Not quite sure how to start the round nicely
+		// need to ensure that we don't stack overflow in the case that the
+		// next height messages are sufficient for consensus when we
+		// process them and so on and so on.  So I need to set the start
+		// round states and then queue the messages for processing. And I
+		// need to ensure that I get a list of messages to process in an
+		// atomic step from the msg cache so that I don't end up trying to
+		// process the same message twice.
 	}
 
-	// TODO need to re-write all these rules to take into account all message
-	// types that could match eg line 49 could be a propsal or a precommit.
+	// Line 55
+	if cm.round > r && c.msgCache.fail(cm.round, lh) {
+		// StartRound(cm.round)
+	}
+
 }
 
 func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) {
