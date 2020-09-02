@@ -290,8 +290,6 @@ if __name__ == "__main__":
         # build autonity client image.
         check_to_build_client_images()
 
-
-
         # create test bed for the latter deployment.
         ips = create_test_bed(job_id)
 

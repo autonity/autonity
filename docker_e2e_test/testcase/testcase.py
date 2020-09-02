@@ -265,8 +265,8 @@ class TestCase:
 
     def start_test(self):
         if self.run() is False:
-            self.collect_system_log()
             self.collect_test_case_context_log()
+            self.collect_system_log()
             return False
         return True
 
@@ -358,6 +358,13 @@ class TestCase:
         if ret is not True:
             self.logger.warning('cannot save test case context.')
             return False
+
+        # print test case context in log file.
+        self.logger.info("\n\n\n")
+        self.logger.info("The failed test case context is collected as below:")
+        self.logger.info(self.test_case_conf)
+        self.logger.info("\n\n\n")
+
         return True
 
     def recover(self):
@@ -395,5 +402,12 @@ class TestCase:
                 client.collect_system_log(TEST_CASE_SYSTEM_LOG_DIR.format(self.start_time))
         except Exception as e:
             self.logger.error('Cannot fetch logs from node. %s.', e)
+            return None
+        try:
+            # redirect client logs into test engine's logger.
+            for index, client in self.clients.items():
+                client.redirect_system_log(TEST_CASE_SYSTEM_LOG_DIR.format(self.start_time))
+        except Exception as e:
+            self.logger.error('Cannot redirect system logs from client into test engine log file %s.', e)
             return None
         return True

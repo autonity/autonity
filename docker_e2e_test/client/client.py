@@ -312,6 +312,21 @@ class Client(object):
             return False
         return True
 
+    def redirect_system_log(self, log_folder):
+        try:
+            file_name = "{}/{}.tgz".format(log_folder, self.host)
+            # untar file,
+            utility.execute("tar -zxvf {} --directory {}".format(file_name, log_folder))
+            # read file and print into log file.
+            self.logger.info("\t\t\t **** node_%s logs started from here. **** \n\n\n", self.host)
+            with open(file_name) as fp:
+                for _, line in enumerate(fp):
+                    self.logger.info("NODE__{}: {}".format(self.host, line))
+            # remove file.
+            utility.execute("rm -f {}".format(file_name))
+        except Exception as e:
+            self.logger.error('Exception happens. %s', e)
+
     def collect_system_log(self, log_folder):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
