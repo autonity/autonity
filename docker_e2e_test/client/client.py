@@ -314,16 +314,17 @@ class Client(object):
 
     def redirect_system_log(self, log_folder):
         try:
-            file_name = "{}/{}.tgz".format(log_folder, self.host)
+            zip_file = "{}/{}.tgz".format(log_folder, self.host)
+            log_file = "{}/{}.log".format(log_folder, self.host)
             # untar file,
-            utility.execute("tar -zxvf {} --directory {}".format(file_name, log_folder))
+            utility.execute("tar -zxvf {} --directory {}".format(zip_file, log_folder))
             # read file and print into log file.
             self.logger.info("\t\t\t **** node_%s logs started from here. **** \n\n\n", self.host)
-            with open(file_name) as fp:
+            with open(log_file, "r", encoding="utf-8") as fp:
                 for _, line in enumerate(fp):
-                    self.logger.info("NODE__{}: {}".format(self.host, line))
+                    self.logger.info("NODE_%s: %s", self.host, line.encode("utf-8"))
             # remove file.
-            utility.execute("rm -f {}".format(file_name))
+            utility.execute("rm -f {}".format(log_file))
         except Exception as e:
             self.logger.error('Exception happens. %s', e)
 
