@@ -322,7 +322,7 @@ class Client(object):
             self.logger.info("\t\t\t **** node_%s logs started from here. **** \n\n\n", self.host)
             with open(log_file, "r", encoding="utf-8") as fp:
                 for _, line in enumerate(fp):
-                    self.logger.info("NODE_%s: %s", self.host, line.encode("utf-8"))
+                    self.logger.info("NODE_%s_%s: %s", self.index, self.host, line.encode("utf-8"))
             # remove file.
             utility.execute("rm -f {}".format(log_file))
         except Exception as e:
