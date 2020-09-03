@@ -48,10 +48,10 @@ func autonityInstance(operatorKey *ecdsa.PrivateKey, node *testNode) (*testAuton
 	contract := new(testAutonity)
 
 	conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(node.rpcPort))
-	contract.client = conn
 	if err != nil {
 		return contract, err
-	}
+	}	
+	contract.client = conn
 
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 	nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
