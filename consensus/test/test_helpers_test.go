@@ -36,12 +36,9 @@ import (
 	"github.com/clearmatics/autonity/params"
 )
 
-
 type testAutonity struct {
 	*Autonity
-	//transactionOpt *bind.TransactOpts
-	//callOpt        *bind.CallOpts
-	client         *ethclient.Client
+	client *ethclient.Client
 }
 
 func (a *testAutonity) Close() {
