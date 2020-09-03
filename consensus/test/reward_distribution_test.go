@@ -141,15 +141,19 @@ func TestRewardDistribution(t *testing.T) {
 			return true, nil, nil
 		}
 
-		contract, err := autonityInstance(operatorKey, validator)
+		contract, err := autonityInstance(validator.rpcPort)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer contract.Close()
+		txOpt, err := contract.transactionOpts(operatorKey)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		index := validator.lastBlock % uint64(len(validatorsList))
-		tx, err := contract.autonity.MintStake(contract.transactionOpt, *validatorsList[index].Address, new(big.Int).SetUint64(100))
+		tx, err := contract.MintStake(txOpt, *validatorsList[index].Address, new(big.Int).SetUint64(100))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -162,15 +166,18 @@ func TestRewardDistribution(t *testing.T) {
 			return true, nil, nil
 		}
 
-		contract, err := autonityInstance(validator.privateKey, validator)
+		contract, err := autonityInstance(validator.rpcPort)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer contract.Close()
-
+		txOpt, err := contract.transactionOpts(validator.privateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		to := validator.lastBlock % uint64(len(validatorsList))
-		tx, err := contract.autonity.Send(contract.transactionOpt, *validatorsList[to].Address, new(big.Int).SetUint64(1))
+		tx, err := contract.Send(txOpt, *validatorsList[to].Address, new(big.Int).SetUint64(1))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -183,15 +190,19 @@ func TestRewardDistribution(t *testing.T) {
 			return true, nil, nil
 		}
 
-		contract, err := autonityInstance(operatorKey, validator)
+		contract, err := autonityInstance(validator.rpcPort)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer contract.Close()
+		txOpt, err := contract.transactionOpts(operatorKey)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		from := validator.lastBlock % uint64(len(validatorsList))
-		tx, err := contract.autonity.RedeemStake(contract.transactionOpt, *validatorsList[from].Address, new(big.Int).SetUint64(1))
+		tx, err := contract.RedeemStake(txOpt, *validatorsList[from].Address, new(big.Int).SetUint64(1))
 		if err != nil {
 			t.Fatal(err)
 		}

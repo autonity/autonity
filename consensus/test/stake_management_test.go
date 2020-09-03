@@ -1,19 +1,13 @@
 package test
 
 import (
-	"context"
-	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethclient"
 	"math/big"
-	"strconv"
 	"sync"
 	"testing"
 )
@@ -29,64 +23,6 @@ import (
   Then the test case verify the output from its finalAssert hook function on the specified height of the blockchain, for
   example, it checks the stake balance in different height to compare if the balance is expected.
 */
-
-type testAutonity struct {
-	autonity       *Autonity
-	transactionOpt *bind.TransactOpts
-	callOpt        *bind.CallOpts
-	client         *ethclient.Client
-}
-
-func (a *testAutonity) Close() {
-	if a.client != nil {
-		a.client.Close()
-	}
-}
-
-func autonityInstance(operatorKey *ecdsa.PrivateKey, node *testNode) (*testAutonity, error) {
-
-	contract := new(testAutonity)
-
-	conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(node.rpcPort))
-	if err != nil {
-		return contract, err
-	}	
-	contract.client = conn
-
-	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
-	nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
-	if err != nil {
-		return contract, err
-	}
-
-	gasPrice, err := conn.SuggestGasPrice(context.Background())
-	if err != nil {
-		return contract, err
-	}
-
-	txOpt := bind.NewKeyedTransactor(operatorKey)
-	txOpt.From = operatorAddress
-	txOpt.Nonce = big.NewInt(int64(nonce))
-	txOpt.GasLimit = uint64(300000000) // in units
-	txOpt.GasPrice = gasPrice
-	instance, err := NewAutonity(autonity.ContractAddress, conn)
-	if err != nil {
-		return contract, err
-	}
-
-	callOpt := &bind.CallOpts{
-		Pending:     false,
-		From:        common.Address{},
-		BlockNumber: new(big.Int),
-		Context:     context.Background(),
-	}
-
-	contract.autonity = instance
-	contract.client = conn
-	contract.transactionOpt = txOpt
-	contract.callOpt = callOpt
-	return contract, nil
-}
 
 func TestStakeManagement(t *testing.T) {
 	if testing.Short() {
@@ -109,14 +45,19 @@ func TestStakeManagement(t *testing.T) {
 		}
 		onceMint.Do(func() {
 
-			contract, err := autonityInstance(operatorKey, validator)
+			contract, err := autonityInstance(validator.rpcPort)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer contract.Close()
 
+			txOpt, err := contract.transactionOpts(operatorKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-			_, err = contract.autonity.MintStake(contract.transactionOpt, *validatorsList[0].Address, stakeDelta)
+			_, err = contract.MintStake(txOpt, *validatorsList[0].Address, stakeDelta)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -130,14 +71,19 @@ func TestStakeManagement(t *testing.T) {
 		}
 		onceRedeem.Do(func() {
 
-			contract, err := autonityInstance(operatorKey, validator)
+			contract, err := autonityInstance(validator.rpcPort)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer contract.Close()
 
+			txOpt, err := contract.transactionOpts(operatorKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-			_, err = contract.autonity.RedeemStake(contract.transactionOpt, *validatorsList[0].Address, stakeDelta)
+			_, err = contract.RedeemStake(txOpt, *validatorsList[0].Address, stakeDelta)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -151,11 +97,16 @@ func TestStakeManagement(t *testing.T) {
 		}
 		onceSend.Do(func() {
 
-			contract, err := autonityInstance(validator.privateKey, validator)
+			contract, err := autonityInstance(validator.rpcPort)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer contract.Close()
+
+			txOpt, err := contract.transactionOpts(validator.privateKey)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			senderAddress := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
@@ -163,7 +114,7 @@ func TestStakeManagement(t *testing.T) {
 			if senderAddress == *validatorsList[toIndex].Address {
 				toIndex = 1
 			}
-			_, err = contract.autonity.Send(contract.transactionOpt, *validatorsList[toIndex].Address, stakeDelta)
+			_, err = contract.Send(txOpt, *validatorsList[toIndex].Address, stakeDelta)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -181,20 +132,20 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	stakeCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-		contract, err := autonityInstance(operatorKey, validators["VA"])
+		contract, err := autonityInstance(validators["VA"].rpcPort)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer contract.Close()
 
-		contract.callOpt.BlockNumber.SetUint64(3)
-		initNetworkMetrics, err := contract.autonity.DumpEconomicsMetricData(contract.callOpt)
+		callOpt := contract.callOpts(3)
+		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		contract.callOpt.BlockNumber.SetUint64(validators["VA"].lastBlock)
-		curNetworkMetrics, err := contract.autonity.DumpEconomicsMetricData(contract.callOpt)
+		callOpt.BlockNumber.SetUint64(validators["VA"].lastBlock)
+		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -222,20 +173,20 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	stakeSendCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-		contract, err := autonityInstance(operatorKey, validators["VA"])
+		contract, err := autonityInstance(validators["VA"].rpcPort)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer contract.Close()
 
-		contract.callOpt.BlockNumber.SetUint64(3)
-		initNetworkMetrics, err := contract.autonity.DumpEconomicsMetricData(contract.callOpt)
+		callOpt := contract.callOpts(3)
+		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		contract.callOpt.BlockNumber.SetUint64(validators["VA"].lastBlock)
-		curNetworkMetrics, err := contract.autonity.DumpEconomicsMetricData(contract.callOpt)
+		callOpt.BlockNumber.SetUint64(validators["VA"].lastBlock)
+		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
 			t.Fatal(err)
 		}
