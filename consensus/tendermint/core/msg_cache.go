@@ -10,15 +10,6 @@ import (
 // Message cache caches messages
 
 type messageCache struct {
-	proposalMsgHashes map[uint64]map[int64]map[common.Address]common.Hash
-	msgHashToProposal map[common.Hash]*Proposal
-
-	prevoteMsgHashes map[uint64]map[int64]map[common.Address]common.Hash
-	msgHashToPrevote map[common.Hash]*Vote
-
-	precommitMsgHashes map[uint64]map[int64]map[common.Address]common.Hash
-	msgHashToPrecommit map[common.Hash]*Vote
-
 	// msgHashes maps height, round, message type and address to message hash.
 	msgHashes map[uint64]map[int64]map[consensusMessageType]map[common.Address]common.Hash
 	// valid is a set containing message hashes for messages considered valid.
@@ -111,22 +102,6 @@ func (m *messageCache) Message(h common.Hash) *Message {
 	return m.rawMessages[h]
 }
 
-func (m *messageCache) prevotePower(valueHash common.Hash, round int64, header *types.Header) uint64 {
-	return votePower(m.prevoteMsgHashes, m.msgHashToPrevote, valueHash, round, header)
-}
-
-func (m *messageCache) precommitPower(valueHash common.Hash, round int64, header *types.Header) uint64 {
-	return votePower(m.precommitMsgHashes, m.msgHashToPrecommit, valueHash, round, header)
-}
-
-func (m *messageCache) totalPrevotePower(round int64, header *types.Header) uint64 {
-	return totalVotePower(m.prevoteMsgHashes, round, header)
-}
-
-func (m *messageCache) totalPrecommitPower(round int64, header *types.Header) uint64 {
-	return totalVotePower(m.precommitMsgHashes, round, header)
-}
-
 func totalVotePower(voteMsgHashes map[uint64]map[int64]map[common.Address]common.Hash, round int64, header *types.Header) uint64 {
 	var total uint64
 	// Iterate all prevotes for the round and total their voting power.
@@ -136,15 +111,16 @@ func totalVotePower(voteMsgHashes map[uint64]map[int64]map[common.Address]common
 	return total
 }
 
-func (m *messageCache) signatures(valueHash common.Hash, round int64, height uint64) [][]byte {
-	var sigs [][]byte
-	for _, msgHash := range m.precommitMsgHashes[height][round] {
-		if valueHash == m.msgHashToPrecommit[msgHash].ProposedBlockHash {
-			sigs = append(sigs, m.rawMessages[msgHash].CommittedSeal)
-		}
-	}
-	return sigs
-}
+// func (m *messageCache) signatures(valueHash common.Hash, round int64, height uint64) [][]byte {
+// 	var sigs [][]byte
+// 	for _, msgHash := range m.precommitMsgHashes[height][round] {
+// 		if valueHash == m.msgHashToPrecommit[msgHash].ProposedBlockHash {
+// 			sigs = append(sigs, m.rawMessages[msgHash].CommittedSeal)
+// 		}
+// 	}
+// 	return sigs
+// }
+
 func (m *messageCache) prevoteQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
 	msgType := &uint8(msgPrevote)
 	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
@@ -292,50 +268,6 @@ func (m *messageCache) votePower(
 	return power
 }
 
-func (m *messageCache) proposal(height uint64, round int64, proposerAddress common.Address) *Proposal {
-	roundMap, ok := m.proposalMsgHashes[height]
-	if !ok {
-		return nil
-	}
-	addressMap, ok := roundMap[round]
-	if !ok {
-		return nil
-	}
-	msgHash, ok := addressMap[proposerAddress]
-	if !ok {
-		return nil
-	}
-	return m.msgHashToProposal[msgHash]
-}
-
-func (m *messageCache) proposalVerified(proposalHash common.Hash) bool {
-	return false
-}
-
-// func (m *messageCache) getproposals(height uint64, round int64) map[common.Address]*Proposal {
-// 	roundMap, ok := m.proposalHashes[height]
-// 	if !ok {
-// 		return nil
-// 	}
-// 	return roundMap[round]
-// }
-
-// func (m *messageCache) getprevotes(height uint64, round int64) map[common.Address]*Vote {
-// 	return getVotes(height, round, m.prevoteHashes)
-// }
-
-// func (m *messageCache) getprecommits(height uint64, round int64) map[common.Address]*Vote {
-// 	return getVotes(height, round, m.precommitHashes)
-// }
-
-func getVotes(height uint64, round int64, votes map[uint64]map[int64]map[common.Address]*Vote) map[common.Address]*Vote {
-	roundMap, ok := votes[height]
-	if !ok {
-		return nil
-	}
-	return roundMap[round]
-}
-
 func addMsgHash(
 	hashes map[uint64]map[int64]map[common.Address]common.Hash,
 	height uint64,
@@ -359,40 +291,6 @@ func addMsgHash(
 	}
 	addressMap[address] = hash // TODO check for duplicates here, accountablitiy
 	return nil
-}
-
-// No need to worry about duplicates and accountability here since we check that in addMsgHash.
-func addVoteForValue(votes map[common.Hash]map[common.Address]*Vote, valueHash common.Hash, address common.Address, vote *Vote) {
-	addressMap, ok := votes[valueHash]
-	if !ok {
-		addressMap = make(map[common.Address]*Vote)
-	}
-	addressMap[address] = vote
-}
-
-func addProposeForValue(proposals map[common.Hash]map[common.Address]*Proposal, valueHash common.Hash, address common.Address, vote *Proposal) {
-	addressMap, ok := proposals[valueHash]
-	if !ok {
-		addressMap = make(map[common.Address]*Proposal)
-	}
-	addressMap[address] = vote
-}
-
-func (m *messageCache) heightMessages(height uint64) []*Message {
-	var messages []*Message
-	accumulateMessagesForHeight(m.proposalMsgHashes, m.rawMessages, height, messages)
-	accumulateMessagesForHeight(m.prevoteMsgHashes, m.rawMessages, height, messages)
-	accumulateMessagesForHeight(m.precommitMsgHashes, m.rawMessages, height, messages)
-	return messages
-}
-
-func accumulateMessagesForHeight(msgHashes map[uint64]map[int64]map[common.Address]common.Hash, msgHashToMsg map[common.Hash]*Message, height uint64, accumulator []*Message) {
-	// Accumuate all messages for all rounds at the given height
-	for _, addressMap := range msgHashes[height] {
-		for _, hash := range addressMap {
-			accumulator = append(accumulator, msgHashToMsg[hash])
-		}
-	}
 }
 
 func (m *messageCache) addMessage(msg *Message, cm *consensusMessage) error {
@@ -436,3 +334,9 @@ func (m *messageCache) roundMessages(height uint64, round int64, p messageProces
 	}
 	return nil
 }
+
+func (m *messageCache) proposal(height uint64, round int64, proposer common.Address) *consensusMessage {
+	return m.msgHashes[height][round][consensusMessageType(msgProposal)][proposer]
+}
+
+// TODO cover the case where we receive multiple proposals for future heights and we don't know who the propose is?

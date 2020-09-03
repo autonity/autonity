@@ -465,6 +465,12 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	}
 
 	// Line 28
+	//
+	// TODO this is all wrong, I started off by assuming the message would be a
+	// proposal and then expanded it to cater for prevotes, but prevotes do not
+	// have validRound set.
+	//
+	// So probably all my other conditions are wrong as well then. In this case if I have a prevote I need to make sure I have the proposal as well.
 	if t.in(msgProposal, msgPrevote) && cm.round == r && c.msgCache.prevoteQuorum(&cm.value, cm.validRound, lh) && s == propose && (cm.validRound >= 0 && cm.validRound < r) {
 		if c.msgCache.isValid(cm.value) && c.lockedRound <= cm.validRound || c.lockedValue.Hash() == cm.value {
 			c.sendPrevote(nil, voteForValue)

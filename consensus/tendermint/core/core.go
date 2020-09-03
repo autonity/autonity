@@ -314,11 +314,12 @@ func (c *core) startRound(ctx context.Context, round int64) {
 	// Hmm simpler to just reprocess all messages on a round change and then
 	// reprocess proposals and prevotes on a step change. I think this catches
 	// everything.
-	reprocess := func(cm *consensusMessage) error {
-		go c.sendEvent(cm) // Could we use less go routines?
-		return nil
-	}
-	c.msgCache.roundMessages(c.height.Uint64(), c.round, reprocess)
+	c.msgCache.roundMessages(c.height.Uint64(), c.round, c.reprocessConsensusMessage)
+}
+
+func (c *core) reprocessConsensusMessage(cm *consensusMessage) error {
+	go c.sendEvent(cm) // Could we use less go routines?
+	return nil
 }
 
 func (c *core) setInitialState(r int64) {
@@ -372,6 +373,11 @@ func (c *core) setInitialState(r int64) {
 func (c *core) setStep(step Step) {
 	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
 	c.step = step
+	switch step {
+	case prevote:
+		case
+	}
+	c.msgCache.roundMessages(c.height.Uint64(), c.round, c.reprocessConsensusMessage)
 	c.processBacklog()
 }
 
