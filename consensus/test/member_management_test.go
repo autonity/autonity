@@ -70,9 +70,9 @@ func TestMemberManagement(t *testing.T) {
 		// the user to be removed.
 		user := &params.User{
 			Address: &addressToRemove,
-			Enode: eNodeToRemove,
-			Type: "participant",
-			Stake: 0,
+			Enode:   eNodeToRemove,
+			Type:    "participant",
+			Stake:   0,
 		}
 		g.Config.AutonityContractConfig.Users = append(g.Config.AutonityContractConfig.Users, *user)
 		return g
