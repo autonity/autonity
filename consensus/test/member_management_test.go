@@ -75,15 +75,11 @@ func TestMemberManagement(t *testing.T) {
 
 	addValidatorHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, err := autonityInstance(validator.rpcPort)
+			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
 			if err != nil {
 				return true, nil, err
 			}
 			defer contract.Close()
-			txOpt, err := contract.transactionOpts(operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
 			_, err = contract.AddValidator(txOpt, crypto.PubkeyToAddress(newNodePubKey), stakeBalance, eNode)
 			if err != nil {
 				return true, nil, err
@@ -93,13 +89,11 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	addValidatorCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		contract, err := autonityInstance(validators["VA"].rpcPort)
+		contract, callOpt, err := contractReaderContext(validators["VA"].rpcPort, validators["VA"].lastBlock)
 		if err != nil {
 			return err
 		}
 		defer contract.Close()
-
-		callOpt := contract.callOpts(validators["VA"].lastBlock)
 
 		// check node presented in white list.
 		whiteList, err := contract.GetWhitelist(callOpt)
@@ -140,17 +134,11 @@ func TestMemberManagement(t *testing.T) {
 
 	addStakeHolderHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, err := autonityInstance(validator.rpcPort)
+			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
 			if err != nil {
 				return true, nil, err
 			}
 			defer contract.Close()
-
-			txOpt, err := contract.transactionOpts(operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
-
 			_, err = contract.AddStakeholder(txOpt, crypto.PubkeyToAddress(newNodePubKey), eNode, stakeBalance)
 			if err != nil {
 				return true, nil, err
@@ -160,12 +148,11 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	addStakeHolderCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		contract, err := autonityInstance(validators["VA"].rpcPort)
+		contract, callOpt, err := contractReaderContext(validators["VA"].rpcPort, validators["VA"].lastBlock)
 		if err != nil {
 			return err
 		}
 		defer contract.Close()
-		callOpt := contract.callOpts(validators["VA"].lastBlock)
 
 		// check node presented in white list.
 		whiteList, err := contract.GetWhitelist(callOpt)
@@ -206,15 +193,11 @@ func TestMemberManagement(t *testing.T) {
 
 	addParticipantHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, err := autonityInstance(validator.rpcPort)
+			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
 			if err != nil {
 				return true, nil, err
 			}
 			defer contract.Close()
-			txOpt, err := contract.transactionOpts(operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
 
 			_, err = contract.AddParticipant(txOpt, crypto.PubkeyToAddress(newNodePubKey), eNode)
 			if err != nil {
@@ -225,12 +208,11 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	addParticipantCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		contract, err := autonityInstance(validators["VA"].rpcPort)
+		contract, callOpt, err := contractReaderContext(validators["VA"].rpcPort, validators["VA"].lastBlock)
 		if err != nil {
 			return err
 		}
-
-		callOpt := contract.callOpts(validators["VA"].lastBlock)
+		defer contract.Close()
 
 		whiteList, err := contract.GetWhitelist(callOpt)
 		if err != nil {
@@ -269,15 +251,11 @@ func TestMemberManagement(t *testing.T) {
 
 	removeUserHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, err := autonityInstance(validator.rpcPort)
+			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
 			if err != nil {
 				return true, nil, err
 			}
 			defer contract.Close()
-			txOpt, err := contract.transactionOpts(operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
 			_, err = contract.RemoveUser(txOpt, addressToRemove)
 			if err != nil {
 				return true, nil, err
@@ -287,12 +265,11 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	removeUserCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		contract, err := autonityInstance(validators["VD"].rpcPort)
+		contract, callOpt, err := contractReaderContext(validators["VD"].rpcPort, validators["VD"].lastBlock)
 		if err != nil {
 			return err
 		}
 		defer contract.Close()
-		callOpt := contract.callOpts(validators["VD"].lastBlock)
 		isMember, err := contract.CheckMember(callOpt, addressToRemove)
 		if err != nil {
 			return err

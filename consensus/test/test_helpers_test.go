@@ -90,6 +90,28 @@ func autonityInstance(port int) (*testAutonity, error) {
 	return &testAutonity{instance, conn}, nil
 }
 
+func contractWriterContext(port int, operatorKey *ecdsa.PrivateKey) (*testAutonity, *bind.TransactOpts, error) {
+	ac, err := autonityInstance(port)
+	if err != nil {
+		return nil, nil, err
+	}
+	txOpt, err := ac.transactionOpts(operatorKey)
+	if err != nil {
+		ac.Close()
+		return nil, nil, err
+	}
+	return ac, txOpt, nil
+}
+
+func contractReaderContext(port int, blockNum uint64) (*testAutonity, *bind.CallOpts, error) {
+	ac, err := autonityInstance(port)
+	if err != nil {
+		return nil, nil, err
+	}
+	callOpt := ac.callOpts(blockNum)
+	return ac, callOpt, nil
+}
+
 func sendTx(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address, transactionGenerator func(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error)) (*types.Transaction, error) {
 	nonce := service.TxPool().Nonce(fromAddr)
 
