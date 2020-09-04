@@ -283,7 +283,7 @@ func TestMemberManagement(t *testing.T) {
 		return nil
 	}
 
-	removeUserHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) {
+	removeUserHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
 			contract, err := autonityInstance(validator.rpcPort)
 			if err != nil {
