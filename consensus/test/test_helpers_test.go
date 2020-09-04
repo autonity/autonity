@@ -5,14 +5,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/contracts/autonity"
-	"github.com/clearmatics/autonity/ethclient"
 	"io/ioutil"
 	"math"
 	"math/big"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -35,82 +31,6 @@ import (
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/params"
 )
-
-type testAutonity struct {
-	*Autonity
-	client *ethclient.Client
-}
-
-func (a *testAutonity) Close() {
-	a.client.Close()
-}
-
-func (a *testAutonity) transactionOpts(operatorKey *ecdsa.PrivateKey) (*bind.TransactOpts, error) {
-	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
-	nonce, err := a.client.PendingNonceAt(context.Background(), operatorAddress)
-	if err != nil {
-		return nil, err
-	}
-	gasPrice, err := a.client.SuggestGasPrice(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	txOpt := bind.NewKeyedTransactor(operatorKey)
-	txOpt.From = operatorAddress
-	txOpt.Nonce = new(big.Int).SetUint64(nonce)
-	txOpt.GasLimit = uint64(300000000)
-	txOpt.GasPrice = gasPrice
-	return txOpt, nil
-}
-
-func (a *testAutonity) callOpts(blockNumber uint64) *bind.CallOpts {
-	callOpt := &bind.CallOpts{
-		Pending:     false,
-		From:        common.Address{},
-		BlockNumber: new(big.Int).SetUint64(blockNumber),
-		Context:     context.Background(),
-	}
-	return callOpt
-}
-
-func autonityInstance(port int) (*testAutonity, error) {
-
-	conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(port))
-	if err != nil {
-		return nil, err
-	}
-
-	instance, err := NewAutonity(autonity.ContractAddress, conn)
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-
-	return &testAutonity{instance, conn}, nil
-}
-
-func contractWriterContext(port int, operatorKey *ecdsa.PrivateKey) (*testAutonity, *bind.TransactOpts, error) {
-	ac, err := autonityInstance(port)
-	if err != nil {
-		return nil, nil, err
-	}
-	txOpt, err := ac.transactionOpts(operatorKey)
-	if err != nil {
-		ac.Close()
-		return nil, nil, err
-	}
-	return ac, txOpt, nil
-}
-
-func contractReaderContext(port int, blockNum uint64) (*testAutonity, *bind.CallOpts, error) {
-	ac, err := autonityInstance(port)
-	if err != nil {
-		return nil, nil, err
-	}
-	callOpt := ac.callOpts(blockNum)
-	return ac, callOpt, nil
-}
 
 func sendTx(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address, transactionGenerator func(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error)) (*types.Transaction, error) {
 	nonce := service.TxPool().Nonce(fromAddr)
