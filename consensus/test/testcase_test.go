@@ -56,7 +56,7 @@ type testCase struct {
 	beforeHooks          map[string]hook        //map[validatorIndex]beforeHook
 	afterHooks           map[string]hook        //map[validatorIndex]afterHook
 	sendTransactionHooks map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)
-	finalAssert          func(t *testing.T, validators map[string]*testNode)
+	finalAssert          func(t *testing.T, validators map[string]*testNode) error
 	stopTime             map[string]time.Time
 	genesisHook          func(g *core.Genesis) *core.Genesis
 	mu                   sync.RWMutex
@@ -294,7 +294,10 @@ func runTest(t *testing.T, test *testCase) {
 	// each peer sends one tx per block
 	sendTransactions(t, test, nodes, test.txPerPeer, true, nodeNames)
 	if test.finalAssert != nil {
-		test.finalAssert(t, nodes)
+		err := test.finalAssert(t, nodes)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// check topology

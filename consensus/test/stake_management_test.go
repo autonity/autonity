@@ -7,8 +7,8 @@ import (
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/stretchr/testify/assert"
 	"math/big"
-	"sync"
 	"testing"
 )
 
@@ -28,9 +28,6 @@ func TestStakeManagement(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-	onceMint := sync.Once{}
-	onceRedeem := sync.Once{}
-	onceSend := sync.Once{}
 	stakeDelta := new(big.Int).SetUint64(50)
 	// prepare chain operator
 	operatorKey, err := keygenerator.Next()
@@ -40,72 +37,60 @@ func TestStakeManagement(t *testing.T) {
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 	// mint stake hook
 	mintStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-		onceMint.Do(func() {
-
+		if validator.lastBlock == 4 {
 			contract, err := autonityInstance(validator.rpcPort)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 			defer contract.Close()
 
 			txOpt, err := contract.transactionOpts(operatorKey)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = contract.MintStake(txOpt, *validatorsList[0].Address, stakeDelta)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
-		})
+		}
 		return false, nil, nil
 	}
 
 	redeemStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-		onceRedeem.Do(func() {
-
+		if validator.lastBlock == 4 {
 			contract, err := autonityInstance(validator.rpcPort)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 			defer contract.Close()
 
 			txOpt, err := contract.transactionOpts(operatorKey)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = contract.RedeemStake(txOpt, *validatorsList[0].Address, stakeDelta)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
-		})
+		}
 		return false, nil, nil
 	}
 
 	sendStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-		onceSend.Do(func() {
-
+		if validator.lastBlock == 4 {
 			contract, err := autonityInstance(validator.rpcPort)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 			defer contract.Close()
 
 			txOpt, err := contract.transactionOpts(validator.privateKey)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 
 			senderAddress := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
@@ -116,9 +101,9 @@ func TestStakeManagement(t *testing.T) {
 			}
 			_, err = contract.Send(txOpt, *validatorsList[toIndex].Address, stakeDelta)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
-		})
+		}
 		return false, nil, nil
 	}
 
@@ -131,64 +116,59 @@ func TestStakeManagement(t *testing.T) {
 		return g
 	}
 
-	stakeCheckerHook := func(t *testing.T, validators map[string]*testNode) {
+	stakeCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
 		contract, err := autonityInstance(validators["VA"].rpcPort)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		defer contract.Close()
 
 		callOpt := contract.callOpts(3)
 		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		callOpt.BlockNumber.SetUint64(validators["VA"].lastBlock)
 		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		validatorsList := validators["VA"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		// check account stake balance.
-		founded := false
+		found := false
 		for index, v := range initNetworkMetrics.Accounts {
 			if v == *validatorsList[0].Address {
-				founded = true
+				found = true
 				initBalance := initNetworkMetrics.Stakes[index]
 				newBalance := curNetworkMetrics.Stakes[index]
 				delta := new(big.Int).Abs(initBalance.Sub(initBalance, newBalance))
-				if delta.Uint64() != stakeDelta.Uint64() {
-					t.Fatal("stake balance is not expected")
-				}
+				assert.Equal(t, delta.Uint64(), stakeDelta.Uint64(), "stake balance is not expected")
 				totalDelta := new(big.Int).Abs(initNetworkMetrics.Stakesupply.Sub(initNetworkMetrics.Stakesupply, curNetworkMetrics.Stakesupply))
-				if totalDelta.Uint64() != stakeDelta.Uint64() {
-					t.Fatal("stake total supply is not expected")
-				}
+				assert.Equal(t, totalDelta.Uint64(), stakeDelta.Uint64(), "stake total supply is not expected")
 			}
 		}
-		if !founded {
-			t.Fatal("cannot find wanted account from chain DB")
-		}
+		assert.True(t, found, "cannot find wanted account from chain DB")
+		return nil
 	}
 
-	stakeSendCheckerHook := func(t *testing.T, validators map[string]*testNode) {
+	stakeSendCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
 		contract, err := autonityInstance(validators["VA"].rpcPort)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		defer contract.Close()
 
 		callOpt := contract.callOpts(3)
 		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		callOpt.BlockNumber.SetUint64(validators["VA"].lastBlock)
 		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		validatorsList := validators["VA"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
@@ -223,13 +203,10 @@ func TestStakeManagement(t *testing.T) {
 			}
 		}
 
-		if !senderPassed || !receiverPassed {
-			t.Fatal("stake balance checking failed")
-		}
-
-		if initNetworkMetrics.Stakesupply.Uint64() != curNetworkMetrics.Stakesupply.Uint64() {
-			t.Fatal("total stake supply is not expected")
-		}
+		assert.Equal(t, senderPassed, true, "sender stake balance checking failed")
+		assert.Equal(t, receiverPassed, true, "receiver stake balance checking failed")
+		assert.Equal(t, initNetworkMetrics.Stakesupply.Uint64(), curNetworkMetrics.Stakesupply.Uint64(), "total stake supply is not expected")
+		return nil
 	}
 
 	testCases := []*testCase{

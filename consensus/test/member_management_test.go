@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/keygenerator"
@@ -11,10 +12,10 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethclient"
 	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"strconv"
-	"sync"
 	"testing"
 )
 
@@ -37,39 +38,35 @@ func TestMemberManagementAddNewValidator(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-	once := sync.Once{}
 	// prepare chain operator
 	operatorKey, err := keygenerator.Next()
 	if err != nil {
 		t.Fatal(err)
 	}
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
-
 	newValidatorKey, err := keygenerator.Next()
 	require.NoError(t, err)
+	newValidatorPubKey := newValidatorKey.PublicKey
+	eNode := enode.V4DNSUrl(newValidatorPubKey, "VN:8527", 8527, 8527)
 
 	stakeBalance := new(big.Int).SetUint64(300)
 
 	addValidatorHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-		once.Do(func() {
+		if validator.lastBlock == 4 {
 			contract, err := autonityInstance(validator.rpcPort)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 			defer contract.Close()
 			txOpt, err := contract.transactionOpts(operatorKey)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
-			eNode := enode.V4DNSUrl(newValidatorKey.PublicKey, "VN:8527", 8527, 8527)
-			_, err = contract.AddValidator(txOpt, crypto.PubkeyToAddress(newValidatorKey.PublicKey), stakeBalance, eNode)
+			_, err = contract.AddValidator(txOpt, crypto.PubkeyToAddress(newValidatorPubKey), stakeBalance, eNode)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
-		})
+		}
 		return false, nil, nil
 	}
 
@@ -82,17 +79,17 @@ func TestMemberManagementAddNewValidator(t *testing.T) {
 		return g
 	}
 
-	addValidatorCheckerHook := func(t *testing.T, validators map[string]*testNode) {
+	addValidatorCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
 		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validators["VA"].rpcPort))
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		defer conn.Close()
 
 		contractAddress := autonity.ContractAddress
 		instance, err := NewAutonity(contractAddress, conn)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		auth := bind.CallOpts{
@@ -103,37 +100,25 @@ func TestMemberManagementAddNewValidator(t *testing.T) {
 		}
 
 		// check node presented in white list.
-		eNode := enode.V4DNSUrl(newValidatorKey.PublicKey, "VN:8527", 8527, 8527)
 		whiteList, err := instance.GetWhitelist(&auth)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
-		whiteListed := false
-		for _, node := range whiteList {
-			if node == eNode {
-				whiteListed = true
-				break
-			}
-		}
+
+		assert.Contains(t, whiteList, eNode, "eNode is not presented from member list")
 
 		// check node role and its stake balance.
 		curNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
-		founded := false
+		found := false
 		for index, v := range curNetworkMetrics.Accounts {
-			if v == crypto.PubkeyToAddress(newValidatorKey.PublicKey) {
-				founded = true
-				if curNetworkMetrics.Stakes[index].Uint64() != stakeBalance.Uint64() {
-					t.Fatal("new validator's stake is not expected")
-				}
-
-				if curNetworkMetrics.Usertypes[index] != 2 {
-					t.Fatal("new validator's user type is not expected")
-				}
-
+			if v == crypto.PubkeyToAddress(newValidatorPubKey) {
+				found = true
+				assert.Equal(t, curNetworkMetrics.Stakes[index].Uint64(), stakeBalance.Uint64(), "new validator's stake is not expected")
+				assert.Equal(t, int(curNetworkMetrics.Usertypes[index]), 2, "new validator's user type is not expected")
 				break
 			}
 		}
@@ -142,15 +127,13 @@ func TestMemberManagementAddNewValidator(t *testing.T) {
 		auth.BlockNumber.SetUint64(3)
 		initNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
 		if err != nil {
-			t.Fatal(err)
-		}
-		if curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64() != stakeBalance.Uint64() {
-			t.Fatal("stake total supply is not expected")
+			return err
 		}
 
-		if !whiteListed || !founded {
-			t.Fatal("new validator is not presented")
-		}
+		b := curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64()
+		assert.Equal(t, b, stakeBalance.Uint64(), "stake total supply is not expected")
+		assert.True(t, found, "new validator is not presented")
+		return nil
 	}
 
 	testCase := &testCase{
@@ -171,7 +154,6 @@ func TestMemberManagementAddNewStakeHolder(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-	once := sync.Once{}
 	// prepare chain operator
 	operatorKey, err := keygenerator.Next()
 	if err != nil {
@@ -180,34 +162,29 @@ func TestMemberManagementAddNewStakeHolder(t *testing.T) {
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 
 	newStakeHolderKey, err := keygenerator.Next()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
+	eNode := enode.V4DNSUrl(newStakeHolderKey.PublicKey, "SN:8527", 8527, 8527)
 	stakeBalance := new(big.Int).SetUint64(100)
 
 	addStakeHolderHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-		once.Do(func() {
+		if validator.lastBlock == 4 {
 			contract, err := autonityInstance(validator.rpcPort)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 			defer contract.Close()
 
 			txOpt, err := contract.transactionOpts(operatorKey)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 
-			eNode := enode.V4DNSUrl(newStakeHolderKey.PublicKey, "SN:8527", 8527, 8527)
 			_, err = contract.AddStakeholder(txOpt, crypto.PubkeyToAddress(newStakeHolderKey.PublicKey), eNode, stakeBalance)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
-		})
+		}
 		return false, nil, nil
 	}
 
@@ -220,75 +197,49 @@ func TestMemberManagementAddNewStakeHolder(t *testing.T) {
 		return g
 	}
 
-	addStakeHolderCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validators["VA"].rpcPort))
+	addStakeHolderCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
+		contract, err := autonityInstance(validators["VA"].rpcPort)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
-		defer conn.Close()
-
-		contractAddress := autonity.ContractAddress
-		instance, err := NewAutonity(contractAddress, conn)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		auth := bind.CallOpts{
-			Pending:     false,
-			From:        common.Address{},
-			BlockNumber: new(big.Int).SetUint64(validators["VA"].lastBlock),
-			Context:     context.Background(),
-		}
+		defer contract.Close()
+		callOpt := contract.callOpts(validators["VA"].lastBlock)
 
 		// check node presented in white list.
-		eNode := enode.V4DNSUrl(newStakeHolderKey.PublicKey, "SN:8527", 8527, 8527)
-		whiteList, err := instance.GetWhitelist(&auth)
+		whiteList, err := contract.GetWhitelist(callOpt)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
-		whiteListed := false
-		for _, node := range whiteList {
-			if node == eNode {
-				whiteListed = true
-				break
-			}
-		}
+
+		assert.Contains(t, whiteList, eNode)
 
 		// check node role and its stake balance.
-		curNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
-		founded := false
+		found := false
 		for index, v := range curNetworkMetrics.Accounts {
 			if v == crypto.PubkeyToAddress(newStakeHolderKey.PublicKey) {
-				founded = true
-				if curNetworkMetrics.Stakes[index].Uint64() != stakeBalance.Uint64() {
-					t.Fatal("new stakeholder's stake is not expected")
-				}
-
-				if curNetworkMetrics.Usertypes[index] != 1 {
-					t.Fatal("new stakeholder's user type is not expected")
-				}
-
+				found = true
+				assert.Equal(t, curNetworkMetrics.Stakes[index].Uint64(), stakeBalance.Uint64(), "new stakeholder's stake is not expected")
+				assert.Equal(t, int(curNetworkMetrics.Usertypes[index]), 1, "new stakeholder's user type is not expected")
 				break
 			}
 		}
 
 		// compare the total stake supply before and after new node added.
-		auth.BlockNumber.SetUint64(3)
-		initNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		callOpt.BlockNumber.SetUint64(3)
+		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
-			t.Fatal(err)
-		}
-		if curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64() != stakeBalance.Uint64() {
-			t.Fatal("stake total supply is not expected")
+			return err
 		}
 
-		if !whiteListed || !founded {
-			t.Fatal("new stakeholder is not presented")
-		}
+		b := curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64()
+		assert.Equal(t, b, stakeBalance.Uint64(), "stake total supply is not expected")
+		assert.True(t, found, "new stakeholder is not presented")
+		return nil
 	}
 
 	testCase := &testCase{
@@ -309,7 +260,6 @@ func TestMemberManagementAddNewParticipant(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-	once := sync.Once{}
 	// prepare chain operator
 	operatorKey, err := keygenerator.Next()
 	if err != nil {
@@ -318,31 +268,26 @@ func TestMemberManagementAddNewParticipant(t *testing.T) {
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 
 	newParticipantKey, err := keygenerator.Next()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	eNode := enode.V4DNSUrl(newParticipantKey.PublicKey, "PN:8527", 8527, 8527)
 
 	addParticipantHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-		once.Do(func() {
+		if validator.lastBlock == 4 {
 			contract, err := autonityInstance(validator.rpcPort)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 			defer contract.Close()
 			txOpt, err := contract.transactionOpts(operatorKey)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 
-			eNode := enode.V4DNSUrl(newParticipantKey.PublicKey, "PN:8527", 8527, 8527)
 			_, err = contract.AddParticipant(txOpt, crypto.PubkeyToAddress(newParticipantKey.PublicKey), eNode)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
-		})
+		}
 		return false, nil, nil
 	}
 
@@ -355,75 +300,47 @@ func TestMemberManagementAddNewParticipant(t *testing.T) {
 		return g
 	}
 
-	addParticipantCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validators["VA"].rpcPort))
+	addParticipantCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
+		contract, err := autonityInstance(validators["VA"].rpcPort)
 		if err != nil {
-			t.Fatal(err)
-		}
-		defer conn.Close()
-
-		contractAddress := autonity.ContractAddress
-		instance, err := NewAutonity(contractAddress, conn)
-		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
-		auth := bind.CallOpts{
-			Pending:     false,
-			From:        common.Address{},
-			BlockNumber: new(big.Int).SetUint64(validators["VA"].lastBlock),
-			Context:     context.Background(),
+		callOpt := contract.callOpts(validators["VA"].lastBlock)
+
+		whiteList, err := contract.GetWhitelist(callOpt)
+		if err != nil {
+			return err
 		}
 
-		// check node presented in white list.
-		eNode := enode.V4DNSUrl(newParticipantKey.PublicKey, "PN:8527", 8527, 8527)
-		whiteList, err := instance.GetWhitelist(&auth)
-		if err != nil {
-			t.Fatal(err)
-		}
-		whiteListed := false
-		for _, node := range whiteList {
-			if node == eNode {
-				whiteListed = true
-				break
-			}
-		}
+		assert.Contains(t, whiteList, eNode)
 
 		// check node role and its stake balance.
-		curNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
-		founded := false
+		found := false
 		for index, v := range curNetworkMetrics.Accounts {
 			if v == crypto.PubkeyToAddress(newParticipantKey.PublicKey) {
-				founded = true
-				if curNetworkMetrics.Stakes[index].Uint64() != 0 {
-					t.Fatal("new participant's stake is not expected")
-				}
-
-				if curNetworkMetrics.Usertypes[index] != 0 {
-					t.Fatal("new participant's user type is not expected")
-				}
-
+				found = true
+				assert.Equal(t, curNetworkMetrics.Stakes[index].Uint64(), uint64(0), "new participant's stake is not expected")
+				assert.Equal(t, int(curNetworkMetrics.Usertypes[index]), 0, "new participant's user type is not expected")
 				break
 			}
 		}
 
 		// compare the total stake supply before and after new node added.
-		auth.BlockNumber.SetUint64(3)
-		initNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		callOpt.BlockNumber.SetUint64(3)
+		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
-			t.Fatal(err)
-		}
-		if curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64() != 0 {
-			t.Fatal("stake total supply is not expected")
+			return err
 		}
 
-		if !whiteListed || !founded {
-			t.Fatal("new participant is not presented")
-		}
+		assert.Zero(t, curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64(), "stake total supply is not expected")
+		assert.True(t, found, "new participant is not presented")
+		return nil
 	}
 
 	testCase := &testCase{
@@ -444,7 +361,6 @@ func TestMemberManagementRemoveUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
-	once := sync.Once{}
 	// prepare chain operator
 	operatorKey, err := keygenerator.Next()
 	if err != nil {
@@ -460,17 +376,17 @@ func TestMemberManagementRemoveUser(t *testing.T) {
 		return g
 	}
 
-	removeUserCheckerHook := func(t *testing.T, validators map[string]*testNode) {
+	removeUserCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
 		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validators["VD"].rpcPort))
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		defer conn.Close()
 
 		contractAddress := autonity.ContractAddress
 		instance, err := NewAutonity(contractAddress, conn)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		auth := bind.CallOpts{
@@ -482,11 +398,12 @@ func TestMemberManagementRemoveUser(t *testing.T) {
 		validatorsList := validators["VD"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		isMember, err := instance.CheckMember(&auth, *validatorsList[0].Address)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		if isMember {
-			t.Fatal("Wrong membership for removed user")
+			return fmt.Errorf("wrong membership for removed user")
 		}
+		return nil
 	}
 
 	testCase := &testCase{
@@ -500,26 +417,23 @@ func TestMemberManagementRemoveUser(t *testing.T) {
 		finalAssert:          removeUserCheckerHook,
 	}
 	testCase.sendTransactionHooks["VD"] = func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-		once.Do(func() {
+		if validator.lastBlock == 4 {
 			contract, err := autonityInstance(validator.rpcPort)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 			defer contract.Close()
 			txOpt, err := contract.transactionOpts(operatorKey)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = contract.RemoveUser(txOpt, *validatorsList[0].Address)
 			if err != nil {
-				t.Fatal(err)
+				return true, nil, err
 			}
 			testCase.removedPeers[*validatorsList[0].Address] = validator.lastBlock
-		})
+		}
 		return false, nil, nil
 	}
 	runTest(t, testCase)
