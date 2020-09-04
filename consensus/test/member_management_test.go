@@ -2,6 +2,9 @@ package test
 
 import (
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/core"
@@ -11,8 +14,6 @@ import (
 	"github.com/clearmatics/autonity/params"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
 )
 
 /*
@@ -75,15 +76,7 @@ func TestMemberManagement(t *testing.T) {
 
 	addValidatorHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
-			defer contract.Close()
-			_, err = contract.AddValidator(txOpt, crypto.PubkeyToAddress(newNodePubKey), stakeBalance, eNode)
-			if err != nil {
-				return true, nil, err
-			}
+			return false, nil, interact(validator.rpcPort).tx(operatorKey).addValidator(crypto.PubkeyToAddress(newNodePubKey), stakeBalance, eNode)
 		}
 		return false, nil, nil
 	}
