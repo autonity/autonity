@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"net"
 	"os"
 	"strconv"
@@ -295,9 +296,7 @@ func runTest(t *testing.T, test *testCase) {
 	sendTransactions(t, test, nodes, test.txPerPeer, true, nodeNames)
 	if test.finalAssert != nil {
 		err := test.finalAssert(t, nodes)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 	}
 
 	// check topology
