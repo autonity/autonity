@@ -1,22 +1,17 @@
 package test
 
 import (
-	"context"
 	"fmt"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethclient"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math/big"
-	"strconv"
 	"testing"
 )
 
@@ -98,27 +93,16 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	addValidatorCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validators["VA"].rpcPort))
+		contract, err := autonityInstance(validators["VA"].rpcPort)
 		if err != nil {
 			return err
 		}
-		defer conn.Close()
+		defer contract.Close()
 
-		contractAddress := autonity.ContractAddress
-		instance, err := NewAutonity(contractAddress, conn)
-		if err != nil {
-			return err
-		}
-
-		auth := bind.CallOpts{
-			Pending:     false,
-			From:        common.Address{},
-			BlockNumber: new(big.Int).SetUint64(validators["VA"].lastBlock),
-			Context:     context.Background(),
-		}
+		callOpt := contract.callOpts(validators["VA"].lastBlock)
 
 		// check node presented in white list.
-		whiteList, err := instance.GetWhitelist(&auth)
+		whiteList, err := contract.GetWhitelist(callOpt)
 		if err != nil {
 			return err
 		}
@@ -126,7 +110,7 @@ func TestMemberManagement(t *testing.T) {
 		assert.Contains(t, whiteList, eNode, "eNode is not presented from member list")
 
 		// check node role and its stake balance.
-		curNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
 			return err
 		}
@@ -142,8 +126,8 @@ func TestMemberManagement(t *testing.T) {
 		}
 
 		// compare the total stake supply before and after new node added.
-		auth.BlockNumber.SetUint64(3)
-		initNetworkMetrics, err := instance.DumpEconomicsMetricData(&auth)
+		callOpt.BlockNumber.SetUint64(3)
+		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
 			return err
 		}
