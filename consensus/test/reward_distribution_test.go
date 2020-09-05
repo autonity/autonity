@@ -133,15 +133,11 @@ func TestRewardDistribution(t *testing.T) {
 			return true, nil, nil
 		}
 
-		contract, err := autonityInstance(validator.rpcPort)
+		contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
 		if err != nil {
 			return true, nil, err
 		}
 		defer contract.Close()
-		txOpt, err := contract.transactionOpts(operatorKey)
-		if err != nil {
-			return true, nil, err
-		}
 
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		index := validator.lastBlock % uint64(len(validatorsList))
@@ -157,16 +153,11 @@ func TestRewardDistribution(t *testing.T) {
 		if validator.lastBlock <= 3 {
 			return true, nil, nil
 		}
-
-		contract, err := autonityInstance(validator.rpcPort)
+		contract, txOpt, err := contractWriterContext(validator.rpcPort, validator.privateKey)
 		if err != nil {
 			return true, nil, err
 		}
 		defer contract.Close()
-		txOpt, err := contract.transactionOpts(validator.privateKey)
-		if err != nil {
-			return true, nil, err
-		}
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		to := validator.lastBlock % uint64(len(validatorsList))
 		tx, err := contract.Send(txOpt, *validatorsList[to].Address, new(big.Int).SetUint64(1))
@@ -182,15 +173,11 @@ func TestRewardDistribution(t *testing.T) {
 			return true, nil, nil
 		}
 
-		contract, err := autonityInstance(validator.rpcPort)
+		contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
 		if err != nil {
 			return true, nil, err
 		}
 		defer contract.Close()
-		txOpt, err := contract.transactionOpts(operatorKey)
-		if err != nil {
-			return true, nil, err
-		}
 
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		from := validator.lastBlock % uint64(len(validatorsList))

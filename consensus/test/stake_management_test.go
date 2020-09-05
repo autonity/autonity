@@ -38,16 +38,11 @@ func TestStakeManagement(t *testing.T) {
 	// mint stake hook
 	mintStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, err := autonityInstance(validator.rpcPort)
+			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
 			if err != nil {
 				return true, nil, err
 			}
 			defer contract.Close()
-
-			txOpt, err := contract.transactionOpts(operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
 
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = contract.MintStake(txOpt, *validatorsList[0].Address, stakeDelta)
@@ -60,16 +55,11 @@ func TestStakeManagement(t *testing.T) {
 
 	redeemStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, err := autonityInstance(validator.rpcPort)
+			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
 			if err != nil {
 				return true, nil, err
 			}
 			defer contract.Close()
-
-			txOpt, err := contract.transactionOpts(operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
 
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = contract.RedeemStake(txOpt, *validatorsList[0].Address, stakeDelta)
@@ -82,16 +72,12 @@ func TestStakeManagement(t *testing.T) {
 
 	sendStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, err := autonityInstance(validator.rpcPort)
+
+			contract, txOpt, err := contractWriterContext(validator.rpcPort, validator.privateKey)
 			if err != nil {
 				return true, nil, err
 			}
 			defer contract.Close()
-
-			txOpt, err := contract.transactionOpts(validator.privateKey)
-			if err != nil {
-				return true, nil, err
-			}
 
 			senderAddress := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
@@ -117,13 +103,13 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	stakeCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		contract, err := autonityInstance(validators["VA"].rpcPort)
+
+		contract, callOpt, err := contractReaderContext(validators["VA"].rpcPort, 3)
 		if err != nil {
 			return err
 		}
 		defer contract.Close()
 
-		callOpt := contract.callOpts(3)
 		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
 			return err
@@ -153,13 +139,11 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	stakeSendCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		contract, err := autonityInstance(validators["VA"].rpcPort)
+		contract, callOpt, err := contractReaderContext(validators["VA"].rpcPort, 3)
 		if err != nil {
 			return err
 		}
 		defer contract.Close()
-
-		callOpt := contract.callOpts(3)
 		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
 		if err != nil {
 			return err
