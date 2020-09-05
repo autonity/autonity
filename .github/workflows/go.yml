@@ -407,28 +407,16 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
 
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
 
       - name: Build
         run: make all
 
-      - name: Cache binary
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-bin
-        with:
-          path: /home/runner/work/autonity/autonity/build/bin
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
       - name: docker_e2e_test
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests
