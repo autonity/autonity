@@ -433,8 +433,8 @@ jobs:
       - name: docker_e2e_test
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests
 
-  # Builds the docker image. We don't intend to use the built image as part of
-  # a workflow, but we want to know the image can be built. We don't want to
+  # Tests the hello-world example, this indirectly ensures that the autonity
+  # docker image can be built since the hello-world example uses it.  We don't want to
   # use any cache here since we want a clean checkout before any code
   # generation has taken place.
   helloworld_tests:
