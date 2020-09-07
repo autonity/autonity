@@ -75,28 +75,14 @@ func TestMemberManagement(t *testing.T) {
 
 	addValidatorHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
-			defer contract.Close()
-			_, err = contract.AddValidator(txOpt, crypto.PubkeyToAddress(newNodePubKey), stakeBalance, eNode)
-			if err != nil {
-				return true, nil, err
-			}
+			return false, nil, interact(validator.rpcPort).tx(operatorKey).addValidator(crypto.PubkeyToAddress(newNodePubKey), stakeBalance, eNode)
 		}
 		return false, nil, nil
 	}
 
 	addValidatorCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		contract, callOpt, err := contractReaderContext(validators["VA"].rpcPort, validators["VA"].lastBlock)
-		if err != nil {
-			return err
-		}
-		defer contract.Close()
 
-		// check node presented in white list.
-		whiteList, err := contract.GetWhitelist(callOpt)
+		whiteList, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).getWhitelist()
 		if err != nil {
 			return err
 		}
@@ -104,7 +90,7 @@ func TestMemberManagement(t *testing.T) {
 		assert.Contains(t, whiteList, eNode, "eNode is not presented from member list")
 
 		// check node role and its stake balance.
-		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
+		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
 		if err != nil {
 			return err
 		}
@@ -120,8 +106,7 @@ func TestMemberManagement(t *testing.T) {
 		}
 
 		// compare the total stake supply before and after new node added.
-		callOpt.BlockNumber.SetUint64(3)
-		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
+		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
 		if err != nil {
 			return err
 		}
@@ -134,28 +119,14 @@ func TestMemberManagement(t *testing.T) {
 
 	addStakeHolderHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
-			defer contract.Close()
-			_, err = contract.AddStakeholder(txOpt, crypto.PubkeyToAddress(newNodePubKey), eNode, stakeBalance)
-			if err != nil {
-				return true, nil, err
-			}
+			return true, nil, interact(validator.rpcPort).tx(operatorKey).addStakeHolder(crypto.PubkeyToAddress(newNodePubKey), stakeBalance, eNode)
 		}
 		return false, nil, nil
 	}
 
 	addStakeHolderCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		contract, callOpt, err := contractReaderContext(validators["VA"].rpcPort, validators["VA"].lastBlock)
-		if err != nil {
-			return err
-		}
-		defer contract.Close()
 
-		// check node presented in white list.
-		whiteList, err := contract.GetWhitelist(callOpt)
+		whiteList, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).getWhitelist()
 		if err != nil {
 			return err
 		}
@@ -163,7 +134,7 @@ func TestMemberManagement(t *testing.T) {
 		assert.Contains(t, whiteList, eNode)
 
 		// check node role and its stake balance.
-		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
+		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
 		if err != nil {
 			return err
 		}
@@ -179,8 +150,7 @@ func TestMemberManagement(t *testing.T) {
 		}
 
 		// compare the total stake supply before and after new node added.
-		callOpt.BlockNumber.SetUint64(3)
-		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
+		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
 		if err != nil {
 			return err
 		}
@@ -193,28 +163,13 @@ func TestMemberManagement(t *testing.T) {
 
 	addParticipantHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
-			defer contract.Close()
-
-			_, err = contract.AddParticipant(txOpt, crypto.PubkeyToAddress(newNodePubKey), eNode)
-			if err != nil {
-				return true, nil, err
-			}
+			return true, nil, interact(validator.rpcPort).tx(operatorKey).addParticipant(crypto.PubkeyToAddress(newNodePubKey), eNode)
 		}
 		return false, nil, nil
 	}
 
 	addParticipantCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		contract, callOpt, err := contractReaderContext(validators["VA"].rpcPort, validators["VA"].lastBlock)
-		if err != nil {
-			return err
-		}
-		defer contract.Close()
-
-		whiteList, err := contract.GetWhitelist(callOpt)
+		whiteList, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).getWhitelist()
 		if err != nil {
 			return err
 		}
@@ -222,7 +177,7 @@ func TestMemberManagement(t *testing.T) {
 		assert.Contains(t, whiteList, eNode)
 
 		// check node role and its stake balance.
-		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
+		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
 		if err != nil {
 			return err
 		}
@@ -238,8 +193,7 @@ func TestMemberManagement(t *testing.T) {
 		}
 
 		// compare the total stake supply before and after new node added.
-		callOpt.BlockNumber.SetUint64(3)
-		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
+		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
 		if err != nil {
 			return err
 		}
@@ -251,26 +205,13 @@ func TestMemberManagement(t *testing.T) {
 
 	removeUserHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
-			defer contract.Close()
-			_, err = contract.RemoveUser(txOpt, addressToRemove)
-			if err != nil {
-				return true, nil, err
-			}
+			return true, nil, interact(validator.rpcPort).tx(operatorKey).removeUser(addressToRemove)
 		}
 		return false, nil, nil
 	}
 
 	removeUserCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		contract, callOpt, err := contractReaderContext(validators["VD"].rpcPort, validators["VD"].lastBlock)
-		if err != nil {
-			return err
-		}
-		defer contract.Close()
-		isMember, err := contract.CheckMember(callOpt, addressToRemove)
+		isMember, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).checkMember(addressToRemove)
 		if err != nil {
 			return err
 		}

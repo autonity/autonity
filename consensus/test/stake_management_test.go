@@ -38,57 +38,29 @@ func TestStakeManagement(t *testing.T) {
 	// mint stake hook
 	mintStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
-			defer contract.Close()
-
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-			_, err = contract.MintStake(txOpt, *validatorsList[0].Address, stakeDelta)
-			if err != nil {
-				return true, nil, err
-			}
+			return true, nil, interact(validator.rpcPort).tx(operatorKey).mintStake(*validatorsList[0].Address, stakeDelta)
 		}
 		return false, nil, nil
 	}
 
 	redeemStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
-			if err != nil {
-				return true, nil, err
-			}
-			defer contract.Close()
-
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-			_, err = contract.RedeemStake(txOpt, *validatorsList[0].Address, stakeDelta)
-			if err != nil {
-				return true, nil, err
-			}
+			return true, nil, interact(validator.rpcPort).tx(operatorKey).redeemStake(*validatorsList[0].Address, stakeDelta)
 		}
 		return false, nil, nil
 	}
 
 	sendStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-
-			contract, txOpt, err := contractWriterContext(validator.rpcPort, validator.privateKey)
-			if err != nil {
-				return true, nil, err
-			}
-			defer contract.Close()
-
 			senderAddress := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			toIndex := 0
 			if senderAddress == *validatorsList[toIndex].Address {
 				toIndex = 1
 			}
-			_, err = contract.Send(txOpt, *validatorsList[toIndex].Address, stakeDelta)
-			if err != nil {
-				return true, nil, err
-			}
+			return true, nil, interact(validator.rpcPort).tx(validator.privateKey).sendStake(*validatorsList[toIndex].Address, stakeDelta)
 		}
 		return false, nil, nil
 	}
@@ -104,19 +76,12 @@ func TestStakeManagement(t *testing.T) {
 
 	stakeCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
 
-		contract, callOpt, err := contractReaderContext(validators["VA"].rpcPort, 3)
-		if err != nil {
-			return err
-		}
-		defer contract.Close()
-
-		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
+		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
 		if err != nil {
 			return err
 		}
 
-		callOpt.BlockNumber.SetUint64(validators["VA"].lastBlock)
-		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
+		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
 		if err != nil {
 			return err
 		}
@@ -139,18 +104,13 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	stakeSendCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
-		contract, callOpt, err := contractReaderContext(validators["VA"].rpcPort, 3)
-		if err != nil {
-			return err
-		}
-		defer contract.Close()
-		initNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
+
+		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
 		if err != nil {
 			return err
 		}
 
-		callOpt.BlockNumber.SetUint64(validators["VA"].lastBlock)
-		curNetworkMetrics, err := contract.DumpEconomicsMetricData(callOpt)
+		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
 		if err != nil {
 			return err
 		}

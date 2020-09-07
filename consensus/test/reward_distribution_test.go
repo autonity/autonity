@@ -133,39 +133,19 @@ func TestRewardDistribution(t *testing.T) {
 			return true, nil, nil
 		}
 
-		contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
-		if err != nil {
-			return true, nil, err
-		}
-		defer contract.Close()
-
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		index := validator.lastBlock % uint64(len(validatorsList))
-		tx, err := contract.MintStake(txOpt, *validatorsList[index].Address, new(big.Int).SetUint64(100))
-		if err != nil {
-			return true, nil, err
-		}
-
-		return false, tx, nil
+		return true, nil, interact(validator.rpcPort).tx(operatorKey).mintStake(*validatorsList[index].Address, new(big.Int).SetUint64(100))
 	}
 	// send stake hook
 	transferStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock <= 3 {
 			return true, nil, nil
 		}
-		contract, txOpt, err := contractWriterContext(validator.rpcPort, validator.privateKey)
-		if err != nil {
-			return true, nil, err
-		}
-		defer contract.Close()
+
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		to := validator.lastBlock % uint64(len(validatorsList))
-		tx, err := contract.Send(txOpt, *validatorsList[to].Address, new(big.Int).SetUint64(1))
-		if err != nil {
-			return true, nil, err
-		}
-
-		return false, tx, nil
+		return true, nil, interact(validator.rpcPort).tx(validator.privateKey).sendStake(*validatorsList[to].Address, new(big.Int).SetUint64(1))
 	}
 	// redeem stake hook
 	redeemStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
@@ -173,19 +153,9 @@ func TestRewardDistribution(t *testing.T) {
 			return true, nil, nil
 		}
 
-		contract, txOpt, err := contractWriterContext(validator.rpcPort, operatorKey)
-		if err != nil {
-			return true, nil, err
-		}
-		defer contract.Close()
-
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		from := validator.lastBlock % uint64(len(validatorsList))
-		tx, err := contract.RedeemStake(txOpt, *validatorsList[from].Address, new(big.Int).SetUint64(1))
-		if err != nil {
-			return true, nil, err
-		}
-		return false, tx, nil
+		return true, nil, interact(validator.rpcPort).tx(operatorKey).redeemStake(*validatorsList[from].Address, new(big.Int).SetUint64(1))
 	}
 	// genesis hook
 	genesisHook := func(g *core.Genesis) *core.Genesis {
