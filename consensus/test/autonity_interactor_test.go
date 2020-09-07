@@ -96,7 +96,7 @@ func (i *interactor) tx(operatorKey *ecdsa.PrivateKey) *transactor {
 	return t
 }
 
-// call returns an caller through which we can call methods of the autonity
+// call returns a caller through which we can call methods of the autonity
 // contract.
 func (i *interactor) call(blockNumber uint64) *caller {
 	c := &caller{}
