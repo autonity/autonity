@@ -21,9 +21,9 @@ import (
 // use only.
 //
 // Example usages
-// err := autonityInstance(rpcPort).tx(senderKey).addValidator(address ,stake, enode)
+// err := interact(rpcPort).tx(senderKey).addValidator(address ,stake, enode)
 //
-// whitelist,err := autonityInstance(rpcPort).call(blockNumber).getWhitelist()
+// whitelist,err := interact(rpcPort).call(blockNumber).getWhitelist()
 func interact(rpcPort int) *interactor {
 	i := &interactor{}
 	client, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(rpcPort))
