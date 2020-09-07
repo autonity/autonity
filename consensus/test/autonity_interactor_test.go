@@ -65,7 +65,7 @@ func (i *interactor) close() {
 	}
 }
 
-// tx returns an transactor through which transactions can be executed.
+// tx returns a transactor through which transactions can be executed.
 func (i *interactor) tx(operatorKey *ecdsa.PrivateKey) *transactor {
 	t := &transactor{}
 	if i.err != nil {
