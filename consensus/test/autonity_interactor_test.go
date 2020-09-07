@@ -56,7 +56,7 @@ type interactor struct {
 }
 
 // close closes the underlying ethclient. Users of interacotor should not
-// need to call this directly becuase the call that finally interacts with the
+// need to call this directly because the call that finally interacts with the
 // autonity contract will call this.
 func (i *interactor) close() {
 	// in the case that Dial failed a.client could be nil
