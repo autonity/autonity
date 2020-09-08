@@ -335,6 +335,8 @@ func TestNewProposal(t *testing.T) {
 
 		err := c.handleCheckedMsg(context.Background(), invalidMsg, members[currentRound])
 		assert.Error(t, err, "expected an error for invalid proposal")
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
 		assert.Equal(t, prevote, c.step)
 	})
 	t.Run("receive proposal with validRound = -1 and client's lockedRound = -1", func(t *testing.T) {
@@ -364,7 +366,9 @@ func TestNewProposal(t *testing.T) {
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
 		assert.Equal(t, prevote, c.step)
 		assert.Nil(t, c.lockedValue)
 		assert.Equal(t, clientLockedRound, c.lockedRound)
@@ -397,7 +401,9 @@ func TestNewProposal(t *testing.T) {
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
 		assert.Equal(t, prevote, c.step)
 		assert.Equal(t, proposal.ProposalBlock, c.lockedValue)
 		assert.Equal(t, clientLockedRound, c.lockedRound)
@@ -433,7 +439,9 @@ func TestNewProposal(t *testing.T) {
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
 		assert.Equal(t, prevote, c.step)
 		assert.Equal(t, clientLockedValue, c.lockedValue)
 		assert.Equal(t, clientLockedRound, c.lockedRound)
@@ -484,7 +492,9 @@ func TestOldProposal(t *testing.T) {
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
 		assert.Equal(t, prevote, c.step)
 		assert.Nil(t, c.lockedValue)
 		assert.Equal(t, clientLockedRound, c.lockedRound)
@@ -523,7 +533,9 @@ func TestOldProposal(t *testing.T) {
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
 		assert.Equal(t, prevote, c.step)
 		assert.Equal(t, proposalValidRound+1, c.lockedRound)
 		assert.Equal(t, proposalValidRound+1, c.validRound)
@@ -563,12 +575,140 @@ func TestOldProposal(t *testing.T) {
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
 
 		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
 		assert.Equal(t, prevote, c.step)
 		assert.Equal(t, proposalValidRound+1, c.lockedRound)
 		assert.Equal(t, proposalValidRound+1, c.validRound)
 		assert.Equal(t, clientLockedValue, c.lockedValue)
 		assert.Equal(t, clientLockedValue, c.validValue)
+	})
+
+	// line 28 check upon condition on prevote handler.
+	/*
+		Please refer to the discussion history: https://github.com/clearmatics/autonity/pull/615
+		This test case validates the need for the upon condition defined in line 28 of the tendermint
+		white paper, which addresses the scenario laid out below.
+
+		Round 0:
+			Quorum clients sent precommit nil hence there was a round change
+		Round 1:
+			The proposer of round 1 had received quorum prevotes for the proposal of round 0, thus, the proposer of round 1
+		re-proposes the proposal with vr = 0, More than quorum of the network is yet to receive the prevotes from the
+		previous round, thus the are their lockedValue = nil and lockedRound = -1. The proposer of round 1 has a really good
+		connection with the rest of the network, thus it is able to send the proposal to its peers before they receive enough
+		prevotes from round 0 to form a quorum. Now the proposal received by the peers would only be able to satisfy line
+		28 of the Tendermint pseudo code, however, the prevotes from the previous round are yet to arrive. Since the
+		proposal of the current round has been received the timer would be stopped.
+
+		autonity/consensus/tendermint/core/propose.go, Lines 131 to 133 at 78f199d
+
+		 if err := c.proposeTimeout.stopTimer(); err != nil {
+		 	return err
+		 }
+
+		A quorum prevote for round 0 finally arrive, however, these will be added to message set and without
+		the existence of the line 28 upon condition nothing would happen, even though enough  messages
+		are present in the message set to send a prevote for the old proposal.
+
+		This was previously the case in:
+		autonity/consensus/tendermint/core/prevote.go, Lines 69 to 74 at 78f199d
+
+		 if err == errOldRoundMessage {
+		 	// We only process old rounds while future rounds messages are pushed on to the backlog
+		 	oldRoundMessages := c.messages.getOrCreate(preVote.Round)
+		 	c.acceptVote(oldRoundMessages, prevote, preVote.ProposedBlockHash, *msg)
+		 }
+		 return err
+
+		Without the line 28 upon condition the client is stuck since the timer has been stopped, thus a prevote nil
+		cannot be sent and the timer cannot be restarted until startRound() is called for a new round. The
+		resending of the message set will also not help because it would only send messages to peers which they
+		haven't seen and since there were no new messages the peers will not be able to make progress. This can
+		also happen where the client's lockedRound < vr, it cannot happen for lockedRound = vr because that means
+		the client had received enough prevote in a timely manner and there are no old prevote to arrive.
+
+		Therefore we had a liveness bug in implementations of Tendermint in commits prior to this one.
+	*/
+	t.Run("handle proposal before full quorum prevote on valid round is satisfied, exe action by applying old round prevote into round state", func(t *testing.T) {
+		clientIndex := len(members) - 1
+		clientAddr = members[clientIndex].Address
+
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+
+		// ensure the client is not the proposer for current round
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		for currentRound%int64(clientIndex) == 0 {
+			currentRound = int64(rand.Intn(committeeSizeAndMaxRound))
+		}
+
+		// vr >= 0 && vr < round_p
+		proposalValidRound := int64(rand.Intn(int(currentRound)))
+
+		// -1 <= c.lockedRound < vr, if the client lockedValue = vr then the client had received the prevotes in a
+		// timely manner thus there are no old prevote yet to arrive
+		clientLockedRound := int64(rand.Intn(int(proposalValidRound)) - 1)
+
+		// the new round proposal
+		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, proposalValidRound, members[currentRound].Address, false)
+
+		// old proposal some random block
+		clientLockedValue := generateBlock(currentHeight)
+
+		// the old round prevote msg to be handled to get the full quorum prevote on old round vr with value v.
+		prevoteMsg, _, _ := prepareVote(t, msgPrevote, proposalValidRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
+
+		// the expected prevote msg to be broadcast for the new round with <currentHeight, currentRound, proposal.ProposalBlock.Hash()>
+		prevoteMsgToBroadcast, prevoteMsgRLPNoSig, prevoteMsgRLPWithSig := prepareVote(t, msgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().Return(clientAddr)
+
+		c := New(backendMock, config.DefaultConfig())
+		c.setCommitteeSet(committeeSet)
+		// construct round state with: old round's quorum-1 prevote for v on valid round.
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.committeeSet().Quorum() - 1})
+
+		// client on new round's step propose.
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
+		c.setStep(propose)
+		c.lockedRound = clientLockedRound
+		c.validRound = clientLockedRound
+		c.lockedValue = clientLockedValue
+		c.validValue = clientLockedValue
+
+		//schedule the proposer timeout since the client is not the proposer for this round
+		c.proposeTimeout.scheduleTimeout(1*time.Second, c.Round(), c.Height(), c.onTimeoutPropose)
+
+		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
+		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsgToBroadcast.Signature, nil)
+		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), prevoteMsgRLPWithSig).Return(nil)
+
+		// now we handle new round's proposal with round_p > vr on value v.
+		err := c.handleCheckedMsg(context.Background(), proposalMsg, members[currentRound])
+		assert.NoError(t, err)
+
+		// check timer was stopped after receiving the proposal
+		assert.False(t, c.proposeTimeout.timerStarted())
+
+		// now we receive the last old round's prevote MSG to get quorum prevote on vr for value v.
+		// the old round's prevote is accepted into the round state which now have the line 28 condition satisfied.
+		// now to take the action of line 28 which was not align with pseudo code before.
+		sender := 0
+		err = c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
+		assert.NoError(t, err)
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
+		assert.Equal(t, prevote, c.step)
+		assert.Equal(t, clientLockedValue, c.lockedValue)
+		assert.Equal(t, clientLockedRound, c.lockedRound)
+		assert.Equal(t, clientLockedValue, c.validValue)
+		assert.Equal(t, clientLockedRound, c.validRound)
 	})
 }
 
@@ -603,12 +743,16 @@ func TestPrevoteTimeout(t *testing.T) {
 
 		assert.False(t, c.prevoteTimeout.timerStarted())
 		err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.True(t, c.prevoteTimeout.timerStarted())
 
 		// stop the timer to clean up
 		err = c.prevoteTimeout.stopTimer()
 		assert.NoError(t, err)
+
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
+		assert.Equal(t, prevote, c.step)
 	})
 	t.Run("prevote timeout is not started multiple times", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -636,19 +780,23 @@ func TestPrevoteTimeout(t *testing.T) {
 		assert.False(t, c.prevoteTimeout.timerStarted())
 
 		err := c.handleCheckedMsg(context.Background(), prevote1Msg, members[sender1])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.True(t, c.prevoteTimeout.timerStarted())
 
 		timeNow := time.Now()
 
 		err = c.handleCheckedMsg(context.Background(), prevote2Msg, members[sender2])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.True(t, c.prevoteTimeout.timerStarted())
 		assert.True(t, c.prevoteTimeout.start.Before(timeNow))
 
 		// stop the timer to clean up
 		err = c.prevoteTimeout.stopTimer()
 		assert.NoError(t, err)
+
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
+		assert.Equal(t, prevote, c.step)
 	})
 	t.Run("at prevote timeout expiry timeout event is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -670,6 +818,9 @@ func TestPrevoteTimeout(t *testing.T) {
 		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgPrevote})
 		c.prevoteTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
 		assert.True(t, c.prevoteTimeout.timerStarted())
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
+		assert.Equal(t, prevote, c.step)
 		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of prevote timeout event precommit nil is sent", func(t *testing.T) {
@@ -696,6 +847,8 @@ func TestPrevoteTimeout(t *testing.T) {
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), precommitMsgRLPWithSig).Return(nil)
 
 		c.handleTimeoutPrevote(context.Background(), timeoutE)
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
 		assert.Equal(t, precommit, c.step)
 	})
 }
@@ -740,7 +893,7 @@ func TestQuorumPrevote(t *testing.T) {
 			backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), precommitMsgRLPWithSig).Return(nil)
 
 			err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			assert.Equal(t, proposal.ProposalBlock, c.lockedValue)
 			assert.Equal(t, currentRound, c.lockedRound)
@@ -748,11 +901,13 @@ func TestQuorumPrevote(t *testing.T) {
 
 		} else if currentStep == precommit {
 			err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			assert.Equal(t, proposal.ProposalBlock, c.validValue)
 			assert.Equal(t, currentRound, c.validRound)
 		}
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
 	})
 
 	t.Run("receive more than quorum prevote for proposal block when in step >= prevote", func(t *testing.T) {
@@ -790,7 +945,7 @@ func TestQuorumPrevote(t *testing.T) {
 			backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), precommitMsgRLPWithSig).Return(nil)
 
 			err := c.handleCheckedMsg(context.Background(), prevoteMsg1, members[sender1])
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			assert.Equal(t, proposal.ProposalBlock, c.lockedValue)
 			assert.Equal(t, currentRound, c.lockedRound)
@@ -798,7 +953,7 @@ func TestQuorumPrevote(t *testing.T) {
 
 		} else if currentStep == precommit {
 			err := c.handleCheckedMsg(context.Background(), prevoteMsg1, members[sender1])
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			assert.Equal(t, proposal.ProposalBlock, c.validValue)
 			assert.Equal(t, currentRound, c.validRound)
@@ -811,8 +966,10 @@ func TestQuorumPrevote(t *testing.T) {
 		validRoundBefore := c.validRound
 
 		err := c.handleCheckedMsg(context.Background(), prevoteMsg2, members[sender2])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
 		assert.Equal(t, lockedValueBefore, c.lockedValue)
 		assert.Equal(t, validValueBefore, c.validValue)
 		assert.Equal(t, lockedRoundBefore, c.lockedRound)
@@ -853,8 +1010,10 @@ func TestQuorumPrevoteNil(t *testing.T) {
 	backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), precommitMsgRLPWithSig).Return(nil)
 
 	err := c.handleCheckedMsg(context.Background(), prevoteMsg, members[sender])
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
+	assert.Equal(t, currentHeight, c.Height())
+	assert.Equal(t, currentRound, c.Round())
 	assert.Equal(t, precommit, c.step)
 }
 
@@ -890,12 +1049,16 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		assert.False(t, c.precommitTimeout.timerStarted())
 		err := c.handleCheckedMsg(context.Background(), precommitMsg, members[sender])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.True(t, c.precommitTimeout.timerStarted())
 
 		// stop the timer to clean up
 		err = c.precommitTimeout.stopTimer()
 		assert.NoError(t, err)
+
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
+		assert.Equal(t, precommit, c.step)
 	})
 	t.Run("precommit timeout is not started multiple times", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -924,19 +1087,23 @@ func TestPrecommitTimeout(t *testing.T) {
 		assert.False(t, c.precommitTimeout.timerStarted())
 
 		err := c.handleCheckedMsg(context.Background(), precommit1Msg, members[sender1])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.True(t, c.precommitTimeout.timerStarted())
 
 		timeNow := time.Now()
 
 		err = c.handleCheckedMsg(context.Background(), precommit2Msg, members[sender2])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.True(t, c.precommitTimeout.timerStarted())
 		assert.True(t, c.precommitTimeout.start.Before(timeNow))
 
 		// stop the timer to clean up
 		err = c.precommitTimeout.stopTimer()
 		assert.NoError(t, err)
+
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
+		assert.Equal(t, precommit, c.step)
 	})
 	t.Run("at precommit timeout expiry timeout event is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -959,6 +1126,9 @@ func TestPrecommitTimeout(t *testing.T) {
 		backendMock.EXPECT().Post(TimeoutEvent{currentRound, currentHeight, msgPrecommit})
 		c.precommitTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		assert.True(t, c.precommitTimeout.timerStarted())
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
+		assert.Equal(t, precommit, c.step)
 		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of precommit timeout event next round will be started", func(t *testing.T) {
@@ -985,6 +1155,7 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		c.handleTimeoutPrecommit(context.Background(), timeoutE)
 
+		assert.Equal(t, currentHeight, c.Height())
 		assert.Equal(t, currentRound+1, c.Round())
 		assert.Equal(t, propose, c.step)
 
@@ -1031,10 +1202,10 @@ func TestQuorumPrecommit(t *testing.T) {
 	backendMock.EXPECT().Commit(proposal.ProposalBlock, currentRound, gomock.Any())
 
 	err := c.handleCheckedMsg(context.Background(), precommitMsg, members[sender])
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	newCommitteeSet, err := newRoundRobinSet(committeeSet.Committee(), members[currentRound].Address)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	backendMock.EXPECT().LastCommittedProposal().Return(proposal.ProposalBlock, members[currentRound].Address).MaxTimes(2)
 
 	// if the client is the next proposer
@@ -1144,9 +1315,9 @@ func TestFutureRoundChange(t *testing.T) {
 // The following tests are not specific to proposal messages but rather apply to all messages
 func TestHandleMessage(t *testing.T) {
 	key1, err := crypto.GenerateKey()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	key2, err := crypto.GenerateKey()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	key1PubAddr := crypto.PubkeyToAddress(key1.PublicKey)
 	key2PubAddr := crypto.PubkeyToAddress(key2.PublicKey)
@@ -1155,7 +1326,7 @@ func TestHandleMessage(t *testing.T) {
 		Address:     key1PubAddr,
 		VotingPower: big.NewInt(1),
 	}}, key1PubAddr)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	t.Run("message sender is not in the committee set", func(t *testing.T) {
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
@@ -1165,13 +1336,13 @@ func TestHandleMessage(t *testing.T) {
 		msg := &Message{Address: key2PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message1")}
 
 		msgRlpNoSig, err := msg.PayloadNoSig()
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), key2)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		msgRlpWithSig, err := msg.Payload()
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -1193,13 +1364,13 @@ func TestHandleMessage(t *testing.T) {
 		msg := &Message{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2")}
 
 		msgRlpNoSig, err := msg.PayloadNoSig()
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		msg.Signature, err = crypto.Sign(crypto.Keccak256(msgRlpNoSig), key1)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		msgRlpWithSig, err := msg.Payload()
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -1219,11 +1390,11 @@ func TestHandleMessage(t *testing.T) {
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
 		prevBlock := generateBlock(prevHeight)
 		sig, err := crypto.Sign(crypto.Keccak256([]byte("random bytes")), key1)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		msg := &Message{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2"), Signature: sig}
 		msgRlpWithSig, err := msg.Payload()
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -1243,17 +1414,17 @@ func TestHandleMessage(t *testing.T) {
 func prepareProposal(t *testing.T, currentRound int64, proposalHeight *big.Int, validR int64, proposalBlock *types.Block, clientAddress common.Address, privateKey *ecdsa.PrivateKey) (*Message, []byte, []byte) {
 	// prepare the proposal message
 	proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, validR, proposalBlock))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	proposalMsg := &Message{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, power: 1}
 	proposalMsgRLPNoSig, err := proposalMsg.PayloadNoSig()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	proposalMsg.Signature, err = sign(proposalMsgRLPNoSig, privateKey)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	proposalMsgRLPWithSig, err := proposalMsg.Payload()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	return proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig
 }
@@ -1261,20 +1432,20 @@ func prepareProposal(t *testing.T, currentRound int64, proposalHeight *big.Int, 
 func prepareVote(t *testing.T, step uint64, round int64, height *big.Int, blockHash common.Hash, clientAddr common.Address, privateKey *ecdsa.PrivateKey) (*Message, []byte, []byte) {
 	// prepare the proposal message
 	voteRLP, err := Encode(&Vote{Round: round, Height: height, ProposedBlockHash: blockHash})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	voteMsg := &Message{Code: step, Msg: voteRLP, Address: clientAddr, power: 1}
 	if step == msgPrecommit {
 		voteMsg.CommittedSeal, err = sign(PrepareCommittedSeal(blockHash, round, height), privateKey)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 	voteMsgRLPNoSig, err := voteMsg.PayloadNoSig()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	voteMsg.Signature, err = sign(voteMsgRLPNoSig, privateKey)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	voteMsgRLPWithSig, err := voteMsg.Payload()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	return voteMsg, voteMsgRLPNoSig, voteMsgRLPWithSig
 }
@@ -1295,14 +1466,14 @@ func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src comm
 	}
 	proposal := NewProposal(r, h, vr, block)
 	proposalRlp, err := Encode(proposal)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	msg := Message{Code: msgProposal, Msg: proposalRlp, Address: src}
 
 	var p Proposal
 	// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
 	err = msg.Decode(&p)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	return &msg, p
 }
@@ -1311,7 +1482,7 @@ func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src comm
 func prepareCommittee(t *testing.T, cSize int) (committee, addressKeyMap) {
 	committeeMembers, privateKeys := generateCommittee(cSize)
 	committeeSet, err := newRoundRobinSet(committeeMembers, committeeMembers[len(committeeMembers)-1].Address)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	return committeeSet, privateKeys
 }
 
