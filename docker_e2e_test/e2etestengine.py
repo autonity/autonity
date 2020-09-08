@@ -70,6 +70,7 @@ if __name__ == '__main__':
         try:
             # load test case view, and start testing one by one.
             test_set = conf.get_test_case_conf()
+            num_of_cases = len(test_set["playbook"]["testcases"])
             test_cases = copy.deepcopy(test_set["playbook"]["testcases"])
             if is_long_run is True:
                 num_of_cases = len(test_set["playbook"]["longcases"])
