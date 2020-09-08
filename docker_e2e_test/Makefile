@@ -9,6 +9,10 @@
 docker-e2e-tests: ./venv/bin/activate
 	. venv/bin/activate && sudo python3 test_via_docker.py ..
 
+# Run a long term testcase on docker e2e test framework.
+long-term-e2e-tests: ./venv/bin/activate
+	. venv/bin/activate && sudo python3 test_via_docker.py .. -l True
+
 # Creates venv if not present and then installs dependencies. Executes only if
 # requirements_docker_test.txt has been updated since the last time it ran.
 #

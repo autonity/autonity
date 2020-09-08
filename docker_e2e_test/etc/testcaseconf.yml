@@ -616,3 +616,25 @@ playbook:
       output:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: true # false means consensus engine should on-hold.
+  longcases:
+    - name: "long run for 7 days"
+      condition:
+        crashNodes: [2, 3] # contain the node domain name we want to crash.
+        scenario:
+          - delay: 3600 # stop node 2, and node 3 in 1 hour later.
+            action: "stop"
+            target: [2, 3] # select candidates from crashNodes.
+          - delay: 172800 # 2 days latter, recovery node 2 to get it synced again.
+            action: "start"
+            target: [2] # select candidates from crashNodes.
+          - delay: 345600 # 4 days latter, recovery node 3 to get it synced again.
+            action: "start"
+            target: [3] # select candidates from crashNodes.
+      input:
+        duration: 604800 # 3600 * 24 * 7 seconds, the transaction sending duration.
+        senderNode: 0  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address will be used as default receiver address.
+        amountperTX: 5 # 5 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.

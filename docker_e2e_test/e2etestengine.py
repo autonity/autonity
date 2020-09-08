@@ -7,6 +7,7 @@ from testcase.testcase import TestCase
 from planner.networkplanner import NetworkPlanner
 from client.client import Client
 import time
+import copy
 
 LG = log.get_logger()
 
@@ -21,16 +22,19 @@ if __name__ == '__main__':
     parser.add_argument("autonity", help='Autonity Binary Path')
     parser.add_argument("-d", help='Start deploy remote network with brand new configurations.', type=bool, default=True)
     parser.add_argument("-t", help='Start test remote network.', type=bool, default=True)
+    parser.add_argument("-l", help='Start and run a long run test.', type=bool, default=False)
     args = parser.parse_args()
 
     is_deploy = args.d
     is_testing = args.t
+    is_long_run = args.l
     autonity_path = args.autonity
 
     conf.load_project_conf()
     network_planner = None
-    passed_testcases = []
-    failed_testcases = []
+    passed_test_cases = []
+    failed_test_cases = []
+    test_cases = []
 
     exit_code = 0
     num_of_cases = 0
@@ -66,25 +70,26 @@ if __name__ == '__main__':
         try:
             # load test case view, and start testing one by one.
             test_set = conf.get_test_case_conf()
-            num_of_cases = len(test_set["playbook"]["testcases"])
-            for test_case in test_set["playbook"]["testcases"]:
+            test_cases = copy.deepcopy(test_set["playbook"]["testcases"])
+            if is_long_run is True:
+                num_of_cases = len(test_set["playbook"]["longcases"])
+                test_cases = copy.deepcopy(test_set["playbook"]["longcases"])
+            for test_case in test_cases:
                 playbook = conf.get_test_case_conf()
                 if playbook["playbook"]["stop"] is True:
                     LG.info("Playbook is stopped by user configuration: testcaseconf.yml/playbook/stop: true.")
                     break
                 test = TestCase(test_case, clients)
-                LG.debug("")
-                LG.debug("")
+                LG.debug("\n\n\n")
                 LG.info("start test case: %s", test_case)
-                LG.debug("")
-                LG.debug("")
+                LG.debug("\n\n\n")
                 result = test.start_test()
                 if result is True:
                     LG.info('TEST CASE PASSED: %s', test_case)
-                    passed_testcases.append(test_case)
+                    passed_test_cases.append(test_case)
                 if result is False:
                     LG.error('TEST CASE FAILED: %s', test_case)
-                    failed_testcases.append(test_case)
+                    failed_test_cases.append(test_case)
 
         except (KeyError, TypeError) as e:
             LG.error("Wrong configuration. %s", e)
@@ -94,21 +99,21 @@ if __name__ == '__main__':
             exit_code = 1
 
     # generate an overview of the test report.
-    if len(passed_testcases) == num_of_cases:
+    if len(passed_test_cases) == num_of_cases:
         LG.info("[TEST PASSED]")
 
-    LG.info("[PASS] %d/%d cases were passed.", len(passed_testcases), num_of_cases)
-    for case in passed_testcases:
+    LG.info("[PASS] %d/%d cases were passed.", len(passed_test_cases), num_of_cases)
+    for case in passed_test_cases:
         LG.info("[PASS] %s", case["name"])
 
-    if len(failed_testcases) > 0:
+    if len(failed_test_cases) > 0:
         exit_code = 1
         LG.info("[TEST FAILED]")
-        LG.info("[FAILED] %d/%d cases were failed.", len(failed_testcases), num_of_cases)
-        for case in failed_testcases:
+        LG.info("[FAILED] %d/%d cases were failed.", len(failed_test_cases), num_of_cases)
+        for case in failed_test_cases:
             LG.info("[ERROR] %s", case["name"])
 
-        for i in range(0, len(failed_testcases)):
+        for i in range(0, len(failed_test_cases)):
             LG.info("Log collecting...")
             time.sleep(180)
 
