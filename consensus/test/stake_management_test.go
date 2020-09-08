@@ -8,6 +8,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 )
@@ -74,17 +75,13 @@ func TestStakeManagement(t *testing.T) {
 		return g
 	}
 
-	stakeCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
+	stakeCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 
 		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 
 		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 		validatorsList := validators["VA"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		// check account stake balance.
 		found := false
@@ -100,20 +97,15 @@ func TestStakeManagement(t *testing.T) {
 			}
 		}
 		assert.True(t, found, "cannot find wanted account from chain DB")
-		return nil
 	}
 
-	stakeSendCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
+	stakeSendCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 
 		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 
 		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 
 		validatorsList := validators["VA"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		senderAddr := crypto.PubkeyToAddress(validators["VA"].privateKey.PublicKey)
@@ -150,7 +142,6 @@ func TestStakeManagement(t *testing.T) {
 		assert.Equal(t, senderPassed, true, "sender stake balance checking failed")
 		assert.Equal(t, receiverPassed, true, "receiver stake balance checking failed")
 		assert.Equal(t, initNetworkMetrics.Stakesupply.Uint64(), curNetworkMetrics.Stakesupply.Uint64(), "total stake supply is not expected")
-		return nil
 	}
 
 	testCases := []*testCase{

@@ -254,7 +254,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 			}
 			return g
 		},
-		finalAssert: func(t *testing.T, validators map[string]*testNode) error {
+		finalAssert: func(t *testing.T, validators map[string]*testNode) {
 			validatorUsers := validators["VE"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			validatorsListGenesis := []string{}
 			for i := range validatorUsers {
@@ -263,14 +263,14 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 
 			stateDB, err := validators["VE"].service.BlockChain().State()
 			if err != nil {
-				return err
+				t.Fatal(err)
 			}
 			validatorList, err := validators["VE"].service.BlockChain().GetAutonityContract().GetCommittee(
 				validators["VE"].service.BlockChain().CurrentHeader(),
 				stateDB,
 			)
 			if err != nil {
-				return err
+				t.Fatal(err)
 			}
 			validatorListStr := []string{}
 			for _, v := range validatorList {
@@ -280,7 +280,6 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 			if len(validatorsListGenesis) <= len(validatorListStr) {
 				t.Fatal("Incorrect validator list")
 			}
-			return nil
 		},
 	}
 	testCase.sendTransactionHooks["VD"] = func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint

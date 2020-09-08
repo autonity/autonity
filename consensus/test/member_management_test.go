@@ -80,20 +80,16 @@ func TestMemberManagement(t *testing.T) {
 		return false, nil, nil
 	}
 
-	addValidatorCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
+	addValidatorCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 
 		whiteList, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).getWhitelist()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 
 		assert.Contains(t, whiteList, eNode, "eNode is not presented from member list")
 
 		// check node role and its stake balance.
 		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 
 		found := false
 		for index, v := range curNetworkMetrics.Accounts {
@@ -107,14 +103,11 @@ func TestMemberManagement(t *testing.T) {
 
 		// compare the total stake supply before and after new node added.
 		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 
 		b := curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64()
 		assert.Equal(t, b, stakeBalance.Uint64(), "stake total supply is not expected")
 		assert.True(t, found, "new validator is not presented")
-		return nil
 	}
 
 	addStakeHolderHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
@@ -124,20 +117,15 @@ func TestMemberManagement(t *testing.T) {
 		return false, nil, nil
 	}
 
-	addStakeHolderCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
+	addStakeHolderCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 
 		whiteList, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).getWhitelist()
-		if err != nil {
-			return err
-		}
-
+		require.NoError(t, err)
 		assert.Contains(t, whiteList, eNode)
 
 		// check node role and its stake balance.
 		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 
 		found := false
 		for index, v := range curNetworkMetrics.Accounts {
@@ -151,14 +139,11 @@ func TestMemberManagement(t *testing.T) {
 
 		// compare the total stake supply before and after new node added.
 		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 
 		b := curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64()
 		assert.Equal(t, b, stakeBalance.Uint64(), "stake total supply is not expected")
 		assert.True(t, found, "new stakeholder is not presented")
-		return nil
 	}
 
 	addParticipantHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
@@ -168,19 +153,14 @@ func TestMemberManagement(t *testing.T) {
 		return false, nil, nil
 	}
 
-	addParticipantCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
+	addParticipantCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 		whiteList, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).getWhitelist()
-		if err != nil {
-			return err
-		}
-
+		require.NoError(t, err)
 		assert.Contains(t, whiteList, eNode)
 
 		// check node role and its stake balance.
 		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 
 		found := false
 		for index, v := range curNetworkMetrics.Accounts {
@@ -194,13 +174,10 @@ func TestMemberManagement(t *testing.T) {
 
 		// compare the total stake supply before and after new node added.
 		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 
 		assert.Zero(t, curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64(), "stake total supply is not expected")
 		assert.True(t, found, "new participant is not presented")
-		return nil
 	}
 
 	removeUserHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
@@ -210,15 +187,10 @@ func TestMemberManagement(t *testing.T) {
 		return false, nil, nil
 	}
 
-	removeUserCheckerHook := func(t *testing.T, validators map[string]*testNode) error {
+	removeUserCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 		isMember, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).checkMember(addressToRemove)
-		if err != nil {
-			return err
-		}
-		if isMember {
-			return fmt.Errorf("wrong membership for removed user")
-		}
-		return nil
+		require.NoError(t, err)
+		assert.False(t, isMember, "wrong membership for removed user")
 	}
 
 	// set up of hooks, which should be refactored since they share virtually the same code

@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"net"
 	"os"
 	"strconv"
@@ -57,7 +56,7 @@ type testCase struct {
 	beforeHooks          map[string]hook        //map[validatorIndex]beforeHook
 	afterHooks           map[string]hook        //map[validatorIndex]afterHook
 	sendTransactionHooks map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)
-	finalAssert          func(t *testing.T, validators map[string]*testNode) error
+	finalAssert          func(t *testing.T, validators map[string]*testNode)
 	stopTime             map[string]time.Time
 	genesisHook          func(g *core.Genesis) *core.Genesis
 	mu                   sync.RWMutex
@@ -295,8 +294,7 @@ func runTest(t *testing.T, test *testCase) {
 	// each peer sends one tx per block
 	sendTransactions(t, test, nodes, test.txPerPeer, true, nodeNames)
 	if test.finalAssert != nil {
-		err := test.finalAssert(t, nodes)
-		assert.NoError(t, err)
+		test.finalAssert(t, nodes)
 	}
 
 	// check topology
