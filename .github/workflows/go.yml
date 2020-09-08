@@ -456,7 +456,7 @@ jobs:
   long_term_e2e_test:
     needs: bootstrap-checkout
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/ci_long_run_docker_test'
     steps:
       - name: Set up Go
         uses: actions/setup-go@v1
