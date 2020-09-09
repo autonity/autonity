@@ -143,12 +143,14 @@ func totalVotePower(voteMsgHashes map[uint64]map[int64]map[common.Address]common
 // }
 
 func (m *messageCache) prevoteQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
-	msgType := &uint8(msgPrevote)
+	msgType := new(consensusMessageType)
+	*msgType = consensusMessageType(msgPrevote)
 	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
 }
 
 func (m *messageCache) precommitQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
-	msgType := &uint8(msgPrecommit)
+	msgType := new(consensusMessageType)
+	*msgType = consensusMessageType(msgPrecommit)
 	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
 }
 
@@ -290,21 +292,21 @@ func (m *messageCache) votePower(
 }
 
 func addMsgHash(
-	hashes map[uint64]map[int64]map[common.Address]common.Hash,
+	hashes map[uint64]map[int64]map[consensusMessageType]map[common.Address]common.Hash,
 	height uint64,
 	round int64,
-	msgType uint8,
+	msgType consensusMessageType,
 	address common.Address,
 	hash common.Hash,
 ) error {
 	// todo check bounds
 	roundMap, ok := hashes[height]
 	if !ok {
-		roundMap = make(map[int64]map[uint8]map[common.Address]common.Hash)
+		roundMap = make(map[int64]map[consensusMessageType]map[common.Address]common.Hash)
 	}
 	msgTypeMap, ok := roundMap[round]
 	if !ok {
-		msgTypeMap = make(map[uint8]map[common.Address]common.Hash)
+		msgTypeMap = make(map[consensusMessageType]map[common.Address]common.Hash)
 	}
 	addressMap, ok := msgTypeMap[msgType]
 	if !ok {
@@ -357,7 +359,7 @@ func (m *messageCache) roundMessages(height uint64, round int64, p messageProces
 }
 
 func (m *messageCache) proposal(height uint64, round int64, proposer common.Address) *consensusMessage {
-	return m.msgHashes[height][round][consensusMessageType(msgProposal)][proposer]
+	return m.consensusMsgs[m.msgHashes[height][round][consensusMessageType(msgProposal)][proposer]]
 }
 
 func (m *messageCache) matchingProposal(cm *consensusMessage) *consensusMessage {
