@@ -92,9 +92,6 @@ test-contracts:
 	@npm list truffle > /dev/null || npm install truffle
 	@npm list web3 > /dev/null || npm install web3
 	@cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
-	@# Autonity can take some time to start listening on port 8545 so we allow multiple connection attempts.
-	sleep 10;
-
 	@cd contracts/autonity/contract/ && $(NPMBIN)/truffle test && cd -
 
 mock-gen:
