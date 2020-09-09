@@ -132,15 +132,15 @@ func totalVotePower(voteMsgHashes map[uint64]map[int64]map[common.Address]common
 	return total
 }
 
-// func (m *messageCache) signatures(valueHash common.Hash, round int64, height uint64) [][]byte {
-// 	var sigs [][]byte
-// 	for _, msgHash := range m.precommitMsgHashes[height][round] {
-// 		if valueHash == m.msgHashToPrecommit[msgHash].ProposedBlockHash {
-// 			sigs = append(sigs, m.rawMessages[msgHash].CommittedSeal)
-// 		}
-// 	}
-// 	return sigs
-// }
+func (m *messageCache) signatures(valueHash common.Hash, round int64, height uint64) [][]byte {
+	var sigs [][]byte
+	for _, msgHash := range m.msgHashes[height][round][consensusMessageType(msgPrecommit)] {
+		if valueHash == m.rawMessages[msgHash].decodedMsg.ProposedValueHash() {
+			sigs = append(sigs, m.rawMessages[msgHash].CommittedSeal)
+		}
+	}
+	return sigs
+}
 
 func (m *messageCache) prevoteQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
 	msgType := new(consensusMessageType)

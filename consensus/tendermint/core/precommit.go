@@ -36,7 +36,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	if isNil {
 		precommit.ProposedBlockHash = common.Hash{}
 	} else {
-		hash := c.msgCache.proposal(c.Height().Uint64(), c.Round(), c.committee.GetProposer(c.Round()).Address).ProposedValueHash()
+		hash := c.msgCache.proposal(c.Height().Uint64(), c.Round(), c.committee.GetProposer(c.Round()).Address).value
 		if hash == (common.Hash{}) {
 			c.logger.Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
@@ -68,56 +68,6 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 
 	c.sentPrecommit = true
 	c.broadcast(ctx, msg)
-}
-
-func (c *core) handlePrecommit(ctx context.Context, preCommit *Vote, header *types.Header) error {
-	if preCommit.Round > c.Round() {
-		// If it's a future round precommit leave it.
-		return nil
-	}
-
-	proposal := c.msgCache.proposal(preCommit.Height.Uint64(), preCommit.Round, c.committee.GetProposer(preCommit.Round).Address)
-	proposalHash := proposal.ProposedValueHash()
-
-	if preCommit.Round < c.Round() {
-		if proposalHash != (common.Hash{}) && c.msgCache.precommitPower(proposalHash, proposal.Round, header) >= c.committeeSet().Quorum() {
-			c.logger.Info("Quorum on a old round proposal", "round",
-				preCommit.Round)
-			if c.msgCache.proposalVerified(proposalHash) {
-				c.commit(proposal)
-			}
-			return nil
-		}
-	}
-
-	// At this point we know we have a precommit that has the same height and
-	// round as core. We don't know if it is a vote for the proposal we looked
-	// up though.
-
-	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
-
-	if proposalHash != (common.Hash{}) && c.msgCache.precommitPower(proposalHash, proposal.Round, header) >= c.committeeSet().Quorum() {
-		if err := c.precommitTimeout.stopTimer(); err != nil {
-			return err
-		}
-		c.logger.Debug("Stopped Scheduled Precommit Timeout")
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			c.commit(proposal)
-		}
-
-		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.timerStarted() && c.msgCache.totalPrecommitPower(proposal.Round, header) >= c.committeeSet().Quorum() {
-		timeoutDuration := c.timeoutPrecommit(proposal.Round)
-		c.precommitTimeout.scheduleTimeout(timeoutDuration, proposal.Round, proposal.Height, c.onTimeoutPrecommit)
-		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
-	}
-
-	return nil
 }
 
 func (c *core) verifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error {
@@ -152,7 +102,6 @@ func (c *core) handleCommit(ctx context.Context) {
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to string) {
-	currentProposalHash := c.msgCache.proposal(precommit.Height.Uint64(), precommit.Round, c.committee.GetProposer(precommit.Round).Address).ProposedValueHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
@@ -166,8 +115,5 @@ func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to
 		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
 		"hash", precommit.ProposedBlockHash,
 		"type", "Precommit",
-		"totalVotes", c.msgCache.totalPrecommitPower(precommit.Round, c.lastHeader),
-		"totalNilVotes", c.msgCache.precommitPower(common.Hash{}, precommit.Round, c.lastHeader),
-		"VoteProposedBlock", c.msgCache.precommitPower(currentProposalHash, precommit.Round, c.lastHeader),
 	)
 }

@@ -146,11 +146,6 @@ eventLoop:
 					continue
 				}
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
-			case proposalEvent:
-				err := c.handleProposal(ctx, e.proposal)
-				if err != nil {
-					c.logger.Debug("core.mainEventLoop handleProposal message failed", "err", err)
-				}
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {

@@ -18,16 +18,10 @@ package core
 
 import (
 	"context"
-	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/types"
 )
-
-type proposalEvent struct {
-	proposal *Proposal
-}
 
 func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 	logger := c.logger.New("step", c.step)
@@ -53,82 +47,6 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 			CommittedSeal: []byte{},
 		})
 	}
-}
-
-func (c *core) handleProposal(ctx context.Context, proposal *Proposal) error {
-	if proposal.Round > c.Round() {
-		// If it's a future round proposal, the only upon condition
-		// that can be triggered is L49, but this requires more than F future round messages
-		// meaning that a future roundchange will happen before, as such, pushing the
-		// message to the backlog is fine.
-		return nil
-	}
-
-	if proposal.Round < c.Round() {
-		// If this is an old round message we potentially may be able to
-		// commit, in the case that we have enough precommits for this
-		// proposal.
-		if c.msgCache.precommitPower(proposal.ProposalBlock.Hash(), proposal.Round, c.lastHeader) >= c.committeeSet().Quorum() {
-			if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
-				return error
-			}
-			c.logger.Debug("Committing old round proposal")
-			c.commit(proposal)
-			return nil
-		}
-	}
-
-	// Verify the proposal we received
-	if duration, err := c.backend.VerifyProposal(*proposal.ProposalBlock); err != nil {
-
-		if timeoutErr := c.proposeTimeout.stopTimer(); timeoutErr != nil {
-			return timeoutErr
-		}
-		// if it's a future block, we will handle it again after the duration
-		// TODO: implement wiggle time / median time
-		if err == consensus.ErrFutureBlock {
-			c.stopFutureProposalTimer()
-			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				c.sendEvent(proposalEvent{proposal})
-			})
-		}
-		c.sendPrevote(ctx, true)
-		// do not to accept another proposal in current round
-		c.setStep(prevote)
-
-		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
-
-		return err
-	}
-
-	// Here is about to accept the Proposal
-	if c.step == propose {
-		if err := c.proposeTimeout.stopTimer(); err != nil {
-			return err
-		}
-
-		vr := proposal.ValidRound
-		h := proposal.ProposalBlock.Hash()
-
-		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
-		if vr == -1 {
-			// When lockedRound is set to any value other than -1 lockedValue is also
-			// set to a non nil value. So we can be sure that we will only try to access
-			// lockedValue when it is non nil.
-			c.sendPrevote(ctx, !(c.lockedRound == -1 || h == c.lockedValue.Hash()))
-			c.setStep(prevote)
-			return nil
-		}
-
-		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
-		// vr >= 0 here
-		if vr < proposal.Round && c.msgCache.prevotePower(h, proposal.Round, c.lastHeader) >= c.committeeSet().Quorum() {
-			c.sendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
-			c.setStep(prevote)
-		}
-	}
-
-	return nil
 }
 
 func (c *core) stopFutureProposalTimer() {
