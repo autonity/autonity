@@ -26,7 +26,6 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/contracts/autonity"
-	"github.com/clearmatics/autonity/core/types"
 	autonitycrypto "github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -71,7 +70,7 @@ func (c *core) Stop() {
 }
 
 func (c *core) subscribeEvents() {
-	s := c.backend.Subscribe(events.MessageEvent{}, backlogEvent{})
+	s := c.backend.Subscribe(events.MessageEvent{})
 	c.messageEventSub = s
 
 	s1 := c.backend.Subscribe(events.NewUnminedBlockEvent{})
@@ -291,7 +290,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 
 		err = c.msgCache.addMessage(m, conMsg)
 		if err != nil {
-			// could be multipe proposal messages from the same proposer
+			// could be multiple proposal messages from the same proposer
 			return err
 		}
 		c.msgCache.addValue(valueHash, proposal.ProposalBlock)
@@ -310,7 +309,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 
 		err = c.msgCache.addMessage(m, conMsg)
 		if err != nil {
-			// could be multipe precommits from same validator
+			// could be multiple precommits from same validator
 			return err
 		}
 	case msgPrecommit:
@@ -337,7 +336,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 
 		err = c.msgCache.addMessage(m, conMsg)
 		if err != nil {
-			// could be multipe precommits from same validator
+			// could be multiple precommits from same validator
 			return err
 		}
 	default:
@@ -530,27 +529,4 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 		// StartRound(cm.round)
 	}
 
-}
-
-func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) {
-	// Decoding functions can't fail here
-	msgRound, err := msg.Round()
-	if err != nil {
-		c.logger.Error("handleFutureRoundMsg msgRound", "err", err)
-		return
-	}
-	if _, ok := c.futureRoundChange[msgRound]; !ok {
-		c.futureRoundChange[msgRound] = make(map[common.Address]uint64)
-	}
-	c.futureRoundChange[msgRound][sender.Address] = sender.VotingPower.Uint64()
-
-	var totalFutureRoundMessagesPower uint64
-	for _, power := range c.futureRoundChange[msgRound] {
-		totalFutureRoundMessagesPower += power
-	}
-
-	if totalFutureRoundMessagesPower > c.committeeSet().F() {
-		c.logger.Info("Received ceil(N/3) - 1 messages power for higher round", "New round", msgRound)
-		c.startRound(ctx, msgRound)
-	}
 }

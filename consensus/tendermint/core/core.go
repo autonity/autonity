@@ -45,8 +45,6 @@ var (
 	// errOldHeightMessage is returned when the received message's view is earlier
 	// than curRoundMessages view.
 	errOldHeightMessage = errors.New("old height message")
-	// errOldRoundMessage message is returned when message is of the same Height but form a smaller round
-	errOldRoundMessage = errors.New("same height but old round message")
 	// errFutureRoundMessage message is returned when message is of the same Height but form a newer round
 	errFutureRoundMessage = errors.New("same height but future round message")
 	// errFutureStepMessage message is returned when it's a prevote or precommit message of the same Height same round
@@ -62,8 +60,6 @@ var (
 	errFailedDecodePrevote = errors.New("failed to decode PREVOTE")
 	// errFailedDecodePrecommit is returned when the PRECOMMIT message is malformed.
 	errFailedDecodePrecommit = errors.New("failed to decode PRECOMMIT")
-	// errFailedDecodeVote is returned for when PREVOTE or PRECOMMIT is malformed.
-	errFailedDecodeVote = errors.New("failed to decode vote")
 	// errNilPrevoteSent is returned when timer could be stopped in time
 	errNilPrevoteSent = errors.New("timer expired and nil prevote sent")
 	// errNilPrecommitSent is returned when timer could be stopped in time
@@ -86,7 +82,6 @@ func New(backend Backend, config *config.Config) *core {
 		address:               addr,
 		logger:                logger,
 		backend:               backend,
-		backlogs:              make(map[types.CommitteeMember][]*Message),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
@@ -118,9 +113,7 @@ type core struct {
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
 
-	msgCache   *messageCache
-	backlogs   map[types.CommitteeMember][]*Message
-	backlogsMu sync.Mutex
+	msgCache *messageCache
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
 	pendingUnminedBlocksMu   sync.Mutex
@@ -338,7 +331,7 @@ func (c *core) setStep(step Step) {
 	// Hmm thinking about reprocessing now.
 	//
 	// If we have changed step to propose then the only 2 upon checks which
-	// have now, become acceissible are both rely on a proposal message, so by
+	// have now, become accessible are both rely on a proposal message, so by
 	// reprocessing the proposal message we can ensure that we hit all relevant checks.
 	//
 	//
@@ -411,16 +404,17 @@ func (c *core) setStep(step Step) {
 	// that were not accessible with step prevote or propose and are now
 	// accessible with step precommit. There are no checks that require a step
 	// of precommit, any relevant checks would have already triggered as soon
-	// as messages were recived in the propose or prevote steps, so nothing
+	// as messages were received in the propose or prevote steps, so nothing
 	// needs to be re-processed.
 	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
 	c.step = step
 	switch step {
+	// TODO the reprocessing
 	case propose:
-		c.msgCache.roundMessages(c.height.Uint64(), c.round, c.reprocessConsensusMessage)
+		err := c.msgCache.roundMessages(c.height.Uint64(), c.round, c.reprocessConsensusMessage)
+		println(err)
 	case prevote:
 	}
-	c.processBacklog()
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash

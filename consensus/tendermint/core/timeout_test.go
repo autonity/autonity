@@ -68,15 +68,11 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		committeeSet, _ := newTestCommitteeSetWithKeys(4)
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(1)
 		mockBackend := NewMockBackend(ctrl)
 		engine := core{
 			logger:           logger,
 			backend:          mockBackend,
 			address:          currentValidator.Address,
-			curRoundMessages: curRoundMessages,
-			messages:         messages,
 			round:            1,
 			height:           big.NewInt(2),
 			committee:        committeeSet,
@@ -128,16 +124,12 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		committeeSet, _ := newTestCommitteeSetWithKeys(4)
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(1)
 		mockBackend := NewMockBackend(ctrl)
 		mockBackend.EXPECT().Post(gomock.Any()).AnyTimes()
 		engine := core{
 			logger:           logger,
 			backend:          mockBackend,
 			address:          currentValidator.Address,
-			curRoundMessages: curRoundMessages,
-			messages:         messages,
 			step:             prevote,
 			round:            1,
 			height:           big.NewInt(2),
@@ -169,16 +161,12 @@ func TestOnTimeoutPrevote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockBackend := NewMockBackend(ctrl)
-	messages := newMessagesMap()
-	curRoundMessages := messages.getOrCreate(2)
 	engine := core{
-		backend:          mockBackend,
-		logger:           log.New("backend", "test", "id", 0),
-		round:            2,
-		height:           big.NewInt(4),
-		curRoundMessages: curRoundMessages,
-		messages:         messages,
-		step:             prevote,
+		backend: mockBackend,
+		logger:  log.New("backend", "test", "id", 0),
+		round:   2,
+		height:  big.NewInt(4),
+		step:    prevote,
 	}
 	mockBackend.EXPECT().Post(gomock.Any()).Times(1).Do(func(ev interface{}) {
 		timeoutEvent, ok := ev.(TimeoutEvent)
@@ -199,16 +187,12 @@ func TestOnTimeoutPrecommit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockBackend := NewMockBackend(ctrl)
-	messages := newMessagesMap()
-	curRoundMessages := messages.getOrCreate(2)
 	engine := core{
-		backend:          mockBackend,
-		logger:           log.New("backend", "test", "id", 0),
-		round:            2,
-		height:           big.NewInt(4),
-		step:             precommit,
-		curRoundMessages: curRoundMessages,
-		messages:         messages,
+		backend: mockBackend,
+		logger:  log.New("backend", "test", "id", 0),
+		round:   2,
+		height:  big.NewInt(4),
+		step:    precommit,
 	}
 	mockBackend.EXPECT().Post(gomock.Any()).Times(1).Do(func(ev interface{}) {
 		timeoutEvent, ok := ev.(TimeoutEvent)

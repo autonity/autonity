@@ -1,26 +1,23 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
 )
 
 func TestStoreUnminedBlockMsg(t *testing.T) {
 	t.Run("old height unminedBlock", func(t *testing.T) {
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(2)
 		c := &core{
-			logger:           log.New("backend", "test", "id", 0),
-			messages:         messages,
-			height:           big.NewInt(4),
-			round:            2,
-			step:             prevote,
-			curRoundMessages: curRoundMessages,
+			logger: log.New("backend", "test", "id", 0),
+			height: big.NewInt(4),
+			round:  2,
+			step:   prevote,
 		}
 
 		unminedBlock := types.NewBlockWithHeader(&types.Header{})
@@ -32,14 +29,10 @@ func TestStoreUnminedBlockMsg(t *testing.T) {
 	})
 
 	t.Run("valid block given, block is stored", func(t *testing.T) {
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(2)
 		c := &core{
 			logger:               log.New("backend", "test", "id", 0),
 			round:                2,
 			height:               big.NewInt(4),
-			messages:             messages,
-			curRoundMessages:     curRoundMessages,
 			pendingUnminedBlocks: make(map[uint64]*types.Block),
 		}
 
@@ -57,12 +50,9 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 		anOldBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})
 		unminedBlocks := make(map[uint64]*types.Block)
 		unminedBlocks[anOldBlock.NumberU64()] = anOldBlock
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(2)
 		c := &core{
 			round:                2,
 			height:               big.NewInt(3),
-			curRoundMessages:     curRoundMessages,
 			pendingUnminedBlocks: unminedBlocks,
 		}
 		unminedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
@@ -75,11 +65,7 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 
 	t.Run("wait for unmined block, new block added", func(t *testing.T) {
 		pendingUnminedBlockCh := make(chan *types.Block, 1)
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(2)
 		c := &core{
-			curRoundMessages:         curRoundMessages,
-			messages:                 messages,
 			round:                    2,
 			height:                   big.NewInt(3),
 			pendingUnminedBlocks:     make(map[uint64]*types.Block),
@@ -109,15 +95,11 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 func TestGetUnminedBlock(t *testing.T) {
 	t.Run("block exists", func(t *testing.T) {
 		expectedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(2)
 		unminedBlocks := make(map[uint64]*types.Block)
 		unminedBlocks[expectedBlock.NumberU64()] = expectedBlock
 		c := &core{
 			round:                1,
 			height:               big.NewInt(1),
-			curRoundMessages:     curRoundMessages,
-			messages:             messages,
 			pendingUnminedBlocks: unminedBlocks,
 		}
 

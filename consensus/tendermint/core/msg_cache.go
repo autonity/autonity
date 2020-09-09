@@ -38,15 +38,6 @@ func (m *messageCache) heightMessages(height uint64) []*Message {
 	return messages
 }
 
-func accumulateMessagesForHeight(msgHashes map[uint64]map[int64]map[common.Address]common.Hash, msgHashToMsg map[common.Hash]*Message, height uint64, accumulator []*Message) {
-	// Accumuate all messages for all rounds at the given height
-	for _, addressMap := range msgHashes[height] {
-		for _, hash := range addressMap {
-			accumulator = append(accumulator, msgHashToMsg[hash])
-		}
-	}
-}
-
 // func roundMap(msgHashes map[uint64]map[int64]map[common.Address]common.Hash) map[int64]map[common.Address]common.Hash {
 // }
 
@@ -121,15 +112,6 @@ func accumulateMessagesForHeight(msgHashes map[uint64]map[int64]map[common.Addre
 
 func (m *messageCache) Message(h common.Hash) *Message {
 	return m.rawMessages[h]
-}
-
-func totalVotePower(voteMsgHashes map[uint64]map[int64]map[common.Address]common.Hash, round int64, header *types.Header) uint64 {
-	var total uint64
-	// Iterate all prevotes for the round and total their voting power.
-	for address := range voteMsgHashes[header.Number.Uint64()][round] {
-		total += header.CommitteeMember(address).VotingPower.Uint64()
-	}
-	return total
 }
 
 func (m *messageCache) signatures(valueHash common.Hash, round int64, height uint64) [][]byte {
