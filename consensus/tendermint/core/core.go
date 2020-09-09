@@ -279,42 +279,6 @@ func (c *core) startRound(ctx context.Context, round int64) {
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
 
-	// Need to handle the messages for this new round.  TODO I think this is
-	// wrong, we need to map state changes to the upon conditions. To see what
-	// conditiions to execute based on the state change.
-
-	// For a height change its easy, since every upon condition is height
-	// specific, we execute them all with all the messaages for that height.
-	// This could cascade into further round or step changes.
-
-	// For a round change lets look at what we need to reprocess in detail.
-	//
-	// Note when entering a round change the step will be propose.
-	//
-	// It will be every step with a roundp value
-	// Line 22 & 28 we can reprocess the proposals from that round
-	// Line 34 no check because its prevote step.
-	// Line 36 no check because step >= prevote.
-	// Line 44 no check because its prevote step.
-	// Line 47 precommit powers for the round.
-	// Line 49 no check because it is not round specific.
-	// Line 55 no check becsudr it would have already been triggered.
-
-	// For step change propose to prevote
-	//
-	// Line 22 no check because locked to propose step.
-	// Line 28 no check because locked to propose step.
-	// Line 34 check prevotes power for the round.
-	// Line 36 reprocess the proposals from that round.
-	// Line 44 no check because its prevote step.
-	// Line 47 precommit powers for the round.
-	// Line 49 no check because it is not round specific.
-	// Line 55 no check becsudr it would have already been triggered.
-
-	// Hmm simpler to just reprocess all messages on a round change and then
-	// reprocess proposals and prevotes on a step change. I think this catches
-	// everything.
-	c.msgCache.roundMessages(c.height.Uint64(), c.round, c.reprocessConsensusMessage)
 }
 
 func (c *core) reprocessConsensusMessage(cm *consensusMessage) error {
@@ -371,13 +335,91 @@ func (c *core) setInitialState(r int64) {
 }
 
 func (c *core) setStep(step Step) {
+	// Hmm thinking about reprocessing now.
+	//
+	// If we have changed step to propose then the only 2 upon checks which
+	// have now, become acceissible are both rely on a proposal message, so by
+	// reprocessing the proposal message we can ensure that we hit all relevant checks.
+	//
+	//
+	// Consider what checks needs to be reconsidered.
+	//
+	// We assume we process all messages for a height when we reach that
+	// height, we don't consider this reprocessing because those messages have
+	// never been fully processed before.
+	//
+	// First off checks that never need reprocessing are
+	//
+	// 49 Its not specific to any round or step, and so would be triggered as
+	// soon either the right proposals or precommits are received.
+	//
+	// 55 Again its not specific to any round or step, and so would be
+	// triggered as soon as the right threshold is met.
+	//
+	// ---
+	//
+	// For a round change, aka step change from any step to propose. We need to
+	// check every check that is specific to round. I.E has a roundp value
+	// somewhere in the check.
+	//
+	// Those checks are. (all checks not including the 49 and 55 which we know
+	// do not need to be rechecked)
+	//
+	// Line 22
+	// Line 28
+	// Line 34
+	// Line 36
+	// Line 44
+	// Line 47
+	//
+	// What messages shall we re-process to hit all those checks? Re-processing
+	// just the proposals will cover 22, 28, 36. That leaves 34, 44 and 47.
+	//
+	// 34 can be hit by sending a prevote with any value, so we could just pick
+	// the first prevote for that round and process it.
+	//
+	// 44 can be hit by sending a prevote for nil, so we would have to find a
+	// prevote for nil in the message cache and send that. We can't make one up
+	// because just one node may constitute quorum threshold. Actually I think
+	// we can, because we would not see any stake attached to the message if
+	// noone voted.
+	//
+	// 47 can be hit by a precommit with any value
+	//
+	// So we can hit both 34 and 44 with a prevote for nil and 47 with a
+	// precommit for any value. So we can hit all checks by reprocessing just
+	// the proposals and a fake precommit and fake prevote.
+	//
+	// ---
+	//
+	// For step change propose to prevote, we will need to check all checks
+	// that were not accessible with step propose and are now accessible with
+	// step prevote.
+	//
+	// Those checks are.
+	//
+	// Line 34
+	// Line 36
+	// Line 44
+	//
+	// What messages shall we reprocess to hit all those checks. Reprocessing
+	// the proposals will cover 36. That leaves 34 and 44. As we can see from
+	// our reasoning above a fake prevote for nil will hit those checks.
+	//
+	//
+	// For step change prevote to precommit, we will need to check all checks
+	// that were not accessible with step prevote or propose and are now
+	// accessible with step precommit. There are no checks that require a step
+	// of precommit, any relevant checks would have already triggered as soon
+	// as messages were recived in the propose or prevote steps, so nothing
+	// needs to be re-processed.
 	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
 	c.step = step
 	switch step {
+	case propose:
+		c.msgCache.roundMessages(c.height.Uint64(), c.round, c.reprocessConsensusMessage)
 	case prevote:
-		case
 	}
-	c.msgCache.roundMessages(c.height.Uint64(), c.round, c.reprocessConsensusMessage)
 	c.processBacklog()
 }
 
