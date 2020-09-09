@@ -26,7 +26,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 )
 
@@ -37,7 +36,9 @@ const (
 )
 
 var (
-	errMsgPayloadNotDecoded = errors.New("msg not decoded")
+	errMsgPayloadNotDecoded = errors.New("message not decoded")
+	errNotCommittee         = errors.New("message not sent by committee member")
+	ErrUnauthorizedAddress  = errors.New("unauthorized address")
 )
 
 type Message struct {
@@ -49,6 +50,7 @@ type Message struct {
 
 	power      uint64
 	decodedMsg ConsensusMsg // cached decoded Msg
+	payload    []byte       // rlp encoded Message
 }
 
 // ==============================================
@@ -85,23 +87,38 @@ func (m *Message) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
-var ErrUnauthorizedAddress = errors.New("unauthorized address")
-
 // ==============================================
 //
 // define the functions that needs to be provided for core.
 
-func (m *Message) FromPayload(b []byte, previousHeader *types.Header, validateFn func(*types.Header, []byte, []byte) (common.Address, error)) (*types.CommitteeMember, error) {
+func (m *Message) FromPayload(b []byte) error {
+	m.payload = b
 	// Decode message
 	err := rlp.DecodeBytes(b, m)
 	if err != nil {
+		return err
+	}
+	// Decode the payload, this will cache the decoded msg payload.
+	switch m.Code {
+	case msgProposal:
+		var proposal Proposal
+		return m.Decode(&proposal)
+	case msgPrevote, msgPrecommit:
+		var vote Vote
+		return m.Decode(&vote)
+	default:
+		return errMsgPayloadNotDecoded
+	}
+}
+
+func (m *Message) Validate(validateFn func(*types.Header, []byte, []byte) (common.Address, error), previousHeader *types.Header) (*types.CommitteeMember, error) {
+	// Validate message (on a message without Signature)
+	msgHeight, err := m.Height()
+	if err != nil {
 		return nil, err
 	}
-
-	// Validate message (on a message without Signature)
-	if validateFn == nil {
-		log.Error("validateFn is not set")
-		return nil, nil
+	if previousHeader.Number.Uint64()+1 != msgHeight.Uint64() {
+		panic("inconsistent message verification")
 	}
 
 	// Still return the message even the err is not nil
@@ -130,8 +147,18 @@ func (m *Message) FromPayload(b []byte, previousHeader *types.Header, validateFn
 	return v, nil
 }
 
-func (m *Message) Payload() ([]byte, error) {
-	return rlp.EncodeToBytes(m)
+func (m *Message) Payload() []byte {
+	if m.payload == nil {
+		payload, err := rlp.EncodeToBytes(m)
+		if err != nil {
+			// We panic if there is an error, reasons:
+			// Either we received the message and we managed to decode it, hence it must be possible to encode it.
+			// If we can't encode the payload for our own generated messages, that's a programming error.
+			panic("could not decode message payload")
+		}
+		m.payload = payload
+	}
+	return m.payload
 }
 
 func (m *Message) GetPower() uint64 {

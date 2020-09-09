@@ -25,7 +25,6 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/contracts/autonity"
-	"github.com/clearmatics/autonity/core/types"
 )
 
 // Start implements core.Tendermint.Start
@@ -68,7 +67,7 @@ func (c *core) Stop() {
 }
 
 func (c *core) subscribeEvents() {
-	s := c.backend.Subscribe(events.MessageEvent{}, backlogEvent{})
+	s := c.backend.Subscribe(events.MessageEvent{}, backlogEvent{}, backlogUncheckedEvent{})
 	c.messageEventSub = s
 
 	s1 := c.backend.Subscribe(events.NewUnminedBlockEvent{})
@@ -131,11 +130,13 @@ eventLoop:
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				if len(e.Payload) == 0 {
-					c.logger.Error("core.mainEventLoop Get message(MessageEvent) empty payload")
+				// ecrire test of len(0)
+				msg := new(Message)
+				if err := msg.FromPayload(e.Payload); err != nil {
+					c.logger.Error("core.mainEventLoop Get message(MessageEvent) invalid payload")
+					continue
 				}
-
-				if err := c.handleMsg(ctx, e.Payload); err != nil {
+				if err := c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("core.mainEventLoop Get message(MessageEvent) payload failed", "err", err)
 					continue
 				}
@@ -143,19 +144,19 @@ eventLoop:
 			case backlogEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling backlogEvent")
-				err := c.handleCheckedMsg(ctx, e.msg, e.src)
-				if err != nil {
+				if err := c.handleCheckedMsg(ctx, e.msg); err != nil {
 					c.logger.Debug("core.mainEventLoop handleCheckedMsg message failed", "err", err)
 					continue
 				}
+				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.msg.Payload())
 
-				p, err := e.msg.Payload()
-				if err != nil {
-					c.logger.Debug("core.mainEventLoop Get message payload failed", "err", err)
+			case backlogUncheckedEvent:
+				c.logger.Debug("Started handling backlogUncheckedEvent")
+				if err := c.handleMsg(ctx, e.msg); err != nil {
+					c.logger.Debug("core.mainEventLoop backlogUncheckedEvent message failed", "err", err)
 					continue
 				}
-
-				c.backend.Gossip(ctx, c.committeeSet().Committee(), p)
+				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.msg.Payload())
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
@@ -237,22 +238,31 @@ func (c *core) sendEvent(ev interface{}) {
 	c.backend.Post(ev)
 }
 
-func (c *core) handleMsg(ctx context.Context, payload []byte) error {
-	logger := c.logger.New()
+func (c *core) handleMsg(ctx context.Context, msg *Message) error {
 
-	// Decode message and check its signature
-	msg := new(Message)
-
-	sender, err := msg.FromPayload(payload, c.lastHeader, crypto.CheckValidatorSignature)
+	msgHeight, err := msg.Height()
 	if err != nil {
-		logger.Error("Failed to decode message from payload", "err", err)
+		return err
+	}
+	if msgHeight.Cmp(c.Height()) > 0 {
+		// Future height message. Skip processing and put it in the untrusted backlog buffer.
+		c.storeUncheckedBacklog(msg)
+		return errFutureHeightMessage // No gossip
+	}
+	if msgHeight.Cmp(c.Height()) < 0 {
+		// Old height messages. Do nothing.
+		return errOldHeightMessage // No gossip
+	}
+
+	if _, err = msg.Validate(crypto.CheckValidatorSignature, c.lastHeader); err != nil {
+		c.logger.Error("Failed to validate message", "err", err)
 		return err
 	}
 
-	return c.handleCheckedMsg(ctx, msg, *sender)
+	return c.handleCheckedMsg(ctx, msg)
 }
 
-func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) {
+func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender common.Address) {
 	// Decoding functions can't fail here
 	msgRound, err := msg.Round()
 	if err != nil {
@@ -262,7 +272,7 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender ty
 	if _, ok := c.futureRoundChange[msgRound]; !ok {
 		c.futureRoundChange[msgRound] = make(map[common.Address]uint64)
 	}
-	c.futureRoundChange[msgRound][sender.Address] = sender.VotingPower.Uint64()
+	c.futureRoundChange[msgRound][sender] = msg.power
 
 	var totalFutureRoundMessagesPower uint64
 	for _, power := range c.futureRoundChange[msgRound] {
@@ -275,23 +285,23 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender ty
 	}
 }
 
-func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender types.CommitteeMember) error {
-	logger := c.logger.New("address", c.address, "from", sender)
+func (c *core) handleCheckedMsg(ctx context.Context, msg *Message) error {
+	logger := c.logger.New("address", c.address, "from", msg.Address)
 
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
 		if err == errFutureHeightMessage {
-			logger.Debug("Storing future height message in backlog")
-			c.storeBacklog(msg, sender.Address)
+			//Future messages should never be processed and reach this point. Panic.
+			panic("Processed future message")
 		} else if err == errFutureRoundMessage {
 			logger.Debug("Storing future round message in backlog")
-			c.storeBacklog(msg, sender.Address)
+			c.storeBacklog(msg, msg.Address)
 			// decoding must have been successful to return
-			c.handleFutureRoundMsg(ctx, msg, sender)
+			c.handleFutureRoundMsg(ctx, msg, msg.Address)
 		} else if err == errFutureStepMessage {
 			logger.Debug("Storing future step message in backlog")
-			c.storeBacklog(msg, sender.Address)
+			c.storeBacklog(msg, msg.Address)
 		}
 
 		return err

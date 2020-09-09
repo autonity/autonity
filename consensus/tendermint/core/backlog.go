@@ -18,9 +18,10 @@ package core
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 )
+
+const MaxSizeBacklogUnchecked = 1000
 
 var (
 	// msgPriority is defined for calculating processing priority to speedup consensus
@@ -33,7 +34,9 @@ var (
 )
 
 type backlogEvent struct {
-	src types.CommitteeMember
+	msg *Message
+}
+type backlogUncheckedEvent struct {
 	msg *Message
 }
 
@@ -71,17 +74,44 @@ func (c *core) storeBacklog(msg *Message, src common.Address) {
 	}
 
 	logger.Debug("Store future message")
-
-	c.backlogsMu.Lock()
-	defer c.backlogsMu.Unlock()
-
 	c.backlogs[src] = append(c.backlogs[src], msg)
+}
+
+// storeUncheckedBacklog push to a special backlog future height consensus messages
+// this is done in a way that prevents memory exhaustion in the case of a malicious peer.
+func (c *core) storeUncheckedBacklog(msg *Message) {
+	// future height messages of a gap wider than one block should not occur frequently as block sync should happen
+	// Todo : implement a double ended priority queue (DEPQ)
+
+	msgHeight, errHeight := msg.Height()
+	if errHeight != nil {
+		panic("error parsing height")
+	}
+
+	c.backlogUnchecked[msgHeight.Uint64()] = append(c.backlogUnchecked[msgHeight.Uint64()], msg)
+	c.backlogUncheckedLen += 1
+	// We discard the furthest ahead messages in priority.
+	if c.backlogUncheckedLen == MaxSizeBacklogUnchecked {
+		maxHeight := msgHeight.Uint64()
+		for k, _ := range c.backlogUnchecked {
+			if k > maxHeight {
+				maxHeight = k
+			}
+		}
+
+		// Forget in the local cache that we ever received this message.
+		// It's needed for it to be able to be re-received and processed later, after a consensus sync, if needed.
+		c.backend.RemoveMessageFromLocalCache(c.backlogUnchecked[maxHeight][len(c.backlogUnchecked[maxHeight])-1].Payload())
+
+		// Remove it from the backlog buffer.
+		c.backlogUnchecked[maxHeight] = c.backlogUnchecked[maxHeight][:len(c.backlogUnchecked[maxHeight])-1]
+		c.backlogUncheckedLen -= 1
+	}
+
 }
 
 func (c *core) processBacklog() {
 	var capToLenRatio = 5
-	c.backlogsMu.Lock()
-	defer c.backlogsMu.Unlock()
 
 	for src, backlog := range c.backlogs {
 		logger := c.logger.New("from", src, "step", c.step)
@@ -108,7 +138,6 @@ func (c *core) processBacklog() {
 				logger.Debug("Post backlog event", "msg", curMsg)
 
 				go c.sendEvent(backlogEvent{
-					src: *c.lastHeader.CommitteeMember(src),
 					msg: curMsg,
 				})
 
@@ -124,5 +153,13 @@ func (c *core) processBacklog() {
 			}
 		}
 		c.backlogs[src] = backlog
+
 	}
+	for _, msg := range c.backlogUnchecked[c.height.Uint64()] {
+		go c.sendEvent(backlogUncheckedEvent{
+			msg: msg,
+		})
+		c.logger.Debug("Post unchecked backlog event", "msg", msg)
+	}
+	delete(c.backlogUnchecked, c.height.Uint64())
 }

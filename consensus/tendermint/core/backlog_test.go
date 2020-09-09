@@ -1,16 +1,14 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
+	"github.com/golang/mock/gomock"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/golang/mock/gomock"
-
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
 )
 
 func TestCheckMessage(t *testing.T) {
@@ -265,7 +263,6 @@ func TestProcessBacklog(t *testing.T) {
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogEvent{
-			src: val,
 			msg: msg,
 		}
 

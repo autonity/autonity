@@ -88,6 +88,7 @@ func New(backend Backend, config *config.Config) *core {
 		logger:                logger,
 		backend:               backend,
 		backlogs:              make(map[common.Address][]*Message),
+		backlogUnchecked:      make(map[uint64][]*Message),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
@@ -120,8 +121,9 @@ type core struct {
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
 
-	backlogs   map[common.Address][]*Message
-	backlogsMu sync.Mutex
+	backlogs            map[common.Address][]*Message
+	backlogUnchecked    map[uint64][]*Message
+	backlogUncheckedLen int
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
 	pendingUnminedBlocksMu   sync.Mutex
@@ -183,13 +185,7 @@ func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 		return nil, err
 	}
 
-	// Convert to payload
-	payload, err := msg.Payload()
-	if err != nil {
-		return nil, err
-	}
-
-	return payload, nil
+	return msg.Payload(), nil
 }
 
 func (c *core) broadcast(ctx context.Context, msg *Message) {
