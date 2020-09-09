@@ -283,15 +283,15 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *Message, sender types.
 		// We want to store only future messages in backlog
 		if err == errFutureHeightMessage {
 			logger.Debug("Storing future height message in backlog")
-			c.storeBacklog(msg, sender)
+			c.storeBacklog(msg, sender.Address)
 		} else if err == errFutureRoundMessage {
 			logger.Debug("Storing future round message in backlog")
-			c.storeBacklog(msg, sender)
+			c.storeBacklog(msg, sender.Address)
 			// decoding must have been successful to return
 			c.handleFutureRoundMsg(ctx, msg, sender)
 		} else if err == errFutureStepMessage {
 			logger.Debug("Storing future step message in backlog")
-			c.storeBacklog(msg, sender)
+			c.storeBacklog(msg, sender.Address)
 		}
 
 		return err

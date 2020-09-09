@@ -166,6 +166,9 @@ type Config struct {
 
 	// OutRate egress network rate in Bytes
 	OutRate int64 `toml:",omitempty"`
+
+	// DialHistoryExpiration is the time window to allow client to re-dial to the same source peer.
+	DialHistoryExpiration time.Duration
 }
 
 // Server manages all peer connections.
@@ -669,13 +672,14 @@ func (srv *Server) setupDiscovery() error {
 
 func (srv *Server) setupDialScheduler() {
 	config := dialConfig{
-		self:           srv.localnode.ID(),
-		maxDialPeers:   srv.maxDialedConns(),
-		maxActiveDials: srv.MaxPendingPeers,
-		log:            srv.Logger,
-		netRestrict:    srv.NetRestrict,
-		dialer:         srv.Dialer,
-		clock:          srv.clock,
+		self:                  srv.localnode.ID(),
+		maxDialPeers:          srv.maxDialedConns(),
+		maxActiveDials:        srv.MaxPendingPeers,
+		log:                   srv.Logger,
+		netRestrict:           srv.NetRestrict,
+		dialer:                srv.Dialer,
+		clock:                 srv.clock,
+		dialHistoryExpiration: srv.Config.DialHistoryExpiration,
 	}
 	if srv.ntab != nil {
 		config.resolver = srv.ntab

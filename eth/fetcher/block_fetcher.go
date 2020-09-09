@@ -456,6 +456,8 @@ func (f *BlockFetcher) loop() {
 					f.completingHook(hashes)
 				}
 				bodyFetchMeter.Mark(int64(len(hashes)))
+				// Note, these must be looked up outside of the goroutine to
+				// avoid a concurrent map access error.
 				announce := f.completing[hashes[0]]
 				f.wg.Add(1)
 				go func(hashes []common.Hash) {

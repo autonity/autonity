@@ -70,6 +70,22 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 			// We only process old rounds while future rounds messages are pushed on to the backlog
 			oldRoundMessages := c.messages.getOrCreate(preVote.Round)
 			c.acceptVote(oldRoundMessages, prevote, preVote.ProposedBlockHash, *msg)
+
+			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus.
+			if c.step == propose {
+				// ProposalBlock would be nil if node haven't receive proposal yet.
+				if c.curRoundMessages.proposal.ProposalBlock != nil {
+					vr := c.curRoundMessages.proposal.ValidRound
+					h := c.curRoundMessages.proposal.ProposalBlock.Hash()
+					rs := c.messages.getOrCreate(vr)
+
+					if vr >= 0 && vr < c.Round() && rs.PrevotesPower(h) >= c.committeeSet().Quorum() {
+						c.sendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
+						c.setStep(prevote)
+						return nil
+					}
+				}
+			}
 		}
 		return err
 	}
