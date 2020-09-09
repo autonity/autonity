@@ -505,7 +505,7 @@ func TestContractUpgrade_Success(t *testing.T) {
 			return g
 		},
 		afterHooks: map[string]hook{
-			"VD": upgradeHook(t, map[uint64]struct{}{
+			"VD": upgradeHook(map[uint64]struct{}{
 				5: {},
 			},
 				operatorAddress,
@@ -542,7 +542,7 @@ func TestContractUpgradeSeveralUpgrades(t *testing.T) {
 			return g
 		},
 		afterHooks: map[string]hook{
-			"VD": upgradeHook(t, map[uint64]struct{}{
+			"VD": upgradeHook(map[uint64]struct{}{
 				5:  {},
 				7:  {},
 				15: {},
@@ -592,7 +592,7 @@ func TestContractUpgradeSeveralUpgradesOnBusTopology(t *testing.T) {
 			return g
 		},
 		afterHooks: map[string]hook{
-			"VD": upgradeHook(t, map[uint64]struct{}{
+			"VD": upgradeHook(map[uint64]struct{}{
 				5:  {},
 				7:  {},
 				15: {},
@@ -646,7 +646,7 @@ func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
 			return g
 		},
 		afterHooks: map[string]hook{
-			"VD": upgradeHook(t, map[uint64]struct{}{
+			"VD": upgradeHook(map[uint64]struct{}{
 				5:  {},
 				7:  {},
 				15: {},
@@ -661,7 +661,7 @@ func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
 	runTest(t, testCase)
 }
 
-func upgradeHook(t *testing.T, upgradeBlocks map[uint64]struct{}, operatorAddress common.Address, operatorKey *ecdsa.PrivateKey) hook {
+func upgradeHook(upgradeBlocks map[uint64]struct{}, operatorAddress common.Address, operatorKey *ecdsa.PrivateKey) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		log.Error("Upgrade hook")
 		if _, ok := upgradeBlocks[block.Number().Uint64()]; !ok {
@@ -669,18 +669,18 @@ func upgradeHook(t *testing.T, upgradeBlocks map[uint64]struct{}, operatorAddres
 		}
 		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		defer conn.Close()
 
 		nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		gasPrice, err := conn.SuggestGasPrice(context.Background())
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		auth := bind.NewKeyedTransactor(operatorKey)
@@ -691,12 +691,12 @@ func upgradeHook(t *testing.T, upgradeBlocks map[uint64]struct{}, operatorAddres
 
 		instance, err := NewAutonity(autonity.ContractAddress, conn)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		_, err = instance.UpgradeContract(auth, acdefault.Bytecode(), acdefault.ABI())
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		return nil
 	}
