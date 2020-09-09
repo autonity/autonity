@@ -446,6 +446,10 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	s := c.step
 	t := cm.msgType
 
+	// look up matching proposal, in the case of a message with msgType
+	// proposal the matching proposal is the message.
+	p := c.msgCache.matchingProposal(cm)
+
 	// Some of the checks in these upon conditions are omitted because they have alrady been checked.
 	//
 	// - We do not check height because we only execute this code when the
@@ -465,14 +469,8 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	}
 
 	// Line 28
-	//
-	// TODO this is all wrong, I started off by assuming the message would be a
-	// proposal and then expanded it to cater for prevotes, but prevotes do not
-	// have validRound set.
-	//
-	// So probably all my other conditions are wrong as well then. In this case if I have a prevote I need to make sure I have the proposal as well.
-	if t.in(msgProposal, msgPrevote) && cm.round == r && c.msgCache.prevoteQuorum(&cm.value, cm.validRound, lh) && s == propose && (cm.validRound >= 0 && cm.validRound < r) {
-		if c.msgCache.isValid(cm.value) && c.lockedRound <= cm.validRound || c.lockedValue.Hash() == cm.value {
+	if t.in(msgProposal, msgPrevote) && p != nil && p.round == r && c.msgCache.prevoteQuorum(&p.value, p.validRound, lh) && s == propose && (p.validRound >= 0 && p.validRound < r) {
+		if c.msgCache.isValid(p.value) && (c.lockedRound <= p.validRound || c.lockedValue.Hash() == p.value) {
 			c.sendPrevote(nil, voteForValue)
 		} else {
 			c.sendPrevote(nil, voteForNil)
@@ -480,13 +478,13 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 	}
 
 	// Line 34
-	if t.in(msgPrevote) && c.msgCache.prevoteQuorum(nil, cm.round, lh) && s == prevote && !c.line34Executed {
+	if t.in(msgPrevote) && cm.round == r && c.msgCache.prevoteQuorum(nil, r, lh) && s == prevote && !c.line34Executed {
 		c.prevoteTimeout.scheduleTimeout(c.timeoutPrevote(r), r, h, c.onTimeoutPrecommit)
 	}
 
 	// Line 36
-	if t.in(msgProposal, msgPrevote) && cm.round == r && c.msgCache.prevoteQuorum(&cm.value, r, lh) && c.msgCache.isValid(cm.value) && s >= prevote && !c.line36Executed {
-		block := c.msgCache.value(cm.value) // TODO remove references to block from core
+	if t.in(msgProposal, msgPrevote) && p != nil && p.round == r && c.msgCache.prevoteQuorum(&p.value, r, lh) && c.msgCache.isValid(p.value) && s >= prevote && !c.line36Executed {
+		block := c.msgCache.value(p.value) // TODO remove references to block from core
 		if s == prevote {
 			c.lockedValue = block
 			c.lockedRound = r
@@ -495,26 +493,26 @@ func (c *core) checkUponConditions(cm *consensusMessage) {
 			c.step = s
 		}
 		c.validValue = block
-		c.validRound = cm.round
+		c.validRound = r
 	}
 
 	// Line 44
-	if t.in(msgPrevote) && c.msgCache.prevoteQuorum(&nilValue, r, lh) && s == prevote {
+	if t.in(msgPrevote) && cm.round == r && c.msgCache.prevoteQuorum(&nilValue, r, lh) && s == prevote {
 		c.sendPrecommit(nil, voteForValue)
 		s = precommit
 		c.step = s
 	}
 
 	// Line 47
-	if t.in(msgPrecommit) && c.msgCache.precommitQuorum(nil, cm.round, lh) && !c.line47Executed {
+	if t.in(msgPrecommit) && cm.round == r && c.msgCache.precommitQuorum(nil, r, lh) && !c.line47Executed {
 		c.precommitTimeout.scheduleTimeout(c.timeoutPrecommit(r), r, h, c.onTimeoutPrecommit)
 	}
 
 	// Line 49
-	if t.in(msgProposal, msgPrecommit) && c.msgCache.precommitQuorum(&cm.value, cm.round, lh) {
-		if c.msgCache.isValid(cm.value) {
-			block := c.msgCache.value(cm.value) // TODO remove references to block from core
-			c.commit(block, cm.round)
+	if t.in(msgProposal, msgPrecommit) && p != nil && c.msgCache.precommitQuorum(&p.value, p.round, lh) {
+		if c.msgCache.isValid(p.value) {
+			block := c.msgCache.value(p.value) // TODO remove references to block from core
+			c.commit(block, p.round)
 			c.setHeight(block.Number().Add(block.Number(), big.NewInt(1)))
 			c.lockedRound = -1
 			c.lockedValue = nil

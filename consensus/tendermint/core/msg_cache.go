@@ -339,4 +339,17 @@ func (m *messageCache) proposal(height uint64, round int64, proposer common.Addr
 	return m.msgHashes[height][round][consensusMessageType(msgProposal)][proposer]
 }
 
+func (m *messageCache) matchingProposal(cm *consensusMessage) *consensusMessage {
+	if cm.msgType == consensusMessageType(msgProposal) {
+		return cm
+	}
+	for _, proposalHash := range m.msgHashes[cm.height][cm.round][consensusMessageType(msgProposal)] {
+		proposal := m.consensusMsgs[proposalHash]
+		if proposal.value == cm.value {
+			return proposal
+		}
+	}
+	return nil
+}
+
 // TODO cover the case where we receive multiple proposals for future heights and we don't know who the propose is?
