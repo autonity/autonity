@@ -21,14 +21,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enr"
 	"net"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/p2p/enr"
 )
 
 var (
@@ -42,6 +43,15 @@ var (
 	ErrInvalidPort      = errors.New("invalid port")
 	ErrInvalidDisport   = errors.New("invalid discport in query")
 	ErrInvalidHost      = errors.New("invalid host")
+
+	// V4ResolveFunc is required only by tests so that they may ovveride the
+	// default resolver.
+	// TODO https://github.com/clearmatics/autonity/issues/544 remove this
+	// field and all ability to provide custom resolve funcs.  Rather than the
+	// tests using special hostnames that indicate what type of participant the
+	// nodes are, they can have valid hostnames/IP and we can setup a print
+	// function that prints all the relevant info for a node.
+	V4ResolveFunc = net.LookupIP
 )
 
 const defaultPort = ":30303"
@@ -80,10 +90,10 @@ func MustParseV4(rawurl string) *Node {
 //
 //    enode://<hex node id>@10.3.58.6:30303?discport=30301
 func ParseV4(rawurl string) (*Node, error) {
-	return parseV4(rawurl, nil)
+	return ParseV4CustomResolve(rawurl, V4ResolveFunc)
 }
 
-func parseV4(rawurl string, resolve func(host string) ([]net.IP, error)) (*Node, error) {
+func ParseV4CustomResolve(rawurl string, resolve func(host string) ([]net.IP, error)) (*Node, error) {
 	if m := incompleteNodeURL.FindStringSubmatch(rawurl); m != nil {
 		id, err := parsePubkey(m[1])
 		if err != nil {
@@ -93,6 +103,19 @@ func parseV4(rawurl string, resolve func(host string) ([]net.IP, error)) (*Node,
 	}
 
 	return parseComplete(rawurl, resolve)
+}
+
+// NewV4WithHost creates a node where the record contained in the node has a
+// zero-length signature. Because v4 enodes do not have signatures.
+func NewV4WithHost(pubkey *ecdsa.PublicKey, host string, tcp, udp int, resolveFunc func(host string) ([]net.IP, error)) (*Node, error) {
+	// Create node without IP
+	n := NewV4(pubkey, nil, tcp, udp)
+	n.resolveFunc = resolveFunc
+	// Set the host
+	n.r.Set(enr.HOST(host))
+	// try to resolve it
+	err := n.ResolveHost()
+	return n, err
 }
 
 // NewV4 creates a node from discovery v4 node information. The record
@@ -114,12 +137,6 @@ func NewV4(pubkey *ecdsa.PublicKey, ip net.IP, tcp, udp int) *Node {
 		panic(err)
 	}
 	return n
-}
-
-func ParseV4SkipResolve(rawurl string) (*Node, error) {
-	return parseV4(rawurl, func(host string) ([]net.IP, error) {
-		return []net.IP{{127, 0, 0, 1}}, nil
-	})
 }
 
 // isNewV4 returns true for nodes created by NewV4.
@@ -172,24 +189,9 @@ func parseComplete(rawurl string, resolveFunc func(host string) ([]net.IP, error
 		}
 	}
 
+	// host is not an ip address
 	if ip = net.ParseIP(host); ip == nil {
-		if resolveFunc == nil {
-			return nil, fmt.Errorf("%w (%v)", ErrHostResolution, errors.New("invalid IP address"))
-		}
-		// if host is not IPV4/6, resolve host is a domain
-		ips, err := resolveFunc(host)
-		if err != nil {
-			return NewV4(id, nil, 0, 0), fmt.Errorf("%w (%v)", ErrHostResolution, err)
-		}
-		if len(ips) > 1 {
-			ip = ips[len(ips)-1]
-		} else {
-			ip = ips[0]
-		}
-		// Ensure the IP is 4 bytes long for IPv4 addresses.
-		if ipv4 := ip.To4(); ipv4 != nil {
-			ip = ipv4
-		}
+		return NewV4WithHost(id, host, int(tcpPort), int(udpPort), V4ResolveFunc)
 	}
 	return NewV4(id, ip, int(tcpPort), int(udpPort)), nil
 }

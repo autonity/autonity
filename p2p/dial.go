@@ -130,15 +130,16 @@ type dialScheduler struct {
 type dialSetupFunc func(net.Conn, connFlag, *enode.Node) error
 
 type dialConfig struct {
-	self           enode.ID         // our own ID
-	maxDialPeers   int              // maximum number of dialed peers
-	maxActiveDials int              // maximum number of active dials
-	netRestrict    *netutil.Netlist // IP whitelist, disabled if nil
-	resolver       nodeResolver
-	dialer         NodeDialer
-	log            log.Logger
-	clock          mclock.Clock
-	rand           *mrand.Rand
+	self                  enode.ID         // our own ID
+	maxDialPeers          int              // maximum number of dialed peers
+	maxActiveDials        int              // maximum number of active dials
+	netRestrict           *netutil.Netlist // IP whitelist, disabled if nil
+	resolver              nodeResolver
+	dialer                NodeDialer
+	log                   log.Logger
+	clock                 mclock.Clock
+	rand                  *mrand.Rand
+	dialHistoryExpiration time.Duration // DialHistoryExpiration is the time window to re-dial to the same source peer.
 }
 
 func (cfg dialConfig) withDefaults() dialConfig {
@@ -156,6 +157,9 @@ func (cfg dialConfig) withDefaults() dialConfig {
 		crand.Read(seedb)
 		seed := int64(binary.BigEndian.Uint64(seedb))
 		cfg.rand = mrand.New(mrand.NewSource(seed))
+	}
+	if cfg.dialHistoryExpiration == 0 {
+		cfg.dialHistoryExpiration = dialHistoryExpiration
 	}
 	return cfg
 }
@@ -453,7 +457,7 @@ func (d *dialScheduler) removeFromStaticPool(idx int) {
 func (d *dialScheduler) startDial(task *dialTask) {
 	d.log.Trace("Starting p2p dial", "id", task.dest.ID(), "ip", task.dest.IP(), "flag", task.flags)
 	hkey := string(task.dest.ID().Bytes())
-	d.history.add(hkey, d.clock.Now().Add(dialHistoryExpiration))
+	d.history.add(hkey, d.clock.Now().Add(d.dialConfig.dialHistoryExpiration))
 	d.dialing[task.dest.ID()] = task
 	go func() {
 		task.run(d)
@@ -484,8 +488,16 @@ func (t *dialTask) run(d *dialScheduler) {
 	if t.needResolve() && !t.resolve(d) {
 		return
 	}
-
-	err := t.dial(d, t.dest)
+	err := t.dest.ResolveHost()
+	if err != nil {
+		d.log.Trace(fmt.Sprintf(
+			"Failed to resolve IP for host %q, dialing with previously resolved IP %q, err: %v",
+			t.dest.Host(),
+			t.dest.IP().String(),
+			err,
+		))
+	}
+	err = t.dial(d, t.dest)
 	if err != nil {
 		// For static nodes, resolve one more time if dialing fails.
 		if _, ok := err.(*dialError); ok && t.flags&staticDialedConn != 0 {

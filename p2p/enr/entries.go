@@ -94,6 +94,12 @@ func (v IP) ENRKey() string {
 	return "ip"
 }
 
+type HOST string
+
+func (v HOST) ENRKey() string {
+	return "host"
+}
+
 // EncodeRLP implements rlp.Encoder.
 func (v IP) EncodeRLP(w io.Writer) error {
 	if ip4 := net.IP(v).To4(); ip4 != nil {
