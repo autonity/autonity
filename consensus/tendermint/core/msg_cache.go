@@ -26,6 +26,27 @@ type messageCache struct {
 	currentHeight uint64
 }
 
+func (m *messageCache) heightMessages(height uint64) []*Message {
+	var messages []*Message
+	for _, msgTypeMap := range m.msgHashes[height] {
+		for _, addressMap := range msgTypeMap {
+			for _, hash := range addressMap {
+				messages = append(messages, m.rawMessages[hash])
+			}
+		}
+	}
+	return messages
+}
+
+func accumulateMessagesForHeight(msgHashes map[uint64]map[int64]map[common.Address]common.Hash, msgHashToMsg map[common.Hash]*Message, height uint64, accumulator []*Message) {
+	// Accumuate all messages for all rounds at the given height
+	for _, addressMap := range msgHashes[height] {
+		for _, hash := range addressMap {
+			accumulator = append(accumulator, msgHashToMsg[hash])
+		}
+	}
+}
+
 // func roundMap(msgHashes map[uint64]map[int64]map[common.Address]common.Hash) map[int64]map[common.Address]common.Hash {
 // }
 
