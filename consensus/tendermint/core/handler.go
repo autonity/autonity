@@ -287,7 +287,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 
 		valueHash := proposal.ProposalBlock.Hash()
 		conMsg = &consensusMessage{
-			msgType:    uint8(m.Code),
+			msgType:    consensusMessageType(m.Code),
 			height:     proposal.Height.Uint64(),
 			round:      proposal.Round,
 			value:      valueHash,
@@ -307,7 +307,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 			return errFailedDecodePrevote
 		}
 		conMsg = &consensusMessage{
-			msgType: uint8(m.Code),
+			msgType: consensusMessageType(m.Code),
 			height:  preVote.Height.Uint64(),
 			round:   preVote.Round,
 			value:   preVote.ProposedBlockHash,
@@ -334,7 +334,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 			return err
 		}
 		conMsg = &consensusMessage{
-			msgType: uint8(m.Code),
+			msgType: consensusMessageType(m.Code),
 			height:  preCommit.Height.Uint64(),
 			round:   preCommit.Round,
 			value:   preCommit.ProposedBlockHash,
