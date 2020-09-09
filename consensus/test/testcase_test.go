@@ -54,7 +54,7 @@ type testCase struct {
 	networkRates         map[string]networkRate //map[validatorIndex]networkRate
 	beforeHooks          map[string]hook        //map[validatorIndex]beforeHook
 	afterHooks           map[string]hook        //map[validatorIndex]afterHook
-	sendTransactionHooks map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)
+	sendTransactionHooks map[string]sendTransactionHook
 	finalAssert          func(t *testing.T, validators map[string]*testNode)
 	stopTime             map[string]time.Time
 	genesisHook          func(g *core.Genesis) *core.Genesis
@@ -116,6 +116,7 @@ func (test *testCase) getStopTime(index string) time.Time {
 }
 
 type hook func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error
+type sendTransactionHook func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)
 
 func runTest(t *testing.T, test *testCase) {
 	if test.isSkipped {
