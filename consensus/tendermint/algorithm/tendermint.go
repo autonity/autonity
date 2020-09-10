@@ -4,7 +4,15 @@ type ValueID [32]byte
 
 var nilValue ValueID
 
+type NodeID [20]byte
+
 type Step uint8
+
+const (
+	Propose Step = iota
+	Prevote
+	Precommit
+)
 
 func (s Step) in(steps ...Step) bool {
 	for _, step := range steps {
@@ -15,11 +23,20 @@ func (s Step) in(steps ...Step) bool {
 	return false
 }
 
+type StateTransition uint8
+
 const (
-	Propose Step = iota
-	Prevote
-	Precommit
+	NewHeight StateTransition = iota
+	NewRound
+	NewStep
 )
+
+type Result struct {
+	Transition StateTransition
+	Height     uint64
+	Round      int64
+	Message    *ConsensusMessage
+}
 
 type ConsensusMessage struct {
 	MsgType    Step
@@ -34,6 +51,7 @@ type Sender interface {
 }
 
 type Algorithm struct {
+	nodeId         NodeID
 	height         uint64
 	round          int64
 	step           Step
@@ -50,12 +68,14 @@ type Algorithm struct {
 type Oracle interface {
 	Valid(ValueID) bool
 	MatchingProposal(*ConsensusMessage) *ConsensusMessage
-	PrevoteQuorum(round int64, value *ValueID) bool
-	PrecommitQuorum(round int64, value *ValueID) bool
-	FailThreshold(round int64, value *ValueID) bool
+	PrevoteQThresh(round int64, value *ValueID) bool
+	PrecommitQThresh(round int64, value *ValueID) bool
+	FThresh(round int64, value *ValueID) bool
+	Proposer(NodeID) bool
+	Value() ValueID
 }
 
-func (a *Algorithm) send(msgType Step, value ValueID) {
+func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
 	cm := &ConsensusMessage{
 		MsgType: msgType,
 		Height:  a.height,
@@ -65,12 +85,37 @@ func (a *Algorithm) send(msgType Step, value ValueID) {
 	if msgType == Propose {
 		cm.ValidRound = a.validRound
 	}
-	a.sender.Send(cm)
+	return msg
+	//a.sender.Send(cm)
 }
+
+// Message sent + stepchange to propose (not sure we really care about the step change)
+// Schedule timout propose (send a prevote for nil after some time)
+func (a *Algorithm) StartRound(round int64, o Oracle) Result {
+	a.round = round
+	a.step = Propose
+	var m *ConsensusMessage
+	if o.Proposer(a.nodeId) {
+		var v ValueID
+		if a.validValue != nilValue {
+			v = a.validValue
+		} else {
+			v = o.Value()
+		}
+		m = a.msg(Propose, v)
+	} else {
+		// Schedule on timout propose
+	}
+}
+
+// MessageSent prevote + stepchange propose to prevote
+// schedule TimeoutPrevote (send a precommit for nil after some time)
+// MessageSent precommit + stepchange prevote to precommit
+// schedule TimeoutPrecommit (start round, round +1)
+// Move to next height
 
 func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) {
 
-	h := a.height
 	r := a.round
 	s := a.step
 	t := cm.MsgType
@@ -91,32 +136,36 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) {
 	// Line 22
 	if t.in(Propose) && cm.Round == r && cm.ValidRound == -1 && s == Propose {
 		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
-			a.send(Prevote, cm.Value)
+			a.msg(Prevote, cm.Value)
 		} else {
-			a.send(Prevote, nilValue)
+			a.msg(Prevote, nilValue)
 		}
+		a.step = Prevote
+		s = Prevote
 	}
 
 	// Line 28
-	if t.in(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQuorum(p.ValidRound, &p.Value) && s == Propose && (p.ValidRound >= 0 && p.ValidRound < r) {
+	if t.in(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(p.ValidRound, &p.Value) && s == Propose && (p.ValidRound >= 0 && p.ValidRound < r) {
 		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
-			a.send(Prevote, p.Value)
+			a.msg(Prevote, p.Value)
 		} else {
-			a.send(Prevote, nilValue)
+			a.msg(Prevote, nilValue)
 		}
+		a.step = Prevote
+		s = Prevote
 	}
 
 	// Line 34
-	if t.in(Prevote) && cm.Round == r && o.PrevoteQuorum(r, nil) && s == Prevote && !a.line34Executed {
+	if t.in(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
 		//c.prevoteTimeout.scheduleTimeout(c.timeoutPrevote(r), r, h, c.onTimeoutPrecommit)
 	}
 
 	// Line 36
-	if t.in(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQuorum(r, &p.Value) && o.Valid(p.Value) && s >= Prevote && !a.line36Executed {
+	if t.in(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(r, &p.Value) && o.Valid(p.Value) && s >= Prevote && !a.line36Executed {
 		if s == Prevote {
 			a.lockedValue = p.Value
 			a.lockedRound = r
-			a.send(Precommit, p.Value)
+			a.msg(Precommit, p.Value)
 			s = Precommit // TODO set steps in all situations where we set the steps
 			a.step = Precommit
 		}
@@ -125,19 +174,19 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) {
 	}
 
 	// Line 44
-	if t.in(Prevote) && cm.Round == r && o.PrevoteQuorum(r, &nilValue) && s == Prevote {
-		a.send(Precommit, p.Value)
+	if t.in(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &nilValue) && s == Prevote {
+		a.msg(Precommit, nilValue)
 		s = Precommit
 		a.step = Precommit
 	}
 
 	// Line 47
-	if t.in(Precommit) && cm.Round == r && o.PrecommitQuorum(r, nil) && !a.line47Executed {
+	if t.in(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
 		//c.precommitTimeout.scheduleTimeout(c.timeoutPrecommit(r), r, h, c.onTimeoutPrecommit) // TODO handle the timers
 	}
 
 	// Line 49
-	if t.in(Propose, Precommit) && p != nil && o.PrecommitQuorum(p.Round, &p.Value) {
+	if t.in(Propose, Precommit) && p != nil && o.PrecommitQThresh(p.Round, &p.Value) {
 		if o.Valid(p.Value) {
 			// TODO commit here commit(p.Value)
 			a.height++
@@ -146,11 +195,12 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) {
 			a.validRound = -1
 			a.validValue = nilValue
 		}
+		a.StartRound(0)
 
 		// Not quite sure how to start the round nicely
 		// need to ensure that we don't stack overflow in the case that the
 		// next height messages are sufficient for consensus when we
-		// process them and so on and so on.  So I need to set the start
+		// process them and so on and so on. So I need to set the start
 		// round states and then queue the messages for processing. And I
 		// need to ensure that I get a list of messages to process in an
 		// atomic step from the msg cache so that I don't end up trying to
@@ -158,8 +208,14 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) {
 	}
 
 	// Line 55
-	if cm.Round > r && o.FailThreshold(cm.Round, nil) {
-		// StartRound(cm.Round) // TODO
+	if cm.Round > r && o.FThresh(cm.Round, nil) {
+		// TODO account for the fact that many rounds can be skipped here.  so
+		// what happens to the old round messages? We don't process them, but
+		// we can't remove them from the cache because they may be used in this
+		// round. in the conditon at line 28. This means that we only should
+		// clean the message cache when there is a height change, clearing out
+		// all messages for the height.
+		a.StartRound(cm.Round)
 	}
 }
 
