@@ -83,7 +83,7 @@ func TestStakeManagement(t *testing.T) {
 		// check account stake balance.
 		found := false
 		for index, v := range initNetworkMetrics.Accounts {
-			if v ==  crypto.PubkeyToAddress(validators["VA"].privateKey.PublicKey) {
+			if v == crypto.PubkeyToAddress(validators["VA"].privateKey.PublicKey) {
 				found = true
 				initBalance := initNetworkMetrics.Stakes[index]
 				newBalance := curNetworkMetrics.Stakes[index]
