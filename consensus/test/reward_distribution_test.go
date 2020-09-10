@@ -1,12 +1,14 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/ethclient"
 	"math/big"
 	"testing"
 	"time"
@@ -42,40 +44,31 @@ func TestRewardDistribution(t *testing.T) {
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 	// reward checker hook:
 	rewardChecker := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-		type economicMetaData struct {
-			Accounts        []common.Address `abi:"accounts"`
-			Usertypes       []uint8          `abi:"usertypes"`
-			Stakes          []*big.Int       `abi:"stakes"`
-			Commissionrates []*big.Int       `abi:"commissionrates"`
-			Mingasprice     *big.Int         `abi:"mingasprice"`
-			Stakesupply     *big.Int         `abi:"stakesupply"`
+
+		client, err := validator.node.Attach()
+		if err != nil {
+			return err
 		}
-		// reward distribution checking start from height-2.
-		if block.NumberU64() < 2 {
-			return nil
-		}
+		defer client.Close()
+		ec := ethclient.NewClient(client)
+		ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
+		defer cancel()
+
 		blockReward := new(big.Int)
-		gp := new(core.GasPool).AddGas(block.GasLimit())
 		parent := validator.service.BlockChain().GetBlock(block.ParentHash(), block.NumberU64()-1)
 
 		addr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
-		// get parent block view.
-		parentState, stateErr := validator.service.BlockChain().StateAt(parent.Root())
-		if stateErr != nil {
-			return stateErr
-		}
-		balanceBase := parentState.GetBalance(addr)
+		balanceBase, err := ec.BalanceAt(ctx, addr, parent.Number())
+
 		// calculate sent, gasUsed, receive amount and reward base on new block.
 		sentAmount := new(big.Int)
 		receivedAmount := new(big.Int)
 		usedGas := new(big.Int)
 		rewardFraction := new(big.Int)
-		for i, tx := range block.Transactions() {
-			// Apply TX to parent view again to estimate the gasUsed of the TX.
-			parentState.Prepare(tx.Hash(), block.Hash(), i)
-			receipt, receiptErr := core.ApplyTransaction(validator.service.BlockChain().Config(), validator.service.BlockChain(), nil, gp, parentState, block.Header(), tx, new(uint64), *validator.service.BlockChain().GetVMConfig())
-			if receiptErr != nil {
-				return receiptErr
+		for _, tx := range block.Transactions() {
+			receipt, err := ec.TransactionReceipt(ctx, tx.Hash())
+			if err != nil {
+				return err
 			}
 
 			// count block reward.
@@ -96,27 +89,25 @@ func TestRewardDistribution(t *testing.T) {
 			validator.transactionsMu.Unlock()
 		}
 
-		// calculate reward fractions.
-		parentEcomonimcState := economicMetaData{}
-		err := validator.service.BlockChain().GetAutonityContract().AutonityContractCall(parentState, parent.Header(), "dumpEconomicsMetricData", &parentEcomonimcState)
-		if err != nil {
-			return err
+		// calculate reward fractions base on latest economic state
+		economicState, err1 := interact(validator.rpcPort).call(block.NumberU64()).dumpEconomicsMetricData()
+		if err1 != nil {
+			return err1
 		}
 
-		for i := 0; i < len(parentEcomonimcState.Accounts); i++ {
-			if addr == parentEcomonimcState.Accounts[i] {
-				rewardFraction = new(big.Int).Mul(blockReward, parentEcomonimcState.Stakes[i])
-				rewardFraction = rewardFraction.Div(rewardFraction, parentEcomonimcState.Stakesupply)
+		for i := 0; i < len(economicState.Accounts); i++ {
+			if addr == economicState.Accounts[i] {
+				rewardFraction = new(big.Int).Mul(blockReward, economicState.Stakes[i])
+				rewardFraction = rewardFraction.Div(rewardFraction, economicState.Stakesupply)
 				break
 			}
 		}
 
-		// current block view.
-		currentState, stateErr := validator.service.BlockChain().StateAt(block.Root())
-		if stateErr != nil {
-			return stateErr
+		balanceActual, err := ec.BalanceAt(ctx, addr, block.Number())
+		if err != nil {
+			return err
 		}
-		balanceActual := currentState.GetBalance(addr)
+
 		// check if balance is expected: base + reward + received - sent - gasUsed == bActual.
 		balanceWant := new(big.Int).Add(balanceBase, rewardFraction)
 		balanceWant.Add(balanceWant, receivedAmount)
@@ -129,30 +120,18 @@ func TestRewardDistribution(t *testing.T) {
 	}
 	// mint stake hook
 	mintStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		index := validator.lastBlock % uint64(len(validatorsList))
 		return true, nil, interact(validator.rpcPort).tx(operatorKey).mintStake(*validatorsList[index].Address, new(big.Int).SetUint64(100))
 	}
 	// send stake hook
 	transferStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		to := validator.lastBlock % uint64(len(validatorsList))
 		return true, nil, interact(validator.rpcPort).tx(validator.privateKey).sendStake(*validatorsList[to].Address, new(big.Int).SetUint64(1))
 	}
 	// redeem stake hook
 	redeemStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-
 		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		from := validator.lastBlock % uint64(len(validatorsList))
 		return true, nil, interact(validator.rpcPort).tx(operatorKey).redeemStake(*validatorsList[from].Address, new(big.Int).SetUint64(1))

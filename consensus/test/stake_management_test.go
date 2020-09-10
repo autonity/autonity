@@ -37,18 +37,16 @@ func TestStakeManagement(t *testing.T) {
 	}
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 	// mint stake hook
-	mintStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
+	mintStakeHook := func(validator *testNode, address common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-			return true, nil, interact(validator.rpcPort).tx(operatorKey).mintStake(*validatorsList[0].Address, stakeDelta)
+			return true, nil, interact(validator.rpcPort).tx(operatorKey).mintStake(address, stakeDelta)
 		}
 		return false, nil, nil
 	}
 
-	redeemStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
+	redeemStakeHook := func(validator *testNode, address common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
-			return true, nil, interact(validator.rpcPort).tx(operatorKey).redeemStake(*validatorsList[0].Address, stakeDelta)
+			return true, nil, interact(validator.rpcPort).tx(operatorKey).redeemStake(address, stakeDelta)
 		}
 		return false, nil, nil
 	}
@@ -82,11 +80,10 @@ func TestStakeManagement(t *testing.T) {
 
 		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
 		require.NoError(t, err)
-		validatorsList := validators["VA"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 		// check account stake balance.
 		found := false
 		for index, v := range initNetworkMetrics.Accounts {
-			if v == *validatorsList[0].Address {
+			if v ==  crypto.PubkeyToAddress(validators["VA"].privateKey.PublicKey) {
 				found = true
 				initBalance := initNetworkMetrics.Stakes[index]
 				newBalance := curNetworkMetrics.Stakes[index]
