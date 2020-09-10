@@ -830,6 +830,11 @@ web3._extend({
 			name: 'getWhitelist',
 			call: 'tendermint_getWhitelist',
 			params: 0
+		}),
+		new web3._extend.Method({
+			name: 'getCoreState',
+			call: 'tendermint_getCoreState',
+			params: 0
 		})
 	]
 });

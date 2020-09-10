@@ -407,6 +407,10 @@ func (sb *Backend) GetContractABI() string {
 	return sb.blockchain.GetAutonityContract().GetContractABI()
 }
 
+func (sb *Backend) GetCoreState() error {
+	return sb.core.CoreState()
+}
+
 // Whitelist for the current block
 func (sb *Backend) WhiteList() []string {
 	db, err := sb.blockchain.State()

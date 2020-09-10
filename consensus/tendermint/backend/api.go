@@ -71,3 +71,8 @@ func (api *API) GetContractABI() string {
 func (api *API) GetWhitelist() []string {
 	return api.tendermint.WhiteList()
 }
+
+// Get current tendermint's core state
+func (api *API) GetCoreState() error {
+	return api.tendermint.GetCoreState()
+}
