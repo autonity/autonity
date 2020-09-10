@@ -59,6 +59,9 @@ func TestRewardDistribution(t *testing.T) {
 
 		addr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
 		balanceBase, err := ec.BalanceAt(ctx, addr, parent.Number())
+		if err != nil {
+			return err
+		}
 
 		// calculate sent, gasUsed, receive amount and reward base on new block.
 		sentAmount := new(big.Int)
