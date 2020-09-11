@@ -1,0 +1,5 @@
+# don't edit this file, it is auto generated.
+engineVersion: 3.0.1
+targetNetwork:
+  name: E2E testing network of Autonity
+  nodes: []

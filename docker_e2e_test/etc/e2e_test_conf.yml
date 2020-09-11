@@ -1,0 +1,28 @@
+log_conf_file: "./etc/logconf.yaml"
+validator_ip_file: "./etc/validator.ip"
+participant_ip_file: "./etc/participant.ip"
+generate_testbed_conf_at: "./etc/testbedconf.yml"
+generate_testcase_conf_at: "./etc/testcaseconf.yml"
+network_data_dir: "./network-data"
+default_scalability: 6  # default number of validators for local e2e testing.
+local_mode: false # setup test network within local host with 6 validators.
+test_bed_template:
+  engineVersion: 3.0.1
+  targetNetwork:
+    name: "E2E testing network of Autonity"
+    nodes:
+      - name: "34.89.63.6" # if you have public DNS of your node, set it with DNS, otherwise set it with public IP.
+        role: 'validator' # This conf [validator|participant|stakeholder]
+        ethernetInterfaceID: 'eth0' # This conf depend on your network configuration at test bed.
+        rpcPort: 6000 # must
+        p2pPort: 30303
+        wsPort: 7000
+        graphqlPort: 9000
+        coinBase: "0xDB3B0a10faE93b6D3cA881C5F13D1D9313Ddae5A"
+        k8sCredential:
+          Token: "Get if from devop teammate if we use k8s API"
+        sshCredential:
+          sshUser: "tester"
+          sshPass: "ironman1314@"
+          sshKey: "/home/tester/.ssh/id_rsa.pub"
+          sudoPass: "ironman1314@"

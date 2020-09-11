@@ -388,9 +388,48 @@ jobs:
       - name: test contract
         run: make test-contracts
 
-  # Tests the helloworld example, this indirectly ensures that the autonity
-  # docker image can be built since the helloworld example uses it. We don't
-  # want to use any cache here since we want a clean checkout before any code
+  docker_e2e_test:
+    needs: bootstrap-checkout
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Set GOPATH
+        # see https://github.com/actions/setup-go/issues/14
+        run: |
+          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+        shell: bash
+
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
+      - uses: actions/checkout@v2
+        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+        with:
+          clean: 'false'
+
+
+      - name: Build
+        run: make all
+
+
+      - name: docker_e2e_test
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests
+
+  # Tests the hello-world example, this indirectly ensures that the autonity
+  # docker image can be built since the hello-world example uses it.  We don't want to
+  # use any cache here since we want a clean checkout before any code
   # generation has taken place.
   helloworld_tests:
     runs-on: ubuntu-latest
