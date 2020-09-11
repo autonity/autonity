@@ -22,7 +22,9 @@ require (
 	github.com/dop251/goja v0.0.0-20200219165308-d1232e640a87
 	github.com/edsrzf/mmap-go v0.0.0-20160512033002-935e0e8a636c
 	github.com/fatih/color v1.3.0
+	github.com/fjl/gencodec v0.0.0-20191126094850-e283372f291f // indirect
 	github.com/fjl/memsize v0.0.0-20180418122429-ca190fb6ffbc
+	github.com/garslo/gogen v0.0.0-20170307003452-d6ebae628c7c // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
@@ -42,6 +44,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.0
 	github.com/mattn/go-isatty v0.0.5-0.20180830101745-3fb116b82035
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/naoina/go-stringutil v0.1.0 // indirect
 	github.com/naoina/toml v0.1.2-0.20170918210437-9fafd6967416
 	github.com/olekukonko/tablewriter v0.0.2-0.20190409134802-7e037d187b0c
@@ -53,6 +56,8 @@ require (
 	github.com/rs/xhandler v0.0.0-20170707052532-1eb70cf1520d // indirect
 	github.com/shirou/gopsutil v2.20.5-0.20200531151128-663af789c085+incompatible
 	github.com/spf13/cobra v1.0.0
+	github.com/spf13/pflag v1.0.3
+	github.com/spf13/viper v1.4.0
 	github.com/status-im/keycard-go v0.0.0-20190316090335-8537d3370df4
 	github.com/steakknife/bloomfilter v0.0.0-20180922174646-6819c0d2a570
 	github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3 // indirect
@@ -63,11 +68,12 @@ require (
 	github.com/zfjagann/golang-ring v0.0.0-20190304061218-d34796e0a6c2
 	github.com/zimmski/go-leak v0.0.0-20151016212241-a11b0b936d24
 	go.uber.org/goleak v1.0.0
-	golang.org/x/crypto v0.0.0-20200311171314-f7b00557c8c4
-	golang.org/x/sync v0.0.0-20190423024810-112230192c58
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
+	golang.org/x/tools v0.0.0-20200911193555-6422fca01df9 // indirect
 	gonum.org/v1/gonum v0.7.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce

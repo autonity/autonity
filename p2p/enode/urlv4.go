@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p/enr"
@@ -103,6 +104,14 @@ func ParseV4CustomResolve(rawurl string, resolve func(host string) ([]net.IP, er
 	}
 
 	return parseComplete(rawurl, resolve)
+}
+
+func ParseV4ToAddress(rawurl string) (common.Address, error) {
+	n, err := ParseV4(rawurl)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to parse enode %q, error:%v", rawurl, err)
+	}
+	return crypto.PubkeyToAddress(*n.Pubkey()), nil
 }
 
 // NewV4WithHost creates a node where the record contained in the node has a

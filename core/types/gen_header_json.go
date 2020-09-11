@@ -198,22 +198,22 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	if decExtra.Round != nil {
 		h.Round = uint64(*decExtra.Round)
 	}
-	if decExtra.CommittedSeals == nil {
-		return errors.New("missing required field 'committedSeals' for Header")
-	}
+	// if decExtra.CommittedSeals == nil {
+	// 	return errors.New("missing required field 'committedSeals' for Header")
+	// }
 
-	if decExtra.CommittedSeals != nil {
-		h.CommittedSeals = make([][]byte, len(*decExtra.CommittedSeals))
-		for k, v := range *decExtra.CommittedSeals {
-			h.CommittedSeals[k] = v
-		}
-	}
+	// if decExtra.CommittedSeals != nil {
+	// 	h.CommittedSeals = make([][]byte, len(*decExtra.CommittedSeals))
+	// 	for k, v := range *decExtra.CommittedSeals {
+	// 		h.CommittedSeals[k] = v
+	// 	}
+	// }
 
-	if decExtra.PastCommittedSeals != nil {
-		h.PastCommittedSeals = make([][]byte, len(*decExtra.PastCommittedSeals))
-		for k, v := range *decExtra.PastCommittedSeals {
-			h.PastCommittedSeals[k] = v
-		}
-	}
+	// if decExtra.PastCommittedSeals != nil {
+	// 	h.PastCommittedSeals = make([][]byte, len(*decExtra.PastCommittedSeals))
+	// 	for k, v := range *decExtra.PastCommittedSeals {
+	// 		h.PastCommittedSeals[k] = v
+	// 	}
+	// }
 	return nil
 }
