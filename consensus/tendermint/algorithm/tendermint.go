@@ -113,6 +113,8 @@ func (a *Algorithm) StartRound(round int64, o Oracle) Result {
 // MessageSent precommit + stepchange prevote to precommit
 // schedule TimeoutPrecommit (start round, round +1)
 // Move to next height
+//
+// Could we say that we schedule a message sending and a step change at some delay, that delay may be zero.
 
 func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) {
 
@@ -132,6 +134,42 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) {
 	// - We do not check whether the message comes from a proposer since this
 	// is checkded before calling this method and we do not process proposals
 	// from non proposers.
+
+	// thinking about returning early from this method in order to pass
+	// information  back to the caller in order to let them react
+	// appropriately.
+	//
+	// The problem with returning early is that we skip certain checks for
+	// certain messages. so imagine I have 2f+1 prevotes vor v and 2f+1
+	// precommits for v. If I get a proposal for v and I exit at line 22 then
+	// I've lost my chance to confirm or commit v. Unless I get v sent to me
+	// again.
+	//
+	// So basically I must process all checks, but can I just send the final
+	// set of parameters and state at the end of the method rather than sending
+	// all the in-between messages.
+	//
+	// Ok this looks like it could work here if I don't execute StartRound from
+	// ReceiveMessage. This limits me to either senidng a prevote or a
+	// precommit, and a precommit will always supercede a prevote, so It's
+	// actually a good optimisation to be able to drop sending a prevote
+	// message if we were already going to send a precommit.
+	//
+	// We could probably optimise this further by re-aranging the upon
+	// conditions so that the precommits come first and then the prevotes, then
+	// we could return early, because precommit supercetedes a prevote.
+	//
+	// What would we return. Could return the step to indicate what step we achieved and the round to indicate what round we are at. and a message to indicate the last message sent.
+	//
+	// Just realised we do not need to worry about step changes in the state
+	// because each time there is a step change we broadcast a message which if
+	// we process will hit the conditions that we would need to re-consider as
+	// part of the step change.
+	//
+	// So if we want to return something on a step change or round change. or a timeout
+	// schedule, looks like we need to return target round, if round is
+	// changing, the message to be sent if one
+	// round, step
 
 	// Line 22
 	if t.in(Propose) && cm.Round == r && cm.ValidRound == -1 && s == Propose {

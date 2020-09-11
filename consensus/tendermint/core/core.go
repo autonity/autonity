@@ -381,7 +381,7 @@ func (c *core) setStep(step Step) {
 	//
 	// So we can hit both 34 and 44 with a prevote for nil and 47 with a
 	// precommit for any value. So we can hit all checks by reprocessing just
-	// the proposals and a fake precommit and fake prevote.
+	// the proposals and a fake precommit and fake prevote for nil.
 	//
 	// ---
 	//
@@ -398,6 +398,10 @@ func (c *core) setStep(step Step) {
 	// What messages shall we reprocess to hit all those checks. Reprocessing
 	// the proposals will cover 36. That leaves 34 and 44. As we can see from
 	// our reasoning above a fake prevote for nil will hit those checks.
+	//
+	// In fact though, in the process of making a step change from propose to
+	// prevote we send a prevote, that prevote will hit those checks, so there
+	// is no need to send any special messges in this case
 	//
 	//
 	// For step change prevote to precommit, we will need to check all checks

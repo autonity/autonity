@@ -2,10 +2,11 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/clearmatics/autonity/log"
 )
 
 const (
