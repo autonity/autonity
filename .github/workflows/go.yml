@@ -456,7 +456,7 @@ jobs:
   long_term_e2e_test:
     needs: bootstrap-checkout
     runs-on: [self-hosted, linux, x64]
-    # if: github.ref == 'refs/heads/ci_long_run_docker_test'
+    if: github.ref == 'refs/heads/ci_long_run_docker_test'
     steps:
       - name: Set up Go
         uses: actions/setup-go@v1
@@ -471,13 +471,13 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+      #- name: Cache code
+      #  uses: actions/cache@v1
+      #  env:
+      #    cache-name: cache-autonity-code
+      #  with:
+      #    path: /home/runner/work/autonity/autonity/
+      #    key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
