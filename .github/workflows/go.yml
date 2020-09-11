@@ -471,15 +471,17 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      #- name: Cache code
-      #  uses: actions/cache@v1
-      #  env:
-      #    cache-name: cache-autonity-code
-      #  with:
-      #    path: /home/runner/work/autonity/autonity/
-      #    key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+      - name: Cache code
+        run: sudo mkdir -p /home/runner
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
       - uses: actions/checkout@v2
+        run: sudo rm -rf /home/jason.chen/actions-runner/_work/autonity/autonity/build
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
