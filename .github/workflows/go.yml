@@ -472,7 +472,7 @@ jobs:
         shell: bash
 
       - name: Cache code
-        run: sudo mkdir -p /home/runner
+        #run: sudo mkdir -p /home/runner
         uses: actions/cache@v1
         env:
           cache-name: cache-autonity-code
@@ -481,7 +481,7 @@ jobs:
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
       - uses: actions/checkout@v2
-        run: sudo rm -rf /home/jason.chen/actions-runner/_work/autonity/autonity/build
+        #run: sudo rm -rf /home/jason.chen/actions-runner/_work/autonity/autonity/build
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
