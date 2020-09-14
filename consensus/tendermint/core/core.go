@@ -166,7 +166,23 @@ func (c *core) GetCurrentHeightMessages() []*Message {
 }
 
 func (c *core) CoreState() types.TendermintState {
-	return types.TendermintState{}
+	state := types.TendermintState{
+	}
+	state.Client = c.address
+	state.Height = *c.Height()
+	state.Round = c.Round()
+	state.Proposal = c.messages.getOrCreate(state.Round).proposal.ProposalBlock.Hash()
+	state.LockedValue = c.getLockedValue()
+	state.LockedRound = c.getLockedRound()
+	state.ValidValue = c.getValidValue()
+	state.ValidRound = c.getValidRound()
+	state.IsProposer = c.isProposer()
+	state.ProposerPolicy = uint64(c.proposerPolicy)
+	state.ParentCommittee = c.getParentCommittee()
+	state.CurCommittee = c.committeeSet().Committee()
+	state.QuorumVotePower = c.committeeSet().Quorum()
+	state.TotalPrevotePower =
+	return state
 }
 
 func (c *core) IsMember(address common.Address) bool {
@@ -408,8 +424,51 @@ func (c *core) Height() *big.Int {
 	defer c.stateMu.RUnlock()
 	return c.height
 }
+
 func (c *core) committeeSet() committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committee
+}
+
+func (c *core) getLockedValue() common.Hash {
+	// todo RW Lock
+	v := common.Hash{}
+	if c.lockedValue != nil {
+		v = c.lockedValue.Hash()
+	}
+	return v
+}
+
+func (c *core) getLockedRound() int64 {
+	// todo RW Lock
+	return c.lockedRound
+}
+
+func (c *core) getValidValue() common.Hash {
+	// todo RW Lock
+	v := common.Hash{}
+	if c.validValue != nil {
+		v = c.validValue.Hash()
+	}
+	return v
+}
+
+func (c *core) getValidRound() int64 {
+	// todo RW Lock
+	return c.validRound
+}
+
+func (c *core) getParentCommittee() types.Committee {
+	// todo RW Lock
+	v := types.Committee{}
+	if c.lastHeader != nil {
+		v = c.lastHeader.Committee
+	}
+	return v
+}
+
+func (c *core) getTotalPrevotePower(round int64) uint64 {
+	// todo RW Lock
+	return 0
 }

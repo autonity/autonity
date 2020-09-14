@@ -109,39 +109,41 @@ type Committee []CommitteeMember
 type TendermintState struct {
 
 	// client ID.
-	client common.Address
+	Client common.Address
 
 	// core state of tendermint
-	height big.Int
-	round int64
-	step uint64
-	proposal common.Hash
-	lockedValue common.Hash
-	lockRound int64
-	validValue common.Hash
-	validRound int64
-	decision common.Hash
+	Height      big.Int
+	Round       int64
+	Step        uint64
+	Proposal    common.Hash
+	LockedValue common.Hash
+	LockedRound int64
+	ValidValue  common.Hash
+	ValidRound  int64
+	Decision    common.Hash // decision is committed to the view, and to be hard to capture it.
 
 	// committee state
-	isProposer bool
-	proposerPolicy uint64
-	parentCommittee Committee
-	curCommittee Committee
-	quorumVotePower uint64
-	totalPrevotePower uint64
-	totalPrecommitPower uint64
+	IsProposer bool
+	ProposerPolicy uint64
+	ParentCommittee Committee
+	CurCommittee Committee
+
+	// do we need to take below things for multiple round?
+	QuorumVotePower uint64
+	TotalPrevotePower uint64
+	TotalPrecommitPower uint64
 
 	// extra state
-	sentProposal          bool
-	sentPrevote           bool
-	sentPrecommit         bool
-	setValidRoundAndValue bool
+	SentProposal          bool
+	SentPrevote           bool
+	SentPrecommit         bool
+	SetValidRoundAndValue bool
 
 	// timer state
-	blockPeriod uint64
-	proposeTimerStarted   bool
-	prevoteTimerStarted   bool
-	precommitTimerStarted bool
+	BlockPeriod uint64
+	ProposeTimerStarted   bool
+	PrevoteTimerStarted   bool
+	PrecommitTimerStarted bool
 }
 
 // originalHeader represents the ethereum blockchain header.
