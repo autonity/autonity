@@ -471,21 +471,22 @@ jobs:
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         shell: bash
 
-      #- name: Cache code
-      #  uses: actions/cache@v1
-      #  env:
-      #    cache-name: cache-autonity-code
-      #  with:
-      #    path: /home/runner/work/autonity/autonity/
-      #    key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
-      #- uses: actions/checkout@v2
-      #  if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-      #  with:
-      #    clean: 'false'
+      - uses: actions/checkout@v2
+        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+        with:
+          clean: 'false'
 
       - name: Build
-        run: git clone https://github.com/clearmatics/autonity.git && cd autonity && git checkout ci_long_run_docker_test && make all
+        #run: git clone https://github.com/clearmatics/autonity.git && cd autonity && git checkout ci_long_run_docker_test && make all
+        run: make all
 
       - name: docker_e2e_test
         run: cd docker_e2e_test && make install-prerequisites-linux && make long-term-e2e-tests
