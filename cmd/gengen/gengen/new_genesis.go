@@ -3,12 +3,9 @@ package gengen
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -21,109 +18,44 @@ import (
 	"github.com/clearmatics/autonity/params"
 )
 
-type user struct {
-	// initialEth defines the starting eth in wei (1 ETH is 10^18 wei).
-	initialEth *big.Int
-	// userType is one of participant, stakeholder or validator.
-	userType params.UserType
-	// stake defines the amount of stake token a user has in the system.
-	stake uint64
-	// nodeIP is the ip that this user's node can be reached at.
-	nodeIP net.IP
-	// nodePort is the port that this user's node can be reached at.
-	nodePort int
+// User holds the parameters that constitute a participant's initial state in
+// the genesis file.
+type User struct {
+	// InitialEth defines the starting eth in wei (1 ETH is 10^18 wei).
+	InitialEth *big.Int
+	// UserType is one of participant, stakeholder or validator.
+	UserType params.UserType
+	// Stake defines the amount of Stake token a user has in the system.
+	Stake uint64
+	// NodeIP is the ip that this user's node can be reached at.
+	NodeIP net.IP
+	// NodePort is the port that this user's node can be reached at.
+	NodePort int
+	// Key is either a public or private key for the user.
+	Key interface{}
+	// KeyPath is the file path at which the key is stored.
+	KeyPath string
 }
 
-// newGenesis parses the input from the commandline and uses it to generate a
+// NewGenesis parses the input from the commandline and uses it to generate a
 // genesis struct. It returns the generated genesis and associated user keys,
 // if user keys were provided they will be returned, otherwise a set of
 // generated keys will be returned. See gengen command help for a description
 // of userStrings and userKeys, userKeys must either have a key for each user
 // or be nil.
-func newGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*core.Genesis, []string, error) {
-	if len(userStrings) < 1 {
-		return nil, nil, fmt.Errorf("at least one user must be specified")
+func NewGenesis(minGasPrice uint64, users []*User) (*core.Genesis, error) {
+	if len(users) < 1 {
+		return nil, fmt.Errorf("at least one user must be specified")
 	}
 
-	// Holds generated or loaded keys for users
-	pubKeys := make([]*ecdsa.PublicKey, len(userStrings))
-	privKeys := make([]*ecdsa.PrivateKey, len(userStrings))
-
-	if userKeys == nil {
-		// No keys provided so generate keys
-		userKeys = make([]string, len(userStrings))
-		for i := range privKeys {
-			k, err := crypto.GenerateKey()
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to generate key for user #%d: %v", i, err)
-			}
-			privKeys[i] = k
-			pubKeys[i] = &k.PublicKey
-			userKeys[i] = "priv:" + hex.EncodeToString(crypto.FromECDSA(k))
-		}
-
-	} else {
-		if len(userKeys) != len(userStrings) {
-			return nil, nil, fmt.Errorf(
-				"%d users specified on commandline but user keys has %d keys",
-				len(userStrings),
-				len(userKeys),
-			)
-		}
-
-		invalidKeyEntryErr := func(entry string, index int) error {
-			return fmt.Errorf("invalid key entry %q at index %d", entry, index)
-		}
-		// Expecting lines of the format
-		//
-		// priv:<hex encoded secp256k1 ecdsa private key>
-		// pub:<hex encoded secp256k1 ecdsa public key>
-		for i, ks := range userKeys {
-			parts := strings.Split(ks, ":")
-			if len(parts) != 2 {
-				return nil, nil, invalidKeyEntryErr(ks, i)
-			}
-			b, err := hex.DecodeString(parts[1])
-			if err != nil {
-				return nil, nil, fmt.Errorf("%v: %v", invalidKeyEntryErr(ks, i), err)
-			}
-
-			switch parts[0] {
-			case "priv":
-				priv, err := crypto.ToECDSA(b)
-				if err != nil {
-					return nil, nil, fmt.Errorf("%v: %v", invalidKeyEntryErr(ks, i), err)
-				}
-				pubKeys[i] = &priv.PublicKey
-			case "pub":
-				pubKeys[i], err = crypto.UnmarshalPubkey(b)
-				if err != nil {
-					return nil, nil, fmt.Errorf("%v: %v", invalidKeyEntryErr(ks, i), err)
-				}
-			default:
-				return nil, nil, invalidKeyEntryErr(ks, i)
-			}
-		}
-	}
-	users := make([]*user, len(userStrings))
-
-	// Parse users
-	for i, userString := range userStrings {
-		user, err := parseUser(userString)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse user %q: %v", userString, err)
-		}
-		users[i] = user
-	}
-
-	operatorAddress, genesisUsers, genesisAlloc, err := generateUserState(users, pubKeys)
+	operatorAddress, genesisUsers, genesisAlloc, err := generateUserState(users)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to construct initial user state: %v", err)
+		return nil, fmt.Errorf("failed to construct initial user state: %v", err)
 	}
 
 	chainID, err := rand.Int(rand.Reader, math.MaxBig256)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate random chainID: %v", err)
+		return nil, fmt.Errorf("failed to generate random chainID: %v", err)
 	}
 
 	genesis := &core.Genesis{
@@ -167,70 +99,7 @@ func newGenesis(minGasPrice uint64, userStrings []string, userKeys []string) (*c
 		},
 	}
 
-	return genesis, userKeys, nil
-}
-
-func parseUser(u string) (*user, error) {
-	fields := strings.Split(u, ",")
-	if len(fields) != 4 {
-		return nil, fmt.Errorf("user strings need 4 fields, invalid user string %q", u)
-	}
-
-	initialEth, err := ParseUint(fields[0])
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse initial eth: %v", err)
-	}
-
-	var userType params.UserType
-	switch fields[1] {
-	case "p":
-		userType = params.UserParticipant
-	case "s":
-		userType = params.UserStakeHolder
-	case "v":
-		userType = params.UserValidator
-	default:
-		return nil, fmt.Errorf("failed to parse user type %q, not one of u, s or p", fields[1])
-	}
-
-	bigStake, err := ParseUint(fields[2])
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse stake: %v", err)
-	}
-	if !bigStake.IsInt64() {
-		return nil, fmt.Errorf("stake %q is not an integer in the uint64 domain", fields[2])
-	}
-	stake := bigStake.Uint64()
-
-	address := fields[3]
-	ipString, portString, err := net.SplitHostPort(address)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse address: %v", err)
-	}
-
-	// Try to parse port number into a 16 bit unsigned int
-	port, err := strconv.ParseUint(portString, 10, 16)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse port %q in address: %v", portString, err)
-	}
-	if ipString == "" {
-		ipString = "127.0.0.1"
-	}
-
-	ip := net.ParseIP(ipString)
-	if ip == nil {
-		return nil, fmt.Errorf("failed to parse ip %q in address: %v", ipString, err)
-	}
-
-	user := &user{
-		initialEth: initialEth,
-		userType:   userType,
-		stake:      stake,
-		nodeIP:     ip,
-		nodePort:   int(port),
-	}
-
-	return user, nil
+	return genesis, nil
 }
 
 // ParseUint provides support for parsing large numbers in base 10 using
@@ -264,7 +133,7 @@ func ParseUint(str string) (*big.Int, error) {
 // Generates a slice of params.User along with a corresponding
 // core.GenesisAlloc. Also returns the address of the first user in users as
 // the operatorAddress.
-func generateUserState(users []*user, keys []*ecdsa.PublicKey) (
+func generateUserState(users []*User) (
 	operatorAddress *common.Address,
 	genesisUsers []params.User,
 	genesisAlloc core.GenesisAlloc,
@@ -273,12 +142,20 @@ func generateUserState(users []*user, keys []*ecdsa.PublicKey) (
 	genesisUsers = make([]params.User, len(users))
 	genesisAlloc = make(core.GenesisAlloc, len(users))
 	for i, u := range users {
-		pk := keys[i]
-		e := enode.NewV4(pk, u.nodeIP, u.nodePort, u.nodePort)
+		var pk *ecdsa.PublicKey
+		switch k := u.Key.(type) {
+		case *ecdsa.PublicKey:
+			pk = k
+		case *ecdsa.PrivateKey:
+			pk = &k.PublicKey
+		default:
+			return nil, nil, nil, fmt.Errorf("expecting ecdsa public or private key, instead got %T", u.Key)
+		}
+		e := enode.NewV4(pk, u.NodeIP, u.NodePort, u.NodePort)
 		gu := params.User{
 			Enode: e.String(),
-			Type:  u.userType,
-			Stake: u.stake,
+			Type:  u.UserType,
+			Stake: u.Stake,
 		}
 		err := gu.Validate()
 		if err != nil {
@@ -291,7 +168,7 @@ func generateUserState(users []*user, keys []*ecdsa.PublicKey) (
 			operatorAddress = &userAddress
 		}
 		genesisAlloc[userAddress] = core.GenesisAccount{
-			Balance: u.initialEth,
+			Balance: u.InitialEth,
 		}
 	}
 
