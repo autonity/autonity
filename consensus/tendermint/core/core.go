@@ -165,8 +165,8 @@ func (c *core) GetCurrentHeightMessages() []*Message {
 	return c.messages.GetMessages()
 }
 
-func (c *core) CoreState() error {
-	return nil
+func (c *core) CoreState() types.TendermintState {
+	return types.TendermintState{}
 }
 
 func (c *core) IsMember(address common.Address) bool {

@@ -106,6 +106,44 @@ type CommitteeMember struct {
 
 type Committee []CommitteeMember
 
+type TendermintState struct {
+
+	// client ID.
+	client common.Address
+
+	// core state of tendermint
+	height big.Int
+	round int64
+	step uint64
+	proposal common.Hash
+	lockedValue common.Hash
+	lockRound int64
+	validValue common.Hash
+	validRound int64
+	decision common.Hash
+
+	// committee state
+	isProposer bool
+	proposerPolicy uint64
+	parentCommittee Committee
+	curCommittee Committee
+	quorumVotePower uint64
+	totalPrevotePower uint64
+	totalPrecommitPower uint64
+
+	// extra state
+	sentProposal          bool
+	sentPrevote           bool
+	sentPrecommit         bool
+	setValidRoundAndValue bool
+
+	// timer state
+	blockPeriod uint64
+	proposeTimerStarted   bool
+	prevoteTimerStarted   bool
+	precommitTimerStarted bool
+}
+
 // originalHeader represents the ethereum blockchain header.
 type originalHeader struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
