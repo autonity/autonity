@@ -155,11 +155,17 @@ func (c *core) processBacklog() {
 		c.backlogs[src] = backlog
 
 	}
-	for _, msg := range c.backlogUnchecked[c.height.Uint64()] {
-		go c.sendEvent(backlogUncheckedEvent{
-			msg: msg,
-		})
-		c.logger.Debug("Post unchecked backlog event", "msg", msg)
+	for height, _ := range c.backlogUnchecked {
+		if height == c.height.Uint64() {
+			for _, msg := range c.backlogUnchecked[height] {
+				go c.sendEvent(backlogUncheckedEvent{
+					msg: msg,
+				})
+				c.logger.Debug("Post unchecked backlog event", "msg", msg)
+			}
+		}
+		if height <= c.height.Uint64() {
+			delete(c.backlogUnchecked, height)
+		}
 	}
-	delete(c.backlogUnchecked, c.height.Uint64())
 }

@@ -20,13 +20,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
-	"math/big"
-	"reflect"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rlp"
+	"io"
+	"math/big"
+	"reflect"
 )
 
 const (
@@ -140,7 +139,7 @@ func (m *Message) Validate(validateFn func(*types.Header, []byte, []byte) (commo
 
 	v := previousHeader.CommitteeMember(addr)
 	if v == nil {
-		return nil, fmt.Errorf("validator was not a committee member %q", v)
+		return nil, fmt.Errorf("message received is not from a committee member: %x", addr)
 	}
 
 	m.power = v.VotingPower.Uint64()

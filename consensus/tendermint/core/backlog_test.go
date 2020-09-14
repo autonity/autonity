@@ -327,7 +327,6 @@ func TestProcessBacklog(t *testing.T) {
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogEvent{
-			src: val,
 			msg: msg,
 		}
 
@@ -402,7 +401,6 @@ func TestProcessBacklog(t *testing.T) {
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogEvent{
-			src: val,
 			msg: msg,
 		}
 

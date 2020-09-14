@@ -68,6 +68,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		step    Step
 		message *Message
 		outcome error
+		panic   bool
 	}{
 		{
 			1,
@@ -75,6 +76,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			propose,
 			createPrevote(1, 2),
 			errFutureStepMessage,
+			false,
 		},
 		{
 			1,
@@ -82,6 +84,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			propose,
 			createPrevote(2, 2),
 			errFutureRoundMessage,
+			false,
 		},
 		{
 			0,
@@ -89,6 +92,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			propose,
 			createPrevote(0, 3),
 			errFutureHeightMessage,
+			true,
 		},
 		{
 			0,
@@ -96,6 +100,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			prevote,
 			createPrevote(0, 2),
 			nil,
+			false,
 		},
 		{
 			0,
@@ -103,6 +108,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			precommit,
 			createPrecommit(0, 2),
 			nil,
+			false,
 		},
 		{
 			0,
@@ -110,6 +116,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			precommit,
 			createPrecommit(0, 10),
 			errFutureHeightMessage,
+			true,
 		},
 		{
 			5,
@@ -117,6 +124,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			precommit,
 			createPrecommit(20, 2),
 			errFutureRoundMessage,
+			false,
 		},
 	}
 
@@ -139,19 +147,31 @@ func TestHandleCheckedMessage(t *testing.T) {
 			precommitTimeout:  newTimeout(precommit, logger),
 		}
 
-		err := engine.handleCheckedMsg(context.Background(), testCase.message, sender)
+		func() {
+			defer func() {
+				r := recover()
+				if r == nil && testCase.panic {
+					t.Errorf("The code did not panic")
+				}
+				if r != nil && !testCase.panic {
+					t.Errorf("Unexpected panic")
+				}
+			}()
 
-		if err != testCase.outcome {
-			t.Fatal("unexpected handlecheckedmsg returning ",
-				"err=", err, ", expecting=", testCase.outcome, " with msgCode=", testCase.message.Code)
-		}
+			err := engine.handleCheckedMsg(context.Background(), testCase.message)
 
-		if err != nil {
-			backlogValue := engine.backlogs[sender.Address][0]
-			if backlogValue != testCase.message {
-				t.Fatal("unexpected backlog message")
+			if err != testCase.outcome {
+				t.Fatal("unexpected handlecheckedmsg returning ",
+					"err=", err, ", expecting=", testCase.outcome, " with msgCode=", testCase.message.Code)
 			}
-		}
+
+			if err != nil {
+				backlogValue := engine.backlogs[sender.Address][0]
+				if backlogValue != testCase.message {
+					t.Fatal("unexpected backlog message")
+				}
+			}
+		}()
 	}
 }
 
