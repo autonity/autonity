@@ -11,8 +11,6 @@ import (
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p/enode"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/crypto"
@@ -46,12 +44,12 @@ type testNode struct {
 }
 
 type netNode struct {
-	listener                []net.Listener
-	privateKey              *ecdsa.PrivateKey
-	address                 string
-	port                    int
-	url                     string
-	rpcPort                 int
+	listener   []net.Listener
+	privateKey *ecdsa.PrivateKey
+	address    string
+	port       int
+	url        string
+	rpcPort    int
 }
 
 type block struct {
@@ -61,36 +59,36 @@ type block struct {
 
 func (validator *testNode) startNode() error {
 	// Inject the signer key and start sealing with it
-	store := validator.node.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
+	// store := validator.node.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 
-	var (
-		err    error
-		signer accounts.Account
-	)
+	// var (
+	// 	err    error
+	// 	signer accounts.Account
+	// )
 
-	if !validator.isInited {
-		signer, err = store.ImportECDSA(validator.privateKey, "")
-		if err != nil {
-			return fmt.Errorf("import pk: %s", err)
-		}
+	// if !validator.isInited {
+	// 	signer, err = store.ImportECDSA(validator.privateKey, "")
+	// 	if err != nil {
+	// 		return fmt.Errorf("import pk: %s", err)
+	// 	}
 
-		for {
-			// wait until the private key is imported
-			_, err = validator.node.AccountManager().Find(signer)
-			if err == nil {
-				break
-			}
-			time.Sleep(50 * time.Microsecond)
-		}
+	// 	for {
+	// 		// wait until the private key is imported
+	// 		_, err = validator.node.AccountManager().Find(signer)
+	// 		if err == nil {
+	// 			break
+	// 		}
+	// 		time.Sleep(50 * time.Microsecond)
+	// 	}
 
-		validator.isInited = true
-	} else {
-		signer = store.Accounts()[0]
-	}
+	// 	validator.isInited = true
+	// } else {
+	// 	signer = store.Accounts()[0]
+	// }
 
-	if err = store.Unlock(signer, ""); err != nil {
-		return fmt.Errorf("cant unlock: %s", err)
-	}
+	// if err = store.Unlock(signer, ""); err != nil {
+	// 	return fmt.Errorf("cant unlock: %s", err)
+	// }
 
 	validator.node.ResetEventMux()
 
