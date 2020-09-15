@@ -92,6 +92,20 @@ func (r *serviceRegistry) registerName(name string, rcvr interface{}) error {
 	return nil
 }
 
+func (r *serviceRegistry) registerCallbacksForNamespace(name string, args ...interface{}) error {
+	for a := range args {
+		typ := reflect.ValueOf(a)
+		if typ.Kind() != reflect.Func {
+			return errors.New("expected args to be of type function")
+		}
+
+		typ.Type()
+
+	}
+
+	return nil
+}
+
 // callback returns the callback corresponding to the given RPC method name.
 func (r *serviceRegistry) callback(method string) *callback {
 	elem := strings.SplitN(method, serviceMethodSeparator, 2)
