@@ -181,7 +181,7 @@ func (c *core) CoreState() types.TendermintState {
 	state.ParentCommittee = c.getParentCommittee()
 	state.CurCommittee = c.committeeSet().Committee()
 	state.QuorumVotePower = c.committeeSet().Quorum()
-	state.TotalPrevotePower =
+	state.TotalPrevotePower = 0
 	return state
 }
 
