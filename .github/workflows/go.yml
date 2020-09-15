@@ -385,7 +385,7 @@ jobs:
   docker_e2e_test:
     needs: bootstrap-checkout
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/start_stop_nodes_docker_test'
     steps:
       - name: Set up Go
         uses: actions/setup-go@v1
@@ -413,10 +413,8 @@ jobs:
         with:
           clean: 'false'
 
-
       - name: Build
         run: make all
-
 
       - name: docker_e2e_test
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests
