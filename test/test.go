@@ -1,17 +1,27 @@
 package test
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/cmd/gengen/gengen"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/eth/downloader"
+	"github.com/clearmatics/autonity/ethclient"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/params"
@@ -125,6 +135,225 @@ func Node(u *gengen.User, genesis *core.Genesis) (*node.Node, func(), error) {
 	}
 
 	return n, cleanup, nil
+}
+
+type TransactionTracker struct {
+	c                     *ethclient.Client
+	completedTransactions map[common.Hash]struct{}
+	mu                    sync.Mutex
+	waiting               func(common.Hash, error)
+	err                   error
+}
+
+func TrackTransactions(client *ethclient.Client) (*TransactionTracker, error) {
+	tr := &TransactionTracker{
+		c:                     client,
+		completedTransactions: make(map[common.Hash]struct{}),
+	}
+	heads := make(chan *types.Header)
+	sub, err := client.SubscribeNewHead(context.Background(), heads)
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+	Finished:
+		for {
+			select {
+			case h := <-heads:
+				b, err := client.BlockByHash(context.Background(), h.Hash())
+				if err != nil {
+					tr.mu.Lock()
+					tr.err = err
+					tr.mu.Unlock()
+					break Finished
+				}
+
+				tr.mu.Lock()
+				for _, t := range b.Transactions() {
+					tr.completedTransactions[t.Hash()] = struct{}{}
+					tr.waiting(t.Hash(), nil) // notify waiting
+				}
+				tr.mu.Unlock()
+			case err, ok := <-sub.Err():
+				if !ok {
+					// Unsubscribe was called, the subscription is over
+					return
+				}
+				if err != nil {
+					tr.mu.Lock()
+					tr.err = err
+					tr.mu.Unlock()
+					break Finished
+				}
+
+			}
+		}
+		if tr.err != nil {
+			tr.mu.Lock()
+			tr.waiting(common.Hash{}, tr.err)
+			tr.mu.Unlock()
+		}
+	}()
+	return tr, nil
+
+}
+
+func (tr *TransactionTracker) AwaitTransactions(hashes []common.Hash) error {
+	hashmap := make(map[common.Hash]struct{}, len(hashes))
+	for i := range hashes {
+		hashmap[hashes[i]] = struct{}{}
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	tr.mu.Lock()
+	// Remove already completed transactions
+	for h := range tr.completedTransactions {
+		delete(hashmap, h)
+	}
+	// Then register the waiter to wait for the remaining transactions
+	tr.waiting = func(h common.Hash, err error) {
+		if err != nil {
+			wg.Done()
+			return
+		}
+		delete(hashmap, h)
+		if len(hashmap) == 0 {
+			wg.Done()
+		}
+	}
+	tr.mu.Unlock()
+	wg.Wait()
+	return tr.err
+}
+
+func AwaitTransactions(ctx context.Context, client *ethclient.Client, hashes []common.Hash) (<-chan common.Hash, <-chan error, error) {
+	heads := make(chan *types.Header)
+	sub, err := client.SubscribeNewHead(context.Background(), heads)
+	if err != nil {
+		return nil, nil, err
+	}
+	hashes := make(chan common.Hash)
+	errors := make(chan error)
+	go func() {
+		for {
+			select {
+			case h := <-heads:
+				b, err := client.BlockByHash(context.Background(), h.Hash())
+				if err != nil {
+					errors <- err
+				}
+				for _, t := range b.Transactions() {
+					hashes <- t.Hash()
+				}
+			case err := <-sub.Err():
+				errors <- err
+			case <-ctx.Done():
+				return
+			}
+		}
+
+	}()
+	return hashes, errors, nil
+}
+func MinedTransactions(ctx context.Context, client *ethclient.Client) (<-chan common.Hash, <-chan error, error) {
+	heads := make(chan *types.Header)
+	sub, err := client.SubscribeNewHead(context.Background(), heads)
+	if err != nil {
+		return nil, nil, err
+	}
+	hashes := make(chan common.Hash)
+	errors := make(chan error)
+	go func() {
+		for {
+			select {
+			case h := <-heads:
+				b, err := client.BlockByHash(context.Background(), h.Hash())
+				if err != nil {
+					errors <- err
+				}
+				for _, t := range b.Transactions() {
+					hashes <- t.Hash()
+				}
+			case err := <-sub.Err():
+				errors <- err
+			case <-ctx.Done():
+				return
+			}
+		}
+
+	}()
+	return hashes, errors, nil
+}
+
+func sendTx(nodeAddr string, senderKey string, action func(*ethclient.Client, *bind.TransactOpts, *autonitybindings.Autonity) (*types.Transaction, error)) error {
+	client, err := ethclient.Dial("ws://" + nodeAddr)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	a, err := autonitybindings.NewAutonity(autonity.ContractAddress, client)
+	if err != nil {
+		return err
+	}
+	k, err := crypto.HexToECDSA(senderKey)
+	if err != nil {
+		return fmt.Errorf("failed to decode sender key: %v", err)
+	}
+
+	senderAddress := crypto.PubkeyToAddress(k.PublicKey)
+	opts := bind.NewKeyedTransactor(k)
+	opts.From = senderAddress
+	opts.Context = context.Background()
+
+	heads := make(chan *types.Header)
+	sub, err := client.SubscribeNewHead(context.Background(), heads)
+	if err != nil {
+		return err
+	}
+
+	tx, err := action(client, opts, a)
+	if err != nil {
+		return err
+	}
+
+	txHash := tx.Hash()
+	marshalled, err := json.MarshalIndent(tx, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Sent transaction:\n%s\n", string(marshalled))
+
+	fmt.Print("\nAwaiting mining ...")
+
+	for {
+		select {
+		case h := <-heads:
+			b, err := client.BlockByHash(context.Background(), h.Hash())
+			if err != nil {
+				return err
+			}
+			for _, t := range b.Transactions() {
+				if t.Hash() == txHash {
+					r, err := client.TransactionReceipt(context.Background(), txHash)
+					if err != nil {
+						return err
+					}
+					marshalled, err := json.MarshalIndent(r, "", "  ")
+					if err != nil {
+						return err
+					}
+					fmt.Printf("\n\nTransaction receipt:\n%v\n", string(marshalled))
+					return nil
+				}
+			}
+			fmt.Print(".")
+
+		case err := <-sub.Err():
+			return err
+		}
+	}
 }
 
 func Genesis(users []*gengen.User) (*core.Genesis, error) {

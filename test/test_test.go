@@ -1,12 +1,14 @@
 package test
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth"
+	"github.com/clearmatics/autonity/ethclient"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/node"
 	"github.com/davecgh/go-spew/spew"
@@ -35,6 +37,14 @@ func TestStuff(t *testing.T) {
 		network = append(network, n)
 	}
 	time.Sleep(time.Second * 4)
+
+	c, err := ethclient.Dial("ws://" + network[0].WSEndpoint())
+	require.NoError(t, err)
+
+	ctx := context.WithCancel(context.Background())
+	hashes, errors, err := MinedTransactions(ctx, client*ethclient.Client)
+	require.NoError(t, err)
+	// sendtranaction
 
 	for _, n := range network {
 		spew.Dump("peers", crypto.PubkeyToAddress(n.Config().NodeKey().PublicKey), n.Server().Peers())
