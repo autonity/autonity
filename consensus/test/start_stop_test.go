@@ -248,11 +248,13 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range cases {
-		testCase := testCase
-		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
-		})
+	for i := 0; i < 100; i ++ {
+		for _, testCase := range cases {
+			testCase := testCase
+			t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+				runTest(t, testCase)
+			})
+		}
 	}
 }
 
@@ -354,11 +356,13 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range cases {
-		testCase := testCase
-		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
-		})
+	for i := 0; i < 100; i ++ {
+		for _, testCase := range cases {
+			testCase := testCase
+			t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+				runTest(t, testCase)
+			})
+		}
 	}
 }
 
@@ -473,11 +477,13 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range cases {
-		testCase := testCase
-		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
-		})
+	for i := 0; i < 100; i ++ {
+		for _, testCase := range cases {
+			testCase := testCase
+			t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
+				runTest(t, testCase)
+			})
+		}
 	}
 }
 

@@ -384,7 +384,7 @@ jobs:
 
   docker_e2e_test:
     needs: bootstrap-checkout
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     if: github.ref == 'refs/heads/start_stop_nodes_docker_test'
     steps:
       - name: Set up Go
