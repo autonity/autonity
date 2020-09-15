@@ -108,7 +108,7 @@ type Committee []CommitteeMember
 
 type TendermintState struct {
 
-	// client ID.
+	// validator address
 	Client common.Address
 
 	// core state of tendermint
@@ -120,12 +120,17 @@ type TendermintState struct {
 	LockedRound int64
 	ValidValue  common.Hash
 	ValidRound  int64
-	Decision    common.Hash // decision is committed to the view, and to be hard to capture it.
 
 	// committee state
+	ParentCommittee Committee
+
+	// round -> round state {Proposer, Committee, IsProposer,
+	// QuorumVotePower, PreVoteState{value -> prevotePower},
+	// PreCommitState{value -> precommitPower}, }
+
+
 	IsProposer bool
 	ProposerPolicy uint64
-	ParentCommittee Committee
 	CurCommittee Committee
 
 	// do we need to take below things for multiple round?

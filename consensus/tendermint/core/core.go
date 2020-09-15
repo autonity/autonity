@@ -165,26 +165,6 @@ func (c *core) GetCurrentHeightMessages() []*Message {
 	return c.messages.GetMessages()
 }
 
-func (c *core) CoreState() types.TendermintState {
-	state := types.TendermintState{
-	}
-	state.Client = c.address
-	state.Height = *c.Height()
-	state.Round = c.Round()
-	state.Proposal = c.messages.getOrCreate(state.Round).proposal.ProposalBlock.Hash()
-	state.LockedValue = c.getLockedValue()
-	state.LockedRound = c.getLockedRound()
-	state.ValidValue = c.getValidValue()
-	state.ValidRound = c.getValidRound()
-	state.IsProposer = c.isProposer()
-	state.ProposerPolicy = uint64(c.proposerPolicy)
-	state.ParentCommittee = c.getParentCommittee()
-	state.CurCommittee = c.committeeSet().Committee()
-	state.QuorumVotePower = c.committeeSet().Quorum()
-	state.TotalPrevotePower = 0
-	return state
-}
-
 func (c *core) IsMember(address common.Address) bool {
 	_, _, err := c.committeeSet().GetByAddress(address)
 	return err == nil
@@ -381,7 +361,11 @@ func (c *core) acceptVote(roundMsgs *roundMessages, step Step, hash common.Hash,
 
 func (c *core) setStep(step Step) {
 	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
-	c.step = step
+	{
+		c.stateMu.Lock()
+		defer c.stateMu.Unlock()
+		c.step = step
+	}
 	c.processBacklog()
 }
 
@@ -431,6 +415,59 @@ func (c *core) committeeSet() committee {
 	return c.committee
 }
 
+func (c *core) getStep() Step {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.step
+}
+
+func (c *core) CoreState() types.TendermintState {
+	state := types.TendermintState{
+		Client: c.address,
+		ProposerPolicy: uint64(c.proposerPolicy),
+		BlockPeriod: c.blockPeriod,
+	}
+	// core state of tendermint.
+	state.Height = *c.Height()
+	state.Round = c.Round()
+	state.Step = uint64(c.getStep())
+	state.Proposal = c.getProposal(state.Round)
+	state.LockedValue = c.getLockedValue()
+	state.LockedRound = c.getLockedRound()
+	state.ValidValue = c.getValidValue()
+	state.ValidRound = c.getValidRound()
+
+	// committee state
+	state.IsProposer = c.isProposer()
+	state.ParentCommittee = c.getParentCommittee()
+	state.CurCommittee = c.committeeSet().Committee()
+	state.QuorumVotePower = c.committeeSet().Quorum()
+	// to discuss if we need dump multiple round's power.
+	state.TotalPrevotePower = 0
+	state.TotalPrecommitPower = 0
+
+	// extra state
+	state.SentProposal = c.proposalSent()
+	state.SentPrevote = c.prevoteSent()
+	state.SentPrecommit = c.precommitSent()
+	state.SetValidRoundAndValue = c.validRoundAndValueSet()
+
+	// timer state
+	state.ProposeTimerStarted = c.proposeTimerStarted()
+	state.PrevoteTimerStarted = c.prevoteTimerStarted()
+	state.PrecommitTimerStarted = c.precommitTimerStarted()
+	return state
+}
+
+func (c *core) getProposal(round int64) common.Hash {
+	// todo RW Lock
+	v := common.Hash{}
+	if c.messages.getOrCreate(round).proposal != nil && c.messages.getOrCreate(round).proposal.ProposalBlock != nil {
+		v = c.messages.getOrCreate(round).proposal.ProposalBlock.Hash()
+	}
+	return v
+}
+
 func (c *core) getLockedValue() common.Hash {
 	// todo RW Lock
 	v := common.Hash{}
@@ -471,4 +508,39 @@ func (c *core) getParentCommittee() types.Committee {
 func (c *core) getTotalPrevotePower(round int64) uint64 {
 	// todo RW Lock
 	return 0
+}
+
+func (c *core) proposalSent() bool {
+	// todo RW Lock
+	return c.sentProposal
+}
+
+func (c *core) prevoteSent() bool {
+	// todo RW Lock
+	return c.sentPrevote
+}
+
+func (c *core) precommitSent() bool {
+	// todo RW Lock
+	return c.sentPrecommit
+}
+
+func (c *core) validRoundAndValueSet() bool {
+	// todo RW Lock
+	return c.setValidRoundAndValue
+}
+
+func (c *core) proposeTimerStarted() bool {
+	// todo RW Lock
+	return c.proposeTimeout.timerStarted()
+}
+
+func (c *core) prevoteTimerStarted() bool {
+	// todo RW Lock
+	return c.prevoteTimeout.timerStarted()
+}
+
+func (c *core) precommitTimerStarted() bool {
+	// todo RW Lock
+	return c.precommitTimeout.timerStarted()
 }
