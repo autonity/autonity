@@ -107,6 +107,25 @@ type CommitteeMember struct {
 	VotingPower *big.Int       `json:"votingPower"        gencodec:"required"`
 }
 
+// MarshalText encodes b as a hex string with 0x prefix.
+func (c *CommitteeMember) MarshalText() ([]byte, error) {
+	data, err := rlp.EncodeToBytes(c)
+	if err != nil {
+		return nil, err
+	}
+	return hexutil.Bytes(data).MarshalText()
+}
+
+// UnmarshalText b as a hex string with 0x prefix.
+func (c *CommitteeMember) UnmarshalText(input []byte) error {
+	var b hexutil.Bytes
+	err := b.UnmarshalText(input)
+	if err != nil {
+		return err
+	}
+	return rlp.DecodeBytes(b, &c)
+}
+
 type Committee []CommitteeMember
 
 // originalHeader represents the ethereum blockchain header.
@@ -136,7 +155,11 @@ type headerExtra struct {
 	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
 }
 
-// field type overrides for gencodec
+// headerMarshaling is used by gencodec (which can be invoked bu running go
+// generate in this package) and defines marshalling types for fields that
+// would not marshal correctly to hex of thier own accord. When modifying the
+// structure of Header, this will likely need to be updated before running go
+// generate to regenerate the json marshalling code.
 type headerMarshaling struct {
 	Difficulty *hexutil.Big
 	Number     *hexutil.Big
@@ -149,6 +172,7 @@ type headerMarshaling struct {
 		PoS header fields type overriedes
 	*/
 	ProposerSeal       hexutil.Bytes
+	Round              hexutil.Uint64
 	CommittedSeals     []hexutil.Bytes
 	PastCommittedSeals []hexutil.Bytes
 }
@@ -203,13 +227,17 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 
 	hExtra := &headerExtra{}
 	if origin.MixDigest == BFTDigest {
-		if err := rlp.DecodeBytes(origin.Extra, hExtra); err == nil {
-			h.CommittedSeals = hExtra.CommittedSeals
-			h.Committee = hExtra.Committee
-			h.PastCommittedSeals = hExtra.PastCommittedSeals
-			h.ProposerSeal = hExtra.ProposerSeal
-			h.Round = hExtra.Round
+		err := rlp.DecodeBytes(origin.Extra, hExtra)
+		if err != nil {
+			return err
 		}
+		h.CommittedSeals = hExtra.CommittedSeals
+		h.Committee = hExtra.Committee
+		h.PastCommittedSeals = hExtra.PastCommittedSeals
+		h.ProposerSeal = hExtra.ProposerSeal
+		h.Round = hExtra.Round
+	} else {
+		h.Extra = origin.Extra
 	}
 
 	h.ParentHash = origin.ParentHash
@@ -226,12 +254,20 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.Time = origin.Time
 	h.MixDigest = origin.MixDigest
 	h.Nonce = origin.Nonce
-	h.Extra = origin.Extra
 
 	return nil
 }
 
 // EncodeRLP serializes b into the Ethereum RLP block format.
+//
+// To maintain RLP compatibility with eth tooling we have to encode our
+// additional header fields into the extra data field. RLP decoding expects the
+// encoded data to have an exact number of fields of a certain type in a
+// particular order, if there is a mismatch decoding fails. So to maintain
+// compatibility with ethereum we encode all our additional header fields into
+// the extra data field leaving us with just the original ethereum header
+// fields. When we decode we repopulate our additional header fields from the
+// extra data.
 func (h *Header) EncodeRLP(w io.Writer) error {
 	hExtra := headerExtra{
 		Committee:          h.Committee,
