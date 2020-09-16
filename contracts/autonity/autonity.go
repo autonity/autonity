@@ -269,3 +269,8 @@ func (ac *Contract) upgradeAbiCache(newAbi string) error {
 func (ac *Contract) GetContractABI() string {
 	return ac.stringContractABI
 }
+
+func (ac *Contract) GetViewFunctions() map[string]interface{} {
+	//ac.contractABI.Methods
+	return nil
+}

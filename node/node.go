@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/eth"
 	"net"
 	"net/http"
 	"os"
@@ -284,9 +285,16 @@ func (n *Node) openDataDir() error {
 func (n *Node) startRPC(services map[reflect.Type]Service) error {
 	// Gather all the possible APIs to surface
 	apis := n.apis()
-	for _, service := range services {
+	var ethereumService *eth.Ethereum
+	for t, service := range services {
 		apis = append(apis, service.APIs()...)
+		if t == reflect.TypeOf(ethereumService) {
+			if v, ok := service.(*eth.Ethereum); ok {
+				ethereumService = v
+			}
+		}
 	}
+
 	// Start the various API endpoints, terminating all in case of errors
 	if err := n.startInProc(apis); err != nil {
 		return err
@@ -312,6 +320,30 @@ func (n *Node) startRPC(services map[reflect.Type]Service) error {
 
 	// All API endpoints started successfully
 	n.rpcAPIs = apis
+
+	// Add Autonity contract API using the public RegisterCallbacksForNamespace() all of whom are provided the same
+	// name: "autonity"
+	viewFunctionAPIs := ethereumService.BlockChain().GetAutonityContract().GetViewFunctions()
+	err := n.httpHandler.RegisterCallbacksForNamespace("autonity", viewFunctionAPIs)
+	if err != nil {
+		return err
+	}
+
+	err = n.inprocHandler.RegisterCallbacksForNamespace("autonity", viewFunctionAPIs)
+	if err != nil {
+		return err
+	}
+
+	err = n.ipcHandler.RegisterCallbacksForNamespace("autonity", viewFunctionAPIs)
+	if err != nil {
+		return err
+	}
+
+	err = n.wsHandler.RegisterCallbacksForNamespace("autonity", viewFunctionAPIs)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

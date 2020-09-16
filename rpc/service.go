@@ -92,17 +92,39 @@ func (r *serviceRegistry) registerName(name string, rcvr interface{}) error {
 	return nil
 }
 
-func (r *serviceRegistry) registerCallbacksForNamespace(name string, args ...interface{}) error {
-	for a := range args {
-		typ := reflect.ValueOf(a)
+func (r *serviceRegistry) registerCallbacksForNamespace(name string, args map[string]interface{}) error {
+	var callbacks = make(map[string]*callback)
+
+	for k, v := range args {
+		typ := reflect.ValueOf(v)
+
 		if typ.Kind() != reflect.Func {
-			return errors.New("expected args to be of type function")
+			return errors.New("expected interface to be of type function")
 		}
 
-		typ.Type()
+		c := newCallback(typ, typ)
+		if c == nil {
+			return errors.New(fmt.Sprintf("unable to create callback for function %v", k))
+		}
 
+		callbacks[formatName(k)] = newCallback(typ, typ)
 	}
 
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.services == nil {
+		r.services = make(map[string]service)
+	}
+
+	svc, ok := r.services[name]
+	if !ok {
+		svc = service{
+			name:      name,
+			callbacks: callbacks,
+		}
+		r.services[name] = svc
+	}
 	return nil
 }
 

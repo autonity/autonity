@@ -67,8 +67,8 @@ func (s *Server) RegisterName(name string, receiver interface{}) error {
 	return s.services.registerName(name, receiver)
 }
 
-func (s *Server) RegisterCallbacksForNamespace(name string, receiver ...interface{}) error {
-	return s.services.registerCallbacksForNamespace(name, receiver...)
+func (s *Server) RegisterCallbacksForNamespace(name string, functions map[string]interface{}) error {
+	return s.services.registerCallbacksForNamespace(name, functions)
 }
 
 // ServeCodec reads incoming requests from codec, calls the appropriate callback and writes
