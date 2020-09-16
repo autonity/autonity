@@ -24,7 +24,7 @@ func TestStuff(t *testing.T) {
 	require.NoError(t, err)
 	var network []*node.Node
 	for _, u := range users {
-		n, cleanup, err := Node(u, g)
+		n, cleanup, err := NewNode(u, g)
 		defer cleanup()
 		require.NoError(t, err)
 		err = n.Start()

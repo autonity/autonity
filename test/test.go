@@ -76,7 +76,7 @@ func Users(count int, formatString string, startingPort int) ([]*gengen.User, er
 // address port the node bound on till after starting if using the 0 port. This
 // means that we have to predefine ports in the genesis, which could cause
 // problems if anything is already bound on that port.
-func Node(u *gengen.User, genesis *core.Genesis) (*node.Node, func(), error) {
+func NewNode(u *gengen.User, genesis *core.Genesis) (*node.Node, func(), error) {
 	// Copy the base node config
 	c := *baseNodeConfig
 
