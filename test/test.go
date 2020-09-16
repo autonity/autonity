@@ -3,9 +3,9 @@ package test
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"strconv"
 	"strings"
@@ -13,13 +13,10 @@ import (
 	"time"
 
 	ethereum "github.com/clearmatics/autonity"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/cmd/gengen/gengen"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/ethclient"
@@ -160,7 +157,7 @@ func TrackTransactions(client *ethclient.Client) (*TransactionTracker, error) {
 
 }
 
-func (tr *TransactionTracker) AwaitTransactions(hashes []common.Hash) error {
+func (tr *TransactionTracker) AwaitTransactions(ctx context.Context, hashes []common.Hash) error {
 	hashmap := make(map[common.Hash]struct{}, len(hashes))
 	for i := range hashes {
 		hashmap[hashes[i]] = struct{}{}
@@ -184,7 +181,8 @@ func (tr *TransactionTracker) AwaitTransactions(hashes []common.Hash) error {
 		case err := <-tr.sub.Err():
 			// Will be nil if closed by calling Unsubscribe()
 			return err
-
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }
@@ -346,75 +344,104 @@ func (tr *TransactionTracker) Close() { // How do I wait for stuff to finish her
 // 	return hashes, errors, nil
 // }
 
-func sendTx(nodeAddr string, senderKey string, action func(*ethclient.Client, *bind.TransactOpts, *autonitybindings.Autonity) (*types.Transaction, error)) error {
-	client, err := ethclient.Dial("ws://" + nodeAddr)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	a, err := autonitybindings.NewAutonity(autonity.ContractAddress, client)
-	if err != nil {
-		return err
-	}
-	k, err := crypto.HexToECDSA(senderKey)
-	if err != nil {
-		return fmt.Errorf("failed to decode sender key: %v", err)
-	}
+// func sendTx(nodeAddr string, senderKey string, action func(*ethclient.Client, *bind.TransactOpts, *autonitybindings.Autonity) (*types.Transaction, error)) error {
+// 	client, err := ethclient.Dial("ws://" + nodeAddr)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer client.Close()
+// 	a, err := autonitybindings.NewAutonity(autonity.ContractAddress, client)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	k, err := crypto.HexToECDSA(senderKey)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to decode sender key: %v", err)
+// 	}
 
-	senderAddress := crypto.PubkeyToAddress(k.PublicKey)
-	opts := bind.NewKeyedTransactor(k)
-	opts.From = senderAddress
-	opts.Context = context.Background()
+// 	senderAddress := crypto.PubkeyToAddress(k.PublicKey)
+// 	opts := bind.NewKeyedTransactor(k)
+// 	opts.From = senderAddress
+// 	opts.Context = context.Background()
 
-	heads := make(chan *types.Header)
-	sub, err := client.SubscribeNewHead(context.Background(), heads)
-	if err != nil {
-		return err
-	}
+// 	heads := make(chan *types.Header)
+// 	sub, err := client.SubscribeNewHead(context.Background(), heads)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	tx, err := action(client, opts, a)
-	if err != nil {
-		return err
-	}
+// 	tx, err := action(client, opts, a)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	txHash := tx.Hash()
-	marshalled, err := json.MarshalIndent(tx, "", "  ")
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Sent transaction:\n%s\n", string(marshalled))
+// 	txHash := tx.Hash()
+// 	marshalled, err := json.MarshalIndent(tx, "", "  ")
+// 	if err != nil {
+// 		return err
+// 	}
+// 	fmt.Printf("Sent transaction:\n%s\n", string(marshalled))
 
-	fmt.Print("\nAwaiting mining ...")
+// 	fmt.Print("\nAwaiting mining ...")
 
-	for {
-		select {
-		case h := <-heads:
-			b, err := client.BlockByHash(context.Background(), h.Hash())
-			if err != nil {
-				return err
-			}
-			for _, t := range b.Transactions() {
-				if t.Hash() == txHash {
-					r, err := client.TransactionReceipt(context.Background(), txHash)
-					if err != nil {
-						return err
-					}
-					marshalled, err := json.MarshalIndent(r, "", "  ")
-					if err != nil {
-						return err
-					}
-					fmt.Printf("\n\nTransaction receipt:\n%v\n", string(marshalled))
-					return nil
-				}
-			}
-			fmt.Print(".")
+// 	for {
+// 		select {
+// 		case h := <-heads:
+// 			b, err := client.BlockByHash(context.Background(), h.Hash())
+// 			if err != nil {
+// 				return err
+// 			}
+// 			for _, t := range b.Transactions() {
+// 				if t.Hash() == txHash {
+// 					r, err := client.TransactionReceipt(context.Background(), txHash)
+// 					if err != nil {
+// 						return err
+// 					}
+// 					marshalled, err := json.MarshalIndent(r, "", "  ")
+// 					if err != nil {
+// 						return err
+// 					}
+// 					fmt.Printf("\n\nTransaction receipt:\n%v\n", string(marshalled))
+// 					return nil
+// 				}
+// 			}
+// 			fmt.Print(".")
 
-		case err := <-sub.Err():
-			return err
-		}
-	}
-}
+// 		case err := <-sub.Err():
+// 			return err
+// 		}
+// 	}
+// }
 
 func Genesis(users []*gengen.User) (*core.Genesis, error) {
 	return gengen.NewGenesis(1, users)
+}
+
+func ValueTransferTransaction(client *ethclient.Client, senderKey *ecdsa.PrivateKey, sender, recipient common.Address, value *big.Int) (*types.Transaction, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+	nonce, err := client.PendingNonceAt(ctx, sender)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve account nonce: %v", err)
+	}
+
+	// Figure out the gas allowance and gas price values
+	gasPrice, err := client.SuggestGasPrice(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to suggest gas price: %v", err)
+	}
+
+	msg := ethereum.CallMsg{From: sender, To: &recipient, GasPrice: gasPrice, Value: value}
+	gasLimit, err := client.EstimateGas(ctx, msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to estimate gas needed: %v", err)
+	}
+
+	// Create the transaction and sign it
+	rawTx := types.NewTransaction(nonce, recipient, value, gasLimit, gasPrice, nil)
+	signed, err := types.SignTx(rawTx, types.HomesteadSigner{}, senderKey)
+	if err != nil {
+		return nil, err
+	}
+	return signed, nil
 }

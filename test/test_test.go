@@ -2,16 +2,16 @@ package test
 
 import (
 	"context"
+	"math/big"
 	"os"
 	"testing"
-	"time"
 
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/ethclient"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/node"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,18 +36,23 @@ func TestStuff(t *testing.T) {
 		require.NoError(t, err)
 		network = append(network, n)
 	}
-	time.Sleep(time.Second * 4)
 
-	c, err := ethclient.Dial("ws://" + network[0].WSEndpoint())
+	n := network[0]
+	n1 := network[0]
+	c, err := ethclient.Dial("ws://" + n.WSEndpoint())
 	require.NoError(t, err)
 
-	ctx := context.WithCancel(context.Background())
-	hashes, errors, err := MinedTransactions(ctx, client*ethclient.Client)
+	tx, err := ValueTransferTransaction(c, n.Server().PrivateKey, crypto.PubkeyToAddress(n.Server().PrivateKey.PublicKey), crypto.PubkeyToAddress(n1.Server().PrivateKey.PublicKey), big.NewInt(10))
 	require.NoError(t, err)
-	// sendtranaction
+	tr, err := TrackTransactions(c)
+	require.NoError(t, err)
+	err = c.SendTransaction(context.Background(), tx)
+	require.NoError(t, err)
+	err = tr.AwaitTransactions(context.Background(), []common.Hash{common.Hash{}})
+	require.NoError(t, err)
 
-	for _, n := range network {
-		spew.Dump("peers", crypto.PubkeyToAddress(n.Config().NodeKey().PublicKey), n.Server().Peers())
-	}
-	time.Sleep(time.Second * 20)
+	// for _, n := range network {
+	// 	spew.Dump("peers", crypto.PubkeyToAddress(n.Config().NodeKey().PublicKey), n.Server().Peers())
+	// }
+	// time.Sleep(time.Second * 20)
 }
