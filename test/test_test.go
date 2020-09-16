@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/ethclient"
@@ -38,15 +39,33 @@ func TestStuff(t *testing.T) {
 	}
 
 	n := network[0]
-	n1 := network[0]
 	c, err := ethclient.Dial("ws://" + n.WSEndpoint())
 	require.NoError(t, err)
 
-	tx, err := ValueTransferTransaction(c, n.Server().PrivateKey, crypto.PubkeyToAddress(n.Server().PrivateKey.PublicKey), crypto.PubkeyToAddress(n1.Server().PrivateKey.PublicKey), big.NewInt(10))
-	require.NoError(t, err)
+	var txs []*types.Transaction
+	var hashes []common.Hash
+	for i := range network {
+		for j := range network {
+			sender := network[i]
+			receiver := network[j]
+			tx, err := ValueTransferTransaction(
+				c,
+				sender.Server().PrivateKey,
+				crypto.PubkeyToAddress(sender.Server().PrivateKey.PublicKey),
+				crypto.PubkeyToAddress(receiver.Server().PrivateKey.PublicKey),
+				big.NewInt(10),
+			)
+			require.NoError(t, err)
+			txs = append(txs, tx)
+			hashes = append(hashes, tx.Hash())
+		}
+	}
 	tr, err := TrackTransactions(c)
 	require.NoError(t, err)
-	err = c.SendTransaction(context.Background(), tx)
-	require.NoError(t, err)
-	err = tr.AwaitTransactions(context.Background(), []common.Hash{tx.Hash()})
+	for i := range txs {
+		err = c.SendTransaction(context.Background(), txs[i])
+		require.NoError(t, err)
+	}
+
+	err = tr.AwaitTransactions(context.Background(), hashes)
 }
