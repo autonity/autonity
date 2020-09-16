@@ -271,6 +271,10 @@ func (ac *Contract) GetContractABI() string {
 }
 
 func (ac *Contract) GetViewFunctions() map[string]interface{} {
-	//ac.contractABI.Methods
+	for _, m := range ac.contractABI.Methods {
+		if m.StateMutability == "view" {
+
+		}
+	}
 	return nil
 }
