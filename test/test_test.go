@@ -48,11 +48,5 @@ func TestStuff(t *testing.T) {
 	require.NoError(t, err)
 	err = c.SendTransaction(context.Background(), tx)
 	require.NoError(t, err)
-	err = tr.AwaitTransactions(context.Background(), []common.Hash{common.Hash{}})
-	require.NoError(t, err)
-
-	// for _, n := range network {
-	// 	spew.Dump("peers", crypto.PubkeyToAddress(n.Config().NodeKey().PublicKey), n.Server().Peers())
-	// }
-	// time.Sleep(time.Second * 20)
+	err = tr.AwaitTransactions(context.Background(), []common.Hash{tx.Hash()})
 }
