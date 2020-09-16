@@ -91,10 +91,10 @@ func (c *core) storeUncheckedBacklog(msg *Message) {
 	c.backlogUnchecked[msgHeight.Uint64()] = append(c.backlogUnchecked[msgHeight.Uint64()], msg)
 	c.backlogUncheckedLen += 1
 	// We discard the furthest ahead messages in priority.
-	if c.backlogUncheckedLen == MaxSizeBacklogUnchecked {
+	if c.backlogUncheckedLen == MaxSizeBacklogUnchecked+1 {
 		maxHeight := msgHeight.Uint64()
 		for k, _ := range c.backlogUnchecked {
-			if k > maxHeight {
+			if k > maxHeight && len(c.backlogUnchecked[k]) > 0 {
 				maxHeight = k
 			}
 		}
@@ -106,6 +106,10 @@ func (c *core) storeUncheckedBacklog(msg *Message) {
 		// Remove it from the backlog buffer.
 		c.backlogUnchecked[maxHeight] = c.backlogUnchecked[maxHeight][:len(c.backlogUnchecked[maxHeight])-1]
 		c.backlogUncheckedLen -= 1
+
+		if len(c.backlogUnchecked[maxHeight]) == 0 {
+			delete(c.backlogUnchecked, maxHeight)
+		}
 	}
 
 }

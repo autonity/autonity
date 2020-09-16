@@ -5,6 +5,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 	"github.com/golang/mock/gomock"
+	"github.com/influxdata/influxdb/pkg/deep"
 	"math/big"
 	"reflect"
 	"testing"
@@ -584,5 +585,126 @@ func TestProcessBacklog(t *testing.T) {
 		c.processBacklog()
 		timeout := time.NewTimer(2 * time.Second)
 		<-timeout.C
+	})
+}
+
+func TestStoreUncheckedBacklog(t *testing.T) {
+	t.Run("save messages in the untrusted backlog", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+
+		c := &core{
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]*Message),
+			backlogUnchecked: make(map[uint64][]*Message),
+			step:             prevote,
+			round:            1,
+			height:           big.NewInt(4),
+		}
+		var messages []*Message
+
+		for i := int64(0); i < MaxSizeBacklogUnchecked; i++ {
+			nilRoundVote := &Vote{
+				Round:  i % 10,
+				Height: big.NewInt(i / (1 + i%10)),
+			}
+			msg := &Message{
+				Code:       msgPrevote,
+				Msg:        MustEncode(nilRoundVote),
+				decodedMsg: nilRoundVote,
+			}
+			c.storeUncheckedBacklog(msg)
+			messages = append(messages, msg)
+		}
+		found := 0
+		for _, msg := range messages {
+			height, err := msg.Height()
+			if err != nil {
+				t.Fatal("can't retrieve message height")
+			}
+			for _, umsg := range c.backlogUnchecked[height.Uint64()] {
+				if deep.Equal(msg, umsg) {
+					found++
+				}
+			}
+		}
+		if found != MaxSizeBacklogUnchecked {
+			t.Fatal("unchecked messages lost")
+		}
+	})
+
+	t.Run("excess messages are removed from the untrusted backlog", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+
+		c := &core{
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]*Message),
+			backlogUnchecked: make(map[uint64][]*Message),
+			step:             prevote,
+			round:            1,
+			height:           big.NewInt(4),
+		}
+
+		var messages []*Message
+		uncheckedFounds := make(map[uint64]struct{})
+		backendMock.EXPECT().RemoveMessageFromLocalCache(gomock.Any()).Times(MaxSizeBacklogUnchecked).Do(func(payload []byte) {
+			var msg Message
+			err := msg.FromPayload(payload)
+			if err != nil {
+				t.Fatal("could not decode message payload")
+			}
+			height, err := msg.Height()
+			if err != nil {
+				t.Fatal("could not decode message height")
+			}
+			if _, ok := uncheckedFounds[height.Uint64()]; ok {
+				t.Fatal("duplicate message received")
+			}
+			uncheckedFounds[height.Uint64()] = struct{}{}
+		})
+
+		for i := int64(2 * MaxSizeBacklogUnchecked); i > 0; i-- {
+			nilRoundVote := &Vote{
+				Round:  i % 10,
+				Height: big.NewInt(i),
+			}
+			msg := &Message{
+				Code:       msgPrevote,
+				Msg:        MustEncode(nilRoundVote),
+				decodedMsg: nilRoundVote,
+			}
+			c.storeUncheckedBacklog(msg)
+			if i < MaxSizeBacklogUnchecked {
+				messages = append(messages, msg)
+			}
+		}
+
+		found := 0
+		for _, msg := range messages {
+			height, err := msg.Height()
+			if err != nil {
+				t.Error("can't retrieve message height")
+			}
+			for _, umsg := range c.backlogUnchecked[height.Uint64()] {
+				if deep.Equal(msg, umsg) {
+					found++
+				}
+			}
+		}
+		if found != MaxSizeBacklogUnchecked-1 {
+			t.Fatal("unchecked messages lost")
+		}
+		if len(uncheckedFounds) != MaxSizeBacklogUnchecked {
+			t.Fatal("unchecked messages lost")
+		}
 	})
 }

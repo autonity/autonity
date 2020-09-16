@@ -180,7 +180,7 @@ func (m *MockBackend) RemoveMessageFromLocalCache(payload []byte) {
 }
 
 // Post indicates an expected call of Post
-func (mr *MockBackendMockRecorder) RemoveMessageFromLocalCache(payload []byte) *gomock.Call {
+func (mr *MockBackendMockRecorder) RemoveMessageFromLocalCache(payload interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveMessageFromLocalCache", reflect.TypeOf((*MockBackend)(nil).RemoveMessageFromLocalCache), payload)
 }
