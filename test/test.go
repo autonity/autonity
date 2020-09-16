@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	ethereum "github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/cmd/gengen/gengen"
 	"github.com/clearmatics/autonity/common"
@@ -138,63 +139,24 @@ func Node(u *gengen.User, genesis *core.Genesis) (*node.Node, func(), error) {
 }
 
 type TransactionTracker struct {
-	c                     *ethclient.Client
-	completedTransactions map[common.Hash]struct{}
-	mu                    sync.Mutex
-	waiting               func(common.Hash, error)
-	err                   error
+	client *ethclient.Client
+	heads  chan *types.Header
+	sub    ethereum.Subscription
+	wg     sync.WaitGroup
 }
 
 func TrackTransactions(client *ethclient.Client) (*TransactionTracker, error) {
-	tr := &TransactionTracker{
-		c:                     client,
-		completedTransactions: make(map[common.Hash]struct{}),
-	}
 	heads := make(chan *types.Header)
+	// The subscription client will buffer 20000 notifications before closing the subscription, if that happens the Err() chan will return ErrSubscriptionQueueOverflow
 	sub, err := client.SubscribeNewHead(context.Background(), heads)
 	if err != nil {
 		return nil, err
 	}
-	go func() {
-	Finished:
-		for {
-			select {
-			case h := <-heads:
-				b, err := client.BlockByHash(context.Background(), h.Hash())
-				if err != nil {
-					tr.mu.Lock()
-					tr.err = err
-					tr.mu.Unlock()
-					break Finished
-				}
-
-				tr.mu.Lock()
-				for _, t := range b.Transactions() {
-					tr.completedTransactions[t.Hash()] = struct{}{}
-					tr.waiting(t.Hash(), nil) // notify waiting
-				}
-				tr.mu.Unlock()
-			case err, ok := <-sub.Err():
-				if !ok {
-					// Unsubscribe was called, the subscription is over
-					return
-				}
-				if err != nil {
-					tr.mu.Lock()
-					tr.err = err
-					tr.mu.Unlock()
-					break Finished
-				}
-
-			}
-		}
-		if tr.err != nil {
-			tr.mu.Lock()
-			tr.waiting(common.Hash{}, tr.err)
-			tr.mu.Unlock()
-		}
-	}()
-	return tr, nil
+	return &TransactionTracker{
+		client: client,
+		sub:    sub,
+		heads:  heads,
+	}, nil
 
 }
 
@@ -203,89 +165,186 @@ func (tr *TransactionTracker) AwaitTransactions(hashes []common.Hash) error {
 	for i := range hashes {
 		hashmap[hashes[i]] = struct{}{}
 	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	tr.mu.Lock()
-	// Remove already completed transactions
-	for h := range tr.completedTransactions {
-		delete(hashmap, h)
-	}
-	// Then register the waiter to wait for the remaining transactions
-	tr.waiting = func(h common.Hash, err error) {
-		if err != nil {
-			wg.Done()
-			return
-		}
-		delete(hashmap, h)
-		if len(hashmap) == 0 {
-			wg.Done()
-		}
-	}
-	tr.mu.Unlock()
-	wg.Wait()
-	return tr.err
-}
-
-func AwaitTransactions(ctx context.Context, client *ethclient.Client, hashes []common.Hash) (<-chan common.Hash, <-chan error, error) {
-	heads := make(chan *types.Header)
-	sub, err := client.SubscribeNewHead(context.Background(), heads)
-	if err != nil {
-		return nil, nil, err
-	}
-	hashes := make(chan common.Hash)
-	errors := make(chan error)
-	go func() {
-		for {
-			select {
-			case h := <-heads:
-				b, err := client.BlockByHash(context.Background(), h.Hash())
-				if err != nil {
-					errors <- err
-				}
-				for _, t := range b.Transactions() {
-					hashes <- t.Hash()
-				}
-			case err := <-sub.Err():
-				errors <- err
-			case <-ctx.Done():
-				return
+	tr.wg.Add(1)
+	defer tr.wg.Done()
+	for {
+		select {
+		case h := <-tr.heads:
+			b, err := tr.client.BlockByHash(context.Background(), h.Hash())
+			if err != nil {
+				return err
 			}
-		}
 
-	}()
-	return hashes, errors, nil
-}
-func MinedTransactions(ctx context.Context, client *ethclient.Client) (<-chan common.Hash, <-chan error, error) {
-	heads := make(chan *types.Header)
-	sub, err := client.SubscribeNewHead(context.Background(), heads)
-	if err != nil {
-		return nil, nil, err
-	}
-	hashes := make(chan common.Hash)
-	errors := make(chan error)
-	go func() {
-		for {
-			select {
-			case h := <-heads:
-				b, err := client.BlockByHash(context.Background(), h.Hash())
-				if err != nil {
-					errors <- err
+			for _, t := range b.Transactions() {
+				delete(hashmap, t.Hash())
+				if len(hashmap) == 0 {
+					return nil
 				}
-				for _, t := range b.Transactions() {
-					hashes <- t.Hash()
-				}
-			case err := <-sub.Err():
-				errors <- err
-			case <-ctx.Done():
-				return
 			}
-		}
+		case err := <-tr.sub.Err():
+			// Will be nil if closed by calling Unsubscribe()
+			return err
 
-	}()
-	return hashes, errors, nil
+		}
+	}
 }
+
+func (tr *TransactionTracker) Close() { // How do I wait for stuff to finish here
+	tr.sub.Unsubscribe()
+	tr.wg.Wait()
+}
+
+// type TransactionTracker struct {
+// 	c                     *ethclient.Client
+// 	completedTransactions map[common.Hash]struct{}
+// 	mu                    sync.Mutex
+// 	waiting               func(common.Hash, error)
+// 	err                   error
+// }
+
+// func TrackTransactions(client *ethclient.Client) (*TransactionTracker, error) {
+// 	tr := &TransactionTracker{
+// 		c:                     client,
+// 		completedTransactions: make(map[common.Hash]struct{}),
+// 	}
+// 	heads := make(chan *types.Header)
+// 	sub, err := client.SubscribeNewHead(context.Background(), heads)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	go func() {
+// 	Finished:
+// 		for {
+// 			select {
+// 			case h := <-heads:
+// 				b, err := client.BlockByHash(context.Background(), h.Hash())
+// 				if err != nil {
+// 					tr.mu.Lock()
+// 					tr.err = err
+// 					tr.mu.Unlock()
+// 					break Finished
+// 				}
+
+// 				tr.mu.Lock()
+// 				for _, t := range b.Transactions() {
+// 					tr.completedTransactions[t.Hash()] = struct{}{}
+// 					if tr.waiting != nil {
+// 						tr.waiting(t.Hash(), nil) // notify waiting
+// 					}
+// 				}
+// 				tr.mu.Unlock()
+// 			case err, ok := <-sub.Err():
+// 				if !ok {
+// 					// Unsubscribe was called, the subscription is over
+// 					return
+// 				}
+// 				if err != nil {
+// 					tr.mu.Lock()
+// 					tr.err = err
+// 					tr.mu.Unlock()
+// 					break Finished
+// 				}
+
+// 			}
+// 		}
+// 		if tr.err != nil {
+// 			tr.mu.Lock()
+// 			tr.waiting(common.Hash{}, tr.err)
+// 			tr.mu.Unlock()
+// 		}
+// 	}()
+// 	return tr, nil
+
+// }
+
+// func (tr *TransactionTracker) AwaitTransactions(hashes []common.Hash) error {
+// 	hashmap := make(map[common.Hash]struct{}, len(hashes))
+// 	for i := range hashes {
+// 		hashmap[hashes[i]] = struct{}{}
+// 	}
+
+// 	var wg sync.WaitGroup
+// 	wg.Add(1)
+
+// 	tr.mu.Lock()
+// 	// Remove already completed transactions
+// 	for h := range tr.completedTransactions {
+// 		delete(hashmap, h)
+// 	}
+// 	// Then register the waiter to wait for the remaining transactions
+// 	tr.waiting = func(h common.Hash, err error) {
+// 		if err != nil {
+// 			wg.Done()
+// 			return
+// 		}
+// 		delete(hashmap, h)
+// 		if len(hashmap) == 0 {
+// 			wg.Done()
+// 		}
+// 	}
+// 	tr.mu.Unlock()
+// 	wg.Wait()
+// 	return tr.err
+// }
+
+// func AwaitTransactions(ctx context.Context, client *ethclient.Client, hashes []common.Hash) (<-chan common.Hash, <-chan error, error) {
+// 	heads := make(chan *types.Header)
+// 	sub, err := client.SubscribeNewHead(context.Background(), heads)
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
+// 	hashes := make(chan common.Hash)
+// 	errors := make(chan error)
+// 	go func() {
+// 		for {
+// 			select {
+// 			case h := <-heads:
+// 				b, err := client.BlockByHash(context.Background(), h.Hash())
+// 				if err != nil {
+// 					errors <- err
+// 				}
+// 				for _, t := range b.Transactions() {
+// 					hashes <- t.Hash()
+// 				}
+// 			case err := <-sub.Err():
+// 				errors <- err
+// 			case <-ctx.Done():
+// 				return
+// 			}
+// 		}
+
+// 	}()
+// 	return hashes, errors, nil
+// }
+// func MinedTransactions(ctx context.Context, client *ethclient.Client) (<-chan common.Hash, <-chan error, error) {
+// 	heads := make(chan *types.Header)
+// 	sub, err := client.SubscribeNewHead(context.Background(), heads)
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
+// 	hashes := make(chan common.Hash)
+// 	errors := make(chan error)
+// 	go func() {
+// 		for {
+// 			select {
+// 			case h := <-heads:
+// 				b, err := client.BlockByHash(context.Background(), h.Hash())
+// 				if err != nil {
+// 					errors <- err
+// 				}
+// 				for _, t := range b.Transactions() {
+// 					hashes <- t.Hash()
+// 				}
+// 			case err := <-sub.Err():
+// 				errors <- err
+// 			case <-ctx.Done():
+// 				return
+// 			}
+// 		}
+
+// 	}()
+// 	return hashes, errors, nil
+// }
 
 func sendTx(nodeAddr string, senderKey string, action func(*ethclient.Client, *bind.TransactOpts, *autonitybindings.Autonity) (*types.Transaction, error)) error {
 	client, err := ethclient.Dial("ws://" + nodeAddr)
