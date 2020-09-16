@@ -16,6 +16,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/ethclient"
@@ -71,12 +72,23 @@ func Users(count int, formatString string, startingPort int) ([]*gengen.User, er
 	return users, nil
 }
 
+// Node provides an enhanced interface to node.Node with useful additions, the
+// *node.Node is embedded so that its api is available through Node.
+type Node struct {
+	*node.Node
+	WsClient *ethclient.Client
+	Key      *ecdsa.PrivateKey
+	Address  common.Address
+	Tracker  *TransactionTracker
+	SentTxs  []common.Hash
+}
+
 // Unfortunately we need to provide a genesis file here to be able to set the
 // ethereum service on the node before starting but we can only find out the
 // address port the node bound on till after starting if using the 0 port. This
 // means that we have to predefine ports in the genesis, which could cause
 // problems if anything is already bound on that port.
-func NewNode(u *gengen.User, genesis *core.Genesis) (*node.Node, func(), error) {
+func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, func(), error) {
 	// Copy the base node config
 	c := *baseNodeConfig
 
@@ -134,7 +146,65 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*node.Node, func(), error) 
 		return nil, nil, err
 	}
 
-	return n, cleanup, nil
+	k := u.Key.(*ecdsa.PrivateKey)
+	node := &Node{
+		Node:    n,
+		Key:     k,
+		Address: crypto.PubkeyToAddress(k.PublicKey),
+	}
+	return node, cleanup, nil
+}
+
+func (n *Node) Start() error {
+	err := n.Node.Start()
+	if err != nil {
+		return err
+	}
+	var ethereum *eth.Ethereum
+	err = n.Service(&ethereum)
+	if err != nil {
+		return err
+	}
+	err = ethereum.StartMining(1)
+	if err != nil {
+		return err
+	}
+	n.WsClient, err = ethclient.Dial("ws://" + n.WSEndpoint())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (n *Node) SendE(ctx context.Context, recipient common.Address, value int64) error {
+	if n.Tracker == nil {
+		t, err := TrackTransactions(n.WsClient)
+		if err != nil {
+			return err
+		}
+		n.Tracker = t
+	}
+
+	tx, err := ValueTransferTransaction(
+		n.WsClient,
+		n.Key,
+		n.Address,
+		recipient,
+		big.NewInt(value))
+
+	if err != nil {
+		return err
+	}
+	err = n.WsClient.SendTransaction(ctx, tx)
+	if err != nil {
+		return err
+	}
+	n.SentTxs = append(n.SentTxs, tx.Hash())
+	return nil
+}
+
+func (n *Node) AwaitSentTransactions(ctx context.Context) {
+	n.Tracker.AwaitTransactions(ctx, n.SentTxs)
 }
 
 type TransactionTracker struct {
