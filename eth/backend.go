@@ -364,6 +364,12 @@ func (s *Ethereum) APIs() []rpc.API {
 			Service:   s.netRPCService,
 			Public:    true,
 		},
+		{
+			Namespace: "autonity",
+			Version:   params.Version,
+			Service:   NewAutonityAPI(s),
+			Public:    true,
+		},
 	}...)
 }
 
