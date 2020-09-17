@@ -438,13 +438,9 @@ func (c *core) CoreState() types.TendermintState {
 	state.ValidRound = c.getValidRound()
 
 	// committee state
-	state.IsProposer = c.isProposer()
+	// committee of last block.
 	state.ParentCommittee = c.getParentCommittee()
-	state.CurCommittee = c.committeeSet().Committee()
-	state.QuorumVotePower = c.committeeSet().Quorum()
-	// to discuss if we need dump multiple round's power.
-	state.TotalPrevotePower = 0
-	state.TotalPrecommitPower = 0
+	state.RoundStates = c.getRoundState()
 
 	// extra state
 	state.SentProposal = c.proposalSent()
@@ -543,4 +539,18 @@ func (c *core) prevoteTimerStarted() bool {
 func (c *core) precommitTimerStarted() bool {
 	// todo RW Lock
 	return c.precommitTimeout.timerStarted()
+}
+
+func (c *core) getRoundState() []types.RoundState {
+	var states []types.RoundState
+
+	rounds := c.messages.getRounds()
+	for _, r := range rounds {
+		proposer := nil
+		isProposer := nil
+		committee := nil
+		prevoteState, preCommitState = c.messages.getVoteState(r)
+	}
+
+	return states
 }

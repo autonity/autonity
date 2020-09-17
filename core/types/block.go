@@ -106,6 +106,22 @@ type CommitteeMember struct {
 
 type Committee []CommitteeMember
 
+type VoteState struct {
+	Value common.Hash
+	proposalVerified bool
+	Power uint64
+}
+
+type RoundState struct {
+	Round int64
+	Proposer common.Address
+	Committee Committee
+	IsProposer bool
+	QuorumVotePower uint64
+	PrevoteState []VoteState
+	PrecommitState []VoteState
+}
+
 type TendermintState struct {
 
 	// validator address
@@ -123,20 +139,8 @@ type TendermintState struct {
 
 	// committee state
 	ParentCommittee Committee
-
-	// round -> round state {Proposer, Committee, IsProposer,
-	// QuorumVotePower, PreVoteState{value -> prevotePower},
-	// PreCommitState{value -> precommitPower}, }
-
-
-	IsProposer bool
+	RoundStates []RoundState
 	ProposerPolicy uint64
-	CurCommittee Committee
-
-	// do we need to take below things for multiple round?
-	QuorumVotePower uint64
-	TotalPrevotePower uint64
-	TotalPrecommitPower uint64
 
 	// extra state
 	SentProposal          bool

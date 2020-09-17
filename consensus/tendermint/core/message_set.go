@@ -106,3 +106,13 @@ func (ms *messageSet) Values(blockHash common.Hash) []Message {
 	}
 	return messages
 }
+
+func (ms *messageSet) Keys() []common.Hash {
+	ms.messagesMu.RLock()
+	defer ms.messagesMu.RUnlock()
+	blockHashes := make([]common.Hash, 0, len(ms.messages))
+	for key, _ := range ms.votes {
+		blockHashes = append(blockHashes, key)
+	}
+	return blockHashes
+}

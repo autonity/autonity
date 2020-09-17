@@ -17,6 +17,7 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/core/types"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
@@ -72,6 +73,23 @@ func (s *messagesMap) GetMessages() []*Message {
 	}
 
 	return result
+}
+
+func (s *messagesMap) getRounds() []int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	rounds := make([]int64, 0, len(s.internal))
+	for r, _ := range s.internal {
+		rounds = append(rounds, r)
+	}
+
+	return rounds
+}
+
+func (s *messagesMap) getVoteState(round int64) (prevoteState []types.VoteState, precommitState []types.VoteState) {
+	s.getOrCreate(round).prevotes
+
 }
 
 // roundMessages stores all message received for a specific round.
@@ -171,4 +189,12 @@ func (s *roundMessages) GetMessages() []*Message {
 	result = append(result, prevoteMsgs...)
 	result = append(result, precommitMsgs...)
 	return result
+}
+
+func (s *roundMessages) getPrevoteStates() types.RoundState {
+
+}
+
+func (s *roundMessages) getPrecommitStates() types.VoteState {
+	
 }
