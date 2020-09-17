@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/influxdata/influxdb/pkg/deep"
 	"math/big"
 	"testing"
 
@@ -173,6 +174,70 @@ func TestHandleCheckedMessage(t *testing.T) {
 			}
 		}()
 	}
+}
+
+func TestHandleMsg(t *testing.T) {
+	t.Run("old height message return error", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		backendMock := NewMockBackend(ctrl)
+		c := &core{
+			logger:   log.New("backend", "test", "id", 0),
+			backend:  backendMock,
+			address:  common.HexToAddress("0x1234567890"),
+			backlogs: make(map[common.Address][]*Message),
+			step:     propose,
+			round:    1,
+			height:   big.NewInt(2),
+		}
+		msg := &Message{
+			Code: msgPrevote,
+			Msg: MustEncode(&Vote{
+				Round:             2,
+				Height:            big.NewInt(1),
+				ProposedBlockHash: common.BytesToHash([]byte{0x1}),
+			}),
+			Address: common.Address{},
+		}
+
+		if err := c.handleMsg(context.Background(), msg); err != errOldHeightMessage {
+			t.Fatal("errOldHeightMessage not returned")
+		}
+	})
+
+	t.Run("future height message return error but are saved", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		backendMock := NewMockBackend(ctrl)
+		c := &core{
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]*Message),
+			backlogUnchecked: map[uint64][]*Message{},
+			step:             propose,
+			round:            1,
+			height:           big.NewInt(2),
+		}
+		vote := &Vote{
+			Round:             2,
+			Height:            big.NewInt(3),
+			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
+		}
+		msg := &Message{
+			Code:       msgPrevote,
+			Msg:        MustEncode(vote),
+			decodedMsg: vote,
+			Address:    common.Address{},
+		}
+
+		if err := c.handleMsg(context.Background(), msg); err != errFutureHeightMessage {
+			t.Fatal("errFutureHeightMessage not returned")
+		}
+		if backlog, ok := c.backlogUnchecked[3]; !(ok && len(backlog) > 0 && deep.Equal(backlog[0], msg)) {
+			t.Fatal("future message not saved in the untrusted buffer")
+		}
+	})
 }
 
 func TestCoreStopDoesntPanic(t *testing.T) {

@@ -537,6 +537,59 @@ func TestProcessBacklog(t *testing.T) {
 		<-timeout.C
 	})
 
+	t.Run("untrusted messages are processed when height change", func(t *testing.T) {
+		nilRoundVote := &Vote{
+			Round:  2,
+			Height: big.NewInt(4),
+		}
+
+		nilRoundVotePayload, err := Encode(nilRoundVote)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+
+		msg := &Message{
+			Code:       msgPrevote,
+			Msg:        nilRoundVotePayload,
+			decodedMsg: nilRoundVote,
+		}
+		msg2 := &Message{
+			Code:       msgPrecommit,
+			Msg:        nilRoundVotePayload,
+			decodedMsg: nilRoundVote,
+		}
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
+
+		committeeSet := newTestCommitteeSet(2)
+
+		c := &core{
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]*Message),
+			backlogUnchecked: map[uint64][]*Message{},
+			round:            2,
+			height:           big.NewInt(3),
+		}
+
+		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+
+		c.storeUncheckedBacklog(msg)
+		c.storeUncheckedBacklog(msg2)
+		c.setStep(prevote)
+		c.processBacklog()
+		c.setHeight(big.NewInt(4))
+
+		backendMock.EXPECT().Post(gomock.Any()).Times(2)
+		c.setStep(prevote)
+		c.processBacklog()
+		<-time.NewTimer(2 * time.Second).C
+	})
+
 	t.Run("future round message are processed when round change", func(t *testing.T) {
 		nilRoundVote := &Vote{
 			Round:  2,
