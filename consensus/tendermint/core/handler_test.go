@@ -190,14 +190,16 @@ func TestHandleMsg(t *testing.T) {
 			round:    1,
 			height:   big.NewInt(2),
 		}
+		vote := &Vote{
+			Round:             2,
+			Height:            big.NewInt(1),
+			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
+		}
 		msg := &Message{
-			Code: msgPrevote,
-			Msg: MustEncode(&Vote{
-				Round:             2,
-				Height:            big.NewInt(1),
-				ProposedBlockHash: common.BytesToHash([]byte{0x1}),
-			}),
-			Address: common.Address{},
+			Code:       msgPrevote,
+			Msg:        MustEncode(vote),
+			decodedMsg: vote,
+			Address:    common.Address{},
 		}
 
 		if err := c.handleMsg(context.Background(), msg); err != errOldHeightMessage {

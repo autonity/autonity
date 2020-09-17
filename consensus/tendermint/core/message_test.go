@@ -181,7 +181,7 @@ func TestMessageValidate(t *testing.T) {
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						count += 1
+						count++
 					}
 				}()
 				_, _ = decMsg.Validate(validateFn, lastHeader)
