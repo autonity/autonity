@@ -1,0 +1,9 @@
+FROM ubuntu:18.04
+
+RUN apt-get update -y && apt-get install -y build-essential wget make
+RUN cd /tmp && \
+    wget https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz && \
+    tar -xvf go1.14.4.linux-amd64.tar.gz && \
+    mv go /usr/local
+
+ENV PATH="${PATH}:/usr/local/go/bin"
