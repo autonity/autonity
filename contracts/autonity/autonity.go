@@ -2,6 +2,7 @@ package autonity
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"sort"
 	"strings"
@@ -47,6 +48,8 @@ type Contract struct {
 	sync.RWMutex
 }
 
+type ContracCall func(statedb *state.StateDB, header *types.Header, args ...interface{}) (map[string]interface{}, error)
+
 func NewAutonityContract(
 	bc Blockchainer,
 	operator common.Address,
@@ -62,6 +65,7 @@ func NewAutonityContract(
 		evmProvider:        evmProvider,
 	}
 	err := contract.upgradeAbiCache(ABI)
+	contract.GetViewMethodsFromContractABI()
 	return &contract, err
 }
 
@@ -268,4 +272,16 @@ func (ac *Contract) upgradeAbiCache(newAbi string) error {
 
 func (ac *Contract) GetContractABI() string {
 	return ac.stringContractABI
+}
+
+func (ac *Contract) GetViewMethodsFromContractABI() map[string]ContracCall{
+	var viewMethodStr = "view"
+	var contractViewMethods = make(map[string]ContracCall)
+	for n, m := range ac.contractABI.Methods {
+		if m.StateMutability == viewMethodStr {
+
+		}
+
+	}
+	panic("just for testing")
 }
