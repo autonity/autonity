@@ -21,6 +21,7 @@ SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 AUTONITY_CONTRACT_DIR = ./contracts/autonity/contract/contracts
 AUTONITY_CONTRACT = Autonity.sol
 GENERATED_CONTRACT_DIR = ./common/acdefault/generated
+GENERATED_RAW_ABI = $(GENERATED_CONTRACT_DIR)/Autonity.abi
 GENERATED_ABI = $(GENERATED_CONTRACT_DIR)/abi.go
 GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
 
@@ -51,9 +52,9 @@ autonity: embed-autonity-contract
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
 # Genreates go source files containing the contract bytecode and abi.
-embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_ABI)
+embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI) 
 
-$(GENERATED_BYTECODE) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT) $(SOLC_BINARY)
+$(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT) $(SOLC_BINARY)
 	@mkdir -p $(GENERATED_CONTRACT_DIR)
 	$(SOLC_BINARY) --overwrite --abi --bin -o $(GENERATED_CONTRACT_DIR) $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT)
 

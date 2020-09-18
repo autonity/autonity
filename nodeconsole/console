@@ -1,0 +1,55 @@
+#!/bin/sh
+
+if [ -z $1 ]; then
+	echo "Usage: ./console <websocket enabled autonity rpc host and port>"
+	echo "E.G:   ./console localhost:8546"
+	exit 1
+fi
+
+if ! which node > /dev/null; then
+	echo "nodejs is not installed"
+	echo "for ubuntu or debian users try 'sudo apt-get install nodejs'"
+	exit 1
+fi
+
+if ! which npm > /dev/null; then
+	echo "npm is not installed"
+	echo "for ubuntu or debian users try 'sudo apt-get install npm'"
+	exit 1
+fi
+
+# Absolute path to this script, e.g. /home/user/bin/foo.sh
+script=$(readlink -f "$0")
+# Absolute path this script is in, thus /home/user/bin
+scriptdir=$(dirname "$script")
+
+# Ensure the autonity contract abi has been generated.
+(cd "$scriptdir/.." && make embed-autonity-contract) > /dev/null 2>&1 
+
+cd "$scriptdir";
+
+# Npm list returns a 0 exit code only if the packate is installed.
+if ! npm list web3 > /dev/null 2>&1; then
+	echo "installing web3"
+	npm install web3
+fi
+
+echo
+echo "Welcome to the Autonity node console"
+echo "Type web3.<Tab> or autonity.<Tab> to get started"
+
+# Note the --experimental-repl-await doesn't take effect for the code executed with eval.
+node --experimental-repl-await --interactive --eval "var Web3=require('web3');
+	let fs = require('fs');
+	let web3 = new Web3('ws://$1');
+	let abiFile = './../common/acdefault/generated/Autonity.abi';
+	let abi = JSON.parse(fs.readFileSync(abiFile));
+	let contract;
+	let autonity;
+	Promise.all([web3.eth.getGasPrice(), web3.eth.getCoinbase()]).then((results) => {
+		contract = new web3.eth.Contract(abi, '0xbd770416a3345f91e4b34576cb804a576fa48eb1', {
+			gasPrice: results[0], // default gas price in wei, 20 gwei in this case
+			from: results[1] // default from address
+		});
+		autonity = contract.methods;
+	})"
