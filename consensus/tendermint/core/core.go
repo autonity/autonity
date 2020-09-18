@@ -132,13 +132,13 @@ type core struct {
 	// Tendermint FSM state fields
 	//
 
+	stateMu    sync.RWMutex
 	height     *big.Int
 	round      int64
 	committee  committee
-	lastHeader *types.Header
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
-	stateMu               sync.RWMutex
+	lastHeader *types.Header
 	step                  Step
 	curRoundMessages      *roundMessages
 	messages              messagesMap
@@ -440,6 +440,10 @@ func (c *core) CoreState() types.TendermintState {
 	// committee state
 	// committee of last block.
 	state.ParentCommittee = c.getParentCommittee()
+	state.Committee = c.committeeSet().Committee()
+	state.Proposer = c.committeeSet().GetProposer(state.Round).Address
+	state.IsProposer = c.isProposer()
+	state.QuorumVotePower = c.committeeSet().Quorum()
 	state.RoundStates = c.getRoundState()
 
 	// extra state
@@ -456,7 +460,7 @@ func (c *core) CoreState() types.TendermintState {
 }
 
 func (c *core) getProposal(round int64) common.Hash {
-	// todo RW Lock
+	// todo RLock
 	v := common.Hash{}
 	if c.messages.getOrCreate(round).proposal != nil && c.messages.getOrCreate(round).proposal.ProposalBlock != nil {
 		v = c.messages.getOrCreate(round).proposal.ProposalBlock.Hash()
@@ -465,7 +469,7 @@ func (c *core) getProposal(round int64) common.Hash {
 }
 
 func (c *core) getLockedValue() common.Hash {
-	// todo RW Lock
+	// todo RLock
 	v := common.Hash{}
 	if c.lockedValue != nil {
 		v = c.lockedValue.Hash()
@@ -474,12 +478,12 @@ func (c *core) getLockedValue() common.Hash {
 }
 
 func (c *core) getLockedRound() int64 {
-	// todo RW Lock
+	// todo RLock
 	return c.lockedRound
 }
 
 func (c *core) getValidValue() common.Hash {
-	// todo RW Lock
+	// todo RLock
 	v := common.Hash{}
 	if c.validValue != nil {
 		v = c.validValue.Hash()
@@ -488,12 +492,12 @@ func (c *core) getValidValue() common.Hash {
 }
 
 func (c *core) getValidRound() int64 {
-	// todo RW Lock
+	// todo RLock
 	return c.validRound
 }
 
 func (c *core) getParentCommittee() types.Committee {
-	// todo RW Lock
+	// todo RLock
 	v := types.Committee{}
 	if c.lastHeader != nil {
 		v = c.lastHeader.Committee
@@ -502,55 +506,59 @@ func (c *core) getParentCommittee() types.Committee {
 }
 
 func (c *core) getTotalPrevotePower(round int64) uint64 {
-	// todo RW Lock
+	// todo RLock
 	return 0
 }
 
 func (c *core) proposalSent() bool {
-	// todo RW Lock
+	// todo RLock
 	return c.sentProposal
 }
 
 func (c *core) prevoteSent() bool {
-	// todo RW Lock
+	// todo RLock
 	return c.sentPrevote
 }
 
 func (c *core) precommitSent() bool {
-	// todo RW Lock
+	// todo RLock
 	return c.sentPrecommit
 }
 
 func (c *core) validRoundAndValueSet() bool {
-	// todo RW Lock
+	// todo RLock
 	return c.setValidRoundAndValue
 }
 
 func (c *core) proposeTimerStarted() bool {
-	// todo RW Lock
+	// todo RLock
 	return c.proposeTimeout.timerStarted()
 }
 
 func (c *core) prevoteTimerStarted() bool {
-	// todo RW Lock
+	// todo RLock
 	return c.prevoteTimeout.timerStarted()
 }
 
 func (c *core) precommitTimerStarted() bool {
-	// todo RW Lock
+	// todo RLock
 	return c.precommitTimeout.timerStarted()
 }
 
 func (c *core) getRoundState() []types.RoundState {
+	// todo RLock
 	var states []types.RoundState
-
 	rounds := c.messages.getRounds()
-	for _, r := range rounds {
-		proposer := nil
-		isProposer := nil
-		committee := nil
-		prevoteState, preCommitState = c.messages.getVoteState(r)
-	}
 
+	for _, r := range rounds {
+		proposal, prevoteState, preCommitState := c.messages.getVoteState(r)
+		state := types.RoundState{
+			Round: r,
+			Proposal: proposal,
+			PrevoteState: prevoteState,
+			PrecommitState: preCommitState,
+		}
+		states = append(states, state)
+	}
 	return states
 }
