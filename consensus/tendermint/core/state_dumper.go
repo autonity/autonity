@@ -99,8 +99,8 @@ func (c *core) getParentCommittee() types.Committee {
 }
 
 func (c *core) getRoundState() []types.RoundState {
-	var states []types.RoundState
 	rounds := c.messages.getRounds()
+	states := make([]types.RoundState, 0, len(rounds))
 
 	for _, r := range rounds {
 		proposal, prevoteState, preCommitState := c.messages.getVoteState(r)
