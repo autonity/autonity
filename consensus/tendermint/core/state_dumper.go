@@ -7,7 +7,6 @@ import (
 )
 
 type coreStateRequestEvent struct {
-
 }
 
 func (c *core) CoreState() types.TendermintState {
@@ -30,9 +29,9 @@ func (c *core) CoreState() types.TendermintState {
 
 func (c *core) handleStateDump() {
 	state := types.TendermintState{
-		Client: c.address,
+		Client:         c.address,
 		ProposerPolicy: uint64(c.proposerPolicy),
-		BlockPeriod: c.blockPeriod,
+		BlockPeriod:    c.blockPeriod,
 	}
 
 	// tendermint core state
@@ -106,9 +105,9 @@ func (c *core) getRoundState() []types.RoundState {
 	for _, r := range rounds {
 		proposal, prevoteState, preCommitState := c.messages.getVoteState(r)
 		state := types.RoundState{
-			Round: r,
-			Proposal: proposal,
-			PrevoteState: prevoteState,
+			Round:          r,
+			Proposal:       proposal,
+			PrevoteState:   prevoteState,
 			PrecommitState: preCommitState,
 		}
 		states = append(states, state)
