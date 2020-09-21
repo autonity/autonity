@@ -100,6 +100,7 @@ func New(backend Backend, config *config.Config) *core {
 		proposeTimeout:        newTimeout(propose, logger),
 		prevoteTimeout:        newTimeout(prevote, logger),
 		precommitTimeout:      newTimeout(precommit, logger),
+		coreStateCh:           make(chan types.TendermintState),
 	}
 }
 
@@ -159,6 +160,7 @@ type core struct {
 	futureRoundChange map[int64]map[common.Address]uint64
 
 	autonityContract *autonity.Contract
+	coreStateCh chan types.TendermintState
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
@@ -413,152 +415,4 @@ func (c *core) committeeSet() committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committee
-}
-
-func (c *core) getStep() Step {
-	c.stateMu.RLock()
-	defer c.stateMu.RUnlock()
-	return c.step
-}
-
-func (c *core) CoreState() types.TendermintState {
-	state := types.TendermintState{
-		Client: c.address,
-		ProposerPolicy: uint64(c.proposerPolicy),
-		BlockPeriod: c.blockPeriod,
-	}
-	// core state of tendermint.
-	state.Height = *c.Height()
-	state.Round = c.Round()
-	state.Step = uint64(c.getStep())
-	state.Proposal = c.getProposal(state.Round)
-	state.LockedValue = c.getLockedValue()
-	state.LockedRound = c.getLockedRound()
-	state.ValidValue = c.getValidValue()
-	state.ValidRound = c.getValidRound()
-
-	// committee state
-	// committee of last block.
-	state.ParentCommittee = c.getParentCommittee()
-	state.Committee = c.committeeSet().Committee()
-	state.Proposer = c.committeeSet().GetProposer(state.Round).Address
-	state.IsProposer = c.isProposer()
-	state.QuorumVotePower = c.committeeSet().Quorum()
-	state.RoundStates = c.getRoundState()
-
-	// extra state
-	state.SentProposal = c.proposalSent()
-	state.SentPrevote = c.prevoteSent()
-	state.SentPrecommit = c.precommitSent()
-	state.SetValidRoundAndValue = c.validRoundAndValueSet()
-
-	// timer state
-	state.ProposeTimerStarted = c.proposeTimerStarted()
-	state.PrevoteTimerStarted = c.prevoteTimerStarted()
-	state.PrecommitTimerStarted = c.precommitTimerStarted()
-	return state
-}
-
-func (c *core) getProposal(round int64) common.Hash {
-	// todo RLock
-	v := common.Hash{}
-	if c.messages.getOrCreate(round).proposal != nil && c.messages.getOrCreate(round).proposal.ProposalBlock != nil {
-		v = c.messages.getOrCreate(round).proposal.ProposalBlock.Hash()
-	}
-	return v
-}
-
-func (c *core) getLockedValue() common.Hash {
-	// todo RLock
-	v := common.Hash{}
-	if c.lockedValue != nil {
-		v = c.lockedValue.Hash()
-	}
-	return v
-}
-
-func (c *core) getLockedRound() int64 {
-	// todo RLock
-	return c.lockedRound
-}
-
-func (c *core) getValidValue() common.Hash {
-	// todo RLock
-	v := common.Hash{}
-	if c.validValue != nil {
-		v = c.validValue.Hash()
-	}
-	return v
-}
-
-func (c *core) getValidRound() int64 {
-	// todo RLock
-	return c.validRound
-}
-
-func (c *core) getParentCommittee() types.Committee {
-	// todo RLock
-	v := types.Committee{}
-	if c.lastHeader != nil {
-		v = c.lastHeader.Committee
-	}
-	return v
-}
-
-func (c *core) getTotalPrevotePower(round int64) uint64 {
-	// todo RLock
-	return 0
-}
-
-func (c *core) proposalSent() bool {
-	// todo RLock
-	return c.sentProposal
-}
-
-func (c *core) prevoteSent() bool {
-	// todo RLock
-	return c.sentPrevote
-}
-
-func (c *core) precommitSent() bool {
-	// todo RLock
-	return c.sentPrecommit
-}
-
-func (c *core) validRoundAndValueSet() bool {
-	// todo RLock
-	return c.setValidRoundAndValue
-}
-
-func (c *core) proposeTimerStarted() bool {
-	// todo RLock
-	return c.proposeTimeout.timerStarted()
-}
-
-func (c *core) prevoteTimerStarted() bool {
-	// todo RLock
-	return c.prevoteTimeout.timerStarted()
-}
-
-func (c *core) precommitTimerStarted() bool {
-	// todo RLock
-	return c.precommitTimeout.timerStarted()
-}
-
-func (c *core) getRoundState() []types.RoundState {
-	// todo RLock
-	var states []types.RoundState
-	rounds := c.messages.getRounds()
-
-	for _, r := range rounds {
-		proposal, prevoteState, preCommitState := c.messages.getVoteState(r)
-		state := types.RoundState{
-			Round: r,
-			Proposal: proposal,
-			PrevoteState: prevoteState,
-			PrecommitState: preCommitState,
-		}
-		states = append(states, state)
-	}
-	return states
 }
