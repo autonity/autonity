@@ -363,11 +363,7 @@ func (c *core) acceptVote(roundMsgs *roundMessages, step Step, hash common.Hash,
 
 func (c *core) setStep(step Step) {
 	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
-	{
-		c.stateMu.Lock()
-		defer c.stateMu.Unlock()
-		c.step = step
-	}
+	c.step = step
 	c.processBacklog()
 }
 
