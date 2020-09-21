@@ -107,15 +107,15 @@ type CommitteeMember struct {
 type Committee []CommitteeMember
 
 type VoteState struct {
-	Value common.Hash
+	Value            common.Hash
 	ProposalVerified bool
-	VotePower uint64
+	VotePower        uint64
 }
 
 type RoundState struct {
-	Round int64
-	Proposal common.Hash
-	PrevoteState []VoteState
+	Round          int64
+	Proposal       common.Hash
+	PrevoteState   []VoteState
 	PrecommitState []VoteState
 }
 
@@ -136,12 +136,12 @@ type TendermintState struct {
 
 	// committee state
 	ParentCommittee Committee
-	Committee Committee
-	Proposer common.Address
-	IsProposer bool
+	Committee       Committee
+	Proposer        common.Address
+	IsProposer      bool
 	QuorumVotePower uint64
-	RoundStates []RoundState
-	ProposerPolicy uint64
+	RoundStates     []RoundState
+	ProposerPolicy  uint64
 
 	// extra state
 	SentProposal          bool
@@ -150,7 +150,7 @@ type TendermintState struct {
 	SetValidRoundAndValue bool
 
 	// timer state
-	BlockPeriod uint64
+	BlockPeriod           uint64
 	ProposeTimerStarted   bool
 	PrevoteTimerStarted   bool
 	PrecommitTimerStarted bool

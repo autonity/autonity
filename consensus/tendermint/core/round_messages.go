@@ -80,7 +80,7 @@ func (s *messagesMap) getRounds() []int64 {
 	defer s.mu.RUnlock()
 
 	rounds := make([]int64, 0, len(s.internal))
-	for r, _ := range s.internal {
+	for r := range s.internal {
 		rounds = append(rounds, r)
 	}
 
@@ -101,9 +101,9 @@ func (s *messagesMap) getVoteState(round int64) (common.Hash, []types.VoteState,
 
 	for _, v := range pvv {
 		var s = types.VoteState{
-			Value: v,
+			Value:            v,
 			ProposalVerified: s.getOrCreate(round).isProposalVerified(),
-			VotePower: s.getOrCreate(round).PrevotesPower(v),
+			VotePower:        s.getOrCreate(round).PrevotesPower(v),
 		}
 		prevoteState = append(prevoteState, s)
 	}

@@ -133,13 +133,13 @@ type core struct {
 	// Tendermint FSM state fields
 	//
 
-	stateMu    sync.RWMutex
-	height     *big.Int
-	round      int64
-	committee  committee
+	stateMu   sync.RWMutex
+	height    *big.Int
+	round     int64
+	committee committee
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
-	lastHeader *types.Header
+	lastHeader            *types.Header
 	step                  Step
 	curRoundMessages      *roundMessages
 	messages              messagesMap
@@ -160,7 +160,7 @@ type core struct {
 	futureRoundChange map[int64]map[common.Address]uint64
 
 	autonityContract *autonity.Contract
-	coreStateCh chan types.TendermintState
+	coreStateCh      chan types.TendermintState
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
