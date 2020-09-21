@@ -169,7 +169,7 @@ func TestWelcome(t *testing.T) {
 	tester.console.Welcome()
 
 	output := tester.output.String()
-	if want := "Welcome"; !strings.Contains(output, want) {
+	if want := "Console"; !strings.Contains(output, want) {
 		t.Fatalf("console output missing welcome message: have\n%s\nwant also %s", output, want)
 	}
 	if want := fmt.Sprintf("instance: %s", testInstance); !strings.Contains(output, want) {
