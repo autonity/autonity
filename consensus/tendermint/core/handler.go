@@ -130,30 +130,29 @@ eventLoop:
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				// ecrire test of len(0)
 				msg := new(Message)
 				if err := msg.FromPayload(e.Payload); err != nil {
-					c.logger.Error("core.mainEventLoop Get message(MessageEvent) invalid payload")
+					c.logger.Error("consensus message invalid payload", "err", err)
 					continue
 				}
 				if err := c.handleMsg(ctx, msg); err != nil {
-					c.logger.Debug("core.mainEventLoop Get message(MessageEvent) payload failed", "err", err)
+					c.logger.Debug("MessageEvent payload failed", "err", err)
 					continue
 				}
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
-				c.logger.Debug("Started handling backlogEvent")
+				c.logger.Debug("started handling backlogEvent")
 				if err := c.handleCheckedMsg(ctx, e.msg); err != nil {
-					c.logger.Debug("core.mainEventLoop handleCheckedMsg message failed", "err", err)
+					c.logger.Debug("backlogEvent message handling failed", "err", err)
 					continue
 				}
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.msg.Payload())
 
 			case backlogUncheckedEvent:
-				c.logger.Debug("Started handling backlogUncheckedEvent")
+				c.logger.Debug("started handling backlogUncheckedEvent")
 				if err := c.handleMsg(ctx, e.msg); err != nil {
-					c.logger.Debug("core.mainEventLoop backlogUncheckedEvent message failed", "err", err)
+					c.logger.Debug("backlogUncheckedEvent message failed", "err", err)
 					continue
 				}
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.msg.Payload())

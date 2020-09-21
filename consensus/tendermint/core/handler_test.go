@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"github.com/influxdata/influxdb/pkg/deep"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 
@@ -195,9 +196,11 @@ func TestHandleMsg(t *testing.T) {
 			Height:            big.NewInt(1),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
+		payload, err := rlp.EncodeToBytes(vote)
+		require.NoError(t, err)
 		msg := &Message{
 			Code:       msgPrevote,
-			Msg:        MustEncode(vote),
+			Msg:        payload,
 			decodedMsg: vote,
 			Address:    common.Address{},
 		}
@@ -226,9 +229,11 @@ func TestHandleMsg(t *testing.T) {
 			Height:            big.NewInt(3),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
+		payload, err := rlp.EncodeToBytes(vote)
+		require.NoError(t, err)
 		msg := &Message{
 			Code:       msgPrevote,
-			Msg:        MustEncode(vote),
+			Msg:        payload,
 			decodedMsg: vote,
 			Address:    common.Address{},
 		}

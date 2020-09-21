@@ -54,34 +54,14 @@ func TestMessageString(t *testing.T) {
 }
 
 func TestMessageValidate(t *testing.T) {
-	t.Run("nil validator function given, panic", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Fatal("expect panic")
-			}
-		}()
-		msg := createPrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26), types.CommitteeMember{})
-		lastHeader := &types.Header{Number: new(big.Int).SetUint64(1)}
-		payload := msg.Payload()
 
-		decMsg := &Message{}
-		err := decMsg.FromPayload(payload)
-		if err != nil {
-			t.Fatalf("have %v, want nil", err)
-		}
-		val, err := decMsg.Validate(nil, lastHeader)
-		if val != nil {
-			t.Fatalf("validator must be nil, but got %v", val)
-		}
-	})
-
-	t.Run("validate function fails, nil returned", func(t *testing.T) {
+	t.Run("validate function fails, error returned", func(t *testing.T) {
 		msg := createPrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26), types.CommitteeMember{VotingPower: big.NewInt(0)})
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25)}
 		payload := msg.Payload()
 		wantErr := errors.New("some error")
 
-		validateFn := func(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
+		validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) {
 			return common.Address{}, wantErr
 		}
 
@@ -90,18 +70,18 @@ func TestMessageValidate(t *testing.T) {
 			t.Fatalf("have %v, want nil", err)
 		}
 		_, err := decMsg.Validate(validateFn, lastHeader)
-		if err != wantErr {
-			t.Fatalf("want error %v, got %v", wantErr, err)
+		if err == nil {
+			t.Fatalf("want error, nil returned")
 		}
 	})
 
 	t.Run("not a committee member, error returned", func(t *testing.T) {
-		member := types.CommitteeMember{common.HexToAddress("0x1234567890"), big.NewInt(1)}
+		member := types.CommitteeMember{Address: common.HexToAddress("0x1234567890"), VotingPower: big.NewInt(1)}
 
 		msg := createPrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26), member)
 		payload := msg.Payload()
 
-		validateFn := func(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
+		validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) { //nolint
 			return member.Address, nil
 		}
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{
@@ -114,12 +94,10 @@ func TestMessageValidate(t *testing.T) {
 		if err := decMsg.FromPayload(payload); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		val, err := decMsg.Validate(validateFn, lastHeader)
-		if val != nil {
-			t.Fatal("should return nil validator")
-		}
-		if err.Error() != "message received is not from a committee member: 0000000000000000000000000000001234567890" {
-			t.Fatalf("bad error: %v", err)
+		_, err := decMsg.Validate(validateFn, lastHeader)
+
+		if err == nil {
+			t.Fatalf("want error, nil returned")
 		}
 	})
 
@@ -141,7 +119,7 @@ func TestMessageValidate(t *testing.T) {
 			Committee: types.Committee{val},
 			Number:    big.NewInt(25),
 		}
-		validateFn := func(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
+		validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) { //nolint
 			return authorizedAddress, nil
 		}
 
@@ -165,12 +143,12 @@ func TestMessageValidate(t *testing.T) {
 			if i == 23 {
 				continue
 			}
-			member := types.CommitteeMember{common.HexToAddress("0x1234567890"), big.NewInt(1)}
+			member := types.CommitteeMember{Address: common.HexToAddress("0x1234567890"), VotingPower: big.NewInt(1)}
 
 			msg := createPrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(24), member)
 			payload := msg.Payload()
 
-			validateFn := func(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
+			validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) {
 				return member.Address, nil
 			}
 			lastHeader := &types.Header{Number: new(big.Int).SetUint64(i), Committee: []types.CommitteeMember{member}}

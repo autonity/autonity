@@ -4,8 +4,10 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/rlp"
 	"github.com/golang/mock/gomock"
 	"github.com/influxdata/influxdb/pkg/deep"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
 	"testing"
@@ -562,7 +564,6 @@ func TestProcessBacklog(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
 		committeeSet := newTestCommitteeSet(2)
 
@@ -578,6 +579,7 @@ func TestProcessBacklog(t *testing.T) {
 
 		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
 
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 		c.storeUncheckedBacklog(msg)
 		c.storeUncheckedBacklog(msg2)
 		c.setStep(prevote)
@@ -586,6 +588,8 @@ func TestProcessBacklog(t *testing.T) {
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(2)
 		c.setStep(prevote)
+
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 		c.processBacklog()
 		<-time.NewTimer(2 * time.Second).C
 	})
@@ -665,9 +669,11 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 				Round:  i % 10,
 				Height: big.NewInt(i / (1 + i%10)),
 			}
+			payload, err := rlp.EncodeToBytes(nilRoundVote)
+			require.NoError(t, err)
 			msg := &Message{
 				Code:       msgPrevote,
-				Msg:        MustEncode(nilRoundVote),
+				Msg:        payload,
 				decodedMsg: nilRoundVote,
 			}
 			c.storeUncheckedBacklog(msg)
@@ -730,9 +736,11 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 				Round:  i % 10,
 				Height: big.NewInt(i),
 			}
+			payload, err := rlp.EncodeToBytes(nilRoundVote)
+			require.NoError(t, err)
 			msg := &Message{
 				Code:       msgPrevote,
-				Msg:        MustEncode(nilRoundVote),
+				Msg:        payload,
 				decodedMsg: nilRoundVote,
 			}
 			c.storeUncheckedBacklog(msg)

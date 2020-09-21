@@ -93,7 +93,7 @@ func (c *core) storeUncheckedBacklog(msg *Message) {
 	// We discard the furthest ahead messages in priority.
 	if c.backlogUncheckedLen == MaxSizeBacklogUnchecked+1 {
 		maxHeight := msgHeight.Uint64()
-		for k, _ := range c.backlogUnchecked {
+		for k := range c.backlogUnchecked {
 			if k > maxHeight && len(c.backlogUnchecked[k]) > 0 {
 				maxHeight = k
 			}
@@ -159,7 +159,7 @@ func (c *core) processBacklog() {
 		c.backlogs[src] = backlog
 
 	}
-	for height, _ := range c.backlogUnchecked {
+	for height := range c.backlogUnchecked {
 		if height == c.height.Uint64() {
 			for _, msg := range c.backlogUnchecked[height] {
 				go c.sendEvent(backlogUncheckedEvent{

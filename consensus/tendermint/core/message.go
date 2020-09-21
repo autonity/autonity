@@ -36,7 +36,6 @@ const (
 
 var (
 	errMsgPayloadNotDecoded = errors.New("message not decoded")
-	errNotCommittee         = errors.New("message not sent by committee member")
 	ErrUnauthorizedAddress  = errors.New("unauthorized address")
 )
 
@@ -228,12 +227,4 @@ func (m *Message) Height() (*big.Int, error) {
 
 func Encode(val interface{}) ([]byte, error) {
 	return rlp.EncodeToBytes(val)
-}
-
-func MustEncode(val interface{}) []byte {
-	ret, err := rlp.EncodeToBytes(val)
-	if err != nil {
-		panic("encoding failled")
-	}
-	return ret
 }
