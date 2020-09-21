@@ -58,6 +58,10 @@ type Backend interface {
 
 	//Used to set the blockchain on this
 	SetBlockchain(bc *ethcore.BlockChain)
+
+	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
+	// It is called by core when some unprocessed messages are removed from the untrusted backlog buffer.
+	RemoveMessageFromLocalCache(payload []byte)
 }
 
 type Tendermint interface {

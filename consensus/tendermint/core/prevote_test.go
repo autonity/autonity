@@ -59,10 +59,7 @@ func TestSendPrevote(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil)
 
-		payload, err := expectedMsg.Payload()
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
+		payload := expectedMsg.Payload()
 
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
@@ -215,10 +212,7 @@ func TestHandlePrevote(t *testing.T) {
 			Signature:     []byte{0x1},
 			power:         1,
 		}
-		payload, err := msg.Payload()
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
+		payload := msg.Payload()
 
 		backendMock.EXPECT().Broadcast(context.Background(), gomock.Any(), payload)
 
@@ -282,10 +276,7 @@ func TestHandlePrevote(t *testing.T) {
 			power:         1,
 		}
 
-		payload, err := msg.Payload()
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
+		payload := msg.Payload()
 
 		backendMock.EXPECT().Broadcast(context.Background(), gomock.Any(), payload)
 
