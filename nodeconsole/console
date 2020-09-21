@@ -23,9 +23,6 @@ script=$(readlink -f "$0")
 # Absolute path this script is in, thus /home/user/bin
 scriptdir=$(dirname "$script")
 
-# Ensure the autonity contract abi has been generated.
-(cd "$scriptdir/.." && make embed-autonity-contract) > /dev/null 2>&1 
-
 cd "$scriptdir";
 
 # Npm list returns a 0 exit code only if the packate is installed.
