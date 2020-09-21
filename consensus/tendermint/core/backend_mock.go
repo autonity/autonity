@@ -122,6 +122,20 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
 }
 
+// CoreState mocks base method
+func (_m *MockTendermint) CoreState() types.TendermintState {
+	m.ctrl.T.Helper()
+	ret := _m.ctrl.Call(_m, "CoreState")
+	ret0, _ := ret[0].(types.TendermintState)
+	return ret0
+}
+
+// CoreState indicates an expected call of CoreState
+func (_mr *MockTendermintMockRecorder) CoreState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "CoreState", reflect.TypeOf((*MockTendermint)(nil).CoreState))
+}
+
 // Gossip mocks base method
 func (m *MockBackend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
 	m.ctrl.T.Helper()
