@@ -57,3 +57,11 @@ func TestStuff(t *testing.T) {
 		require.NoError(t, err)
 	}
 }
+
+func TestStartingAndStoppingNodes(t *testing.T) {
+	heads := n.SubscribeHeads()
+	for i, _ := range heads {
+
+	}
+	n.UnsubscribeHeads()
+}
