@@ -90,7 +90,7 @@ func (s *messagesMap) getRounds() []int64 {
 func (s *messagesMap) getVoteState(round int64) (common.Hash, []types.VoteState, []types.VoteState) {
 	p := common.Hash{}
 
-	if s.getOrCreate(round).Proposal() != nil {
+	if s.getOrCreate(round).Proposal() != nil && s.getOrCreate(round).Proposal().ProposalBlock != nil {
 		p = s.getOrCreate(round).Proposal().ProposalBlock.Hash()
 	}
 
