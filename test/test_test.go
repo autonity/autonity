@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/clearmatics/autonity/eth"
 	"github.com/stretchr/testify/require"
@@ -33,6 +34,13 @@ func TestStuff(t *testing.T) {
 		err = ethereum.StartMining(1)
 		require.NoError(t, err)
 	}
+	// There is a race condition in miner.worker its field snapshotBlock is set
+	// only when new transacting are received or commitNewWork is called. But
+	// both of these happen in goroutines separate to the call to miner.Start
+	// and miner.Strart does not wait for snapshotBlock to be set. Therfore
+	// there is currently no way to know when it is safe to call estimate gas.
+	// What we do here is sleep a bit and cross our fingers.
+	time.Sleep(10 * time.Millisecond)
 
 	for i := range network {
 		for j := range network {
