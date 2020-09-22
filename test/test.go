@@ -124,13 +124,17 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, func(), error) {
 
 	// copy the base eth config
 	ec := *baseEthConfig
+	// Set the min gas price on the mining pool config, otherwise the miner
+	// starts with a defalt min gas price. Which causes transactions to be
+	// dropped.
+	ec.Miner.GasPrice = (&big.Int{}).SetUint64(genesis.Config.AutonityContractConfig.MinGasPrice)
 	ec.Genesis = genesis
 	ec.NetworkId = genesis.Config.ChainID.Uint64()
 	ec.Tendermint = *genesis.Config.Tendermint
 
 	// Register an injector on the node to provide the ethereum service.
 	err = n.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		return eth.New(ctx, baseEthConfig, nil)
+		return eth.New(ctx, &ec, nil)
 	})
 	if err != nil {
 		cleanup()
