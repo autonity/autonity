@@ -5,12 +5,14 @@ import (
 	"math/big"
 )
 
+// VoteState save the prevote or precommit voting status for a specific value.
 type VoteState struct {
 	Value            common.Hash `json:"value"            gencodec:"required"`
 	ProposalVerified bool		 `json:"proposalVerified" gencodec:"required"`
 	VotePower        uint64		 `json:"votePower"        gencodec:"required"`
 }
 
+// RoundState save the voting status for a specific round.
 type RoundState struct {
 	Round          int64       `json:"round"          gencodec:"required"`
 	Proposal       common.Hash `json:"proposal"       gencodec:"required"`
@@ -18,6 +20,7 @@ type RoundState struct {
 	PrecommitState []VoteState `json:"precommitState" gencodec:"required"`
 }
 
+// TendermintState save an instance status for the tendermint consensus engine.
 type TendermintState struct {
 	// validator address
 	Client common.Address          `json:"client"                gencodec:"required"`
