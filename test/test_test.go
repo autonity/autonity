@@ -2,15 +2,17 @@ package test
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/clearmatics/autonity/eth"
+	"github.com/clearmatics/autonity/log"
 	"github.com/stretchr/testify/require"
 )
 
 func TestStuff(t *testing.T) {
-	//log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
+	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
 	users, err := Users(5, "10e18,v,1,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 	g, err := Genesis(users)
