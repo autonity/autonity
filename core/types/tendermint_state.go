@@ -9,7 +9,7 @@ import (
 type VoteState struct {
 	Value            common.Hash `json:"value"            gencodec:"required"`
 	ProposalVerified bool        `json:"proposalVerified" gencodec:"required"`
-	VotePower        uint64	     `json:"votePower"        gencodec:"required"`
+	VotePower        uint64      `json:"votePower"        gencodec:"required"`
 }
 
 // RoundState save the voting status for a specific round.
@@ -23,17 +23,17 @@ type RoundState struct {
 // TendermintState save an instant status for the tendermint consensus engine.
 type TendermintState struct {
 	// validator address
-	Client common.Address          `json:"client"                gencodec:"required"`
+	Client common.Address `json:"client"                gencodec:"required"`
 
 	// core state of tendermint
-	Height      big.Int            `json:"height"                gencodec:"required"`
-	Round       int64              `json:"round"                 gencodec:"required"`
-	Step        uint64             `json:"step"                  gencodec:"required"`
-	Proposal    common.Hash        `json:"proposal"              gencodec:"required"`
-	LockedValue common.Hash        `json:"lockedValue"           gencodec:"required"`
-	LockedRound int64              `json:"lockedRound"           gencodec:"required"`
-	ValidValue  common.Hash        `json:"validValue"            gencodec:"required"`
-	ValidRound  int64              `json:"validRound"            gencodec:"required"`
+	Height      big.Int     `json:"height"                gencodec:"required"`
+	Round       int64       `json:"round"                 gencodec:"required"`
+	Step        uint64      `json:"step"                  gencodec:"required"`
+	Proposal    common.Hash `json:"proposal"              gencodec:"required"`
+	LockedValue common.Hash `json:"lockedValue"           gencodec:"required"`
+	LockedRound int64       `json:"lockedRound"           gencodec:"required"`
+	ValidValue  common.Hash `json:"validValue"            gencodec:"required"`
+	ValidRound  int64       `json:"validRound"            gencodec:"required"`
 
 	// committee state
 	ParentCommittee Committee      `json:"parentCommittee"       gencodec:"required"`
@@ -45,14 +45,14 @@ type TendermintState struct {
 	ProposerPolicy  uint64         `json:"proposerPolicy"        gencodec:"required"`
 
 	// extra state
-	SentProposal          bool     `json:"sentProposal"          gencodec:"required"`
-	SentPrevote           bool     `json:"sentPrevote"           gencodec:"required"`
-	SentPrecommit         bool     `json:"sentPrecommit"         gencodec:"required"`
-	SetValidRoundAndValue bool     `json:"setValidRoundAndValue" gencodec:"required"`
+	SentProposal          bool `json:"sentProposal"          gencodec:"required"`
+	SentPrevote           bool `json:"sentPrevote"           gencodec:"required"`
+	SentPrecommit         bool `json:"sentPrecommit"         gencodec:"required"`
+	SetValidRoundAndValue bool `json:"setValidRoundAndValue" gencodec:"required"`
 
 	// timer state
-	BlockPeriod           uint64   `json:"blockPeriod"           gencodec:"required"`
-	ProposeTimerStarted   bool     `json:"proposeTimerStarted"   gencodec:"required"`
-	PrevoteTimerStarted   bool     `json:"prevoteTimerStarted"   gencodec:"required"`
-	PrecommitTimerStarted bool     `json:"precommitTimerStared"  gencodec:"required"`
+	BlockPeriod           uint64 `json:"blockPeriod"           gencodec:"required"`
+	ProposeTimerStarted   bool   `json:"proposeTimerStarted"   gencodec:"required"`
+	PrevoteTimerStarted   bool   `json:"prevoteTimerStarted"   gencodec:"required"`
+	PrecommitTimerStarted bool   `json:"precommitTimerStared"  gencodec:"required"`
 }
