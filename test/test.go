@@ -77,6 +77,7 @@ func Users(count int, formatString string, startingPort int) ([]*gengen.User, er
 type Node struct {
 	*node.Node
 	WsClient *ethclient.Client
+	Nonce    uint64
 	Key      *ecdsa.PrivateKey
 	Address  common.Address
 	Tracker  *TransactionTracker
@@ -177,7 +178,8 @@ func (n *Node) Start() error {
 	if err != nil {
 		return err
 	}
-	return nil
+	n.Nonce, err = n.WsClient.PendingNonceAt(context.Background(), n.Address)
+	return err
 }
 
 func (n *Node) SendE(ctx context.Context, recipient common.Address, value int64) error {
@@ -194,6 +196,7 @@ func (n *Node) SendE(ctx context.Context, recipient common.Address, value int64)
 		n.Key,
 		n.Address,
 		recipient,
+		n.Nonce,
 		big.NewInt(value))
 
 	if err != nil {
@@ -203,12 +206,13 @@ func (n *Node) SendE(ctx context.Context, recipient common.Address, value int64)
 	if err != nil {
 		return err
 	}
+	n.Nonce++
 	n.SentTxs = append(n.SentTxs, tx.Hash())
 	return nil
 }
 
-func (n *Node) AwaitSentTransactions(ctx context.Context) {
-	n.Tracker.AwaitTransactions(ctx, n.SentTxs)
+func (n *Node) AwaitSentTransactions(ctx context.Context) error {
+	return n.Tracker.AwaitTransactions(ctx, n.SentTxs)
 }
 
 type TransactionTracker struct {
@@ -280,14 +284,9 @@ func Genesis(users []*gengen.User) (*core.Genesis, error) {
 	return g, nil
 }
 
-func ValueTransferTransaction(client *ethclient.Client, senderKey *ecdsa.PrivateKey, sender, recipient common.Address, value *big.Int) (*types.Transaction, error) {
+func ValueTransferTransaction(client *ethclient.Client, senderKey *ecdsa.PrivateKey, sender, recipient common.Address, nonce uint64, value *big.Int) (*types.Transaction, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
-	nonce, err := client.PendingNonceAt(ctx, sender)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve account nonce: %v", err)
-	}
-
 	// Figure out the gas allowance and gas price values
 	gasPrice, err := client.SuggestGasPrice(ctx)
 	if err != nil {
