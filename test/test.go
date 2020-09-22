@@ -20,6 +20,7 @@ import (
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/ethclient"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/params"
@@ -90,6 +91,10 @@ type Node struct {
 // means that we have to predefine ports in the genesis, which could cause
 // problems if anything is already bound on that port.
 func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, func(), error) {
+
+	k := u.Key.(*ecdsa.PrivateKey)
+	address := crypto.PubkeyToAddress(k.PublicKey)
+
 	// Copy the base node config
 	c := *baseNodeConfig
 
@@ -111,6 +116,10 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, func(), error) {
 	}
 
 	c.DataDir = datadir
+
+	// Give this logger context based on the node address so that we can easily
+	// trace single node execution in the logs.
+	c.Logger = log.New("node", address.String()[2:7])
 
 	n, err := node.New(&c)
 	if err != nil {
@@ -155,11 +164,10 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, func(), error) {
 		return nil, nil, err
 	}
 
-	k := u.Key.(*ecdsa.PrivateKey)
 	node := &Node{
 		Node:    n,
 		Key:     k,
-		Address: crypto.PubkeyToAddress(k.PublicKey),
+		Address: address,
 	}
 	return node, cleanup, nil
 }
