@@ -14,7 +14,7 @@ func (c *core) CoreState() types.TendermintState {
 	// send state dump request.
 	var e = coreStateRequestEvent{}
 	go c.sendEvent(e)
-	// wait for dump response with timeout.
+	// wait for response with timeout.
 	timeout := time.After(time.Second)
 	select {
 	case s := <-c.coreStateCh:
@@ -23,7 +23,6 @@ func (c *core) CoreState() types.TendermintState {
 		c.logger.Debug("Waiting for tendermint core state timed out", "elapsed", time.Second)
 	}
 
-	// return state.
 	return state
 }
 
