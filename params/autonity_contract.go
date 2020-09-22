@@ -105,6 +105,7 @@ type User struct {
 func (u *User) getAddressFromEnode() (common.Address, error) {
 	n, err := enode.ParseV4(u.Enode)
 	if err != nil {
+		panic(err.Error())
 		return common.Address{}, fmt.Errorf("failed to parse enode %q, error:%v", u.Enode, err)
 	}
 	return crypto.PubkeyToAddress(*n.Pubkey()), nil
