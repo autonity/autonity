@@ -116,6 +116,10 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
+	cleanup = func() {
+		os.RemoveAll(datadir)
+		n.Close()
+	}
 
 	// copy the base eth config
 	ec := *baseEthConfig
