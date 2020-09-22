@@ -20,14 +20,18 @@ func TestStuff(t *testing.T) {
 		defer cleanup()
 		require.NoError(t, err)
 		err = n.Start()
+		require.NoError(t, err)
 
+		network = append(network, n)
+	}
+
+	for _, n := range network {
 		var ethereum *eth.Ethereum
 		if err := n.Service(&ethereum); err != nil {
 			require.NoError(t, err)
 		}
 		err = ethereum.StartMining(1)
 		require.NoError(t, err)
-		network = append(network, n)
 	}
 
 	for i := range network {

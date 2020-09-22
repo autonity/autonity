@@ -182,10 +182,6 @@ func (n *Node) Start() error {
 	if err != nil {
 		return err
 	}
-	err = ethereum.StartMining(1)
-	if err != nil {
-		return err
-	}
 	n.WsClient, err = ethclient.Dial("ws://" + n.WSEndpoint())
 	if err != nil {
 		return err
