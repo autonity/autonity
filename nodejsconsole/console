@@ -34,14 +34,11 @@ fi
 echo
 
 # Note the --experimental-repl-await doesn't take effect for the code executed with eval.
-node --experimental-repl-await --interactive --eval "
-var Web3=require('web3');
+node --experimental-repl-await --eval "
+let Web3=require('web3');
 let web3 = new Web3('ws://$1');
 let contract;
 let autonity;
-
-// Put most of our work in a closure to avoid polluting the global scope with variables.
-(function() {
 
 const chequebook = function() {
 	web3.extend({
@@ -879,47 +876,58 @@ moduleInit.set('les', les);
 moduleInit.set('tendermint', tendermint);
 moduleInit.set('lespay', lesPay);
 
-	let WebSocket = require('ws');
+let WebSocket = require('ws');
 
-	let ws = new WebSocket('ws://$1');
-	 
-	let data = JSON.stringify({
-		jsonrpc:'2.0',
-		method:'rpc_modules',
-		id:1
-	});
+let ws = new WebSocket('ws://$1');
+ 
+let data = JSON.stringify({
+	jsonrpc:'2.0',
+	method:'rpc_modules',
+	id:1
+});
 
-	ws.addEventListener('open', () => {
-	  ws.send(data);
-	});
-	 
-	ws.addEventListener('message', event => {
-		let initMessage = 'modules: ';
-		let parsed = JSON.parse(event.data);
-		for (const [key, value] of Object.entries(parsed.result)) {
-			if (moduleInit.has(key)) {
-				moduleInit.get(key)()
-				initMessage += key+':'+value+' ';
-			}
+ws.addEventListener('open', () => {
+	ws.send(data);
+});
+ 
+ws.addEventListener('message', event => {
+	let initMessage = 'modules: ';
+	let parsed = JSON.parse(event.data);
+	for (const [key, value] of Object.entries(parsed.result)) {
+		if (moduleInit.has(key)) {
+			moduleInit.get(key)()
+			initMessage += key+':'+value+' ';
 		}
+	}
 
-		console.log('Welcome to the Autonity node console')
-		console.log(initMessage)
-		console.log('Type web3.<Tab> or autonity.<Tab> to get started')
+	ws.close(1000); // Successful close signal
 
-		ws.close(1000)
+	console.log('Welcome to the Autonity node console');
+	console.log(initMessage);
+	console.log('Type web3.<Tab> or autonity.<Tab> to get started');
 
-		// If the tendermint module is loaded then load the contract bindings
-		if (parsed.result.hasOwnProperty('tendermint')) {
-			Promise.all([web3.tendermint.getContractABI(), web3.eth.getGasPrice(), web3.eth.getCoinbase()]).then((results) => {
+	// Start the repl
+	let repl = require('repl');
+	let server = repl.start();
+	// Setting context values makes them available in the default scope
+	// of the repl.
+	server.context.web3 = web3;
+
+	// If the tendermint module is loaded then load the contract bindings
+	if (parsed.result.hasOwnProperty('tendermint')) {
+
+		Promise.all([web3.tendermint.getContractABI(), web3.eth.getGasPrice(), web3.eth.getCoinbase()]).then((results) => {
 			contract = new web3.eth.Contract(JSON.parse(results[0]), '0xbd770416a3345f91e4b34576cb804a576fa48eb1', {
-					gasPrice: results[1], // default gas price in wei, 20 gwei in this case
-					from: results[2] // default from address
-				});
-				autonity = contract.methods;
+				gasPrice: results[1], // default gas price in wei, 20 gwei in this case
+				from: results[2] // default from address
 			});
-		}
-	});
 
-})(); // End of closure
+			// Setting context values makes them available in the default scope
+			// of the repl.
+			server.context.contract = contract;
+			server.context.autonity = contract.methods;
+		});
+	}
+
+});
 "
