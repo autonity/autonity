@@ -2,17 +2,65 @@ package test
 
 import (
 	"context"
-	"os"
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/eth"
-	"github.com/clearmatics/autonity/log"
 	"github.com/stretchr/testify/require"
 )
 
 func TestStuff(t *testing.T) {
-	log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
+	// log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
+	users, err := Users(5, "10e18,v,1,0.0.0.0:%s,%s", 6780)
+	require.NoError(t, err)
+	g, err := Genesis(users)
+	require.NoError(t, err)
+	var network []*Node
+	for _, u := range users {
+		n, cleanup, err := NewNode(u, g)
+		defer cleanup()
+		require.NoError(t, err)
+		err = n.Start()
+		require.NoError(t, err)
+
+		network = append(network, n)
+	}
+
+	for _, n := range network {
+		var ethereum *eth.Ethereum
+		if err := n.Service(&ethereum); err != nil {
+			require.NoError(t, err)
+		}
+		err = ethereum.StartMining(1)
+		require.NoError(t, err)
+	}
+	// There is a race condition in miner.worker its field snapshotBlock is set
+	// only when new transacting are received or commitNewWork is called. But
+	// both of these happen in goroutines separate to the call to miner.Start
+	// and miner.Strart does not wait for snapshotBlock to be set. Therfore
+	// there is currently no way to know when it is safe to call estimate gas.
+	// What we do here is sleep a bit and cross our fingers.
+	time.Sleep(20 * time.Millisecond)
+
+	for i := range network {
+		for j := range network {
+			sender := network[i]
+			receiver := network[j].Address
+			err := sender.SendE(context.Background(), receiver, 10)
+			require.NoError(t, err)
+		}
+	}
+	for i := range network {
+		err := network[i].AwaitSentTransactions(context.Background())
+		require.NoError(t, err)
+	}
+}
+
+func TestStartingAndStoppingNodes(t *testing.T) {
+	// log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
 	users, err := Users(5, "10e18,v,1,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 	g, err := Genesis(users)
@@ -44,24 +92,105 @@ func TestStuff(t *testing.T) {
 	// What we do here is sleep a bit and cross our fingers.
 	time.Sleep(10 * time.Millisecond)
 
-	for i := range network {
-		for j := range network {
-			sender := network[i]
-			receiver := network[j].Address
-			err := sender.SendE(context.Background(), receiver, 10)
-			require.NoError(t, err)
-		}
+	n := network[0]
+	println("----------------------------------1")
+	// Send a tx to see that the network is working
+	err = n.SendETracked(context.Background(), network[1].Address, 10)
+	require.NoError(t, err)
+
+	// Stop a node
+	err = network[1].Stop()
+	require.NoError(t, err)
+
+	println("----------------------------------2")
+	// Send a tx to see that the network is working
+	err = n.SendETracked(context.Background(), network[1].Address, 10)
+	require.NoError(t, err)
+
+	// Stop a node
+	err = network[2].Stop()
+	require.NoError(t, err)
+
+	time.Sleep(time.Second * 5)
+
+	println("lenlen", len(n.SentTxs))
+
+	println("----------------------------------3")
+	// We have now stopped more than F nodes, so we expect tx sending to time out.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+	err = n.SendETracked(ctx, network[1].Address, 10)
+	println("lenlen", len(n.SentTxs))
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expecting %q, instead got: %v ", context.DeadlineExceeded.Error(), err)
 	}
-	for i := range network {
-		err := network[i].AwaitSentTransactions(context.Background())
-		require.NoError(t, err)
-	}
+
+	// We start a node again and expect the previously unprocessed transaction to be processed
+	tr, err := TrackTransactions(n.WsClient)
+	require.NoError(t, err)
+	err = network[2].Start()
+	require.NoError(t, err)
+	err = tr.AwaitTransactions(context.Background(), []common.Hash{n.SentTxs[len(n.SentTxs)-1]})
+	require.NoError(t, err)
+
+	// Send a tx to see that the network is working
+	err = n.SendETracked(context.Background(), network[1].Address, 10)
+	require.NoError(t, err)
+
+	// Start the last stopped node
+	err = network[1].Start()
+	require.NoError(t, err)
+
+	// Send a tx to see that the network is working
+	err = n.SendETracked(context.Background(), network[1].Address, 10)
+	require.NoError(t, err)
+	time.Sleep(time.Second)
 }
 
-func TestStartingAndStoppingNodes(t *testing.T) {
-	heads := n.SubscribeHeads()
-	for i, _ := range heads {
-
+func TestWsSubscribes(t *testing.T) {
+	// log.Root().SetHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
+	users, err := Users(1, "10e18,v,1,0.0.0.0:%s,%s", 6780)
+	require.NoError(t, err)
+	g, err := Genesis(users)
+	require.NoError(t, err)
+	n, cleanup, err := NewNode(users[0], g)
+	defer cleanup()
+	require.NoError(t, err)
+	err = n.Start()
+	require.NoError(t, err)
+	var ethereum *eth.Ethereum
+	if err := n.Service(&ethereum); err != nil {
+		require.NoError(t, err)
 	}
-	n.UnsubscribeHeads()
+	err = ethereum.StartMining(1)
+	require.NoError(t, err)
+
+	// There is a race condition in miner.worker its field snapshotBlock is set
+	// only when new transacting are received or commitNewWork is called. But
+	// both of these happen in goroutines separate to the call to miner.Start
+	// and miner.Strart does not wait for snapshotBlock to be set. Therfore
+	// there is currently no way to know when it is safe to call estimate gas.
+	// What we do here is sleep a bit and cross our fingers.
+	time.Sleep(10 * time.Millisecond)
+
+	bal, err := n.WsClient.BalanceAt(context.Background(), n.Address, nil)
+	require.NoError(t, err)
+	fmt.Printf("BalancAt: %s\n", bal.String())
+	err = n.SendETracked(context.Background(), common.Address{}, 10)
+	require.NoError(t, err)
+	bal, err = n.WsClient.BalanceAt(context.Background(), n.Address, nil)
+	require.NoError(t, err)
+	fmt.Printf("BalancAt: %s\n", bal.String())
+	//time.Sleep(10 * time.Second)
+	println("----------------------------------")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
+	defer cancel()
+	err = n.SendETracked(ctx, common.Address{}, 10)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expecting %q, instead got: %v ", context.DeadlineExceeded.Error(), err)
+	}
+	bal, err = n.WsClient.BalanceAt(context.Background(), n.Address, nil)
+	require.NoError(t, err)
+	fmt.Printf("BalancAt: %s\n", bal.String())
+
 }

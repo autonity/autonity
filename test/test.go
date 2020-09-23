@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -190,6 +191,18 @@ func (n *Node) Start() error {
 	return err
 }
 
+func (n *Node) SendETracked(ctx context.Context, recipient common.Address, value int64) error {
+	err := n.SendE(ctx, recipient, value)
+	if err != nil {
+		return err
+	}
+	err = n.AwaitSentTransactions(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (n *Node) SendE(ctx context.Context, recipient common.Address, value int64) error {
 	if n.Tracker == nil {
 		t, err := TrackTransactions(n.WsClient)
@@ -220,6 +233,11 @@ func (n *Node) SendE(ctx context.Context, recipient common.Address, value int64)
 }
 
 func (n *Node) AwaitSentTransactions(ctx context.Context) error {
+	// Cleanup
+	defer func() {
+		n.Tracker.Close()
+		n.Tracker = nil
+	}()
 	return n.Tracker.AwaitTransactions(ctx, n.SentTxs)
 }
 
@@ -261,6 +279,7 @@ func (tr *TransactionTracker) AwaitTransactions(ctx context.Context, hashes []co
 			if err != nil {
 				return err
 			}
+			println("blocknumbrrrr", h.Number.String())
 
 			for _, t := range b.Transactions() {
 				delete(hashmap, t.Hash())
@@ -270,8 +289,12 @@ func (tr *TransactionTracker) AwaitTransactions(ctx context.Context, hashes []co
 			}
 		case err := <-tr.sub.Err():
 			// Will be nil if closed by calling Unsubscribe()
+			if err == nil {
+				err = errors.New("subscription closed")
+			}
 			return err
 		case <-ctx.Done():
+			println("context done")
 			return ctx.Err()
 		}
 	}
