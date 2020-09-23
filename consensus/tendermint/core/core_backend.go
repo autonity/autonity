@@ -31,6 +31,8 @@ type Backend interface {
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(ctx context.Context, committee types.Committee, payload []byte)
 
+	KnownMsgHash() []common.Hash
+
 	HandleUnhandledMsgs(ctx context.Context)
 
 	// LastCommittedProposal retrieves latest committed proposal and the address of proposer

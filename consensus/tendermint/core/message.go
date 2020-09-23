@@ -179,7 +179,8 @@ func (m *Message) Decode(val interface{}) error {
 }
 
 func (m *Message) String() string {
-	return fmt.Sprintf("{Code: %v, Address: %v}", m.Code, m.Address.String())
+	return fmt.Sprintf("{Code: %v, Address: %v, Msg: %v, Signature: %v, CommittedSeal: %v, Power: %v}",
+		m.Code, m.Address.String(), m.Msg, m.Signature, m.CommittedSeal, m.power)
 }
 
 func (m *Message) Round() (int64, error) {

@@ -36,13 +36,15 @@ type TendermintState struct {
 	ValidRound  int64       `json:"validRound"            gencodec:"required"`
 
 	// committee state
-	ParentCommittee Committee      `json:"parentCommittee"       gencodec:"required"`
-	Committee       Committee      `json:"committee"             gencodec:"required"`
-	Proposer        common.Address `json:"proposer"              gencodec:"required"`
-	IsProposer      bool           `json:"isProposer"            gencodec:"required"`
-	QuorumVotePower uint64         `json:"quorumVotePower"       gencodec:"required"`
-	RoundStates     []RoundState   `json:"roundStates"           gencodec:"required"`
-	ProposerPolicy  uint64         `json:"proposerPolicy"        gencodec:"required"`
+	ParentCommittee Committee         `json:"parentCommittee"       gencodec:"required"`
+	Committee       Committee         `json:"committee"             gencodec:"required"`
+	Proposer        common.Address    `json:"proposer"              gencodec:"required"`
+	IsProposer      bool              `json:"isProposer"            gencodec:"required"`
+	QuorumVotePower uint64            `json:"quorumVotePower"       gencodec:"required"`
+	RoundStates     []RoundState      `json:"roundStates"           gencodec:"required"`
+	ProposerPolicy  uint64            `json:"proposerPolicy"        gencodec:"required"`
+	KnownMsgHash   []common.Hash      `json:"knownMessages"         gencodec:"required"`
+	CurHeightMessages []string        `json:"knownMessages"         gencodec:"required"`
 
 	// extra state
 	SentProposal          bool `json:"sentProposal"          gencodec:"required"`

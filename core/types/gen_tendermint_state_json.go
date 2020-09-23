@@ -29,6 +29,8 @@ func (t TendermintState) MarshalJSON() ([]byte, error) {
 		QuorumVotePower       uint64         `json:"quorumVotePower"       gencodec:"required"`
 		RoundStates           []RoundState   `json:"roundStates"           gencodec:"required"`
 		ProposerPolicy        uint64         `json:"proposerPolicy"        gencodec:"required"`
+		KnownMsgHash          []common.Hash  `json:"knownMessages"         gencodec:"required"`
+		CurHeightMessages     []string       `json:"knownMessages"         gencodec:"required"`
 		SentProposal          bool           `json:"sentProposal"          gencodec:"required"`
 		SentPrevote           bool           `json:"sentPrevote"           gencodec:"required"`
 		SentPrecommit         bool           `json:"sentPrecommit"         gencodec:"required"`
@@ -55,6 +57,8 @@ func (t TendermintState) MarshalJSON() ([]byte, error) {
 	enc.QuorumVotePower = t.QuorumVotePower
 	enc.RoundStates = t.RoundStates
 	enc.ProposerPolicy = t.ProposerPolicy
+	enc.KnownMsgHash = t.KnownMsgHash
+	enc.CurHeightMessages = t.CurHeightMessages
 	enc.SentProposal = t.SentProposal
 	enc.SentPrevote = t.SentPrevote
 	enc.SentPrecommit = t.SentPrecommit
@@ -85,6 +89,8 @@ func (t *TendermintState) UnmarshalJSON(input []byte) error {
 		QuorumVotePower       *uint64         `json:"quorumVotePower"       gencodec:"required"`
 		RoundStates           []RoundState    `json:"roundStates"           gencodec:"required"`
 		ProposerPolicy        *uint64         `json:"proposerPolicy"        gencodec:"required"`
+		KnownMsgHash          []common.Hash   `json:"knownMessages"         gencodec:"required"`
+		CurHeightMessages     []string        `json:"knownMessages"         gencodec:"required"`
 		SentProposal          *bool           `json:"sentProposal"          gencodec:"required"`
 		SentPrevote           *bool           `json:"sentPrevote"           gencodec:"required"`
 		SentPrecommit         *bool           `json:"sentPrecommit"         gencodec:"required"`
@@ -162,6 +168,14 @@ func (t *TendermintState) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'proposerPolicy' for TendermintState")
 	}
 	t.ProposerPolicy = *dec.ProposerPolicy
+	if dec.KnownMsgHash == nil {
+		return errors.New("missing required field 'knownMessages' for TendermintState")
+	}
+	t.KnownMsgHash = dec.KnownMsgHash
+	if dec.CurHeightMessages == nil {
+		return errors.New("missing required field 'knownMessages' for TendermintState")
+	}
+	t.CurHeightMessages = dec.CurHeightMessages
 	if dec.SentProposal == nil {
 		return errors.New("missing required field 'sentProposal' for TendermintState")
 	}

@@ -26,6 +26,7 @@ func (c *core) CoreState() types.TendermintState {
 	return state
 }
 
+// State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
 func (c *core) handleStateDump() {
 	state := types.TendermintState{
 		Client:         c.address,
@@ -50,6 +51,8 @@ func (c *core) handleStateDump() {
 	state.IsProposer = c.isProposer()
 	state.QuorumVotePower = c.committeeSet().Quorum()
 	state.RoundStates = c.getRoundState()
+	state.KnownMsgHash = c.backend.KnownMsgHash()
+	state.CurHeightMessages = c.messages.CopyMessages()
 
 	// extra state
 	state.SentProposal = c.sentProposal

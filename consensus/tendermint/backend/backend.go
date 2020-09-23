@@ -219,6 +219,15 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 	}
 }
 
+// KnownMsgHash dumps the known messages in case of gossiping.
+func (sb *Backend) KnownMsgHash() []common.Hash {
+	m := make([]common.Hash, 0, sb.knownMessages.Len())
+	for _, v := range sb.knownMessages.Keys() {
+		m = append(m, v.(common.Hash))
+	}
+	return m
+}
+
 // Commit implements tendermint.Backend.Commit
 func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) error {
 	h := proposal.Header()
