@@ -13,6 +13,7 @@ import (
 // MarshalJSON marshals as JSON.
 func (t TendermintState) MarshalJSON() ([]byte, error) {
 	type TendermintState struct {
+		Code                  string         `json:"code" gencodec:"required"`
 		Client                common.Address `json:"client"                gencodec:"required"`
 		Height                big.Int        `json:"height"                gencodec:"required"`
 		Round                 int64          `json:"round"                 gencodec:"required"`
@@ -41,6 +42,7 @@ func (t TendermintState) MarshalJSON() ([]byte, error) {
 		KnownMsgHash          []common.Hash  `json:"KnownMsgHash"          gencodec:"required"`
 	}
 	var enc TendermintState
+	enc.Code = t.Code
 	enc.Client = t.Client
 	enc.Height = t.Height
 	enc.Round = t.Round
@@ -73,6 +75,7 @@ func (t TendermintState) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (t *TendermintState) UnmarshalJSON(input []byte) error {
 	type TendermintState struct {
+		Code                  *string         `json:"code" gencodec:"required"`
 		Client                *common.Address `json:"client"                gencodec:"required"`
 		Height                *big.Int        `json:"height"                gencodec:"required"`
 		Round                 *int64          `json:"round"                 gencodec:"required"`
@@ -104,6 +107,10 @@ func (t *TendermintState) UnmarshalJSON(input []byte) error {
 	if err := json.Unmarshal(input, &dec); err != nil {
 		return err
 	}
+	if dec.Code == nil {
+		return errors.New("missing required field 'code' for TendermintState")
+	}
+	t.Code = *dec.Code
 	if dec.Client == nil {
 		return errors.New("missing required field 'client' for TendermintState")
 	}

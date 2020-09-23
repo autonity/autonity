@@ -138,3 +138,40 @@ func TestAPIGetWhitelist(t *testing.T) {
 
 	assert.Equal(t, want, got)
 }
+
+func TestAPIGetCoreState(t *testing.T) {
+	chain, engine := newBlockChain(1)
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	assert.Nil(t, err)
+	_, err = chain.InsertChain(types.Blocks{block})
+	assert.Nil(t, err)
+
+	API := &API{
+		tendermint: engine,
+	}
+
+	tendermintState := API.GetCoreState()
+	nodeAddress := tendermintState.Client
+	assert.Equal(t, "done", tendermintState.Code)
+	assert.Equal(t, int64(0), tendermintState.Round)
+	assert.Equal(t, uint64(1), tendermintState.Height.Uint64())
+	assert.Equal(t, int64(0), tendermintState.ValidRound)
+	assert.NotNil(t, tendermintState.Proposal)
+	assert.Equal(t, nodeAddress, tendermintState.Proposer)
+	assert.NotNil(t, tendermintState.KnownMsgHash)
+	assert.NotNil(t, tendermintState.CurHeightMessages)
+	assert.NotNil(t, tendermintState.Committee)
+	assert.Equal(t, uint64(1), tendermintState.BlockPeriod)
+	assert.NotNil(t, tendermintState.LockedValue)
+	assert.Equal(t, int64(0), tendermintState.LockedRound)
+	assert.Equal(t, uint64(3), tendermintState.Step)
+	assert.True(t, tendermintState.IsProposer)
+	assert.True(t, tendermintState.SetValidRoundAndValue)
+	assert.True(t, tendermintState.SentProposal)
+	assert.True(t, tendermintState.SentPrevote)
+	assert.True(t, tendermintState.SentPrecommit)
+	assert.False(t, tendermintState.ProposeTimerStarted)
+	assert.False(t, tendermintState.PrevoteTimerStarted)
+	assert.False(t, tendermintState.PrecommitTimerStarted)
+	assert.Equal(t, uint64(67), tendermintState.QuorumVotePower)
+}
