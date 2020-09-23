@@ -41,7 +41,7 @@ type Proposal struct {
 
 func (p *Proposal) String() string {
 	return fmt.Sprintf("{Round: %v, Height: %v, ValidRound: %v, ProposedBlockHash: %v}",
-		p.Round, p.Height.Uint64(),p.ValidRound, p.ProposalBlock.Hash().String())
+		p.Round, p.Height.Uint64(), p.ValidRound, p.ProposalBlock.Hash().String())
 }
 
 func (p *Proposal) GetRound() int64 {

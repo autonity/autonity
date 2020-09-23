@@ -36,13 +36,13 @@ type TendermintState struct {
 	ValidRound  int64       `json:"validRound"            gencodec:"required"`
 
 	// committee state
-	ParentCommittee Committee         `json:"parentCommittee"       gencodec:"required"`
-	Committee       Committee         `json:"committee"             gencodec:"required"`
-	Proposer        common.Address    `json:"proposer"              gencodec:"required"`
-	IsProposer      bool              `json:"isProposer"            gencodec:"required"`
-	QuorumVotePower uint64            `json:"quorumVotePower"       gencodec:"required"`
-	RoundStates     []RoundState      `json:"roundStates"           gencodec:"required"`
-	ProposerPolicy  uint64            `json:"proposerPolicy"        gencodec:"required"`
+	ParentCommittee Committee      `json:"parentCommittee"       gencodec:"required"`
+	Committee       Committee      `json:"committee"             gencodec:"required"`
+	Proposer        common.Address `json:"proposer"              gencodec:"required"`
+	IsProposer      bool           `json:"isProposer"            gencodec:"required"`
+	QuorumVotePower uint64         `json:"quorumVotePower"       gencodec:"required"`
+	RoundStates     []RoundState   `json:"roundStates"           gencodec:"required"`
+	ProposerPolicy  uint64         `json:"proposerPolicy"        gencodec:"required"`
 
 	// extra state
 	SentProposal          bool `json:"sentProposal"          gencodec:"required"`
@@ -57,6 +57,6 @@ type TendermintState struct {
 	PrecommitTimerStarted bool   `json:"precommitTimerStared"  gencodec:"required"`
 
 	// current height messages and known message in case of gossip.
-	CurHeightMessages []string        `json:"CurHeightMessages"     gencodec:"required"`
-	KnownMsgHash   []common.Hash      `json:"KnownMsgHash"          gencodec:"required"`
+	CurHeightMessages []string      `json:"CurHeightMessages"     gencodec:"required"`
+	KnownMsgHash      []common.Hash `json:"KnownMsgHash"          gencodec:"required"`
 }
