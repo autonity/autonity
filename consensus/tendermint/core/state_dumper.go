@@ -34,6 +34,8 @@ func (c *core) handleStateDump() {
 		BlockPeriod:    c.blockPeriod,
 	}
 
+	state.CurHeightMessages = c.messages.CopyMessages()
+
 	// tendermint core state
 	state.Height = *c.Height()
 	state.Round = c.Round()
@@ -51,8 +53,6 @@ func (c *core) handleStateDump() {
 	state.IsProposer = c.isProposer()
 	state.QuorumVotePower = c.committeeSet().Quorum()
 	state.RoundStates = c.getRoundState()
-	state.KnownMsgHash = c.backend.KnownMsgHash()
-	state.CurHeightMessages = c.messages.CopyMessages()
 
 	// extra state
 	state.SentProposal = c.sentProposal
@@ -65,6 +65,8 @@ func (c *core) handleStateDump() {
 	state.PrevoteTimerStarted = c.prevoteTimeout.timerStarted()
 	state.PrecommitTimerStarted = c.precommitTimeout.timerStarted()
 
+	// known msgs in case of gossiping.
+	state.KnownMsgHash = c.backend.KnownMsgHash()
 	c.coreStateCh <- state
 }
 

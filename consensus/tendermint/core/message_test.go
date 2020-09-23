@@ -42,18 +42,21 @@ func TestMessageEncodeDecode(t *testing.T) {
 }
 
 func TestMessageString(t *testing.T) {
-	msg := &Message{
-		Code:    msgProposal,
-		Address: common.HexToAddress("0x1234567890"),
-		Msg: []byte{0x23, 0x44},
-		Signature: []byte{0x24, 0x43},
-		CommittedSeal: []byte{0x22, 0x33},
-		power: 100,
-	}
+	for i := 0; i < 3; i++ {
+		msg := &Message{
+			Code:    uint64(i),
+			Address: common.HexToAddress("0x1234567890"),
+			Msg: []byte{0x23, 0x44},
+			Signature: []byte{0x24, 0x43},
+			CommittedSeal: []byte{0x22, 0x33},
+			power: 100,
+		}
 
-	want := "{Code: 0, Address: 0x0000000000000000000000000000001234567890, Msg: [35 68], Signature: [36 67], CommittedSeal: [34 51], Power: 100}"
-	if got := msg.String(); got != want {
-		t.Errorf("Expected %v, got %v", want, got)
+		// decode error would return ""
+		want := ""
+		if got := msg.String(); got != want  {
+			t.Errorf("Expected %v, got %v", want , got)
+		}
 	}
 }
 

@@ -179,8 +179,25 @@ func (m *Message) Decode(val interface{}) error {
 }
 
 func (m *Message) String() string {
-	return fmt.Sprintf("{Code: %v, Address: %v, Msg: %v, Signature: %v, CommittedSeal: %v, Power: %v}",
-		m.Code, m.Address.String(), m.Msg, m.Signature, m.CommittedSeal, m.power)
+	var msg string
+	if m.Code == msgProposal {
+		var proposal Proposal
+		err := m.Decode(&proposal)
+		if err != nil {
+			return ""
+		}
+		msg = proposal.String()
+	}
+
+	if m.Code == msgPrevote || m.Code == msgPrecommit {
+		var vote Vote
+		err := m.Decode(&vote)
+		if err != nil {
+			return ""
+		}
+		msg = vote.String()
+	}
+	return fmt.Sprintf("{sender: %v, power: %v, msgCode: %v, msg: %v}", m.Address.String(), m.power, m.Code, msg)
 }
 
 func (m *Message) Round() (int64, error) {
