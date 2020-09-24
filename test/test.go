@@ -78,12 +78,13 @@ func Users(count int, formatString string, startingPort int) ([]*gengen.User, er
 // *node.Node is embedded so that its api is available through Node.
 type Node struct {
 	*node.Node
-	WsClient *ethclient.Client
-	Nonce    uint64
-	Key      *ecdsa.PrivateKey
-	Address  common.Address
-	Tracker  *TransactionTracker
-	SentTxs  []common.Hash
+	WsClient     *ethclient.Client
+	Nonce        uint64
+	Key          *ecdsa.PrivateKey
+	Address      common.Address
+	Tracker      *TransactionTracker
+	SentTxs      []common.Hash
+	ProcessedTxs []common.Hash
 }
 
 // Unfortunately we need to provide a genesis file here to be able to set the
@@ -178,11 +179,6 @@ func (n *Node) Start() error {
 	if err != nil {
 		return err
 	}
-	var ethereum *eth.Ethereum
-	err = n.Service(&ethereum)
-	if err != nil {
-		return err
-	}
 	n.WsClient, err = ethclient.Dial("ws://" + n.WSEndpoint())
 	if err != nil {
 		return err
@@ -238,7 +234,17 @@ func (n *Node) AwaitSentTransactions(ctx context.Context) error {
 		n.Tracker.Close()
 		n.Tracker = nil
 	}()
-	return n.Tracker.AwaitTransactions(ctx, n.SentTxs)
+	processed, err := n.Tracker.AwaitTransactions(ctx, n.SentTxs)
+	for _, p := range processed {
+		for i, s := range n.SentTxs {
+			if p == s {
+				// Remove from sent txs
+				n.SentTxs = (append(n.SentTxs[:i], n.SentTxs[i+1:]...))
+			}
+		}
+	}
+	n.ProcessedTxs = append(n.ProcessedTxs, processed...)
+	return err
 }
 
 type TransactionTracker struct {
@@ -265,7 +271,7 @@ func TrackTransactions(client *ethclient.Client) (*TransactionTracker, error) {
 
 }
 
-func (tr *TransactionTracker) AwaitTransactions(ctx context.Context, hashes []common.Hash) error {
+func (tr *TransactionTracker) AwaitTransactions(ctx context.Context, hashes []common.Hash) (processed []common.Hash, err error) {
 	hashmap := make(map[common.Hash]struct{}, len(hashes))
 	for i := range hashes {
 		hashmap[hashes[i]] = struct{}{}
@@ -277,14 +283,17 @@ func (tr *TransactionTracker) AwaitTransactions(ctx context.Context, hashes []co
 		case h := <-tr.heads:
 			b, err := tr.client.BlockByHash(context.Background(), h.Hash())
 			if err != nil {
-				return err
+				return processed, err
 			}
 			println("blocknumbrrrr", h.Number.String())
 
 			for _, t := range b.Transactions() {
-				delete(hashmap, t.Hash())
-				if len(hashmap) == 0 {
-					return nil
+				h := t.Hash()
+				if _, ok := hashmap[h]; ok {
+					processed = append(processed, h)
+				}
+				if len(processed) == len(hashes) {
+					return processed, nil
 				}
 			}
 		case err := <-tr.sub.Err():
@@ -292,10 +301,10 @@ func (tr *TransactionTracker) AwaitTransactions(ctx context.Context, hashes []co
 			if err == nil {
 				err = errors.New("subscription closed")
 			}
-			return err
+			return processed, err
 		case <-ctx.Done():
 			println("context done")
-			return ctx.Err()
+			return processed, ctx.Err()
 		}
 	}
 }
