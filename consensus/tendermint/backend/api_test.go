@@ -152,7 +152,7 @@ func TestAPIGetCoreState(t *testing.T) {
 
 	tendermintState := API.GetCoreState()
 	nodeAddress := tendermintState.Client
-	assert.Equal(t, "done", tendermintState.Code)
+	assert.Equal(t, int64(0), tendermintState.Code)
 	assert.Equal(t, int64(0), tendermintState.Round)
 	assert.Equal(t, uint64(1), tendermintState.Height.Uint64())
 	assert.Equal(t, int64(0), tendermintState.ValidRound)
