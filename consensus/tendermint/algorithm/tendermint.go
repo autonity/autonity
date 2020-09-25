@@ -31,6 +31,25 @@ const (
 	NewStep
 )
 
+// Note that whenever a broadcast occurs in the whitepaper it is accompanied by a step change.
+// So if we imagine that we want to represent the outcome of condition of line 22
+// We return a Result showing
+//{
+// Transition: NewStep
+// Height: the current height
+// round: the current round
+// Messsage: The prevote
+//}
+//
+// But actually the height round and step info is in the message too!
+//
+// So we could do We don't need anything else
+//{
+// Messsage: The prevote
+//}
+// So lets consider outcomes that don't involve a messagae
+// So the outcome of the condition at line 49 (deciding a value)
+//
 type Result struct {
 	Transition StateTransition
 	Height     uint64
@@ -90,7 +109,7 @@ func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
 }
 
 // Message sent + stepchange to propose (not sure we really care about the step change)
-// Schedule timout propose (send a prevote for nil after some time)
+// Schedule timeout propose (send a prevote for nil after some time)
 func (a *Algorithm) StartRound(round int64, o Oracle) Result {
 	a.round = round
 	a.step = Propose
