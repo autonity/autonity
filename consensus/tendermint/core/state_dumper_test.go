@@ -1,6 +1,7 @@
 package core
 
 import (
+	"crypto/ecdsa"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core/types"
@@ -35,6 +36,14 @@ func TestStateDumper_GetProposal(t *testing.T) {
 
 		require.Equal(t, wantVerfied, s.PrecommitState[0].ProposalVerified)
 		require.Equal(t, wantProposal.ProposalBlock.Hash(), s.PrecommitState[0].Value)
+	}
+
+	prepareRoundMsgs := func(t *testing.T, r int64, h *big.Int, vr int64, proposer common.Address, sender common.Address,
+		privKey *ecdsa.PrivateKey) (*Message, Proposal, *Message, *Message) {
+		proposalMsg, proposal := generateBlockProposal(t, r, h, vr, proposer, false)
+		prevoteMsg, _, _ := prepareVote(t, msgPrevote, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
+		precommitMsg, _, _ := prepareVote(t, msgPrecommit, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
+		return proposalMsg, proposal, prevoteMsg, precommitMsg
 	}
 
 	t.Run("get proposal, locked value and valid value", func(t *testing.T) {
@@ -78,16 +87,12 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		// round 0 messages
 		initRound := int64(0)
-		initProposalMsg, initProposal := generateBlockProposal(t, initRound, currentHeight, 0, members[initRound].Address, false)
-		initRoundPrevoteMsg, _, _ := prepareVote(t, msgPrevote, initRound, currentHeight, initProposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
-		initRoundPrecommitMsg, _, _ := prepareVote(t, msgPrecommit, initRound, currentHeight, initProposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
+		initProposalMsg, initProposal, initRoundPrevoteMsg, initRoundPrecommitMsg := prepareRoundMsgs(t, initRound, currentHeight, 0, members[initRound].Address, clientAddr, privateKeys[clientAddr])
 
 		// round 1 messages
 		currentRound := int64(1)
-		newProposalMsg, newProposal := generateBlockProposal(t, currentRound, currentHeight, 0, members[currentRound].Address, false)
 		sender := 1
-		curRoundPrevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, newProposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
-		curRoundPrecommitMsg, _, _ := prepareVote(t, msgPrecommit, currentRound, currentHeight, newProposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
+		newProposalMsg, newProposal, curRoundPrevoteMsg, curRoundPrecommitMsg := prepareRoundMsgs(t, currentRound, currentHeight, 0, members[currentRound].Address, members[sender].Address, privateKeys[members[sender].Address])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -125,16 +130,12 @@ func TestStateDumper_GetProposal(t *testing.T) {
 
 		// round 0 messages
 		initRound := int64(0)
-		initProposalMsg, initProposal := generateBlockProposal(t, initRound, currentHeight, 0, members[initRound].Address, false)
-		initRoundPrevoteMsg, _, _ := prepareVote(t, msgPrevote, initRound, currentHeight, initProposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
-		initRoundPrecommitMsg, _, _ := prepareVote(t, msgPrecommit, initRound, currentHeight, initProposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])
+		initProposalMsg, initProposal, initRoundPrevoteMsg, initRoundPrecommitMsg := prepareRoundMsgs(t, initRound, currentHeight, 0, members[initRound].Address, clientAddr, privateKeys[clientAddr])
 
 		// round 1 messages
 		currentRound := int64(1)
-		newProposalMsg, newProposal := generateBlockProposal(t, currentRound, currentHeight, 0, members[currentRound].Address, false)
 		sender := 1
-		curRoundPrevoteMsg, _, _ := prepareVote(t, msgPrevote, currentRound, currentHeight, newProposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
-		curRoundPrecommitMsg, _, _ := prepareVote(t, msgPrecommit, currentRound, currentHeight, newProposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
+		newProposalMsg, newProposal, curRoundPrevoteMsg, curRoundPrecommitMsg := prepareRoundMsgs(t, currentRound, currentHeight, 0, members[currentRound].Address, members[sender].Address, privateKeys[members[sender].Address])
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -172,10 +173,10 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		case s := <-c.coreStateCh:
 			state = s
 		case <-timeout:
-			state.Code = -1
+			t.Fatal("fetch tendermint state time out")
 		}
 
-		require.Equal(t,  int64(0), state.Code)
+		require.Equal(t, int64(0), state.Code)
 		require.Equal(t, clientAddr, state.Client)
 		require.Equal(t, uint64(c.proposerPolicy), state.ProposerPolicy)
 		require.Equal(t, c.blockPeriod, state.BlockPeriod)
