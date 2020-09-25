@@ -48,10 +48,7 @@ func TestSendPropose(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		payload, err := expectedMsg.Payload()
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
+		payload := expectedMsg.Payload()
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{
@@ -182,7 +179,7 @@ func TestHandleProposal(t *testing.T) {
 		defer ctrl.Finish()
 
 		addr := common.HexToAddress("0x0123456789")
-		sender := types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)}
+
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
@@ -244,13 +241,9 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		payload, err := preVoteMsg.Payload()
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
+		payload := preVoteMsg.Payload()
 
 		event := backlogEvent{
-			src: sender,
 			msg: msg,
 		}
 
@@ -411,10 +404,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		payload, err := preVoteMsg.Payload()
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
+		payload := preVoteMsg.Payload()
 
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(*decProposal.ProposalBlock)
@@ -509,10 +499,8 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		payload, err := preVoteMsg.Payload()
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
+		payload := preVoteMsg.Payload()
+
 		messages.getOrCreate(1).AddPrevote(block.Hash(), *preVoteMsg)
 
 		backendMock := NewMockBackend(ctrl)

@@ -85,10 +85,7 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil)
 		backendMock.EXPECT().Sign(gomock.Eq(payloadNoSig)).Return([]byte{0x1}, nil)
 
-		payload, err := expectedMsg.Payload()
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
+		payload := expectedMsg.Payload()
 
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
@@ -152,10 +149,7 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, errors.New("seal sign error"))
 		backendMock.EXPECT().Sign(payloadNoSig).Return([]byte{0x1}, nil)
 
-		payload, err := expectedMsg.Payload()
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
+		payload := expectedMsg.Payload()
 
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 

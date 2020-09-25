@@ -23,6 +23,7 @@ import (
 	"io"
 	"math/big"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -92,6 +93,8 @@ type Header struct {
 	Committee Committee `json:"committee"           gencodec:"required"`
 	// used for committee member lookup, lazily initialised.
 	committeeMap map[common.Address]*CommitteeMember
+	// Used to ensure the committeeMap is created only once.
+	once sync.Once
 
 	ProposerSeal       []byte   `json:"proposerSeal"        gencodec:"required"`
 	Round              uint64   `json:"round"               gencodec:"required"`
