@@ -46,6 +46,65 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		return proposalMsg, proposal, prevoteMsg, precommitMsg
 	}
 
+	setCoreState := func(c *core, h *big.Int, r int64, s Step, lv *types.Block, lr int64, vv *types.Block, vr int64, committee committee, header *types.Header) {
+		c.setHeight(h)
+		c.setRound(r)
+		c.setStep(s)
+		c.lockedValue = lv
+		c.lockedRound = lr
+		c.validValue = vv
+		c.validRound = vr
+		c.setCommitteeSet(committee)
+		c.lastHeader = header
+		c.sentProposal = true
+		c.sentPrevote = true
+		c.sentPrecommit = true
+		c.setValidRoundAndValue = true
+	}
+
+	checkState := func(t *testing.T, c *core, state types.TendermintState, currentHeight *big.Int, currentRound int64, initRound int64,
+		initProposal Proposal, newProposal Proposal, prevBlock *types.Block, knownMsgHash []common.Hash) {
+
+		require.Equal(t, int64(0), state.Code)
+		require.Equal(t, clientAddr, state.Client)
+		require.Equal(t, uint64(c.proposerPolicy), state.ProposerPolicy)
+		require.Equal(t, c.blockPeriod, state.BlockPeriod)
+		require.Len(t, state.CurHeightMessages, 6)
+		require.Equal(t, *currentHeight, state.Height)
+		require.Equal(t, currentRound, state.Round)
+		require.Equal(t, uint64(propose), state.Step)
+		require.Equal(t, newProposal.ProposalBlock.Hash(), state.Proposal)
+		require.Equal(t, initProposal.ProposalBlock.Hash(), state.LockedValue)
+		require.Equal(t, initRound, state.LockedRound)
+		require.Equal(t, initProposal.ProposalBlock.Hash(), state.ValidValue)
+		require.Equal(t, initRound, state.ValidRound)
+		require.Equal(t, c.getParentCommittee().String(), prevBlock.Header().Committee.String())
+		require.Equal(t, committeeSet.Committee().String(), state.Committee.String())
+		require.Equal(t, members[currentRound].Address, state.Proposer)
+		require.False(t, state.IsProposer)
+		require.Equal(t, committeeSet.Quorum(), state.QuorumVotePower)
+		require.True(t, state.SentProposal)
+		require.True(t, state.SentPrevote)
+		require.True(t, state.SentPrecommit)
+		require.True(t, state.SetValidRoundAndValue)
+		require.False(t, state.ProposeTimerStarted)
+		require.False(t, state.PrevoteTimerStarted)
+		require.False(t, state.PrecommitTimerStarted)
+		require.Equal(t, knownMsgHash, state.KnownMsgHash)
+
+		// expect 2 rounds of vote states.
+		require.Len(t, state.RoundStates, 2)
+		for _, v := range state.RoundStates {
+			require.Contains(t, []int64{initRound, currentRound}, v.Round)
+			if v.Round == currentRound {
+				checkRoundState(t, v, currentRound, &newProposal, true)
+			}
+			if v.Round == initRound {
+				checkRoundState(t, v, initRound, &initProposal, true)
+			}
+		}
+	}
+
 	t.Run("get proposal, locked value and valid value", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -150,19 +209,9 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		genRoundVoteMessages(c, initRound, &initProposal, initProposalMsg, initRoundPrevoteMsg, initRoundPrecommitMsg, true)
 		// current round messages:
 		genRoundVoteMessages(c, currentRound, &newProposal, newProposalMsg, curRoundPrevoteMsg, curRoundPrecommitMsg, true)
-		c.setHeight(currentHeight)
-		c.setRound(currentRound)
-		c.setStep(propose)
-		c.lockedValue = initProposal.ProposalBlock
-		c.lockedRound = initRound
-		c.validValue = initProposal.ProposalBlock
-		c.validRound = initRound
-		c.setCommitteeSet(committeeSet)
-		c.lastHeader = prevBlock.Header()
-		c.sentProposal = true
-		c.sentPrevote = true
-		c.sentPrecommit = true
-		c.setValidRoundAndValue = true
+
+		setCoreState(c, currentHeight, currentRound, propose, initProposal.ProposalBlock, initRound, initProposal.ProposalBlock, initRound, committeeSet,
+			prevBlock.Header())
 
 		go c.handleStateDump()
 
@@ -176,44 +225,7 @@ func TestStateDumper_GetProposal(t *testing.T) {
 			t.Fatal("fetch tendermint state time out")
 		}
 
-		require.Equal(t, int64(0), state.Code)
-		require.Equal(t, clientAddr, state.Client)
-		require.Equal(t, uint64(c.proposerPolicy), state.ProposerPolicy)
-		require.Equal(t, c.blockPeriod, state.BlockPeriod)
-		require.Len(t, state.CurHeightMessages, 6)
-		require.Equal(t, *currentHeight, state.Height)
-		require.Equal(t, currentRound, state.Round)
-		require.Equal(t, uint64(propose), state.Step)
-		require.Equal(t, newProposal.ProposalBlock.Hash(), state.Proposal)
-		require.Equal(t, initProposal.ProposalBlock.Hash(), state.LockedValue)
-		require.Equal(t, initRound, state.LockedRound)
-		require.Equal(t, initProposal.ProposalBlock.Hash(), state.ValidValue)
-		require.Equal(t, initRound, state.ValidRound)
-		require.Equal(t, c.getParentCommittee().String(), prevBlock.Header().Committee.String())
-		require.Equal(t, committeeSet.Committee().String(), state.Committee.String())
-		require.Equal(t, members[currentRound].Address, state.Proposer)
-		require.False(t, state.IsProposer)
-		require.Equal(t, committeeSet.Quorum(), state.QuorumVotePower)
-		require.True(t, state.SentProposal)
-		require.True(t, state.SentPrevote)
-		require.True(t, state.SentPrecommit)
-		require.True(t, state.SetValidRoundAndValue)
-		require.False(t, state.ProposeTimerStarted)
-		require.False(t, state.PrevoteTimerStarted)
-		require.False(t, state.PrecommitTimerStarted)
-		require.Equal(t, knownMsgHash, state.KnownMsgHash)
-
-		// expect 2 rounds of vote states.
-		require.Len(t, state.RoundStates, 2)
-		for _, v := range state.RoundStates {
-			require.Contains(t, []int64{initRound, currentRound}, v.Round)
-			if v.Round == currentRound {
-				checkRoundState(t, v, currentRound, &newProposal, true)
-			}
-			if v.Round == initRound {
-				checkRoundState(t, v, initRound, &initProposal, true)
-			}
-		}
+		checkState(t, c, state, currentHeight, currentRound, initRound, initProposal, newProposal, prevBlock, knownMsgHash)
 	})
 
 	t.Run("test RPC callback to dump state time out", func(t *testing.T) {
