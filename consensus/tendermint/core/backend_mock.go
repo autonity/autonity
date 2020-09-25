@@ -133,7 +133,7 @@ func (m *MockBackend) KnownMsgHash() []common.Hash {
 // KnownMsgHash indicates an expected call of KnownMsgHash
 func (mr *MockBackendMockRecorder) KnownMsgHash() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KnownMsgHash", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KnownMsgHash", reflect.TypeOf((*MockBackend)(nil).KnownMsgHash))
 }
 
 // CoreState mocks base method

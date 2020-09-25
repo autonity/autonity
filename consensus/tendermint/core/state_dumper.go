@@ -30,45 +30,40 @@ func (c *core) CoreState() types.TendermintState {
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
 func (c *core) handleStateDump() {
 	state := types.TendermintState{
-		Client:         c.address,
-		ProposerPolicy: uint64(c.proposerPolicy),
-		BlockPeriod:    c.blockPeriod,
+		Client:            c.address,
+		ProposerPolicy:    uint64(c.proposerPolicy),
+		BlockPeriod:       c.blockPeriod,
+		CurHeightMessages: c.messages.CopyMessages(),
+		// tendermint core state:
+		Height:      *c.Height(),
+		Round:       c.Round(),
+		Step:        uint64(c.step),
+		Proposal:    c.getProposal(c.Round()),
+		LockedValue: c.getLockedValue(),
+		LockedRound: c.lockedRound,
+		ValidValue:  c.getValidValue(),
+		ValidRound:  c.validRound,
+
+		// committee state:
+		ParentCommittee: c.getParentCommittee(),
+		Committee:       c.committeeSet().Committee(),
+		Proposer:        c.committeeSet().GetProposer(c.Round()).Address,
+		IsProposer:      c.isProposer(),
+		QuorumVotePower: c.committeeSet().Quorum(),
+		RoundStates:     c.getRoundState(),
+		// extra state
+		SentProposal:          c.sentProposal,
+		SentPrevote:           c.sentPrevote,
+		SentPrecommit:         c.sentPrecommit,
+		SetValidRoundAndValue: c.setValidRoundAndValue,
+		// timer state
+		ProposeTimerStarted:   c.proposeTimeout.timerStarted(),
+		PrevoteTimerStarted:   c.prevoteTimeout.timerStarted(),
+		PrecommitTimerStarted: c.precommitTimeout.timerStarted(),
+		// known msgs in case of gossiping.
+		KnownMsgHash: c.backend.KnownMsgHash(),
+		Code:         "done",
 	}
-
-	state.CurHeightMessages = c.messages.CopyMessages()
-
-	// tendermint core state
-	state.Height = *c.Height()
-	state.Round = c.Round()
-	state.Step = uint64(c.step)
-	state.Proposal = c.getProposal(state.Round)
-	state.LockedValue = c.getLockedValue()
-	state.LockedRound = c.lockedRound
-	state.ValidValue = c.getValidValue()
-	state.ValidRound = c.validRound
-
-	// committee state
-	state.ParentCommittee = c.getParentCommittee()
-	state.Committee = c.committeeSet().Committee()
-	state.Proposer = c.committeeSet().GetProposer(state.Round).Address
-	state.IsProposer = c.isProposer()
-	state.QuorumVotePower = c.committeeSet().Quorum()
-	state.RoundStates = c.getRoundState()
-
-	// extra state
-	state.SentProposal = c.sentProposal
-	state.SentPrevote = c.sentPrevote
-	state.SentPrecommit = c.sentPrecommit
-	state.SetValidRoundAndValue = c.setValidRoundAndValue
-
-	// timer state
-	state.ProposeTimerStarted = c.proposeTimeout.timerStarted()
-	state.PrevoteTimerStarted = c.prevoteTimeout.timerStarted()
-	state.PrecommitTimerStarted = c.precommitTimeout.timerStarted()
-
-	// known msgs in case of gossiping.
-	state.KnownMsgHash = c.backend.KnownMsgHash()
-	state.Code = "done"
 	c.coreStateCh <- state
 }
 
