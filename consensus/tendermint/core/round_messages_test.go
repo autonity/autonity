@@ -35,7 +35,8 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 
 	rm0 := messagesMap.getOrCreate(0)
 	rm1 := messagesMap.getOrCreate(1)
-	rm2 := messagesMap.getOrCreate(2)
+	// let round jump happens.
+	rm2 := messagesMap.getOrCreate(4)
 
 	assert.Equal(t, 3, len(messagesMap.internal))
 	assert.Equal(t, 0, len(messagesMap.GetMessages()))

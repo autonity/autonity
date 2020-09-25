@@ -62,9 +62,11 @@ func (s *messagesMap) GetMessages() []*Message {
 
 	msgs := make([][]*Message, len(s.internal))
 	var totalLen int
-	for i, state := range s.internal {
+	i := 0
+	for _, state := range s.internal {
 		msgs[i] = state.GetMessages()
 		totalLen += len(msgs[i])
+		i++
 	}
 
 	result := make([]*Message, 0, totalLen)
