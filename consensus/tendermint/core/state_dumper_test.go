@@ -30,6 +30,7 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		require.Equal(t, wantProposal.ProposalBlock.Hash(), s.Proposal)
 		require.Len(t, s.PrevoteState, 1)
 		require.Len(t, s.PrecommitState, 1)
+		require.Equal(t, wantRound, s.Round)
 
 		require.Equal(t, wantVerfied, s.PrevoteState[0].ProposalVerified)
 		require.Equal(t, wantProposal.ProposalBlock.Hash(), s.PrevoteState[0].Value)
