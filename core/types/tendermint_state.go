@@ -22,8 +22,8 @@ type RoundState struct {
 
 // TendermintState save an instant status for the tendermint consensus engine.
 type TendermintState struct {
-	// return error string
-	Code string `json:"code" gencodec:"required"`
+	// return error code, 0 for okay, -1 for timeout.
+	Code int64 `json:"code" gencodec:"required"`
 	// validator address
 	Client common.Address `json:"client"                gencodec:"required"`
 

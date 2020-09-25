@@ -172,11 +172,10 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		case s := <-c.coreStateCh:
 			state = s
 		case <-timeout:
-			state.Code = "time out"
-			c.logger.Debug("Waiting for tendermint core state timed out", "elapsed", time.Second)
+			state.Code = -1
 		}
 
-		require.Equal(t, "done", state.Code)
+		require.Equal(t,  int64(0), state.Code)
 		require.Equal(t, clientAddr, state.Client)
 		require.Equal(t, uint64(c.proposerPolicy), state.ProposerPolicy)
 		require.Equal(t, c.blockPeriod, state.BlockPeriod)
@@ -225,6 +224,6 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		backendMock.EXPECT().Post(coreStateRequestEvent{}).Times(1)
 		core := New(backendMock, config.DefaultConfig())
 		state := core.CoreState()
-		require.Equal(t, "time out", state.Code)
+		require.Equal(t, int64(-1), state.Code)
 	})
 }

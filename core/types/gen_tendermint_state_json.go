@@ -13,7 +13,7 @@ import (
 // MarshalJSON marshals as JSON.
 func (t TendermintState) MarshalJSON() ([]byte, error) {
 	type TendermintState struct {
-		Code                  string         `json:"code" gencodec:"required"`
+		Code                  int64          `json:"code" gencodec:"required"`
 		Client                common.Address `json:"client"                gencodec:"required"`
 		Height                big.Int        `json:"height"                gencodec:"required"`
 		Round                 int64          `json:"round"                 gencodec:"required"`
@@ -75,7 +75,7 @@ func (t TendermintState) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (t *TendermintState) UnmarshalJSON(input []byte) error {
 	type TendermintState struct {
-		Code                  *string         `json:"code" gencodec:"required"`
+		Code                  *int64          `json:"code" gencodec:"required"`
 		Client                *common.Address `json:"client"                gencodec:"required"`
 		Height                *big.Int        `json:"height"                gencodec:"required"`
 		Round                 *int64          `json:"round"                 gencodec:"required"`

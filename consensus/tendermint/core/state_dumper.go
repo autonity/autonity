@@ -20,7 +20,7 @@ func (c *core) CoreState() types.TendermintState {
 	case s := <-c.coreStateCh:
 		state = s
 	case <-timeout:
-		state.Code = "time out"
+		state.Code = -1
 		c.logger.Debug("Waiting for tendermint core state timed out", "elapsed", time.Second)
 	}
 
@@ -62,7 +62,7 @@ func (c *core) handleStateDump() {
 		PrecommitTimerStarted: c.precommitTimeout.timerStarted(),
 		// known msgs in case of gossiping.
 		KnownMsgHash: c.backend.KnownMsgHash(),
-		Code:         "done",
+		Code:         0,
 	}
 	c.coreStateCh <- state
 }
