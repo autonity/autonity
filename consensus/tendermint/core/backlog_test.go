@@ -1,16 +1,17 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/rlp"
+	"github.com/golang/mock/gomock"
+	"github.com/influxdata/influxdb/pkg/deep"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/golang/mock/gomock"
-
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
 )
 
 func TestCheckMessage(t *testing.T) {
@@ -265,7 +266,6 @@ func TestProcessBacklog(t *testing.T) {
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogEvent{
-			src: val,
 			msg: msg,
 		}
 
@@ -330,7 +330,6 @@ func TestProcessBacklog(t *testing.T) {
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogEvent{
-			src: val,
 			msg: msg,
 		}
 
@@ -405,7 +404,6 @@ func TestProcessBacklog(t *testing.T) {
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogEvent{
-			src: val,
 			msg: msg,
 		}
 
@@ -541,6 +539,61 @@ func TestProcessBacklog(t *testing.T) {
 		<-timeout.C
 	})
 
+	t.Run("untrusted messages are processed when height change", func(t *testing.T) {
+		nilRoundVote := &Vote{
+			Round:  2,
+			Height: big.NewInt(4),
+		}
+
+		nilRoundVotePayload, err := Encode(nilRoundVote)
+		if err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+
+		msg := &Message{
+			Code:       msgPrevote,
+			Msg:        nilRoundVotePayload,
+			decodedMsg: nilRoundVote,
+		}
+		msg2 := &Message{
+			Code:       msgPrecommit,
+			Msg:        nilRoundVotePayload,
+			decodedMsg: nilRoundVote,
+		}
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+
+		committeeSet := newTestCommitteeSet(2)
+
+		c := &core{
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]*Message),
+			backlogUnchecked: map[uint64][]*Message{},
+			round:            2,
+			height:           big.NewInt(3),
+		}
+
+		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
+		c.storeUncheckedBacklog(msg)
+		c.storeUncheckedBacklog(msg2)
+		c.setStep(prevote)
+		c.processBacklog()
+		c.setHeight(big.NewInt(4))
+
+		backendMock.EXPECT().Post(gomock.Any()).Times(2)
+		c.setStep(prevote)
+
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
+		c.processBacklog()
+		<-time.NewTimer(2 * time.Second).C
+	})
+
 	t.Run("future round message are processed when round change", func(t *testing.T) {
 		nilRoundVote := &Vote{
 			Round:  2,
@@ -589,5 +642,130 @@ func TestProcessBacklog(t *testing.T) {
 		c.processBacklog()
 		timeout := time.NewTimer(2 * time.Second)
 		<-timeout.C
+	})
+}
+
+func TestStoreUncheckedBacklog(t *testing.T) {
+	t.Run("save messages in the untrusted backlog", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+
+		c := &core{
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]*Message),
+			backlogUnchecked: make(map[uint64][]*Message),
+			step:             prevote,
+			round:            1,
+			height:           big.NewInt(4),
+		}
+		var messages []*Message
+
+		for i := int64(0); i < MaxSizeBacklogUnchecked; i++ {
+			nilRoundVote := &Vote{
+				Round:  i % 10,
+				Height: big.NewInt(i / (1 + i%10)),
+			}
+			payload, err := rlp.EncodeToBytes(nilRoundVote)
+			require.NoError(t, err)
+			msg := &Message{
+				Code:       msgPrevote,
+				Msg:        payload,
+				decodedMsg: nilRoundVote,
+			}
+			c.storeUncheckedBacklog(msg)
+			messages = append(messages, msg)
+		}
+		found := 0
+		for _, msg := range messages {
+			height, err := msg.Height()
+			if err != nil {
+				t.Fatal("can't retrieve message height")
+			}
+			for _, umsg := range c.backlogUnchecked[height.Uint64()] {
+				if deep.Equal(msg, umsg) {
+					found++
+				}
+			}
+		}
+		if found != MaxSizeBacklogUnchecked {
+			t.Fatal("unchecked messages lost")
+		}
+	})
+
+	t.Run("excess messages are removed from the untrusted backlog", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := NewMockBackend(ctrl)
+
+		c := &core{
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]*Message),
+			backlogUnchecked: make(map[uint64][]*Message),
+			step:             prevote,
+			round:            1,
+			height:           big.NewInt(4),
+		}
+
+		var messages []*Message
+		uncheckedFounds := make(map[uint64]struct{})
+		backendMock.EXPECT().RemoveMessageFromLocalCache(gomock.Any()).Times(MaxSizeBacklogUnchecked).Do(func(payload []byte) {
+			var msg Message
+			err := msg.FromPayload(payload)
+			if err != nil {
+				t.Fatal("could not decode message payload")
+			}
+			height, err := msg.Height()
+			if err != nil {
+				t.Fatal("could not decode message height")
+			}
+			if _, ok := uncheckedFounds[height.Uint64()]; ok {
+				t.Fatal("duplicate message received")
+			}
+			uncheckedFounds[height.Uint64()] = struct{}{}
+		})
+
+		for i := int64(2 * MaxSizeBacklogUnchecked); i > 0; i-- {
+			nilRoundVote := &Vote{
+				Round:  i % 10,
+				Height: big.NewInt(i),
+			}
+			payload, err := rlp.EncodeToBytes(nilRoundVote)
+			require.NoError(t, err)
+			msg := &Message{
+				Code:       msgPrevote,
+				Msg:        payload,
+				decodedMsg: nilRoundVote,
+			}
+			c.storeUncheckedBacklog(msg)
+			if i < MaxSizeBacklogUnchecked {
+				messages = append(messages, msg)
+			}
+		}
+
+		found := 0
+		for _, msg := range messages {
+			height, err := msg.Height()
+			if err != nil {
+				t.Error("can't retrieve message height")
+			}
+			for _, umsg := range c.backlogUnchecked[height.Uint64()] {
+				if deep.Equal(msg, umsg) {
+					found++
+				}
+			}
+		}
+		if found != MaxSizeBacklogUnchecked-1 {
+			t.Fatal("unchecked messages lost")
+		}
+		if len(uncheckedFounds) != MaxSizeBacklogUnchecked {
+			t.Fatal("unchecked messages lost")
+		}
 	})
 }

@@ -55,7 +55,8 @@ func TestConsoleWelcome(t *testing.T) {
 
 	// Verify the actual welcome message to the required template
 	autonity.Expect(`
-Welcome to the Autonity JavaScript console!
+The embedded Autonity Console is no longer supported, use it a your own risk.
+Consider the Autonity Node.js Console as replacement.
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
 coinbase: {{.Etherbase}}
@@ -149,7 +150,8 @@ func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis stri
 
 	// Verify the actual welcome message to the required template
 	attach.Expect(`
-Welcome to the Autonity JavaScript console!
+The embedded Autonity Console is no longer supported, use it a your own risk.
+Consider the Autonity Node.js Console as replacement.
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
 coinbase: {{etherbase}}
