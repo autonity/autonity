@@ -147,7 +147,7 @@ func TestStakeManagement(t *testing.T) {
 			numValidators: 6,
 			numBlocks:     20,
 			txPerPeer:     1,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": mintStakeHook,
 			},
 			genesisHook: genesisHook,
@@ -158,7 +158,7 @@ func TestStakeManagement(t *testing.T) {
 			numValidators: 6,
 			numBlocks:     20,
 			txPerPeer:     1,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": redeemStakeHook,
 			},
 			genesisHook: genesisHook,
@@ -169,7 +169,7 @@ func TestStakeManagement(t *testing.T) {
 			numValidators: 6,
 			numBlocks:     20,
 			txPerPeer:     1,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": sendStakeHook,
 			},
 			genesisHook: genesisHook,

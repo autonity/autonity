@@ -41,11 +41,20 @@ func TestMemberManagement(t *testing.T) {
 	}
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 
-	newNodeKey, err := keygenerator.Next()
+	newValidatorNodeKey, err := keygenerator.Next()
 	require.NoError(t, err)
+	newValidatorPubKey := newValidatorNodeKey.PublicKey
+	newValidatorENode := enode.V4DNSUrl(newValidatorPubKey, "VN:8527", 8527, 8527)
 
-	newNodePubKey := newNodeKey.PublicKey
-	eNode := enode.V4DNSUrl(newNodePubKey, "VN:8527", 8527, 8527)
+	newStakeholderKey, err := keygenerator.Next()
+	require.NoError(t, err)
+	newStakeholderPubKey := newStakeholderKey.PublicKey
+	newStakeholderEnode := enode.V4DNSUrl(newStakeholderPubKey, "VN:8528", 8528, 8528)
+
+	newParticipantKey, err := keygenerator.Next()
+	require.NoError(t, err)
+	newParticipantPubKey := newParticipantKey.PublicKey
+	newParticipantEnode := enode.V4DNSUrl(newParticipantPubKey, "VN:8529", 8529, 8529)
 
 	removeNodeKey, err := keygenerator.Next()
 	require.NoError(t, err)
@@ -73,67 +82,55 @@ func TestMemberManagement(t *testing.T) {
 		return g
 	}
 
-	addValidatorHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
+	addUserHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			return false, nil, interact(validator.rpcPort).tx(operatorKey).addValidator(crypto.PubkeyToAddress(newNodePubKey), stakeBalance, eNode)
+			err := interact(validator.rpcPort).tx(operatorKey).addUser(crypto.PubkeyToAddress(newValidatorPubKey), stakeBalance, newValidatorENode, uint8(2))
+			if err != nil {
+				return false, nil, err
+			}
+			err = interact(validator.rpcPort).tx(operatorKey).addUser(crypto.PubkeyToAddress(newStakeholderPubKey), stakeBalance, newStakeholderEnode, uint8(1))
+			if err != nil {
+				return false, nil, err
+			}
+			err = interact(validator.rpcPort).tx(operatorKey).addUser(crypto.PubkeyToAddress(newParticipantPubKey), stakeBalance, newParticipantEnode, uint8(0))
+			if err != nil {
+				return false, nil, err
+			}
 		}
 		return false, nil, nil
 	}
 
-	addValidatorCheckerHook := func(t *testing.T, validators map[string]*testNode) {
+	addUserCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 
 		whiteList, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).getWhitelist()
 		require.NoError(t, err)
 
-		assert.Contains(t, whiteList, eNode, "eNode is not presented from member list")
+		assert.Contains(t, whiteList, newValidatorENode, "new validator eNode is not presented from member list")
+		assert.Contains(t, whiteList, newStakeholderEnode, "new stake holder eNode is not presented from member list")
+		assert.Contains(t, whiteList, newParticipantEnode, "new participant eNode is not presented from member list")
 
 		// check node role and its stake balance.
 		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
 		require.NoError(t, err)
 
-		found := false
+		newValidatorFind := false
+		newStakeHolderFind := false
+		newParticipantFind := false
 		for index, v := range curNetworkMetrics.Accounts {
-			if v == crypto.PubkeyToAddress(newNodePubKey) {
-				found = true
+			if v == crypto.PubkeyToAddress(newValidatorPubKey) {
+				newValidatorFind = true
 				assert.Equal(t, curNetworkMetrics.Stakes[index].Uint64(), stakeBalance.Uint64(), "new validator's stake is not expected")
-				assert.Equal(t, int(curNetworkMetrics.Usertypes[index]), 2, "new validator's user type is not expected")
-				break
+				assert.Equal(t, 2, int(curNetworkMetrics.Usertypes[index]), "new validator's user type is not expected")
 			}
-		}
-
-		// compare the total stake supply before and after new node added.
-		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
-		require.NoError(t, err)
-
-		b := curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64()
-		assert.Equal(t, b, stakeBalance.Uint64(), "stake total supply is not expected")
-		assert.True(t, found, "new validator is not presented")
-	}
-
-	addStakeHolderHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 4 {
-			return true, nil, interact(validator.rpcPort).tx(operatorKey).addStakeHolder(crypto.PubkeyToAddress(newNodePubKey), stakeBalance, eNode)
-		}
-		return false, nil, nil
-	}
-
-	addStakeHolderCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-
-		whiteList, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).getWhitelist()
-		require.NoError(t, err)
-		assert.Contains(t, whiteList, eNode)
-
-		// check node role and its stake balance.
-		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
-		require.NoError(t, err)
-
-		found := false
-		for index, v := range curNetworkMetrics.Accounts {
-			if v == crypto.PubkeyToAddress(newNodePubKey) {
-				found = true
+			if v == crypto.PubkeyToAddress(newStakeholderPubKey) {
+				newStakeHolderFind = true
 				assert.Equal(t, curNetworkMetrics.Stakes[index].Uint64(), stakeBalance.Uint64(), "new stakeholder's stake is not expected")
-				assert.Equal(t, int(curNetworkMetrics.Usertypes[index]), 1, "new stakeholder's user type is not expected")
-				break
+				assert.Equal(t, 1, int(curNetworkMetrics.Usertypes[index]), "new stakeholder's user type is not expected")
+			}
+			if v == crypto.PubkeyToAddress(newParticipantPubKey) {
+				newParticipantFind = true
+				assert.Equal(t, curNetworkMetrics.Stakes[index].Uint64(), uint64(0), "new participant's stake is not expected")
+				assert.Equal(t, 0, int(curNetworkMetrics.Usertypes[index]), "new participant's user type is not expected")
 			}
 		}
 
@@ -142,42 +139,10 @@ func TestMemberManagement(t *testing.T) {
 		require.NoError(t, err)
 
 		b := curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64()
-		assert.Equal(t, b, stakeBalance.Uint64(), "stake total supply is not expected")
-		assert.True(t, found, "new stakeholder is not presented")
-	}
-
-	addParticipantHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 4 {
-			return true, nil, interact(validator.rpcPort).tx(operatorKey).addParticipant(crypto.PubkeyToAddress(newNodePubKey), eNode)
-		}
-		return false, nil, nil
-	}
-
-	addParticipantCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-		whiteList, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).getWhitelist()
-		require.NoError(t, err)
-		assert.Contains(t, whiteList, eNode)
-
-		// check node role and its stake balance.
-		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
-		require.NoError(t, err)
-
-		found := false
-		for index, v := range curNetworkMetrics.Accounts {
-			if v == crypto.PubkeyToAddress(newNodePubKey) {
-				found = true
-				assert.Equal(t, curNetworkMetrics.Stakes[index].Uint64(), uint64(0), "new participant's stake is not expected")
-				assert.Equal(t, int(curNetworkMetrics.Usertypes[index]), 0, "new participant's user type is not expected")
-				break
-			}
-		}
-
-		// compare the total stake supply before and after new node added.
-		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
-		require.NoError(t, err)
-
-		assert.Zero(t, curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64(), "stake total supply is not expected")
-		assert.True(t, found, "new participant is not presented")
+		assert.Equal(t, b, stakeBalance.Uint64()*2, "stake total supply is not expected")
+		assert.True(t, newValidatorFind, "new validator is not presented")
+		assert.True(t, newStakeHolderFind, "new stakeholder is not presented")
+		assert.True(t, newParticipantFind, "new participant is not presented")
 	}
 
 	removeUserHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
@@ -196,44 +161,22 @@ func TestMemberManagement(t *testing.T) {
 	// set up of hooks, which should be refactored since they share virtually the same code
 	cases := []*testCase{
 		{
-			name:          "add validator",
+			name:          "add users",
 			numValidators: 6,
-			numBlocks:     20,
-			txPerPeer:     1,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
-				"VA": addValidatorHook,
+			numBlocks:     30,
+			txPerPeer:     5,
+			sendTransactionHooks: map[string]sendTransactionHook{
+				"VA": addUserHook,
 			},
 			genesisHook: genesisHook,
-			finalAssert: addValidatorCheckerHook,
-		},
-		{
-			name:          "add stakeholder",
-			numValidators: 6,
-			numBlocks:     20,
-			txPerPeer:     1,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
-				"VA": addStakeHolderHook,
-			},
-			genesisHook: genesisHook,
-			finalAssert: addStakeHolderCheckerHook,
-		},
-		{
-			name:          "add participant",
-			numValidators: 6,
-			numBlocks:     20,
-			txPerPeer:     1,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
-				"VA": addParticipantHook,
-			},
-			genesisHook: genesisHook,
-			finalAssert: addParticipantCheckerHook,
+			finalAssert: addUserCheckerHook,
 		},
 		{
 			name:          "remove user",
 			numValidators: 6,
 			numBlocks:     20,
 			txPerPeer:     1,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+			sendTransactionHooks: map[string]sendTransactionHook{
 				"VD": removeUserHook,
 			},
 			genesisHook: genesisHook,

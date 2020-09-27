@@ -135,23 +135,9 @@ func (t *transactor) execute(action func(instance *Autonity, opts *bind.Transact
 	return action(t.i.instance, t.opts)
 }
 
-func (t *transactor) addValidator(validatorAddress common.Address, stakeBalance *big.Int, enode string) error {
+func (t *transactor) addUser(address common.Address, stakeBalance *big.Int, enode string, role uint8) error {
 	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		_, err := instance.AddValidator(opts, validatorAddress, stakeBalance, enode)
-		return err
-	})
-}
-
-func (t *transactor) addStakeHolder(address common.Address, stakeBalance *big.Int, enode string) error {
-	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		_, err := instance.AddStakeholder(opts, address, enode, stakeBalance)
-		return err
-	})
-}
-
-func (t *transactor) addParticipant(address common.Address, enode string) error {
-	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		_, err := instance.AddParticipant(opts, address, enode)
+		_, err := instance.AddUser(opts, address, stakeBalance, enode, role)
 		return err
 	})
 }

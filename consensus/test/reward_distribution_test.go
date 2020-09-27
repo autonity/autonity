@@ -154,7 +154,7 @@ func TestRewardDistribution(t *testing.T) {
 			numValidators:        6,
 			numBlocks:            30,
 			txPerPeer:            1,
-			sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+			sendTransactionHooks: make(map[string]sendTransactionHook),
 			// Apply reward checker to all nodes:
 			beforeHooks: map[string]hook{
 				"VA": rewardChecker,
@@ -171,7 +171,7 @@ func TestRewardDistribution(t *testing.T) {
 			numValidators: 6,
 			numBlocks:     30,
 			txPerPeer:     1,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": mintStakeHook,
 			},
 			genesisHook: genesisHook,
@@ -190,7 +190,7 @@ func TestRewardDistribution(t *testing.T) {
 			numValidators: 6,
 			numBlocks:     30,
 			txPerPeer:     1,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": transferStakeHook,
 			},
 			genesisHook: genesisHook,
@@ -209,7 +209,7 @@ func TestRewardDistribution(t *testing.T) {
 			numValidators: 6,
 			numBlocks:     30,
 			txPerPeer:     1,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": redeemStakeHook,
 			},
 			genesisHook: genesisHook,
