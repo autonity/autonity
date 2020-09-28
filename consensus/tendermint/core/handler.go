@@ -70,8 +70,8 @@ func (c *core) Stop() {
 }
 
 func (c *core) subscribeEvents() {
-	s := c.backend.Subscribe(events.MessageEvent{})
-	c.messageEventSub = s
+	s := c.backend.Subscribe(events.MessageEvent{}, events.NewUnminedBlockEvent{}, TimeoutEvent{}, events.CommitEvent{})
+	c.eventsSub = s
 
 	s1 := c.backend.Subscribe(events.NewUnminedBlockEvent{})
 	c.newUnminedBlockEventSub = s1
@@ -90,7 +90,7 @@ func (c *core) subscribeEvents() {
 
 // Unsubscribe all messageEventSub
 func (c *core) unsubscribeEvents() {
-	c.messageEventSub.Unsubscribe()
+	c.eventsSub.Unsubscribe()
 	c.newUnminedBlockEventSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
 	c.committedSub.Unsubscribe()
@@ -122,14 +122,22 @@ eventLoop:
 
 func (c *core) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
-	c.startRound(ctx, 0)
+	m, t := c.algo.StartRound(0)
+	switch {
+	case m != nil:
+		go c.broadcast(ctx, m) // TODO should make broadcast send to self
+	case t != nil:
+		time.AfterFunc(time.Duration(t.Delay)*time.Second, func() {
+			c.sendEvent(t)
+		})
+	}
 
 	go c.syncLoop(ctx)
 
 eventLoop:
 	for {
 		select {
-		case ev, ok := <-c.messageEventSub.Chan():
+		case ev, ok := <-c.eventsSub.Chan():
 			if !ok {
 				break eventLoop
 			}

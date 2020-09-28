@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
@@ -87,8 +88,6 @@ func New(backend Backend, config *config.Config) *core {
 		stopped:               make(chan struct{}, 4),
 		committee:             nil,
 		futureRoundChange:     make(map[int64]map[common.Address]uint64),
-		lockedRound:           -1,
-		validRound:            -1,
 		proposeTimeout:        newTimeout(propose, logger),
 		prevoteTimeout:        newTimeout(prevote, logger),
 		precommitTimeout:      newTimeout(precommit, logger),
@@ -104,7 +103,7 @@ type core struct {
 	backend Backend
 	cancel  context.CancelFunc
 
-	messageEventSub         *event.TypeMuxSubscription
+	eventsSub               *event.TypeMuxSubscription
 	newUnminedBlockEventSub *event.TypeMuxSubscription
 	committedSub            *event.TypeMuxSubscription
 	timeoutEventSub         *event.TypeMuxSubscription
@@ -120,27 +119,11 @@ type core struct {
 	pendingUnminedBlockCh    chan *types.Block
 	isWaitingForUnminedBlock bool
 
-	//
-	// Tendermint FSM state fields
-	//
-
-	height     *big.Int
-	round      int64
 	committee  committee
 	lastHeader *types.Header
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
-	stateMu               sync.RWMutex
-	step                  Step
-	sentProposal          bool
-	sentPrevote           bool
-	sentPrecommit         bool
-	setValidRoundAndValue bool
-
-	lockedRound int64
-	validRound  int64
-	lockedValue *types.Block
-	validValue  *types.Block
+	stateMu sync.RWMutex
 
 	proposeTimeout   *timeout
 	prevoteTimeout   *timeout
@@ -150,18 +133,11 @@ type core struct {
 
 	autonityContract *autonity.Contract
 
-	line34Executed bool
-	line36Executed bool
-	line47Executed bool
+	algo *algorithm.Algorithm
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
 	return c.msgCache.heightMessages(c.Height().Uint64())
-}
-
-func (c *core) IsMember(address common.Address) bool {
-	_, _, err := c.committeeSet().GetByAddress(address)
-	return err == nil
 }
 
 func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
@@ -186,13 +162,65 @@ func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 	return payload, nil
 }
 
-func (c *core) broadcast(ctx context.Context, msg *Message) {
-	logger := c.logger.New("step", c.step)
+// type Message struct {
+// 	Code          uint64
+// 	Msg           []byte
+// 	Address       common.Address
+// 	Signature     []byte
+// 	CommittedSeal []byte
+
+// 	power      uint64
+// 	decodedMsg ConsensusMsg // cached decoded Msg
+// 	Hash       common.Hash  // cached hash
+// }
+
+func (c *core) broadcast(ctx context.Context, m *algorithm.ConsensusMessage) {
+	logger := c.logger.New("step", nil)
+
+	var code uint64
+	var internalMessage interface{}
+	bigHeight := new(big.Int).SetUint64(m.Height)
+	switch m.MsgType {
+	case algorithm.Propose:
+		code = msgProposal
+		internalMessage = NewProposal(m.Round, bigHeight, m.ValidRound, c.msgCache.value(common.Hash(m.Value)))
+	case algorithm.Prevote:
+		code = msgPrevote
+		internalMessage = &Vote{
+			Round:             m.Round,
+			Height:            bigHeight,
+			ProposedBlockHash: common.Hash(m.Value),
+		}
+	case algorithm.Precommit:
+		code = msgPrecommit
+		internalMessage = &Vote{
+			Round:             m.Round,
+			Height:            bigHeight,
+			ProposedBlockHash: common.Hash(m.Value),
+		}
+	}
+	marshalledInternalMessage, err := Encode(internalMessage)
+	if err != nil {
+		panic(fmt.Sprintf("error while encoding consensus message: %v", err))
+	}
+	msg := &Message{
+		Code:          code,
+		Address:       c.address,
+		CommittedSeal: []byte{}, // Not sure why this is empty but it seems to be set like this everywhere.
+		Msg:           marshalledInternalMessage,
+	}
+
+	if m.MsgType == algorithm.Precommit {
+		seal := PrepareCommittedSeal(common.Hash(m.Value), m.Round, bigHeight)
+		msg.CommittedSeal, err = c.backend.Sign(seal)
+		if err != nil {
+			panic(fmt.Sprintf("error while signing committed seal: %v", err))
+		}
+	}
 
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
-		logger.Error("Failed to finalize message", "msg", msg, "err", err)
-		return
+		panic(fmt.Sprintf("Failed to finalize message: %+v err: %v", msg, err))
 	}
 
 	// Broadcast payload

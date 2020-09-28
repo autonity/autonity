@@ -1,4 +1,4 @@
-package main
+package algorithm
 
 type ValueID [32]byte
 
@@ -24,10 +24,10 @@ func (s Step) in(steps ...Step) bool {
 }
 
 type Timeout struct {
-	timeoutType Step
-	delay       uint
-	height      uint64
-	round       int64
+	TimeoutType Step
+	Delay       uint
+	Height      uint64
+	Round       int64
 }
 
 type ConsensusMessage struct {
@@ -66,6 +66,18 @@ type Algorithm struct {
 	oracle         Oracle
 }
 
+func New(nodeID NodeID, height uint64, oracle Oracle) *Algorithm {
+	return &Algorithm{
+		nodeId:      nodeID,
+		height:      height,
+		lockedRound: -1,
+		lockedValue: nilValue,
+		validRound:  -1,
+		validValue:  nilValue,
+		oracle:      oracle,
+	}
+}
+
 func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
 	cm := &ConsensusMessage{
 		MsgType: a.step,
@@ -81,10 +93,10 @@ func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
 
 func (a *Algorithm) timeout(msgType Step) *Timeout {
 	return &Timeout{
-		timeoutType: Propose,
-		height:      a.height,
-		round:       a.round,
-		delay:       1, // todo
+		TimeoutType: Propose,
+		Height:      a.height,
+		Round:       a.round,
+		Delay:       1, // todo
 	}
 }
 
