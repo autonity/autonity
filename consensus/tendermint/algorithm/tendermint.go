@@ -14,9 +14,9 @@ const (
 	Precommit
 )
 
-func (s Step) in(steps ...Step) bool {
+func (s *Step) in(steps ...Step) bool {
 	for _, step := range steps {
-		if s == step {
+		if *s == step {
 			return true
 		}
 	}
@@ -66,10 +66,9 @@ type Algorithm struct {
 	oracle         Oracle
 }
 
-func New(nodeID NodeID, height uint64, oracle Oracle) *Algorithm {
+func New(nodeID NodeID, oracle Oracle) *Algorithm {
 	return &Algorithm{
 		nodeId:      nodeID,
-		height:      height,
 		lockedRound: -1,
 		lockedValue: nilValue,
 		validRound:  -1,
@@ -103,12 +102,13 @@ func (a *Algorithm) timeout(msgType Step) *Timeout {
 // Start round takes the round to start, clears the first time flags and then
 // either broadcasts a proposal if this node is the proposer, or schedules a
 // proposal timeout.
-func (a *Algorithm) StartRound(round int64) (*ConsensusMessage, *Timeout) {
+func (a *Algorithm) StartRound(height uint64, round int64) (*ConsensusMessage, *Timeout) {
 	// Reset first time flags
 	a.line34Executed = false
 	a.line36Executed = false
 	a.line47Executed = false
 
+	a.height = height
 	a.round = round
 	a.step = Propose
 	if a.oracle.Proposer(a.nodeId) {
@@ -215,7 +215,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 			a.validRound = -1
 			a.validValue = nilValue
 		}
-		return a.StartRound(0)
+		return a.StartRound(a.height, 0)
 	}
 
 	// Line 47
@@ -232,28 +232,28 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 		// round. in the conditon at line 28. This means that we only should
 		// clean the message cache when there is a height change, clearing out
 		// all messages for the height.
-		return a.StartRound(cm.Round)
+		return a.StartRound(a.height, cm.Round)
 	}
 	return nil, nil
 }
 
-func (a *Algorithm) onTimeoutPropose(height uint64, round int64) *ConsensusMessage {
+func (a *Algorithm) OnTimeoutPropose(height uint64, round int64) *ConsensusMessage {
 	if height == a.height && round == a.round && a.step == Propose {
 		a.step = Prevote
 		return a.msg(Prevote, nilValue)
 	}
 	return nil
 }
-func (a *Algorithm) onTimeoutPrevote(height uint64, round int64) *ConsensusMessage {
+func (a *Algorithm) OnTimeoutPrevote(height uint64, round int64) *ConsensusMessage {
 	if height == a.height && round == a.round && a.step == Prevote {
 		a.step = Precommit
 		return a.msg(Precommit, nilValue)
 	}
 	return nil
 }
-func (a *Algorithm) onTimeoutPrecommit(height uint64, round int64) (*ConsensusMessage, *Timeout) {
+func (a *Algorithm) OnTimeoutPrecommit(height uint64, round int64) (*ConsensusMessage, *Timeout) {
 	if height == a.height && round == a.round {
-		return a.StartRound(a.round + 1)
+		return a.StartRound(a.height, a.round+1)
 	}
 	return nil, nil
 }

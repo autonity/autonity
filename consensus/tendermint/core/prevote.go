@@ -33,7 +33,7 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	if isNil {
 		prevote.ProposedBlockHash = common.Hash{}
 	} else {
-		hash := c.msgCache.proposal(c.Height().Uint64(), c.Round(), c.committee.GetProposer(c.Round()).Address).value
+		hash := c.msgCache.proposal(c.Height().Uint64(), c.Round(), c.committee.GetProposer(c.Round()).Address).Value
 		if hash == (common.Hash{}) {
 			c.logger.Error("sendPrecommit Proposal is empty! It should not be empty!")
 			return

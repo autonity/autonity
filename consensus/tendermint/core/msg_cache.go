@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	common "github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	types "github.com/clearmatics/autonity/core/types"
 )
 
@@ -11,11 +12,11 @@ import (
 
 type messageCache struct {
 	// msgHashes maps height, round, message type and address to message hash.
-	msgHashes map[uint64]map[int64]map[consensusMessageType]map[common.Address]common.Hash
+	msgHashes map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash
 	// valid is a set containing message hashes for messages considered valid.
 	valid map[common.Hash]struct{}
 	// consensusMsgs maps message hash to consensus message.
-	consensusMsgs map[common.Hash]*consensusMessage
+	consensusMsgs map[common.Hash]*algorithm.ConsensusMessage
 	// rawMessages maps message hash to raw message.
 	rawMessages map[common.Hash]*Message
 	// values maps value hash to value.
@@ -116,7 +117,7 @@ func (m *messageCache) Message(h common.Hash) *Message {
 
 func (m *messageCache) signatures(valueHash common.Hash, round int64, height uint64) [][]byte {
 	var sigs [][]byte
-	for _, msgHash := range m.msgHashes[height][round][consensusMessageType(msgPrecommit)] {
+	for _, msgHash := range m.msgHashes[height][round][algorithm.Step(msgPrecommit)] {
 		if valueHash == m.rawMessages[msgHash].decodedMsg.ProposedValueHash() {
 			sigs = append(sigs, m.rawMessages[msgHash].CommittedSeal)
 		}
@@ -125,14 +126,14 @@ func (m *messageCache) signatures(valueHash common.Hash, round int64, height uin
 }
 
 func (m *messageCache) prevoteQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
-	msgType := new(consensusMessageType)
-	*msgType = consensusMessageType(msgPrevote)
+	msgType := new(algorithm.Step)
+	*msgType = algorithm.Step(msgPrevote)
 	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
 }
 
 func (m *messageCache) precommitQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
-	msgType := new(consensusMessageType)
-	*msgType = consensusMessageType(msgPrecommit)
+	msgType := new(algorithm.Step)
+	*msgType = algorithm.Step(msgPrecommit)
 	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
 }
 
@@ -231,7 +232,7 @@ func (m *messageCache) fail(round int64, header *types.Header) bool {
 func (m *messageCache) votePower(
 	valueHash *common.Hash, // A nil value hash indicates that we match any value.
 	round int64,
-	msgType *consensusMessageType, // A nil value hash indicates that we match both prevote and precommit.
+	msgType *algorithm.Step, // A nil value hash indicates that we match both prevote and precommit.
 	header *types.Header,
 ) uint64 {
 
@@ -263,7 +264,7 @@ func (m *messageCache) votePower(
 			}
 
 			// Skip messages with differing values
-			if valueHash != nil && *valueHash != m.consensusMsgs[msgHash].value {
+			if valueHash != nil && *valueHash != m.consensusMsgs[msgHash].Value {
 				continue
 			}
 			// Now either value hash is nil (matches everything) or it actually matches the msg's value.
@@ -299,7 +300,7 @@ func addMsgHash(
 }
 
 func (m *messageCache) addMessage(msg *Message, cm *consensusMessage) error {
-	err := addMsgHash(m.msgHashes, cm.height, cm.round, cm.msgType, msg.Address, msg.Hash)
+	err := addMsgHash(m.msgHashes, cm.Height, cm.Round, cm.MsgType, msg.Address, msg.Hash)
 	if err != nil {
 		return err
 	}
@@ -345,12 +346,12 @@ func (m *messageCache) proposal(height uint64, round int64, proposer common.Addr
 }
 
 func (m *messageCache) matchingProposal(cm *consensusMessage) *consensusMessage {
-	if cm.msgType == consensusMessageType(msgProposal) {
+	if cm.MsgType == consensusMessageType(msgProposal) {
 		return cm
 	}
-	for _, proposalHash := range m.msgHashes[cm.height][cm.round][consensusMessageType(msgProposal)] {
+	for _, proposalHash := range m.msgHashes[cm.Height][cm.Round][consensusMessageType(msgProposal)] {
 		proposal := m.consensusMsgs[proposalHash]
-		if proposal.value == cm.value {
+		if proposal.Value == cm.Value {
 			return proposal
 		}
 	}

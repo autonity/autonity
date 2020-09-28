@@ -87,7 +87,6 @@ func New(backend Backend, config *config.Config) *core {
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
 		committee:             nil,
-		futureRoundChange:     make(map[int64]map[common.Address]uint64),
 		proposeTimeout:        newTimeout(propose, logger),
 		prevoteTimeout:        newTimeout(prevote, logger),
 		precommitTimeout:      newTimeout(precommit, logger),
@@ -107,7 +106,6 @@ type core struct {
 	newUnminedBlockEventSub *event.TypeMuxSubscription
 	committedSub            *event.TypeMuxSubscription
 	timeoutEventSub         *event.TypeMuxSubscription
-	consensusMessageSub     *event.TypeMuxSubscription
 	syncEventSub            *event.TypeMuxSubscription
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
@@ -129,11 +127,10 @@ type core struct {
 	prevoteTimeout   *timeout
 	precommitTimeout *timeout
 
-	futureRoundChange map[int64]map[common.Address]uint64
-
 	autonityContract *autonity.Contract
 
-	algo *algorithm.Algorithm
+	height *big.Int
+	algo   *algorithm.Algorithm
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
@@ -161,18 +158,6 @@ func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 
 	return payload, nil
 }
-
-// type Message struct {
-// 	Code          uint64
-// 	Msg           []byte
-// 	Address       common.Address
-// 	Signature     []byte
-// 	CommittedSeal []byte
-
-// 	power      uint64
-// 	decodedMsg ConsensusMsg // cached decoded Msg
-// 	Hash       common.Hash  // cached hash
-// }
 
 func (c *core) broadcast(ctx context.Context, m *algorithm.ConsensusMessage) {
 	logger := c.logger.New("step", nil)
@@ -235,9 +220,6 @@ func (c *core) broadcast(ctx context.Context, m *algorithm.ConsensusMessage) {
 func (c *core) isProposerMsg(round int64, msgAddress common.Address) bool {
 	return c.committeeSet().GetProposer(round).Address == msgAddress
 }
-func (c *core) isProposer() bool {
-	return c.committeeSet().GetProposer(c.Round()).Address == c.address
-}
 
 func (c *core) commit(block *types.Block, round int64) {
 	c.setStep(precommitDone)
@@ -263,190 +245,39 @@ func (c *core) measureHeightRoundMetrics(round int64) {
 	tendermintRoundChangeMeter.Mark(1)
 }
 
-// startRound starts a new round. if round equals to 0, it means to starts a new height
-func (c *core) startRound(ctx context.Context, round int64) {
+func (c *core) updateLatestBlock() {
+	lastBlockMined, _ := c.backend.LastCommittedProposal()
+	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 
-	c.measureHeightRoundMetrics(round)
-	// Set initial FSM state
-	c.setInitialState(round)
-	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
-	c.setStep(propose)
-	c.logger.Debug("Starting new Round", "Height", c.Height(), "Round", round)
-
-	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
-	// proposeTimeout is started, where the node waits for a proposal from the proposer of the current round.
-	if c.isProposer() {
-		// validValue and validRound represent a block they received a quorum of prevote and the round quorum was
-		// received, respectively. If the block is not committed in that round then the round is changed.
-		// The new proposer will chose the validValue, if present, which was set in one of the previous rounds otherwise
-		// they propose a new block.
-		var p *types.Block
-		if c.validValue != nil {
-			p = c.validValue
-		} else {
-			p = c.getUnminedBlock()
-			if p == nil {
-				select {
-				case <-ctx.Done():
-					return
-				case p = <-c.pendingUnminedBlockCh:
-				}
-			}
-		}
-		c.sendProposal(ctx, p)
-	} else {
-		timeoutDuration := c.timeoutPropose(round)
-		c.proposeTimeout.scheduleTimeout(timeoutDuration, round, c.Height(), c.onTimeoutPropose)
-		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
-	}
-
-}
-
-func (c *core) reprocessConsensusMessage(cm *consensusMessage) error {
-	go c.sendEvent(cm) // Could we use less go routines?
-	return nil
-}
-
-func (c *core) setInitialState(r int64) {
-	// Start of new height where round is 0
-	if r == 0 {
-		lastBlockMined, _ := c.backend.LastCommittedProposal()
-		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-
-		lastHeader := lastBlockMined.Header()
-		var committeeSet committee
-		var err error
-		var lastProposer common.Address
-		switch c.proposerPolicy {
-		case config.RoundRobin:
-			if !lastHeader.IsGenesis() {
-				var err error
-				lastProposer, err = types.Ecrecover(lastHeader)
-				if err != nil {
-					panic(fmt.Sprintf("unable to recover proposer address from header %q: %v", lastHeader, err))
-				}
-			}
-			committeeSet, err = newRoundRobinSet(lastHeader.Committee, lastProposer)
+	lastHeader := lastBlockMined.Header()
+	var committeeSet committee
+	var err error
+	var lastProposer common.Address
+	switch c.proposerPolicy {
+	case config.RoundRobin:
+		if !lastHeader.IsGenesis() {
+			var err error
+			lastProposer, err = types.Ecrecover(lastHeader)
 			if err != nil {
-				panic(fmt.Sprintf("failed to construct committee %v", err))
+				panic(fmt.Sprintf("unable to recover proposer address from header %q: %v", lastHeader, err))
 			}
-		case config.WeightedRandomSampling:
-			committeeSet = newWeightedRandomSamplingCommittee(lastBlockMined, c.autonityContract, c.backend.BlockChain())
-		default:
-			panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
 		}
-
-		c.lastHeader = lastHeader
-		c.setCommitteeSet(committeeSet)
-		c.lockedRound = -1
-		c.lockedValue = nil
-		c.validRound = -1
-		c.validValue = nil
-		c.futureRoundChange = make(map[int64]map[common.Address]uint64)
+		committeeSet, err = newRoundRobinSet(lastHeader.Committee, lastProposer)
+		if err != nil {
+			panic(fmt.Sprintf("failed to construct committee %v", err))
+		}
+	case config.WeightedRandomSampling:
+		committeeSet = newWeightedRandomSamplingCommittee(lastBlockMined, c.autonityContract, c.backend.BlockChain())
+	default:
+		panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
 	}
 
-	c.proposeTimeout.reset(propose)
-	c.prevoteTimeout.reset(prevote)
-	c.precommitTimeout.reset(precommit)
-	c.sentProposal = false
-	c.sentPrevote = false
-	c.sentPrecommit = false
-	c.setValidRoundAndValue = false
-	c.setRound(r)
+	c.lastHeader = lastHeader
+	c.setCommitteeSet(committeeSet)
+
 }
 
 func (c *core) setStep(step Step) {
-	// Hmm thinking about reprocessing now.
-	//
-	// If we have changed step to propose then the only 2 upon checks which
-	// have now, become accessible are both rely on a proposal message, so by
-	// reprocessing the proposal message we can ensure that we hit all relevant checks.
-	//
-	//
-	// Consider what checks needs to be reconsidered.
-	//
-	// We assume we process all messages for a height when we reach that
-	// height, we don't consider this reprocessing because those messages have
-	// never been fully processed before.
-	//
-	// First off checks that never need reprocessing are
-	//
-	// 49 Its not specific to any round or step, and so would be triggered as
-	// soon either the right proposals or precommits are received.
-	//
-	// 55 Again its not specific to any round or step, and so would be
-	// triggered as soon as the right threshold is met.
-	//
-	// ---
-	//
-	// For a round change, aka step change from any step to propose. We need to
-	// check every check that is specific to round. I.E has a roundp value
-	// somewhere in the check.
-	//
-	// Those checks are. (all checks not including the 49 and 55 which we know
-	// do not need to be rechecked)
-	//
-	// Line 22
-	// Line 28
-	// Line 34
-	// Line 36
-	// Line 44
-	// Line 47
-	//
-	// What messages shall we re-process to hit all those checks? Re-processing
-	// just the proposals will cover 22, 28, 36. That leaves 34, 44 and 47.
-	//
-	// 34 can be hit by sending a prevote with any value, so we could just pick
-	// the first prevote for that round and process it.
-	//
-	// 44 can be hit by sending a prevote for nil, so we would have to find a
-	// prevote for nil in the message cache and send that. We can't make one up
-	// because just one node may constitute quorum threshold. Actually I think
-	// we can, because we would not see any stake attached to the message if
-	// noone voted.
-	//
-	// 47 can be hit by a precommit with any value
-	//
-	// So we can hit both 34 and 44 with a prevote for nil and 47 with a
-	// precommit for any value. So we can hit all checks by reprocessing just
-	// the proposals and a fake precommit and fake prevote for nil.
-	//
-	// ---
-	//
-	// For step change propose to prevote, we will need to check all checks
-	// that were not accessible with step propose and are now accessible with
-	// step prevote.
-	//
-	// Those checks are.
-	//
-	// Line 34
-	// Line 36
-	// Line 44
-	//
-	// What messages shall we reprocess to hit all those checks. Reprocessing
-	// the proposals will cover 36. That leaves 34 and 44. As we can see from
-	// our reasoning above a fake prevote for nil will hit those checks.
-	//
-	// In fact though, in the process of making a step change from propose to
-	// prevote we send a prevote, that prevote will hit those checks, so there
-	// is no need to send any special messges in this case
-	//
-	//
-	// For step change prevote to precommit, we will need to check all checks
-	// that were not accessible with step prevote or propose and are now
-	// accessible with step precommit. There are no checks that require a step
-	// of precommit, any relevant checks would have already triggered as soon
-	// as messages were received in the propose or prevote steps, so nothing
-	// needs to be re-processed.
-	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
-	c.step = step
-	switch step {
-	// TODO the reprocessing
-	case propose:
-		err := c.msgCache.roundMessages(c.height.Uint64(), c.round, c.reprocessConsensusMessage)
-		println(err)
-	case prevote:
-	}
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash
@@ -460,12 +291,6 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) []byte
 	return buf.Bytes()
 }
 
-func (c *core) setRound(round int64) {
-	c.stateMu.Lock()
-	defer c.stateMu.Unlock()
-	c.round = round
-}
-
 func (c *core) setHeight(height *big.Int) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
@@ -475,12 +300,6 @@ func (c *core) setCommitteeSet(set committee) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.committee = set
-}
-
-func (c *core) Round() int64 {
-	c.stateMu.RLock()
-	defer c.stateMu.RUnlock()
-	return c.round
 }
 
 func (c *core) Height() *big.Int {

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/contracts/autonity"
@@ -36,7 +37,9 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 	c.autonityContract = contract
 	ctx, c.cancel = context.WithCancel(ctx)
 
-	c.subscribeEvents()
+	// Subscribe
+	c.eventsSub = c.backend.Subscribe(events.MessageEvent{}, events.NewUnminedBlockEvent{}, TimeoutEvent{}, events.CommitEvent{})
+	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 
 	// core.height needs to be set beforehand for unmined block's logic.
 	lastBlockMined, _ := c.backend.LastCommittedProposal()
@@ -61,44 +64,16 @@ func (c *core) Stop() {
 	c.cancel()
 
 	c.stopFutureProposalTimer()
-	c.unsubscribeEvents()
+
+	// Unsubscribe
+	c.eventsSub.Unsubscribe()
+	c.syncEventSub.Unsubscribe()
 
 	// Ensure all event handling go routines exit
 	<-c.stopped
 	<-c.stopped
 	<-c.stopped
 }
-
-func (c *core) subscribeEvents() {
-	s := c.backend.Subscribe(events.MessageEvent{}, events.NewUnminedBlockEvent{}, TimeoutEvent{}, events.CommitEvent{})
-	c.eventsSub = s
-
-	s1 := c.backend.Subscribe(events.NewUnminedBlockEvent{})
-	c.newUnminedBlockEventSub = s1
-
-	s2 := c.backend.Subscribe(TimeoutEvent{})
-	c.timeoutEventSub = s2
-
-	s3 := c.backend.Subscribe(events.CommitEvent{})
-	c.committedSub = s3
-
-	s4 := c.backend.Subscribe(events.SyncEvent{})
-	c.syncEventSub = s4
-
-	c.consensusMessageSub = c.backend.Subscribe(&consensusMessage{})
-}
-
-// Unsubscribe all messageEventSub
-func (c *core) unsubscribeEvents() {
-	c.eventsSub.Unsubscribe()
-	c.newUnminedBlockEventSub.Unsubscribe()
-	c.timeoutEventSub.Unsubscribe()
-	c.committedSub.Unsubscribe()
-	c.syncEventSub.Unsubscribe()
-	c.consensusMessageSub.Unsubscribe()
-}
-
-// TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, TimeoutEvent
 
 func (c *core) handleNewUnminedBlockEvent(ctx context.Context) {
 eventLoop:
@@ -120,18 +95,26 @@ eventLoop:
 	c.stopped <- struct{}{}
 }
 
-func (c *core) mainEventLoop(ctx context.Context) {
-	// Start a new round from last height + 1
-	m, t := c.algo.StartRound(0)
+func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage, t *algorithm.Timeout) {
+	if m != nil && m.MsgType == algorithm.Propose && m.Round == 0 || t != nil && t.TimeoutType == algorithm.Propose && t.Round == 0 {
+		// This indicates a height change
+		c.updateLatestBlock()
+	}
 	switch {
 	case m != nil:
 		go c.broadcast(ctx, m) // TODO should make broadcast send to self
 	case t != nil:
 		time.AfterFunc(time.Duration(t.Delay)*time.Second, func() {
-			c.sendEvent(t)
+			c.backend.Post(t)
 		})
 	}
+}
 
+func (c *core) mainEventLoop(ctx context.Context) {
+	// Start a new round from last height + 1
+	c.algo = algorithm.New(algorithm.NodeID(c.address), nil)
+	m, t := c.algo.StartRound(c.Height().Uint64(), 0)
+	c.handleResult(ctx, m, t)
 	go c.syncLoop(ctx)
 
 eventLoop:
@@ -153,28 +136,30 @@ eventLoop:
 					continue
 				}
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
-			}
-		case ev, ok := <-c.timeoutEventSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
-				switch timeoutE.step {
-				case msgProposal:
-					c.handleTimeoutPropose(ctx, timeoutE)
-				case msgPrevote:
-					c.handleTimeoutPrevote(ctx, timeoutE)
-				case msgPrecommit:
-					c.handleTimeoutPrecommit(ctx, timeoutE)
+			case *algorithm.Timeout:
+				switch e.TimeoutType {
+				case algorithm.Propose:
+					m := c.algo.OnTimeoutPropose(e.Height, e.Round)
+					c.handleResult(ctx, m, nil)
+				case algorithm.Prevote:
+					m := c.algo.OnTimeoutPrevote(e.Height, e.Round)
+					c.handleResult(ctx, m, nil)
+				case algorithm.Precommit:
+					m, t := c.algo.OnTimeoutPrecommit(e.Height, e.Round)
+					c.handleResult(ctx, m, t)
 				}
-			}
-		case ev, ok := <-c.committedSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			switch ev.Data.(type) {
 			case events.CommitEvent:
-				c.handleCommit(ctx)
+				c.logger.Debug("Received a final committed proposal")
+				lastBlock, _ := c.backend.LastCommittedProposal()
+				height := new(big.Int).Add(lastBlock.Number(), common.Big1)
+				if height.Cmp(c.Height()) == 0 {
+					c.logger.Debug("Discarding event as core is at the same height", "height", c.Height())
+				} else {
+					c.logger.Debug("Received proposal is ahead", "height", c.Height(), "block_height", height)
+					c.updateLatestBlock()
+					m, t := c.algo.StartRound(c.height.Uint64(), 0)
+					c.handleResult(ctx, m, t)
+				}
 			}
 		case <-ctx.Done():
 			c.logger.Info("mainEventLoop is stopped", "event", ctx.Err())
@@ -190,9 +175,8 @@ func (c *core) syncLoop(ctx context.Context) {
 		this method is responsible for asking the network to send us the current consensus state
 		and to process sync queries events.
 	*/
-	timer := time.NewTimer(10 * time.Second)
+	timer := time.NewTimer(20 * time.Second)
 
-	round := c.Round()
 	height := c.Height()
 
 	// Ask for sync when the engine starts
@@ -202,16 +186,14 @@ eventLoop:
 	for {
 		select {
 		case <-timer.C:
-			currentRound := c.Round()
 			currentHeight := c.Height()
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
-			if currentHeight.Cmp(height) == 0 && currentRound == round {
+			if currentHeight.Cmp(height) == 0 {
 				c.backend.AskSync(c.lastHeader)
 			}
-			round = currentRound
 			height = currentHeight
-			timer = time.NewTimer(10 * time.Second)
+			timer = time.NewTimer(20 * time.Second)
 
 		case ev, ok := <-c.syncEventSub.Chan():
 			if !ok {
@@ -232,25 +214,6 @@ eventLoop:
 // sendEvent sends event to mux
 func (c *core) sendEvent(ev interface{}) {
 	c.backend.Post(ev)
-}
-
-type consensusMessageType uint8
-
-func (cmt consensusMessageType) in(types ...uint64) bool {
-	for _, t := range types {
-		if cmt == consensusMessageType(t) {
-			return true
-		}
-	}
-	return false
-}
-
-type consensusMessage struct {
-	msgType    consensusMessageType
-	height     uint64
-	round      int64
-	value      common.Hash
-	validRound int64
 }
 
 func (c *core) handleMsg(ctx context.Context, payload []byte) error {
@@ -279,7 +242,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	var proposal Proposal
 	var preVote Vote
 	var preCommit Vote
-	var conMsg *consensusMessage
+	var conMsg *algorithm.ConsensusMessage
 	switch m.Code {
 	case msgProposal:
 		err := m.Decode(&proposal)
@@ -288,12 +251,12 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		}
 
 		valueHash := proposal.ProposalBlock.Hash()
-		conMsg = &consensusMessage{
-			msgType:    consensusMessageType(m.Code),
-			height:     proposal.Height.Uint64(),
-			round:      proposal.Round,
-			value:      valueHash,
-			validRound: proposal.ValidRound,
+		conMsg = &algorithm.ConsensusMessage{
+			MsgType:    algorithm.Step(m.Code),
+			Height:     proposal.Height.Uint64(),
+			Round:      proposal.Round,
+			Value:      algorithm.ValueID(valueHash),
+			ValidRound: proposal.ValidRound,
 		}
 
 		err = c.msgCache.addMessage(m, conMsg)
@@ -308,11 +271,11 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		if err != nil {
 			return errFailedDecodePrevote
 		}
-		conMsg = &consensusMessage{
-			msgType: consensusMessageType(m.Code),
-			height:  preVote.Height.Uint64(),
-			round:   preVote.Round,
-			value:   preVote.ProposedBlockHash,
+		conMsg = &algorithm.ConsensusMessage{
+			MsgType: algorithm.Step(m.Code),
+			Height:  preVote.Height.Uint64(),
+			Round:   preVote.Round,
+			Value:   algorithm.ValueID(preVote.ProposedBlockHash),
 		}
 
 		err = c.msgCache.addMessage(m, conMsg)
@@ -335,11 +298,11 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		if err != nil {
 			return err
 		}
-		conMsg = &consensusMessage{
-			msgType: consensusMessageType(m.Code),
-			height:  preCommit.Height.Uint64(),
-			round:   preCommit.Round,
-			value:   preCommit.ProposedBlockHash,
+		conMsg = &algorithm.ConsensusMessage{
+			MsgType: algorithm.Step(m.Code),
+			Height:  preCommit.Height.Uint64(),
+			Round:   preCommit.Round,
+			Value:   algorithm.ValueID(preVote.ProposedBlockHash),
 		}
 
 		err = c.msgCache.addMessage(m, conMsg)
@@ -356,7 +319,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// that height. If it is for a previous height then we are not intersted in
 	// it. But it has been added to the msg cache in case other peers would
 	// like to sync it.
-	if conMsg.height != c.Height().Uint64() {
+	if conMsg.Height != c.Height().Uint64() {
 		// Nothing to do here
 		return nil
 	}
@@ -365,7 +328,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 
 }
 
-func (c *core) handleCurrentHeightMessage(m *Message, cm *consensusMessage) error {
+func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMessage) error {
 	/*
 		Domain specific validity checks, now we know that we are at the same
 		height as this message we can rely on lastHeader.
@@ -399,7 +362,7 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *consensusMessage) erro
 	switch m.Code {
 	case msgProposal:
 		// We ignore proposals from non proposers
-		if !c.isProposerMsg(cm.round, m.Address) {
+		if !c.isProposerMsg(cm.Round, m.Address) {
 			c.logger.Warn("Ignore proposal messages from non-proposer")
 			return errNotFromProposer
 
@@ -420,8 +383,8 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *consensusMessage) erro
 			// based on that and never re-process the message again.
 
 			// Proposals values are allowed to be invalid.
-			if _, err := c.backend.VerifyProposal(*c.msgCache.values[cm.value]); err == nil {
-				c.msgCache.setValid(cm.value)
+			if _, err := c.backend.VerifyProposal(*c.msgCache.values[common.Hash(cm.Value)]); err == nil {
+				c.msgCache.setValid(common.Hash(cm.Value))
 			}
 
 		}
@@ -430,8 +393,8 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *consensusMessage) erro
 
 	}
 
-	c.checkUponConditions(cm)
-
+	cm, t := c.algo.ReceiveMessage(cm)
+	c.handleResult(context.Background(), cm, t)
 	return nil
 }
 
@@ -440,101 +403,3 @@ var (
 	voteForValue bool        = false
 	nilValue     common.Hash = common.Hash{}
 )
-
-func (c *core) checkUponConditions(cm *consensusMessage) {
-	r := c.Round()
-	h := c.Height()
-	lh := c.lastHeader
-	s := c.step
-	t := cm.msgType
-
-	// look up matching proposal, in the case of a message with msgType
-	// proposal the matching proposal is the message.
-	p := c.msgCache.matchingProposal(cm)
-
-	// Some of the checks in these upon conditions are omitted because they have alrady been checked.
-	//
-	// - We do not check height because we only execute this code when the
-	// message height matches the current height.
-	//
-	// - We do not check whether the message comes from a proposer since this
-	// is checkded before calling this method and we do not process proposals
-	// from non proposers.
-
-	// Line 22
-	if t.in(msgProposal) && cm.round == r && cm.validRound == -1 && c.step == propose {
-		if c.msgCache.isValid(cm.value) && c.lockedRound == -1 || c.lockedValue.Hash() == cm.value {
-			c.sendPrevote(nil, voteForValue)
-		} else {
-			c.sendPrevote(nil, voteForNil)
-		}
-	}
-
-	// Line 28
-	if t.in(msgProposal, msgPrevote) && p != nil && p.round == r && c.msgCache.prevoteQuorum(&p.value, p.validRound, lh) && s == propose && (p.validRound >= 0 && p.validRound < r) {
-		if c.msgCache.isValid(p.value) && (c.lockedRound <= p.validRound || c.lockedValue.Hash() == p.value) {
-			c.sendPrevote(nil, voteForValue)
-		} else {
-			c.sendPrevote(nil, voteForNil)
-		}
-	}
-
-	// Line 34
-	if t.in(msgPrevote) && cm.round == r && c.msgCache.prevoteQuorum(nil, r, lh) && s == prevote && !c.line34Executed {
-		c.prevoteTimeout.scheduleTimeout(c.timeoutPrevote(r), r, h, c.onTimeoutPrecommit)
-	}
-
-	// Line 36
-	if t.in(msgProposal, msgPrevote) && p != nil && p.round == r && c.msgCache.prevoteQuorum(&p.value, r, lh) && c.msgCache.isValid(p.value) && s >= prevote && !c.line36Executed {
-		block := c.msgCache.value(p.value) // TODO remove references to block from core
-		if s == prevote {
-			c.lockedValue = block
-			c.lockedRound = r
-			c.sendPrecommit(nil, voteForValue)
-			s = precommit
-			c.step = s
-		}
-		c.validValue = block
-		c.validRound = r
-	}
-
-	// Line 44
-	if t.in(msgPrevote) && cm.round == r && c.msgCache.prevoteQuorum(&nilValue, r, lh) && s == prevote {
-		c.sendPrecommit(nil, voteForValue)
-		s = precommit
-		c.step = s
-	}
-
-	// Line 47
-	if t.in(msgPrecommit) && cm.round == r && c.msgCache.precommitQuorum(nil, r, lh) && !c.line47Executed {
-		c.precommitTimeout.scheduleTimeout(c.timeoutPrecommit(r), r, h, c.onTimeoutPrecommit)
-	}
-
-	// Line 49
-	if t.in(msgProposal, msgPrecommit) && p != nil && c.msgCache.precommitQuorum(&p.value, p.round, lh) {
-		if c.msgCache.isValid(p.value) {
-			block := c.msgCache.value(p.value) // TODO remove references to block from core
-			c.commit(block, p.round)
-			c.setHeight(block.Number().Add(block.Number(), big.NewInt(1)))
-			c.lockedRound = -1
-			c.lockedValue = nil
-			c.validRound = -1
-			c.validValue = nil
-		}
-
-		// Not quite sure how to start the round nicely
-		// need to ensure that we don't stack overflow in the case that the
-		// next height messages are sufficient for consensus when we
-		// process them and so on and so on.  So I need to set the start
-		// round states and then queue the messages for processing. And I
-		// need to ensure that I get a list of messages to process in an
-		// atomic step from the msg cache so that I don't end up trying to
-		// process the same message twice.
-	}
-
-	// Line 55
-	if cm.round > r && c.msgCache.fail(cm.round, lh) {
-		// StartRound(cm.round)
-	}
-
-}

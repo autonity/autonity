@@ -1,15 +1,7 @@
 package core
 
 import (
-	"context"
 	"testing"
-
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/golang/mock/gomock"
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
@@ -151,26 +143,26 @@ func TestHandleCheckedMessage(t *testing.T) {
 	//}
 }
 
-func TestCoreStopDoesntPanic(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	addr := common.HexToAddress("0x0123456789")
+// func TestCoreStopDoesntPanic(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
+// 	addr := common.HexToAddress("0x0123456789")
 
-	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().AnyTimes().Return(addr)
+// 	backendMock := NewMockBackend(ctrl)
+// 	backendMock.EXPECT().Address().AnyTimes().Return(addr)
 
-	logger := log.New("testAddress", "0x0000")
-	eMux := event.NewTypeMuxSilent(logger)
-	sub := eMux.Subscribe(events.MessageEvent{})
+// 	logger := log.New("testAddress", "0x0000")
+// 	eMux := event.NewTypeMuxSilent(logger)
+// 	sub := eMux.Subscribe(events.MessageEvent{})
 
-	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)
+// 	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)
 
-	c := New(backendMock, config.DefaultConfig())
-	_, c.cancel = context.WithCancel(context.Background())
-	c.subscribeEvents()
-	c.stopped <- struct{}{}
-	c.stopped <- struct{}{}
-	c.stopped <- struct{}{}
+// 	c := New(backendMock, config.DefaultConfig())
+// 	_, c.cancel = context.WithCancel(context.Background())
+// 	c.subscribeEvents()
+// 	c.stopped <- struct{}{}
+// 	c.stopped <- struct{}{}
+// 	c.stopped <- struct{}{}
 
-	c.Stop()
-}
+// 	c.Stop()
+// }

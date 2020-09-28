@@ -36,7 +36,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	if isNil {
 		precommit.ProposedBlockHash = common.Hash{}
 	} else {
-		hash := c.msgCache.proposal(c.Height().Uint64(), c.Round(), c.committee.GetProposer(c.Round()).Address).value
+		hash := c.msgCache.proposal(c.Height().Uint64(), c.Round(), c.committee.GetProposer(c.Round()).Address).Value
 		if hash == (common.Hash{}) {
 			c.logger.Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
@@ -90,15 +90,6 @@ func (c *core) verifyCommittedSeal(addressMsg common.Address, committedSealMsg [
 }
 
 func (c *core) handleCommit(ctx context.Context) {
-	c.logger.Debug("Received a final committed proposal", "step", c.step)
-	lastBlock, _ := c.backend.LastCommittedProposal()
-	height := new(big.Int).Add(lastBlock.Number(), common.Big1)
-	if height.Cmp(c.Height()) == 0 {
-		c.logger.Debug("Discarding event as core is at the same height", "height", c.Height())
-	} else {
-		c.logger.Debug("Received proposal is ahead", "height", c.Height(), "block_height", height)
-		c.startRound(ctx, 0)
-	}
 }
 
 func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to string) {
