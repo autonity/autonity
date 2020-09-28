@@ -38,6 +38,13 @@ const (
 	TimeoutCommit
 )
 
+type Timeout struct {
+	timeoutType Step
+	delay       uint
+	height      uint64
+	round       int64
+}
+
 // Note that whenever a broadcast occurs in the whitepaper it is accompanied by a step change.
 // So if we imagine that we want to represent the outcome of condition of line 22
 // We return a Result showing
@@ -121,16 +128,22 @@ func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
 	if msgType == Propose {
 		cm.ValidRound = a.validRound
 	}
-	return msg
-	//a.sender.Send(cm)
+	return cm
+}
+
+func (a *Algorithm) timeout(msgType Step) *Timeout {
+	return &Timeout{
+		timeoutType: Propose,
+		height:      a.height,
+		round:       a.round,
+	}
 }
 
 // Message sent + stepchange to propose (not sure we really care about the step change)
 // Schedule timeout propose (send a prevote for nil after some time)
-func (a *Algorithm) StartRound(round int64, o Oracle) Result {
+func (a *Algorithm) StartRound(round int64, o Oracle) (*ConsensusMessage, *Timeout) {
 	a.round = round
 	a.step = Propose
-	var m *ConsensusMessage
 	if o.Proposer(a.nodeId) {
 		var v ValueID
 		if a.validValue != nilValue {
@@ -138,9 +151,9 @@ func (a *Algorithm) StartRound(round int64, o Oracle) Result {
 		} else {
 			v = o.Value()
 		}
-		m = a.msg(Propose, v)
+		return a.msg(Propose, v), nil
 	} else {
-		// Schedule on timout propose
+		return nil, a.timeout(Propose)
 	}
 }
 
@@ -152,7 +165,7 @@ func (a *Algorithm) StartRound(round int64, o Oracle) Result {
 //
 // Could we say that we schedule a message sending and a step change at some delay, that delay may be zero.
 
-func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) Result {
+func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) (*ConsensusMessage, *Timeout) {
 
 	r := a.round
 	s := a.step
@@ -269,7 +282,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) Result {
 			a.validRound = -1
 			a.validValue = nilValue
 		}
-		a.StartRound(0)
+		a.StartRound(0, o)
 
 		// Not quite sure how to start the round nicely
 		// need to ensure that we don't stack overflow in the case that the
@@ -289,15 +302,28 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) Result {
 		// round. in the conditon at line 28. This means that we only should
 		// clean the message cache when there is a height change, clearing out
 		// all messages for the height.
-		a.StartRound(cm.Round)
+		a.StartRound(cm.Round, o)
 	}
+	return nil, nil
 }
 
-func (a *Algorithm) onTimeoutPropose(o Oracle) Result {
+func (a *Algorithm) onTimeoutPropose(height uint64, round int64, o Oracle) *ConsensusMessage {
+	if height == a.height && round == a.round {
+
+	}
+	return nil
 }
-func (a *Algorithm) onTimeoutPrevote(o Oracle) Result {
+func (a *Algorithm) onTimeoutPrevote(height uint64, round int64, o Oracle) *ConsensusMessage {
+	if height == a.height && round == a.round {
+
+	}
+	return nil
 }
-func (a *Algorithm) onTimeoutPrecommit(o Oracle) Result {
+func (a *Algorithm) onTimeoutPrecommit(height uint64, round int64, o Oracle) (*ConsensusMessage, *Timeout) {
+	if height == a.height && round == a.round {
+
+	}
+	return nil, nil
 }
 
 func (a *Algorithm) SendMessage() {
