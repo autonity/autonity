@@ -48,8 +48,16 @@ const (
 // Messsage: The prevote
 //}
 // So lets consider outcomes that don't involve a messagae
-// So the outcome of the condition at line 49 (deciding a value)
+// So the outcome of the condition at line 49 (deciding a value) (hmm locked round and value and valid round and value change)
 //
+// Its difficult to represent because if we change the height we need to change
+// the step and round, but changeing the step should be done in startRound if
+// we don't change the height then we don't need to change the step, but the
+// algo says we should change height, weve reset the locked valuse too, and all
+// this should happend syncronously, so actually we must call start round here,
+// but then we return the result of start round. which is height round step and a message. that can be dealt with asyncronously. or its a timeout.
+//
+// What about the condition at line 55 again this calls start round. Boom I think this is it now I just have to handle broadcast of messages and timeouts.
 type Result struct {
 	Transition StateTransition
 	Height     uint64
