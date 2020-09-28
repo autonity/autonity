@@ -23,62 +23,11 @@ func (s Step) in(steps ...Step) bool {
 	return false
 }
 
-type StateTransition uint8
-
-type ActionType uint8
-
-const (
-	NewHeight StateTransition = iota
-	NewRound
-	NewStep
-
-	Broadcast ActionType = iota
-	TimeoutPropose
-	TimeoutPrevote
-	TimeoutCommit
-)
-
 type Timeout struct {
 	timeoutType Step
 	delay       uint
 	height      uint64
 	round       int64
-}
-
-// Note that whenever a broadcast occurs in the whitepaper it is accompanied by a step change.
-// So if we imagine that we want to represent the outcome of condition of line 22
-// We return a Result showing
-//{
-// Transition: NewStep
-// Height: the current height
-// round: the current round
-// Messsage: The prevote
-//}
-//
-// But actually the height round and step info is in the message too!
-//
-// So we could do We don't need anything else
-//{
-// Messsage: The prevote
-//}
-// So lets consider outcomes that don't involve a messagae
-// So the outcome of the condition at line 49 (deciding a value) (hmm locked round and value and valid round and value change)
-//
-// Its difficult to represent because if we change the height we need to change
-// the step and round, but changeing the step should be done in startRound if
-// we don't change the height then we don't need to change the step, but the
-// algo says we should change height, weve reset the locked valuse too, and all
-// this should happend syncronously, so actually we must call start round here,
-// but then we return the result of start round. which is height round step and a message. that can be dealt with asyncronously. or its a timeout.
-//
-// What about the condition at line 55, again this calls start round. Boom I
-// think this is it now I just have to handle broadcast of messages and
-// timeouts.
-
-type Result struct {
-	Action  ActionType
-	Message ConsensusMessage
-	delay   uint
 }
 
 type ConsensusMessage struct {
@@ -89,8 +38,17 @@ type ConsensusMessage struct {
 	ValidRound int64
 }
 
-type Sender interface {
-	Send(cm *ConsensusMessage)
+// Oracle is used to answer questions the algorithm may have about its
+// state, such as 'Am I the proposer' or 'Have i reached prevote quorum
+// threshold for value with id v?'
+type Oracle interface {
+	Valid(ValueID) bool
+	MatchingProposal(*ConsensusMessage) *ConsensusMessage
+	PrevoteQThresh(round int64, value *ValueID) bool
+	PrecommitQThresh(round int64, value *ValueID) bool
+	FThresh(round int64, value *ValueID) bool
+	Proposer(NodeID) bool
+	Value() ValueID
 }
 
 type Algorithm struct {
@@ -102,30 +60,20 @@ type Algorithm struct {
 	lockedValue    ValueID
 	validRound     int64
 	validValue     ValueID
-	sender         Sender
 	line34Executed bool
 	line36Executed bool
 	line47Executed bool
-}
-
-type Oracle interface {
-	Valid(ValueID) bool
-	MatchingProposal(*ConsensusMessage) *ConsensusMessage
-	PrevoteQThresh(round int64, value *ValueID) bool
-	PrecommitQThresh(round int64, value *ValueID) bool
-	FThresh(round int64, value *ValueID) bool
-	Proposer(NodeID) bool
-	Value() ValueID
+	oracle         Oracle
 }
 
 func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
 	cm := &ConsensusMessage{
-		MsgType: msgType,
+		MsgType: a.step,
 		Height:  a.height,
 		Round:   a.round,
 		Value:   value,
 	}
-	if msgType == Propose {
+	if a.step == Propose {
 		cm.ValidRound = a.validRound
 	}
 	return cm
@@ -136,20 +84,27 @@ func (a *Algorithm) timeout(msgType Step) *Timeout {
 		timeoutType: Propose,
 		height:      a.height,
 		round:       a.round,
+		delay:       1, // todo
 	}
 }
 
-// Message sent + stepchange to propose (not sure we really care about the step change)
-// Schedule timeout propose (send a prevote for nil after some time)
-func (a *Algorithm) StartRound(round int64, o Oracle) (*ConsensusMessage, *Timeout) {
+// Start round takes the round to start, clears the first time flags and then
+// either broadcasts a proposal if this node is the proposer, or schedules a
+// proposal timeout.
+func (a *Algorithm) StartRound(round int64) (*ConsensusMessage, *Timeout) {
+	// Reset first time flags
+	a.line34Executed = false
+	a.line36Executed = false
+	a.line47Executed = false
+
 	a.round = round
 	a.step = Propose
-	if o.Proposer(a.nodeId) {
+	if a.oracle.Proposer(a.nodeId) {
 		var v ValueID
 		if a.validValue != nilValue {
 			v = a.validValue
 		} else {
-			v = o.Value()
+			v = a.oracle.Value()
 		}
 		return a.msg(Propose, v), nil
 	} else {
@@ -157,18 +112,16 @@ func (a *Algorithm) StartRound(round int64, o Oracle) (*ConsensusMessage, *Timeo
 	}
 }
 
-// MessageSent prevote + stepchange propose to prevote
-// schedule TimeoutPrevote (send a precommit for nil after some time)
-// MessageSent precommit + stepchange prevote to precommit
-// schedule TimeoutPrecommit (start round, round +1)
-// Move to next height
-//
-// Could we say that we schedule a message sending and a step change at some delay, that delay may be zero.
-
-func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) (*ConsensusMessage, *Timeout) {
+// ReceiveMessage processes a consensus message and returns a ConsensusMessage
+// or Timeout, indicating that either the message should be broadcast or that
+// the timeout should be scheduled. At most one of the return values can be non
+// nil, but it is possible for both to be nil in the case that the processed
+// messge does not result in a state change.
+func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Timeout) {
 
 	r := a.round
 	s := a.step
+	o := a.oracle
 	t := cm.MsgType
 
 	// look up matching proposal, in the case of a message with msgType
@@ -183,93 +136,61 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) (*ConsensusMe
 	// - We do not check whether the message comes from a proposer since this
 	// is checkded before calling this method and we do not process proposals
 	// from non proposers.
-
-	// thinking about returning early from this method in order to pass
-	// information  back to the caller in order to let them react
-	// appropriately.
 	//
-	// The problem with returning early is that we skip certain checks for
-	// certain messages. so imagine I have 2f+1 prevotes vor v and 2f+1
-	// precommits for v. If I get a proposal for v and I exit at line 22 then
-	// I've lost my chance to confirm or commit v. Unless I get v sent to me
-	// again.
-	//
-	// So basically I must process all checks, but can I just send the final
-	// set of parameters and state at the end of the method rather than sending
-	// all the in-between messages.
-	//
-	// Ok this looks like it could work here if I don't execute StartRound from
-	// ReceiveMessage. This limits me to either senidng a prevote or a
-	// precommit, and a precommit will always supercede a prevote, so It's
-	// actually a good optimisation to be able to drop sending a prevote
-	// message if we were already going to send a precommit.
-	//
-	// We could probably optimise this further by re-aranging the upon
-	// conditions so that the precommits come first and then the prevotes, then
-	// we could return early, because precommit supercetedes a prevote.
-	//
-	// What would we return. Could return the step to indicate what step we achieved and the round to indicate what round we are at. and a message to indicate the last message sent.
-	//
-	// Just realised we do not need to worry about step changes in the state
-	// because each time there is a step change we broadcast a message which if
-	// we process will hit the conditions that we would need to re-consider as
-	// part of the step change.
-	//
-	// So if we want to return something on a step change or round change. or a timeout
-	// schedule, looks like we need to return target round, if round is
-	// changing, the message to be sent if one
-	// round, step
+	// The upon conditions have been re-ordered such that those with outcomes
+	// that would supercede the oucome of others come before the others.
+	// Specifically the upon conditions for a given step that schedule
+	// timeouts, have been moved after the upon conditions for that step that
+	// would result in broadcasting a message for a value other than nil or
+	// deciding on a value. This ensures that we are able to return when we
+	// find a condition that has been met, becuase we know that the result of
+	// this condition will supercede results from other later conditions that
+	// may have been met. This approach will hopefully go someway to cutting
+	// down unneccesary network traffic between nodes.
 
 	// Line 22
 	if t.in(Propose) && cm.Round == r && cm.ValidRound == -1 && s == Propose {
-		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
-			a.msg(Prevote, cm.Value)
-		} else {
-			a.msg(Prevote, nilValue)
-		}
 		a.step = Prevote
-		s = Prevote
+		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
+			return a.msg(Prevote, cm.Value), nil
+		} else {
+			return a.msg(Prevote, nilValue), nil
+		}
 	}
 
 	// Line 28
 	if t.in(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(p.ValidRound, &p.Value) && s == Propose && (p.ValidRound >= 0 && p.ValidRound < r) {
-		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
-			a.msg(Prevote, p.Value)
-		} else {
-			a.msg(Prevote, nilValue)
-		}
 		a.step = Prevote
-		s = Prevote
-	}
-
-	// Line 34
-	if t.in(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
-		//c.prevoteTimeout.scheduleTimeout(c.timeoutPrevote(r), r, h, c.onTimeoutPrecommit)
+		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
+			return a.msg(Prevote, p.Value), nil
+		} else {
+			return a.msg(Prevote, nilValue), nil
+		}
 	}
 
 	// Line 36
 	if t.in(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(r, &p.Value) && o.Valid(p.Value) && s >= Prevote && !a.line36Executed {
+		a.line36Executed = true
 		if s == Prevote {
 			a.lockedValue = p.Value
 			a.lockedRound = r
-			a.msg(Precommit, p.Value)
-			s = Precommit // TODO set steps in all situations where we set the steps
 			a.step = Precommit
 		}
 		a.validValue = p.Value
 		a.validRound = r
+		return a.msg(Precommit, p.Value), nil
 	}
 
 	// Line 44
 	if t.in(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &nilValue) && s == Prevote {
-		a.msg(Precommit, nilValue)
-		s = Precommit
 		a.step = Precommit
+		return a.msg(Precommit, nilValue), nil
 	}
 
-	// Line 47
-	if t.in(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
-		//c.precommitTimeout.scheduleTimeout(c.timeoutPrecommit(r), r, h, c.onTimeoutPrecommit) // TODO handle the timers
+	// Line 34
+	if t.in(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
+		a.line34Executed = true
+		return nil, a.timeout(Prevote)
 	}
 
 	// Line 49
@@ -282,16 +203,13 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) (*ConsensusMe
 			a.validRound = -1
 			a.validValue = nilValue
 		}
-		a.StartRound(0, o)
+		return a.StartRound(0)
+	}
 
-		// Not quite sure how to start the round nicely
-		// need to ensure that we don't stack overflow in the case that the
-		// next height messages are sufficient for consensus when we
-		// process them and so on and so on. So I need to set the start
-		// round states and then queue the messages for processing. And I
-		// need to ensure that I get a list of messages to process in an
-		// atomic step from the msg cache so that I don't end up trying to
-		// process the same message twice.
+	// Line 47
+	if t.in(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
+		a.line47Executed = true
+		return nil, a.timeout(Precommit)
 	}
 
 	// Line 55
@@ -302,29 +220,28 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) (*ConsensusMe
 		// round. in the conditon at line 28. This means that we only should
 		// clean the message cache when there is a height change, clearing out
 		// all messages for the height.
-		a.StartRound(cm.Round, o)
+		return a.StartRound(cm.Round)
 	}
 	return nil, nil
 }
 
-func (a *Algorithm) onTimeoutPropose(height uint64, round int64, o Oracle) *ConsensusMessage {
-	if height == a.height && round == a.round {
-
+func (a *Algorithm) onTimeoutPropose(height uint64, round int64) *ConsensusMessage {
+	if height == a.height && round == a.round && a.step == Propose {
+		a.step = Prevote
+		return a.msg(Prevote, nilValue)
 	}
 	return nil
 }
-func (a *Algorithm) onTimeoutPrevote(height uint64, round int64, o Oracle) *ConsensusMessage {
-	if height == a.height && round == a.round {
-
+func (a *Algorithm) onTimeoutPrevote(height uint64, round int64) *ConsensusMessage {
+	if height == a.height && round == a.round && a.step == Prevote {
+		a.step = Precommit
+		return a.msg(Precommit, nilValue)
 	}
 	return nil
 }
-func (a *Algorithm) onTimeoutPrecommit(height uint64, round int64, o Oracle) (*ConsensusMessage, *Timeout) {
+func (a *Algorithm) onTimeoutPrecommit(height uint64, round int64) (*ConsensusMessage, *Timeout) {
 	if height == a.height && round == a.round {
-
+		return a.StartRound(a.round + 1)
 	}
 	return nil, nil
-}
-
-func (a *Algorithm) SendMessage() {
 }
