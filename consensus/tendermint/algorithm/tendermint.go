@@ -14,9 +14,9 @@ const (
 	Precommit
 )
 
-func (s *Step) in(steps ...Step) bool {
+func (s Step) In(steps ...Step) bool {
 	for _, step := range steps {
-		if *s == step {
+		if s == step {
 			return true
 		}
 	}
@@ -161,7 +161,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 	// down unneccesary network traffic between nodes.
 
 	// Line 22
-	if t.in(Propose) && cm.Round == r && cm.ValidRound == -1 && s == Propose {
+	if t.In(Propose) && cm.Round == r && cm.ValidRound == -1 && s == Propose {
 		a.step = Prevote
 		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
 			return a.msg(Prevote, cm.Value), nil
@@ -171,7 +171,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 	}
 
 	// Line 28
-	if t.in(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(p.ValidRound, &p.Value) && s == Propose && (p.ValidRound >= 0 && p.ValidRound < r) {
+	if t.In(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(p.ValidRound, &p.Value) && s == Propose && (p.ValidRound >= 0 && p.ValidRound < r) {
 		a.step = Prevote
 		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
 			return a.msg(Prevote, p.Value), nil
@@ -181,7 +181,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 	}
 
 	// Line 36
-	if t.in(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(r, &p.Value) && o.Valid(p.Value) && s >= Prevote && !a.line36Executed {
+	if t.In(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(r, &p.Value) && o.Valid(p.Value) && s >= Prevote && !a.line36Executed {
 		a.line36Executed = true
 		if s == Prevote {
 			a.lockedValue = p.Value
@@ -194,19 +194,19 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 	}
 
 	// Line 44
-	if t.in(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &nilValue) && s == Prevote {
+	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &nilValue) && s == Prevote {
 		a.step = Precommit
 		return a.msg(Precommit, nilValue), nil
 	}
 
 	// Line 34
-	if t.in(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
+	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
 		a.line34Executed = true
 		return nil, a.timeout(Prevote)
 	}
 
 	// Line 49
-	if t.in(Propose, Precommit) && p != nil && o.PrecommitQThresh(p.Round, &p.Value) {
+	if t.In(Propose, Precommit) && p != nil && o.PrecommitQThresh(p.Round, &p.Value) {
 		if o.Valid(p.Value) {
 			// TODO commit here commit(p.Value)
 			a.height++
@@ -219,7 +219,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 	}
 
 	// Line 47
-	if t.in(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
+	if t.In(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
 		a.line47Executed = true
 		return nil, a.timeout(Precommit)
 	}

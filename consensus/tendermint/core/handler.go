@@ -38,7 +38,7 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 	ctx, c.cancel = context.WithCancel(ctx)
 
 	// Subscribe
-	c.eventsSub = c.backend.Subscribe(events.MessageEvent{}, events.NewUnminedBlockEvent{}, TimeoutEvent{}, events.CommitEvent{})
+	c.eventsSub = c.backend.Subscribe(events.MessageEvent{}, events.NewUnminedBlockEvent{}, &algorithm.ConsensusMessage{}, &algorithm.Timeout{}, events.CommitEvent{})
 	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 
 	// core.height needs to be set beforehand for unmined block's logic.
@@ -57,13 +57,7 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 func (c *core) Stop() {
 	c.logger.Info("stopping tendermint.core", "addr", c.address.String())
 
-	_ = c.proposeTimeout.stopTimer()
-	_ = c.prevoteTimeout.stopTimer()
-	_ = c.precommitTimeout.stopTimer()
-
 	c.cancel()
-
-	c.stopFutureProposalTimer()
 
 	// Unsubscribe
 	c.eventsSub.Unsubscribe()
@@ -102,7 +96,8 @@ func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage, 
 	}
 	switch {
 	case m != nil:
-		go c.broadcast(ctx, m) // TODO should make broadcast send to self
+		go c.broadcast(ctx, m)
+		go c.backend.Post(m)
 	case t != nil:
 		time.AfterFunc(time.Duration(t.Delay)*time.Second, func() {
 			c.backend.Post(t)
@@ -136,6 +131,12 @@ eventLoop:
 					continue
 				}
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
+			case *algorithm.ConsensusMessage:
+				// This is a message we sent ourselves we do not need to broadcast it
+				if c.Height().Uint64() == e.Height {
+					m, t := c.algo.ReceiveMessage(e)
+					c.handleResult(ctx, m, t)
+				}
 			case *algorithm.Timeout:
 				switch e.TimeoutType {
 				case algorithm.Propose:
@@ -209,11 +210,6 @@ eventLoop:
 	}
 
 	c.stopped <- struct{}{}
-}
-
-// sendEvent sends event to mux
-func (c *core) sendEvent(ev interface{}) {
-	c.backend.Post(ev)
 }
 
 func (c *core) handleMsg(ctx context.Context, payload []byte) error {

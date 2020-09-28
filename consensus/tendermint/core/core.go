@@ -87,9 +87,6 @@ func New(backend Backend, config *config.Config) *core {
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
 		committee:             nil,
-		proposeTimeout:        newTimeout(propose, logger),
-		prevoteTimeout:        newTimeout(prevote, logger),
-		precommitTimeout:      newTimeout(precommit, logger),
 	}
 }
 
@@ -122,10 +119,6 @@ type core struct {
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	stateMu sync.RWMutex
-
-	proposeTimeout   *timeout
-	prevoteTimeout   *timeout
-	precommitTimeout *timeout
 
 	autonityContract *autonity.Contract
 
@@ -311,4 +304,23 @@ func (c *core) committeeSet() committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committee
+}
+
+func (c *core) verifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error {
+	committedSeal := PrepareCommittedSeal(proposedBlockHash, round, height)
+
+	sealerAddress, err := types.GetSignatureAddress(committedSeal, committedSealMsg)
+	if err != nil {
+		c.logger.Error("Failed to get signer address", "err", err)
+		return err
+	}
+
+	// ensure sender signed the committed seal
+	if !bytes.Equal(sealerAddress.Bytes(), addressMsg.Bytes()) {
+		c.logger.Error("verify precommit seal error", "got", addressMsg.String(), "expected", sealerAddress.String())
+
+		return errInvalidSenderOfCommittedSeal
+	}
+
+	return nil
 }

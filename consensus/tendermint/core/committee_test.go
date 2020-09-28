@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var maxSize = 100
+
 func TestNewRoundRobinSet(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSet = func(t *testing.T, n int64) {

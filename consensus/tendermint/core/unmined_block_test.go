@@ -16,8 +16,6 @@ func TestStoreUnminedBlockMsg(t *testing.T) {
 		c := &core{
 			logger: log.New("backend", "test", "id", 0),
 			height: big.NewInt(4),
-			round:  2,
-			step:   prevote,
 		}
 
 		unminedBlock := types.NewBlockWithHeader(&types.Header{})
@@ -31,7 +29,6 @@ func TestStoreUnminedBlockMsg(t *testing.T) {
 	t.Run("valid block given, block is stored", func(t *testing.T) {
 		c := &core{
 			logger:               log.New("backend", "test", "id", 0),
-			round:                2,
 			height:               big.NewInt(4),
 			pendingUnminedBlocks: make(map[uint64]*types.Block),
 		}
@@ -51,7 +48,6 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 		unminedBlocks := make(map[uint64]*types.Block)
 		unminedBlocks[anOldBlock.NumberU64()] = anOldBlock
 		c := &core{
-			round:                2,
 			height:               big.NewInt(3),
 			pendingUnminedBlocks: unminedBlocks,
 		}
@@ -66,7 +62,6 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 	t.Run("wait for unmined block, new block added", func(t *testing.T) {
 		pendingUnminedBlockCh := make(chan *types.Block, 1)
 		c := &core{
-			round:                    2,
 			height:                   big.NewInt(3),
 			pendingUnminedBlocks:     make(map[uint64]*types.Block),
 			pendingUnminedBlockCh:    pendingUnminedBlockCh,
@@ -98,7 +93,6 @@ func TestGetUnminedBlock(t *testing.T) {
 		unminedBlocks := make(map[uint64]*types.Block)
 		unminedBlocks[expectedBlock.NumberU64()] = expectedBlock
 		c := &core{
-			round:                1,
 			height:               big.NewInt(1),
 			pendingUnminedBlocks: unminedBlocks,
 		}
@@ -111,7 +105,6 @@ func TestGetUnminedBlock(t *testing.T) {
 
 	t.Run("block does not exist", func(t *testing.T) {
 		c := &core{
-			round:                1,
 			height:               big.NewInt(1),
 			pendingUnminedBlocks: make(map[uint64]*types.Block),
 		}
@@ -126,7 +119,6 @@ func TestGetUnminedBlock(t *testing.T) {
 func TestCheckUnminedBlockMsg(t *testing.T) {
 	t.Run("valid block is given, nil returned", func(t *testing.T) {
 		c := &core{
-			round:  1,
 			height: big.NewInt(2),
 		}
 
@@ -148,7 +140,6 @@ func TestCheckUnminedBlockMsg(t *testing.T) {
 
 	t.Run("old block is given, error returned", func(t *testing.T) {
 		c := &core{
-			round:  1,
 			height: big.NewInt(2),
 		}
 
@@ -161,7 +152,6 @@ func TestCheckUnminedBlockMsg(t *testing.T) {
 
 	t.Run("future block is given, error returned", func(t *testing.T) {
 		c := &core{
-			round:  1,
 			height: big.NewInt(1),
 		}
 

@@ -237,7 +237,7 @@ func (m *messageCache) votePower(
 ) uint64 {
 
 	// Only prevotes and precommits impart vote power.
-	if msgType != nil && !msgType.in(msgPrevote, msgPrecommit) {
+	if msgType != nil && !msgType.In(algorithm.Prevote, algorithm.Precommit) {
 		panic(fmt.Sprintf(
 			"Unexpected msgType %d, expecting either %d or %d",
 			*msgType,
@@ -264,7 +264,7 @@ func (m *messageCache) votePower(
 			}
 
 			// Skip messages with differing values
-			if valueHash != nil && *valueHash != m.consensusMsgs[msgHash].Value {
+			if valueHash != nil && *valueHash != common.Hash(m.consensusMsgs[msgHash].Value) {
 				continue
 			}
 			// Now either value hash is nil (matches everything) or it actually matches the msg's value.
@@ -275,21 +275,21 @@ func (m *messageCache) votePower(
 }
 
 func addMsgHash(
-	hashes map[uint64]map[int64]map[consensusMessageType]map[common.Address]common.Hash,
+	hashes map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash,
 	height uint64,
 	round int64,
-	msgType consensusMessageType,
+	msgType algorithm.Step,
 	address common.Address,
 	hash common.Hash,
 ) error {
 	// todo check bounds
 	roundMap, ok := hashes[height]
 	if !ok {
-		roundMap = make(map[int64]map[consensusMessageType]map[common.Address]common.Hash)
+		roundMap = make(map[int64]map[algorithm.Step]map[common.Address]common.Hash)
 	}
 	msgTypeMap, ok := roundMap[round]
 	if !ok {
-		msgTypeMap = make(map[consensusMessageType]map[common.Address]common.Hash)
+		msgTypeMap = make(map[algorithm.Step]map[common.Address]common.Hash)
 	}
 	addressMap, ok := msgTypeMap[msgType]
 	if !ok {
@@ -299,7 +299,7 @@ func addMsgHash(
 	return nil
 }
 
-func (m *messageCache) addMessage(msg *Message, cm *consensusMessage) error {
+func (m *messageCache) addMessage(msg *Message, cm *algorithm.ConsensusMessage) error {
 	err := addMsgHash(m.msgHashes, cm.Height, cm.Round, cm.MsgType, msg.Address, msg.Hash)
 	if err != nil {
 		return err
@@ -325,7 +325,7 @@ func (m *messageCache) isValid(itemHash common.Hash) bool {
 	return ok
 }
 
-type messageProcessor func(cm *consensusMessage) error
+type messageProcessor func(cm *algorithm.ConsensusMessage) error
 
 func (m *messageCache) roundMessages(height uint64, round int64, p messageProcessor) error {
 	for _, addressMap := range m.msgHashes[height][round] {
@@ -341,15 +341,15 @@ func (m *messageCache) roundMessages(height uint64, round int64, p messageProces
 	return nil
 }
 
-func (m *messageCache) proposal(height uint64, round int64, proposer common.Address) *consensusMessage {
-	return m.consensusMsgs[m.msgHashes[height][round][consensusMessageType(msgProposal)][proposer]]
+func (m *messageCache) proposal(height uint64, round int64, proposer common.Address) *algorithm.ConsensusMessage {
+	return m.consensusMsgs[m.msgHashes[height][round][algorithm.Step(msgProposal)][proposer]]
 }
 
-func (m *messageCache) matchingProposal(cm *consensusMessage) *consensusMessage {
-	if cm.MsgType == consensusMessageType(msgProposal) {
+func (m *messageCache) matchingProposal(cm *algorithm.ConsensusMessage) *algorithm.ConsensusMessage {
+	if cm.MsgType == algorithm.Step(msgProposal) {
 		return cm
 	}
-	for _, proposalHash := range m.msgHashes[cm.Height][cm.Round][consensusMessageType(msgProposal)] {
+	for _, proposalHash := range m.msgHashes[cm.Height][cm.Round][algorithm.Step(msgProposal)] {
 		proposal := m.consensusMsgs[proposalHash]
 		if proposal.Value == cm.Value {
 			return proposal
