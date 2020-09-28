@@ -25,10 +25,17 @@ func (s Step) in(steps ...Step) bool {
 
 type StateTransition uint8
 
+type ActionType uint8
+
 const (
 	NewHeight StateTransition = iota
 	NewRound
 	NewStep
+
+	Broadcast ActionType = iota
+	TimeoutPropose
+	TimeoutPrevote
+	TimeoutCommit
 )
 
 // Note that whenever a broadcast occurs in the whitepaper it is accompanied by a step change.
@@ -57,12 +64,14 @@ const (
 // this should happend syncronously, so actually we must call start round here,
 // but then we return the result of start round. which is height round step and a message. that can be dealt with asyncronously. or its a timeout.
 //
-// What about the condition at line 55 again this calls start round. Boom I think this is it now I just have to handle broadcast of messages and timeouts.
+// What about the condition at line 55, again this calls start round. Boom I
+// think this is it now I just have to handle broadcast of messages and
+// timeouts.
+
 type Result struct {
-	Transition StateTransition
-	Height     uint64
-	Round      int64
-	Message    *ConsensusMessage
+	Action  ActionType
+	Message ConsensusMessage
+	delay   uint
 }
 
 type ConsensusMessage struct {
@@ -143,7 +152,7 @@ func (a *Algorithm) StartRound(round int64, o Oracle) Result {
 //
 // Could we say that we schedule a message sending and a step change at some delay, that delay may be zero.
 
-func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) {
+func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) Result {
 
 	r := a.round
 	s := a.step
@@ -282,6 +291,13 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage, o Oracle) {
 		// all messages for the height.
 		a.StartRound(cm.Round)
 	}
+}
+
+func (a *Algorithm) onTimeoutPropose(o Oracle) Result {
+}
+func (a *Algorithm) onTimeoutPrevote(o Oracle) Result {
+}
+func (a *Algorithm) onTimeoutPrecommit(o Oracle) Result {
 }
 
 func (a *Algorithm) SendMessage() {
