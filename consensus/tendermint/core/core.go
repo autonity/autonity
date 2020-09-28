@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
@@ -40,17 +39,9 @@ var (
 	// errNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
-	// errFutureHeightMessage is returned when curRoundMessages view is earlier than the
-	// view of the received message.
-	errFutureHeightMessage = errors.New("future height message")
 	// errOldHeightMessage is returned when the received message's view is earlier
 	// than curRoundMessages view.
 	errOldHeightMessage = errors.New("old height message")
-	// errFutureRoundMessage message is returned when message is of the same Height but form a newer round
-	errFutureRoundMessage = errors.New("same height but future round message")
-	// errFutureStepMessage message is returned when it's a prevote or precommit message of the same Height same round
-	// while the current step is propose.
-	errFutureStepMessage = errors.New("same round but future step message")
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")
 	// errInvalidSenderOfCommittedSeal is returned when the committed seal is not from the sender of the message.
@@ -61,12 +52,6 @@ var (
 	errFailedDecodePrevote = errors.New("failed to decode PREVOTE")
 	// errFailedDecodePrecommit is returned when the PRECOMMIT message is malformed.
 	errFailedDecodePrecommit = errors.New("failed to decode PRECOMMIT")
-	// errNilPrevoteSent is returned when timer could be stopped in time
-	errNilPrevoteSent = errors.New("timer expired and nil prevote sent")
-	// errNilPrecommitSent is returned when timer could be stopped in time
-	errNilPrecommitSent = errors.New("timer expired and nil precommit sent")
-	// errMovedToNewRound is returned when timer could be stopped in time
-	errMovedToNewRound = errors.New("timer expired and new round started")
 )
 
 const (
@@ -79,7 +64,6 @@ func New(backend Backend, config *config.Config) *core {
 	logger := log.New("addr", addr.String())
 	return &core{
 		proposerPolicy:        config.ProposerPolicy,
-		blockPeriod:           config.BlockPeriod,
 		address:               addr,
 		logger:                logger,
 		backend:               backend,
@@ -92,7 +76,6 @@ func New(backend Backend, config *config.Config) *core {
 
 type core struct {
 	proposerPolicy config.ProposerPolicy
-	blockPeriod    uint64
 	address        common.Address
 	logger         log.Logger
 
@@ -101,10 +84,7 @@ type core struct {
 
 	eventsSub               *event.TypeMuxSubscription
 	newUnminedBlockEventSub *event.TypeMuxSubscription
-	committedSub            *event.TypeMuxSubscription
-	timeoutEventSub         *event.TypeMuxSubscription
 	syncEventSub            *event.TypeMuxSubscription
-	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
 
 	msgCache *messageCache
@@ -214,9 +194,12 @@ func (c *core) isProposerMsg(round int64, msgAddress common.Address) bool {
 	return c.committeeSet().GetProposer(round).Address == msgAddress
 }
 
-func (c *core) commit(block *types.Block, round int64) {
-	c.setStep(precommitDone)
+func (c *core) Commit(proposal *algorithm.ConsensusMessage) {
+	block := c.msgCache.value(common.Hash(proposal.Value))
+	c.commit(block, proposal.Round)
+}
 
+func (c *core) commit(block *types.Block, round int64) {
 	// Sanity check
 	if block == nil {
 		panic(fmt.Sprintf("Attempted to commit nil block: %s", spew.Sdump(block)))
@@ -249,7 +232,6 @@ func (c *core) updateLatestBlock() {
 	switch c.proposerPolicy {
 	case config.RoundRobin:
 		if !lastHeader.IsGenesis() {
-			var err error
 			lastProposer, err = types.Ecrecover(lastHeader)
 			if err != nil {
 				panic(fmt.Sprintf("unable to recover proposer address from header %q: %v", lastHeader, err))
@@ -268,9 +250,6 @@ func (c *core) updateLatestBlock() {
 	c.lastHeader = lastHeader
 	c.setCommitteeSet(committeeSet)
 
-}
-
-func (c *core) setStep(step Step) {
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash

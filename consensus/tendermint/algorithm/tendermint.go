@@ -51,6 +51,10 @@ type Oracle interface {
 	Value() ValueID
 }
 
+type Committer interface {
+	Commit(proposal *ConsensusMessage)
+}
+
 type Algorithm struct {
 	nodeId         NodeID
 	height         uint64
@@ -64,6 +68,7 @@ type Algorithm struct {
 	line36Executed bool
 	line47Executed bool
 	oracle         Oracle
+	committer      Committer
 }
 
 func New(nodeID NodeID, oracle Oracle) *Algorithm {
@@ -208,7 +213,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 	// Line 49
 	if t.In(Propose, Precommit) && p != nil && o.PrecommitQThresh(p.Round, &p.Value) {
 		if o.Valid(p.Value) {
-			// TODO commit here commit(p.Value)
+			a.committer.Commit(p)
 			a.height++
 			a.lockedRound = -1
 			a.lockedValue = nilValue

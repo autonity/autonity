@@ -378,11 +378,10 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMes
 			// within reasonable clock sync bounds and then set the validity
 			// based on that and never re-process the message again.
 
-			// Proposals values are allowed to be invalid.
-			if _, err := c.backend.VerifyProposal(*c.msgCache.values[common.Hash(cm.Value)]); err == nil {
-				c.msgCache.setValid(common.Hash(cm.Value))
-			}
-
+		}
+		// Proposals values are allowed to be invalid.
+		if _, err := c.backend.VerifyProposal(*c.msgCache.values[common.Hash(cm.Value)]); err == nil {
+			c.msgCache.setValid(common.Hash(cm.Value))
 		}
 	default:
 		c.msgCache.setValid(m.Hash)
@@ -393,9 +392,3 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMes
 	c.handleResult(context.Background(), cm, t)
 	return nil
 }
-
-var (
-	voteForNil   bool        = true
-	voteForValue bool        = false
-	nilValue     common.Hash = common.Hash{}
-)
