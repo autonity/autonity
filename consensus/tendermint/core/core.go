@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -32,7 +33,6 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
-	"github.com/davecgh/go-spew/spew"
 )
 
 var (
@@ -194,23 +194,38 @@ func (c *core) isProposerMsg(round int64, msgAddress common.Address) bool {
 	return c.committeeSet().GetProposer(round).Address == msgAddress
 }
 
-func (c *core) Commit(proposal *algorithm.ConsensusMessage) {
+func (c *core) Commit(proposal *algorithm.ConsensusMessage) error {
 	block := c.msgCache.value(common.Hash(proposal.Value))
-	c.commit(block, proposal.Round)
-}
-
-func (c *core) commit(block *types.Block, round int64) {
-	// Sanity check
+	committedSeals := c.msgCache.signatures(block.Hash(), proposal.Round, block.NumberU64())
+	// Sanity checks
 	if block == nil {
-		panic(fmt.Sprintf("Attempted to commit nil block: %s", spew.Sdump(block)))
+		return fmt.Errorf("attempted to commit nil block")
+	}
+	if proposal.Round < 0 {
+		return fmt.Errorf("Attempted to commit a block in a negative round: %d", proposal.Round)
+	}
+	if len(committedSeals) == 0 {
+		return fmt.Errorf("attempted to commit block without any committed seals")
+	}
+
+	for _, seal := range committedSeals {
+		if len(seal) != types.BFTExtraSeal {
+			return fmt.Errorf("Attempted to commit block with a committed seal of invalid length: %s", hex.EncodeToString(seal))
+		}
+	}
+	h := block.Header()
+	h.CommittedSeals = committedSeals
+	h.Round = uint64(proposal.Round)
+	block = block.WithSeal(h)
+	if err := c.backend.Commit(block, proposal.Round, committedSeals); err != nil {
+		c.logger.Error("failed to commit a block", "err", err)
 	}
 
 	c.logger.Info("commit a block", "hash", block.Hash())
+	return nil
+}
 
-	committedSeals := c.msgCache.signatures(block.Hash(), round, block.NumberU64())
-	if err := c.backend.Commit(block, round, committedSeals); err != nil {
-		c.logger.Error("failed to commit a block", "err", err)
-	}
+func (c *core) commit(block *types.Block, round int64) {
 }
 
 // Metric collecton of round change and height change.

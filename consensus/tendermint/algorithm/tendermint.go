@@ -51,10 +51,6 @@ type Oracle interface {
 	Value() ValueID
 }
 
-type Committer interface {
-	Commit(proposal *ConsensusMessage)
-}
-
 type Algorithm struct {
 	nodeId         NodeID
 	height         uint64

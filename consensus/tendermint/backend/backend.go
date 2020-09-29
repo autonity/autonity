@@ -218,34 +218,22 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 }
 
 // Commit implements tendermint.Backend.Commit
-func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) error {
-	h := proposal.Header()
-	// Append seals and round into extra-data
-	if err := types.WriteCommittedSeals(h, seals); err != nil {
-		return err
-	}
-
-	if err := types.WriteRound(h, round); err != nil {
-		return err
-	}
-	// update block's header
-	proposal = proposal.WithSeal(h)
-
-	sb.logger.Info("Committed", "address", sb.Address(), "hash", proposal.Hash(), "number", proposal.Number().Uint64())
+func (sb *Backend) Commit(block *types.Block) error {
+	sb.logger.Info("Committed", "address", sb.Address(), "hash", block.Hash(), "number", block.Number().Uint64())
 	// - if the proposed and committed blocks are the same, send the proposed hash
 	//   to commit channel, which is being watched inside the engine.Seal() function.
 	// - otherwise, we try to insert the block.
 	// -- if success, the ChainHeadEvent event will be broadcasted, try to build
 	//    the next block and the previous Seal() will be stopped.
 	// -- otherwise, a error will be returned and a round change event will be fired.
-	if sb.proposedBlockHash == proposal.Hash() && !sb.isResultChanNil() {
+	if sb.proposedBlockHash == block.Hash() && !sb.isResultChanNil() {
 		// feed block hash to Seal() and wait the Seal() result
-		sb.sendResultChan(proposal)
-		return nil
+		sb.sendResultChan(block)
+		return
 	}
 
 	if sb.broadcaster != nil {
-		sb.broadcaster.Enqueue(fetcherID, proposal)
+		sb.broadcaster.Enqueue(fetcherID, block)
 	}
 	return nil
 }
