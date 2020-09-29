@@ -40,6 +40,7 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 	// Subscribe
 	c.eventsSub = c.backend.Subscribe(events.MessageEvent{}, events.NewUnminedBlockEvent{}, &algorithm.ConsensusMessage{}, &algorithm.Timeout{}, events.CommitEvent{})
 	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
+	c.newUnminedBlockEventSub = c.backend.Subscribe(events.NewUnminedBlockEvent{})
 
 	// core.height needs to be set beforehand for unmined block's logic.
 	lastBlockMined, _ := c.backend.LastCommittedProposal()
