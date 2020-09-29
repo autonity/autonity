@@ -369,8 +369,14 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	return committeeSet, receipt, nil
 }
 
-// Seal generates a new block for the given input block with the local miner's
-// seal place on top.
+//
+// So this method is meant to allow interrupting of mining a block to start on
+// a new block, it doesn't make sense for autonity though because if we are not
+// the proposer then we don't need this unsigned block, and if we are the
+// proposer we only want the one unsigned block per round since we can't send
+// multiple differing proposals.
+//
+// So we want to have just the latest block available to be taken from here when this node becomes the proposer.
 func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	sb.coreMu.RLock()
 	isStarted := sb.coreStarted

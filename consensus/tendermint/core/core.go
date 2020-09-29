@@ -102,8 +102,23 @@ type core struct {
 
 	autonityContract *autonity.Contract
 
-	height *big.Int
-	algo   *algorithm.Algorithm
+	height     *big.Int
+	algo       *algorithm.Algorithm
+	valueMutex sync.Mutex
+	valueWg    sync.WaitGroup
+	value      *types.Block
+}
+
+func (c *core) SetValue(b *types.Block) {
+	c.valueMutex.Lock()
+	defer c.valueMutex.Unlock()
+	if value == nil { // Someone could be waiting
+		c.value = b
+		c.valueWg.Done()
+	}
+}
+
+func (c *core) AwaitValue() *types.Block {
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
