@@ -15,10 +15,10 @@ LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
 ifeq ($(LATEST_COMMIT),)
 LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
-SOLC_VERSION = 0.6.4
+SOLC_VERSION = 0.7.1
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 
-AUTONITY_CONTRACT_DIR = ./contracts/autonity/contract/contracts
+AUTONITY_CONTRACT_DIR = ./contracts/autonity/pos/contracts
 AUTONITY_CONTRACT = Autonity.sol
 GENERATED_CONTRACT_DIR = ./common/acdefault/generated
 GENERATED_RAW_ABI = $(GENERATED_CONTRACT_DIR)/Autonity.abi
