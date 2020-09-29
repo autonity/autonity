@@ -46,8 +46,10 @@ type Oracle interface {
 	MatchingProposal(*ConsensusMessage) *ConsensusMessage
 	PrevoteQThresh(round int64, value *ValueID) bool
 	PrecommitQThresh(round int64, value *ValueID) bool
-	FThresh(round int64, value *ValueID) bool
-	Proposer(NodeID) bool
+	// FThresh indicates whether we have messages whose voting power exceeds
+	// the failure threshold for the given round.
+	FThresh(round int64) bool
+	Proposer(round int64, nodeID NodeID) bool
 	Value() ValueID
 }
 
@@ -111,7 +113,7 @@ func (a *Algorithm) StartRound(height uint64, round int64) (*ConsensusMessage, *
 	a.height = height
 	a.round = round
 	a.step = Propose
-	if a.oracle.Proposer(a.nodeId) {
+	if a.oracle.Proposer(round, a.nodeId) {
 		var v ValueID
 		if a.validValue != nilValue {
 			v = a.validValue
@@ -226,7 +228,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 	}
 
 	// Line 55
-	if cm.Round > r && o.FThresh(cm.Round, nil) {
+	if cm.Round > r && o.FThresh(cm.Round) {
 		// TODO account for the fact that many rounds can be skipped here.  so
 		// what happens to the old round messages? We don't process them, but
 		// we can't remove them from the cache because they may be used in this

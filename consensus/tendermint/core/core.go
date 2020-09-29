@@ -62,7 +62,7 @@ const (
 func New(backend Backend, config *config.Config) *core {
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
-	return &core{
+	c := &core{
 		proposerPolicy:        config.ProposerPolicy,
 		address:               addr,
 		logger:                logger,
@@ -73,7 +73,14 @@ func New(backend Backend, config *config.Config) *core {
 		valueSet: sync.Cond{
 			L: &sync.Mutex{},
 		},
+		msgCache: newMessageStore(),
 	}
+	o := &oracle{
+		c:     c,
+		store: c.msgCache,
+	}
+	c.ora = o
+	return c
 }
 
 type core struct {
@@ -104,8 +111,10 @@ type core struct {
 
 	autonityContract *autonity.Contract
 
-	height   *big.Int
-	algo     *algorithm.Algorithm
+	height *big.Int
+	algo   *algorithm.Algorithm
+	ora    *oracle
+
 	valueSet sync.Cond
 	value    *types.Block
 }
@@ -126,6 +135,10 @@ func (c *core) AwaitValue() *types.Block {
 		c.valueSet.Wait()
 	}
 	v := c.value
+	// We put the value in the store here since this is called from the main
+	// thread of the algorithm, and so we don't end up needing to syncronise
+	// the store.
+	c.msgCache.addValue(v.Hash(), v)
 	c.value = nil
 	return v
 }
@@ -286,6 +299,10 @@ func (c *core) updateLatestBlock() {
 
 	c.lastHeader = lastHeader
 	c.setCommitteeSet(committeeSet)
+
+	// Update internals of oracle
+	c.ora.lastHeader = lastHeader
+	c.ora.committeeSet = committeeSet
 
 }
 

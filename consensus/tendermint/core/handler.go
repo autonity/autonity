@@ -120,7 +120,7 @@ func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage, 
 
 func (c *core) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
-	c.algo = algorithm.New(algorithm.NodeID(c.address), nil)
+	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
 	m, t := c.algo.StartRound(c.Height().Uint64(), 0)
 	c.handleResult(ctx, m, t, nil)
 	go c.syncLoop(ctx)

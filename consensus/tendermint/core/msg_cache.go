@@ -39,6 +39,17 @@ func (m *messageCache) heightMessages(height uint64) []*Message {
 	return messages
 }
 
+func newMessageStore() *messageCache {
+	return &messageCache{
+		msgHashes:     make(map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash),
+		consensusMsgs: make(map[common.Hash]*algorithm.ConsensusMessage),
+		rawMessages:   make(map[common.Hash]*Message),
+		valid:         make(map[common.Hash]struct{}),
+		values:        make(map[common.Hash]*types.Block),
+	}
+
+}
+
 // func roundMap(msgHashes map[uint64]map[int64]map[common.Address]common.Hash) map[int64]map[common.Address]common.Hash {
 // }
 
