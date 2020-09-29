@@ -218,15 +218,15 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 }
 
 // Commit implements tendermint.Backend.Commit
-func (sb *Backend) Commit(block *types.Block) error {
-	sb.logger.Info("Committed", "address", sb.Address(), "hash", block.Hash(), "number", block.Number().Uint64())
-	// - if the proposed and committed blocks are the same, send the proposed hash
-	//   to commit channel, which is being watched inside the engine.Seal() function.
+func (sb *Backend) Commit(block *types.Block, proposer common.Address) {
+	sb.logger.Info("Committed", "address", sb.Address(), "proposer", proposer, "hash", block.Hash(), "number", block.Number().Uint64())
+	// - if we are the proposer, send the proposed hash to commit channel,
+	//    which is being watched inside the engine.Seal() function.
 	// - otherwise, we try to insert the block.
 	// -- if success, the ChainHeadEvent event will be broadcasted, try to build
 	//    the next block and the previous Seal() will be stopped.
 	// -- otherwise, a error will be returned and a round change event will be fired.
-	if sb.proposedBlockHash == block.Hash() && !sb.isResultChanNil() {
+	if sb.address == proposer && !sb.isResultChanNil() {
 		// feed block hash to Seal() and wait the Seal() result
 		sb.sendResultChan(block)
 		return
@@ -235,7 +235,7 @@ func (sb *Backend) Commit(block *types.Block) error {
 	if sb.broadcaster != nil {
 		sb.broadcaster.Enqueue(fetcherID, block)
 	}
-	return nil
+	return
 }
 
 func (sb *Backend) Post(ev interface{}) {

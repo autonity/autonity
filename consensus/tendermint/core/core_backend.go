@@ -24,7 +24,7 @@ type Backend interface {
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	Commit(proposalBlock *types.Block, round int64, seals [][]byte) error
+	Commit(proposalBlock *types.Block, proposer common.Address)
 
 	GetContractABI() string
 

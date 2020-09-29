@@ -29,6 +29,7 @@ import (
 	"github.com/clearmatics/autonity/contracts/autonity"
 	autonitycrypto "github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/rlp"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Start implements core.Tendermint.Start
@@ -92,8 +93,12 @@ eventLoop:
 
 func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage, t *algorithm.Timeout, proposal *algorithm.ConsensusMessage) {
 	if proposal != nil {
-		// This a decision has been reached
-		c.Commit(proposal)
+		// A decision has been reached
+		err := c.Commit(proposal)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to commit proposal: %s err: %v", spew.Sdump(proposal), err))
+		}
+
 		c.updateLatestBlock()
 	}
 	switch {

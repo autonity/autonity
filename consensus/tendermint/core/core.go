@@ -217,9 +217,7 @@ func (c *core) Commit(proposal *algorithm.ConsensusMessage) error {
 	h.CommittedSeals = committedSeals
 	h.Round = uint64(proposal.Round)
 	block = block.WithSeal(h)
-	if err := c.backend.Commit(block, proposal.Round, committedSeals); err != nil {
-		c.logger.Error("failed to commit a block", "err", err)
-	}
+	c.backend.Commit(block, c.committeeSet().GetProposer(proposal.Round).Address)
 
 	c.logger.Info("commit a block", "hash", block.Hash())
 	return nil

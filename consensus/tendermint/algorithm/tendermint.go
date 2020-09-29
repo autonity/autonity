@@ -64,7 +64,6 @@ type Algorithm struct {
 	line36Executed bool
 	line47Executed bool
 	oracle         Oracle
-	committer      Committer
 }
 
 func New(nodeID NodeID, oracle Oracle) *Algorithm {
@@ -210,7 +209,6 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 	// Line 49
 	if t.In(Propose, Precommit) && p != nil && o.PrecommitQThresh(p.Round, &p.Value) {
 		if o.Valid(p.Value) {
-			a.committer.Commit(p)
 			a.height++
 			a.lockedRound = -1
 			a.lockedValue = nilValue
