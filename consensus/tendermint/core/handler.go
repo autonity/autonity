@@ -89,9 +89,10 @@ eventLoop:
 	c.stopped <- struct{}{}
 }
 
-func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage, t *algorithm.Timeout) {
-	if m != nil && m.MsgType == algorithm.Propose && m.Round == 0 || t != nil && t.TimeoutType == algorithm.Propose && t.Round == 0 {
-		// This indicates a height change
+func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage, t *algorithm.Timeout, proposal *algorithm.ConsensusMessage) {
+	if proposal != nil {
+		// This a decision has been reached
+		c.Commit(proposal)
 		c.updateLatestBlock()
 	}
 	switch {
@@ -109,7 +110,7 @@ func (c *core) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
 	c.algo = algorithm.New(algorithm.NodeID(c.address), nil)
 	m, t := c.algo.StartRound(c.Height().Uint64(), 0)
-	c.handleResult(ctx, m, t)
+	c.handleResult(ctx, m, t, nil)
 	go c.syncLoop(ctx)
 
 eventLoop:
@@ -134,21 +135,21 @@ eventLoop:
 			case *algorithm.ConsensusMessage:
 				// This is a message we sent ourselves we do not need to broadcast it
 				if c.Height().Uint64() == e.Height {
-					m, t := c.algo.ReceiveMessage(e)
-					c.handleResult(ctx, m, t)
+					m, t, p := c.algo.ReceiveMessage(e)
+					c.handleResult(ctx, m, t, p)
 				}
 			case *algorithm.Timeout:
+				var m *algorithm.ConsensusMessage
+				var t *algorithm.Timeout
 				switch e.TimeoutType {
 				case algorithm.Propose:
-					m := c.algo.OnTimeoutPropose(e.Height, e.Round)
-					c.handleResult(ctx, m, nil)
+					m = c.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
-					m := c.algo.OnTimeoutPrevote(e.Height, e.Round)
-					c.handleResult(ctx, m, nil)
+					m = c.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
-					m, t := c.algo.OnTimeoutPrecommit(e.Height, e.Round)
-					c.handleResult(ctx, m, t)
+					m, t = c.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
+				c.handleResult(ctx, m, t, nil)
 			case events.CommitEvent:
 				c.logger.Debug("Received a final committed proposal")
 				lastBlock, _ := c.backend.LastCommittedProposal()
@@ -159,7 +160,7 @@ eventLoop:
 					c.logger.Debug("Received proposal is ahead", "height", c.Height(), "block_height", height)
 					c.updateLatestBlock()
 					m, t := c.algo.StartRound(c.height.Uint64(), 0)
-					c.handleResult(ctx, m, t)
+					c.handleResult(ctx, m, t, nil)
 				}
 			}
 		case <-ctx.Done():
@@ -388,7 +389,7 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMes
 
 	}
 
-	cm, t := c.algo.ReceiveMessage(cm)
-	c.handleResult(context.Background(), cm, t)
+	cm, t, p := c.algo.ReceiveMessage(cm)
+	c.handleResult(context.Background(), cm, t, p)
 	return nil
 }

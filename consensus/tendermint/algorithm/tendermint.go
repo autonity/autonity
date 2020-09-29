@@ -105,7 +105,7 @@ func (a *Algorithm) timeout(msgType Step) *Timeout {
 }
 
 // Start round takes the round to start, clears the first time flags and then
-// either broadcasts a proposal if this node is the proposer, or schedules a
+// either returns a proposal to be broadcast or proposal if this node is the proposer, or schedules a
 // proposal timeout.
 func (a *Algorithm) StartRound(height uint64, round int64) (*ConsensusMessage, *Timeout) {
 	// Reset first time flags
@@ -129,12 +129,13 @@ func (a *Algorithm) StartRound(height uint64, round int64) (*ConsensusMessage, *
 	}
 }
 
-// ReceiveMessage processes a consensus message and returns a ConsensusMessage
-// or Timeout, indicating that either the message should be broadcast or that
-// the timeout should be scheduled. At most one of the return values can be non
-// nil, but it is possible for both to be nil in the case that the processed
-// messge does not result in a state change.
-func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Timeout) {
+// ReceiveMessage processes a consensus message and returns either a
+// ConsensusMessage to be broadcast or Timeout to be scheduled but not both, in
+// addition if a decision was reached it will retrun the proposal that was
+// decided upon. It is possible for all values to be nil in the case that the
+// processed messge does not result in a state change.
+func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
+	toBroadcast *ConsensusMessage, toSchedule *Timeout, decidedProposal *ConsensusMessage) {
 
 	r := a.round
 	s := a.step
@@ -169,9 +170,9 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 	if t.In(Propose) && cm.Round == r && cm.ValidRound == -1 && s == Propose {
 		a.step = Prevote
 		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
-			return a.msg(Prevote, cm.Value), nil
+			return a.msg(Prevote, cm.Value), nil, nil
 		} else {
-			return a.msg(Prevote, nilValue), nil
+			return a.msg(Prevote, nilValue), nil, nil
 		}
 	}
 
@@ -179,9 +180,9 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 	if t.In(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(p.ValidRound, &p.Value) && s == Propose && (p.ValidRound >= 0 && p.ValidRound < r) {
 		a.step = Prevote
 		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
-			return a.msg(Prevote, p.Value), nil
+			return a.msg(Prevote, p.Value), nil, nil
 		} else {
-			return a.msg(Prevote, nilValue), nil
+			return a.msg(Prevote, nilValue), nil, nil
 		}
 	}
 
@@ -195,19 +196,19 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 		}
 		a.validValue = p.Value
 		a.validRound = r
-		return a.msg(Precommit, p.Value), nil
+		return a.msg(Precommit, p.Value), nil, nil
 	}
 
 	// Line 44
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &nilValue) && s == Prevote {
 		a.step = Precommit
-		return a.msg(Precommit, nilValue), nil
+		return a.msg(Precommit, nilValue), nil, nil
 	}
 
 	// Line 34
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
 		a.line34Executed = true
-		return nil, a.timeout(Prevote)
+		return nil, a.timeout(Prevote), nil
 	}
 
 	// Line 49
@@ -220,13 +221,14 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 			a.validRound = -1
 			a.validValue = nilValue
 		}
-		return a.StartRound(a.height, 0)
+		m, t := a.StartRound(a.height, 0)
+		return m, t, p
 	}
 
 	// Line 47
 	if t.In(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
 		a.line47Executed = true
-		return nil, a.timeout(Precommit)
+		return nil, a.timeout(Precommit), nil
 	}
 
 	// Line 55
@@ -237,9 +239,10 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*ConsensusMessage, *Ti
 		// round. in the conditon at line 28. This means that we only should
 		// clean the message cache when there is a height change, clearing out
 		// all messages for the height.
-		return a.StartRound(a.height, cm.Round)
+		m, t := a.StartRound(a.height, cm.Round)
+		return m, t, nil
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 func (a *Algorithm) OnTimeoutPropose(height uint64, round int64) *ConsensusMessage {
@@ -249,6 +252,7 @@ func (a *Algorithm) OnTimeoutPropose(height uint64, round int64) *ConsensusMessa
 	}
 	return nil
 }
+
 func (a *Algorithm) OnTimeoutPrevote(height uint64, round int64) *ConsensusMessage {
 	if height == a.height && round == a.round && a.step == Prevote {
 		a.step = Precommit
@@ -256,6 +260,7 @@ func (a *Algorithm) OnTimeoutPrevote(height uint64, round int64) *ConsensusMessa
 	}
 	return nil
 }
+
 func (a *Algorithm) OnTimeoutPrecommit(height uint64, round int64) (*ConsensusMessage, *Timeout) {
 	if height == a.height && round == a.round {
 		return a.StartRound(a.height, a.round+1)
