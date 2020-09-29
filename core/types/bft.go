@@ -132,12 +132,7 @@ func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
 		}
 	}
 
-	h.CommittedSeals = make([][]byte, len(committedSeals))
-	for i, val := range committedSeals {
-		h.CommittedSeals[i] = make([]byte, len(val))
-		copy(h.CommittedSeals[i], val)
-	}
-
+	h.CommittedSeals = committedSeals
 	return nil
 }
 
