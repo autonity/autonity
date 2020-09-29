@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"io"
 	"math/big"
 	"os"
@@ -527,4 +528,30 @@ func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Bloc
 		dirty = append(dirty, common.BytesToAddress(key))
 	}
 	return dirty, nil
+}
+
+type AutonityContractAPI struct {
+	eth *Ethereum
+}
+
+func NewAutonityContractAPI(eth *Ethereum) *AutonityContractAPI {
+	return &AutonityContractAPI{eth: eth}
+}
+
+func (ac *AutonityContractAPI) ContractABIMethods() (map[string]autonity.ContractAPIFunc, error) {
+	// Here we can use the eth to derive all of the current ContractABIMethods and then create anonymous functions
+	// which are then added to the map.
+	funcM := map[string]autonity.ContractAPIFunc{
+		"function1": func() (string, error) {
+			// This function now has access to ethereum object which can be used to create an EVM object through the
+			// current height and state which can then be used to call the contract.
+			return "testing1", nil
+		},
+		"function2": func() (string, error) {
+			//Same as above
+			return "testing2", nil
+		},
+	}
+
+	return funcM, nil
 }

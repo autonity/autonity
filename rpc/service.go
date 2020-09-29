@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"reflect"
 	"runtime"
 	"strings"
@@ -116,17 +117,39 @@ func (r *serviceRegistry) subscription(service, name string) *callback {
 func suitableCallbacks(receiver reflect.Value) map[string]*callback {
 	typ := receiver.Type()
 	callbacks := make(map[string]*callback)
-	for m := 0; m < typ.NumMethod(); m++ {
-		method := typ.Method(m)
-		if method.PkgPath != "" {
-			continue // method not exported
+
+	if funM, ok := receiver.Interface().(map[string]autonity.ContractAPIFunc); ok {
+		for funcName, contractFunc := range funM {
+			// Autonity contract api can change and therefore the number of functions exposed through the rpc endpoint
+			// can also change, thus a map of autonity.ContractAPIFunc is used to expose the autonity functions.
+			//
+			// The rpc service assumes a reflect.Value will be passed to Service which is of a type that has methods
+			// defined on it. This can only be achieved for static types. Golang doesn't allow for dynamically adding
+			// methods to types therefore anonymous functions must be used and by definition anonymous function can not
+			// have static methods defined on them.
+			//
+			// When creating a new callback, the function expects the type x and the method defined on x, since we
+			// cannot satisfy this condition we pass the type of the anonymous method as both the receiver and method.
+			cb := newCallback(reflect.ValueOf(contractFunc), reflect.ValueOf(contractFunc))
+			if cb == nil {
+				panic("autonity anonymous function cannot be converted to callback")
+			}
+			name := formatName(funcName)
+			callbacks[name] = cb
 		}
-		cb := newCallback(receiver, method.Func)
-		if cb == nil {
-			continue // function invalid
+	} else {
+		for m := 0; m < typ.NumMethod(); m++ {
+			method := typ.Method(m)
+			if method.PkgPath != "" {
+				continue // method not exported
+			}
+			cb := newCallback(receiver, method.Func)
+			if cb == nil {
+				continue // function invalid
+			}
+			name := formatName(method.Name)
+			callbacks[name] = cb
 		}
-		name := formatName(method.Name)
-		callbacks[name] = cb
 	}
 	return callbacks
 }
@@ -167,7 +190,12 @@ func (c *callback) makeArgTypes() {
 	// Skip receiver and context.Context parameter (if present).
 	firstArg := 0
 	if c.rcvr.IsValid() {
-		firstArg++
+		// Anonymous functions have no receiver therefore the total number of arguments required to call the function
+		// is one less than a method which is defined on a static type. Therefore, we need to make sure that if the
+		// receiver satisfies autonity.ContractAPIFunc we do not have off by one error, which will cause a panic.
+		if _, ok := c.rcvr.Interface().(autonity.ContractAPIFunc); !ok {
+			firstArg++
+		}
 	}
 	if fntype.NumIn() > firstArg && fntype.In(firstArg) == contextType {
 		c.hasCtx = true
@@ -185,7 +213,12 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 	// Create the argument slice.
 	fullargs := make([]reflect.Value, 0, 2+len(args))
 	if c.rcvr.IsValid() {
-		fullargs = append(fullargs, c.rcvr)
+		// Anonymous functions have no receiver therefore the total number of arguments required to call the function
+		// is one less than a method which is defined on a static type. Therefore, we need to make sure that if the
+		// receiver satisfies autonity.ContractAPIFunc we do not have off by one error, which will cause a panic.
+		if _, ok := c.rcvr.Interface().(autonity.ContractAPIFunc); !ok {
+			fullargs = append(fullargs, c.rcvr)
+		}
 	}
 	if c.hasCtx {
 		fullargs = append(fullargs, reflect.ValueOf(ctx))
