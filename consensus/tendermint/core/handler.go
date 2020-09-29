@@ -79,9 +79,15 @@ eventLoop:
 			if !ok {
 				break eventLoop
 			}
-			newUnminedBlockEvent := e.Data.(events.NewUnminedBlockEvent)
-			pb := &newUnminedBlockEvent.NewUnminedBlock
-			c.storeUnminedBlockMsg(pb)
+			block := e.Data.(events.NewUnminedBlockEvent).NewUnminedBlock
+
+			number := block.Number()
+			if cmp := c.Height().Cmp(number); cmp > 0 {
+				panic(fmt.Sprintf("Received old potential block, current height: %s, block height: %s", c.Height().String(), block.Number().String()))
+			} else if cmp < 0 {
+				panic(fmt.Sprintf("Received future potential block, current height: %s, block height: %s", c.Height().String(), block.Number().String()))
+			}
+			c.SetValue(&block)
 		case <-ctx.Done():
 			c.logger.Info("handleNewUnminedBlockEvent is stopped", "event", ctx.Err())
 			break eventLoop

@@ -70,7 +70,9 @@ func New(backend Backend, config *config.Config) *core {
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
-		committee:             nil,
+		valueSet: sync.Cond{
+			L: &sync.Mutex{},
+		},
 	}
 }
 
@@ -102,23 +104,30 @@ type core struct {
 
 	autonityContract *autonity.Contract
 
-	height     *big.Int
-	algo       *algorithm.Algorithm
-	valueMutex sync.Mutex
-	valueWg    sync.WaitGroup
-	value      *types.Block
+	height   *big.Int
+	algo     *algorithm.Algorithm
+	valueSet sync.Cond
+	value    *types.Block
 }
 
 func (c *core) SetValue(b *types.Block) {
-	c.valueMutex.Lock()
-	defer c.valueMutex.Unlock()
-	if value == nil { // Someone could be waiting
+	c.valueSet.L.Lock()
+	defer c.valueSet.L.Unlock()
+	if c.value == nil {
 		c.value = b
-		c.valueWg.Done()
+		c.valueSet.Signal()
 	}
 }
 
 func (c *core) AwaitValue() *types.Block {
+	c.valueSet.L.Lock()
+	defer c.valueSet.L.Unlock()
+	for c.value == nil {
+		c.valueSet.Wait()
+	}
+	v := c.value
+	c.value = nil
+	return v
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
