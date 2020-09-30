@@ -19,7 +19,7 @@ RPC_API="tendermint,console,eth,web3,admin,debug,miner,personal,txpool,net"
 # start the node with the keystore and nodekey
 echo "Autonity START"
 $AUTONITY \
-  --genesis "./genesis-tendermint.json" \
+  --genesis genesis-tendermint.json \
   --datadir $DATADIR \
   --nodekey $NODEKEY \
   --keystore $KEYSTORE \
