@@ -22,8 +22,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/log"
 	"github.com/davecgh/go-spew/spew"
 	"io"
+	"math"
 	"math/big"
 	"os"
 	"runtime"
@@ -544,21 +547,51 @@ func (ac *AutonityContractAPI) ContractABIMethods() map[string]autonity.Contract
 	// which are then added to the map.
 	var viewMethodStr = "view"
 	var contract = ac.eth.BlockChain().GetAutonityContract()
+	var contractABI = contract.ABI()
 	var contractViewMethods = make(map[string]autonity.ContractAPIFunc)
 
-	for n, m := range contract.ABI().Methods {
+	for n, m := range contractABI.Methods {
 		functionName := n
 		if m.StateMutability == viewMethodStr {
 			contractViewMethods[functionName] = func() (map[string]interface{}, error) {
-				var r = make(map[string]interface{})
-
-				stateDB, err := ac.eth.BlockChain().State()
+				r := make(map[string]interface{})
+				bc := ac.eth.BlockChain()
+				header := bc.CurrentHeader()
+				statedb, err := ac.eth.BlockChain().State()
 				if err != nil {
 					return nil, err
 				}
 
-				err = contract.AutonityContractCall(stateDB, ac.eth.BlockChain().CurrentHeader(), functionName, &r)
+				coinbase, _ := types.Ecrecover(header)
+				evmContext := vm.Context{
+					CanTransfer: core.CanTransfer,
+					Transfer:    core.Transfer,
+					GetHash:     core.GetHashFn(header, ac.eth.BlockChain()),
+					Origin:      autonity.Deployer,
+					Coinbase:    coinbase,
+					BlockNumber: header.Number,
+					Time:        new(big.Int).SetUint64(header.Time),
+					GasLimit:    header.GasLimit,
+					Difficulty:  header.Difficulty,
+					GasPrice:    new(big.Int).SetUint64(0x0),
+				}
+				vmConfig := *bc.GetVMConfig()
+				gas := uint64(math.MaxUint64)
+				evm := vm.NewEVM(evmContext, statedb, bc.Config(), vmConfig)
+
+				input, err := contractABI.Pack(functionName)
 				if err != nil {
+					return nil, err
+				}
+
+				ret, _, vmerr := evm.Call(vm.AccountRef(autonity.Deployer), autonity.ContractAddress, input, gas, new(big.Int))
+				if vmerr != nil {
+					log.Error("Error Autonity Contract", "function", functionName)
+					return nil, vmerr
+				}
+
+				if err := contractABI.UnpackIntoMap(r, functionName, ret); err != nil {
+					log.Error("Could not unpack returned value", "function", functionName)
 					return nil, err
 				}
 
