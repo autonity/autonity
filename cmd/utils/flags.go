@@ -134,11 +134,6 @@ func printHelp(out io.Writer, templ string, data interface{}) {
 
 var (
 	// General settings
-	InitGenesisFlag = cli.StringFlag{
-		Name:  "genesis",
-		Usage: "Path to the genesis json file",
-		Value: "",
-	}
 	DataDirFlag = DirectoryFlag{
 		Name:  "datadir",
 		Usage: "Data directory for the databases and keystore",
