@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.7.0;
+pragma solidity ^0.7.1;
 pragma experimental ABIEncoderV2;
 import "./interfaces/IERC20.sol";
 import "./SafeMath.sol";
@@ -34,6 +34,8 @@ contract Autonity is IERC20, IAutonity {
     uint256 private minGasPrice = 0;
     uint256 public committeeSize = 20;
     string public contractVersion = "v0.0.0";
+
+    mapping (address => mapping (address => uint256)) private allowances;
 
     /* State data that will be recomputed during a contract upgrade. */
     address[] public validators;
@@ -170,10 +172,10 @@ contract Autonity is IERC20, IAutonity {
         emit MintStake(_account, _amount);
     }
 
-    /*
-    * The redeemStake(amount, recipient) function MUST be restricted to the Authority Account.
+    /**
+    * @notice Burn the specified amount of NEW stake token from an account. Restricted to the Operator account.
     */
-    function redeemStake(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
+    function redeem(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
         users[_account].stake = users[_account].stake.sub(_amount, "Redeem stake amount exceeds balance");
         stakeSupply = stakeSupply.sub(_amount);
         _checkDowngradeValidator(_account);
@@ -192,17 +194,42 @@ contract Autonity is IERC20, IAutonity {
         return true;
     }
 
-
+    /**
+     * @dev See {IERC20-approve}.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     */
     function approve(address spender, uint256 amount) external override returns (bool) {
-        return false;
+        _approve(msg.sender, spender, amount);
+        return true;
     }
 
+    /**
+     * @dev See {IERC20-transferFrom}.
+     *
+     * Emits an {Approval} event indicating the updated allowance. This is not
+     * required by the EIP. See the note at the beginning of {ERC20}.
+     *
+     * Requirements:
+     *
+     * - `sender` and `recipient` cannot be the zero address.
+     * - `sender` must have a balance of at least `amount`.
+     * - the caller must have allowance for ``sender``'s tokens of at least
+     * `amount`.
+     */
     function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool){
-        return false;
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, allowances[sender][msg.sender].sub(amount, "ERC20: transfer amount exceeds allowance"));
+        return true;
     }
 
+    /**
+    * @dev See {IERC20-allowance}.
+    */
     function allowance(address owner, address spender) external view override returns (uint256) {
-        return 0;
+        return allowances[owner][spender];
     }
 
     function upgradeContract(string memory _bytecode,
@@ -448,8 +475,25 @@ contract Autonity is IERC20, IAutonity {
         emit Transfer(sender, recipient, amount);
     }
 
+    /**
+     * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
+     *
+     * This internal function is equivalent to `approve`, and can be used to
+     * e.g. set automatic allowances for certain subsystems, etc.
+     *
+     * Emits an {Approval} event.
+     *
+     */
+    function _approve(address owner, address spender, uint256 amount) internal canUseStake(spender) virtual {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+
+        allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
     /*
-    * If the user is a validator and its stake is zero downgrade it to a
+    * @dev If the user is a validator and its stake is zero downgrade it to a
     * stakeholder. Unless the user is the only validator in which case the
     * transaction is reverted.
     *
@@ -513,8 +557,8 @@ contract Autonity is IERC20, IAutonity {
     }
 
 
-    /*
-    * update the current committee by selecting top staking validators
+    /**
+    * @notice update the current committee by selecting top staking validators.
     */
     function _computeCommittee() internal onlyProtocol(msg.sender) {
         require(validators.length > 0, "There must be validators");
