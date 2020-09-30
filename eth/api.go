@@ -549,20 +549,20 @@ func (ac *AutonityContractAPI) ContractABIMethods() map[string]autonity.Contract
 	for n, m := range contract.ABI().Methods {
 		functionName := n
 		if m.StateMutability == viewMethodStr {
-			contractViewMethods[functionName] = func() (*string, error) {
-				var r = ""
+			contractViewMethods[functionName] = func() (map[string]interface{}, error) {
+				var r = make(map[string]interface{})
 
 				stateDB, err := ac.eth.BlockChain().State()
 				if err != nil {
 					return nil, err
 				}
 
-				err = contract.AutonityContractCall(stateDB, ac.eth.BlockChain().CurrentHeader(), functionName, r)
+				err = contract.AutonityContractCall(stateDB, ac.eth.BlockChain().CurrentHeader(), functionName, &r)
 				if err != nil {
 					return nil, err
 				}
 
-				return &r, nil
+				return r, nil
 			}
 		}
 	}
