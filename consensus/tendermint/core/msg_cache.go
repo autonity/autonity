@@ -297,16 +297,20 @@ func addMsgHash(
 	roundMap, ok := hashes[height]
 	if !ok {
 		roundMap = make(map[int64]map[algorithm.Step]map[common.Address]common.Hash)
+		hashes[height] = roundMap
 	}
 	msgTypeMap, ok := roundMap[round]
 	if !ok {
 		msgTypeMap = make(map[algorithm.Step]map[common.Address]common.Hash)
+		roundMap[round] = msgTypeMap
 	}
 	addressMap, ok := msgTypeMap[msgType]
 	if !ok {
 		addressMap = make(map[common.Address]common.Hash)
+		msgTypeMap[msgType] = addressMap
 	}
 	addressMap[address] = hash // TODO check for duplicates here, accountablitiy
+
 	return nil
 }
 
