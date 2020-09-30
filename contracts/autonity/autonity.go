@@ -36,7 +36,7 @@ type Blockchainer interface {
 }
 
 // Will decide function signature later
-type ContractAPIFunc func() (string, error)
+type ContractAPIFunc func() (*string, error)
 
 type Contract struct {
 	evmProvider        EVMProvider
@@ -266,9 +266,14 @@ func (ac *Contract) upgradeAbiCache(newAbi string) error {
 	}
 
 	ac.contractABI = &newABI
+	ac.stringContractABI = newAbi
 	return nil
 }
 
 func (ac *Contract) GetContractABI() string {
 	return ac.stringContractABI
+}
+
+func (ac *Contract) ABI() *abi.ABI {
+	return ac.contractABI
 }

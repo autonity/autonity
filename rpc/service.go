@@ -90,6 +90,9 @@ func (r *serviceRegistry) registerName(name string, rcvr interface{}) error {
 			svc.callbacks[name] = cb
 		}
 	}
+	if name == "autonityContract" {
+		fmt.Println(r.services[name])
+	}
 	return nil
 }
 
@@ -216,7 +219,8 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 		// Anonymous functions have no receiver therefore the total number of arguments required to call the function
 		// is one less than a method which is defined on a static type. Therefore, we need to make sure that if the
 		// receiver satisfies autonity.ContractAPIFunc we do not have off by one error, which will cause a panic.
-		if _, ok := c.rcvr.Interface().(autonity.ContractAPIFunc); !ok {
+		_, ok := c.rcvr.Interface().(autonity.ContractAPIFunc)
+		if !ok {
 			fullargs = append(fullargs, c.rcvr)
 		}
 	}

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/davecgh/go-spew/spew"
 	"io"
 	"math/big"
 	"os"
@@ -538,20 +539,33 @@ func NewAutonityContractAPI(eth *Ethereum) *AutonityContractAPI {
 	return &AutonityContractAPI{eth: eth}
 }
 
-func (ac *AutonityContractAPI) ContractABIMethods() (map[string]autonity.ContractAPIFunc, error) {
+func (ac *AutonityContractAPI) ContractABIMethods() map[string]autonity.ContractAPIFunc {
 	// Here we can use the eth to derive all of the current ContractABIMethods and then create anonymous functions
 	// which are then added to the map.
-	funcM := map[string]autonity.ContractAPIFunc{
-		"function1": func() (string, error) {
-			// This function now has access to ethereum object which can be used to create an EVM object through the
-			// current height and state which can then be used to call the contract.
-			return "testing1", nil
-		},
-		"function2": func() (string, error) {
-			//Same as above
-			return "testing2", nil
-		},
-	}
+	var viewMethodStr = "view"
+	var contract = ac.eth.BlockChain().GetAutonityContract()
+	var contractViewMethods = make(map[string]autonity.ContractAPIFunc)
 
-	return funcM, nil
+	for n, m := range contract.ABI().Methods {
+		functionName := n
+		if m.StateMutability == viewMethodStr {
+			contractViewMethods[functionName] = func() (*string, error) {
+				var r = ""
+
+				stateDB, err := ac.eth.BlockChain().State()
+				if err != nil {
+					return nil, err
+				}
+
+				err = contract.AutonityContractCall(stateDB, ac.eth.BlockChain().CurrentHeader(), functionName, r)
+				if err != nil {
+					return nil, err
+				}
+
+				return &r, nil
+			}
+		}
+	}
+	spew.Dump(contractViewMethods)
+	return contractViewMethods
 }
