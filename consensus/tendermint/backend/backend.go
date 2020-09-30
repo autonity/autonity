@@ -120,7 +120,6 @@ type Backend struct {
 
 	//TODO: ARCChace is patented by IBM, so probably need to stop using it
 	recentMessages *lru.ARCCache // the cache of peer's messages
-	knownMessages  *lru.ARCCache // the cache of self messages
 
 	contractsMu sync.RWMutex
 	vmConfig    *vm.Config
@@ -185,7 +184,6 @@ func (sb *Backend) AskSync(header *types.Header) {
 // Broadcast implements tendermint.Backend.Gossip
 func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
 	hash := types.RLPHash(payload)
-	sb.knownMessages.Add(hash, true)
 
 	targets := make(map[common.Address]struct{})
 	for _, val := range committee {

@@ -70,10 +70,8 @@ func New(backend Backend, config *config.Config) *core {
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
-		valueSet: sync.Cond{
-			L: &sync.Mutex{},
-		},
-		msgCache: newMessageStore(),
+		valueSet:              sync.NewCond(&sync.Mutex{}),
+		msgCache:              newMessageStore(),
 	}
 	o := &oracle{
 		c:     c,
@@ -115,7 +113,7 @@ type core struct {
 	algo   *algorithm.Algorithm
 	ora    *oracle
 
-	valueSet sync.Cond
+	valueSet *sync.Cond
 	value    *types.Block
 }
 

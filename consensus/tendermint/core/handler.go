@@ -39,7 +39,7 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 	ctx, c.cancel = context.WithCancel(ctx)
 
 	// Subscribe
-	c.eventsSub = c.backend.Subscribe(events.MessageEvent{}, events.NewUnminedBlockEvent{}, &algorithm.ConsensusMessage{}, &algorithm.Timeout{}, events.CommitEvent{})
+	c.eventsSub = c.backend.Subscribe(events.MessageEvent{}, &algorithm.ConsensusMessage{}, &algorithm.Timeout{}, events.CommitEvent{})
 	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 	c.newUnminedBlockEventSub = c.backend.Subscribe(events.NewUnminedBlockEvent{})
 
@@ -120,6 +120,7 @@ func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage, 
 
 func (c *core) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
+	c.updateLatestBlock()
 	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
 	m, t := c.algo.StartRound(c.Height().Uint64(), 0)
 	c.handleResult(ctx, m, t, nil)
