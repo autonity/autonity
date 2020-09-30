@@ -39,7 +39,7 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 	ctx, c.cancel = context.WithCancel(ctx)
 
 	// Subscribe
-	c.eventsSub = c.backend.Subscribe(events.MessageEvent{}, &algorithm.ConsensusMessage{}, &algorithm.Timeout{}, events.CommitEvent{})
+	c.eventsSub = c.backend.Subscribe(events.MessageEvent{}, &algorithm.Timeout{}, events.CommitEvent{})
 	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 	c.newUnminedBlockEventSub = c.backend.Subscribe(events.NewUnminedBlockEvent{})
 
@@ -85,7 +85,8 @@ eventLoop:
 			if cmp := c.Height().Cmp(number); cmp > 0 {
 				panic(fmt.Sprintf("Received old potential block, current height: %s, block height: %s", c.Height().String(), block.Number().String()))
 			} else if cmp < 0 {
-				panic(fmt.Sprintf("Received future potential block, current height: %s, block height: %s", c.Height().String(), block.Number().String()))
+				// looks like this can happen, shouldn't though
+				// panic(fmt.Sprintf("Received future potential block, current height: %s, block height: %s", c.Height().String(), block.Number().String()))
 			}
 			c.SetValue(&block)
 		case <-ctx.Done():
@@ -100,17 +101,19 @@ eventLoop:
 func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage, t *algorithm.Timeout, proposal *algorithm.ConsensusMessage) {
 	if proposal != nil {
 		// A decision has been reached
+		println(c.address.String(), "decided on block", proposal.Height, common.Hash(proposal.Value).String())
 		err := c.Commit(proposal)
 		if err != nil {
-			panic(fmt.Sprintf("Failed to commit proposal: %s err: %v", spew.Sdump(proposal), err))
+			panic(fmt.Sprintf("%s Failed to commit proposal: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(proposal), err))
 		}
 
 		c.updateLatestBlock()
 	}
 	switch {
 	case m != nil:
+		println(c.address.String(), m.String(), "sending")
 		go c.broadcast(ctx, m)
-		go c.backend.Post(m)
+		//go c.backend.Post(m)
 	case t != nil:
 		time.AfterFunc(time.Duration(t.Delay)*time.Second, func() {
 			c.backend.Post(t)
@@ -146,6 +149,7 @@ eventLoop:
 				}
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
 			case *algorithm.ConsensusMessage:
+				println(c.address.String(), e.String(), "message from self")
 				// This is a message we sent ourselves we do not need to broadcast it
 				if c.Height().Uint64() == e.Height {
 					m, t, p := c.algo.ReceiveMessage(e)
@@ -156,11 +160,17 @@ eventLoop:
 				var t *algorithm.Timeout
 				switch e.TimeoutType {
 				case algorithm.Propose:
+					println(c.address.String(), "on timeout propose", e.Height, "round", e.Round)
 					m = c.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
+					println(c.address.String(), "on timeout prevote", e.Height, "round", e.Round)
 					m = c.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
+					println(c.address.String(), "on timeout precommit", e.Height, "round", e.Round)
 					m, t = c.algo.OnTimeoutPrecommit(e.Height, e.Round)
+				}
+				if m != nil {
+					println("nonnil timeout")
 				}
 				c.handleResult(ctx, m, t, nil)
 			case events.CommitEvent:
@@ -312,7 +322,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 			MsgType: algorithm.Step(m.Code),
 			Height:  preCommit.Height.Uint64(),
 			Round:   preCommit.Round,
-			Value:   algorithm.ValueID(preVote.ProposedBlockHash),
+			Value:   algorithm.ValueID(preCommit.ProposedBlockHash),
 		}
 
 		err = c.msgCache.addMessage(m, conMsg)
@@ -323,6 +333,8 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	default:
 		return fmt.Errorf("unrecognised consensus message code %q", m.Code)
 	}
+
+	println(c.address.String(), conMsg.String(), "recieved")
 
 	// If this message is for a future height then we cannot validate it
 	// because we lack the relevant header, we will process it when we reach
@@ -395,11 +407,12 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMes
 		}
 		// Proposals values are allowed to be invalid.
 		if _, err := c.backend.VerifyProposal(*c.msgCache.values[common.Hash(cm.Value)]); err == nil {
+			println(c.address.String(), "valid", cm.Value.String())
 			c.msgCache.setValid(common.Hash(cm.Value))
 		}
 	default:
+		// All other messages that have reached this point are valid, but we are not marking the vlaue valid here, we are marking the message valid.
 		c.msgCache.setValid(m.Hash)
-
 	}
 
 	cm, t, p := c.algo.ReceiveMessage(cm)

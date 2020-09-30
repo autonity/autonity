@@ -121,15 +121,15 @@ func (c *core) SetValue(b *types.Block) {
 	c.valueSet.L.Lock()
 	defer c.valueSet.L.Unlock()
 	if c.value == nil {
-		c.value = b
 		c.valueSet.Signal()
 	}
+	c.value = b
 }
 
-func (c *core) AwaitValue() *types.Block {
+func (c *core) AwaitValue(height *big.Int) *types.Block {
 	c.valueSet.L.Lock()
 	defer c.valueSet.L.Unlock()
-	for c.value == nil {
+	for c.value == nil || c.value.Number().Cmp(height) != 0 {
 		c.valueSet.Wait()
 	}
 	v := c.value
@@ -137,6 +137,8 @@ func (c *core) AwaitValue() *types.Block {
 	// thread of the algorithm, and so we don't end up needing to syncronise
 	// the store.
 	c.msgCache.addValue(v.Hash(), v)
+	// We assume our own suggestions are valid
+	c.msgCache.setValid(v.Hash())
 	c.value = nil
 	return v
 }
@@ -167,8 +169,7 @@ func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 	return payload, nil
 }
 
-func (c *core) broadcast(ctx context.Context, m *algorithm.ConsensusMessage) {
-	logger := c.logger.New("step", nil)
+func (c *core) buildMessage(m *algorithm.ConsensusMessage) *Message {
 
 	var code uint64
 	var internalMessage interface{}
@@ -210,7 +211,13 @@ func (c *core) broadcast(ctx context.Context, m *algorithm.ConsensusMessage) {
 			panic(fmt.Sprintf("error while signing committed seal: %v", err))
 		}
 	}
+	return msg
+}
 
+func (c *core) broadcast(ctx context.Context, m *algorithm.ConsensusMessage) {
+	logger := c.logger.New("step", nil)
+
+	msg := c.buildMessage(m)
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to finalize message: %+v err: %v", msg, err))

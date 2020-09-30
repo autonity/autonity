@@ -601,7 +601,7 @@ contract Autonity {
         }
 
         require(validators.length > 1, "Downgrade user failed due to keep at least 1 validator in the network");
-        _changeUserType(u.addr, UserType.Stakeholder);
+        _changeUserType(u.addr, UserType.Participant);
     }
 
     function compareStringsbyBytes(string memory s1, string memory s2) internal pure returns(bool){

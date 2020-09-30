@@ -1,11 +1,13 @@
 package core
 
 import (
+	"crypto/rand"
 	"fmt"
 
 	common "github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	types "github.com/clearmatics/autonity/core/types"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Message cache caches messages
@@ -129,6 +131,7 @@ func (m *messageCache) Message(h common.Hash) *Message {
 func (m *messageCache) signatures(valueHash common.Hash, round int64, height uint64) [][]byte {
 	var sigs [][]byte
 	for _, msgHash := range m.msgHashes[height][round][algorithm.Step(msgPrecommit)] {
+		spew.Dump(m.rawMessages[msgHash].decodedMsg)
 		if valueHash == m.rawMessages[msgHash].decodedMsg.ProposedValueHash() {
 			sigs = append(sigs, m.rawMessages[msgHash].CommittedSeal)
 		}
@@ -138,13 +141,15 @@ func (m *messageCache) signatures(valueHash common.Hash, round int64, height uin
 
 func (m *messageCache) prevoteQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
 	msgType := new(algorithm.Step)
-	*msgType = algorithm.Step(msgPrevote)
+	*msgType = algorithm.Prevote
+	// println("vote power", m.votePower(valueHash, round, msgType, header))
 	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
 }
 
 func (m *messageCache) precommitQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
 	msgType := new(algorithm.Step)
-	*msgType = algorithm.Step(msgPrecommit)
+	*msgType = algorithm.Precommit
+	// println("precommit power", m.votePower(valueHash, round, msgType, header))
 	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
 }
 
@@ -262,7 +267,8 @@ func (m *messageCache) votePower(
 	// error and an invalid memory acccess panic will ensue.
 	var power uint64
 	// For all messages at the given height in the given round ...
-	for mType, addressMap := range m.msgHashes[header.Number.Uint64()][round] {
+	for mType, addressMap := range m.msgHashes[header.Number.Uint64()+1][round] {
+		// spew.Dump(addressMap)
 		// Skip in the case that this is not a message type we are considering.
 		if msgType != nil && *msgType != mType {
 			continue
@@ -271,11 +277,13 @@ func (m *messageCache) votePower(
 			// Skip messages not considered valid
 			_, ok := m.valid[msgHash]
 			if !ok {
+				println("skippng not valid")
 				continue
 			}
 
 			// Skip messages with differing values
 			if valueHash != nil && *valueHash != common.Hash(m.consensusMsgs[msgHash].Value) {
+				// println("skipping mismatch value")
 				continue
 			}
 			// Now either value hash is nil (matches everything) or it actually matches the msg's value.
@@ -315,10 +323,21 @@ func addMsgHash(
 }
 
 func (m *messageCache) addMessage(msg *Message, cm *algorithm.ConsensusMessage) error {
-	err := addMsgHash(m.msgHashes, cm.Height, cm.Round, cm.MsgType, msg.Address, msg.Hash)
+	r := make([]byte, 2)
+	_, err := rand.Read(r)
+	if err != nil {
+		panic(err)
+	}
+	// id := hex.EncodeToString(r)
+
+	// println(id, "hashes len", len(m.msgHashes))
+	// println(id, spew.Sdump(m.msgHashes))
+	// println(id, "add message", cm.String(), msg.Hash.String())
+	err = addMsgHash(m.msgHashes, cm.Height, cm.Round, cm.MsgType, msg.Address, msg.Hash)
 	if err != nil {
 		return err
 	}
+	// println(id, "hashes len", len(m.msgHashes))
 	m.consensusMsgs[msg.Hash] = cm
 	m.rawMessages[msg.Hash] = msg
 
@@ -363,6 +382,9 @@ func (m *messageCache) proposal(height uint64, round int64, proposer common.Addr
 func (m *messageCache) matchingProposal(cm *algorithm.ConsensusMessage) *algorithm.ConsensusMessage {
 	if cm.MsgType == algorithm.Step(msgProposal) {
 		return cm
+	}
+	if cm.MsgType == algorithm.Precommit {
+		println("fetching proposal", cm.String())
 	}
 	for _, proposalHash := range m.msgHashes[cm.Height][cm.Round][algorithm.Step(msgProposal)] {
 		proposal := m.consensusMsgs[proposalHash]
