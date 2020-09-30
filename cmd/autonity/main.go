@@ -245,7 +245,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		// check genesis flag and try to init genesis block, error will stop the app execution.
+		// Try to init chain before autonity start up. Any error from initGenesis would terminate node start up.
 		return initGenesis(ctx)
 	}
 	app.After = func(ctx *cli.Context) error {

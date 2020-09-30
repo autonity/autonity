@@ -199,14 +199,21 @@ Use "ethereum dump 0" to dump the genesis block.`,
 // initGenesis will initialise the given JSON format genesis file and writes it as
 // the zero'd block (i.e. genesis) or will fail hard if it can't succeed.
 func initGenesis(ctx *cli.Context) error {
-	// Make sure we have a valid genesis JSON
+	// If user does not specify a genesis file on genesis flag, start node from current data dir.
 	if !ctx.GlobalIsSet(utils.InitGenesisFlag.Name) {
-		log.Info("Genesis flag is not set, start node directly.")
-		log.Info("In case of 1st time start, please start client with setting genesis flag, " +
+		log.Info("genesis flag is not set, start node directly from data dir.")
+		log.Info("In case of 1st time start, please start client with setting --genesis flag, " +
 			"the client will auto init genesis block before attach to network.")
 		return nil
 	}
+
+	// If there is no genesis block presented, init a genesis block with genesis file,
+	// otherwise it checks if genesis block is compatible and matched with genesis file
+	// and return error if they are not, the error would terminate autonity client.
+
+	// Make sure we have a valid genesis JSON.
 	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
+	log.Info("Trying to init genesis block with genesis file", "file", genesisPath)
 	if len(genesisPath) == 0 {
 		utils.Fatalf("Must supply path to genesis JSON file")
 		return fmt.Errorf("must supply path to genesis JSON file")
