@@ -202,7 +202,6 @@ func init() {
 	app.Copyright = "Copyright 2013-2020 The go-ethereum Authors"
 	app.Commands = []cli.Command{
 		// See chaincmd.go:
-		initCommand,
 		importCommand,
 		exportCommand,
 		importPreimagesCommand,
@@ -241,7 +240,12 @@ func init() {
 	app.Flags = append(app.Flags, metricsFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
-		return debug.Setup(ctx)
+		err := debug.Setup(ctx)
+		if err != nil {
+			return err
+		}
+		// check genesis flag and try to init genesis block, error will stop the app execution.
+		return initGenesis(ctx)
 	}
 	app.After = func(ctx *cli.Context) error {
 		debug.Exit()
