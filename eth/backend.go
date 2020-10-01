@@ -318,12 +318,14 @@ func (s *Ethereum) APIs() []rpc.API {
 		apis = append(apis, s.lesServer.APIs()...)
 	}
 
-	apis = append(apis, rpc.API{
-		Namespace: "autonityContract",
-		Version:   params.Version,
-		Service:   NewAutonityContractAPI(s).ContractABIMethods(),
-		Public:    true,
-	})
+	if _, ok := s.engine.(consensus.BFT); ok {
+		apis = append(apis, rpc.API{
+			Namespace: "autonityContract",
+			Version:   params.Version,
+			Service:   NewAutonityContractAPI(s).ContractABIMethods(),
+			Public:    true,
+		})
+	}
 
 	// Append all the local APIs and return
 	return append(apis, []rpc.API{
