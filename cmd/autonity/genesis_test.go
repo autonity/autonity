@@ -111,6 +111,16 @@ var customGenesisTests = []struct {
 // work properly.
 func TestCustomGenesis(t *testing.T) {
 	for i, tt := range customGenesisTests {
+		coinbase := "0x8605cdbbdb6d264aa742e77020dcbc58fcdce182"
+		var ipc string
+		if runtime.GOOS == "windows" {
+			ipc = `\\.\pipe\autonity` + strconv.Itoa(trulyRandInt(100000, 999999))
+		} else {
+			ws := tmpdir(t)
+			defer os.RemoveAll(ws)
+			ipc = filepath.Join(ws, "autonity.ipc")
+		}
+
 		// Create a temporary data directory to use and inspect later
 		datadir := tmpdir(t)
 		defer os.RemoveAll(datadir)
@@ -120,14 +130,15 @@ func TestCustomGenesis(t *testing.T) {
 		if err := ioutil.WriteFile(json, []byte(tt.genesis), 0600); err != nil {
 			t.Fatalf("test %d: failed to write genesis file: %v", i, err)
 		}
-
-		client := runAutonity(t, "--nousb", "--datadir", datadir, "--genesis", json)
-		// stop client after 10s.
-		time.Sleep(time.Second*10)
-		client.Kill()
+		// First create chain data with genesis, and then stop the node.
+		autonity := runAutonity(t,
+			"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
+			"--etherbase", coinbase, "--ipcpath", ipc, "--datadir", datadir, "--genesis", json)
+		waitForEndpoint(t, ipc, 5*time.Second)
+		autonity.Interrupt()
 
 		// Query the custom genesis block, check if start-up do init the wanted genesis block.
-		autonity := runAutonity(t, "--nousb",
+		autonity = runAutonity(t, "--nousb",
 			"--datadir", datadir, "--maxpeers", "0", "--port", "0",
 			"--nodiscover", "--nat", "none", "--ipcdisable",
 			"--exec", tt.query, "console")
