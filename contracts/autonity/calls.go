@@ -107,18 +107,9 @@ func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.
 }
 
 func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}, args ...interface{}) error {
-	gas := uint64(math.MaxUint64)
-	evm := ac.evmProvider.EVM(header, Deployer, statedb)
-
-	input, err := ac.contractABI.Pack(function, args...)
+	ret, err := ac.callContractFunc(statedb, header, function, args)
 	if err != nil {
 		return err
-	}
-
-	ret, _, vmerr := evm.Call(vm.AccountRef(Deployer), ContractAddress, input, gas, new(big.Int))
-	if vmerr != nil {
-		log.Error("Error Autonity Contract", "function", function)
-		return vmerr
 	}
 	// if result's type is "raw" then bypass unpacking
 	if reflect.TypeOf(result) == reflect.TypeOf(&raw{}) {
@@ -133,6 +124,36 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 	}
 
 	return nil
+}
+
+func (ac *Contract) AutonityContractCallUnpackIntoMap(statedb *state.StateDB, header *types.Header, function string, result map[string]interface{}, args ...interface{}) error {
+	ret, err := ac.callContractFunc(statedb, header, function, args)
+	if err != nil {
+		return err
+	}
+
+	if err := ac.contractABI.UnpackIntoMap(result, function, ret); err != nil {
+		log.Error("Could not unpack returned value into map[string]interface{}", "function", function)
+		return err
+	}
+	return nil
+}
+
+func (ac *Contract) callContractFunc(statedb *state.StateDB, header *types.Header, function string, args []interface{}) ([]byte, error) {
+	gas := uint64(math.MaxUint64)
+	evm := ac.evmProvider.EVM(header, Deployer, statedb)
+
+	input, err := ac.contractABI.Pack(function, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, _, vmerr := evm.Call(vm.AccountRef(Deployer), ContractAddress, input, gas, new(big.Int))
+	if vmerr != nil {
+		log.Error("Error Autonity Contract", "function", function)
+		return nil, vmerr
+	}
+	return ret, nil
 }
 
 func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {

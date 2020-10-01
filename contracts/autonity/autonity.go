@@ -36,7 +36,7 @@ type Blockchainer interface {
 }
 
 // Will decide function signature later
-type ContractAPIFunc func() (map[string]interface{}, error)
+type ContractAPIFunc func() (string, error)
 
 type Contract struct {
 	evmProvider        EVMProvider
