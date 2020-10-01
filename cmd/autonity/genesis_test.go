@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 var customGenesisTests = []struct {
@@ -82,9 +83,13 @@ func TestCustomGenesis(t *testing.T) {
 		if err := ioutil.WriteFile(json, []byte(tt.genesis), 0600); err != nil {
 			t.Fatalf("test %d: failed to write genesis file: %v", i, err)
 		}
-		runAutonity(t, "--nousb", "--datadir", datadir, "init", json).WaitExit()
 
-		// Query the custom genesis block
+		client := runAutonity(t, "--nousb", "--datadir", datadir, "--genesis", json)
+		// stop client after 10s.
+		time.Sleep(time.Second*10)
+		client.Kill()
+
+		// Query the custom genesis block, check if start-up do init the genesis block.
 		autonity := runAutonity(t, "--nousb",
 			"--datadir", datadir, "--maxpeers", "0", "--port", "0",
 			"--nodiscover", "--nat", "none", "--ipcdisable",
