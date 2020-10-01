@@ -33,7 +33,7 @@ contract Autonity is IERC20, IAutonity {
     address public operatorAccount;
     uint256 private minGasPrice = 0;
     uint256 public committeeSize = 20;
-    string public contractVersion = "v0.0.0";
+    string public contractVersion = "v1.0.0";
 
     mapping (address => mapping (address => uint256)) private allowances;
 
@@ -85,6 +85,11 @@ contract Autonity is IERC20, IAutonity {
         contractVersion = _contractVersion;
         committeeSize = _committeeSize;
     }
+
+    receive() external payable {}
+
+    fallback() external payable {}
+
 
     /**
     * @return the name of the stake token.
@@ -209,12 +214,11 @@ contract Autonity is IERC20, IAutonity {
     /**
      * @dev See {IERC20-transferFrom}.
      *
-     * Emits an {Approval} event indicating the updated allowance. This is not
-     * required by the EIP. See the note at the beginning of {ERC20}.
+     * Emits an {Approval} event indicating the updated allowance.
      *
      * Requirements:
      *
-     * - `sender` and `recipient` cannot be the zero address.
+     * - `sender` and `recipient` must be allowed to hold stake.
      * - `sender` must have a balance of at least `amount`.
      * - the caller must have allowance for ``sender``'s tokens of at least
      * `amount`.
@@ -318,37 +322,37 @@ contract Autonity is IERC20, IAutonity {
         return enodesWhitelist;
     }
 
-    /*
+    /**
     * @notice Returns the amount of stake token held by the account (ERC-20).
     */
     function balanceOf(address _account) external view override returns (uint256) {
         return users[_account].stake;
     }
 
-    /*
+    /**
     * @notice Returns the total amount of stake token issued.
     */
     function totalSupply() external view override returns (uint256) {
         return stakeSupply;
     }
 
-    /*
-    * @return Returns a user object with the `_account` parameter. The returned data structure might be empty if there
-    * is no user associated.
+    /**
+    * @return Returns a user object with the `_account` parameter. The returned data
+    * structure might be empty if there is no user associated.
     */
     function getUser(address _account) external view returns(User memory) {
         //TODO : return an error if no user was found.
         return users[_account];
     }
 
-    /*
+    /**
     * @return Returns the maximum size of the consensus committee.
     */
     function getMaxCommitteeSize() external view returns(uint256) {
         return committeeSize;
     }
 
-    /*
+    /**
     * @return Returns the minimum gas price.
     * @dev Autonity transaction's gas price must be greater or equal to the minimum gas price.
     * Implementation of {IAutonity getMinimumGasPrice}
@@ -357,7 +361,7 @@ contract Autonity is IERC20, IAutonity {
         return minGasPrice;
     }
 
-    /*
+    /**
     * @notice getProposer returns the address of the proposer for the given height and
     * round. The proposer is selected from the committee via weighted random
     * sampling, with selection probability determined by the voting power of
@@ -391,8 +395,8 @@ contract Autonity is IERC20, IAutonity {
         revert("There is no validator left in the network");
     }
 
-    /*
-    * Returns a struct which contains all the network economic data.
+    /**
+    * @notice Returns an object which contains all the network economics data.
     */
     function dumpEconomicMetrics() public view returns(EconomicMetrics memory) {
         uint len = usersList.length;
@@ -419,8 +423,8 @@ contract Autonity is IERC20, IAutonity {
     ============================================================
     */
 
-    /*
-    * Modifier that checks if the caller is the governance operator account.
+    /**
+    * @dev Modifier that checks if the caller is the governance operator account.
     * This should be abstracted by a separate smart-contract.
     */
     modifier onlyOperator(address _caller) {
@@ -428,13 +432,17 @@ contract Autonity is IERC20, IAutonity {
         _;
     }
 
+    /**
+    * @dev Modifier that checks if the caller is not any external owned account.
+    * Only the protocol itself can invoke the contract with the 0 address.
+    */
     modifier onlyProtocol(address _caller) {
         require(address(0) == _caller, "function restricted to the protocol");
         _;
     }
 
-    /*
-    * Modifier that checks if the adress is authorized to own stake.
+    /**
+    * @dev Modifier that checks if the adress is authorized to own stake.
     */
     modifier canUseStake(address _address) {
         require(_address != address(0), "address must be defined");
@@ -453,8 +461,11 @@ contract Autonity is IERC20, IAutonity {
     ============================================================
     */
 
-    /*
-    * @notice Perform Auton reward distribution.
+    /**
+    * @notice Perform Auton reward distribution. The transaction fees
+    * are simply re-distributed to all stake-holders, including validators,
+    * pro-rata the amount of stake held.
+    * @dev Emit a {BlockReward} event for every account that collected rewards.
     */
     function _performRedistribution(uint256 _amount) internal  {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
@@ -492,7 +503,7 @@ contract Autonity is IERC20, IAutonity {
         emit Approval(owner, spender, amount);
     }
 
-    /*
+    /**
     * @dev If the user is a validator and its stake is zero downgrade it to a
     * stakeholder. Unless the user is the only validator in which case the
     * transaction is reverted.
@@ -628,15 +639,15 @@ contract Autonity is IERC20, IAutonity {
 
 
 
-    /*
-    * Order validators by stake
+    /**
+    * @dev Order validators by stake
     */
     function _sortByStake(User[] memory _validators) internal pure {
         _structQuickSort(_validators, int(0), int(_validators.length - 1));
     }
 
-    /*
-    * QuickSort algorithm sorting in ascending order by stake.
+    /**
+    * @dev QuickSort algorithm sorting in ascending order by stake.
     */
     function _structQuickSort(User[] memory _users, int _low, int _high) internal pure {
 
@@ -680,7 +691,5 @@ contract Autonity is IERC20, IAutonity {
         }
     }
 
-    receive() external payable {}
 
-    fallback() external payable {}
 }

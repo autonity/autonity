@@ -43,22 +43,15 @@ func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis
 	enodes := make([]string, 0, ln)
 	accTypes := make([]*big.Int, 0, ln)
 	participantStake := make([]*big.Int, 0, ln)
-	commissionRate := make([]*big.Int, 0, ln)
-
-	// Default bond period is 100.
-	defaultBondPeriod := big.NewInt(100)
 
 	defaultCommitteeSize := big.NewInt(1000)
-	defaultVersion := "v0.0.0"
+	defaultVersion := "v1.0.0"
 
 	for _, v := range autonityConfig.Users {
 		validators = append(validators, *v.Address)
 		enodes = append(enodes, v.Enode)
 		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
 		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
-
-		// TODO: default commission rate is 0, should use a config file...
-		commissionRate = append(commissionRate, big.NewInt(0))
 	}
 
 	constructorParams, err := abi.Pack("",
@@ -66,10 +59,8 @@ func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis
 		enodes,
 		accTypes,
 		participantStake,
-		commissionRate,
 		autonityConfig.Operator,
 		new(big.Int).SetUint64(autonityConfig.MinGasPrice),
-		defaultBondPeriod,
 		defaultCommitteeSize,
 		defaultVersion)
 	if err != nil {
