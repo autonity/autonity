@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/contracts/autonity"
-	"github.com/davecgh/go-spew/spew"
 	"io"
 	"math/big"
 	"os"
@@ -549,7 +548,7 @@ func (ac *AutonityContractAPI) ContractABIMethods() map[string]autonity.Contract
 		functionName := n
 		// Only expose functions which have zero inputs
 		if m.StateMutability == viewMethodStr && len(m.Inputs) == 0 {
-			contractViewMethods[functionName] = func() (string, error) {
+			contractViewMethods[functionName] = func() (interface{}, error) {
 				r := make(map[string]interface{})
 				stateDB, err := ac.eth.BlockChain().State()
 				if err != nil {
@@ -561,13 +560,14 @@ func (ac *AutonityContractAPI) ContractABIMethods() map[string]autonity.Contract
 					return "", err
 				}
 
-				// Convert map into string
-
-				spew.Dump(r)
-				return fmt.Sprintf("%v", r), nil
+				if len(r) == 1 {
+					for _, v := range r {
+						return v, nil
+					}
+				}
+				return r, nil
 			}
 		}
 	}
-	spew.Dump(contractViewMethods)
 	return contractViewMethods
 }

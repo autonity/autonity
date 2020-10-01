@@ -90,9 +90,6 @@ func (r *serviceRegistry) registerName(name string, rcvr interface{}) error {
 			svc.callbacks[name] = cb
 		}
 	}
-	if name == "autonityContract" {
-		fmt.Println(r.services[name])
-	}
 	return nil
 }
 
