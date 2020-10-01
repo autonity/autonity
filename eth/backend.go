@@ -318,7 +318,6 @@ func (s *Ethereum) APIs() []rpc.API {
 		apis = append(apis, s.lesServer.APIs()...)
 	}
 
-	// add autonity contract apis, based on some condition, such as the call to the ContractABIMethods doesn't fail
 	apis = append(apis, rpc.API{
 		Namespace: "autonityContract",
 		Version:   params.Version,

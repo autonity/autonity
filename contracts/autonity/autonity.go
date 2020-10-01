@@ -35,7 +35,6 @@ type Blockchainer interface {
 	PutKeyValue(key []byte, value []byte) error
 }
 
-// Will decide function signature later
 type ContractAPIFunc func() (interface{}, error)
 
 type Contract struct {
