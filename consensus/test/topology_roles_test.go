@@ -46,7 +46,7 @@ func TestTendermintExternalUser(t *testing.T) {
 }
 
 func TestTendermintMajorityExternalUsers(t *testing.T) {
-	t.Skip("This test is intermittently failing, see - https://github.com/clearmatics/autonity/issues/619")
+	//t.Skip("This test is intermittently failing, see - https://github.com/clearmatics/autonity/issues/619")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -93,7 +93,7 @@ func TestTendermintMajorityExternalUsers(t *testing.T) {
 }
 
 func TestTendermintMajorityExternalUsersFullyConnected(t *testing.T) {
-	t.Skip("This test is intermittently failing, see - https://github.com/clearmatics/autonity/issues/619")
+	//t.Skip("This test is intermittently failing, see - https://github.com/clearmatics/autonity/issues/619")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -184,7 +184,7 @@ func TestTendermintMajorityExternalUsersFullyConnected(t *testing.T) {
 }
 
 func TestTendermintStarOverParticipantSuccessWithExternalUser(t *testing.T) {
-	t.Skip("test is flaky - https://github.com/clearmatics/autonity/issues/496")
+	//t.Skip("test is flaky - https://github.com/clearmatics/autonity/issues/496")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -259,7 +259,7 @@ func TestTendermintBusSuccessWithExternalUser(t *testing.T) {
 }
 
 func TestTendermintChangeTopologyFromBusToStarSuccessWithExternalUser(t *testing.T) {
-	t.Skip("Topology tests are not stable")
+	//t.Skip("Topology tests are not stable")
 
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -308,7 +308,7 @@ func TestTendermintChangeTopologyFromBusToStarSuccessWithExternalUser(t *testing
 }
 
 func TestTendermintChangeTopologyFromStarToBusSuccessWithExternalUser(t *testing.T) {
-	t.Skip("Topology tests are not stable")
+	//t.Skip("Topology tests are not stable")
 
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -358,7 +358,7 @@ func TestTendermintChangeTopologyFromStarToBusSuccessWithExternalUser(t *testing
 }
 
 func TestTendermintAddConnectionToTopologySuccessWithExternalUser(t *testing.T) {
-	t.Skip("Topology tests are not stable")
+	//t.Skip("Topology tests are not stable")
 
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -408,7 +408,7 @@ func TestTendermintAddConnectionToTopologySuccessWithExternalUser(t *testing.T) 
 }
 
 func TestTendermintAddValidatorsToTopologySuccessWithExternalUser(t *testing.T) {
-	t.Skip("Topology tests are not stable")
+	//t.Skip("Topology tests are not stable")
 
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -460,7 +460,7 @@ func TestTendermintAddValidatorsToTopologySuccessWithExternalUser(t *testing.T) 
 }
 
 func TestTendermintAddParticipantsToTopologySuccessWithExternalUser(t *testing.T) {
-	t.Skip("should be fixed by https://github.com/clearmatics/autonity/issues/431")
+	//t.Skip("should be fixed by https://github.com/clearmatics/autonity/issues/431")
 
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -512,7 +512,7 @@ func TestTendermintAddParticipantsToTopologySuccessWithExternalUser(t *testing.T
 }
 
 func TestTendermintAddStakeholdersToTopologySuccessWithExternalUser(t *testing.T) {
-	t.Skip("should be fixed by https://github.com/clearmatics/autonity/issues/431")
+	//t.Skip("should be fixed by https://github.com/clearmatics/autonity/issues/431")
 
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
