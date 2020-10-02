@@ -220,3 +220,13 @@ func (c *caller) checkMember(address common.Address) (bool, error) {
 	})
 	return isMember, err
 }
+
+func (c *caller) getAccountStake(address common.Address) (*big.Int, error) {
+	var stake *big.Int
+	err := c.execute(func(instance *Autonity, opts *bind.CallOpts) error {
+		s, err := instance.GetAccountStake(opts, address)
+		stake = s
+		return err
+	})
+	return stake, err
+}

@@ -3,7 +3,6 @@ package test
 import (
 	"fmt"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -31,7 +30,7 @@ func TestStakeManagement(t *testing.T) {
 	}
 	stakeDelta := new(big.Int).SetUint64(50)
 	// prepare chain operator
-	operatorKey, err := keygenerator.Next()
+	operatorKey, err := crypto.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}

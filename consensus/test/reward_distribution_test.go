@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethclient"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 	"time"
@@ -37,7 +37,7 @@ func TestRewardDistribution(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 	// prepare chain operator
-	operatorKey, err := keygenerator.Next()
+	operatorKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 	// reward checker hook:
