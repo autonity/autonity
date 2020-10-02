@@ -38,9 +38,7 @@ func TestRewardDistribution(t *testing.T) {
 	}
 	// prepare chain operator
 	operatorKey, err := keygenerator.Next()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 	// reward checker hook:
 	rewardChecker := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
