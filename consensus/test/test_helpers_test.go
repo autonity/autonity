@@ -498,6 +498,7 @@ wgLoop:
 
 			if test.topology != nil && test.topology.WithChanges() {
 				err = test.topology.CheckTopologyForIndex(index, peers)
+				logger.Error("check topology", "index", index, "block", peer.lastBlock, "err", err)
 				if err != nil {
 					logger.Error("check topology err", "index", index, "block", peer.lastBlock, "err", err)
 					return err

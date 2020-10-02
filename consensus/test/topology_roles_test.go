@@ -184,7 +184,6 @@ func TestTendermintMajorityExternalUsersFullyConnected(t *testing.T) {
 }
 
 func TestTendermintStarOverParticipantSuccessWithExternalUser(t *testing.T) {
-	//t.Skip("test is flaky - https://github.com/clearmatics/autonity/issues/496")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
