@@ -40,36 +40,44 @@ func TestRewardDistribution(t *testing.T) {
 	operatorKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
-	// reward checker hook:
-	rewardChecker := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 
-		client, err := validator.node.Attach()
+	// get balance on specific block for an node
+	getBalance := func(blockNum *big.Int, node *testNode) (*big.Int, error) {
+		client, err := node.node.Attach()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer client.Close()
 		ec := ethclient.NewClient(client)
 		ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 		defer cancel()
 
-		blockReward := new(big.Int)
-		parent := validator.service.BlockChain().GetBlock(block.ParentHash(), block.NumberU64()-1)
-
-		addr := crypto.PubkeyToAddress(validator.privateKey.PublicKey)
-		balanceBase, err := ec.BalanceAt(ctx, addr, parent.Number())
+		addr := crypto.PubkeyToAddress(node.privateKey.PublicKey)
+		balance, err := ec.BalanceAt(ctx, addr, blockNum)
 		if err != nil {
-			return err
+			return nil, err
 		}
-
+		return balance, nil
+	}
+	// calculate sentTokens, receivedTokens, gasUsed, blockReward on per block for node
+	calculateBalanceFactors := func(block *types.Block, node *testNode) (*big.Int, *big.Int, *big.Int, *big.Int, error) {
+		client, err := node.node.Attach()
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		defer client.Close()
+		ec := ethclient.NewClient(client)
+		ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
+		defer cancel()
 		// calculate sent, gasUsed, receive amount and reward base on new block.
 		sentAmount := new(big.Int)
 		receivedAmount := new(big.Int)
 		usedGas := new(big.Int)
-		rewardFraction := new(big.Int)
+		blockReward := new(big.Int)
 		for _, tx := range block.Transactions() {
 			receipt, err := ec.TransactionReceipt(ctx, tx.Hash())
 			if err != nil {
-				return err
+				return nil, nil, nil, nil, err
 			}
 
 			// count block reward.
@@ -77,44 +85,72 @@ func TestRewardDistribution(t *testing.T) {
 			blockReward.Add(blockReward, txGasConsumed)
 
 			// count received amount on the block.
-			if *tx.To() == addr {
+			if *tx.To() == crypto.PubkeyToAddress(node.privateKey.PublicKey) {
 				receivedAmount.Add(receivedAmount, tx.Value())
 			}
 
 			// count sent and gasUsed amount on the block.
-			validator.transactionsMu.Lock()
-			if _, ok := validator.transactions[tx.Hash()]; ok {
+			node.transactionsMu.Lock()
+			if _, ok := node.transactions[tx.Hash()]; ok {
 				sentAmount.Add(sentAmount, tx.Value())
 				usedGas.Add(usedGas, txGasConsumed)
 			}
-			validator.transactionsMu.Unlock()
+			node.transactionsMu.Unlock()
 		}
-
+		return sentAmount, receivedAmount, usedGas, blockReward, nil
+	}
+	// calculate reward fraction
+	calculateRewardFraction := func(blockNum uint64, blockReward *big.Int, port int, address common.Address) (*big.Int, error) {
+		rewardFraction := new(big.Int)
 		// calculate reward fractions base on latest economic state
-		economicState, err1 := interact(validator.rpcPort).call(block.NumberU64()).dumpEconomicsMetricData()
-		if err1 != nil {
-			return err1
+		economicState, err := interact(port).call(blockNum).dumpEconomicsMetricData()
+		if err != nil {
+			return nil, err
 		}
 
 		for i := 0; i < len(economicState.Accounts); i++ {
-			if addr == economicState.Accounts[i] {
+			if address == economicState.Accounts[i] {
 				rewardFraction = new(big.Int).Mul(blockReward, economicState.Stakes[i])
 				rewardFraction = rewardFraction.Div(rewardFraction, economicState.Stakesupply)
 				break
 			}
 		}
+		return rewardFraction, nil
+	}
 
-		balanceActual, err := ec.BalanceAt(ctx, addr, block.Number())
+	// reward checker hook:
+	rewardChecker := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
+
+		// get base balance.
+		parentNum := block.Number().Sub(block.Number(), big.NewInt(1))
+		balanceOnParent, err := getBalance(parentNum, validator)
 		if err != nil {
 			return err
 		}
 
-		// check if balance is expected: base + reward + received - sent - gasUsed == bActual.
-		balanceWant := new(big.Int).Add(balanceBase, rewardFraction)
+		// calculate sent, gasUsed, receive amount and reward base on new block.
+		sentAmount, receivedAmount, usedGas, blockReward, err := calculateBalanceFactors(block, validator)
+		if err != nil {
+			return err
+		}
+
+		// calculate reward fraction.
+		rewardFraction, err := calculateRewardFraction(block.NumberU64(), blockReward, validator.rpcPort, crypto.PubkeyToAddress(validator.privateKey.PublicKey))
+		if err != nil {
+			return err
+		}
+
+		balanceNow, err := getBalance(block.Number(), validator)
+		if err != nil {
+			return err
+		}
+
+		// check if balance is expected: balanceOnParent + rewardFraction + received - sent - gasUsed == balanceNow.
+		balanceWant := new(big.Int).Add(balanceOnParent, rewardFraction)
 		balanceWant.Add(balanceWant, receivedAmount)
 		balanceWant.Sub(balanceWant, sentAmount)
 		balanceWant.Sub(balanceWant, usedGas)
-		if balanceWant.Cmp(balanceActual) != 0 {
+		if balanceWant.Cmp(balanceNow) != 0 {
 			return fmt.Errorf("incorrect reward distribution")
 		}
 		return nil
