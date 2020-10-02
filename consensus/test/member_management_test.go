@@ -158,7 +158,6 @@ func TestMemberManagement(t *testing.T) {
 		assert.False(t, isMember, "wrong membership for removed user")
 	}
 
-	// set up of hooks, which should be refactored since they share virtually the same code
 	cases := []*testCase{
 		{
 			name:          "add users",
