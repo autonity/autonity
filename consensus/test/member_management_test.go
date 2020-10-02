@@ -151,7 +151,7 @@ func TestMemberManagement(t *testing.T) {
 
 		// new_total_stake - init_total_stake == new added (validatorStake + stakeHolderStake + participantStake)
 		b := curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply).Uint64()
-		assert.Equal(t, b, validatorStake.Uint64() + stakeHolderStake.Uint64() + participantStake.Uint64(), "stake total supply is not expected")
+		assert.Equal(t, b, validatorStake.Uint64()+stakeHolderStake.Uint64()+participantStake.Uint64(), "stake total supply is not expected")
 	}
 
 	removeUserHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
