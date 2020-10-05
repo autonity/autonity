@@ -278,12 +278,14 @@ func (c *core) measureHeightRoundMetrics(round int64) {
 }
 
 func (c *core) updateLatestBlock() {
+
 	lastBlockMined, _ := c.backend.LastCommittedProposal()
 	if lastBlockMined.Number().Cmp(c.height) != 0 {
 		fmt.Printf("block height mismatch, lastblock: %s, currentHeight: %s\n", lastBlockMined.Number().String(), c.height.String())
 		debug.PrintStack()
 
 	}
+
 	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 
 	lastHeader := lastBlockMined.Header()
@@ -307,6 +309,8 @@ func (c *core) updateLatestBlock() {
 	default:
 		panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
 	}
+
+	println(c.address.String(), c.height.String(), "proposer", committeeSet.GetProposer(0).Address.String())
 
 	c.lastHeader = lastHeader
 	c.setCommitteeSet(committeeSet)

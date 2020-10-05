@@ -130,31 +130,42 @@ func (m *messageCache) Message(h common.Hash) *Message {
 
 func (m *messageCache) signatures(valueHash common.Hash, round int64, height uint64) [][]byte {
 	var sigs [][]byte
+
+	println("signatures -----")
 	for _, msgHash := range m.msgHashes[height][round][algorithm.Step(msgPrecommit)] {
 		spew.Dump(m.rawMessages[msgHash].decodedMsg)
 		if valueHash == m.rawMessages[msgHash].decodedMsg.ProposedValueHash() {
 			sigs = append(sigs, m.rawMessages[msgHash].CommittedSeal)
 		}
 	}
+	println("----------------")
 	return sigs
 }
 
 func (m *messageCache) prevoteQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
 	msgType := new(algorithm.Step)
 	*msgType = algorithm.Prevote
-	// println("vote power", m.votePower(valueHash, round, msgType, header))
-	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
+	println("prevote power --------")
+	vp := m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
+	println(vp, "----------------")
+	return vp
 }
 
 func (m *messageCache) precommitQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
 	msgType := new(algorithm.Step)
 	*msgType = algorithm.Precommit
 	// println("precommit power", m.votePower(valueHash, round, msgType, header))
-	return m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
+	println("precommit power --------")
+	vp := m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
+	println(vp, "----------------")
+	return vp
 }
 
 func (m *messageCache) fail(round int64, header *types.Header) bool {
-	return m.votePower(nil, round, nil, header) >= header.Committee.Quorum()
+	println("fail power --------")
+	vp := m.votePower(nil, round, nil, header) >= header.Committee.Quorum()
+	println(vp, "----------------")
+	return vp
 }
 
 // func (m *messageCache) futureRoundFail(round int64, header *types.Header) bool {
@@ -286,6 +297,7 @@ func (m *messageCache) votePower(
 				// println("skipping mismatch value")
 				continue
 			}
+			spew.Dump(m.consensusMsgs[msgHash])
 			// Now either value hash is nil (matches everything) or it actually matches the msg's value.
 			power += header.CommitteeMember(address).VotingPower.Uint64()
 		}

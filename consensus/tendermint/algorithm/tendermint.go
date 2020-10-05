@@ -140,7 +140,7 @@ func (a *Algorithm) timeout(msgType Step) *Timeout {
 		TimeoutType: Propose,
 		Height:      a.height,
 		Round:       a.round,
-		Delay:       1, // todo
+		Delay:       1, // TODO
 	}
 }
 

@@ -116,7 +116,7 @@ func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage,
 
 	switch {
 	case m != nil:
-		println(c.address.String(), m.String(), "sending")
+		println(c.address.String(), c.height.String(), m.String(), "sending")
 		// Broadcasting ends with the message reaching us eventually
 		go c.broadcast(ctx, m)
 	case t != nil:
@@ -339,8 +339,6 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		return fmt.Errorf("unrecognised consensus message code %q", m.Code)
 	}
 
-	println(c.address.String(), conMsg.String(), "recieved")
-
 	// If this message is for a future height then we cannot validate it
 	// because we lack the relevant header, we will process it when we reach
 	// that height. If it is for a previous height then we are not intersted in
@@ -356,6 +354,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 }
 
 func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMessage) error {
+	println(c.address.String(), c.height.String(), cm.String(), "received")
 	/*
 		Domain specific validity checks, now we know that we are at the same
 		height as this message we can rely on lastHeader.

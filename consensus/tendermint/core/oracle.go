@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -28,6 +29,7 @@ func (o *oracle) PrecommitQThresh(round int64, value *algorithm.ValueID) bool {
 }
 
 func (o *oracle) PrevoteQThresh(round int64, value *algorithm.ValueID) bool {
+	fmt.Printf("%s ", o.c.address.String())
 	return o.store.prevoteQuorum((*common.Hash)(value), round, o.lastHeader)
 }
 
