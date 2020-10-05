@@ -278,6 +278,9 @@ func (c *core) measureHeightRoundMetrics(round int64) {
 
 func (c *core) updateLatestBlock() {
 	lastBlockMined, _ := c.backend.LastCommittedProposal()
+	if lastBlockMined.Number().Cmp(c.height) != 0 {
+		panic(fmt.Sprintf("block height mismatch, lastblock: %s, currentHeight: %s\n", lastBlockMined.Number, c.height))
+	}
 	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 
 	lastHeader := lastBlockMined.Header()
