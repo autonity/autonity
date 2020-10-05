@@ -144,8 +144,8 @@ func (a *Algorithm) timeout(msgType Step) *Timeout {
 	}
 }
 
-// Start round takes the round to start, clears the first time flags and then
-// either returns a proposal to be broadcast or proposal if this node is the proposer, or schedules a
+// Start round takes the height and round to start, clears the first time flags and then
+// either returns a proposal to be broadcast if this node is the proposer, or schedules a
 // proposal timeout.
 func (a *Algorithm) StartRound(height uint64, round int64) (*ConsensusMessage, *Timeout) {
 	// Reset first time flags
@@ -170,10 +170,9 @@ func (a *Algorithm) StartRound(height uint64, round int64) (*ConsensusMessage, *
 }
 
 // ReceiveMessage processes a consensus message and returns either a
-// ConsensusMessage to be broadcast or Timeout to be scheduled but not both, in
-// addition if a decision was reached it will retrun the proposal that was
-// decided upon. It is possible for all values to be nil in the case that the
-// processed messge does not result in a state change.
+// ConsensusMessage to be broadcast, a Timeout to be scheduled or a Proposal
+// that was confirmed. It is possible for all values to be nil in the case that
+// the processed messge does not result in a state change.
 func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 	toBroadcast *ConsensusMessage, toSchedule *Timeout, decidedProposal *ConsensusMessage) {
 
@@ -269,8 +268,8 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 			a.validValue = nilValue
 		}
 		println(a.nodeId.String(), cm.String(), "line 49 start round")
-		m, t := a.StartRound(a.height, 0)
-		return m, t, p
+		// Return the decided proposal
+		return nil, nil, p
 	}
 
 	// Line 47

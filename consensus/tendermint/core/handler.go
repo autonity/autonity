@@ -98,7 +98,11 @@ eventLoop:
 	c.stopped <- struct{}{}
 }
 
-func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage, t *algorithm.Timeout, proposal *algorithm.ConsensusMessage) {
+func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage,
+	t *algorithm.Timeout, proposal *algorithm.ConsensusMessage) {
+	// If proposal is not nil then m and t will be nil. So we can set m and t
+	// to the result of calling Start round and then post the events in the
+	// swich block below.
 	if proposal != nil {
 		// A decision has been reached
 		println(c.address.String(), "decided on block", proposal.Height, common.Hash(proposal.Value).String())
@@ -106,14 +110,15 @@ func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage, 
 		if err != nil {
 			panic(fmt.Sprintf("%s Failed to commit proposal: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(proposal), err))
 		}
-
 		c.updateLatestBlock()
+		m, t = c.algo.StartRound(proposal.Height+1, 0)
 	}
+
 	switch {
 	case m != nil:
 		println(c.address.String(), m.String(), "sending")
+		// Broadcasting ends with the message reaching us eventually
 		go c.broadcast(ctx, m)
-		//go c.backend.Post(m)
 	case t != nil:
 		time.AfterFunc(time.Duration(t.Delay)*time.Second, func() {
 			c.backend.Post(t)
