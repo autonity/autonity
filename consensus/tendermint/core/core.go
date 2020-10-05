@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"runtime/debug"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
@@ -279,7 +280,9 @@ func (c *core) measureHeightRoundMetrics(round int64) {
 func (c *core) updateLatestBlock() {
 	lastBlockMined, _ := c.backend.LastCommittedProposal()
 	if lastBlockMined.Number().Cmp(c.height) != 0 {
-		panic(fmt.Sprintf("block height mismatch, lastblock: %s, currentHeight: %s\n", lastBlockMined.Number, c.height))
+		fmt.Printf("block height mismatch, lastblock: %s, currentHeight: %s\n", lastBlockMined.Number().String(), c.height.String())
+		debug.PrintStack()
+
 	}
 	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 
