@@ -27,6 +27,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/core/types"
 	autonitycrypto "github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/davecgh/go-spew/spew"
@@ -98,6 +99,27 @@ eventLoop:
 	c.stopped <- struct{}{}
 }
 
+func (c *core) nextBlock(ctx context.Context, prevBlock *types.Block) {
+	// set the new height
+	newHeight := new(big.Int).Add(prevBlock.Number(), common.Big1)
+	c.setHeight(newHeight)
+
+	c.lastHeader = prevBlock.Header()
+	committeeSet := c.createCommittee(prevBlock)
+	c.setCommitteeSet(committeeSet)
+
+	// Update internals of oracle
+	c.ora.lastHeader = c.lastHeader
+	c.ora.committeeSet = committeeSet
+
+	// Handle messages for the new height
+	m, t := c.algo.StartRound(newHeight.Uint64(), 0)
+	c.handleResult(ctx, m, t, nil)
+	for _, msg := range c.msgCache.heightMessages(newHeight.Uint64()) {
+		c.handleCurrentHeightMessage(msg, c.msgCache.consensusMsgs[msg.Hash])
+	}
+}
+
 func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage,
 	t *algorithm.Timeout, proposal *algorithm.ConsensusMessage) {
 	// If proposal is not nil then m and t will be nil. So we can set m and t
@@ -106,12 +128,11 @@ func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage,
 	if proposal != nil {
 		// A decision has been reached
 		println(c.address.String(), "decided on block", proposal.Height, common.Hash(proposal.Value).String())
-		err := c.Commit(proposal)
+		block, err := c.Commit(proposal)
 		if err != nil {
 			panic(fmt.Sprintf("%s Failed to commit proposal: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(proposal), err))
 		}
-		c.updateLatestBlock()
-		m, t = c.algo.StartRound(proposal.Height+1, 0)
+		c.nextBlock(ctx, block)
 	}
 
 	switch {
@@ -128,10 +149,9 @@ func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage,
 
 func (c *core) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
-	c.updateLatestBlock()
+	lastBlockMined, _ := c.backend.LastCommittedProposal()
 	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
-	m, t := c.algo.StartRound(c.Height().Uint64(), 0)
-	c.handleResult(ctx, m, t, nil)
+	c.nextBlock(ctx, lastBlockMined)
 	go c.syncLoop(ctx)
 
 eventLoop:
@@ -187,9 +207,7 @@ eventLoop:
 					c.logger.Debug("Discarding event as core is at the same height", "height", c.Height())
 				} else {
 					c.logger.Debug("Received proposal is ahead", "height", c.Height(), "block_height", height)
-					c.updateLatestBlock()
-					m, t := c.algo.StartRound(c.height.Uint64(), 0)
-					c.handleResult(ctx, m, t, nil)
+					c.nextBlock(ctx, lastBlock)
 				}
 			}
 		case <-ctx.Done():

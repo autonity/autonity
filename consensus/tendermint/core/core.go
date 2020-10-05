@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"runtime/debug"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
@@ -237,23 +236,23 @@ func (c *core) isProposerMsg(round int64, msgAddress common.Address) bool {
 	return c.committeeSet().GetProposer(round).Address == msgAddress
 }
 
-func (c *core) Commit(proposal *algorithm.ConsensusMessage) error {
+func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
 	block := c.msgCache.value(common.Hash(proposal.Value))
 	committedSeals := c.msgCache.signatures(block.Hash(), proposal.Round, block.NumberU64())
 	// Sanity checks
 	if block == nil {
-		return fmt.Errorf("attempted to commit nil block")
+		return nil, fmt.Errorf("attempted to commit nil block")
 	}
 	if proposal.Round < 0 {
-		return fmt.Errorf("Attempted to commit a block in a negative round: %d", proposal.Round)
+		return nil, fmt.Errorf("Attempted to commit a block in a negative round: %d", proposal.Round)
 	}
 	if len(committedSeals) == 0 {
-		return fmt.Errorf("attempted to commit block without any committed seals")
+		return nil, fmt.Errorf("attempted to commit block without any committed seals")
 	}
 
 	for _, seal := range committedSeals {
 		if len(seal) != types.BFTExtraSeal {
-			return fmt.Errorf("Attempted to commit block with a committed seal of invalid length: %s", hex.EncodeToString(seal))
+			return nil, fmt.Errorf("Attempted to commit block with a committed seal of invalid length: %s", hex.EncodeToString(seal))
 		}
 	}
 	h := block.Header()
@@ -263,7 +262,7 @@ func (c *core) Commit(proposal *algorithm.ConsensusMessage) error {
 	c.backend.Commit(block, c.committeeSet().GetProposer(proposal.Round).Address)
 
 	c.logger.Info("commit a block", "hash", block.Hash())
-	return nil
+	return block, nil
 }
 
 func (c *core) commit(block *types.Block, round int64) {
@@ -277,46 +276,52 @@ func (c *core) measureHeightRoundMetrics(round int64) {
 	tendermintRoundChangeMeter.Mark(1)
 }
 
-func (c *core) updateLatestBlock() {
-
-	lastBlockMined, _ := c.backend.LastCommittedProposal()
-	fmt.Printf("%s block height mismatch, lastblock: %s, currentHeight: %s\n", c.address.String(), lastBlockMined.Number().String(), c.height.String())
-	debug.PrintStack()
-
-	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-
-	lastHeader := lastBlockMined.Header()
+func (c *core) createCommittee(block *types.Block) committee {
 	var committeeSet committee
 	var err error
 	var lastProposer common.Address
+	header := block.Header()
 	switch c.proposerPolicy {
 	case config.RoundRobin:
-		if !lastHeader.IsGenesis() {
-			lastProposer, err = types.Ecrecover(lastHeader)
+		if !header.IsGenesis() {
+			lastProposer, err = types.Ecrecover(header)
 			if err != nil {
-				panic(fmt.Sprintf("unable to recover proposer address from header %q: %v", lastHeader, err))
+				panic(fmt.Sprintf("unable to recover proposer address from header %q: %v", header, err))
 			}
 		}
-		committeeSet, err = newRoundRobinSet(lastHeader.Committee, lastProposer)
+		committeeSet, err = newRoundRobinSet(header.Committee, lastProposer)
 		if err != nil {
 			panic(fmt.Sprintf("failed to construct committee %v", err))
 		}
 	case config.WeightedRandomSampling:
-		committeeSet = newWeightedRandomSamplingCommittee(lastBlockMined, c.autonityContract, c.backend.BlockChain())
+		committeeSet = newWeightedRandomSamplingCommittee(block, c.autonityContract, c.backend.BlockChain())
 	default:
 		panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
 	}
-
-	println(c.address.String(), c.height.String(), "proposer", committeeSet.GetProposer(0).Address.String())
-
-	c.lastHeader = lastHeader
-	c.setCommitteeSet(committeeSet)
-
-	// Update internals of oracle
-	c.ora.lastHeader = lastHeader
-	c.ora.committeeSet = committeeSet
-
+	return committeeSet
 }
+
+// func (c *core) updateLatestBlock() {
+
+// 	lastBlockMined, _ := c.backend.LastCommittedProposal()
+// 	fmt.Printf("%s block height mismatch, lastblock: %s, currentHeight: %s\n", c.address.String(), lastBlockMined.Number().String(), c.height.String())
+// 	debug.PrintStack()
+
+// 	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
+
+// 	lastHeader := lastBlockMined.Header()
+// 	committeeSet := c.createCommittee(lastBlockMined)
+
+// 	println(c.address.String(), c.height.String(), "proposer", committeeSet.GetProposer(0).Address.String())
+
+// 	c.lastHeader = lastHeader
+// 	c.setCommitteeSet(committeeSet)
+
+// 	// Update internals of oracle
+// 	c.ora.lastHeader = lastHeader
+// 	c.ora.committeeSet = committeeSet
+
+// }
 
 // PrepareCommittedSeal returns a committed seal for the given hash
 func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) []byte {
