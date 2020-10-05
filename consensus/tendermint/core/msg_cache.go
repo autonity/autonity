@@ -7,7 +7,6 @@ import (
 	common "github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	types "github.com/clearmatics/autonity/core/types"
-	"github.com/davecgh/go-spew/spew"
 )
 
 // Message cache caches messages
@@ -131,40 +130,40 @@ func (m *messageCache) Message(h common.Hash) *Message {
 func (m *messageCache) signatures(valueHash common.Hash, round int64, height uint64) [][]byte {
 	var sigs [][]byte
 
-	println("signatures -----")
+	// println("signatures -----")
 	for _, msgHash := range m.msgHashes[height][round][algorithm.Step(msgPrecommit)] {
-		spew.Dump(m.rawMessages[msgHash].decodedMsg)
+		// spew.Dump(m.rawMessages[msgHash].decodedMsg)
 		if valueHash == m.rawMessages[msgHash].decodedMsg.ProposedValueHash() {
 			sigs = append(sigs, m.rawMessages[msgHash].CommittedSeal)
 		}
 	}
-	println("----------------")
+	// println("----------------")
 	return sigs
 }
 
 func (m *messageCache) prevoteQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
 	msgType := new(algorithm.Step)
 	*msgType = algorithm.Prevote
-	println("prevote power --------")
+	// println("prevote power --------")
 	vp := m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
-	println(vp, "----------------")
+	// println(vp, "----------------")
 	return vp
 }
 
 func (m *messageCache) precommitQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
 	msgType := new(algorithm.Step)
 	*msgType = algorithm.Precommit
-	// println("precommit power", m.votePower(valueHash, round, msgType, header))
-	println("precommit power --------")
+	// // println("precommit power", m.votePower(valueHash, round, msgType, header))
+	// println("precommit power --------")
 	vp := m.votePower(valueHash, round, msgType, header) >= header.Committee.Quorum()
-	println(vp, "----------------")
+	// println(vp, "----------------")
 	return vp
 }
 
 func (m *messageCache) fail(round int64, header *types.Header) bool {
-	println("fail power --------")
+	// println("fail power --------")
 	vp := m.votePower(nil, round, nil, header) >= header.Committee.Quorum()
-	println(vp, "----------------")
+	// println(vp, "----------------")
 	return vp
 }
 
@@ -288,16 +287,16 @@ func (m *messageCache) votePower(
 			// Skip messages not considered valid
 			_, ok := m.valid[msgHash]
 			if !ok {
-				println("skippng not valid")
+				// println("skippng not valid")
 				continue
 			}
 
 			// Skip messages with differing values
 			if valueHash != nil && *valueHash != common.Hash(m.consensusMsgs[msgHash].Value) {
-				// println("skipping mismatch value")
+				// // println("skipping mismatch value")
 				continue
 			}
-			spew.Dump(m.consensusMsgs[msgHash])
+			// spew.Dump(m.consensusMsgs[msgHash])
 			// Now either value hash is nil (matches everything) or it actually matches the msg's value.
 			power += header.CommitteeMember(address).VotingPower.Uint64()
 		}
@@ -342,14 +341,14 @@ func (m *messageCache) addMessage(msg *Message, cm *algorithm.ConsensusMessage) 
 	}
 	// id := hex.EncodeToString(r)
 
-	// println(id, "hashes len", len(m.msgHashes))
-	// println(id, spew.Sdump(m.msgHashes))
-	// println(id, "add message", cm.String(), msg.Hash.String())
+	// // println(id, "hashes len", len(m.msgHashes))
+	// // println(id, spew.Sdump(m.msgHashes))
+	// // println(id, "add message", cm.String(), msg.Hash.String())
 	err = addMsgHash(m.msgHashes, cm.Height, cm.Round, cm.MsgType, msg.Address, msg.Hash)
 	if err != nil {
 		return err
 	}
-	// println(id, "hashes len", len(m.msgHashes))
+	// // println(id, "hashes len", len(m.msgHashes))
 	m.consensusMsgs[msg.Hash] = cm
 	m.rawMessages[msg.Hash] = msg
 
@@ -395,15 +394,17 @@ func (m *messageCache) matchingProposal(cm *algorithm.ConsensusMessage) *algorit
 	if cm.MsgType == algorithm.Step(msgProposal) {
 		return cm
 	}
-	if cm.MsgType == algorithm.Precommit {
-		println("fetching proposal", cm.String())
-	}
+	// if cm.MsgType == algorithm.Precommit {
+	// 	fmt.Printf("fetching proposal for: %s", cm.String())
+	// }
 	for _, proposalHash := range m.msgHashes[cm.Height][cm.Round][algorithm.Step(msgProposal)] {
 		proposal := m.consensusMsgs[proposalHash]
 		if proposal.Value == cm.Value {
+			// fmt.Printf(" got: %s\n", proposal.String())
 			return proposal
 		}
 	}
+	// fmt.Printf(" no proposal\n")
 	return nil
 }
 

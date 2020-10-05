@@ -58,7 +58,7 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 
 // Stop implements core.Engine.Stop
 func (c *core) Stop() {
-	c.logger.Info("stopping tendermint.core", "addr", c.address.String())
+	c.logger.Info("stopping tendermint.core", "addr", addr(c.address))
 
 	c.cancel()
 
@@ -103,6 +103,7 @@ func (c *core) nextBlock(ctx context.Context, prevBlock *types.Block) {
 	// set the new height
 	newHeight := new(big.Int).Add(prevBlock.Number(), common.Big1)
 	c.setHeight(newHeight)
+	c.committed = false
 
 	c.lastHeader = prevBlock.Header()
 	committeeSet := c.createCommittee(prevBlock)
@@ -114,6 +115,9 @@ func (c *core) nextBlock(ctx context.Context, prevBlock *types.Block) {
 
 	// Handle messages for the new height
 	m, t := c.algo.StartRound(newHeight.Uint64(), 0)
+	if m != nil {
+		println(addr(c.address), "sending proposal", m.String())
+	}
 	c.handleResult(ctx, m, t, nil)
 	for _, msg := range c.msgCache.heightMessages(newHeight.Uint64()) {
 		c.handleCurrentHeightMessage(msg, c.msgCache.consensusMsgs[msg.Hash])
@@ -127,17 +131,17 @@ func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage,
 	// swich block below.
 	if proposal != nil {
 		// A decision has been reached
-		println(c.address.String(), "decided on block", proposal.Height, common.Hash(proposal.Value).String())
-		block, err := c.Commit(proposal)
+		println(addr(c.address), "decided on block", proposal.Height, common.Hash(proposal.Value).String())
+		_, err := c.Commit(proposal) // This will ultimately lead to a commit event, which we will pick up on
 		if err != nil {
 			panic(fmt.Sprintf("%s Failed to commit proposal: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(proposal), err))
 		}
-		c.nextBlock(ctx, block)
+		c.committed = true
 	}
 
 	switch {
 	case m != nil:
-		println(c.address.String(), c.height.String(), m.String(), "sending")
+		println(addr(c.address), c.height.String(), m.String(), "sending")
 		// Broadcasting ends with the message reaching us eventually
 		go c.broadcast(ctx, m)
 	case t != nil:
@@ -174,24 +178,27 @@ eventLoop:
 				}
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
 			case *algorithm.ConsensusMessage:
-				println(c.address.String(), e.String(), "message from self")
+				println(addr(c.address), e.String(), "message from self")
 				// This is a message we sent ourselves we do not need to broadcast it
 				if c.Height().Uint64() == e.Height {
 					m, t, p := c.algo.ReceiveMessage(e)
 					c.handleResult(ctx, m, t, p)
 				}
 			case *algorithm.Timeout:
+				if c.committed {
+					continue
+				}
 				var m *algorithm.ConsensusMessage
 				var t *algorithm.Timeout
 				switch e.TimeoutType {
 				case algorithm.Propose:
-					println(c.address.String(), "on timeout propose", e.Height, "round", e.Round)
+					println(addr(c.address), "on timeout propose", e.Height, "round", e.Round)
 					m = c.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
-					println(c.address.String(), "on timeout prevote", e.Height, "round", e.Round)
+					println(addr(c.address), "on timeout prevote", e.Height, "round", e.Round)
 					m = c.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
-					println(c.address.String(), "on timeout precommit", e.Height, "round", e.Round)
+					println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
 					m, t = c.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
 				if m != nil {
@@ -199,13 +206,15 @@ eventLoop:
 				}
 				c.handleResult(ctx, m, t, nil)
 			case events.CommitEvent:
-				println("commit event")
+				println(addr(c.address), "commit event")
 				c.logger.Debug("Received a final committed proposal")
 				lastBlock, _ := c.backend.LastCommittedProposal()
 				height := new(big.Int).Add(lastBlock.Number(), common.Big1)
 				if height.Cmp(c.Height()) == 0 {
+					println(addr(c.address), "Discarding event as core is at the same height", "height", c.Height())
 					c.logger.Debug("Discarding event as core is at the same height", "height", c.Height())
 				} else {
+					println(addr(c.address), "Received proposal is ahead", "height", c.Height().String(), "block_height", height.String())
 					c.logger.Debug("Received proposal is ahead", "height", c.Height(), "block_height", height)
 					c.nextBlock(ctx, lastBlock)
 				}
@@ -363,7 +372,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// that height. If it is for a previous height then we are not intersted in
 	// it. But it has been added to the msg cache in case other peers would
 	// like to sync it.
-	if conMsg.Height != c.Height().Uint64() {
+	if c.committed || conMsg.Height != c.Height().Uint64() {
 		// Nothing to do here
 		return nil
 	}
@@ -373,7 +382,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 }
 
 func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMessage) error {
-	println(c.address.String(), c.height.String(), cm.String(), "received")
+	println(addr(c.address), c.height.String(), cm.String(), "received")
 	/*
 		Domain specific validity checks, now we know that we are at the same
 		height as this message we can rely on lastHeader.
@@ -430,7 +439,7 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMes
 		}
 		// Proposals values are allowed to be invalid.
 		if _, err := c.backend.VerifyProposal(*c.msgCache.values[common.Hash(cm.Value)]); err == nil {
-			println(c.address.String(), "valid", cm.Value.String())
+			println(addr(c.address), "valid", cm.Value.String())
 			c.msgCache.setValid(common.Hash(cm.Value))
 		}
 	default:

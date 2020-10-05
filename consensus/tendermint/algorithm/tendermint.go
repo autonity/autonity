@@ -148,6 +148,7 @@ func (a *Algorithm) timeout(msgType Step) *Timeout {
 // either returns a proposal to be broadcast if this node is the proposer, or schedules a
 // proposal timeout.
 func (a *Algorithm) StartRound(height uint64, round int64) (*ConsensusMessage, *Timeout) {
+	println(a.nodeId.String(), height, "isproposer", a.oracle.Proposer(round, a.nodeId))
 	// Reset first time flags
 	a.line34Executed = false
 	a.line36Executed = false
@@ -161,8 +162,12 @@ func (a *Algorithm) StartRound(height uint64, round int64) (*ConsensusMessage, *
 		if a.validValue != nilValue {
 			v = a.validValue
 		} else {
+			println(a.nodeId.String(), "awaiting value")
 			v = a.oracle.Value(a.height)
+			println(a.nodeId.String(), "got value", v.String())
 		}
+
+		println(a.nodeId.String(), height, "returning message", v.String())
 		return a.msg(Propose, v), nil
 	} else {
 		return nil, a.timeout(Propose)
@@ -209,10 +214,10 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 	if t.In(Propose) && cm.Round == r && cm.ValidRound == -1 && s == Propose {
 		a.step = Prevote
 		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
-			println(a.nodeId.String(), cm.String(), "line 22 val")
+			println(a.nodeId.String(), a.height, cm.String(), "line 22 val")
 			return a.msg(Prevote, cm.Value), nil, nil
 		} else {
-			println(a.nodeId.String(), cm.String(), "line 22 nil")
+			println(a.nodeId.String(), a.height, cm.String(), "line 22 nil")
 			return a.msg(Prevote, nilValue), nil, nil
 		}
 	}
@@ -221,15 +226,15 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 	if t.In(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(p.ValidRound, &p.Value) && s == Propose && (p.ValidRound >= 0 && p.ValidRound < r) {
 		a.step = Prevote
 		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
-			println(a.nodeId.String(), cm.String(), "line 28 val")
+			println(a.nodeId.String(), a.height, cm.String(), "line 28 val")
 			return a.msg(Prevote, p.Value), nil, nil
 		} else {
-			println(a.nodeId.String(), cm.String(), "line 28 nil")
+			println(a.nodeId.String(), a.height, cm.String(), "line 28 nil")
 			return a.msg(Prevote, nilValue), nil, nil
 		}
 	}
 
-	//println(a.nodeId.String(), t.In(Propose, Prevote), p != nil, p.Round == r, o.PrevoteQThresh(r, &p.Value), o.Valid(p.Value), s >= Prevote, !a.line36Executed)
+	//println(a.nodeId.String(), a.height, t.In(Propose, Prevote), p != nil, p.Round == r, o.PrevoteQThresh(r, &p.Value), o.Valid(p.Value), s >= Prevote, !a.line36Executed)
 	// Line 36
 	if t.In(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(r, &p.Value) && o.Valid(p.Value) && s >= Prevote && !a.line36Executed {
 		a.line36Executed = true
@@ -240,21 +245,21 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 		}
 		a.validValue = p.Value
 		a.validRound = r
-		println(a.nodeId.String(), cm.String(), "line 36 val")
+		println(a.nodeId.String(), a.height, cm.String(), "line 36 val")
 		return a.msg(Precommit, p.Value), nil, nil
 	}
 
 	// Line 44
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &nilValue) && s == Prevote {
 		a.step = Precommit
-		println(a.nodeId.String(), cm.String(), "line 44 nil")
+		println(a.nodeId.String(), a.height, cm.String(), "line 44 nil")
 		return a.msg(Precommit, nilValue), nil, nil
 	}
 
 	// Line 34
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
 		a.line34Executed = true
-		println(a.nodeId.String(), cm.String(), "line 34 timeout")
+		println(a.nodeId.String(), a.height, cm.String(), "line 34 timeout")
 		return nil, a.timeout(Prevote), nil
 	}
 
@@ -267,7 +272,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 			a.validRound = -1
 			a.validValue = nilValue
 		}
-		println(a.nodeId.String(), cm.String(), "line 49 start round")
+		println(a.nodeId.String(), a.height, cm.String(), "line 49 decide")
 		// Return the decided proposal
 		return nil, nil, p
 	}
@@ -275,7 +280,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 	// Line 47
 	if t.In(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
 		a.line47Executed = true
-		println(a.nodeId.String(), cm.String(), "line 47 timeout")
+		println(a.nodeId.String(), a.height, cm.String(), "line 47 timeout")
 		return nil, a.timeout(Precommit), nil
 	}
 
@@ -287,11 +292,11 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 		// round. in the conditon at line 28. This means that we only should
 		// clean the message cache when there is a height change, clearing out
 		// all messages for the height.
-		println(a.nodeId.String(), cm.String(), "line 55 start round")
+		println(a.nodeId.String(), a.height, cm.String(), "line 55 start round")
 		m, t := a.StartRound(a.height, cm.Round)
 		return m, t, nil
 	}
-	println(a.nodeId.String(), cm.String(), "no condition match")
+	println(a.nodeId.String(), a.height, cm.String(), "no condition match")
 	return nil, nil, nil
 }
 

@@ -58,6 +58,10 @@ const (
 	MaxRound = 99 // consequence of backlog priority
 )
 
+func addr(a common.Address) string {
+	return hex.EncodeToString(a[:3])
+}
+
 // New creates an Tendermint consensus core
 func New(backend Backend, config *config.Config) *core {
 	addr := backend.Address()
@@ -113,8 +117,9 @@ type core struct {
 	algo   *algorithm.Algorithm
 	ora    *oracle
 
-	valueSet *sync.Cond
-	value    *types.Block
+	valueSet  *sync.Cond
+	value     *types.Block
+	committed bool // indicates if we already called commit, used to disregard further messages for a height
 }
 
 func (c *core) SetValue(b *types.Block) {
@@ -124,15 +129,24 @@ func (c *core) SetValue(b *types.Block) {
 		c.valueSet.Signal()
 	}
 	c.value = b
+	println(addr(c.address), c.height, "setting value", c.value.Hash().String()[2:8], "value height", c.value.Number().String())
 }
 
 func (c *core) AwaitValue(height *big.Int) *types.Block {
 	c.valueSet.L.Lock()
 	defer c.valueSet.L.Unlock()
 	for c.value == nil || c.value.Number().Cmp(height) != 0 {
+
+		if c.value == nil {
+			println(addr(c.address), c.height, "awaiting vlaue", "valueisnil")
+		} else {
+			println(addr(c.address), c.height, "awaiting vlaue", "value height", c.value.Number().String(), "awaited height", height.String())
+		}
 		c.valueSet.Wait()
 	}
 	v := c.value
+	println(addr(c.address), c.height, "received awaited vlaue", c.value.Hash().String()[2:8], "value height", c.value.Number().String(), "awaited height", height.String())
+
 	// We put the value in the store here since this is called from the main
 	// thread of the algorithm, and so we don't end up needing to syncronise
 	// the store.
