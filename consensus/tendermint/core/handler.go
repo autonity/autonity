@@ -179,6 +179,7 @@ eventLoop:
 				}
 				c.handleResult(ctx, m, t, nil)
 			case events.CommitEvent:
+				println("commit event")
 				c.logger.Debug("Received a final committed proposal")
 				lastBlock, _ := c.backend.LastCommittedProposal()
 				height := new(big.Int).Add(lastBlock.Number(), common.Big1)
