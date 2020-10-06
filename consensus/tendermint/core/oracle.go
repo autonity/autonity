@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -13,6 +14,7 @@ type oracle struct {
 	store        *messageCache
 	committeeSet committee
 	c            *core
+	ctx          context.Context
 }
 
 func (o *oracle) FThresh(round int64) bool {
@@ -40,5 +42,16 @@ func (o *oracle) Valid(value algorithm.ValueID) bool {
 }
 
 func (o *oracle) Value(height uint64) algorithm.ValueID {
-	return algorithm.ValueID(o.c.AwaitValue(new(big.Int).SetUint64(height)).Hash())
+
+	vchan := make(chan *types.Block)
+	go func() {
+		vchan <- o.c.AwaitValue(new(big.Int).SetUint64(height))
+	}()
+	select {
+	case b := <-vchan:
+		return algorithm.ValueID(b.Hash())
+	case <-o.ctx.Done():
+		return algorithm.ValueID{}
+	}
+	// return algorithm.ValueID(o.c.AwaitValue(new(big.Int).SetUint64(height)).Hash())
 }

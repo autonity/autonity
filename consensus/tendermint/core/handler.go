@@ -112,6 +112,7 @@ func (c *core) nextBlock(ctx context.Context, prevBlock *types.Block) {
 	// Update internals of oracle
 	c.ora.lastHeader = c.lastHeader
 	c.ora.committeeSet = committeeSet
+	c.ora.ctx = ctx
 
 	// Handle messages for the new height
 	m, t := c.algo.StartRound(newHeight.Uint64(), 0)
