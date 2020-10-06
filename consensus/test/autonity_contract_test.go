@@ -332,7 +332,6 @@ func TestContractUpgrade_Success(t *testing.T) {
 }
 
 func TestContractUpgradeSeveralUpgrades(t *testing.T) {
-	t.Skip("test is flaky - https://github.com/clearmatics/autonity/issues/496")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -424,7 +423,6 @@ func TestContractUpgradeSeveralUpgradesOnBusTopology(t *testing.T) {
 }
 
 func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
-	t.Skip("test is flaky - https://github.com/clearmatics/autonity/issues/496")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
