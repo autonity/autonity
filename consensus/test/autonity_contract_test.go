@@ -333,6 +333,7 @@ func TestContractUpgrade_Success(t *testing.T) {
 
 func TestContractUpgradeSeveralUpgrades(t *testing.T) {
 
+	// https://github.com/clearmatics/autonity/runs/1214050849?check_suite_focus=true
 	t.Skip("Case got 40 timeout on CI: consensus core handler: Failed to validate message.")
 
 	if testing.Short() {
