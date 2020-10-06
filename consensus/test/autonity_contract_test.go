@@ -427,6 +427,9 @@ func TestContractUpgradeSeveralUpgradesOnBusTopology(t *testing.T) {
 }
 
 func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
+
+	// failed due to 40 timeout: https://github.com/clearmatics/autonity/runs/1214184863?check_suite_focus=true
+	t.Skip("Flaky due to 40m timeout: Failed to validate message")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
