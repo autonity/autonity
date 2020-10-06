@@ -43,7 +43,6 @@ func TestTendermintStarSuccess(t *testing.T) {
 }
 
 func TestTendermintStarOverParticipantSuccess(t *testing.T) {
-	t.Skip("test is flaky - https://github.com/clearmatics/autonity/issues/496")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
