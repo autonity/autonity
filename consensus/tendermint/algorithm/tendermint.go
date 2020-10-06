@@ -144,10 +144,11 @@ func (a *Algorithm) timeout(msgType Step) *Timeout {
 	}
 }
 
-// Start round takes the height and round to start, clears the first time flags and then
-// either returns a proposal to be broadcast if this node is the proposer, or schedules a
-// proposal timeout.
-func (a *Algorithm) StartRound(height uint64, round int64) (*ConsensusMessage, *Timeout) {
+// Start round takes the height and round to start as well as a potential value
+// to propose. It then clears the first time flags and either returns a Result
+// with a proposal to be broadcast if this node is the proposer, or a timeout
+// to be scheduled.
+func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Result {
 	println(a.nodeId.String(), height, "isproposer", a.oracle.Proposer(round, a.nodeId))
 	// Reset first time flags
 	a.line34Executed = false
@@ -160,26 +161,45 @@ func (a *Algorithm) StartRound(height uint64, round int64) (*ConsensusMessage, *
 	if a.oracle.Proposer(round, a.nodeId) {
 		var v ValueID
 		if a.validValue != nilValue {
-			v = a.validValue
-		} else {
-			println(a.nodeId.String(), "awaiting value")
-			v = a.oracle.Value(a.height)
-			println(a.nodeId.String(), "got value", v.String())
+			value = a.validValue
 		}
-
 		println(a.nodeId.String(), height, "returning message", v.String())
-		return a.msg(Propose, v), nil
+		return &Result{Broadcast: a.msg(Propose, v)}
 	} else {
-		return nil, a.timeout(Propose)
+		return &Result{Schedule: a.timeout(Propose)}
 	}
+}
+
+// Result is returned from the methods of Algorithm to indicate the outcome of
+// processing and what steps should be taken. Only one of the three fields may
+// be set. If StartRound is set it indicates that the caller should call
+// StartRound, if Broadcast is set it indicates that the caller should
+// broadcast the ConsensusMessage and if Schedule is set it indicates that the
+// caller should schedule the Timeout. Broadcasting and scheduling may be done
+// asyncronously, but starting the next round must be done in the calling
+// goroutine so that no other messages are processed by Algorithm between the
+// caller receiving the Result and calling StartRound.
+type Result struct {
+	StartRound *RoundChange
+	Broadcast  *ConsensusMessage
+	Schedule   *Timeout
+}
+
+// RoundChange indicates that the caller should initiate a round change by
+// calling StartRound with the enclosed Height and Round. If Decision is set
+// this indicates that a decision has been reached it will contain the proposal
+// that was decided upon, Decision can only be set when Round is 0.
+type RoundChange struct {
+	Height   uint64
+	Round    int64
+	Decision *ConsensusMessage
 }
 
 // ReceiveMessage processes a consensus message and returns either a
 // ConsensusMessage to be broadcast, a Timeout to be scheduled or a Proposal
 // that was confirmed. It is possible for all values to be nil in the case that
 // the processed messge does not result in a state change.
-func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
-	toBroadcast *ConsensusMessage, toSchedule *Timeout, decidedProposal *ConsensusMessage) {
+func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 
 	r := a.round
 	s := a.step
@@ -215,10 +235,10 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 		a.step = Prevote
 		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
 			println(a.nodeId.String(), a.height, cm.String(), "line 22 val")
-			return a.msg(Prevote, cm.Value), nil, nil
+			return &Result{Broadcast: a.msg(Prevote, cm.Value)}
 		} else {
 			println(a.nodeId.String(), a.height, cm.String(), "line 22 nil")
-			return a.msg(Prevote, nilValue), nil, nil
+			return &Result{Broadcast: a.msg(Prevote, nilValue)}
 		}
 	}
 
@@ -227,10 +247,10 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 		a.step = Prevote
 		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
 			println(a.nodeId.String(), a.height, cm.String(), "line 28 val")
-			return a.msg(Prevote, p.Value), nil, nil
+			return &Result{Broadcast: a.msg(Prevote, p.Value)}
 		} else {
 			println(a.nodeId.String(), a.height, cm.String(), "line 28 nil")
-			return a.msg(Prevote, nilValue), nil, nil
+			return &Result{Broadcast: a.msg(Prevote, nilValue)}
 		}
 	}
 
@@ -246,21 +266,21 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 		a.validValue = p.Value
 		a.validRound = r
 		println(a.nodeId.String(), a.height, cm.String(), "line 36 val")
-		return a.msg(Precommit, p.Value), nil, nil
+		return &Result{Broadcast: a.msg(Precommit, p.Value)}
 	}
 
 	// Line 44
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &nilValue) && s == Prevote {
 		a.step = Precommit
 		println(a.nodeId.String(), a.height, cm.String(), "line 44 nil")
-		return a.msg(Precommit, nilValue), nil, nil
+		return &Result{Broadcast: a.msg(Precommit, nilValue)}
 	}
 
 	// Line 34
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
 		a.line34Executed = true
 		println(a.nodeId.String(), a.height, cm.String(), "line 34 timeout")
-		return nil, a.timeout(Prevote), nil
+		return &Result{Schedule: a.timeout(Prevote)}
 	}
 
 	// Line 49
@@ -274,14 +294,14 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 		}
 		println(a.nodeId.String(), a.height, cm.String(), "line 49 decide")
 		// Return the decided proposal
-		return nil, nil, p
+		return &Result{StartRound: &RoundChange{Height: a.height, Round: 0, Decision: p}}
 	}
 
 	// Line 47
 	if t.In(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
 		a.line47Executed = true
 		println(a.nodeId.String(), a.height, cm.String(), "line 47 timeout")
-		return nil, a.timeout(Precommit), nil
+		return &Result{Schedule: a.timeout(Precommit)}
 	}
 
 	// Line 55
@@ -293,32 +313,31 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (
 		// clean the message cache when there is a height change, clearing out
 		// all messages for the height.
 		println(a.nodeId.String(), a.height, cm.String(), "line 55 start round")
-		m, t := a.StartRound(a.height, cm.Round)
-		return m, t, nil
+		return &Result{StartRound: &RoundChange{Height: a.height, Round: cm.Round}}
 	}
 	println(a.nodeId.String(), a.height, cm.String(), "no condition match")
-	return nil, nil, nil
+	return nil
 }
 
-func (a *Algorithm) OnTimeoutPropose(height uint64, round int64) *ConsensusMessage {
+func (a *Algorithm) OnTimeoutPropose(height uint64, round int64) *Result {
 	if height == a.height && round == a.round && a.step == Propose {
 		a.step = Prevote
-		return a.msg(Prevote, nilValue)
+		return &Result{Broadcast: a.msg(Prevote, nilValue)}
 	}
 	return nil
 }
 
-func (a *Algorithm) OnTimeoutPrevote(height uint64, round int64) *ConsensusMessage {
+func (a *Algorithm) OnTimeoutPrevote(height uint64, round int64) *Result {
 	if height == a.height && round == a.round && a.step == Prevote {
 		a.step = Precommit
-		return a.msg(Precommit, nilValue)
+		return &Result{Broadcast: a.msg(Precommit, nilValue)}
 	}
 	return nil
 }
 
-func (a *Algorithm) OnTimeoutPrecommit(height uint64, round int64) (*ConsensusMessage, *Timeout) {
+func (a *Algorithm) OnTimeoutPrecommit(height uint64, round int64) *Result {
 	if height == a.height && round == a.round {
-		return a.StartRound(a.height, a.round+1)
+		return &Result{StartRound: &RoundChange{Height: a.height, Round: a.round + 1}}
 	}
-	return nil, nil
+	return nil
 }
