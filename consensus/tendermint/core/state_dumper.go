@@ -33,7 +33,7 @@ func (c *core) handleStateDump() {
 		Client:            c.address,
 		ProposerPolicy:    uint64(c.proposerPolicy),
 		BlockPeriod:       c.blockPeriod,
-		CurHeightMessages: c.messages.CopyMessages(),
+		CurHeightMessages: c.messages.GetMessages(),
 		// tendermint core state:
 		Height:      *c.Height(),
 		Round:       c.Round(),

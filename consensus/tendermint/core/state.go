@@ -60,6 +60,6 @@ type TendermintState struct {
 	PrecommitTimerStarted bool
 
 	// current height messages and known message in case of gossip.
-	CurHeightMessages []string
+	CurHeightMessages []*Message
 	KnownMsgHash      []common.Hash
 }

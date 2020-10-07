@@ -76,15 +76,6 @@ func (s *messagesMap) GetMessages() []*Message {
 	return result
 }
 
-func (s *messagesMap) CopyMessages() []string {
-	msgs := s.GetMessages()
-	result := make([]string, 0, len(msgs))
-	for _, v := range msgs {
-		result = append(result, v.String())
-	}
-	return result
-}
-
 func (s *messagesMap) getRounds() []int64 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
