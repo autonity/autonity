@@ -255,7 +255,6 @@ func initGenesis(ctx *cli.Context) error {
 		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
 		if err != nil {
 			utils.Fatalf("Failed to write genesis block: %v", err)
-			return err
 		}
 		chaindb.Close()
 		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
