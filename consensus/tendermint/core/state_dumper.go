@@ -163,7 +163,7 @@ func getRoundState(c *core) []RoundState {
 	states := make([]RoundState, 0, len(rounds))
 
 	for _, r := range rounds {
-		proposal, prevoteState, preCommitState := c.messages.getVoteState(r)
+		proposal, prevoteState, preCommitState := getVoteState(&c.messages, r)
 		state := RoundState{
 			Round:          r,
 			Proposal:       proposal,
@@ -173,4 +173,37 @@ func getRoundState(c *core) []RoundState {
 		states = append(states, state)
 	}
 	return states
+}
+
+func getVoteState(s *messagesMap, round int64) (common.Hash, []VoteState, []VoteState) {
+	p := common.Hash{}
+
+	if s.getOrCreate(round).Proposal() != nil && s.getOrCreate(round).Proposal().ProposalBlock != nil {
+		p = s.getOrCreate(round).Proposal().ProposalBlock.Hash()
+	}
+
+	pvv := s.getOrCreate(round).GetPrevoteValues()
+	pcv := s.getOrCreate(round).GetPrecommitValues()
+	prevoteState := make([]VoteState, 0, len(pvv))
+	precommitState := make([]VoteState, 0, len(pcv))
+
+	for _, v := range pvv {
+		var s = VoteState{
+			Value:            v,
+			ProposalVerified: s.getOrCreate(round).isProposalVerified(),
+			VotePower:        s.getOrCreate(round).PrevotesPower(v),
+		}
+		prevoteState = append(prevoteState, s)
+	}
+
+	for _, v := range pcv {
+		var s = VoteState{
+			Value:            v,
+			ProposalVerified: s.getOrCreate(round).isProposalVerified(),
+			VotePower:        s.getOrCreate(round).PrecommitsPower(v),
+		}
+		precommitState = append(precommitState, s)
+	}
+
+	return p, prevoteState, precommitState
 }
