@@ -254,8 +254,8 @@ func TestStartNodeWithMismatchGenesis(t *testing.T) {
 			autonity.ExpectExit()
 		}()
 
-		// Check if mismatch error message is printed.
-		autonity.ExpectRegexp(".*Fatal: Failed to write genesis block: database contains incompatible genesis.*")
+		// With a mis-matched genesis, client should do nothing on initGenesis and exit.
+		autonity.ExpectExit()
 
 		// Make sure the former genesis block is not over-write.
 		autonity = runAutonity(t, "--nousb",
