@@ -206,8 +206,14 @@ func initGenesis(ctx *cli.Context) error {
 	}
 
 	// If there is no genesis block presented, init a genesis block with genesis file,
-	// otherwise it checks if genesis block is compatible and matched with genesis file
-	// and return error if they are not, the error would terminate autonity client.
+	// otherwise it checks if the genesis block is exactly the same by comparing the new genesis block generated
+	// from the genesis file, if it is mis-match, then an error will rise to stop the scenario and also node start
+	// will be terminated. After genesis block is matched, then it continue to check chain config includes fork
+	// configurations, if the chain configuration is missing from current database, it will apply the new chain
+	// configuration provided by the new genesis file, if the chain configuration is presented from current database,
+	// then it will check if the chain conf is compatible between the two, if it is not compatible, then error rise to
+	// stop the scenario, and also node start will be termintated too, finally if chain conf is compatible, the new
+	// chain conf will be apply into database too.
 
 	// Make sure we have a valid genesis JSON.
 	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
