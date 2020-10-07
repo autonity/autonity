@@ -27,7 +27,6 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/contracts/autonity"
-	"github.com/clearmatics/autonity/core/types"
 	autonitycrypto "github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/davecgh/go-spew/spew"
@@ -44,9 +43,6 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 	c.newUnminedBlockEventSub = c.backend.Subscribe(events.NewUnminedBlockEvent{})
 
-	// core.height needs to be set beforehand for unmined block's logic.
-	lastBlockMined, _ := c.backend.LastCommittedProposal()
-	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 	// We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent(ctx)
 
@@ -81,14 +77,6 @@ eventLoop:
 				break eventLoop
 			}
 			block := e.Data.(events.NewUnminedBlockEvent).NewUnminedBlock
-
-			// number := block.Number()
-			// if cmp := c.Height().Cmp(number); cmp > 0 {
-			// 	panic(fmt.Sprintf("Received old potential block, current height: %s, block height: %s", c.Height().String(), block.Number().String()))
-			// } else if cmp < 0 {
-			// 	// looks like this can happen, shouldn't though
-			// 	// panic(fmt.Sprintf("Received future potential block, current height: %s, block height: %s", c.Height().String(), block.Number().String()))
-			// }
 			c.SetValue(&block)
 		case <-ctx.Done():
 			c.logger.Info("handleNewUnminedBlockEvent is stopped", "event", ctx.Err())
@@ -99,11 +87,12 @@ eventLoop:
 	c.stopped <- struct{}{}
 }
 
-func (c *core) nextBlock(ctx context.Context, prevBlock *types.Block) {
+func (c *core) newHeight(ctx context.Context, height uint64) {
+	newHeight := new(big.Int).SetUint64(height)
 	// set the new height
-	newHeight := new(big.Int).Add(prevBlock.Number(), common.Big1)
 	c.setHeight(newHeight)
-	c.committed = false
+	c.currentBlock = c.AwaitValue(newHeight)
+	prevBlock, _ := c.backend.LastCommittedProposal()
 
 	c.lastHeader = prevBlock.Header()
 	committeeSet := c.createCommittee(prevBlock)
@@ -112,51 +101,94 @@ func (c *core) nextBlock(ctx context.Context, prevBlock *types.Block) {
 	// Update internals of oracle
 	c.ora.lastHeader = c.lastHeader
 	c.ora.committeeSet = committeeSet
-	c.ora.ctx = ctx
 
 	// Handle messages for the new height
-	m, t := c.algo.StartRound(newHeight.Uint64(), 0)
-	if m != nil {
-		println(addr(c.address), "sending proposal", m.String())
+	r := c.algo.StartRound(newHeight.Uint64(), 0, algorithm.ValueID(c.currentBlock.Hash()))
+
+	// If we are making a proposal, we need to ensure that we add the proposal
+	// block to the msg store, so that it can be picked up in buildMessage.
+	if r.Broadcast != nil {
+		println(addr(c.address), "adding value", height, c.currentBlock.Hash().String())
+		c.msgCache.addValue(c.currentBlock.Hash(), c.currentBlock)
 	}
-	c.handleResult(ctx, m, t, nil)
+
+	// Note that we don't risk enterning an infinite loop here since
+	// start round can only return results with brodcasts or schedules.
+	// TODO actually don't return result from Start round.
+	c.handleResult(ctx, r)
 	for _, msg := range c.msgCache.heightMessages(newHeight.Uint64()) {
-		c.handleCurrentHeightMessage(msg, c.msgCache.consensusMsgs[msg.Hash])
+		go c.handleCurrentHeightMessage(msg, c.msgCache.consensusMsgs[msg.Hash])
 	}
 }
 
-func (c *core) handleResult(ctx context.Context, m *algorithm.ConsensusMessage,
-	t *algorithm.Timeout, proposal *algorithm.ConsensusMessage) {
-	// If proposal is not nil then m and t will be nil. So we can set m and t
-	// to the result of calling Start round and then post the events in the
-	// swich block below.
-	if proposal != nil {
-		// A decision has been reached
-		println(addr(c.address), "decided on block", proposal.Height, common.Hash(proposal.Value).String())
-		_, err := c.Commit(proposal) // This will ultimately lead to a commit event, which we will pick up on
-		if err != nil {
-			panic(fmt.Sprintf("%s Failed to commit proposal: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(proposal), err))
-		}
-		c.committed = true
-	}
+func (c *core) handleResult(ctx context.Context, r *algorithm.Result) {
 
 	switch {
-	case m != nil:
-		println(addr(c.address), c.height.String(), m.String(), "sending")
+	case r == nil:
+		return
+	case r.StartRound != nil:
+		sr := r.StartRound
+		if sr.Round == 0 && sr.Decision == nil {
+			panic("round changes of 0 must be accompanied with a decision")
+		}
+		if sr.Decision != nil {
+			// A decision has been reached
+			println(addr(c.address), "decided on block", sr.Decision.Height,
+				common.Hash(sr.Decision.Value).String())
+
+			// This will ultimately lead to a commit event, which we will pick
+			// up on but we will ignore it because instead we will wait here to
+			// select the next value that matches this height.
+			_, err := c.Commit(sr.Decision)
+			if err != nil {
+				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(sr.Decision), err))
+			}
+			c.newHeight(ctx, sr.Height)
+
+		} else {
+			// I don't think we need this switching
+			// switch {
+			// case currBlockNum > sr.Height:
+			// 	panic(fmt.Sprintf("current block number %d cannot be greater than height %d", currBlockNum, sr.Height))
+			// case currBlockNum < sr.Height:
+			// 	c.currentBlock = c.AwaitValue(new(big.Int).SetUint64(sr.Height))
+			// }
+
+			// sanity check
+			currBlockNum := c.currentBlock.Number().Uint64()
+			if currBlockNum != sr.Height {
+				panic(fmt.Sprintf("current block number %d out of sync with  height %d", currBlockNum, sr.Height))
+			}
+
+			r := c.algo.StartRound(sr.Height, sr.Round, algorithm.ValueID(c.currentBlock.Hash()))
+			// Note that we don't risk enterning an infinite loop here since
+			// start round can only return results with brodcasts or schedules.
+			// TODO actually don't return result from Start round.
+			c.handleResult(ctx, r)
+		}
+	case r.Broadcast != nil:
+		println(addr(c.address), c.height.String(), r.Broadcast.String(), "sending")
 		// Broadcasting ends with the message reaching us eventually
-		go c.broadcast(ctx, m)
-	case t != nil:
-		time.AfterFunc(time.Duration(t.Delay)*time.Second, func() {
-			c.backend.Post(t)
+
+		// We must build message here since buildMessage relies on accessing
+		// the msg store, and since the message stroe is not syncronised we
+		// need to do it from the handler routine.
+		msg := c.buildMessage(r.Broadcast)
+
+		go c.broadcast(ctx, msg)
+	case r.Schedule != nil:
+		time.AfterFunc(time.Duration(r.Schedule.Delay)*time.Second, func() {
+			c.backend.Post(r.Schedule)
 		})
+
 	}
 }
 
 func (c *core) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
-	lastBlockMined, _ := c.backend.LastCommittedProposal()
 	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
-	c.nextBlock(ctx, lastBlockMined)
+	lastBlockMined, _ := c.backend.LastCommittedProposal()
+	c.newHeight(ctx, lastBlockMined.NumberU64()+1)
 	go c.syncLoop(ctx)
 
 eventLoop:
@@ -182,30 +214,26 @@ eventLoop:
 				println(addr(c.address), e.String(), "message from self")
 				// This is a message we sent ourselves we do not need to broadcast it
 				if c.Height().Uint64() == e.Height {
-					m, t, p := c.algo.ReceiveMessage(e)
-					c.handleResult(ctx, m, t, p)
+					r := c.algo.ReceiveMessage(e)
+					c.handleResult(ctx, r)
 				}
 			case *algorithm.Timeout:
-				if c.committed {
-					continue
-				}
-				var m *algorithm.ConsensusMessage
-				var t *algorithm.Timeout
+				var r *algorithm.Result
 				switch e.TimeoutType {
 				case algorithm.Propose:
 					println(addr(c.address), "on timeout propose", e.Height, "round", e.Round)
-					m = c.algo.OnTimeoutPropose(e.Height, e.Round)
+					r = c.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
 					println(addr(c.address), "on timeout prevote", e.Height, "round", e.Round)
-					m = c.algo.OnTimeoutPrevote(e.Height, e.Round)
+					r = c.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
 					println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
-					m, t = c.algo.OnTimeoutPrecommit(e.Height, e.Round)
+					r = c.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
-				if m != nil {
+				if r != nil && r.Broadcast != nil {
 					println("nonnil timeout")
 				}
-				c.handleResult(ctx, m, t, nil)
+				c.handleResult(ctx, r)
 			case events.CommitEvent:
 				println(addr(c.address), "commit event")
 				c.logger.Debug("Received a final committed proposal")
@@ -217,7 +245,7 @@ eventLoop:
 				} else {
 					println(addr(c.address), "Received proposal is ahead", "height", c.Height().String(), "block_height", height.String())
 					c.logger.Debug("Received proposal is ahead", "height", c.Height(), "block_height", height)
-					c.nextBlock(ctx, lastBlock)
+					c.newHeight(ctx, height.Uint64())
 				}
 			}
 		case <-ctx.Done():
@@ -373,7 +401,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// that height. If it is for a previous height then we are not intersted in
 	// it. But it has been added to the msg cache in case other peers would
 	// like to sync it.
-	if c.committed || conMsg.Height != c.Height().Uint64() {
+	if conMsg.Height != c.Height().Uint64() {
 		// Nothing to do here
 		return nil
 	}
@@ -439,7 +467,7 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMes
 
 		}
 		// Proposals values are allowed to be invalid.
-		if _, err := c.backend.VerifyProposal(*c.msgCache.values[common.Hash(cm.Value)]); err == nil {
+		if _, err := c.backend.VerifyProposal(*c.msgCache.value(common.Hash(cm.Value))); err == nil {
 			println(addr(c.address), "valid", cm.Value.String())
 			c.msgCache.setValid(common.Hash(cm.Value))
 		}
@@ -448,7 +476,7 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMes
 		c.msgCache.setValid(m.Hash)
 	}
 
-	cm, t, p := c.algo.ReceiveMessage(cm)
-	c.handleResult(context.Background(), cm, t, p)
+	r := c.algo.ReceiveMessage(cm)
+	c.handleResult(context.Background(), r)
 	return nil
 }

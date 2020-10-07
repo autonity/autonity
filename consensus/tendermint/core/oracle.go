@@ -1,9 +1,6 @@
 package core
 
 import (
-	"context"
-	"math/big"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/core/types"
@@ -14,7 +11,6 @@ type oracle struct {
 	store        *messageCache
 	committeeSet committee
 	c            *core
-	ctx          context.Context
 }
 
 func (o *oracle) FThresh(round int64) bool {
@@ -39,19 +35,4 @@ func (o *oracle) Proposer(round int64, nodeID algorithm.NodeID) bool {
 
 func (o *oracle) Valid(value algorithm.ValueID) bool {
 	return o.store.isValid(common.Hash(value))
-}
-
-func (o *oracle) Value(height uint64) algorithm.ValueID {
-
-	vchan := make(chan *types.Block)
-	go func() {
-		vchan <- o.c.AwaitValue(new(big.Int).SetUint64(height))
-	}()
-	select {
-	case b := <-vchan:
-		return algorithm.ValueID(b.Hash())
-	case <-o.ctx.Done():
-		return algorithm.ValueID{}
-	}
-	// return algorithm.ValueID(o.c.AwaitValue(new(big.Int).SetUint64(height)).Hash())
 }

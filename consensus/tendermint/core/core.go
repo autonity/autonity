@@ -117,9 +117,9 @@ type core struct {
 	algo   *algorithm.Algorithm
 	ora    *oracle
 
-	valueSet  *sync.Cond
-	value     *types.Block
-	committed bool // indicates if we already called commit, used to disregard further messages for a height
+	valueSet     *sync.Cond
+	value        *types.Block
+	currentBlock *types.Block
 }
 
 func (c *core) SetValue(b *types.Block) {
@@ -138,9 +138,9 @@ func (c *core) AwaitValue(height *big.Int) *types.Block {
 	for c.value == nil || c.value.Number().Cmp(height) != 0 {
 		c.value = nil
 		if c.value == nil {
-			println(addr(c.address), c.height, "awaiting vlaue", "valueisnil")
+			println(addr(c.address), c.height.String(), "awaiting vlaue", "valueisnil")
 		} else {
-			println(addr(c.address), c.height, "awaiting vlaue", "value height", c.value.Number().String(), "awaited height", height.String())
+			println(addr(c.address), c.height.String(), "awaiting vlaue", "value height", c.value.Number().String(), "awaited height", height.String())
 		}
 		c.valueSet.Wait()
 	}
@@ -149,7 +149,9 @@ func (c *core) AwaitValue(height *big.Int) *types.Block {
 
 	// We put the value in the store here since this is called from the main
 	// thread of the algorithm, and so we don't end up needing to syncronise
-	// the store.
+	// the store.  TODO this is a potential memory leak. We are adding a value
+	// without it being referenced by a message that is tied to a height, so it
+	// may never be cleared.
 	c.msgCache.addValue(v.Hash(), v)
 	// We assume our own suggestions are valid
 	c.msgCache.setValid(v.Hash())
@@ -191,6 +193,8 @@ func (c *core) buildMessage(m *algorithm.ConsensusMessage) *Message {
 	switch m.MsgType {
 	case algorithm.Propose:
 		code = msgProposal
+		// TODO This is where my problem is, msgcache is returning nil, because Ihavent processed any proposals yet
+		println(addr(c.address), "getting value", m.Height, common.Hash(m.Value).String())
 		internalMessage = NewProposal(m.Round, bigHeight, m.ValidRound, c.msgCache.value(common.Hash(m.Value)))
 	case algorithm.Prevote:
 		code = msgPrevote
@@ -228,15 +232,13 @@ func (c *core) buildMessage(m *algorithm.ConsensusMessage) *Message {
 	return msg
 }
 
-func (c *core) broadcast(ctx context.Context, m *algorithm.ConsensusMessage) {
+func (c *core) broadcast(ctx context.Context, msg *Message) {
 	logger := c.logger.New("step", nil)
 
-	msg := c.buildMessage(m)
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to finalize message: %+v err: %v", msg, err))
 	}
-
 	// Broadcast payload
 	logger.Debug("broadcasting", "msg", msg.String())
 	if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), payload); err != nil {

@@ -93,7 +93,6 @@ type Oracle interface {
 	// the failure threshold for the given round.
 	FThresh(round int64) bool
 	Proposer(round int64, nodeID NodeID) bool
-	Value(height uint64) ValueID
 }
 
 type Algorithm struct {
@@ -159,12 +158,11 @@ func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Resul
 	a.round = round
 	a.step = Propose
 	if a.oracle.Proposer(round, a.nodeId) {
-		var v ValueID
 		if a.validValue != nilValue {
 			value = a.validValue
 		}
-		println(a.nodeId.String(), height, "returning message", v.String())
-		return &Result{Broadcast: a.msg(Propose, v)}
+		println(a.nodeId.String(), height, "returning message", value.String())
+		return &Result{Broadcast: a.msg(Propose, value)}
 	} else {
 		return &Result{Schedule: a.timeout(Propose)}
 	}
@@ -174,11 +172,12 @@ func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Resul
 // processing and what steps should be taken. Only one of the three fields may
 // be set. If StartRound is set it indicates that the caller should call
 // StartRound, if Broadcast is set it indicates that the caller should
-// broadcast the ConsensusMessage and if Schedule is set it indicates that the
-// caller should schedule the Timeout. Broadcasting and scheduling may be done
-// asyncronously, but starting the next round must be done in the calling
-// goroutine so that no other messages are processed by Algorithm between the
-// caller receiving the Result and calling StartRound.
+// broadcast the ConsensusMessage, including sending it to itself and if
+// Schedule is set it indicates that the caller should schedule the Timeout.
+// Broadcasting and scheduling may be done asyncronously, but starting the next
+// round must be done in the calling goroutine so that no other messages are
+// processed by Algorithm between the caller receiving the Result and calling
+// StartRound.
 type Result struct {
 	StartRound *RoundChange
 	Broadcast  *ConsensusMessage
@@ -195,10 +194,8 @@ type RoundChange struct {
 	Decision *ConsensusMessage
 }
 
-// ReceiveMessage processes a consensus message and returns either a
-// ConsensusMessage to be broadcast, a Timeout to be scheduled or a Proposal
-// that was confirmed. It is possible for all values to be nil in the case that
-// the processed messge does not result in a state change.
+// ReceiveMessage processes a consensus message and returns a Result if a state
+// change has taken place or nil if no state change has occurred.
 func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 
 	r := a.round
