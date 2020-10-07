@@ -316,22 +316,22 @@ func autonity(ctx *cli.Context) error {
 
 	genesis, err := initGenesis(ctx)
 	if err != nil {
-		utils.Fatalf("Failed to validate genesis file: %v", err)
+		return fmt.Errorf("failed to validate genesis file: %v", err)
 	}
 
 	if genesis != nil {
 		for _, name := range []string{"chaindata", "lightchaindata"} {
 			chaindb, err := node.OpenDatabase(name, 0, 0, "")
 			if err != nil {
-				utils.Fatalf("Failed to open database: %v", err)
+				return fmt.Errorf("failed to open database: %v", err)
 			}
 			_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
 			if err != nil {
-				utils.Fatalf("Failed to write genesis block: %v", err)
+				return fmt.Errorf("failed to write genesis block: %v", err)
 			}
 			err = chaindb.Close()
 			if err != nil {
-				utils.Fatalf("Failed to close chain DB: %v", err)
+				return fmt.Errorf("failed to close chain DB: %v", err)
 			}
 			log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
 		}
