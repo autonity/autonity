@@ -40,6 +40,10 @@ func TestMemberManagement(t *testing.T) {
 	}
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 
+	validatorRole := uint8(2)
+	stakeHolderRole := uint8(1)
+	participantRole := uint8(0)
+
 	newValidatorNodeKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	newValidatorPubKey := newValidatorNodeKey.PublicKey
@@ -87,17 +91,17 @@ func TestMemberManagement(t *testing.T) {
 		if validator.lastBlock == 4 {
 			port := validator.rpcPort
 
-			err := interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newValidatorPubKey), validatorStake, newValidatorENode, uint8(2))
+			err := interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newValidatorPubKey), validatorStake, newValidatorENode, validatorRole)
 			if err != nil {
 				return false, nil, err
 			}
 
-			err = interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newStakeholderPubKey), stakeHolderStake, newStakeholderEnode, uint8(1))
+			err = interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newStakeholderPubKey), stakeHolderStake, newStakeholderEnode, stakeHolderRole)
 			if err != nil {
 				return false, nil, err
 			}
 
-			err = interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newParticipantPubKey), participantStake, newParticipantEnode, uint8(0))
+			err = interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newParticipantPubKey), participantStake, newParticipantEnode, participantRole)
 			if err != nil {
 				return false, nil, err
 			}
@@ -126,7 +130,7 @@ func TestMemberManagement(t *testing.T) {
 		assert.True(t, isParticipant(port, height, address, eNode), "wrong membership for added user")
 		// check validator and stakeholder's stake balance
 		actualStake, err := interact(port).call(height).getAccountStake(address)
-		if role != uint8(0) {
+		if role != participantRole {
 			require.NoError(t, err)
 			require.Equal(t, stake, actualStake.Uint64())
 		} else {
@@ -148,9 +152,9 @@ func TestMemberManagement(t *testing.T) {
 		curNetworkMetrics, err := interact(port).call(lastHeight).dumpEconomicsMetricData()
 		require.NoError(t, err)
 
-		validateAddedUser(t, port, lastHeight, crypto.PubkeyToAddress(newValidatorPubKey), newValidatorENode, uint8(2), validatorStake.Uint64(), curNetworkMetrics)
-		validateAddedUser(t, port, lastHeight, crypto.PubkeyToAddress(newStakeholderPubKey), newStakeholderEnode, uint8(1), stakeHolderStake.Uint64(), curNetworkMetrics)
-		validateAddedUser(t, port, lastHeight, crypto.PubkeyToAddress(newParticipantPubKey), newParticipantEnode, uint8(0), participantStake.Uint64(), curNetworkMetrics)
+		validateAddedUser(t, port, lastHeight, crypto.PubkeyToAddress(newValidatorPubKey), newValidatorENode, validatorRole, validatorStake.Uint64(), curNetworkMetrics)
+		validateAddedUser(t, port, lastHeight, crypto.PubkeyToAddress(newStakeholderPubKey), newStakeholderEnode, stakeHolderRole, stakeHolderStake.Uint64(), curNetworkMetrics)
+		validateAddedUser(t, port, lastHeight, crypto.PubkeyToAddress(newParticipantPubKey), newParticipantEnode, participantRole, participantStake.Uint64(), curNetworkMetrics)
 
 		// compare the total stake supply before and after new node added.
 		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
