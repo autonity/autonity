@@ -136,6 +136,9 @@ func (c *core) SetValue(b *types.Block) {
 func (c *core) AwaitValue(height *big.Int) *types.Block {
 	c.valueSet.L.Lock()
 	defer c.valueSet.L.Unlock()
+	if atomic.LoadInt32(&c.stopped) == 1 {
+		return nil
+	}
 	for c.value == nil || c.value.Number().Cmp(height) != 0 {
 		c.value = nil
 		if c.value == nil {

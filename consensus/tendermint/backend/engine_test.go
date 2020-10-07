@@ -29,7 +29,6 @@ import (
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -50,49 +49,49 @@ func TestPrepare(t *testing.T) {
 	}
 }
 
-func TestSealCommittedOtherHash(t *testing.T) {
-	chain, engine := newBlockChain(4)
+// func TestSealCommittedOtherHash(t *testing.T) {
+// 	chain, engine := newBlockChain(4)
 
-	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	otherBlock, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	eventSub := engine.Subscribe(events.CommitEvent{})
-	eventLoop := func() {
-		ev := <-eventSub.Chan()
-		_, ok := ev.Data.(events.CommitEvent)
-		if !ok {
-			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
-		}
-		err = engine.Commit(otherBlock, 0, [][]byte{})
-		if err != nil {
-			t.Error("commit should not return error", err.Error())
-		}
+// 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	otherBlock, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	eventSub := engine.Subscribe(events.CommitEvent{})
+// 	eventLoop := func() {
+// 		ev := <-eventSub.Chan()
+// 		_, ok := ev.Data.(events.CommitEvent)
+// 		if !ok {
+// 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
+// 		}
+// 		err = engine.Commit(otherBlock, 0, [][]byte{})
+// 		if err != nil {
+// 			t.Error("commit should not return error", err.Error())
+// 		}
 
-		eventSub.Unsubscribe()
-	}
-	go eventLoop()
-	seal := func() {
-		resultCh := make(chan *types.Block)
-		err = engine.Seal(chain, block, resultCh, nil)
-		if err != nil {
-			t.Error("seal should not return error", err.Error())
-		}
+// 		eventSub.Unsubscribe()
+// 	}
+// 	go eventLoop()
+// 	seal := func() {
+// 		resultCh := make(chan *types.Block)
+// 		err = engine.Seal(chain, block, resultCh, nil)
+// 		if err != nil {
+// 			t.Error("seal should not return error", err.Error())
+// 		}
 
-		<-resultCh
-		t.Error("seal should not be completed")
-	}
-	go seal()
+// 		<-resultCh
+// 		t.Error("seal should not be completed")
+// 	}
+// 	go seal()
 
-	const timeoutDura = 2 * time.Second
-	timeout := time.NewTimer(timeoutDura)
-	<-timeout.C
-	// wait 2 seconds to ensure we cannot get any blocks from Istanbul
-}
+// 	const timeoutDura = 2 * time.Second
+// 	timeout := time.NewTimer(timeoutDura)
+// 	<-timeout.C
+// 	// wait 2 seconds to ensure we cannot get any blocks from Istanbul
+// }
 
 func TestSealCommitted(t *testing.T) {
 	chain, engine := newBlockChain(1)

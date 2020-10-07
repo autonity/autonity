@@ -39,6 +39,7 @@ var errStopped error = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
 func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
+	println("starting")
 	atomic.StoreInt32(&c.stopped, 0)
 	// Set the autonity contract
 	c.autonityContract = contract
@@ -64,9 +65,9 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 // stop implements core.Engine.stop
 func (c *core) Stop() {
 	println(addr(c.address), c.height, "stopping")
-	atomic.StoreInt32(&c.stopped, 1)
 	c.valueSet.L.Lock()
-	c.valueSet.Broadcast()
+	atomic.StoreInt32(&c.stopped, 1)
+	c.valueSet.Signal()
 	c.valueSet.L.Unlock()
 	c.logger.Info("stopping tendermint.core", "addr", addr(c.address))
 
