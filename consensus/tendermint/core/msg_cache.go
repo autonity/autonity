@@ -22,10 +22,6 @@ type messageCache struct {
 	rawMessages map[common.Hash]*Message
 	// values maps value hash to value.
 	values map[common.Hash]*types.Block
-
-	// TODO use this to impose upper and lower limits on what can go in the
-	// message cache.
-	currentHeight uint64
 }
 
 func (m *messageCache) heightMessages(height uint64) []*Message {
@@ -208,26 +204,6 @@ func (m *messageCache) setValid(itemHash common.Hash) {
 func (m *messageCache) isValid(itemHash common.Hash) bool {
 	_, ok := m.valid[itemHash]
 	return ok
-}
-
-type messageProcessor func(cm *algorithm.ConsensusMessage) error
-
-func (m *messageCache) roundMessages(height uint64, round int64, p messageProcessor) error {
-	for _, addressMap := range m.msgHashes[height][round] {
-		for _, msgHash := range addressMap {
-			if _, ok := m.valid[msgHash]; ok {
-				err := p(m.consensusMsgs[msgHash])
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (m *messageCache) proposal(height uint64, round int64, proposer common.Address) *algorithm.ConsensusMessage {
-	return m.consensusMsgs[m.msgHashes[height][round][algorithm.Step(msgProposal)][proposer]]
 }
 
 func (m *messageCache) matchingProposal(cm *algorithm.ConsensusMessage) *algorithm.ConsensusMessage {

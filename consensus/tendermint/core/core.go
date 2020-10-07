@@ -283,9 +283,6 @@ func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error
 	return block, nil
 }
 
-func (c *core) commit(block *types.Block, round int64) {
-}
-
 // Metric collecton of round change and height change.
 func (c *core) measureHeightRoundMetrics(round int64) {
 	if round == 0 {

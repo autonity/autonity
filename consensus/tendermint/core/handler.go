@@ -139,7 +139,7 @@ func (c *core) newHeight(ctx context.Context, height uint64) bool {
 	for _, msg := range c.msgCache.heightMessages(newHeight.Uint64()) {
 		cm := c.msgCache.consensusMsgs[msg.Hash]
 		go func(m *Message, cm *algorithm.ConsensusMessage) {
-			err := c.handleCurrentHeightMessage(m, cm)
+			err := c.handleCurrentHeightMessage(ctx, m, cm)
 			c.logger.Error("failed to handle current height message", "message", m.String, "err", err)
 		}(msg, cm)
 	}
@@ -174,25 +174,17 @@ func (c *core) handleResult(ctx context.Context, r *algorithm.Result) bool {
 			}
 
 		} else {
-			// I don't think we need this switching
-			// switch {
-			// case currBlockNum > sr.Height:
-			// 	panic(fmt.Sprintf("current block number %d cannot be greater than height %d", currBlockNum, sr.Height))
-			// case currBlockNum < sr.Height:
-			// 	c.currentBlock = c.AwaitValue(new(big.Int).SetUint64(sr.Height))
-			// }
-
 			// sanity check
 			currBlockNum := c.currentBlock.Number().Uint64()
 			if currBlockNum != sr.Height {
 				panic(fmt.Sprintf("current block number %d out of sync with  height %d", currBlockNum, sr.Height))
 			}
 
-			r := c.algo.StartRound(sr.Height, sr.Round, algorithm.ValueID(c.currentBlock.Hash()))
+			rr := c.algo.StartRound(sr.Height, sr.Round, algorithm.ValueID(c.currentBlock.Hash()))
 			// Note that we don't risk enterning an infinite loop here since
 			// start round can only return results with brodcasts or schedules.
 			// TODO actually don't return result from Start round.
-			stopped := c.handleResult(ctx, r)
+			stopped := c.handleResult(ctx, rr)
 			if stopped {
 				return true
 			}
@@ -456,11 +448,11 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		return nil
 	}
 
-	return c.handleCurrentHeightMessage(m, conMsg)
+	return c.handleCurrentHeightMessage(ctx, m, conMsg)
 
 }
 
-func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMessage) error {
+func (c *core) handleCurrentHeightMessage(ctx context.Context, m *Message, cm *algorithm.ConsensusMessage) error {
 	println(addr(c.address), c.height.String(), cm.String(), "received")
 	/*
 		Domain specific validity checks, now we know that we are at the same
@@ -527,7 +519,7 @@ func (c *core) handleCurrentHeightMessage(m *Message, cm *algorithm.ConsensusMes
 	}
 
 	r := c.algo.ReceiveMessage(cm)
-	stopped := c.handleResult(context.Background(), r)
+	stopped := c.handleResult(ctx, r)
 	if stopped {
 		return errStopped
 	}

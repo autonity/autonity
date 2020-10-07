@@ -123,7 +123,7 @@ func New(nodeID NodeID, oracle Oracle) *Algorithm {
 
 func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
 	cm := &ConsensusMessage{
-		MsgType: a.step,
+		MsgType: msgType,
 		Height:  a.height,
 		Round:   a.round,
 		Value:   value,
@@ -134,9 +134,9 @@ func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
 	return cm
 }
 
-func (a *Algorithm) timeout(msgType Step) *Timeout {
+func (a *Algorithm) timeout(timeoutType Step) *Timeout {
 	return &Timeout{
-		TimeoutType: Propose,
+		TimeoutType: timeoutType,
 		Height:      a.height,
 		Round:       a.round,
 		Delay:       1, // TODO
