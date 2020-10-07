@@ -214,7 +214,6 @@ func initGenesis(ctx *cli.Context) error {
 	log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
 	if len(genesisPath) == 0 {
 		utils.Fatalf("Must supply path to genesis JSON file")
-		return fmt.Errorf("must supply path to genesis JSON file")
 	}
 	file, err := os.Open(genesisPath)
 	if err != nil {
