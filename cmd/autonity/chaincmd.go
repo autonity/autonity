@@ -201,9 +201,7 @@ Use "ethereum dump 0" to dump the genesis block.`,
 func initGenesis(ctx *cli.Context) error {
 	// If the user does not specify a genesis file, start node will use current `data-dir`.
 	if !ctx.GlobalIsSet(utils.InitGenesisFlag.Name) {
-		log.Info("genesis flag is not set, start node directly from data dir.")
-		log.Info("In case of 1st time start, please start client with setting --genesis flag, " +
-			"the client will auto init genesis block before attach to network.")
+		log.Info("--genesis flag is not set")
 		return nil
 	}
 
