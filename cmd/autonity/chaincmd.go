@@ -231,7 +231,6 @@ func initGenesis(ctx *cli.Context) error {
 	}
 	if genesis.Config.AutonityContractConfig == nil {
 		utils.Fatalf("No Autonity Contract config section in genesis")
-		return fmt.Errorf("no Autonity Contract config section in genesis")
 	}
 	if genesis.Config.Tendermint == nil {
 		utils.Fatalf("No Tendermint config section in genesis")
