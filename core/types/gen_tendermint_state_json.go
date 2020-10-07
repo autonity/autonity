@@ -18,10 +18,10 @@ func (t TendermintState) MarshalJSON() ([]byte, error) {
 		Height                big.Int        `json:"height"                gencodec:"required"`
 		Round                 int64          `json:"round"                 gencodec:"required"`
 		Step                  uint64         `json:"step"                  gencodec:"required"`
-		Proposal              common.Hash    `json:"proposal"              gencodec:"required"`
-		LockedValue           common.Hash    `json:"lockedValue"           gencodec:"required"`
+		Proposal              *common.Hash   `json:"proposal"              gencodec:"required"`
+		LockedValue           *common.Hash   `json:"lockedValue"           gencodec:"required"`
 		LockedRound           int64          `json:"lockedRound"           gencodec:"required"`
-		ValidValue            common.Hash    `json:"validValue"            gencodec:"required"`
+		ValidValue            *common.Hash   `json:"validValue"            gencodec:"required"`
 		ValidRound            int64          `json:"validRound"            gencodec:"required"`
 		ParentCommittee       Committee      `json:"parentCommittee"       gencodec:"required"`
 		Committee             Committee      `json:"committee"             gencodec:"required"`
@@ -130,11 +130,11 @@ func (t *TendermintState) UnmarshalJSON(input []byte) error {
 	if dec.Proposal == nil {
 		return errors.New("missing required field 'proposal' for TendermintState")
 	}
-	t.Proposal = *dec.Proposal
+	t.Proposal = dec.Proposal
 	if dec.LockedValue == nil {
 		return errors.New("missing required field 'lockedValue' for TendermintState")
 	}
-	t.LockedValue = *dec.LockedValue
+	t.LockedValue = dec.LockedValue
 	if dec.LockedRound == nil {
 		return errors.New("missing required field 'lockedRound' for TendermintState")
 	}
@@ -142,7 +142,7 @@ func (t *TendermintState) UnmarshalJSON(input []byte) error {
 	if dec.ValidValue == nil {
 		return errors.New("missing required field 'validValue' for TendermintState")
 	}
-	t.ValidValue = *dec.ValidValue
+	t.ValidValue = dec.ValidValue
 	if dec.ValidRound == nil {
 		return errors.New("missing required field 'validRound' for TendermintState")
 	}

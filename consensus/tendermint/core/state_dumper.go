@@ -67,28 +67,28 @@ func (c *core) handleStateDump() {
 	c.coreStateCh <- state
 }
 
-func (c *core) getProposal(round int64) common.Hash {
-	v := common.Hash{}
+func (c *core) getProposal(round int64) *common.Hash {
 	if c.messages.getOrCreate(round).proposal != nil && c.messages.getOrCreate(round).proposal.ProposalBlock != nil {
-		v = c.messages.getOrCreate(round).proposal.ProposalBlock.Hash()
+		v := c.messages.getOrCreate(round).proposal.ProposalBlock.Hash()
+		return &v
 	}
-	return v
+	return nil
 }
 
-func (c *core) getLockedValue() common.Hash {
-	v := common.Hash{}
+func (c *core) getLockedValue() *common.Hash {
 	if c.lockedValue != nil {
-		v = c.lockedValue.Hash()
+		v := c.lockedValue.Hash()
+		return &v
 	}
-	return v
+	return nil
 }
 
-func (c *core) getValidValue() common.Hash {
-	v := common.Hash{}
+func (c *core) getValidValue() *common.Hash {
 	if c.validValue != nil {
-		v = c.validValue.Hash()
+		v := c.validValue.Hash()
+		return &v
 	}
-	return v
+	return nil
 }
 
 func (c *core) getParentCommittee() types.Committee {

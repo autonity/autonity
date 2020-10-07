@@ -74,10 +74,10 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		require.Equal(t, *currentHeight, state.Height)
 		require.Equal(t, currentRound, state.Round)
 		require.Equal(t, uint64(propose), state.Step)
-		require.Equal(t, newProposal.ProposalBlock.Hash(), state.Proposal)
-		require.Equal(t, initProposal.ProposalBlock.Hash(), state.LockedValue)
+		require.Equal(t, newProposal.ProposalBlock.Hash(), *state.Proposal)
+		require.Equal(t, initProposal.ProposalBlock.Hash(), *state.LockedValue)
 		require.Equal(t, initRound, state.LockedRound)
-		require.Equal(t, initProposal.ProposalBlock.Hash(), state.ValidValue)
+		require.Equal(t, initProposal.ProposalBlock.Hash(), *state.ValidValue)
 		require.Equal(t, initRound, state.ValidRound)
 		require.Equal(t, c.getParentCommittee().String(), prevBlock.Header().Committee.String())
 		require.Equal(t, committeeSet.Committee().String(), state.Committee.String())
@@ -120,9 +120,9 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		fact := core.getProposal(currentRound)
 		core.lockedValue = proposal.ProposalBlock
 		core.validValue = proposal.ProposalBlock
-		assert.Equal(t, proposal.ProposalBlock.Hash(), fact)
-		assert.Equal(t, core.getLockedValue(), core.lockedValue.Hash())
-		assert.Equal(t, core.getValidValue(), core.validValue.Hash())
+		assert.Equal(t, proposal.ProposalBlock.Hash(), *fact)
+		assert.Equal(t, *core.getLockedValue(), core.lockedValue.Hash())
+		assert.Equal(t, *core.getValidValue(), core.validValue.Hash())
 	})
 
 	t.Run("get parent block committee", func(t *testing.T) {
