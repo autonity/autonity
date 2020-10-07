@@ -57,18 +57,19 @@ func TestStakeManagement(t *testing.T) {
 		return false, nil, nil
 	}
 
+	/*
 	getBalance := func(port int, blockNum uint64, address common.Address) (*big.Int, error) {
 		return interact(port).call(blockNum).getAccountStake(address)
-	}
+	}*/
 
 	stakeChecker := func(t *testing.T, validators map[string]*testNode, stake *big.Int) {
 		address := crypto.PubkeyToAddress(validators["VA"].privateKey.PublicKey)
 		port := validators["VA"].rpcPort
 
-		initBalance, err := getBalance(port, initHeight, address)
+		initBalance, err := interact(port).call(initHeight).getAccountStake(address)
 		require.NoError(t, err)
 
-		newBalance, err := getBalance(port, validators["VA"].lastBlock, address)
+		newBalance, err := interact(port).call(validators["VA"].lastBlock).getAccountStake(address)
 		require.NoError(t, err)
 
 		delta := newBalance.Sub(newBalance, initBalance)
@@ -130,16 +131,16 @@ func TestStakeManagement(t *testing.T) {
 		senderAddr := crypto.PubkeyToAddress(validators["VA"].privateKey.PublicKey)
 		receiverAddr := pickReceiver(validators["VA"])
 
-		senderInitBalance, err := getBalance(port, 3, senderAddr)
+		senderInitBalance, err := interact(port).call(3).getAccountStake(senderAddr)
 		require.NoError(t, err)
-		senderNewBalance, err := getBalance(port, validators["VA"].lastBlock, senderAddr)
+		senderNewBalance, err := interact(port).call(validators["VA"].lastBlock).getAccountStake(senderAddr)
 		require.NoError(t, err)
 		delta := senderInitBalance.Uint64() - senderNewBalance.Uint64()
 		require.Equal(t, delta, sendStake.Uint64())
 
-		receiverInitBalance, err := getBalance(port, 3, receiverAddr)
+		receiverInitBalance, err := interact(port).call(3).getAccountStake(receiverAddr)
 		require.NoError(t, err)
-		receiverNewBalance, err := getBalance(port, validators["VA"].lastBlock, receiverAddr)
+		receiverNewBalance, err := interact(port).call(validators["VA"].lastBlock).getAccountStake(receiverAddr)
 		require.NoError(t, err)
 		delta = receiverNewBalance.Uint64() - receiverInitBalance.Uint64()
 		require.Equal(t, delta, sendStake.Uint64())
