@@ -113,7 +113,7 @@ func (c *core) newHeight(ctx context.Context, height uint64) bool {
 
 	c.lastHeader = prevBlock.Header()
 	committeeSet := c.createCommittee(prevBlock)
-	c.setCommitteeSet(committeeSet)
+	c.committee = committeeSet
 
 	// Update internals of oracle
 	c.ora.lastHeader = c.lastHeader
@@ -198,7 +198,7 @@ func (c *core) handleResult(ctx context.Context, r *algorithm.Result) bool {
 		// need to do it from the handler routine.
 		msg := c.buildMessage(r.Broadcast)
 
-		go c.broadcast(ctx, msg)
+		go c.broadcast(ctx, msg, c.lastHeader.Committee)
 	case r.Schedule != nil:
 		time.AfterFunc(time.Duration(r.Schedule.Delay)*time.Second, func() {
 			c.backend.Post(r.Schedule)
@@ -243,7 +243,7 @@ eventLoop:
 					c.logger.Debug("core.mainEventLoop Get message(MessageEvent) payload failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
+				c.backend.Gossip(ctx, c.lastHeader.Committee, e.Payload)
 			case *algorithm.ConsensusMessage:
 				println(addr(c.address), e.String(), "message from self")
 				// This is a message we sent ourselves we do not need to broadcast it
@@ -487,7 +487,7 @@ func (c *core) handleCurrentHeightMessage(ctx context.Context, m *Message, cm *a
 	switch m.Code {
 	case msgProposal:
 		// We ignore proposals from non proposers
-		if !c.isProposerMsg(cm.Round, m.Address) {
+		if c.committee.GetProposer(cm.Round).Address != m.Address {
 			c.logger.Warn("Ignore proposal messages from non-proposer")
 			return errNotFromProposer
 

@@ -168,6 +168,7 @@ func (c *core) AwaitValue(height *big.Int) *types.Block {
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
+	// TODO syncronise this properly, this is called from the sync go routine
 	return c.msgCache.heightMessages(c.Height().Uint64())
 }
 
@@ -234,7 +235,7 @@ func (c *core) buildMessage(m *algorithm.ConsensusMessage) *Message {
 	return msg
 }
 
-func (c *core) broadcast(ctx context.Context, msg *Message) {
+func (c *core) broadcast(ctx context.Context, msg *Message, committee types.Committee) {
 	logger := c.logger.New("step", nil)
 
 	payload, err := c.finalizeMessage(msg)
@@ -243,15 +244,10 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 	}
 	// Broadcast payload
 	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), payload); err != nil {
+	if err = c.backend.Broadcast(ctx, committee, payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}
-}
-
-// check if msg sender is proposer for proposal handling.
-func (c *core) isProposerMsg(round int64, msgAddress common.Address) bool {
-	return c.committeeSet().GetProposer(round).Address == msgAddress
 }
 
 func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
@@ -277,7 +273,7 @@ func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error
 	h.CommittedSeals = committedSeals
 	h.Round = uint64(proposal.Round)
 	block = block.WithSeal(h)
-	c.backend.Commit(block, c.committeeSet().GetProposer(proposal.Round).Address)
+	c.backend.Commit(block, c.committee.GetProposer(proposal.Round).Address)
 
 	c.logger.Info("commit a block", "hash", block.Hash())
 	return block, nil
@@ -316,28 +312,6 @@ func (c *core) createCommittee(block *types.Block) committee {
 	return committeeSet
 }
 
-// func (c *core) updateLatestBlock() {
-
-// 	lastBlockMined, _ := c.backend.LastCommittedProposal()
-// 	fmt.Printf("%s block height mismatch, lastblock: %s, currentHeight: %s\n", c.address.String(), lastBlockMined.Number().String(), c.height.String())
-// 	debug.PrintStack()
-
-// 	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-
-// 	lastHeader := lastBlockMined.Header()
-// 	committeeSet := c.createCommittee(lastBlockMined)
-
-// 	println(c.address.String(), c.height.String(), "proposer", committeeSet.GetProposer(0).Address.String())
-
-// 	c.lastHeader = lastHeader
-// 	c.setCommitteeSet(committeeSet)
-
-// 	// Update internals of oracle
-// 	c.ora.lastHeader = lastHeader
-// 	c.ora.committeeSet = committeeSet
-
-// }
-
 // PrepareCommittedSeal returns a committed seal for the given hash
 func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) []byte {
 	var buf bytes.Buffer
@@ -354,21 +328,11 @@ func (c *core) setHeight(height *big.Int) {
 	defer c.stateMu.Unlock()
 	c.height = height
 }
-func (c *core) setCommitteeSet(set committee) {
-	c.stateMu.Lock()
-	defer c.stateMu.Unlock()
-	c.committee = set
-}
 
 func (c *core) Height() *big.Int {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.height
-}
-func (c *core) committeeSet() committee {
-	c.stateMu.RLock()
-	defer c.stateMu.RUnlock()
-	return c.committee
 }
 
 func (c *core) verifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error {
