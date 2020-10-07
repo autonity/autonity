@@ -142,7 +142,7 @@ func TestMemberManagement(t *testing.T) {
 		}
 	}
 
-	addUserCheckerHook := func(t *testing.T, validators map[string]*testNode) {
+	addUsersCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 		port := validators["VA"].rpcPort
 		lastHeight := validators["VA"].lastBlock
 		curNetworkMetrics, err := interact(port).call(lastHeight).dumpEconomicsMetricData()
@@ -184,7 +184,7 @@ func TestMemberManagement(t *testing.T) {
 				"VA": addUsersHook,
 			},
 			genesisHook: genesisHook,
-			finalAssert: addUserCheckerHook,
+			finalAssert: addUsersCheckerHook,
 		},
 		{
 			name:          "remove user",
