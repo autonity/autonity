@@ -38,19 +38,19 @@ func (c *core) handleStateDump() {
 		Height:      *c.Height(),
 		Round:       c.Round(),
 		Step:        uint64(c.step),
-		Proposal:    c.getProposal(c.Round()),
-		LockedValue: c.getLockedValue(),
+		Proposal:    getProposal(c, c.Round()),
+		LockedValue: getLockedValue(c),
 		LockedRound: c.lockedRound,
-		ValidValue:  c.getValidValue(),
+		ValidValue:  getValidValue(c),
 		ValidRound:  c.validRound,
 
 		// committee state:
-		ParentCommittee: c.getParentCommittee(),
+		ParentCommittee: getParentCommittee(c),
 		Committee:       c.committeeSet().Committee(),
 		Proposer:        c.committeeSet().GetProposer(c.Round()).Address,
 		IsProposer:      c.isProposer(),
 		QuorumVotePower: c.committeeSet().Quorum(),
-		RoundStates:     c.getRoundState(),
+		RoundStates:     getRoundState(c),
 		// extra state
 		SentProposal:          c.sentProposal,
 		SentPrevote:           c.sentPrevote,
@@ -67,7 +67,7 @@ func (c *core) handleStateDump() {
 	c.coreStateCh <- state
 }
 
-func (c *core) getProposal(round int64) *common.Hash {
+func getProposal(c *core, round int64) *common.Hash {
 	if c.messages.getOrCreate(round).proposal != nil && c.messages.getOrCreate(round).proposal.ProposalBlock != nil {
 		v := c.messages.getOrCreate(round).proposal.ProposalBlock.Hash()
 		return &v
@@ -75,7 +75,7 @@ func (c *core) getProposal(round int64) *common.Hash {
 	return nil
 }
 
-func (c *core) getLockedValue() *common.Hash {
+func getLockedValue(c *core) *common.Hash {
 	if c.lockedValue != nil {
 		v := c.lockedValue.Hash()
 		return &v
@@ -83,7 +83,7 @@ func (c *core) getLockedValue() *common.Hash {
 	return nil
 }
 
-func (c *core) getValidValue() *common.Hash {
+func getValidValue(c *core) *common.Hash {
 	if c.validValue != nil {
 		v := c.validValue.Hash()
 		return &v
@@ -91,7 +91,7 @@ func (c *core) getValidValue() *common.Hash {
 	return nil
 }
 
-func (c *core) getParentCommittee() types.Committee {
+func getParentCommittee(c *core) types.Committee {
 	v := types.Committee{}
 	if c.lastHeader != nil {
 		v = c.lastHeader.Committee
@@ -99,7 +99,7 @@ func (c *core) getParentCommittee() types.Committee {
 	return v
 }
 
-func (c *core) getRoundState() []types.RoundState {
+func getRoundState(c *core) []types.RoundState {
 	rounds := c.messages.getRounds()
 	states := make([]types.RoundState, 0, len(rounds))
 

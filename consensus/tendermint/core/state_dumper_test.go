@@ -79,7 +79,7 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		require.Equal(t, initRound, state.LockedRound)
 		require.Equal(t, initProposal.ProposalBlock.Hash(), *state.ValidValue)
 		require.Equal(t, initRound, state.ValidRound)
-		require.Equal(t, c.getParentCommittee().String(), prevBlock.Header().Committee.String())
+		require.Equal(t, getParentCommittee(c).String(), prevBlock.Header().Committee.String())
 		require.Equal(t, committeeSet.Committee().String(), state.Committee.String())
 		require.Equal(t, members[currentRound].Address, state.Proposer)
 		require.False(t, state.IsProposer)
@@ -117,12 +117,12 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1)-1)), members[currentRound].Address, false)
 		core.messages.getOrCreate(currentRound).SetProposal(&proposal, proposalMsg, true)
-		fact := core.getProposal(currentRound)
+		fact := getProposal(core, currentRound)
 		core.lockedValue = proposal.ProposalBlock
 		core.validValue = proposal.ProposalBlock
 		assert.Equal(t, proposal.ProposalBlock.Hash(), *fact)
-		assert.Equal(t, *core.getLockedValue(), core.lockedValue.Hash())
-		assert.Equal(t, *core.getValidValue(), core.validValue.Hash())
+		assert.Equal(t, *getLockedValue(core), core.lockedValue.Hash())
+		assert.Equal(t, *getValidValue(core), core.validValue.Hash())
 	})
 
 	t.Run("get parent block committee", func(t *testing.T) {
@@ -139,7 +139,7 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		core.setCommitteeSet(committeeSet)
 		core.lastHeader = prevBlock.Header()
 
-		assert.Equal(t, core.getParentCommittee().String(), prevBlock.Header().Committee.String())
+		assert.Equal(t, getParentCommittee(core).String(), prevBlock.Header().Committee.String())
 	})
 
 	t.Run("get round state", func(t *testing.T) {
@@ -167,7 +167,7 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		// current round messages:
 		genRoundVoteMessages(c, currentRound, &newProposal, newProposalMsg, curRoundPrevoteMsg, curRoundPrecommitMsg, true)
 
-		states := c.getRoundState()
+		states := getRoundState(c)
 
 		// expect 2 rounds of vote states.
 		require.Len(t, states, 2)
