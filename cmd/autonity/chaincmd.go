@@ -199,7 +199,7 @@ Use "ethereum dump 0" to dump the genesis block.`,
 // initGenesis will initialise the given JSON format genesis file and writes it as
 // the zero'd block (i.e. genesis) or will fail hard if it can't succeed.
 func initGenesis(ctx *cli.Context) error {
-	// If user does not specify a genesis file on genesis flag, start node from current data dir.
+	// If the user does not specify a genesis file, start node will use current `data-dir`.
 	if !ctx.GlobalIsSet(utils.InitGenesisFlag.Name) {
 		log.Info("genesis flag is not set, start node directly from data dir.")
 		log.Info("In case of 1st time start, please start client with setting --genesis flag, " +
