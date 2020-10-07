@@ -43,7 +43,6 @@ type TendermintState struct {
 	ValidRound  int64
 
 	// committee state
-	ParentCommittee types.Committee
 	Committee       types.Committee
 	Proposer        common.Address
 	IsProposer      bool
@@ -104,7 +103,6 @@ func (c *core) handleStateDump() {
 		ValidRound:  c.validRound,
 
 		// committee state:
-		ParentCommittee: getParentCommittee(c),
 		Committee:       c.committeeSet().Committee(),
 		Proposer:        c.committeeSet().GetProposer(c.Round()).Address,
 		IsProposer:      c.isProposer(),
@@ -148,14 +146,6 @@ func getValidValue(c *core) *common.Hash {
 		return &v
 	}
 	return nil
-}
-
-func getParentCommittee(c *core) types.Committee {
-	v := types.Committee{}
-	if c.lastHeader != nil {
-		v = c.lastHeader.Committee
-	}
-	return v
 }
 
 func getRoundState(c *core) []RoundState {

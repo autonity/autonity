@@ -79,7 +79,6 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		require.Equal(t, initRound, state.LockedRound)
 		require.Equal(t, initProposal.ProposalBlock.Hash(), *state.ValidValue)
 		require.Equal(t, initRound, state.ValidRound)
-		require.Equal(t, getParentCommittee(c).String(), prevBlock.Header().Committee.String())
 		require.Equal(t, committeeSet.Committee().String(), state.Committee.String())
 		require.Equal(t, members[currentRound].Address, state.Proposer)
 		require.False(t, state.IsProposer)
@@ -138,8 +137,6 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		core := New(backendMock, config.DefaultConfig())
 		core.setCommitteeSet(committeeSet)
 		core.lastHeader = prevBlock.Header()
-
-		assert.Equal(t, getParentCommittee(core).String(), prevBlock.Header().Committee.String())
 	})
 
 	t.Run("get round state", func(t *testing.T) {
