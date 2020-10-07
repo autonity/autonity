@@ -218,7 +218,6 @@ func initGenesis(ctx *cli.Context) error {
 	file, err := os.Open(genesisPath)
 	if err != nil {
 		utils.Fatalf("Failed to read genesis file: %v", err)
-		return err
 	}
 	defer file.Close()
 
