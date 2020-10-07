@@ -1,7 +1,6 @@
 package test
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
@@ -84,23 +83,21 @@ func TestMemberManagement(t *testing.T) {
 		return g
 	}
 
-	addUser := func(operator *ecdsa.PrivateKey, port int, userPubKey ecdsa.PublicKey, stake *big.Int, enode string, userType uint8) error {
-		return interact(port).tx(operator).addUser(crypto.PubkeyToAddress(userPubKey), stake, enode, userType)
-	}
-
 	addUsersHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
-			err := addUser(operatorKey, validator.rpcPort, newValidatorPubKey, validatorStake, newValidatorENode, uint8(2))
+			port := validator.rpcPort
+
+			err := interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newValidatorPubKey), validatorStake, newValidatorENode, uint8(2))
 			if err != nil {
 				return false, nil, err
 			}
 
-			err = addUser(operatorKey, validator.rpcPort, newStakeholderPubKey, stakeHolderStake, newStakeholderEnode, uint8(1))
+			err = interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newStakeholderPubKey), stakeHolderStake, newStakeholderEnode, uint8(1))
 			if err != nil {
 				return false, nil, err
 			}
 
-			err = addUser(operatorKey, validator.rpcPort, newParticipantPubKey, participantStake, newParticipantEnode, uint8(0))
+			err = interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newParticipantPubKey), participantStake, newParticipantEnode, uint8(0))
 			if err != nil {
 				return false, nil, err
 			}
