@@ -198,47 +198,47 @@ Use "ethereum dump 0" to dump the genesis block.`,
 
 // initGenesis will initialise the given JSON format genesis file and writes it as
 // the zero'd block (i.e. genesis) or will fail hard if it can't succeed.
-func initGenesis(ctx *cli.Context) *core.Genesis {
+func initGenesis(ctx *cli.Context) (*core.Genesis, error) {
 	// If the user does not specify a genesis file, start node will use current `data-dir`.
 	if !ctx.GlobalIsSet(utils.InitGenesisFlag.Name) {
 		log.Info("--genesis flag is not set")
-		return nil
+		return nil, nil
 	}
 
 	// Make sure we have a valid genesis JSON.
 	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
 	log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
 	if len(genesisPath) == 0 {
-		utils.Fatalf("Must supply path to genesis JSON file")
+		return nil, fmt.Errorf("Must supply path to genesis JSON file")
 	}
 	file, err := os.Open(genesisPath)
 	if err != nil {
-		utils.Fatalf("Failed to read genesis file: %v", err)
+		return nil, err
 	}
 	defer file.Close()
 
 	genesis := new(core.Genesis)
 	if err := json.NewDecoder(file).Decode(genesis); err != nil {
-		utils.Fatalf("invalid genesis file: %v", err)
+		return nil, err
 	}
 	// Make AutonityContract and Tendermint consensus mandatory for the time being.
 	if genesis.Config == nil {
-		utils.Fatalf("No Autonity Contract and Tendermint configs section in genesis")
+		return nil, fmt.Errorf("No Autonity Contract and Tendermint configs section in genesis")
 	}
 	if genesis.Config.AutonityContractConfig == nil {
-		utils.Fatalf("No Autonity Contract config section in genesis")
+		return nil, fmt.Errorf("No Autonity Contract config section in genesis")
 	}
 	if genesis.Config.Tendermint == nil {
-		utils.Fatalf("No Tendermint config section in genesis")
+		return nil, fmt.Errorf("No Tendermint config section in genesis")
 	}
 
 	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
 		spew.Dump(genesis.Config.AutonityContractConfig)
-		utils.Fatalf("autonity contract section is invalid. error:%v", err.Error())
+		return nil, err
 	}
 
 	setupDefaults(genesis)
-	return genesis
+	return genesis, nil
 }
 
 func setupDefaults(genesis *core.Genesis) {
