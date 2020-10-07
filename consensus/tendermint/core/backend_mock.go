@@ -137,10 +137,10 @@ func (mr *MockBackendMockRecorder) KnownMsgHash() *gomock.Call {
 }
 
 // CoreState mocks base method
-func (m *MockTendermint) CoreState() types.TendermintState {
+func (m *MockTendermint) CoreState() TendermintState {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CoreState")
-	ret0, _ := ret[0].(types.TendermintState)
+	ret0, _ := ret[0].(TendermintState)
 	return ret0
 }
 
