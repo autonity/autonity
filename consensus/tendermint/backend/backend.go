@@ -151,7 +151,7 @@ func (sb *Backend) postEvent(event interface{}) {
 }
 
 func (sb *Backend) AskSync(header *types.Header) {
-	sb.logger.Info("Broadcasting consensus sync-me")
+	sb.logger.Info("Broadcasting consensus synchronization request")
 
 	targets := make(map[common.Address]struct{})
 	for _, val := range header.Committee {
@@ -423,13 +423,8 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	}
 	messages := sb.core.GetCurrentHeightMessages()
 	for _, msg := range messages {
-		payload, err := msg.Payload()
-		if err != nil {
-			sb.logger.Debug("Sending", "code", msg.GetCode(), "sig", msg.GetSignature(), "err", err)
-			continue
-		}
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.Send(tendermintMsg, payload) //nolint
+		go p.Send(tendermintMsg, msg.Payload()) //nolint
 	}
 }
 

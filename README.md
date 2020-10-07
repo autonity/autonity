@@ -36,6 +36,22 @@ make autonity
 make build-docker-image
 ```
 
+## Open a javascript console to a node
+The address must be a websocket enabled rpc address.
+
+```
+./nodeconsole/console localhost:8546
+```
+
+The console is run with the `--experimental-repl-await` flag which means that
+you can use await from the console prompt.
+
+E.G:
+```
+> await autonity.getMinimumGasPrice().call()
+'5000'
+```
+
 ## License
 
 The go-ethereum library (i.e. all code outside of the `cmd` directory) is licensed under the

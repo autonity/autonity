@@ -353,14 +353,6 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
-	if header.Number.Int64() == 1 {
-		err := sb.blockchain.GetAutonityContract().DeployAutonityContract(sb.blockchain.Config(), header, state)
-		if err != nil {
-			sb.logger.Error("Deploy autonity contract error", "error", err)
-			return nil, nil, err
-		}
-	}
-
 	committeeSet, receipt, err := sb.blockchain.GetAutonityContract().FinalizeAndGetCommittee(txs, receipts, header, state)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize returns err", "err", err)

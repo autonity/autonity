@@ -238,8 +238,10 @@ eventLoop:
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				if len(e.Payload) == 0 {
-					c.logger.Error("core.mainEventLoop Get message(MessageEvent) empty payload")
+				msg := new(Message)
+				if err := msg.FromPayload(e.Payload); err != nil {
+					c.logger.Error("consensus message invalid payload", "err", err)
+					continue
 				}
 
 				if err := c.handleMsg(ctx, e.Payload); err != nil {

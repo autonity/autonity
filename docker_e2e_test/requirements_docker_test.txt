@@ -1,0 +1,8 @@
+certifi==2020.4.5.1
+chardet==3.0.4
+docker==4.2.0
+idna==2.9
+requests==2.23.0
+six==1.14.0
+urllib3==1.25.9
+websocket-client==0.57.0

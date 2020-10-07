@@ -100,6 +100,7 @@ type core struct {
 	wg                      *sync.WaitGroup
 
 	msgCache *messageCache
+
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
 	pendingUnminedBlocksMu   sync.Mutex
@@ -183,13 +184,7 @@ func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 		return nil, err
 	}
 
-	// Convert to payload
-	payload, err := msg.Payload()
-	if err != nil {
-		return nil, err
-	}
-
-	return payload, nil
+	return msg.Payload(), nil
 }
 
 func (c *core) buildMessage(m *algorithm.ConsensusMessage) *Message {

@@ -1,0 +1,26 @@
+version: 1
+formatters:
+  simple:
+    #format: '%(asctime)s - %(filename)s - %(lineno)d - - %(levelname)s - %(message)s'
+    format: '%(levelname)s - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: simple
+    stream: ext://sys.stdout
+
+  file:
+    class: logging.handlers.RotatingFileHandler
+    formatter: simple
+    filename: ATAutonity.log
+    maxBytes: 1048576100 # 100MB
+    backupCount: 5
+loggers:
+  sampleLogger:
+    level: INFO
+    handlers: [console]
+    propagate: no
+root:
+  level: INFO
+  handlers: [console]

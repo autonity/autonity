@@ -21,6 +21,7 @@ SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 AUTONITY_CONTRACT_DIR = ./contracts/autonity/contract/contracts
 AUTONITY_CONTRACT = Autonity.sol
 GENERATED_CONTRACT_DIR = ./common/acdefault/generated
+GENERATED_RAW_ABI = $(GENERATED_CONTRACT_DIR)/Autonity.abi
 GENERATED_ABI = $(GENERATED_CONTRACT_DIR)/abi.go
 GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
 
@@ -51,9 +52,9 @@ autonity: embed-autonity-contract
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
 # Genreates go source files containing the contract bytecode and abi.
-embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_ABI)
+embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI) 
 
-$(GENERATED_BYTECODE) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT) $(SOLC_BINARY)
+$(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT) $(SOLC_BINARY)
 	@mkdir -p $(GENERATED_CONTRACT_DIR)
 	$(SOLC_BINARY) --overwrite --abi --bin -o $(GENERATED_CONTRACT_DIR) $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT)
 
@@ -110,15 +111,21 @@ test-contracts:
 	@npm list truffle > /dev/null || npm install truffle
 	@npm list web3 > /dev/null || npm install web3
 	@cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
-	@# Autonity can take some time to start listening on port 8545 so we allow multiple connection attempts.
+	@# Autonity can take some time to start up so we ping its port till we see it is listening.
+	@# The -z option to netcat exits with 0 only if the port at the given addresss is listening.
 	@for x in {1..10}; do \
-		sleep 2 ; \
-		./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545 ; \
-		if [ $$? -eq 0 ] ; then \
-			break ; \
-		fi ; \
+		nc -z localhost 8545 ; \
+	    if [ $$? -eq 0 ] ; then \
+	        break ; \
+	    fi ; \
+		echo waiting 2 more seconds for autonity to start ; \
+	    sleep 2 ; \
 	done
 	@cd contracts/autonity/contract/ && $(NPMBIN)/truffle test && cd -
+
+docker-e2e-test: embed-autonity-contract
+	build/env.sh go run build/ci.go install
+	cd docker_e2e_test && sudo python3 test_via_docker.py ..
 
 mock-gen:
 	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go

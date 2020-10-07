@@ -361,11 +361,19 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if bc.cacheConfig.SnapshotLimit > 0 {
 		bc.snaps = snapshot.New(bc.db, bc.stateCache.TrieDB(), bc.cacheConfig.SnapshotLimit, bc.CurrentBlock().Root(), !bc.cacheConfig.SnapshotWait)
 	}
-	// Take ownership of this particular state
-	go bc.update()
+	bc.wg.Add(1)
+	go func() {
+		defer bc.wg.Done()
+		// Take ownership of this particular state
+		bc.update()
+	}()
 	if txLookupLimit != nil {
 		bc.txLookupLimit = *txLookupLimit
-		go bc.maintainTxIndex(txIndexBlock)
+		bc.wg.Add(1)
+		go func() {
+			defer bc.wg.Done()
+			bc.maintainTxIndex(txIndexBlock)
+		}()
 	}
 	return bc, nil
 }
@@ -1825,7 +1833,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		if !bc.cacheConfig.TrieCleanNoPrefetch {
 			if followup, err := it.peek(); followup != nil && err == nil {
 				throwaway, _ := state.New(parent.Root, bc.stateCache, bc.snaps)
+				bc.wg.Add(1)
 				go func(start time.Time, followup *types.Block, throwaway *state.StateDB, interrupt *uint32) {
+					defer bc.wg.Done()
 					bc.prefetcher.Prefetch(followup, throwaway, bc.vmConfig, &followupInterrupt)
 
 					blockPrefetchExecuteTimer.Update(time.Since(start))
@@ -2312,7 +2322,11 @@ func (bc *BlockChain) maintainTxIndex(ancients uint64) {
 		case head := <-headCh:
 			if done == nil {
 				done = make(chan struct{})
-				go indexBlocks(rawdb.ReadTxIndexTail(bc.db), head.Block.NumberU64(), done)
+				bc.wg.Add(1)
+				go func() {
+					defer bc.wg.Done()
+					indexBlocks(rawdb.ReadTxIndexTail(bc.db), head.Block.NumberU64(), done)
+				}()
 			}
 		case <-done:
 			done = nil
@@ -2517,7 +2531,11 @@ func (bc *BlockChain) SubscribeAutonityEvents(ch chan<- WhitelistEvent) event.Su
 
 func (bc *BlockChain) UpdateEnodeWhitelist(newWhitelist *types.Nodes) {
 	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-	go bc.autonityFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
+	bc.wg.Add(1)
+	go func() {
+		defer bc.wg.Done()
+		bc.autonityFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
+	}()
 }
 
 func (bc *BlockChain) ReadEnodeWhitelist() *types.Nodes {

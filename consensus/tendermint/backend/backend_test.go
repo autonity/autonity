@@ -396,10 +396,7 @@ func TestSyncPeer(t *testing.T) {
 		peersAddrMap := make(map[common.Address]struct{})
 		peersAddrMap[peerAddr1] = struct{}{}
 
-		payload, err := messages[0].Payload()
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
+		payload := messages[0].Payload()
 
 		peer1Mock := consensus.NewMockPeer(ctrl)
 		peer1Mock.EXPECT().Send(uint64(tendermintMsg), payload)
