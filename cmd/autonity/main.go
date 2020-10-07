@@ -314,11 +314,12 @@ func autonity(ctx *cli.Context) error {
 	node := makeFullNode(ctx)
 	defer node.Close()
 
-	genesis, err := initGenesis(ctx)
+	genesis, err := validateGenesis(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to validate genesis file: %v", err)
 	}
 
+	// check if genesis is matched with block #0, and check to apply compatible chain configuration.
 	if genesis != nil {
 		for _, name := range []string{"chaindata", "lightchaindata"} {
 			chaindb, err := node.OpenDatabase(name, 0, 0, "")
