@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/core"
 	"math"
 	"os"
 	godebug "runtime/debug"
@@ -241,12 +242,7 @@ func init() {
 	app.Flags = append(app.Flags, metricsFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
-		err := debug.Setup(ctx)
-		if err != nil {
-			return err
-		}
-		// Try to init chain before autonity start up. Any error from initGenesis would terminate node start up.
-		return initGenesis(ctx)
+		return debug.Setup(ctx)
 	}
 	app.After = func(ctx *cli.Context) error {
 		debug.Exit()
@@ -317,6 +313,26 @@ func autonity(ctx *cli.Context) error {
 	prepare(ctx)
 	node := makeFullNode(ctx)
 	defer node.Close()
+
+	genesis := initGenesis(ctx)
+	if genesis != nil {
+		for _, name := range []string{"chaindata", "lightchaindata"} {
+			chaindb, err := node.OpenDatabase(name, 0, 0, "")
+			if err != nil {
+				utils.Fatalf("Failed to open database: %v", err)
+			}
+			_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
+			if err != nil {
+				utils.Fatalf("Failed to write genesis block: %v", err)
+			}
+			err = chaindb.Close()
+			if err != nil {
+				utils.Fatalf("Failed to close chain DB: %v", err)
+			}
+			log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
+		}
+	}
+
 	startNode(ctx, node)
 	node.Wait()
 	return nil

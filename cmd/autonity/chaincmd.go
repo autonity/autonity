@@ -198,22 +198,12 @@ Use "ethereum dump 0" to dump the genesis block.`,
 
 // initGenesis will initialise the given JSON format genesis file and writes it as
 // the zero'd block (i.e. genesis) or will fail hard if it can't succeed.
-func initGenesis(ctx *cli.Context) error {
+func initGenesis(ctx *cli.Context) *core.Genesis {
 	// If the user does not specify a genesis file, start node will use current `data-dir`.
 	if !ctx.GlobalIsSet(utils.InitGenesisFlag.Name) {
 		log.Info("--genesis flag is not set")
 		return nil
 	}
-
-	// If there is no genesis block presented, init a genesis block with genesis file,
-	// otherwise it checks if the genesis block is exactly the same by comparing the new genesis block generated
-	// from the genesis file, if it is mis-match, then an error will rise to stop the scenario and also node start
-	// will be terminated. After genesis block is matched, then it continue to check chain config includes fork
-	// configurations, if the chain configuration is missing from current database, it will apply the new chain
-	// configuration provided by the new genesis file, if the chain configuration is presented from current database,
-	// then it will check if the chain conf is compatible between the two, if it is not compatible, then error rise to
-	// stop the scenario, and also node start will be termintated too, finally if chain conf is compatible, the new
-	// chain conf will be apply into database too.
 
 	// Make sure we have a valid genesis JSON.
 	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
@@ -244,28 +234,11 @@ func initGenesis(ctx *cli.Context) error {
 
 	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
 		spew.Dump(genesis.Config.AutonityContractConfig)
-		return fmt.Errorf("autonity contract section is invalid. error:%v", err.Error())
+		utils.Fatalf("autonity contract section is invalid. error:%v", err.Error())
 	}
 
 	setupDefaults(genesis)
-
-	// Open an initialise both full and light databases
-	stack := makeFullNode(ctx)
-	defer stack.Close()
-
-	for _, name := range []string{"chaindata", "lightchaindata"} {
-		chaindb, err := stack.OpenDatabase(name, 0, 0, "")
-		if err != nil {
-			utils.Fatalf("Failed to open database: %v", err)
-		}
-		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
-		if err != nil {
-			utils.Fatalf("Failed to write genesis block: %v", err)
-		}
-		chaindb.Close()
-		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
-	}
-	return nil
+	return genesis
 }
 
 func setupDefaults(genesis *core.Genesis) {
