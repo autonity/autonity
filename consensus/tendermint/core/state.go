@@ -8,58 +8,58 @@ import (
 
 // VoteState save the prevote or precommit voting status for a specific value.
 type VoteState struct {
-	Value            common.Hash `json:"value"            gencodec:"required"`
-	ProposalVerified bool        `json:"proposalVerified" gencodec:"required"`
-	VotePower        uint64      `json:"votePower"        gencodec:"required"`
+	Value            common.Hash
+	ProposalVerified bool
+	VotePower        uint64
 }
 
 // RoundState save the voting status for a specific round.
 type RoundState struct {
-	Round          int64       `json:"round"          gencodec:"required"`
-	Proposal       common.Hash `json:"proposal"       gencodec:"required"`
-	PrevoteState   []VoteState `json:"prevoteState"   gencodec:"required"`
-	PrecommitState []VoteState `json:"precommitState" gencodec:"required"`
+	Round          int64
+	Proposal       common.Hash
+	PrevoteState   []VoteState
+	PrecommitState []VoteState
 }
 
 // TendermintState save an instant status for the tendermint consensus engine.
 type TendermintState struct {
 	// return error code, 0 for okay, -1 for timeout.
-	Code int64 `json:"code" gencodec:"required"`
+	Code int64
 	// validator address
-	Client common.Address `json:"client"                gencodec:"required"`
+	Client common.Address
 
 	// core state of tendermint
-	Height      big.Int      `json:"height"                gencodec:"required"`
-	Round       int64        `json:"round"                 gencodec:"required"`
-	Step        uint64       `json:"step"                  gencodec:"required"`
-	Proposal    *common.Hash `json:"proposal"              gencodec:"required"`
-	LockedValue *common.Hash `json:"lockedValue"           gencodec:"required"`
-	LockedRound int64        `json:"lockedRound"           gencodec:"required"`
-	ValidValue  *common.Hash `json:"validValue"            gencodec:"required"`
-	ValidRound  int64        `json:"validRound"            gencodec:"required"`
+	Height      big.Int
+	Round       int64
+	Step        uint64
+	Proposal    *common.Hash
+	LockedValue *common.Hash
+	LockedRound int64
+	ValidValue  *common.Hash
+	ValidRound  int64
 
 	// committee state
-	ParentCommittee types.Committee `json:"parentCommittee"       gencodec:"required"`
-	Committee       types.Committee `json:"committee"             gencodec:"required"`
-	Proposer        common.Address  `json:"proposer"              gencodec:"required"`
-	IsProposer      bool            `json:"isProposer"            gencodec:"required"`
-	QuorumVotePower uint64          `json:"quorumVotePower"       gencodec:"required"`
-	RoundStates     []RoundState    `json:"roundStates"           gencodec:"required"`
-	ProposerPolicy  uint64          `json:"proposerPolicy"        gencodec:"required"`
+	ParentCommittee types.Committee
+	Committee       types.Committee
+	Proposer        common.Address
+	IsProposer      bool
+	QuorumVotePower uint64
+	RoundStates     []RoundState
+	ProposerPolicy  uint64
 
 	// extra state
-	SentProposal          bool `json:"sentProposal"          gencodec:"required"`
-	SentPrevote           bool `json:"sentPrevote"           gencodec:"required"`
-	SentPrecommit         bool `json:"sentPrecommit"         gencodec:"required"`
-	SetValidRoundAndValue bool `json:"setValidRoundAndValue" gencodec:"required"`
+	SentProposal          bool
+	SentPrevote           bool
+	SentPrecommit         bool
+	SetValidRoundAndValue bool
 
 	// timer state
-	BlockPeriod           uint64 `json:"blockPeriod"           gencodec:"required"`
-	ProposeTimerStarted   bool   `json:"proposeTimerStarted"   gencodec:"required"`
-	PrevoteTimerStarted   bool   `json:"prevoteTimerStarted"   gencodec:"required"`
-	PrecommitTimerStarted bool   `json:"precommitTimerStared"  gencodec:"required"`
+	BlockPeriod           uint64
+	ProposeTimerStarted   bool
+	PrevoteTimerStarted   bool
+	PrecommitTimerStarted bool
 
 	// current height messages and known message in case of gossip.
-	CurHeightMessages []string      `json:"CurHeightMessages"     gencodec:"required"`
-	KnownMsgHash      []common.Hash `json:"KnownMsgHash"          gencodec:"required"`
+	CurHeightMessages []string
+	KnownMsgHash      []common.Hash
 }
