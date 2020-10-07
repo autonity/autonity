@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
@@ -73,7 +74,6 @@ func New(backend Backend, config *config.Config) *core {
 		backend:               backend,
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
-		stopped:               make(chan struct{}, 4),
 		valueSet:              sync.NewCond(&sync.Mutex{}),
 		msgCache:              newMessageStore(),
 	}
@@ -86,6 +86,7 @@ func New(backend Backend, config *config.Config) *core {
 }
 
 type core struct {
+	stopped        int32
 	proposerPolicy config.ProposerPolicy
 	address        common.Address
 	logger         log.Logger
@@ -96,7 +97,7 @@ type core struct {
 	eventsSub               *event.TypeMuxSubscription
 	newUnminedBlockEventSub *event.TypeMuxSubscription
 	syncEventSub            *event.TypeMuxSubscription
-	stopped                 chan struct{}
+	wg                      *sync.WaitGroup
 
 	msgCache *messageCache
 	// map[Height]UnminedBlock
@@ -143,6 +144,9 @@ func (c *core) AwaitValue(height *big.Int) *types.Block {
 			println(addr(c.address), c.height.String(), "awaiting vlaue", "value height", c.value.Number().String(), "awaited height", height.String())
 		}
 		c.valueSet.Wait()
+		if atomic.LoadInt32(&c.stopped) == 1 {
+			return nil
+		}
 	}
 	v := c.value
 	println(addr(c.address), c.height, "received awaited vlaue", c.value.Hash().String()[2:8], "value height", c.value.Number().String(), "awaited height", height.String())
