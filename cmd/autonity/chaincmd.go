@@ -251,7 +251,6 @@ func initGenesis(ctx *cli.Context) error {
 		chaindb, err := stack.OpenDatabase(name, 0, 0, "")
 		if err != nil {
 			utils.Fatalf("Failed to open database: %v", err)
-			return err
 		}
 		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
 		if err != nil {
