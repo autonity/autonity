@@ -211,7 +211,7 @@ func initGenesis(ctx *cli.Context) error {
 
 	// Make sure we have a valid genesis JSON.
 	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
-	log.Info("Trying to init genesis block with genesis file", "file", genesisPath)
+	log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
 	if len(genesisPath) == 0 {
 		utils.Fatalf("Must supply path to genesis JSON file")
 		return fmt.Errorf("must supply path to genesis JSON file")
