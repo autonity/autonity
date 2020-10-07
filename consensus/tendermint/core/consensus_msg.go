@@ -141,8 +141,8 @@ func (sub *Vote) GetHeight() *big.Int {
 	return sub.Height
 }
 
-func (p *Vote) ProposedValueHash() common.Hash {
-	return p.ProposedBlockHash
+func (sub *Vote) ProposedValueHash() common.Hash {
+	return sub.ProposedBlockHash
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.

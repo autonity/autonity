@@ -40,7 +40,8 @@ func TestProposal(t *testing.T) {
 		CommittedSeal: []byte{}, // Not sure why this is empty but it seems to be set like this everywhere.
 		Msg:           marshalledInternalMessage,
 	}
-	m.addMessage(msg, p)
+	err = m.addMessage(msg, p)
+	require.NoError(t, err)
 
 	pv := &algorithm.ConsensusMessage{
 		MsgType: algorithm.Prevote,

@@ -96,7 +96,7 @@ type Oracle interface {
 }
 
 type Algorithm struct {
-	nodeId         NodeID
+	nodeID         NodeID
 	height         uint64
 	round          int64
 	step           Step
@@ -112,7 +112,7 @@ type Algorithm struct {
 
 func New(nodeID NodeID, oracle Oracle) *Algorithm {
 	return &Algorithm{
-		nodeId:      nodeID,
+		nodeID:      nodeID,
 		lockedRound: -1,
 		lockedValue: nilValue,
 		validRound:  -1,
@@ -148,7 +148,7 @@ func (a *Algorithm) timeout(msgType Step) *Timeout {
 // with a proposal to be broadcast if this node is the proposer, or a timeout
 // to be scheduled.
 func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Result {
-	println(a.nodeId.String(), height, "isproposer", a.oracle.Proposer(round, a.nodeId))
+	println(a.nodeID.String(), height, "isproposer", a.oracle.Proposer(round, a.nodeID))
 	// Reset first time flags
 	a.line34Executed = false
 	a.line36Executed = false
@@ -157,13 +157,13 @@ func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Resul
 	a.height = height
 	a.round = round
 	a.step = Propose
-	if a.oracle.Proposer(round, a.nodeId) {
+	if a.oracle.Proposer(round, a.nodeID) {
 		if a.validValue != nilValue {
 			value = a.validValue
 		}
-		println(a.nodeId.String(), height, "returning message", value.String())
+		println(a.nodeID.String(), height, "returning message", value.String())
 		return &Result{Broadcast: a.msg(Propose, value)}
-	} else {
+	} else { //nolint
 		return &Result{Schedule: a.timeout(Propose)}
 	}
 }
@@ -231,10 +231,10 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 	if t.In(Propose) && cm.Round == r && cm.ValidRound == -1 && s == Propose {
 		a.step = Prevote
 		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
-			println(a.nodeId.String(), a.height, cm.String(), "line 22 val")
+			println(a.nodeID.String(), a.height, cm.String(), "line 22 val")
 			return &Result{Broadcast: a.msg(Prevote, cm.Value)}
-		} else {
-			println(a.nodeId.String(), a.height, cm.String(), "line 22 nil")
+		} else { //nolint
+			println(a.nodeID.String(), a.height, cm.String(), "line 22 nil")
 			return &Result{Broadcast: a.msg(Prevote, nilValue)}
 		}
 	}
@@ -243,10 +243,10 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 	if t.In(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(p.ValidRound, &p.Value) && s == Propose && (p.ValidRound >= 0 && p.ValidRound < r) {
 		a.step = Prevote
 		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
-			println(a.nodeId.String(), a.height, cm.String(), "line 28 val")
+			println(a.nodeID.String(), a.height, cm.String(), "line 28 val")
 			return &Result{Broadcast: a.msg(Prevote, p.Value)}
-		} else {
-			println(a.nodeId.String(), a.height, cm.String(), "line 28 nil")
+		} else { //nolint
+			println(a.nodeID.String(), a.height, cm.String(), "line 28 nil")
 			return &Result{Broadcast: a.msg(Prevote, nilValue)}
 		}
 	}
@@ -262,21 +262,21 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 		}
 		a.validValue = p.Value
 		a.validRound = r
-		println(a.nodeId.String(), a.height, cm.String(), "line 36 val")
+		println(a.nodeID.String(), a.height, cm.String(), "line 36 val")
 		return &Result{Broadcast: a.msg(Precommit, p.Value)}
 	}
 
 	// Line 44
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &nilValue) && s == Prevote {
 		a.step = Precommit
-		println(a.nodeId.String(), a.height, cm.String(), "line 44 nil")
+		println(a.nodeID.String(), a.height, cm.String(), "line 44 nil")
 		return &Result{Broadcast: a.msg(Precommit, nilValue)}
 	}
 
 	// Line 34
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
 		a.line34Executed = true
-		println(a.nodeId.String(), a.height, cm.String(), "line 34 timeout")
+		println(a.nodeID.String(), a.height, cm.String(), "line 34 timeout")
 		return &Result{Schedule: a.timeout(Prevote)}
 	}
 
@@ -289,7 +289,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 			a.validRound = -1
 			a.validValue = nilValue
 		}
-		println(a.nodeId.String(), a.height, cm.String(), "line 49 decide")
+		println(a.nodeID.String(), a.height, cm.String(), "line 49 decide")
 		// Return the decided proposal
 		return &Result{StartRound: &RoundChange{Height: a.height, Round: 0, Decision: p}}
 	}
@@ -297,7 +297,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 	// Line 47
 	if t.In(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
 		a.line47Executed = true
-		println(a.nodeId.String(), a.height, cm.String(), "line 47 timeout")
+		println(a.nodeID.String(), a.height, cm.String(), "line 47 timeout")
 		return &Result{Schedule: a.timeout(Precommit)}
 	}
 
@@ -309,10 +309,10 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 		// round. in the conditon at line 28. This means that we only should
 		// clean the message cache when there is a height change, clearing out
 		// all messages for the height.
-		println(a.nodeId.String(), a.height, cm.String(), "line 55 start round")
+		println(a.nodeID.String(), a.height, cm.String(), "line 55 start round")
 		return &Result{StartRound: &RoundChange{Height: a.height, Round: cm.Round}}
 	}
-	println(a.nodeId.String(), a.height, cm.String(), "no condition match")
+	println(a.nodeID.String(), a.height, cm.String(), "no condition match")
 	return nil
 }
 

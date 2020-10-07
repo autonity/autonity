@@ -137,7 +137,11 @@ func (c *core) newHeight(ctx context.Context, height uint64) bool {
 		return true
 	}
 	for _, msg := range c.msgCache.heightMessages(newHeight.Uint64()) {
-		go c.handleCurrentHeightMessage(msg, c.msgCache.consensusMsgs[msg.Hash])
+		cm := c.msgCache.consensusMsgs[msg.Hash]
+		go func(m *Message, cm *algorithm.ConsensusMessage) {
+			err := c.handleCurrentHeightMessage(m, cm)
+			c.logger.Error("failed to handle current height message", "message", m.String, "err", err)
+		}(msg, cm)
 	}
 	return false
 }

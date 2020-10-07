@@ -267,7 +267,7 @@ func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error
 		return nil, fmt.Errorf("attempted to commit nil block")
 	}
 	if proposal.Round < 0 {
-		return nil, fmt.Errorf("Attempted to commit a block in a negative round: %d", proposal.Round)
+		return nil, fmt.Errorf("attempted to commit a block in a negative round: %d", proposal.Round)
 	}
 	if len(committedSeals) == 0 {
 		return nil, fmt.Errorf("attempted to commit block without any committed seals")
@@ -275,7 +275,7 @@ func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error
 
 	for _, seal := range committedSeals {
 		if len(seal) != types.BFTExtraSeal {
-			return nil, fmt.Errorf("Attempted to commit block with a committed seal of invalid length: %s", hex.EncodeToString(seal))
+			return nil, fmt.Errorf("attempted to commit block with a committed seal of invalid length: %s", hex.EncodeToString(seal))
 		}
 	}
 	h := block.Header()
