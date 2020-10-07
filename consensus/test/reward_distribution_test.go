@@ -15,20 +15,23 @@ import (
 )
 
 /*
-This test checks that at each block rewards are distributed correctly. 
+  This test checks that at each block rewards are distributed correctly.
 
-We check four different scenarios.
+  We check four different scenarios.
 
-* Validators' stake remains constant
-* A validator has stake minted (added) each block.
-* A validator has stake redeemed (removed) each block.
-* A validator sends stake to another validator each block.
+  * Validators' stake remains constant
+  * A validator has stake minted (added) each block.
+  * A validator has stake redeemed (removed) each block.
+  * A validator sends stake to another validator each block.
 
-The reward distribution model that we are following is defined here - https://core.clearmatics.net/ASC_core_v3.html#with-no-proposer-bonus-fees.
+  The reward distribution model that we are following is defined here - https://core.clearmatics.net/ASC_core_v3.html#with-no-proposer-bonus-fees.
 
-It can be summarised as each validator is rewarded with a portion of the total fees for a block that is proportional to the amount of stake they own. The total fees for a block is the sum of the fees of the transactions where a transaction fee is the gas used multiplied by the gas price.
+  It can be summarised as each validator is rewarded with a portion of the total fees for a block that is proportional
+  to the amount of stake they own. The total fees for a block is the sum of the fees of the transactions where a transaction
+  fee is the gas used multiplied by the gas price.
 
-For each scenario after each block we check that the balance of each validator is as expected, taking into account its stake at that block, any value that has been sent or received at that block and any gas used in that block.
+  For each scenario after each block we check that the balance of each validator is as expected, taking into account its
+  stake at that block, any value that has been sent or received at that block and any gas used in that block.
 */
 
 func TestRewardDistribution(t *testing.T) {

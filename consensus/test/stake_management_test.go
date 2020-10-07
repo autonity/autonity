@@ -57,11 +57,6 @@ func TestStakeManagement(t *testing.T) {
 		return false, nil, nil
 	}
 
-	/*
-	getBalance := func(port int, blockNum uint64, address common.Address) (*big.Int, error) {
-		return interact(port).call(blockNum).getAccountStake(address)
-	}*/
-
 	stakeChecker := func(t *testing.T, validators map[string]*testNode, stake *big.Int) {
 		address := crypto.PubkeyToAddress(validators["VA"].privateKey.PublicKey)
 		port := validators["VA"].rpcPort
