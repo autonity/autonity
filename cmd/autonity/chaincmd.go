@@ -228,7 +228,6 @@ func initGenesis(ctx *cli.Context) error {
 	// Make AutonityContract and Tendermint consensus mandatory for the time being.
 	if genesis.Config == nil {
 		utils.Fatalf("No Autonity Contract and Tendermint configs section in genesis")
-		return fmt.Errorf("no Autonity Contract and Tendermint configs section in genesis")
 	}
 	if genesis.Config.AutonityContractConfig == nil {
 		utils.Fatalf("No Autonity Contract config section in genesis")
