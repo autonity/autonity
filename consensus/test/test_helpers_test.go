@@ -101,7 +101,7 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 	users := make([]params.User, 0, len(nodes))
 	for n, node := range nodes {
 		var nodeType params.UserType
-		stake := uint64(InitStake)
+		stake := uint64(100)
 
 		var skip bool
 		switch {
