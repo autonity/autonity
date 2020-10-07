@@ -88,7 +88,7 @@ func TestMemberManagement(t *testing.T) {
 		return interact(port).tx(operator).addUser(crypto.PubkeyToAddress(userPubKey), stake, enode, userType)
 	}
 
-	addUserHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
+	addUsersHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
 		if validator.lastBlock == 4 {
 			err := addUser(operatorKey, validator.rpcPort, newValidatorPubKey, validatorStake, newValidatorENode, uint8(2))
 			if err != nil {
@@ -184,7 +184,7 @@ func TestMemberManagement(t *testing.T) {
 			numBlocks:     30,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
-				"VA": addUserHook,
+				"VA": addUsersHook,
 			},
 			genesisHook: genesisHook,
 			finalAssert: addUserCheckerHook,
