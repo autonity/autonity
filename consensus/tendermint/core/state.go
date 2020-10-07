@@ -29,14 +29,14 @@ type TendermintState struct {
 	Client common.Address `json:"client"                gencodec:"required"`
 
 	// core state of tendermint
-	Height      big.Int     `json:"height"                gencodec:"required"`
-	Round       int64       `json:"round"                 gencodec:"required"`
-	Step        uint64      `json:"step"                  gencodec:"required"`
+	Height      big.Int      `json:"height"                gencodec:"required"`
+	Round       int64        `json:"round"                 gencodec:"required"`
+	Step        uint64       `json:"step"                  gencodec:"required"`
 	Proposal    *common.Hash `json:"proposal"              gencodec:"required"`
 	LockedValue *common.Hash `json:"lockedValue"           gencodec:"required"`
-	LockedRound int64       `json:"lockedRound"           gencodec:"required"`
+	LockedRound int64        `json:"lockedRound"           gencodec:"required"`
 	ValidValue  *common.Hash `json:"validValue"            gencodec:"required"`
-	ValidRound  int64       `json:"validRound"            gencodec:"required"`
+	ValidRound  int64        `json:"validRound"            gencodec:"required"`
 
 	// committee state
 	ParentCommittee types.Committee `json:"parentCommittee"       gencodec:"required"`
