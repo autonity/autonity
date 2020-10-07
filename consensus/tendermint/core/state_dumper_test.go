@@ -26,7 +26,7 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		c.messages.getOrCreate(round).AddPrecommit(proposal.ProposalBlock.Hash(), *preCommitMsg)
 	}
 
-	checkRoundState := func(t *testing.T, s types.RoundState, wantRound int64, wantProposal *Proposal, wantVerfied bool) {
+	checkRoundState := func(t *testing.T, s RoundState, wantRound int64, wantProposal *Proposal, wantVerfied bool) {
 		require.Equal(t, wantProposal.ProposalBlock.Hash(), s.Proposal)
 		require.Len(t, s.PrevoteState, 1)
 		require.Len(t, s.PrecommitState, 1)
@@ -63,7 +63,7 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		c.setValidRoundAndValue = true
 	}
 
-	checkState := func(t *testing.T, c *core, state types.TendermintState, currentHeight *big.Int, currentRound int64, initRound int64,
+	checkState := func(t *testing.T, c *core, state TendermintState, currentHeight *big.Int, currentRound int64, initRound int64,
 		initProposal Proposal, newProposal Proposal, prevBlock *types.Block, knownMsgHash []common.Hash) {
 
 		require.Equal(t, int64(0), state.Code)
@@ -216,7 +216,7 @@ func TestStateDumper_GetProposal(t *testing.T) {
 
 		go c.handleStateDump()
 
-		state := types.TendermintState{}
+		state := TendermintState{}
 		// wait for response with timeout.
 		timeout := time.After(time.Second)
 		select {
