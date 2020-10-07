@@ -58,8 +58,8 @@ func TestRewardDistribution(t *testing.T) {
 		}
 		return balance, nil
 	}
-	// calculate sentTokens, receivedTokens, gasUsed, blockReward on per block for node
-	calculateBalanceFactors := func(block *types.Block, node *testNode) (*big.Int, *big.Int, *big.Int, *big.Int, error) {
+	// calculate sentTokens, receivedTokens, gasUsed, blockReward on per block.
+	calculateRewardMetaPerBlock := func(block *types.Block, node *testNode) (*big.Int, *big.Int, *big.Int, *big.Int, error) {
 		client, err := node.node.Attach()
 		if err != nil {
 			return nil, nil, nil, nil, err
@@ -68,7 +68,7 @@ func TestRewardDistribution(t *testing.T) {
 		ec := ethclient.NewClient(client)
 		ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 		defer cancel()
-		// calculate sent, gasUsed, receive amount and reward base on new block.
+		// calculate sent, gasUsed, receive amount and reward on the block.
 		sentAmount := new(big.Int)
 		receivedAmount := new(big.Int)
 		usedGas := new(big.Int)
@@ -79,16 +79,16 @@ func TestRewardDistribution(t *testing.T) {
 				return nil, nil, nil, nil, err
 			}
 
-			// count block reward.
+			// count reward on this block.
 			txGasConsumed := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipt.GasUsed))
 			blockReward.Add(blockReward, txGasConsumed)
 
-			// count received amount on the block.
+			// count received amount on this block.
 			if *tx.To() == crypto.PubkeyToAddress(node.privateKey.PublicKey) {
 				receivedAmount.Add(receivedAmount, tx.Value())
 			}
 
-			// count sent and gasUsed amount on the block.
+			// count sent and gasUsed amount on this block.
 			node.transactionsMu.Lock()
 			if _, ok := node.transactions[tx.Hash()]; ok {
 				sentAmount.Add(sentAmount, tx.Value())
@@ -128,7 +128,7 @@ func TestRewardDistribution(t *testing.T) {
 		}
 
 		// calculate sent, gasUsed, receive amount and reward base on new block.
-		sentAmount, receivedAmount, usedGas, blockReward, err := calculateBalanceFactors(block, validator)
+		sentAmount, receivedAmount, usedGas, blockReward, err := calculateRewardMetaPerBlock(block, validator)
 		if err != nil {
 			return err
 		}
