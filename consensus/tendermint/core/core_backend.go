@@ -70,5 +70,5 @@ type Tendermint interface {
 	Start(ctx context.Context, contract *autonity.Contract)
 	Stop()
 	GetCurrentHeightMessages() []*Message
-	CoreState() types.TendermintState
+	CoreState() TendermintState
 }

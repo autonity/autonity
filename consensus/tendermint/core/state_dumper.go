@@ -9,8 +9,8 @@ import (
 type coreStateRequestEvent struct {
 }
 
-func (c *core) CoreState() types.TendermintState {
-	state := types.TendermintState{}
+func (c *core) CoreState() TendermintState {
+	state := TendermintState{}
 	// send state dump request.
 	var e = coreStateRequestEvent{}
 	go c.sendEvent(e)
@@ -29,7 +29,7 @@ func (c *core) CoreState() types.TendermintState {
 
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
 func (c *core) handleStateDump() {
-	state := types.TendermintState{
+	state := TendermintState{
 		Client:            c.address,
 		ProposerPolicy:    uint64(c.proposerPolicy),
 		BlockPeriod:       c.blockPeriod,
@@ -99,13 +99,13 @@ func getParentCommittee(c *core) types.Committee {
 	return v
 }
 
-func getRoundState(c *core) []types.RoundState {
+func getRoundState(c *core) []RoundState {
 	rounds := c.messages.getRounds()
-	states := make([]types.RoundState, 0, len(rounds))
+	states := make([]RoundState, 0, len(rounds))
 
 	for _, r := range rounds {
 		proposal, prevoteState, preCommitState := c.messages.getVoteState(r)
-		state := types.RoundState{
+		state := RoundState{
 			Round:          r,
 			Proposal:       proposal,
 			PrevoteState:   prevoteState,
