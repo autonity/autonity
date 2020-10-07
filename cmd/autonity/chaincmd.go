@@ -224,7 +224,6 @@ func initGenesis(ctx *cli.Context) error {
 	genesis := new(core.Genesis)
 	if err := json.NewDecoder(file).Decode(genesis); err != nil {
 		utils.Fatalf("invalid genesis file: %v", err)
-		return err
 	}
 	// Make AutonityContract and Tendermint consensus mandatory for the time being.
 	if genesis.Config == nil {
