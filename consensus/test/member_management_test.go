@@ -49,12 +49,12 @@ func TestMemberManagement(t *testing.T) {
 	newStakeholderKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	newStakeholderPubKey := newStakeholderKey.PublicKey
-	newStakeholderEnode := enode.V4DNSUrl(newStakeholderPubKey, "VN:8528", 8528, 8528)
+	newStakeholderEnode := enode.V4DNSUrl(newStakeholderPubKey, "SN:8528", 8528, 8528)
 
 	newParticipantKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	newParticipantPubKey := newParticipantKey.PublicKey
-	newParticipantEnode := enode.V4DNSUrl(newParticipantPubKey, "VN:8529", 8529, 8529)
+	newParticipantEnode := enode.V4DNSUrl(newParticipantPubKey, "PN:8529", 8529, 8529)
 
 	removeNodeKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -108,15 +108,25 @@ func TestMemberManagement(t *testing.T) {
 		return false, nil, nil
 	}
 
-	// to check user membership, user type, stake balance.
-	validateAddedUser := func(t *testing.T, port int, height uint64, address common.Address, eNode string, role uint8, stake uint64, economicMetric Struct1) {
+	isParticipant := func(port int, height uint64, address common.Address, eNode string) bool {
 		whiteList, err := interact(port).call(height).getWhitelist()
 		require.NoError(t, err)
-		assert.Contains(t, whiteList, eNode, "new user ENode is not presented from ENode list")
+		var inWhitelist bool
+		for _, en := range whiteList {
+			if en == eNode {
+				inWhitelist = true
+				break
+			}
+		}
 		isMember, err := interact(port).call(height).checkMember(address)
 		require.NoError(t, err)
-		assert.True(t, isMember, "wrong membership for added user")
+		assert.Equal(t, isMember, inWhitelist)
+		return isMember && inWhitelist
+	}
 
+	// to check user membership, user type, stake balance.
+	validateAddedUser := func(t *testing.T, port int, height uint64, address common.Address, eNode string, role uint8, stake uint64, economicMetric Struct1) {
+		assert.True(t, isParticipant(port, height, address, eNode), "wrong membership for added user")
 		// check validator and stakeholder's stake balance
 		actualStake, err := interact(port).call(height).getAccountStake(address)
 		if role != uint8(0) {
@@ -162,9 +172,9 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	removeUserCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-		isMember, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).checkMember(addressToRemove)
-		require.NoError(t, err)
-		assert.False(t, isMember, "wrong membership for removed user")
+		port := validators["VA"].rpcPort
+		lastHeight := validators["VA"].lastBlock
+		assert.False(t, isParticipant(port, lastHeight, addressToRemove, eNodeToRemove), "wrong membership for removed user")
 	}
 
 	cases := []*testCase{
@@ -172,7 +182,7 @@ func TestMemberManagement(t *testing.T) {
 			name:          "add users",
 			numValidators: 6,
 			numBlocks:     30,
-			txPerPeer:     5,
+			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": addUserHook,
 			},

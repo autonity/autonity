@@ -71,8 +71,8 @@ func TestStakeManagement(t *testing.T) {
 		newBalance, err := getBalance(port, validators["VA"].lastBlock, address)
 		require.NoError(t, err)
 
-		delta := new(big.Int).Abs(initBalance.Sub(initBalance, newBalance))
-		assert.Equal(t, delta.Uint64(), stake.Uint64(), "stake balance is not expected")
+		delta := newBalance.Sub(newBalance, initBalance)
+		assert.Equal(t, delta.Int64(), stake.Int64(), "stake balance is not expected")
 
 		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
 		require.NoError(t, err)
@@ -80,8 +80,8 @@ func TestStakeManagement(t *testing.T) {
 		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
 		require.NoError(t, err)
 
-		totalDelta := new(big.Int).Abs(initNetworkMetrics.Stakesupply.Sub(initNetworkMetrics.Stakesupply, curNetworkMetrics.Stakesupply))
-		assert.Equal(t, totalDelta.Uint64(), stake.Uint64(), "stake total supply is not expected")
+		totalDelta := curNetworkMetrics.Stakesupply.Sub(curNetworkMetrics.Stakesupply, initNetworkMetrics.Stakesupply)
+		assert.Equal(t, totalDelta.Int64(), stake.Int64(), "stake total supply is not expected")
 	}
 
 	// mint stake checker hook
@@ -97,7 +97,7 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	redeemStakeCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-		stakeChecker(t, validators, redeemStake)
+		stakeChecker(t, validators, redeemStake.Neg(redeemStake))
 	}
 
 	pickReceiver := func(validator *testNode) common.Address {
