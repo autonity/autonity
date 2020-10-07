@@ -64,7 +64,7 @@ func TestStateDumper_GetProposal(t *testing.T) {
 	}
 
 	checkState := func(t *testing.T, c *core, state TendermintState, currentHeight *big.Int, currentRound int64, initRound int64,
-		initProposal Proposal, newProposal Proposal, prevBlock *types.Block, knownMsgHash []common.Hash) {
+		initProposal Proposal, newProposal Proposal, knownMsgHash []common.Hash) {
 
 		require.Equal(t, int64(0), state.Code)
 		require.Equal(t, clientAddr, state.Client)
@@ -223,7 +223,7 @@ func TestStateDumper_GetProposal(t *testing.T) {
 			t.Fatal("fetch tendermint state time out")
 		}
 
-		checkState(t, c, state, currentHeight, currentRound, initRound, initProposal, newProposal, prevBlock, knownMsgHash)
+		checkState(t, c, state, currentHeight, currentRound, initRound, initProposal, newProposal, knownMsgHash)
 	})
 
 	t.Run("test RPC callback to dump state time out", func(t *testing.T) {
