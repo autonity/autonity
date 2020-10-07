@@ -174,7 +174,7 @@ func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Resul
 // StartRound, if Broadcast is set it indicates that the caller should
 // broadcast the ConsensusMessage, including sending it to itself and if
 // Schedule is set it indicates that the caller should schedule the Timeout.
-// Broadcasting and scheduling may be done asyncronously, but starting the next
+// Broadcasting and scheduling may be done asynchronously, but starting the next
 // round must be done in the calling goroutine so that no other messages are
 // processed by Algorithm between the caller receiving the Result and calling
 // StartRound.
@@ -207,25 +207,25 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 	// proposal the matching proposal is the message.
 	p := o.MatchingProposal(cm)
 
-	// Some of the checks in these upon conditions are omitted because they have alrady been checked.
+	// Some of the checks in these upon conditions are omitted because they have already been checked.
 	//
 	// - We do not check height because we only execute this code when the
 	// message height matches the current height.
 	//
 	// - We do not check whether the message comes from a proposer since this
-	// is checkded before calling this method and we do not process proposals
+	// is checked before calling this method and we do not process proposals
 	// from non proposers.
 	//
 	// The upon conditions have been re-ordered such that those with outcomes
-	// that would supercede the oucome of others come before the others.
+	// that would supersede the outcome of others come before the others.
 	// Specifically the upon conditions for a given step that schedule
 	// timeouts, have been moved after the upon conditions for that step that
 	// would result in broadcasting a message for a value other than nil or
 	// deciding on a value. This ensures that we are able to return when we
-	// find a condition that has been met, becuase we know that the result of
-	// this condition will supercede results from other later conditions that
+	// find a condition that has been met, because we know that the result of
+	// this condition will supersede results from other later conditions that
 	// may have been met. This approach will hopefully go someway to cutting
-	// down unneccesary network traffic between nodes.
+	// down unnecessary network traffic between nodes.
 
 	// Line 22
 	if t.In(Propose) && cm.Round == r && cm.ValidRound == -1 && s == Propose {
@@ -303,10 +303,10 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 
 	// Line 55
 	if cm.Round > r && o.FThresh(cm.Round) {
-		// TODO account for the fact that many rounds can be skipped here.  so
+		// TODO account for the fact that many rounds can be skipped here. So
 		// what happens to the old round messages? We don't process them, but
 		// we can't remove them from the cache because they may be used in this
-		// round. in the conditon at line 28. This means that we only should
+		// round in the condition at line 28. This means that we only should
 		// clean the message cache when there is a height change, clearing out
 		// all messages for the height.
 		println(a.nodeID.String(), a.height, cm.String(), "line 55 start round")
