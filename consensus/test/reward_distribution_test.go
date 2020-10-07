@@ -15,21 +15,20 @@ import (
 )
 
 /*
-  In this file, it create couple of test cases to check if the reward distribution works correctly in the autontiy network.
-  THe work flow is base on the local e2e test framework's main flow.
+This test checks that at each block rewards are distributed correctly. 
 
-  First it setup an autontiy network by according to the genesis hook function, then from the specific chain height, it
-  start to issue transaction via the transaction hook function specified for the target node on each height, for example
-  in the mintStakeHook, redeemStakeHook, transferStakeHook, it keep issuing transactions to call autonity contract to
-  manage stake for members on each height.
+We check four different scenarios.
 
-  About the reward checking, in the beforeHooks set, we apply rewardChecker function to each member on the network on
-  each height during the run time, it first dumps the balance view from parent block, and then it parse and calculate
-  each TX's sentAmount, gasUsed, receiveAmount, fee. And also the expected reward fractions are calculated base on
-  the stake portions from the parent block's view. Finally it checks if the balance is expected on the new block with a
-  simple formula on each account: balanceOnParentBlock + reward + received - sent - gasUsed == balanceOnNewBlock.
+* Validators' stake remains constant
+* A validator has stake minted (added) each block.
+* A validator has stake redeemed (removed) each block.
+* A validator sends stake to another validator each block.
 
-  The TX issuing and reward checking work flow are keep running during each new block is mined.
+The reward distribution model that we are following is defined here - https://core.clearmatics.net/ASC_core_v3.html#with-no-proposer-bonus-fees.
+
+It can be summarised as each validator is rewarded with a portion of the total fees for a block that is proportional to the amount of stake they own. The total fees for a block is the sum of the fees of the transactions where a transaction fee is the gas used multiplied by the gas price.
+
+For each scenario after each block we check that the balance of each validator is as expected, taking into account its stake at that block, any value that has been sent or received at that block and any gas used in that block.
 */
 
 func TestRewardDistribution(t *testing.T) {
