@@ -1,12 +1,15 @@
 package core
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
 	"math/big"
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,4 +54,28 @@ func TestProposal(t *testing.T) {
 	}
 	retrieved := m.matchingProposal(pv)
 	assert.Equal(t, p, retrieved)
+}
+
+func BenchmarkKeccak256(b *testing.B) {
+	data := make([]byte, 100)
+	for i := 0; i < b.N; i++ {
+		_, err := rand.Read(data)
+		require.NoError(b, err)
+		b := crypto.Keccak256(data)
+		if 0 == 1 {
+			println(b)
+		}
+	}
+}
+
+func BenchmarkSha256(b *testing.B) {
+	data := make([]byte, 100)
+	for i := 0; i < b.N; i++ {
+		_, err := rand.Read(data)
+		require.NoError(b, err)
+		b := sha256.Sum256(data)
+		if 0 == 1 {
+			println(b)
+		}
+	}
 }
