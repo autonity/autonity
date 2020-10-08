@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	time "time"
 
 	"github.com/clearmatics/autonity/common"
@@ -86,7 +85,6 @@ func New(backend Backend, config *config.Config) *core {
 }
 
 type core struct {
-	stopped        int32
 	proposerPolicy config.ProposerPolicy
 	address        common.Address
 	logger         log.Logger
@@ -132,37 +130,40 @@ func (c *core) SetValue(b *types.Block) {
 	println(addr(c.address), c.height, "setting value", c.value.Hash().String()[2:8], "value height", c.value.Number().String())
 }
 
-func (c *core) AwaitValue(height *big.Int) *types.Block {
+func (c *core) AwaitValue(ctx context.Context, height *big.Int) (*types.Block, error) {
 	c.valueSet.L.Lock()
 	defer c.valueSet.L.Unlock()
-	if atomic.LoadInt32(&c.stopped) == 1 {
-		return nil
-	}
-	for c.value == nil || c.value.Number().Cmp(height) != 0 {
-		c.value = nil
-		if c.value == nil {
-			println(addr(c.address), c.height.String(), "awaiting vlaue", "valueisnil")
-		} else {
-			println(addr(c.address), c.height.String(), "awaiting vlaue", "value height", c.value.Number().String(), "awaited height", height.String())
-		}
-		c.valueSet.Wait()
-		if atomic.LoadInt32(&c.stopped) == 1 {
-			return nil
-		}
-	}
-	v := c.value
-	println(addr(c.address), c.height, "received awaited vlaue", c.value.Hash().String()[2:8], "value height", c.value.Number().String(), "awaited height", height.String())
 
-	// We put the value in the store here since this is called from the main
-	// thread of the algorithm, and so we don't end up needing to syncronise
-	// the store.  TODO this is a potential memory leak. We are adding a value
-	// without it being referenced by a message that is tied to a height, so it
-	// may never be cleared.
-	c.msgCache.addValue(v.Hash(), v)
-	// We assume our own suggestions are valid
-	c.msgCache.setValid(v.Hash())
-	c.value = nil
-	return v
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			if c.value == nil || c.value.Number().Cmp(height) != 0 {
+				c.value = nil
+				if c.value == nil {
+					println(addr(c.address), c.height.String(), "awaiting vlaue", "valueisnil")
+				} else {
+					println(addr(c.address), c.height.String(), "awaiting vlaue", "value height", c.value.Number().String(), "awaited height", height.String())
+				}
+				c.valueSet.Wait()
+			} else {
+				v := c.value
+				println(addr(c.address), c.height, "received awaited vlaue", c.value.Hash().String()[2:8], "value height", c.value.Number().String(), "awaited height", height.String())
+
+				// We put the value in the store here since this is called from the main
+				// thread of the algorithm, and so we don't end up needing to syncronise
+				// the store.  TODO this is a potential memory leak. We are adding a value
+				// without it being referenced by a message that is tied to a height, so it
+				// may never be cleared.
+				c.msgCache.addValue(v.Hash(), v)
+				// We assume our own suggestions are valid
+				c.msgCache.setValid(v.Hash())
+				c.value = nil
+				return v, nil
+			}
+		}
+	}
 }
 
 func (c *core) finalizeMessage(msg *Message) ([]byte, error) {

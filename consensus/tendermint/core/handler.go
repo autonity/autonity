@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -41,7 +40,6 @@ var errStopped error = errors.New("stopped")
 // Start implements core.Tendermint.Start
 func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 	println("starting")
-	atomic.StoreInt32(&c.stopped, 0)
 	// Set the autonity contract
 	c.autonityContract = contract
 	ctx, c.cancel = context.WithCancel(ctx)
@@ -66,13 +64,15 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 // stop implements core.Engine.stop
 func (c *core) Stop() {
 	println(addr(c.address), c.height, "stopping")
-	c.valueSet.L.Lock()
-	atomic.StoreInt32(&c.stopped, 1)
-	c.valueSet.Signal()
-	c.valueSet.L.Unlock()
+
 	c.logger.Info("stopping tendermint.core", "addr", addr(c.address))
 
 	c.cancel()
+
+	// Signal to wake up await value if it is waiting.
+	c.valueSet.L.Lock()
+	c.valueSet.Signal()
+	c.valueSet.L.Unlock()
 
 	// Unsubscribe
 	c.eventsSub.Unsubscribe()
@@ -101,15 +101,15 @@ eventLoop:
 	}
 }
 
-func (c *core) newHeight(ctx context.Context, height uint64) bool {
+func (c *core) newHeight(ctx context.Context, height uint64) error {
 	c.syncTimer = time.NewTimer(20 * time.Second)
 	newHeight := new(big.Int).SetUint64(height)
 	// set the new height
 	c.height = newHeight
-	c.currentBlock = c.AwaitValue(newHeight)
-	// Check for stopped
-	if atomic.LoadInt32(&c.stopped) == 1 {
-		return true
+	var err error
+	c.currentBlock, err = c.AwaitValue(ctx, newHeight)
+	if err != nil {
+		return err
 	}
 	prevBlock, _ := c.backend.LastCommittedProposal()
 
@@ -134,9 +134,9 @@ func (c *core) newHeight(ctx context.Context, height uint64) bool {
 	// Note that we don't risk enterning an infinite loop here since
 	// start round can only return results with brodcasts or schedules.
 	// TODO actually don't return result from Start round.
-	stopped := c.handleResult(ctx, r)
-	if stopped {
-		return true
+	err = c.handleResult(ctx, r)
+	if err != nil {
+		return err
 	}
 	for _, msg := range c.msgCache.heightMessages(newHeight.Uint64()) {
 		cm := c.msgCache.consensusMsgs[msg.Hash]
@@ -145,14 +145,14 @@ func (c *core) newHeight(ctx context.Context, height uint64) bool {
 			c.logger.Error("failed to handle current height message", "message", m.String, "err", err)
 		}(msg, cm)
 	}
-	return false
+	return nil
 }
 
-func (c *core) handleResult(ctx context.Context, r *algorithm.Result) bool {
+func (c *core) handleResult(ctx context.Context, r *algorithm.Result) error {
 
 	switch {
 	case r == nil:
-		return false
+		return nil
 	case r.StartRound != nil:
 		sr := r.StartRound
 		if sr.Round == 0 && sr.Decision == nil {
@@ -170,9 +170,9 @@ func (c *core) handleResult(ctx context.Context, r *algorithm.Result) bool {
 			if err != nil {
 				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(sr.Decision), err))
 			}
-			stopped := c.newHeight(ctx, sr.Height)
-			if stopped {
-				return true
+			err = c.newHeight(ctx, sr.Height)
+			if err != nil {
+				return err
 			}
 
 		} else {
@@ -186,9 +186,9 @@ func (c *core) handleResult(ctx context.Context, r *algorithm.Result) bool {
 			// Note that we don't risk enterning an infinite loop here since
 			// start round can only return results with brodcasts or schedules.
 			// TODO actually don't return result from Start round.
-			stopped := c.handleResult(ctx, rr)
-			if stopped {
-				return true
+			err := c.handleResult(ctx, rr)
+			if err != nil {
+				return err
 			}
 		}
 	case r.Broadcast != nil:
@@ -207,7 +207,7 @@ func (c *core) handleResult(ctx context.Context, r *algorithm.Result) bool {
 		})
 
 	}
-	return false
+	return nil
 }
 
 func (c *core) mainEventLoop(ctx context.Context) {
@@ -215,8 +215,9 @@ func (c *core) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
 	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
 	lastBlockMined, _ := c.backend.LastCommittedProposal()
-	stopped := c.newHeight(ctx, lastBlockMined.NumberU64()+1)
-	if stopped {
+	err := c.newHeight(ctx, lastBlockMined.NumberU64()+1)
+	if err != nil {
+		println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 		return
 	}
 
@@ -263,8 +264,9 @@ eventLoop:
 				// This is a message we sent ourselves we do not need to broadcast it
 				if c.height.Uint64() == e.Height {
 					r := c.algo.ReceiveMessage(e)
-					stopped := c.handleResult(ctx, r)
-					if stopped {
+					err := c.handleResult(ctx, r)
+					if err != nil {
+						println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 						return
 					}
 				}
@@ -284,8 +286,9 @@ eventLoop:
 				if r != nil && r.Broadcast != nil {
 					println("nonnil timeout")
 				}
-				stopped := c.handleResult(ctx, r)
-				if stopped {
+				err := c.handleResult(ctx, r)
+				if err != nil {
+					println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 					return
 				}
 			case events.CommitEvent:
@@ -299,8 +302,9 @@ eventLoop:
 				} else {
 					println(addr(c.address), "Received proposal is ahead", "height", c.height, "block_height", height.String())
 					c.logger.Debug("Received proposal is ahead", "height", c.height, "block_height", height)
-					stopped := c.newHeight(ctx, height.Uint64())
-					if stopped {
+					err := c.newHeight(ctx, height.Uint64())
+					if err != nil {
+						println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 						return
 					}
 				}
@@ -495,9 +499,9 @@ func (c *core) handleCurrentHeightMessage(ctx context.Context, m *Message, cm *a
 	}
 
 	r := c.algo.ReceiveMessage(cm)
-	stopped := c.handleResult(ctx, r)
-	if stopped {
-		return errStopped
+	err = c.handleResult(ctx, r)
+	if err != nil {
+		return err
 	}
 	return nil
 }
