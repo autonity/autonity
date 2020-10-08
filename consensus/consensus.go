@@ -154,7 +154,5 @@ type BFT interface {
 }
 
 type Syncer interface {
-	SyncPeer(address common.Address)
-
 	ResetPeerCache(address common.Address)
 }
