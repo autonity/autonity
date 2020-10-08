@@ -246,7 +246,7 @@ func (c *core) broadcast(ctx context.Context, msg *Message, committee types.Comm
 
 func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
 	block := c.msgCache.value(common.Hash(proposal.Value))
-	committedSeals := c.msgCache.signatures(block.Hash(), proposal.Round, block.NumberU64())
+	committedSeals := c.msgCache.signatures(algorithm.ValueID(block.Hash()), proposal.Round, block.NumberU64())
 	// Sanity checks
 	if block == nil {
 		return nil, fmt.Errorf("attempted to commit nil block")

@@ -46,7 +46,7 @@ type Backend interface {
 
 	Subscribe(types ...interface{}) *event.TypeMuxSubscription
 
-	SyncPeer(address common.Address, messages []*Message)
+	SyncPeer(address common.Address, messages [][]byte)
 
 	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.

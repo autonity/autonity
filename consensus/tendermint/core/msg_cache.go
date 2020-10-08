@@ -1,7 +1,6 @@
 package core
 
 import (
-	"crypto/rand"
 	"fmt"
 
 	common "github.com/clearmatics/autonity/common"
@@ -18,14 +17,28 @@ type messageCache struct {
 	valid map[common.Hash]struct{}
 	// consensusMsgs maps message hash to consensus message.
 	consensusMsgs map[common.Hash]*algorithm.ConsensusMessage
-	// rawMessages maps message hash to raw message.
-	rawMessages map[common.Hash]*Message
+	// messages maps message hash to message.
+	messages map[common.Hash]*message
+	// rawMessages maps message hash to raw message bytes.
+	rawMessages map[common.Hash][]byte
 	// values maps value hash to value.
 	values map[common.Hash]*types.Block
 }
 
-func (m *messageCache) heightMessages(height uint64) []*Message {
-	var messages []*Message
+func (m *messageCache) heightMessages(height uint64) []*message {
+	var messages []*message
+	for _, msgTypeMap := range m.msgHashes[height] {
+		for _, addressMap := range msgTypeMap {
+			for _, hash := range addressMap {
+				messages = append(messages, m.messages[hash])
+			}
+		}
+	}
+	return messages
+}
+
+func (m *messageCache) rawHeightMessages(height uint64) [][]byte {
+	var messages [][]byte
 	for _, msgTypeMap := range m.msgHashes[height] {
 		for _, addressMap := range msgTypeMap {
 			for _, hash := range addressMap {
@@ -35,30 +48,29 @@ func (m *messageCache) heightMessages(height uint64) []*Message {
 	}
 	return messages
 }
-
 func newMessageStore() *messageCache {
 	return &messageCache{
-		msgHashes:     make(map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash),
-		consensusMsgs: make(map[common.Hash]*algorithm.ConsensusMessage),
-		rawMessages:   make(map[common.Hash]*Message),
-		valid:         make(map[common.Hash]struct{}),
-		values:        make(map[common.Hash]*types.Block),
+		msgHashes:   make(map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash),
+		rawMessages: make(map[common.Hash][]byte),
+		messages:    make(map[common.Hash]*message),
+		valid:       make(map[common.Hash]struct{}),
+		values:      make(map[common.Hash]*types.Block),
 	}
 
 }
 
-func (m *messageCache) Message(h common.Hash) *Message {
-	return m.rawMessages[h]
+func (m *messageCache) Message(h common.Hash) *message {
+	return m.messages[h]
 }
 
-func (m *messageCache) signatures(valueHash common.Hash, round int64, height uint64) [][]byte {
+func (m *messageCache) signatures(value algorithm.ValueID, round int64, height uint64) [][]byte {
 	var sigs [][]byte
 
 	// println("signatures -----")
 	for _, msgHash := range m.msgHashes[height][round][algorithm.Step(msgPrecommit)] {
 		// spew.Dump(m.rawMessages[msgHash].decodedMsg)
-		if valueHash == m.rawMessages[msgHash].decodedMsg.ProposedValueHash() {
-			sigs = append(sigs, m.rawMessages[msgHash].CommittedSeal)
+		if value == m.messages[msgHash].consensusMessage.Value {
+			sigs = append(sigs, m.messages[msgHash].signature)
 		}
 	}
 	// println("----------------")
@@ -169,24 +181,14 @@ func addMsgHash(
 	return nil
 }
 
-func (m *messageCache) addMessage(msg *Message, cm *algorithm.ConsensusMessage) error {
-	r := make([]byte, 2)
-	_, err := rand.Read(r)
-	if err != nil {
-		panic(err)
-	}
-	// id := hex.EncodeToString(r)
-
-	// // println(id, "hashes len", len(m.msgHashes))
-	// // println(id, spew.Sdump(m.msgHashes))
-	// // println(id, "add message", cm.String(), msg.Hash.String())
-	err = addMsgHash(m.msgHashes, cm.Height, cm.Round, cm.MsgType, msg.Address, msg.Hash)
+func (m *messageCache) addMessage(msg *message, rawMsg []byte) error {
+	err := addMsgHash(m.msgHashes, msg.consensusMessage.Height, msg.consensusMessage.Round, msg.consensusMessage.MsgType, msg.address, msg.hash)
 	if err != nil {
 		return err
 	}
 	// // println(id, "hashes len", len(m.msgHashes))
-	m.consensusMsgs[msg.Hash] = cm
-	m.rawMessages[msg.Hash] = msg
+	m.messages[msg.hash] = msg
+	m.rawMessages[msg.hash] = rawMsg
 
 	return nil
 }

@@ -17,7 +17,9 @@
 package core
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"math/big"
@@ -26,16 +28,69 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
-	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
-	autonitycrypto "github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/davecgh/go-spew/spew"
 )
 
 var errStopped error = errors.New("stopped")
+
+type signedMessage struct {
+	signature []byte
+	message   []byte
+	value     []byte
+	// We don't need the committed seal separate from the signature since we
+	// can just recreate the signature by adding the precommit message type
+	// into the commitment.
+}
+
+type message struct {
+	hash             common.Hash
+	signature        []byte
+	consensusMessage *algorithm.ConsensusMessage
+	value            *types.Block
+	address          common.Address
+}
+
+func (m *message) String() string {
+	return "bla"
+}
+
+func unmarshalSignedMessage(msgBytes []byte) (*message, error) {
+	m := &signedMessage{}
+	err := rlp.Decode(bytes.NewBuffer(msgBytes), m)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := &algorithm.ConsensusMessage{}
+	err = rlp.Decode(bytes.NewBuffer(m.message), msg)
+	if err != nil {
+		return nil, err
+	}
+
+	value := &types.Block{}
+	err = rlp.Decode(bytes.NewBuffer(m.value), value)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the sender address
+	address, err := types.GetSignatureAddress(m.message, m.signature)
+	if err != nil {
+		return nil, err
+	}
+
+	return &message{
+		hash:             common.Hash(sha256.Sum256(msgBytes)),
+		signature:        m.signature,
+		consensusMessage: msg,
+		value:            value,
+		address:          address,
+	}, nil
+}
 
 // Start implements core.Tendermint.Start
 func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
@@ -139,11 +194,10 @@ func (c *core) newHeight(ctx context.Context, height uint64) error {
 		return err
 	}
 	for _, msg := range c.msgCache.heightMessages(newHeight.Uint64()) {
-		cm := c.msgCache.consensusMsgs[msg.Hash]
-		go func(m *Message, cm *algorithm.ConsensusMessage) {
-			err := c.handleCurrentHeightMessage(ctx, m, cm)
+		go func(m *message) {
+			err := c.handleCurrentHeightMessage(ctx, msg)
 			c.logger.Error("failed to handle current height message", "message", m.String, "err", err)
-		}(msg, cm)
+		}(msg)
 	}
 	return nil
 }
@@ -237,7 +291,7 @@ eventLoop:
 			}
 			event := ev.Data.(events.SyncEvent)
 			c.logger.Info("Processing sync message", "from", event.Addr)
-			c.backend.SyncPeer(event.Addr, c.msgCache.heightMessages(c.height.Uint64()))
+			c.backend.SyncPeer(event.Addr, c.msgCache.rawHeightMessages(c.height.Uint64()))
 		case ev, ok := <-c.eventsSub.Chan():
 			if !ok {
 				break eventLoop
@@ -245,17 +299,12 @@ eventLoop:
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				msg := new(Message)
-				if err := msg.FromPayload(e.Payload); err != nil {
-					c.logger.Error("consensus message invalid payload", "err", err)
-					continue
+				err := c.handleMsg(ctx, e.Payload)
+				if err == errStopped {
+					return
 				}
-
-				if err := c.handleMsg(ctx, e.Payload); err != nil {
-					if err == errStopped {
-						return
-					}
-					c.logger.Debug("core.mainEventLoop Get message(MessageEvent) payload failed", "err", err)
+				if err != nil {
+					c.logger.Debug("core.mainEventLoop problem processing message", "err", err)
 					continue
 				}
 				c.backend.Gossip(ctx, c.lastHeader.Committee, e.Payload)
@@ -317,105 +366,28 @@ eventLoop:
 
 }
 
-func (c *core) handleMsg(ctx context.Context, payload []byte) error {
+func (c *core) handleMsg(ctx context.Context, msgBytes []byte) error {
 
 	/*
 		Basic validity checks
 	*/
 
-	m := new(Message)
-
-	// Set the hash on the message so that it can be used for indexing.
-	m.Hash = common.BytesToHash(autonitycrypto.Keccak256(payload))
-
-	// Check we haven't already processed this message
-	if c.msgCache.Message(m.Hash) != nil {
-		// Message was already processed
-		return nil
-	}
-
-	// Decode message
-	err := rlp.DecodeBytes(payload, m)
+	m, err := unmarshalSignedMessage(msgBytes)
 	if err != nil {
 		return err
 	}
-
-	var proposal Proposal
-	var preVote Vote
-	var preCommit Vote
-	var conMsg *algorithm.ConsensusMessage
-	switch m.Code {
-	case msgProposal:
-		err := m.Decode(&proposal)
-		if err != nil {
-			return errFailedDecodeProposal
-		}
-
-		valueHash := proposal.ProposalBlock.Hash()
-		conMsg = &algorithm.ConsensusMessage{
-			MsgType:    algorithm.Step(m.Code),
-			Height:     proposal.Height.Uint64(),
-			Round:      proposal.Round,
-			Value:      algorithm.ValueID(valueHash),
-			ValidRound: proposal.ValidRound,
-		}
-
-		err = c.msgCache.addMessage(m, conMsg)
-		if err != nil {
-			// could be multiple proposal messages from the same proposer
-			return err
-		}
-		c.msgCache.addValue(valueHash, proposal.ProposalBlock)
-
-	case msgPrevote:
-		err := m.Decode(&preVote)
-		if err != nil {
-			return errFailedDecodePrevote
-		}
-		conMsg = &algorithm.ConsensusMessage{
-			MsgType: algorithm.Step(m.Code),
-			Height:  preVote.Height.Uint64(),
-			Round:   preVote.Round,
-			Value:   algorithm.ValueID(preVote.ProposedBlockHash),
-		}
-
-		err = c.msgCache.addMessage(m, conMsg)
-		if err != nil {
-			// could be multiple precommits from same validator
-			return err
-		}
-	case msgPrecommit:
-		err := m.Decode(&preCommit)
-		if err != nil {
-			return errFailedDecodePrecommit
-		}
-		// Check the committed seal matches the block hash if its a precommit.
-		// If not we ignore the message.
-		//
-		// Note this method does not make use of any blockchain state, so it is
-		// safe to call it now. In fact it only uses the logger of c so I think
-		// it could easily be detached from c.
-		address, err := types.GetSignatureAddress(crypto.BuildCommitment(preCommit.ProposedBlockHash, preCommit.Height, preCommit.Round), m.CommittedSeal)
-		if err != nil {
-			return err
-		}
-		if address != m.Address {
-			return fmt.Errorf("mismatching signer address %q and message address %q", address, m.Address)
-		}
-		conMsg = &algorithm.ConsensusMessage{
-			MsgType: algorithm.Step(m.Code),
-			Height:  preCommit.Height.Uint64(),
-			Round:   preCommit.Round,
-			Value:   algorithm.ValueID(preCommit.ProposedBlockHash),
-		}
-
-		err = c.msgCache.addMessage(m, conMsg)
-		if err != nil {
-			// could be multiple precommits from same validator
-			return err
-		}
-	default:
-		return fmt.Errorf("unrecognised consensus message code %q", m.Code)
+	// Check we haven't already processed this message
+	if c.msgCache.Message(m.hash) != nil {
+		// Message was already processed
+		return nil
+	}
+	err = c.msgCache.addMessage(m, msgBytes)
+	if err != nil {
+		// could be multiple proposal messages from the same proposer
+		return err
+	}
+	if m.consensusMessage.MsgType == algorithm.Propose {
+		c.msgCache.addValue(m.value.Hash(), m.value)
 	}
 
 	// If this message is for a future height then we cannot validate it
@@ -423,51 +395,34 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// that height. If it is for a previous height then we are not intersted in
 	// it. But it has been added to the msg cache in case other peers would
 	// like to sync it.
-	if conMsg.Height != c.height.Uint64() {
+	if m.consensusMessage.Height != c.height.Uint64() {
 		// Nothing to do here
 		return nil
 	}
 
-	return c.handleCurrentHeightMessage(ctx, m, conMsg)
+	return c.handleCurrentHeightMessage(ctx, m)
 
 }
 
-func (c *core) handleCurrentHeightMessage(ctx context.Context, m *Message, cm *algorithm.ConsensusMessage) error {
-	println(addr(c.address), c.height.String(), cm.String(), "received")
+func (c *core) handleCurrentHeightMessage(ctx context.Context, m *message) error {
+	println(addr(c.address), c.height.String(), m.String(), "received")
+	cm := m.consensusMessage
 	/*
 		Domain specific validity checks, now we know that we are at the same
 		height as this message we can rely on lastHeader.
 	*/
 
 	// Check that the message came from a committee member, if not we ignore it.
-	if c.lastHeader.CommitteeMember(m.Address) == nil {
+	if c.lastHeader.CommitteeMember(m.address) == nil {
 		// TODO turn this into an error type that can be checked for at a
 		// higher level to close the connection to this peer.
 		return fmt.Errorf("received message from non committee member: %v", m)
 	}
 
-	payload, err := m.PayloadNoSig()
-	if err != nil {
-		return err
-	}
-
-	// Again we ignore messges with invalid signatures, they cannot be trusted.
-	// TODO make crypto.CheckValidatorSignature accept Message so that it can
-	// handle generating the payload and checking it with the sig and address.
-	address, err := crypto.CheckValidatorSignature(c.lastHeader, payload, m.Signature)
-	if err != nil {
-		return err
-	}
-
-	if address != m.Address {
-		// TODO why is Address even a field of Message when the address can be derived?
-		return fmt.Errorf("address in message %q and address derived from signature %q don't match", m.Address, address)
-	}
-
-	switch m.Code {
-	case msgProposal:
+	switch cm.MsgType {
+	case algorithm.Propose:
 		// We ignore proposals from non proposers
-		if c.committee.GetProposer(cm.Round).Address != m.Address {
+		if c.committee.GetProposer(cm.Round).Address != m.address {
 			c.logger.Warn("Ignore proposal messages from non-proposer")
 			return errNotFromProposer
 
@@ -495,11 +450,11 @@ func (c *core) handleCurrentHeightMessage(ctx context.Context, m *Message, cm *a
 		}
 	default:
 		// All other messages that have reached this point are valid, but we are not marking the vlaue valid here, we are marking the message valid.
-		c.msgCache.setValid(m.Hash)
+		c.msgCache.setValid(m.hash)
 	}
 
 	r := c.algo.ReceiveMessage(cm)
-	err = c.handleResult(ctx, r)
+	err := c.handleResult(ctx, r)
 	if err != nil {
 		return err
 	}
