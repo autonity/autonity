@@ -30,6 +30,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/core/types"
 	autonitycrypto "github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/davecgh/go-spew/spew"
@@ -390,9 +391,12 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 		// Note this method does not make use of any blockchain state, so it is
 		// safe to call it now. In fact it only uses the logger of c so I think
 		// it could easily be detached from c.
-		err = c.verifyCommittedSeal(m.Address, append([]byte(nil), m.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height)
+		address, err := types.GetSignatureAddress(crypto.BuildCommitment(preCommit.ProposedBlockHash, preCommit.Height, preCommit.Round), m.CommittedSeal)
 		if err != nil {
 			return err
+		}
+		if address != m.Address {
+			return fmt.Errorf("mismatching signer address %q and message address %q", address, m.Address)
 		}
 		conMsg = &algorithm.ConsensusMessage{
 			MsgType: algorithm.Step(m.Code),

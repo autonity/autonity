@@ -1,8 +1,11 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"encoding/binary"
 	"errors"
+	"math/big"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -41,4 +44,16 @@ func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []by
 	}
 
 	return val.Address, nil
+}
+
+//  BuildCommitment returns byte representation of the valueHash, height and
+//  round.
+func BuildCommitment(valueHash common.Hash, height *big.Int, round int64) []byte {
+	var buf bytes.Buffer
+	roundBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(roundBytes, uint64(round))
+	buf.Write(roundBytes)
+	buf.Write(height.Bytes())
+	buf.Write(valueHash.Bytes())
+	return buf.Bytes()
 }

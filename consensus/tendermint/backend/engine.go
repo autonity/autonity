@@ -231,12 +231,12 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	// Total Voting power for this block
 	var power uint64
 	// The data that was sined over for this block
-	headerSeal := tendermintCore.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
+	commitment := crypto.BuildCommitment(header.Hash(), header.Number, int64(header.Round))
 
 	// 1. Get committed seals from current header
 	for _, signedSeal := range header.CommittedSeals {
 		// 2. Get the address from signature
-		addr, err := types.GetSignatureAddress(headerSeal, signedSeal)
+		addr, err := types.GetSignatureAddress(commitment, signedSeal)
 		if err != nil {
 			sb.logger.Error("not a valid address", "err", err)
 			return types.ErrInvalidSignature

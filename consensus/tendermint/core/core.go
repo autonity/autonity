@@ -17,9 +17,7 @@
 package core
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -31,6 +29,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
@@ -220,8 +219,8 @@ func (c *core) buildMessage(m *algorithm.ConsensusMessage) *Message {
 	}
 
 	if m.MsgType == algorithm.Precommit {
-		seal := PrepareCommittedSeal(common.Hash(m.Value), m.Round, bigHeight)
-		msg.CommittedSeal, err = c.backend.Sign(seal)
+		commitment := crypto.BuildCommitment(common.Hash(m.Value), bigHeight, m.Round)
+		msg.CommittedSeal, err = c.backend.Sign(commitment)
 		if err != nil {
 			panic(fmt.Sprintf("error while signing committed seal: %v", err))
 		}
@@ -304,34 +303,4 @@ func (c *core) createCommittee(block *types.Block) committee {
 		panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
 	}
 	return committeeSet
-}
-
-// PrepareCommittedSeal returns a committed seal for the given hash
-func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) []byte {
-	var buf bytes.Buffer
-	roundBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(roundBytes, uint64(round))
-	buf.Write(roundBytes)
-	buf.Write(height.Bytes())
-	buf.Write(hash.Bytes())
-	return buf.Bytes()
-}
-
-func (c *core) verifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error {
-	committedSeal := PrepareCommittedSeal(proposedBlockHash, round, height)
-
-	sealerAddress, err := types.GetSignatureAddress(committedSeal, committedSealMsg)
-	if err != nil {
-		c.logger.Error("Failed to get signer address", "err", err)
-		return err
-	}
-
-	// ensure sender signed the committed seal
-	if !bytes.Equal(sealerAddress.Bytes(), addressMsg.Bytes()) {
-		c.logger.Error("verify precommit seal error", "got", addressMsg.String(), "expected", sealerAddress.String())
-
-		return errInvalidSenderOfCommittedSeal
-	}
-
-	return nil
 }
