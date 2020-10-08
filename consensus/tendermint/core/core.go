@@ -26,6 +26,7 @@ import (
 	"math/big"
 	"sync"
 	"sync/atomic"
+	time "time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
@@ -99,7 +100,8 @@ type core struct {
 	syncEventSub            *event.TypeMuxSubscription
 	wg                      *sync.WaitGroup
 
-	msgCache *messageCache
+	msgCache  *messageCache
+	syncTimer *time.Timer
 
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
@@ -109,9 +111,6 @@ type core struct {
 
 	committee  committee
 	lastHeader *types.Header
-	// height, round and committeeSet are the ONLY guarded fields.
-	// everything else MUST be accessed only by the main thread.
-	stateMu sync.RWMutex
 
 	autonityContract *autonity.Contract
 
@@ -165,11 +164,6 @@ func (c *core) AwaitValue(height *big.Int) *types.Block {
 	c.msgCache.setValid(v.Hash())
 	c.value = nil
 	return v
-}
-
-func (c *core) GetCurrentHeightMessages() []*Message {
-	// TODO syncronise this properly, this is called from the sync go routine
-	return c.msgCache.heightMessages(c.Height().Uint64())
 }
 
 func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
@@ -321,18 +315,6 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) []byte
 	buf.Write(height.Bytes())
 	buf.Write(hash.Bytes())
 	return buf.Bytes()
-}
-
-func (c *core) setHeight(height *big.Int) {
-	c.stateMu.Lock()
-	defer c.stateMu.Unlock()
-	c.height = height
-}
-
-func (c *core) Height() *big.Int {
-	c.stateMu.RLock()
-	defer c.stateMu.RUnlock()
-	return c.height
 }
 
 func (c *core) verifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error {

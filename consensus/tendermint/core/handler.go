@@ -101,9 +101,10 @@ eventLoop:
 }
 
 func (c *core) newHeight(ctx context.Context, height uint64) bool {
+	c.syncTimer = time.NewTimer(20 * time.Second)
 	newHeight := new(big.Int).SetUint64(height)
 	// set the new height
-	c.setHeight(newHeight)
+	c.height = newHeight
 	c.currentBlock = c.AwaitValue(newHeight)
 	// Check for stopped
 	if atomic.LoadInt32(&c.stopped) == 1 {
@@ -217,12 +218,24 @@ func (c *core) mainEventLoop(ctx context.Context) {
 	if stopped {
 		return
 	}
-	c.wg.Add(1)
-	go c.syncLoop(ctx)
+
+	// Ask for sync when the engine starts
+	c.backend.AskSync(c.lastHeader)
 
 eventLoop:
 	for {
 		select {
+		case <-c.syncTimer.C:
+			c.backend.AskSync(c.lastHeader)
+			c.syncTimer = time.NewTimer(20 * time.Second)
+
+		case ev, ok := <-c.syncEventSub.Chan():
+			if !ok {
+				break eventLoop
+			}
+			event := ev.Data.(events.SyncEvent)
+			c.logger.Info("Processing sync message", "from", event.Addr)
+			c.backend.SyncPeer(event.Addr, c.msgCache.heightMessages(c.height.Uint64()))
 		case ev, ok := <-c.eventsSub.Chan():
 			if !ok {
 				break eventLoop
@@ -247,7 +260,7 @@ eventLoop:
 			case *algorithm.ConsensusMessage:
 				println(addr(c.address), e.String(), "message from self")
 				// This is a message we sent ourselves we do not need to broadcast it
-				if c.Height().Uint64() == e.Height {
+				if c.height.Uint64() == e.Height {
 					r := c.algo.ReceiveMessage(e)
 					stopped := c.handleResult(ctx, r)
 					if stopped {
@@ -279,12 +292,12 @@ eventLoop:
 				c.logger.Debug("Received a final committed proposal")
 				lastBlock, _ := c.backend.LastCommittedProposal()
 				height := new(big.Int).Add(lastBlock.Number(), common.Big1)
-				if height.Cmp(c.Height()) == 0 {
-					println(addr(c.address), "Discarding event as core is at the same height", "height", c.Height())
-					c.logger.Debug("Discarding event as core is at the same height", "height", c.Height())
+				if height.Cmp(c.height) == 0 {
+					println(addr(c.address), "Discarding event as core is at the same height", "height", c.height)
+					c.logger.Debug("Discarding event as core is at the same height", "height", c.height)
 				} else {
-					println(addr(c.address), "Received proposal is ahead", "height", c.Height().String(), "block_height", height.String())
-					c.logger.Debug("Received proposal is ahead", "height", c.Height(), "block_height", height)
+					println(addr(c.address), "Received proposal is ahead", "height", c.height, "block_height", height.String())
+					c.logger.Debug("Received proposal is ahead", "height", c.height, "block_height", height)
 					stopped := c.newHeight(ctx, height.Uint64())
 					if stopped {
 						return
@@ -293,47 +306,6 @@ eventLoop:
 			}
 		case <-ctx.Done():
 			c.logger.Info("mainEventLoop is stopped", "event", ctx.Err())
-			break eventLoop
-		}
-	}
-
-}
-
-func (c *core) syncLoop(ctx context.Context) {
-	defer c.wg.Done()
-	/*
-		this method is responsible for asking the network to send us the current consensus state
-		and to process sync queries events.
-	*/
-	timer := time.NewTimer(20 * time.Second)
-
-	height := c.Height()
-
-	// Ask for sync when the engine starts
-	c.backend.AskSync(c.lastHeader)
-
-eventLoop:
-	for {
-		select {
-		case <-timer.C:
-			currentHeight := c.Height()
-
-			// we only ask for sync if the current view stayed the same for the past 10 seconds
-			if currentHeight.Cmp(height) == 0 {
-				c.backend.AskSync(c.lastHeader)
-			}
-			height = currentHeight
-			timer = time.NewTimer(20 * time.Second)
-
-		case ev, ok := <-c.syncEventSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			event := ev.Data.(events.SyncEvent)
-			c.logger.Info("Processing sync message", "from", event.Addr)
-			c.backend.SyncPeer(event.Addr)
-		case <-ctx.Done():
-			c.logger.Info("syncLoop is stopped", "event", ctx.Err())
 			break eventLoop
 		}
 	}
@@ -443,7 +415,7 @@ func (c *core) handleMsg(ctx context.Context, payload []byte) error {
 	// that height. If it is for a previous height then we are not intersted in
 	// it. But it has been added to the msg cache in case other peers would
 	// like to sync it.
-	if conMsg.Height != c.Height().Uint64() {
+	if conMsg.Height != c.height.Uint64() {
 		// Nothing to do here
 		return nil
 	}

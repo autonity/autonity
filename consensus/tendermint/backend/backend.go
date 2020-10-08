@@ -408,7 +408,7 @@ func (sb *Backend) WhiteList() []string {
 }
 
 // Synchronize new connected peer with current height state
-func (sb *Backend) SyncPeer(address common.Address) {
+func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.Message) {
 	if sb.broadcaster == nil {
 		return
 	}
@@ -420,7 +420,6 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	if !connected {
 		return
 	}
-	messages := sb.core.GetCurrentHeightMessages()
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
 		go p.Send(tendermintMsg, msg.Payload()) //nolint

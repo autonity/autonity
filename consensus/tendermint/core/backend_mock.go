@@ -171,18 +171,6 @@ func (mr *MockBackendMockRecorder) Post(ev interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockBackend)(nil).Post), ev)
 }
 
-// Post mocks base method
-func (m *MockBackend) RemoveMessageFromLocalCache(payload []byte) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RemoveMessageFromLocalCache", payload)
-}
-
-// Post indicates an expected call of Post
-func (mr *MockBackendMockRecorder) RemoveMessageFromLocalCache(payload interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveMessageFromLocalCache", reflect.TypeOf((*MockBackend)(nil).RemoveMessageFromLocalCache), payload)
-}
-
 // SetProposedBlockHash mocks base method
 func (m *MockBackend) SetProposedBlockHash(hash common.Hash) {
 	m.ctrl.T.Helper()
@@ -229,15 +217,15 @@ func (mr *MockBackendMockRecorder) Subscribe(types ...interface{}) *gomock.Call 
 }
 
 // SyncPeer mocks base method
-func (m *MockBackend) SyncPeer(address common.Address) {
+func (m *MockBackend) SyncPeer(address common.Address, messages []*Message) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SyncPeer", address)
+	m.ctrl.Call(m, "SyncPeer", address, messages)
 }
 
 // SyncPeer indicates an expected call of SyncPeer
-func (mr *MockBackendMockRecorder) SyncPeer(address interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) SyncPeer(address, messages interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockBackend)(nil).SyncPeer), address)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockBackend)(nil).SyncPeer), address, messages)
 }
 
 // VerifyProposal mocks base method
@@ -340,18 +328,4 @@ func (m *MockTendermint) Stop() {
 func (mr *MockTendermintMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockTendermint)(nil).Stop))
-}
-
-// GetCurrentHeightMessages mocks base method
-func (m *MockTendermint) GetCurrentHeightMessages() []*Message {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCurrentHeightMessages")
-	ret0, _ := ret[0].([]*Message)
-	return ret0
-}
-
-// GetCurrentHeightMessages indicates an expected call of GetCurrentHeightMessages
-func (mr *MockTendermintMockRecorder) GetCurrentHeightMessages() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCurrentHeightMessages", reflect.TypeOf((*MockTendermint)(nil).GetCurrentHeightMessages))
 }

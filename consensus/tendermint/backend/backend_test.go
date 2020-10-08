@@ -379,7 +379,7 @@ func TestCheckSignature(t *testing.T) {
 func TestSyncPeer(t *testing.T) {
 	t.Run("no broadcaster set, nothing done", func(t *testing.T) {
 		b := &Backend{}
-		b.SyncPeer(common.HexToAddress("0x0123456789"))
+		b.SyncPeer(common.HexToAddress("0x0123456789"), nil)
 	})
 
 	t.Run("valid params given, messages sent", func(t *testing.T) {
@@ -413,7 +413,6 @@ func TestSyncPeer(t *testing.T) {
 		}
 
 		tendermintC := tendermintCore.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().GetCurrentHeightMessages().Return(messages)
 
 		b := &Backend{
 			logger:         log.New("backend", "test", "id", 0),
@@ -422,7 +421,7 @@ func TestSyncPeer(t *testing.T) {
 		}
 		b.SetBroadcaster(broadcaster)
 
-		b.SyncPeer(peerAddr1)
+		b.SyncPeer(peerAddr1, messages)
 
 		wait := time.NewTimer(time.Second)
 		<-wait.C

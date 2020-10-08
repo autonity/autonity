@@ -46,7 +46,7 @@ type Backend interface {
 
 	Subscribe(types ...interface{}) *event.TypeMuxSubscription
 
-	SyncPeer(address common.Address)
+	SyncPeer(address common.Address, messages []*Message)
 
 	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
@@ -63,5 +63,4 @@ type Backend interface {
 type Tendermint interface {
 	Start(ctx context.Context, contract *autonity.Contract)
 	Stop()
-	GetCurrentHeightMessages() []*Message
 }
