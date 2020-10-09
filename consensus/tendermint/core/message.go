@@ -52,7 +52,7 @@ func (m *message) String() string {
 
 // func (cm *algorithm.ConsensusMessage, )
 func badMessageErr(description string, m *algorithm.ConsensusMessage, address common.Address) error {
-	return fmt.Errorf("%s - message: %q, from: %q", description, m.String(), addr(address))
+	return fmt.Errorf("%s - message: %q, from: %q", description, m, addr(address))
 }
 
 // TODO think about the values in the block, calling hash on a header
@@ -68,7 +68,7 @@ func badMessageErr(description string, m *algorithm.ConsensusMessage, address co
 // Alternatively we can ensure that the hashes that are passed around by
 // the algorithm do not include proposer seals. We could store the proposer
 // seal alongside the block and then participants could insert it into the
-// block before they add their comitted seal. This seems nice actually
+// block before they add their committed seal. This seems nice actually
 // because it makes verifying the proposer seal easier. So that means that
 // all values in the message store are without any kind of seal.
 
@@ -120,7 +120,7 @@ func encodeSignedMessage(cm *algorithm.ConsensusMessage, key *ecdsa.PrivateKey, 
 	if cm.MsgType == algorithm.Propose {
 		block := store.value(common.Hash(cm.Value))
 		if block == nil {
-			return nil, fmt.Errorf("Unable to find block for proposal: %s", cm.String())
+			return nil, fmt.Errorf("unable to find block for proposal: %s", cm.String())
 		}
 		value, err = rlp.EncodeToBytes(block)
 		if err != nil {

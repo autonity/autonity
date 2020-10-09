@@ -53,21 +53,6 @@ func (mr *MockBackendMockRecorder) Address() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockBackend)(nil).Address))
 }
 
-// AddSeal mocks base method
-func (m *MockBackend) AddSeal(block *types.Block) (*types.Block, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddSeal", block)
-	ret0, _ := ret[0].(*types.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddSeal indicates an expected call of AddSeal
-func (mr *MockBackendMockRecorder) AddSeal(block interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSeal", reflect.TypeOf((*MockBackend)(nil).AddSeal), block)
-}
-
 // AskSync mocks base method
 func (m *MockBackend) AskSync(header *types.Header) {
 	m.ctrl.T.Helper()

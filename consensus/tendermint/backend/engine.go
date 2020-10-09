@@ -26,7 +26,6 @@ import (
 
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
-	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/core"
 
 	"github.com/clearmatics/autonity/common"
@@ -457,18 +456,6 @@ func (sb *Backend) CalcDifficulty(chain consensus.ChainReader, time uint64, pare
 
 func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
 	sb.proposedBlockHash = hash
-}
-
-// update timestamp and signature of the block based on its number of transactions
-func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
-	header := block.Header()
-
-	err := crypto.SignHeader(header, sb.privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return block.WithSeal(header), nil
 }
 
 // APIs returns the RPC APIs this consensus engine provides.

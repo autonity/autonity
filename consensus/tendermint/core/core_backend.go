@@ -15,8 +15,6 @@ import (
 type Backend interface {
 	Address() common.Address
 
-	AddSeal(block *types.Block) (*types.Block, error)
-
 	AskSync(header *types.Header)
 
 	// Broadcast sends a message to all validators (include self)

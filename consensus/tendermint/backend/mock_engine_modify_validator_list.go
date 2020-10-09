@@ -72,11 +72,6 @@ func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 	// create a new block with the modified header
 	newBlock := types.NewBlock(header, block.Transactions(), block.Uncles(), *receipts)
 
-	newBlock, err = m.Backend.AddSeal(newBlock)
-	if err != nil {
-		m.Errorf("cant seal the block: %v - %v", err, newBlock)
-	}
-
 	// we want be sure that the block is modified but not broken
 	switch _, err = m.Backend.VerifyProposal(*newBlock); err {
 	case consensus.ErrInconsistentCommitteeSet:
