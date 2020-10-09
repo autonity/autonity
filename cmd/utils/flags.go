@@ -136,7 +136,11 @@ var (
 	// General settings
 	InitGenesisFlag = cli.StringFlag{
 		Name:  "genesis",
-		Usage: "Path to the genesis json file",
+		Usage: "Path to the genesis json file. If the flag is not set, node will start by loading chain-data from \"data-dir\". " +
+			"Otherwise node will start by validating the genesis file, checks if genesis file is match with genesis block, and " +
+			"checks if chain configuration of the genesis file is compatible with current chain-data, apply new compatible chain " +
+			"configuration into chain-data and start the node. Otherwise node start will end up with a mis-match genesis error or an " +
+			"incompatible chain configuration error.",
 		Value: "",
 	}
 	DataDirFlag = DirectoryFlag{
