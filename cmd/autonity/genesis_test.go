@@ -27,11 +27,11 @@ import (
 )
 
 var customGenesisTests = []struct {
-	genesis string
-	misMatchGenesis string
+	genesis             string
+	misMatchGenesis     string
 	inCompatibleGenesis string
-	query   string
-	result  string
+	query               string
+	result              string
 }{
 	// Genesis file with specific chain configurations
 	{
@@ -140,7 +140,6 @@ var customGenesisTests = []struct {
 		query:  "eth.getBlock(0).nonce",
 		result: "0x0000000000001339",
 	},
-
 }
 
 // Tests that initializing Autonity with a custom genesis block and chain definitions

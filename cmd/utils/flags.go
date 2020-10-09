@@ -135,7 +135,7 @@ func printHelp(out io.Writer, templ string, data interface{}) {
 var (
 	// General settings
 	InitGenesisFlag = cli.StringFlag{
-		Name:  "genesis",
+		Name: "genesis",
 		Usage: "Path to the genesis json file. If the flag is not set, node will start by loading chain-data from \"data-dir\". " +
 			"Otherwise node will start by validating the genesis file, checks if genesis file is match with genesis block, and " +
 			"checks if chain configuration of the genesis file is compatible with current chain-data, apply new compatible chain " +
