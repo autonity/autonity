@@ -39,9 +39,6 @@ type Backend interface {
 	// Setter for proposed block hash
 	SetProposedBlockHash(hash common.Hash)
 
-	// Sign signs input data with the backend's private key
-	Sign([]byte) ([]byte, error)
-
 	Subscribe(types ...interface{}) *event.TypeMuxSubscription
 
 	SyncPeer(address common.Address, messages [][]byte)

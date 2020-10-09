@@ -341,26 +341,6 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 	return 0, err
 }
 
-// Sign implements tendermint.Backend.Sign
-func (sb *Backend) Sign(data []byte) ([]byte, error) {
-	hashData := crypto.Keccak256(data)
-	return crypto.Sign(hashData, sb.privateKey)
-}
-
-// CheckSignature implements tendermint.Backend.CheckSignature
-func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byte) error {
-	signer, err := types.GetSignatureAddress(data, sig)
-	if err != nil {
-		sb.logger.Error("Failed to get signer address", "err", err)
-		return err
-	}
-	// Compare derived addresses
-	if signer != address {
-		return types.ErrInvalidSignature
-	}
-	return nil
-}
-
 func (sb *Backend) LastCommittedProposal() (*types.Block, common.Address) {
 	block := sb.currentBlock()
 
