@@ -16,19 +16,15 @@ interface IAutonity {
 
     enum UserType { Participant, Stakeholder, Validator}
 
-    /**
-    * @return `bytecode` the new contract bytecode.
-    * @return `contractAbi` the new contract ABI.
-    * @dev Implementation of {IAutonity retrieveContract}.
-    */
-    function retrieveContract() external view returns(string memory, string memory);
-
     function getMinimumGasPrice() external view returns(uint256);
 
     function getProposer(uint256 height, uint256 round) external view returns(address);
 
     function getCommittee() external view returns (CommitteeMember[] memory committee);
 
+    /** @notice getWhitelist return the list of authorized enodes able to join the network.
+    * @return []string The list of enodes.
+    */
     function getWhitelist() external view returns (string[] memory);
 
     /** @dev finalize is the block state finalisation function. It is called
@@ -42,6 +38,13 @@ interface IAutonity {
     function finalize(uint256 amount) external returns(bool upgrade, CommitteeMember[] memory committee);
 
 
+    /** @notice retrieveContract is a getter for retrieving a new Autonity contract
+    * that will
+    * @return `bytecode` the new contract bytecode.
+    * @return `contractAbi` the new contract ABI.
+    */
+    function retrieveContract() external view returns(string memory, string memory);
+
     function retrieveState() external view returns(
         address[] memory _addr,
         string[] memory _enode,
@@ -54,7 +57,6 @@ interface IAutonity {
 
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
-     *
      * Note that `gasPrice` may be zero.
      */
     event MinimumGasPriceUpdated(uint256 gasPrice);

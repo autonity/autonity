@@ -38,10 +38,19 @@ contract Autonity is IERC20, IAutonity {
     mapping (address => mapping (address => uint256)) private allowances;
 
     /* State data that will be recomputed during a contract upgrade. */
-    address[] public validators;
-    address[] public stakeholders;
+    address[] private validators;
+    address[] private stakeholders;
     uint256 private stakeSupply;
     CommitteeMember[] private committee;
+
+    /*
+    We're saving the address of who is deploying the contract and we use it
+    for restricting functions that could only be possibly invoked by the protocol
+    itself, bypassing transaction processing and signature verification.
+    In normal conditions, it is set to the zero address. We're not simply hardcoding
+    it only for testing purposes.
+    */
+    address public deployer;
 
     /*
      * Binary code and ABI of new version contract, the default value is "" when contract is created.
@@ -84,6 +93,7 @@ contract Autonity is IERC20, IAutonity {
         minGasPrice = _minGasPrice;
         contractVersion = _contractVersion;
         committeeSize = _committeeSize;
+        deployer = msg.sender;
     }
 
     receive() external payable {}
@@ -264,7 +274,7 @@ contract Autonity is IERC20, IAutonity {
 
         _performRedistribution(_amount);
         bool _updateAvailable = bytes(bytecode).length != 0;
-        _computeCommittee();
+        computeCommittee();
         return (_updateAvailable, committee);
     }
 
@@ -311,8 +321,26 @@ contract Autonity is IERC20, IAutonity {
         return contractVersion;
     }
 
+    /**
+     * @notice Returns the block committee.
+     * @dev Current block committee if called before finalize(), next block if called after.
+     */
     function getCommittee() external view override returns (CommitteeMember[] memory) {
         return committee;
+    }
+
+    /**
+     * @notice Returns the current list of validators.
+     */
+    function getValidators() external view returns (address[] memory) {
+        return validators;
+    }
+
+    /**
+     * @notice Returns the current list of stakeholders.
+     */
+    function getStakeholders() external view returns (address[] memory) {
+        return stakeholders;
     }
 
     /**
@@ -338,10 +366,10 @@ contract Autonity is IERC20, IAutonity {
 
     /**
     * @return Returns a user object with the `_account` parameter. The returned data
-    * structure might be empty if there is no user associated.
+    * object might be empty if there is no user associated.
     */
     function getUser(address _account) external view returns(User memory) {
-        //TODO : return an error if no user was found.
+        //TODO : coreturn an error if no user was found.
         return users[_account];
     }
 
@@ -415,6 +443,48 @@ contract Autonity is IERC20, IAutonity {
         return data;
     }
 
+    /**
+    * @notice update the current committee by selecting top staking validators.
+    * Restricted to the protocol.
+    */
+    function computeCommittee() public onlyProtocol(msg.sender) {
+        // Left public for testing purposes.
+        require(validators.length > 0, "There must be validators");
+        uint _len = validators.length;
+        uint256 _committeeLength = committeeSize;
+        if (_committeeLength >= _len) {_committeeLength = _len;}
+
+        User[] memory _validatorList = new User[](_len);
+        User[] memory _committeeList = new User[](_committeeLength);
+
+        for (uint256 i = 0;i < validators.length; i++) {
+            User memory _user = users[validators[i]];
+            _validatorList[i] =_user;
+        }
+
+        // If there are more validators than seats in the committee
+        if (_validatorList.length > committeeSize) {
+            // sort validators by stake in ascending order
+            _sortByStake(_validatorList);
+            // choose the top-N (with N=maxCommitteeSize)
+            for (uint256 _j = 0; _j < committeeSize; _j++) {
+                _committeeList[_j] = _validatorList[_j];
+            }
+        }
+        // If all the validators fit in the committee
+        else {
+            _committeeList = _validatorList;
+        }
+
+        // Update committee in persistent storage
+        delete committee;
+        for (uint256 _k =0 ; _k < _committeeLength; _k++) {
+            CommitteeMember memory _member = CommitteeMember(_committeeList[_k].addr, _committeeList[_k].stake);
+            committee.push(_member);
+        }
+
+    }
+
     /*
     ============================================================
 
@@ -434,10 +504,11 @@ contract Autonity is IERC20, IAutonity {
 
     /**
     * @dev Modifier that checks if the caller is not any external owned account.
-    * Only the protocol itself can invoke the contract with the 0 address.
+    * Only the protocol itself can invoke the contract with the 0 address to the exception
+    * of testing.
     */
     modifier onlyProtocol(address _caller) {
-        require(address(0) == _caller, "function restricted to the protocol");
+        require(deployer == _caller, "function restricted to the protocol");
         _;
     }
 
@@ -565,48 +636,6 @@ contract Autonity is IERC20, IAutonity {
         _removeFromArray(u.addr, usersList);
         delete users[_address];
         emit RemoveUser(_address, u.userType);
-    }
-
-
-    /**
-    * @notice update the current committee by selecting top staking validators.
-    */
-    function _computeCommittee() internal onlyProtocol(msg.sender) {
-        require(validators.length > 0, "There must be validators");
-
-        uint _len = validators.length;
-        uint256 _committeeLength = committeeSize;
-        if (_committeeLength >= _len) {_committeeLength = _len;}
-
-        User[] memory _validatorList = new User[](_len);
-        User[] memory _committeeList = new User[](_committeeLength);
-
-        for (uint256 i = 0;i < validators.length; i++) {
-            User memory _user = users[validators[i]];
-            _validatorList[i] =_user;
-        }
-
-        // If there are more validators than seats in the committee
-        if (_validatorList.length > committeeSize) {
-            // sort validators by stake in ascending order
-            _sortByStake(_validatorList);
-            // choose the top-N (with N=maxCommitteeSize)
-            for (uint256 _j = 0; _j < committeeSize; _j++) {
-                _committeeList[_j] = _validatorList[_j];
-            }
-        }
-        // If all the validators fit in the committee
-        else {
-            _committeeList = _validatorList;
-        }
-
-        // Update committee in persistent storage
-        delete committee;
-        for (uint256 _k =0 ; _k < _committeeLength; _k++) {
-            CommitteeMember memory _member = CommitteeMember(_committeeList[_k].addr, _committeeList[_k].stake);
-            committee.push(_member);
-        }
-
     }
 
 
