@@ -380,7 +380,7 @@ playbook:
             target: [0, 5, 4] # start the specific node within 30s after test case start.
       input:
         startAt: 130  # start the TX issuing from 180th seconds.
-        duration: 200 # num of seconds the transaction sending duration.
+        duration: 300 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
