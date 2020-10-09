@@ -92,7 +92,7 @@ func Ecrecover(header *Header) (common.Address, error) {
 		return addr.(common.Address), nil
 	}
 
-	addr, err := GetSignatureAddress(SigHash(header).Bytes(), header.ProposerSeal)
+	addr, err := GetSignatureAddressHash(hash.Bytes(), header.ProposerSeal)
 	if err != nil {
 		return addr, err
 	}

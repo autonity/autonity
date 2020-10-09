@@ -190,10 +190,11 @@ func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error
 			return nil, fmt.Errorf("attempted to commit block with a committed seal of invalid length: %s", hex.EncodeToString(seal))
 		}
 	}
-	// Add the proposer seal and committed seals into the block.
+	// Add the proposer seal coinbase and committed seals into the block.
 	h := message.value.Header()
 	h.CommittedSeals = committedSeals
 	h.ProposerSeal = message.proposerSeal
+	h.Coinbase = message.address
 	h.Round = uint64(proposal.Round)
 	block := message.value.WithSeal(h)
 	c.backend.Commit(block, c.committee.GetProposer(proposal.Round).Address)

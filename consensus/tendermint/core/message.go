@@ -143,7 +143,7 @@ func BuildCommitment(proposerSeal []byte, height uint64, round int64, value algo
 		return nil, err
 	}
 	// return crypto.Keccak256(append(cmBytes, proposerSeal...)), nil
-	return append(cmBytes, proposerSeal...), nil
+	return crypto.Keccak256(append(cmBytes, proposerSeal...)), nil
 }
 
 func decodeSignedMessage(msgBytes []byte) (*message, error) {

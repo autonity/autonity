@@ -91,14 +91,14 @@ func (sb *Backend) Author(header *types.Header) (common.Address, error) {
 // VerifyHeader checks whether a header conforms to the consensus rules of a
 // given engine. Verifying the seal may be done optionally here, or explicitly
 // via the VerifySeal method.
-func (sb *Backend) VerifyHeader(chain consensus.ChainReader, header *types.Header, _ bool) error {
-	return sb.verifyHeader(header, chain.GetHeaderByHash(header.ParentHash))
+func (sb *Backend) VerifyHeader(chain consensus.ChainReader, header *types.Header, checkSeals bool) error {
+	return sb.verifyHeader(header, chain.GetHeaderByHash(header.ParentHash), checkSeals)
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules. It
 // expects the parent header to be provided unless header is the genesis
 // header.
-func (sb *Backend) verifyHeader(header, parent *types.Header) error {
+func (sb *Backend) verifyHeader(header, parent *types.Header, checkSeals bool) error {
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -136,17 +136,21 @@ func (sb *Backend) verifyHeader(header, parent *types.Header) error {
 	if parent == nil {
 		return errUnknownBlock
 	}
-	return sb.verifyHeaderAgainstParent(header, parent)
+	return sb.verifyHeaderAgainstParent(header, parent, checkSeals)
 }
 
 // verifyHeaderAgainstParent verifies that the given header is valid with respect to its parent.
-func (sb *Backend) verifyHeaderAgainstParent(header, parent *types.Header) error {
+func (sb *Backend) verifyHeaderAgainstParent(header, parent *types.Header, checkSeals bool) error {
 	if parent.Number.Uint64() != header.Number.Uint64()-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
 	// Ensure that the block's timestamp isn't too close to it's parent
 	if parent.Time+sb.config.BlockPeriod > header.Time {
 		return errInvalidTimestamp
+
+	}
+	if !checkSeals {
+		return nil
 	}
 	if err := sb.verifySigner(header, parent); err != nil {
 		return err
@@ -171,7 +175,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainReader, headers []*types.H
 			case i == 0:
 				parent = chain.GetHeaderByHash(header.ParentHash)
 			}
-			err := sb.verifyHeader(header, parent)
+			err := sb.verifyHeader(header, parent, true)
 			select {
 			case <-abort:
 				return
@@ -241,7 +245,7 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	// 1. Get committed seals from current header
 	for _, signedSeal := range header.CommittedSeals {
 		// 2. Get the address from signature
-		addr, err := types.GetSignatureAddress(commitment, signedSeal)
+		addr, err := types.GetSignatureAddressHash(commitment, signedSeal)
 		if err != nil {
 			sb.logger.Error("not a valid address", "err", err)
 			return types.ErrInvalidSignature
@@ -396,11 +400,11 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 		return errUnauthorized
 	}
 
-	block, err := sb.AddSeal(block)
-	if err != nil {
-		sb.logger.Error("seal error updateBlock", "err", err.Error())
-		return err
-	}
+	// block, err := sb.AddSeal(block)
+	// if err != nil {
+	// 	sb.logger.Error("seal error updateBlock", "err", err.Error())
+	// 	return err
+	// }
 
 	// wait for the timestamp of header, use this to adjust the block period
 	delay := time.Unix(int64(block.Header().Time), 0).Sub(now())
