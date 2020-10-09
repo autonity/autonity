@@ -10,6 +10,7 @@ from invoke import Responder
 
 
 AUTONITY_PATH = "/home/{}/network-data/autonity"
+GENESIS_PATH = "/home/{}/network-data/genesis.json"
 CHAIN_DATA_DIR = "/home/{}/network-data/{}/data/"
 BOOT_KEY_FILE = "/home/{}/network-data/{}/boot.key"
 KEY_PASSPHRASE_FILE = "/home/{}/network-data/{}/pass.txt"
@@ -122,24 +123,13 @@ class Client(object):
         self.e_node = "enode://{}@{}:{}".format(pub_key, self.host, self.p2p_port)
         return self.e_node
 
-    def init_chain(self):
-        folder = self.host
-        utility.execute("""{} --datadir "./network-data/{}/data/" init "./network-data/genesis.json" """.
-                        format(self.autonity_path, folder))
-
-    def re_init_chain(self):
-        folder = self.host
-        utility.remove_dir("./network-data/{}/data/autonity".format(folder))
-        utility.execute("""{} --datadir "./network-data/{}/data/" init "./network-data/genesis.json" """.
-                        format(self.autonity_path, folder))
-
     def generate_system_service_file(self):
         template_remote = "[Unit]\n" \
                    "Description=Clearmatics Autonity Client server\n" \
                    "After=syslog.target network.target\n" \
                    "[Service]\n" \
                    "Type=simple\n" \
-                   "ExecStart={} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
+                   "ExecStart={} --genesis {} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
                    "--rpcport {} --rpc --rpcaddr '0.0.0.0' --ws --wsport {} --rpccorsdomain '*' "\
                    "--rpcapi 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
                    "--gasprice '0' --allow-insecure-unlock --graphql --graphql.port {} " \
@@ -177,6 +167,7 @@ class Client(object):
 
         print("prepare autonity systemd service file for node: %s", self.host)
         bin_path = AUTONITY_PATH.format(self.ssh_user)
+        genesis_path = GENESIS_PATH.format(self.ssh_user)
         data_dir = CHAIN_DATA_DIR.format(self.ssh_user, folder)
         boot_key_file = BOOT_KEY_FILE.format(self.ssh_user, folder)
         p2p_port = self.p2p_port
@@ -186,7 +177,7 @@ class Client(object):
         coin_base = self.coin_base
         password_file = KEY_PASSPHRASE_FILE.format(self.ssh_user, folder)
 
-        content = template_remote.format(bin_path, data_dir, boot_key_file, p2p_port, rpc_port, ws_port, graphql_port,
+        content = template_remote.format(bin_path, genesis_path, data_dir, boot_key_file, p2p_port, rpc_port, ws_port, graphql_port,
                                          coin_base, password_file, coin_base)
         with open("./network-data/{}/autonity.service".format(folder), 'w') as out:
             out.write(content)
@@ -194,7 +185,7 @@ class Client(object):
     def generate_package(self):
         folder = self.host
         utility.execute('cp {} ./network-data/'.format(self.autonity_path))
-        utility.execute('tar -zcvf ./network-data/{}.tgz ./network-data/{}/ ./network-data/autonity'.format(folder, folder))
+        utility.execute('tar -zcvf ./network-data/{}.tgz ./network-data/{}/ ./network-data/genesis.json ./network-data/autonity'.format(folder, folder))
 
     def deliver_package(self):
         try:
