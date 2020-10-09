@@ -387,19 +387,13 @@ func TestSyncPeer(t *testing.T) {
 		defer ctrl.Finish()
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
-		messages := []*tendermintCore.Message{
-			{
-				Address: peerAddr1,
-			},
-		}
+		messages := [][]byte{[]byte("dummy data")}
 
 		peersAddrMap := make(map[common.Address]struct{})
 		peersAddrMap[peerAddr1] = struct{}{}
 
-		payload := messages[0].Payload()
-
 		peer1Mock := consensus.NewMockPeer(ctrl)
-		peer1Mock.EXPECT().Send(uint64(tendermintMsg), payload)
+		peer1Mock.EXPECT().Send(uint64(tendermintMsg), messages[0])
 
 		peers := make(map[common.Address]consensus.Peer)
 		peers[peerAddr1] = peer1Mock

@@ -217,7 +217,7 @@ func (mr *MockBackendMockRecorder) Subscribe(types ...interface{}) *gomock.Call 
 }
 
 // SyncPeer mocks base method
-func (m *MockBackend) SyncPeer(address common.Address, messages []*Message) {
+func (m *MockBackend) SyncPeer(address common.Address, messages [][]byte) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SyncPeer", address, messages)
 }

@@ -24,6 +24,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/core"
@@ -230,8 +231,12 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 
 	// Total Voting power for this block
 	var power uint64
-	// The data that was sined over for this block
-	commitment := crypto.BuildCommitment(header.Hash(), header.Number, int64(header.Round))
+	// The data that was signed over for this block
+	proposerSeal := header.ProposerSeal
+	commitment, err := tendermintCore.BuildCommitment(proposerSeal, header.Number.Uint64(), int64(header.Round), algorithm.ValueID(header.Hash()))
+	if err != nil {
+		return err
+	}
 
 	// 1. Get committed seals from current header
 	for _, signedSeal := range header.CommittedSeals {

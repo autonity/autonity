@@ -18,7 +18,7 @@ func (o *oracle) FThresh(round int64) bool {
 }
 
 func (o *oracle) MatchingProposal(cm *algorithm.ConsensusMessage) *algorithm.ConsensusMessage {
-	return o.store.matchingProposal(cm)
+	return o.store.matchingProposal(cm).consensusMessage
 }
 
 func (o *oracle) PrecommitQThresh(round int64, value *algorithm.ValueID) bool {

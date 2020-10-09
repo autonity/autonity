@@ -898,18 +898,6 @@ func (m *MockSyncer) EXPECT() *MockSyncerMockRecorder {
 	return m.recorder
 }
 
-// SyncPeer mocks base method
-func (m *MockSyncer) SyncPeer(address common.Address) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SyncPeer", address)
-}
-
-// SyncPeer indicates an expected call of SyncPeer
-func (mr *MockSyncerMockRecorder) SyncPeer(address interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockSyncer)(nil).SyncPeer), address)
-}
-
 // ResetPeerCache mocks base method
 func (m *MockSyncer) ResetPeerCache(address common.Address) {
 	m.ctrl.T.Helper()

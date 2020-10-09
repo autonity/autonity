@@ -153,7 +153,11 @@ func GetSignatureAddress(data []byte, sig []byte) (common.Address, error) {
 	// 1. Keccak data
 	hashData := crypto.Keccak256(data)
 	// 2. Recover public key
-	pubkey, err := crypto.SigToPub(hashData, sig)
+	return GetSignatureAddressHash(hashData, sig)
+}
+
+func GetSignatureAddressHash(hash []byte, sig []byte) (common.Address, error) {
+	pubkey, err := crypto.SigToPub(hash, sig)
 	if err != nil {
 		return common.Address{}, err
 	}

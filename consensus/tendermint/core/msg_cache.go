@@ -9,14 +9,11 @@ import (
 )
 
 // Message cache caches messages
-
 type messageCache struct {
 	// msgHashes maps height, round, message type and address to message hash.
 	msgHashes map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash
 	// valid is a set containing message hashes for messages considered valid.
 	valid map[common.Hash]struct{}
-	// consensusMsgs maps message hash to consensus message.
-	consensusMsgs map[common.Hash]*algorithm.ConsensusMessage
 	// messages maps message hash to message.
 	messages map[common.Hash]*message
 	// rawMessages maps message hash to raw message bytes.
@@ -67,7 +64,7 @@ func (m *messageCache) signatures(value algorithm.ValueID, round int64, height u
 	var sigs [][]byte
 
 	// println("signatures -----")
-	for _, msgHash := range m.msgHashes[height][round][algorithm.Step(msgPrecommit)] {
+	for _, msgHash := range m.msgHashes[height][round][algorithm.Precommit] {
 		// spew.Dump(m.rawMessages[msgHash].decodedMsg)
 		if value == m.messages[msgHash].consensusMessage.Value {
 			sigs = append(sigs, m.messages[msgHash].signature)
@@ -115,8 +112,8 @@ func (m *messageCache) votePower(
 		panic(fmt.Sprintf(
 			"Unexpected msgType %d, expecting either %d or %d",
 			*msgType,
-			msgPrevote,
-			msgPrecommit,
+			algorithm.Prevote,
+			algorithm.Precommit,
 		))
 	}
 
@@ -140,7 +137,7 @@ func (m *messageCache) votePower(
 			}
 
 			// Skip messages with differing values
-			if valueHash != nil && *valueHash != common.Hash(m.consensusMsgs[msgHash].Value) {
+			if valueHash != nil && *valueHash != common.Hash(m.messages[msgHash].consensusMessage.Value) {
 				// // println("skipping mismatch value")
 				continue
 			}
@@ -208,16 +205,10 @@ func (m *messageCache) isValid(itemHash common.Hash) bool {
 	return ok
 }
 
-func (m *messageCache) matchingProposal(cm *algorithm.ConsensusMessage) *algorithm.ConsensusMessage {
-	if cm.MsgType == algorithm.Step(msgProposal) {
-		return cm
-	}
-	// if cm.MsgType == algorithm.Precommit {
-	// 	fmt.Printf("fetching proposal for: %s", cm.String())
-	// }
-	for _, proposalHash := range m.msgHashes[cm.Height][cm.Round][algorithm.Step(msgProposal)] {
-		proposal := m.consensusMsgs[proposalHash]
-		if proposal.Value == cm.Value {
+func (m *messageCache) matchingProposal(cm *algorithm.ConsensusMessage) *message {
+	for _, proposalHash := range m.msgHashes[cm.Height][cm.Round][algorithm.Propose] {
+		proposal := m.messages[proposalHash]
+		if proposal.consensusMessage.Value == cm.Value {
 			// fmt.Printf(" got: %s\n", proposal.String())
 			return proposal
 		}

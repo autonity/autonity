@@ -1,232 +1,235 @@
-// Copyright 2017 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
 package core
 
 import (
 	"bytes"
-	"errors"
+	"crypto/ecdsa"
+	"crypto/sha256"
 	"fmt"
-	"io"
-	"math/big"
-	"reflect"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
+	common "github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
+	types "github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/rlp"
 )
 
-const (
-	msgProposal uint64 = iota
-	msgPrevote
-	msgPrecommit
-)
-
-var (
-	errMsgPayloadNotDecoded = errors.New("message not decoded")
-	ErrUnauthorizedAddress  = errors.New("unauthorized address")
-)
-
-type Message struct {
-	Code          uint64
-	Msg           []byte
-	Address       common.Address
-	Signature     []byte
-	CommittedSeal []byte
-
-	power      uint64
-	decodedMsg ConsensusMsg // cached decoded Msg
-	Hash       common.Hash  // cached hash
-	payload    []byte       // rlp encoded Message
+// This is used as a means to get around rlp's restriction on encoding negative
+// integers. We rlp encode and decode consensus messages via this struct
+// casting the round and valid round to and from int64 to uint64.
+type rlpConsensusMesage struct {
+	MsgType    algorithm.Step
+	Height     uint64
+	Round      uint64
+	Value      algorithm.ValueID
+	ValidRound uint64
 }
 
-// ==============================================
+// The signature is over the message and the ProposerSeal, it doesn't include
+// value because Value is only sent for proposals and the hash of the value is
+// contained in Message.
+type signedMessage struct {
+	Signature        []byte
+	ConsensusMessage []byte
+	Value            []byte
+	ProposerSeal     []byte
+	// We don't need the committed seal separate from the signature since we
+	// can just recreate the signature by constructing a precommit message from
+	// the info in a block.
+}
+
+type message struct {
+	hash             common.Hash
+	address          common.Address
+	consensusMessage *algorithm.ConsensusMessage
+	signature        []byte
+	proposerSeal     []byte
+	value            *types.Block
+}
+
+func (m *message) String() string {
+	return "bla"
+}
+
+// func (cm *algorithm.ConsensusMessage, )
+func badMessageErr(description string, m *algorithm.ConsensusMessage, address common.Address) error {
+	return fmt.Errorf("%s - message: %q, from: %q", description, m.String(), addr(address))
+}
+
+// TODO think about the values in the block, calling hash on a header
+// returns the hash but filters out the bft fields. Except for the proposer
+// seal.  This means that if we are building a proposal message at this
+// point we may have a fresh proposal from our miner, in which case it will
+// not have a proposer seal or it could be that we are reproposing a valid
+// value. In which case we need to set the proposer seal to be empty before
+// we hash it and add our seal. This means that the message we receive here
+// from the algorithm will be wrong, because when we propose a valid value
+// we are using the hash of a block that had a different proposer's seal. But we can catch this here.
 //
-// define the functions that needs to be provided for rlp Encoder/Decoder.
+// Alternatively we can ensure that the hashes that are passed around by
+// the algorithm do not include proposer seals. We could store the proposer
+// seal alongside the block and then participants could insert it into the
+// block before they add their comitted seal. This seems nice actually
+// because it makes verifying the proposer seal easier. So that means that
+// all values in the message store are without any kind of seal.
 
-// EncodeRLP serializes m into the Ethereum RLP format.
-func (m *Message) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{m.Code, m.Msg, m.Address, m.Signature, m.CommittedSeal})
-}
+func encodeSignedMessage(cm *algorithm.ConsensusMessage, key *ecdsa.PrivateKey, store *messageCache) ([]byte, error) {
 
-func (m *Message) GetCode() uint64 {
-	return m.Code
-}
-
-func (m *Message) GetSignature() []byte {
-	return m.Signature
-}
-
-// DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (m *Message) DecodeRLP(s *rlp.Stream) error {
-	var msg struct {
-		Code          uint64
-		Msg           []byte
-		Address       common.Address
-		Signature     []byte
-		CommittedSeal []byte
-	}
-
-	if err := s.Decode(&msg); err != nil {
-		return err
-	}
-	m.Code, m.Msg, m.Address, m.Signature, m.CommittedSeal = msg.Code, msg.Msg, msg.Address, msg.Signature, msg.CommittedSeal
-	return nil
-}
-
-// ==============================================
-//
-// define the functions that needs to be provided for core.
-
-func (m *Message) FromPayload(b []byte) error {
-	m.payload = b
-	// Decode message
-	err := rlp.DecodeBytes(b, m)
-	if err != nil {
-		return err
-	}
-	// Decode the payload, this will cache the decoded msg payload.
-	switch m.Code {
-	case msgProposal:
-		var proposal Proposal
-		return m.Decode(&proposal)
-	case msgPrevote, msgPrecommit:
-		var vote Vote
-		return m.Decode(&vote)
-	default:
-		return errMsgPayloadNotDecoded
-	}
-}
-
-func (m *Message) Validate(validateFn func(*types.Header, []byte, []byte) (common.Address, error), previousHeader *types.Header) (*types.CommitteeMember, error) {
-	// Validate message (on a message without Signature)
-	msgHeight, err := m.Height()
-	if err != nil {
-		return nil, err
-	}
-	if previousHeader.Number.Uint64()+1 != msgHeight.Uint64() {
-		panic("inconsistent message verification")
-	}
-
-	// Still return the message even the err is not nil
-	var payload []byte
-	payload, err = m.PayloadNoSig()
-	if err != nil {
-		return nil, err
-	}
-
-	addr, err := validateFn(previousHeader, payload, m.Signature)
-	if err != nil {
-		return nil, err
-	}
-
-	//ensure message was singed by the sender
-	if !bytes.Equal(m.Address.Bytes(), addr.Bytes()) {
-		return nil, ErrUnauthorizedAddress
-	}
-
-	v := previousHeader.CommitteeMember(addr)
-	if v == nil {
-		return nil, fmt.Errorf("message received is not from a committee member: %x", addr)
-	}
-
-	m.power = v.VotingPower.Uint64()
-	return v, nil
-}
-
-func (m *Message) Payload() []byte {
-	if m.payload == nil {
-		payload, err := rlp.EncodeToBytes(m)
+	// First generate the proposer seal, which is either our seal if we are
+	// building a proposal, or its the seal of the proposal we are voting for.
+	var proposerSeal []byte
+	var err error
+	if cm.MsgType == algorithm.Propose {
+		proposerSeal, err = crypto.Sign(cm.Value[:], key)
 		if err != nil {
-			// We panic if there is an error, reasons:
-			// Either we received the message and we managed to decode it, hence it must be possible to encode it.
-			// If we can't encode the payload for our own generated messages, that's a programming error.
-			panic("could not decode message payload")
+			return nil, err
 		}
-		m.payload = payload
-	}
-	return m.payload
-}
-
-func (m *Message) GetPower() uint64 {
-	return m.power
-}
-
-func (m *Message) PayloadNoSig() ([]byte, error) {
-	return rlp.EncodeToBytes(&Message{
-		Code:          m.Code,
-		Msg:           m.Msg,
-		Address:       m.Address,
-		Signature:     []byte{},
-		CommittedSeal: m.CommittedSeal,
-	})
-}
-
-func (m *Message) Decode(val interface{}) error {
-	//Decode is responsible to rlp-decode m.Msg. It is meant to only perform the actual decoding once,
-	//saving a cached value in m.decodedMsg.
-
-	rval := reflect.ValueOf(val)
-	if rval.Kind() != reflect.Ptr {
-		return errors.New("decode arg must be a pointer")
+	} else {
+		proposerSeal = store.matchingProposal(cm).proposerSeal
 	}
 
-	// check if we already have a cached value decoded
-	if m.decodedMsg != nil {
-		if !rval.Type().AssignableTo(reflect.TypeOf(m.decodedMsg)) {
-			return errors.New("type mismatch with decoded value")
-		}
-		rval.Elem().Set(reflect.ValueOf(m.decodedMsg).Elem())
-		return nil
+	// Now encode the consensus message and generate the message signature.
+	rlpM := &rlpConsensusMesage{
+		MsgType:    cm.MsgType,
+		Height:     cm.Height,
+		Round:      uint64(cm.Round),
+		Value:      cm.Value,
+		ValidRound: uint64(cm.ValidRound),
 	}
-
-	err := rlp.DecodeBytes(m.Msg, val)
+	cmBytes, err := rlp.EncodeToBytes(rlpM)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// copy the result via Set (shallow)
-	nval := reflect.New(rval.Elem().Type()) // we need first to allocate memory
-	nval.Elem().Set(rval.Elem())
-	m.decodedMsg = nval.Interface().(ConsensusMsg)
-	return nil
-}
-
-func (m *Message) String() string {
-	return fmt.Sprintf("{Code: %v, Address: %v}", m.Code, m.Address.String())
-}
-
-func (m *Message) Round() (int64, error) {
-	if m.decodedMsg == nil {
-		return 0, errMsgPayloadNotDecoded
+	// The message signature is over the consensus message and the proposer seal.
+	msgHash := crypto.Keccak256(append(cmBytes, proposerSeal...))
+	signature, err := crypto.Sign(msgHash, key)
+	if err != nil {
+		return nil, err
 	}
-	return m.decodedMsg.GetRound(), nil
-}
 
-func (m *Message) Height() (*big.Int, error) {
-	if m.decodedMsg == nil {
-		return nil, errMsgPayloadNotDecoded
+	sm := &signedMessage{
+		ConsensusMessage: cmBytes,
+		ProposerSeal:     proposerSeal,
+		Signature:        signature,
 	}
-	return m.decodedMsg.GetHeight(), nil
+
+	// Add the encoded value if we are building a proposal. We don't need to
+	// sign over the value because we can verify that the value hash matches
+	// cm.Value and cm was signed over.
+	var value []byte
+	if cm.MsgType == algorithm.Propose {
+		block := store.value(common.Hash(cm.Value))
+		if block == nil {
+			return nil, fmt.Errorf("Unable to find block for proposal: %s", cm.String())
+		}
+		value, err = rlp.EncodeToBytes(block)
+		if err != nil {
+			return nil, err
+		}
+	}
+	sm.Value = value
+	return rlp.EncodeToBytes(sm)
 }
 
-// ==============================================
-//
-// helper functions
+func BuildCommitment(proposerSeal []byte, height uint64, round int64, value algorithm.ValueID) ([]byte, error) {
+	rlpM := &rlpConsensusMesage{
+		MsgType: algorithm.Precommit,
+		Height:  height,
+		Round:   uint64(round),
+		Value:   value,
+	}
+	cmBytes, err := rlp.EncodeToBytes(rlpM)
+	if err != nil {
+		return nil, err
+	}
+	return crypto.Keccak256(append(cmBytes, proposerSeal...)), nil
+}
 
-func Encode(val interface{}) ([]byte, error) {
-	return rlp.EncodeToBytes(val)
+func decodeSignedMessage(msgBytes []byte) (*message, error) {
+	println(len(msgBytes))
+	sm := &signedMessage{}
+	err := rlp.Decode(bytes.NewBuffer(msgBytes), sm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode signed message: %v", err)
+	}
+
+	// Decode the consensus message
+	println(len(sm.ConsensusMessage))
+	rlpMsg := &rlpConsensusMesage{}
+	err = rlp.Decode(bytes.NewBuffer(sm.ConsensusMessage), rlpMsg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode consensus message message: %v", err)
+	}
+	cm := &algorithm.ConsensusMessage{
+		MsgType:    rlpMsg.MsgType,
+		Height:     rlpMsg.Height,
+		Round:      int64(rlpMsg.Round),
+		Value:      rlpMsg.Value,
+		ValidRound: int64(rlpMsg.ValidRound),
+	}
+
+	println("da msg", cm.String())
+
+	// Verify the signatures
+	// Get the sender address
+	msgHash := crypto.Keccak256(append(sm.ConsensusMessage, sm.ProposerSeal...))
+	signerAddress, err := types.GetSignatureAddressHash(msgHash, sm.Signature)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"unable to retrieve address from message signature: %v - message: %q",
+			err,
+			cm.String(),
+		)
+	}
+
+	// Get the proposer address
+	proposerAddress, err := types.GetSignatureAddressHash(cm.Value[:], sm.ProposerSeal)
+	if err != nil {
+		return nil, badMessageErr(fmt.Sprintf("received proposal message with invalid proposer seal: %v", err),
+			cm,
+			signerAddress,
+		)
+	}
+	var value *types.Block
+	if cm.MsgType == algorithm.Propose {
+		// Check that the proposer seal address matches the signer address.
+		if proposerAddress != signerAddress {
+			return nil, badMessageErr(fmt.Sprintf("proposer seal address %q does not match sender address", proposerAddress.String()),
+				cm,
+				signerAddress,
+			)
+		}
+
+		// Check that a block was provided if the message is a proposal.
+		if len(sm.Value) == 0 {
+			return nil, badMessageErr(
+				"received proposal message without associated value",
+				cm,
+				signerAddress,
+			)
+		}
+		value = &types.Block{}
+		err = rlp.Decode(bytes.NewBuffer(sm.Value), value)
+		if err != nil {
+			return nil, err
+		}
+
+		// Check proposal message hash and block hash match.
+		if value.Hash() != common.Hash(cm.Value) {
+			return nil, badMessageErr(
+				fmt.Sprintf("received proposal message with mismatching value having hash %q", value.Hash().String()),
+				cm,
+				signerAddress,
+			)
+		}
+
+	}
+	return &message{
+		hash:             common.Hash(sha256.Sum256(msgBytes)),
+		signature:        sm.Signature,
+		consensusMessage: cm,
+		value:            value,
+		proposerSeal:     sm.ProposerSeal,
+		address:          signerAddress,
+	}, nil
 }

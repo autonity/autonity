@@ -84,7 +84,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	backend.core = tendermintCore.New(backend, config)
+	backend.core = tendermintCore.New(backend, config, backend.privateKey)
 	return backend
 }
 

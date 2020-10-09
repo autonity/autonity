@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -14,9 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestProposal(t *testing.T) {
+func TestGetMatchingProposal(t *testing.T) {
 	m := newMessageStore()
 
+	k, err := crypto.GenerateKey()
+	require.NoError(t, err)
 	b := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(1),
 	})
@@ -32,18 +33,13 @@ func TestProposal(t *testing.T) {
 		ValidRound: -1,
 	}
 
-	internalMessage := NewProposal(p.Round, new(big.Int).SetUint64(p.Height), p.ValidRound, m.value(common.Hash(p.Value)))
-
-	a := common.Address{}
-	marshalledInternalMessage, err := Encode(internalMessage)
+	msgBytes, err := encodeSignedMessage(p, m, k)
 	require.NoError(t, err)
-	msg := &Message{
-		Code:          msgProposal,
-		Address:       a,
-		CommittedSeal: []byte{}, // Not sure why this is empty but it seems to be set like this everywhere.
-		Msg:           marshalledInternalMessage,
-	}
-	err = m.addMessage(msg, p)
+
+	msg, err := decodeSignedMessage(msgBytes)
+	require.NoError(t, err)
+
+	err = m.addMessage(msg, msgBytes)
 	require.NoError(t, err)
 
 	pv := &algorithm.ConsensusMessage{

@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -28,7 +29,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
@@ -63,10 +63,11 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config) *core {
+func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey) *core {
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
 	c := &core{
+		key:                   key,
 		proposerPolicy:        config.ProposerPolicy,
 		address:               addr,
 		logger:                logger,
@@ -85,6 +86,7 @@ func New(backend Backend, config *config.Config) *core {
 }
 
 type core struct {
+	key            *ecdsa.PrivateKey
 	proposerPolicy config.ProposerPolicy
 	address        common.Address
 	logger         log.Logger
@@ -163,84 +165,6 @@ func (c *core) AwaitValue(ctx context.Context, height *big.Int) (*types.Block, e
 				return v, nil
 			}
 		}
-	}
-}
-
-func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
-	var err error
-
-	// Sign message
-	data, err := msg.PayloadNoSig()
-	if err != nil {
-		return nil, err
-	}
-	msg.Signature, err = c.backend.Sign(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return msg.Payload(), nil
-}
-
-func (c *core) buildMessage(m *algorithm.ConsensusMessage) *Message {
-
-	var code uint64
-	var internalMessage interface{}
-	bigHeight := new(big.Int).SetUint64(m.Height)
-	switch m.MsgType {
-	case algorithm.Propose:
-		code = msgProposal
-		// TODO This is where my problem is, msgcache is returning nil, because Ihavent processed any proposals yet
-		println(addr(c.address), "getting value", m.Height, common.Hash(m.Value).String())
-		internalMessage = NewProposal(m.Round, bigHeight, m.ValidRound, c.msgCache.value(common.Hash(m.Value)))
-	case algorithm.Prevote:
-		code = msgPrevote
-		internalMessage = &Vote{
-			Round:             m.Round,
-			Height:            bigHeight,
-			ProposedBlockHash: common.Hash(m.Value),
-		}
-	case algorithm.Precommit:
-		code = msgPrecommit
-		internalMessage = &Vote{
-			Round:             m.Round,
-			Height:            bigHeight,
-			ProposedBlockHash: common.Hash(m.Value),
-		}
-	}
-	marshalledInternalMessage, err := Encode(internalMessage)
-	if err != nil {
-		panic(fmt.Sprintf("error while encoding consensus message: %v", err))
-	}
-	msg := &Message{
-		Code:          code,
-		Address:       c.address,
-		CommittedSeal: []byte{}, // Not sure why this is empty but it seems to be set like this everywhere.
-		Msg:           marshalledInternalMessage,
-	}
-
-	if m.MsgType == algorithm.Precommit {
-		commitment := crypto.BuildCommitment(common.Hash(m.Value), bigHeight, m.Round)
-		msg.CommittedSeal, err = c.backend.Sign(commitment)
-		if err != nil {
-			panic(fmt.Sprintf("error while signing committed seal: %v", err))
-		}
-	}
-	return msg
-}
-
-func (c *core) broadcast(ctx context.Context, msg *Message, committee types.Committee) {
-	logger := c.logger.New("step", nil)
-
-	payload, err := c.finalizeMessage(msg)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to finalize message: %+v err: %v", msg, err))
-	}
-	// Broadcast payload
-	logger.Debug("broadcasting", "msg", msg.String())
-	if err = c.backend.Broadcast(ctx, committee, payload); err != nil {
-		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
-		return
 	}
 }
 

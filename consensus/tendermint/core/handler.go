@@ -17,9 +17,7 @@
 package core
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"math/big"
@@ -31,66 +29,10 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/rlp"
 	"github.com/davecgh/go-spew/spew"
 )
 
 var errStopped error = errors.New("stopped")
-
-type signedMessage struct {
-	signature []byte
-	message   []byte
-	value     []byte
-	// We don't need the committed seal separate from the signature since we
-	// can just recreate the signature by adding the precommit message type
-	// into the commitment.
-}
-
-type message struct {
-	hash             common.Hash
-	signature        []byte
-	consensusMessage *algorithm.ConsensusMessage
-	value            *types.Block
-	address          common.Address
-}
-
-func (m *message) String() string {
-	return "bla"
-}
-
-func unmarshalSignedMessage(msgBytes []byte) (*message, error) {
-	m := &signedMessage{}
-	err := rlp.Decode(bytes.NewBuffer(msgBytes), m)
-	if err != nil {
-		return nil, err
-	}
-
-	msg := &algorithm.ConsensusMessage{}
-	err = rlp.Decode(bytes.NewBuffer(m.message), msg)
-	if err != nil {
-		return nil, err
-	}
-
-	value := &types.Block{}
-	err = rlp.Decode(bytes.NewBuffer(m.value), value)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the sender address
-	address, err := types.GetSignatureAddress(m.message, m.signature)
-	if err != nil {
-		return nil, err
-	}
-
-	return &message{
-		hash:             common.Hash(sha256.Sum256(msgBytes)),
-		signature:        m.signature,
-		consensusMessage: msg,
-		value:            value,
-		address:          address,
-	}, nil
-}
 
 // Start implements core.Tendermint.Start
 func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
@@ -195,7 +137,7 @@ func (c *core) newHeight(ctx context.Context, height uint64) error {
 	}
 	for _, msg := range c.msgCache.heightMessages(newHeight.Uint64()) {
 		go func(m *message) {
-			err := c.handleCurrentHeightMessage(ctx, msg)
+			err := c.handleCurrentHeightMessage(ctx, m)
 			c.logger.Error("failed to handle current height message", "message", m.String, "err", err)
 		}(msg)
 	}
@@ -216,6 +158,9 @@ func (c *core) handleResult(ctx context.Context, r *algorithm.Result) error {
 			// A decision has been reached
 			println(addr(c.address), "decided on block", sr.Decision.Height,
 				common.Hash(sr.Decision.Value).String())
+
+
+				TODO add seals here
 
 			// This will ultimately lead to a commit event, which we will pick
 			// up on but we will ignore it because instead we will wait here to
@@ -250,11 +195,25 @@ func (c *core) handleResult(ctx context.Context, r *algorithm.Result) error {
 		// Broadcasting ends with the message reaching us eventually
 
 		// We must build message here since buildMessage relies on accessing
-		// the msg store, and since the message stroe is not syncronised we
+		// the msg store, and since the message store is not syncronised we
 		// need to do it from the handler routine.
-		msg := c.buildMessage(r.Broadcast)
+		msg, err := encodeSignedMessage(r.Broadcast, c.key, c.msgCache)
+		if err != nil {
+			panic(fmt.Sprintf(
+				"%s We were unable to build a message, this indicates a programming error: %v",
+				addr(c.address),
+				err,
+			))
+		}
 
-		go c.broadcast(ctx, msg, c.lastHeader.Committee)
+		// Broadcast in a new goroutine
+		go func(committee types.Committee) {
+			err := c.backend.Broadcast(ctx, committee, msg)
+			if err != nil {
+				c.logger.Error("Failed to broadcast message", "msg", msg, "err", err)
+			}
+		}(c.lastHeader.Committee)
+
 	case r.Schedule != nil:
 		time.AfterFunc(time.Duration(r.Schedule.Delay)*time.Second, func() {
 			c.backend.Post(r.Schedule)
@@ -368,12 +327,14 @@ eventLoop:
 
 func (c *core) handleMsg(ctx context.Context, msgBytes []byte) error {
 
+	println("got a message")
 	/*
 		Basic validity checks
 	*/
 
-	m, err := unmarshalSignedMessage(msgBytes)
+	m, err := decodeSignedMessage(msgBytes)
 	if err != nil {
+		fmt.Printf("some error: %v\n", err)
 		return err
 	}
 	// Check we haven't already processed this message
