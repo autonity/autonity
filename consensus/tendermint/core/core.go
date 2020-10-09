@@ -169,11 +169,14 @@ func (c *core) AwaitValue(ctx context.Context, height *big.Int) (*types.Block, e
 }
 
 func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
-	block := c.msgCache.value(common.Hash(proposal.Value))
-	committedSeals := c.msgCache.signatures(algorithm.ValueID(block.Hash()), proposal.Round, block.NumberU64())
+	committedSeals := c.msgCache.signatures(proposal.Value, proposal.Round, proposal.Height)
+	message := c.msgCache.matchingProposal(proposal)
 	// Sanity checks
-	if block == nil {
+	if message == nil || message.value == nil {
 		return nil, fmt.Errorf("attempted to commit nil block")
+	}
+	if message.proposerSeal == nil {
+		return nil, fmt.Errorf("attempted to commit block without proposer seal")
 	}
 	if proposal.Round < 0 {
 		return nil, fmt.Errorf("attempted to commit a block in a negative round: %d", proposal.Round)
@@ -187,10 +190,12 @@ func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error
 			return nil, fmt.Errorf("attempted to commit block with a committed seal of invalid length: %s", hex.EncodeToString(seal))
 		}
 	}
-	h := block.Header()
+	// Add the proposer seal and committed seals into the block.
+	h := message.value.Header()
 	h.CommittedSeals = committedSeals
+	h.ProposerSeal = message.proposerSeal
 	h.Round = uint64(proposal.Round)
-	block = block.WithSeal(h)
+	block := message.value.WithSeal(h)
 	c.backend.Commit(block, c.committee.GetProposer(proposal.Round).Address)
 
 	c.logger.Info("commit a block", "hash", block.Hash())

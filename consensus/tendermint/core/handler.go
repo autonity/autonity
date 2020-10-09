@@ -159,9 +159,6 @@ func (c *core) handleResult(ctx context.Context, r *algorithm.Result) error {
 			println(addr(c.address), "decided on block", sr.Decision.Height,
 				common.Hash(sr.Decision.Value).String())
 
-
-				TODO add seals here
-
 			// This will ultimately lead to a commit event, which we will pick
 			// up on but we will ignore it because instead we will wait here to
 			// select the next value that matches this height.
