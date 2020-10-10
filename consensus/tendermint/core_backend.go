@@ -24,8 +24,6 @@ type Backend interface {
 	// The delivered proposal will be put into blockchain.
 	Commit(proposalBlock *types.Block, proposer common.Address)
 
-	GetContractABI() string
-
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(ctx context.Context, committee types.Committee, payload []byte)
 
@@ -36,9 +34,6 @@ type Backend interface {
 
 	Post(ev interface{})
 
-	// Setter for proposed block hash
-	SetProposedBlockHash(hash common.Hash)
-
 	Subscribe(types ...interface{}) *event.TypeMuxSubscription
 
 	SyncPeer(address common.Address, messages [][]byte)
@@ -46,8 +41,6 @@ type Backend interface {
 	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
 	VerifyProposal(types.Block) (time.Duration, error)
-
-	WhiteList() []string
 
 	BlockChain() *ethcore.BlockChain
 
