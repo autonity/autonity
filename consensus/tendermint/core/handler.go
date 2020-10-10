@@ -255,7 +255,41 @@ eventLoop:
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				err := c.handleMsg(ctx, e.Payload)
+				println("got a message")
+				/*
+					Basic validity checks
+				*/
+
+				m, err := decodeSignedMessage(e.Payload)
+				if err != nil {
+					fmt.Printf("some error: %v\n", err)
+					continue
+				}
+				// Check we haven't already processed this message
+				if c.msgCache.Message(m.hash) != nil {
+					// Message was already processed
+					continue
+				}
+				err = c.msgCache.addMessage(m, e.Payload)
+				if err != nil {
+					// could be multiple proposal messages from the same proposer
+					continue
+				}
+				if m.consensusMessage.MsgType == algorithm.Propose {
+					c.msgCache.addValue(m.value.Hash(), m.value)
+				}
+
+				// If this message is for a future height then we cannot validate it
+				// because we lack the relevant header, we will process it when we reach
+				// that height. If it is for a previous height then we are not intersted in
+				// it. But it has been added to the msg cache in case other peers would
+				// like to sync it.
+				if m.consensusMessage.Height != c.height.Uint64() {
+					// Nothing to do here
+					continue
+				}
+
+				err = c.handleCurrentHeightMessage(ctx, m)
 				if err == errStopped {
 					return
 				}
@@ -308,46 +342,6 @@ eventLoop:
 			break eventLoop
 		}
 	}
-
-}
-
-func (c *core) handleMsg(ctx context.Context, msgBytes []byte) error {
-
-	println("got a message")
-	/*
-		Basic validity checks
-	*/
-
-	m, err := decodeSignedMessage(msgBytes)
-	if err != nil {
-		fmt.Printf("some error: %v\n", err)
-		return err
-	}
-	// Check we haven't already processed this message
-	if c.msgCache.Message(m.hash) != nil {
-		// Message was already processed
-		return nil
-	}
-	err = c.msgCache.addMessage(m, msgBytes)
-	if err != nil {
-		// could be multiple proposal messages from the same proposer
-		return err
-	}
-	if m.consensusMessage.MsgType == algorithm.Propose {
-		c.msgCache.addValue(m.value.Hash(), m.value)
-	}
-
-	// If this message is for a future height then we cannot validate it
-	// because we lack the relevant header, we will process it when we reach
-	// that height. If it is for a previous height then we are not intersted in
-	// it. But it has been added to the msg cache in case other peers would
-	// like to sync it.
-	if m.consensusMessage.Height != c.height.Uint64() {
-		// Nothing to do here
-		return nil
-	}
-
-	return c.handleCurrentHeightMessage(ctx, m)
 
 }
 
