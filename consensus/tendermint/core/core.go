@@ -139,7 +139,7 @@ func (c *core) AwaitValue(ctx context.Context, height *big.Int) (*types.Block, e
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, errStopped
 		default:
 			if c.value == nil || c.value.Number().Cmp(height) != 0 {
 				c.value = nil
