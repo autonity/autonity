@@ -128,7 +128,7 @@ docker-e2e-test: embed-autonity-contract
 	cd docker_e2e_test && sudo python3 test_via_docker.py ..
 
 mock-gen:
-	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go
+	mockgen -source=consensus/tendermint/core_backend.go -package=tendermint -destination=consensus/tendermint/backend_mock.go
 	mockgen -source=consensus/protocol.go -package=consensus -destination=consensus/protocol_mock.go
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 
