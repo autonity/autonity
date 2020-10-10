@@ -264,17 +264,6 @@ eventLoop:
 					continue
 				}
 				c.backend.Gossip(ctx, c.lastHeader.Committee, e.Payload)
-			case *algorithm.ConsensusMessage:
-				println(addr(c.address), e.String(), "message from self")
-				// This is a message we sent ourselves we do not need to broadcast it
-				if c.height.Uint64() == e.Height {
-					r := c.algo.ReceiveMessage(e)
-					err := c.handleResult(ctx, r)
-					if err != nil {
-						println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
-						return
-					}
-				}
 			case *algorithm.Timeout:
 				var r *algorithm.Result
 				switch e.TimeoutType {
