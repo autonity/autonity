@@ -10,7 +10,7 @@ type oracle struct {
 	lastHeader   *types.Header
 	store        *messageCache
 	committeeSet committee
-	c            *core
+	c            *bridge
 }
 
 func (o *oracle) FThresh(round int64) bool {

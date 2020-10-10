@@ -49,10 +49,10 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey) *core {
+func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey) *bridge {
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
-	c := &core{
+	c := &bridge{
 		key:                   key,
 		proposerPolicy:        config.ProposerPolicy,
 		address:               addr,
@@ -71,7 +71,7 @@ func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey) *core {
 	return c
 }
 
-type core struct {
+type bridge struct {
 	key            *ecdsa.PrivateKey
 	proposerPolicy config.ProposerPolicy
 	address        common.Address
@@ -108,7 +108,7 @@ type core struct {
 	currentBlock *types.Block
 }
 
-func (c *core) SetValue(b *types.Block) {
+func (c *bridge) SetValue(b *types.Block) {
 	c.valueSet.L.Lock()
 	defer c.valueSet.L.Unlock()
 	if c.value == nil {
@@ -118,7 +118,7 @@ func (c *core) SetValue(b *types.Block) {
 	println(addr(c.address), c.height, "setting value", c.value.Hash().String()[2:8], "value height", c.value.Number().String())
 }
 
-func (c *core) AwaitValue(ctx context.Context, height *big.Int) (*types.Block, error) {
+func (c *bridge) AwaitValue(ctx context.Context, height *big.Int) (*types.Block, error) {
 	c.valueSet.L.Lock()
 	defer c.valueSet.L.Unlock()
 
@@ -154,7 +154,7 @@ func (c *core) AwaitValue(ctx context.Context, height *big.Int) (*types.Block, e
 	}
 }
 
-func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
+func (c *bridge) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
 	committedSeals := c.msgCache.signatures(proposal.Value, proposal.Round, proposal.Height)
 	message := c.msgCache.matchingProposal(proposal)
 	// Sanity checks
@@ -190,14 +190,14 @@ func (c *core) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error
 }
 
 // Metric collecton of round change and height change.
-func (c *core) measureHeightRoundMetrics(round int64) {
+func (c *bridge) measureHeightRoundMetrics(round int64) {
 	if round == 0 {
 		tendermintHeightChangeMeter.Mark(1)
 	}
 	tendermintRoundChangeMeter.Mark(1)
 }
 
-func (c *core) createCommittee(block *types.Block) committee {
+func (c *bridge) createCommittee(block *types.Block) committee {
 	var committeeSet committee
 	var err error
 	var lastProposer common.Address
@@ -225,7 +225,7 @@ func (c *core) createCommittee(block *types.Block) committee {
 var errStopped error = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
-func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
+func (c *bridge) Start(ctx context.Context, contract *autonity.Contract) {
 	println("starting")
 	// Set the autonity contract
 	c.autonityContract = contract
@@ -249,7 +249,7 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 }
 
 // stop implements core.Engine.stop
-func (c *core) Stop() {
+func (c *bridge) Stop() {
 	println(addr(c.address), c.height, "stopping")
 
 	c.logger.Info("stopping tendermint.core", "addr", addr(c.address))
@@ -270,7 +270,7 @@ func (c *core) Stop() {
 	c.wg.Wait()
 }
 
-func (c *core) handleNewUnminedBlockEvent(ctx context.Context) {
+func (c *bridge) handleNewUnminedBlockEvent(ctx context.Context) {
 	defer c.wg.Done()
 eventLoop:
 	for {
@@ -288,7 +288,7 @@ eventLoop:
 	}
 }
 
-func (c *core) newHeight(ctx context.Context, height uint64) error {
+func (c *bridge) newHeight(ctx context.Context, height uint64) error {
 	c.syncTimer = time.NewTimer(20 * time.Second)
 	newHeight := new(big.Int).SetUint64(height)
 	// set the new height
@@ -332,7 +332,7 @@ func (c *core) newHeight(ctx context.Context, height uint64) error {
 	return nil
 }
 
-func (c *core) handleResult(ctx context.Context, r *algorithm.Result) error {
+func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
 
 	switch {
 	case r == nil:
@@ -408,7 +408,7 @@ func (c *core) handleResult(ctx context.Context, r *algorithm.Result) error {
 	return nil
 }
 
-func (c *core) mainEventLoop(ctx context.Context) {
+func (c *bridge) mainEventLoop(ctx context.Context) {
 	defer c.wg.Done()
 	// Start a new round from last height + 1
 	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
@@ -533,7 +533,7 @@ eventLoop:
 
 }
 
-func (c *core) handleCurrentHeightMessage(ctx context.Context, m *message) error {
+func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) error {
 	println(addr(c.address), c.height.String(), m.String(), "received")
 	cm := m.consensusMessage
 	/*
