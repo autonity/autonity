@@ -136,10 +136,8 @@ func (c *core) newHeight(ctx context.Context, height uint64) error {
 		return err
 	}
 	for _, msg := range c.msgCache.heightMessages(newHeight.Uint64()) {
-		go func(m *message) {
-			err := c.handleCurrentHeightMessage(ctx, m)
-			c.logger.Error("failed to handle current height message", "message", m.String, "err", err)
-		}(msg)
+		err := c.handleCurrentHeightMessage(ctx, msg)
+		c.logger.Error("failed to handle current height message", "message", msg.String(), "err", err)
 	}
 	return nil
 }
