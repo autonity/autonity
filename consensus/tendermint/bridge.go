@@ -13,6 +13,7 @@ import (
 	common "github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
+	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	autonity "github.com/clearmatics/autonity/contracts/autonity"
@@ -50,7 +51,7 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster) *bridge {
+func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer) *bridge {
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
 	c := &bridge{
@@ -64,6 +65,7 @@ func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcas
 		valueSet:              sync.NewCond(&sync.Mutex{}),
 		msgCache:              newMessageStore(),
 		broadcaster:           broadcaster,
+		syncer:                syncer,
 	}
 	o := &oracle{
 		c:     c,
@@ -110,6 +112,7 @@ type bridge struct {
 	currentBlock *types.Block
 
 	broadcaster *Broadcaster
+	syncer      *Syncer
 }
 
 func (c *bridge) SetValue(b *types.Block) {
@@ -427,13 +430,13 @@ func (c *bridge) mainEventLoop(ctx context.Context) {
 	}
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.lastHeader)
+	c.syncer.AskSync(c.lastHeader)
 
 eventLoop:
 	for {
 		select {
 		case <-c.syncTimer.C:
-			c.backend.AskSync(c.lastHeader)
+			c.syncer.AskSync(c.lastHeader)
 			c.syncTimer = time.NewTimer(20 * time.Second)
 
 		case ev, ok := <-c.syncEventSub.Chan():
@@ -442,7 +445,7 @@ eventLoop:
 			}
 			event := ev.Data.(events.SyncEvent)
 			c.logger.Info("Processing sync message", "from", event.Addr)
-			c.backend.SyncPeer(event.Addr, c.msgCache.rawHeightMessages(c.height.Uint64()))
+			c.syncer.SyncPeer(event.Addr, c.msgCache.rawHeightMessages(c.height.Uint64()))
 		case ev, ok := <-c.eventsSub.Chan():
 			if !ok {
 				break eventLoop
@@ -642,6 +645,46 @@ func (b *Broadcaster) Broadcast(ctx context.Context, committee types.Committee, 
 			// the map before trying to send the message so if message
 			// sending failed we would not have tried again.
 			go p.Send(tendermintMsg, payload) //nolint
+		}
+	}
+}
+
+type Syncer struct {
+	peers consensus.Peers
+}
+
+func NewSyncer(peers consensus.Peers) *Syncer {
+	return &Syncer{
+		peers: peers,
+	}
+}
+
+func (s *Syncer) AskSync(header *types.Header) {
+	var count uint64
+	for _, p := range s.peers.Peers() {
+		//ask to a quorum nodes to sync, 1 must then be honest and updated
+		if count >= bft.Quorum(header.TotalVotingPower()) {
+			break
+		}
+		go p.Send(tendermintSyncMsg, []byte{}) //nolint
+
+		member := header.CommitteeMember(p.Address())
+		if member == nil {
+			continue
+		}
+		count += member.VotingPower.Uint64()
+	}
+}
+
+// Synchronize new connected peer with current height state
+func (s *Syncer) SyncPeer(address common.Address, messages [][]byte) {
+	for _, p := range s.peers.Peers() {
+		if address == p.Address() {
+			for _, msg := range messages {
+				//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
+				go p.Send(tendermintMsg, msg) //nolint
+			}
+			break
 		}
 	}
 }

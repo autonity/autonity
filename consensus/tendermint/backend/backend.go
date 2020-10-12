@@ -25,7 +25,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"
-	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -55,7 +54,7 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config, broadcaster *tendermint.Broadcaster, peers consensus.Peers) *Backend {
+func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config, broadcaster *tendermint.Broadcaster, peers consensus.Peers, syncer *tendermint.Syncer) *Backend {
 	if chainConfig.Tendermint.BlockPeriod != 0 {
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
@@ -83,7 +82,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	backend.core = tendermint.New(backend, config, backend.privateKey, broadcaster)
+	backend.core = tendermint.New(backend, config, backend.privateKey, broadcaster, syncer)
 	return backend
 }
 
@@ -136,36 +135,6 @@ func (sb *Backend) Address() common.Address {
 
 func (sb *Backend) postEvent(event interface{}) {
 	go sb.Post(event)
-}
-
-func (sb *Backend) AskSync(header *types.Header) {
-	sb.logger.Info("Broadcasting consensus synchronization request")
-
-	targets := make(map[common.Address]struct{})
-	for _, val := range header.Committee {
-		if val.Address != sb.Address() {
-			targets[val.Address] = struct{}{}
-		}
-	}
-
-	if len(targets) > 0 {
-		var count uint64
-		for _, p := range sb.peers.Peers() {
-			//ask to a quorum nodes to sync, 1 must then be honest and updated
-			if count >= bft.Quorum(header.TotalVotingPower()) {
-				break
-			}
-			sb.logger.Info("Asking sync to", "addr", p.Address())
-			go p.Send(tendermintSyncMsg, []byte{}) //nolint
-
-			member := header.CommitteeMember(p.Address())
-			if member == nil {
-				sb.logger.Error("could not retrieve member from address")
-				continue
-			}
-			count += member.VotingPower.Uint64()
-		}
-	}
 }
 
 // Commit implements tendermint.Backend.Commit
@@ -338,20 +307,6 @@ func (sb *Backend) WhiteList() []string {
 	}
 
 	return enodes.StrList
-}
-
-// Synchronize new connected peer with current height state
-func (sb *Backend) SyncPeer(address common.Address, messages [][]byte) {
-	sb.logger.Info("Syncing", "peer", address)
-	for _, p := range sb.peers.Peers() {
-		if address == p.Address() {
-			for _, msg := range messages {
-				//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-				go p.Send(tendermintMsg, msg) //nolint
-			}
-			break
-		}
-	}
 }
 
 func (sb *Backend) ResetPeerCache(address common.Address) {

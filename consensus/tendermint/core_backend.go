@@ -15,8 +15,6 @@ import (
 type Backend interface {
 	Address() common.Address
 
-	AskSync(header *types.Header)
-
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
 	Commit(proposalBlock *types.Block, proposer common.Address)
@@ -29,8 +27,6 @@ type Backend interface {
 	Post(ev interface{})
 
 	Subscribe(types ...interface{}) *event.TypeMuxSubscription
-
-	SyncPeer(address common.Address, messages [][]byte)
 
 	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
