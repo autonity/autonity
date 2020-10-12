@@ -19,9 +19,10 @@ package les
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/clearmatics/autonity/les/checkpointoracle"
 	lpc "github.com/clearmatics/autonity/les/lespay/client"
-	"time"
 
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/abi/bind"
@@ -102,7 +103,7 @@ func New(ctx *node.ServiceContext, config *eth.Config) (*LightEthereum, error) {
 		eventMux:       ctx.EventMux,
 		reqDist:        newRequestDistributor(peers, &mclock.System{}),
 		accountManager: ctx.AccountManager,
-		engine:         eth.CreateConsensusEngine(ctx, chainConfig, config, nil, false, chainDb, nil),
+		engine:         eth.CreateConsensusEngine(ctx, chainConfig, config, nil, false, chainDb, nil, nil),
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   eth.NewBloomIndexer(chainDb, params.BloomBitsBlocksClient, params.HelperTrieConfirmations),
 		valueTracker:   lpc.NewValueTracker(lespayDb, &mclock.System{}, requestList, time.Minute, 1/float64(time.Hour), 1/float64(time.Hour*100), 1/float64(time.Hour*1000)),

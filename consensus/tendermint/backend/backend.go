@@ -17,7 +17,6 @@
 package backend
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"errors"
 	"sync"
@@ -25,10 +24,9 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
@@ -57,7 +55,7 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
+func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config, broadcaster *tendermint.Broadcaster, peers consensus.Peers) *Backend {
 	if chainConfig.Tendermint.BlockPeriod != 0 {
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
@@ -81,10 +79,11 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		coreStarted:    false,
 		recentMessages: recentMessages,
 		vmConfig:       vmConfig,
+		peers:          peers,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	backend.core = tendermintCore.New(backend, config, backend.privateKey)
+	backend.core = tendermint.New(backend, config, backend.privateKey, broadcaster)
 	return backend
 }
 
@@ -105,7 +104,7 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
-	core              tendermintCore.Tendermint
+	core              tendermint.Tendermint
 	stopped           chan struct{}
 	coreMu            sync.RWMutex
 
@@ -123,6 +122,7 @@ type Backend struct {
 
 	contractsMu sync.RWMutex
 	vmConfig    *vm.Config
+	peers       consensus.Peers
 }
 
 func (sb *Backend) BlockChain() *core.BlockChain {
@@ -132,18 +132,6 @@ func (sb *Backend) BlockChain() *core.BlockChain {
 // Address implements tendermint.Backend.Address
 func (sb *Backend) Address() common.Address {
 	return sb.address
-}
-
-// Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
-	// send to others
-	sb.Gossip(ctx, committee, payload)
-	// send to self
-	msg := events.MessageEvent{
-		Payload: payload,
-	}
-	sb.postEvent(msg)
-	return nil
 }
 
 func (sb *Backend) postEvent(event interface{}) {
@@ -160,57 +148,22 @@ func (sb *Backend) AskSync(header *types.Header) {
 		}
 	}
 
-	if sb.broadcaster != nil && len(targets) > 0 {
-		ps := sb.broadcaster.FindPeers(targets)
+	if len(targets) > 0 {
 		var count uint64
-		for addr, p := range ps {
+		for _, p := range sb.peers.Peers() {
 			//ask to a quorum nodes to sync, 1 must then be honest and updated
 			if count >= bft.Quorum(header.TotalVotingPower()) {
 				break
 			}
-			sb.logger.Info("Asking sync to", "addr", addr)
+			sb.logger.Info("Asking sync to", "addr", p.Address())
 			go p.Send(tendermintSyncMsg, []byte{}) //nolint
 
-			member := header.CommitteeMember(addr)
+			member := header.CommitteeMember(p.Address())
 			if member == nil {
 				sb.logger.Error("could not retrieve member from address")
 				continue
 			}
 			count += member.VotingPower.Uint64()
-		}
-	}
-}
-
-// Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
-	hash := types.RLPHash(payload)
-
-	targets := make(map[common.Address]struct{})
-	for _, val := range committee {
-		if val.Address != sb.Address() {
-			targets[val.Address] = struct{}{}
-		}
-	}
-
-	if sb.broadcaster != nil && len(targets) > 0 {
-		ps := sb.broadcaster.FindPeers(targets)
-		for addr, p := range ps {
-			ms, ok := sb.recentMessages.Get(addr)
-			var m *lru.ARCCache
-			if ok {
-				m, _ = ms.(*lru.ARCCache)
-				if _, k := m.Get(hash); k {
-					// This peer had this event, skip it
-					continue
-				}
-			} else {
-				m, _ = lru.NewARC(inmemoryMessages)
-			}
-
-			m.Add(hash, true)
-			sb.recentMessages.Add(addr, m)
-
-			go p.Send(tendermintMsg, payload) //nolint
 		}
 	}
 }
@@ -389,20 +342,15 @@ func (sb *Backend) WhiteList() []string {
 
 // Synchronize new connected peer with current height state
 func (sb *Backend) SyncPeer(address common.Address, messages [][]byte) {
-	if sb.broadcaster == nil {
-		return
-	}
-
 	sb.logger.Info("Syncing", "peer", address)
-	targets := map[common.Address]struct{}{address: {}}
-	ps := sb.broadcaster.FindPeers(targets)
-	p, connected := ps[address]
-	if !connected {
-		return
-	}
-	for _, msg := range messages {
-		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.Send(tendermintMsg, msg) //nolint
+	for _, p := range sb.peers.Peers() {
+		if address == p.Address() {
+			for _, msg := range messages {
+				//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
+				go p.Send(tendermintMsg, msg) //nolint
+			}
+			break
+		}
 	}
 }
 

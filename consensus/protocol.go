@@ -20,18 +20,26 @@ package consensus
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/p2p/enode"
 )
+
+type Peers interface {
+	Peers() []Peer
+}
 
 // Broadcaster defines the interface to enqueue blocks to fetcher and find peer
 type Broadcaster interface {
 	// Enqueue add a block into fetcher queue
 	Enqueue(id string, block *types.Block)
-	// FindPeers retrives connected peers by addresses
-	FindPeers(map[common.Address]struct{}) map[common.Address]Peer
 }
 
 // Peer defines the interface to communicate with peer
 type Peer interface {
 	// Send sends the message to this peer
 	Send(msgcode uint64, data interface{}) error
+
+	// Address returns the Peer's address
+	Address() common.Address
+
+	Node() *enode.Node
 }

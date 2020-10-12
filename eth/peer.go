@@ -24,8 +24,10 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/forkid"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rlp"
 	mapset "github.com/deckarep/golang-set"
@@ -295,7 +297,6 @@ func (p *peer) Info() *PeerInfo {
 func (p *peer) Head() (hash common.Hash, td *big.Int) {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
-
 	copy(hash[:], p.head[:])
 	return hash, new(big.Int).Set(p.td)
 }
@@ -694,6 +695,10 @@ func (p *peer) String() string {
 	)
 }
 
+func (p *peer) Address() common.Address {
+	return crypto.PubkeyToAddress(*p.Node().Pubkey())
+}
+
 // peerSet represents the collection of active peers currently participating in
 // the Ethereum sub-protocol.
 type peerSet struct {
@@ -733,15 +738,15 @@ func (ps *peerSet) Register(p *peer) error {
 }
 
 // Peers returns all registered peers
-func (ps *peerSet) Peers() map[string]*peer {
+func (ps *peerSet) Peers() []consensus.Peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
-	set := make(map[string]*peer)
-	for id, p := range ps.peers {
-		set[id] = p
+	list := make([]consensus.Peer, len(ps.peers))[:0]
+	for _, p := range ps.peers {
+		list = append(list, p)
 	}
-	return set
+	return list
 }
 
 // Unregister removes a remote peer from the active set, disabling any further

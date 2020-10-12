@@ -113,21 +113,21 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey, peerset *peerSet) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:  networkID,
-		forkFilter: forkid.NewFilter(blockchain),
-		eventMux:   mux,
-		txpool:     txpool,
-		blockchain: blockchain,
-		chaindb:    chaindb,
-		peers:      newPeerSet(),
+		networkID:   networkID,
+		forkFilter:  forkid.NewFilter(blockchain),
+		eventMux:    mux,
+		txpool:      txpool,
+		blockchain:  blockchain,
+		chaindb:     chaindb,
+		peers:       peerset,
 		engine:      engine,
-		whitelist:  whitelist,
+		whitelist:   whitelist,
 		whitelistCh: make(chan core.WhitelistEvent, 64),
-		txsyncCh:   make(chan *txsync),
-		quitSync:   make(chan struct{}),
+		txsyncCh:    make(chan *txsync),
+		quitSync:    make(chan struct{}),
 		pub:         pub,
 	}
 	if handler, ok := manager.engine.(consensus.Handler); ok {
@@ -1021,23 +1021,6 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 			return
 		}
 	}
-}
-
-func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) map[common.Address]consensus.Peer {
-	m := make(map[common.Address]consensus.Peer)
-
-	for _, p := range pm.peers.Peers() {
-		pubKey := p.Node().Pubkey()
-		if pubKey == nil {
-			continue
-		}
-		addr := crypto.PubkeyToAddress(*pubKey)
-		if _, ok := targets[addr]; ok {
-			m[addr] = p
-		}
-	}
-
-	return m
 }
 
 // NodeInfo represents a short summary of the Ethereum sub-protocol metadata

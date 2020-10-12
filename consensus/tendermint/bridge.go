@@ -11,6 +11,7 @@ import (
 	time "time"
 
 	common "github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
@@ -49,7 +50,7 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey) *bridge {
+func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster) *bridge {
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
 	c := &bridge{
@@ -62,6 +63,7 @@ func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey) *bridge 
 		pendingUnminedBlockCh: make(chan *types.Block),
 		valueSet:              sync.NewCond(&sync.Mutex{}),
 		msgCache:              newMessageStore(),
+		broadcaster:           broadcaster,
 	}
 	o := &oracle{
 		c:     c,
@@ -106,6 +108,8 @@ type bridge struct {
 	valueSet     *sync.Cond
 	value        *types.Block
 	currentBlock *types.Block
+
+	broadcaster *Broadcaster
 }
 
 func (c *bridge) SetValue(b *types.Block) {
@@ -393,10 +397,13 @@ func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
 
 		// Broadcast in a new goroutine
 		go func(committee types.Committee) {
-			err := c.backend.Broadcast(ctx, committee, msg)
-			if err != nil {
-				c.logger.Error("Failed to broadcast message", "msg", msg, "err", err)
+			// send to self
+			event := events.MessageEvent{
+				Payload: msg,
 			}
+			c.backend.Post(event)
+			// Broadcast to peers
+			c.broadcaster.Broadcast(ctx, committee, msg)
 		}(c.lastHeader.Committee)
 
 	case r.Schedule != nil:
@@ -485,7 +492,7 @@ eventLoop:
 					c.logger.Debug("core.mainEventLoop problem processing message", "err", err)
 					continue
 				}
-				c.backend.Gossip(ctx, c.lastHeader.Committee, e.Payload)
+				c.broadcaster.Broadcast(ctx, c.lastHeader.Committee, e.Payload)
 			case *algorithm.Timeout:
 				var r *algorithm.Result
 				switch e.TimeoutType {
@@ -590,4 +597,51 @@ func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) err
 		return err
 	}
 	return nil
+}
+
+const (
+	tendermintMsg     = 0x11
+	tendermintSyncMsg = 0x12
+)
+
+type peerMessageMap interface {
+	// knowsMessage returns true if the peer knows the current message
+	knowsMessage(addr common.Address, hash common.Hash) bool
+}
+
+// TODO actually implement thit
+type degeneratePeerMessageMap struct {
+}
+
+func (p *degeneratePeerMessageMap) knowsMessage(_ common.Address, _ common.Hash) bool {
+	return false
+}
+
+type Broadcaster struct {
+	address common.Address
+	pmm     peerMessageMap
+	peers   consensus.Peers
+}
+
+func NewBroadcaster(address common.Address, peers consensus.Peers) *Broadcaster {
+	return &Broadcaster{
+		address: address,
+		peers:   peers,
+		pmm:     &degeneratePeerMessageMap{},
+	}
+}
+
+// Broadcast implements tendermint.Backend.Broadcast
+func (b *Broadcaster) Broadcast(ctx context.Context, committee types.Committee, payload []byte) {
+	hash := types.RLPHash(payload)
+
+	for _, p := range b.peers.Peers() {
+		if !b.pmm.knowsMessage(p.Address(), hash) {
+			// TODO make sure we update the peerMessageMap with the sent
+			// message, once successfully sent. previously we were updating
+			// the map before trying to send the message so if message
+			// sending failed we would not have tried again.
+			go p.Send(tendermintMsg, payload) //nolint
+		}
+	}
 }

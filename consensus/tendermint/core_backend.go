@@ -17,15 +17,9 @@ type Backend interface {
 
 	AskSync(header *types.Header)
 
-	// Broadcast sends a message to all validators (include self)
-	Broadcast(ctx context.Context, committee types.Committee, payload []byte) error
-
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
 	Commit(proposalBlock *types.Block, proposer common.Address)
-
-	// Gossip sends a message to all validators (exclude self)
-	Gossip(ctx context.Context, committee types.Committee, payload []byte)
 
 	HandleUnhandledMsgs(ctx context.Context)
 
