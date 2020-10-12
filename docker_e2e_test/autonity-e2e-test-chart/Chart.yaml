@@ -1,0 +1,16 @@
+name: autonity-e2e-test-framework
+apiVersion: v1
+version: 0.0.1 
+kubeVersion: ">=1.15.11-0"
+description: Chart for deploying a full Autonity network, and run e2e testcases over it.
+keywords:
+  - autonity
+  - autonity-e2e-test-framework
+  - blockchain
+home: https://www.autonity.io/
+sources:
+  - https://github.com/clearmatics/a-repo-name-for-it
+maintainers:
+  - name: jason
+     email: jason.chen@clearmatics.com
+     appVersion: v0.0.1

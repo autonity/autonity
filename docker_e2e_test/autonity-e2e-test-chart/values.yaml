@@ -1,0 +1,13 @@
+---
+imageClientUbuntuHost:
+  repository: ironmanjason/client_host
+  tag: 0.0.1
+
+imageAutonityE2ETestEngine:
+  repository: ironmanjason/test_engine
+  tag: 0.0.1
+
+# Number of validators
+validators:
+  num: 6
+  serviceType: "ClusterIP"
