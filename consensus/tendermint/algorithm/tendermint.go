@@ -148,8 +148,31 @@ func (a *Algorithm) timeout(timeoutType Step) *Timeout {
 // with a proposal to be broadcast if this node is the proposer, or a timeout
 // to be scheduled.
 func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Result {
-	println(a.nodeID.String(), height, "isproposer", a.oracle.Proposer(round, a.nodeID))
-	// Reset first time flags
+	println(a.nodeID.String(), height, "isProposer", a.oracle.Proposer(round, a.nodeID))
+
+	// assert conditions for round and height change
+	switch {
+	case height < a.height:
+		panic(fmt.Sprintf("New height cannot be less than previous height. Previous height: %-3d, new height: %-3d", a.height, height))
+	case round < 0:
+		panic(fmt.Sprintf("New round cannot be less than 0. Previous round: %-3d, new round: %-3d", a.round, round))
+	case height > a.height+1:
+		panic(fmt.Sprintf("New height cannot increase by an interval more than 1. Previous height: %-3d, new height: %-3d", a.height, height))
+	case height > a.height && round != 0:
+		panic(fmt.Sprintf("New Round must be 0 when consensus moves to new height. Previous height: %-3d, new height: %-3d, previous round: %-3d and new round %-3d", a.height, height, a.round, round))
+	case height == a.height && round <= a.round:
+		panic(fmt.Sprintf("New round must be more than previous round when height is the same. Previous height: %-3d, new height: %-3d, previous round: %-3d and new round %-3d", a.height, height, a.round, round))
+	}
+
+	// Flags to reset every height
+	if round == 0 {
+		a.lockedRound = -1
+		a.lockedValue = nilValue
+		a.validRound = -1
+		a.validValue = nilValue
+	}
+
+	// Flags to reset every round
 	a.line34Executed = false
 	a.line36Executed = false
 	a.line47Executed = false
@@ -157,6 +180,7 @@ func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Resul
 	a.height = height
 	a.round = round
 	a.step = Propose
+
 	if a.oracle.Proposer(round, a.nodeID) {
 		if a.validValue != nilValue {
 			value = a.validValue
