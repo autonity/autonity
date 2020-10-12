@@ -8,7 +8,7 @@ import (
 	context "context"
 	common "github.com/clearmatics/autonity/common"
 	autonity "github.com/clearmatics/autonity/contracts/autonity"
-	ethcore "github.com/clearmatics/autonity/core"
+	core "github.com/clearmatics/autonity/core"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
 	gomock "github.com/golang/mock/gomock"
@@ -53,32 +53,6 @@ func (mr *MockBackendMockRecorder) Address() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockBackend)(nil).Address))
 }
 
-// AskSync mocks base method
-func (m *MockBackend) AskSync(header *types.Header) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AskSync", header)
-}
-
-// AskSync indicates an expected call of AskSync
-func (mr *MockBackendMockRecorder) AskSync(header interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), header)
-}
-
-// Broadcast mocks base method
-func (m *MockBackend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Broadcast", ctx, committee, payload)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Broadcast indicates an expected call of Broadcast
-func (mr *MockBackendMockRecorder) Broadcast(ctx, committee, payload interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), ctx, committee, payload)
-}
-
 // Commit mocks base method
 func (m *MockBackend) Commit(proposalBlock *types.Block, proposer common.Address) {
 	m.ctrl.T.Helper()
@@ -89,32 +63,6 @@ func (m *MockBackend) Commit(proposalBlock *types.Block, proposer common.Address
 func (mr *MockBackendMockRecorder) Commit(proposalBlock, proposer interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, proposer)
-}
-
-// GetContractABI mocks base method
-func (m *MockBackend) GetContractABI() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContractABI")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetContractABI indicates an expected call of GetContractABI
-func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
-}
-
-// Gossip mocks base method
-func (m *MockBackend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Gossip", ctx, committee, payload)
-}
-
-// Gossip indicates an expected call of Gossip
-func (mr *MockBackendMockRecorder) Gossip(ctx, committee, payload interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), ctx, committee, payload)
 }
 
 // HandleUnhandledMsgs mocks base method
@@ -156,18 +104,6 @@ func (mr *MockBackendMockRecorder) Post(ev interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockBackend)(nil).Post), ev)
 }
 
-// SetProposedBlockHash mocks base method
-func (m *MockBackend) SetProposedBlockHash(hash common.Hash) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetProposedBlockHash", hash)
-}
-
-// SetProposedBlockHash indicates an expected call of SetProposedBlockHash
-func (mr *MockBackendMockRecorder) SetProposedBlockHash(hash interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProposedBlockHash", reflect.TypeOf((*MockBackend)(nil).SetProposedBlockHash), hash)
-}
-
 // Subscribe mocks base method
 func (m *MockBackend) Subscribe(types ...interface{}) *event.TypeMuxSubscription {
 	m.ctrl.T.Helper()
@@ -186,18 +122,6 @@ func (mr *MockBackendMockRecorder) Subscribe(types ...interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockBackend)(nil).Subscribe), types...)
 }
 
-// SyncPeer mocks base method
-func (m *MockBackend) SyncPeer(address common.Address, messages [][]byte) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SyncPeer", address, messages)
-}
-
-// SyncPeer indicates an expected call of SyncPeer
-func (mr *MockBackendMockRecorder) SyncPeer(address, messages interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockBackend)(nil).SyncPeer), address, messages)
-}
-
 // VerifyProposal mocks base method
 func (m *MockBackend) VerifyProposal(arg0 types.Block) (time.Duration, error) {
 	m.ctrl.T.Helper()
@@ -213,25 +137,11 @@ func (mr *MockBackendMockRecorder) VerifyProposal(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyProposal", reflect.TypeOf((*MockBackend)(nil).VerifyProposal), arg0)
 }
 
-// WhiteList mocks base method
-func (m *MockBackend) WhiteList() []string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WhiteList")
-	ret0, _ := ret[0].([]string)
-	return ret0
-}
-
-// WhiteList indicates an expected call of WhiteList
-func (mr *MockBackendMockRecorder) WhiteList() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WhiteList", reflect.TypeOf((*MockBackend)(nil).WhiteList))
-}
-
 // BlockChain mocks base method
-func (m *MockBackend) BlockChain() *ethcore.BlockChain {
+func (m *MockBackend) BlockChain() *core.BlockChain {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockChain")
-	ret0, _ := ret[0].(*ethcore.BlockChain)
+	ret0, _ := ret[0].(*core.BlockChain)
 	return ret0
 }
 
@@ -242,7 +152,7 @@ func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
 }
 
 // SetBlockchain mocks base method
-func (m *MockBackend) SetBlockchain(bc *ethcore.BlockChain) {
+func (m *MockBackend) SetBlockchain(bc *core.BlockChain) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetBlockchain", bc)
 }

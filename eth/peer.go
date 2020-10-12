@@ -707,8 +707,8 @@ type peerSet struct {
 	closed bool
 }
 
-// newPeerSet creates a new peer set to track the active participants.
-func newPeerSet() *peerSet {
+// NewPeerSet creates a new peer set to track the active participants.
+func NewPeerSet() *peerSet {
 	return &peerSet{
 		peers: make(map[string]*peer),
 	}

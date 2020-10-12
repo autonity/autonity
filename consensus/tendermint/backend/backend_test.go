@@ -25,16 +25,11 @@ import (
 	"math/big"
 	"reflect"
 	"strings"
-	"sync/atomic"
 	"testing"
-	"time"
 
-	"github.com/golang/mock/gomock"
 	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -43,105 +38,7 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rlp"
 )
-
-func TestAskSync(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	// We are testing for a Quorum Q of peers to be asked for sync.
-	header := newTestHeader(7) // N=7, F=2, Q=5
-	validators := header.Committee
-	addresses := make([]common.Address, 0, len(validators))
-	peers := make(map[common.Address]consensus.Peer)
-	counter := uint64(0)
-	for _, val := range validators {
-		addresses = append(addresses, val.Address)
-		mockedPeer := consensus.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(uint64(tendermintSyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
-			atomic.AddUint64(&counter, 1)
-		}).MaxTimes(1)
-		peers[val.Address] = mockedPeer
-	}
-
-	m := make(map[common.Address]struct{})
-	for _, p := range addresses {
-		m[p] = struct{}{}
-	}
-
-	broadcaster := consensus.NewMockBroadcaster(ctrl)
-	broadcaster.EXPECT().FindPeers(m).Return(peers)
-	b := &Backend{
-		logger: log.New("backend", "test", "id", 0),
-	}
-	b.SetBroadcaster(broadcaster)
-	b.AskSync(header)
-	<-time.NewTimer(2 * time.Second).C
-	if atomic.LoadUint64(&counter) != 5 {
-		t.Fatalf("ask sync message transmission failure")
-	}
-}
-
-func TestGossip(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	header := newTestHeader(5)
-	validators := header.Committee
-	payload, err := rlp.EncodeToBytes([]byte("data"))
-	hash := types.RLPHash(payload)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
-	addresses := make([]common.Address, 0, len(validators))
-	peers := make(map[common.Address]consensus.Peer)
-	counter := uint64(0)
-	for i, val := range validators {
-		addresses = append(addresses, val.Address)
-		mockedPeer := consensus.NewMockPeer(ctrl)
-		// Address n3 is supposed to already have this message
-		if i == 3 {
-			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Times(0)
-		} else {
-			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
-				// We want to make sure the payload is correct AND that no other messages is sent.
-				if msgCode == uint64(tendermintMsg) && reflect.DeepEqual(data, payload) {
-					atomic.AddUint64(&counter, 1)
-				}
-			}).Times(1)
-		}
-		peers[val.Address] = mockedPeer
-	}
-
-	m := make(map[common.Address]struct{})
-	for _, p := range addresses {
-		m[p] = struct{}{}
-	}
-
-	broadcaster := consensus.NewMockBroadcaster(ctrl)
-	broadcaster.EXPECT().FindPeers(m).Return(peers)
-
-	recentMessages, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
-	address3Cache, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
-	address3Cache.Add(hash, true)
-	recentMessages.Add(addresses[3], address3Cache)
-	b := &Backend{
-		recentMessages: recentMessages,
-	}
-	b.SetBroadcaster(broadcaster)
-
-	b.Gossip(context.Background(), validators, payload)
-	<-time.NewTimer(2 * time.Second).C
-	if atomic.LoadUint64(&counter) != 4 {
-		t.Fatalf("gossip message transmission failure")
-	}
-}
 
 func TestResetPeerCache(t *testing.T) {
 	addr := common.HexToAddress("0x01234567890")
@@ -184,52 +81,6 @@ func TestHasBadProposal(t *testing.T) {
 		if !b.HasBadProposal(common.HexToHash("0x01234567890")) {
 			t.Fatalf("expected <true>, got <false>")
 		}
-	})
-}
-
-func TestSyncPeer(t *testing.T) {
-	t.Run("no broadcaster set, nothing done", func(t *testing.T) {
-		b := &Backend{}
-		b.SyncPeer(common.HexToAddress("0x0123456789"), nil)
-	})
-
-	t.Run("valid params given, messages sent", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		peerAddr1 := common.HexToAddress("0x0123456789")
-		messages := [][]byte{[]byte("dummy data")}
-
-		peersAddrMap := make(map[common.Address]struct{})
-		peersAddrMap[peerAddr1] = struct{}{}
-
-		peer1Mock := consensus.NewMockPeer(ctrl)
-		peer1Mock.EXPECT().Send(uint64(tendermintMsg), messages[0])
-
-		peers := make(map[common.Address]consensus.Peer)
-		peers[peerAddr1] = peer1Mock
-
-		broadcaster := consensus.NewMockBroadcaster(ctrl)
-		broadcaster.EXPECT().FindPeers(peersAddrMap).Return(peers)
-
-		recentMessages, err := lru.NewARC(inmemoryPeers)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
-
-		tendermintC := tendermintCore.NewMockTendermint(ctrl)
-
-		b := &Backend{
-			logger:         log.New("backend", "test", "id", 0),
-			recentMessages: recentMessages,
-			core:           tendermintC,
-		}
-		b.SetBroadcaster(broadcaster)
-
-		b.SyncPeer(peerAddr1, messages)
-
-		wait := time.NewTimer(time.Second)
-		<-wait.C
 	})
 }
 
@@ -364,7 +215,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := rawdb.NewMemoryDatabase()
 	// Use the first key as private key
-	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
+	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{}, nil, nil, nil)
 
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
