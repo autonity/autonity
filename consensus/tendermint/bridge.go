@@ -27,19 +27,8 @@ var (
 	// errNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
-	// errOldHeightMessage is returned when the received message's view is earlier
-	// than curRoundMessages view.
-	errOldHeightMessage = errors.New("old height message")
 	// errInvalidMessage is returned when the message is malformed.
 	errInvalidMessage = errors.New("invalid message")
-	// errInvalidSenderOfCommittedSeal is returned when the committed seal is not from the sender of the message.
-	errInvalidSenderOfCommittedSeal = errors.New("invalid sender of committed seal")
-	// errFailedDecodeProposal is returned when the PROPOSAL message is malformed.
-	errFailedDecodeProposal = errors.New("failed to decode PROPOSAL")
-	// errFailedDecodePrevote is returned when the PREVOTE message is malformed.
-	errFailedDecodePrevote = errors.New("failed to decode PREVOTE")
-	// errFailedDecodePrecommit is returned when the PRECOMMIT message is malformed.
-	errFailedDecodePrecommit = errors.New("failed to decode PRECOMMIT")
 )
 
 const (
@@ -93,10 +82,8 @@ type bridge struct {
 	syncTimer *time.Timer
 
 	// map[Height]UnminedBlock
-	pendingUnminedBlocks     map[uint64]*types.Block
-	pendingUnminedBlocksMu   sync.Mutex
-	pendingUnminedBlockCh    chan *types.Block
-	isWaitingForUnminedBlock bool
+	pendingUnminedBlocks  map[uint64]*types.Block
+	pendingUnminedBlockCh chan *types.Block
 
 	committee  committee
 	lastHeader *types.Header
@@ -194,14 +181,6 @@ func (c *bridge) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, err
 
 	c.logger.Info("commit a block", "hash", block.Hash())
 	return block, nil
-}
-
-// Metric collecton of round change and height change.
-func (c *bridge) measureHeightRoundMetrics(round int64) {
-	if round == 0 {
-		tendermintHeightChangeMeter.Mark(1)
-	}
-	tendermintRoundChangeMeter.Mark(1)
 }
 
 func (c *bridge) createCommittee(block *types.Block) committee {
