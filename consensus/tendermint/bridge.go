@@ -44,17 +44,15 @@ func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcas
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
 	c := &bridge{
-		key:                   key,
-		proposerPolicy:        config.ProposerPolicy,
-		address:               addr,
-		logger:                logger,
-		backend:               backend,
-		pendingUnminedBlocks:  make(map[uint64]*types.Block),
-		pendingUnminedBlockCh: make(chan *types.Block),
-		valueSet:              sync.NewCond(&sync.Mutex{}),
-		msgStore:              newMessageStore(),
-		broadcaster:           broadcaster,
-		syncer:                syncer,
+		key:            key,
+		proposerPolicy: config.ProposerPolicy,
+		address:        addr,
+		logger:         logger,
+		backend:        backend,
+		valueSet:       sync.NewCond(&sync.Mutex{}),
+		msgStore:       newMessageStore(),
+		broadcaster:    broadcaster,
+		syncer:         syncer,
 	}
 	o := &oracle{
 		c:     c,
@@ -73,17 +71,12 @@ type bridge struct {
 	backend Backend
 	cancel  context.CancelFunc
 
-	eventsSub               *event.TypeMuxSubscription
-	newUnminedBlockEventSub *event.TypeMuxSubscription
-	syncEventSub            *event.TypeMuxSubscription
-	wg                      *sync.WaitGroup
+	eventsSub    *event.TypeMuxSubscription
+	syncEventSub *event.TypeMuxSubscription
+	wg           *sync.WaitGroup
 
 	msgStore  *messageStore
 	syncTimer *time.Timer
-
-	// map[Height]UnminedBlock
-	pendingUnminedBlocks  map[uint64]*types.Block
-	pendingUnminedBlockCh chan *types.Block
 
 	committee  committee
 	lastHeader *types.Header
@@ -220,12 +213,8 @@ func (c *bridge) Start(ctx context.Context, contract *autonity.Contract) {
 	// Subscribe
 	c.eventsSub = c.backend.Subscribe(events.MessageEvent{}, &algorithm.Timeout{}, events.CommitEvent{})
 	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
-	c.newUnminedBlockEventSub = c.backend.Subscribe(events.NewUnminedBlockEvent{})
 
 	c.wg = &sync.WaitGroup{}
-	// We need a separate go routine to keep c.latestPendingUnminedBlock up to date
-	c.wg.Add(1)
-	go c.handleNewUnminedBlockEvent(ctx)
 
 	// Tendermint Finite State Machine discrete event loop
 	c.wg.Add(1)
@@ -254,24 +243,6 @@ func (c *bridge) Stop() {
 	println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	c.wg.Wait()
-}
-
-func (c *bridge) handleNewUnminedBlockEvent(ctx context.Context) {
-	defer c.wg.Done()
-eventLoop:
-	for {
-		select {
-		case e, ok := <-c.newUnminedBlockEventSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			block := e.Data.(events.NewUnminedBlockEvent).NewUnminedBlock
-			c.SetValue(&block)
-		case <-ctx.Done():
-			c.logger.Info("handleNewUnminedBlockEvent is stopped", "event", ctx.Err())
-			break eventLoop
-		}
-	}
 }
 
 func (c *bridge) newHeight(ctx context.Context, height uint64) error {

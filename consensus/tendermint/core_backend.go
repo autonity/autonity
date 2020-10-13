@@ -40,5 +40,6 @@ type Backend interface {
 
 type Tendermint interface {
 	Start(ctx context.Context, contract *autonity.Contract)
+	SetValue(*types.Block)
 	Stop()
 }

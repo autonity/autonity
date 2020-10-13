@@ -18,13 +18,7 @@ package events
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
 )
-
-// NewUnminedBlockEvent is posted to propose a proposal
-type NewUnminedBlockEvent struct {
-	NewUnminedBlock types.Block
-}
 
 // MessageEvent is posted for Istanbul engine communication
 type MessageEvent struct {

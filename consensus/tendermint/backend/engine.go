@@ -32,7 +32,6 @@ import (
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
@@ -417,12 +416,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	}
 
 	sb.setResultChan(results)
-
-	// post block into BFT engine
-	sb.postEvent(events.NewUnminedBlockEvent{
-		NewUnminedBlock: *block,
-	})
-
+	sb.core.SetValue(block)
 	return nil
 }
 
