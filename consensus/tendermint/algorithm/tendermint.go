@@ -87,17 +87,20 @@ func (cm *ConsensusMessage) String() string {
 type Oracle interface {
 	Valid(ValueID) bool
 	MatchingProposal(*ConsensusMessage) *ConsensusMessage
+	// TODO: merge the functions into QThresh and define private funcs for readability
 	PrevoteQThresh(round int64, value *ValueID) bool
 	PrecommitQThresh(round int64, value *ValueID) bool
 	// FThresh indicates whether we have messages whose voting power exceeds
 	// the failure threshold for the given round.
 	FThresh(round int64) bool
+	// TODO: add a parameter for height
 	Proposer(round int64, nodeID NodeID) bool
 }
 
+// TODO: change to one shot tendermint
 type Algorithm struct {
 	nodeID         NodeID
-	height         uint64
+	height         uint64 // TODO: Move height out of Algo and let oracle manage it
 	round          int64
 	step           Step
 	lockedRound    int64
@@ -158,6 +161,7 @@ func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Resul
 	case round < 0:
 		panic(fmt.Sprintf("New round cannot be less than 0. Previous round: %-3d, new round: %-3d", a.round, round))
 	case height > a.height+1:
+		//TODO: this may be unnecessarily strict condition
 		panic(fmt.Sprintf("New height cannot increase by an interval more than 1. Previous height: %-3d, new height: %-3d", a.height, height))
 	case height > a.height && round != 0:
 		panic(fmt.Sprintf("New Round must be 0 when consensus moves to new height. Previous height: %-3d, new height: %-3d, previous round: %-3d and new round %-3d", a.height, height, a.round, round))

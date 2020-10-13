@@ -11,6 +11,8 @@ import (
 // messageStore stores messages
 type messageStore struct {
 	// msgHashes maps height, round, message type and address to message hash.
+	// TODO: maybe height is not needed however, we need to ensure that block synchronisation has a clear distinction
+	// when block synchronisation and network partition message synchronisation happen.
 	msgHashes map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash
 	// valid is a set containing message hashes for messages considered valid.
 	valid map[common.Hash]struct{}
