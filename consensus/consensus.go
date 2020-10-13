@@ -18,7 +18,6 @@
 package consensus
 
 import (
-	"context"
 	"math/big"
 
 	"github.com/clearmatics/autonity/p2p"
@@ -143,14 +142,6 @@ type PoW interface {
 
 	// Hashrate returns the current mining hashrate of a PoW consensus engine.
 	Hashrate() float64
-}
-
-// BFT is a consensus engine to avoid byzantine failure
-type BFT interface {
-	Engine
-
-	// Start starts the engine
-	Start(ctx context.Context) error
 }
 
 type Syncer interface {

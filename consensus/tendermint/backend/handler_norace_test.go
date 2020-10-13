@@ -19,7 +19,7 @@ import (
 func TestUnhandledMsgs(t *testing.T) {
 	t.Run("core not running, unhandled messages are saved", func(t *testing.T) {
 		blockchain, backend := newBlockChain(1)
-		engine := blockchain.Engine().(consensus.BFT)
+		engine := blockchain.Engine().(consensus.Engine)
 		// we close the engine for enabling cache storing
 		if err := engine.Close(); err != nil {
 			t.Fatalf("can't stop the engine")
@@ -66,7 +66,7 @@ func TestUnhandledMsgs(t *testing.T) {
 
 	t.Run("core running, unhandled messages are processed", func(t *testing.T) {
 		blockchain, backend := newBlockChain(1)
-		engine := blockchain.Engine().(consensus.BFT)
+		engine := blockchain.Engine().(consensus.Engine)
 		// we close the engine for enabling cache storing
 		if err := engine.Close(); err != nil {
 			t.Fatalf("can't stop the engine")
