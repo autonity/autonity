@@ -133,10 +133,6 @@ func (sb *Backend) Address() common.Address {
 	return sb.address
 }
 
-func (sb *Backend) postEvent(event interface{}) {
-	go sb.Post(event)
-}
-
 // Commit implements tendermint.Backend.Commit
 func (sb *Backend) Commit(block *types.Block, proposer common.Address) {
 	sb.logger.Info("Committed", "address", sb.Address(), "proposer", proposer, "hash", block.Hash(), "number", block.Number().Uint64())

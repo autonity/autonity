@@ -107,7 +107,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		}
 		m.Add(hash, true)
 
-		sb.postEvent(events.MessageEvent{
+		go sb.Post(events.MessageEvent{
 			Payload: data,
 		})
 	case tendermintSyncMsg:
@@ -116,7 +116,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 			return true, nil // we return nil as we don't want to shutdown the connection if core is stopped
 		}
 		sb.logger.Info("Received sync message", "from", addr)
-		sb.postEvent(events.SyncEvent{Addr: addr})
+		go sb.Post(events.SyncEvent{Addr: addr})
 	default:
 		return false, nil
 	}
@@ -135,6 +135,6 @@ func (sb *Backend) NewChainHead() error {
 	if !sb.coreStarted {
 		return ErrStoppedEngine
 	}
-	sb.postEvent(events.CommitEvent{})
+	go sb.Post(events.CommitEvent{})
 	return nil
 }
