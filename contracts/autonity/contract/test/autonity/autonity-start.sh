@@ -12,10 +12,6 @@ RPC_PORT=8545
 RPC_ADDR=127.0.0.1
 RPC_API="tendermint,console,eth,web3,admin,debug,miner,personal,txpool,net"
 
-# init the data directory
-# echo "Autonity INIT $RPC_ADDR"
-# $AUTONITY init --datadir $DATADIR genesis-tendermint.json
-
 # start the node with the keystore and nodekey
 echo "Autonity START"
 $AUTONITY \
