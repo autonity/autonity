@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-var customGenesisTests = []struct {
+var genesisTest = struct {
 	genesis             string
 	misMatchGenesis     string
 	inCompatibleGenesis string
@@ -32,8 +32,7 @@ var customGenesisTests = []struct {
 	result              string
 }{
 	// Genesis file with specific chain configurations
-	{
-		genesis: `{
+	genesis: `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
 			"difficulty" : "0x1",
@@ -67,7 +66,7 @@ var customGenesisTests = []struct {
 				"tendermint" : {}
 			}
 		}`,
-		misMatchGenesis: `{
+	misMatchGenesis: `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
 			"difficulty" : "0x1",
@@ -101,7 +100,7 @@ var customGenesisTests = []struct {
 				"tendermint" : {}
 			}
 		}`,
-		inCompatibleGenesis: `{
+	inCompatibleGenesis: `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
 			"difficulty" : "0x1",
@@ -135,9 +134,8 @@ var customGenesisTests = []struct {
 				"tendermint" : {}
 			}
 		}`,
-		query:  "eth.getBlock(0).nonce",
-		result: "0x0000000000001339",
-	},
+	query:  "eth.getBlock(0).nonce",
+	result: "0x0000000000001339",
 }
 
 // Tests that initializing Autonity with a custom genesis block and chain definitions
@@ -150,7 +148,7 @@ func TestCustomGenesis(t *testing.T) {
 		return ipc, ws
 	}
 
-	startNode := func(t *testing.T, genesis, ipc, ws, datadir string) *testautonity {
+	startNode := func(t *testing.T, genesis, ipc, datadir string) *testautonity {
 		json := filepath.Join(datadir, "genesis.json")
 		if err := ioutil.WriteFile(json, []byte(genesis), 0600); err != nil {
 			t.Fatalf("failed to write genesis file: %v", err)
@@ -172,9 +170,9 @@ func TestCustomGenesis(t *testing.T) {
 	}
 
 	// start node with genesis file and check if chain db have the expected genesis.
-	checkNormalStartNode := func(t *testing.T, genesis, ipc, ws, datadir, query, want string) {
+	checkNormalStartNode := func(t *testing.T, genesis, ipc, datadir, query, want string) {
 		// Start node with a genesis file on the data-dir.
-		autonity := startNode(t, genesis, ipc, ws, datadir)
+		autonity := startNode(t, genesis, ipc, datadir)
 		waitForEndpoint(t, ipc, 5*time.Second)
 		// Stop node and check if genesis is generated and matched with wanted result.
 		autonity.Interrupt()
@@ -184,63 +182,53 @@ func TestCustomGenesis(t *testing.T) {
 
 	// start node with in-compatible genesis file, check node start should be interrupted and genesis block is expected.
 	checkIncompatibleStartNode := func(t *testing.T, rawGenesis, newGenesis, ipc, ws, datadir, query, want string) {
-		for _, tt := range customGenesisTests {
-			// start a node with raw genesis and check genesis block is as expected.
-			checkNormalStartNode(t, rawGenesis, ipc, ws, datadir, tt.query, tt.result)
+		// start a node with raw genesis and check genesis block is as expected.
+		checkNormalStartNode(t, rawGenesis, ipc, datadir, genesisTest.query, genesisTest.result)
 
-			// start node on the same data dir with a brand new incompatible genesis.
-			autonity := startNode(t, newGenesis, ipc, ws, datadir)
+		// start node on the same data dir with a brand new incompatible genesis.
+		autonity := startNode(t, newGenesis, ipc, datadir)
 
-			// with a incompatible genesis, client should do nothing with initGenesis by exit process.
-			autonity.ExpectExit()
+		// with a incompatible genesis, client should do nothing with initGenesis by exit process.
+		autonity.ExpectExit()
 
-			// the genesis block should be matched with the raw one.
-			assertMatchGenesis(t, datadir, query, want)
-		}
+		// the genesis block should be matched with the raw one.
+		assertMatchGenesis(t, datadir, query, want)
 	}
 
 	t.Run("Tests that starting Autonity with a custom genesis block and chain definitions works correctly", func(t *testing.T) {
-		for _, tt := range customGenesisTests {
-			ipc, ws := ipcEndpoint(t)
-			datadir := tmpdir(t)
-			defer os.RemoveAll(ws)
-			defer os.RemoveAll(datadir)
-			checkNormalStartNode(t, tt.genesis, ipc, ws, datadir, tt.query, tt.result)
-		}
+		ipc, ws := ipcEndpoint(t)
+		datadir := tmpdir(t)
+		defer os.RemoveAll(ws)
+		defer os.RemoveAll(datadir)
+		checkNormalStartNode(t, genesisTest.genesis, ipc, datadir, genesisTest.query, genesisTest.result)
 	})
 
 	t.Run("Tests that starting Autonity with a same genesis file, node should start normally.", func(t *testing.T) {
-		for _, tt := range customGenesisTests {
-			ipc, ws := ipcEndpoint(t)
-			datadir := tmpdir(t)
-			defer os.RemoveAll(ws)
-			defer os.RemoveAll(datadir)
-			// Start node with a genesis file and then stop it by checking genesis is generated as expected.
-			checkNormalStartNode(t, tt.genesis, ipc, ws, datadir, tt.query, tt.result)
-			// Start node again with the same genesis file on the same datadir.
-			checkNormalStartNode(t, tt.genesis, ipc, ws, datadir, tt.query, tt.result)
-		}
+		ipc, ws := ipcEndpoint(t)
+		datadir := tmpdir(t)
+		defer os.RemoveAll(ws)
+		defer os.RemoveAll(datadir)
+		// Start node with a genesis file and then stop it by checking genesis is generated as expected.
+		checkNormalStartNode(t, genesisTest.genesis, ipc, datadir, genesisTest.query, genesisTest.result)
+		// Start node again with the same genesis file on the same datadir.
+		checkNormalStartNode(t, genesisTest.genesis, ipc, datadir, genesisTest.query, genesisTest.result)
 	})
 
 	t.Run("Tests that starting Autonity with a mis-matched genesis file, node should stop running and keep genesis un-touched.", func(t *testing.T) {
-		for _, tt := range customGenesisTests {
-			ipc, ws := ipcEndpoint(t)
-			datadir := tmpdir(t)
-			defer os.RemoveAll(ws)
-			defer os.RemoveAll(datadir)
+		ipc, ws := ipcEndpoint(t)
+		datadir := tmpdir(t)
+		defer os.RemoveAll(ws)
+		defer os.RemoveAll(datadir)
 
-			checkIncompatibleStartNode(t, tt.genesis, tt.misMatchGenesis, ipc, ws, datadir, tt.query, tt.result)
-		}
+		checkIncompatibleStartNode(t, genesisTest.genesis, genesisTest.misMatchGenesis, ipc, ws, datadir, genesisTest.query, genesisTest.result)
 	})
 
 	t.Run("Tests that starting Autonity with a incompatible genesis file, node should stop running and keep genesis un-touched.", func(t *testing.T) {
-		for _, tt := range customGenesisTests {
-			ipc, ws := ipcEndpoint(t)
-			datadir := tmpdir(t)
-			defer os.RemoveAll(ws)
-			defer os.RemoveAll(datadir)
+		ipc, ws := ipcEndpoint(t)
+		datadir := tmpdir(t)
+		defer os.RemoveAll(ws)
+		defer os.RemoveAll(datadir)
 
-			checkIncompatibleStartNode(t, tt.genesis, tt.inCompatibleGenesis, ipc, ws, datadir, tt.query, tt.result)
-		}
+		checkIncompatibleStartNode(t, genesisTest.genesis, genesisTest.inCompatibleGenesis, ipc, ws, datadir, genesisTest.query, genesisTest.result)
 	})
 }
