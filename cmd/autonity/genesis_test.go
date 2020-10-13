@@ -157,8 +157,8 @@ func TestCustomGenesis(t *testing.T) {
 		}
 		// Start node with genesis.
 		autonity := runAutonity(t,
-		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--etherbase", coinbase, "--ipcpath", ipc, "--datadir", datadir, "--genesis", json)
+			"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
+			"--etherbase", coinbase, "--ipcpath", ipc, "--datadir", datadir, "--genesis", json)
 		return autonity
 	}
 
