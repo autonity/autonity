@@ -66,6 +66,7 @@ var genesisTest = struct {
 				"tendermint" : {}
 			}
 		}`,
+	// Chnage stake of validator as 2.
 	misMatchGenesis: `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
@@ -100,6 +101,7 @@ var genesisTest = struct {
 				"tendermint" : {}
 			}
 		}`,
+	// Set daoForkSupport to be false.
 	inCompatibleGenesis: `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
@@ -127,7 +129,7 @@ var genesisTest = struct {
 						{
 							"enode" : "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
 							"type" : "validator",
-							"stake" : 2
+							"stake" : 1
 						}
 					]
 				},
