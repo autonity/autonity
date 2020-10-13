@@ -110,9 +110,10 @@ type Algorithm struct {
 	oracle         Oracle
 }
 
-func New(nodeID NodeID, oracle Oracle) *Algorithm {
+func New(nodeID NodeID, height uint64, oracle Oracle) *Algorithm {
 	return &Algorithm{
 		nodeID:      nodeID,
+		height:      height,
 		lockedRound: -1,
 		lockedValue: nilValue,
 		validRound:  -1,
