@@ -30,6 +30,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -214,8 +215,12 @@ func (slice Keys) Swap(i, j int) {
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := rawdb.NewMemoryDatabase()
+
+	peers := &mockPeers{}
+	bc := tendermint.NewBroadcaster(common.Address{}, peers)
+	syncer := tendermint.NewSyncer(peers)
 	// Use the first key as private key
-	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{}, nil, nil, nil)
+	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{}, bc, peers, syncer)
 
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)

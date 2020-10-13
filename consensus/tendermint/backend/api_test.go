@@ -87,6 +87,12 @@ func TestGetCommitteeAtHash(t *testing.T) {
 	})
 }
 
+type mockPeers struct{}
+
+func (m *mockPeers) Peers() []consensus.Peer {
+	return nil
+}
+
 func TestAPIGetContractABI(t *testing.T) {
 	chain, engine := newBlockChain(1)
 	block, err := makeBlock(chain, engine, chain.Genesis())

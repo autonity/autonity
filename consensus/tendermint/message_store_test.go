@@ -49,7 +49,7 @@ func TestGetMatchingProposal(t *testing.T) {
 		Value:   algorithm.ValueID(h),
 	}
 	retrieved := m.matchingProposal(pv)
-	assert.Equal(t, p, retrieved)
+	assert.Equal(t, msg, retrieved)
 }
 
 func BenchmarkKeccak256(b *testing.B) {
