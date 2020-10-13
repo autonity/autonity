@@ -181,7 +181,7 @@ func TestCustomGenesis(t *testing.T) {
 	}
 
 	// start node with in-compatible genesis file, check node start should be interrupted and genesis block is expected.
-	checkIncompatibleStartNode := func(t *testing.T, rawGenesis, newGenesis, ipc, ws, datadir, query, want string) {
+	checkIncompatibleStartNode := func(t *testing.T, rawGenesis, newGenesis, ipc, datadir, query, want string) {
 		// start a node with raw genesis and check genesis block is as expected.
 		checkNormalStartNode(t, rawGenesis, ipc, datadir, genesisTest.query, genesisTest.result)
 
@@ -220,7 +220,7 @@ func TestCustomGenesis(t *testing.T) {
 		defer os.RemoveAll(ws)
 		defer os.RemoveAll(datadir)
 
-		checkIncompatibleStartNode(t, genesisTest.genesis, genesisTest.misMatchGenesis, ipc, ws, datadir, genesisTest.query, genesisTest.result)
+		checkIncompatibleStartNode(t, genesisTest.genesis, genesisTest.misMatchGenesis, ipc, datadir, genesisTest.query, genesisTest.result)
 	})
 
 	t.Run("Tests that starting Autonity with a incompatible genesis file, node should stop running and keep genesis un-touched.", func(t *testing.T) {
@@ -229,6 +229,6 @@ func TestCustomGenesis(t *testing.T) {
 		defer os.RemoveAll(ws)
 		defer os.RemoveAll(datadir)
 
-		checkIncompatibleStartNode(t, genesisTest.genesis, genesisTest.inCompatibleGenesis, ipc, ws, datadir, genesisTest.query, genesisTest.result)
+		checkIncompatibleStartNode(t, genesisTest.genesis, genesisTest.inCompatibleGenesis, ipc, datadir, genesisTest.query, genesisTest.result)
 	})
 }
