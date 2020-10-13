@@ -39,20 +39,6 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
-// Address mocks base method
-func (m *MockBackend) Address() common.Address {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Address")
-	ret0, _ := ret[0].(common.Address)
-	return ret0
-}
-
-// Address indicates an expected call of Address
-func (mr *MockBackendMockRecorder) Address() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockBackend)(nil).Address))
-}
-
 // Commit mocks base method
 func (m *MockBackend) Commit(proposalBlock *types.Block, proposer common.Address) {
 	m.ctrl.T.Helper()
@@ -75,21 +61,6 @@ func (m *MockBackend) HandleUnhandledMsgs(ctx context.Context) {
 func (mr *MockBackendMockRecorder) HandleUnhandledMsgs(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleUnhandledMsgs", reflect.TypeOf((*MockBackend)(nil).HandleUnhandledMsgs), ctx)
-}
-
-// LastCommittedProposal mocks base method
-func (m *MockBackend) LastCommittedProposal() (*types.Block, common.Address) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LastCommittedProposal")
-	ret0, _ := ret[0].(*types.Block)
-	ret1, _ := ret[1].(common.Address)
-	return ret0, ret1
-}
-
-// LastCommittedProposal indicates an expected call of LastCommittedProposal
-func (mr *MockBackendMockRecorder) LastCommittedProposal() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastCommittedProposal", reflect.TypeOf((*MockBackend)(nil).LastCommittedProposal))
 }
 
 // Post mocks base method
@@ -196,6 +167,18 @@ func (m *MockTendermint) Start(ctx context.Context, contract *autonity.Contract)
 func (mr *MockTendermintMockRecorder) Start(ctx, contract interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTendermint)(nil).Start), ctx, contract)
+}
+
+// SetValue mocks base method
+func (m *MockTendermint) SetValue(arg0 *types.Block) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetValue", arg0)
+}
+
+// SetValue indicates an expected call of SetValue
+func (mr *MockTendermintMockRecorder) SetValue(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetValue", reflect.TypeOf((*MockTendermint)(nil).SetValue), arg0)
 }
 
 // Stop mocks base method

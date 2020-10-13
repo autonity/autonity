@@ -83,7 +83,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	backend.core = tendermint.New(backend, config, backend.privateKey, broadcaster, syncer, address)
+	backend.core = tendermint.New(backend, config, backend.privateKey, broadcaster, syncer, address, tendermint.NewLatestBlockRetriever(db))
 	return backend
 }
 
@@ -253,23 +253,6 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		return time.Unix(int64(block.Header().Time), 0).Sub(now()), consensus.ErrFutureBlock
 	}
 	return 0, err
-}
-
-func (sb *Backend) LastCommittedProposal() (*types.Block, common.Address) {
-	block := sb.currentBlock()
-
-	var proposer common.Address
-	if block.Number().Cmp(common.Big0) > 0 {
-		var err error
-		proposer, err = sb.Author(block.Header())
-		if err != nil {
-			sb.logger.Error("Failed to get block proposer", "err", err)
-			return new(types.Block), common.Address{}
-		}
-	}
-
-	// Return header only block here since we don't need block body
-	return block, proposer
 }
 
 func (sb *Backend) HasBadProposal(hash common.Hash) bool {

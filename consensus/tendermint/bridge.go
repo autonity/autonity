@@ -17,7 +17,10 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	autonity "github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
 	types "github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/ethdb"
 	event "github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/davecgh/go-spew/spew"
@@ -40,18 +43,19 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address) *bridge {
+func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever) *bridge {
 	logger := log.New("addr", address.String())
 	c := &bridge{
-		key:            key,
-		proposerPolicy: config.ProposerPolicy,
-		address:        address,
-		logger:         logger,
-		backend:        backend,
-		valueSet:       sync.NewCond(&sync.Mutex{}),
-		msgStore:       newMessageStore(),
-		broadcaster:    broadcaster,
-		syncer:         syncer,
+		key:                  key,
+		proposerPolicy:       config.ProposerPolicy,
+		address:              address,
+		logger:               logger,
+		backend:              backend,
+		valueSet:             sync.NewCond(&sync.Mutex{}),
+		msgStore:             newMessageStore(),
+		broadcaster:          broadcaster,
+		syncer:               syncer,
+		latestBlockRetreiver: latestBlockRetreiver,
 	}
 	o := &oracle{
 		c:     c,
@@ -90,8 +94,9 @@ type bridge struct {
 	value        *types.Block
 	currentBlock *types.Block
 
-	broadcaster *Broadcaster
-	syncer      *Syncer
+	broadcaster          *Broadcaster
+	syncer               *Syncer
+	latestBlockRetreiver *LatestBlockRetriever
 }
 
 func (c *bridge) SetValue(b *types.Block) {
@@ -254,7 +259,10 @@ func (c *bridge) newHeight(ctx context.Context, height uint64) error {
 	if err != nil {
 		return err
 	}
-	prevBlock, _ := c.backend.LastCommittedProposal()
+	prevBlock, err := c.latestBlockRetreiver.RetrieveLatestBlock()
+	if err != nil {
+		panic(err)
+	}
 
 	c.lastHeader = prevBlock.Header()
 	committeeSet := c.createCommittee(prevBlock)
@@ -371,8 +379,12 @@ func (c *bridge) mainEventLoop(ctx context.Context) {
 	defer c.wg.Done()
 	// Start a new round from last height + 1
 	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
-	lastBlockMined, _ := c.backend.LastCommittedProposal()
-	err := c.newHeight(ctx, lastBlockMined.NumberU64()+1)
+
+	lastBlockMined, err := c.latestBlockRetreiver.RetrieveLatestBlock()
+	if err != nil {
+		panic(err)
+	}
+	err = c.newHeight(ctx, lastBlockMined.NumberU64()+1)
 	if err != nil {
 		println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 		return
@@ -469,7 +481,12 @@ eventLoop:
 			case events.CommitEvent:
 				println(addr(c.address), "commit event")
 				c.logger.Debug("Received a final committed proposal")
-				lastBlock, _ := c.backend.LastCommittedProposal()
+
+				lastBlock, err := c.latestBlockRetreiver.RetrieveLatestBlock()
+				if err != nil {
+					panic(err)
+				}
+
 				height := new(big.Int).Add(lastBlock.Number(), common.Big1)
 				if height.Cmp(c.height) == 0 {
 					println(addr(c.address), "Discarding event as core is at the same height", "height", c.height)
@@ -636,4 +653,45 @@ func (s *Syncer) SyncPeer(address common.Address, messages [][]byte) {
 			break
 		}
 	}
+}
+
+type LatestBlockRetriever struct {
+	db      ethdb.Database
+	statedb state.Database
+}
+
+func NewLatestBlockRetriever(db ethdb.Database) *LatestBlockRetriever {
+	return &LatestBlockRetriever{
+		db: db,
+		// Here we use the value of 256 which is the
+		// eth.DefaultConfig.TrieCleanCache value which is value assigned to
+		// cacheConfig.TrieCleanLimit which is what is then used in
+		// eth.BlockChain to initialise the state database.
+		statedb: state.NewDatabase(db),
+	}
+}
+func (l *LatestBlockRetriever) RetrieveLatestBlock() (*types.Block, error) {
+	hash := rawdb.ReadHeadBlockHash(l.db)
+	if hash == (common.Hash{}) {
+		return nil, fmt.Errorf("empty database")
+	}
+
+	number := rawdb.ReadHeaderNumber(l.db, hash)
+	if number == nil {
+		return nil, fmt.Errorf("failed to find number for block hash %s", hash.String())
+	}
+
+	block := rawdb.ReadBlock(l.db, hash, *number)
+	if block == nil {
+		return nil, fmt.Errorf("failed to read block content for block number %d with hash %s", *number, hash.String())
+	}
+
+	// This is not working, not sure why though
+	// TODO investigate this further
+	// 	//  Make sure the state associated with the block is available.
+	// 	_, err := l.statedb.OpenTrie(hash)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("missing state for block number %d with hash %s err: %v", *number, hash.String(), err)
+	// 	}
+	return block, nil
 }

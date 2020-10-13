@@ -20,9 +20,6 @@ type Backend interface {
 
 	HandleUnhandledMsgs(ctx context.Context)
 
-	// LastCommittedProposal retrieves latest committed proposal and the address of proposer
-	LastCommittedProposal() (*types.Block, common.Address)
-
 	Post(ev interface{})
 
 	Subscribe(types ...interface{}) *event.TypeMuxSubscription
