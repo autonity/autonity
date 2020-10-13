@@ -8,8 +8,8 @@ import (
 	types "github.com/clearmatics/autonity/core/types"
 )
 
-// Message cache caches messages
-type messageCache struct {
+// messageStore stores messages
+type messageStore struct {
 	// msgHashes maps height, round, message type and address to message hash.
 	msgHashes map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash
 	// valid is a set containing message hashes for messages considered valid.
@@ -22,7 +22,7 @@ type messageCache struct {
 	values map[common.Hash]*types.Block
 }
 
-func (m *messageCache) heightMessages(height uint64) []*message {
+func (m *messageStore) heightMessages(height uint64) []*message {
 	var messages []*message
 	for _, msgTypeMap := range m.msgHashes[height] {
 		for _, addressMap := range msgTypeMap {
@@ -34,7 +34,7 @@ func (m *messageCache) heightMessages(height uint64) []*message {
 	return messages
 }
 
-func (m *messageCache) rawHeightMessages(height uint64) [][]byte {
+func (m *messageStore) rawHeightMessages(height uint64) [][]byte {
 	var messages [][]byte
 	for _, msgTypeMap := range m.msgHashes[height] {
 		for _, addressMap := range msgTypeMap {
@@ -45,8 +45,8 @@ func (m *messageCache) rawHeightMessages(height uint64) [][]byte {
 	}
 	return messages
 }
-func newMessageStore() *messageCache {
-	return &messageCache{
+func newMessageStore() *messageStore {
+	return &messageStore{
 		msgHashes:   make(map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash),
 		rawMessages: make(map[common.Hash][]byte),
 		messages:    make(map[common.Hash]*message),
@@ -56,11 +56,11 @@ func newMessageStore() *messageCache {
 
 }
 
-func (m *messageCache) Message(h common.Hash) *message {
+func (m *messageStore) Message(h common.Hash) *message {
 	return m.messages[h]
 }
 
-func (m *messageCache) signatures(value algorithm.ValueID, round int64, height uint64) [][]byte {
+func (m *messageStore) signatures(value algorithm.ValueID, round int64, height uint64) [][]byte {
 	var sigs [][]byte
 
 	// println("signatures -----")
@@ -74,7 +74,7 @@ func (m *messageCache) signatures(value algorithm.ValueID, round int64, height u
 	return sigs
 }
 
-func (m *messageCache) prevoteQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
+func (m *messageStore) prevoteQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
 	msgType := new(algorithm.Step)
 	*msgType = algorithm.Prevote
 	// println("prevote power --------")
@@ -83,7 +83,7 @@ func (m *messageCache) prevoteQuorum(valueHash *common.Hash, round int64, header
 	return vp
 }
 
-func (m *messageCache) precommitQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
+func (m *messageStore) precommitQuorum(valueHash *common.Hash, round int64, header *types.Header) bool {
 	msgType := new(algorithm.Step)
 	*msgType = algorithm.Precommit
 	// // println("precommit power", m.votePower(valueHash, round, msgType, header))
@@ -93,14 +93,14 @@ func (m *messageCache) precommitQuorum(valueHash *common.Hash, round int64, head
 	return vp
 }
 
-func (m *messageCache) fail(round int64, header *types.Header) bool {
+func (m *messageStore) fail(round int64, header *types.Header) bool {
 	// println("fail power --------")
 	vp := m.votePower(nil, round, nil, header) >= header.Committee.Quorum()
 	// println(vp, "----------------")
 	return vp
 }
 
-func (m *messageCache) votePower(
+func (m *messageStore) votePower(
 	valueHash *common.Hash, // A nil value hash indicates that we match any value.
 	round int64,
 	msgType *algorithm.Step, // A nil value hash indicates that we match both prevote and precommit.
@@ -178,7 +178,7 @@ func addMsgHash(
 	return nil
 }
 
-func (m *messageCache) addMessage(msg *message, rawMsg []byte) error {
+func (m *messageStore) addMessage(msg *message, rawMsg []byte) error {
 	err := addMsgHash(m.msgHashes, msg.consensusMessage.Height, msg.consensusMessage.Round, msg.consensusMessage.MsgType, msg.address, msg.hash)
 	if err != nil {
 		return err
@@ -189,23 +189,23 @@ func (m *messageCache) addMessage(msg *message, rawMsg []byte) error {
 
 	return nil
 }
-func (m *messageCache) addValue(valueHash common.Hash, value *types.Block) {
+func (m *messageStore) addValue(valueHash common.Hash, value *types.Block) {
 	m.values[valueHash] = value
 }
-func (m *messageCache) value(valueHash common.Hash) *types.Block {
+func (m *messageStore) value(valueHash common.Hash) *types.Block {
 	return m.values[valueHash]
 }
 
 // Mark the hash of something valid, it could be a message hash or a value hash
-func (m *messageCache) setValid(itemHash common.Hash) {
+func (m *messageStore) setValid(itemHash common.Hash) {
 	m.valid[itemHash] = struct{}{}
 }
-func (m *messageCache) isValid(itemHash common.Hash) bool {
+func (m *messageStore) isValid(itemHash common.Hash) bool {
 	_, ok := m.valid[itemHash]
 	return ok
 }
 
-func (m *messageCache) matchingProposal(cm *algorithm.ConsensusMessage) *message {
+func (m *messageStore) matchingProposal(cm *algorithm.ConsensusMessage) *message {
 	for _, proposalHash := range m.msgHashes[cm.Height][cm.Round][algorithm.Propose] {
 		proposal := m.messages[proposalHash]
 		if proposal.consensusMessage.Value == cm.Value {

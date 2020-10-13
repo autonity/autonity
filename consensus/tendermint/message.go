@@ -72,7 +72,7 @@ func badMessageErr(description string, m *algorithm.ConsensusMessage, address co
 // because it makes verifying the proposer seal easier. So that means that
 // all values in the message store are without any kind of seal.
 
-func encodeSignedMessage(cm *algorithm.ConsensusMessage, key *ecdsa.PrivateKey, store *messageCache) ([]byte, error) {
+func encodeSignedMessage(cm *algorithm.ConsensusMessage, key *ecdsa.PrivateKey, store *messageStore) ([]byte, error) {
 
 	// First generate the proposer seal, which is either our seal if we are
 	// building a proposal, or its the seal of the proposal we are voting for.

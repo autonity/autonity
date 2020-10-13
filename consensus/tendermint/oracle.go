@@ -8,7 +8,7 @@ import (
 
 type oracle struct {
 	lastHeader   *types.Header
-	store        *messageCache
+	store        *messageStore
 	committeeSet committee
 	c            *bridge
 }

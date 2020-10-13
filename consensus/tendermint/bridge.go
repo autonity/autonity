@@ -52,13 +52,13 @@ func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcas
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		valueSet:              sync.NewCond(&sync.Mutex{}),
-		msgCache:              newMessageStore(),
+		msgStore:              newMessageStore(),
 		broadcaster:           broadcaster,
 		syncer:                syncer,
 	}
 	o := &oracle{
 		c:     c,
-		store: c.msgCache,
+		store: c.msgStore,
 	}
 	c.ora = o
 	return c
@@ -78,7 +78,7 @@ type bridge struct {
 	syncEventSub            *event.TypeMuxSubscription
 	wg                      *sync.WaitGroup
 
-	msgCache  *messageCache
+	msgStore  *messageStore
 	syncTimer *time.Timer
 
 	// map[Height]UnminedBlock
@@ -138,9 +138,9 @@ func (c *bridge) AwaitValue(ctx context.Context, height *big.Int) (*types.Block,
 				// the store.  TODO this is a potential memory leak. We are adding a value
 				// without it being referenced by a message that is tied to a height, so it
 				// may never be cleared.
-				c.msgCache.addValue(v.Hash(), v)
+				c.msgStore.addValue(v.Hash(), v)
 				// We assume our own suggestions are valid
-				c.msgCache.setValid(v.Hash())
+				c.msgStore.setValid(v.Hash())
 				c.value = nil
 				return v, nil
 			}
@@ -149,8 +149,8 @@ func (c *bridge) AwaitValue(ctx context.Context, height *big.Int) (*types.Block,
 }
 
 func (c *bridge) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
-	committedSeals := c.msgCache.signatures(proposal.Value, proposal.Round, proposal.Height)
-	message := c.msgCache.matchingProposal(proposal)
+	committedSeals := c.msgStore.signatures(proposal.Value, proposal.Round, proposal.Height)
+	message := c.msgStore.matchingProposal(proposal)
 	// Sanity checks
 	if message == nil || message.value == nil {
 		return nil, fmt.Errorf("attempted to commit nil block")
@@ -301,7 +301,7 @@ func (c *bridge) newHeight(ctx context.Context, height uint64) error {
 	// block to the msg store, so that it can be picked up in buildMessage.
 	if r.Broadcast != nil {
 		println(addr(c.address), "adding value", height, c.currentBlock.Hash().String())
-		c.msgCache.addValue(c.currentBlock.Hash(), c.currentBlock)
+		c.msgStore.addValue(c.currentBlock.Hash(), c.currentBlock)
 	}
 
 	// Note that we don't risk enterning an infinite loop here since
@@ -311,7 +311,7 @@ func (c *bridge) newHeight(ctx context.Context, height uint64) error {
 	if err != nil {
 		return err
 	}
-	for _, msg := range c.msgCache.heightMessages(newHeight.Uint64()) {
+	for _, msg := range c.msgStore.heightMessages(newHeight.Uint64()) {
 		err := c.handleCurrentHeightMessage(ctx, msg)
 		c.logger.Error("failed to handle current height message", "message", msg.String(), "err", err)
 	}
@@ -368,7 +368,7 @@ func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
 		// We must build message here since buildMessage relies on accessing
 		// the msg store, and since the message store is not syncronised we
 		// need to do it from the handler routine.
-		msg, err := encodeSignedMessage(r.Broadcast, c.key, c.msgCache)
+		msg, err := encodeSignedMessage(r.Broadcast, c.key, c.msgStore)
 		if err != nil {
 			panic(fmt.Sprintf(
 				"%s We were unable to build a message, this indicates a programming error: %v",
@@ -424,7 +424,7 @@ eventLoop:
 			}
 			event := ev.Data.(events.SyncEvent)
 			c.logger.Info("Processing sync message", "from", event.Addr)
-			c.syncer.SyncPeer(event.Addr, c.msgCache.rawHeightMessages(c.height.Uint64()))
+			c.syncer.SyncPeer(event.Addr, c.msgStore.rawHeightMessages(c.height.Uint64()))
 		case ev, ok := <-c.eventsSub.Chan():
 			if !ok {
 				break eventLoop
@@ -443,23 +443,23 @@ eventLoop:
 					continue
 				}
 				// Check we haven't already processed this message
-				if c.msgCache.Message(m.hash) != nil {
+				if c.msgStore.Message(m.hash) != nil {
 					// Message was already processed
 					continue
 				}
-				err = c.msgCache.addMessage(m, e.Payload)
+				err = c.msgStore.addMessage(m, e.Payload)
 				if err != nil {
 					// could be multiple proposal messages from the same proposer
 					continue
 				}
 				if m.consensusMessage.MsgType == algorithm.Propose {
-					c.msgCache.addValue(m.value.Hash(), m.value)
+					c.msgStore.addValue(m.value.Hash(), m.value)
 				}
 
 				// If this message is for a future height then we cannot validate it
 				// because we lack the relevant header, we will process it when we reach
 				// that height. If it is for a previous height then we are not intersted in
-				// it. But it has been added to the msg cache in case other peers would
+				// it. But it has been added to the message store in case other peers would
 				// like to sync it.
 				if m.consensusMessage.Height != c.height.Uint64() {
 					// Nothing to do here
@@ -562,15 +562,15 @@ func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) err
 
 		}
 		// Proposals values are allowed to be invalid.
-		if _, err := c.backend.VerifyProposal(*c.msgCache.value(common.Hash(cm.Value))); err == nil {
+		if _, err := c.backend.VerifyProposal(*c.msgStore.value(common.Hash(cm.Value))); err == nil {
 			println(addr(c.address), "valid", cm.Value.String())
-			c.msgCache.setValid(common.Hash(cm.Value))
+			c.msgStore.setValid(common.Hash(cm.Value))
 		}
 	default:
 		// All other messages that have reached this point are valid, but we
 		// are not marking the value valid here, we are marking the message
 		// valid.
-		c.msgCache.setValid(m.hash)
+		c.msgStore.setValid(m.hash)
 	}
 
 	r := c.algo.ReceiveMessage(cm)

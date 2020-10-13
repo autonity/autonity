@@ -305,10 +305,10 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 	if cm.Round > r && o.FThresh(cm.Round) {
 		// TODO account for the fact that many rounds can be skipped here. So
 		// what happens to the old round messages? We don't process them, but
-		// we can't remove them from the cache because they may be used in this
-		// round in the condition at line 28. This means that we only should
-		// clean the message cache when there is a height change, clearing out
-		// all messages for the height.
+		// we can't remove them from the messsage store because they may be
+		// used in this round in the condition at line 28. This means that we
+		// only should clean the message store when there is a height change,
+		// clearing out all messages for the height.
 		println(a.nodeID.String(), a.height, cm.String(), "line 55 start round")
 		return &Result{StartRound: &RoundChange{Height: a.height, Round: cm.Round}}
 	}
