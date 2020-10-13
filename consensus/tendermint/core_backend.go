@@ -13,7 +13,6 @@ import (
 
 // Backend provides application specific functions for Istanbul core
 type Backend interface {
-	Address() common.Address
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.

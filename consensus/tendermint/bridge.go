@@ -40,13 +40,12 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer) *bridge {
-	addr := backend.Address()
-	logger := log.New("addr", addr.String())
+func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address) *bridge {
+	logger := log.New("addr", address.String())
 	c := &bridge{
 		key:            key,
 		proposerPolicy: config.ProposerPolicy,
-		address:        addr,
+		address:        address,
 		logger:         logger,
 		backend:        backend,
 		valueSet:       sync.NewCond(&sync.Mutex{}),

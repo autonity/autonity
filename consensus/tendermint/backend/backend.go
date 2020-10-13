@@ -67,11 +67,12 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 
 	logger.Warn("new backend with public key")
 
+	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	backend := &Backend{
 		config:         config,
 		eventMux:       event.NewTypeMuxSilent(logger),
 		privateKey:     privateKey,
-		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
+		address:        address,
 		logger:         logger,
 		db:             db,
 		recents:        recents,
@@ -82,7 +83,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	backend.core = tendermint.New(backend, config, backend.privateKey, broadcaster, syncer)
+	backend.core = tendermint.New(backend, config, backend.privateKey, broadcaster, syncer, address)
 	return backend
 }
 
@@ -128,14 +129,9 @@ func (sb *Backend) BlockChain() *core.BlockChain {
 	return sb.blockchain
 }
 
-// Address implements tendermint.Backend.Address
-func (sb *Backend) Address() common.Address {
-	return sb.address
-}
-
 // Commit implements tendermint.Backend.Commit
 func (sb *Backend) Commit(block *types.Block, proposer common.Address) {
-	sb.logger.Info("Committed", "address", sb.Address(), "proposer", proposer, "hash", block.Hash(), "number", block.Number().Uint64())
+	sb.logger.Info("Committed", "address", sb.address, "proposer", proposer, "hash", block.Hash(), "number", block.Number().Uint64())
 	// - if we are the proposer, send the proposed hash to commit channel,
 	//    which is being watched inside the engine.Seal() function.
 	// - otherwise, we try to insert the block.
