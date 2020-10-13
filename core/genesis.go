@@ -126,6 +126,7 @@ func (h *storageJSON) UnmarshalText(text []byte) error {
 	}
 	offset := len(h) - len(text)/2 // pad on the left
 	if _, err := hex.Decode(h[offset:], text); err != nil {
+		fmt.Println(err)
 		return fmt.Errorf("invalid hex storage key/value %q", text)
 	}
 	return nil
@@ -173,7 +174,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 		}
 		block, err := genesis.Commit(db)
 		if err != nil {
-			return params.AllEthashProtocolChanges, common.Hash{}, err
+			return genesis.Config, common.Hash{}, err
 		}
 		return genesis.Config, block.Hash(), nil
 	}
@@ -181,16 +182,12 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	// We have the genesis block in database(perhaps in ancient database)
 	// but the corresponding state is missing.
 	header := rawdb.ReadHeader(db, stored, 0)
-	if _, err := state.New(header.Root, state.NewDatabaseWithCache(db, 0), nil); err != nil {
+	if _, err := state.New(header.Root, state.NewDatabaseWithCache(db, 0, ""), nil); err != nil {
 		if genesis == nil {
 			genesis = DefaultGenesisBlock()
 		}
 		// Ensure the stored genesis matches with the given one.
-		b, err := genesis.ToBlock(nil)
-		if err != nil {
-			return nil, common.Hash{}, err
-		}
-		hash := b.Hash()
+		hash := genesis.ToBlock(nil).Hash()
 		if hash != stored {
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
@@ -203,11 +200,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 
 	// Check whether the genesis block is already written.
 	if genesis != nil {
-		b, err := genesis.ToBlock(nil)
-		if err != nil {
-			return nil, common.Hash{}, err
-		}
-		hash := b.Hash()
+		hash := genesis.ToBlock(nil).Hash()
 		if hash != stored {
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
@@ -340,9 +333,9 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		head.GasLimit = params.GenesisGasLimit
 	}
 	statedb.Commit(false)
-	statedb.Database().TrieDB().Commit(root, true)
+	statedb.Database().TrieDB().Commit(root, true, nil)
 
-	return types.NewBlock(head, nil, nil, nil), nil
+	return types.NewBlock(head, nil, nil, nil, new(trie.Trie)), nil
 }
 
 func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
@@ -427,7 +420,7 @@ func extractCommittee(users []params.User) (types.Committee, error) {
 	}
 
 	sort.Sort(committee)
-	log.Info("starting BFT consensus", "validators", committee)
+	log.Info("Starting PoS-BFT consensus protocol", "validators", committee)
 	return committee, nil
 }
 

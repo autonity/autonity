@@ -35,7 +35,6 @@ import (
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/params"
-	"github.com/stretchr/testify/assert"
 )
 
 // Verify that Client implements the ethereum interfaces.
@@ -94,6 +93,22 @@ func TestToFilterArg(t *testing.T) {
 				"address":   addresses,
 				"fromBlock": "0x0",
 				"toBlock":   "latest",
+				"topics":    [][]common.Hash{},
+			},
+			nil,
+		},
+		{
+			"with negative fromBlock and negative toBlock",
+			ethereum.FilterQuery{
+				Addresses: addresses,
+				FromBlock: big.NewInt(-1),
+				ToBlock:   big.NewInt(-1),
+				Topics:    [][]common.Hash{},
+			},
+			map[string]interface{}{
+				"address":   addresses,
+				"fromBlock": "pending",
+				"toBlock":   "pending",
 				"topics":    [][]common.Hash{},
 			},
 			nil,
@@ -171,19 +186,19 @@ var (
 
 func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	// Generate test chain.
-	genesis, blocks, err := generateTestChain()
-	assert.NoError(t, err)
-
-	// Start Ethereum service.
-	var ethservice *eth.Ethereum
+	genesis, blocks := generateTestChain()
+	// Create node
 	n, err := node.New(&node.Config{})
-	n.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		config := &eth.Config{Genesis: genesis}
-		config.Ethash.PowMode = ethash.ModeFake
-		ethservice, err = eth.New(ctx, config, nil)
-		return ethservice, err
-	})
-
+	if err != nil {
+		t.Fatalf("can't create new node: %v", err)
+	}
+	// Create Ethereum Service
+	config := &eth.Config{Genesis: genesis}
+	config.Ethash.PowMode = ethash.ModeFake
+	ethservice, err := eth.New(n, config)
+	if err != nil {
+		t.Fatalf("can't create new ethereum service: %v", err)
+	}
 	// Import the test chain.
 	if err := n.Start(); err != nil {
 		t.Fatalf("can't start test node: %v", err)
@@ -194,7 +209,7 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	return n, blocks
 }
 
-func generateTestChain() (*core.Genesis, []*types.Block, error) {
+func generateTestChain() (*core.Genesis, []*types.Block) {
 	db := rawdb.NewMemoryDatabase()
 	config := params.AllEthashProtocolChanges
 	genesis := &core.Genesis{
@@ -207,21 +222,17 @@ func generateTestChain() (*core.Genesis, []*types.Block, error) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("test"))
 	}
-	gblock, err := genesis.ToBlock(db)
-	if err != nil {
-		return nil, nil, err
-	}
-
+	gblock := genesis.ToBlock(db)
 	engine := ethash.NewFaker()
 	blocks, _ := core.GenerateChain(config, gblock, engine, db, 1, generate)
 	blocks = append([]*types.Block{gblock}, blocks...)
-	return genesis, blocks, nil
+	return genesis, blocks
 }
 
 func TestHeader(t *testing.T) {
 	backend, chain := newTestBackend(t)
 	client, _ := backend.Attach()
-	defer backend.Stop()
+	defer backend.Close()
 	defer client.Close()
 
 	tests := map[string]struct {
@@ -265,7 +276,7 @@ func TestHeader(t *testing.T) {
 func TestBalanceAt(t *testing.T) {
 	backend, _ := newTestBackend(t)
 	client, _ := backend.Attach()
-	defer backend.Stop()
+	defer backend.Close()
 	defer client.Close()
 
 	tests := map[string]struct {
@@ -311,7 +322,7 @@ func TestBalanceAt(t *testing.T) {
 func TestTransactionInBlockInterrupted(t *testing.T) {
 	backend, _ := newTestBackend(t)
 	client, _ := backend.Attach()
-	defer backend.Stop()
+	defer backend.Close()
 	defer client.Close()
 
 	ec := NewClient(client)
@@ -329,7 +340,7 @@ func TestTransactionInBlockInterrupted(t *testing.T) {
 func TestChainID(t *testing.T) {
 	backend, _ := newTestBackend(t)
 	client, _ := backend.Attach()
-	defer backend.Stop()
+	defer backend.Close()
 	defer client.Close()
 	ec := NewClient(client)
 
@@ -339,5 +350,21 @@ func TestChainID(t *testing.T) {
 	}
 	if id == nil || id.Cmp(params.AllEthashProtocolChanges.ChainID) != 0 {
 		t.Fatalf("ChainID returned wrong number: %+v", id)
+	}
+}
+
+func TestBlockNumber(t *testing.T) {
+	backend, _ := newTestBackend(t)
+	client, _ := backend.Attach()
+	defer backend.Close()
+	defer client.Close()
+	ec := NewClient(client)
+
+	blockNumber, err := ec.BlockNumber(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if blockNumber != 1 {
+		t.Fatalf("BlockNumber returned wrong number: %d", blockNumber)
 	}
 }
