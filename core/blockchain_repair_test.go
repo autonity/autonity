@@ -26,12 +26,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/ethash"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/params"
 )
 
 // Tests a recovery for a short canonical chain where a recent block was already

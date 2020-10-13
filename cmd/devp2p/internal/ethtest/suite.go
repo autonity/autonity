@@ -7,13 +7,13 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/internal/utesting"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/rlpx"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/internal/utesting"
+	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/p2p/rlpx"
+	"github.com/clearmatics/autonity/rlp"
 	"github.com/stretchr/testify/assert"
 )
 

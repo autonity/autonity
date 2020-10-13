@@ -18,7 +18,6 @@ package vm
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/params"
 	"github.com/holiman/uint256"

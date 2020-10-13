@@ -10,11 +10,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/forkid"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/forkid"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 type Chain struct {

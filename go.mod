@@ -14,10 +14,10 @@ require (
 	github.com/cloudflare/cloudflare-go v0.10.2-0.20190916151808-a80f83b9add9
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v0.0.0-20180603214616-504e848d77ea
+	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/docker/docker v1.4.2-0.20180625184442-8e610b2b55bf
 	github.com/dop251/goja v0.0.0-20200721192441-a695b0cdd498
 	github.com/edsrzf/mmap-go v0.0.0-20160512033002-935e0e8a636c
-	github.com/ethereum/go-ethereum v1.9.22
 	github.com/fatih/color v1.3.0
 	github.com/fjl/memsize v0.0.0-20180418122429-ca190fb6ffbc
 	github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff
@@ -47,10 +47,12 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/tsdb v0.7.1
 	github.com/rs/cors v0.0.0-20160617231935-a62a804a8a00
+	github.com/rs/xhandler v0.0.0-20170707052532-1eb70cf1520d // indirect
 	github.com/shirou/gopsutil v2.20.5+incompatible
 	github.com/spf13/cobra v1.0.0
 	github.com/status-im/keycard-go v0.0.0-20190316090335-8537d3370df4
 	github.com/steakknife/bloomfilter v0.0.0-20180922174646-6819c0d2a570
+	github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/syndtr/goleveldb v1.0.1-0.20200815110645-5c35d600f0ca
 	github.com/tyler-smith/go-bip39 v1.0.1-0.20181017060643-dbb3b84ba2ef

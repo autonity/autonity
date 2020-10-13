@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/light"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/light"
 )
 
 func TestLightPruner(t *testing.T) {

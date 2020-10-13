@@ -21,13 +21,13 @@ import (
 	"encoding/binary"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/les/utils"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/les/utils"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/rlp"
 	lru "github.com/hashicorp/golang-lru"
 )
 

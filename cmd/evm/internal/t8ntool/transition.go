@@ -24,14 +24,14 @@ import (
 	"os"
 	"path"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/tests"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/state"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/tests"
 	"gopkg.in/urfave/cli.v1"
 )
 
