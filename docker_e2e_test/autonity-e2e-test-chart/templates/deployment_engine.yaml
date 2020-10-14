@@ -1,0 +1,26 @@
+{{- $imageClientHost := .Values.imageClientUbuntuHost -}}
+{{- $namespace := .Release.Namespace -}}
+
+{{ range $i, $e := until (atoi (toString .Values.validators.num)) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-{{ $i }}
+  namespace: {{ $namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: client-{{ $i }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: client-{{ $i }}
+    spec:
+      containers:
+        - name: client
+          image: {{ $imageClientHost.repository }}:{{ $imageClientHost.tag }}
+          ports:
+{{- end}}
