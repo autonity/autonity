@@ -1,28 +1,29 @@
-{{- $imageClientHost := .Values.imageClientUbuntuHost -}}
+{{- $imageE2ETestEngine := .Values.imageAutonityE2ETestEngine -}}
 {{- $namespace := .Release.Namespace -}}
 
-{{ range $i, $e := until (atoi (toString .Values.validators.num)) }}
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: client-{{ $i }}
+  name: e2eTestEngine
   namespace: {{ $namespace }}
 spec:
   selector:
     matchLabels:
-      app: client-{{ $i }}
+      app: e2eTestEngine
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app: client-{{ $i }}
+        app: e2eTestEngine
     spec:
       containers:
-        - name: client
-          image: {{ $imageClientHost.repository }}:{{ $imageClientHost.tag }}
+        - name: e2eTestEngine
+          image: {{ $imageE2ETestEngine.repository }}:{{ $imageE2ETestEngine.tag }}
           securityContext:
             allowPrivilegeEscalation: true
             privileged: true
-{{- end}}
+          lifecycle:
+            postStart:
+              exec:
+                command: ["python3", "e2etestengine.py", "./bin/autonity", "-b", "true"]
