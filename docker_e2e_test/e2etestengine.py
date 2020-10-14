@@ -7,8 +7,18 @@ from testcase.testcase import TestCase
 from planner.networkplanner import NetworkPlanner
 from client.client import Client
 import time
+import utility
 
 LG = log.get_logger()
+
+
+def build_autonity_from_master():
+    utility.execute("git clone https://github.com/clearmatics/autonity.git")
+    utility.execute("cd ./autonity")
+    utility.execute("git checkout master")
+    utility.execute("make all")
+    utility.execute("copy ./autonity/build/bin/autonity ./bin/")
+    utility.execute("copy ./autonity/build/bin/bootnode ./bin/")
 
 
 if __name__ == '__main__':
@@ -20,12 +30,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("autonity", help='Autonity Binary Path')
     parser.add_argument("-d", help='Start deploy remote network with brand new configurations.', type=bool, default=True)
+    parser.add_argument("-b", help='Build autonity from master branch.', type=bool, default=False)
     parser.add_argument("-t", help='Start test remote network.', type=bool, default=True)
     args = parser.parse_args()
 
+    is_build = args.b
     is_deploy = args.d
     is_testing = args.t
-    autonity_path = args.autonity
+
+    if is_build:
+        build_autonity_from_master()
+        autonity_path = "./bin/autonity"
+        utility.execute("rm -rf ./autonity")
+    else:
+        autonity_path = args.autonity
 
     conf.load_project_conf()
     network_planner = None
