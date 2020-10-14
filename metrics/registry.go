@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"sync/atomic"
 )
 
 // DuplicateMetric is the error returned by Registry.Register when a metric
@@ -189,20 +188,6 @@ func (r *StandardRegistry) UnregisterAll() {
 	for name := range r.metrics {
 		r.stop(name)
 		delete(r.metrics, name)
-	}
-	// stop the ticker to avoid go-routine leak
-	r.stopMeterTicker()
-}
-
-// stopMeterTicker Stops Meter Ticker.
-// It's needed to avoid go-routine leaks.
-func (r *StandardRegistry) stopMeterTicker() {
-	arbiter.Lock()
-	started := arbiter.started
-	arbiter.Unlock()
-	if started && atomic.LoadUint32(arbiter.stopped) != 1 {
-		// stop the ticker to avoid go-routine leak
-		arbiter.stopTicker()
 	}
 }
 

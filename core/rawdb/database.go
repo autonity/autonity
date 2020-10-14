@@ -345,7 +345,7 @@ func InspectDatabase(db ethdb.Database) error {
 		case bytes.HasPrefix(key, preimagePrefix) && len(key) == (len(preimagePrefix)+common.HashLength):
 			preimages.Add(size)
 		case bytes.HasPrefix(key, bloomBitsPrefix) && len(key) == (len(bloomBitsPrefix)+10+common.HashLength):
-			bloomBitsSize += size
+			bloomBits.Add(size)
 		case bytes.HasPrefix(key, []byte("cht-")) && len(key) == 4+common.HashLength:
 			chtTrieNodes.Add(size)
 		case bytes.HasPrefix(key, []byte("blt-")) && len(key) == 4+common.HashLength:

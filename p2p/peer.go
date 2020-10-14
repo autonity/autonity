@@ -19,6 +19,7 @@ package p2p
 import (
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/crypto"
 	"io"
 	"net"
 	"sort"
@@ -26,7 +27,6 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
@@ -520,7 +520,7 @@ func NewTestPeer(name string, caps []Cap) (*Peer, error) {
 		return nil, err
 	}
 
-	c.transport = NewTestTransport(&privkey.PublicKey, fd)
+	c.transport = newTestTransport(&privkey.PublicKey, fd, nil)
 
 	peer := newPeer(log.Root(), c, nil)
 

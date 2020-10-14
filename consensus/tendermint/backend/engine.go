@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/trie"
 	"math/big"
 	"time"
 
@@ -343,7 +344,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 
 	// add committee to extraData's committee section
 	header.Committee = committeeSet
-	return types.NewBlock(header, txs, nil, *receipts), nil
+	return types.NewBlock(header, txs, nil, *receipts, new(trie.Trie)), nil
 }
 
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the

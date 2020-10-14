@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"github.com/clearmatics/autonity/trie"
 	"math/big"
 	"testing"
 	"time"
@@ -70,7 +71,7 @@ func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 	header = m.Modifier.ModifyHeader(block.Header())
 
 	// create a new block with the modified header
-	newBlock := types.NewBlock(header, block.Transactions(), block.Uncles(), *receipts)
+	newBlock := types.NewBlock(header, block.Transactions(), block.Uncles(), *receipts, new(trie.Trie))
 
 	newBlock, err = m.Backend.AddSeal(newBlock)
 	if err != nil {

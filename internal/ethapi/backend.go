@@ -19,6 +19,7 @@ package ethapi
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/consensus"
 	"math/big"
 
 	"github.com/clearmatics/autonity/accounts"
