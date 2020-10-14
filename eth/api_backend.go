@@ -19,6 +19,7 @@ package eth
 import (
 	"context"
 	"errors"
+	"github.com/clearmatics/autonity/consensus"
 	"math/big"
 
 	"github.com/clearmatics/autonity/accounts"

@@ -85,7 +85,7 @@ type Engine interface {
 
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
-	VerifySeal(chain ChainReader, header *types.Header) error
+	VerifySeal(chain ChainHeaderReader, header *types.Header) error
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
@@ -112,7 +112,7 @@ type Engine interface {
 	//
 	// Note, the method returns immediately and will send the result async. More
 	// than one result may also be returned depending on the consensus algorithm.
-	Seal(chain ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error
+	Seal(chain ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error
 
 	// SealHash returns the hash of a block prior to it being sealed.
 	SealHash(header *types.Header) common.Hash
@@ -122,7 +122,7 @@ type Engine interface {
 	CalcDifficulty(chain ChainHeaderReader, time uint64, parent *types.Header) *big.Int
 
 	// APIs returns the RPC APIs this consensus engine provides.
-	APIs(chain ChainHeaderReader) []rpc.API
+	APIs(chain ChainReader) []rpc.API
 
 	// Close terminates any background threads maintained by the consensus engine.
 	Close() error

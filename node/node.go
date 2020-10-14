@@ -460,8 +460,8 @@ func (n *Node) RegisterHandler(name, path string, handler http.Handler) {
 
 // Attach creates an RPC client attached to an in-process API handler.
 func (n *Node) Attach() (*rpc.Client, error) {
-	n.lock.RLock()
-	defer n.lock.RUnlock()
+	n.lock.Lock()
+	defer n.lock.Unlock()
 
 	if n.server == nil {
 		return nil, ErrNodeStopped

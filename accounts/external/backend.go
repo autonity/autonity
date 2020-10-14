@@ -27,7 +27,6 @@ import (
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/internal/ethapi"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rpc"
 	"github.com/clearmatics/autonity/signer/core"

@@ -147,7 +147,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	)
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
-	consEngine := CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig)
+	consEngine := CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig)
 	if cons != nil {
 		consEngine = cons(consEngine)
 	}
@@ -155,8 +155,8 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	eth := &Ethereum{
 		config:            config,
 		chainDb:           chainDb,
-		eventMux:          stack.EventMux,
-		accountManager:    stack.AccountManager,
+		eventMux:          stack.EventMux(),
+		accountManager:    stack.AccountManager(),
 		engine:            consEngine,
 		closeBloomHandler: make(chan struct{}),
 		networkID:         config.NetworkId,

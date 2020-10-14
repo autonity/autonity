@@ -18,13 +18,13 @@ package gasprice
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"sort"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/internal/ethapi"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rpc"
 )
