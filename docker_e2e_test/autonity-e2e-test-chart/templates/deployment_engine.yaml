@@ -22,5 +22,7 @@ spec:
       containers:
         - name: client
           image: {{ $imageClientHost.repository }}:{{ $imageClientHost.tag }}
-          ports:
+          securityContext:
+            allowPrivilegeEscalation: true
+            privileged: true
 {{- end}}
