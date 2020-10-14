@@ -13,12 +13,10 @@ LG = log.get_logger()
 
 
 def build_autonity_from_master():
-    utility.execute("git clone https://github.com/clearmatics/autonity.git")
-    utility.execute("cd ./autonity")
-    utility.execute("git checkout master")
-    utility.execute("make all")
-    utility.execute("copy ./autonity/build/bin/autonity ./bin/")
-    utility.execute("copy ./autonity/build/bin/bootnode ./bin/")
+    utility.execute("git clone https://github.com/clearmatics/autonity.git && cd ./autonity && git checkout master && make all")
+    utility.execute("cp ./autonity/build/bin/autonity ./bin/")
+    utility.execute("cp ./autonity/build/bin/bootnode ./bin/")
+    utility.execute("rm -rf ./autonity")
 
 
 if __name__ == '__main__':
