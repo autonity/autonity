@@ -61,7 +61,7 @@ func TestRewardDistribution(t *testing.T) {
 		}
 		return balance, nil
 	}
-	// calculate sentTokens, receivedTokens, gasUsed, blockReward on per block.
+	// calculate sentTokens, receivedTokens, gasUsed and blockReward for the given node in the given block.
 	calculateRewardMetaPerBlock := func(block *types.Block, node *testNode) (*big.Int, *big.Int, *big.Int, *big.Int, error) {
 		client, err := node.node.Attach()
 		if err != nil {
@@ -99,7 +99,7 @@ func TestRewardDistribution(t *testing.T) {
 			}
 			node.transactionsMu.Unlock()
 		}
-		return sentAmount, receivedAmount, usedGas, blockReward, nil
+		return sentAmount, receivedAmount, usedGas, calculateRewardFraction(block.NumberU64(), blockReward, testNode.rpcPort, crypto.PubkeyToAddress(testNode.privateKey.PublicKey)
 	}
 	// calculate reward fraction
 	calculateRewardFraction := func(blockNum uint64, blockReward *big.Int, port int, address common.Address) (*big.Int, error) {
