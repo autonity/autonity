@@ -98,7 +98,7 @@ type Oracle interface {
 }
 
 // TODO: change to one shot tendermint
-type Algorithm struct {
+type OneShotTendermint struct {
 	nodeID         NodeID
 	height         uint64 // TODO: Move height out of Algo and let oracle manage it
 	round          int64
@@ -113,8 +113,8 @@ type Algorithm struct {
 	oracle         Oracle
 }
 
-func New(nodeID NodeID, height uint64, oracle Oracle) *Algorithm {
-	return &Algorithm{
+func New(nodeID NodeID, height uint64, oracle Oracle) *OneShotTendermint {
+	return &OneShotTendermint{
 		nodeID:      nodeID,
 		height:      height,
 		lockedRound: -1,
@@ -125,7 +125,7 @@ func New(nodeID NodeID, height uint64, oracle Oracle) *Algorithm {
 	}
 }
 
-func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
+func (a *OneShotTendermint) msg(msgType Step, value ValueID) *ConsensusMessage {
 	cm := &ConsensusMessage{
 		MsgType: msgType,
 		Height:  a.height,
@@ -138,7 +138,7 @@ func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
 	return cm
 }
 
-func (a *Algorithm) timeout(timeoutType Step) *Timeout {
+func (a *OneShotTendermint) timeout(timeoutType Step) *Timeout {
 	return &Timeout{
 		TimeoutType: timeoutType,
 		Height:      a.height,
@@ -151,7 +151,7 @@ func (a *Algorithm) timeout(timeoutType Step) *Timeout {
 // to propose. It then clears the first time flags and either returns a Result
 // with a proposal to be broadcast if this node is the proposer, or a timeout
 // to be scheduled.
-func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Result {
+func (a *OneShotTendermint) StartRound(height uint64, round int64, value ValueID) *Result {
 	println(a.nodeID.String(), height, "isProposer", a.oracle.Proposer(round, a.nodeID))
 
 	// assert conditions for round and height change
@@ -197,7 +197,7 @@ func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Resul
 	}
 }
 
-// Result is returned from the methods of Algorithm to indicate the outcome of
+// Result is returned from the methods of OneShotTendermint to indicate the outcome of
 // processing and what steps should be taken. Only one of the three fields may
 // be set. If StartRound is set it indicates that the caller should call
 // StartRound, if Broadcast is set it indicates that the caller should
@@ -205,7 +205,7 @@ func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Resul
 // Schedule is set it indicates that the caller should schedule the Timeout.
 // Broadcasting and scheduling may be done asynchronously, but starting the next
 // round must be done in the calling goroutine so that no other messages are
-// processed by Algorithm between the caller receiving the Result and calling
+// processed by OneShotTendermint between the caller receiving the Result and calling
 // StartRound.
 type Result struct {
 	StartRound *RoundChange
@@ -225,7 +225,7 @@ type RoundChange struct {
 
 // ReceiveMessage processes a consensus message and returns a Result if a state
 // change has taken place or nil if no state change has occurred.
-func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
+func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
 
 	r := a.round
 	s := a.step
@@ -345,7 +345,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 	return nil
 }
 
-func (a *Algorithm) OnTimeoutPropose(height uint64, round int64) *Result {
+func (a *OneShotTendermint) OnTimeoutPropose(height uint64, round int64) *Result {
 	if height == a.height && round == a.round && a.step == Propose {
 		a.step = Prevote
 		return &Result{Broadcast: a.msg(Prevote, nilValue)}
@@ -353,7 +353,7 @@ func (a *Algorithm) OnTimeoutPropose(height uint64, round int64) *Result {
 	return nil
 }
 
-func (a *Algorithm) OnTimeoutPrevote(height uint64, round int64) *Result {
+func (a *OneShotTendermint) OnTimeoutPrevote(height uint64, round int64) *Result {
 	if height == a.height && round == a.round && a.step == Prevote {
 		a.step = Precommit
 		return &Result{Broadcast: a.msg(Precommit, nilValue)}
@@ -361,7 +361,7 @@ func (a *Algorithm) OnTimeoutPrevote(height uint64, round int64) *Result {
 	return nil
 }
 
-func (a *Algorithm) OnTimeoutPrecommit(height uint64, round int64) *Result {
+func (a *OneShotTendermint) OnTimeoutPrecommit(height uint64, round int64) *Result {
 	if height == a.height && round == a.round {
 		return &Result{StartRound: &RoundChange{Height: a.height, Round: a.round + 1}}
 	}
