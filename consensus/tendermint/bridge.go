@@ -377,14 +377,17 @@ func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
 
 func (c *bridge) mainEventLoop(ctx context.Context) {
 	defer c.wg.Done()
-	// Start a new round from last height + 1
-	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
 
 	lastBlockMined, err := c.latestBlockRetreiver.RetrieveLatestBlock()
 	if err != nil {
 		panic(err)
 	}
-	err = c.newHeight(ctx, lastBlockMined.NumberU64()+1)
+
+	h := lastBlockMined.NumberU64() + 1
+
+	// Start a new round from last height + 1
+	c.algo = algorithm.New(algorithm.NodeID(c.address), h, c.ora)
+	err = c.newHeight(ctx, h)
 	if err != nil {
 		println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 		return
