@@ -306,8 +306,8 @@ func prepare(ctx *cli.Context) {
 	go metrics.CollectProcessMetrics(3 * time.Second)
 }
 
-// validateGenesis will validate and initialise the given JSON format genesis file
-func validateGenesis(ctx *cli.Context) (*core.Genesis, error) {
+// loadGenesis will validate and initialise the given JSON format genesis file
+func loadGenesis(ctx *cli.Context) (*core.Genesis, error) {
 	// Make sure we have a valid genesis JSON.
 	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
 	log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
@@ -350,7 +350,7 @@ func validateGenesis(ctx *cli.Context) (*core.Genesis, error) {
 }
 
 func initGenesis(ctx *cli.Context, node *node.Node) error {
-	genesis, err := validateGenesis(ctx)
+	genesis, err := loadGenesis(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to validate genesis file: %v", err)
 	}
