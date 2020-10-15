@@ -147,7 +147,7 @@ func TestStakeManagement(t *testing.T) {
 		{
 			name:          "stake management test mint stake",
 			numValidators: 6,
-			numBlocks:     20,
+			numBlocks:     30,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": mintStakeHook,
@@ -158,7 +158,7 @@ func TestStakeManagement(t *testing.T) {
 		{
 			name:          "stake management test redeem stake",
 			numValidators: 6,
-			numBlocks:     20,
+			numBlocks:     30,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": redeemStakeHook,
@@ -169,7 +169,7 @@ func TestStakeManagement(t *testing.T) {
 		{
 			name:          "stake management test send stake",
 			numValidators: 6,
-			numBlocks:     20,
+			numBlocks:     30,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": sendStakeHook,
