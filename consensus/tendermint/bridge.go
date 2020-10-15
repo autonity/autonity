@@ -687,12 +687,6 @@ func (l *LatestBlockRetriever) RetrieveLatestBlock() (*types.Block, error) {
 		return nil, fmt.Errorf("failed to read block content for block number %d with hash %s", *number, hash.String())
 	}
 
-	// This is not working, the state is updated in writeBlockWithState and
-	// this delays committing state to disk untill the cache is full. So that
-	// is why we do not see our state update here, we would need a reference to
-	// the state of the blockchain.
-	// TODO get a reference to the blockchain state.
-	// 	//  Make sure the state associated with the block is available.
 	_, err := l.statedb.OpenTrie(block.Root())
 	if err != nil {
 		return nil, fmt.Errorf("missing state for block number %d with hash %s err: %v", *number, hash.String(), err)

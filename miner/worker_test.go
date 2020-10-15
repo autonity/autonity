@@ -24,14 +24,15 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/consensus/tendermint/backend"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
@@ -214,11 +215,7 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 		db          = rawdb.NewMemoryDatabase()
 	)
 	if isTendermint {
-		chainConfig = tendermintChainConfig
-		peers := &mockPeers{}
-		bc := tendermint.NewBroadcaster(common.Address{}, peers)
-		syncer := tendermint.NewSyncer(peers)
-		engine = tendermintBackend.New(chainConfig.Tendermint, testUserKey, db, chainConfig, &vm.Config{}, bc, peers, syncer)
+		engine, db = newBackend()
 	} else {
 		chainConfig = params.AllEthashProtocolChanges
 		engine = ethash.NewFaker()
@@ -270,11 +267,8 @@ func TestEmptyWorkEthash(t *testing.T) {
 	testEmptyWork(t, ethashChainConfig, ethash.NewFaker(), false)
 }
 func TestEmptyWorkTendermint(t *testing.T) {
-
-	peers := &mockPeers{}
-	bc := tendermint.NewBroadcaster(common.Address{}, peers)
-	syncer := tendermint.NewSyncer(peers)
-	testEmptyWork(t, tendermintChainConfig, tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config), bc, peers, syncer), true)
+	engine, _ := newBackend()
+	testEmptyWork(t, tendermintChainConfig, engine, true)
 }
 
 func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
@@ -394,10 +388,8 @@ func TestRegenerateMiningBlockEthash(t *testing.T) {
 
 func TestRegenerateMiningBlockTendermint(t *testing.T) {
 
-	peers := &mockPeers{}
-	bc := tendermint.NewBroadcaster(common.Address{}, peers)
-	syncer := tendermint.NewSyncer(peers)
-	testRegenerateMiningBlock(t, tendermintChainConfig, tendermintBackend.New(config.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config), bc, peers, syncer), true)
+	engine, _ := newBackend()
+	testRegenerateMiningBlock(t, tendermintChainConfig, engine, true)
 }
 
 func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
@@ -466,7 +458,8 @@ func TestAdjustIntervalEthash(t *testing.T) {
 }
 
 func TestAdjustIntervalClique(t *testing.T) {
-	testAdjustInterval(t, tendermintChainConfig, tendermintBackend.New(config.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config), nil, nil, nil))
+	engine, _ := newBackend()
+	testAdjustInterval(t, tendermintChainConfig, engine)
 }
 
 func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
@@ -553,4 +546,15 @@ func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine co
 	case <-time.NewTimer(time.Second).C:
 		t.Error("interval reset timeout")
 	}
+}
+
+func newBackend() (*backend.Backend, ethdb.Database) {
+	peers := &mockPeers{}
+	bc := tendermint.NewBroadcaster(common.Address{}, peers)
+	syncer := tendermint.NewSyncer(peers)
+
+	db := rawdb.NewMemoryDatabase()
+	statedb := state.NewDatabase(db)
+	engine := tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, db, statedb, tendermintChainConfig, &vm.Config{}, bc, peers, syncer)
+	return engine, db
 }
