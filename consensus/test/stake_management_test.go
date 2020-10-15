@@ -29,7 +29,8 @@ func TestStakeManagement(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	initHeight := uint64(3)
+	initHeight := uint64(0)
+	startHeight := uint64(1)
 	mintStake := new(big.Int).SetUint64(50)
 	redeemStake := new(big.Int).SetUint64(100)
 	sendStake := new(big.Int).SetUint64(2)
@@ -51,7 +52,7 @@ func TestStakeManagement(t *testing.T) {
 
 	// mint stake hook
 	mintStakeHook := func(validator *testNode, address common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 1 {
+		if validator.lastBlock == startHeight {
 			return true, nil, interact(validator.rpcPort).tx(operatorKey).mintStake(address, mintStake)
 		}
 		return false, nil, nil
@@ -70,7 +71,7 @@ func TestStakeManagement(t *testing.T) {
 		delta := newBalance.Sub(newBalance, initBalance)
 		assert.Equal(t, delta.Int64(), stake.Int64(), "stake balance is not expected")
 
-		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
+		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(initHeight).dumpEconomicsMetricData()
 		require.NoError(t, err)
 
 		curNetworkMetrics, err := interact(validators["VA"].rpcPort).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
@@ -86,7 +87,7 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	redeemStakeHook := func(validator *testNode, address common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 1 {
+		if validator.lastBlock == startHeight {
 			return true, nil, interact(validator.rpcPort).tx(operatorKey).redeemStake(address, redeemStake)
 		}
 		return false, nil, nil
@@ -107,7 +108,7 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	sendStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 1 {
+		if validator.lastBlock == startHeight {
 			receiver := pickReceiver(validator)
 			return true, nil, interact(validator.rpcPort).tx(validator.privateKey).sendStake(receiver, sendStake)
 		}
@@ -117,7 +118,7 @@ func TestStakeManagement(t *testing.T) {
 	stakeSendCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 		port := validators["VA"].rpcPort
 
-		initNetworkMetrics, err := interact(port).call(3).dumpEconomicsMetricData()
+		initNetworkMetrics, err := interact(port).call(initHeight).dumpEconomicsMetricData()
 		require.NoError(t, err)
 
 		curNetworkMetrics, err := interact(port).call(validators["VA"].lastBlock).dumpEconomicsMetricData()
@@ -126,14 +127,14 @@ func TestStakeManagement(t *testing.T) {
 		senderAddr := crypto.PubkeyToAddress(validators["VA"].privateKey.PublicKey)
 		receiverAddr := pickReceiver(validators["VA"])
 
-		senderInitBalance, err := interact(port).call(3).getAccountStake(senderAddr)
+		senderInitBalance, err := interact(port).call(initHeight).getAccountStake(senderAddr)
 		require.NoError(t, err)
 		senderNewBalance, err := interact(port).call(validators["VA"].lastBlock).getAccountStake(senderAddr)
 		require.NoError(t, err)
 		delta := senderInitBalance.Uint64() - senderNewBalance.Uint64()
 		require.Equal(t, delta, sendStake.Uint64())
 
-		receiverInitBalance, err := interact(port).call(3).getAccountStake(receiverAddr)
+		receiverInitBalance, err := interact(port).call(initHeight).getAccountStake(receiverAddr)
 		require.NoError(t, err)
 		receiverNewBalance, err := interact(port).call(validators["VA"].lastBlock).getAccountStake(receiverAddr)
 		require.NoError(t, err)

@@ -33,6 +33,10 @@ func TestMemberManagement(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+
+	initHeight := uint64(0)
+	startHeight := uint64(1)
+
 	// prepare chain operator
 	operatorKey, err := crypto.GenerateKey()
 	if err != nil {
@@ -88,7 +92,7 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	addUsersHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 1 {
+		if validator.lastBlock == startHeight {
 			port := validator.rpcPort
 
 			err := interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newValidatorPubKey), validatorStake, newValidatorENode, validatorRole)
@@ -157,7 +161,7 @@ func TestMemberManagement(t *testing.T) {
 		validateAddedUser(t, port, lastHeight, crypto.PubkeyToAddress(newParticipantPubKey), newParticipantEnode, participantRole, participantStake.Uint64(), curNetworkMetrics)
 
 		// compare the total stake supply before and after new node added.
-		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(3).dumpEconomicsMetricData()
+		initNetworkMetrics, err := interact(validators["VA"].rpcPort).call(initHeight).dumpEconomicsMetricData()
 		require.NoError(t, err)
 
 		// new_total_stake - init_total_stake == new added (validatorStake + stakeHolderStake + participantStake)
@@ -166,7 +170,7 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	removeUserHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 1 {
+		if validator.lastBlock == startHeight {
 			return true, nil, interact(validator.rpcPort).tx(operatorKey).removeUser(addressToRemove)
 		}
 		return false, nil, nil
