@@ -103,10 +103,13 @@ func New(ctx *node.ServiceContext, config *eth.Config) (*LightEthereum, error) {
 		eventMux:       ctx.EventMux,
 		reqDist:        newRequestDistributor(peers, &mclock.System{}),
 		accountManager: ctx.AccountManager,
-		engine:         eth.CreateConsensusEngine(ctx, chainConfig, config, nil, false, chainDb, nil, nil),
-		bloomRequests:  make(chan chan *bloombits.Retrieval),
-		bloomIndexer:   eth.NewBloomIndexer(chainDb, params.BloomBitsBlocksClient, params.HelperTrieConfirmations),
-		valueTracker:   lpc.NewValueTracker(lespayDb, &mclock.System{}, requestList, time.Minute, 1/float64(time.Hour), 1/float64(time.Hour*100), 1/float64(time.Hour*1000)),
+		// In a light client context the engine will never be started, so many
+		// components can be left as nil, since they will not be accessed.
+		// This is soooo unbeleviably hacky 0_o, hopefully this is a transitional phase.
+		engine:        eth.CreateConsensusEngine(ctx, chainConfig, config, nil, false, chainDb, nil, nil, nil),
+		bloomRequests: make(chan chan *bloombits.Retrieval),
+		bloomIndexer:  eth.NewBloomIndexer(chainDb, params.BloomBitsBlocksClient, params.HelperTrieConfirmations),
+		valueTracker:  lpc.NewValueTracker(lespayDb, &mclock.System{}, requestList, time.Minute, 1/float64(time.Hour), 1/float64(time.Hour*100), 1/float64(time.Hour*1000)),
 	}
 	peers.subscribe((*vtSubscription)(leth.valueTracker))
 
