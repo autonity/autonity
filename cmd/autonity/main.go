@@ -391,7 +391,10 @@ func autonity(ctx *cli.Context) error {
 	node := makeFullNode(ctx)
 	defer node.Close()
 
-	// If the user does not specify a genesis file, start node will use current `data-dir`.
+	// If genesis flag is not set, node will load chain-data from data-dir. If the flat is set, node will load the
+	// genesis file, check if genesis file is match with genesis block, and check if chain configuration of the genesis
+	// file is compatible with current chain-data, apply new compatible chain configuration into chain db.
+	// Otherwise client will end up with a mis-match genesis error or an incompatible chain configuration error.
 	if ctx.GlobalIsSet(utils.InitGenesisFlag.Name) {
 		log.Info("--genesis flag is set")
 		err := initGenesis(ctx, node)
