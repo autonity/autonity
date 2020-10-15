@@ -8,6 +8,7 @@ from planner.networkplanner import NetworkPlanner
 from client.client import Client
 import time
 import utility
+import os
 
 LG = log.get_logger()
 
@@ -35,6 +36,9 @@ if __name__ == '__main__':
     is_build = args.b
     is_deploy = args.d
     is_testing = args.t
+
+    if os.getenv('VALIDATOR_IPS') is not None:
+        utility.execute("echo $VALIDATOR_IPS > ./etc/validator.ip")
 
     if is_build:
         build_autonity_from_master()
