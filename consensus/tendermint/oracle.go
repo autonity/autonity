@@ -36,3 +36,7 @@ func (o *oracle) Proposer(round int64, nodeID algorithm.NodeID) bool {
 func (o *oracle) Valid(value algorithm.ValueID) bool {
 	return o.store.isValid(common.Hash(value))
 }
+
+func (o *oracle) Height() uint64 {
+	return 0
+}

@@ -95,12 +95,11 @@ type Oracle interface {
 	FThresh(round int64) bool
 	// TODO: add a parameter for height
 	Proposer(round int64, nodeID NodeID) bool
+	Height() uint64
 }
 
-// TODO: change to one shot tendermint
 type OneShotTendermint struct {
 	nodeID         NodeID
-	height         uint64 // TODO: Move height out of Algo and let oracle manage it
 	round          int64
 	step           Step
 	lockedRound    int64
@@ -113,10 +112,9 @@ type OneShotTendermint struct {
 	oracle         Oracle
 }
 
-func New(nodeID NodeID, height uint64, oracle Oracle) *OneShotTendermint {
+func New(nodeID NodeID, oracle Oracle) *OneShotTendermint {
 	return &OneShotTendermint{
 		nodeID:      nodeID,
-		height:      height,
 		lockedRound: -1,
 		lockedValue: nilValue,
 		validRound:  -1,
@@ -128,7 +126,7 @@ func New(nodeID NodeID, height uint64, oracle Oracle) *OneShotTendermint {
 func (a *OneShotTendermint) msg(msgType Step, value ValueID) *ConsensusMessage {
 	cm := &ConsensusMessage{
 		MsgType: msgType,
-		Height:  a.height,
+		Height:  a.oracle.Height(),
 		Round:   a.round,
 		Value:   value,
 	}
@@ -141,7 +139,7 @@ func (a *OneShotTendermint) msg(msgType Step, value ValueID) *ConsensusMessage {
 func (a *OneShotTendermint) timeout(timeoutType Step) *Timeout {
 	return &Timeout{
 		TimeoutType: timeoutType,
-		Height:      a.height,
+		Height:      a.oracle.Height(),
 		Round:       a.round,
 		Delay:       1, // TODO
 	}
@@ -151,38 +149,14 @@ func (a *OneShotTendermint) timeout(timeoutType Step) *Timeout {
 // to propose. It then clears the first time flags and either returns a Result
 // with a proposal to be broadcast if this node is the proposer, or a timeout
 // to be scheduled.
-func (a *OneShotTendermint) StartRound(height uint64, round int64, value ValueID) *Result {
-	println(a.nodeID.String(), height, "isProposer", a.oracle.Proposer(round, a.nodeID))
+func (a *OneShotTendermint) StartRound(round int64, value ValueID) *Result {
+	println(a.nodeID.String(), a.oracle.Height(), "isProposer", a.oracle.Proposer(round, a.nodeID))
 
-	// assert conditions for round and height change
-	switch {
-	case height < a.height:
-		panic(fmt.Sprintf("New height cannot be less than previous height. Previous height: %-3d, new height: %-3d", a.height, height))
-	case round < 0:
-		panic(fmt.Sprintf("New round cannot be less than 0. Previous round: %-3d, new round: %-3d", a.round, round))
-	case height > a.height+1:
-		//TODO: this may be unnecessarily strict condition
-		panic(fmt.Sprintf("New height cannot increase by an interval more than 1. Previous height: %-3d, new height: %-3d", a.height, height))
-	case height > a.height && round != 0:
-		panic(fmt.Sprintf("New Round must be 0 when consensus moves to new height. Previous height: %-3d, new height: %-3d, previous round: %-3d and new round %-3d", a.height, height, a.round, round))
-	case height == a.height && round <= a.round:
-		panic(fmt.Sprintf("New round must be more than previous round when height is the same. Previous height: %-3d, new height: %-3d, previous round: %-3d and new round %-3d", a.height, height, a.round, round))
-	}
-
-	// Flags to reset every height
-	if round == 0 {
-		a.lockedRound = -1
-		a.lockedValue = nilValue
-		a.validRound = -1
-		a.validValue = nilValue
-	}
-
-	// Flags to reset every round
+	// Reset first time flags
 	a.line34Executed = false
 	a.line36Executed = false
 	a.line47Executed = false
 
-	a.height = height
 	a.round = round
 	a.step = Propose
 
@@ -190,7 +164,7 @@ func (a *OneShotTendermint) StartRound(height uint64, round int64, value ValueID
 		if a.validValue != nilValue {
 			value = a.validValue
 		}
-		println(a.nodeID.String(), height, "returning message", value.String())
+		println(a.nodeID.String(), a.oracle.Height(), "returning message", value.String())
 		return &Result{Broadcast: a.msg(Propose, value)}
 	} else { //nolint
 		return &Result{Schedule: a.timeout(Propose)}
@@ -260,10 +234,10 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
 	if t.In(Propose) && cm.Round == r && cm.ValidRound == -1 && s == Propose {
 		a.step = Prevote
 		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
-			println(a.nodeID.String(), a.height, cm.String(), "line 22 val")
+			println(a.nodeID.String(), a.oracle.Height(), cm.String(), "line 22 val")
 			return &Result{Broadcast: a.msg(Prevote, cm.Value)}
 		} else { //nolint
-			println(a.nodeID.String(), a.height, cm.String(), "line 22 nil")
+			println(a.nodeID.String(), a.oracle.Height(), cm.String(), "line 22 nil")
 			return &Result{Broadcast: a.msg(Prevote, nilValue)}
 		}
 	}
@@ -272,10 +246,10 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
 	if t.In(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(p.ValidRound, &p.Value) && s == Propose && (p.ValidRound >= 0 && p.ValidRound < r) {
 		a.step = Prevote
 		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
-			println(a.nodeID.String(), a.height, cm.String(), "line 28 val")
+			println(a.nodeID.String(), a.oracle.Height(), cm.String(), "line 28 val")
 			return &Result{Broadcast: a.msg(Prevote, p.Value)}
 		} else { //nolint
-			println(a.nodeID.String(), a.height, cm.String(), "line 28 nil")
+			println(a.nodeID.String(), a.oracle.Height(), cm.String(), "line 28 nil")
 			return &Result{Broadcast: a.msg(Prevote, nilValue)}
 		}
 	}
@@ -291,42 +265,41 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
 		}
 		a.validValue = p.Value
 		a.validRound = r
-		println(a.nodeID.String(), a.height, cm.String(), "line 36 val")
+		println(a.nodeID.String(), a.oracle.Height(), cm.String(), "line 36 val")
 		return &Result{Broadcast: a.msg(Precommit, p.Value)}
 	}
 
 	// Line 44
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &nilValue) && s == Prevote {
 		a.step = Precommit
-		println(a.nodeID.String(), a.height, cm.String(), "line 44 nil")
+		println(a.nodeID.String(), a.oracle.Height(), cm.String(), "line 44 nil")
 		return &Result{Broadcast: a.msg(Precommit, nilValue)}
 	}
 
 	// Line 34
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
 		a.line34Executed = true
-		println(a.nodeID.String(), a.height, cm.String(), "line 34 timeout")
+		println(a.nodeID.String(), a.oracle.Height(), cm.String(), "line 34 timeout")
 		return &Result{Schedule: a.timeout(Prevote)}
 	}
 
 	// Line 49
 	if t.In(Propose, Precommit) && p != nil && o.PrecommitQThresh(p.Round, &p.Value) {
 		if o.Valid(p.Value) {
-			a.height++
 			a.lockedRound = -1
 			a.lockedValue = nilValue
 			a.validRound = -1
 			a.validValue = nilValue
 		}
-		println(a.nodeID.String(), a.height, cm.String(), "line 49 decide")
+		println(a.nodeID.String(), a.oracle.Height()+1, cm.String(), "line 49 decide")
 		// Return the decided proposal
-		return &Result{StartRound: &RoundChange{Height: a.height, Round: 0, Decision: p}}
+		return &Result{StartRound: &RoundChange{Height: a.oracle.Height(), Round: 0, Decision: p}}
 	}
 
 	// Line 47
 	if t.In(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
 		a.line47Executed = true
-		println(a.nodeID.String(), a.height, cm.String(), "line 47 timeout")
+		println(a.nodeID.String(), a.oracle.Height(), cm.String(), "line 47 timeout")
 		return &Result{Schedule: a.timeout(Precommit)}
 	}
 
@@ -338,15 +311,15 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
 		// used in this round in the condition at line 28. This means that we
 		// only should clean the message store when there is a height change,
 		// clearing out all messages for the height.
-		println(a.nodeID.String(), a.height, cm.String(), "line 55 start round")
-		return &Result{StartRound: &RoundChange{Height: a.height, Round: cm.Round}}
+		println(a.nodeID.String(), a.oracle.Height(), cm.String(), "line 55 start round")
+		return &Result{StartRound: &RoundChange{Height: a.oracle.Height(), Round: cm.Round}}
 	}
-	println(a.nodeID.String(), a.height, cm.String(), "no condition match")
+	println(a.nodeID.String(), a.oracle.Height(), cm.String(), "no condition match")
 	return nil
 }
 
 func (a *OneShotTendermint) OnTimeoutPropose(height uint64, round int64) *Result {
-	if height == a.height && round == a.round && a.step == Propose {
+	if height == a.oracle.Height() && round == a.round && a.step == Propose {
 		a.step = Prevote
 		return &Result{Broadcast: a.msg(Prevote, nilValue)}
 	}
@@ -354,7 +327,7 @@ func (a *OneShotTendermint) OnTimeoutPropose(height uint64, round int64) *Result
 }
 
 func (a *OneShotTendermint) OnTimeoutPrevote(height uint64, round int64) *Result {
-	if height == a.height && round == a.round && a.step == Prevote {
+	if height == a.oracle.Height() && round == a.round && a.step == Prevote {
 		a.step = Precommit
 		return &Result{Broadcast: a.msg(Precommit, nilValue)}
 	}
@@ -362,8 +335,8 @@ func (a *OneShotTendermint) OnTimeoutPrevote(height uint64, round int64) *Result
 }
 
 func (a *OneShotTendermint) OnTimeoutPrecommit(height uint64, round int64) *Result {
-	if height == a.height && round == a.round {
-		return &Result{StartRound: &RoundChange{Height: a.height, Round: a.round + 1}}
+	if height == a.oracle.Height() && round == a.round {
+		return &Result{StartRound: &RoundChange{Height: a.oracle.Height(), Round: a.round + 1}}
 	}
 	return nil
 }
