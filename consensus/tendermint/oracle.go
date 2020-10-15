@@ -38,5 +38,5 @@ func (o *oracle) Valid(value algorithm.ValueID) bool {
 }
 
 func (o *oracle) Height() uint64 {
-	return 0
+	return o.c.height.Uint64()
 }
