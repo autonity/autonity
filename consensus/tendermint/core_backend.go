@@ -28,8 +28,6 @@ type Backend interface {
 	// the time difference of the proposal and current time is also returned.
 	VerifyProposal(types.Block) (time.Duration, error)
 
-	BlockChain() *ethcore.BlockChain
-
 	//Used to set the blockchain on this
 	SetBlockchain(bc *ethcore.BlockChain)
 }

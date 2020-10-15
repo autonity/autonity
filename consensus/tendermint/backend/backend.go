@@ -126,10 +126,6 @@ type Backend struct {
 	peers       consensus.Peers
 }
 
-func (sb *Backend) BlockChain() *core.BlockChain {
-	return sb.blockchain
-}
-
 // Commit implements tendermint.Backend.Commit
 func (sb *Backend) Commit(block *types.Block, proposer common.Address) {
 	sb.logger.Info("Committed", "address", sb.address, "proposer", proposer, "hash", block.Hash(), "number", block.Number().Uint64())
