@@ -63,7 +63,7 @@ var genesisTest = struct {
 						}
 					]
 				},
-				"tendermint" : {}
+				"tendermint" : {"block-period" : 1}
 			}
 		}`,
 	// Chnage stake of validator as 2.
@@ -98,7 +98,7 @@ var genesisTest = struct {
 						}
 					]
 				},
-				"tendermint" : {}
+				"tendermint" : {"block-period" : 1}
 			}
 		}`,
 	// Set daoForkSupport to be false.
@@ -133,7 +133,7 @@ var genesisTest = struct {
 						}
 					]
 				},
-				"tendermint" : {}
+				"tendermint" : {"block-period" : 1}
 			}
 		}`,
 	query:  "eth.getBlock(0).nonce",
