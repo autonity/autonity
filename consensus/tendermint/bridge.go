@@ -43,7 +43,7 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever) *bridge {
+func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever, statedb state.Database) *bridge {
 	logger := log.New("addr", address.String())
 	c := &bridge{
 		key:                  key,
@@ -56,6 +56,7 @@ func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcas
 		broadcaster:          broadcaster,
 		syncer:               syncer,
 		latestBlockRetreiver: latestBlockRetreiver,
+		statedb:              statedb,
 	}
 	o := &oracle{
 		c:     c,
@@ -97,6 +98,7 @@ type bridge struct {
 	broadcaster          *Broadcaster
 	syncer               *Syncer
 	latestBlockRetreiver *LatestBlockRetriever
+	statedb              state.Database
 }
 
 func (c *bridge) SetValue(b *types.Block) {
@@ -198,7 +200,7 @@ func (c *bridge) createCommittee(block *types.Block) committee {
 			panic(fmt.Sprintf("failed to construct committee %v", err))
 		}
 	case config.WeightedRandomSampling:
-		committeeSet = newWeightedRandomSamplingCommittee(block, c.autonityContract, c.backend.BlockChain())
+		committeeSet = newWeightedRandomSamplingCommittee(block, c.autonityContract, c.statedb)
 	default:
 		panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
 	}

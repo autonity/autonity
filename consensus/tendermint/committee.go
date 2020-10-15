@@ -9,7 +9,6 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/contracts/autonity"
-	ethcore "github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
@@ -138,15 +137,15 @@ func getMemberIndex(members types.Committee, memberAddr common.Address) int64 {
 
 type weightedRandomSamplingCommittee struct {
 	previousHeader         *types.Header
-	bc                     *ethcore.BlockChain
+	statedb                state.Database
 	autonityContract       *autonity.Contract
 	previousBlockStateRoot common.Hash
 }
 
-func newWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityContract *autonity.Contract, bc *ethcore.BlockChain) *weightedRandomSamplingCommittee {
+func newWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityContract *autonity.Contract, statedb state.Database) *weightedRandomSamplingCommittee {
 	return &weightedRandomSamplingCommittee{
 		previousHeader:         previousBlock.Header(),
-		bc:                     bc,
+		statedb:                statedb,
 		autonityContract:       autonityContract,
 		previousBlockStateRoot: previousBlock.Root(),
 	}
@@ -189,12 +188,12 @@ func (w *weightedRandomSamplingCommittee) GetProposer(round int64) types.Committ
 	}
 	// state.New has started takig a snapshot.Tree but it seems to be only for
 	// performance, see - https://github.com/ethereum/go-ethereum/pull/20152
-	statedb, err := state.New(w.previousBlockStateRoot, w.bc.StateCache(), nil)
+	state, err := state.New(w.previousBlockStateRoot, w.statedb, nil)
 	if err != nil {
 		log.Error("cannot load state from block chain.")
 		return types.CommitteeMember{}
 	}
-	proposer := w.autonityContract.GetProposerFromAC(w.previousHeader, statedb, w.previousHeader.Number.Uint64(), round)
+	proposer := w.autonityContract.GetProposerFromAC(w.previousHeader, state, w.previousHeader.Number.Uint64(), round)
 	member := w.previousHeader.CommitteeMember(proposer)
 	return *member
 	// TODO make this return an error
