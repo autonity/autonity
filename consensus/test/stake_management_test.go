@@ -51,7 +51,7 @@ func TestStakeManagement(t *testing.T) {
 
 	// mint stake hook
 	mintStakeHook := func(validator *testNode, address common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 4 {
+		if validator.lastBlock == 1 {
 			return true, nil, interact(validator.rpcPort).tx(operatorKey).mintStake(address, mintStake)
 		}
 		return false, nil, nil
@@ -86,7 +86,7 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	redeemStakeHook := func(validator *testNode, address common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 4 {
+		if validator.lastBlock == 1 {
 			return true, nil, interact(validator.rpcPort).tx(operatorKey).redeemStake(address, redeemStake)
 		}
 		return false, nil, nil
@@ -107,7 +107,7 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	sendStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 4 {
+		if validator.lastBlock == 1 {
 			receiver := pickReceiver(validator)
 			return true, nil, interact(validator.rpcPort).tx(validator.privateKey).sendStake(receiver, sendStake)
 		}
