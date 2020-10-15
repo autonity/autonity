@@ -188,7 +188,7 @@ func TestRewardDistribution(t *testing.T) {
 		{
 			name:                 "reward distribution check with fixed staking",
 			numValidators:        6,
-			numBlocks:            30,
+			numBlocks:            10,
 			txPerPeer:            1,
 			sendTransactionHooks: make(map[string]sendTransactionHook),
 			// Apply reward checker to all nodes:
@@ -205,7 +205,7 @@ func TestRewardDistribution(t *testing.T) {
 		{
 			name:          "reward distribution check with run time stake mint",
 			numValidators: 6,
-			numBlocks:     30,
+			numBlocks:     10,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": mintStakeHook,
@@ -224,7 +224,7 @@ func TestRewardDistribution(t *testing.T) {
 		{
 			name:          "reward distribution check with run time stake transfer",
 			numValidators: 6,
-			numBlocks:     30,
+			numBlocks:     10,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": transferStakeHook,
@@ -243,7 +243,7 @@ func TestRewardDistribution(t *testing.T) {
 		{
 			name:          "reward distribution check with run time stake redeem",
 			numValidators: 6,
-			numBlocks:     30,
+			numBlocks:     10,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": redeemStakeHook,

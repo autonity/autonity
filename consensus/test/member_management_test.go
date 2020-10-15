@@ -88,7 +88,7 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	addUsersHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 4 {
+		if validator.lastBlock == 1 {
 			port := validator.rpcPort
 
 			err := interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newValidatorPubKey), validatorStake, newValidatorENode, validatorRole)
@@ -166,7 +166,7 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	removeUserHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock == 4 {
+		if validator.lastBlock == 1 {
 			return true, nil, interact(validator.rpcPort).tx(operatorKey).removeUser(addressToRemove)
 		}
 		return false, nil, nil
@@ -182,7 +182,7 @@ func TestMemberManagement(t *testing.T) {
 		{
 			name:          "add users",
 			numValidators: 6,
-			numBlocks:     30,
+			numBlocks:     20,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": addUsersHook,
