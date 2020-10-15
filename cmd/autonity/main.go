@@ -18,8 +18,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
+	"github.com/davecgh/go-spew/spew"
 	"math"
 	"os"
 	godebug "runtime/debug"
@@ -303,17 +306,59 @@ func prepare(ctx *cli.Context) {
 	go metrics.CollectProcessMetrics(3 * time.Second)
 }
 
-// autonity is the main entry point into the system if no special subcommand is ran.
-// It creates a default node based on the command line arguments and runs it in
-// blocking mode, waiting for it to be shut down.
-func autonity(ctx *cli.Context) error {
-	if args := ctx.Args(); len(args) > 0 {
-		return fmt.Errorf("invalid command: %q", args[0])
+func setupDefaults(genesis *core.Genesis) {
+	if genesis == nil || genesis.Config == nil {
+		return
 	}
-	prepare(ctx)
-	node := makeFullNode(ctx)
-	defer node.Close()
 
+	defaultConfig := config.DefaultConfig()
+
+	if genesis.Config.Tendermint != nil {
+		if genesis.Config.Tendermint.BlockPeriod == 0 {
+			genesis.Config.Tendermint.BlockPeriod = defaultConfig.BlockPeriod
+		}
+	}
+}
+
+// validateGenesis will validate and initialise the given JSON format genesis file
+func validateGenesis(ctx *cli.Context) (*core.Genesis, error) {
+	// Make sure we have a valid genesis JSON.
+	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
+	log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
+	if len(genesisPath) == 0 {
+		return nil, fmt.Errorf("must supply path to genesis JSON file")
+	}
+	file, err := os.Open(genesisPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	genesis := new(core.Genesis)
+	if err := json.NewDecoder(file).Decode(genesis); err != nil {
+		return nil, err
+	}
+	// Make AutonityContract and Tendermint consensus mandatory for the time being.
+	if genesis.Config == nil {
+		return nil, fmt.Errorf("no Autonity Contract and Tendermint configs section in genesis")
+	}
+	if genesis.Config.AutonityContractConfig == nil {
+		return nil, fmt.Errorf("no Autonity Contract config section in genesis")
+	}
+	if genesis.Config.Tendermint == nil {
+		return nil, fmt.Errorf("no Tendermint config section in genesis")
+	}
+
+	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
+		spew.Dump(genesis.Config.AutonityContractConfig)
+		return nil, err
+	}
+
+	setupDefaults(genesis)
+	return genesis, nil
+}
+
+func initGenesis(ctx *cli.Context, node *node.Node) error {
 	genesis, err := validateGenesis(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to validate genesis file: %v", err)
@@ -335,6 +380,28 @@ func autonity(ctx *cli.Context) error {
 				return fmt.Errorf("failed to close chain DB: %v", err)
 			}
 			log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
+		}
+	}
+	return nil
+}
+
+// autonity is the main entry point into the system if no special subcommand is ran.
+// It creates a default node based on the command line arguments and runs it in
+// blocking mode, waiting for it to be shut down.
+func autonity(ctx *cli.Context) error {
+	if args := ctx.Args(); len(args) > 0 {
+		return fmt.Errorf("invalid command: %q", args[0])
+	}
+	prepare(ctx)
+	node := makeFullNode(ctx)
+	defer node.Close()
+
+	// If the user does not specify a genesis file, start node will use current `data-dir`.
+	if ctx.GlobalIsSet(utils.InitGenesisFlag.Name) {
+		log.Info("--genesis flag is set")
+		err := initGenesis(ctx, node)
+		if err != nil {
+			return err
 		}
 	}
 

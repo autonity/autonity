@@ -27,11 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/console/prompt"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -195,64 +192,6 @@ Use "ethereum dump 0" to dump the genesis block.`,
 		Category: "BLOCKCHAIN COMMANDS",
 	}
 )
-
-// validateGenesis will validate and initialise the given JSON format genesis file
-func validateGenesis(ctx *cli.Context) (*core.Genesis, error) {
-	// If the user does not specify a genesis file, start node will use current `data-dir`.
-	if !ctx.GlobalIsSet(utils.InitGenesisFlag.Name) {
-		log.Info("--genesis flag is not set")
-		return nil, nil
-	}
-
-	// Make sure we have a valid genesis JSON.
-	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
-	log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
-	if len(genesisPath) == 0 {
-		return nil, fmt.Errorf("must supply path to genesis JSON file")
-	}
-	file, err := os.Open(genesisPath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	genesis := new(core.Genesis)
-	if err := json.NewDecoder(file).Decode(genesis); err != nil {
-		return nil, err
-	}
-	// Make AutonityContract and Tendermint consensus mandatory for the time being.
-	if genesis.Config == nil {
-		return nil, fmt.Errorf("no Autonity Contract and Tendermint configs section in genesis")
-	}
-	if genesis.Config.AutonityContractConfig == nil {
-		return nil, fmt.Errorf("no Autonity Contract config section in genesis")
-	}
-	if genesis.Config.Tendermint == nil {
-		return nil, fmt.Errorf("no Tendermint config section in genesis")
-	}
-
-	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
-		spew.Dump(genesis.Config.AutonityContractConfig)
-		return nil, err
-	}
-
-	setupDefaults(genesis)
-	return genesis, nil
-}
-
-func setupDefaults(genesis *core.Genesis) {
-	if genesis == nil || genesis.Config == nil {
-		return
-	}
-
-	defaultConfig := config.DefaultConfig()
-
-	if genesis.Config.Tendermint != nil {
-		if genesis.Config.Tendermint.BlockPeriod == 0 {
-			genesis.Config.Tendermint.BlockPeriod = defaultConfig.BlockPeriod
-		}
-	}
-}
 
 func dumpGenesis(ctx *cli.Context) error {
 	genesis := core.DefaultGenesisBlock()
