@@ -306,20 +306,6 @@ func prepare(ctx *cli.Context) {
 	go metrics.CollectProcessMetrics(3 * time.Second)
 }
 
-func setupDefaults(genesis *core.Genesis) {
-	if genesis == nil || genesis.Config == nil {
-		return
-	}
-
-	defaultConfig := config.DefaultConfig()
-
-	if genesis.Config.Tendermint != nil {
-		if genesis.Config.Tendermint.BlockPeriod == 0 {
-			genesis.Config.Tendermint.BlockPeriod = defaultConfig.BlockPeriod
-		}
-	}
-}
-
 // validateGenesis will validate and initialise the given JSON format genesis file
 func validateGenesis(ctx *cli.Context) (*core.Genesis, error) {
 	// Make sure we have a valid genesis JSON.
@@ -354,7 +340,12 @@ func validateGenesis(ctx *cli.Context) (*core.Genesis, error) {
 		return nil, err
 	}
 
-	setupDefaults(genesis)
+	if genesis.Config.Tendermint.BlockPeriod == 0 {
+		defaultPeriod := config.DefaultConfig().BlockPeriod
+		log.Info("Invalid tendermint block period 0, set to default", "validate genesis", "block period", defaultPeriod)
+		genesis.Config.Tendermint.BlockPeriod = defaultPeriod
+	}
+
 	return genesis, nil
 }
 
