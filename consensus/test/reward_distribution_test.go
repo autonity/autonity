@@ -3,15 +3,16 @@ package test
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"testing"
+	"time"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethclient"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
-	"time"
 )
 
 /*
@@ -61,7 +62,28 @@ func TestRewardDistribution(t *testing.T) {
 		}
 		return balance, nil
 	}
-	// calculate sentTokens, receivedTokens, gasUsed, blockReward on per block.
+
+	// calculate reward fraction calculates the fraction of a block reward that
+	// should be assigned to the node having the given address.
+	calculateRewardFraction := func(blockNum uint64, blockReward *big.Int, port int, address common.Address) (*big.Int, error) {
+		rewardFraction := new(big.Int)
+		// calculate reward fractions base on latest economic state
+		economicState, err := interact(port).call(blockNum).dumpEconomicsMetricData()
+		if err != nil {
+			return nil, err
+		}
+
+		for i := 0; i < len(economicState.Accounts); i++ {
+			if address == economicState.Accounts[i] {
+				rewardFraction = new(big.Int).Mul(blockReward, economicState.Stakes[i])
+				rewardFraction = rewardFraction.Div(rewardFraction, economicState.Stakesupply)
+				break
+			}
+		}
+		return rewardFraction, nil
+	}
+
+	// calculate sentTokens, receivedTokens, gasUsed and blockReward for the given node in the given block.
 	calculateRewardMetaPerBlock := func(block *types.Block, node *testNode) (*big.Int, *big.Int, *big.Int, *big.Int, error) {
 		client, err := node.node.Attach()
 		if err != nil {
@@ -99,27 +121,9 @@ func TestRewardDistribution(t *testing.T) {
 			}
 			node.transactionsMu.Unlock()
 		}
-		return sentAmount, receivedAmount, usedGas, blockReward, nil
+		fraction, err := calculateRewardFraction(block.NumberU64(), blockReward, node.rpcPort, crypto.PubkeyToAddress(node.privateKey.PublicKey))
+		return sentAmount, receivedAmount, usedGas, fraction, err
 	}
-	// calculate reward fraction
-	calculateRewardFraction := func(blockNum uint64, blockReward *big.Int, port int, address common.Address) (*big.Int, error) {
-		rewardFraction := new(big.Int)
-		// calculate reward fractions base on latest economic state
-		economicState, err := interact(port).call(blockNum).dumpEconomicsMetricData()
-		if err != nil {
-			return nil, err
-		}
-
-		for i := 0; i < len(economicState.Accounts); i++ {
-			if address == economicState.Accounts[i] {
-				rewardFraction = new(big.Int).Mul(blockReward, economicState.Stakes[i])
-				rewardFraction = rewardFraction.Div(rewardFraction, economicState.Stakesupply)
-				break
-			}
-		}
-		return rewardFraction, nil
-	}
-
 	// reward checker hook:
 	rewardChecker := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 
@@ -130,14 +134,8 @@ func TestRewardDistribution(t *testing.T) {
 			return err
 		}
 
-		// calculate sent, gasUsed, receive amount and reward base on new block.
+		// calculate sent, gasUsed, receive amount and reward for the validator in the new block.
 		sentAmount, receivedAmount, usedGas, blockReward, err := calculateRewardMetaPerBlock(block, validator)
-		if err != nil {
-			return err
-		}
-
-		// calculate reward fraction.
-		rewardFraction, err := calculateRewardFraction(block.NumberU64(), blockReward, validator.rpcPort, crypto.PubkeyToAddress(validator.privateKey.PublicKey))
 		if err != nil {
 			return err
 		}
@@ -148,7 +146,7 @@ func TestRewardDistribution(t *testing.T) {
 		}
 
 		// check if balance is expected: balanceOnParent + rewardFraction + received - sent - gasUsed == balanceNow.
-		balanceWant := new(big.Int).Add(balanceOnParent, rewardFraction)
+		balanceWant := new(big.Int).Add(balanceOnParent, blockReward)
 		balanceWant.Add(balanceWant, receivedAmount)
 		balanceWant.Sub(balanceWant, sentAmount)
 		balanceWant.Sub(balanceWant, usedGas)
