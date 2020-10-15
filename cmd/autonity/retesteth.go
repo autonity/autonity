@@ -228,7 +228,7 @@ func (e *NoRewardEngine) accumulateRewards(config *params.ChainConfig, state *st
 	state.AddBalance(header.Coinbase, reward)
 }
 
-func (e *NoRewardEngine) Finalize(chain consensus.ChainHeaderReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
+func (e *NoRewardEngine) Finalize(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
 	if e.rewardsOn {
 		return e.inner.Finalize(chain, header, statedb, txs, uncles, receipts)
@@ -239,7 +239,7 @@ func (e *NoRewardEngine) Finalize(chain consensus.ChainHeaderReader, header *typ
 	}
 }
 
-func (e *NoRewardEngine) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
+func (e *NoRewardEngine) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 	if e.rewardsOn {
 		return e.inner.FinalizeAndAssemble(chain, header, statedb, txs, uncles, receipts)
@@ -252,7 +252,7 @@ func (e *NoRewardEngine) FinalizeAndAssemble(chain consensus.ChainHeaderReader, 
 	}
 }
 
-func (e *NoRewardEngine) Seal(chain consensus.ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (e *NoRewardEngine) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	return e.inner.Seal(chain, block, results, stop)
 }
 
@@ -264,7 +264,7 @@ func (e *NoRewardEngine) CalcDifficulty(chain consensus.ChainHeaderReader, time 
 	return e.inner.CalcDifficulty(chain, time, parent)
 }
 
-func (e *NoRewardEngine) APIs(chain consensus.ChainHeaderReader) []rpc.API {
+func (e *NoRewardEngine) APIs(chain consensus.ChainReader) []rpc.API {
 	return e.inner.APIs(chain)
 }
 

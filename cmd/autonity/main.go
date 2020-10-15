@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/internal/ethapi"
 	"github.com/clearmatics/autonity/internal/flags"
 	"math"
 	"os"
@@ -37,7 +38,6 @@ import (
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/ethclient"
 	"github.com/clearmatics/autonity/internal/debug"
-	"github.com/clearmatics/autonity/les"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/node"

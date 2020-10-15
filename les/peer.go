@@ -19,6 +19,7 @@ package les
 import (
 	"errors"
 	"fmt"
+	lps "github.com/clearmatics/autonity/les/lespay/server"
 	"math/big"
 	"math/rand"
 	"net"
@@ -36,7 +37,6 @@ import (
 	"github.com/clearmatics/autonity/les/utils"
 	"github.com/clearmatics/autonity/light"
 	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )

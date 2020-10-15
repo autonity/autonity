@@ -18,13 +18,12 @@ package les
 
 import (
 	"crypto/ecdsa"
+	lps "github.com/clearmatics/autonity/les/lespay/server"
+	"github.com/clearmatics/autonity/node"
 	"time"
 
-	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/eth"
-	"github.com/clearmatics/autonity/les/checkpointoracle"
 	"github.com/clearmatics/autonity/les/flowcontrol"
 	"github.com/clearmatics/autonity/light"
 	"github.com/clearmatics/autonity/log"

@@ -20,11 +20,13 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/internal/ethapi"
+	"github.com/clearmatics/autonity/internal/flags"
+	"github.com/clearmatics/autonity/metrics/exp"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -56,7 +58,6 @@ import (
 	"github.com/clearmatics/autonity/p2p/nat"
 	"github.com/clearmatics/autonity/p2p/netutil"
 	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rpc"
 	pcsclite "github.com/gballet/go-libpcsclite"
 	cli "gopkg.in/urfave/cli.v1"
 )
@@ -1464,7 +1465,7 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) ethapi.Backend {
 		}
 		return backend.ApiBackend
 	} else {
-		backend, err := eth.New(stack, cfg)
+		backend, err := eth.New(stack, cfg, nil)
 		if err != nil {
 			Fatalf("Failed to register the Ethereum service: %v", err)
 		}

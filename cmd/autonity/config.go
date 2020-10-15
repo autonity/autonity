@@ -29,7 +29,6 @@ import (
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/internal/ethapi"
-	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/params"
 	"github.com/naoina/toml"

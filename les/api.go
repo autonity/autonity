@@ -23,6 +23,7 @@ import (
 
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/common/mclock"
+	lps "github.com/clearmatics/autonity/les/lespay/server"
 	"github.com/clearmatics/autonity/p2p/enode"
 )
 

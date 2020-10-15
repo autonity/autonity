@@ -30,7 +30,6 @@ import (
 	"github.com/clearmatics/autonity/p2p/enode"
 
 	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
@@ -170,7 +169,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 
 	// force to set the istanbul etherbase to node key address
 	if chainConfig.Tendermint != nil {
-		eth.etherbase = crypto.PubkeyToAddress(ctx.NodeKey().PublicKey)
+		eth.etherbase = crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey)
 	}
 
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
@@ -216,7 +215,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, &ctx.NodeKey().PublicKey); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, &stack.Config().NodeKey().PublicKey); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
@@ -256,10 +255,10 @@ func makeExtraData(extra []byte) []byte {
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
+func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
 
 	if chainConfig.Tendermint != nil {
-		return tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, chainConfig, vmConfig)
+		return tendermintBackend.New(&config.Tendermint, ctx.Config().NodeKey(), db, chainConfig, vmConfig)
 	}
 
 	// Otherwise assume proof-of-work
@@ -522,7 +521,7 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Ethereum protocol implementation.
 func (s *Ethereum) Start() error {
 	s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
-	go s.glienickeEventLoop(srvr)
+	go s.glienickeEventLoop(s.p2pServer)
 
 	s.startEthEntryUpdate(s.p2pServer.LocalNode())
 
