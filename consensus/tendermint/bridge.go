@@ -660,14 +660,15 @@ type LatestBlockRetriever struct {
 	statedb state.Database
 }
 
-func NewLatestBlockRetriever(db ethdb.Database) *LatestBlockRetriever {
+func NewLatestBlockRetriever(db ethdb.Database, state state.Database) *LatestBlockRetriever {
 	return &LatestBlockRetriever{
-		db: db,
+		db:      db,
+		statedb: state,
 		// Here we use the value of 256 which is the
 		// eth.DefaultConfig.TrieCleanCache value which is value assigned to
 		// cacheConfig.TrieCleanLimit which is what is then used in
 		// eth.BlockChain to initialise the state database.
-		statedb: state.NewDatabase(db),
+		// statedb: state.NewDatabase(db),
 	}
 }
 func (l *LatestBlockRetriever) RetrieveLatestBlock() (*types.Block, error) {
@@ -692,9 +693,9 @@ func (l *LatestBlockRetriever) RetrieveLatestBlock() (*types.Block, error) {
 	// the state of the blockchain.
 	// TODO get a reference to the blockchain state.
 	// 	//  Make sure the state associated with the block is available.
-	// 	_, err := l.statedb.OpenTrie(hash)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("missing state for block number %d with hash %s err: %v", *number, hash.String(), err)
-	// 	}
+	_, err := l.statedb.OpenTrie(block.Root())
+	if err != nil {
+		return nil, fmt.Errorf("missing state for block number %d with hash %s err: %v", *number, hash.String(), err)
+	}
 	return block, nil
 }
