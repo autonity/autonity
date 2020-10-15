@@ -20,7 +20,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
 	"github.com/davecgh/go-spew/spew"
 	"math"
@@ -341,9 +340,7 @@ func loadGenesis(ctx *cli.Context) (*core.Genesis, error) {
 	}
 
 	if genesis.Config.Tendermint.BlockPeriod == 0 {
-		defaultPeriod := config.DefaultConfig().BlockPeriod
-		log.Info("Invalid tendermint block period 0, set to default", "validate genesis", "block period", defaultPeriod)
-		genesis.Config.Tendermint.BlockPeriod = defaultPeriod
+		return nil, fmt.Errorf("invalid block period configured for tendermint")
 	}
 
 	return genesis, nil
