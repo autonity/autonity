@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// package web3ext contains autonity specific web3.js extensions.
+// package web3ext contains geth specific web3.js extensions.
 package web3ext
 
 var Modules = map[string]string{
@@ -186,7 +186,8 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'printBlock',
 			call: 'debug_printBlock',
-			params: 1
+			params: 1,
+			outputFormatter: console.log
 		}),
 		new web3._extend.Method({
 			name: 'getBlockRlp',
@@ -206,7 +207,8 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'dumpBlock',
 			call: 'debug_dumpBlock',
-			params: 1
+			params: 1,
+			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter]
 		}),
 		new web3._extend.Method({
 			name: 'chaindbProperty',
@@ -358,7 +360,7 @@ web3._extend({
 			name: 'traceBlockByNumber',
 			call: 'debug_traceBlockByNumber',
 			params: 2,
-			inputFormatter: [null, null]
+			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter, null]
 		}),
 		new web3._extend.Method({
 			name: 'traceBlockByHash',
@@ -465,7 +467,8 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'getHeaderByNumber',
 			call: 'eth_getHeaderByNumber',
-			params: 1
+			params: 1,
+			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter]
 		}),
 		new web3._extend.Method({
 			name: 'getHeaderByHash',
@@ -475,12 +478,14 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'getBlockByNumber',
 			call: 'eth_getBlockByNumber',
-			params: 2
+			params: 2,
+			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter, function (val) { return !!val; }]
 		}),
 		new web3._extend.Method({
 			name: 'getBlockByHash',
 			call: 'eth_getBlockByHash',
-			params: 2
+			params: 2,
+			inputFormatter: [null, function (val) { return !!val; }]
 		}),
 		new web3._extend.Method({
 			name: 'getRawTransaction',

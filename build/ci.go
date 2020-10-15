@@ -840,6 +840,7 @@ func doAndroidArchive(cmdline []string) {
 	if *local {
 		// If we're building locally, copy bundle to build dir and skip Maven
 		os.Rename("autonity.aar", filepath.Join(GOBIN, "autonity.aar"))
+		os.Rename("autonity-sources.jar", filepath.Join(GOBIN, "autonity-sources.jar"))
 		return
 	}
 	meta := newMavenMetadata(env)
