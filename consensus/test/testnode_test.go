@@ -46,12 +46,12 @@ type testNode struct {
 }
 
 type netNode struct {
-	listener                []net.Listener
-	privateKey              *ecdsa.PrivateKey
-	address                 string
-	port                    int
-	url                     string
-	rpcPort                 int
+	listener   []net.Listener
+	privateKey *ecdsa.PrivateKey
+	address    string
+	port       int
+	url        string
+	rpcPort    int
 }
 
 type block struct {
@@ -142,7 +142,7 @@ func (validator *testNode) stopNode() error {
 }
 
 func (validator *testNode) forceStopNode() error {
-	if err := validator.node.Stop(); err != nil {
+	if err := validator.node.Close(); err != nil {
 		return fmt.Errorf("cannot stop a node on block %d: %q", validator.lastBlock, err)
 	}
 	validator.node.Wait()
@@ -154,7 +154,7 @@ func (validator *testNode) forceStopNode() error {
 
 func (validator *testNode) startService() error {
 	var ethereum *eth.Ethereum
-	if err := validator.node.Service(&ethereum); err != nil {
+	if err := validator.node.Start(); err != nil {
 		return fmt.Errorf("cant start a node %s", err)
 	}
 

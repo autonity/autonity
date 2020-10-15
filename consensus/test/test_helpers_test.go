@@ -199,21 +199,22 @@ func makePeer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr strin
 	if err != nil {
 		return nil, err
 	}
-	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		return eth.New(ctx, &eth.Config{
-			Genesis:         genesis,
-			NetworkId:       genesis.Config.ChainID.Uint64(),
-			SyncMode:        downloader.FullSync,
-			DatabaseCache:   256,
-			DatabaseHandles: 256,
-			TxPool:          core.DefaultTxPoolConfig,
-			Tendermint:      *genesis.Config.Tendermint,
-		}, cons)
-	}); err != nil {
+	_, err = eth.New(stack, &eth.Config{
+		Genesis:         genesis,
+		NetworkId:       genesis.Config.ChainID.Uint64(),
+		SyncMode:        downloader.FullSync,
+		DatabaseCache:   256,
+		DatabaseHandles: 256,
+		TxPool:          core.DefaultTxPoolConfig,
+		Tendermint:      *genesis.Config.Tendermint,
+	}, cons)
+	if err != nil {
 		return nil, err
 	}
-
 	// Start the node and return if successful
+	if err := stack.Start(); err != nil {
+		return nil, err
+	}
 	return stack, nil
 }
 
@@ -392,7 +393,7 @@ func runNode(ctx context.Context, peer *testNode, test *testCase, peers map[stri
 	chainEvents := mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{})
 	defer chainEvents.Unsubscribe()
 
-	shouldSendTx := peer.service.Miner().IsMining()
+	shouldSendTx := peer.service.Miner().Mining()
 
 	isExternalUser := isExternalUser(index)
 	if isExternalUser {
