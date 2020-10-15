@@ -11,7 +11,7 @@ func (v ValueID) String() string {
 	return hex.EncodeToString(v[:3])
 }
 
-var nilValue ValueID
+var NilValue ValueID
 
 type NodeID [20]byte
 
@@ -114,9 +114,9 @@ func New(nodeID NodeID, oracle Oracle) *Algorithm {
 	return &Algorithm{
 		nodeID:      nodeID,
 		lockedRound: -1,
-		lockedValue: nilValue,
+		lockedValue: NilValue,
 		validRound:  -1,
-		validValue:  nilValue,
+		validValue:  NilValue,
 		oracle:      oracle,
 	}
 }
@@ -158,7 +158,7 @@ func (a *Algorithm) StartRound(height uint64, round int64, value ValueID) *Resul
 	a.round = round
 	a.step = Propose
 	if a.oracle.Proposer(round, a.nodeID) {
-		if a.validValue != nilValue {
+		if a.validValue != NilValue {
 			value = a.validValue
 		}
 		println(a.nodeID.String(), height, "returning message", value.String())
@@ -235,7 +235,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 			return &Result{Broadcast: a.msg(Prevote, cm.Value)}
 		} else { //nolint
 			println(a.nodeID.String(), a.height, cm.String(), "line 22 nil")
-			return &Result{Broadcast: a.msg(Prevote, nilValue)}
+			return &Result{Broadcast: a.msg(Prevote, NilValue)}
 		}
 	}
 
@@ -247,7 +247,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 			return &Result{Broadcast: a.msg(Prevote, p.Value)}
 		} else { //nolint
 			println(a.nodeID.String(), a.height, cm.String(), "line 28 nil")
-			return &Result{Broadcast: a.msg(Prevote, nilValue)}
+			return &Result{Broadcast: a.msg(Prevote, NilValue)}
 		}
 	}
 
@@ -267,10 +267,10 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 	}
 
 	// Line 44
-	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &nilValue) && s == Prevote {
+	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &NilValue) && s == Prevote {
 		a.step = Precommit
 		println(a.nodeID.String(), a.height, cm.String(), "line 44 nil")
-		return &Result{Broadcast: a.msg(Precommit, nilValue)}
+		return &Result{Broadcast: a.msg(Precommit, NilValue)}
 	}
 
 	// Line 34
@@ -285,9 +285,9 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 		if o.Valid(p.Value) {
 			a.height++
 			a.lockedRound = -1
-			a.lockedValue = nilValue
+			a.lockedValue = NilValue
 			a.validRound = -1
-			a.validValue = nilValue
+			a.validValue = NilValue
 		}
 		println(a.nodeID.String(), a.height, cm.String(), "line 49 decide")
 		// Return the decided proposal
@@ -319,7 +319,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) *Result {
 func (a *Algorithm) OnTimeoutPropose(height uint64, round int64) *Result {
 	if height == a.height && round == a.round && a.step == Propose {
 		a.step = Prevote
-		return &Result{Broadcast: a.msg(Prevote, nilValue)}
+		return &Result{Broadcast: a.msg(Prevote, NilValue)}
 	}
 	return nil
 }
@@ -327,7 +327,7 @@ func (a *Algorithm) OnTimeoutPropose(height uint64, round int64) *Result {
 func (a *Algorithm) OnTimeoutPrevote(height uint64, round int64) *Result {
 	if height == a.height && round == a.round && a.step == Prevote {
 		a.step = Precommit
-		return &Result{Broadcast: a.msg(Precommit, nilValue)}
+		return &Result{Broadcast: a.msg(Precommit, NilValue)}
 	}
 	return nil
 }
