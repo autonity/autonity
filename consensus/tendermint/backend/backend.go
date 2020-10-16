@@ -91,15 +91,14 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 // ----------------------------------------------------------------------------
 
 type Backend struct {
-	config       *tendermintConfig.Config
-	eventMux     *event.TypeMuxSilent
-	privateKey   *ecdsa.PrivateKey
-	address      common.Address
-	logger       log.Logger
-	db           ethdb.Database
-	blockchain   *core.BlockChain
-	currentBlock func() *types.Block
-	hasBadBlock  func(hash common.Hash) bool
+	config      *tendermintConfig.Config
+	eventMux    *event.TypeMuxSilent
+	privateKey  *ecdsa.PrivateKey
+	address     common.Address
+	logger      log.Logger
+	db          ethdb.Database
+	blockchain  *core.BlockChain
+	hasBadBlock func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
@@ -166,7 +165,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 	//}
 
 	// check bad block
-	if sb.HasBadProposal(block.Hash()) {
+	if sb.blockchain.HasBadBlock(block.Hash()) {
 		return 0, core.ErrBlacklistedHash
 	}
 
@@ -250,13 +249,6 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		return time.Unix(int64(block.Header().Time), 0).Sub(now()), consensus.ErrFutureBlock
 	}
 	return 0, err
-}
-
-func (sb *Backend) HasBadProposal(hash common.Hash) bool {
-	if sb.hasBadBlock == nil {
-		return false
-	}
-	return sb.hasBadBlock(hash)
 }
 
 func (sb *Backend) GetContractABI() string {

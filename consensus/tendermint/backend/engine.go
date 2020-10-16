@@ -472,13 +472,16 @@ func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Comm
 }
 
 // Start implements consensus.Start
-func (sb *Backend) Start(ctx context.Context) error {
+func (sb *Backend) Start(ctx context.Context, blockchain *core.BlockChain) error {
 	// the mutex along with coreStarted should prevent double start
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 	if sb.coreStarted {
 		return ErrStartedEngine
 	}
+
+	// Set blockchain fields
+	sb.blockchain = blockchain
 
 	sb.stopped = make(chan struct{})
 
@@ -512,11 +515,4 @@ func (sb *Backend) Close() error {
 
 func (sb *Backend) SealHash(header *types.Header) common.Hash {
 	return types.SigHash(header)
-}
-
-func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
-	sb.blockchain = bc
-
-	sb.currentBlock = bc.CurrentBlock
-	sb.hasBadBlock = bc.HasBadBlock
 }

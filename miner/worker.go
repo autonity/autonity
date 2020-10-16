@@ -300,7 +300,7 @@ func (w *worker) init() {
 // updating this to match the start method breaks a lot of stuff since the
 // tendermint consensus engine is never started.
 type starter interface {
-	Start(ctx context.Context) error
+	Start(ctx context.Context, blockchain *core.BlockChain) error
 }
 
 // start sets the running status as 1 and triggers new work submitting.
@@ -308,7 +308,7 @@ func (w *worker) start() {
 	if atomic.CompareAndSwapInt32(&w.running, 0, 1) {
 		w.init()
 		if pos, ok := w.engine.(starter); ok {
-			err := pos.Start(context.Background())
+			err := pos.Start(context.Background(), w.chain)
 			if err != nil {
 				log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)
 			}

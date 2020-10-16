@@ -36,7 +36,6 @@ import (
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/ethash"
-	tendermintcore "github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/bloombits"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -217,9 +216,6 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 		return nil, err
 	}
 
-	if be, ok := consEngine.(tendermintcore.Backend); ok {
-		be.SetBlockchain(eth.blockchain)
-	}
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)

@@ -64,26 +64,6 @@ func TestResetPeerCache(t *testing.T) {
 	}
 }
 
-func TestHasBadProposal(t *testing.T) {
-	t.Run("callback is not set, false returned", func(t *testing.T) {
-		b := &Backend{}
-		if b.HasBadProposal(common.HexToHash("0x01234567890")) {
-			t.Fatalf("expected <false>, got <true>")
-		}
-	})
-
-	t.Run("callback is set, true returned", func(t *testing.T) {
-		b := &Backend{
-			hasBadBlock: func(hash common.Hash) bool {
-				return true
-			},
-		}
-		if !b.HasBadProposal(common.HexToHash("0x01234567890")) {
-			t.Fatalf("expected <true>, got <false>")
-		}
-	})
-}
-
 // Test get contract ABI, it should have the default abi before contract upgrade.
 func TestBackendGetContractABI(t *testing.T) {
 	chain, engine := newBlockChain(1)
