@@ -144,6 +144,8 @@ func TestStakeManagement(t *testing.T) {
 		assert.Equal(t, initNetworkMetrics.Stakesupply.Uint64(), curNetworkMetrics.Stakesupply.Uint64(), "total stake supply is not expected")
 	}
 
+	// numBlocks are used to stop the test on current test framework, to let stake management TX to be mined before the test end,
+	// bigger numBlocks in below test cases are set.
 	testCases := []*testCase{
 		{
 			name:          "stake management test mint stake",

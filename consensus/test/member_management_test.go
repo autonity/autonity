@@ -182,6 +182,8 @@ func TestMemberManagement(t *testing.T) {
 		assert.False(t, isParticipant(port, lastHeight, addressToRemove, eNodeToRemove), "wrong membership for removed user")
 	}
 
+	// numBlocks are used to stop the test on current test framework, to let user management TX to be mined before the test end,
+	// bigger numBlocks in below test cases are set.
 	cases := []*testCase{
 		{
 			name:          "add users",
