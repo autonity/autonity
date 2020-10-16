@@ -331,7 +331,7 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 				panic(fmt.Sprintf("current block number %d out of sync with  height %d", currBlockNum, rc.Height))
 			}
 
-			cm, to := c.algo.StartRound(rc.Height, rc.Round, algorithm.ValueID(c.currentBlock.Hash()))
+			cm, to := c.algo.StartRound(rc.Height, rc.Round, algorithm.ValueID(c.currentBlock.Hash())) // nolint
 			// Note that we don't risk enterning an infinite loop here since
 			// start round can only return results with brodcasts or schedules.
 			// TODO actually don't return result from Start round.

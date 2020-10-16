@@ -579,9 +579,16 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 // for updating the list of authorized enodes
 func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 
-	savedList := rawdb.ReadEnodeWhitelist(s.chainDb)
-	log.Info("Reading Whitelist", "list", savedList.StrList)
-	server.UpdateWhitelist(savedList.List)
+	state, err := s.blockchain.State()
+	if err != nil {
+		panic(err)
+	}
+	list, err := s.APIBackend.AutonityContract().GetWhitelist(s.blockchain.CurrentBlock(), state)
+	if err != nil {
+		panic(err)
+	}
+	log.Info("Reading Whitelist", "list", list.StrList)
+	server.UpdateWhitelist(list.List)
 
 	for {
 		select {

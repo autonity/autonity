@@ -393,16 +393,6 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadFastBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	if g.Config.AutonityContractConfig != nil {
-		enodes := make([]string, 0, len(g.Config.AutonityContractConfig.Users))
-		for _, v := range g.Config.AutonityContractConfig.Users {
-			if v.Enode != "" {
-				enodes = append(enodes, v.Enode)
-			}
-		}
-
-		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodes))
-	}
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }

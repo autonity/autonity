@@ -171,9 +171,8 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	if err != nil {
 		panic(err)
 	}
-	b.SetBlockchain(blockchain)
 
-	err = b.Start(context.Background())
+	err = b.Start(context.Background(), blockchain)
 	if err != nil {
 		panic(err)
 	}

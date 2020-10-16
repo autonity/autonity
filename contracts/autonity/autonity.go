@@ -29,9 +29,6 @@ type EVMProvider interface {
 }
 
 type Blockchainer interface {
-	UpdateEnodeWhitelist(newWhitelist *types.Nodes)
-	ReadEnodeWhitelist() *types.Nodes
-
 	PutKeyValue(key []byte, value []byte) error
 }
 
@@ -123,32 +120,9 @@ func (ac *Contract) GetCommittee(header *types.Header, statedb *state.StateDB) (
 	return committeeSet, err
 }
 
-func (ac *Contract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
-	newWhitelist, err := ac.GetWhitelist(block, state)
-	if err != nil {
-		log.Error("Could not call contract", "err", err)
-		return ErrAutonityContract
-	}
-
-	ac.bc.UpdateEnodeWhitelist(newWhitelist)
-	return nil
-}
-
 func (ac *Contract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
-	var (
-		newWhitelist *types.Nodes
-		err          error
-	)
-
-	if block.Number().Uint64() == 1 {
-		// use genesis block whitelist
-		newWhitelist = ac.bc.ReadEnodeWhitelist()
-	} else {
-		// call retrieveWhitelist contract function
-		newWhitelist, err = ac.callGetWhitelist(db, block.Header())
-	}
-
-	return newWhitelist, err
+	// call retrieveWhitelist contract function
+	return ac.callGetWhitelist(db, block.Header())
 }
 
 func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (uint64, error) {

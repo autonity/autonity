@@ -1475,11 +1475,15 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
 	if bc.chainConfig.Tendermint != nil {
-		// Call network permissioning logic before committing the state
-		err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
-		if err != nil && err != autonity.ErrAutonityContract {
+		whitelist, err := bc.autonityContract.GetWhitelist(block, state)
+		if err != nil {
 			return NonStatTy, err
 		}
+		bc.wg.Add(1)
+		go func() {
+			defer bc.wg.Done()
+			bc.autonityFeed.Send(WhitelistEvent{Whitelist: whitelist.List})
+		}()
 
 		// Measure network economic metrics.
 		bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
@@ -2533,19 +2537,6 @@ func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscr
 
 func (bc *BlockChain) SubscribeAutonityEvents(ch chan<- WhitelistEvent) event.Subscription {
 	return bc.scope.Track(bc.autonityFeed.Subscribe(ch))
-}
-
-func (bc *BlockChain) UpdateEnodeWhitelist(newWhitelist *types.Nodes) {
-	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-	bc.wg.Add(1)
-	go func() {
-		defer bc.wg.Done()
-		bc.autonityFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
-	}()
-}
-
-func (bc *BlockChain) ReadEnodeWhitelist() *types.Nodes {
-	return rawdb.ReadEnodeWhitelist(bc.db)
 }
 
 func (bc *BlockChain) PutKeyValue(key []byte, value []byte) error {
