@@ -19,7 +19,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -161,11 +160,11 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 	return genesis
 }
 
-func makePeer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) { //здесь эта переменная-функция называется cons
+func makeNodeConfig(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *eth.Config) {
 	// Define the basic configurations for the Ethereum node
 	datadir, err := ioutil.TempDir("", "")
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
 	if listenAddr == "" {
@@ -194,12 +193,7 @@ func makePeer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr strin
 		configNode.P2P.OutRate = outRate
 	}
 
-	// Start the node and configure a full Ethereum node on it
-	stack, err := node.New(configNode)
-	if err != nil {
-		return nil, err
-	}
-	_, err = eth.New(stack, &eth.Config{
+	ethConfig := &eth.Config{
 		Genesis:         genesis,
 		NetworkId:       genesis.Config.ChainID.Uint64(),
 		SyncMode:        downloader.FullSync,
@@ -207,15 +201,8 @@ func makePeer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr strin
 		DatabaseHandles: 256,
 		TxPool:          core.DefaultTxPoolConfig,
 		Tendermint:      *genesis.Config.Tendermint,
-	}, cons)
-	if err != nil {
-		return nil, err
 	}
-	// Start the node and return if successful
-	if err := stack.Start(); err != nil {
-		return nil, err
-	}
-	return stack, nil
+	return configNode, ethConfig
 }
 
 func maliciousTest(t *testing.T, test *testCase, validators map[string]*testNode) {

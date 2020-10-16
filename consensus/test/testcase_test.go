@@ -141,7 +141,7 @@ func runTest(t *testing.T, test *testCase) {
 	// see: metrics/meter.go:55
 	defer metrics.DefaultRegistry.UnregisterAll()
 
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numValidators))
 	if err != nil {
 		t.Log("can't rise file description limit. errors are possible")
@@ -198,42 +198,36 @@ func runTest(t *testing.T, test *testCase) {
 	if test.genesisHook != nil {
 		genesis = test.genesisHook(genesis)
 	}
-
+	wg := &errgroup.Group{}
 	for i, peer := range nodes {
-		var engineConstructor func(basic consensus.Engine) consensus.Engine
+		peer := peer
 		if test.maliciousPeers != nil {
-			engineConstructor = test.maliciousPeers[i].cons
+			peer.engineConstructor = test.maliciousPeers[i].cons
 		}
-
 		peer.listener[0].Close()
 		peer.listener[1].Close()
 
 		rates := test.networkRates[i]
-		peer.node, err = makePeer(genesis, peer.privateKey, fmt.Sprintf("127.0.0.1:%d", peer.port), peer.rpcPort, rates.in, rates.out, engineConstructor)
+		peer.nodeConfig, peer.ethConfig = makeNodeConfig(genesis, peer.privateKey,
+			fmt.Sprintf("127.0.0.1:%d", peer.port),
+			peer.rpcPort, rates.in, rates.out)
+
 		if err != nil {
 			t.Fatal("cant make a node", i, err)
 		}
-	}
-
-	wg := &errgroup.Group{}
-	for _, peer := range nodes {
-		peer := peer
-
 		wg.Go(func() error {
 			return peer.startNode()
 		})
 	}
+
 	err = wg.Wait()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := " "
 	for i, p := range nodes {
-		s += fmt.Sprintf("%s %s === %s  -- %s\n", s, i, p.enode.URLv4(), crypto.PubkeyToAddress(p.privateKey.PublicKey).String())
-
+		fmt.Printf("%s === %s  -- %s\n", i, p.enode.URLv4(), crypto.PubkeyToAddress(p.privateKey.PublicKey).String())
 	}
-	fmt.Println(s)
 
 	if test.topology != nil && !test.topology.WithChanges() {
 		err := test.topology.ConnectNodes(nodes)
