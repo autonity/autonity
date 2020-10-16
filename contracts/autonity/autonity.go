@@ -9,10 +9,12 @@ import (
 
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
 )
 
@@ -38,24 +40,24 @@ type Contract struct {
 	initialMinGasPrice uint64
 	contractABI        *abi.ABI
 	stringContractABI  string
-	bc                 Blockchainer
+	db                 ethdb.Database
 	metrics            EconomicMetrics
 
 	sync.RWMutex
 }
 
 func NewAutonityContract(
-	bc Blockchainer,
+	db ethdb.Database,
 	operator common.Address,
 	minGasPrice uint64,
 	ABI string,
 	evmProvider EVMProvider,
 ) (*Contract, error) {
 	contract := Contract{
+		db:                 db,
 		stringContractABI:  ABI,
 		operator:           operator,
 		initialMinGasPrice: minGasPrice,
-		bc:                 bc,
 		evmProvider:        evmProvider,
 	}
 	err := contract.upgradeAbiCache(ABI)
@@ -214,7 +216,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	}
 
 	// save new abi in persistent, once node reset, it load from persistent level db.
-	if err := ac.bc.PutKeyValue([]byte(ABISPEC), []byte(newAbi)); err != nil {
+	if err := rawdb.PutKeyValue(ac.db, []byte(ABISPEC), []byte(newAbi)); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}

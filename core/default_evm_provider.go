@@ -7,11 +7,14 @@ import (
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/params"
 )
 
 // defaultEVMProvider implements autonity.EVMProvider
 type defaultEVMProvider struct {
-	bc *BlockChain
+	hg          HeaderGetter
+	vmConfig    vm.Config
+	chainConfig *params.ChainConfig
 }
 
 func (p *defaultEVMProvider) EVM(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
@@ -19,7 +22,7 @@ func (p *defaultEVMProvider) EVM(header *types.Header, origin common.Address, st
 	evmContext := vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
-		GetHash:     GetHashFn(header, p.bc),
+		GetHash:     GetHashFn(header, p.hg),
 		Origin:      origin,
 		Coinbase:    coinbase,
 		BlockNumber: header.Number,
@@ -28,7 +31,6 @@ func (p *defaultEVMProvider) EVM(header *types.Header, origin common.Address, st
 		Difficulty:  header.Difficulty,
 		GasPrice:    new(big.Int).SetUint64(0x0),
 	}
-	vmConfig := *p.bc.GetVMConfig()
-	evm := vm.NewEVM(evmContext, statedb, p.bc.Config(), vmConfig)
+	evm := vm.NewEVM(evmContext, statedb, p.chainConfig, p.vmConfig)
 	return evm
 }

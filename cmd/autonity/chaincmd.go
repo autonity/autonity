@@ -19,13 +19,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/clearmatics/autonity/metrics"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"github.com/clearmatics/autonity/metrics"
 
 	"github.com/davecgh/go-spew/spew"
 
@@ -479,7 +480,11 @@ func copyDb(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	hc, err := core.NewHeaderChain(db, chain.Config(), chain.Engine(), func() bool { return false })
+	hg, err := core.NewHeaderGetter(db)
+	if err != nil {
+		return err
+	}
+	hc, err := core.NewHeaderChain(db, chain.Config(), chain.Engine(), func() bool { return false }, hg)
 	if err != nil {
 		return err
 	}

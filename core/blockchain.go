@@ -255,8 +255,11 @@ func NewBlockChainWithState(db ethdb.Database, statedb state.Database, cacheConf
 	bc.prefetcher = newStatePrefetcher(chainConfig, bc, engine)
 	bc.processor = NewStateProcessor(chainConfig, bc, engine)
 
-	var err error
-	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.insertStopped)
+	hg, err := NewHeaderGetter(db)
+	if err != nil {
+		return nil, err
+	}
+	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.insertStopped, hg)
 	if err != nil {
 		return nil, err
 	}
@@ -299,11 +302,15 @@ func NewBlockChainWithState(db ethdb.Database, statedb state.Database, cacheConf
 			JSONString = string(bytes)
 		}
 		contract, err := autonity.NewAutonityContract(
-			bc,
+			bc.db,
 			acConfig.Operator,
 			acConfig.MinGasPrice,
 			JSONString,
-			&defaultEVMProvider{bc},
+			&defaultEVMProvider{
+				hg:          bc.hc.headerGetter,
+				chainConfig: bc.chainConfig,
+				vmConfig:    bc.vmConfig,
+			},
 		)
 		if err != nil {
 			return nil, err

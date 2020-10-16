@@ -58,7 +58,7 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 }
 
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
-func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash {
+func GetHashFn(ref *types.Header, headerGetter HeaderGetter) func(n uint64) common.Hash {
 	// Cache will initially contain [refHash.parent],
 	// Then fill up with [refHash.p, refHash.pp, refHash.ppp, ...]
 	var cache []common.Hash
@@ -84,7 +84,7 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 			// autonity contract without needing a blockchain (we would need to
 			// remove it's own reference but that is easy because it just loads
 			// and stores the whitelist)
-			header := chain.GetHeader(lastKnownHash, lastKnownNumber)
+			header := headerGetter.GetHeader(lastKnownHash, lastKnownNumber)
 			if header == nil {
 				break
 			}
