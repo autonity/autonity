@@ -5,7 +5,7 @@ imageClientUbuntuHost:
 
 imageAutonityE2ETestEngine:
   repository: ironmanjason/test_engine
-  tag: 0.0.1
+  tag: 0.0.2
 
 # Number of validators
 validators:
