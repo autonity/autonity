@@ -1,0 +1,34 @@
+apiVersion: v1
+entries:
+  autonity-e2e-test-chart:
+  - apiVersion: v1
+    created: "2020-10-16T09:56:16.949266152+01:00"
+    description: Chart for deploying a full Autonity network, and run e2e testcases
+      over it.
+    digest: 14a65bf923e99c94dc0bccee82377c8359345c9db759de424f13809acd8e3d43
+    home: https://www.autonity.io/
+    keywords:
+    - autonity
+    - autonity-e2e-test-framework
+    - blockchain
+    kubeVersion: '>=1.15.11-0'
+    maintainers:
+    - email: jason.chen@clearmatics.com
+      name: jason
+    name: autonity-e2e-test-chart
+    sources:
+    - https://github.com/clearmatics/ATAutonity
+    urls:
+    - https://Jason-Zhangxin-Chen.github.io/engine-chart/autonity-e2e-test-chart-0.0.1.tgz
+    version: 0.0.1
+  helm-chart-test:
+  - apiVersion: v1
+    appVersion: "1.0"
+    created: "2020-10-16T09:56:16.949498241+01:00"
+    description: A Helm chart for Kubernetes
+    digest: b734f4478ab9f6a62bdd4ccbee72f5feb3cc03bfa36f17facf7eb3128468bf3d
+    name: helm-chart-test
+    urls:
+    - https://Jason-Zhangxin-Chen.github.io/engine-chart/helm-chart-test-0.1.0.tgz
+    version: 0.1.0
+generated: "2020-10-16T09:56:16.948856266+01:00"

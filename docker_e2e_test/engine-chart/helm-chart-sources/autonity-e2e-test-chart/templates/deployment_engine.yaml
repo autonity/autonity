@@ -5,21 +5,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: e2eTestEngine
+  name: e2e-test-engine
   namespace: {{ $namespace }}
 spec:
   selector:
     matchLabels:
-      app: e2eTestEngine
+      app: e2e-test-engine
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app: e2eTestEngine
+        app: e2e-test-engine
     spec:
       containers:
-        - name: e2eTestEngine
+        - name: e2e-test-engine
           image: {{ $imageE2ETestEngine.repository }}:{{ $imageE2ETestEngine.tag }}
           env:
           {{- if $validatorIps }}
