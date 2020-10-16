@@ -12,5 +12,5 @@ sources:
   - https://github.com/clearmatics/ATAutonity
 maintainers:
   - name: jason
-     email: jason.chen@clearmatics.com
-     appVersion: v0.0.1
+    email: "jason.chen@clearmatics.com"
+    appVersion: v0.0.1
