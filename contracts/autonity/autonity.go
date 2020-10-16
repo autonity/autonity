@@ -257,6 +257,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 func (ac *Contract) upgradeAbiCache(newAbi string) error {
 	ac.Lock()
 	defer ac.Unlock()
+	ac.stringContractABI = newAbi
 	newABI, err := abi.JSON(strings.NewReader(newAbi))
 	if err != nil {
 		return err
