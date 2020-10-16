@@ -76,6 +76,14 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 		lastKnownNumber := ref.Number.Uint64() - uint64(len(cache))
 
 		for {
+			// TODO If we replace this with a cached header getter(which doesn't
+			// exist but I could make) then, we could get rid of th dependency
+			// on a chain here, then we could get a new evmcontext without
+			// needing a blockchain then we could create an evm provider
+			// without needing a blockchain and then we could could create the
+			// autonity contract without needing a blockchain (we would need to
+			// remove it's own reference but that is easy because it just loads
+			// and stores the whitelist)
 			header := chain.GetHeader(lastKnownHash, lastKnownNumber)
 			if header == nil {
 				break
