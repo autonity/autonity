@@ -216,16 +216,16 @@ var defaultCacheConfig = &CacheConfig{
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, shouldPreserve func(block *types.Block) bool, senderCacher *TxSenderCacher, txLookupLimit *uint64) (*BlockChain, error) {
+func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, shouldPreserve func(block *types.Block) bool, senderCacher *TxSenderCacher, txLookupLimit *uint64, headerGetter *headerGetter, autonityContract *autonity.Contract) (*BlockChain, error) {
 	if cacheConfig == nil {
 		cacheConfig = defaultCacheConfig
 	}
 	statedb := state.NewDatabaseWithCache(db, cacheConfig.TrieCleanLimit)
-	return NewBlockChainWithState(db, statedb, cacheConfig, chainConfig, engine, vmConfig, shouldPreserve, senderCacher, txLookupLimit)
+	return NewBlockChainWithState(db, statedb, cacheConfig, chainConfig, engine, vmConfig, shouldPreserve, senderCacher, txLookupLimit, headerGetter, autonityContract)
 }
 
 // NewBlockChainWithState accepts the statedb as an additional parameter as opposed to constructing it itself.
-func NewBlockChainWithState(db ethdb.Database, statedb state.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, shouldPreserve func(block *types.Block) bool, senderCacher *TxSenderCacher, txLookupLimit *uint64) (*BlockChain, error) {
+func NewBlockChainWithState(db ethdb.Database, statedb state.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, shouldPreserve func(block *types.Block) bool, senderCacher *TxSenderCacher, txLookupLimit *uint64, headerGetter *headerGetter, autonityContract *autonity.Contract) (*BlockChain, error) {
 	if cacheConfig == nil {
 		cacheConfig = defaultCacheConfig
 	}
@@ -256,15 +256,14 @@ func NewBlockChainWithState(db ethdb.Database, statedb state.Database, cacheConf
 		badBlocks:      badBlocks,
 		senderCacher:   senderCacher,
 	}
+	bc.autonityContract = autonityContract
+	bc.processor.SetAutonityContract(bc.autonityContract)
 	bc.validator = NewBlockValidator(chainConfig, bc, engine)
 	bc.prefetcher = newStatePrefetcher(chainConfig, bc, engine)
 	bc.processor = NewStateProcessor(chainConfig, bc, engine)
 
-	hg, err := NewHeaderGetter(db)
-	if err != nil {
-		return nil, err
-	}
-	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.insertStopped, hg)
+	var err error
+	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.insertStopped, headerGetter)
 	if err != nil {
 		return nil, err
 	}
@@ -292,37 +291,6 @@ func NewBlockChainWithState(db ethdb.Database, statedb state.Database, cacheConf
 
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
-	}
-	if chainConfig.Tendermint != nil {
-
-		if chainConfig.AutonityContractConfig == nil {
-			return nil, errors.New("we need autonity contract specified for tendermint or istanbul consensus")
-		}
-
-		acConfig := bc.Config().AutonityContractConfig
-
-		var JSONString = acConfig.ABI
-		bytes, err := bc.GetKeyValue([]byte(autonity.ABISPEC))
-		if err == nil || bytes != nil {
-			JSONString = string(bytes)
-		}
-		contract, err := autonity.NewAutonityContract(
-			bc.db,
-			acConfig.Operator,
-			acConfig.MinGasPrice,
-			JSONString,
-			&defaultEVMProvider{
-				hg:          bc.hc.headerGetter,
-				chainConfig: bc.chainConfig,
-				vmConfig:    bc.vmConfig,
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		bc.autonityContract = contract
-		bc.processor.SetAutonityContract(bc.autonityContract)
 	}
 	// The first thing the node will do is reconstruct the verification data for
 	// the head block (ethash cache or clique voting snapshot). Might as well do

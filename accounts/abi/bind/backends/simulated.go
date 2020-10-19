@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity"
+	ethereum "github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common"
@@ -77,7 +77,21 @@ type SimulatedBackend struct {
 func NewSimulatedBackendWithDatabase(database ethdb.Database, alloc core.GenesisAlloc, gasLimit uint64, cacher *core.TxSenderCacher) *SimulatedBackend {
 	genesis := core.Genesis{Config: params.AllEthashProtocolChanges, GasLimit: gasLimit, Alloc: alloc}
 	genesis.MustCommit(database)
-	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vm.Config{}, nil, cacher, nil)
+	hg, err := core.NewHeaderGetter(database)
+	if err != nil {
+		panic(err)
+	}
+	vmConfig := vm.Config{}
+	autonityContract, err := core.NewAutonityContractFromConfig(
+		database,
+		hg,
+		core.NewDefaultEVMProvider(hg, vmConfig, genesis.Config),
+		genesis.Config.AutonityContractConfig,
+	)
+	if err != nil {
+		panic(err)
+	}
+	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vmConfig, nil, cacher, nil, hg, autonityContract)
 
 	backend := &SimulatedBackend{
 		database:   database,

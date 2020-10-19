@@ -22,8 +22,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/clearmatics/autonity/core/state/snapshot"
 	"math/big"
+
+	"github.com/clearmatics/autonity/core/state/snapshot"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
@@ -124,7 +125,24 @@ func (t *BlockTest) Run(snapshotter bool) error {
 		cache.SnapshotLimit = 1
 		cache.SnapshotWait = true
 	}
-	chain, err := core.NewBlockChain(db, cache, config, engine, vm.Config{}, nil,  &core.TxSenderCacher{}, nil)
+
+	hg, err := core.NewHeaderGetter(db)
+	if err != nil {
+		return err
+	}
+
+	vmConfig := vm.Config{}
+	autonityContract, err := core.NewAutonityContractFromConfig(
+		db,
+		hg,
+		core.NewDefaultEVMProvider(hg, vmConfig, config),
+		config.AutonityContractConfig,
+	)
+	if err != nil {
+		return err
+	}
+
+	chain, err := core.NewBlockChain(db, cache, config, engine, vmConfig, nil, &core.TxSenderCacher{}, nil, hg, autonityContract)
 	if err != nil {
 		return err
 	}

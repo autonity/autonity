@@ -168,6 +168,21 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	)
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
+	hg, err := core.NewHeaderGetter(chainDb)
+	if err != nil {
+		return nil, err
+	}
+
+	autonityContract, err := core.NewAutonityContractFromConfig(
+		chainDb,
+		hg,
+		core.NewDefaultEVMProvider(hg, vmConfig, config.Genesis.Config),
+		config.Genesis.Config.AutonityContractConfig,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	statedb := state.NewDatabaseWithCache(chainDb, cacheConfig.TrieCleanLimit)
 	peers := NewPeerSet()
 	consEngine := CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig, peers, statedb)
@@ -211,7 +226,7 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 		}
 	}
 	senderCacher := core.NewTxSenderCacher()
-	eth.blockchain, err = core.NewBlockChainWithState(chainDb, statedb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, senderCacher, &config.TxLookupLimit)
+	eth.blockchain, err = core.NewBlockChainWithState(chainDb, statedb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, senderCacher, &config.TxLookupLimit, hg, autonityContract)
 	if err != nil {
 		return nil, err
 	}

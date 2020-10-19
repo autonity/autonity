@@ -167,7 +167,23 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, statedb, genesis.Config, &vm.Config{}, bc, peers, syncer)
 
 	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChainWithState(memDB, statedb, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
+
+	hg, err := core.NewHeaderGetter(memDB)
+	if err != nil {
+		panic(err)
+	}
+	vmConfig := vm.Config{}
+	autonityContract, err := core.NewAutonityContractFromConfig(
+		memDB,
+		hg,
+		core.NewDefaultEVMProvider(hg, vmConfig, genesis.Config),
+		genesis.Config.AutonityContractConfig,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	blockchain, err := core.NewBlockChainWithState(memDB, statedb, nil, genesis.Config, b, vmConfig, nil, core.NewTxSenderCacher(), nil, hg, autonityContract)
 	if err != nil {
 		panic(err)
 	}

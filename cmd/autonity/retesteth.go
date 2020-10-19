@@ -401,7 +401,25 @@ func (api *RetestethAPI) SetChainParams(ctx context.Context, chainParams ChainPa
 	}
 	engine := &NoRewardEngine{inner: inner, rewardsOn: chainParams.SealEngine != "NoReward"}
 	senderCacher := core.NewTxSenderCacher()
-	blockchain, err := core.NewBlockChain(ethDb, nil, chainConfig, engine, vm.Config{}, nil, senderCacher, nil)
+
+	hg, err := core.NewHeaderGetter(ethDb)
+	if err != nil {
+		return false, err
+	}
+
+	vmConfig := vm.Config{}
+	autonityContract, err := core.NewAutonityContractFromConfig(
+		ethDb,
+		hg,
+		core.NewDefaultEVMProvider(hg, vmConfig, genesis.Config),
+		chainConfig.AutonityContractConfig,
+	)
+
+	if err != nil {
+		return false, err
+	}
+
+	blockchain, err := core.NewBlockChain(ethDb, nil, chainConfig, engine, vmConfig, nil, senderCacher, nil, hg, autonityContract)
 	if err != nil {
 		return false, err
 	}
