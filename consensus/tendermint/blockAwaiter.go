@@ -30,7 +30,8 @@ func (a *blockAwaiter) addValue(b *types.Block) {
 	a.lastAddedValue = b
 	blockHashMap, ok := a.allValues[b.NumberU64()]
 	if !ok {
-		a.allValues[b.NumberU64()] = make(map[common.Hash]*types.Block)
+		blockHashMap = make(map[common.Hash]*types.Block)
+		a.allValues[b.NumberU64()] = blockHashMap
 	}
 	blockHashMap[b.Hash()] = b
 
