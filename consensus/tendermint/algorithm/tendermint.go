@@ -346,5 +346,5 @@ func (a *OneShotTendermint) OnTimeoutPrecommit(height uint64, round int64) *Resu
 }
 
 func (a *OneShotTendermint) height() uint64 {
-	return a.height()
+	return a.oracle.Height()
 }
