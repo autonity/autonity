@@ -440,7 +440,7 @@ jobs:
       - name: Test helloworld console access
         run: |
           set -e && \
-          sleep 1 \
+          sleep 1 && \
           for x in 11 12 13 14 15; do \
             docker run \
             --network helloworld_chainnet \
