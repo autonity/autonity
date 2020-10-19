@@ -18,6 +18,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/cmd/devp2p/internal/v4test"
+	"github.com/clearmatics/autonity/internal/utesting"
 	"net"
 	"os"
 	"strings"

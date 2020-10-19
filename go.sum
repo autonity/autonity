@@ -26,6 +26,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/JekaMas/notify v0.9.4 h1:Ns+DRf9kho8T0yQNSKoZqAnbvO/Hg3KmJCUaoRhL7MM=
 github.com/JekaMas/notify v0.9.4/go.mod h1:KYZd45vBSOYP2/9lY38EjZtvKRZMfgWaJk8bvBxhIYk=
+github.com/JekaMas/pretty v0.0.0-20161213095928-bfc6f9ec9574 h1:uxx/6jNGNsB3pisEJMhp2IwOe+eRTDOTL1uBI1vx/wM=
+github.com/JekaMas/pretty v0.0.0-20161213095928-bfc6f9ec9574/go.mod h1:1UhimYhDZRIta5E9Gikxj3TztMI6w70s6w2Z/EkDP0E=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d h1:G0m3OIz70MZUWq3EgK3CesDbo8upS2Vm9/P3FtgI+Jk=

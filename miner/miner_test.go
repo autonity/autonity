@@ -18,6 +18,7 @@
 package miner
 
 import (
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"testing"
 	"time"
 
@@ -59,6 +60,14 @@ type testBlockChain struct {
 	statedb       *state.StateDB
 	gasLimit      uint64
 	chainHeadFeed *event.Feed
+}
+
+func (bc *testBlockChain) GetAutonityContract() *autonity.Contract {
+	return nil
+}
+
+func (bc *testBlockChain) Config() *params.ChainConfig {
+	return nil
 }
 
 func (bc *testBlockChain) CurrentBlock() *types.Block {
@@ -238,7 +247,7 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	// Create chainConfig
 	memdb := memorydb.New()
 	chainDB := rawdb.NewDatabase(memdb)
-	genesis := core.DeveloperGenesisBlock(15, common.HexToAddress("12345"))
+	genesis := core.DefaultGenesisBlock()
 	chainConfig, _, err := core.SetupGenesisBlock(chainDB, genesis)
 	if err != nil {
 		t.Fatalf("can't create new chain config: %v", err)
@@ -254,14 +263,15 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	}
 	// Create Ethereum backend
 	limit := uint64(1000)
-	bc, err := core.NewBlockChain(chainDB, new(core.CacheConfig), chainConfig, engine, vm.Config{}, isLocalBlock, &limit)
+	senderCacher := new(core.TxSenderCacher)
+	bc, err := core.NewBlockChain(chainDB, new(core.CacheConfig), chainConfig, engine, vm.Config{}, isLocalBlock, senderCacher, &limit)
 	if err != nil {
 		t.Fatalf("can't create new chain %v", err)
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	blockchain := &testBlockChain{statedb, 10000000, new(event.Feed)}
 
-	pool := core.NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain)
+	pool := core.NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, senderCacher)
 	backend := NewMockBackend(bc, pool)
 	// Create Miner
 	return New(backend, &config, chainConfig, mux, engine, isLocalBlock), mux

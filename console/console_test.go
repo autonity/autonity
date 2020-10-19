@@ -98,7 +98,7 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 		t.Fatalf("failed to create node: %v", err)
 	}
 	ethConf := &eth.Config{
-		Genesis: core.DeveloperGenesisBlock(15, common.Address{}),
+		Genesis: core.DefaultGenesisBlock(),
 		Miner: miner.Config{
 			Etherbase: common.HexToAddress(testAddress),
 		},
@@ -109,7 +109,7 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 	if confOverride != nil {
 		confOverride(ethConf)
 	}
-	ethBackend, err := eth.New(stack, ethConf)
+	ethBackend, err := eth.New(stack, ethConf, nil)
 	if err != nil {
 		t.Fatalf("failed to register Ethereum protocol: %v", err)
 	}

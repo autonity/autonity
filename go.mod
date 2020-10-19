@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/Azure/azure-storage-blob-go v0.7.0
 	github.com/JekaMas/notify v0.9.4
+	github.com/JekaMas/pretty v0.0.0-20161213095928-bfc6f9ec9574
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/alecthomas/participle v0.5.0
 	github.com/aristanetworks/goarista v0.0.0-20170210015632-ea17b1a17847

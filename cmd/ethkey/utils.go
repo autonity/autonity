@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/console/prompt"
 	"github.com/clearmatics/autonity/crypto"
 	"gopkg.in/urfave/cli.v1"
 )

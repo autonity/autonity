@@ -20,9 +20,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/internal/flags"
 	"os"
 
-	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common/fdlimit"
 	"github.com/clearmatics/autonity/log"
 	"gopkg.in/urfave/cli.v1"
