@@ -1,6 +1,6 @@
 {{- $imageE2ETestEngine := .Values.imageAutonityE2ETestEngine -}}
 {{- $namespace := .Release.Namespace -}}
-{{- $validatorIps :=  .Values.validators.ips -}}
+{{- $validatorAddress := .Values.validators.ips -}}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -22,9 +22,9 @@ spec:
         - name: e2e-test-engine
           image: {{ $imageE2ETestEngine.repository }}:{{ $imageE2ETestEngine.tag }}
           env:
-          {{- if $validatorIps }}
+          {{- if $validatorAddress }}
           - name: VALIDATOR_IPS
-            value: "{{ range $i, $e := until (atoi (printf "%d" (int64 .Values.validators.num))) }}{{index $validatorIps $i }} {{ end }}"
+            value: "{{ range $i, $e := until (atoi (toString .Values.validators.num)) }}{{index $validatorAddress $i }} {{ end }}"
           {{- end }}
           securityContext:
             allowPrivilegeEscalation: true

@@ -41,12 +41,7 @@ if __name__ == '__main__':
     is_testing = args.t
 
     if os.getenv('VALIDATOR_IPS') is not None:
-        LG.info("validator ips %s", os.getenv('VALIDATOR_IPS'))
-        time.sleep(120)
         utility.execute("echo $VALIDATOR_IPS > ./etc/validator.ip")
-
-    while True:
-        time.sleep(1)
 
     if branch != "":
         build_autonity_from_master(branch)
