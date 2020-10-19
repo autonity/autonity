@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -74,7 +75,7 @@ func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey
 		types.HomesteadSigner{}, key)
 }
 
-func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genesis {
+func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName string) *core.Genesis {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.ExtraData = nil
@@ -115,7 +116,7 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 			//an unknown user
 			skip = true
 		default:
-			panic("incorrect node type")
+			require.FailNow(t, "incorrect node type")
 		}
 
 		if skip {
@@ -153,19 +154,14 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 	users = append(users, stakeHolder)
 	genesis.Config.AutonityContractConfig.Users = users
 	err = genesis.Config.AutonityContractConfig.Prepare()
-	if err != nil {
-		panic(err)
-	}
-
+	require.NoError(t, err)
 	return genesis
 }
 
-func makeNodeConfig(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *eth.Config) {
+func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *eth.Config) {
 	// Define the basic configurations for the Ethereum node
 	datadir, err := ioutil.TempDir("", "")
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	if listenAddr == "" {
 		listenAddr = "0.0.0.0:0"

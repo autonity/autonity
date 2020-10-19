@@ -141,7 +141,7 @@ func runTest(t *testing.T, test *testCase) {
 	// see: metrics/meter.go:55
 	defer metrics.DefaultRegistry.UnregisterAll()
 
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numValidators))
 	if err != nil {
 		t.Log("can't rise file description limit. errors are possible")
@@ -193,7 +193,7 @@ func runTest(t *testing.T, test *testCase) {
 	generateNodesPrivateKey(t, nodes, nodeNames, nodesNum)
 	setNodesPortAndEnode(t, nodes)
 
-	genesis := makeGenesis(nodes, stakeholderName)
+	genesis := makeGenesis(t, nodes, stakeholderName)
 
 	if test.genesisHook != nil {
 		genesis = test.genesisHook(genesis)
@@ -208,7 +208,7 @@ func runTest(t *testing.T, test *testCase) {
 		peer.listener[1].Close()
 
 		rates := test.networkRates[i]
-		peer.nodeConfig, peer.ethConfig = makeNodeConfig(genesis, peer.privateKey,
+		peer.nodeConfig, peer.ethConfig = makeNodeConfig(t, genesis, peer.privateKey,
 			fmt.Sprintf("127.0.0.1:%d", peer.port),
 			peer.rpcPort, rates.in, rates.out)
 

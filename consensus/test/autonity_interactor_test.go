@@ -201,8 +201,8 @@ func (c *caller) getWhitelist() ([]string, error) {
 	return whitelist, err
 }
 
-func (c *caller) dumpEconomicsMetricData() (Struct1, error) {
-	var metrics Struct1
+func (c *caller) dumpEconomicsMetricData() (AutonityEconomicsMetricData, error) {
+	var metrics AutonityEconomicsMetricData
 	err := c.execute(func(instance *Autonity, opts *bind.CallOpts) error {
 		m, err := instance.DumpEconomicsMetricData(opts)
 		metrics = m
