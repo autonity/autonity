@@ -220,12 +220,13 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	if err != nil {
 		return nil, err
 	}
-
-	list, err := blockchain.GetAutonityContract().GetWhitelist(blockchain.CurrentBlock(), s)
-	if err != nil {
-		return nil, err
+	if config.AutonityContractConfig != nil {
+		list, err := blockchain.GetAutonityContract().GetWhitelist(blockchain.CurrentBlock(), s)
+		if err != nil {
+			return nil, err
+		}
+		manager.enodesWhitelist = list.List
 	}
-	manager.enodesWhitelist = list.List
 	return manager, nil
 }
 

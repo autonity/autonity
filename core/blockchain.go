@@ -256,8 +256,10 @@ func NewBlockChainWithState(db ethdb.Database, statedb state.Database, cacheConf
 		badBlocks:      badBlocks,
 		senderCacher:   senderCacher,
 	}
-	bc.autonityContract = autonityContract
-	bc.processor.SetAutonityContract(bc.autonityContract)
+	if autonityContract != nil {
+		bc.autonityContract = autonityContract
+		bc.processor.SetAutonityContract(bc.autonityContract)
+	}
 	bc.validator = NewBlockValidator(chainConfig, bc, engine)
 	bc.prefetcher = newStatePrefetcher(chainConfig, bc, engine)
 	bc.processor = NewStateProcessor(chainConfig, bc, engine)

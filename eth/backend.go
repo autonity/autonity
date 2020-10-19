@@ -27,6 +27,7 @@ import (
 
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p/enode"
 
@@ -172,17 +173,18 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	if err != nil {
 		return nil, err
 	}
-
-	autonityContract, err := core.NewAutonityContractFromConfig(
-		chainDb,
-		hg,
-		core.NewDefaultEVMProvider(hg, vmConfig, config.Genesis.Config),
-		config.Genesis.Config.AutonityContractConfig,
-	)
-	if err != nil {
-		return nil, err
+	var autonityContract *autonity.Contract
+	if config.Genesis.Config.Tendermint != nil {
+		autonityContract, err = core.NewAutonityContractFromConfig(
+			chainDb,
+			hg,
+			core.NewDefaultEVMProvider(hg, vmConfig, config.Genesis.Config),
+			config.Genesis.Config.AutonityContractConfig,
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	statedb := state.NewDatabaseWithCache(chainDb, cacheConfig.TrieCleanLimit)
 	peers := NewPeerSet()
 	consEngine := CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig, peers, statedb)
@@ -562,9 +564,11 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start(srvr *p2p.Server) error {
-	// Subscribe to Autonity updates events
-	s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
-	go s.glienickeEventLoop(srvr)
+	if s.config.Genesis.Config.AutonityContractConfig != nil {
+		// Subscribe to Autonity updates events
+		s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
+		go s.glienickeEventLoop(srvr)
+	}
 
 	s.startEthEntryUpdate(srvr.LocalNode())
 
@@ -646,7 +650,10 @@ func (s *Ethereum) Stop() error {
 	if s.lesServer != nil {
 		s.lesServer.Stop()
 	}
-	s.glienickeSub.Unsubscribe()
+	if s.config.Genesis.Config.AutonityContractConfig != nil {
+		s.glienickeSub.Unsubscribe()
+	}
+
 	// Then stop everything else.
 	s.bloomIndexer.Close()
 	close(s.closeBloomHandler)
