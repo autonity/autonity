@@ -6,7 +6,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/contracts/autonity"
-	ethcore "github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 )
@@ -27,11 +26,6 @@ type Backend interface {
 	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
 	VerifyProposal(types.Block) (time.Duration, error)
-
-	BlockChain() *ethcore.BlockChain
-
-	//Used to set the blockchain on this
-	SetBlockchain(bc *ethcore.BlockChain)
 }
 
 type Tendermint interface {

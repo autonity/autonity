@@ -58,7 +58,7 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 }
 
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
-func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash {
+func GetHashFn(ref *types.Header, headerGetter HeaderGetter) func(n uint64) common.Hash {
 	// Cache will initially contain [refHash.parent],
 	// Then fill up with [refHash.p, refHash.pp, refHash.ppp, ...]
 	var cache []common.Hash
@@ -76,7 +76,15 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 		lastKnownNumber := ref.Number.Uint64() - uint64(len(cache))
 
 		for {
-			header := chain.GetHeader(lastKnownHash, lastKnownNumber)
+			// TODO If we replace this with a cached header getter(which doesn't
+			// exist but I could make) then, we could get rid of th dependency
+			// on a chain here, then we could get a new evmcontext without
+			// needing a blockchain then we could create an evm provider
+			// without needing a blockchain and then we could could create the
+			// autonity contract without needing a blockchain (we would need to
+			// remove it's own reference but that is easy because it just loads
+			// and stores the whitelist)
+			header := headerGetter.GetHeader(lastKnownHash, lastKnownNumber)
 			if header == nil {
 				break
 			}

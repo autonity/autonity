@@ -19,12 +19,13 @@ package console
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/internal/jsre"
 	"io"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/internal/jsre"
 
 	"github.com/clearmatics/autonity/accounts/scwallet"
 	"github.com/clearmatics/autonity/accounts/usbwallet"

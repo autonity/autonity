@@ -205,18 +205,49 @@ type BlockChain struct {
 	senderCacher *TxSenderCacher
 }
 
+var defaultCacheConfig = &CacheConfig{
+	TrieCleanLimit: 256,
+	TrieDirtyLimit: 256,
+	TrieTimeLimit:  5 * time.Minute,
+	SnapshotLimit:  256,
+	SnapshotWait:   true,
+}
+
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
 func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, shouldPreserve func(block *types.Block) bool, senderCacher *TxSenderCacher, txLookupLimit *uint64) (*BlockChain, error) {
 	if cacheConfig == nil {
-		cacheConfig = &CacheConfig{
-			TrieCleanLimit: 256,
-			TrieDirtyLimit: 256,
-			TrieTimeLimit:  5 * time.Minute,
-			SnapshotLimit:  256,
-			SnapshotWait:   true,
+		cacheConfig = defaultCacheConfig
+	}
+
+	statedb := state.NewDatabaseWithCache(db, cacheConfig.TrieCleanLimit)
+
+	headerGetter, err := NewHeaderGetter(db)
+	if err != nil {
+		return nil, err
+	}
+
+	var autonityContract *autonity.Contract
+	if chainConfig.Tendermint != nil {
+		autonityContract, err = NewAutonityContractFromConfig(
+			db,
+			headerGetter,
+			NewDefaultEVMProvider(headerGetter, vmConfig, chainConfig),
+			chainConfig.AutonityContractConfig,
+		)
+		if err != nil {
+			return nil, err
 		}
+	}
+
+	return NewBlockChainWithState(db, statedb, cacheConfig, chainConfig, engine, vmConfig, shouldPreserve, senderCacher, txLookupLimit, headerGetter, autonityContract)
+}
+
+// NewBlockChainWithState accepts the statedb as an additional parameter as opposed to constructing it itself.
+func NewBlockChainWithState(db ethdb.Database, statedb state.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, shouldPreserve func(block *types.Block) bool, senderCacher *TxSenderCacher, txLookupLimit *uint64, headerGetter *headerGetter, autonityContract *autonity.Contract) (*BlockChain, error) {
+	if cacheConfig == nil {
+		cacheConfig = defaultCacheConfig
 	}
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
@@ -231,7 +262,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		cacheConfig:    cacheConfig,
 		db:             db,
 		triegc:         prque.New(nil),
-		stateCache:     state.NewDatabaseWithCache(db, cacheConfig.TrieCleanLimit),
+		stateCache:     statedb,
 		quit:           make(chan struct{}),
 		shouldPreserve: shouldPreserve,
 		bodyCache:      bodyCache,
@@ -245,12 +276,17 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		badBlocks:      badBlocks,
 		senderCacher:   senderCacher,
 	}
+
 	bc.validator = NewBlockValidator(chainConfig, bc, engine)
 	bc.prefetcher = newStatePrefetcher(chainConfig, bc, engine)
 	bc.processor = NewStateProcessor(chainConfig, bc, engine)
+	if autonityContract != nil {
+		bc.autonityContract = autonityContract
+		bc.processor.SetAutonityContract(bc.autonityContract)
+	}
 
 	var err error
-	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.insertStopped)
+	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.insertStopped, headerGetter)
 	if err != nil {
 		return nil, err
 	}
@@ -278,33 +314,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
-	}
-	if chainConfig.Tendermint != nil {
-
-		if chainConfig.AutonityContractConfig == nil {
-			return nil, errors.New("we need autonity contract specified for tendermint or istanbul consensus")
-		}
-
-		acConfig := bc.Config().AutonityContractConfig
-
-		var JSONString = acConfig.ABI
-		bytes, err := bc.GetKeyValue([]byte(autonity.ABISPEC))
-		if err == nil || bytes != nil {
-			JSONString = string(bytes)
-		}
-		contract, err := autonity.NewAutonityContract(
-			bc,
-			acConfig.Operator,
-			acConfig.MinGasPrice,
-			JSONString,
-			&defaultEVMProvider{bc},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		bc.autonityContract = contract
-		bc.processor.SetAutonityContract(bc.autonityContract)
 	}
 	// The first thing the node will do is reconstruct the verification data for
 	// the head block (ethash cache or clique voting snapshot). Might as well do
@@ -1469,14 +1478,18 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
 	if bc.chainConfig.Tendermint != nil {
-		// Call network permissioning logic before committing the state
-		err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
-		if err != nil && err != autonity.ErrAutonityContract {
+		whitelist, err := bc.autonityContract.GetWhitelist(block, state)
+		if err != nil {
 			return NonStatTy, err
 		}
+		bc.wg.Add(1)
+		go func() {
+			defer bc.wg.Done()
+			bc.autonityFeed.Send(WhitelistEvent{Whitelist: whitelist.List})
+		}()
 
 		// Measure network economic metrics.
-		bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
+		bc.autonityContract.MeasureMetricsOfNetworkEconomic(block.Header(), state)
 	}
 
 	// Irrelevant of the canonical status, write the block itself to the database.
@@ -2527,19 +2540,6 @@ func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscr
 
 func (bc *BlockChain) SubscribeAutonityEvents(ch chan<- WhitelistEvent) event.Subscription {
 	return bc.scope.Track(bc.autonityFeed.Subscribe(ch))
-}
-
-func (bc *BlockChain) UpdateEnodeWhitelist(newWhitelist *types.Nodes) {
-	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-	bc.wg.Add(1)
-	go func() {
-		defer bc.wg.Done()
-		bc.autonityFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
-	}()
-}
-
-func (bc *BlockChain) ReadEnodeWhitelist() *types.Nodes {
-	return rawdb.ReadEnodeWhitelist(bc.db)
 }
 
 func (bc *BlockChain) PutKeyValue(key []byte, value []byte) error {

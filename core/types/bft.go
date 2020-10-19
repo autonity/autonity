@@ -76,6 +76,8 @@ func SigHash(header *Header) (hash common.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
 
 	// Clean seal is required for calculating proposer seal.
+	// TODO I changed the bool to false, this actually means
+	// that proposer seal is not protected in a chain.
 	err := rlp.Encode(hasher, BFTFilteredHeader(header, false))
 	if err != nil {
 		log.Error("can't hash the header", "err", err, "header", header)

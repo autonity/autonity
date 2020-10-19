@@ -31,7 +31,6 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth/downloader"
@@ -217,7 +216,17 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	manager.txFetcher = fetcher.NewTxFetcher(txpool.Has, txpool.AddRemotes, fetchTx)
 
 	manager.chainSync = newChainSyncer(manager)
-	manager.enodesWhitelist = rawdb.ReadEnodeWhitelist(chaindb).List
+	s, err := blockchain.State()
+	if err != nil {
+		return nil, err
+	}
+	if config.Tendermint != nil {
+		list, err := blockchain.GetAutonityContract().GetWhitelist(blockchain.CurrentBlock(), s)
+		if err != nil {
+			return nil, err
+		}
+		manager.enodesWhitelist = list.List
+	}
 	return manager, nil
 }
 

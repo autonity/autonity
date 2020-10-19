@@ -75,15 +75,17 @@ func badMessageErr(description string, m *algorithm.ConsensusMessage, address co
 func encodeSignedMessage(cm *algorithm.ConsensusMessage, key *ecdsa.PrivateKey, store *messageStore) ([]byte, error) {
 
 	// First generate the proposer seal, which is either our seal if we are
-	// building a proposal, or its the seal of the proposal we are voting for.
+	// building a proposal, or its the seal of the proposal we are voting for,
+	// if we are not voting for nil.
 	var proposerSeal []byte
 	var err error
-	if cm.MsgType == algorithm.Propose {
+	switch {
+	case cm.MsgType == algorithm.Propose:
 		proposerSeal, err = crypto.Sign(cm.Value[:], key)
 		if err != nil {
 			return nil, err
 		}
-	} else {
+	case cm.Value != algorithm.NilValue:
 		proposerSeal = store.matchingProposal(cm).proposerSeal
 	}
 
@@ -183,47 +185,52 @@ func decodeSignedMessage(msgBytes []byte) (*message, error) {
 		)
 	}
 
-	// Get the proposer address
-	proposerAddress, err := types.GetSignatureAddressHash(cm.Value[:], sm.ProposerSeal)
-	if err != nil {
-		return nil, badMessageErr(fmt.Sprintf("received proposal message with invalid proposer seal: %v", err),
-			cm,
-			signerAddress,
-		)
-	}
 	var value *types.Block
-	if cm.MsgType == algorithm.Propose {
-		// Check that the proposer seal address matches the signer address.
-		if proposerAddress != signerAddress {
-			return nil, badMessageErr(fmt.Sprintf("proposer seal address %q does not match sender address", proposerAddress.String()),
-				cm,
-				signerAddress,
-			)
-		}
+	// Votes for nil value do not have a proposer seal and cannot be of type
+	// algorithm.Propose.
+	if cm.Value != algorithm.NilValue {
 
-		// Check that a block was provided if the message is a proposal.
-		if len(sm.Value) == 0 {
-			return nil, badMessageErr(
-				"received proposal message without associated value",
-				cm,
-				signerAddress,
-			)
-		}
-		value = &types.Block{}
-		err = rlp.Decode(bytes.NewBuffer(sm.Value), value)
+		// Get the proposer address
+		proposerAddress, err := types.GetSignatureAddressHash(cm.Value[:], sm.ProposerSeal)
 		if err != nil {
-			return nil, err
-		}
-
-		// Check proposal message hash and block hash match.
-		if value.Hash() != common.Hash(cm.Value) {
-			return nil, badMessageErr(
-				fmt.Sprintf("received proposal message with mismatching value having hash %q", value.Hash().String()),
+			return nil, badMessageErr(fmt.Sprintf("received proposal message with invalid proposer seal: %v", err),
 				cm,
 				signerAddress,
 			)
 		}
+		if cm.MsgType == algorithm.Propose {
+			// Check that the proposer seal address matches the signer address.
+			if proposerAddress != signerAddress {
+				return nil, badMessageErr(fmt.Sprintf("proposer seal address %q does not match sender address", proposerAddress.String()),
+					cm,
+					signerAddress,
+				)
+			}
 
+			// Check that a block was provided if the message is a proposal.
+			if len(sm.Value) == 0 {
+				return nil, badMessageErr(
+					"received proposal message without associated value",
+					cm,
+					signerAddress,
+				)
+			}
+			value = &types.Block{}
+			err = rlp.Decode(bytes.NewBuffer(sm.Value), value)
+			if err != nil {
+				return nil, err
+			}
+
+			// Check proposal message hash and block hash match.
+			if value.Hash() != common.Hash(cm.Value) {
+				return nil, badMessageErr(
+					fmt.Sprintf("received proposal message with mismatching value having hash %q", value.Hash().String()),
+					cm,
+					signerAddress,
+				)
+			}
+
+		}
 	}
 	return &message{
 		hash:             common.Hash(sha256.Sum256(msgBytes)),

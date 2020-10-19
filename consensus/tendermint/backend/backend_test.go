@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -34,10 +33,10 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
 )
 
@@ -63,62 +62,6 @@ func TestResetPeerCache(t *testing.T) {
 	if msgCache.Contains(addr) {
 		t.Fatalf("expected empty cache")
 	}
-}
-
-func TestHasBadProposal(t *testing.T) {
-	t.Run("callback is not set, false returned", func(t *testing.T) {
-		b := &Backend{}
-		if b.HasBadProposal(common.HexToHash("0x01234567890")) {
-			t.Fatalf("expected <false>, got <true>")
-		}
-	})
-
-	t.Run("callback is set, true returned", func(t *testing.T) {
-		b := &Backend{
-			hasBadBlock: func(hash common.Hash) bool {
-				return true
-			},
-		}
-		if !b.HasBadProposal(common.HexToHash("0x01234567890")) {
-			t.Fatalf("expected <true>, got <false>")
-		}
-	})
-}
-
-func TestBackendLastCommittedProposal(t *testing.T) {
-	t.Run("block number 0, block returned", func(t *testing.T) {
-		block := types.NewBlockWithHeader(&types.Header{})
-
-		b := &Backend{
-			currentBlock: func() *types.Block {
-				return block
-			},
-			logger: log.New("backend", "test", "id", 0),
-		}
-
-		bl, _ := b.LastCommittedProposal()
-		if !reflect.DeepEqual(bl, block) {
-			t.Fatalf("expected %v, got %v", block, bl)
-		}
-	})
-
-	t.Run("block number is greater than 0, empty block returned", func(t *testing.T) {
-		block := types.NewBlockWithHeader(&types.Header{
-			Number: big.NewInt(1),
-		})
-
-		b := &Backend{
-			currentBlock: func() *types.Block {
-				return block
-			},
-			logger: log.New("backend", "test", "id", 0),
-		}
-
-		bl, _ := b.LastCommittedProposal()
-		if !reflect.DeepEqual(bl, &types.Block{}) {
-			t.Fatalf("expected empty block, got %v", bl)
-		}
-	})
 }
 
 // Test get contract ABI, it should have the default abi before contract upgrade.
@@ -219,17 +162,33 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	peers := &mockPeers{}
 	bc := tendermint.NewBroadcaster(common.Address{}, peers)
 	syncer := tendermint.NewSyncer(peers)
-	// Use the first key as private key
-	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{}, bc, peers, syncer)
+	statedb := state.NewDatabase(memDB)
 
-	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
+	hg, err := core.NewHeaderGetter(memDB)
 	if err != nil {
 		panic(err)
 	}
-	b.SetBlockchain(blockchain)
+	vmConfig := vm.Config{}
+	autonityContract, err := core.NewAutonityContractFromConfig(
+		memDB,
+		hg,
+		core.NewDefaultEVMProvider(hg, vmConfig, genesis.Config),
+		genesis.Config.AutonityContractConfig,
+	)
+	if err != nil {
+		panic(err)
+	}
+	// Use the first key as private key
+	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, statedb, genesis.Config, &vm.Config{}, bc, peers, syncer, autonityContract)
 
-	err = b.Start(context.Background())
+	genesis.MustCommit(memDB)
+
+	blockchain, err := core.NewBlockChainWithState(memDB, statedb, nil, genesis.Config, b, vmConfig, nil, core.NewTxSenderCacher(), nil, hg, autonityContract)
+	if err != nil {
+		panic(err)
+	}
+
+	err = b.Start(context.Background(), blockchain)
 	if err != nil {
 		panic(err)
 	}

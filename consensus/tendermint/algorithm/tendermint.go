@@ -11,7 +11,7 @@ func (v ValueID) String() string {
 	return hex.EncodeToString(v[:3])
 }
 
-var nilValue ValueID
+var NilValue ValueID
 
 type NodeID [20]byte
 
@@ -78,6 +78,9 @@ type ConsensusMessage struct {
 	ValidRound int64
 }
 
+type Decision ConsensusMessage
+type RoundChange int64
+
 func (cm *ConsensusMessage) String() string {
 	return fmt.Sprintf("s:%-3s h:%-3d r:%-3d v:%-6s", cm.MsgType.ShortString(), cm.Height, cm.Round, cm.Value.String())
 }
@@ -119,9 +122,9 @@ func New(nodeID NodeID, oracle Oracle) *OneShotTendermint {
 		nodeID:      nodeID,
 		round:       -1,
 		lockedRound: -1,
-		lockedValue: nilValue,
+		lockedValue: NilValue,
 		validRound:  -1,
-		validValue:  nilValue,
+		validValue:  NilValue,
 		oracle:      oracle,
 	}
 }
@@ -148,9 +151,10 @@ func (a *OneShotTendermint) timeout(timeoutType Step) *Timeout {
 	}
 }
 
-// Start round takes round to start. It then clears the first time flags and either returns a Result with a proposal to
-// be broadcast if this node is the proposer, or a timeout to be scheduled.
-func (a *OneShotTendermint) StartRound(round int64) (*Result, error) {
+// Start round takes round to start. It then clears the first time flags and either returns a proposal ConsensusMessage
+// to be broadcast, if this node is the proposer or if not, a Timeout to be scheduled. If an error occurs while
+// retreiving the proposal an error would be returned.
+func (a *OneShotTendermint) StartRound(round int64) (*ConsensusMessage, *Timeout, error) {
 	println(a.nodeID.String(), a.height(), "isProposer", a.oracle.Proposer(round, a.nodeID))
 
 	// sanity check
@@ -173,40 +177,39 @@ func (a *OneShotTendermint) StartRound(round int64) (*Result, error) {
 		var value ValueID
 		var err error
 
-		if a.validValue != nilValue {
+		if a.validValue != NilValue {
 			value = a.validValue
 		} else {
 			value, err = a.oracle.Value()
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		println(a.nodeID.String(), a.height(), "returning message", value.String())
-		return &Result{Broadcast: a.msg(Propose, value)}, nil
+		return  a.msg(Propose, value), nil, nil
 	} else { //nolint
-		return &Result{Schedule: a.timeout(Propose)}, nil
+		return nil, a.timeout(Propose), nil
 	}
 }
 
-// Result is returned from the methods of OneShotTendermint to indicate the outcome of
-// processing and what steps should be taken. Only one of the four fields may
-// be set. If StartRound is set it indicates that the caller should call
-// StartRound, if Broadcast is set it indicates that the caller should
-// broadcast the ConsensusMessage, including sending it to itself and if
-// Schedule is set it indicates that the caller should schedule the Timeout.
-// If Decision is set this indicates that a decision has been reached it will
-// contain the proposal that was decided upon. Each result must be handled synchronously
-// to ensure only one upon condition can change the state of the algorithm.
-type Result struct {
-	StartRound *int64
-	Broadcast  *ConsensusMessage
-	Schedule   *Timeout
-	Decision   *ConsensusMessage
-}
-
-// ReceiveMessage processes a consensus message and returns a Result if a state
-// change has taken place or nil if no state change has occurred.
-func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
+// ReceiveMessage processes a consensus message and returns 3 values of which
+// at most one can be non nil, although all can be nil, which indicates no
+// state change.
+//
+// The values that can be returned are as follows:
+//
+// - *ConsensusMessage - This should be broadcast to the rest of the network,
+//   including ourselves. This action can be taken asynchronously.
+//
+// - *RoundChange - This indicates that we need to progress to the next round,
+//   and possibly next height, ultimately leading to calling StartRound with the
+//   enclosed Height and Round. The call to StartRound must be executed by the
+//   calling goroutine before any other call to ReceiveMessage.
+//
+// - *Timeout - This should be scheduled based to call the corresponding OnTimeout*
+//   method after the Delay with the enclosed Height and Round. This action can be
+//   taken asynchronously.
+func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) (*RoundChange, *ConsensusMessage, *Timeout, *Decision) {
 
 	r := a.round
 	s := a.step
@@ -242,10 +245,10 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
 		a.step = Prevote
 		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
 			println(a.nodeID.String(), a.height(), cm.String(), "line 22 val")
-			return &Result{Broadcast: a.msg(Prevote, cm.Value)}
+			return nil, a.msg(Prevote, cm.Value), nil
 		} else { //nolint
 			println(a.nodeID.String(), a.height(), cm.String(), "line 22 nil")
-			return &Result{Broadcast: a.msg(Prevote, nilValue)}
+			return nil, a.msg(Prevote, NilValue), nil
 		}
 	}
 
@@ -254,10 +257,10 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
 		a.step = Prevote
 		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
 			println(a.nodeID.String(), a.height(), cm.String(), "line 28 val")
-			return &Result{Broadcast: a.msg(Prevote, p.Value)}
+			return nil, a.msg(Prevote, p.Value), nil
 		} else { //nolint
 			println(a.nodeID.String(), a.height(), cm.String(), "line 28 nil")
-			return &Result{Broadcast: a.msg(Prevote, nilValue)}
+			return nil, a.msg(Prevote, NilValue), nil
 		}
 	}
 
@@ -273,41 +276,41 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
 		a.validValue = p.Value
 		a.validRound = r
 		println(a.nodeID.String(), a.height(), cm.String(), "line 36 val")
-		return &Result{Broadcast: a.msg(Precommit, p.Value)}
+		return nil, a.msg(Precommit, p.Value), nil
 	}
 
 	// Line 44
-	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &nilValue) && s == Prevote {
+	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &NilValue) && s == Prevote {
 		a.step = Precommit
 		println(a.nodeID.String(), a.height(), cm.String(), "line 44 nil")
-		return &Result{Broadcast: a.msg(Precommit, nilValue)}
+		return nil, a.msg(Precommit, NilValue), nil
 	}
 
 	// Line 34
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
 		a.line34Executed = true
 		println(a.nodeID.String(), a.height(), cm.String(), "line 34 timeout")
-		return &Result{Schedule: a.timeout(Prevote)}
+		return nil, nil, a.timeout(Prevote)
 	}
 
 	// Line 49
 	if t.In(Propose, Precommit) && p != nil && o.PrecommitQThresh(p.Round, &p.Value) {
 		if o.Valid(p.Value) {
 			a.lockedRound = -1
-			a.lockedValue = nilValue
+			a.lockedValue = NilValue
 			a.validRound = -1
-			a.validValue = nilValue
+			a.validValue = NilValue
 		}
 		println(a.nodeID.String(), a.height()+1, cm.String(), "line 49 decide")
 		// Return the decided proposal
-		return &Result{Decision: p}
+		return nil, nil, nil, p
 	}
 
 	// Line 47
 	if t.In(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
 		a.line47Executed = true
 		println(a.nodeID.String(), a.height(), cm.String(), "line 47 timeout")
-		return &Result{Schedule: a.timeout(Precommit)}
+		return nil, nil, a.timeout(Precommit)
 	}
 
 	// Line 55
@@ -320,24 +323,24 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
 		// clearing out all messages for the height.
 		println(a.nodeID.String(), a.height(), cm.String(), "line 55 start round")
 		newRound := cm.Round
-		return &Result{StartRound: &newRound}
+		return &newRound, nil,nil,nil
 	}
 	println(a.nodeID.String(), a.height(), cm.String(), "no condition match")
-	return nil
+	return nil, nil, nil
 }
 
-func (a *OneShotTendermint) OnTimeoutPropose(height uint64, round int64) *Result {
+func (a *OneShotTendermint) OnTimeoutPropose(height uint64, round int64) *ConsensusMessage {
 	if height == a.height() && round == a.round && a.step == Propose {
 		a.step = Prevote
-		return &Result{Broadcast: a.msg(Prevote, nilValue)}
+		return a.msg(Prevote, NilValue)
 	}
 	return nil
 }
 
-func (a *OneShotTendermint) OnTimeoutPrevote(height uint64, round int64) *Result {
+func (a *OneShotTendermint) OnTimeoutPrevote(height uint64, round int64) *ConsensusMessage {
 	if height == a.height() && round == a.round && a.step == Prevote {
 		a.step = Precommit
-		return &Result{Broadcast: a.msg(Precommit, nilValue)}
+		return a.msg(Precommit, NilValue)
 	}
 	return nil
 }
@@ -345,7 +348,7 @@ func (a *OneShotTendermint) OnTimeoutPrevote(height uint64, round int64) *Result
 func (a *OneShotTendermint) OnTimeoutPrecommit(height uint64, round int64) *Result {
 	if height == a.height() && round == a.round {
 		newRound := a.round + 1
-		return &Result{StartRound: &newRound}
+		return &newRound
 	}
 	return nil
 }

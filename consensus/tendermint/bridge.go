@@ -43,7 +43,7 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever) *bridge {
+func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever, statedb state.Database) *bridge {
 	logger := log.New("addr", address.String())
 	c := &bridge{
 		key:                  key,
@@ -56,6 +56,7 @@ func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcas
 		broadcaster:          broadcaster,
 		syncer:               syncer,
 		latestBlockRetreiver: latestBlockRetreiver,
+		statedb:              statedb,
 	}
 	return c
 }
@@ -90,6 +91,7 @@ type bridge struct {
 	broadcaster          *Broadcaster
 	syncer               *Syncer
 	latestBlockRetreiver *LatestBlockRetriever
+	statedb              state.Database
 }
 
 func (c *bridge) SetValue(b *types.Block) {
@@ -149,7 +151,7 @@ func (c *bridge) createCommittee(block *types.Block) committee {
 			panic(fmt.Sprintf("failed to construct committee %v", err))
 		}
 	case config.WeightedRandomSampling:
-		committeeSet = newWeightedRandomSamplingCommittee(block, c.autonityContract, c.backend.BlockChain())
+		committeeSet = newWeightedRandomSamplingCommittee(block, c.autonityContract, c.statedb)
 	default:
 		panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
 	}
@@ -218,7 +220,7 @@ func (c *bridge) newHeight(ctx context.Context, prevBlock *types.Block) error {
 	// Note that we don't risk entering an infinite loop here since
 	// start round can only return results with brodcasts or schedules.
 	// TODO actually don't return result from Start round.
-	err = c.handleResult(ctx, r)
+	err = c.handleResult(ctx, nil, msg, timeout)
 	if err != nil {
 		return err
 	}
@@ -257,11 +259,11 @@ func (c *bridge) newRound(round int64) (*algorithm.Result, error) {
 	return r, nil
 }
 
-func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
+func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout) error {
 	switch {
-	case r == nil:
+	case rc == nil && cm == nil && to == nil:
 		return nil
-	case r.StartRound != nil:
+	case rc != nil:
 		newRound := *r.StartRound
 		// sanity check
 		if newRound == 0 {
@@ -281,14 +283,14 @@ func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
 			return err
 		}
 
-	case r.Broadcast != nil:
+	case cm != nil:
 		println(addr(c.address), c.height.String(), r.Broadcast.String(), "sending")
 		// Broadcasting ends with the message reaching us eventually
 
 		// We must build message here since buildMessage relies on accessing
 		// the msg store, and since the message store is not syncronised we
 		// need to do it from the handler routine.
-		msg, err := encodeSignedMessage(r.Broadcast, c.key, c.msgStore)
+		msg, err := encodeSignedMessage(cm, c.key, c.msgStore)
 		if err != nil {
 			panic(fmt.Sprintf(
 				"%s We were unable to build a message, this indicates a programming error: %v",
@@ -308,9 +310,9 @@ func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
 			c.broadcaster.Broadcast(msg)
 		}(c.lastHeader.Committee) //TODO: ensure to use c.committee.Committee() instead of c.lastHeader.Committee
 
-	case r.Schedule != nil:
-		time.AfterFunc(time.Duration(r.Schedule.Delay)*time.Second, func() {
-			c.backend.Post(r.Schedule)
+	case to != nil:
+		time.AfterFunc(time.Duration(to.Delay)*time.Second, func() {
+			c.backend.Post(to)
 		})
 	case r.Decision != nil:
 		// A decision has been reached
@@ -409,22 +411,23 @@ eventLoop:
 				}
 				c.broadcaster.Broadcast(e.Payload)
 			case *algorithm.Timeout:
-				var r *algorithm.Result
+				var cm *algorithm.ConsensusMessage
+				var rc *algorithm.RoundChange
 				switch e.TimeoutType {
 				case algorithm.Propose:
 					println(addr(c.address), "on timeout propose", e.Height, "round", e.Round)
-					r = c.algo.OnTimeoutPropose(e.Height, e.Round)
+					cm = c.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
 					println(addr(c.address), "on timeout prevote", e.Height, "round", e.Round)
-					r = c.algo.OnTimeoutPrevote(e.Height, e.Round)
+					cm = c.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
 					println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
-					r = c.algo.OnTimeoutPrecommit(e.Height, e.Round)
+					rc = c.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
-				if r != nil && r.Broadcast != nil {
+				if cm != nil {
 					println("nonnil timeout")
 				}
-				err := c.handleResult(ctx, r)
+				err := c.handleResult(ctx, rc, cm, nil)
 				if err != nil {
 					println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 					return
@@ -503,8 +506,8 @@ func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) err
 		c.msgStore.setValid(m.hash)
 	}
 
-	r := c.algo.ReceiveMessage(cm)
-	err := c.handleResult(ctx, r)
+	rc, cm, to := c.algo.ReceiveMessage(cm)
+	err := c.handleResult(ctx, rc, cm, to)
 	if err != nil {
 		return err
 	}
@@ -603,14 +606,15 @@ type LatestBlockRetriever struct {
 	statedb state.Database
 }
 
-func NewLatestBlockRetriever(db ethdb.Database) *LatestBlockRetriever {
+func NewLatestBlockRetriever(db ethdb.Database, state state.Database) *LatestBlockRetriever {
 	return &LatestBlockRetriever{
-		db: db,
+		db:      db,
+		statedb: state,
 		// Here we use the value of 256 which is the
 		// eth.DefaultConfig.TrieCleanCache value which is value assigned to
 		// cacheConfig.TrieCleanLimit which is what is then used in
 		// eth.BlockChain to initialise the state database.
-		statedb: state.NewDatabase(db),
+		// statedb: state.NewDatabase(db),
 	}
 }
 func (l *LatestBlockRetriever) RetrieveLatestBlock() (*types.Block, error) {
@@ -629,12 +633,9 @@ func (l *LatestBlockRetriever) RetrieveLatestBlock() (*types.Block, error) {
 		return nil, fmt.Errorf("failed to read block content for block number %d with hash %s", *number, hash.String())
 	}
 
-	// This is not working, not sure why though
-	// TODO investigate this further
-	// 	//  Make sure the state associated with the block is available.
-	// 	_, err := l.statedb.OpenTrie(hash)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("missing state for block number %d with hash %s err: %v", *number, hash.String(), err)
-	// 	}
+	_, err := l.statedb.OpenTrie(block.Root())
+	if err != nil {
+		return nil, fmt.Errorf("missing state for block number %d with hash %s err: %v", *number, hash.String(), err)
+	}
 	return block, nil
 }

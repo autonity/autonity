@@ -360,7 +360,7 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
-	committeeSet, receipt, err := sb.blockchain.GetAutonityContract().FinalizeAndGetCommittee(txs, receipts, header, state)
+	committeeSet, receipt, err := sb.autonityContract.FinalizeAndGetCommittee(txs, receipts, header, state)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize returns err", "err", err)
 		return nil, nil, err
@@ -472,7 +472,7 @@ func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Comm
 }
 
 // Start implements consensus.Start
-func (sb *Backend) Start(ctx context.Context) error {
+func (sb *Backend) Start(ctx context.Context, blockchain *core.BlockChain) error {
 	// the mutex along with coreStarted should prevent double start
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
@@ -480,13 +480,16 @@ func (sb *Backend) Start(ctx context.Context) error {
 		return ErrStartedEngine
 	}
 
+	// Set blockchain fields
+	sb.blockchain = blockchain
+
 	sb.stopped = make(chan struct{})
 
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
 
 	// Start Tendermint
-	sb.core.Start(ctx, sb.blockchain.GetAutonityContract())
+	sb.core.Start(ctx, sb.autonityContract)
 	sb.coreStarted = true
 
 	return nil
@@ -512,11 +515,4 @@ func (sb *Backend) Close() error {
 
 func (sb *Backend) SealHash(header *types.Header) common.Hash {
 	return types.SigHash(header)
-}
-
-func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
-	sb.blockchain = bc
-
-	sb.currentBlock = bc.CurrentBlock
-	sb.hasBadBlock = bc.HasBadBlock
 }

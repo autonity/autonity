@@ -27,6 +27,7 @@ import (
 
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p/enode"
 
@@ -36,10 +37,10 @@ import (
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/ethash"
-	tendermintcore "github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/bloombits"
 	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/eth/downloader"
@@ -168,8 +169,25 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	)
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
+	hg, err := core.NewHeaderGetter(chainDb)
+	if err != nil {
+		return nil, err
+	}
+	var autonityContract *autonity.Contract
+	if config.Genesis.Config.Tendermint != nil {
+		autonityContract, err = core.NewAutonityContractFromConfig(
+			chainDb,
+			hg,
+			core.NewDefaultEVMProvider(hg, vmConfig, config.Genesis.Config),
+			config.Genesis.Config.AutonityContractConfig,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	statedb := state.NewDatabaseWithCache(chainDb, cacheConfig.TrieCleanLimit)
 	peers := NewPeerSet()
-	consEngine := CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig, peers)
+	consEngine := CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig, peers, statedb, autonityContract)
 	if cons != nil {
 		consEngine = cons(consEngine)
 	}
@@ -210,14 +228,11 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 		}
 	}
 	senderCacher := core.NewTxSenderCacher()
-	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, senderCacher, &config.TxLookupLimit)
+	eth.blockchain, err = core.NewBlockChainWithState(chainDb, statedb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, senderCacher, &config.TxLookupLimit, hg, autonityContract)
 	if err != nil {
 		return nil, err
 	}
 
-	if be, ok := consEngine.(tendermintcore.Backend); ok {
-		be.SetBlockchain(eth.blockchain)
-	}
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
@@ -271,12 +286,12 @@ func makeExtraData(extra []byte) []byte {
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config, peers consensus.Peers) consensus.Engine {
+func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config, peers consensus.Peers, state state.Database, autonityContract *autonity.Contract) consensus.Engine {
 
 	if chainConfig.Tendermint != nil {
 		syncer := tendermint.NewSyncer(peers)
 		bc := tendermint.NewBroadcaster(crypto.PubkeyToAddress(ctx.NodeKey().PublicKey), peers)
-		return tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, chainConfig, vmConfig, bc, peers, syncer)
+		return tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, state, chainConfig, vmConfig, bc, peers, syncer, autonityContract)
 	}
 
 	// Otherwise assume proof-of-work
@@ -549,9 +564,11 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start(srvr *p2p.Server) error {
-	// Subscribe to Autonity updates events
-	s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
-	go s.glienickeEventLoop(srvr)
+	if s.config.Genesis.Config.AutonityContractConfig != nil {
+		// Subscribe to Autonity updates events
+		s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
+		go s.glienickeEventLoop(srvr)
+	}
 
 	s.startEthEntryUpdate(srvr.LocalNode())
 
@@ -581,9 +598,16 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 // for updating the list of authorized enodes
 func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 
-	savedList := rawdb.ReadEnodeWhitelist(s.chainDb)
-	log.Info("Reading Whitelist", "list", savedList.StrList)
-	server.UpdateWhitelist(savedList.List)
+	state, err := s.blockchain.State()
+	if err != nil {
+		panic(err)
+	}
+	list, err := s.APIBackend.AutonityContract().GetWhitelist(s.blockchain.CurrentBlock(), state)
+	if err != nil {
+		panic(err)
+	}
+	log.Info("Reading Whitelist", "list", list.StrList)
+	server.UpdateWhitelist(list.List)
 
 	for {
 		select {
@@ -626,7 +650,10 @@ func (s *Ethereum) Stop() error {
 	if s.lesServer != nil {
 		s.lesServer.Stop()
 	}
-	s.glienickeSub.Unsubscribe()
+	if s.config.Genesis.Config.AutonityContractConfig != nil {
+		s.glienickeSub.Unsubscribe()
+	}
+
 	// Then stop everything else.
 	s.bloomIndexer.Close()
 	close(s.closeBloomHandler)
