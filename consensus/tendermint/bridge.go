@@ -287,12 +287,12 @@ func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
 		// Broadcast in a new goroutine
 		go func(committee types.Committee) {
 			// send to self
-			event := events.MessageEvent{
+			messageEvent := events.MessageEvent{
 				Payload: msg,
 			}
-			c.backend.Post(event)
+			c.backend.Post(messageEvent)
 			// Broadcast to peers
-			c.broadcaster.Broadcast(ctx, committee, msg)
+			c.broadcaster.Broadcast(msg)
 		}(c.lastHeader.Committee) //TODO: ensure to use c.committee.Committee() instead of c.lastHeader.Committee
 
 	case r.Schedule != nil:
@@ -342,9 +342,9 @@ eventLoop:
 			if !ok {
 				break eventLoop
 			}
-			event := ev.Data.(events.SyncEvent)
-			c.logger.Info("Processing sync message", "from", event.Addr)
-			c.syncer.SyncPeer(event.Addr, c.msgStore.rawHeightMessages(c.height.Uint64()))
+			syncEvent := ev.Data.(events.SyncEvent)
+			c.logger.Info("Processing sync message", "from", syncEvent.Addr)
+			c.syncer.SyncPeer(syncEvent.Addr, c.msgStore.rawHeightMessages(c.height.Uint64()))
 		case ev, ok := <-c.eventsSub.Chan():
 			if !ok {
 				break eventLoop
@@ -394,7 +394,7 @@ eventLoop:
 					c.logger.Debug("core.mainEventLoop problem processing message", "err", err)
 					continue
 				}
-				c.broadcaster.Broadcast(ctx, c.lastHeader.Committee, e.Payload)
+				c.broadcaster.Broadcast(e.Payload)
 			case *algorithm.Timeout:
 				var r *algorithm.Result
 				switch e.TimeoutType {
@@ -531,7 +531,7 @@ func NewBroadcaster(address common.Address, peers consensus.Peers) *Broadcaster 
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (b *Broadcaster) Broadcast(ctx context.Context, committee types.Committee, payload []byte) {
+func (b *Broadcaster) Broadcast(payload []byte) {
 	hash := types.RLPHash(payload)
 
 	for _, p := range b.peers.Peers() {
