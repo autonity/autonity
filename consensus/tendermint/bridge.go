@@ -198,7 +198,7 @@ func (c *bridge) Stop() {
 	c.wg.Wait()
 }
 
-func (c *bridge) newHeight(ctx context.Context, prevBlock *types.Block) error {
+func (c *bridge) newHeight(prevBlock *types.Block) error {
 	c.syncTimer = time.NewTimer(20 * time.Second)
 	c.lastHeader = prevBlock.Header()
 	c.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
@@ -220,14 +220,14 @@ func (c *bridge) newHeight(ctx context.Context, prevBlock *types.Block) error {
 	// Note that we don't risk entering an infinite loop here since
 	// start round can only return results with brodcasts or schedules.
 	// TODO actually don't return result from Start round.
-	err = c.handleResult(ctx, nil, msg, timeout, nil)
+	err = c.handleResult(nil, msg, timeout, nil)
 	if err != nil {
 		return err
 	}
 
 	// Handle all messages that may have been received for current height in previous heights
 	for _, msg := range c.msgStore.heightMessages(c.height.Uint64()) {
-		err := c.handleCurrentHeightMessage(ctx, msg)
+		err := c.handleCurrentHeightMessage(msg)
 		c.logger.Error("failed to handle current height message", "message", msg.String(), "err", err)
 	}
 	return nil
@@ -259,7 +259,7 @@ func (c *bridge) newRound(round int64) (*algorithm.ConsensusMessage, *algorithm.
 	return cm, to, nil
 }
 
-func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout, dc *algorithm.Decision) error {
+func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout, dc *algorithm.Decision) error {
 	switch {
 	case rc == nil && cm == nil && to == nil:
 		return nil
@@ -270,7 +270,7 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 			panic("round changes of 0 can only happen at the beginning of a new height")
 		}
 
-		rr, to, err := c.newRound(newRound)
+		rr, tto, err := c.newRound(newRound)
 		if err != nil {
 			return err
 		}
@@ -278,7 +278,7 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 		// Note that we don't risk enterning an infinite loop here since
 		// start round can only return results with brodcasts or schedules.
 		// TODO actually don't return result from Start round.
-		err = c.handleResult(ctx, nil, rr, to, nil)
+		err = c.handleResult(nil, rr, tto, nil)
 		if err != nil {
 			return err
 		}
@@ -300,7 +300,7 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 		}
 
 		// Broadcast in a new goroutine
-		go func(committee types.Committee) {
+		go func() {
 			// send to self
 			messageEvent := events.MessageEvent{
 				Payload: msg,
@@ -308,7 +308,7 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 			c.backend.Post(messageEvent)
 			// Broadcast to peers
 			c.broadcaster.Broadcast(msg)
-		}(c.lastHeader.Committee) //TODO: ensure to use c.committee.Committee() instead of c.lastHeader.Committee
+		}()
 
 	case to != nil:
 		time.AfterFunc(time.Duration(to.Delay)*time.Second, func() {
@@ -338,7 +338,7 @@ func (c *bridge) mainEventLoop(ctx context.Context) {
 	}
 
 	// Start a new round from last height + 1
-	err = c.newHeight(ctx, lastBlockMined)
+	err = c.newHeight(lastBlockMined)
 	if err != nil {
 		println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 		return
@@ -402,7 +402,7 @@ eventLoop:
 					continue
 				}
 
-				err = c.handleCurrentHeightMessage(ctx, m)
+				err = c.handleCurrentHeightMessage(m)
 				if err == errStopped {
 					return
 				}
@@ -428,7 +428,7 @@ eventLoop:
 				if cm != nil {
 					println("nonnil timeout")
 				}
-				err := c.handleResult(ctx, rc, cm, nil, nil)
+				err := c.handleResult(rc, cm, nil, nil)
 				if err != nil {
 					println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 					return
@@ -442,7 +442,7 @@ eventLoop:
 					panic(err)
 				}
 
-				err = c.newHeight(ctx, lastBlock)
+				err = c.newHeight(lastBlock)
 				if err != nil {
 					println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 					return
@@ -456,7 +456,7 @@ eventLoop:
 
 }
 
-func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) error {
+func (c *bridge) handleCurrentHeightMessage(m *message) error {
 	println(addr(c.address), c.height.String(), m.String(), "received")
 	cm := m.consensusMessage
 	/*
@@ -508,7 +508,7 @@ func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) err
 	}
 
 	rc, cm, to, dc := c.algo.ReceiveMessage(cm)
-	err := c.handleResult(ctx, rc, cm, to, dc)
+	err := c.handleResult(rc, cm, to, dc)
 	if err != nil {
 		return err
 	}
