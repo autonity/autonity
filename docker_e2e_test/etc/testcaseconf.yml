@@ -616,3 +616,31 @@ playbook:
       output:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: true # false means consensus engine should on-hold.
+    - name: "TC-30: 7 days test, bootstrap network from scratch, reset 2 nodes to verify freezer db works."
+      re-deploy: true
+      condition:
+        crashNodes: [3, 4] # contain the node domain name we want to crash.
+        scenario:
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
+          - delay: 120 # seconds
+            action: "start"
+            target: [0, 1, 2, 3, 4, 5] # start the specific node within 30s after test case start.
+          - delay: 1800 # stop node 3 at 0.5 hour latter.
+            action: "stop"
+            target: [3]
+          - delay:  86400 # stop node 4 at 1 day latter.
+            action: "stop"
+            target: [4] # start the specific node within 120s after test case start.
+          - delay: 432000 # start node 3, 4 at 5 days latter.
+            action: "start"
+            target: [3, 4]
+      input:
+        startAt: 180  # start the TX issuing from 180th seconds.
+        duration: 604800 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
