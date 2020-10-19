@@ -207,19 +207,7 @@ func (c *bridge) newHeight(ctx context.Context, prevBlock *types.Block) error {
 	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
 
 	// Start new round and handle messages for the new height
-	r := c.algo.StartRound(0)
-
-	// If we are making a proposal, we need to ensure that we add the proposal
-	// block to the msg store, so that it can be picked up in buildMessage.
-	if r.Broadcast != nil {
-		proposalBlockHash := common.Hash(r.Broadcast.Value)
-		proposalBlock := c.currentBlockAwaiter.value(proposalBlockHash)
-		if proposalBlock == nil {
-			panic("proposalBlock cannot be retrieved")
-		}
-		println(addr(c.address), "adding value", c.height.Uint64(), proposalBlockHash.String())
-		c.msgStore.addValue(proposalBlockHash, proposalBlock)
-	}
+	r := c.newRound(0)
 
 	// Note that we don't risk entering an infinite loop here since
 	// start round can only return results with brodcasts or schedules.
@@ -237,52 +225,49 @@ func (c *bridge) newHeight(ctx context.Context, prevBlock *types.Block) error {
 	return nil
 }
 
-func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
+func (c *bridge) newRound(round int64) *algorithm.Result {
+	r := c.algo.StartRound(round)
 
+	if r.Broadcast != nil {
+		var proposalBlock *types.Block
+		proposalBlockHash := common.Hash(r.Broadcast.Value)
+		// Check if a new block is being proposed or the current node is re-proposing its own block
+		proposalBlock = c.currentBlockAwaiter.value(proposalBlockHash)
+		if proposalBlock == nil {
+			// Check if block is the re-proposal of another node
+			proposalBlock = c.msgStore.value(proposalBlockHash)
+			if proposalBlock == nil {
+				panic("proposalBlock cannot be retrieved")
+			}
+		}
+		println(addr(c.address), "adding value", c.height.Uint64(), proposalBlockHash.String())
+		// If the proposal is new we need to ensure that we add the proposal block to the msg store, so that it can be
+		// picked up in buildMessage.
+		c.msgStore.addValue(proposalBlockHash, proposalBlock)
+	}
+	return r
+}
+
+func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
 	switch {
 	case r == nil:
 		return nil
 	case r.StartRound != nil:
-		sr := r.StartRound
-		if sr.Round == 0 && sr.Decision == nil {
-			panic("round changes of 0 must be accompanied with a decision")
+		newRound := *r.StartRound
+		// sanity check
+		if newRound == 0 {
+			panic("round changes of 0 can only happen at the beginning of a new height")
 		}
-		if sr.Decision != nil {
-			// A decision has been reached
-			println(addr(c.address), "decided on block", sr.Decision.Height,
-				common.Hash(sr.Decision.Value).String())
 
-			// This will ultimately lead to a commit event, which we will pick
-			// up on but we will ignore it because instead we will wait here to
-			// select the next value that matches this height.
-			_, err := c.Commit(sr.Decision)
-			if err != nil {
-				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(sr.Decision), err))
-			}
-			err = c.newHeight(ctx, sr.Height)
-			if err != nil {
-				return err
-			}
-
-		} else {
-			// sanity check
-			currBlockNum := c.currentBlock.Number().Uint64()
-			if currBlockNum != sr.Height {
-				panic(fmt.Sprintf("current block number %d out of sync with  height %d", currBlockNum, sr.Height))
-			}
-
-			// TODO: deal with height properly, also we should not be passing the current value to the so start round
-			// we need to ensure that the value is up to date, while the proposer should be asking for the current block
-			// to propose instead of passing it to non proposers
-			rr := c.algo.StartRound(sr.Round)
-			// Note that we don't risk enterning an infinite loop here since
-			// start round can only return results with brodcasts or schedules.
-			// TODO actually don't return result from Start round.
-			err := c.handleResult(ctx, rr)
-			if err != nil {
-				return err
-			}
+		rr := c.newRound(newRound)
+		// Note that we don't risk enterning an infinite loop here since
+		// start round can only return results with brodcasts or schedules.
+		// TODO actually don't return result from Start round.
+		err := c.handleResult(ctx, rr)
+		if err != nil {
+			return err
 		}
+
 	case r.Broadcast != nil:
 		println(addr(c.address), c.height.String(), r.Broadcast.String(), "sending")
 		// Broadcasting ends with the message reaching us eventually
@@ -314,6 +299,15 @@ func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
 		time.AfterFunc(time.Duration(r.Schedule.Delay)*time.Second, func() {
 			c.backend.Post(r.Schedule)
 		})
+	case r.Decision != nil:
+		// A decision has been reached
+		println(addr(c.address), "decided on block", r.Decision.Height, common.Hash(r.Decision.Value).String())
+
+		// This will lead to a commit event, which we will be picked up in the main event loop.
+		_, err := c.Commit(r.Decision)
+		if err != nil {
+			panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(r.Decision), err))
+		}
 
 	}
 	return nil
@@ -431,18 +425,10 @@ eventLoop:
 					panic(err)
 				}
 
-				height := new(big.Int).Add(lastBlock.Number(), common.Big1)
-				if height.Cmp(c.height) == 0 {
-					println(addr(c.address), "Discarding event as core is at the same height", "height", c.height)
-					c.logger.Debug("Discarding event as core is at the same height", "height", c.height)
-				} else {
-					println(addr(c.address), "Received proposal is ahead", "height", c.height, "block_height", height.String())
-					c.logger.Debug("Received proposal is ahead", "height", c.height, "block_height", height)
-					err := c.newHeight(ctx, height.Uint64())
-					if err != nil {
-						println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
-						return
-					}
+				err = c.newHeight(ctx, lastBlock)
+				if err != nil {
+					println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
+					return
 				}
 			}
 		case <-ctx.Done():

@@ -117,6 +117,7 @@ type OneShotTendermint struct {
 func New(nodeID NodeID, oracle Oracle) *OneShotTendermint {
 	return &OneShotTendermint{
 		nodeID:      nodeID,
+		round:       -1,
 		lockedRound: -1,
 		lockedValue: nilValue,
 		validRound:  -1,
@@ -152,6 +153,14 @@ func (a *OneShotTendermint) timeout(timeoutType Step) *Timeout {
 func (a *OneShotTendermint) StartRound(round int64) *Result {
 	println(a.nodeID.String(), a.height(), "isProposer", a.oracle.Proposer(round, a.nodeID))
 
+	// sanity check
+	switch {
+	case round < 0:
+		panic(fmt.Sprintf("New round cannot be less than 0. Previous round: %-3d, new round: %-3d", a.round, round))
+	case round <= a.round:
+		panic(fmt.Sprintf("New round must be more than the current round. Previous round: %-3d, new round: %-3d", a.round, round))
+	}
+
 	// Reset first time flags
 	a.line34Executed = false
 	a.line36Executed = false
@@ -175,29 +184,19 @@ func (a *OneShotTendermint) StartRound(round int64) *Result {
 }
 
 // Result is returned from the methods of OneShotTendermint to indicate the outcome of
-// processing and what steps should be taken. Only one of the three fields may
+// processing and what steps should be taken. Only one of the four fields may
 // be set. If StartRound is set it indicates that the caller should call
 // StartRound, if Broadcast is set it indicates that the caller should
 // broadcast the ConsensusMessage, including sending it to itself and if
 // Schedule is set it indicates that the caller should schedule the Timeout.
-// Broadcasting and scheduling may be done asynchronously, but starting the next
-// round must be done in the calling goroutine so that no other messages are
-// processed by OneShotTendermint between the caller receiving the Result and calling
-// StartRound.
+// If Decision is set this indicates that a decision has been reached it will
+// contain the proposal that was decided upon. Each result must be handled synchronously
+// to ensure only one upon condition can change the state of the algorithm.
 type Result struct {
-	StartRound *RoundChange
+	StartRound *int64
 	Broadcast  *ConsensusMessage
 	Schedule   *Timeout
-}
-
-// RoundChange indicates that the caller should initiate a round change by
-// calling StartRound with the enclosed Height and Round. If Decision is set
-// this indicates that a decision has been reached it will contain the proposal
-// that was decided upon, Decision can only be set when Round is 0.
-type RoundChange struct {
-	Height   uint64
-	Round    int64
-	Decision *ConsensusMessage
+	Decision   *ConsensusMessage
 }
 
 // ReceiveMessage processes a consensus message and returns a Result if a state
@@ -296,7 +295,7 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
 		}
 		println(a.nodeID.String(), a.height()+1, cm.String(), "line 49 decide")
 		// Return the decided proposal
-		return &Result{StartRound: &RoundChange{Height: a.height(), Round: 0, Decision: p}}
+		return &Result{Decision: p}
 	}
 
 	// Line 47
@@ -315,7 +314,8 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) *Result {
 		// only should clean the message store when there is a height change,
 		// clearing out all messages for the height.
 		println(a.nodeID.String(), a.height(), cm.String(), "line 55 start round")
-		return &Result{StartRound: &RoundChange{Height: a.height(), Round: cm.Round}}
+		newRound := cm.Round
+		return &Result{StartRound: &newRound}
 	}
 	println(a.nodeID.String(), a.height(), cm.String(), "no condition match")
 	return nil
@@ -339,7 +339,8 @@ func (a *OneShotTendermint) OnTimeoutPrevote(height uint64, round int64) *Result
 
 func (a *OneShotTendermint) OnTimeoutPrecommit(height uint64, round int64) *Result {
 	if height == a.height() && round == a.round {
-		return &Result{StartRound: &RoundChange{Height: a.height(), Round: a.round + 1}}
+		newRound := a.round + 1
+		return &Result{StartRound: &newRound}
 	}
 	return nil
 }
