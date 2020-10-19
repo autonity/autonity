@@ -10,7 +10,7 @@ import (
 type blockAwaiter struct {
 	valueCond   *sync.Cond
 	latestValue *types.Block
-	allValues   map[common.Hash]*types.Block
+	allValues   map[uint64]map[common.Hash]*types.Block
 	quit        chan struct{}
 }
 
@@ -18,7 +18,7 @@ type blockAwaiter struct {
 func newBlockAwaiter() *blockAwaiter {
 	return &blockAwaiter{
 		valueCond: sync.NewCond(&sync.Mutex{}),
-		allValues: make(map[common.Hash]*types.Block),
+		allValues: make(map[uint64]map[common.Hash]*types.Block),
 		quit:      make(chan struct{}),
 	}
 }
@@ -28,20 +28,32 @@ func (a *blockAwaiter) setValue(b *types.Block) {
 	defer a.valueCond.L.Unlock()
 
 	a.latestValue = b
-	a.allValues[b.Hash()] = b
+	blockHashMap, ok := a.allValues[b.NumberU64()]
+	if !ok {
+		a.allValues[b.NumberU64()] = make(map[common.Hash]*types.Block)
+	}
+	blockHashMap[b.Hash()] = b
+
 	// Wake a go routine, if any, waiting on valueCond
 	a.valueCond.Signal()
 	println("setting value", a.latestValue.Hash().String()[2:8], "value height", a.latestValue.Number().String())
 }
 
-func (a blockAwaiter) value(h common.Hash) *types.Block {
+func (a blockAwaiter) value(height uint64, hash common.Hash) *types.Block {
 	a.valueCond.L.Lock()
 	defer a.valueCond.L.Unlock()
-	return a.allValues[h]
+
+	if blockHashMap, ok := a.allValues[height]; ok {
+		if b, ok := blockHashMap[hash]; ok {
+			return b
+		}
+	}
+
+	return nil
 }
 
-// awaitValue will return the latest value set by setValue for the current height.
-func (a *blockAwaiter) awaitValue(height *big.Int) (*types.Block, error) {
+// awaitNewValue will return the latest value set by setValue for the current height.
+func (a *blockAwaiter) awaitNewValue(height *big.Int) (*types.Block, error) {
 	a.valueCond.L.Lock()
 	defer a.valueCond.L.Unlock()
 
@@ -66,6 +78,12 @@ func (a *blockAwaiter) awaitValue(height *big.Int) (*types.Block, error) {
 			}
 		}
 	}
+}
+
+func (a *blockAwaiter) deleteHeight(h uint64) {
+	a.valueCond.L.Lock()
+	defer a.valueCond.L.Unlock()
+	delete(a.allValues, h)
 }
 
 func (a *blockAwaiter) stop() {

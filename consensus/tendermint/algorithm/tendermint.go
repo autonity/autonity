@@ -97,7 +97,7 @@ type Oracle interface {
 	FThresh(round int64) bool
 	Proposer(round int64, nodeID NodeID) bool
 	Height() uint64
-	Value() ValueID
+	Value() (ValueID, error)
 }
 
 type OneShotTendermint struct {
@@ -150,7 +150,7 @@ func (a *OneShotTendermint) timeout(timeoutType Step) *Timeout {
 
 // Start round takes round to start. It then clears the first time flags and either returns a Result with a proposal to
 // be broadcast if this node is the proposer, or a timeout to be scheduled.
-func (a *OneShotTendermint) StartRound(round int64) *Result {
+func (a *OneShotTendermint) StartRound(round int64) (*Result, error) {
 	println(a.nodeID.String(), a.height(), "isProposer", a.oracle.Proposer(round, a.nodeID))
 
 	// sanity check
@@ -171,15 +171,20 @@ func (a *OneShotTendermint) StartRound(round int64) *Result {
 
 	if a.oracle.Proposer(round, a.nodeID) {
 		var value ValueID
+		var err error
+
 		if a.validValue != nilValue {
 			value = a.validValue
 		} else {
-			value = a.oracle.Value()
+			value, err = a.oracle.Value()
+			if err != nil {
+				return nil, err
+			}
 		}
 		println(a.nodeID.String(), a.height(), "returning message", value.String())
-		return &Result{Broadcast: a.msg(Propose, value)}
+		return &Result{Broadcast: a.msg(Propose, value)}, nil
 	} else { //nolint
-		return &Result{Schedule: a.timeout(Propose)}
+		return &Result{Schedule: a.timeout(Propose)}, nil
 	}
 }
 

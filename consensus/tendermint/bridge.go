@@ -202,17 +202,23 @@ func (c *bridge) newHeight(ctx context.Context, prevBlock *types.Block) error {
 	c.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
 	c.committee = c.createCommittee(prevBlock)
 
+	// delete previous height proposal blocks
+	c.currentBlockAwaiter.deleteHeight(prevBlock.NumberU64())
+
 	// Create new oracle and algorithm
-	c.ora = newOracle(c.lastHeader, c.msgStore, c.committee)
+	c.ora = newOracle(c.lastHeader, c.msgStore, c.committee, c.currentBlockAwaiter)
 	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
 
 	// Start new round and handle messages for the new height
-	r := c.newRound(0)
+	r, err := c.newRound(0)
+	if err != nil {
+		return err
+	}
 
 	// Note that we don't risk entering an infinite loop here since
 	// start round can only return results with brodcasts or schedules.
 	// TODO actually don't return result from Start round.
-	err := c.handleResult(ctx, r)
+	err = c.handleResult(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -225,14 +231,17 @@ func (c *bridge) newHeight(ctx context.Context, prevBlock *types.Block) error {
 	return nil
 }
 
-func (c *bridge) newRound(round int64) *algorithm.Result {
-	r := c.algo.StartRound(round)
+func (c *bridge) newRound(round int64) (*algorithm.Result, error) {
+	r, err := c.algo.StartRound(round)
+	if err != nil {
+		return nil, err
+	}
 
 	if r.Broadcast != nil {
 		var proposalBlock *types.Block
 		proposalBlockHash := common.Hash(r.Broadcast.Value)
 		// Check if a new block is being proposed or the current node is re-proposing its own block
-		proposalBlock = c.currentBlockAwaiter.value(proposalBlockHash)
+		proposalBlock = c.currentBlockAwaiter.value(c.height.Uint64(), proposalBlockHash)
 		if proposalBlock == nil {
 			// Check if block is the re-proposal of another node
 			proposalBlock = c.msgStore.value(proposalBlockHash)
@@ -245,7 +254,7 @@ func (c *bridge) newRound(round int64) *algorithm.Result {
 		// picked up in buildMessage.
 		c.msgStore.addValue(proposalBlockHash, proposalBlock)
 	}
-	return r
+	return r, nil
 }
 
 func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
@@ -259,11 +268,15 @@ func (c *bridge) handleResult(ctx context.Context, r *algorithm.Result) error {
 			panic("round changes of 0 can only happen at the beginning of a new height")
 		}
 
-		rr := c.newRound(newRound)
+		rr, err := c.newRound(newRound)
+		if err != nil {
+			return err
+		}
+
 		// Note that we don't risk enterning an infinite loop here since
 		// start round can only return results with brodcasts or schedules.
 		// TODO actually don't return result from Start round.
-		err := c.handleResult(ctx, rr)
+		err = c.handleResult(ctx, rr)
 		if err != nil {
 			return err
 		}

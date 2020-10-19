@@ -10,13 +10,15 @@ type oracle struct {
 	lastHeader   *types.Header
 	store        *messageStore
 	committeeSet committee
+	blockAwaiter *blockAwaiter
 }
 
-func newOracle(lh *types.Header, s *messageStore, cs committee) *oracle {
+func newOracle(lh *types.Header, s *messageStore, cs committee, ba *blockAwaiter) *oracle {
 	return &oracle{
 		lastHeader:   lh,
 		store:        s,
 		committeeSet: cs,
+		blockAwaiter: ba,
 	}
 }
 
@@ -48,7 +50,10 @@ func (o *oracle) Height() uint64 {
 	return o.lastHeader.Number.Uint64() + 1
 }
 
-func (o *oracle) Value() algorithm.ValueID {
-	//return o.c.AwaitValue()
-	return [32]byte{}
+func (o *oracle) Value() (algorithm.ValueID, error) {
+	v, err := o.blockAwaiter.awaitNewValue(o.lastHeader.Number)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	return algorithm.ValueID(v.Hash()), nil
 }
