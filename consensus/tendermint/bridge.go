@@ -212,7 +212,7 @@ func (c *bridge) newHeight(ctx context.Context, prevBlock *types.Block) error {
 	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
 
 	// Start new round and handle messages for the new height
-	r, err := c.newRound(0)
+	msg, timeout, err := c.newRound(0)
 	if err != nil {
 		return err
 	}
@@ -220,7 +220,7 @@ func (c *bridge) newHeight(ctx context.Context, prevBlock *types.Block) error {
 	// Note that we don't risk entering an infinite loop here since
 	// start round can only return results with brodcasts or schedules.
 	// TODO actually don't return result from Start round.
-	err = c.handleResult(ctx, nil, msg, timeout)
+	err = c.handleResult(ctx, nil, msg, timeout, nil)
 	if err != nil {
 		return err
 	}
@@ -233,15 +233,15 @@ func (c *bridge) newHeight(ctx context.Context, prevBlock *types.Block) error {
 	return nil
 }
 
-func (c *bridge) newRound(round int64) (*algorithm.Result, error) {
-	r, err := c.algo.StartRound(round)
+func (c *bridge) newRound(round int64) (*algorithm.ConsensusMessage, *algorithm.Timeout, error) {
+	cm, to, err := c.algo.StartRound(round)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if r.Broadcast != nil {
+	if cm != nil {
 		var proposalBlock *types.Block
-		proposalBlockHash := common.Hash(r.Broadcast.Value)
+		proposalBlockHash := common.Hash(cm.Value)
 		// Check if a new block is being proposed or the current node is re-proposing its own block
 		proposalBlock = c.currentBlockAwaiter.value(c.height.Uint64(), proposalBlockHash)
 		if proposalBlock == nil {
@@ -256,21 +256,21 @@ func (c *bridge) newRound(round int64) (*algorithm.Result, error) {
 		// picked up in buildMessage.
 		c.msgStore.addValue(proposalBlockHash, proposalBlock)
 	}
-	return r, nil
+	return cm, to, nil
 }
 
-func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout) error {
+func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout, dc *algorithm.Decision) error {
 	switch {
 	case rc == nil && cm == nil && to == nil:
 		return nil
 	case rc != nil:
-		newRound := *r.StartRound
+		newRound := int64(*rc)
 		// sanity check
 		if newRound == 0 {
 			panic("round changes of 0 can only happen at the beginning of a new height")
 		}
 
-		rr, err := c.newRound(newRound)
+		rr, to, err := c.newRound(newRound)
 		if err != nil {
 			return err
 		}
@@ -278,13 +278,13 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 		// Note that we don't risk enterning an infinite loop here since
 		// start round can only return results with brodcasts or schedules.
 		// TODO actually don't return result from Start round.
-		err = c.handleResult(ctx, rr)
+		err = c.handleResult(ctx, nil, rr, to, nil)
 		if err != nil {
 			return err
 		}
 
 	case cm != nil:
-		println(addr(c.address), c.height.String(), r.Broadcast.String(), "sending")
+		println(addr(c.address), c.height.String(), cm.String(), "sending")
 		// Broadcasting ends with the message reaching us eventually
 
 		// We must build message here since buildMessage relies on accessing
@@ -314,14 +314,15 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 		time.AfterFunc(time.Duration(to.Delay)*time.Second, func() {
 			c.backend.Post(to)
 		})
-	case r.Decision != nil:
+	case dc != nil:
 		// A decision has been reached
-		println(addr(c.address), "decided on block", r.Decision.Height, common.Hash(r.Decision.Value).String())
+		println(addr(c.address), "decided on block", dc.Height, common.Hash(dc.Value).String())
 
 		// This will lead to a commit event, which we will be picked up in the main event loop.
-		_, err := c.Commit(r.Decision)
+		p := algorithm.ConsensusMessage(*dc)
+		_, err := c.Commit(&p)
 		if err != nil {
-			panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(r.Decision), err))
+			panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(dc), err))
 		}
 
 	}
@@ -427,7 +428,7 @@ eventLoop:
 				if cm != nil {
 					println("nonnil timeout")
 				}
-				err := c.handleResult(ctx, rc, cm, nil)
+				err := c.handleResult(ctx, rc, cm, nil, nil)
 				if err != nil {
 					println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 					return
@@ -506,8 +507,8 @@ func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) err
 		c.msgStore.setValid(m.hash)
 	}
 
-	rc, cm, to := c.algo.ReceiveMessage(cm)
-	err := c.handleResult(ctx, rc, cm, to)
+	rc, cm, to, dc := c.algo.ReceiveMessage(cm)
+	err := c.handleResult(ctx, rc, cm, to, dc)
 	if err != nil {
 		return err
 	}

@@ -186,7 +186,7 @@ func (a *OneShotTendermint) StartRound(round int64) (*ConsensusMessage, *Timeout
 			}
 		}
 		println(a.nodeID.String(), a.height(), "returning message", value.String())
-		return  a.msg(Propose, value), nil, nil
+		return a.msg(Propose, value), nil, nil
 	} else { //nolint
 		return nil, a.timeout(Propose), nil
 	}
@@ -245,10 +245,10 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) (*RoundChange, 
 		a.step = Prevote
 		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
 			println(a.nodeID.String(), a.height(), cm.String(), "line 22 val")
-			return nil, a.msg(Prevote, cm.Value), nil
+			return nil, a.msg(Prevote, cm.Value), nil, nil
 		} else { //nolint
 			println(a.nodeID.String(), a.height(), cm.String(), "line 22 nil")
-			return nil, a.msg(Prevote, NilValue), nil
+			return nil, a.msg(Prevote, NilValue), nil, nil
 		}
 	}
 
@@ -257,10 +257,10 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) (*RoundChange, 
 		a.step = Prevote
 		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
 			println(a.nodeID.String(), a.height(), cm.String(), "line 28 val")
-			return nil, a.msg(Prevote, p.Value), nil
+			return nil, a.msg(Prevote, p.Value), nil, nil
 		} else { //nolint
 			println(a.nodeID.String(), a.height(), cm.String(), "line 28 nil")
-			return nil, a.msg(Prevote, NilValue), nil
+			return nil, a.msg(Prevote, NilValue), nil, nil
 		}
 	}
 
@@ -276,21 +276,21 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) (*RoundChange, 
 		a.validValue = p.Value
 		a.validRound = r
 		println(a.nodeID.String(), a.height(), cm.String(), "line 36 val")
-		return nil, a.msg(Precommit, p.Value), nil
+		return nil, a.msg(Precommit, p.Value), nil, nil
 	}
 
 	// Line 44
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &NilValue) && s == Prevote {
 		a.step = Precommit
 		println(a.nodeID.String(), a.height(), cm.String(), "line 44 nil")
-		return nil, a.msg(Precommit, NilValue), nil
+		return nil, a.msg(Precommit, NilValue), nil, nil
 	}
 
 	// Line 34
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
 		a.line34Executed = true
 		println(a.nodeID.String(), a.height(), cm.String(), "line 34 timeout")
-		return nil, nil, a.timeout(Prevote)
+		return nil, nil, a.timeout(Prevote), nil
 	}
 
 	// Line 49
@@ -303,14 +303,15 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) (*RoundChange, 
 		}
 		println(a.nodeID.String(), a.height()+1, cm.String(), "line 49 decide")
 		// Return the decided proposal
-		return nil, nil, nil, p
+		d := Decision(*p)
+		return nil, nil, nil, &d
 	}
 
 	// Line 47
 	if t.In(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
 		a.line47Executed = true
 		println(a.nodeID.String(), a.height(), cm.String(), "line 47 timeout")
-		return nil, nil, a.timeout(Precommit)
+		return nil, nil, a.timeout(Precommit), nil
 	}
 
 	// Line 55
@@ -322,11 +323,11 @@ func (a *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) (*RoundChange, 
 		// only should clean the message store when there is a height change,
 		// clearing out all messages for the height.
 		println(a.nodeID.String(), a.height(), cm.String(), "line 55 start round")
-		newRound := cm.Round
-		return &newRound, nil,nil,nil
+		newRound := RoundChange(cm.Round)
+		return &newRound, nil, nil, nil
 	}
 	println(a.nodeID.String(), a.height(), cm.String(), "no condition match")
-	return nil, nil, nil
+	return nil, nil, nil, nil
 }
 
 func (a *OneShotTendermint) OnTimeoutPropose(height uint64, round int64) *ConsensusMessage {
@@ -345,9 +346,9 @@ func (a *OneShotTendermint) OnTimeoutPrevote(height uint64, round int64) *Consen
 	return nil
 }
 
-func (a *OneShotTendermint) OnTimeoutPrecommit(height uint64, round int64) *Result {
+func (a *OneShotTendermint) OnTimeoutPrecommit(height uint64, round int64) *RoundChange {
 	if height == a.height() && round == a.round {
-		newRound := a.round + 1
+		newRound := RoundChange(a.round + 1)
 		return &newRound
 	}
 	return nil
