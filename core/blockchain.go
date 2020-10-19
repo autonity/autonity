@@ -229,7 +229,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	}
 
 	var autonityContract *autonity.Contract
-	if chainConfig.AutonityContractConfig != nil {
+	if chainConfig.Tendermint != nil {
 		autonityContract, err = NewAutonityContractFromConfig(
 			db,
 			headerGetter,
@@ -1488,7 +1488,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		}()
 
 		// Measure network economic metrics.
-		bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
+		bc.autonityContract.MeasureMetricsOfNetworkEconomic(block.Header(), state)
 	}
 
 	// Irrelevant of the canonical status, write the block itself to the database.

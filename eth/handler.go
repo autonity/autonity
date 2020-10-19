@@ -220,7 +220,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	if err != nil {
 		return nil, err
 	}
-	if config.AutonityContractConfig != nil {
+	if config.Tendermint != nil {
 		list, err := blockchain.GetAutonityContract().GetWhitelist(blockchain.CurrentBlock(), s)
 		if err != nil {
 			return nil, err
