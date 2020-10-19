@@ -163,10 +163,6 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	bc := tendermint.NewBroadcaster(common.Address{}, peers)
 	syncer := tendermint.NewSyncer(peers)
 	statedb := state.NewDatabase(memDB)
-	// Use the first key as private key
-	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, statedb, genesis.Config, &vm.Config{}, bc, peers, syncer)
-
-	genesis.MustCommit(memDB)
 
 	hg, err := core.NewHeaderGetter(memDB)
 	if err != nil {
@@ -182,6 +178,10 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	if err != nil {
 		panic(err)
 	}
+	// Use the first key as private key
+	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, statedb, genesis.Config, &vm.Config{}, bc, peers, syncer, autonityContract)
+
+	genesis.MustCommit(memDB)
 
 	blockchain, err := core.NewBlockChainWithState(memDB, statedb, nil, genesis.Config, b, vmConfig, nil, core.NewTxSenderCacher(), nil, hg, autonityContract)
 	if err != nil {

@@ -360,7 +360,7 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
-	committeeSet, receipt, err := sb.blockchain.GetAutonityContract().FinalizeAndGetCommittee(txs, receipts, header, state)
+	committeeSet, receipt, err := sb.autonityContract.FinalizeAndGetCommittee(txs, receipts, header, state)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize returns err", "err", err)
 		return nil, nil, err
@@ -489,7 +489,7 @@ func (sb *Backend) Start(ctx context.Context, blockchain *core.BlockChain) error
 	sb.proposedBlockHash = common.Hash{}
 
 	// Start Tendermint
-	sb.core.Start(ctx, sb.blockchain.GetAutonityContract())
+	sb.core.Start(ctx, sb.autonityContract)
 	sb.coreStarted = true
 
 	return nil

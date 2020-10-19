@@ -187,7 +187,7 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	}
 	statedb := state.NewDatabaseWithCache(chainDb, cacheConfig.TrieCleanLimit)
 	peers := NewPeerSet()
-	consEngine := CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig, peers, statedb)
+	consEngine := CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig, peers, statedb, autonityContract)
 	if cons != nil {
 		consEngine = cons(consEngine)
 	}
@@ -286,12 +286,12 @@ func makeExtraData(extra []byte) []byte {
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config, peers consensus.Peers, state state.Database) consensus.Engine {
+func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config, peers consensus.Peers, state state.Database, autonityContract *autonity.Contract) consensus.Engine {
 
 	if chainConfig.Tendermint != nil {
 		syncer := tendermint.NewSyncer(peers)
 		bc := tendermint.NewBroadcaster(crypto.PubkeyToAddress(ctx.NodeKey().PublicKey), peers)
-		return tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, state, chainConfig, vmConfig, bc, peers, syncer)
+		return tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, state, chainConfig, vmConfig, bc, peers, syncer, autonityContract)
 	}
 
 	// Otherwise assume proof-of-work

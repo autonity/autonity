@@ -550,6 +550,6 @@ func newBackend() (*backend.Backend, ethdb.Database) {
 
 	db := rawdb.NewMemoryDatabase()
 	statedb := state.NewDatabase(db)
-	engine := tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, db, statedb, tendermintChainConfig, &vm.Config{}, bc, peers, syncer)
+	engine := tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, db, statedb, tendermintChainConfig, &vm.Config{}, bc, peers, syncer, nil)
 	return engine, db
 }

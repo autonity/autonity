@@ -26,6 +26,7 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
@@ -55,7 +56,7 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, state state.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config, broadcaster *tendermint.Broadcaster, peers consensus.Peers, syncer *tendermint.Syncer) *Backend {
+func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, statedb state.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config, broadcaster *tendermint.Broadcaster, peers consensus.Peers, syncer *tendermint.Syncer, autonityContract *autonity.Contract) *Backend {
 	if chainConfig.Tendermint.BlockPeriod != 0 {
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
@@ -70,21 +71,23 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	backend := &Backend{
-		config:         config,
-		eventMux:       event.NewTypeMuxSilent(logger),
-		privateKey:     privateKey,
-		address:        address,
-		logger:         logger,
-		db:             db,
-		recents:        recents,
-		coreStarted:    false,
-		recentMessages: recentMessages,
-		vmConfig:       vmConfig,
-		peers:          peers,
+		config:               config,
+		eventMux:             event.NewTypeMuxSilent(logger),
+		privateKey:           privateKey,
+		address:              address,
+		logger:               logger,
+		db:                   db,
+		recents:              recents,
+		coreStarted:          false,
+		recentMessages:       recentMessages,
+		vmConfig:             vmConfig,
+		peers:                peers,
+		statedb:              statedb,
+		latestBlockRetreiver: tendermint.NewLatestBlockRetriever(db, statedb),
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	backend.core = tendermint.New(backend, config, backend.privateKey, broadcaster, syncer, address, tendermint.NewLatestBlockRetriever(db, state), state)
+	backend.core = tendermint.New(backend, config, backend.privateKey, broadcaster, syncer, address, tendermint.NewLatestBlockRetriever(db, statedb), statedb)
 	return backend
 }
 
@@ -122,6 +125,10 @@ type Backend struct {
 	contractsMu sync.RWMutex
 	vmConfig    *vm.Config
 	peers       consensus.Peers
+
+	autonityContract     *autonity.Contract
+	statedb              state.Database
+	latestBlockRetreiver *tendermint.LatestBlockRetriever
 }
 
 // Commit implements tendermint.Backend.Commit
@@ -252,18 +259,23 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 
 func (sb *Backend) GetContractABI() string {
 	// after the contract is upgradable, call it from contract object rather than from conf.
-	return sb.blockchain.GetAutonityContract().GetContractABI()
+	return sb.autonityContract.GetContractABI()
 }
 
 // Whitelist for the current block
 func (sb *Backend) WhiteList() []string {
-	db, err := sb.blockchain.State()
+	// TODO this should really return errors
+	b, err := sb.latestBlockRetreiver.RetrieveLatestBlock()
+	if err != nil {
+		panic(err)
+	}
+	state, err := state.New(b.Root(), sb.statedb, nil)
 	if err != nil {
 		sb.logger.Error("Failed to get block white list", "err", err)
 		return nil
 	}
 
-	enodes, err := sb.blockchain.GetAutonityContract().GetWhitelist(sb.blockchain.CurrentBlock(), db)
+	enodes, err := sb.autonityContract.GetWhitelist(b, state)
 	if err != nil {
 		sb.logger.Error("Failed to get block white list", "err", err)
 		return nil
