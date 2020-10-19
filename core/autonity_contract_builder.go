@@ -7,7 +7,7 @@ import (
 	"github.com/clearmatics/autonity/params"
 )
 
-func NewAutonityContractFromConfig(db ethdb.Database, hg HeaderGetter, evmP *defaultEVMProvider, autonityConfig *params.AutonityContractGenesis) (*autonity.Contract, error) {
+func NewAutonityContractFromConfig(db ethdb.Database, hg HeaderGetter, evmP autonity.EVMProvider, autonityConfig *params.AutonityContractGenesis) (*autonity.Contract, error) {
 	var JSONString = autonityConfig.ABI
 	bytes, err := rawdb.GetKeyValue(db, []byte(autonity.ABISPEC))
 

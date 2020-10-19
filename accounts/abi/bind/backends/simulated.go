@@ -77,21 +77,7 @@ type SimulatedBackend struct {
 func NewSimulatedBackendWithDatabase(database ethdb.Database, alloc core.GenesisAlloc, gasLimit uint64, cacher *core.TxSenderCacher) *SimulatedBackend {
 	genesis := core.Genesis{Config: params.AllEthashProtocolChanges, GasLimit: gasLimit, Alloc: alloc}
 	genesis.MustCommit(database)
-	hg, err := core.NewHeaderGetter(database)
-	if err != nil {
-		panic(err)
-	}
-	vmConfig := vm.Config{}
-	autonityContract, err := core.NewAutonityContractFromConfig(
-		database,
-		hg,
-		core.NewDefaultEVMProvider(hg, vmConfig, genesis.Config),
-		genesis.Config.AutonityContractConfig,
-	)
-	if err != nil {
-		panic(err)
-	}
-	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vmConfig, nil, cacher, nil, hg, autonityContract)
+	blockchain, _ := core.NewBlockChain(database, nil, genesis.Config, ethash.NewFaker(), vm.Config{}, nil, cacher, nil)
 
 	backend := &SimulatedBackend{
 		database:   database,

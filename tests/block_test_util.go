@@ -25,6 +25,7 @@ import (
 	"math/big"
 
 	"github.com/clearmatics/autonity/core/state/snapshot"
+	"github.com/clearmatics/autonity/core/vm"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
@@ -35,7 +36,6 @@ import (
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -125,24 +125,7 @@ func (t *BlockTest) Run(snapshotter bool) error {
 		cache.SnapshotLimit = 1
 		cache.SnapshotWait = true
 	}
-
-	hg, err := core.NewHeaderGetter(db)
-	if err != nil {
-		return err
-	}
-
-	vmConfig := vm.Config{}
-	autonityContract, err := core.NewAutonityContractFromConfig(
-		db,
-		hg,
-		core.NewDefaultEVMProvider(hg, vmConfig, config),
-		config.AutonityContractConfig,
-	)
-	if err != nil {
-		return err
-	}
-
-	chain, err := core.NewBlockChain(db, cache, config, engine, vmConfig, nil, &core.TxSenderCacher{}, nil, hg, autonityContract)
+	chain, err := core.NewBlockChain(db, cache, config, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
 	if err != nil {
 		return err
 	}

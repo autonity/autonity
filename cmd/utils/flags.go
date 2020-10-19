@@ -1576,22 +1576,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node, readOnly bool) (chain *core.B
 		limit = &l
 	}
 	senderCacher := core.NewTxSenderCacher()
-
-	hg, err := core.NewHeaderGetter(chainDb)
-	if err != nil {
-		panic(err)
-	}
-
-	autonityContract, err := core.NewAutonityContractFromConfig(
-		chainDb,
-		hg,
-		core.NewDefaultEVMProvider(hg, vmcfg, config),
-		config.AutonityContractConfig,
-	)
-	if err != nil {
-		panic(err)
-	}
-	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg, nil, senderCacher, limit, hg, autonityContract)
+	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg, nil, senderCacher, limit)
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
 	}
