@@ -11,7 +11,7 @@ func NewAutonityContractFromConfig(db ethdb.Database, hg HeaderGetter, evmP auto
 	var JSONString = autonityConfig.ABI
 	bytes, err := rawdb.GetKeyValue(db, []byte(autonity.ABISPEC))
 
-	if err != nil {
+	if err != nil && JSONString == "" {
 		return nil, err
 	}
 	if bytes != nil {

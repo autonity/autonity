@@ -276,13 +276,14 @@ func NewBlockChainWithState(db ethdb.Database, statedb state.Database, cacheConf
 		badBlocks:      badBlocks,
 		senderCacher:   senderCacher,
 	}
+
+	bc.validator = NewBlockValidator(chainConfig, bc, engine)
+	bc.prefetcher = newStatePrefetcher(chainConfig, bc, engine)
+	bc.processor = NewStateProcessor(chainConfig, bc, engine)
 	if autonityContract != nil {
 		bc.autonityContract = autonityContract
 		bc.processor.SetAutonityContract(bc.autonityContract)
 	}
-	bc.validator = NewBlockValidator(chainConfig, bc, engine)
-	bc.prefetcher = newStatePrefetcher(chainConfig, bc, engine)
-	bc.processor = NewStateProcessor(chainConfig, bc, engine)
 
 	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.insertStopped, headerGetter)

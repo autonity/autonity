@@ -84,6 +84,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		peers:                peers,
 		statedb:              statedb,
 		latestBlockRetreiver: tendermint.NewLatestBlockRetriever(db, statedb),
+		autonityContract:     autonityContract,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
