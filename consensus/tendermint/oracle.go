@@ -51,7 +51,7 @@ func (o *oracle) Height() uint64 {
 }
 
 func (o *oracle) Value() (algorithm.ValueID, error) {
-	v, err := o.blockAwaiter.awaitNewValue(o.lastHeader.Number)
+	v, err := o.blockAwaiter.latestValue(o.lastHeader.Number)
 	if err != nil {
 		return [32]byte{}, err
 	}

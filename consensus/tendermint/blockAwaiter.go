@@ -8,10 +8,10 @@ import (
 )
 
 type blockAwaiter struct {
-	valueCond   *sync.Cond
-	latestValue *types.Block
-	allValues   map[uint64]map[common.Hash]*types.Block
-	quit        chan struct{}
+	valueCond      *sync.Cond
+	lastAddedValue *types.Block
+	allValues      map[uint64]map[common.Hash]*types.Block
+	quit           chan struct{}
 }
 
 // Create new blockAwaiter per height
@@ -23,11 +23,11 @@ func newBlockAwaiter() *blockAwaiter {
 	}
 }
 
-func (a *blockAwaiter) setValue(b *types.Block) {
+func (a *blockAwaiter) addValue(b *types.Block) {
 	a.valueCond.L.Lock()
 	defer a.valueCond.L.Unlock()
 
-	a.latestValue = b
+	a.lastAddedValue = b
 	blockHashMap, ok := a.allValues[b.NumberU64()]
 	if !ok {
 		a.allValues[b.NumberU64()] = make(map[common.Hash]*types.Block)
@@ -36,7 +36,7 @@ func (a *blockAwaiter) setValue(b *types.Block) {
 
 	// Wake a go routine, if any, waiting on valueCond
 	a.valueCond.Signal()
-	println("setting value", a.latestValue.Hash().String()[2:8], "value height", a.latestValue.Number().String())
+	println("setting value", a.lastAddedValue.Hash().String()[2:8], "value height", a.lastAddedValue.Number().String())
 }
 
 func (a blockAwaiter) value(height uint64, hash common.Hash) *types.Block {
@@ -52,8 +52,9 @@ func (a blockAwaiter) value(height uint64, hash common.Hash) *types.Block {
 	return nil
 }
 
-// awaitNewValue will return the latest value set by setValue for the current height.
-func (a *blockAwaiter) awaitNewValue(height *big.Int) (*types.Block, error) {
+// latestValue will return the lastAddedValue set by addValue for the current height. If lastAddedValue is nil or is of
+// a previous height then the function will wait until addValue is called or signal to quit is received.
+func (a *blockAwaiter) latestValue(height *big.Int) (*types.Block, error) {
 	a.valueCond.L.Lock()
 	defer a.valueCond.L.Unlock()
 
@@ -62,19 +63,17 @@ func (a *blockAwaiter) awaitNewValue(height *big.Int) (*types.Block, error) {
 		case <-a.quit:
 			return nil, errStopped
 		default:
-			if a.latestValue == nil || a.latestValue.Number().Cmp(height) != 0 {
-				a.latestValue = nil
-				if a.latestValue == nil {
+			if a.lastAddedValue == nil || a.lastAddedValue.Number().Cmp(height) != 0 {
+				a.lastAddedValue = nil
+				if a.lastAddedValue == nil {
 					println("awaiting value", "valueIsNil")
 				} else {
-					println("awaiting value", "value height", a.latestValue.Number().String(), "awaited height", height.String())
+					println("awaiting value", "value height", a.lastAddedValue.Number().String(), "awaited height", height.String())
 				}
 				a.valueCond.Wait()
 			} else {
-				println("received awaited value", a.latestValue.Hash().String()[2:8], "value height", a.latestValue.Number().String(), "awaited height", height.String())
-				v := a.latestValue
-				a.latestValue = nil
-				return v, nil
+				println("received awaited value", a.lastAddedValue.Hash().String()[2:8], "value height", a.lastAddedValue.Number().String(), "awaited height", height.String())
+				return a.lastAddedValue, nil
 			}
 		}
 	}

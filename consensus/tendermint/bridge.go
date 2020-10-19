@@ -93,7 +93,7 @@ type bridge struct {
 }
 
 func (c *bridge) SetValue(b *types.Block) {
-	c.currentBlockAwaiter.setValue(b)
+	c.currentBlockAwaiter.addValue(b)
 }
 
 func (c *bridge) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
