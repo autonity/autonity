@@ -10,7 +10,14 @@ type oracle struct {
 	lastHeader   *types.Header
 	store        *messageStore
 	committeeSet committee
-	c            *bridge
+}
+
+func newOracle(lh *types.Header, s *messageStore, cs committee) *oracle {
+	return &oracle{
+		lastHeader:   lh,
+		store:        s,
+		committeeSet: cs,
+	}
 }
 
 func (o *oracle) FThresh(round int64) bool {
@@ -38,5 +45,10 @@ func (o *oracle) Valid(value algorithm.ValueID) bool {
 }
 
 func (o *oracle) Height() uint64 {
-	return o.c.height.Uint64()
+	return o.lastHeader.Number.Uint64() + 1
+}
+
+func (o *oracle) Value() algorithm.ValueID {
+	//return o.c.AwaitValue()
+	return [32]byte{}
 }

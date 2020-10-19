@@ -94,11 +94,10 @@ type Oracle interface {
 	PrecommitQThresh(round int64, value *ValueID) bool
 	// FThresh indicates whether we have messages whose voting power exceeds
 	// the failure threshold for the given round.
-	// TODO: there is no need to have round in these thresholds since thresholds cannot change across rounds
 	FThresh(round int64) bool
-	// TODO: add a parameter for height
 	Proposer(round int64, nodeID NodeID) bool
 	Height() uint64
+	Value() ValueID
 }
 
 type OneShotTendermint struct {
@@ -148,11 +147,9 @@ func (a *OneShotTendermint) timeout(timeoutType Step) *Timeout {
 	}
 }
 
-// Start round takes the height and round to start as well as a potential value
-// to propose. It then clears the first time flags and either returns a Result
-// with a proposal to be broadcast if this node is the proposer, or a timeout
-// to be scheduled.
-func (a *OneShotTendermint) StartRound(round int64, value ValueID) *Result {
+// Start round takes round to start. It then clears the first time flags and either returns a Result with a proposal to
+// be broadcast if this node is the proposer, or a timeout to be scheduled.
+func (a *OneShotTendermint) StartRound(round int64) *Result {
 	println(a.nodeID.String(), a.height(), "isProposer", a.oracle.Proposer(round, a.nodeID))
 
 	// Reset first time flags
@@ -164,8 +161,11 @@ func (a *OneShotTendermint) StartRound(round int64, value ValueID) *Result {
 	a.step = Propose
 
 	if a.oracle.Proposer(round, a.nodeID) {
+		var value ValueID
 		if a.validValue != nilValue {
 			value = a.validValue
+		} else {
+			value = a.oracle.Value()
 		}
 		println(a.nodeID.String(), a.height(), "returning message", value.String())
 		return &Result{Broadcast: a.msg(Propose, value)}
