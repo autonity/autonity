@@ -385,6 +385,12 @@ func (n *Node) stopRPC() {
 	n.ws.stop()
 	n.ipc.stop()
 	n.stopInProc()
+
+	for _, api := range n.rpcAPIs {
+		if s, ok := api.Service.(interface{ Close() }); ok {
+			s.Close()
+		}
+	}
 }
 
 // startInProc registers all RPC APIs on the inproc server.
