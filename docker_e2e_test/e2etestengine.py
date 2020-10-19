@@ -14,7 +14,7 @@ LG = log.get_logger()
 
 
 def build_autonity_from_master(branch_name):
-    LG.info("gonig to build autonity from branch: ", branch_name)
+    LG.info("gonig to build autonity from branch: %s", branch_name)
     cmd = "git clone https://github.com/clearmatics/autonity.git && cd ./autonity && git checkout {} && make all".format(branch_name)
     output = utility.execute(cmd)
     LG.info(output)
