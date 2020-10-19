@@ -228,14 +228,17 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		return nil, err
 	}
 
-	autonityContract, err := NewAutonityContractFromConfig(
-		db,
-		headerGetter,
-		NewDefaultEVMProvider(headerGetter, vmConfig, chainConfig),
-		chainConfig.AutonityContractConfig,
-	)
-	if err != nil {
-		return nil, err
+	var autonityContract *autonity.Contract
+	if chainConfig.AutonityContractConfig != nil {
+		autonityContract, err = NewAutonityContractFromConfig(
+			db,
+			headerGetter,
+			NewDefaultEVMProvider(headerGetter, vmConfig, chainConfig),
+			chainConfig.AutonityContractConfig,
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return NewBlockChainWithState(db, statedb, cacheConfig, chainConfig, engine, vmConfig, shouldPreserve, senderCacher, txLookupLimit, headerGetter, autonityContract)
