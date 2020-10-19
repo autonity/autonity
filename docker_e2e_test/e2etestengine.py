@@ -13,8 +13,9 @@ import os
 LG = log.get_logger()
 
 
-def build_autonity_from_master():
-    utility.execute("git clone https://github.com/clearmatics/autonity.git && cd ./autonity && git checkout master && make all")
+def build_autonity_from_master(branch_name):
+    cmd = "git clone https://github.com/clearmatics/autonity.git && cd ./autonity && git checkout {} && make all".format(branch_name)
+    utility.execute(cmd)
     utility.execute("cp ./autonity/build/bin/autonity ./bin/")
     utility.execute("cp ./autonity/build/bin/bootnode ./bin/")
     utility.execute("rm -rf ./autonity")
@@ -29,19 +30,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("autonity", help='Autonity Binary Path')
     parser.add_argument("-d", help='Start deploy remote network with brand new configurations.', type=bool, default=True)
-    parser.add_argument("-b", help='Build autonity from master branch.', type=bool, default=False)
+    parser.add_argument("-b", help='Branch name to build autonity from', default="")
     parser.add_argument("-t", help='Start test remote network.', type=bool, default=True)
     args = parser.parse_args()
 
-    is_build = args.b
+    branch = args.b
     is_deploy = args.d
     is_testing = args.t
 
     if os.getenv('VALIDATOR_IPS') is not None:
         utility.execute("echo $VALIDATOR_IPS > ./etc/validator.ip")
 
-    if is_build:
-        build_autonity_from_master()
+    if branch != "":
+        build_autonity_from_master(branch)
         autonity_path = "./bin/autonity"
         utility.execute("rm -rf ./autonity")
     else:

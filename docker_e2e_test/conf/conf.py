@@ -117,8 +117,8 @@ def parse_public_ip_from_text(file):
                     except ValueError:
                         pass
                     else:
-                        if a.is_private:
-                            ip_set.add(str(a.network_address))
+                        #if a.is_private:
+                        ip_set.add(str(a.network_address))
     except Exception as e:
         LOGGER.error('Cannot parse ip from input file. %s', e)
     finally:
