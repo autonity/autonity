@@ -669,7 +669,7 @@ func addStakeholder(en string, stakeholderKey, operatorKey *ecdsa.PrivateKey) se
 				errOuter = err
 				return
 			}
-			_, err = instance.AddParticipant(auth, crypto.PubkeyToAddress(stakeholderKey.PublicKey), en)
+			_, err = instance.AddUser(auth, crypto.PubkeyToAddress(stakeholderKey.PublicKey), new(big.Int), en, uint8(1))
 			if err != nil {
 				errOuter = err
 				return
