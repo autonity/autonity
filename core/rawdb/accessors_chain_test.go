@@ -36,9 +36,9 @@ import (
 // Tests block header storage and retrieval operations.
 func TestHeaderStorage(t *testing.T) {
 	db := NewMemoryDatabase()
-
+	// TODO review block hashing approach, need to include proposer seal.
 	// Create a test header to move around the database and make sure it's really new
-	header := &types.Header{Number: big.NewInt(42), Extra: nil, ProposerSeal: common.FromHex("0x123"), MixDigest: types.BFTDigest}
+	header := &types.Header{Number: big.NewInt(42), Extra: nil, MixDigest: types.BFTDigest}
 	if entry := ReadHeader(db, header.Hash(), header.Number.Uint64()); entry != nil {
 		t.Fatalf("Non existent header returned: %v", entry)
 	}
