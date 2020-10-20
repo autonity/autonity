@@ -26,6 +26,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/consensus/tendermint/backend"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	"github.com/stretchr/testify/require"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -208,9 +209,12 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 		engine      consensus.Engine
 		chainConfig *params.ChainConfig
 		db          = rawdb.NewMemoryDatabase()
+		err         error
 	)
 	if isTendermint {
-		engine, db = newBackend()
+		chainConfig = tendermintChainConfig
+		engine, db, err = newBackend(chainConfig)
+		require.NoError(t, err)
 	} else {
 		chainConfig = params.AllEthashProtocolChanges
 		engine = ethash.NewFaker()
@@ -262,7 +266,8 @@ func TestEmptyWorkEthash(t *testing.T) {
 	testEmptyWork(t, ethashChainConfig, ethash.NewFaker(), false)
 }
 func TestEmptyWorkTendermint(t *testing.T) {
-	engine, _ := newBackend()
+	engine, _, err := newBackend(tendermintChainConfig)
+	require.NoError(t, err)
 	testEmptyWork(t, tendermintChainConfig, engine, true)
 }
 
@@ -383,7 +388,8 @@ func TestRegenerateMiningBlockEthash(t *testing.T) {
 
 func TestRegenerateMiningBlockTendermint(t *testing.T) {
 
-	engine, _ := newBackend()
+	engine, _, err := newBackend(tendermintChainConfig)
+	require.NoError(t, err)
 	testRegenerateMiningBlock(t, tendermintChainConfig, engine, true)
 }
 
@@ -453,7 +459,8 @@ func TestAdjustIntervalEthash(t *testing.T) {
 }
 
 func TestAdjustIntervalClique(t *testing.T) {
-	engine, _ := newBackend()
+	engine, _, err := newBackend(tendermintChainConfig)
+	require.NoError(t, err)
 	testAdjustInterval(t, tendermintChainConfig, engine)
 }
 
@@ -543,13 +550,33 @@ func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine co
 	}
 }
 
-func newBackend() (*backend.Backend, ethdb.Database) {
+func newBackend(config *params.ChainConfig) (*backend.Backend, ethdb.Database, error) {
 	peers := &mockPeers{}
 	bc := tendermint.NewBroadcaster(common.Address{}, peers)
 	syncer := tendermint.NewSyncer(peers)
 
 	db := rawdb.NewMemoryDatabase()
+
+	// Just commit something so that tendermint has a block to load at startup
+	_, err := core.DefaultGenesisBlock().Commit(db)
+	if err != nil {
+		return nil, nil, err
+	}
+	hg, err := core.NewHeaderGetter(db)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	autonityContract, err := core.NewAutonityContractFromConfig(
+		db,
+		hg,
+		core.NewDefaultEVMProvider(hg, vm.Config{}, config),
+		config.AutonityContractConfig,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
 	statedb := state.NewDatabase(db)
-	engine := tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, db, statedb, tendermintChainConfig, &vm.Config{}, bc, peers, syncer, nil)
-	return engine, db
+	engine := tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, db, statedb, tendermintChainConfig, &vm.Config{}, bc, peers, syncer, autonityContract)
+	return engine, db, nil
 }
