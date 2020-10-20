@@ -174,12 +174,12 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 		return nil, err
 	}
 	var autonityContract *autonity.Contract
-	if config.Genesis != nil && config.Genesis.Config.Tendermint != nil {
+	if chainConfig.Tendermint != nil {
 		autonityContract, err = core.NewAutonityContractFromConfig(
 			chainDb,
 			hg,
-			core.NewDefaultEVMProvider(hg, vmConfig, config.Genesis.Config),
-			config.Genesis.Config.AutonityContractConfig,
+			core.NewDefaultEVMProvider(hg, vmConfig, chainConfig),
+			chainConfig.AutonityContractConfig,
 		)
 		if err != nil {
 			return nil, err
@@ -291,7 +291,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 	if chainConfig.Tendermint != nil {
 		syncer := tendermint.NewSyncer(peers)
 		bc := tendermint.NewBroadcaster(crypto.PubkeyToAddress(ctx.NodeKey().PublicKey), peers)
-		return tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, state, chainConfig, vmConfig, bc, peers, syncer, autonityContract)
+		return tendermintBackend.New(chainConfig.Tendermint, ctx.NodeKey(), db, state, chainConfig, vmConfig, bc, peers, syncer, autonityContract)
 	}
 
 	// Otherwise assume proof-of-work
