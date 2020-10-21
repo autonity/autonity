@@ -108,7 +108,7 @@ func (c *bridge) SetValue(b *types.Block) {
 		c.valueSet.Signal()
 	}
 	c.value = b
-	println(addr(c.address), c.height, "setting value", c.value.Hash().String()[2:8], "value height", c.value.Number().String())
+	//println(addr(c.address), c.height, "setting value", c.value.Hash().String()[2:8], "value height", c.value.Number().String())
 }
 
 func (c *bridge) AwaitValue(ctx context.Context, height *big.Int) (*types.Block, error) {
@@ -123,14 +123,14 @@ func (c *bridge) AwaitValue(ctx context.Context, height *big.Int) (*types.Block,
 			if c.value == nil || c.value.Number().Cmp(height) != 0 {
 				c.value = nil
 				if c.value == nil {
-					println(addr(c.address), c.height.String(), "awaiting vlaue", "valueisnil")
+					//println(addr(c.address), c.height.String(), "awaiting vlaue", "valueisnil")
 				} else {
-					println(addr(c.address), c.height.String(), "awaiting vlaue", "value height", c.value.Number().String(), "awaited height", height.String())
+					//println(addr(c.address), c.height.String(), "awaiting vlaue", "value height", c.value.Number().String(), "awaited height", height.String())
 				}
 				c.valueSet.Wait()
 			} else {
 				v := c.value
-				println(addr(c.address), c.height, "received awaited vlaue", c.value.Hash().String()[2:8], "value height", c.value.Number().String(), "awaited height", height.String())
+				//println(addr(c.address), c.height, "received awaited vlaue", c.value.Hash().String()[2:8], "value height", c.value.Number().String(), "awaited height", height.String())
 
 				// We put the value in the store here since this is called from the main
 				// thread of the algorithm, and so we don't end up needing to syncronise
@@ -211,7 +211,7 @@ var errStopped error = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
 func (c *bridge) Start(ctx context.Context, contract *autonity.Contract) {
-	println("starting")
+	//println("starting")
 	// Set the autonity contract
 	c.autonityContract = contract
 	ctx, c.cancel = context.WithCancel(ctx)
@@ -231,7 +231,7 @@ func (c *bridge) Start(ctx context.Context, contract *autonity.Contract) {
 
 // stop implements core.Engine.stop
 func (c *bridge) Stop() {
-	println(addr(c.address), c.height, "stopping")
+	//println(addr(c.address), c.height, "stopping")
 
 	c.logger.Info("stopping tendermint.core", "addr", addr(c.address))
 
@@ -246,7 +246,7 @@ func (c *bridge) Stop() {
 	c.eventsSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
 
-	println(addr(c.address), c.height, "almost stopped")
+	//println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	c.wg.Wait()
 }
@@ -280,7 +280,7 @@ func (c *bridge) newHeight(ctx context.Context, height uint64) error {
 	// If we are making a proposal, we need to ensure that we add the proposal
 	// block to the msg store, so that it can be picked up in buildMessage.
 	if msg != nil {
-		println(addr(c.address), "adding value", height, c.currentBlock.Hash().String())
+		//println(addr(c.address), "adding value", height, c.currentBlock.Hash().String())
 		c.msgStore.addValue(c.currentBlock.Hash(), c.currentBlock)
 	}
 
@@ -309,8 +309,7 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 		}
 		if rc.Decision != nil {
 			// A decision has been reached
-			println(addr(c.address), "decided on block", rc.Decision.Height,
-				common.Hash(rc.Decision.Value).String())
+			//println(addr(c.address), "decided on block", rc.Decision.Height,common.Hash(rc.Decision.Value).String())
 
 			// This will ultimately lead to a commit event, which we will pick
 			// up on but we will ignore it because instead we will wait here to
@@ -341,7 +340,7 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 			}
 		}
 	case cm != nil:
-		println(addr(c.address), c.height.String(), cm.String(), "sending")
+		//println(addr(c.address), c.height.String(), cm.String(), "sending")
 		// Broadcasting ends with the message reaching us eventually
 
 		// We must build message here since buildMessage relies on accessing
@@ -387,7 +386,7 @@ func (c *bridge) mainEventLoop(ctx context.Context) {
 	}
 	err = c.newHeight(ctx, lastBlockMined.NumberU64()+1)
 	if err != nil {
-		println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
+		//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 		return
 	}
 
@@ -415,7 +414,7 @@ eventLoop:
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				println("got a message")
+				//println("got a message")
 				/*
 					Basic validity checks
 				*/
@@ -463,25 +462,25 @@ eventLoop:
 				var rc *algorithm.RoundChange
 				switch e.TimeoutType {
 				case algorithm.Propose:
-					println(addr(c.address), "on timeout propose", e.Height, "round", e.Round)
+					//println(addr(c.address), "on timeout propose", e.Height, "round", e.Round)
 					cm = c.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
-					println(addr(c.address), "on timeout prevote", e.Height, "round", e.Round)
+					//println(addr(c.address), "on timeout prevote", e.Height, "round", e.Round)
 					cm = c.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
-					println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
+					//println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
 					rc = c.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
 				if cm != nil {
-					println("nonnil timeout")
+					//println("nonnil timeout")
 				}
 				err := c.handleResult(ctx, rc, cm, nil)
 				if err != nil {
-					println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
+					//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 					return
 				}
 			case events.CommitEvent:
-				println(addr(c.address), "commit event")
+				//println(addr(c.address), "commit event")
 				c.logger.Debug("Received a final committed proposal")
 
 				lastBlock, err := c.latestBlockRetreiver.RetrieveLatestBlock()
@@ -491,14 +490,14 @@ eventLoop:
 
 				height := new(big.Int).Add(lastBlock.Number(), common.Big1)
 				if height.Cmp(c.height) == 0 {
-					println(addr(c.address), "Discarding event as core is at the same height", "height", c.height)
+					//println(addr(c.address), "Discarding event as core is at the same height", "height", c.height)
 					c.logger.Debug("Discarding event as core is at the same height", "height", c.height)
 				} else {
-					println(addr(c.address), "Received proposal is ahead", "height", c.height, "block_height", height.String())
+					//println(addr(c.address), "Received proposal is ahead", "height", c.height, "block_height", height.String())
 					c.logger.Debug("Received proposal is ahead", "height", c.height, "block_height", height)
 					err := c.newHeight(ctx, height.Uint64())
 					if err != nil {
-						println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
+						//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 						return
 					}
 				}
@@ -512,7 +511,7 @@ eventLoop:
 }
 
 func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) error {
-	println(addr(c.address), c.height.String(), m.String(), "received")
+	//println(addr(c.address), c.height.String(), m.String(), "received")
 	cm := m.consensusMessage
 	/*
 		Domain specific validity checks, now we know that we are at the same
@@ -552,7 +551,7 @@ func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) err
 		}
 		// Proposals values are allowed to be invalid.
 		if _, err := c.backend.VerifyProposal(*c.msgStore.value(common.Hash(cm.Value))); err == nil {
-			println(addr(c.address), "valid", cm.Value.String())
+			//println(addr(c.address), "valid", cm.Value.String())
 			c.msgStore.setValid(common.Hash(cm.Value))
 		}
 	default:
