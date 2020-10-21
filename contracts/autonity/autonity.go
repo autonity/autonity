@@ -3,6 +3,7 @@ package autonity
 import (
 	"errors"
 	"math/big"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -35,7 +36,10 @@ type Blockchainer interface {
 	PutKeyValue(key []byte, value []byte) error
 }
 
-type ContractAPIFunc func() (interface{}, error)
+type ContractAPIFunc struct {
+	Fn     reflect.Value
+	ArgsIn []reflect.Type
+}
 
 type Contract struct {
 	evmProvider        EVMProvider

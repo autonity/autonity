@@ -25,6 +25,7 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"reflect"
 	"runtime"
 	"strings"
 	"time"
@@ -548,24 +549,39 @@ func (ac *AutonityContractAPI) ContractABIMethods() map[string]autonity.Contract
 		functionName := n
 		// Only expose functions which have zero inputs
 		if m.StateMutability == viewMethodStr && len(m.Inputs) == 0 {
-			contractViewMethods[functionName] = func() (interface{}, error) {
-				r := make(map[string]interface{})
-				stateDB, err := ac.eth.BlockChain().State()
-				if err != nil {
-					return "", err
-				}
 
-				err = contract.AutonityContractCallUnpackIntoMap(stateDB, ac.eth.BlockChain().CurrentHeader(), functionName, r)
-				if err != nil {
-					return "", err
-				}
+			fnSig := reflect.FuncOf(m.Inputs.Types(), []reflect.Type{
+				reflect.TypeOf((*interface{})(nil)).Elem(),
+				reflect.TypeOf((*error)(nil)).Elem(),
+			}, false)
 
-				if len(r) == 1 {
-					for _, v := range r {
-						return v, nil
+			contractViewMethods[functionName] = autonity.ContractAPIFunc{
+				Fn: reflect.MakeFunc(fnSig, func(args []reflect.Value) []reflect.Value {
+					r := make(map[string]interface{})
+					makereturn := func(res interface{}, err error) []reflect.Value {
+						return []reflect.Value{reflect.ValueOf(&res).Elem(), reflect.ValueOf(err)}
 					}
-				}
-				return r, nil
+					stateDB, err := ac.eth.BlockChain().State()
+					if err != nil {
+						return makereturn(nil, err)
+					}
+					var interfaceA []interface{}
+					for _, arg := range args {
+						interfaceA = append(interfaceA, arg.Interface())
+					}
+					err = contract.AutonityContractCallUnpackIntoMap(stateDB, ac.eth.BlockChain().CurrentHeader(), functionName, r, interfaceA...)
+
+					if err != nil {
+						return makereturn(nil, err)
+					}
+					if len(r) == 1 {
+						for _, v := range r {
+							return makereturn(v, nil)
+						}
+					}
+					return makereturn(r, nil)
+				}),
+				ArgsIn: m.Inputs.Types(),
 			}
 		}
 	}

@@ -130,11 +130,12 @@ func suitableCallbacks(receiver reflect.Value) map[string]*callback {
 			//
 			// When creating a new callback, the function expects the type x and the method defined on x, since we
 			// cannot satisfy this condition we pass the type of the anonymous method as both the receiver and method.
-			cb := newCallback(reflect.ValueOf(contractFunc), reflect.ValueOf(contractFunc))
+			cb := newCallback(reflect.ValueOf(contractFunc), contractFunc.Fn)
 			if cb == nil {
 				panic("autonity anonymous function cannot be converted to callback")
 			}
 			name := formatName(funcName)
+			cb.argTypes = contractFunc.ArgsIn
 			callbacks[name] = cb
 		}
 	} else {
