@@ -320,7 +320,7 @@ func (s *Ethereum) APIs() []rpc.API {
 
 	if _, ok := s.engine.(consensus.BFT); ok {
 		apis = append(apis, rpc.API{
-			Namespace: "autonityContract",
+			Namespace: "aut",
 			Version:   params.Version,
 			Service:   NewAutonityContractAPI(s).ContractABIMethods(),
 			Public:    true,
