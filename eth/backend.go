@@ -174,12 +174,12 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 		return nil, err
 	}
 	var autonityContract *autonity.Contract
-	if config.Genesis.Config.Tendermint != nil {
+	if chainConfig.Tendermint != nil {
 		autonityContract, err = core.NewAutonityContractFromConfig(
 			chainDb,
 			hg,
-			core.NewDefaultEVMProvider(hg, vmConfig, config.Genesis.Config),
-			config.Genesis.Config.AutonityContractConfig,
+			core.NewDefaultEVMProvider(hg, vmConfig, chainConfig),
+			chainConfig.AutonityContractConfig,
 		)
 		if err != nil {
 			return nil, err
@@ -291,7 +291,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 	if chainConfig.Tendermint != nil {
 		syncer := tendermint.NewSyncer(peers)
 		bc := tendermint.NewBroadcaster(crypto.PubkeyToAddress(ctx.NodeKey().PublicKey), peers)
-		return tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, state, chainConfig, vmConfig, bc, peers, syncer, autonityContract)
+		return tendermintBackend.New(chainConfig.Tendermint, ctx.NodeKey(), db, state, chainConfig, vmConfig, bc, peers, syncer, autonityContract)
 	}
 
 	// Otherwise assume proof-of-work
@@ -564,7 +564,7 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start(srvr *p2p.Server) error {
-	if s.config.Genesis.Config.AutonityContractConfig != nil {
+	if s.config.Genesis != nil && s.config.Genesis.Config.AutonityContractConfig != nil {
 		// Subscribe to Autonity updates events
 		s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
 		go s.glienickeEventLoop(srvr)
@@ -650,7 +650,7 @@ func (s *Ethereum) Stop() error {
 	if s.lesServer != nil {
 		s.lesServer.Stop()
 	}
-	if s.config.Genesis.Config.AutonityContractConfig != nil {
+	if s.config.Genesis != nil && s.config.Genesis.Config.AutonityContractConfig != nil {
 		s.glienickeSub.Unsubscribe()
 	}
 

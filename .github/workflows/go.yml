@@ -437,6 +437,9 @@ jobs:
       - name: Build and start helloworld
         run: docker-compose up -d
 
+      - name: show helloworld logs
+        run: sleep 1 && docker logs autonity-node-1
+
       - name: Test helloworld console access
         run: |
           set -e && \
