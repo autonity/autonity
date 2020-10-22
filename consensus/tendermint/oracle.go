@@ -10,7 +10,6 @@ type oracle struct {
 	lastHeader   *types.Header
 	store        *messageStore
 	committeeSet committee
-	c            *bridge
 	ba           *blockAwaiter
 }
 

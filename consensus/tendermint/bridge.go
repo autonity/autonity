@@ -206,6 +206,9 @@ func (c *bridge) newHeight(prevBlock *types.Block) error {
 
 	// Handle messages for the new height
 	msg, timeout, err := c.algo.StartRound(0)
+	if err != nil {
+		return err
+	}
 
 	// Note that we don't risk entering an infinite loop here since
 	// start round can only return results with broadcasts or timeouts.
@@ -268,7 +271,7 @@ func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		}
 
 		// Broadcast in a new goroutine
-		go func(committee types.Committee) {
+		go func() {
 			// send to self
 			messageEvent := events.MessageEvent{
 				Payload: msg,
@@ -276,7 +279,7 @@ func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			c.backend.Post(messageEvent)
 			// Broadcast to peers
 			c.broadcaster.Broadcast(msg)
-		}(c.lastHeader.Committee)
+		}()
 
 	case to != nil:
 		time.AfterFunc(time.Duration(to.Delay)*time.Second, func() {
