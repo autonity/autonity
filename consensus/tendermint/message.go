@@ -149,7 +149,6 @@ func BuildCommitment(proposerSeal []byte, height uint64, round int64, value algo
 }
 
 func decodeSignedMessage(msgBytes []byte) (*message, error) {
-	println(len(msgBytes))
 	sm := &signedMessage{}
 	err := rlp.Decode(bytes.NewBuffer(msgBytes), sm)
 	if err != nil {
@@ -157,7 +156,6 @@ func decodeSignedMessage(msgBytes []byte) (*message, error) {
 	}
 
 	// Decode the consensus message
-	println(len(sm.ConsensusMessage))
 	rlpMsg := &rlpConsensusMesage{}
 	err = rlp.Decode(bytes.NewBuffer(sm.ConsensusMessage), rlpMsg)
 	if err != nil {
@@ -171,7 +169,7 @@ func decodeSignedMessage(msgBytes []byte) (*message, error) {
 		ValidRound: int64(rlpMsg.ValidRound),
 	}
 
-	println("da msg", cm.String())
+	//println("da msg", cm.String())
 
 	// Verify the signatures
 	// Get the sender address

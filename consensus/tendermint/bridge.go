@@ -161,7 +161,7 @@ func (c *bridge) createCommittee(block *types.Block) committee {
 var errStopped error = errors.New("stopped")
 
 func (c *bridge) Start(ctx context.Context, contract *autonity.Contract) {
-	println("starting")
+	//println("starting")
 	// Set the autonity contract
 	c.autonityContract = contract
 	ctx, c.cancel = context.WithCancel(ctx)
@@ -180,7 +180,7 @@ func (c *bridge) Start(ctx context.Context, contract *autonity.Contract) {
 }
 
 func (c *bridge) Stop() {
-	println(addr(c.address), c.height, "stopping")
+	//println(addr(c.address), c.height, "stopping")
 
 	c.logger.Info("stopping tendermint.core", "addr", addr(c.address))
 
@@ -193,7 +193,7 @@ func (c *bridge) Stop() {
 	c.eventsSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
 
-	println(addr(c.address), c.height, "almost stopped")
+	//println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	c.wg.Wait()
 }
@@ -284,7 +284,7 @@ func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		}
 
 	case cm != nil:
-		println(addr(c.address), c.height.String(), cm.String(), "sending")
+		//println(addr(c.address), c.height.String(), cm.String(), "sending")
 		// Broadcasting ends with the message reaching us eventually
 
 		// We must build message here since buildMessage relies on accessing
@@ -340,7 +340,7 @@ func (c *bridge) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
 	err = c.newHeight(lastBlockMined)
 	if err != nil {
-		println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
+		//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 		return
 	}
 
@@ -368,7 +368,7 @@ eventLoop:
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				println("got a message")
+				//println("got a message")
 				/*
 					Basic validity checks
 				*/
@@ -416,25 +416,25 @@ eventLoop:
 				var rc *algorithm.RoundChange
 				switch e.TimeoutType {
 				case algorithm.Propose:
-					println(addr(c.address), "on timeout propose", e.Height, "round", e.Round)
+					//println(addr(c.address), "on timeout propose", e.Height, "round", e.Round)
 					cm = c.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
-					println(addr(c.address), "on timeout prevote", e.Height, "round", e.Round)
+					//println(addr(c.address), "on timeout prevote", e.Height, "round", e.Round)
 					cm = c.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
-					println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
+					//println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
 					rc = c.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
-				if cm != nil {
-					println("nonnil timeout")
-				}
+				// if cm != nil {
+				// 	println("nonnil timeout")
+				// }
 				err := c.handleResult(rc, cm, nil, nil)
 				if err != nil {
-					println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
+					//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 					return
 				}
 			case events.CommitEvent:
-				println(addr(c.address), "commit event")
+				//println(addr(c.address), "commit event")
 				c.logger.Debug("Received a final committed proposal")
 
 				lastBlock, err := c.latestBlockRetreiver.RetrieveLatestBlock()
@@ -457,7 +457,7 @@ eventLoop:
 }
 
 func (c *bridge) handleCurrentHeightMessage(m *message) error {
-	println(addr(c.address), c.height.String(), m.String(), "received")
+	//println(addr(c.address), c.height.String(), m.String(), "received")
 	cm := m.consensusMessage
 	/*
 		Domain specific validity checks, now we know that we are at the same
@@ -497,7 +497,7 @@ func (c *bridge) handleCurrentHeightMessage(m *message) error {
 		}
 		// Proposals values are allowed to be invalid.
 		if _, err := c.backend.VerifyProposal(*c.msgStore.value(common.Hash(cm.Value))); err == nil {
-			println(addr(c.address), "valid", cm.Value.String())
+			//println(addr(c.address), "valid", cm.Value.String())
 			c.msgStore.setValid(common.Hash(cm.Value))
 		}
 	default:
