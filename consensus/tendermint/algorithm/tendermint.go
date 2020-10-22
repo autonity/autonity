@@ -95,6 +95,8 @@ type Oracle interface {
 	// the failure threshold for the given round.
 	FThresh(round int64) bool
 	Proposer(round int64, nodeID NodeID) bool
+	Height() uint64
+	Value() (ValueID, error)
 }
 
 type Algorithm struct {
