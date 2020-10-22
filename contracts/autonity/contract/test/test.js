@@ -38,6 +38,7 @@ contract('Autonity', function (accounts) {
     const operator = accounts[0];
     const deployer = accounts[8];
     const version = "v0.0.0";
+    /** @type {import('../types/truffle-contracts').AutonityInstance} */
     let token;
 
     describe('Metrics', function() { // test failing
