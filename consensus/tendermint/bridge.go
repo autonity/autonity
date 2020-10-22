@@ -1,28 +1,28 @@
 package tendermint
 
 import (
-	context "context"
+	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
 	"sync"
-	time "time"
+	"time"
 
-	common "github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	autonity "github.com/clearmatics/autonity/contracts/autonity"
-	core "github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
-	types "github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/ethdb"
-	event "github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/davecgh/go-spew/spew"
 )
@@ -169,7 +169,7 @@ func (c *bridge) createCommittee(block *types.Block) committee {
 	return committeeSet
 }
 
-var errStopped error = errors.New("stopped")
+var errStopped = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
 func (c *bridge) Start(ctx context.Context, contract *autonity.Contract, blockchain *core.BlockChain) {
@@ -190,7 +190,6 @@ func (c *bridge) Start(ctx context.Context, contract *autonity.Contract, blockch
 	go c.mainEventLoop(ctx)
 }
 
-// stop implements core.Engine.stop
 func (c *bridge) Stop() {
 	//println(addr(c.address), c.height, "stopping")
 
@@ -207,7 +206,7 @@ func (c *bridge) Stop() {
 	c.wg.Wait()
 }
 
-func (c *bridge) newHeight(ctx context.Context, height uint64) error {
+func (c *bridge) newHeight(height uint64) error {
 	c.syncTimer = time.NewTimer(20 * time.Second)
 	newHeight := new(big.Int).SetUint64(height)
 	// set the new height
@@ -238,18 +237,18 @@ func (c *bridge) newHeight(ctx context.Context, height uint64) error {
 	// Note that we don't risk enterning an infinite loop here since
 	// start round can only return results with brodcasts or schedules.
 	// TODO actually don't return result from Start round.
-	err = c.handleResult(ctx, nil, msg, timeout)
+	err = c.handleResult(nil, msg, timeout)
 	if err != nil {
 		return err
 	}
 	for _, msg := range c.msgStore.heightMessages(newHeight.Uint64()) {
-		err := c.handleCurrentHeightMessage(ctx, msg)
+		err := c.handleCurrentHeightMessage(msg)
 		c.logger.Error("failed to handle current height message", "message", msg.String(), "err", err)
 	}
 	return nil
 }
 
-func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout) error {
+func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout) error {
 
 	switch {
 	case rc == nil && cm == nil && to == nil:
@@ -269,7 +268,7 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 			if err != nil {
 				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(rc.Decision), err))
 			}
-			err = c.newHeight(ctx, rc.Height)
+			err = c.newHeight(rc.Height)
 			if err != nil {
 				return err
 			}
@@ -282,7 +281,7 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 			// Note that we don't risk enterning an infinite loop here since
 			// start round can only return results with brodcasts or schedules.
 			// TODO actually don't return result from Start round.
-			err = c.handleResult(ctx, nil, cm, to)
+			err = c.handleResult(nil, cm, to)
 			if err != nil {
 				return err
 			}
@@ -306,12 +305,12 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 		// Broadcast in a new goroutine
 		go func(committee types.Committee) {
 			// send to self
-			event := events.MessageEvent{
+			messageEvent := events.MessageEvent{
 				Payload: msg,
 			}
-			c.backend.Post(event)
+			c.backend.Post(messageEvent)
 			// Broadcast to peers
-			c.broadcaster.Broadcast(ctx, committee, msg)
+			c.broadcaster.Broadcast(msg)
 		}(c.lastHeader.Committee)
 
 	case to != nil:
@@ -332,7 +331,7 @@ func (c *bridge) mainEventLoop(ctx context.Context) {
 	if err != nil {
 		panic(err)
 	}
-	err = c.newHeight(ctx, lastBlockMined.NumberU64()+1)
+	err = c.newHeight(lastBlockMined.NumberU64() + 1)
 	if err != nil {
 		//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 		return
@@ -352,9 +351,9 @@ eventLoop:
 			if !ok {
 				break eventLoop
 			}
-			event := ev.Data.(events.SyncEvent)
-			c.logger.Info("Processing sync message", "from", event.Addr)
-			c.syncer.SyncPeer(event.Addr, c.msgStore.rawHeightMessages(c.height.Uint64()))
+			syncEvent := ev.Data.(events.SyncEvent)
+			c.logger.Info("Processing sync message", "from", syncEvent.Addr)
+			c.syncer.SyncPeer(syncEvent.Addr, c.msgStore.rawHeightMessages(c.height.Uint64()))
 		case ev, ok := <-c.eventsSub.Chan():
 			if !ok {
 				break eventLoop
@@ -396,7 +395,7 @@ eventLoop:
 					continue
 				}
 
-				err = c.handleCurrentHeightMessage(ctx, m)
+				err = c.handleCurrentHeightMessage(m)
 				if err == errStopped {
 					return
 				}
@@ -404,7 +403,7 @@ eventLoop:
 					c.logger.Debug("core.mainEventLoop problem processing message", "err", err)
 					continue
 				}
-				c.broadcaster.Broadcast(ctx, c.lastHeader.Committee, e.Payload)
+				c.broadcaster.Broadcast(e.Payload)
 			case *algorithm.Timeout:
 				var cm *algorithm.ConsensusMessage
 				var rc *algorithm.RoundChange
@@ -422,7 +421,7 @@ eventLoop:
 				// if cm != nil {
 				// 	println("nonnil timeout")
 				// }
-				err := c.handleResult(ctx, rc, cm, nil)
+				err := c.handleResult(rc, cm, nil)
 				if err != nil {
 					//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 					return
@@ -443,7 +442,7 @@ eventLoop:
 				} else {
 					//println(addr(c.address), "Received proposal is ahead", "height", c.height, "block_height", height.String())
 					c.logger.Debug("Received proposal is ahead", "height", c.height, "block_height", height)
-					err := c.newHeight(ctx, height.Uint64())
+					err := c.newHeight(height.Uint64())
 					if err != nil {
 						//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 						return
@@ -458,7 +457,7 @@ eventLoop:
 
 }
 
-func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) error {
+func (c *bridge) handleCurrentHeightMessage(m *message) error {
 	//println(addr(c.address), c.height.String(), m.String(), "received")
 	cm := m.consensusMessage
 	/*
@@ -510,7 +509,7 @@ func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) err
 	}
 
 	rc, cm, to := c.algo.ReceiveMessage(cm)
-	err := c.handleResult(ctx, rc, cm, to)
+	err := c.handleResult(rc, cm, to)
 	if err != nil {
 		return err
 	}
@@ -550,7 +549,7 @@ func NewBroadcaster(address common.Address, peers consensus.Peers) *Broadcaster 
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (b *Broadcaster) Broadcast(ctx context.Context, committee types.Committee, payload []byte) {
+func (b *Broadcaster) Broadcast(payload []byte) {
 	hash := types.RLPHash(payload)
 
 	for _, p := range b.peers.Peers() {
