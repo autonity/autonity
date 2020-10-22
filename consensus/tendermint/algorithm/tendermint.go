@@ -74,7 +74,7 @@ type ConsensusMessage struct {
 	Height     uint64
 	Round      int64
 	Value      ValueID
-	ValidRound int64
+	ValidRound int64 // This field only has meaning for propose step. For prevote and precommit this value is ignored.
 }
 
 func (cm *ConsensusMessage) String() string {
@@ -87,6 +87,8 @@ func (cm *ConsensusMessage) String() string {
 type Oracle interface {
 	Valid(ValueID) bool
 	MatchingProposal(*ConsensusMessage) *ConsensusMessage
+	// TODO: merge the functions into QThresh since the calculation is always the same for both, instead define private
+	// functions for readability.
 	PrevoteQThresh(round int64, value *ValueID) bool
 	PrecommitQThresh(round int64, value *ValueID) bool
 	// FThresh indicates whether we have messages whose voting power exceeds
