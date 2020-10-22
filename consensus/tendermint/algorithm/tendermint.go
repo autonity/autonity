@@ -195,9 +195,9 @@ func (ost *OneShotTendermint) StartRound(round int64) (*ConsensusMessage, *Timeo
 // this indicates that a decision has been reached it will contain the proposal
 // that was decided upon, Decision can only be set when Round is 0.
 type RoundChange struct {
-	Height   uint64
+	Height   uint64 //TODO: consider removing this since this is an internal message which will not be broadcasted
 	Round    int64
-	Decision *ConsensusMessage
+	Decision *ConsensusMessage //TODO: consider changing this to ValueID
 }
 
 // ReceiveMessage processes a consensus message and returns 3 values of which
