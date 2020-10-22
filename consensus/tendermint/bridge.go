@@ -197,6 +197,9 @@ func (c *bridge) Stop() {
 
 	c.cancel()
 
+	// stop the block awaiter if it is waiting
+	c.currentBlockAwaiter.stop()
+
 	// Unsubscribe
 	c.eventsSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
