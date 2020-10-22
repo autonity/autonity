@@ -122,11 +122,11 @@ func (c *bridge) AwaitValue(ctx context.Context, height *big.Int) (*types.Block,
 		default:
 			if c.value == nil || c.value.Number().Cmp(height) != 0 {
 				c.value = nil
-				if c.value == nil {
-					//println(addr(c.address), c.height.String(), "awaiting vlaue", "valueisnil")
-				} else {
-					//println(addr(c.address), c.height.String(), "awaiting vlaue", "value height", c.value.Number().String(), "awaited height", height.String())
-				}
+				// if c.value == nil {
+				// 	println(addr(c.address), c.height.String(), "awaiting vlaue", "valueisnil")
+				// } else {
+				// 	println(addr(c.address), c.height.String(), "awaiting vlaue", "value height", c.value.Number().String(), "awaited height", height.String())
+				// }
 				c.valueSet.Wait()
 			} else {
 				v := c.value
@@ -471,9 +471,9 @@ eventLoop:
 					//println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
 					rc = c.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
-				if cm != nil {
-					//println("nonnil timeout")
-				}
+				// if cm != nil {
+				// 	println("nonnil timeout")
+				// }
 				err := c.handleResult(ctx, rc, cm, nil)
 				if err != nil {
 					//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
