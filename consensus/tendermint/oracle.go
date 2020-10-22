@@ -59,5 +59,6 @@ func (o *oracle) Value() (algorithm.ValueID, error) {
 	if err != nil {
 		return [32]byte{}, err
 	}
+	o.store.addValue(v.Hash(), v)
 	return algorithm.ValueID(v.Hash()), nil
 }

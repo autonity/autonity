@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"sync"
@@ -10,7 +9,6 @@ import (
 type blockAwaiter struct {
 	valueCond      *sync.Cond
 	lastAddedValue *types.Block
-	allValues      map[uint64]map[common.Hash]*types.Block
 	quit           chan struct{}
 }
 
@@ -18,7 +16,6 @@ type blockAwaiter struct {
 func newBlockAwaiter() *blockAwaiter {
 	return &blockAwaiter{
 		valueCond: sync.NewCond(&sync.Mutex{}),
-		allValues: make(map[uint64]map[common.Hash]*types.Block),
 		quit:      make(chan struct{}),
 	}
 }
@@ -28,29 +25,9 @@ func (a *blockAwaiter) addValue(b *types.Block) {
 	defer a.valueCond.L.Unlock()
 
 	a.lastAddedValue = b
-	blockHashMap, ok := a.allValues[b.NumberU64()]
-	if !ok {
-		blockHashMap = make(map[common.Hash]*types.Block)
-		a.allValues[b.NumberU64()] = blockHashMap
-	}
-	blockHashMap[b.Hash()] = b
-
 	// Wake a go routine, if any, waiting on valueCond
 	a.valueCond.Signal()
 	println("setting value", a.lastAddedValue.Hash().String()[2:8], "value height", a.lastAddedValue.Number().String())
-}
-
-func (a blockAwaiter) value(height uint64, hash common.Hash) *types.Block {
-	a.valueCond.L.Lock()
-	defer a.valueCond.L.Unlock()
-
-	if blockHashMap, ok := a.allValues[height]; ok {
-		if b, ok := blockHashMap[hash]; ok {
-			return b
-		}
-	}
-
-	return nil
 }
 
 // latestValue will return the lastAddedValue set by addValue for the current height. If lastAddedValue is nil or is of
@@ -78,12 +55,6 @@ func (a *blockAwaiter) latestValue(height *big.Int) (*types.Block, error) {
 			}
 		}
 	}
-}
-
-func (a *blockAwaiter) deleteHeight(h uint64) {
-	a.valueCond.L.Lock()
-	defer a.valueCond.L.Unlock()
-	delete(a.allValues, h)
 }
 
 func (a *blockAwaiter) stop() {

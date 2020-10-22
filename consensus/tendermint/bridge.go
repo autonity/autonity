@@ -84,7 +84,6 @@ type bridge struct {
 
 	height *big.Int
 	algo   *algorithm.OneShotTendermint
-	ora    *oracle
 
 	currentBlockAwaiter *blockAwaiter
 
@@ -204,12 +203,9 @@ func (c *bridge) newHeight(prevBlock *types.Block) error {
 	c.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
 	c.committee = c.createCommittee(prevBlock)
 
-	// delete previous height proposal blocks
-	c.currentBlockAwaiter.deleteHeight(prevBlock.NumberU64())
-
 	// Create new oracle and algorithm
-	c.ora = newOracle(c.lastHeader, c.msgStore, c.committee, c.currentBlockAwaiter)
-	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
+	ora := newOracle(c.lastHeader, c.msgStore, c.committee, c.currentBlockAwaiter)
+	c.algo = algorithm.New(algorithm.NodeID(c.address), ora)
 
 	// Start new round and handle messages for the new height
 	msg, timeout, err := c.newRound(0)
