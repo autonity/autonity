@@ -60,11 +60,6 @@ func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcas
 		statedb:              statedb,
 		verifier:             verifier,
 	}
-	o := &oracle{
-		c:     c,
-		store: c.msgStore,
-	}
-	c.ora = o
 	return c
 }
 
@@ -91,7 +86,6 @@ type bridge struct {
 
 	height *big.Int
 	algo   *algorithm.OneShotTendermint
-	ora    *oracle
 
 	currentBlockAwaiter *blockAwaiter
 
@@ -215,23 +209,14 @@ func (c *bridge) newHeight(prevBlock *types.Block) error {
 	c.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
 	c.committee = c.createCommittee(prevBlock)
 
-	// Update internals of oracle
-	c.ora.lastHeader = c.lastHeader
-	c.ora.committeeSet = c.committee
+	// Create new oracle and algorithm
+	c.algo = algorithm.New(algorithm.NodeID(c.address), newOracle(c.lastHeader, c.msgStore, c.committee, c.currentBlockAwaiter))
 
 	// Handle messages for the new height
 	msg, timeout, err := c.algo.StartRound(0)
 
-	// If we are making a proposal, we need to ensure that we add the proposal
-	// block to the msg store, so that it can be picked up in buildMessage.
-	if msg != nil {
-		//println(addr(c.address), "adding value", height, c.currentBlock.Hash().String())
-		//c.msgStore.addValue(c.currentBlock.Hash(), c.currentBlock)
-	}
-
-	// Note that we don't risk enterning an infinite loop here since
-	// start round can only return results with brodcasts or schedules.
-	// TODO actually don't return result from Start round.
+	// Note that we don't risk entering an infinite loop here since
+	// start round can only return results with broadcasts or timeouts.
 	err = c.handleResult(nil, msg, timeout)
 	if err != nil {
 		return err
@@ -314,8 +299,6 @@ func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 
 func (c *bridge) mainEventLoop(ctx context.Context) {
 	defer c.wg.Done()
-	// Start a new round from last height + 1
-	c.algo = algorithm.New(algorithm.NodeID(c.address), c.ora)
 
 	lastBlockMined, err := c.latestBlockRetreiver.RetrieveLatestBlock()
 	if err != nil {
