@@ -233,9 +233,8 @@ func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			// A decision has been reached
 			//println(addr(c.address), "decided on block", rc.Decision.Height,common.Hash(rc.Decision.Value).String())
 
-			// This will ultimately lead to a commit event, which we will pick
-			// up on but we will ignore it because instead we will wait here to
-			// select the next value that matches this height.
+			// This will ultimately lead to a commit event, which we will pick up on in the mainEventLoop and start a
+			// move to the new height by calling newHeight().
 			_, err := c.Commit(rc.Decision)
 			if err != nil {
 				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(rc.Decision), err))
@@ -245,9 +244,8 @@ func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			if err != nil {
 				return err
 			}
-			// Note that we don't risk enterning an infinite loop here since
-			// start round can only return results with brodcasts or schedules.
-			// TODO actually don't return result from Start round.
+			// Note that we don't risk entering an infinite loop here since
+			// start round can only return results with broadcasts or timeouts.
 			err = c.handleResult(nil, cm, to)
 			if err != nil {
 				return err
