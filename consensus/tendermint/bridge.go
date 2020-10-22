@@ -90,7 +90,7 @@ type bridge struct {
 	autonityContract *autonity.Contract
 
 	height *big.Int
-	algo   *algorithm.Algorithm
+	algo   *algorithm.OneShotTendermint
 	ora    *oracle
 
 	valueSet     *sync.Cond
