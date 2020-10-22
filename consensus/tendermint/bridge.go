@@ -52,7 +52,7 @@ func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcas
 		address:              address,
 		logger:               logger,
 		backend:              backend,
-		valueSet:             sync.NewCond(&sync.Mutex{}),
+		currentBlockAwaiter:  newBlockAwaiter(),
 		msgStore:             newMessageStore(),
 		broadcaster:          broadcaster,
 		syncer:               syncer,
@@ -93,9 +93,7 @@ type bridge struct {
 	algo   *algorithm.OneShotTendermint
 	ora    *oracle
 
-	valueSet     *sync.Cond
-	value        *types.Block
-	currentBlock *types.Block
+	currentBlockAwaiter *blockAwaiter
 
 	broadcaster          *Broadcaster
 	syncer               *Syncer
@@ -108,49 +106,7 @@ type bridge struct {
 }
 
 func (c *bridge) SetValue(b *types.Block) {
-	c.valueSet.L.Lock()
-	defer c.valueSet.L.Unlock()
-	if c.value == nil {
-		c.valueSet.Signal()
-	}
-	c.value = b
-	//println(addr(c.address), c.height, "setting value", c.value.Hash().String()[2:8], "value height", c.value.Number().String())
-}
-
-func (c *bridge) AwaitValue(ctx context.Context, height *big.Int) (*types.Block, error) {
-	c.valueSet.L.Lock()
-	defer c.valueSet.L.Unlock()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, errStopped
-		default:
-			if c.value == nil || c.value.Number().Cmp(height) != 0 {
-				c.value = nil
-				// if c.value == nil {
-				// 	println(addr(c.address), c.height.String(), "awaiting vlaue", "valueisnil")
-				// } else {
-				// 	println(addr(c.address), c.height.String(), "awaiting vlaue", "value height", c.value.Number().String(), "awaited height", height.String())
-				// }
-				c.valueSet.Wait()
-			} else {
-				v := c.value
-				//println(addr(c.address), c.height, "received awaited vlaue", c.value.Hash().String()[2:8], "value height", c.value.Number().String(), "awaited height", height.String())
-
-				// We put the value in the store here since this is called from the main
-				// thread of the algorithm, and so we don't end up needing to syncronise
-				// the store.  TODO this is a potential memory leak. We are adding a value
-				// without it being referenced by a message that is tied to a height, so it
-				// may never be cleared.
-				c.msgStore.addValue(v.Hash(), v)
-				// We assume our own suggestions are valid
-				c.msgStore.setValid(v.Hash())
-				c.value = nil
-				return v, nil
-			}
-		}
-	}
+	c.currentBlockAwaiter.setValue(b)
 }
 
 func (c *bridge) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
@@ -242,11 +198,6 @@ func (c *bridge) Stop() {
 
 	c.cancel()
 
-	// Signal to wake up await value if it is waiting.
-	c.valueSet.L.Lock()
-	c.valueSet.Signal()
-	c.valueSet.L.Unlock()
-
 	// Unsubscribe
 	c.eventsSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
@@ -261,11 +212,6 @@ func (c *bridge) newHeight(ctx context.Context, height uint64) error {
 	newHeight := new(big.Int).SetUint64(height)
 	// set the new height
 	c.height = newHeight
-	var err error
-	c.currentBlock, err = c.AwaitValue(ctx, newHeight)
-	if err != nil {
-		return err
-	}
 	prevBlock, err := c.latestBlockRetreiver.RetrieveLatestBlock()
 	if err != nil {
 		panic(err)
@@ -280,13 +226,13 @@ func (c *bridge) newHeight(ctx context.Context, height uint64) error {
 	c.ora.committeeSet = committeeSet
 
 	// Handle messages for the new height
-	msg, timeout := c.algo.StartRound(newHeight.Uint64(), 0, algorithm.ValueID(c.currentBlock.Hash()))
+	msg, timeout, err := c.algo.StartRound(0)
 
 	// If we are making a proposal, we need to ensure that we add the proposal
 	// block to the msg store, so that it can be picked up in buildMessage.
 	if msg != nil {
 		//println(addr(c.address), "adding value", height, c.currentBlock.Hash().String())
-		c.msgStore.addValue(c.currentBlock.Hash(), c.currentBlock)
+		//c.msgStore.addValue(c.currentBlock.Hash(), c.currentBlock)
 	}
 
 	// Note that we don't risk enterning an infinite loop here since
@@ -329,17 +275,14 @@ func (c *bridge) handleResult(ctx context.Context, rc *algorithm.RoundChange, cm
 			}
 
 		} else {
-			// sanity check
-			currBlockNum := c.currentBlock.Number().Uint64()
-			if currBlockNum != rc.Height {
-				panic(fmt.Sprintf("current block number %d out of sync with  height %d", currBlockNum, rc.Height))
+			cm, to, err := c.algo.StartRound(rc.Round) // nolint
+			if err != nil {
+				return err
 			}
-
-			cm, to := c.algo.StartRound(rc.Height, rc.Round, algorithm.ValueID(c.currentBlock.Hash())) // nolint
 			// Note that we don't risk enterning an infinite loop here since
 			// start round can only return results with brodcasts or schedules.
 			// TODO actually don't return result from Start round.
-			err := c.handleResult(ctx, nil, cm, to)
+			err = c.handleResult(ctx, nil, cm, to)
 			if err != nil {
 				return err
 			}
