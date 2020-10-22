@@ -11,6 +11,16 @@ type oracle struct {
 	store        *messageStore
 	committeeSet committee
 	c            *bridge
+	ba           *blockAwaiter
+}
+
+func newOracle(lh *types.Header, s *messageStore, cs committee, ba *blockAwaiter) *oracle {
+	return &oracle{
+		lastHeader:   lh,
+		store:        s,
+		committeeSet: cs,
+		ba:           ba,
+	}
 }
 
 func (o *oracle) FThresh(round int64) bool {
@@ -46,5 +56,12 @@ func (o *oracle) Height() uint64 {
 }
 
 func (o *oracle) Value() (algorithm.ValueID, error) {
-	return [32]byte{}, nil
+	v, err := o.ba.value(o.lastHeader.Number)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	// The tendermint is making a proposal, we need to ensure that we add the proposal block to the msg store, so that
+	// it can be picked up in buildMessage.
+	o.store.addValue(v.Hash(), v)
+	return algorithm.ValueID(v.Hash()), nil
 }
