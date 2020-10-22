@@ -233,17 +233,17 @@ func (ost *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) (*RoundChange
 	// - We do not check height because we only execute this code when the
 	// message height matches the current height.
 	//
-	// - We do not check whether the message comes from ost proposer since this
+	// - We do not check whether the message comes from a proposer since this
 	// is checked before calling this method and we do not process proposals
 	// from non proposers.
 	//
 	// The upon conditions have been re-ordered such that those with outcomes
 	// that would supersede the outcome of others come before the others.
-	// Specifically the upon conditions for ost given step that schedule
+	// Specifically the upon conditions for a given step that schedule
 	// timeouts, have been moved after the upon conditions for that step that
-	// would result in broadcasting ost message for ost value other than nil or
-	// deciding on ost value. This ensures that we are able to return when we
-	// find ost condition that has been met, because we know that the result of
+	// would result in broadcasting a message for a value other than nil or
+	// deciding on a value. This ensures that we are able to return when we
+	// find a condition that has been met, because we know that the result of
 	// this condition will supersede results from other later conditions that
 	// may have been met. This approach will hopefully go someway to cutting
 	// down unnecessary network traffic between nodes.
@@ -327,7 +327,7 @@ func (ost *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) (*RoundChange
 		// what happens to the old round messages? We don't process them, but
 		// we can't remove them from the messsage store because they may be
 		// used in this round in the condition at line 28. This means that we
-		// only should clean the message store when there is ost height change,
+		// only should clean the message store when there is a height change,
 		// clearing out all messages for the height.
 		//println(ost.nodeID.String(), ost.height(), cm.String(), "line 55 start round")
 		return &RoundChange{Height: ost.height(), Round: cm.Round}, nil, nil
