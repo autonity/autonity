@@ -116,6 +116,7 @@ type OneShotTendermint struct {
 func New(nodeID NodeID, oracle Oracle) *OneShotTendermint {
 	return &OneShotTendermint{
 		nodeID:      nodeID,
+		round:       -1,
 		lockedRound: -1,
 		lockedValue: NilValue,
 		validRound:  -1,
@@ -150,12 +151,19 @@ func (ost *OneShotTendermint) timeout(timeoutType Step) *Timeout {
 	}
 }
 
-// Start round takes the height and round to start as well as a potential value
-// to propose. It then clears the first time flags and either returns a
-// proposal ConsensusMessage to be broadcast, if this node is the proposer or
-// if not, a Timeout to be scheduled.
-func (ost *OneShotTendermint) StartRound(height uint64, round int64, value ValueID) (*ConsensusMessage, *Timeout) {
+// Start round takes a round to start. It then clears the first time flags and either returns a proposal
+// ConsensusMessage to be broadcast, if this node is the proposer or if not, a Timeout to be scheduled.
+func (ost *OneShotTendermint) StartRound(round int64) (*ConsensusMessage, *Timeout, error) {
 	//println(ost.nodeID.String(), height, "isproposer", ost.oracle.Proposer(round, ost.nodeID))
+
+	// sanity check
+	switch {
+	case round < 0:
+		panic(fmt.Sprintf("New round cannot be less than 0. Previous round: %-3d, new round: %-3d", ost.round, round))
+	case round <= ost.round:
+		panic(fmt.Sprintf("New round must be more than the current round. Previous round: %-3d, new round: %-3d", ost.round, round))
+	}
+
 	// Reset first time flags
 	ost.line34Executed = false
 	ost.line36Executed = false
@@ -164,13 +172,21 @@ func (ost *OneShotTendermint) StartRound(height uint64, round int64, value Value
 	ost.round = round
 	ost.step = Propose
 	if ost.oracle.Proposer(round, ost.nodeID) {
+		var value ValueID
+		var err error
+
 		if ost.validValue != NilValue {
 			value = ost.validValue
+		} else {
+			value, err = ost.oracle.Value()
+			if err != nil {
+				return nil, nil, err
+			}
 		}
-		//println(ost.nodeID.String(), height, "returning message", value.String())
-		return ost.msg(Propose, value), nil
+		//println(a.nodeID.String(), a.height(), "returning message", value.String())
+		return ost.msg(Propose, value), nil, nil
 	} else { //nolint
-		return nil, ost.timeout(Propose)
+		return nil, ost.timeout(Propose), nil
 	}
 }
 
