@@ -209,23 +209,15 @@ func (c *bridge) Stop() {
 	c.wg.Wait()
 }
 
-func (c *bridge) newHeight(height uint64) error {
+func (c *bridge) newHeight(prevBlock *types.Block) error {
 	c.syncTimer = time.NewTimer(20 * time.Second)
-	newHeight := new(big.Int).SetUint64(height)
-	// set the new height
-	c.height = newHeight
-	prevBlock, err := c.latestBlockRetreiver.RetrieveLatestBlock()
-	if err != nil {
-		panic(err)
-	}
-
 	c.lastHeader = prevBlock.Header()
-	committeeSet := c.createCommittee(prevBlock)
-	c.committee = committeeSet
+	c.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
+	c.committee = c.createCommittee(prevBlock)
 
 	// Update internals of oracle
 	c.ora.lastHeader = c.lastHeader
-	c.ora.committeeSet = committeeSet
+	c.ora.committeeSet = c.committee
 
 	// Handle messages for the new height
 	msg, timeout, err := c.algo.StartRound(0)
@@ -244,7 +236,7 @@ func (c *bridge) newHeight(height uint64) error {
 	if err != nil {
 		return err
 	}
-	for _, msg := range c.msgStore.heightMessages(newHeight.Uint64()) {
+	for _, msg := range c.msgStore.heightMessages(c.height.Uint64()) {
 		err := c.handleCurrentHeightMessage(msg)
 		c.logger.Error("failed to handle current height message", "message", msg.String(), "err", err)
 	}
@@ -271,11 +263,6 @@ func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			if err != nil {
 				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(rc.Decision), err))
 			}
-			err = c.newHeight(rc.Height)
-			if err != nil {
-				return err
-			}
-
 		} else {
 			cm, to, err := c.algo.StartRound(rc.Round) // nolint
 			if err != nil {
@@ -334,7 +321,7 @@ func (c *bridge) mainEventLoop(ctx context.Context) {
 	if err != nil {
 		panic(err)
 	}
-	err = c.newHeight(lastBlockMined.NumberU64() + 1)
+	err = c.newHeight(lastBlockMined)
 	if err != nil {
 		//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 		return
@@ -437,21 +424,13 @@ eventLoop:
 				if err != nil {
 					panic(err)
 				}
-
-				height := new(big.Int).Add(lastBlock.Number(), common.Big1)
-				if height.Cmp(c.height) == 0 {
-					//println(addr(c.address), "Discarding event as core is at the same height", "height", c.height)
-					c.logger.Debug("Discarding event as core is at the same height", "height", c.height)
-				} else {
-					//println(addr(c.address), "Received proposal is ahead", "height", c.height, "block_height", height.String())
-					c.logger.Debug("Received proposal is ahead", "height", c.height, "block_height", height)
-					err := c.newHeight(height.Uint64())
-					if err != nil {
-						//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
-						return
-					}
+				err = c.newHeight(lastBlock)
+				if err != nil {
+					//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
+					return
 				}
 			}
+
 		case <-ctx.Done():
 			c.logger.Info("mainEventLoop is stopped", "event", ctx.Err())
 			break eventLoop
