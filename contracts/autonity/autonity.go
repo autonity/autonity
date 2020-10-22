@@ -3,7 +3,6 @@ package autonity
 import (
 	"errors"
 	"math/big"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -34,11 +33,6 @@ type Blockchainer interface {
 	ReadEnodeWhitelist() *types.Nodes
 
 	PutKeyValue(key []byte, value []byte) error
-}
-
-type ContractAPIFunc struct {
-	Fn     reflect.Value
-	ArgsIn []reflect.Type
 }
 
 type Contract struct {
