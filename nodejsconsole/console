@@ -36,7 +36,7 @@ echo
 # Note the --experimental-repl-await doesn't take effect for the code executed with eval.
 node --experimental-repl-await --eval "
 let Web3=require('web3');
-let web3 = new Web3('ws://$1');
+let web3 = new Web3('$1');
 let contract;
 let autonity;
 
@@ -858,7 +858,7 @@ moduleInit.set('lespay', lesPay);
 
 let WebSocket = require('ws');
 
-let ws = new WebSocket('ws://$1');
+let ws = new WebSocket('$1');
  
 let data = JSON.stringify({
 	jsonrpc:'2.0',
