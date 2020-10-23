@@ -20,8 +20,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/clearmatics/autonity/core"
-	"github.com/davecgh/go-spew/spew"
 	"math"
 	"os"
 	godebug "runtime/debug"
@@ -29,6 +27,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/clearmatics/autonity/core"
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/clearmatics/autonity/console/prompt"
 
@@ -305,14 +306,8 @@ func prepare(ctx *cli.Context) {
 	go metrics.CollectProcessMetrics(3 * time.Second)
 }
 
-// loadGenesis will validate and initialise the given JSON format genesis file
-func loadGenesis(ctx *cli.Context) (*core.Genesis, error) {
-	// Make sure we have a valid genesis JSON.
-	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
-	log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
-	if len(genesisPath) == 0 {
-		return nil, fmt.Errorf("must supply path to genesis JSON file")
-	}
+// loadGenesisFile will load and validate the given JSON format genesis file.
+func loadGenesisFile(genesisPath string) (*core.Genesis, error) {
 	file, err := os.Open(genesisPath)
 	if err != nil {
 		return nil, err
@@ -346,29 +341,24 @@ func loadGenesis(ctx *cli.Context) (*core.Genesis, error) {
 	return genesis, nil
 }
 
-func initGenesis(ctx *cli.Context, node *node.Node) error {
-	genesis, err := loadGenesis(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to validate genesis file: %v", err)
-	}
-
-	// check if genesis is matched with block #0, and check to apply compatible chain configuration.
-	if genesis != nil {
-		for _, name := range []string{"chaindata", "lightchaindata"} {
-			chaindb, err := node.OpenDatabase(name, 0, 0, "")
-			if err != nil {
-				return fmt.Errorf("failed to open database: %v", err)
-			}
-			_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
-			if err != nil {
-				return fmt.Errorf("failed to write genesis block: %v", err)
-			}
-			err = chaindb.Close()
-			if err != nil {
-				return fmt.Errorf("failed to close chain DB: %v", err)
-			}
-			log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
+// applyGenesis attempts to apply the given genesis to the node database, the
+// first time this is run for a node it initializes the genesis block in the
+// database.
+func applyGenesis(genesis *core.Genesis, node *node.Node) error {
+	for _, name := range []string{"chaindata", "lightchaindata"} {
+		chaindb, err := node.OpenDatabase(name, 0, 0, "")
+		if err != nil {
+			return fmt.Errorf("failed to open database: %v", err)
 		}
+		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
+		if err != nil {
+			return fmt.Errorf("failed to write genesis block: %v", err)
+		}
+		err = chaindb.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close chain DB: %v", err)
+		}
+		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
 	}
 	return nil
 }
@@ -395,9 +385,16 @@ func autonity(ctx *cli.Context) error {
 	// genesis file, check if genesis file is match with genesis block, and check if chain configuration of the genesis
 	// file is compatible with current chain-data, apply new compatible chain configuration into chain db.
 	// Otherwise client will end up with a mis-match genesis error or an incompatible chain configuration error.
-	if ctx.GlobalIsSet(utils.InitGenesisFlag.Name) {
+
+	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
+	if genesisPath != "" {
 		log.Info("--genesis flag is set")
-		err := initGenesis(ctx, node)
+		log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
+		genesis, err := loadGenesisFile(genesisPath)
+		if err != nil {
+			return fmt.Errorf("failed to validate genesis file: %v", err)
+		}
+		err = applyGenesis(genesis, node)
 		if err != nil {
 			return err
 		}
