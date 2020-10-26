@@ -2,7 +2,6 @@ package tendermint
 
 import (
 	"context"
-	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/contracts/autonity"
@@ -20,10 +19,6 @@ type Backend interface {
 	Post(ev interface{})
 
 	Subscribe(types ...interface{}) *event.TypeMuxSubscription
-
-	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
-	// the time difference of the proposal and current time is also returned.
-	VerifyProposal(types.Block) (time.Duration, error)
 }
 
 type Tendermint interface {

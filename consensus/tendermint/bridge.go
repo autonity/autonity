@@ -17,6 +17,7 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	autonity "github.com/clearmatics/autonity/contracts/autonity"
+	core "github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	types "github.com/clearmatics/autonity/core/types"
@@ -43,7 +44,7 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever, statedb state.Database) *bridge {
+func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever, statedb state.Database, verifier *Verifier) *bridge {
 	logger := log.New("addr", address.String())
 	c := &bridge{
 		key:                  key,
@@ -57,6 +58,7 @@ func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcas
 		syncer:               syncer,
 		latestBlockRetreiver: latestBlockRetreiver,
 		statedb:              statedb,
+		verifier:             verifier,
 	}
 	o := &oracle{
 		c:     c,
@@ -99,6 +101,10 @@ type bridge struct {
 	syncer               *Syncer
 	latestBlockRetreiver *LatestBlockRetriever
 	statedb              state.Database
+
+	verifier *Verifier
+
+	blockchain *core.BlockChain // TODO need to set this on start
 }
 
 func (c *bridge) SetValue(b *types.Block) {
@@ -548,7 +554,7 @@ func (c *bridge) handleCurrentHeightMessage(ctx context.Context, m *message) err
 
 		}
 		// Proposals values are allowed to be invalid.
-		if _, err := c.backend.VerifyProposal(*c.msgStore.value(common.Hash(cm.Value))); err == nil {
+		if _, err := c.verifier.VerifyProposal(*c.msgStore.value(common.Hash(cm.Value)), c.blockchain, c.address.String()); err == nil {
 			//println(addr(c.address), "valid", cm.Value.String())
 			c.msgStore.setValid(common.Hash(cm.Value))
 		}

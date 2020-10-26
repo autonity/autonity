@@ -289,9 +289,10 @@ func makeExtraData(extra []byte) []byte {
 func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config, peers consensus.Peers, state state.Database, autonityContract *autonity.Contract) consensus.Engine {
 
 	if chainConfig.Tendermint != nil {
+		verifier := tendermint.NewVerifier(vmConfig, nil, chainConfig.Tendermint.BlockPeriod)
 		syncer := tendermint.NewSyncer(peers)
 		bc := tendermint.NewBroadcaster(crypto.PubkeyToAddress(ctx.NodeKey().PublicKey), peers)
-		return tendermintBackend.New(chainConfig.Tendermint, ctx.NodeKey(), db, state, chainConfig, vmConfig, bc, peers, syncer, autonityContract)
+		return tendermintBackend.New(chainConfig.Tendermint, ctx.NodeKey(), db, state, chainConfig, vmConfig, bc, peers, syncer, autonityContract, verifier)
 	}
 
 	// Otherwise assume proof-of-work
