@@ -37,7 +37,6 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
 	lru "github.com/hashicorp/golang-lru"
-	ring "github.com/zfjagann/golang-ring"
 )
 
 const (
@@ -87,7 +86,6 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		autonityContract:     autonityContract,
 	}
 
-	backend.pendingMessages.SetCapacity(ringCapacity)
 	backend.core = tendermint.New(backend, config, backend.privateKey, broadcaster, syncer, address, tendermint.NewLatestBlockRetriever(db, statedb), statedb)
 	return backend
 }
@@ -113,9 +111,6 @@ type Backend struct {
 
 	// Snapshots for recent block to speed up reorgs
 	recents *lru.ARCCache
-
-	// we save the last received p2p.messages in the ring buffer
-	pendingMessages ring.Ring
 
 	// event subscription for ChainHeadEvent event
 	broadcaster consensus.Broadcaster

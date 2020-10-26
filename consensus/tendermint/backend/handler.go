@@ -17,10 +17,7 @@
 package backend
 
 import (
-	"bytes"
-	"context"
 	"errors"
-	"io"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
@@ -50,23 +47,6 @@ func (sb *Backend) Protocol() (protocolName string, extraMsgCodes uint64) {
 	return "tendermint", 2 //nolint
 }
 
-func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
-	for unhandled := sb.pendingMessages.Dequeue(); unhandled != nil; unhandled = sb.pendingMessages.Dequeue() {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			// nothing to do
-		}
-
-		addr := unhandled.(UnhandledMsg).addr
-		msg := unhandled.(UnhandledMsg).msg
-		if _, err := sb.HandleMsg(addr, msg); err != nil {
-			sb.logger.Error("could not handle cached message", "err", err)
-		}
-	}
-}
-
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	if msg.Code != tendermintMsg && msg.Code != tendermintSyncMsg {
@@ -79,14 +59,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	switch msg.Code {
 	case tendermintMsg:
 		if !sb.coreStarted {
-			buffer := new(bytes.Buffer)
-			if _, err := io.Copy(buffer, msg.Payload); err != nil {
-				return true, errDecodeFailed
-			}
-			savedMsg := msg
-			savedMsg.Payload = buffer
-			sb.pendingMessages.Enqueue(UnhandledMsg{addr: addr, msg: savedMsg})
-			return true, nil //return nil to avoid shutting down connection during block sync.
+			return true, nil
 		}
 
 		var data []byte

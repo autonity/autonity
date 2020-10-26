@@ -17,8 +17,6 @@ type Backend interface {
 	// The delivered proposal will be put into blockchain.
 	Commit(proposalBlock *types.Block, proposer common.Address)
 
-	HandleUnhandledMsgs(ctx context.Context)
-
 	Post(ev interface{})
 
 	Subscribe(types ...interface{}) *event.TypeMuxSubscription

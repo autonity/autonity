@@ -225,8 +225,6 @@ func (c *bridge) Start(ctx context.Context, contract *autonity.Contract) {
 	// Tendermint Finite State Machine discrete event loop
 	c.wg.Add(1)
 	go c.mainEventLoop(ctx)
-
-	go c.backend.HandleUnhandledMsgs(ctx)
 }
 
 // stop implements core.Engine.stop
