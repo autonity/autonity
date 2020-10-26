@@ -146,6 +146,11 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	if err != nil {
 		return nil, err
 	}
+
+	if config.Genesis == nil {
+		log.Info("config.Genesis is nil, set to default")
+		config.Genesis = core.DefaultGenesisBlock()
+	}
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
