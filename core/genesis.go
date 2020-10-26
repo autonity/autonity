@@ -150,7 +150,7 @@ func (e *GenesisMismatchError) Error() string {
 //
 //                          genesis == nil       genesis != nil
 //                       +------------------------------------------
-//     db has no genesis |  main-net default  |  genesis
+//     db has no genesis |  return Error      |  genesis
 //     db has genesis    |  from DB           |  genesis (if compatible)
 //
 // The stored chain configuration will be updated if it is compatible (i.e. does not
@@ -166,8 +166,8 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	stored := rawdb.ReadCanonicalHash(db, 0)
 	if (stored == common.Hash{}) {
 		if genesis == nil {
-			log.Info("Writing default main-net genesis block")
-			genesis = DefaultGenesisBlock()
+			// DB has no genesis block and there is not genesis file set by user, stop node running.
+			return nil, common.Hash{}, fmt.Errorf("DB has no genesis block and there is no genesis file set by user")
 		} else {
 			log.Info("Writing custom genesis block")
 		}

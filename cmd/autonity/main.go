@@ -373,11 +373,6 @@ func autonity(ctx *cli.Context) error {
 
 	prepare(ctx)
 
-	// If the user does not specify a genesis and a db, stop the start up.
-	if !ctx.GlobalIsSet(utils.InitGenesisFlag.Name) && !ctx.GlobalIsSet(utils.DataDirFlag.Name) {
-		return fmt.Errorf("--%s and --%s are not set, autonity client is going to stop", utils.InitGenesisFlag.Name, utils.DataDirFlag.Name)
-	}
-
 	node := makeFullNode(ctx)
 	defer node.Close()
 
