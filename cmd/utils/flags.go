@@ -1547,10 +1547,7 @@ func MakeChainDatabase(ctx *cli.Context, stack *node.Node) ethdb.Database {
 func MakeChain(ctx *cli.Context, stack *node.Node, readOnly bool) (chain *core.BlockChain, chainDb ethdb.Database) {
 	var err error
 	chainDb = MakeChainDatabase(ctx, stack)
-
-	// setup genesis block with default genesis rather than set genesis parameter as nil.
-	genesis := core.DefaultGenesisBlock()
-	config, _, err := core.SetupGenesisBlock(chainDb, genesis)
+	config, _, err := core.SetupGenesisBlock(chainDb, nil)
 	if err != nil {
 		Fatalf("%v", err)
 	}
