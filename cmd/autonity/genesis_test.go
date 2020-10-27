@@ -114,7 +114,7 @@ var genesisTest = struct {
 			"timestamp"  : "0x00",
 			"config"     : {
 				"homesteadBlock" : 0,
-				"daoForkBlock"   : 0,
+				"daoForkBlock"   : 11,
 				"daoForkSupport" : false,
 				"homesteadBlock": 0,
 				"eip150Block": 0,
@@ -191,7 +191,7 @@ func TestCustomGenesis(t *testing.T) {
 		autonity := startNode(t, newGenesis, ipc, datadir)
 
 		// with a incompatible genesis, client should do nothing with initGenesis by exit process.
-		autonity.ExpectExit()
+		autonity.WaitExit()
 
 		// the genesis block should be matched with the raw one.
 		assertMatchGenesis(t, datadir, query, want)

@@ -350,17 +350,33 @@ func applyGenesis(genesis *core.Genesis, node *node.Node) error {
 		if err != nil {
 			return fmt.Errorf("failed to open database: %v", err)
 		}
+		defer chaindb.Close()
 		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
 		if err != nil {
 			return fmt.Errorf("failed to write genesis block: %v", err)
 		}
-		err = chaindb.Close()
-		if err != nil {
-			return fmt.Errorf("failed to close chain DB: %v", err)
-		}
 		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
 	}
 	return nil
+}
+
+// If genesis flag is not set, node will load chain-data from data-dir. If the flat is set, node will load the
+// genesis file, check if genesis file is match with genesis block, and check if chain configuration of the genesis
+// file is compatible with current chain-data, apply new compatible chain configuration into chain db.
+// Otherwise client will end up with a mis-match genesis error or an incompatible chain configuration error.
+func initGenesisBlockOnStart(ctx *cli.Context, stack *node.Node) {
+	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
+	if genesisPath != "" {
+		log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
+		genesis, err := loadGenesisFile(genesisPath)
+		if err != nil {
+			utils.Fatalf("failed to validate genesis file: %v", err)
+		}
+		err = applyGenesis(genesis, stack)
+		if err != nil {
+			utils.Fatalf("failed to apply genesis file: %v", err)
+		}
+	}
 }
 
 // autonity is the main entry point into the system if no special subcommand is ran.
@@ -376,25 +392,6 @@ func autonity(ctx *cli.Context) error {
 	node := makeFullNode(ctx)
 	defer node.Close()
 
-	// If genesis flag is not set, node will load chain-data from data-dir. If the flat is set, node will load the
-	// genesis file, check if genesis file is match with genesis block, and check if chain configuration of the genesis
-	// file is compatible with current chain-data, apply new compatible chain configuration into chain db.
-	// Otherwise client will end up with a mis-match genesis error or an incompatible chain configuration error.
-
-	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
-	if genesisPath != "" {
-		log.Info("--genesis flag is set")
-		log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
-		genesis, err := loadGenesisFile(genesisPath)
-		if err != nil {
-			return fmt.Errorf("failed to validate genesis file: %v", err)
-		}
-		err = applyGenesis(genesis, node)
-		if err != nil {
-			return err
-		}
-	}
-
 	startNode(ctx, node)
 	node.Wait()
 	return nil
@@ -405,6 +402,9 @@ func autonity(ctx *cli.Context) error {
 // miner.
 func startNode(ctx *cli.Context, stack *node.Node) {
 	debug.Memsize.Add("node", stack)
+
+	// Combine init genesis on node start up.
+	initGenesisBlockOnStart(ctx, stack)
 
 	// Start up the node itself
 	utils.StartNode(stack)

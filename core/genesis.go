@@ -173,7 +173,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	stored := rawdb.ReadCanonicalHash(db, 0)
 	if (stored == common.Hash{}) {
 		if genesis == nil {
-			// DB has no genesis block and there is not genesis file set by user, stop node running.
+			// No genesis from DB and configuration, don't start node with GETH main-net genesis block.
 			return nil, common.Hash{}, &NoGenesisError{}
 		} else {
 			log.Info("Writing custom genesis block")
