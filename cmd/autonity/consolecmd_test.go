@@ -18,6 +18,7 @@ package main
 
 import (
 	"crypto/rand"
+	"github.com/clearmatics/autonity/crypto"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -92,6 +93,15 @@ Fatal: Error starting protocol stack: DB has no genesis block and there is no ge
 	autonity.ExpectExit()
 }
 
+func getCoinBase(t *testing.T, datadir string) string {
+	keyfile := filepath.Join(datadir, "autonity", "nodekey")
+	key, err := crypto.LoadECDSA(keyfile)
+	if err != nil {
+		t.Fatalf("cannot get node key")
+	}
+	return strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).String())
+}
+
 // Tests that, with a genesis configuration, a node embedded within a console can be started up properly and
 // then terminated by closing the input stream.
 func TestConsoleWelcome(t *testing.T) {
@@ -103,9 +113,13 @@ func TestConsoleWelcome(t *testing.T) {
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--datadir", dir, "--genesis", jsonFile, "console")
 
+	// Wait for autonity.
+	time.Sleep(1 * time.Second)
+	coinbase := getCoinBase(t, dir)
 	// Gather all the infos the welcome message needs to contain
 	autonity.SetTemplateFunc("goos", func() string { return runtime.GOOS })
 	autonity.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
+	autonity.SetTemplateFunc("coinbase", func() string {return coinbase})
 	autonity.SetTemplateFunc("gover", runtime.Version)
 	autonity.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
 	autonity.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)") })
@@ -117,6 +131,7 @@ The embedded Autonity Console is no longer supported, use it a your own risk.
 Consider the Autonity Node.js Console as replacement.
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
+coinbase: {{coinbase}}
 at block: 0 ({{niltime}})
  datadir: {{.Datadir}}
  modules: {{apis}}
@@ -148,7 +163,7 @@ func TestIPCAttachWelcome(t *testing.T) {
 	}()
 
 	waitForEndpoint(t, ipc, 3*time.Second)
-	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs)
+	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs, dir)
 
 }
 
@@ -166,7 +181,7 @@ func TestHTTPAttachWelcome(t *testing.T) {
 
 	endpoint := "http://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
-	testAttachWelcome(t, autonity, endpoint, httpAPIs)
+	testAttachWelcome(t, autonity, endpoint, httpAPIs, dir)
 }
 
 func TestWSAttachWelcome(t *testing.T) {
@@ -183,19 +198,21 @@ func TestWSAttachWelcome(t *testing.T) {
 
 	endpoint := "ws://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
-	testAttachWelcome(t, autonity, endpoint, httpAPIs)
+	testAttachWelcome(t, autonity, endpoint, httpAPIs, dir)
 }
 
-func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis string) {
+func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis string, datadir string) {
 	// Attach to a running autonity note and terminate immediately
 	attach := runAutonity(t, "attach", endpoint)
 	defer attach.ExpectExit()
 	attach.CloseStdin()
+	coinbase := getCoinBase(t, datadir)
 
 	// Gather all the infos the welcome message needs to contain
 	attach.SetTemplateFunc("goos", func() string { return runtime.GOOS })
 	attach.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	attach.SetTemplateFunc("gover", runtime.Version)
+	attach.SetTemplateFunc("coinbase", func() string { return coinbase })
 	attach.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
 	attach.SetTemplateFunc("etherbase", func() string { return autonity.Etherbase })
 	attach.SetTemplateFunc("niltime", func() string {
@@ -211,6 +228,7 @@ The embedded Autonity Console is no longer supported, use it a your own risk.
 Consider the Autonity Node.js Console as replacement.
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
+coinbase: {{coinbase}}
 at block: 0 ({{niltime}}){{if ipc}}
  datadir: {{datadir}}{{end}}
  modules: {{apis}}
