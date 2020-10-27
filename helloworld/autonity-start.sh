@@ -3,7 +3,7 @@
 AUTONITY=autonity
 
 DATADIR=autonity-data
-GENESIS=./genesis-tendermint.json
+GENESIS=genesis.json
 KEYSTORE=keystore
 NODEKEY=nodekey
 WS_PORT=8645
