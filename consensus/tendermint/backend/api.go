@@ -75,5 +75,5 @@ func (api *API) GetWhitelist() []string {
 
 // Get current tendermint's core state
 func (api *API) GetCoreState() core.TendermintState {
-	return api.tendermint.GetCoreState()
+	return api.tendermint.CoreState()
 }

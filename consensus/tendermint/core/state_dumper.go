@@ -63,8 +63,11 @@ type TendermintState struct {
 	PrecommitTimerStarted bool
 
 	// current height messages and known message in case of gossip.
+	// todo: add msg hash of current height messages
 	CurHeightMessages []*Message
 	KnownMsgHash      []common.Hash
+	// todo: add blocklog msgs
+	// todo: add blocklog unchecked msgs.
 }
 
 func (c *core) CoreState() TendermintState {

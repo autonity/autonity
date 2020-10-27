@@ -416,7 +416,7 @@ func (sb *Backend) GetContractABI() string {
 	return sb.blockchain.GetAutonityContract().GetContractABI()
 }
 
-func (sb *Backend) GetCoreState() tendermintCore.TendermintState {
+func (sb *Backend) CoreState() tendermintCore.TendermintState {
 	return sb.core.CoreState()
 }
 
