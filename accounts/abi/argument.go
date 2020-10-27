@@ -75,6 +75,15 @@ func (arguments Arguments) isTuple() bool {
 	return len(arguments) > 1
 }
 
+// isTuple returns true for non-atomic constructs, like (uint,uint) or uint[]
+func (arguments Arguments) Types() []reflect.Type {
+	var ret []reflect.Type
+	for _, a := range arguments {
+		ret = append(ret, a.Type.getType())
+	}
+	return ret
+}
+
 // Unpack performs the operation hexdata -> Go format
 func (arguments Arguments) Unpack(v interface{}, data []byte) error {
 	if len(data) == 0 {

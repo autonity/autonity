@@ -21,10 +21,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"io"
 	"math/big"
 	"os"
+	"reflect"
 	"runtime"
 	"strings"
 	"time"
@@ -531,43 +531,64 @@ func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Bloc
 }
 
 type AutonityContractAPI struct {
-	eth *Ethereum
+	eth   *Ethereum
+	calls map[string]reflect.Value
 }
 
 func NewAutonityContractAPI(eth *Ethereum) *AutonityContractAPI {
-	return &AutonityContractAPI{eth: eth}
+	return &AutonityContractAPI{eth: eth, calls: contractABIMethods(eth)}
 }
 
-func (ac *AutonityContractAPI) ContractABIMethods() map[string]autonity.ContractAPIFunc {
+func (a *AutonityContractAPI) Calls() map[string]reflect.Value {
+	return a.calls
+}
+
+func contractABIMethods(eth *Ethereum) map[string]reflect.Value {
 	var viewMethodStr = "view"
-	var contract = ac.eth.BlockChain().GetAutonityContract()
+	var contract = eth.BlockChain().GetAutonityContract()
 	var contractABI = contract.ABI()
-	var contractViewMethods = make(map[string]autonity.ContractAPIFunc)
+	var contractViewMethods = make(map[string]reflect.Value)
 
 	for n, m := range contractABI.Methods {
 		functionName := n
-		// Only expose functions which have zero inputs
-		if m.StateMutability == viewMethodStr && len(m.Inputs) == 0 {
-			contractViewMethods[functionName] = func() (interface{}, error) {
-				r := make(map[string]interface{})
-				stateDB, err := ac.eth.BlockChain().State()
-				if err != nil {
-					return "", err
-				}
+		// Only expose read-only functions.
+		if m.StateMutability == viewMethodStr {
+			// The RPC service expect the first argument of an API method to be the receiver object.
+			inArgs := []reflect.Type{reflect.TypeOf(&AutonityContractAPI{})}
+			inArgs = append(inArgs, m.Inputs.Types()...)
+			sig := reflect.FuncOf(inArgs, []reflect.Type{
+				reflect.TypeOf((*interface{})(nil)).Elem(),
+				reflect.TypeOf((*error)(nil)).Elem(),
+			}, false)
 
-				err = contract.AutonityContractCallUnpackIntoMap(stateDB, ac.eth.BlockChain().CurrentHeader(), functionName, r)
-				if err != nil {
-					return "", err
-				}
-
-				if len(r) == 1 {
-					for _, v := range r {
-						return v, nil
+			contractViewMethods[functionName] = reflect.MakeFunc(sig,
+				func(args []reflect.Value) []reflect.Value {
+					makereturn := func(res interface{}, err error) []reflect.Value {
+						return []reflect.Value{reflect.ValueOf(&res).Elem(), reflect.ValueOf(&err).Elem()}
 					}
-				}
-				return r, nil
-			}
+					stateDB, err := eth.BlockChain().State()
+					if err != nil {
+						return makereturn(nil, err)
+					}
+					var iargs []interface{}
+					// args[0] is the reflect.Value of *AutonityContractAPI.
+					for _, arg := range args[1:] {
+						iargs = append(iargs, arg.Interface())
+					}
+					res := make(map[string]interface{})
+					err = contract.AutonityContractCallUnpackIntoMap(stateDB, eth.BlockChain().CurrentHeader(), functionName, res, iargs...)
+					if err != nil {
+						return makereturn(nil, err)
+					}
+					if len(res) == 1 {
+						for _, v := range res {
+							return makereturn(v, nil)
+						}
+					}
+					return makereturn(res, nil)
+				})
 		}
 	}
+
 	return contractViewMethods
 }

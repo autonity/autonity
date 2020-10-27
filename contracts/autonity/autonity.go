@@ -35,8 +35,6 @@ type Blockchainer interface {
 	PutKeyValue(key []byte, value []byte) error
 }
 
-type ContractAPIFunc func() (interface{}, error)
-
 type Contract struct {
 	evmProvider        EVMProvider
 	operator           common.Address
