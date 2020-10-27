@@ -3,6 +3,7 @@
 AUTONITY=autonity
 
 DATADIR=autonity-data
+GENESIS=./genesis-tendermint.json
 KEYSTORE=keystore
 NODEKEY=nodekey
 WS_PORT=8645
@@ -16,6 +17,7 @@ RPC_API="tendermint,console,eth,web3,admin,debug,miner,personal,txpool,net"
 echo "Autonity START"
 $AUTONITY \
   --datadir $DATADIR \
+  --genesis $GENESIS \
   --nodekey $NODEKEY \
   --keystore $KEYSTORE \
   --ws \

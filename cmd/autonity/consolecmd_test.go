@@ -175,7 +175,7 @@ func TestWSAttachWelcome(t *testing.T) {
 	defer os.RemoveAll(dir)
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		 "--ws", "--wsport", port, "--datadir", dir, "--genesis", jsonFile)
+		"--ws", "--wsport", port, "--datadir", dir, "--genesis", jsonFile)
 	defer func() {
 		autonity.Interrupt()
 		autonity.ExpectExit()
