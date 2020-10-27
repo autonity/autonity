@@ -124,21 +124,6 @@ func TestStateDumper_GetProposal(t *testing.T) {
 		assert.Equal(t, *getValidValue(core), core.validValue.Hash())
 	})
 
-	t.Run("get parent block committee", func(t *testing.T) {
-		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
-		prevBlock := generateBlock(prevHeight)
-
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().Return(clientAddr)
-
-		core := New(backendMock, config.DefaultConfig())
-		core.setCommitteeSet(committeeSet)
-		core.lastHeader = prevBlock.Header()
-	})
-
 	t.Run("get round state", func(t *testing.T) {
 
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
