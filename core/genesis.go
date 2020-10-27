@@ -145,19 +145,12 @@ func (e *GenesisMismatchError) Error() string {
 	return fmt.Sprintf("database contains incompatible genesis (have %x, new %x)", e.Stored, e.New)
 }
 
-type NoGenesisError struct {
-}
-
-func (e *NoGenesisError) Error() string {
-	return fmt.Sprintf("DB has no genesis block and there is no genesis file set by user")
-}
-
 // SetupGenesisBlock writes or updates the genesis block in db.
 // The block that will be used is:
 //
 //                          genesis == nil       genesis != nil
 //                       +------------------------------------------
-//     db has no genesis |  NoGenesisError    |  genesis
+//     db has no genesis |  An Error          |  genesis
 //     db has genesis    |  from DB           |  genesis (if compatible)
 //
 // The stored chain configuration will be updated if it is compatible (i.e. does not
@@ -171,7 +164,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	if (stored == common.Hash{}) {
 		if genesis == nil {
 			// No genesis from DB and configuration, don't start node with GETH main-net genesis block.
-			return nil, common.Hash{}, &NoGenesisError{}
+			return nil, common.Hash{}, fmt.Errorf("DB has no genesis block and there is no genesis file set by user")
 		} else {
 			log.Info("Writing custom genesis block")
 		}

@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
@@ -69,7 +70,7 @@ func TestSetupGenesis(t *testing.T) {
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
 				return SetupGenesisBlock(db, nil)
 			},
-			wantErr:    &NoGenesisError{},
+			wantErr:    fmt.Errorf("DB has no genesis block and there is no genesis file set by user"),
 			wantHash:   common.Hash{},
 			wantConfig: nil,
 		},
