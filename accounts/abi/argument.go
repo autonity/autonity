@@ -77,9 +77,9 @@ func (arguments Arguments) isTuple() bool {
 
 // isTuple returns true for non-atomic constructs, like (uint,uint) or uint[]
 func (arguments Arguments) Types() []reflect.Type {
-	var ret []reflect.Type
-	for _, a := range arguments {
-		ret = append(ret, a.Type.getType())
+	var ret = make([]reflect.Type, len(arguments))
+	for i, a := range arguments {
+		ret[i] = a.Type.getType()
 	}
 	return ret
 }
