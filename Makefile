@@ -111,13 +111,15 @@ test-contracts:
 	@npm list truffle > /dev/null || npm install truffle
 	@npm list web3 > /dev/null || npm install web3
 	@cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
-	@# Autonity can take some time to start listening on port 8545 so we allow multiple connection attempts.
+	@# Autonity can take some time to start up so we ping its port till we see it is listening.
+	@# The -z option to netcat exits with 0 only if the port at the given addresss is listening.
 	@for x in {1..10}; do \
-		sleep 2 ; \
-		./build/bin/autonity --exec "web3.personal.unlockAccount(eth.accounts[0], 'test', 36000)" attach http://localhost:8545 ; \
-		if [ $$? -eq 0 ] ; then \
-			break ; \
-		fi ; \
+		nc -z localhost 8545 ; \
+	    if [ $$? -eq 0 ] ; then \
+	        break ; \
+	    fi ; \
+		echo waiting 2 more seconds for autonity to start ; \
+	    sleep 2 ; \
 	done
 	@cd contracts/autonity/contract/ && $(NPMBIN)/truffle test && cd -
 

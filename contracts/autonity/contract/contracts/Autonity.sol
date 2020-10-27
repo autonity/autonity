@@ -118,22 +118,24 @@ contract Autonity {
     }
 
     /*
-    * addValidator
-    * Add validator to validators list.
+    * addUser
+    * Add user to autonity contract.
     */
-    function addValidator(address payable _address, uint256 _stake, string memory _enode) public onlyOperator(msg.sender) {
-        _createUser(_address, _enode, UserType.Validator, _stake, 0);
-        emit AddValidator(_address, _stake);
-    }
+    function addUser(address payable _address, uint256 _stake, string memory _enode, UserType _role) public onlyOperator(msg.sender) {
+        if (_role == UserType.Validator) {
+            _createUser(_address, _enode, _role, _stake, 0);
+            emit AddValidator(_address, _stake);
+        }
 
-    function addStakeholder(address payable _address, string  memory _enode, uint256 _stake) public onlyOperator(msg.sender) {
-        _createUser(_address, _enode, UserType.Stakeholder, _stake, 0);
-        emit AddStakeholder(_address, _stake);
-    }
+        if (_role == UserType.Stakeholder) {
+            _createUser(_address, _enode, _role, _stake, 0);
+            emit AddStakeholder(_address, _stake);
+        }
 
-    function addParticipant(address payable _address, string memory _enode) public onlyOperator(msg.sender) {
-        _createUser(_address, _enode, UserType.Participant, 0, 0);
-        emit AddParticipant(_address, 0);
+        if (_role == UserType.Participant) {
+            _createUser(_address, _enode, _role, 0, 0);
+            emit AddParticipant(_address, 0);
+        }
     }
 
     /*
