@@ -107,19 +107,21 @@ func getCoinBase(t *testing.T, datadir string) string {
 func TestConsoleWelcome(t *testing.T) {
 	dir, jsonFile := tmpDataDirWithGenesisFile(t)
 	defer os.RemoveAll(dir)
-
+	ws := tmpdir(t)
+	defer os.RemoveAll(ws)
+	ipc := filepath.Join(ws, "autonity.ipc")
 	// Start a autonity client via console sub command.
 	autonity := runAutonity(t,
-		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
+		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none", "--ipcpath", ipc,
 		"--datadir", dir, "--genesis", jsonFile, "console")
 
 	// Wait for autonity.
-	time.Sleep(1 * time.Second)
+	waitForEndpoint(t, ipc, 3*time.Second)
 	coinbase := getCoinBase(t, dir)
 	// Gather all the infos the welcome message needs to contain
 	autonity.SetTemplateFunc("goos", func() string { return runtime.GOOS })
 	autonity.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
-	autonity.SetTemplateFunc("coinbase", func() string {return coinbase})
+	autonity.SetTemplateFunc("coinbase", func() string { return coinbase })
 	autonity.SetTemplateFunc("gover", runtime.Version)
 	autonity.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
 	autonity.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)") })
