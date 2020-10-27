@@ -43,8 +43,8 @@ func TestTendermintStarSuccess(t *testing.T) {
 }
 
 func TestTendermintStarOverParticipantSuccess(t *testing.T) {
-	// https://github.com/clearmatics/autonity/runs/1212852735?check_suite_focus=true, Failed to validate message.
-	t.Skip("case is still flaky dueto 40ms timeout, consensus core handler: Failed to validate message")
+	// Track by https://github.com/clearmatics/autonity/issues/711
+	t.Skip("case is still flaky due to 40ms timeout, consensus core handler: Failed to validate message")
 
 	if testing.Short() {
 		t.Skip("skipping test in short mode")

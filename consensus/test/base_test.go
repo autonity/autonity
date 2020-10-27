@@ -77,6 +77,7 @@ type stats struct {
 }
 
 func TestTendermintMemoryLeak(t *testing.T) {
+	// Track by https://github.com/clearmatics/autonity/issues/711
 	t.Skip("Fails")
 
 	if testing.Short() {

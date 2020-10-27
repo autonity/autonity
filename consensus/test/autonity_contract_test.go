@@ -332,8 +332,7 @@ func TestContractUpgrade_Success(t *testing.T) {
 }
 
 func TestContractUpgradeSeveralUpgrades(t *testing.T) {
-
-	// https://github.com/clearmatics/autonity/runs/1214050849?check_suite_focus=true
+	// Track by https://github.com/clearmatics/autonity/issues/711
 	t.Skip("Case got 40 timeout on CI: consensus core handler: Failed to validate message.")
 
 	if testing.Short() {
@@ -428,7 +427,7 @@ func TestContractUpgradeSeveralUpgradesOnBusTopology(t *testing.T) {
 
 func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
 
-	// failed due to 40 timeout: https://github.com/clearmatics/autonity/runs/1214184863?check_suite_focus=true
+	// Track by https://github.com/clearmatics/autonity/issues/711
 	t.Skip("Flaky due to 40m timeout: Failed to validate message")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
