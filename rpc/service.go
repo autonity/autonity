@@ -121,21 +121,22 @@ func (r *serviceRegistry) subscription(service, name string) *callback {
 func suitableCallbacks(receiver reflect.Value) map[string]*callback {
 	typ := receiver.Type()
 	callbacks := make(map[string]*callback)
-	for m := 0; m < typ.NumMethod(); m++ {
-		method := typ.Method(m)
-		if method.PkgPath != "" {
-			continue // method not exported
-		}
-		cb := newCallback(receiver, method.Func)
-		if cb == nil {
-			continue // function invalid
-		}
-		name := formatName(method.Name)
-		callbacks[name] = cb
-	}
 
 	if dyn, ok := receiver.Interface().(DynamicCallbacks); ok {
 		registerCallbacks(callbacks, receiver, dyn.Calls())
+	} else {
+		for m := 0; m < typ.NumMethod(); m++ {
+			method := typ.Method(m)
+			if method.PkgPath != "" {
+				continue // method not exported
+			}
+			cb := newCallback(receiver, method.Func)
+			if cb == nil {
+				continue // function invalid
+			}
+			name := formatName(method.Name)
+			callbacks[name] = cb
+		}
 	}
 	return callbacks
 }
