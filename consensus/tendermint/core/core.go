@@ -101,7 +101,6 @@ func New(backend Backend, config *config.Config) *core {
 		proposeTimeout:        newTimeout(propose, logger),
 		prevoteTimeout:        newTimeout(prevote, logger),
 		precommitTimeout:      newTimeout(precommit, logger),
-		coreStateCh:           make(chan TendermintState),
 	}
 }
 
@@ -162,7 +161,6 @@ type core struct {
 	futureRoundChange map[int64]map[common.Address]uint64
 
 	autonityContract *autonity.Contract
-	coreStateCh      chan TendermintState
 }
 
 func (c *core) GetCurrentHeightMessages() []*Message {
