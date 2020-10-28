@@ -137,7 +137,14 @@ func (c *core) handleStateDump() {
 		KnownMsgHash: c.backend.KnownMsgHash(),
 		Code:         0,
 	}
-	c.coreStateCh <- state
+
+	// for none blocking send state.
+	select {
+		case c.coreStateCh <- state:
+			c.logger.Debug("core state msg sent.")
+		default:
+			c.logger.Debug("core state msg dropped.")
+	}
 }
 
 func getBacklogUncheckedMsgs(c *core) []*MsgForDump {
