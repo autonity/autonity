@@ -173,13 +173,8 @@ func msgForDump(msgs []*Message) []*MsgForDump {
 		// in case of haven't decode msg yet, set round and height as -1.
 		msg.Round = -1
 		msg.Height = big.NewInt(-1)
-		round, err := m.Round()
-		if err != nil {
-			continue
-		}
-		msg.Round = round
+		msg.Round, _ = m.Round()
 		msg.Height, _ = m.Height()
-
 		result = append(result, msg)
 	}
 	return result
