@@ -25,6 +25,15 @@ type RoundState struct {
 	PrecommitState []VoteState
 }
 
+// MsgWithHash save the msg and extra field to be marshal to JSON.
+type MsgForDump struct {
+	Message
+	Hash common.Hash
+	Power uint64
+	Height *big.Int
+	Round int64
+}
+
 // TendermintState save an instant status for the tendermint consensus engine.
 type TendermintState struct {
 	// return error code, 0 for okay, -1 for timeout.
@@ -62,12 +71,16 @@ type TendermintState struct {
 	PrevoteTimerStarted   bool
 	PrecommitTimerStarted bool
 
-	// current height messages and known message in case of gossip.
-	// todo: add msg hash of current height messages
-	CurHeightMessages []*Message
-	KnownMsgHash      []common.Hash
-	// todo: add blocklog msgs
-	// todo: add blocklog unchecked msgs.
+
+	RawMsg []*Message
+	// current height messages.
+	CurHeightMessages  []*MsgForDump
+	// backlog msgs
+	BacklogMessages    []*MsgForDump
+	// backlog unchecked msgs.
+	UncheckedMsgs      []*MsgForDump
+	// Known msg of gossip.
+	KnownMsgHash       []common.Hash
 }
 
 func (c *core) CoreState() TendermintState {
@@ -94,7 +107,9 @@ func (c *core) handleStateDump() {
 		Client:            c.address,
 		ProposerPolicy:    uint64(c.proposerPolicy),
 		BlockPeriod:       c.blockPeriod,
-		CurHeightMessages: c.messages.GetMessages(),
+		CurHeightMessages: msgForDump(c.GetCurrentHeightMessages()),
+		BacklogMessages:   getBacklogMsgs(c),
+		UncheckedMsgs:     getBacklogUncheckedMsgs(c),
 		// tendermint core state:
 		Height:      *c.Height(),
 		Round:       c.Round(),
@@ -105,7 +120,7 @@ func (c *core) handleStateDump() {
 		ValidValue:  getValidValue(c),
 		ValidRound:  c.validRound,
 
-		// committee state:
+		// committee state
 		Committee:       c.committeeSet().Committee(),
 		Proposer:        c.committeeSet().GetProposer(c.Round()).Address,
 		IsProposer:      c.isProposer(),
@@ -121,10 +136,64 @@ func (c *core) handleStateDump() {
 		PrevoteTimerStarted:   c.prevoteTimeout.timerStarted(),
 		PrecommitTimerStarted: c.precommitTimeout.timerStarted(),
 		// known msgs in case of gossiping.
-		KnownMsgHash: c.backend.KnownMsgHash(),
+		// KnownMsgHash: c.backend.KnownMsgHash(),
 		Code:         0,
 	}
 	c.coreStateCh <- state
+}
+
+func getBacklogUncheckedMsgs(c *core) []*MsgForDump {
+	var totalLen int
+	for _, msgs := range c.backlogUnchecked {
+		totalLen += len(msgs)
+	}
+
+	result := make([]*MsgForDump, 0, totalLen)
+	for _, ms := range c.backlogUnchecked {
+		result = append(result, msgForDump(ms)...)
+	}
+
+	return result
+}
+
+// getBacklogUncheckedMsgs and getBacklogMsgs are kind of redundant code,
+// don't know how to write it via golang like template in C++, since the only
+// difference is the type of the data it operate on.
+func getBacklogMsgs(c *core) []*MsgForDump {
+	var totalLen int
+	for _, msgs := range c.backlogs {
+		totalLen += len(msgs)
+	}
+
+	result := make([]*MsgForDump, 0, totalLen)
+	for _, ms := range c.backlogs {
+		result = append(result, msgForDump(ms)...)
+	}
+
+	return result
+}
+
+func msgForDump(msgs []*Message) []*MsgForDump {
+	result := make([]*MsgForDump, 0, len(msgs))
+	for _, m := range msgs {
+		msg := new(MsgForDump)
+		msg.Message = *m
+		msg.Power = m.GetPower()
+		msg.Hash = types.RLPHash(m.payload)
+
+		// in case of haven't decode msg yet, set round and height as -1.
+		msg.Round = -1
+		msg.Height = big.NewInt(-1)
+		round, err := m.Round()
+		if err != nil {
+			continue
+		}
+		msg.Round = round
+		msg.Height, _ = m.Height()
+
+		result = append(result, msg)
+	}
+	return result
 }
 
 func getProposal(c *core, round int64) *common.Hash {
