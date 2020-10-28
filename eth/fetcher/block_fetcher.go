@@ -464,7 +464,6 @@ func (f *BlockFetcher) loop() {
 					defer f.wg.Done()
 					announce.fetchBodies(hashes) //nolint
 				}(hashes)
-
 			}
 			// Schedule the next fetch if blocks are still pending
 			f.rescheduleComplete(completeTimer)
