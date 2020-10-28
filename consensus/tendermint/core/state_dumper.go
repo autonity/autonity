@@ -8,6 +8,7 @@ import (
 )
 
 type coreStateRequestEvent struct {
+	stateChan chan TendermintState
 }
 
 // VoteState save the prevote or precommit voting status for a specific value.
@@ -84,12 +85,14 @@ type TendermintState struct {
 func (c *core) CoreState() TendermintState {
 	state := TendermintState{}
 	// send state dump request.
-	var e = coreStateRequestEvent{}
+	var e = coreStateRequestEvent{
+		stateChan: make(chan TendermintState),
+	}
 	go c.sendEvent(e)
 	// wait for response with timeout.
 	timeout := time.After(time.Second)
 	select {
-	case s := <-c.coreStateCh:
+	case s := <-e.stateChan:
 		state = s
 	case <-timeout:
 		state.Code = -1
@@ -100,7 +103,7 @@ func (c *core) CoreState() TendermintState {
 }
 
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
-func (c *core) handleStateDump() {
+func (c *core) handleStateDump(e coreStateRequestEvent) {
 	state := TendermintState{
 		Client:            c.address,
 		ProposerPolicy:    uint64(c.proposerPolicy),
@@ -140,11 +143,13 @@ func (c *core) handleStateDump() {
 
 	// for none blocking send state.
 	select {
-		case c.coreStateCh <- state:
+		case e.stateChan <- state:
 			c.logger.Debug("core state msg sent.")
 		default:
 			c.logger.Debug("core state msg dropped.")
 	}
+	// let sender to close channel.
+	close(e.stateChan)
 }
 
 func getBacklogUncheckedMsgs(c *core) []*MsgForDump {

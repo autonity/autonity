@@ -196,30 +196,22 @@ func TestStateDumper(t *testing.T) {
 		setCoreState(c, currentHeight, currentRound, propose, initProposal.ProposalBlock, initRound, initProposal.ProposalBlock, initRound, committeeSet,
 			prevBlock.Header())
 
-		go c.handleStateDump()
+		var e = coreStateRequestEvent{
+			stateChan: make(chan TendermintState),
+		}
+
+		go c.handleStateDump(e)
 
 		state := TendermintState{}
 		// wait for response with timeout.
 		timeout := time.After(time.Second)
 		select {
-		case s := <-c.coreStateCh:
+		case s := <-e.stateChan:
 			state = s
 		case <-timeout:
 			t.Fatal("fetch tendermint state time out")
 		}
 
 		checkState(t, c, state, currentHeight, currentRound, initRound, initProposal, newProposal, knownMsgHash)
-	})
-
-	t.Run("test RPC callback to dump state time out", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().Address().Return(clientAddr)
-		backendMock.EXPECT().Post(coreStateRequestEvent{}).Times(1)
-		core := New(backendMock, config.DefaultConfig())
-		state := core.CoreState()
-		require.Equal(t, int64(-1), state.Code)
 	})
 }
