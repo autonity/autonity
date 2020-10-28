@@ -146,12 +146,12 @@ func (e *GenesisMismatchError) Error() string {
 }
 
 // SetupGenesisBlock writes or updates the genesis block in db.
-// The block that will be used is:
+// The behavior of it is:
 //
-//                          genesis == nil       genesis != nil
+//                            genesis == nil         genesis != nil
 //                       +------------------------------------------
-//     db has no genesis |  An Error          |  genesis
-//     db has genesis    |  from DB           |  genesis (if compatible)
+//     db has no genesis |  Return An Error      |  apply genesis to db
+//     db has genesis    |  Use genesis from DB  |  apply genesis (if compatible)
 //
 // The stored chain configuration will be updated if it is compatible (i.e. does not
 // specify a fork block below the local head block). In case of a conflict, the
