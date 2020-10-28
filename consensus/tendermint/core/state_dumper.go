@@ -42,7 +42,7 @@ type TendermintState struct {
 	Client common.Address
 
 	// core state of tendermint
-	Height      big.Int
+	Height      *big.Int
 	Round       int64
 	Step        uint64
 	Proposal    *common.Hash
@@ -110,7 +110,7 @@ func (c *core) handleStateDump() {
 		BacklogMessages:   getBacklogMsgs(c),
 		UncheckedMsgs:     getBacklogUncheckedMsgs(c),
 		// tendermint core state:
-		Height:      *c.Height(),
+		Height:      c.Height(),
 		Round:       c.Round(),
 		Step:        uint64(c.step),
 		Proposal:    getProposal(c, c.Round()),
