@@ -28,10 +28,10 @@ type RoundState struct {
 // MsgWithHash save the msg and extra field to be marshal to JSON.
 type MsgForDump struct {
 	Message
-	Hash common.Hash
-	Power uint64
+	Hash   common.Hash
+	Power  uint64
 	Height *big.Int
-	Round int64
+	Round  int64
 }
 
 // TendermintState save an instant status for the tendermint consensus engine.
@@ -71,16 +71,15 @@ type TendermintState struct {
 	PrevoteTimerStarted   bool
 	PrecommitTimerStarted bool
 
-
 	RawMsg []*Message
 	// current height messages.
-	CurHeightMessages  []*MsgForDump
+	CurHeightMessages []*MsgForDump
 	// backlog msgs
-	BacklogMessages    []*MsgForDump
+	BacklogMessages []*MsgForDump
 	// backlog unchecked msgs.
-	UncheckedMsgs      []*MsgForDump
+	UncheckedMsgs []*MsgForDump
 	// Known msg of gossip.
-	KnownMsgHash       []common.Hash
+	KnownMsgHash []common.Hash
 }
 
 func (c *core) CoreState() TendermintState {
@@ -137,7 +136,7 @@ func (c *core) handleStateDump() {
 		PrecommitTimerStarted: c.precommitTimeout.timerStarted(),
 		// known msgs in case of gossiping.
 		// KnownMsgHash: c.backend.KnownMsgHash(),
-		Code:         0,
+		Code: 0,
 	}
 	c.coreStateCh <- state
 }
