@@ -120,8 +120,8 @@ func TestStateDumper(t *testing.T) {
 		core.lockedValue = proposal.ProposalBlock
 		core.validValue = proposal.ProposalBlock
 		assert.Equal(t, proposal.ProposalBlock.Hash(), *fact)
-		assert.Equal(t, *getLockedValue(core), core.lockedValue.Hash())
-		assert.Equal(t, *getValidValue(core), core.validValue.Hash())
+		assert.Equal(t, proposal.ProposalBlock.Hash(), core.lockedValue.Hash())
+		assert.Equal(t, proposal.ProposalBlock.Hash(), core.validValue.Hash())
 	})
 
 	t.Run("get round state", func(t *testing.T) {

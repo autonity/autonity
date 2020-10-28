@@ -114,9 +114,9 @@ func (c *core) handleStateDump() {
 		Round:       c.Round(),
 		Step:        uint64(c.step),
 		Proposal:    getProposal(c, c.Round()),
-		LockedValue: getLockedValue(c),
+		LockedValue: getHash(c.lockedValue),
 		LockedRound: c.lockedRound,
-		ValidValue:  getValidValue(c),
+		ValidValue:  getHash(c.validValue),
 		ValidRound:  c.validRound,
 
 		// committee state
@@ -142,12 +142,7 @@ func (c *core) handleStateDump() {
 }
 
 func getBacklogUncheckedMsgs(c *core) []*MsgForDump {
-	var totalLen int
-	for _, msgs := range c.backlogUnchecked {
-		totalLen += len(msgs)
-	}
-
-	result := make([]*MsgForDump, 0, totalLen)
+	result := make([]*MsgForDump, 0)
 	for _, ms := range c.backlogUnchecked {
 		result = append(result, msgForDump(ms)...)
 	}
@@ -159,12 +154,7 @@ func getBacklogUncheckedMsgs(c *core) []*MsgForDump {
 // don't know how to write it via golang like template in C++, since the only
 // difference is the type of the data it operate on.
 func getBacklogMsgs(c *core) []*MsgForDump {
-	var totalLen int
-	for _, msgs := range c.backlogs {
-		totalLen += len(msgs)
-	}
-
-	result := make([]*MsgForDump, 0, totalLen)
+	result := make([]*MsgForDump, 0)
 	for _, ms := range c.backlogs {
 		result = append(result, msgForDump(ms)...)
 	}
@@ -203,17 +193,9 @@ func getProposal(c *core, round int64) *common.Hash {
 	return nil
 }
 
-func getLockedValue(c *core) *common.Hash {
-	if c.lockedValue != nil {
-		v := c.lockedValue.Hash()
-		return &v
-	}
-	return nil
-}
-
-func getValidValue(c *core) *common.Hash {
-	if c.validValue != nil {
-		v := c.validValue.Hash()
+func getHash(b *types.Block) *common.Hash {
+	if b != nil {
+		v := b.Hash()
 		return &v
 	}
 	return nil
