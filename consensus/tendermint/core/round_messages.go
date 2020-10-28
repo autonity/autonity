@@ -117,18 +117,6 @@ func (s *roundMessages) SetProposal(proposal *Proposal, msg *Message, verified b
 	s.proposal = proposal
 }
 
-func (s *roundMessages) GetPrevoteValues() []common.Hash {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.prevotes.BlockHashes()
-}
-
-func (s *roundMessages) GetPrecommitValues() []common.Hash {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.precommits.BlockHashes()
-}
-
 func (s *roundMessages) PrevotesPower(hash common.Hash) uint64 {
 	return s.prevotes.VotePower(hash)
 }

@@ -175,8 +175,8 @@ func getVoteState(s *messagesMap, round int64) (common.Hash, []VoteState, []Vote
 		p = s.getOrCreate(round).Proposal().ProposalBlock.Hash()
 	}
 
-	pvv := s.getOrCreate(round).GetPrevoteValues()
-	pcv := s.getOrCreate(round).GetPrecommitValues()
+	pvv := s.getOrCreate(round).prevotes.BlockHashes()
+	pcv := s.getOrCreate(round).precommits.BlockHashes()
 	prevoteState := make([]VoteState, 0, len(pvv))
 	precommitState := make([]VoteState, 0, len(pcv))
 
