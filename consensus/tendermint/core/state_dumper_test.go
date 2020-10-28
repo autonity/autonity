@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func TestStateDumper_GetProposal(t *testing.T) {
+func TestStateDumper(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
