@@ -70,7 +70,7 @@ func TestStateDumper(t *testing.T) {
 		require.Equal(t, clientAddr, state.Client)
 		require.Equal(t, uint64(c.proposerPolicy), state.ProposerPolicy)
 		require.Equal(t, c.blockPeriod, state.BlockPeriod)
-		require.Len(t, state.CurHeightMessages, 2)
+		require.Len(t, state.CurHeightMessages, 6)
 		require.Equal(t, currentHeight, state.Height)
 		require.Equal(t, currentRound, state.Round)
 		require.Equal(t, uint64(propose), state.Step)

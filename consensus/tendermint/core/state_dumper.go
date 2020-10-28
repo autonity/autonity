@@ -71,7 +71,6 @@ type TendermintState struct {
 	PrevoteTimerStarted   bool
 	PrecommitTimerStarted bool
 
-	RawMsg []*Message
 	// current height messages.
 	CurHeightMessages []*MsgForDump
 	// backlog msgs
@@ -213,6 +212,14 @@ func getRoundState(c *core) []RoundState {
 	return states
 }
 
+func blockHashes(messages map[common.Hash]map[common.Address]Message) []common.Hash {
+	blockHashes := make([]common.Hash, 0, len(messages))
+	for key := range messages {
+		blockHashes = append(blockHashes, key)
+	}
+	return blockHashes
+}
+
 func getVoteState(s *messagesMap, round int64) (common.Hash, []VoteState, []VoteState) {
 	p := common.Hash{}
 
@@ -220,12 +227,12 @@ func getVoteState(s *messagesMap, round int64) (common.Hash, []VoteState, []Vote
 		p = s.getOrCreate(round).Proposal().ProposalBlock.Hash()
 	}
 
-	pvv := s.getOrCreate(round).prevotes.BlockHashes()
-	pcv := s.getOrCreate(round).precommits.BlockHashes()
-	prevoteState := make([]VoteState, 0, len(pvv))
-	precommitState := make([]VoteState, 0, len(pcv))
+	preVoteValues := blockHashes(s.getOrCreate(round).prevotes.votes)
+	preCommitValues := blockHashes(s.getOrCreate(round).precommits.votes)
+	prevoteState := make([]VoteState, 0, len(preVoteValues))
+	precommitState := make([]VoteState, 0, len(preCommitValues))
 
-	for _, v := range pvv {
+	for _, v := range preVoteValues {
 		var s = VoteState{
 			Value:            v,
 			ProposalVerified: s.getOrCreate(round).isProposalVerified(),
@@ -234,7 +241,7 @@ func getVoteState(s *messagesMap, round int64) (common.Hash, []VoteState, []Vote
 		prevoteState = append(prevoteState, s)
 	}
 
-	for _, v := range pcv {
+	for _, v := range preCommitValues {
 		var s = VoteState{
 			Value:            v,
 			ProposalVerified: s.getOrCreate(round).isProposalVerified(),
