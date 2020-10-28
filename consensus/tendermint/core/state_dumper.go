@@ -135,7 +135,7 @@ func (c *core) handleStateDump() {
 		PrevoteTimerStarted:   c.prevoteTimeout.timerStarted(),
 		PrecommitTimerStarted: c.precommitTimeout.timerStarted(),
 		// known msgs in case of gossiping.
-		// KnownMsgHash: c.backend.KnownMsgHash(),
+		KnownMsgHash: c.backend.KnownMsgHash(),
 		Code: 0,
 	}
 	c.coreStateCh <- state
