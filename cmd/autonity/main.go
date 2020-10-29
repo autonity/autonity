@@ -18,7 +18,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/clearmatics/autonity/internal/ethapi"
 	"github.com/clearmatics/autonity/internal/flags"
@@ -29,8 +28,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/clearmatics/autonity/core"
 
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/keystore"
@@ -44,7 +41,6 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/node"
-	"github.com/davecgh/go-spew/spew"
 	gopsutil "github.com/shirou/gopsutil/mem"
 	cli "gopkg.in/urfave/cli.v1"
 )
@@ -310,79 +306,6 @@ func prepare(ctx *cli.Context) {
 	go metrics.CollectProcessMetrics(3 * time.Second)
 }
 
-// loadGenesisFile will load and validate the given JSON format genesis file.
-func loadGenesisFile(genesisPath string) (*core.Genesis, error) {
-	file, err := os.Open(genesisPath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	genesis := new(core.Genesis)
-	if err := json.NewDecoder(file).Decode(genesis); err != nil {
-		return nil, err
-	}
-	// Make AutonityContract and Tendermint consensus mandatory for the time being.
-	if genesis.Config == nil {
-		return nil, fmt.Errorf("no Autonity Contract and Tendermint configs section in genesis")
-	}
-	if genesis.Config.AutonityContractConfig == nil {
-		return nil, fmt.Errorf("no Autonity Contract config section in genesis")
-	}
-	if genesis.Config.Tendermint == nil {
-		return nil, fmt.Errorf("no Tendermint config section in genesis")
-	}
-
-	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
-		spew.Dump(genesis.Config.AutonityContractConfig)
-		return nil, err
-	}
-
-	if genesis.Config.Tendermint.BlockPeriod == 0 {
-		return nil, fmt.Errorf("invalid block period configured for tendermint")
-	}
-
-	return genesis, nil
-}
-
-// applyGenesis attempts to apply the given genesis to the node database, the
-// first time this is run for a node it initializes the genesis block in the
-// database.
-func applyGenesis(genesis *core.Genesis, node *node.Node) error {
-	for _, name := range []string{"chaindata", "lightchaindata"} {
-		chaindb, err := node.OpenDatabase(name, 0, 0, "")
-		if err != nil {
-			return fmt.Errorf("failed to open database: %v", err)
-		}
-		defer chaindb.Close()
-		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
-		if err != nil {
-			return fmt.Errorf("failed to write genesis block: %v", err)
-		}
-		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
-	}
-	return nil
-}
-
-// If genesis flag is not set, node will load chain-data from data-dir. If the flat is set, node will load the
-// genesis file, check if genesis file is match with genesis block, and check if chain configuration of the genesis
-// file is compatible with current chain-data, apply new compatible chain configuration into chain db.
-// Otherwise client will end up with a mis-match genesis error or an incompatible chain configuration error.
-func initGenesisBlockOnStart(ctx *cli.Context, stack *node.Node) {
-	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
-	if genesisPath != "" {
-		log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
-		genesis, err := loadGenesisFile(genesisPath)
-		if err != nil {
-			utils.Fatalf("failed to validate genesis file: %v", err)
-		}
-		err = applyGenesis(genesis, stack)
-		if err != nil {
-			utils.Fatalf("failed to apply genesis file: %v", err)
-		}
-	}
-}
-
 // autonity is the main entry point into the system if no special subcommand is ran.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
@@ -407,9 +330,6 @@ func autonity(ctx *cli.Context) error {
 // miner.
 func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 	debug.Memsize.Add("node", stack)
-
-	// Combine init genesis on node start up.
-	initGenesisBlockOnStart(ctx, stack)
 
 	// Start up the node itself
 	utils.StartNode(stack)
