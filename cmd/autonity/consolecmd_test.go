@@ -81,18 +81,6 @@ func tmpDataDirWithGenesisFile(t *testing.T) (dir string, genesisFile string) {
 	return dir, genesisFile
 }
 
-// Tests that, by using console sub-command to launch a client without a genesis block and genesis configuration, node
-// embedded within a console can not be started up properly.
-func TestConsoleStartWithoutGenesis(t *testing.T) {
-	autonity := runAutonity(t,
-		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none", "console")
-	// Verify the actual welcome message to the required template
-	autonity.Expect(`
-Fatal: Error starting protocol stack: DB has no genesis block and there is no genesis file set by user
-`)
-	autonity.ExpectExit()
-}
-
 func getCoinBase(t *testing.T, datadir string) string {
 	keyfile := filepath.Join(datadir, "autonity", "nodekey")
 	key, err := crypto.LoadECDSA(keyfile)
