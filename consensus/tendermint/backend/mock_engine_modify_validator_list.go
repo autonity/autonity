@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"github.com/clearmatics/autonity/trie"
 	"math/big"
 	"testing"
 	"time"
@@ -37,7 +38,7 @@ func (m *ModifyCommitteeEngine) VerifyProposal(block types.Block) (time.Duration
 	return 0, nil
 }
 
-func (m *ModifyCommitteeEngine) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+func (m *ModifyCommitteeEngine) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error {
 	if header.Number.Uint64() < 2 {
 		// skip genesis and the first block
 		return m.Backend.VerifyHeader(chain, header, seal)
@@ -70,7 +71,7 @@ func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 	header = m.Modifier.ModifyHeader(block.Header())
 
 	// create a new block with the modified header
-	newBlock := types.NewBlock(header, block.Transactions(), block.Uncles(), *receipts)
+	newBlock := types.NewBlock(header, block.Transactions(), block.Uncles(), *receipts, new(trie.Trie))
 
 	newBlock, err = m.Backend.AddSeal(newBlock)
 	if err != nil {

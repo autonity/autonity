@@ -30,6 +30,7 @@ import (
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common/compiler"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/internal/flags"
 	"github.com/clearmatics/autonity/log"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -100,7 +101,7 @@ var (
 )
 
 func init() {
-	app = utils.NewApp(gitCommit, gitDate, "ethereum checkpoint helper tool")
+	app = flags.NewApp(gitCommit, gitDate, "ethereum checkpoint helper tool")
 	app.Flags = []cli.Flag{
 		abiFlag,
 		binFlag,
@@ -117,7 +118,7 @@ func init() {
 		aliasFlag,
 	}
 	app.Action = utils.MigrateFlags(abigen)
-	cli.CommandHelpTemplate = utils.OriginCommandHelpTemplate
+	cli.CommandHelpTemplate = flags.OriginCommandHelpTemplate
 }
 
 func abigen(c *cli.Context) error {
