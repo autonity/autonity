@@ -40,7 +40,6 @@ func TestBuildSchema(t *testing.T) {
 	}
 }
 
-
 // Tests that a graphQL request is successfully handled when graphql is enabled on the specified endpoint
 func TestGraphQLHTTPOnSamePort_GQLRequest_Successful(t *testing.T) {
 	stack := createNode(t, true)
@@ -106,12 +105,12 @@ func createNode(t *testing.T, gqlEnabled bool) *node.Node {
 		return stack
 	}
 
-	createGQLService(t, stack, "127.0.0.1:9393")
+	createGQLService(t, stack)
 
 	return stack
 }
 
-func createGQLService(t *testing.T, stack *node.Node, endpoint string) {
+func createGQLService(t *testing.T, stack *node.Node) {
 	// create backend
 	chainConf := eth.DefaultConfig
 	chainConf.Genesis = new(core.Genesis)
