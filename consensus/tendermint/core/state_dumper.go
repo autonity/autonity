@@ -127,7 +127,7 @@ func (c *core) handleStateDump(e coreStateRequestEvent) {
 	}
 
 	// for none blocking send state.
-      c.logger.Debug("sending core state msg")
+	c.logger.Debug("sending core state msg")
 	e.stateChan <- state
 	// let sender to close channel.
 	close(e.stateChan)
