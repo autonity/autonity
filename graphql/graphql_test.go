@@ -18,6 +18,7 @@ package graphql
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/core"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -39,7 +40,7 @@ func TestBuildSchema(t *testing.T) {
 	}
 }
 
-/*
+
 // Tests that a graphQL request is successfully handled when graphql is enabled on the specified endpoint
 func TestGraphQLHTTPOnSamePort_GQLRequest_Successful(t *testing.T) {
 	stack := createNode(t, true)
@@ -63,7 +64,7 @@ func TestGraphQLHTTPOnSamePort_GQLRequest_Successful(t *testing.T) {
 	}
 	expected := "{\"data\":{\"block\":{\"number\":\"0x0\"}}}"
 	assert.Equal(t, expected, string(bodyBytes))
-}*/
+}
 
 // Tests that a graphQL request is not handled successfully when graphql is not enabled on the specified endpoint
 func TestGraphQLHTTPOnSamePort_GQLRequest_Unsuccessful(t *testing.T) {
@@ -112,7 +113,9 @@ func createNode(t *testing.T, gqlEnabled bool) *node.Node {
 
 func createGQLService(t *testing.T, stack *node.Node, endpoint string) {
 	// create backend
-	ethBackend, err := eth.New(stack, &eth.DefaultConfig, nil)
+	chainConf := eth.DefaultConfig
+	chainConf.Genesis = new(core.Genesis)
+	ethBackend, err := eth.New(stack, &chainConf, nil)
 	if err != nil {
 		t.Fatalf("could not create eth backend: %v", err)
 	}
