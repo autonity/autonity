@@ -42,17 +42,21 @@ import (
 )
 
 var (
-	dumpGenesisCommand = cli.Command{
-		Action:    utils.MigrateFlags(dumpGenesis),
-		Name:      "dumpgenesis",
-		Usage:     "Dumps genesis block JSON configuration to stdout",
-		ArgsUsage: "",
+
+	initCommand = cli.Command{
+		Action:    utils.MigrateFlags(initGenesis),
+		Name:      "init",
+		Usage:     "Bootstrap and initialize a new genesis block",
+		ArgsUsage: "<genesisPath>",
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
 		},
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
-The dumpgenesis command dumps the genesis block configuration in JSON format to stdout.`,
+The init command initializes a new genesis block and definition for the network.
+This is a destructive action and changes the network in which you will be
+participating.
+It expects the genesis file as argument.`,
 	}
 	importCommand = cli.Command{
 		Action:    utils.MigrateFlags(importChain),
@@ -69,6 +73,8 @@ The dumpgenesis command dumps the genesis block configuration in JSON format to 
 			utils.CacheGCFlag,
 			utils.MetricsEnabledFlag,
 			utils.MetricsEnabledExpensiveFlag,
+			utils.MetricsHTTPFlag,
+			utils.MetricsPortFlag,
 			utils.MetricsEnableInfluxDBFlag,
 			utils.MetricsInfluxDBEndpointFlag,
 			utils.MetricsInfluxDBDatabaseFlag,
@@ -193,12 +199,73 @@ Use "ethereum dump 0" to dump the genesis block.`,
 	}
 )
 
-func dumpGenesis(ctx *cli.Context) error {
-	genesis := core.DefaultGenesisBlock()
-	if err := json.NewEncoder(os.Stdout).Encode(genesis); err != nil {
-		utils.Fatalf("could not encode genesis")
+// initGenesis will initialise the given JSON format genesis file and writes it as
+// the zero'd block (i.e. genesis) or will fail hard if it can't succeed.
+func initGenesis(ctx *cli.Context) error {
+	// Make sure we have a valid genesis JSON
+	genesisPath := ctx.Args().First()
+	if len(genesisPath) == 0 {
+		utils.Fatalf("Must supply path to genesis JSON file")
+	}
+	file, err := os.Open(genesisPath)
+	if err != nil {
+		utils.Fatalf("Failed to read genesis file: %v", err)
+	}
+	defer file.Close()
+
+	genesis := new(core.Genesis)
+	if err := json.NewDecoder(file).Decode(genesis); err != nil {
+		utils.Fatalf("invalid genesis file: %v", err)
+	}
+	// Make AutonityContract and Tendermint consensus mandatory for the time being.
+	if genesis.Config == nil {
+		utils.Fatalf("No Autonity Contract and Tendermint configs section in genesis")
+	}
+	if genesis.Config.AutonityContractConfig == nil {
+		utils.Fatalf("No Autonity Contract config section in genesis")
+	}
+	if genesis.Config.Tendermint == nil {
+		utils.Fatalf("No Tendermint config section in genesis")
+	}
+
+	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
+		spew.Dump(genesis.Config.AutonityContractConfig)
+		return fmt.Errorf("autonity contract section is invalid. error:%v", err.Error())
+	}
+
+	setupDefaults(genesis)
+
+	// Open an initialise both full and light databases
+	stack, _ := makeConfigNode(ctx)
+	defer stack.Close()
+
+	for _, name := range []string{"chaindata", "lightchaindata"} {
+		chaindb, err := stack.OpenDatabase(name, 0, 0, "")
+		if err != nil {
+			utils.Fatalf("Failed to open database: %v", err)
+		}
+		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
+		if err != nil {
+			utils.Fatalf("Failed to write genesis block: %v", err)
+		}
+		chaindb.Close()
+		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
 	}
 	return nil
+}
+
+func setupDefaults(genesis *core.Genesis) {
+	if genesis == nil || genesis.Config == nil {
+		return
+	}
+
+	defaultConfig := config.DefaultConfig()
+
+	if genesis.Config.Tendermint != nil {
+		if genesis.Config.Tendermint.BlockPeriod == 0 {
+			genesis.Config.Tendermint.BlockPeriod = defaultConfig.BlockPeriod
+		}
+	}
 }
 
 func importChain(ctx *cli.Context) error {
@@ -209,7 +276,8 @@ func importChain(ctx *cli.Context) error {
 	utils.SetupMetrics(ctx)
 	// Start system runtime metrics collection
 	go metrics.CollectProcessMetrics(3 * time.Second)
-	stack := makeFullNode(ctx)
+
+	stack, _ := makeConfigNode(ctx)
 	defer stack.Close()
 
 	chain, db := utils.MakeChain(ctx, stack, false)
@@ -233,13 +301,17 @@ func importChain(ctx *cli.Context) error {
 	// Import the chain
 	start := time.Now()
 
+	var importErr error
+
 	if len(ctx.Args()) == 1 {
 		if err := utils.ImportChain(chain, ctx.Args().First()); err != nil {
+			importErr = err
 			log.Error("Import error", "err", err)
 		}
 	} else {
 		for _, arg := range ctx.Args() {
 			if err := utils.ImportChain(chain, arg); err != nil {
+				importErr = err
 				log.Error("Import error", "file", arg, "err", err)
 			}
 		}
@@ -292,14 +364,15 @@ func importChain(ctx *cli.Context) error {
 		utils.Fatalf("Failed to read database iostats: %v", err)
 	}
 	fmt.Println(ioStats)
-	return nil
+	return importErr
 }
 
 func exportChain(ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
-	stack := makeFullNode(ctx)
+
+	stack, _ := makeConfigNode(ctx)
 	defer stack.Close()
 
 	chain, _ := utils.MakeChain(ctx, stack, true)
@@ -334,7 +407,8 @@ func importPreimages(ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
-	stack := makeFullNode(ctx)
+
+	stack, _ := makeConfigNode(ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack)
@@ -352,7 +426,8 @@ func exportPreimages(ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
-	stack := makeFullNode(ctx)
+
+	stack, _ := makeConfigNode(ctx)
 	defer stack.Close()
 
 	db := utils.MakeChainDatabase(ctx, stack)
@@ -374,7 +449,7 @@ func copyDb(ctx *cli.Context) error {
 		utils.Fatalf("Source ancient chain directory path argument missing")
 	}
 	// Initialize a new chain for the running node to sync into
-	stack := makeFullNode(ctx)
+	stack, _ := makeConfigNode(ctx)
 	defer stack.Close()
 
 	chain, chainDb := utils.MakeChain(ctx, stack, false)
@@ -482,7 +557,7 @@ func confirmAndRemoveDB(database string, kind string) {
 }
 
 func dump(ctx *cli.Context) error {
-	stack := makeFullNode(ctx)
+	stack, _ := makeConfigNode(ctx)
 	defer stack.Close()
 
 	chain, chainDb := utils.MakeChain(ctx, stack, true)

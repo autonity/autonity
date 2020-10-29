@@ -175,7 +175,8 @@ func TestHTTPAttachWelcome(t *testing.T) {
 	port := strconv.Itoa(trulyRandInt(1024, 65536)) // Yeah, sometimes this will fail, sorry :P
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--rpc", "--rpcport", port, "--datadir", dir, "--genesis", jsonFile)
+		"--http", "--http.port", port, "--datadir", dir, "--genesis", jsonFile)
+
 	defer func() {
 		autonity.Interrupt()
 		autonity.ExpectExit()
@@ -193,6 +194,7 @@ func TestWSAttachWelcome(t *testing.T) {
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--ws", "--wsport", port, "--datadir", dir, "--genesis", jsonFile)
+
 	defer func() {
 		autonity.Interrupt()
 		autonity.ExpectExit()
