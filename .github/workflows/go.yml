@@ -242,6 +242,9 @@ jobs:
       matrix:
         e2e: [TestCheckFeeRedirectionAndRedistribution,
               TestCheckBlockWithSmallFee,
+              TestRewardDistribution,
+              TestStakeManagement,
+              TestMemberManagement,
               TestRemoveFromValidatorsList,
               TestContractUpgrade_Success,
               TestContractUpgradeSeveralUpgrades,
@@ -378,6 +381,10 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/build/bin
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
+      - name: Build Autonity
+        if:  steps.cache-autonity-bin.outputs.cache-hit != 'true'
+        run: make autonity
 
       - name: test contract
         run: make test-contracts
