@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
@@ -138,18 +137,6 @@ func TestGetCoreState(t *testing.T) {
 		checkRoundState(t, s, rounds[s.Round], &proposals[s.Round], true)
 	}
 
-}
-
-func TestDumpStateTimeout(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	backendMock := NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().Return(common.BytesToAddress([]byte("address")))
-	backendMock.EXPECT().Post(coreStateRequestEvent{}).Times(1)
-	core := New(backendMock, config.DefaultConfig())
-
-	state := core.CoreState()
-	require.Equal(t, int64(-1), state.Code)
 }
 
 func randomProposal(t *testing.T) (*Message, Proposal) {
