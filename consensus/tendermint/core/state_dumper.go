@@ -4,7 +4,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"math/big"
-	"time"
 )
 
 type coreStateRequestEvent struct {
@@ -37,8 +36,6 @@ type MsgForDump struct {
 
 // TendermintState save an instant status for the tendermint consensus engine.
 type TendermintState struct {
-	// return error code, 0 for okay, -1 for timeout.
-	Code int64
 	// validator address
 	Client common.Address
 
@@ -83,7 +80,6 @@ type TendermintState struct {
 }
 
 func (c *core) CoreState() TendermintState {
-	state := TendermintState{}
 	// send state dump request.
 	var e = coreStateRequestEvent{
 		stateChan: make(chan TendermintState),
@@ -128,7 +124,6 @@ func (c *core) handleStateDump(e coreStateRequestEvent) {
 		PrecommitTimerStarted: c.precommitTimeout.timerStarted(),
 		// known msgs in case of gossiping.
 		KnownMsgHash: c.backend.KnownMsgHash(),
-		Code:         0,
 	}
 
 	// for none blocking send state.

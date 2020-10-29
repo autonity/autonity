@@ -66,7 +66,6 @@ func TestStateDumper(t *testing.T) {
 	checkState := func(t *testing.T, c *core, state TendermintState, currentHeight *big.Int, currentRound int64, initRound int64,
 		initProposal Proposal, newProposal Proposal, knownMsgHash []common.Hash) {
 
-		require.Equal(t, int64(0), state.Code)
 		require.Equal(t, clientAddr, state.Client)
 		require.Equal(t, uint64(c.proposerPolicy), state.ProposerPolicy)
 		require.Equal(t, c.blockPeriod, state.BlockPeriod)
