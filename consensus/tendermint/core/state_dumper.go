@@ -89,17 +89,7 @@ func (c *core) CoreState() TendermintState {
 		stateChan: make(chan TendermintState),
 	}
 	go c.sendEvent(e)
-	// wait for response with timeout.
-	timeout := time.After(time.Second)
-	select {
-	case s := <-e.stateChan:
-		state = s
-	case <-timeout:
-		state.Code = -1
-		c.logger.Debug("Waiting for tendermint core state timed out", "elapsed", time.Second)
-	}
-
-	return state
+	return <-e.stateChan
 }
 
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
@@ -142,12 +132,8 @@ func (c *core) handleStateDump(e coreStateRequestEvent) {
 	}
 
 	// for none blocking send state.
-	select {
-	case e.stateChan <- state:
-		c.logger.Debug("core state msg sent.")
-	default:
-		c.logger.Debug("core state msg dropped.")
-	}
+      c.logger.Debug("sending core state msg")
+	e.stateChan <- state
 	// let sender to close channel.
 	close(e.stateChan)
 }
