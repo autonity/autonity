@@ -40,12 +40,7 @@ func tmpDatadirWithKeystoreAndGenesisFile(t *testing.T) (string, string) {
 	if err := cp.CopyAll(keystore, source); err != nil {
 		t.Fatal(err)
 	}
-
-	genesisFile := filepath.Join(datadir, "genesis.json")
-	if err := ioutil.WriteFile(genesisFile, []byte(genesis), 0600); err != nil {
-		t.Fatalf("failed to write genesis file: %v", err)
-	}
-
+	genesisFile := tmpGenesisFile(t, datadir)
 	return datadir, genesisFile
 }
 

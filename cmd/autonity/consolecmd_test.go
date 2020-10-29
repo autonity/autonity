@@ -72,12 +72,17 @@ var genesis = `{
 			}
 		}`
 
-func tmpDataDirWithGenesisFile(t *testing.T) (dir string, genesisFile string) {
-	dir = tmpdir(t)
-	genesisFile = filepath.Join(dir, "genesis.json")
+func tmpGenesisFile(t *testing.T, dir string) string {
+	genesisFile := filepath.Join(dir, "genesis.json")
 	if err := ioutil.WriteFile(genesisFile, []byte(genesis), 0600); err != nil {
 		t.Fatalf("failed to write genesis file: %v", err)
 	}
+	return genesisFile
+}
+
+func tmpDataDirWithGenesisFile(t *testing.T) (dir string, genesisFile string) {
+	dir = tmpdir(t)
+	genesisFile = tmpGenesisFile(t, dir)
 	return dir, genesisFile
 }
 
@@ -85,7 +90,7 @@ func getCoinBase(t *testing.T, datadir string) string {
 	keyfile := filepath.Join(datadir, "autonity", "nodekey")
 	key, err := crypto.LoadECDSA(keyfile)
 	if err != nil {
-		t.Fatalf("cannot get node key")
+		t.Fatalf("cannot get node key with error: %v", err)
 	}
 	return strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).String())
 }
