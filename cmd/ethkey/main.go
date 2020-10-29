@@ -18,9 +18,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/internal/flags"
 	"os"
 
-	"github.com/clearmatics/autonity/cmd/utils"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -35,7 +35,7 @@ var gitDate = ""
 var app *cli.App
 
 func init() {
-	app = utils.NewApp(gitCommit, gitDate, "an Ethereum key manager")
+	app = flags.NewApp(gitCommit, gitDate, "an Ethereum key manager")
 	app.Commands = []cli.Command{
 		commandGenerate,
 		commandInspect,
@@ -43,7 +43,7 @@ func init() {
 		commandSignMessage,
 		commandVerifyMessage,
 	}
-	cli.CommandHelpTemplate = utils.OriginCommandHelpTemplate
+	cli.CommandHelpTemplate = flags.OriginCommandHelpTemplate
 }
 
 // Commonly used command line flags.

@@ -18,7 +18,6 @@ package les
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/les/checkpointoracle"
 	"math/big"
 	"sync"
 
@@ -27,8 +26,12 @@ import (
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/eth"
+	"github.com/clearmatics/autonity/ethclient"
 	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/les/checkpointoracle"
 	"github.com/clearmatics/autonity/light"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/p2p/discv5"
 	"github.com/clearmatics/autonity/p2p/enode"
@@ -144,4 +147,27 @@ func (c *lesCommons) localCheckpoint(index uint64) params.TrustedCheckpoint {
 		CHTRoot:      light.GetChtRoot(c.chainDb, index, sectionHead),
 		BloomRoot:    light.GetBloomTrieRoot(c.chainDb, index, sectionHead),
 	}
+}
+
+// setupOracle sets up the checkpoint oracle contract client.
+func (c *lesCommons) setupOracle(node *node.Node, genesis common.Hash, ethconfig *eth.Config) *checkpointoracle.CheckpointOracle {
+	config := ethconfig.CheckpointOracle
+	if config == nil {
+		// Try loading default config.
+		config = params.CheckpointOracles[genesis]
+	}
+	if config == nil {
+		log.Info("Checkpoint registrar is not enabled")
+		return nil
+	}
+	if config.Address == (common.Address{}) || uint64(len(config.Signers)) < config.Threshold {
+		log.Warn("Invalid checkpoint registrar config")
+		return nil
+	}
+	oracle := checkpointoracle.New(config, c.localCheckpoint)
+	rpcClient, _ := node.Attach()
+	client := ethclient.NewClient(rpcClient)
+	oracle.Start(client)
+	log.Info("Configured checkpoint registrar", "address", config.Address, "signers", len(config.Signers), "threshold", config.Threshold)
+	return oracle
 }
