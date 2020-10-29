@@ -130,7 +130,7 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	// to check user membership, user type, stake balance.
-	validateAddedUser := func(t *testing.T, port int, height uint64, address common.Address, eNode string, role uint8, stake uint64, economicMetric Struct1) {
+	validateAddedUser := func(t *testing.T, port int, height uint64, address common.Address, eNode string, role uint8, stake uint64, economicMetric AutonityEconomicsMetricData) {
 		assert.True(t, isParticipant(port, height, address, eNode), "wrong membership for added user")
 		// check validator and stakeholder's stake balance
 		actualStake, err := interact(port).call(height).getAccountStake(address)
@@ -139,6 +139,7 @@ func TestMemberManagement(t *testing.T) {
 			require.Equal(t, stake, actualStake.Uint64())
 		} else {
 			// for participants, it is not allow to have stake, getAccountStake is limited only for stakeholder and validator.
+			fmt.Print("*****************************************\n\n\n\n\n", err, "\n")
 			require.EqualError(t, err, "execution reverted: address not allowed to use stake")
 		}
 

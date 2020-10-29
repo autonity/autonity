@@ -4,10 +4,10 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"math/big"
-	"time"
 )
 
 type coreStateRequestEvent struct {
+	stateChan chan TendermintState
 }
 
 // VoteState save the prevote or precommit voting status for a specific value.
@@ -36,8 +36,6 @@ type MsgForDump struct {
 
 // TendermintState save an instant status for the tendermint consensus engine.
 type TendermintState struct {
-	// return error code, 0 for okay, -1 for timeout.
-	Code int64
 	// validator address
 	Client common.Address
 
@@ -82,25 +80,16 @@ type TendermintState struct {
 }
 
 func (c *core) CoreState() TendermintState {
-	state := TendermintState{}
 	// send state dump request.
-	var e = coreStateRequestEvent{}
-	go c.sendEvent(e)
-	// wait for response with timeout.
-	timeout := time.After(time.Second)
-	select {
-	case s := <-c.coreStateCh:
-		state = s
-	case <-timeout:
-		state.Code = -1
-		c.logger.Debug("Waiting for tendermint core state timed out", "elapsed", time.Second)
+	var e = coreStateRequestEvent{
+		stateChan: make(chan TendermintState),
 	}
-
-	return state
+	go c.sendEvent(e)
+	return <-e.stateChan
 }
 
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
-func (c *core) handleStateDump() {
+func (c *core) handleStateDump(e coreStateRequestEvent) {
 	state := TendermintState{
 		Client:            c.address,
 		ProposerPolicy:    uint64(c.proposerPolicy),
@@ -135,9 +124,13 @@ func (c *core) handleStateDump() {
 		PrecommitTimerStarted: c.precommitTimeout.timerStarted(),
 		// known msgs in case of gossiping.
 		KnownMsgHash: c.backend.KnownMsgHash(),
-		Code:         0,
 	}
-	c.coreStateCh <- state
+
+	// for none blocking send state.
+	c.logger.Debug("sending core state msg")
+	e.stateChan <- state
+	// let sender to close channel.
+	close(e.stateChan)
 }
 
 func getBacklogUncheckedMsgs(c *core) []*MsgForDump {

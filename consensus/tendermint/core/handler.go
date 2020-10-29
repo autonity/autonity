@@ -158,7 +158,7 @@ eventLoop:
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.msg.Payload())
 			case coreStateRequestEvent:
 				// Process Tendermint state dump request.
-				c.handleStateDump()
+				c.handleStateDump(e)
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {

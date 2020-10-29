@@ -52,7 +52,7 @@ autonity: embed-autonity-contract
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
 # Genreates go source files containing the contract bytecode and abi.
-embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI) 
+embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI)
 
 $(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT) $(SOLC_BINARY)
 	@mkdir -p $(GENERATED_CONTRACT_DIR)

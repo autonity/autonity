@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/clearmatics/autonity/trie"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -1451,7 +1452,7 @@ func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src comm
 	if invalid {
 		header := &types.Header{Number: h}
 		header.Difficulty = nil
-		block = types.NewBlock(header, nil, nil, nil)
+		block = types.NewBlock(header, nil, nil, nil, new(trie.Trie))
 	} else {
 		block = generateBlock(h)
 	}

@@ -100,19 +100,12 @@ func TestGetCoreState(t *testing.T) {
 	setCoreState(c, height, rounds[1], propose, proposals[0].ProposalBlock, rounds[0], proposals[0].ProposalBlock, rounds[0], committeeSet,
 		prevBlock.Header())
 
-	go c.handleStateDump()
-
-	state := TendermintState{}
-	// wait for response with timeout.
-	timeout := time.After(time.Second)
-	select {
-	case s := <-c.coreStateCh:
-		state = s
-	case <-timeout:
-		t.Fatal("fetch tendermint state time out")
+  var e = coreStateRequestEvent{
+			stateChan: make(chan TendermintState),
 	}
-
-	assert.Equal(t, int64(0), state.Code)
+	go c.handleStateDump(e)
+  state := <-e.stateChan
+  
 	assert.Equal(t, sender, state.Client)
 	assert.Equal(t, uint64(c.proposerPolicy), state.ProposerPolicy)
 	assert.Equal(t, c.blockPeriod, state.BlockPeriod)
