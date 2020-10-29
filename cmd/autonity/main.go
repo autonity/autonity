@@ -30,9 +30,8 @@ import (
 	"strings"
 	"time"
 
-
 	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/console/prompt"
+
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/cmd/utils"
