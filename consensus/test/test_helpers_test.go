@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -75,7 +75,7 @@ func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey
 		types.HomesteadSigner{}, key)
 }
 
-func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genesis {
+func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName string) *core.Genesis {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.ExtraData = nil
@@ -116,7 +116,7 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 			//an unknown user
 			skip = true
 		default:
-			panic("incorrect node type")
+			require.FailNow(t, "incorrect node type")
 		}
 
 		if skip {
@@ -154,19 +154,14 @@ func makeGenesis(nodes map[string]*testNode, stakeholderName string) *core.Genes
 	users = append(users, stakeHolder)
 	genesis.Config.AutonityContractConfig.Users = users
 	err = genesis.Config.AutonityContractConfig.Prepare()
-	if err != nil {
-		panic(err)
-	}
-
+	require.NoError(t, err)
 	return genesis
 }
 
-func makePeer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64, cons func(basic consensus.Engine) consensus.Engine) (*node.Node, error) { //здесь эта переменная-функция называется cons
+func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *eth.Config) {
 	// Define the basic configurations for the Ethereum node
 	datadir, err := ioutil.TempDir("", "")
-	if err != nil {
-		return nil, err
-	}
+	require.NoError(t, err)
 
 	if listenAddr == "" {
 		listenAddr = "0.0.0.0:0"
@@ -194,27 +189,16 @@ func makePeer(genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr strin
 		configNode.P2P.OutRate = outRate
 	}
 
-	// Start the node and configure a full Ethereum node on it
-	stack, err := node.New(configNode)
-	if err != nil {
-		return nil, err
+	ethConfig := &eth.Config{
+		Genesis:         genesis,
+		NetworkId:       genesis.Config.ChainID.Uint64(),
+		SyncMode:        downloader.FullSync,
+		DatabaseCache:   256,
+		DatabaseHandles: 256,
+		TxPool:          core.DefaultTxPoolConfig,
+		Tendermint:      *genesis.Config.Tendermint,
 	}
-	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		return eth.New(ctx, &eth.Config{
-			Genesis:         genesis,
-			NetworkId:       genesis.Config.ChainID.Uint64(),
-			SyncMode:        downloader.FullSync,
-			DatabaseCache:   256,
-			DatabaseHandles: 256,
-			TxPool:          core.DefaultTxPoolConfig,
-			Tendermint:      *genesis.Config.Tendermint,
-		}, cons)
-	}); err != nil {
-		return nil, err
-	}
-
-	// Start the node and return if successful
-	return stack, nil
+	return configNode, ethConfig
 }
 
 func maliciousTest(t *testing.T, test *testCase, validators map[string]*testNode) {
@@ -392,7 +376,7 @@ func runNode(ctx context.Context, peer *testNode, test *testCase, peers map[stri
 	chainEvents := mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{})
 	defer chainEvents.Unsubscribe()
 
-	shouldSendTx := peer.service.Miner().IsMining()
+	shouldSendTx := peer.service.Miner().Mining()
 
 	isExternalUser := isExternalUser(index)
 	if isExternalUser {

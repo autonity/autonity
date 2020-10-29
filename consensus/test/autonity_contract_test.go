@@ -514,7 +514,7 @@ func upgradeHook(upgradeBlocks map[uint64]struct{}, operatorAddress common.Addre
 			return err
 		}
 
-		_, err = instance.UpgradeContract(auth, acdefault.Bytecode(), acdefault.ABI())
+		_, err = instance.UpgradeContract(auth, acdefault.Bytecode(), acdefault.ABI(), "v2.0.0")
 		if err != nil {
 			return err
 		}

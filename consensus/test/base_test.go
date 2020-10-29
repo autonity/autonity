@@ -194,7 +194,7 @@ func TestTendermintTC7(t *testing.T) {
 		stopTime: make(map[string]time.Time),
 	}
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 2; i++ {
 		t.Run(fmt.Sprintf("test case %s - %d", test.name, i), func(t *testing.T) {
 			runTest(t, test)
 		})

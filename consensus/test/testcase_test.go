@@ -193,47 +193,41 @@ func runTest(t *testing.T, test *testCase) {
 	generateNodesPrivateKey(t, nodes, nodeNames, nodesNum)
 	setNodesPortAndEnode(t, nodes)
 
-	genesis := makeGenesis(nodes, stakeholderName)
+	genesis := makeGenesis(t, nodes, stakeholderName)
 
 	if test.genesisHook != nil {
 		genesis = test.genesisHook(genesis)
 	}
-
+	wg := &errgroup.Group{}
 	for i, peer := range nodes {
-		var engineConstructor func(basic consensus.Engine) consensus.Engine
+		peer := peer
 		if test.maliciousPeers != nil {
-			engineConstructor = test.maliciousPeers[i].cons
+			peer.engineConstructor = test.maliciousPeers[i].cons
 		}
-
 		peer.listener[0].Close()
 		peer.listener[1].Close()
 
 		rates := test.networkRates[i]
-		peer.node, err = makePeer(genesis, peer.privateKey, fmt.Sprintf("127.0.0.1:%d", peer.port), peer.rpcPort, rates.in, rates.out, engineConstructor)
+		peer.nodeConfig, peer.ethConfig = makeNodeConfig(t, genesis, peer.privateKey,
+			fmt.Sprintf("127.0.0.1:%d", peer.port),
+			peer.rpcPort, rates.in, rates.out)
+
 		if err != nil {
 			t.Fatal("cant make a node", i, err)
 		}
-	}
-
-	wg := &errgroup.Group{}
-	for _, peer := range nodes {
-		peer := peer
-
 		wg.Go(func() error {
 			return peer.startNode()
 		})
 	}
+
 	err = wg.Wait()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s := " "
 	for i, p := range nodes {
-		s += fmt.Sprintf("%s %s === %s  -- %s\n", s, i, p.enode.URLv4(), crypto.PubkeyToAddress(p.privateKey.PublicKey).String())
-
+		fmt.Printf("%s === %s  -- %s\n", i, p.enode.URLv4(), crypto.PubkeyToAddress(p.privateKey.PublicKey).String())
 	}
-	fmt.Println(s)
 
 	if test.topology != nil && !test.topology.WithChanges() {
 		err := test.topology.ConnectNodes(nodes)

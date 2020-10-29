@@ -127,7 +127,7 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 		return nil
 	}
 
-	if err := ac.contractABI.Unpack(result, function, ret); err != nil {
+	if err := ac.contractABI.UnpackIntoInterface(result, function, ret); err != nil {
 		log.Error("Could not unpack returned value", "function", function)
 		return err
 	}

@@ -3,6 +3,7 @@ package test
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus"
 	"net"
 	"sync"
 	"time"
@@ -11,8 +12,6 @@ import (
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p/enode"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/crypto"
@@ -30,6 +29,9 @@ type testNode struct {
 	isInited                bool
 	wasStopped              bool //fixme should be removed
 	node                    *node.Node
+	nodeConfig              *node.Config
+	ethConfig               *eth.Config
+	engineConstructor       func(basic consensus.Engine) consensus.Engine
 	enode                   *enode.Node
 	service                 *eth.Ethereum
 	eventChan               chan core.ChainEvent
@@ -46,12 +48,12 @@ type testNode struct {
 }
 
 type netNode struct {
-	listener                []net.Listener
-	privateKey              *ecdsa.PrivateKey
-	address                 string
-	port                    int
-	url                     string
-	rpcPort                 int
+	listener   []net.Listener
+	privateKey *ecdsa.PrivateKey
+	address    string
+	port       int
+	url        string
+	rpcPort    int
 }
 
 type block struct {
@@ -60,39 +62,17 @@ type block struct {
 }
 
 func (validator *testNode) startNode() error {
-	// Inject the signer key and start sealing with it
-	store := validator.node.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-
-	var (
-		err    error
-		signer accounts.Account
-	)
-
-	if !validator.isInited {
-		signer, err = store.ImportECDSA(validator.privateKey, "")
-		if err != nil {
-			return fmt.Errorf("import pk: %s", err)
-		}
-
-		for {
-			// wait until the private key is imported
-			_, err = validator.node.AccountManager().Find(signer)
-			if err == nil {
-				break
-			}
-			time.Sleep(50 * time.Microsecond)
-		}
-
-		validator.isInited = true
-	} else {
-		signer = store.Accounts()[0]
+	// Start the node and configure a full Ethereum node on it
+	var err error
+	validator.node, err = node.New(validator.nodeConfig)
+	if err != nil {
+		return err
 	}
 
-	if err = store.Unlock(signer, ""); err != nil {
-		return fmt.Errorf("cant unlock: %s", err)
+	validator.service, err = eth.New(validator.node, validator.ethConfig, validator.engineConstructor)
+	if err != nil {
+		return err
 	}
-
-	validator.node.ResetEventMux()
 
 	if err := validator.node.Start(); err != nil {
 		return fmt.Errorf("cannot start a node %s", err)
@@ -142,7 +122,7 @@ func (validator *testNode) stopNode() error {
 }
 
 func (validator *testNode) forceStopNode() error {
-	if err := validator.node.Stop(); err != nil {
+	if err := validator.node.Close(); err != nil {
 		return fmt.Errorf("cannot stop a node on block %d: %q", validator.lastBlock, err)
 	}
 	validator.node.Wait()
@@ -153,15 +133,6 @@ func (validator *testNode) forceStopNode() error {
 }
 
 func (validator *testNode) startService() error {
-	var ethereum *eth.Ethereum
-	if err := validator.node.Service(&ethereum); err != nil {
-		return fmt.Errorf("cant start a node %s", err)
-	}
-
-	time.Sleep(100 * time.Millisecond)
-
-	validator.service = ethereum
-
 	if validator.eventChan == nil {
 		validator.eventChan = make(chan core.ChainEvent, 1024)
 		validator.transactions = make(map[common.Hash]struct{})
@@ -186,11 +157,11 @@ func (validator *testNode) startService() error {
 
 	validator.subscription = validator.service.BlockChain().SubscribeChainEvent(validator.eventChan)
 
-	if err := ethereum.StartMining(1); err != nil {
+	if err := validator.service.StartMining(1); err != nil {
 		return fmt.Errorf("cant start mining %s", err)
 	}
 
-	for !ethereum.IsMining() {
+	for !validator.service.IsMining() {
 		time.Sleep(50 * time.Millisecond)
 	}
 
