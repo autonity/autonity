@@ -404,7 +404,7 @@ func (sb *Backend) HasBadProposal(hash common.Hash) bool {
 
 func (sb *Backend) GetContractABI() string {
 	// after the contract is upgradable, call it from contract object rather than from conf.
-	return sb.blockchain.GetAutonityContract().GetContractABI()
+	return sb.blockchain.GetAutonityContract().StringABI()
 }
 
 // Whitelist for the current block

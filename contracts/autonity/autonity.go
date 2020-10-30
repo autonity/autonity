@@ -40,7 +40,7 @@ type Contract struct {
 	operator           common.Address
 	initialMinGasPrice uint64
 	contractABI        *abi.ABI
-	stringContractABI  string
+	stringABI          string
 	bc                 Blockchainer
 	metrics            EconomicMetrics
 
@@ -55,7 +55,7 @@ func NewAutonityContract(
 	evmProvider EVMProvider,
 ) (*Contract, error) {
 	contract := Contract{
-		stringContractABI:  ABI,
+		stringABI:          ABI,
 		operator:           operator,
 		initialMinGasPrice: minGasPrice,
 		bc:                 bc,
@@ -263,12 +263,12 @@ func (ac *Contract) upgradeAbiCache(newAbi string) error {
 	}
 
 	ac.contractABI = &newABI
-	ac.stringContractABI = newAbi
+	ac.stringABI = newAbi
 	return nil
 }
 
-func (ac *Contract) GetContractABI() string {
-	return ac.stringContractABI
+func (ac *Contract) StringABI() string {
+	return ac.stringABI
 }
 
 func (ac *Contract) ABI() *abi.ABI {
