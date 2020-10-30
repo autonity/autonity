@@ -76,6 +76,18 @@ func (s *messagesMap) GetMessages() []*Message {
 	return result
 }
 
+func (s *messagesMap) getRounds() []int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	rounds := make([]int64, 0, len(s.internal))
+	for r := range s.internal {
+		rounds = append(rounds, r)
+	}
+
+	return rounds
+}
+
 // roundMessages stores all message received for a specific round.
 type roundMessages struct {
 	proposal         *Proposal
@@ -96,6 +108,7 @@ func NewRoundMessages() *roundMessages {
 		verifiedProposal: false,
 	}
 }
+
 func (s *roundMessages) SetProposal(proposal *Proposal, msg *Message, verified bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

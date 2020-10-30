@@ -382,6 +382,10 @@ jobs:
           path: /home/runner/work/autonity/autonity/build/bin
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
+      - name: Build Autonity
+        if:  steps.cache-autonity-bin.outputs.cache-hit != 'true'
+        run: make autonity
+
       - name: test contract
         run: make test-contracts
 

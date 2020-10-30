@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/trie"
 	"math/big"
 	"time"
 
@@ -90,7 +91,7 @@ func (sb *Backend) Author(header *types.Header) (common.Address, error) {
 // VerifyHeader checks whether a header conforms to the consensus rules of a
 // given engine. Verifying the seal may be done optionally here, or explicitly
 // via the VerifySeal method.
-func (sb *Backend) VerifyHeader(chain consensus.ChainReader, header *types.Header, _ bool) error {
+func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, _ bool) error {
 	return sb.verifyHeader(header, chain.GetHeaderByHash(header.ParentHash))
 }
 
@@ -158,7 +159,7 @@ func (sb *Backend) verifyHeaderAgainstParent(header, parent *types.Header) error
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications (the order is that of
 // the input slice).
-func (sb *Backend) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{}, 1)
 	results := make(chan error, len(headers))
 	go func() {
@@ -266,7 +267,7 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 
 // VerifySeal checks whether the crypto seal on a header is valid according to
 // the consensus rules of the given engine.
-func (sb *Backend) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
+func (sb *Backend) VerifySeal(chain consensus.ChainHeaderReader, header *types.Header) error {
 	// Ensure the signer is part of the committee
 
 	// The genesis block is not signed.
@@ -289,7 +290,7 @@ func (sb *Backend) VerifySeal(chain consensus.ChainReader, header *types.Header)
 
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
-func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) error {
+func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
 	// unused fields, force to set to empty
 	header.Coinbase = sb.Address()
 	header.Nonce = emptyNonce
@@ -343,7 +344,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 
 	// add committee to extraData's committee section
 	header.Committee = committeeSet
-	return types.NewBlock(header, txs, nil, *receipts), nil
+	return types.NewBlock(header, txs, nil, *receipts, new(trie.Trie)), nil
 }
 
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
@@ -436,7 +437,7 @@ func (sb *Backend) isResultChanNil() bool {
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have based on the previous blocks in the blockchain and the
 // current signer.
-func (sb *Backend) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+func (sb *Backend) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
 	return defaultDifficulty
 }
 

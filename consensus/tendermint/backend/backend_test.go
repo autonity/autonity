@@ -710,7 +710,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	if err != nil {
 		return nil, fmt.Errorf("state write error: %v", err)
 	}
-	if err := state.Database().TrieDB().Commit(root, false); err != nil {
+	if err := state.Database().TrieDB().Commit(root, false, nil); err != nil {
 		return nil, fmt.Errorf("trie write error: %v", err)
 	}
 

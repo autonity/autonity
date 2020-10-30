@@ -134,13 +134,13 @@ type core struct {
 	// Tendermint FSM state fields
 	//
 
-	height     *big.Int
-	round      int64
-	committee  committee
-	lastHeader *types.Header
+	stateMu   sync.RWMutex
+	height    *big.Int
+	round     int64
+	committee committee
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
-	stateMu               sync.RWMutex
+	lastHeader            *types.Header
 	step                  Step
 	curRoundMessages      *roundMessages
 	messages              messagesMap
@@ -400,6 +400,7 @@ func (c *core) Height() *big.Int {
 	defer c.stateMu.RUnlock()
 	return c.height
 }
+
 func (c *core) committeeSet() committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
