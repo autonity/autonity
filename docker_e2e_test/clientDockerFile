@@ -14,6 +14,6 @@ RUN mkdir /root/.ssh
 RUN useradd -m -p '$6$MtwVl8yJ/PeTevqf$C.7ANQ7EzLLP9b6dXte9keVRYeUDDZ2i579yEIA4nPRpx8DMvxkRx3mZSYbZHCdzh8rmvq/PAvV9zTwp/i6o1/' -g sudo -G sudo tester
 RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-EXPOSE 22 6000 7000 8000 30303
+EXPOSE 22 6000 7000 8000 9000 30303
 CMD    ["/usr/sbin/sshd", "-D"]
 CMD    ["/lib/systemd/systemd"]
