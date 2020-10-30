@@ -267,10 +267,12 @@ func (ac *Contract) upgradeAbiCache(newAbi string) error {
 	return nil
 }
 
+// StringABI returns the current autonity contract ABI in string format
 func (ac *Contract) StringABI() string {
 	return ac.stringABI
 }
 
+// ABI returns the current autonity contract's ABI
 func (ac *Contract) ABI() *abi.ABI {
 	return ac.contractABI
 }

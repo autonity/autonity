@@ -58,7 +58,20 @@ type callback struct {
 	isSubscribe bool           // true if this is a subscription callback
 }
 
-// DynamicCallbacks is used for receivers with dynamic API's method to retrieve.
+// DynamicCallbacks is used for receivers with dynamic API's method it wants to expose through rpc.
+//
+// Any instance of golang type with methods at the time of calling take a receiver as the first argument. Take the
+// following method declaration as example:
+//
+//`func (a aType) someMethod()`
+//
+// The instance of aType at runtime will be the receiver for someMethod and will be as the first argument to by
+// someMethod().
+//
+// DynamicCallbacks is used for types which want to generate dynamic functions at runtime using the reflection package
+// and  expose them through rpc endpoint.
+//
+// Call() should return a map of function names to function signatures, which will be used to create callbacks.
 type DynamicCallbacks interface {
 	Calls() map[string]reflect.Value
 }
@@ -123,7 +136,7 @@ func suitableCallbacks(receiver reflect.Value) map[string]*callback {
 	callbacks := make(map[string]*callback)
 
 	if dyn, ok := receiver.Interface().(DynamicCallbacks); ok {
-		registerCallbacks(callbacks, receiver, dyn.Calls())
+		newDynamicCallbacks(callbacks, receiver, dyn.Calls())
 	} else {
 		for m := 0; m < typ.NumMethod(); m++ {
 			method := typ.Method(m)
@@ -141,8 +154,8 @@ func suitableCallbacks(receiver reflect.Value) map[string]*callback {
 	return callbacks
 }
 
-// registerCallbacks register new callbacks is the receiver implement DynamicCallbacks.
-func registerCallbacks(callbacks map[string]*callback, receiver reflect.Value, methods map[string]reflect.Value) {
+// newDynamicCallbacks creates callbacks for types which implement DynamicCallbacks and add them to callbacks' map.
+func newDynamicCallbacks(callbacks map[string]*callback, receiver reflect.Value, methods map[string]reflect.Value) {
 	for name, fn := range methods {
 		cb := newCallback(receiver, fn)
 		if cb == nil {

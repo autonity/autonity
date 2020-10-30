@@ -530,6 +530,8 @@ func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Bloc
 	return dirty, nil
 }
 
+// AutonityContractAPI implements DynamicCallbacks defined in rpc package to dynamically expose view function of the
+// autonity contract through rpc endpoint.
 type AutonityContractAPI struct {
 	eth   *Ethereum
 	calls map[string]reflect.Value
@@ -543,6 +545,9 @@ func (a *AutonityContractAPI) Calls() map[string]reflect.Value {
 	return a.calls
 }
 
+// contractABIMethods takes an ethereum object to get the latest autonity contract's ABI to determine its view functions
+// (functions which don't modify contract state) and uses the reflection package to dynamically create a map of function
+// names to function bodies.
 func contractABIMethods(eth *Ethereum) map[string]reflect.Value {
 	var viewMethodStr = "view"
 	var contract = eth.BlockChain().GetAutonityContract()
@@ -563,6 +568,7 @@ func contractABIMethods(eth *Ethereum) map[string]reflect.Value {
 
 			contractViewMethods[functionName] = reflect.MakeFunc(sig,
 				func(args []reflect.Value) []reflect.Value {
+					// makereturn converts the return types to reflect.Value
 					makereturn := func(res interface{}, err error) []reflect.Value {
 						return []reflect.Value{reflect.ValueOf(&res).Elem(), reflect.ValueOf(&err).Elem()}
 					}

@@ -126,6 +126,9 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 	return nil
 }
 
+// AutonityContractCallUnpackIntoMap uses the state and header to create an evm object which will call the autonity
+// contract function along with the arguments, in any, and return the result in a map[string]interface{} object.
+// The caller need to provide the object into which the results need to be returned.
 func (ac *Contract) AutonityContractCallUnpackIntoMap(statedb *state.StateDB, header *types.Header, function string, result map[string]interface{}, args ...interface{}) error {
 	ret, err := ac.callContractFunc(statedb, header, function, args)
 	if err != nil {
@@ -139,6 +142,8 @@ func (ac *Contract) AutonityContractCallUnpackIntoMap(statedb *state.StateDB, he
 	return nil
 }
 
+// callContractFunc create creaties an evm object required to call the autonity contract function and returns the result
+// as raw bytes.
 func (ac *Contract) callContractFunc(statedb *state.StateDB, header *types.Header, function string, args []interface{}) ([]byte, error) {
 	gas := uint64(math.MaxUint64)
 	evm := ac.evmProvider.EVM(header, Deployer, statedb)
