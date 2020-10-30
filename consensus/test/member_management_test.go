@@ -130,7 +130,7 @@ func TestMemberManagement(t *testing.T) {
 	}
 
 	// to check user membership, user type, stake balance.
-	validateAddedUser := func(t *testing.T, port int, height uint64, address common.Address, eNode string, role uint8, stake uint64, economicMetric AutonityEconomicsMetricData) {
+	validateAddedUser := func(t *testing.T, port int, height uint64, address common.Address, eNode string, role uint8, stake uint64, economicMetric AutonityEconomicMetrics) {
 		assert.True(t, isParticipant(port, height, address, eNode), "wrong membership for added user")
 		// check validator and stakeholder's stake balance
 		actualStake, err := interact(port).call(height).getAccountStake(address)

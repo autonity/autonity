@@ -151,21 +151,21 @@ func (t *transactor) removeUser(address common.Address) error {
 
 func (t *transactor) mintStake(address common.Address, stake *big.Int) error {
 	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		_, err := instance.MintStake(opts, address, stake)
+		_, err := instance.Mint(opts, address, stake)
 		return err
 	})
 }
 
 func (t *transactor) redeemStake(address common.Address, stake *big.Int) error {
 	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		_, err := instance.RedeemStake(opts, address, stake)
+		_, err := instance.Burn(opts, address, stake)
 		return err
 	})
 }
 
 func (t *transactor) sendStake(address common.Address, stake *big.Int) error {
 	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		_, err := instance.Send(opts, address, stake)
+		_, err := instance.Transfer(opts, address, stake)
 		return err
 	})
 }
@@ -201,10 +201,10 @@ func (c *caller) getWhitelist() ([]string, error) {
 	return whitelist, err
 }
 
-func (c *caller) dumpEconomicsMetricData() (AutonityEconomicsMetricData, error) {
-	var metrics AutonityEconomicsMetricData
+func (c *caller) dumpEconomicsMetricData() (AutonityEconomicMetrics, error) {
+	var metrics AutonityEconomicMetrics
 	err := c.execute(func(instance *Autonity, opts *bind.CallOpts) error {
-		m, err := instance.DumpEconomicsMetricData(opts)
+		m, err := instance.DumpEconomicMetrics(opts)
 		metrics = m
 		return err
 	})
@@ -214,8 +214,8 @@ func (c *caller) dumpEconomicsMetricData() (AutonityEconomicsMetricData, error) 
 func (c *caller) checkMember(address common.Address) (bool, error) {
 	var isMember bool
 	err := c.execute(func(instance *Autonity, opts *bind.CallOpts) error {
-		b, err := instance.CheckMember(opts, address)
-		isMember = b
+		b, err := instance.GetUser(opts, address)
+		isMember = b.Addr != common.Address{}
 		return err
 	})
 	return isMember, err
@@ -224,7 +224,7 @@ func (c *caller) checkMember(address common.Address) (bool, error) {
 func (c *caller) getAccountStake(address common.Address) (*big.Int, error) {
 	var stake *big.Int
 	err := c.execute(func(instance *Autonity, opts *bind.CallOpts) error {
-		s, err := instance.GetAccountStake(opts, address)
+		s, err := instance.BalanceOf(opts, address)
 		stake = s
 		return err
 	})
