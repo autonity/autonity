@@ -538,12 +538,11 @@ func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Bloc
 // AutonityContractAPI implements DynamicCallbacks defined in rpc package to dynamically expose view function of the
 // autonity contract through rpc endpoint.
 type AutonityContractAPI struct {
-	eth   *Ethereum
 	calls map[string]reflect.Value
 }
 
-func NewAutonityContractAPI(eth *Ethereum) *AutonityContractAPI {
-	return &AutonityContractAPI{eth: eth, calls: contractABIMethods(eth)}
+func NewAutonityContractAPI(bc *core.BlockChain) *AutonityContractAPI {
+	return &AutonityContractAPI{calls: contractABIMethods(bc)}
 }
 
 func (a *AutonityContractAPI) Calls() map[string]reflect.Value {
@@ -553,9 +552,9 @@ func (a *AutonityContractAPI) Calls() map[string]reflect.Value {
 // contractABIMethods takes an ethereum object to get the latest autonity contract's ABI to determine its view functions
 // (functions which don't modify contract state) and uses the reflection package to dynamically create a map of function
 // names to function bodies.
-func contractABIMethods(eth *Ethereum) map[string]reflect.Value {
+func contractABIMethods(bc *core.BlockChain) map[string]reflect.Value {
 	var viewMethodStr = "view"
-	var contract = eth.BlockChain().GetAutonityContract()
+	var contract = bc.GetAutonityContract()
 	var contractABI = contract.ABI()
 	var contractViewMethods = make(map[string]reflect.Value)
 
@@ -577,7 +576,7 @@ func contractABIMethods(eth *Ethereum) map[string]reflect.Value {
 					makereturn := func(res interface{}, err error) []reflect.Value {
 						return []reflect.Value{reflect.ValueOf(&res).Elem(), reflect.ValueOf(&err).Elem()}
 					}
-					stateDB, err := eth.BlockChain().State()
+					stateDB, err := bc.State()
 					if err != nil {
 						return makereturn(nil, err)
 					}
@@ -587,7 +586,7 @@ func contractABIMethods(eth *Ethereum) map[string]reflect.Value {
 						iargs = append(iargs, arg.Interface())
 					}
 					res := make(map[string]interface{})
-					err = contract.AutonityContractCallUnpackIntoMap(stateDB, eth.BlockChain().CurrentHeader(), functionName, res, iargs...)
+					err = contract.AutonityContractCallUnpackIntoMap(stateDB, bc.CurrentHeader(), functionName, res, iargs...)
 					if err != nil {
 						return makereturn(nil, err)
 					}
