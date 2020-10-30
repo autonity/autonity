@@ -616,3 +616,37 @@ playbook:
       output:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: true # false means consensus engine should on-hold.
+  longtestcases: # only for a long time running, it does not apply to CI job.
+    - name: "Warm up happy case for long run test, send 10 token per TX last for 1 minutes."
+      condition:
+        crashNodes: [] # contain the node domain name we want to crash.
+        scenario: [] # leave it empty for no disaster happens.
+      input:
+        duration: 60 # num of seconds the transaction sending duration.
+        senderNode: 0  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address will be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+    - name: "long run TC-2: 7 days running to check nodes get synced again after freezer db is activated."
+      condition:
+        crashNodes: [0, 1] # contain the node domain name we want to crash.
+        scenario:
+          - delay: 3600 # 1st hour day 1, stop node-0.
+            action: "stop"
+            target: [0] # select candidates from crashNodes.
+          - delay: 86400 # day2, stop node-1
+            action: "stop"
+            target: [1] # select candidates from crashNodes.
+          - delay: 259200 # day3, start node-0 and node-1 to sync block from peers.
+            action: "start"
+            target: [0, 1]
+      input:
+        duration: 604800 # 7 days running duration
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.

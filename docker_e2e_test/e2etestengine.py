@@ -21,10 +21,12 @@ if __name__ == '__main__':
     parser.add_argument("autonity", help='Autonity Binary Path')
     parser.add_argument("-d", help='Start deploy remote network with brand new configurations.', type=bool, default=True)
     parser.add_argument("-t", help='Start test remote network.', type=bool, default=True)
+    parser.add_argument("-lt", help='Start long run test remote network.', type=bool, default=False)
     args = parser.parse_args()
 
     is_deploy = args.d
     is_testing = args.t
+    is_long_testing = args.lt
     autonity_path = args.autonity
 
     conf.load_project_conf()
@@ -64,10 +66,14 @@ if __name__ == '__main__':
                 exit_code = 1
 
         try:
-            # load test case view, and start testing one by one.
+            # load test case, and start testing one by one.
             test_set = conf.get_test_case_conf()
-            num_of_cases = len(test_set["playbook"]["testcases"])
-            for test_case in test_set["playbook"]["testcases"]:
+            test_cases = test_set["playbook"]["testcases"]
+            if is_long_testing:
+                test_cases = test_set["playbook"]["longtestcases"]
+
+            num_of_cases = len(test_cases)
+            for test_case in test_cases:
                 playbook = conf.get_test_case_conf()
                 if playbook["playbook"]["stop"] is True:
                     LG.info("Playbook is stopped by user configuration: testcaseconf.yml/playbook/stop: true.")

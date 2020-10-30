@@ -19,6 +19,7 @@ NODE_NAME = "Node{}_{}"
 ENGINE_NAME = "Engine{}"
 VALIDATOR_IP_LIST_FILE = "./etc/validator.ip"
 COMMAND_START_TEST = "python3 e2etestengine.py ./bin/autonity"
+COMMAND_START_LONG_TEST = "python3 e2etestengine.py ./bin/autonity -lt True"
 FAILED_TEST_LOGS = "./JOB_{}.tar"
 SYSTEM_LOG_PATH = "/system_log"
 JOB_ID = ""
@@ -210,13 +211,17 @@ def dump_ips_to_engine_conf(ips):
         print("failed to dump ip into test engine validator.ip file. ", e)
 
 
-def start_test_engine_container(job_id):
+def start_test_engine_container(job, long_run_test):
     print("start test engine container, the testcase will be run in it.")
     try:
         print("test engine is going to start:")
         client = docker.from_env()
-        container = client.containers.run(TEST_ENGINE_IMAGE_NAME.format(job_id), command=COMMAND_START_TEST,
-                                          name=ENGINE_NAME.format(job_id), detach=True, privileged=True)
+        cmd = COMMAND_START_TEST
+        if long_run_test:
+            cmd = COMMAND_START_LONG_TEST
+
+        container = client.containers.run(TEST_ENGINE_IMAGE_NAME.format(job), command=cmd,
+                                          name=ENGINE_NAME.format(job), detach=True, privileged=True)
         print("test engine is started.")
         return container
     except Exception as e:
@@ -256,12 +261,15 @@ if __name__ == "__main__":
     exit_code = 1
     parser = argparse.ArgumentParser()
     parser.add_argument("autonity", help="Autonity WorkDir Path")
+    parser.add_argument("-lt", help='Start long run test remote network.', type=bool, default=False)
     args = parser.parse_args()
+
     job_id = str(time.time())
     JOB_ID = job_id
     autonity_path = os.path.abspath(args.autonity)
     bootnode_bin= os.path.join(autonity_path,"build/bin/bootnode")
     autonity_bin= os.path.join(autonity_path,"build/bin/autonity")
+    is_long_testing = args.lt
 
     # cleanup in case of test is killed by ci.
     signal.signal(signal.SIGTERM, receive_signal)
@@ -298,7 +306,7 @@ if __name__ == "__main__":
         create_test_engine_image_per_run(job_id)
 
         # start the e2e testing.
-        container = start_test_engine_container(job_id)
+        container = start_test_engine_container(job_id, is_long_testing)
 
         if container is not None:
             thd = None

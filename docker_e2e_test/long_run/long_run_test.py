@@ -109,7 +109,7 @@ def launch_test_engine(ip, ssh_key, user, branch):
                 c.run("echo \"#!/usr/bin/env bash\" >> run.sh")
                 c.run("echo \"cd /home/{}/autonity/docker_e2e_test/\" >> run.sh".format(user))
                 c.run(
-                    "echo \"sudo nohup python3 test_via_docker.py .. > test_report.log 2> stdout.er < /dev/null &\" >> run.sh")
+                    "echo \"sudo nohup python3 test_via_docker.py .. -lt True > test_report.log 2> stdout.er < /dev/null &\" >> run.sh")
                 with c.cd("/home/{}/".format(user)):
                     r = c.run("sudo bash run.sh".format(user))
                     if r and r.exited == 0 and r.ok:
