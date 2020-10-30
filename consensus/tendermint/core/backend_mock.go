@@ -8,7 +8,7 @@ import (
 	context "context"
 	common "github.com/clearmatics/autonity/common"
 	autonity "github.com/clearmatics/autonity/contracts/autonity"
-	ethcore "github.com/clearmatics/autonity/core"
+	core "github.com/clearmatics/autonity/core"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
 	gomock "github.com/golang/mock/gomock"
@@ -173,18 +173,6 @@ func (mr *MockBackendMockRecorder) Post(ev interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockBackend)(nil).Post), ev)
 }
 
-// Post mocks base method
-func (m *MockBackend) RemoveMessageFromLocalCache(payload []byte) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RemoveMessageFromLocalCache", payload)
-}
-
-// Post indicates an expected call of Post
-func (mr *MockBackendMockRecorder) RemoveMessageFromLocalCache(payload interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveMessageFromLocalCache", reflect.TypeOf((*MockBackend)(nil).RemoveMessageFromLocalCache), payload)
-}
-
 // SetProposedBlockHash mocks base method
 func (m *MockBackend) SetProposedBlockHash(hash common.Hash) {
 	m.ctrl.T.Helper()
@@ -272,10 +260,10 @@ func (mr *MockBackendMockRecorder) WhiteList() *gomock.Call {
 }
 
 // BlockChain mocks base method
-func (m *MockBackend) BlockChain() *ethcore.BlockChain {
+func (m *MockBackend) BlockChain() *core.BlockChain {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockChain")
-	ret0, _ := ret[0].(*ethcore.BlockChain)
+	ret0, _ := ret[0].(*core.BlockChain)
 	return ret0
 }
 
@@ -286,7 +274,7 @@ func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
 }
 
 // SetBlockchain mocks base method
-func (m *MockBackend) SetBlockchain(bc *ethcore.BlockChain) {
+func (m *MockBackend) SetBlockchain(bc *core.BlockChain) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetBlockchain", bc)
 }
@@ -295,6 +283,18 @@ func (m *MockBackend) SetBlockchain(bc *ethcore.BlockChain) {
 func (mr *MockBackendMockRecorder) SetBlockchain(bc interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBlockchain", reflect.TypeOf((*MockBackend)(nil).SetBlockchain), bc)
+}
+
+// RemoveMessageFromLocalCache mocks base method
+func (m *MockBackend) RemoveMessageFromLocalCache(payload []byte) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RemoveMessageFromLocalCache", payload)
+}
+
+// RemoveMessageFromLocalCache indicates an expected call of RemoveMessageFromLocalCache
+func (mr *MockBackendMockRecorder) RemoveMessageFromLocalCache(payload interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveMessageFromLocalCache", reflect.TypeOf((*MockBackend)(nil).RemoveMessageFromLocalCache), payload)
 }
 
 // MockTendermint is a mock of Tendermint interface
