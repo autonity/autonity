@@ -392,7 +392,7 @@ jobs:
   docker_e2e_test:
     needs: bootstrap-checkout
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/combine_init_and_start'
     steps:
       - name: Set up Go
         uses: actions/setup-go@v1
