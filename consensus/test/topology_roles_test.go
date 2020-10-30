@@ -9,6 +9,9 @@ import (
 )
 
 func TestTendermintExternalUser(t *testing.T) {
+	// track by: https://github.com/clearmatics/autonity/issues/711
+	t.Skip("case is flaky due to go routine leak.")
+
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
