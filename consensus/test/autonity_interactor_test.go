@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	"github.com/clearmatics/autonity/accounts/abi/bind"
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethclient"
 )

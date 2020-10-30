@@ -65,14 +65,12 @@ contract Autonity is IERC20 {
     string contractAbi;
 
     /* Events */
-    event AddValidator(address _address, uint256 _stake);
-    event AddStakeholder(address _address, uint256 _stake);
-    event AddParticipant(address _address, uint256 _stake);
-    event RemoveUser(address _address, UserType _type);
-    event ChangeUserType(address _address, UserType _oldType, UserType _newType);
-    event MintStake(address _address, uint256 _amount);
-    event RedeemStake(address _address, uint256 _amount);
-    event BlockReward(address _address, uint256 _amount);
+    event UserAdded(address _address, UserType _type, uint256 _stake);
+    event RemovedUser(address _address, UserType _type);
+    event ChangedUserType(address _address, UserType _oldType, UserType _newType);
+    event MintedStake(address _address, uint256 _amount);
+    event BurnedStake(address _address, uint256 _amount);
+    event Rewarded(address _address, uint256 _amount);
 
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
@@ -145,20 +143,9 @@ contract Autonity is IERC20 {
     * @notice Create a user in the Autonity Contract with the specified role. Restricted to the operator account.
     */
     function addUser(address payable _address, uint256 _stake, string memory _enode, UserType _role) public onlyOperator(msg.sender) {
-        if (_role == UserType.Validator) {
-            _createUser(_address, _enode, _role, _stake, 0);
-            emit AddValidator(_address, _stake);
-        }
-
-        if (_role == UserType.Stakeholder) {
-            _createUser(_address, _enode, _role, _stake, 0);
-            emit AddStakeholder(_address, _stake);
-        }
-
-        if (_role == UserType.Participant) {
-            _createUser(_address, _enode, _role, 0, 0);
-            emit AddParticipant(_address, 0);
-        }
+        require(!(_role == UserType.Participant && _stake > 0), "participant can't have stake");
+        _createUser(_address, _enode, _role, _stake);
+        emit UserAdded(_address, _role, _stake);
     }
 
     /**
@@ -203,17 +190,17 @@ contract Autonity is IERC20 {
     function mint(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
         users[_account].stake = users[_account].stake.add(_amount);
         stakeSupply = stakeSupply.add(_amount);
-        emit MintStake(_account, _amount);
+        emit MintedStake(_account, _amount);
     }
 
     /**
     * @notice Burn the specified amount of NEW stake token from an account. Restricted to the Operator account.
     */
-    function redeem(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
+    function burn(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
         users[_account].stake = users[_account].stake.sub(_amount, "Redeem stake amount exceeds balance");
         stakeSupply = stakeSupply.sub(_amount);
         _checkDowngradeValidator(_account);
-        emit RedeemStake(_account, _amount);
+        emit BurnedStake(_account, _amount);
     }
 
     /**
@@ -292,10 +279,10 @@ contract Autonity is IERC20 {
     * @return upgrade Set to true if an autonity contract upgrade is available.
     * @return committee The next block consensus committee.
     */
-    function finalize(uint256 _amount) external onlyProtocol(msg.sender)
+    function finalize(uint256 amount) external onlyProtocol(msg.sender)
         returns(bool , CommitteeMember[] memory) {
 
-        _performRedistribution(_amount);
+        _performRedistribution(amount);
         bool _updateAvailable = bytes(bytecode).length != 0;
         computeCommittee();
         return (_updateAvailable, committee);
@@ -421,7 +408,7 @@ contract Autonity is IERC20 {
     * always select the same address, given the same height, round and contract
     * state.
     */
-    function getProposer(uint256 height, uint256 round) external view override returns(address) {
+    function getProposer(uint256 height, uint256 round) external view returns(address) {
         // calculate total voting power from current committee, the system does not allow validator with 0 stake/power.
         uint256 total_voting_power = 0;
         for (uint256 i = 0; i < committee.length; i++) {
@@ -570,7 +557,7 @@ contract Autonity is IERC20 {
             User storage _user = users[stakeholders[i]];
             uint256 _reward = _user.stake.mul(_amount).div(stakeSupply);
             _user.addr.transfer(_reward);
-            emit BlockReward(_user.addr, _reward);
+            emit Rewarded(_user.addr, _reward);
         }
     }
 
@@ -630,7 +617,7 @@ contract Autonity is IERC20 {
         _removeUser(u.addr);
         _createUser(u.addr, u.enode, newUserType, u.stake);
 
-        emit ChangeUserType(u.addr , u.userType , newUserType);
+        emit ChangedUserType(u.addr , u.userType , newUserType);
     }
 
     function _removeUser(address _address) internal {
@@ -659,7 +646,7 @@ contract Autonity is IERC20 {
         stakeSupply = stakeSupply.sub(u.stake);
         _removeFromArray(u.addr, usersList);
         delete users[_address];
-        emit RemoveUser(_address, u.userType);
+        emit RemovedUser(_address, u.userType);
     }
 
 
