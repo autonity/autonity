@@ -19,7 +19,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/metrics"
+	"github.com/davecgh/go-spew/spew"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -27,11 +29,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/console/prompt"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -45,22 +44,7 @@ import (
 )
 
 var (
-	initCommand = cli.Command{
-		Action:    utils.MigrateFlags(initGenesis),
-		Name:      "init",
-		Usage:     "Bootstrap and initialize a new genesis block",
-		ArgsUsage: "<genesisPath>",
-		Flags: []cli.Flag{
-			utils.DataDirFlag,
-		},
-		Category: "BLOCKCHAIN COMMANDS",
-		Description: `
-The init command initializes a new genesis block and definition for the network.
-This is a destructive action and changes the network in which you will be
-participating.
 
-It expects the genesis file as argument.`,
-	}
 	importCommand = cli.Command{
 		Action:    utils.MigrateFlags(importChain),
 		Name:      "import",

@@ -148,12 +148,12 @@ func (e *GenesisMismatchError) Error() string {
 }
 
 // SetupGenesisBlock writes or updates the genesis block in db.
-// The block that will be used is:
+// The behavior of it is:
 //
-//                          genesis == nil       genesis != nil
+//                            genesis == nil         genesis != nil
 //                       +------------------------------------------
-//     db has no genesis |  main-net default  |  genesis
-//     db has genesis    |  from DB           |  genesis (if compatible)
+//     db has no genesis |  Return An Error      |  apply genesis to db
+//     db has genesis    |  Use genesis from DB  |  apply genesis (if compatible)
 //
 // The stored chain configuration will be updated if it is compatible (i.e. does not
 // specify a fork block below the local head block). In case of a conflict, the
@@ -161,15 +161,12 @@ func (e *GenesisMismatchError) Error() string {
 //
 // The returned chain configuration is never nil.
 func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
-	if genesis != nil && genesis.Config == nil {
-		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
-	}
 	// Just commit the new block if there is no stored genesis block.
 	stored := rawdb.ReadCanonicalHash(db, 0)
 	if (stored == common.Hash{}) {
 		if genesis == nil {
-			log.Info("Writing default main-net genesis block")
-			genesis = DefaultGenesisBlock()
+			// No genesis from DB and configuration, don't start node with GETH main-net genesis block.
+			return nil, common.Hash{}, fmt.Errorf("DB has no genesis block and there is no genesis file set by user")
 		} else {
 			log.Info("Writing custom genesis block")
 		}
