@@ -22,6 +22,8 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"math/big"
 
+	"github.com/clearmatics/autonity/autonity"
+
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/contracts/autonity"

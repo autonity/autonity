@@ -18,7 +18,7 @@ endif
 SOLC_VERSION = 0.7.1
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 
-AUTONITY_CONTRACT_DIR = ./contracts/autonity/pos/contracts
+AUTONITY_CONTRACT_DIR = ./autonity/solidity/contracts
 AUTONITY_CONTRACT = Autonity.sol
 GENERATED_CONTRACT_DIR = ./common/acdefault/generated
 GENERATED_RAW_ABI = $(GENERATED_CONTRACT_DIR)/Autonity.abi
@@ -110,7 +110,7 @@ test-contracts:
 	@# executes the second part of an or statment if the first fails.
 	@npm list truffle > /dev/null || npm install truffle
 	@npm list web3 > /dev/null || npm install web3
-	@cd contracts/autonity/contract/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
+	@cd $(AUTONITY_CONTRACT_DIR)/test/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
 	@# Autonity can take some time to start up so we ping its port till we see it is listening.
 	@# The -z option to netcat exits with 0 only if the port at the given addresss is listening.
 	@for x in {1..10}; do \
@@ -121,7 +121,7 @@ test-contracts:
 		echo waiting 2 more seconds for autonity to start ; \
 	    sleep 2 ; \
 	done
-	@cd contracts/autonity/contract/ && $(NPMBIN)/truffle test && cd -
+	@cd $(AUTONITY_CONTRACT_DIR) && $(NPMBIN)/truffle test && cd -
 
 docker-e2e-test: embed-autonity-contract
 	build/env.sh go run build/ci.go install

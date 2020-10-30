@@ -5,17 +5,22 @@ pragma experimental ABIEncoderV2;
 import "./interfaces/IERC20.sol";
 import "./SafeMath.sol";
 import "./Precompiled.sol";
-import "./interfaces/IAutonity.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
-contract Autonity is IERC20, IAutonity {
+contract Autonity is IERC20 {
     using SafeMath for uint256;
 
+    enum UserType { Participant, Stakeholder, Validator}
     struct User {
         address payable addr;
         UserType userType;
         uint256 stake;
         string enode;
+    }
+
+    struct CommitteeMember {
+        address payable addr;
+        uint256 votingPower;
     }
 
     struct EconomicMetrics {
@@ -31,9 +36,9 @@ contract Autonity is IERC20, IAutonity {
     string[] private enodesWhitelist;
     mapping (address => User) private users;
     address public operatorAccount;
-    uint256 private minGasPrice = 0;
-    uint256 public committeeSize = 20;
-    string public contractVersion = "v1.0.0";
+    uint256 private minGasPrice;
+    uint256 public committeeSize;
+    string public contractVersion;
 
     mapping (address => mapping (address => uint256)) private allowances;
 
@@ -69,6 +74,17 @@ contract Autonity is IERC20, IAutonity {
     event RedeemStake(address _address, uint256 _amount);
     event BlockReward(address _address, uint256 _amount);
 
+    /**
+     * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
+     * Note that `gasPrice` may be zero.
+     */
+    event MinimumGasPriceUpdated(uint256 gasPrice);
+
+    /**
+     * @dev Emitted when the Autonity Contract was upgraded to a new version (`version`).
+     */
+    event ContractUpgraded(string version);
+
     constructor (address[] memory _participantAddress,
         string[] memory _participantEnode,
         uint256[] memory _participantType,
@@ -96,8 +112,16 @@ contract Autonity is IERC20, IAutonity {
         deployer = msg.sender;
     }
 
+    /**
+    * @dev Receive Auton function https://solidity.readthedocs.io/en/v0.7.2/contracts.html#receive-ether-function
+    *
+    */
     receive() external payable {}
 
+    /**
+    * @dev Fallback function https://solidity.readthedocs.io/en/v0.7.2/contracts.html#fallback-function
+    *
+    */
     fallback() external payable {}
 
 
@@ -118,11 +142,7 @@ contract Autonity is IERC20, IAutonity {
     }
 
     /**
-    * @notice Add a validator to the validators list. Validators are eligible to
-    * take part of the consensus committee and to hold stake. Restricted to the operator account.
-    /*
-    * addUser
-    * Add user to autonity contract.
+    * @notice Create a user in the Autonity Contract with the specified role. Restricted to the operator account.
     */
     function addUser(address payable _address, uint256 _stake, string memory _enode, UserType _role) public onlyOperator(msg.sender) {
         if (_role == UserType.Validator) {
@@ -161,8 +181,7 @@ contract Autonity is IERC20, IAutonity {
     /**
     * @notice Set the minimum gas price. Restricted to the operator account.
     * @param price Positive integer.
-    * @dev Emit a {SetMinimumGasPrice} event.
-    * Notice that this method is not an IAutonity interface function.
+    * @dev Emit a {MinimumGasPriceUpdated} event.
     */
     function setMinimumGasPrice(uint256 price) public onlyOperator(msg.sender) {
         minGasPrice = price;
@@ -259,17 +278,21 @@ contract Autonity is IERC20, IAutonity {
     /**
     * @return `bytecode` the new contract bytecode.
     * @return `contractAbi` the new contract ABI.
-    * @dev Implementation of {IAutonity retrieveContract}.
     */
-    function retrieveContract() external view override returns(string memory, string memory) {
+    function retrieveContract() external view returns(string memory, string memory) {
         return (bytecode, contractAbi);
     }
 
-    /**
-    * @notice Block finalisation function. Restricted to the protocol.
-    * @dev Implementation of {IAutonity finalize}.
+
+    /** @dev finalize is the block state finalisation function. It is called
+    * each block after processing every transactions within it. It must be restricted to the
+    * protocol only.
+    *
+    * @param amount The amount of transaction fees collected for this block.
+    * @return upgrade Set to true if an autonity contract upgrade is available.
+    * @return committee The next block consensus committee.
     */
-    function finalize(uint256 _amount) external onlyProtocol(msg.sender) override
+    function finalize(uint256 _amount) external onlyProtocol(msg.sender)
         returns(bool , CommitteeMember[] memory) {
 
         _performRedistribution(_amount);
@@ -281,7 +304,7 @@ contract Autonity is IERC20, IAutonity {
     /**
     * @dev Implementation of {IAutonity retrieveState}.
     */
-    function retrieveState() external view override returns(
+    function retrieveState() external view returns(
         address[] memory _addr,
         string[] memory _enode,
         uint256[] memory _userType,
@@ -325,7 +348,7 @@ contract Autonity is IERC20, IAutonity {
      * @notice Returns the block committee.
      * @dev Current block committee if called before finalize(), next block if called after.
      */
-    function getCommittee() external view override returns (CommitteeMember[] memory) {
+    function getCommittee() external view returns (CommitteeMember[] memory) {
         return committee;
     }
 
@@ -344,9 +367,10 @@ contract Autonity is IERC20, IAutonity {
     }
 
     /**
-    * @notice Autonity Protocol function, returns the list of authorized enodes.
+    * @notice Autonity Protocol function, returns the list of authorized enodes
+    * able to join the network.
     */
-    function getWhitelist() external view override returns (string[] memory) {
+    function getWhitelist() external view returns (string[] memory) {
         return enodesWhitelist;
     }
 
@@ -385,7 +409,7 @@ contract Autonity is IERC20, IAutonity {
     * @dev Autonity transaction's gas price must be greater or equal to the minimum gas price.
     * Implementation of {IAutonity getMinimumGasPrice}
     */
-    function getMinimumGasPrice() external view override returns(uint256) {
+    function getMinimumGasPrice() external view returns(uint256) {
         return minGasPrice;
     }
 

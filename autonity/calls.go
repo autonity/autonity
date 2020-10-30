@@ -45,7 +45,7 @@ func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis
 	participantStake := make([]*big.Int, 0, ln)
 
 	defaultCommitteeSize := big.NewInt(1000)
-	defaultVersion := "v1.0.0"
+	defaultVersion := "v0.0.0"
 
 	for _, v := range autonityConfig.Users {
 		validators = append(validators, *v.Address)

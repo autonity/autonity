@@ -35,7 +35,7 @@ contract('Autonity', function (accounts) {
     const committeeSize = 1000;
     const operator = accounts[0];
     const deployer = accounts[8];
-    const version = "v1.0.0";
+    const version = "v0.0.0";
     let token;
 
     describe('Metrics', function() { // test failing

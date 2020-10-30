@@ -17,7 +17,7 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
