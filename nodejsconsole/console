@@ -902,10 +902,7 @@ ws.addEventListener('message', event => {
 	if (parsed.result.hasOwnProperty('tendermint')) {
 
 		Promise.all([web3.tendermint.getContractABI(), web3.eth.getGasPrice(), web3.eth.getCoinbase()]).then((results) => {
-			contract = new web3.eth.Contract(JSON.parse(results[0]), '0xbd770416a3345f91e4b34576cb804a576fa48eb1', {
-				gasPrice: results[1], // default gas price in wei, 20 gwei in this case
-				from: results[2] // default from address
-			});
+			contract = new web3.eth.Contract(JSON.parse(results[0]), '0xbd770416a3345f91e4b34576cb804a576fa48eb1');
 
 			// Setting context values makes them available in the default scope
 			// of the repl.
