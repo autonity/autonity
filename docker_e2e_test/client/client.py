@@ -130,7 +130,7 @@ class Client(object):
                    "[Service]\n" \
                    "Type=simple\n" \
                    "ExecStart={} --genesis {} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
-                   "--http.port {} --http --http.addr '0.0.0.0' --ws --wsport {} --rpccorsdomain '*' "\
+                   "--rpcport {} --rpc --rpcaddr '0.0.0.0' --ws --wsport {} --rpccorsdomain '*' "\
                    "--rpcapi 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
                    "--gasprice '0' --allow-insecure-unlock --graphql --graphql.port {} " \
                    "--unlock 0x{} --password {} " \
