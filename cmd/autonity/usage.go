@@ -34,6 +34,7 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 		Name: "ETHEREUM",
 		Flags: []cli.Flag{
 			configFileFlag,
+			utils.InitGenesisFlag,
 			utils.DataDirFlag,
 			utils.AncientFlag,
 			utils.KeyStoreDirFlag,

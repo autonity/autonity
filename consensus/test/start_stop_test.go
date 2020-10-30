@@ -483,7 +483,10 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 
 func TestTendermintStartStopAllNodes(t *testing.T) {
 	// Track by https://github.com/clearmatics/autonity/issues/711
-	t.Skip("Skip test due to 40m timeout issue")
+	// failed due to 40m timeout happens sometimes.
+	// https://github.com/clearmatics/autonity/runs/1315225586?check_suite_focus=true
+	t.Skip("case is flaky due to 40m timeouts.")
+
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}

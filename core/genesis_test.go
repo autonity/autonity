@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
@@ -65,20 +66,13 @@ func TestSetupGenesis(t *testing.T) {
 		wantErr    error
 	}{
 		{
-			name: "genesis without ChainConfig",
-			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
-				return SetupGenesisBlock(db, new(Genesis))
-			},
-			wantErr:    errGenesisNoConfig,
-			wantConfig: params.AllEthashProtocolChanges,
-		},
-		{
 			name: "no block in DB, genesis == nil",
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
 				return SetupGenesisBlock(db, nil)
 			},
-			wantHash:   params.MainnetGenesisHash,
-			wantConfig: params.MainnetChainConfig,
+			wantErr:    fmt.Errorf("DB has no genesis block and there is no genesis file set by user"),
+			wantHash:   common.Hash{},
+			wantConfig: nil,
 		},
 		{
 			name: "mainnet block in DB, genesis == nil",
