@@ -8,7 +8,7 @@ import (
 	context "context"
 	common "github.com/clearmatics/autonity/common"
 	autonity "github.com/clearmatics/autonity/contracts/autonity"
-	core "github.com/clearmatics/autonity/core"
+	ethcore "github.com/clearmatics/autonity/core"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
 	gomock "github.com/golang/mock/gomock"
@@ -288,10 +288,10 @@ func (mr *MockBackendMockRecorder) WhiteList() *gomock.Call {
 }
 
 // BlockChain mocks base method
-func (m *MockBackend) BlockChain() *core.BlockChain {
+func (m *MockBackend) BlockChain() *ethcore.BlockChain {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockChain")
-	ret0, _ := ret[0].(*core.BlockChain)
+	ret0, _ := ret[0].(*ethcore.BlockChain)
 	return ret0
 }
 
@@ -302,7 +302,7 @@ func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
 }
 
 // SetBlockchain mocks base method
-func (m *MockBackend) SetBlockchain(bc *core.BlockChain) {
+func (m *MockBackend) SetBlockchain(bc *ethcore.BlockChain) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetBlockchain", bc)
 }
