@@ -54,8 +54,7 @@ if __name__ == '__main__':
             test_bed = conf.get_test_bed_conf()
             try:
                 for node in test_bed["targetNetwork"]["nodes"]:
-                    client = Client(host=node["name"], p2p_port=node["p2pPort"], rpc_port=node["rpcPort"],
-                                    ws_port=node["wsPort"], graphql_port=node["graphqlPort"],
+                    client = Client(host=node["name"], p2p_port=node["p2pPort"], rpc_port=node["rpcPort"], ws_port=node["wsPort"],
                                     net_interface=node["ethernetInterfaceID"], coin_base=node["coinBase"][2:],
                                     ssh_user=node["sshCredential"]["sshUser"], ssh_pass=node["sshCredential"]["sshPass"],
                                     ssh_key=node["sshCredential"]["sshKey"], sudo_pass=node["sshCredential"]["sudoPass"],
