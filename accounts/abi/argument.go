@@ -75,7 +75,7 @@ func (arguments Arguments) isTuple() bool {
 	return len(arguments) > 1
 }
 
-// Types returns the list of underlying []reflect.Type for Arguments
+// Types returns the list of underlying []reflect.Type for Arguments.
 func (arguments Arguments) Types() []reflect.Type {
 	var ret = make([]reflect.Type, len(arguments))
 	for i, a := range arguments {
