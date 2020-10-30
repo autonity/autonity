@@ -99,6 +99,22 @@ func printHelp(out io.Writer, templ string, data interface{}) {
 
 var (
 	// General settings
+	InitGenesisFlag = cli.StringFlag{
+		Name: "genesis",
+		Usage: `Path to the genesis json file, the genesis file contains
+	configuration that defines the first (aka genesis) block of the chain
+	and also controls how the client behaves. This flag must be provided
+	the first time a node is run so that the node can initialise its
+	database with the provided config. Subsequent to the first run, if the
+	flag is not set, the node will load all configuration from its
+	database, otherwise the node will verify that the config for the
+	genesis block exactly matches the genesis block it has in its database
+	and then see if the configuration that controls client behaviour is
+	compatible with the configuration in the database. If so the client will
+	update the configuration that controls client behaviour. This is the
+	mechanism is used for handling forks.`,
+		Value: "",
+	}
 	DataDirFlag = DirectoryFlag{
 		Name:  "datadir",
 		Usage: "Data directory for the databases and keystore",

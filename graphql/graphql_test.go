@@ -18,6 +18,7 @@ package graphql
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/core"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -104,14 +105,16 @@ func createNode(t *testing.T, gqlEnabled bool) *node.Node {
 		return stack
 	}
 
-	createGQLService(t, stack, "127.0.0.1:9393")
+	createGQLService(t, stack)
 
 	return stack
 }
 
-func createGQLService(t *testing.T, stack *node.Node, endpoint string) {
+func createGQLService(t *testing.T, stack *node.Node) {
 	// create backend
-	ethBackend, err := eth.New(stack, &eth.DefaultConfig, nil)
+	chainConf := eth.DefaultConfig
+	chainConf.Genesis = new(core.Genesis)
+	ethBackend, err := eth.New(stack, &chainConf, nil)
 	if err != nil {
 		t.Fatalf("could not create eth backend: %v", err)
 	}
