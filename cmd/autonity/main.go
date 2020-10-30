@@ -64,6 +64,7 @@ var (
 		utils.LegacyBootnodesV4Flag,
 		utils.LegacyBootnodesV5Flag,
 		utils.DataDirFlag,
+		utils.InitGenesisFlag,
 		utils.AncientFlag,
 		utils.KeyStoreDirFlag,
 		utils.ExternalSignerFlag,
@@ -207,7 +208,6 @@ func init() {
 	app.Copyright = "Copyright 2013-2020 The go-ethereum Authors"
 	app.Commands = []cli.Command{
 		// See chaincmd.go:
-		initCommand,
 		importCommand,
 		exportCommand,
 		importPreimagesCommand,
@@ -315,11 +315,13 @@ func autonity(ctx *cli.Context) error {
 	}
 
 	prepare(ctx)
+
 	stack, backend := makeFullNode(ctx)
 	defer stack.Close()
 
 	startNode(ctx, stack, backend)
 	stack.Wait()
+
 	return nil
 }
 

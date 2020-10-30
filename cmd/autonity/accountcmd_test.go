@@ -18,6 +18,7 @@ package main
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -32,14 +33,15 @@ import (
 // For most tests, the test files from package accounts
 // are copied into a temporary keystore directory.
 
-func tmpDatadirWithKeystore(t *testing.T) string {
+func tmpDatadirWithKeystoreAndGenesisFile(t *testing.T) (string, string) {
 	datadir := tmpdir(t)
 	keystore := filepath.Join(datadir, "keystore")
 	source := filepath.Join("..", "..", "accounts", "keystore", "testdata", "keystore")
 	if err := cp.CopyAll(keystore, source); err != nil {
 		t.Fatal(err)
 	}
-	return datadir
+	genesisFile := tmpGenesisFile(t, datadir)
+	return datadir, genesisFile
 }
 
 func TestAccountListEmpty(t *testing.T) {
@@ -48,7 +50,8 @@ func TestAccountListEmpty(t *testing.T) {
 }
 
 func TestAccountList(t *testing.T) {
-	datadir := tmpDatadirWithKeystore(t)
+	datadir, _ := tmpDatadirWithKeystoreAndGenesisFile(t)
+	defer os.RemoveAll(datadir)
 	autonity := runAutonity(t, "account", "list", "--datadir", datadir)
 	defer autonity.ExpectExit()
 	if runtime.GOOS == "windows" {
@@ -137,7 +140,8 @@ Fatal: Passwords do not match
 }
 
 func TestAccountUpdate(t *testing.T) {
-	datadir := tmpDatadirWithKeystore(t)
+	datadir, _ := tmpDatadirWithKeystoreAndGenesisFile(t)
+	defer os.RemoveAll(datadir)
 	autonity := runAutonity(t, "account", "update",
 		"--datadir", datadir, "--lightkdf",
 		"f466859ead1932d743d622cb74fc058882e8648a")
@@ -178,9 +182,10 @@ Fatal: could not decrypt key with given password
 }
 
 func TestUnlockFlag(t *testing.T) {
-	datadir := tmpDatadirWithKeystore(t)
+	datadir, jsonFile := tmpDatadirWithKeystoreAndGenesisFile(t)
+	defer os.RemoveAll(datadir)
 	autonity := runAutonity(t,
-		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
+		"--datadir", datadir, "--genesis", jsonFile, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a",
 		"js", "testdata/empty.js")
 	autonity.Expect(`
@@ -202,9 +207,11 @@ Password: {{.InputLine "foobar"}}
 }
 
 func TestUnlockFlagWrongPassword(t *testing.T) {
-	datadir := tmpDatadirWithKeystore(t)
+
+	datadir, jsonFile := tmpDatadirWithKeystoreAndGenesisFile(t)
+	defer os.RemoveAll(datadir)
 	autonity := runAutonity(t,
-		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
+		"--datadir", datadir, "--genesis", jsonFile, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
 	defer autonity.ExpectExit()
 	autonity.Expect(`
@@ -221,9 +228,10 @@ Fatal: Failed to unlock account f466859ead1932d743d622cb74fc058882e8648a (could 
 
 // https://github.com/clearmatics/autonity/issues/1785
 func TestUnlockFlagMultiIndex(t *testing.T) {
-	datadir := tmpDatadirWithKeystore(t)
+	datadir, jsonFile := tmpDatadirWithKeystoreAndGenesisFile(t)
+	defer os.RemoveAll(datadir)
 	autonity := runAutonity(t,
-		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
+		"--datadir", datadir, "--genesis", jsonFile, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
 		"--unlock", "0,2",
 		"js", "testdata/empty.js")
 	autonity.Expect(`
@@ -248,9 +256,10 @@ Password: {{.InputLine "foobar"}}
 }
 
 func TestUnlockFlagPasswordFile(t *testing.T) {
-	datadir := tmpDatadirWithKeystore(t)
+	datadir, jsonFile := tmpDatadirWithKeystoreAndGenesisFile(t)
+	defer os.RemoveAll(datadir)
 	autonity := runAutonity(t,
-		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
+		"--datadir", datadir, "--genesis", jsonFile, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
 		"--password", "testdata/passwords.txt", "--unlock", "0,2",
 		"js", "testdata/empty.js")
 	autonity.ExpectExit()
@@ -268,9 +277,10 @@ func TestUnlockFlagPasswordFile(t *testing.T) {
 }
 
 func TestUnlockFlagPasswordFileWrongPassword(t *testing.T) {
-	datadir := tmpDatadirWithKeystore(t)
+	datadir, jsonFile := tmpDatadirWithKeystoreAndGenesisFile(t)
+	defer os.RemoveAll(datadir)
 	autonity := runAutonity(t,
-		"--datadir", datadir, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
+		"--datadir", datadir, "--genesis", jsonFile, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
 		"--password", "testdata/wrong-passwords.txt", "--unlock", "0,2")
 	defer autonity.ExpectExit()
 	autonity.Expect(`
@@ -279,10 +289,12 @@ Fatal: Failed to unlock account 0 (could not decrypt key with given password)
 }
 
 func TestUnlockFlagAmbiguous(t *testing.T) {
+	dir, jsonFile := tmpDataDirWithGenesisFile(t)
+	defer os.RemoveAll(dir)
 	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
 	autonity := runAutonity(t,
-		"--keystore", store, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
-		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a",
+		"--datadir", dir, "--genesis", jsonFile, "--keystore", store, "--nat", "none", "--nodiscover",
+		"--maxpeers", "0", "--port", "0", "--unlock", "f466859ead1932d743d622cb74fc058882e8648a",
 		"js", "testdata/empty.js")
 	defer autonity.ExpectExit()
 
@@ -317,10 +329,12 @@ In order to avoid this warning, you need to remove the following duplicate key f
 }
 
 func TestUnlockFlagAmbiguousWrongPassword(t *testing.T) {
+	dir, jsonFile := tmpDataDirWithGenesisFile(t)
+	defer os.RemoveAll(dir)
 	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
 	autonity := runAutonity(t,
-		"--keystore", store, "--nat", "none", "--nodiscover", "--maxpeers", "0", "--port", "0",
-		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
+		"--datadir", dir, "--genesis", jsonFile, "--keystore", store, "--nat", "none", "--nodiscover",
+		"--maxpeers", "0", "--port", "0", "--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
 	defer autonity.ExpectExit()
 
 	// Helper for the expect template, returns absolute keystore path.
