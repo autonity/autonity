@@ -41,18 +41,6 @@ func TestMessageEncodeDecode(t *testing.T) {
 	}
 }
 
-func TestMessageString(t *testing.T) {
-	msg := &Message{
-		Code:    msgProposal,
-		Address: common.HexToAddress("0x1234567890"),
-	}
-
-	want := "{Code: 0, Address: 0x0000000000000000000000000000001234567890}"
-	if got := msg.String(); got != want {
-		t.Errorf("Expected %v, got %v", want, got)
-	}
-}
-
 func TestMessageValidate(t *testing.T) {
 
 	t.Run("validate function fails, error returned", func(t *testing.T) {

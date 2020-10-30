@@ -67,7 +67,7 @@ func (c *core) Stop() {
 }
 
 func (c *core) subscribeEvents() {
-	s := c.backend.Subscribe(events.MessageEvent{}, backlogEvent{}, backlogUncheckedEvent{})
+	s := c.backend.Subscribe(events.MessageEvent{}, backlogEvent{}, backlogUncheckedEvent{}, coreStateRequestEvent{})
 	c.messageEventSub = s
 
 	s1 := c.backend.Subscribe(events.NewUnminedBlockEvent{})
@@ -156,6 +156,9 @@ eventLoop:
 					continue
 				}
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.msg.Payload())
+			case coreStateRequestEvent:
+				// Process Tendermint state dump request.
+				c.handleStateDump(e)
 			}
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
