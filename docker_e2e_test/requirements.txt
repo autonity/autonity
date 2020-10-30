@@ -5,7 +5,7 @@ bcrypt==3.1.7
 certifi==2019.11.28
 cffi==1.14.0
 chardet==3.0.4
-cryptography==2.8
+cryptography==3.2
 cytoolz==0.10.1
 eth-abi==2.1.1
 eth-account==0.4.0
