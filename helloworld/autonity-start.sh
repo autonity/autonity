@@ -3,6 +3,7 @@
 AUTONITY=autonity
 
 DATADIR=autonity-data
+GENESIS=genesis.json
 KEYSTORE=keystore
 NODEKEY=nodekey
 WS_PORT=8645
@@ -12,14 +13,11 @@ RPC_PORT=8545
 RPC_ADDR=$(awk 'END{print $1}' /etc/hosts)
 RPC_API="tendermint,console,eth,web3,admin,debug,miner,personal,txpool,net"
 
-# init the data directory
-echo "Autonity INIT $RPC_ADDR"
-$AUTONITY init --datadir $DATADIR genesis.json
-
 # start the node with the keystore and nodekey
 echo "Autonity START"
 $AUTONITY \
   --datadir $DATADIR \
+  --genesis $GENESIS \
   --nodekey $NODEKEY \
   --keystore $KEYSTORE \
   --ws \
