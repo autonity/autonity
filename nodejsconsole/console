@@ -1,8 +1,8 @@
 #!/bin/sh
 
 if [ -z $1 ]; then
-	echo "Usage: ./console <websocket enabled autonity rpc host and port>"
-	echo "E.G:   ./console localhost:8546"
+	echo "Usage: ./console <ws://... or wss://... url>"
+	echo "E.G:   ./console ws://localhost:8546"
 	exit 1
 fi
 
