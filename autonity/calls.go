@@ -174,7 +174,7 @@ func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blo
 func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Header) ([]byte, error) {
 	var state raw
 
-	err := ac.AutonityContractCall(statedb, header, "retrieveState", &state)
+	err := ac.AutonityContractCall(statedb, header, "getState", &state)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Head
 func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Header) (string, string, error) {
 	var bytecode string
 	var abi string
-	err := ac.AutonityContractCall(state, header, "retrieveContract", &[]interface{}{&bytecode, &abi})
+	err := ac.AutonityContractCall(state, header, "getNewContract", &[]interface{}{&bytecode, &abi})
 	if err != nil {
 		return "", "", err
 	}

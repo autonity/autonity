@@ -53,13 +53,13 @@ contract Autonity is IERC20 {
     for restricting functions that could only be possibly invoked by the protocol
     itself, bypassing transaction processing and signature verification.
     In normal conditions, it is set to the zero address. We're not simply hardcoding
-    it only for testing purposes.
+    it only because of testing purposes.
     */
     address public deployer;
 
     /*
-     * Binary code and ABI of new version contract, the default value is "" when contract is created.
-     * if they are set by and only by operator, then contract upgrade will be triggered automatically.
+     Binary code and ABI of a new contract, the default value is "" when the contract is deployed.
+     If the bytecode is not empty then a contract upgrade will be triggered automatically.
     */
     string bytecode;
     string contractAbi;
@@ -263,10 +263,11 @@ contract Autonity is IERC20 {
     }
 
     /**
+    * @notice Getter to retrieve a new Autonity contract bytecode and ABI when an upgrade is initiated.
     * @return `bytecode` the new contract bytecode.
     * @return `contractAbi` the new contract ABI.
     */
-    function retrieveContract() external view returns(string memory, string memory) {
+    function getNewContract() external view returns(string memory, string memory) {
         return (bytecode, contractAbi);
     }
 
@@ -289,9 +290,10 @@ contract Autonity is IERC20 {
     }
 
     /**
-    * @dev Implementation of {IAutonity retrieveState}.
+    * @dev Dump the current internal state key elements. Called by the protocol during a contract upgrade.
+    * The returned data will be passed directly to the constructor of the new contract at deployment.
     */
-    function retrieveState() external view returns(
+    function getState() external view returns(
         address[] memory _addr,
         string[] memory _enode,
         uint256[] memory _userType,
@@ -394,7 +396,6 @@ contract Autonity is IERC20 {
     /**
     * @return Returns the minimum gas price.
     * @dev Autonity transaction's gas price must be greater or equal to the minimum gas price.
-    * Implementation of {IAutonity getMinimumGasPrice}
     */
     function getMinimumGasPrice() external view returns(uint256) {
         return minGasPrice;
