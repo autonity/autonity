@@ -58,21 +58,18 @@ type callback struct {
 	isSubscribe bool           // true if this is a subscription callback
 }
 
-// DynamicCallbacks is used for receivers with dynamic API's method it wants to expose through rpc.
+// DynamicCallbacks is used for types which want to generate dynamic functions at runtime using the reflection package
+// and expose them through rpc endpoint.
 //
 // Any instance of golang type with methods at the time of calling take a receiver as the first argument. Take the
 // following method declaration as example:
 //
-//`func (a aType) someMethod()`
+//`func (a aType) someMethod(){}`
 //
-// The instance of aType at runtime will be the receiver for someMethod and will be as the first argument to by
+// The instance of aType at runtime will be the receiver for someMethod() and will also be the first argument passed
 // someMethod().
-//
-// DynamicCallbacks is used for types which want to generate dynamic functions at runtime using the reflection package
-// and  expose them through rpc endpoint.
-//
-// Call() should return a map of function names to function signatures, which will be used to create callbacks.
 type DynamicCallbacks interface {
+	// Call should return a map of function names to function signatures, which will be used to create callbacks.
 	Calls() map[string]reflect.Value
 }
 
