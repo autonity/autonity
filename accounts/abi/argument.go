@@ -75,7 +75,7 @@ func (arguments Arguments) isTuple() bool {
 	return len(arguments) > 1
 }
 
-// isTuple returns true for non-atomic constructs, like (uint,uint) or uint[]
+// Types returns the list of underlying []reflect.Type for Arguments
 func (arguments Arguments) Types() []reflect.Type {
 	var ret = make([]reflect.Type, len(arguments))
 	for i, a := range arguments {
