@@ -58,7 +58,7 @@ DEFAULT_PACKAGE_CORRUPT_RATE = 0.1  # 0.1%
 
 
 class Client(object):
-    def __init__(self, host=None, p2p_port=None, rpc_port=None, ws_port=None, graphql_port=None, net_interface=None,
+    def __init__(self, host=None, p2p_port=None, rpc_port=None, ws_port=None, net_interface=None,
                  coin_base=None, ssh_user=None, ssh_pass=None, ssh_key=None, sudo_pass=None, autonity_path=None,
                  bootnode_path=None, role=None, index=None, e_node=None):
         self.autonity_path = autonity_path
@@ -67,7 +67,6 @@ class Client(object):
         self.p2p_port = p2p_port
         self.rpc_port = rpc_port
         self.ws_port = ws_port
-        self.graphql_port = graphql_port
         self.net_interface = net_interface
         self.ssh_user = ssh_user
         self.ssh_pass = ssh_pass
@@ -142,7 +141,7 @@ class Client(object):
                    "ExecStart={} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
                    "--rpcport {} --rpc --rpcaddr '0.0.0.0' --ws --wsport {} --rpccorsdomain '*' "\
                    "--rpcapi 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
-                   "--gasprice '0' --allow-insecure-unlock --graphql --graphql.port {} " \
+                   "--gasprice '0' --allow-insecure-unlock --graphql " \
                    "--unlock 0x{} --password {} " \
                    "--debug --mine --minerthreads '1' --etherbase 0x{} --verbosity 4 --miner.gaslimit 10000000000 --miner.gastarget 100000000000 --metrics --pprof \n" \
                    "KillMode=process\n" \
@@ -154,25 +153,6 @@ class Client(object):
                    "Alias=autonity.service\n"\
                    "WantedBy=multi-user.target"
 
-        template_local = "[Unit]\n" \
-                   "Description=Clearmatics Autonity Client server\n" \
-                   "After=syslog.target network.target\n" \
-                   "[Service]\n" \
-                   "Type=simple\n" \
-                   "ExecStart={} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
-                   "--rpcport {} --rpc --rpcaddr '0.0.0.0' --ws --wsport {} --rpccorsdomain '*' "\
-                   "--rpcapi 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
-                   "--gasprice '0' --allow-insecure-unlock --graphql --graphql.port {} " \
-                   "--unlock 0x{} --password {} " \
-                   "--debug --mine --minerthreads '1' --etherbase 0x{} --verbosity 4 --miner.gaslimit 10000000000 --miner.gastarget 100000000000 --metrics --pprof \n" \
-                   "KillMode=process\n" \
-                   "KillSignal=SIGINT\n" \
-                   "TimeoutStopSec=1\n" \
-                   "Restart=on-failure\n" \
-                   "RestartSec=1s\n" \
-                   "[Install]\n" \
-                   "Alias=autonity{}.service\n"\
-                   "WantedBy=multi-user.target"
         folder = self.host
 
         print("prepare autonity systemd service file for node: %s", self.host)
@@ -182,11 +162,10 @@ class Client(object):
         p2p_port = self.p2p_port
         rpc_port = self.rpc_port
         ws_port = self.ws_port
-        graphql_port = self.graphql_port
         coin_base = self.coin_base
         password_file = KEY_PASSPHRASE_FILE.format(self.ssh_user, folder)
 
-        content = template_remote.format(bin_path, data_dir, boot_key_file, p2p_port, rpc_port, ws_port, graphql_port,
+        content = template_remote.format(bin_path, data_dir, boot_key_file, p2p_port, rpc_port, ws_port,
                                          coin_base, password_file, coin_base)
         with open("./network-data/{}/autonity.service".format(folder), 'w') as out:
             out.write(content)
