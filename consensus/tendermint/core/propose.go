@@ -114,6 +114,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 					msg: msg,
 				})
 			})
+			return err
 		}
 		c.sendPrevote(ctx, true)
 		// do not to accept another proposal in current round
