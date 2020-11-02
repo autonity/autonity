@@ -265,7 +265,7 @@ contract('Autonity', function (accounts) {
               await token.removeUser(accounts[6], {from: operator});
               await token.addUser(accounts[6], 10, freeEnodes[0], roleValidator, {from: operator});
               await token.changeUserType(accounts[6], roleStakeHolder, {from: operator});
-              await token.redeem(accounts[6], 10, {from: operator});
+              await token.burn(accounts[6], 10, {from: operator});
               await token.changeUserType(accounts[6], roleParticipant, {from: operator});
               thisUserType = (await token.getUser(accounts[6], {from: accounts[6]})).userType;
               assert (thisUserType == roleParticipant, "wrong user type");
@@ -515,23 +515,23 @@ contract('Autonity', function (accounts) {
                 userTypes, stakes, operator, minGasPrice, committeeSize, version,  { from:accounts[8]} );
         });
 
-        it('test user type downgraded when all stake redeemed', async function f() {
+        it('test user type downgraded when all stake burned', async function f() {
             let initStake = 100;
             await token.addUser(accounts[8], initStake, freeEnodes[0], roleValidator, {from: operator});
             let initialUserType = (await token.getUser(accounts[8], {from: accounts[8]})).userType;
             assert(initialUserType == roleValidator, "wrong user type");
 
-            await token.redeem(accounts[8], initStake, {from: operator});
+            await token.burn(accounts[8], initStake, {from: operator});
             let newUserType = (await token.getUser(accounts[8], {from: accounts[8]})).userType;
             assert (newUserType == roleStakeHolder, "wrong user type");
         });
 
-        it('test user type not downgraded when not all stake redeemed', async function f() {
+        it('test user type not downgraded when not all stake burned', async function f() {
             let initStake = 100;
             await token.addUser(accounts[8], initStake, freeEnodes[0], roleValidator, {from: operator});
             let initialUserType = (await token.getUser(accounts[8], {from: accounts[8]})).userType;
             assert(initialUserType == roleValidator, "wrong user type");
-            await token.redeem(accounts[8], 50, {from: operator});
+            await token.burn(accounts[8], 50, {from: operator});
 
             let userType = (await token.getUser(accounts[8], {from: accounts[8]})).userType;
             assert (userType == roleValidator, "wrong user type");
@@ -564,25 +564,25 @@ contract('Autonity', function (accounts) {
             assert(initialUserType == roleValidator, "wrong user type");
 
             let balance = await token.balanceOf(accounts[1], {from: accounts[1]});
-            await token.redeem(accounts[1], balance, {from: operator});
+            await token.burn(accounts[1], balance, {from: operator});
 
             balance = await token.balanceOf(accounts[2], {from: accounts[2]});
-            await token.redeem(accounts[2], balance, {from: operator});
+            await token.burn(accounts[2], balance, {from: operator});
 
             balance = await token.balanceOf(accounts[3], {from: accounts[3]});
-            await token.redeem(accounts[3], balance, {from: operator});
+            await token.burn(accounts[3], balance, {from: operator});
 
             balance = await token.balanceOf(accounts[4], {from: accounts[4]});
-            await token.redeem(accounts[4], balance, {from: operator});
+            await token.burn(accounts[4], balance, {from: operator});
 
             balance = await token.balanceOf(accounts[5], {from: accounts[5]});
-            await token.redeem(accounts[5], balance, {from: operator});
+            await token.burn(accounts[5], balance, {from: operator});
 
             let getValidatorsResult = await token.getValidators({from: operator});
             assert(getValidatorsResult.length == 1, "wrong number of validators");
 
             try {
-                await token.redeem(accounts[8], initStake, {from: operator});
+                await token.burn(accounts[8], initStake, {from: operator});
                 assert.fail('Expected throw not received');
             } catch (e) {
                 let userType = (await token.getUser(accounts[8], {from: accounts[8]})).userType;
@@ -601,9 +601,9 @@ contract('Autonity', function (accounts) {
             // console.log("\tGas used to mint stake = " + tx.receipt.gasUsed.toString() + " gas");
             getStakeResult = await token.balanceOf(accounts[7], {from: accounts[7]});
             assert(100 == getStakeResult, "tokens are not minted");
-            tx = await token.redeem(accounts[7], 100, {from: operator});
+            tx = await token.burn(accounts[7], 100, {from: operator});
 
-            // console.log("\tGas used to redeem stake = " + tx.receipt.gasUsed.toString() + " gas");
+            // console.log("\tGas used to burn stake = " + tx.receipt.gasUsed.toString() + " gas");
 
             getStakeResult = await token.balanceOf(accounts[7], {from: accounts[7]});
             assert(0 == getStakeResult, "unexpected tokens");
@@ -611,14 +611,14 @@ contract('Autonity', function (accounts) {
             await token.removeUser(accounts[7], {from: operator});
         });
 
-        it('test create account, get error when redeem empty stake', async function () {
+        it('test create account, get error when burn empty stake', async function () {
 
             await token.addUser(accounts[7], 0, freeEnodes[0], roleStakeHolder, {from: operator});
             let getStakeResult = await token.balanceOf(accounts[7], {from: accounts[7]});
             assert(0 == getStakeResult, "unexpected tokens not minted");
 
             try {
-                await token.redeem(accounts[7], 100, {from: operator});
+                await token.burn(accounts[7], 100, {from: operator});
                 assert.fail('Expected throw not received');
             } catch (e) {
                 getStakeResult = await token.balanceOf(accounts[7], {from: accounts[7]});
@@ -631,7 +631,7 @@ contract('Autonity', function (accounts) {
             let getStakeResult = await token.balanceOf(validatorsList[2], {from: validatorsList[2]});
             assert(stakes[2] == getStakeResult, "unexpected tokens");
 
-            await token.redeem(accounts[2], 50, {from: operator});
+            await token.burn(accounts[2], 50, {from: operator});
             let balance_after = await token.balanceOf(validatorsList[2], {from: validatorsList[2]});
             assert(stakes[2] - 50, balance_after);
 
@@ -639,10 +639,10 @@ contract('Autonity', function (accounts) {
             await token.removeUser(accounts[5], {from: operator});
         });
 
-        it("should give accounts[2] authority to spend account[1]'s token", async function() {
-            await token.addStakeholder(accounts[6], freeEnodes[0], 100, {from: operator});
-            await token.addStakeholder(accounts[7], freeEnodes[1], 0, {from: operator});
-            await token.addStakeholder(accounts[8], freeEnodes[2], 0, {from: operator});
+        it("should give accounts[7] authority to spend account[6]'s token", async function() {
+            await token.addUser(accounts[6], 100, freeEnodes[0], roleStakeHolder, {from: operator});
+            await token.addUser(accounts[7], 0, freeEnodes[1], roleStakeHolder, {from: operator});
+            await token.addUser(accounts[8], 0, freeEnodes[2], roleStakeHolder, {from: operator});
 
             await token.approve(accounts[7], 70,  {from: accounts[6]});
             let allowance = await token.allowance(accounts[6], accounts[7]);
@@ -663,7 +663,7 @@ contract('Autonity', function (accounts) {
         });
 
         it('test validator can get users list', async function () {
-            var getValidatorsResult = await token.retrieveState({from: operator});
+            var getValidatorsResult = await token.getState({from: operator});
             let addresses = getValidatorsResult[0];
             let types = getValidatorsResult[1];
             let stake = getValidatorsResult[2];
@@ -693,8 +693,8 @@ contract('Autonity', function (accounts) {
             getStakeResult = await token.balanceOf(accounts[6],{from: accounts[6]});
             assert(50 == getStakeResult, "unexpected tokens");
 
-            await token.redeem(accounts[7], 50, {from: operator});
-            await token.redeem(accounts[5], 50, {from: operator});
+            await token.burn(accounts[7], 50, {from: operator});
+            await token.burn(accounts[5], 50, {from: operator});
             await token.removeUser(accounts[7], {from: operator});
             await token.removeUser(accounts[5], {from: operator});
         });

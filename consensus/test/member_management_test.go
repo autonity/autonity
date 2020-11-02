@@ -2,6 +2,9 @@ package test
 
 import (
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -10,8 +13,6 @@ import (
 	"github.com/clearmatics/autonity/params"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
 )
 
 /*
@@ -113,7 +114,7 @@ func TestMemberManagement(t *testing.T) {
 		return false, nil, nil
 	}
 
-	isParticipant := func(port int, height uint64, address common.Address, eNode string) bool {
+	isNetworkParticipant := func(port int, height uint64, address common.Address, eNode string) bool {
 		whiteList, err := interact(port).call(height).getWhitelist()
 		require.NoError(t, err)
 		var inWhitelist bool
@@ -123,25 +124,25 @@ func TestMemberManagement(t *testing.T) {
 				break
 			}
 		}
-		isMember, err := interact(port).call(height).checkMember(address)
+		user, err := interact(port).call(height).getUser(address)
 		require.NoError(t, err)
+		isMember := user.Addr == address
 		assert.Equal(t, isMember, inWhitelist)
-		return isMember && inWhitelist
+		return isMember
 	}
 
 	// to check user membership, user type, stake balance.
 	validateAddedUser := func(t *testing.T, port int, height uint64, address common.Address, eNode string, role uint8, stake uint64, economicMetric AutonityEconomicMetrics) {
-		assert.True(t, isParticipant(port, height, address, eNode), "wrong membership for added user")
+		assert.True(t, isNetworkParticipant(port, height, address, eNode), "wrong membership for added user")
 		// check validator and stakeholder's stake balance
-		actualStake, err := interact(port).call(height).getAccountStake(address)
-		if role != participantRole {
-			require.NoError(t, err)
-			require.Equal(t, stake, actualStake.Uint64())
-		} else {
-			// for participants, it is not allow to have stake, getAccountStake is limited only for stakeholder and validator.
-			fmt.Print("*****************************************\n\n\n\n\n", err, "\n")
-			require.EqualError(t, err, "execution reverted: address not allowed to use stake")
-		}
+		userBalance, err := interact(port).call(height).getAccountStake(address)
+		require.NoError(t, err)
+		user, err := interact(port).call(height).getUser(address)
+		require.NoError(t, err)
+		require.Equal(t, user.Stake.Uint64(), userBalance.Uint64())
+		require.Equal(t, user.UserType, role)
+		require.Equal(t, user.Enode, eNode)
+		require.Equal(t, user.Stake.Uint64(), stake)
 
 		for index, v := range economicMetric.Accounts {
 			if v == address {
@@ -180,7 +181,7 @@ func TestMemberManagement(t *testing.T) {
 	removeUserCheckerHook := func(t *testing.T, validators map[string]*testNode) {
 		port := validators["VA"].rpcPort
 		lastHeight := validators["VA"].lastBlock
-		assert.False(t, isParticipant(port, lastHeight, addressToRemove, eNodeToRemove), "wrong membership for removed user")
+		assert.False(t, isNetworkParticipant(port, lastHeight, addressToRemove, eNodeToRemove), "wrong membership for removed user")
 	}
 
 	// numBlocks are used to stop the test on current test framework, to let user management TX to be mined before the test end,

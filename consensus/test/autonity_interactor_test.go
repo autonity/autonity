@@ -211,14 +211,14 @@ func (c *caller) dumpEconomicsMetricData() (AutonityEconomicMetrics, error) {
 	return metrics, err
 }
 
-func (c *caller) checkMember(address common.Address) (bool, error) {
-	var isMember bool
+func (c *caller) getUser(address common.Address) (AutonityUser, error) {
+	var user AutonityUser
 	err := c.execute(func(instance *Autonity, opts *bind.CallOpts) error {
-		b, err := instance.GetUser(opts, address)
-		isMember = b.Addr != common.Address{}
+		u, err := instance.GetUser(opts, address)
+		user = u
 		return err
 	})
-	return isMember, err
+	return user, err
 }
 
 func (c *caller) getAccountStake(address common.Address) (*big.Int, error) {
