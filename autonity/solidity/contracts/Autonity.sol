@@ -38,7 +38,7 @@ contract Autonity is IERC20 {
     address public operatorAccount;
     uint256 private minGasPrice;
     uint256 public committeeSize;
-    string public contractVersion;
+    string private contractVersion;
 
     mapping (address => mapping (address => uint256)) private allowances;
 
