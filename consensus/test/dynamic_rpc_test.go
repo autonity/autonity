@@ -14,30 +14,24 @@ import (
 
 var (
 	dynamicRpcs = []string{
-		"aut_retrieveContract",
-		"aut_getValidators",
-		"aut_getVersion",
-		"aut_retrieveState",
-		"aut_getStakeholders",
-		"aut_getCommittee",
-		"aut_getWhitelist",
-		"aut_getAccountStake",
-		"aut_getStake",
-		"aut_getRate",
-		"aut_myUserType",
-		"aut_getMaxCommitteeSize",
-		"aut_getCurrentCommiteeSize",
-		"aut_getMinimumGasPrice",
-		"aut_checkMember",
-		"aut_getProposer",
-		"aut_totalSupply",
-		"aut_dumpEconomicsMetricData",
-		"aut_enodesWhitelist",
-		"aut_deployer",
 		"aut_operatorAccount",
-		"aut_bondingPeriod",
 		"aut_committeeSize",
-		"aut_contractVersion",
+		"aut_deployer",
+		"aut_allowance",
+		"aut_getNewContract",
+		"aut_getState",
+		"aut_getVersion",
+		"aut_getCommittee",
+		"aut_getValidators",
+		"aut_getStakeholders",
+		"aut_getWhitelist",
+		"aut_balanceOf",
+		"aut_totalSupply",
+		"aut_getUser",
+		"aut_getMaxCommitteeSize",
+		"aut_getMinimumGasPrice",
+		"aut_getProposer",
+		"aut_dumpEconomicMetrics",
 	}
 )
 
@@ -58,25 +52,19 @@ func TestDynamicRpcs(t *testing.T) {
 						Id:      1,
 					}
 					switch method {
-					case "aut_getAccountStake":
+					case "aut_allowance":
+						body.Params = []string{"0x499ea9ccfb49d1c9c207b7370d5e55cfd828858c", "0x499ea9ccfb49d1c9c207b7370d5e55cfd828858c"}
+					case "aut_balanceOf":
+						body.Params = []string{"0x499ea9ccfb49d1c9c207b7370d5e55cfd828858c"}
+					case "aut_getUser":
 						body.Params = []string{"0x499ea9ccfb49d1c9c207b7370d5e55cfd828858c"}
 					case "aut_getProposer":
 						body.Params = []int{1, 0}
-					case "aut_getRate":
-						body.Params = []string{"0x499ea9ccfb49d1c9c207b7370d5e55cfd828858c"}
-					case "aut_checkMember":
-						body.Params = []string{"0x499ea9ccfb49d1c9c207b7370d5e55cfd828858c"}
 					}
 					payload, err := json.Marshal(body)
 					require.NoError(t, err)
 					println("calling", string(payload))
 					callRpc(t, ep, payload)
-					// resp, err := http.Post(ep, "application/json", bytes.NewBuffer([]byte(payload)))
-					// assert.NoError(t, err)
-					// defer resp.Body.Close()
-					// respBytes, err := ioutil.ReadAll(resp.Body)
-					// assert.NoError(t, err)
-					// fmt.Println(string(respBytes))
 				}
 			},
 		}}
