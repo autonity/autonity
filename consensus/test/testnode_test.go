@@ -3,10 +3,11 @@ package test
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus"
 
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/node"
@@ -54,6 +55,10 @@ type netNode struct {
 	port       int
 	url        string
 	rpcPort    int
+}
+
+func (n *netNode) EthAddress() common.Address {
+	return crypto.PubkeyToAddress(n.privateKey.PublicKey)
 }
 
 type block struct {

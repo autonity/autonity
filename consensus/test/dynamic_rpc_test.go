@@ -3,7 +3,6 @@ package test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -35,12 +34,16 @@ var (
 	}
 )
 
+// This tests makes an rpc call for each element in dynamicRpcs. It only checks
+// that a result is returned and no error is encountered, it is assumed that
+// the functionality of these calls is tested in more detail elsewhere.
 func TestDynamicRpcs(t *testing.T) {
 	tc := &testCase{
 		numValidators: 1,
 		numBlocks:     1,
 		finalAssert: func(t *testing.T, validators map[string]*testNode) {
 			n := validators["VA"]
+			validatorAddress := n.EthAddress().String()
 			ep := n.node.HTTPEndpoint()
 			for _, method := range dynamicRpcs {
 				body := &rpcCall{
@@ -50,13 +53,15 @@ func TestDynamicRpcs(t *testing.T) {
 				}
 				switch method {
 				case "aut_allowance":
-					body.Params = []string{"0x499ea9ccfb49d1c9c207b7370d5e55cfd828858c", "0x499ea9ccfb49d1c9c207b7370d5e55cfd828858c"}
+					body.Params = []string{validatorAddress, validatorAddress}
 				case "aut_balanceOf":
-					body.Params = []string{"0x499ea9ccfb49d1c9c207b7370d5e55cfd828858c"}
+					body.Params = []string{validatorAddress}
 				case "aut_getUser":
-					body.Params = []string{"0x499ea9ccfb49d1c9c207b7370d5e55cfd828858c"}
+					body.Params = []string{validatorAddress}
 				case "aut_getProposer":
-					body.Params = []int{1, 0}
+					height := 1
+					round := 0
+					body.Params = []int{height, round}
 				}
 				payload, err := json.Marshal(body)
 				require.NoError(t, err)
@@ -67,7 +72,6 @@ func TestDynamicRpcs(t *testing.T) {
 				// Check that there was no error and that a result was returned.
 				assert.NotNil(t, responseMap["result"])
 				assert.Nil(t, responseMap["error"])
-				fmt.Println(string(respBytes))
 			}
 		},
 	}
