@@ -2,12 +2,13 @@ package core
 
 import (
 	"context"
+	"errors"
+	"github.com/clearmatics/autonity/consensus"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/golang/mock/gomock"
 
 	"github.com/clearmatics/autonity/common"
@@ -243,15 +244,11 @@ func TestHandleProposal(t *testing.T) {
 
 		payload := preVoteMsg.Payload()
 
-		event := backlogEvent{
-			msg: msg,
-		}
-
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(time.Nanosecond, consensus.ErrFutureBlock)
+		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(time.Nanosecond, errors.New("bad block"))
 		backendMock.EXPECT().Sign(payloadNoSig)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
-		backendMock.EXPECT().Post(event).AnyTimes()
+		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
 		c := &core{
 			address:          addr,
@@ -266,9 +263,69 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		err = c.handleProposal(context.Background(), msg)
-		if err != consensus.ErrFutureBlock {
-			t.Fatalf("Expected %v, got %v", consensus.ErrFutureBlock, err)
+		if err == nil {
+			t.Fatalf("Expected non nil error, got %v", err)
 		}
+	})
+
+	t.Run("future proposal given, backlog event posted", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		addr := common.HexToAddress("0x0123456789")
+
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
+		})
+
+		message := newMessagesMap()
+		curRoundMessages := message.getOrCreate(2)
+
+		logger := log.New("backend", "test", "id", 0)
+		proposalBlock := NewProposal(2, big.NewInt(1), 1, block)
+		proposal, err := Encode(proposalBlock)
+		if err != nil {
+			t.Fatalf("Expected <nil>, got %v", err)
+		}
+
+		msg := &Message{
+			Code:          msgProposal,
+			Msg:           proposal,
+			Address:       addr,
+			CommittedSeal: []byte{},
+			Signature:     []byte{0x1},
+			power:         1,
+		}
+
+		testCommittee := types.Committee{
+			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
+		}
+
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(time.Second, consensus.ErrFutureBlock)
+		event := backlogEvent{
+			msg: msg,
+		}
+
+		backendMock.EXPECT().Post(event).Times(1)
+		c := &core{
+			address:          addr,
+			backend:          backendMock,
+			messages:         message,
+			curRoundMessages: curRoundMessages,
+			logger:           logger,
+			proposeTimeout:   newTimeout(propose, logger),
+			committee:        valSet,
+			round:            2,
+			height:           big.NewInt(1),
+		}
+
+		err = c.handleProposal(context.Background(), msg)
+		if err == nil {
+			t.Fatalf("Expected non nil error, got %v", err)
+		}
+		<-time.NewTimer(2 * time.Second).C
 	})
 
 	t.Run("valid proposal given, no error returned", func(t *testing.T) {
