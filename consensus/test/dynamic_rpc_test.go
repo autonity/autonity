@@ -65,9 +65,10 @@ func TestDynamicRpcs(t *testing.T) {
 				}
 				payload, err := json.Marshal(body)
 				require.NoError(t, err)
-				respBytes := callRpc(t, ep, payload)
+				respBytes := callRPC(t, ep, payload)
 				responseMap := make(map[string]interface{})
-				json.Unmarshal(respBytes, &responseMap)
+				err = json.Unmarshal(respBytes, &responseMap)
+				require.NoError(t, err)
 
 				// Check that there was no error and that a result was returned.
 				assert.NotNil(t, responseMap["result"])
@@ -79,14 +80,14 @@ func TestDynamicRpcs(t *testing.T) {
 }
 
 type rpcCall struct {
-	Jsonrpc string      `json:"jsonrpc,omitempty"`
+	Jsonrpc string      `json:"jsonrpc,omitempty"` // nolint
 	Method  string      `json:"method,omitempty"`
 	Params  interface{} `json:"params,omitempty"`
-	Id      int         `json:"id,omitempty"`
+	Id      int         `json:"id,omitempty"` // nolint
 }
 
-func callRpc(t *testing.T, ep string, payload []byte) []byte {
-	resp, err := http.Post(ep, "application/json", bytes.NewBuffer(payload))
+func callRPC(t *testing.T, ep string, payload []byte) []byte {
+	resp, err := http.Post(ep, "application/json", bytes.NewBuffer(payload)) // nolint gosec complains about variable url
 	assert.NoError(t, err)
 	defer resp.Body.Close()
 	respBytes, err := ioutil.ReadAll(resp.Body)
