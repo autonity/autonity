@@ -583,6 +583,13 @@ func contractABIMethods(bc *core.BlockChain) map[string]reflect.Value {
 					var iargs []interface{}
 					// args[0] is the reflect.Value of *AutonityContractAPI.
 					for _, arg := range args[1:] {
+						// If the argument is a pointer it is then an optional parameter for the rpc handler. The
+						// json unmarshalling function set it to nil if the argument isn't set in the RPC call.
+						// There are no optionnal parameters for the Autonity contract methods. Solidity doesn't
+						// even support them and the packing function will crash if nil is passed.
+						if arg.Kind() == reflect.Ptr && arg.IsNil() {
+							return makereturn(nil, errors.New("missing arguments"))
+						}
 						iargs = append(iargs, arg.Interface())
 					}
 					res := make(map[string]interface{})
