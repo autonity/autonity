@@ -285,9 +285,7 @@ func TestHandleProposal(t *testing.T) {
 		logger := log.New("backend", "test", "id", 0)
 		proposalBlock := NewProposal(2, big.NewInt(1), 1, block)
 		proposal, err := Encode(proposalBlock)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
+		assert.NoError(t, err)
 
 		msg := &Message{
 			Code:          msgProposal,
@@ -303,6 +301,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
+		assert.NoError(t, err)
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(time.Second, consensus.ErrFutureBlock)
 		event := backlogEvent{
@@ -323,9 +322,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		err = c.handleProposal(context.Background(), msg)
-		if err == nil {
-			t.Fatalf("Expected non nil error, got %v", err)
-		}
+		assert.Error(t, err)
 		<-time.NewTimer(2 * time.Second).C
 	})
 
