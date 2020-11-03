@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/common/graph"
 	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 

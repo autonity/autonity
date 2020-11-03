@@ -32,11 +32,11 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/mclock"
 	"github.com/clearmatics/autonity/common/prque"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
