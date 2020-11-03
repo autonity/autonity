@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"reflect"
 	"testing"
@@ -393,6 +394,71 @@ func TestHandleProposal(t *testing.T) {
 		if !reflect.DeepEqual(curRoundMessages.proposalMsg, msg) {
 			t.Fatalf("%v not equal to  %v", curRoundMessages.proposalMsg, msg)
 		}
+	})
+
+	t.Run("valid proposal given and already a quorum of precommits received for it, commit", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		committeeSet, keys := newTestCommitteeSetWithKeys(4)
+		logger := log.New("backend", "test", "id", 0)
+		proposer, err := committeeSet.GetByIndex(3)
+		assert.NoError(t, err)
+
+		proposalBlock := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
+		})
+
+		messages := newMessagesMap()
+		curRoundMessages := messages.getOrCreate(2)
+
+		proposalMsg := NewProposal(2, big.NewInt(1), 2, proposalBlock)
+		proposal, err := Encode(proposalMsg)
+		assert.NoError(t, err)
+
+		backendMock := NewMockBackend(ctrl)
+
+		c := &core{
+			address:          common.HexToAddress("0x0123456789"),
+			backend:          backendMock,
+			messages:         messages,
+			curRoundMessages: curRoundMessages,
+			logger:           logger,
+			round:            2,
+			height:           big.NewInt(1),
+			proposeTimeout:   newTimeout(propose, logger),
+			precommitTimeout: newTimeout(precommit, logger),
+			committee:        committeeSet,
+			step:             precommit,
+		}
+
+		// Handle a quorum of precommits for this proposal
+		for i := 0; i < 3; i++ {
+			val, _ := committeeSet.GetByIndex(i)
+			precommitMsg, err := preparePrecommitMsg(proposalBlock.Hash(), 2, 1, keys, val)
+			assert.NoError(t, err)
+			err = c.handlePrecommit(context.Background(), precommitMsg)
+			assert.NoError(t, err)
+		}
+
+		msg := &Message{
+			Code:          msgProposal,
+			Msg:           proposal,
+			Address:       proposer.Address,
+			CommittedSeal: []byte{},
+			Signature:     []byte{0x1},
+			power:         1,
+		}
+		var decProposal Proposal
+		err = msg.Decode(&decProposal)
+		assert.NoError(t, err)
+		backendMock.EXPECT().VerifyProposal(*decProposal.ProposalBlock)
+		backendMock.EXPECT().Commit(gomock.Any(), int64(2), gomock.Any()).Times(1).Do(func(committedBlock *types.Block, _ int64, _ [][]byte) {
+			assert.Equal(t, proposalBlock.Hash(), committedBlock.Hash())
+		})
+
+		err = c.handleProposal(context.Background(), msg)
+		assert.NoError(t, err)
 	})
 
 	t.Run("valid proposal given, valid round -1, pre-vote is sent", func(t *testing.T) {
