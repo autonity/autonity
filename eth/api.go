@@ -602,6 +602,12 @@ func NewAutonityContractAPI(bc *core.BlockChain, ac *autonity.Contract) *Autonit
 						return makereturn(nil, err)
 					}
 					result, err := contractABI.Unpack(functionName, packedResult)
+
+					// If the result is a slice with one element only then just return the element.
+					v := reflect.ValueOf(result)
+					if v.Len() == 1 {
+						return makereturn(v.Index(0).Interface(), err)
+					}
 					return makereturn(result, err)
 				})
 		}
