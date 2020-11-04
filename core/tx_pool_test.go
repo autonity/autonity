@@ -20,7 +20,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -28,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"

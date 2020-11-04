@@ -1,4 +1,6 @@
-pragma solidity ^0.6.4;
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.7.1;
 
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
