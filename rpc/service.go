@@ -127,7 +127,7 @@ func (r *serviceRegistry) subscription(service, name string) *callback {
 // the type implements Methods it uses the methods returned by
 // Methods.AllMethods. If a type implements Methods it is expected that all the
 // methods returned from Methods.AllMethods will be suitable as a callback.
-// Otherwise ony the methods of the reciever that satisfy the criteria for an
+// Otherwise only the methods of the receiver that satisfy the criteria for an
 // RPC callback or a subscription callback are added to the collection of
 // callbacks. See server documentation for a summary of these criteria.
 func suitableCallbacks(receiver reflect.Value) map[string]*callback {
