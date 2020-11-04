@@ -3,7 +3,6 @@ package test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -35,7 +34,7 @@ var (
 	}
 )
 
-// This tests makes an rpc call for each element in dynamicRpcs. It only checks
+// This test makes an rpc call for each element in dynamicRpcs. It only checks
 // that a result is returned and no error is encountered, it is assumed that
 // the functionality of these calls is tested in more detail elsewhere.
 func TestDynamicRpcs(t *testing.T) {
@@ -68,7 +67,6 @@ func TestDynamicRpcs(t *testing.T) {
 				require.NoError(t, err)
 				respBytes := callRPC(t, ep, payload)
 				responseMap := make(map[string]interface{})
-				fmt.Printf("%s\n", string(respBytes))
 				err = json.Unmarshal(respBytes, &responseMap)
 				require.NoError(t, err)
 
