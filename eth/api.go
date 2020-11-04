@@ -545,7 +545,7 @@ func NewAutonityContractAPI(bc *core.BlockChain) *AutonityContractAPI {
 	return &AutonityContractAPI{calls: contractABIMethods(bc)}
 }
 
-func (a *AutonityContractAPI) Calls() map[string]reflect.Value {
+func (a *AutonityContractAPI) AllMethods() map[string]reflect.Value {
 	return a.calls
 }
 
