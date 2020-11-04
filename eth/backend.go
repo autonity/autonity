@@ -299,7 +299,7 @@ func (s *Ethereum) APIs() []rpc.API {
 		apis = append(apis, rpc.API{
 			Namespace: "aut",
 			Version:   params.Version,
-			Service:   NewAutonityContractAPI(s.BlockChain()),
+			Service:   NewAutonityContractAPI(s.BlockChain(), s.BlockChain().GetAutonityContract()),
 			Public:    true,
 		})
 	}

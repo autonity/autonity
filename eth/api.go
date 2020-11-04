@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/core"
@@ -535,27 +536,25 @@ func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Bloc
 	return dirty, nil
 }
 
-// AutonityContractAPI implements DynamicCallbacks defined in rpc package to dynamically expose view function of the
-// autonity contract through rpc endpoint.
+// AutonityContractAPI implements rpc.Methods to expose view functions of the
+// autonity contract through the rpc api. Note, although it looks like this
+// struct would be better defined in the rpc package or in the autonity
+// package, circular dependencies make it infeasible.
 type AutonityContractAPI struct {
 	calls map[string]reflect.Value
 }
 
-func NewAutonityContractAPI(bc *core.BlockChain) *AutonityContractAPI {
-	return &AutonityContractAPI{calls: contractABIMethods(bc)}
-}
-
-func (a *AutonityContractAPI) AllMethods() map[string]reflect.Value {
-	return a.calls
-}
-
-// contractABIMethods takes an ethereum object to get the latest autonity contract's ABI to determine its view functions
-// (functions which don't modify contract state) and uses the reflection package to dynamically create a map of function
-// names to function bodies.
-func contractABIMethods(bc *core.BlockChain) map[string]reflect.Value {
+// NewAutonityContractAPI builds a map of function name to method representing
+// the view functions of the autonity contract, the map is then used as the
+// return value for AllMethods. The methods are dynamically generated from the
+// autonity contract ABI and assume that they are called with an instance of
+// AutonityContractAPI as their method receiver, even though the functions
+// themselves make no use of the method receiver. This design is required to be
+// able to fit into the current approach taken for registering rpc services.
+// See rpc.Server.RegisterName().
+func NewAutonityContractAPI(bc *core.BlockChain, ac *autonity.Contract) *AutonityContractAPI {
 	var viewMethodStr = "view"
-	var contract = bc.GetAutonityContract()
-	var contractABI = contract.ABI()
+	var contractABI = ac.ABI()
 	var contractViewMethods = make(map[string]reflect.Value)
 
 	for n, m := range contractABI.Methods {
@@ -583,29 +582,33 @@ func contractABIMethods(bc *core.BlockChain) map[string]reflect.Value {
 					var iargs []interface{}
 					// args[0] is the reflect.Value of *AutonityContractAPI.
 					for i, arg := range args[1:] {
-						// If the argument is a pointer it is then an optional parameter for the rpc handler. The
+						// If the argument is a pointer it is then an optional parameter for the RPC handler. The
 						// json unmarshalling function set it to nil if the argument isn't set in the RPC call.
-						// There are no optionnal parameters for the Autonity contract methods. Solidity doesn't
+						// There are no optional parameters for the Autonity contract methods. Solidity doesn't
 						// even support them and the packing function will crash if nil is passed.
 						if arg.Kind() == reflect.Ptr && arg.IsNil() {
 							return makereturn(nil, fmt.Errorf("missing value for required argument %d", i))
 						}
 						iargs = append(iargs, arg.Interface())
 					}
-					res := make(map[string]interface{})
-					err = contract.AutonityContractCallUnpackIntoMap(stateDB, bc.CurrentHeader(), functionName, res, iargs...)
+
+					// Pack the arguments call the function and then unpack the result and return it.
+					packedArgs, err := contractABI.Pack(functionName, iargs...)
 					if err != nil {
 						return makereturn(nil, err)
 					}
-					if len(res) == 1 {
-						for _, v := range res {
-							return makereturn(v, nil)
-						}
+					packedResult, err := ac.CallContractFunc(stateDB, bc.CurrentHeader(), functionName, packedArgs)
+					if err != nil {
+						return makereturn(nil, err)
 					}
-					return makereturn(res, nil)
+					result, err := contractABI.Unpack(functionName, packedResult)
+					return makereturn(result, err)
 				})
 		}
 	}
+	return &AutonityContractAPI{calls: contractViewMethods}
+}
 
-	return contractViewMethods
+func (a *AutonityContractAPI) AllMethods() map[string]reflect.Value {
+	return a.calls
 }

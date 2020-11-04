@@ -3,6 +3,7 @@ package test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -67,6 +68,7 @@ func TestDynamicRpcs(t *testing.T) {
 				require.NoError(t, err)
 				respBytes := callRPC(t, ep, payload)
 				responseMap := make(map[string]interface{})
+				fmt.Printf("%s\n", string(respBytes))
 				err = json.Unmarshal(respBytes, &responseMap)
 				require.NoError(t, err)
 
