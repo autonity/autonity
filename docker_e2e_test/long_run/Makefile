@@ -28,4 +28,5 @@ install-prerequisites-linux:
 
 # Installs the prerequisites for a mac user
 install-prerequisites-mac:
-	brew install python3
+	brew update
+	brew install python3 google-cloud-sdk
