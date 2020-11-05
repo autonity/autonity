@@ -27,18 +27,25 @@ The client api will read environment variable GOOGLE_APPLICATION_CREDENTIALS to 
 `make autonity-long-tests`
 It start the test by using master branch of autonity by default.
 ## Parameters and default values
-```python
-    parser.add_argument('--project_id', default='autonity-e2e-918063', help='Your Google Cloud project ID.')
-    parser.add_argument('--zone', default='europe-west2-c', help='Compute Engine zone to deploy to.')
-    parser.add_argument('--name',
-                        default='test-engine-{}'.format(time.asctime().lower().replace(" ", "-").replace(":", "")),
-                        help='New compute instance name.')
-    parser.add_argument('--template', default='test-engine-template', help='Compute instance template name.')
-    parser.add_argument('--ssh_key', default="{}/.ssh/id_rsa.pub".format(home_dir),
-                        help='SSH public key for accessing remote VM.')
-    parser.add_argument('--user', default=getpass.getuser(), help='SSH public key for accessing remote VM.')
-    parser.add_argument('--rm_instance', default='', help='Name of compute instance to be removed.')
-    parser.add_argument('--branch', default='master', help='Branch name of autonity to be tested by test engine.')
+```
+usage: python3 long_run_test.py [-h] [--project_id PROJECT_ID] [--zone ZONE]
+                        [--name NAME] [--template TEMPLATE]
+                        [--ssh_key SSH_KEY] [--user USER]
+                        [--rm_instance RM_INSTANCE] [--branch BRANCH]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --project_id PROJECT_ID
+                        Your Google Cloud project ID.
+  --zone ZONE           Compute Engine zone to deploy to.
+  --name NAME           New compute instance name.
+  --template TEMPLATE   Compute instance template name.
+  --ssh_key SSH_KEY     SSH public key for accessing remote VM.
+  --user USER           SSH user for accessing remote VM.
+  --rm_instance RM_INSTANCE
+                        Name of compute instance to be removed.
+  --branch BRANCH       Branch name of autonity to be tested by test engine.
+
 ```
 
 # Example outputs

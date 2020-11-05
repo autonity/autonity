@@ -162,7 +162,7 @@ if __name__ == '__main__':
     parser.add_argument('--template', default='test-engine-template', help='Compute instance template name.')
     parser.add_argument('--ssh_key', default="{}/.ssh/id_rsa.pub".format(home_dir),
                         help='SSH public key for accessing remote VM.')
-    parser.add_argument('--user', default=getpass.getuser(), help='SSH public key for accessing remote VM.')
+    parser.add_argument('--user', default=getpass.getuser(), help='SSH user for accessing remote VM.')
     parser.add_argument('--rm_instance', default='', help='Name of compute instance to be removed.')
     parser.add_argument('--branch', default='master', help='Branch name of autonity to be tested by test engine.')
 
