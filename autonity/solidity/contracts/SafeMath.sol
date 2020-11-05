@@ -1,4 +1,5 @@
-pragma solidity ^0.6.4;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.7.1;
 
 /**
  * @dev Wrappers over Solidity's arithmetic operations with added overflow

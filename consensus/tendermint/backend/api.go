@@ -17,9 +17,10 @@
 package backend
 
 import (
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
 )
@@ -70,4 +71,9 @@ func (api *API) GetContractABI() string {
 // Get current white list
 func (api *API) GetWhitelist() []string {
 	return api.tendermint.WhiteList()
+}
+
+// Get current tendermint's core state
+func (api *API) GetCoreState() core.TendermintState {
+	return api.tendermint.CoreState()
 }

@@ -180,7 +180,7 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
 
-	log.Info("ApplyFinalize",
+	log.Debug("ApplyFinalize",
 		"balance", statedb.GetBalance(ContractAddress),
 		"block", header.Number.Uint64(),
 		"gas", blockGas.Uint64())
@@ -200,7 +200,7 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
-	log.Info("ApplyFinalize", "upgradeContract", upgradeContract)
+	log.Debug("ApplyFinalize", "upgradeContract", upgradeContract)
 
 	if upgradeContract {
 		// warning prints for failure rather than returning error to stuck engine.
@@ -214,7 +214,7 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 }
 
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
-	log.Error("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
+	log.Warn("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
 
 	// dump contract stateBefore first.
 	stateBefore, errState := ac.callRetrieveState(statedb, header)
