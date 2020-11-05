@@ -22,16 +22,6 @@ For example:
 `export GOOGLE_APPLICATION_CREDENTIALS="/home/user/Downloads/your_token_file.json"`
 The client api will read environment variable GOOGLE_APPLICATION_CREDENTIALS to complete the service finding and auth. 
 
-## 3rd party python libs
-Execute below command:
-`pip3 install -r requirements.txt`
-to install:
-```
-google-api-python-client==1.12.4
-google-auth==1.22.1
-google-auth-httplib2==0.0.4
-fabric==2.5.0
-```
 # How to use it
 ## Run
 `make autonity-long-tests`
