@@ -24,7 +24,8 @@ clean:
 
 # Installs the prerequisites for a Linux user
 install-prerequisites-linux:
-	sudo apt-get install python3 python3-venv python3-pip
+	sudo apt-get update
+	sudo apt-get install python3 python3-venv python3-pip google-cloud-sdk
 
 # Installs the prerequisites for a mac user
 install-prerequisites-mac:
