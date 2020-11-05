@@ -152,7 +152,7 @@ func (miner *Miner) Stop() {
 }
 
 func (miner *Miner) Close() {
-	close(miner.exitCh)
+	miner.exitCh <- struct{}{}
 }
 
 func (miner *Miner) Mining() bool {
