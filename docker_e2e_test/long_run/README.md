@@ -22,13 +22,6 @@ For example:
 `export GOOGLE_APPLICATION_CREDENTIALS="/home/user/Downloads/your_token_file.json"`
 The client api will read environment variable GOOGLE_APPLICATION_CREDENTIALS to complete the service finding and auth. 
 
-# Dependencies
-## Update repo source
-`sudo apt-get update`
-## Python3
-`sudo apt-get install python3`
-## Python3-pip
-`sudo apt-get install python3-pip`
 ## 3rd party python libs
 Execute below command:
 `pip3 install -r requirements.txt`
