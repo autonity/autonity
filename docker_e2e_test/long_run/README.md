@@ -4,6 +4,8 @@ default with a VM template: test-engine-template attaching with user's ssh publi
 start to deploy autonity docker e2e test framework on remote VM, and launch a long running test.
 
 # Prerequisites
+
+`make install-prerequisites-[linux|mac]`
 ## gcloud SDK
 Run `gcloud projects list` to double check if "autonity-e2e-918063" is presented at your gcloud SDK. Otherwise you need:
 install gcloud SDK by referring from: https://cloud.google.com/sdk/docs/install and init your gcloud SDK with your google
@@ -90,4 +92,3 @@ Waiting for virtual machine to finish bootstrap ......
 [TIP] Once test case failed, network system logs can be find at test_report.log or zipped at 35.197.218.5:/home/jason.chen/autonity/docker-e2e-test/JOB_<timestamp>.tar
 [TIP] please use "ssh jason.chen@35.197.218.5" to access remote compute instance
 ```
-
