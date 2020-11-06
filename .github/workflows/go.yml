@@ -343,7 +343,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v1
         with:
-          node-version: '9.x'
+          node-version: '10.x'
 
       - name: Cache code
         uses: actions/cache@v1
