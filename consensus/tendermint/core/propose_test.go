@@ -303,7 +303,8 @@ func TestHandleProposal(t *testing.T) {
 		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
 		assert.NoError(t, err)
 		backendMock := NewMockBackend(ctrl)
-		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(time.Second, consensus.ErrFutureBlock)
+		const eventPostingDelay = time.Second
+		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(eventPostingDelay, consensus.ErrFutureBlock)
 		event := backlogEvent{
 			msg: msg,
 		}
@@ -323,7 +324,10 @@ func TestHandleProposal(t *testing.T) {
 
 		err = c.handleProposal(context.Background(), msg)
 		assert.Error(t, err)
-		<-time.NewTimer(2 * time.Second).C
+		// We wait here for at least the delay "eventPostingDelay" returned by VerifyProposal :
+		// We expect above that a backlog event containing the future proposal message will be posted
+		// after this amount of time. This being done asynchrounously it is necessary to pause the main thread.
+		<-time.NewTimer(2 * eventPostingDelay).C
 	})
 
 	t.Run("valid proposal given, no error returned", func(t *testing.T) {
