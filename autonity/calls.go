@@ -43,10 +43,6 @@ func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis
 	enodes := make([]string, 0, ln)
 	accTypes := make([]*big.Int, 0, ln)
 	participantStake := make([]*big.Int, 0, ln)
-	commissionRate := make([]*big.Int, 0, ln)
-
-	// Default bond period is 100.
-	defaultBondPeriod := big.NewInt(100)
 
 	defaultCommitteeSize := big.NewInt(1000)
 	defaultVersion := "v0.0.0"
@@ -56,9 +52,6 @@ func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis
 		enodes = append(enodes, v.Enode)
 		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
 		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
-
-		// TODO: default commission rate is 0, should use a config file...
-		commissionRate = append(commissionRate, big.NewInt(0))
 	}
 
 	constructorParams, err := abi.Pack("",
@@ -66,10 +59,8 @@ func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis
 		enodes,
 		accTypes,
 		participantStake,
-		commissionRate,
 		autonityConfig.Operator,
 		new(big.Int).SetUint64(autonityConfig.MinGasPrice),
-		defaultBondPeriod,
 		defaultCommitteeSize,
 		defaultVersion)
 	if err != nil {
@@ -106,19 +97,19 @@ func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.
 	return nil
 }
 
+// AutonityContractCall calls the specified function of the autonity contract
+// with the given args, and returns the output unpacked into the result
+// interface.
 func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}, args ...interface{}) error {
-	gas := uint64(math.MaxUint64)
-	evm := ac.evmProvider.EVM(header, Deployer, statedb)
 
-	input, err := ac.contractABI.Pack(function, args...)
+	packedArgs, err := ac.contractABI.Pack(function, args...)
 	if err != nil {
 		return err
 	}
 
-	ret, _, vmerr := evm.Call(vm.AccountRef(Deployer), ContractAddress, input, gas, new(big.Int))
-	if vmerr != nil {
-		log.Error("Error Autonity Contract", "function", function)
-		return vmerr
+	ret, err := ac.CallContractFunc(statedb, header, function, packedArgs)
+	if err != nil {
+		return err
 	}
 	// if result's type is "raw" then bypass unpacking
 	if reflect.TypeOf(result) == reflect.TypeOf(&raw{}) {
@@ -133,6 +124,18 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 	}
 
 	return nil
+}
+
+// CallContractFunc creates an evm object, uses it to call the
+// specified function of the autonity contract with packedArgs and returns the
+// packed result. If there is an error making the evm call it will be returned.
+// Callers should use the autonity contract ABI to pack and unpack the args and
+// result.
+func (ac *Contract) CallContractFunc(statedb *state.StateDB, header *types.Header, function string, packedArgs []byte) ([]byte, error) {
+	gas := uint64(math.MaxUint64)
+	evm := ac.evmProvider.EVM(header, Deployer, statedb)
+	packedResult, _, err := evm.Call(vm.AccountRef(Deployer), ContractAddress, packedArgs, gas, new(big.Int))
+	return packedResult, err
 }
 
 func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
@@ -183,7 +186,7 @@ func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blo
 func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Header) ([]byte, error) {
 	var state raw
 
-	err := ac.AutonityContractCall(statedb, header, "retrieveState", &state)
+	err := ac.AutonityContractCall(statedb, header, "getState", &state)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +197,7 @@ func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Head
 func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Header) (string, string, error) {
 	var bytecode string
 	var abi string
-	err := ac.AutonityContractCall(state, header, "retrieveContract", &[]interface{}{&bytecode, &abi})
+	err := ac.AutonityContractCall(state, header, "getNewContract", &[]interface{}{&bytecode, &abi})
 	if err != nil {
 		return "", "", err
 	}

@@ -1,8 +1,8 @@
 #!/bin/sh
 
 if [ -z $1 ]; then
-	echo "Usage: ./console <websocket enabled autonity rpc host and port>"
-	echo "E.G:   ./console localhost:8546"
+	echo "Usage: ./console <ws://... or wss://... url>"
+	echo "E.G:   ./console ws://localhost:8546"
 	exit 1
 fi
 
@@ -36,7 +36,7 @@ echo
 # Note the --experimental-repl-await doesn't take effect for the code executed with eval.
 node --experimental-repl-await --eval "
 let Web3=require('web3');
-let web3 = new Web3('ws://$1');
+let web3 = new Web3('$1');
 let contract;
 let autonity;
 
@@ -807,7 +807,7 @@ const tendermint = function() {
 			call: 'tendermint_getWhitelist',
 			params: 0
 		}),
-		new web3._extend.Method({
+		new web3.extend.Method({
 			name: 'getCoreState',
 			call: 'tendermint_getCoreState',
 			params: 0
@@ -863,7 +863,7 @@ moduleInit.set('lespay', lesPay);
 
 let WebSocket = require('ws');
 
-let ws = new WebSocket('ws://$1');
+let ws = new WebSocket('$1');
  
 let data = JSON.stringify({
 	jsonrpc:'2.0',
@@ -902,10 +902,7 @@ ws.addEventListener('message', event => {
 	if (parsed.result.hasOwnProperty('tendermint')) {
 
 		Promise.all([web3.tendermint.getContractABI(), web3.eth.getGasPrice(), web3.eth.getCoinbase()]).then((results) => {
-			contract = new web3.eth.Contract(JSON.parse(results[0]), '0xbd770416a3345f91e4b34576cb804a576fa48eb1', {
-				gasPrice: results[1], // default gas price in wei, 20 gwei in this case
-				from: results[2] // default from address
-			});
+			contract = new web3.eth.Contract(JSON.parse(results[0]), '0xbd770416a3345f91e4b34576cb804a576fa48eb1');
 
 			// Setting context values makes them available in the default scope
 			// of the repl.

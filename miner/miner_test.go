@@ -18,7 +18,7 @@
 package miner
 
 import (
-	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/autonity"
 	"testing"
 	"time"
 

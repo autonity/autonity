@@ -295,6 +295,15 @@ func (s *Ethereum) APIs() []rpc.API {
 	// Append any APIs exposed explicitly by the consensus engine
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
 
+	if _, ok := s.engine.(consensus.BFT); ok {
+		apis = append(apis, rpc.API{
+			Namespace: "aut",
+			Version:   params.Version,
+			Service:   NewAutonityContractAPI(s.BlockChain(), s.BlockChain().GetAutonityContract()),
+			Public:    true,
+		})
+	}
+
 	// Append all the local APIs and return
 	return append(apis, []rpc.API{
 		{

@@ -40,7 +40,7 @@ type Contract struct {
 	operator           common.Address
 	initialMinGasPrice uint64
 	contractABI        *abi.ABI
-	stringContractABI  string
+	stringABI          string
 	bc                 Blockchainer
 	metrics            EconomicMetrics
 
@@ -55,7 +55,7 @@ func NewAutonityContract(
 	evmProvider EVMProvider,
 ) (*Contract, error) {
 	contract := Contract{
-		stringContractABI:  ABI,
+		stringABI:          ABI,
 		operator:           operator,
 		initialMinGasPrice: minGasPrice,
 		bc:                 bc,
@@ -77,7 +77,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	ABI := ac.contractABI
 
 	// pack the function which dump the data from contract.
-	input, err := ABI.Pack("dumpEconomicsMetricData")
+	input, err := ABI.Pack("dumpEconomicMetrics")
 	if err != nil {
 		log.Warn("Cannot pack the method: ", "err", err.Error())
 		return
@@ -95,7 +95,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	v := EconomicMetaData{make([]common.Address, 32), make([]uint8, 32), make([]*big.Int, 32),
 		make([]*big.Int, 32), new(big.Int), new(big.Int)}
 
-	if err := ABI.UnpackIntoInterface(&v, "dumpEconomicsMetricData", ret); err != nil {
+	if err := ABI.UnpackIntoInterface(&v, "dumpEconomicMetrics", ret); err != nil {
 		// can't work with aliased types
 		log.Warn("Could not unpack dumpNetworkEconomicsData returned value",
 			"err", err,
@@ -180,7 +180,7 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
 
-	log.Info("ApplyFinalize",
+	log.Debug("ApplyFinalize",
 		"balance", statedb.GetBalance(ContractAddress),
 		"block", header.Number.Uint64(),
 		"gas", blockGas.Uint64())
@@ -200,7 +200,7 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
-	log.Info("ApplyFinalize", "upgradeContract", upgradeContract)
+	log.Debug("ApplyFinalize", "upgradeContract", upgradeContract)
 
 	if upgradeContract {
 		// warning prints for failure rather than returning error to stuck engine.
@@ -214,7 +214,7 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 }
 
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
-	log.Error("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
+	log.Warn("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
 
 	// dump contract stateBefore first.
 	stateBefore, errState := ac.callRetrieveState(statedb, header)
@@ -263,9 +263,16 @@ func (ac *Contract) upgradeAbiCache(newAbi string) error {
 	}
 
 	ac.contractABI = &newABI
+	ac.stringABI = newAbi
 	return nil
 }
 
-func (ac *Contract) GetContractABI() string {
-	return ac.stringContractABI
+// StringABI returns the current autonity contract ABI in string format
+func (ac *Contract) StringABI() string {
+	return ac.stringABI
+}
+
+// ABI returns the current autonity contract's ABI
+func (ac *Contract) ABI() *abi.ABI {
+	return ac.contractABI
 }
