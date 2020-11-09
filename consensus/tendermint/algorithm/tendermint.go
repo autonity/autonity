@@ -115,7 +115,9 @@ type Algorithm struct {
 
 func New(nodeID NodeID, oracle Oracle) *Algorithm {
 	return &Algorithm{
-		nodeID:      nodeID,
+		nodeID: nodeID,
+		// We set round to be -1 so we can enforce the check that start round
+		// is always called with a round greater than, the current round.
 		round:       -1,
 		lockedRound: -1,
 		lockedValue: NilValue,
@@ -157,10 +159,7 @@ func (a *Algorithm) StartRound(round int64) (*ConsensusMessage, *Timeout, error)
 	//println(a.nodeID.String(), height, "isproposer", a.oracle.Proposer(round, a.nodeID))
 
 	// sanity check
-	switch {
-	case round < 0:
-		panic(fmt.Sprintf("New round cannot be less than 0. Previous round: %-3d, new round: %-3d", a.round, round))
-	case round <= a.round:
+	if round <= a.round {
 		panic(fmt.Sprintf("New round must be more than the current round. Previous round: %-3d, new round: %-3d", a.round, round))
 	}
 
