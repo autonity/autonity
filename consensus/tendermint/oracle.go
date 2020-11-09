@@ -7,6 +7,7 @@ import (
 )
 
 type oracle struct {
+	height       uint64
 	lastHeader   *types.Header
 	store        *messageStore
 	committeeSet committee
@@ -15,6 +16,7 @@ type oracle struct {
 
 func newOracle(lh *types.Header, s *messageStore, cs committee, ba *blockAwaiter) *oracle {
 	return &oracle{
+		height:       lh.Number.Uint64() + 1,
 		lastHeader:   lh,
 		store:        s,
 		committeeSet: cs,
@@ -51,11 +53,11 @@ func (o *oracle) Valid(value algorithm.ValueID) bool {
 }
 
 func (o *oracle) Height() uint64 {
-	return o.lastHeader.Number.Uint64()
+	return o.height
 }
 
 func (o *oracle) Value() (algorithm.ValueID, error) {
-	v, err := o.ba.value(o.lastHeader.Number)
+	v, err := o.ba.value(o.height)
 	if err != nil {
 		return [32]byte{}, err
 	}

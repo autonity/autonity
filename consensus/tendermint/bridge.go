@@ -401,7 +401,7 @@ eventLoop:
 					return
 				}
 			case events.CommitEvent:
-				//println(addr(c.address), "commit event")
+				println(addr(c.address), "commit event")
 				c.logger.Debug("Received a final committed proposal")
 
 				lastBlock, err := c.latestBlockRetreiver.RetrieveLatestBlock()
