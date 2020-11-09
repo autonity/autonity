@@ -178,8 +178,11 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	if err != nil {
 		panic(err)
 	}
+
+	finalizer := tendermint.NewFinalizer(autonityContract)
+	verifier := tendermint.NewVerifier(&vmConfig, finalizer, genesis.Config.Tendermint.BlockPeriod)
 	// Use the first key as private key
-	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, statedb, genesis.Config, &vm.Config{}, bc, peers, syncer, autonityContract)
+	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, statedb, genesis.Config, &vm.Config{}, bc, peers, syncer, autonityContract, verifier, finalizer)
 
 	genesis.MustCommit(memDB)
 

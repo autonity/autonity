@@ -54,7 +54,7 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, statedb state.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config, broadcaster *tendermint.Broadcaster, peers consensus.Peers, syncer *tendermint.Syncer, autonityContract *autonity.Contract, verifier *tendermint.Verifier) *Backend {
+func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, statedb state.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config, broadcaster *tendermint.Broadcaster, peers consensus.Peers, syncer *tendermint.Syncer, autonityContract *autonity.Contract, verifier *tendermint.Verifier, finalizer *tendermint.DefaultFinalizer) *Backend {
 	if chainConfig.Tendermint.BlockPeriod != 0 {
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
@@ -84,6 +84,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		latestBlockRetreiver: tendermint.NewLatestBlockRetriever(db, statedb),
 		autonityContract:     autonityContract,
 		Verifier:             verifier,
+		DefaultFinalizer:     finalizer,
 	}
 
 	backend.core = tendermint.New(backend, config, backend.privateKey, broadcaster, syncer, address, tendermint.NewLatestBlockRetriever(db, statedb), statedb, verifier)
@@ -93,6 +94,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 // ----------------------------------------------------------------------------
 
 type Backend struct {
+	*tendermint.DefaultFinalizer
 	*tendermint.Verifier
 	config     *tendermintConfig.Config
 	eventMux   *event.TypeMuxSilent

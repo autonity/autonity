@@ -26,7 +26,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rpc"
 )
@@ -84,55 +83,6 @@ func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 		header.Time = uint64(time.Now().Unix())
 	}
 	return nil
-}
-
-// Finalize runs any post-transaction state modifications (e.g. block rewards)
-// Finaize doesn't modify the passed header.
-func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
-
-	committeeSet, receipt, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
-	if err != nil {
-		sb.logger.Error("AutonityContractFinalize", "err", err.Error())
-		return nil, nil, err
-	}
-
-	return committeeSet, receipt, nil
-}
-
-// FinalizeAndAssemble call Finaize to compute post transacation state modifications
-// and assembles the final block.
-func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
-
-	statedb.Prepare(common.ACHash(header.Number), common.Hash{}, len(txs))
-	committeeSet, receipt, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
-	if err != nil {
-		return nil, err
-	}
-	*receipts = append(*receipts, receipt)
-	// No block rewards in BFT, so the state remains as is and uncles are dropped
-	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	header.UncleHash = nilUncleHash
-
-	// add committee to extraData's committee section
-	header.Committee = committeeSet
-	return types.NewBlock(header, txs, nil, *receipts), nil
-}
-
-// AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
-// committee field containaining the list of committee members allowed to participate in consensus for the next block.
-func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensus.ChainReader, state *state.StateDB,
-	txs []*types.Transaction, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
-	sb.contractsMu.Lock()
-	defer sb.contractsMu.Unlock()
-
-	committeeSet, receipt, err := sb.autonityContract.FinalizeAndGetCommittee(txs, receipts, header, state)
-	if err != nil {
-		sb.logger.Error("Autonity Contract finalize returns err", "err", err)
-		return nil, nil, err
-	}
-	return committeeSet, receipt, nil
 }
 
 //
@@ -256,7 +206,7 @@ func (sb *Backend) Start(ctx context.Context, blockchain *core.BlockChain) error
 	sb.proposedBlockHash = common.Hash{}
 
 	// Start Tendermint
-	sb.core.Start(ctx, sb.autonityContract)
+	sb.core.Start(ctx, sb.autonityContract, sb.blockchain)
 	sb.coreStarted = true
 
 	return nil

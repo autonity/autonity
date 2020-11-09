@@ -567,16 +567,20 @@ func newBackend(config *params.ChainConfig) (*backend.Backend, ethdb.Database, e
 		return nil, nil, err
 	}
 
+	vmConfig := vm.Config{}
 	autonityContract, err := core.NewAutonityContractFromConfig(
 		db,
 		hg,
-		core.NewDefaultEVMProvider(hg, vm.Config{}, config),
+		core.NewDefaultEVMProvider(hg, vmConfig, config),
 		config.AutonityContractConfig,
 	)
 	if err != nil {
 		return nil, nil, err
 	}
 	statedb := state.NewDatabase(db)
-	engine := tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, db, statedb, tendermintChainConfig, &vm.Config{}, bc, peers, syncer, autonityContract)
+
+	finalizer := tendermint.NewFinalizer(autonityContract)
+	verifier := tendermint.NewVerifier(&vmConfig, finalizer, tendermintChainConfig.Tendermint.BlockPeriod)
+	engine := tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, db, statedb, tendermintChainConfig, &vmConfig, bc, peers, syncer, autonityContract, verifier, finalizer)
 	return engine, db, nil
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 )
@@ -22,7 +23,7 @@ type Backend interface {
 }
 
 type Tendermint interface {
-	Start(ctx context.Context, contract *autonity.Contract)
+	Start(ctx context.Context, contract *autonity.Contract, blockchain *core.BlockChain)
 	SetValue(*types.Block)
 	Stop()
 }

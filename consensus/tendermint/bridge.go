@@ -216,10 +216,11 @@ func (c *bridge) createCommittee(block *types.Block) committee {
 var errStopped error = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
-func (c *bridge) Start(ctx context.Context, contract *autonity.Contract) {
+func (c *bridge) Start(ctx context.Context, contract *autonity.Contract, blockchain *core.BlockChain) {
 	//println("starting")
-	// Set the autonity contract
+	// Set the autonity contract and blockchain
 	c.autonityContract = contract
+	c.blockchain = blockchain
 	ctx, c.cancel = context.WithCancel(ctx)
 
 	// Subscribe

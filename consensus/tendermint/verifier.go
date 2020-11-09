@@ -13,7 +13,6 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/log"
@@ -51,25 +50,6 @@ var (
 	nonceDropVote = hexutil.MustDecode("0x0000000000000000") // Magic nonce number to vote on removing a validator.
 )
 
-type Finalizer interface {
-
-	// Finalize runs any post-transaction state modifications (e.g. block rewards)
-	// but does not assemble the block.
-	//
-	// Note: The block header and state database might be updated to reflect any
-	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error)
-
-	// FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
-	// rewards) and assembles the final block.
-	//
-	// Note: The block header and state database might be updated to reflect any
-	// consensus rules that happen at finalization (e.g. block rewards).
-	FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error)
-}
-
 type Verifier struct {
 	logger      log.Logger
 	vmConfig    *vm.Config
@@ -79,7 +59,9 @@ type Verifier struct {
 
 func NewVerifier(c *vm.Config, finalizer Finalizer, blockPeriod uint64) *Verifier {
 	return &Verifier{
-		logger: log.New(),
+		logger:    log.New(),
+		vmConfig:  c,
+		finalizer: finalizer,
 	}
 }
 
