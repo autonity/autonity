@@ -280,6 +280,7 @@ func isBatch(raw json.RawMessage) bool {
 // given types. It returns the parsed values or an error when the args could not be
 // parsed. Missing optional arguments are returned as reflect.Zero values.
 func parsePositionalArguments(rawArgs json.RawMessage, types []reflect.Type) ([]reflect.Value, error) {
+
 	dec := json.NewDecoder(bytes.NewReader(rawArgs))
 	var args []reflect.Value
 	tok, err := dec.Token()

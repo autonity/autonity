@@ -114,6 +114,7 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 					msg: msg,
 				})
 			})
+			return err
 		}
 		c.sendPrevote(ctx, true)
 		// do not to accept another proposal in current round
@@ -124,16 +125,22 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		return err
 	}
 
-	// Here is about to accept the Proposal
+	// Set the proposal for the current round
+	c.curRoundMessages.SetProposal(&proposal, msg, true)
+
+	c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
+
+	//l49: Check if we have a quorum of precommits for this proposal
+	curProposalHash := c.curRoundMessages.GetProposalHash()
+	if c.curRoundMessages.PrecommitsPower(curProposalHash) >= c.committeeSet().Quorum() {
+		c.commit(proposal.Round, c.curRoundMessages)
+		return nil
+	}
+
 	if c.step == propose {
 		if err := c.proposeTimeout.stopTimer(); err != nil {
 			return err
 		}
-
-		// Set the proposal for the current round
-		c.curRoundMessages.SetProposal(&proposal, msg, true)
-
-		c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 
 		vr := proposal.ValidRound
 		h := proposal.ProposalBlock.Hash()

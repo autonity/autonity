@@ -58,6 +58,18 @@ type callback struct {
 	isSubscribe bool           // true if this is a subscription callback
 }
 
+// Methods exposes a map of method name to reflect.Value each having 'Kind() ==
+// func'. The values represent methods each taking the Methods instance as the
+// method receiver. Types implementing Methods can be registered as services on
+// an rpc.Server and instead of using the methods defined on the type for the
+// rpc calls, the methods returned from AllMethods will be used instead. This
+// allows for dynamic construction and registration of functions from contract
+// ABIs.
+type Methods interface {
+	// AllMethods returns a map of function values of 'Kind() == func'
+	AllMethods() map[string]reflect.Value
+}
+
 func (r *serviceRegistry) registerName(name string, rcvr interface{}) error {
 	rcvrVal := reflect.ValueOf(rcvr)
 	if name == "" {
@@ -110,23 +122,42 @@ func (r *serviceRegistry) subscription(service, name string) *callback {
 	return r.services[service].subscriptions[name]
 }
 
-// suitableCallbacks iterates over the methods of the given type. It determines if a method
-// satisfies the criteria for a RPC callback or a subscription callback and adds it to the
-// collection of callbacks. See server documentation for a summary of these criteria.
+// suitableCallbacks extracts methods from the given receiver and returns them
+// as callbacks. It either iterates over the methods of the given type or if
+// the type implements Methods it uses the methods returned by
+// Methods.AllMethods. If a type implements Methods it is expected that all the
+// methods returned from Methods.AllMethods will be suitable as a callback.
+// Otherwise only the methods of the receiver that satisfy the criteria for an
+// RPC callback or a subscription callback are added to the collection of
+// callbacks. See server documentation for a summary of these criteria.
 func suitableCallbacks(receiver reflect.Value) map[string]*callback {
 	typ := receiver.Type()
 	callbacks := make(map[string]*callback)
-	for m := 0; m < typ.NumMethod(); m++ {
-		method := typ.Method(m)
-		if method.PkgPath != "" {
-			continue // method not exported
+
+	// Check to see if the receiver implements Methods and if so use the returned
+	// methods istead of introspecting all the other methods on the receiver.
+	if methods, ok := receiver.Interface().(Methods); ok {
+		for name, fn := range methods.AllMethods() {
+			cb := newCallback(receiver, fn)
+			if cb == nil {
+				panic("failed to register callback")
+			}
+			fname := formatName(name)
+			callbacks[fname] = cb
 		}
-		cb := newCallback(receiver, method.Func)
-		if cb == nil {
-			continue // function invalid
+	} else {
+		for m := 0; m < typ.NumMethod(); m++ {
+			method := typ.Method(m)
+			if method.PkgPath != "" {
+				continue // method not exported
+			}
+			cb := newCallback(receiver, method.Func)
+			if cb == nil {
+				continue // function invalid
+			}
+			name := formatName(method.Name)
+			callbacks[name] = cb
 		}
-		name := formatName(method.Name)
-		callbacks[name] = cb
 	}
 	return callbacks
 }

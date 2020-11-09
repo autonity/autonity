@@ -97,19 +97,19 @@ func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.
 	return nil
 }
 
+// AutonityContractCall calls the specified function of the autonity contract
+// with the given args, and returns the output unpacked into the result
+// interface.
 func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result interface{}, args ...interface{}) error {
-	gas := uint64(math.MaxUint64)
-	evm := ac.evmProvider.EVM(header, Deployer, statedb)
 
-	input, err := ac.contractABI.Pack(function, args...)
+	packedArgs, err := ac.contractABI.Pack(function, args...)
 	if err != nil {
 		return err
 	}
 
-	ret, _, vmerr := evm.Call(vm.AccountRef(Deployer), ContractAddress, input, gas, new(big.Int))
-	if vmerr != nil {
-		log.Error("Error Autonity Contract", "function", function)
-		return vmerr
+	ret, err := ac.CallContractFunc(statedb, header, function, packedArgs)
+	if err != nil {
+		return err
 	}
 	// if result's type is "raw" then bypass unpacking
 	if reflect.TypeOf(result) == reflect.TypeOf(&raw{}) {
@@ -124,6 +124,18 @@ func (ac *Contract) AutonityContractCall(statedb *state.StateDB, header *types.H
 	}
 
 	return nil
+}
+
+// CallContractFunc creates an evm object, uses it to call the
+// specified function of the autonity contract with packedArgs and returns the
+// packed result. If there is an error making the evm call it will be returned.
+// Callers should use the autonity contract ABI to pack and unpack the args and
+// result.
+func (ac *Contract) CallContractFunc(statedb *state.StateDB, header *types.Header, function string, packedArgs []byte) ([]byte, error) {
+	gas := uint64(math.MaxUint64)
+	evm := ac.evmProvider.EVM(header, Deployer, statedb)
+	packedResult, _, err := evm.Call(vm.AccountRef(Deployer), ContractAddress, packedArgs, gas, new(big.Int))
+	return packedResult, err
 }
 
 func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
