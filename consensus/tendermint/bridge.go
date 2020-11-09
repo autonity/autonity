@@ -85,7 +85,7 @@ type bridge struct {
 	autonityContract *autonity.Contract
 
 	height *big.Int
-	algo   *algorithm.Tendermint
+	algo   *algorithm.Algorithm
 
 	currentBlockAwaiter *blockAwaiter
 
