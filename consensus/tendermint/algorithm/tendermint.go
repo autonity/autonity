@@ -99,7 +99,7 @@ type Oracle interface {
 	Value() (ValueID, error)
 }
 
-type OneShotTendermint struct {
+type Algorithm struct {
 	nodeID         NodeID
 	round          int64
 	step           Step
@@ -113,8 +113,8 @@ type OneShotTendermint struct {
 	oracle         Oracle
 }
 
-func New(nodeID NodeID, oracle Oracle) *OneShotTendermint {
-	return &OneShotTendermint{
+func New(nodeID NodeID, oracle Oracle) *Algorithm {
+	return &Algorithm{
 		nodeID:      nodeID,
 		round:       -1,
 		lockedRound: -1,
@@ -125,68 +125,68 @@ func New(nodeID NodeID, oracle Oracle) *OneShotTendermint {
 	}
 }
 
-func (ost OneShotTendermint) height() uint64 {
-	return ost.oracle.Height()
+func (a Algorithm) height() uint64 {
+	return a.oracle.Height()
 }
 
-func (ost *OneShotTendermint) msg(msgType Step, value ValueID) *ConsensusMessage {
+func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
 	cm := &ConsensusMessage{
 		MsgType: msgType,
-		Height:  ost.height(),
-		Round:   ost.round,
+		Height:  a.height(),
+		Round:   a.round,
 		Value:   value,
 	}
-	if ost.step == Propose {
-		cm.ValidRound = ost.validRound
+	if a.step == Propose {
+		cm.ValidRound = a.validRound
 	}
 	return cm
 }
 
-func (ost *OneShotTendermint) timeout(timeoutType Step) *Timeout {
+func (a *Algorithm) timeout(timeoutType Step) *Timeout {
 	return &Timeout{
 		TimeoutType: timeoutType,
-		Height:      ost.height(),
-		Round:       ost.round,
+		Height:      a.height(),
+		Round:       a.round,
 		Delay:       1, // TODO
 	}
 }
 
 // Start round takes a round to start. It then clears the first time flags and either returns a proposal
 // ConsensusMessage to be broadcast, if this node is the proposer or if not, a Timeout to be scheduled.
-func (ost *OneShotTendermint) StartRound(round int64) (*ConsensusMessage, *Timeout, error) {
-	//println(ost.nodeID.String(), height, "isproposer", ost.oracle.Proposer(round, ost.nodeID))
+func (a *Algorithm) StartRound(round int64) (*ConsensusMessage, *Timeout, error) {
+	//println(a.nodeID.String(), height, "isproposer", a.oracle.Proposer(round, a.nodeID))
 
 	// sanity check
 	switch {
 	case round < 0:
-		panic(fmt.Sprintf("New round cannot be less than 0. Previous round: %-3d, new round: %-3d", ost.round, round))
-	case round <= ost.round:
-		panic(fmt.Sprintf("New round must be more than the current round. Previous round: %-3d, new round: %-3d", ost.round, round))
+		panic(fmt.Sprintf("New round cannot be less than 0. Previous round: %-3d, new round: %-3d", a.round, round))
+	case round <= a.round:
+		panic(fmt.Sprintf("New round must be more than the current round. Previous round: %-3d, new round: %-3d", a.round, round))
 	}
 
 	// Reset first time flags
-	ost.line34Executed = false
-	ost.line36Executed = false
-	ost.line47Executed = false
+	a.line34Executed = false
+	a.line36Executed = false
+	a.line47Executed = false
 
-	ost.round = round
-	ost.step = Propose
-	if ost.oracle.Proposer(round, ost.nodeID) {
+	a.round = round
+	a.step = Propose
+	if a.oracle.Proposer(round, a.nodeID) {
 		var value ValueID
 		var err error
 
-		if ost.validValue != NilValue {
-			value = ost.validValue
+		if a.validValue != NilValue {
+			value = a.validValue
 		} else {
-			value, err = ost.oracle.Value()
+			value, err = a.oracle.Value()
 			if err != nil {
 				return nil, nil, err
 			}
 		}
 		//println(a.nodeID.String(), a.height(), "returning message", value.String())
-		return ost.msg(Propose, value), nil, nil
+		return a.msg(Propose, value), nil, nil
 	} else { //nolint
-		return nil, ost.timeout(Propose), nil
+		return nil, a.timeout(Propose), nil
 	}
 }
 
@@ -217,11 +217,11 @@ type RoundChange struct {
 // - *Timeout - This should be scheduled based to call the corresponding OnTimeout*
 //   method after the Delay with the enclosed Height and Round. This action can be
 //   taken asynchronously.
-func (ost *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) (*RoundChange, *ConsensusMessage, *Timeout) {
+func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*RoundChange, *ConsensusMessage, *Timeout) {
 
-	r := ost.round
-	s := ost.step
-	o := ost.oracle
+	r := a.round
+	s := a.step
+	o := a.oracle
 	t := cm.MsgType
 
 	// look up matching proposal, in the case of ost message with msgType
@@ -250,75 +250,75 @@ func (ost *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) (*RoundChange
 
 	// Line 22
 	if t.In(Propose) && cm.Round == r && cm.ValidRound == -1 && s == Propose {
-		ost.step = Prevote
-		if o.Valid(cm.Value) && ost.lockedRound == -1 || ost.lockedValue == cm.Value {
-			//println(ost.nodeID.String(), ost.height(), cm.String(), "line 22 val")
-			return nil, ost.msg(Prevote, cm.Value), nil
+		a.step = Prevote
+		if o.Valid(cm.Value) && a.lockedRound == -1 || a.lockedValue == cm.Value {
+			//println(a.nodeID.String(), a.height(), cm.String(), "line 22 val")
+			return nil, a.msg(Prevote, cm.Value), nil
 		} else { //nolint
-			//println(ost.nodeID.String(), ost.height(), cm.String(), "line 22 nil")
-			return nil, ost.msg(Prevote, NilValue), nil
+			//println(a.nodeID.String(), a.height(), cm.String(), "line 22 nil")
+			return nil, a.msg(Prevote, NilValue), nil
 		}
 	}
 
 	// Line 28
 	if t.In(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(p.ValidRound, &p.Value) && s == Propose && (p.ValidRound >= 0 && p.ValidRound < r) {
-		ost.step = Prevote
-		if o.Valid(p.Value) && (ost.lockedRound <= p.ValidRound || ost.lockedValue == p.Value) {
-			//println(ost.nodeID.String(), ost.height(), cm.String(), "line 28 val")
-			return nil, ost.msg(Prevote, p.Value), nil
+		a.step = Prevote
+		if o.Valid(p.Value) && (a.lockedRound <= p.ValidRound || a.lockedValue == p.Value) {
+			//println(a.nodeID.String(), a.height(), cm.String(), "line 28 val")
+			return nil, a.msg(Prevote, p.Value), nil
 		} else { //nolint
-			//println(ost.nodeID.String(), ost.height(), cm.String(), "line 28 nil")
-			return nil, ost.msg(Prevote, NilValue), nil
+			//println(a.nodeID.String(), a.height(), cm.String(), "line 28 nil")
+			return nil, a.msg(Prevote, NilValue), nil
 		}
 	}
 
-	////println(ost.nodeId.String(), ost.height(), t.In(Propose, Prevote), p != nil, p.Round == r, o.PrevoteQThresh(r, &p.Value), o.Valid(p.Value), s >= Prevote, !ost.line36Executed)
+	////println(a.nodeId.String(), a.height(), t.In(Propose, Prevote), p != nil, p.Round == r, o.PrevoteQThresh(r, &p.Value), o.Valid(p.Value), s >= Prevote, !a.line36Executed)
 	// Line 36
-	if t.In(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(r, &p.Value) && o.Valid(p.Value) && s >= Prevote && !ost.line36Executed {
-		ost.line36Executed = true
+	if t.In(Propose, Prevote) && p != nil && p.Round == r && o.PrevoteQThresh(r, &p.Value) && o.Valid(p.Value) && s >= Prevote && !a.line36Executed {
+		a.line36Executed = true
 		if s == Prevote {
-			ost.lockedValue = p.Value
-			ost.lockedRound = r
-			ost.step = Precommit
+			a.lockedValue = p.Value
+			a.lockedRound = r
+			a.step = Precommit
 		}
-		ost.validValue = p.Value
-		ost.validRound = r
-		//println(ost.nodeID.String(), ost.height(), cm.String(), "line 36 val")
-		return nil, ost.msg(Precommit, p.Value), nil
+		a.validValue = p.Value
+		a.validRound = r
+		//println(a.nodeID.String(), a.height(), cm.String(), "line 36 val")
+		return nil, a.msg(Precommit, p.Value), nil
 	}
 
 	// Line 44
 	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, &NilValue) && s == Prevote {
-		ost.step = Precommit
-		//println(ost.nodeID.String(), ost.height(), cm.String(), "line 44 nil")
-		return nil, ost.msg(Precommit, NilValue), nil
+		a.step = Precommit
+		//println(a.nodeID.String(), a.height(), cm.String(), "line 44 nil")
+		return nil, a.msg(Precommit, NilValue), nil
 	}
 
 	// Line 34
-	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !ost.line34Executed {
-		ost.line34Executed = true
-		//println(ost.nodeID.String(), ost.height(), cm.String(), "line 34 timeout")
-		return nil, nil, ost.timeout(Prevote)
+	if t.In(Prevote) && cm.Round == r && o.PrevoteQThresh(r, nil) && s == Prevote && !a.line34Executed {
+		a.line34Executed = true
+		//println(a.nodeID.String(), a.height(), cm.String(), "line 34 timeout")
+		return nil, nil, a.timeout(Prevote)
 	}
 
 	// Line 49
 	if t.In(Propose, Precommit) && p != nil && o.PrecommitQThresh(p.Round, &p.Value) {
 		if o.Valid(p.Value) {
-			ost.lockedRound = -1
-			ost.lockedValue = NilValue
-			ost.validRound = -1
-			ost.validValue = NilValue
+			a.lockedRound = -1
+			a.lockedValue = NilValue
+			a.validRound = -1
+			a.validValue = NilValue
 		}
-		//println(ost.nodeID.String(), ost.height(), cm.String(), "line 49 decide")
+		//println(a.nodeID.String(), a.height(), cm.String(), "line 49 decide")
 		// Return the decided proposal
-		return &RoundChange{Height: ost.height(), Round: 0, Decision: p}, nil, nil
+		return &RoundChange{Height: a.height(), Round: 0, Decision: p}, nil, nil
 	}
 
 	// Line 47
-	if t.In(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !ost.line47Executed {
-		ost.line47Executed = true
-		//println(ost.nodeID.String(), ost.height(), cm.String(), "line 47 timeout")
-		return nil, nil, ost.timeout(Precommit)
+	if t.In(Precommit) && cm.Round == r && o.PrecommitQThresh(r, nil) && !a.line47Executed {
+		a.line47Executed = true
+		//println(a.nodeID.String(), a.height(), cm.String(), "line 47 timeout")
+		return nil, nil, a.timeout(Precommit)
 	}
 
 	// Line 55
@@ -329,32 +329,32 @@ func (ost *OneShotTendermint) ReceiveMessage(cm *ConsensusMessage) (*RoundChange
 		// used in this round in the condition at line 28. This means that we
 		// only should clean the message store when there is a height change,
 		// clearing out all messages for the height.
-		//println(ost.nodeID.String(), ost.height(), cm.String(), "line 55 start round")
-		return &RoundChange{Height: ost.height(), Round: cm.Round}, nil, nil
+		//println(a.nodeID.String(), a.height(), cm.String(), "line 55 start round")
+		return &RoundChange{Height: a.height(), Round: cm.Round}, nil, nil
 	}
-	//println(ost.nodeID.String(), ost.height(), cm.String(), "no condition match")
+	//println(a.nodeID.String(), a.height(), cm.String(), "no condition match")
 	return nil, nil, nil
 }
 
-func (ost *OneShotTendermint) OnTimeoutPropose(height uint64, round int64) *ConsensusMessage {
-	if height == ost.height() && round == ost.round && ost.step == Propose {
-		ost.step = Prevote
-		return ost.msg(Prevote, NilValue)
+func (a *Algorithm) OnTimeoutPropose(height uint64, round int64) *ConsensusMessage {
+	if height == a.height() && round == a.round && a.step == Propose {
+		a.step = Prevote
+		return a.msg(Prevote, NilValue)
 	}
 	return nil
 }
 
-func (ost *OneShotTendermint) OnTimeoutPrevote(height uint64, round int64) *ConsensusMessage {
-	if height == ost.height() && round == ost.round && ost.step == Prevote {
-		ost.step = Precommit
-		return ost.msg(Precommit, NilValue)
+func (a *Algorithm) OnTimeoutPrevote(height uint64, round int64) *ConsensusMessage {
+	if height == a.height() && round == a.round && a.step == Prevote {
+		a.step = Precommit
+		return a.msg(Precommit, NilValue)
 	}
 	return nil
 }
 
-func (ost *OneShotTendermint) OnTimeoutPrecommit(height uint64, round int64) *RoundChange {
-	if height == ost.height() && round == ost.round {
-		return &RoundChange{Height: ost.height(), Round: ost.round + 1}
+func (a *Algorithm) OnTimeoutPrecommit(height uint64, round int64) *RoundChange {
+	if height == a.height() && round == a.round {
+		return &RoundChange{Height: a.height(), Round: a.round + 1}
 	}
 	return nil
 }
