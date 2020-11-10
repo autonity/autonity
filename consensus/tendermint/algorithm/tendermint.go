@@ -194,7 +194,6 @@ func (a *Algorithm) StartRound(round int64) (*ConsensusMessage, *Timeout, error)
 // this indicates that a decision has been reached it will contain the proposal
 // that was decided upon, Decision can only be set when Round is 0.
 type RoundChange struct {
-	Height   uint64 //TODO: consider removing this since this is an internal message which will not be broadcasted
 	Round    int64
 	Decision *ConsensusMessage //TODO: consider changing this to ValueID
 }
@@ -310,7 +309,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*RoundChange, *Consens
 		}
 		//println(a.nodeID.String(), a.height(), cm.String(), "line 49 decide")
 		// Return the decided proposal
-		return &RoundChange{Height: a.height(), Round: 0, Decision: p}, nil, nil
+		return &RoundChange{Round: 0, Decision: p}, nil, nil
 	}
 
 	// Line 47
@@ -329,7 +328,7 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*RoundChange, *Consens
 		// only should clean the message store when there is a height change,
 		// clearing out all messages for the height.
 		//println(a.nodeID.String(), a.height(), cm.String(), "line 55 start round")
-		return &RoundChange{Height: a.height(), Round: cm.Round}, nil, nil
+		return &RoundChange{Round: cm.Round}, nil, nil
 	}
 	//println(a.nodeID.String(), a.height(), cm.String(), "no condition match")
 	return nil, nil, nil
@@ -353,7 +352,7 @@ func (a *Algorithm) OnTimeoutPrevote(height uint64, round int64) *ConsensusMessa
 
 func (a *Algorithm) OnTimeoutPrecommit(height uint64, round int64) *RoundChange {
 	if height == a.height() && round == a.round {
-		return &RoundChange{Height: a.height(), Round: a.round + 1}
+		return &RoundChange{Round: a.round + 1}
 	}
 	return nil
 }
