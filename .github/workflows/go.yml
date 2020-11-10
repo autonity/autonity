@@ -231,7 +231,7 @@ jobs:
 
       - name: Linters
         run: |
-          git fetch -fu --no-tags --depth=2 origin develop:develop
+          git fetch -fu --no-tags origin develop:develop
           make lint-ci
         shell: bash
 
