@@ -557,8 +557,13 @@ func newBackend(config *params.ChainConfig) (*backend.Backend, ethdb.Database, e
 
 	db := rawdb.NewMemoryDatabase()
 
-	// Just commit something so that tendermint has a block to load at startup
-	_, err := core.DefaultGenesisBlock().Commit(db)
+	// generate genesis block
+	g := core.DefaultGenesisBlock()
+	g.Config = config
+	g.Difficulty = big.NewInt(1)
+	g.Mixhash = types.BFTDigest
+
+	_, err := g.Commit(db)
 	if err != nil {
 		return nil, nil, err
 	}
