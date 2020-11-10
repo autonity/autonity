@@ -213,25 +213,16 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
         with:
           clean: 'false'
+
       - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
 
       - name: Linters
         run: |
-          git fetch -fu --no-tags origin develop:develop
+          git fetch -fu --unshallow origin develop:develop
           make lint-ci
         shell: bash
 
