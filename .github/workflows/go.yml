@@ -156,7 +156,7 @@ jobs:
 
       - name: Run lninting
         run: |
-          git fetch -fu --no-tags --depth=2 origin develop:develop
+          git fetch -fu --unshallow origin develop:develop
           make lint-ci
         shell: bash
 
