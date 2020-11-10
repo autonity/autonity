@@ -122,6 +122,9 @@ func (v *Verifier) VerifyProposal(proposal types.Block, blockchain *core.BlockCh
 
 		state.Prepare(common.ACHash(block.Number()), block.Hash(), len(block.Transactions()))
 		committeeSet, receipt, err := v.finalizer.Finalize(blockchain, header, state, block.Transactions(), nil, receipts)
+		if err != nil {
+			return 0, err
+		}
 		receipts = append(receipts, receipt)
 		//Validate the state of the proposal
 		if err = blockchain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
@@ -159,7 +162,7 @@ func (v *Verifier) VerifyProposal(proposal types.Block, blockchain *core.BlockCh
 
 		return 0, nil
 	} else if err == consensus.ErrFutureBlock {
-		return time.Unix(int64(block.Header().Time), 0).Sub(time.Now()), consensus.ErrFutureBlock
+		return time.Until(time.Unix(int64(block.Header().Time), 0)), consensus.ErrFutureBlock
 	}
 	return 0, err
 }

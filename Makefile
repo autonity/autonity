@@ -11,10 +11,7 @@
 NPMBIN= $(shell npm bin)
 BINDIR = ./build/bin
 GO ?= latest
-LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
-ifeq ($(LATEST_COMMIT),)
-LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
-endif
+MERGE_BASE = $(shell git merge-base origin/develop HEAD)
 SOLC_VERSION = 0.6.4
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 
@@ -137,22 +134,22 @@ lint-dead:
 		--config ./.golangci/step_dead.yml
 
 lint:
-	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
+	@echo "--> Running linter for code diff versus commit $(MERGE_BASE)"
 	@./build/bin/golangci-lint run \
-	    --new-from-rev=$(LATEST_COMMIT) \
+	    --new-from-rev=$(MERGE_BASE) \
 	    --config ./.golangci/step1.yml \
 	    --exclude "which can be annoying to use"
 
 	@./build/bin/golangci-lint run \
-	    --new-from-rev=$(LATEST_COMMIT) \
+	    --new-from-rev=$(MERGE_BASE) \
 	    --config ./.golangci/step2.yml
 
 	@./build/bin/golangci-lint run \
-	    --new-from-rev=$(LATEST_COMMIT) \
+	    --new-from-rev=$(MERGE_BASE) \
 	    --config ./.golangci/step3.yml
 
 	@./build/bin/golangci-lint run \
-	    --new-from-rev=$(LATEST_COMMIT) \
+	    --new-from-rev=$(MERGE_BASE) \
 	    --config ./.golangci/step4.yml
 
 lint-ci: lint-deps lint
