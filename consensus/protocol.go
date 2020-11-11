@@ -29,8 +29,7 @@ type Peers interface {
 
 // Broadcaster defines the interface to enqueue blocks to fetcher and find peer
 type Broadcaster interface {
-	// Enqueue add a block into fetcher queue
-	Enqueue(id string, block *types.Block)
+	BroadcastBlock(block *types.Block, propagateBody bool)
 }
 
 // Peer defines the interface to communicate with peer
