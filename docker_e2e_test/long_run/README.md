@@ -23,10 +23,12 @@ For example:
 The client api will read environment variable GOOGLE_APPLICATION_CREDENTIALS to complete the service finding and auth. 
 
 # How to use it
-## Run
-`make autonity-long-tests`
-It start the test by using master branch of autonity by default.
-## Parameters and default values
+## Run the test with default parameters
+```
+make autonity-long-tests
+```
+It start the test over master branch of autonity by default.
+## Run the test with customized parameters
 ```
 usage: python3 long_run_test.py [-h] [--project_id PROJECT_ID] [--zone ZONE]
                         [--name NAME] [--template TEMPLATE]
@@ -47,7 +49,6 @@ optional arguments:
   --branch BRANCH       Branch name of autonity to be tested by test engine.
 
 ```
-
 # Example outputs
 ```
 ****** Autonity long run test pipe line starting ******
