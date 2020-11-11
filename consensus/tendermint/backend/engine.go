@@ -141,9 +141,6 @@ func (sb *Backend) setResultChan(results chan<- *types.Block) {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 
-	if sb.commitCh != nil || sb.commitCh != results {
-		panic("setting result channel to different channel")
-	}
 	sb.commitCh = results
 }
 
