@@ -897,6 +897,9 @@ ws.addEventListener('message', event => {
 	// Setting context values makes them available in the default scope
 	// of the repl.
 	server.context.web3 = web3;
+	server.on('exit', () => {
+		process.exit();
+	});
 
 	// If the tendermint module is loaded then load the contract bindings
 	if (parsed.result.hasOwnProperty('tendermint')) {
