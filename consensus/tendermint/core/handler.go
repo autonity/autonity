@@ -255,12 +255,14 @@ func (c *core) handleMsg(ctx context.Context, msg *Message) error {
 		// Old height messages. Do nothing.
 		return errOldHeightMessage // No gossip
 	}
-
+	// benchmark signature verification w/r validator count
 	if _, err = msg.Validate(crypto.CheckValidatorSignature, c.lastHeader); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
 		return err
 	}
 
+	// received from a valid validator for the current height
+	// intercept
 	return c.handleCheckedMsg(ctx, msg)
 }
 
