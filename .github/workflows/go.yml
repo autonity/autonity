@@ -18,12 +18,6 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Set GOPATH
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
@@ -51,12 +45,6 @@ jobs:
         with:
           go-version: 1.13
         id: go
-
-      - name: Set GOPATH
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
 
       - name: Cache code
         uses: actions/cache@v1
@@ -124,12 +112,6 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Set GOPATH
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
-
       - name: Cache code
         uses: actions/cache@v1
         env:
@@ -172,13 +154,6 @@ jobs:
         with:
           go-version: 1.13
         id: go
-
-      - name: Set GOPATH
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
 
       - name: Cache code
         uses: actions/cache@v1
@@ -407,13 +382,6 @@ jobs:
         with:
           go-version: 1.13
         id: go
-
-      - name: Set GOPATH
-        # see https://github.com/actions/setup-go/issues/14
-        run: |
-          echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-          echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
-        shell: bash
 
       - name: Cache code
         uses: actions/cache@v1
