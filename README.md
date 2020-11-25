@@ -40,7 +40,7 @@ make build-docker-image
 The address must be a websocket enabled rpc address.
 
 ```
-./nodeconsole/console localhost:8546
+./nodeconsole/console ws://localhost:8546
 ```
 
 The console is run with the `--experimental-repl-await` flag which means that
