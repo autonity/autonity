@@ -1,7 +1,6 @@
 package autonity
 
 import (
-	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/state"
@@ -87,9 +86,6 @@ type EconomicMetrics struct {
 }
 
 func (em *EconomicMetrics) recordMetric(name string, value *big.Int, isWei bool) {
-	if value == nil {
-		return
-	}
 	switch isWei {
 	case true:
 		// float64 metric using different interface and type.
@@ -104,19 +100,10 @@ func (em *EconomicMetrics) recordMetric(name string, value *big.Int, isWei bool)
 
 // measure metrics of user's meta data by regarding of network economic.
 func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *state.StateDB, height uint64, operator common.Address) {
-	if v == nil || stateDB == nil {
-		return
-	}
 
 	em.recordMetric(GlobalMetricIDGasPrice, v.Mingasprice, true)
 	em.recordMetric(GlobalMetricIDStakeSupply, v.Stakesupply, false)
 	em.recordMetric(GlobalOperatorBalanceMetricID, stateDB.GetBalance(operator), true)
-
-	// measure user metrics
-	if len(v.Accounts) != len(v.Usertypes) || len(v.Accounts) != len(v.Stakes) {
-		log.Warn("Mismatched data set dumped from autonity contract")
-		return
-	}
 
 	for i := 0; i < len(v.Accounts); i++ {
 		user := v.Accounts[i]
@@ -131,12 +118,7 @@ func (em *EconomicMetrics) SubmitEconomicMetrics(v *EconomicMetaData, stateDB *s
 			"balance", balance)
 
 		// generate metric ID.
-		stakeID, balanceID, err := em.generateUserMetricsID(user, userType)
-		if err != nil {
-			log.Warn("generateUserMetricsID failed")
-			return
-		}
-
+		stakeID, balanceID := em.generateUserMetricsID(user, userType)
 		em.recordMetric(stakeID, stake, false)
 		em.recordMetric(balanceID, balance, true)
 	}
@@ -189,24 +171,20 @@ func (em *EconomicMetrics) resolveUserTypeName(role uint8) string {
 }
 
 func (em *EconomicMetrics) generateUserMetricsID(address common.Address, role uint8) (stakeID string,
-	balanceID string, err error) {
-	if role > Validator {
-		return "", "", errors.New("invalid parameter")
-	}
+	balanceID string) {
 	userType := em.resolveUserTypeName(role)
 	stakeID = fmt.Sprintf(UserMetricIDTemplate, address.String(), userType, "stake")
 	balanceID = fmt.Sprintf(UserMetricIDTemplate, address.String(), userType, "balance")
-	return stakeID, balanceID, nil
+	return stakeID, balanceID
 }
 
 func (em *EconomicMetrics) removeMetricsFromRegistry(user common.Address, blockNumber uint64) {
 
 	// clean up metrics which counts user's stake, and balance
 	for role := Participant; role <= Validator; role++ {
-		if stakeID, balanceID, err := em.generateUserMetricsID(user, role); err == nil {
-			metrics.DefaultRegistry.Unregister(stakeID)
-			metrics.DefaultRegistry.Unregister(balanceID)
-		}
+		stakeID, balanceID := em.generateUserMetricsID(user, role)
+		metrics.DefaultRegistry.Unregister(stakeID)
+		metrics.DefaultRegistry.Unregister(balanceID)
 	}
 	// clean up metrics which counts the removed user's reward.
 	for height := em.heightLowBounder; height <= blockNumber; height++ {

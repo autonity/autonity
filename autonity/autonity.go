@@ -2,6 +2,7 @@ package autonity
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"sort"
 	"strings"
@@ -66,9 +67,9 @@ func NewAutonityContract(
 }
 
 // measure metrics of user's meta data by regarding of network economic.
-func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB) {
-	if header == nil || stateDB == nil || header.Number.Uint64() < 1 {
-		return
+func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB) error {
+	if header.Number.Uint64() < 1 {
+		return errors.New("wrong state parameters")
 	}
 
 	// prepare abi and evm context
@@ -80,7 +81,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	input, err := ABI.Pack("dumpEconomicMetrics")
 	if err != nil {
 		log.Warn("Cannot pack the method: ", "err", err.Error())
-		return
+		return errors.New("cannot pack contract function")
 	}
 
 	// call evm.
@@ -88,21 +89,33 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	ret, _, vmerr := evm.Call(vm.AccountRef(Deployer), ContractAddress, input, gas, value)
 	if vmerr != nil {
 		log.Warn("Error Autonity Contract dumpNetworkEconomics", err, vmerr)
-		return
+		return errors.New("cannot init EVM")
 	}
 
 	// marshal the data from bytes arrays into specified structure.
 	v := EconomicMetaData{make([]common.Address, 32), make([]uint8, 32), make([]*big.Int, 32), new(big.Int), new(big.Int)}
 
 	if err := ABI.UnpackIntoInterface(&v, "dumpEconomicMetrics", ret); err != nil {
-		// can't work with aliased types
-		log.Warn("Could not unpack dumpNetworkEconomicsData returned value",
-			"err", err,
-			"header.num", header.Number.Uint64())
-		return
+		return errors.New("cannot unpack data from return value from contract")
+	}
+
+	if len(v.Accounts) != len(v.Usertypes) {
+		return fmt.Errorf("accounts len: %d does not match user types len: %d", len(v.Accounts), len(v.Usertypes))
+	}
+
+	if len(v.Accounts) != len(v.Stakes) {
+		return fmt.Errorf("accounts len: %d does not match stakes len: %d", len(v.Accounts), len(v.Stakes))
+	}
+
+	for i := 0; i < len(v.Accounts); i++ {
+		userType := v.Usertypes[i]
+		if userType != Participant && userType != Stakeholder && userType != Validator {
+			return fmt.Errorf("undefined user type: %d", userType)
+		}
 	}
 
 	ac.metrics.SubmitEconomicMetrics(&v, stateDB, header.Number.Uint64(), ac.operator)
+	return nil
 }
 
 func (ac *Contract) GetCommittee(header *types.Header, statedb *state.StateDB) (types.Committee, error) {

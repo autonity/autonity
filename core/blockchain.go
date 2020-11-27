@@ -1492,7 +1492,10 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		}
 
 		// Measure network economic metrics.
-		bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
+		err := bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	// Irrelevant of the canonical status, write the block itself to the database.
