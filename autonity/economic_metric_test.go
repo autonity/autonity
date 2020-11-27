@@ -40,21 +40,10 @@ func TestEconomicMetrics_generateMetricsIDs(t *testing.T) {
 		em := &EconomicMetrics{}
 		a := common.Hex2Bytes(testAddress1)
 		address := common.BytesToAddress(a)
-		stakeID, balanceID, commissionRateID, _ := em.generateUserMetricsID(address, Participant)
+		stakeID, balanceID := em.generateUserMetricsID(address, Participant)
 		expectedStakeID := fmt.Sprintf(UserMetricIDTemplate, address.String(), "participant", "stake")
 		expectedBalanceID := fmt.Sprintf(UserMetricIDTemplate, address.String(), "participant", "balance")
-		expectedCommissionRateID := fmt.Sprintf(UserMetricIDTemplate, address.String(), "participant", "commissionrate")
-		if stakeID != expectedStakeID || balanceID != expectedBalanceID || commissionRateID != expectedCommissionRateID {
-			t.Fatal("test case failed.")
-		}
-	})
-
-	t.Run("test generate user metrics ID with wrong role", func(t *testing.T) {
-		em := &EconomicMetrics{}
-		a := common.Hex2Bytes(testAddress1)
-		address := common.BytesToAddress(a)
-		_, _, _, err := em.generateUserMetricsID(address, 3)
-		if err == nil {
+		if stakeID != expectedStakeID || balanceID != expectedBalanceID {
 			t.Fatal("test case failed.")
 		}
 	})
@@ -95,45 +84,42 @@ func TestEconomicMetrics_removeMetricsFromRegistry(t *testing.T) {
 		a3 := common.Hex2Bytes(testAddress3)
 		address3 := common.BytesToAddress(a3)
 
-		stakeID1, balanceID1, commisionRateID1, _ := em.generateUserMetricsID(address1, Participant)
+		stakeID1, balanceID1 := em.generateUserMetricsID(address1, Participant)
 		rewardDistributionMetricID1 := em.generateRewardDistributionMetricsID(address1, Stakeholder, blockHeight)
 
 		metrics.GetOrRegisterCounter(rewardDistributionMetricID1, nil).Inc(100)
 		metrics.GetOrRegisterGauge(stakeID1, nil).Update(100)
 		metrics.GetOrRegisterGauge(balanceID1, nil).Update(100)
-		metrics.GetOrRegisterGauge(commisionRateID1, nil).Update(100)
 
-		stakeID2, balanceID2, commisionRateID2, _ := em.generateUserMetricsID(address2, Stakeholder)
+		stakeID2, balanceID2 := em.generateUserMetricsID(address2, Stakeholder)
 		rewardDistributionMetricID2 := em.generateRewardDistributionMetricsID(address2, Stakeholder, blockHeight)
 
 		metrics.GetOrRegisterCounter(rewardDistributionMetricID2, nil).Inc(200)
 		metrics.GetOrRegisterGauge(stakeID2, nil).Update(200)
 		metrics.GetOrRegisterGauge(balanceID2, nil).Update(200)
-		metrics.GetOrRegisterGauge(commisionRateID2, nil).Update(200)
 
-		stakeID3, balanceID3, commisionRateID3, _ := em.generateUserMetricsID(address3, Validator)
+		stakeID3, balanceID3 := em.generateUserMetricsID(address3, Validator)
 		rewardDistributionMetricID3 := em.generateRewardDistributionMetricsID(address3, Stakeholder, blockHeight)
 
 		metrics.GetOrRegisterCounter(rewardDistributionMetricID3, nil).Inc(300)
 		metrics.GetOrRegisterGauge(stakeID3, nil).Update(300)
 		metrics.GetOrRegisterGauge(balanceID3, nil).Update(300)
-		metrics.GetOrRegisterGauge(commisionRateID3, nil).Update(300)
 
 		em.removeMetricsFromRegistry(address1, blockHeight)
 		em.removeMetricsFromRegistry(address2, blockHeight)
 		em.removeMetricsFromRegistry(address3, blockHeight)
 
-		if metrics.Get(stakeID1) != nil || metrics.Get(balanceID1) != nil || metrics.Get(commisionRateID1) != nil ||
+		if metrics.Get(stakeID1) != nil || metrics.Get(balanceID1) != nil ||
 			metrics.Get(rewardDistributionMetricID1) != nil {
 			t.Fatal("case failed.")
 		}
 
-		if metrics.Get(stakeID2) != nil || metrics.Get(balanceID2) != nil || metrics.Get(commisionRateID2) != nil ||
+		if metrics.Get(stakeID2) != nil || metrics.Get(balanceID2) != nil ||
 			metrics.Get(rewardDistributionMetricID2) != nil {
 			t.Fatal("case failed.")
 		}
 
-		if metrics.Get(stakeID3) != nil || metrics.Get(balanceID3) != nil || metrics.Get(commisionRateID3) != nil ||
+		if metrics.Get(stakeID3) != nil || metrics.Get(balanceID3) != nil ||
 			metrics.Get(rewardDistributionMetricID3) != nil {
 			t.Fatal("case failed.")
 		}
@@ -305,14 +291,4 @@ func TestEconomicMetrics_recordMetric(t *testing.T) {
 			t.Fatal("case failed.")
 		}
 	})
-
-	t.Run("record metrics, exception case.", func(t *testing.T) {
-		em := &EconomicMetrics{}
-		em.recordMetric("metricID3", nil, false)
-		metric := metrics.Get("metricID3")
-		if metric != nil {
-			t.Fatal("case failed.")
-		}
-	})
-
 }
