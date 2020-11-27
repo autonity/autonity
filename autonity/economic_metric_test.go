@@ -108,7 +108,7 @@ func TestEconomicMetrics_removeMetricsFromRegistry(t *testing.T) {
 		metrics.GetOrRegisterGauge(stakeID2, nil).Update(200)
 		metrics.GetOrRegisterGauge(balanceID2, nil).Update(200)
 
-		stakeID3, balanceID3,  _ := em.generateUserMetricsID(address3, Validator)
+		stakeID3, balanceID3, _ := em.generateUserMetricsID(address3, Validator)
 		rewardDistributionMetricID3 := em.generateRewardDistributionMetricsID(address3, Stakeholder, blockHeight)
 
 		metrics.GetOrRegisterCounter(rewardDistributionMetricID3, nil).Inc(300)
