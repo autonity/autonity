@@ -68,10 +68,6 @@ func NewAutonityContract(
 
 // measure metrics of user's meta data by regarding of network economic.
 func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB) error {
-	if header.Number.Uint64() < 1 {
-		return errors.New("wrong state parameters")
-	}
-
 	// prepare abi and evm context
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.evmProvider.EVM(header, Deployer, stateDB)
@@ -80,23 +76,21 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	// pack the function which dump the data from contract.
 	input, err := ABI.Pack("dumpEconomicMetrics")
 	if err != nil {
-		log.Warn("Cannot pack the method: ", "err", err.Error())
-		return errors.New("cannot pack contract function")
+		return fmt.Errorf("failed to pack contract function: %v", err)
 	}
 
 	// call evm.
 	value := new(big.Int).SetUint64(0x00)
 	ret, _, vmerr := evm.Call(vm.AccountRef(Deployer), ContractAddress, input, gas, value)
 	if vmerr != nil {
-		log.Warn("Error Autonity Contract dumpNetworkEconomics", err, vmerr)
-		return errors.New("cannot init EVM")
+		return fmt.Errorf("EVM call to dumpNetworkEconomics failed: %v", vmerr)
 	}
 
 	// marshal the data from bytes arrays into specified structure.
 	v := EconomicMetaData{make([]common.Address, 32), make([]uint8, 32), make([]*big.Int, 32), new(big.Int), new(big.Int)}
 
 	if err := ABI.UnpackIntoInterface(&v, "dumpEconomicMetrics", ret); err != nil {
-		return errors.New("cannot unpack data from return value from contract")
+		return fmt.Errorf("cannot unpack data from return value from contract: %v", err)
 	}
 
 	if len(v.Accounts) != len(v.Usertypes) {
