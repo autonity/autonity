@@ -146,7 +146,7 @@ func (sb *Backend) Commit(block *types.Block, proposer common.Address) {
 	}
 
 	if sb.broadcaster != nil {
-		sb.broadcaster.BroadcastBlock(block, true)
+		sb.broadcaster.Enqueue(fetcherID, block)
 	}
 }
 
