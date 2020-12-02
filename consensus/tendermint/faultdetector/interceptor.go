@@ -307,9 +307,9 @@ func (i *interceptor) Intercept(msg *message) {
 		})
 
 		// todo: assume that no equivocation msg on msg store.
-		// pi locked at a distinct value V' before round r at r-1
+		// pi locked at a distinct value V' before round r
 		precommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == precommit && m.Round == msg.Round()-1 && m.Value() != proposal.Value() && m.Sender() == msg.Sender()
+			return m.Type() == precommit && m.Round < msg.Round() && m.Value() != proposal.Value() && m.Sender() == msg.Sender()
 		})
 
 		// the prevote of pi should be nil at round r, otherwise it break the rule
