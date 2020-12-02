@@ -121,8 +121,8 @@ func (i *interceptor) Intercept(msg *message) {
 		}
 	}
 
-	// PVN2, If there is a valid proposal V, and pi never ever precommit(locked the value) before, then pi should prevote
-	// for this value or a nil in case of timeout.
+	// PVN2, If there is a valid proposal V at round r, and pi never ever precommit(locked a value) before, then pi should prevote
+	// for V or a nil in case of timeout at this round.
 	if msg.Type == prevote {
 		proposal := i.msgStore(msg.Height(), func(m *message) bool {
 			return m.Type() == propose && m.Round == msg.Round() && Valid(m.Value)
@@ -133,8 +133,8 @@ func (i *interceptor) Intercept(msg *message) {
 			return m.Type() == precommit && m.Round < msg.Round() && m.Value() != nilValue && m.Sender() == msg.Sender()
 		})
 
-		// the prevote of pi should be nil or same as the value proposed.
-		if proposal != nil && len(precommits) > 0 && !(msg.Value() != proposal.Value() || msg.Value() != nilValue) {
+		// the prevote of pi should be nil or V.
+		if proposal != nil && len(precommits) == 0 && !(msg.Value() == proposal.Value() || msg.Value() == nilValue) {
 			return Proof{
 				Rule:     PVN2,
 				Evidence: []message{proposal, precommits},
