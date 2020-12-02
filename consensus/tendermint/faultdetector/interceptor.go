@@ -143,7 +143,7 @@ func (i *interceptor) Intercept(msg *message) {
 		}
 	}
 
-	// PVN3, if V is a valid proposed value, and pi locked it in the previous round, the pi should prevote for V or Nil
+	// PVN3, if V is a valid proposed value, and pi locked it in the previous round, the pi should prevote for V or Nil in case of timeout.
 	if msg.Type == prevote {
 		proposal := i.msgStore(msg.Height(), func(m *message) bool {
 			return m.Type() == propose && m.Round == msg.Round() && Valid(m.Value)
@@ -170,7 +170,7 @@ func (i *interceptor) Intercept(msg *message) {
 			return m.Type() == propose && m.Round == msg.Round() && Valid(m.Value)
 		})
 
-		// pi locked at a distinct value before.
+		// pi last locked at a distinct value before.
 		precommits := i.msgStore(msg.Height(), func(m *message) bool {
 			return m.Type() == precommit && m.Round < msg.Round() && m.Value() != proposal.Value() && m.Sender() == msg.Sender()
 		})
@@ -202,11 +202,11 @@ func (i *interceptor) Intercept(msg *message) {
 
 		// pi never locked for other values between round r' and r.
 		otherPrecommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == precommit && precommits[0].Round < msg.Round() && m.Value() != proposal.Value() && m.Sender() == msg.Sender()
+			return m.Type() == precommit && (precommits[0].Round < m.Round() || m.Round() < msg.Round()) && m.Value() != proposal.Value() && m.Sender() == msg.Sender()
 		})
 
 		// the prevote of pi should be nil or V, otherwise it break the rule
-		if proposal != nil && len(precommits) == 1 && len(otherPrecommits) > 0 && !(msg.Value() == proposal.Value() || msg.Value() == nilValue) {
+		if proposal != nil && len(precommits) == 1 && len(otherPrecommits) == 0 && !(msg.Value() == proposal.Value() || msg.Value() == nilValue) {
 			return Proof{
 				Rule:     PVO1a,
 				Evidence: []message{proposal, precommits, otherPrecommits},
