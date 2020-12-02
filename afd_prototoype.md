@@ -1,6 +1,7 @@
 ## Notation
 
 pi → The participant who's message is being checked
+
 ⊥ → No message sent (this is new, to solve problems with the rules)
 
 ## Interpreting the rules
