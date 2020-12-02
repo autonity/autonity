@@ -299,7 +299,7 @@ func (i *interceptor) Intercept(msg *message) {
 		}
 	}
 
-	// PV04. if V is the proposed value at round r and pi did already precommit on V' at the previous round then pi prevotes for nil.
+	// PVO4. if V is the proposed value at round r and pi did already precommit on V' at the previous round then pi prevotes for nil.
 	if msg.Type == prevote {
 		// Valid V proposed at round r.
 		proposal := i.msgStore(msg.Height(), func(m *message) bool {
