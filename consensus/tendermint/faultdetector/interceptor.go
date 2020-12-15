@@ -1,8 +1,10 @@
 package faultdetector
 
 import (
-	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"sort"
+
+	"github.com/clearmatics/autonity/consensus/tendermint/bft"
+	"github.com/graph-gophers/graphql-go/internal/validation"
 
 	"github.com/clearmatics/autonity/common"
 )
@@ -307,11 +309,58 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 				// requires 2f+1 PV for V ( but it doesn't exist)	
 				// So raise accusation
 
-				// PVO:   (Mr′<r,PC|pi) ∧ (Mr′≤r′′′<r,PV) ∧ (Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,P V|pi)
+				// PVO:   (Mr′<r,PC|pi) ∧ (Mr′≤r′′′<r,PV) ∧ (Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
 
-				// PVO1A: [V] ∧ [∗] ∧ [nil] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil
-				// PVO1B: [∗] ∧ [∗] ∧ [V:r′′=r−1] ∧ [V] <--- [V]
-				// PVO2:  [V′] ∧ [#(V) ≥ 2f+1] ∧ [nil] ∧ [V:validRound(V)=r′′′] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil ∧ ∃r′′′∈[r′,r−1],#(Mr′′′,PV|V) ≥ 2f+ 1 
+				// PVO1A: [V] ∧ [∗] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil
+
+			
+
+
+				// PVO1A: [V] ∧ [#(nil) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil
+				// PVO1A: [V] ∧ [⊥] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil
+
+				
+				// PVO1A2: [nil] ∧ [#2f+1] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil
+				// If pi previously precommitted for V and between this precommit and
+				// the proposal precommitted for a different value V', then the prevote
+				// is considered invalid.
+
+				// PVO1B: [∗] ∧ [∗] ∧ [V:r′′=r−1] ∧ [V] <--- [V] -- not needed as it is a special case of PVO1A
+
+				// PVO2: [V'] ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil ∧ ∃r′′′∈[r′,r−1],#(Mr′′′,PV|V) ≥ 2f+ 1
+
+				// Imagine in round 1 we see 2f+1 prevotes for V then in round 2
+				// we see an old proposal for V with valid round 1.
+				// And we then see a prevote in round 2 for the old value from pi.
+
+
+
+
+
+				// PVO2: [V']  ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
+
+
+				// PVO2: [V] ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
+
+				
+			
+
+
+				// PVO2: [*]  ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
+
+				
+				// PVO2: [V']  ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
+				// PVO2: [V]   ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
+				// PVO2: [nil] ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
+				// PVO2: [⊥]   ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
+
+				// If pi previously precommitted for a value V' distinct from
+				// the old proposed value V and has not subsequently
+				// precommitted for V, we must see a quorum of prevotes for V
+				// for the validRound specified in the proposal which must be
+				// more recent than the round in which pi precommitted for V'.
+
+
 			}
 		}
 
