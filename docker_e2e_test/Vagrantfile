@@ -21,8 +21,8 @@ Vagrant.configure("2") do |config|
       golang-docker-credential-helpers
 
     if ! [[ -f /usr/local/go/bin/go ]]; then
-      wget -q -P /tmp/ https://dl.google.com/go/go1.13.linux-amd64.tar.gz
-      tar -C /usr/local -xzf /tmp/go1.13.linux-amd64.tar.gz
+      wget -q -P /tmp/ https://dl.google.com/go/go1.15.5.linux-amd64.tar.gz
+      tar -C /usr/local -xzf /tmp/go1.15.5.linux-amd64.tar.gz
       echo 'PATH=${PATH}:/usr/local/go/bin' >> /home/vagrant/.bashrc
     fi
 
