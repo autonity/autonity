@@ -73,6 +73,41 @@ func deferProcessing(msg *message) {
 	})
 }
 
+func (i *interceptor) Intercept(msg *message) proofOfMisBehavior {
+	// Prerequisite: msg has a valid signature and comes from validator.
+
+	// Validation steps
+	//
+	// Auto incriminating
+	//  - Need to check for proposals if they are coming from the right proposer.
+	//  - Is Type valid ? one of (propose, prevote, precommit)
+	//  - Check for correctness of old proposals (VR = -1)
+	//  - Check that the valid round in the old proposal (VR > -1) is not equal to or greater than the current round.
+	//  - Check the validity of the proposal and if it is invalid it is an auto incrimination message
+	//
+	// We currently don't include auto-incriminating messages in the message
+	// store for simplicity, but there are some cases in which we would be able
+	// to prove bad behaviour by including auto-incriminating messages, such as
+	// participants precommiting or prevoting for an invalid proposal.
+
+	// proover.Send(interceptor.Intercept(msg))
+	//
+	// interceptor.Intercept(msg)
+
+	// Saving messages in the store MUST happen before checking for equivocation.
+
+	i.msgStore.Save(msg)
+
+	// if proof := i.checkEquivocation(msg) ; proof != nil {
+	// 	return proof
+	// }
+
+	if proof := i.checkImmediateFault(msg); proof != nil {
+		return proof
+	}
+	return
+}
+
 func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation) {
 	// We should be here at time t = timestamp(h+1) + delta
 
@@ -401,39 +436,4 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 			}
 		}
 	}
-}
-
-func (i *interceptor) Intercept(msg *message) proofOfMisBehavior {
-	// Prerequisite: msg has a valid signature and comes from validator.
-
-	// Validation steps
-	//
-	// Auto incriminating
-	//  - Need to check for proposals if they are coming from the right proposer.
-	//  - Is Type valid ? one of (propose, prevote, precommit)
-	//  - Check for correctness of old proposals (VR = -1)
-	//  - Check that the valid round in the old proposal (VR > -1) is not equal to or greater than the current round.
-	//  - Check the validity of the proposal and if it is invalid it is an auto incrimination message
-	//
-	// We currently don't include auto-incriminating messages in the message
-	// store for simplicity, but there are some cases in which we would be able
-	// to prove bad behaviour by including auto-incriminating messages, such as
-	// participants precommiting or prevoting for an invalid proposal.
-
-	// proover.Send(interceptor.Intercept(msg))
-	//
-	// interceptor.Intercept(msg)
-
-	// Saving messages in the store MUST happen before checking for equivocation.
-
-	i.msgStore.Save(msg)
-
-	// if proof := i.checkEquivocation(msg) ; proof != nil {
-	// 	return proof
-	// }
-
-	if proof := i.checkImmediateFault(msg); proof != nil {
-		return proof
-	}
-	return
 }
