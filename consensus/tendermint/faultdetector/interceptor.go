@@ -10,6 +10,7 @@ import (
 )
 
 type Rule uint8
+
 const (
 	PN1 Rule = iota
 	PO1
@@ -17,14 +18,13 @@ const (
 )
 
 type Proof struct {
-	Rule Rule
+	Rule     Rule
 	Evidence []message
-	Message message
+	Message  message
 }
 
 type interceptor struct {
 	msgStore Store
-	
 }
 
 type Verifier interface {
@@ -67,15 +67,13 @@ type message interface {
 	ValidRound() uint
 }
 
-
-func deferProcessing(msg *message){
+func deferProcessing(msg *message) {
 	timer.executeAfter(msg, delta, func() {
-		
+
 	})
 }
 
-
-func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation){
+func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation) {
 	// We should be here at time t = timestamp(h+1) + delta
 
 	var proofs []*proofOfMisBehavior
@@ -83,9 +81,9 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 
 	// PN1 not defendable
 	proposalsNew := i.msgStore(height, func(m *message) bool {
-		return m.Type() == proposal && m.ValidRound == -1 
+		return m.Type() == proposal && m.ValidRound == -1
 	})
-	
+
 	for i, proposal := range proposalsNew {
 		//check all precommits for previous rounds from this sender are nil
 		precommits := i.msgStore(height, func(m *message) bool {
@@ -101,7 +99,7 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 			proofs = append(proofs, &proof)
 		}
 	}
-	
+
 	// (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,PC|pi)∗ ⇒ (Mr,P|pi)
 	// [#(V) ≥ 2f+1] ∧ [nil ∨ V v ⊥] ∧ [nil v ⊥] ⇒ [V]
 
@@ -121,16 +119,16 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 	// We can see the valid round in the proposal!
 
 	// Check for accusable misbehaviour
-	// 
+	//
 	//
 
 	// PO1 Old
 	// proposalsOld := i.msgStore(height, func(m *message) bool {
-	// 	return m.Type() == proposal && m.ValidRound > -1 
+	// 	return m.Type() == proposal && m.ValidRound > -1
 	// })
-	
+
 	// for i, proposal := range proposalsOld {
-		
+
 	// 	// Check from the preceeding round backwards
 	// 	for j := proposal.Round()-1; j >= 0; j-- {
 	// 		prevotes := i.msgStore(height, func(m *message) bool {
@@ -138,9 +136,6 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 	// 		})
 
 	// 		// Term 2
-				
-
-
 
 	// 		// Term 1
 	// 		if len(prevotes) > thresh {
@@ -159,12 +154,10 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 	// 		return m.sender() == proposal.Sender() && m.Type() == precommit && m.Round < proposal.Round && m.Value != nilValue
 	// 	})
 
-		
-
 	// 	allPrevotes := i.msgStore(height, func(m *message) bool {
-	// 		return m.Type() == prevotes && 
+	// 		return m.Type() == prevotes &&
 	// 	})
-		
+
 	// 	if len(precommits) != 0 {
 	// 		// construct proof of bad behaviour
 	// 		proof := Proof{
@@ -176,15 +169,14 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 	// 	}
 	// }
 
-
 	// (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,PC|pi)∗ ⇒ (Mr,P|pi)
 	// [#(V) ≥ 2f+1] ∧ [nil ∨ V v ⊥] ∧ [nil v ⊥] ⇒ [V]
 
 	// PO1 Take 2
 	proposalsOld := i.msgStore(height, func(m *message) bool {
-		return m.Type() == proposal && m.ValidRound > -1 
+		return m.Type() == proposal && m.ValidRound > -1
 	})
-	
+
 	for i, proposal := range proposalsOld {
 		// Check that in the valid round we see a quorum of prevotes and that
 		// there is no precommit at all or a precommit for v or nil.
@@ -197,8 +189,8 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 		// misbehaviour can be generated.
 		precommit := i.msgStore(height, func(m *message) bool {
 			return m.Type() == Precommit && m.Round == validRound &&
-			m.Sender == proposal.Sender() && m.Value() != nilValue &&
-			m.Value() != proposal.Value()
+				m.Sender == proposal.Sender() && m.Value() != nilValue &&
+				m.Value() != proposal.Value()
 		})
 		if len(precommit) > 0 {
 			return &Proof{
@@ -214,9 +206,9 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 		// hence it should have set that round as the valid round.
 		precommits := i.msgStore(height, func(m *message) bool {
 			return m.Type() == Precommit &&
-			m.Round > validRound && m.Round < proposal.Round() &&
-			m.Sender == proposal.Sender() &&
-			m.Value() != nilValue
+				m.Round > validRound && m.Round < proposal.Round() &&
+				m.Sender == proposal.Sender() &&
+				m.Value() != nilValue
 		})
 		if len(precommits) > 0 {
 			return &Proof{
@@ -234,14 +226,14 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 		})
 		if len(prevotes) < threshold {
 			return &Accusation{
-				Rule:     PO1,
-				Message:  msg,
+				Rule:    PO1,
+				Message: msg,
 			}
 		}
 	}
-	
+
 	// Find all the prevotes
-	prevotes := i.msgStore(height, func(m *message) bool{
+	prevotes := i.msgStore(height, func(m *message) bool {
 		return m.Type() == Prevote && m.Value != nilValue
 	})
 
@@ -257,13 +249,12 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 		})
 
 		if len(correspondingProposals) == 0 {
-			// raise an accusation 
-			 &Accusation{
-				Rule:     PV,
-				Message:  msg,
+			// raise an accusation
+			&Accusation{
+				Rule:    PV,
+				Message: msg,
 			}
 		}
-
 
 		// We need to ensure that we keep all proposals in the message store,
 		// so that we have the maximum chance of finding justification for
@@ -271,16 +262,15 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 		//
 		// P V -1 <-- real - discarded
 		// P V 4 <-- fake there never were 2f+1 PV for V in the past
-		
-		
-		for correspondingProposal :=  range correspondingProposals {
+
+		for correspondingProposal := range correspondingProposals {
 			if correspondingProposal.ValidRound == -1 {
 				// New Proposal, apply PVN rules
-				
+
 				// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
 
 				// PVN2: [nil ∨ ⊥] ∧ [nil ∨ ⊥] ∧ [V:Valid(V)] <--- [V]: r′= 0,∀r′′< r:Mr′′,PC|pi=nil
-				
+
 				// PVN2, If there is a valid proposal V at round r, and pi never
 				// ever precommit(locked a value) before, then pi should prevote
 				// for V or a nil in case of timeout at this round.
@@ -295,8 +285,8 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 				// can even attempt to apply the rule.
 				precommits := i.msgStore(height, func(m *message) bool {
 					m.Type() == Precommit && m.Value != nilValue &&
-					m.Value != prevote.Value && prevote.Sender() == m.Sender() &&
-					m.Round() < prevote.Round()
+						m.Value != prevote.Value && prevote.Sender() == m.Sender() &&
+						m.Round() < prevote.Round()
 				})
 
 				if len(precommits) > 0 {
@@ -308,7 +298,7 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 				// PVO:   (Mr′<r,PC|pi) ∧ (Mr′≤r′′′<r,PV) ∧ (Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
 
 				// PVO1A: [V] ∧ [∗] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil <-- broken we need to see the prevotes for valid round
-				
+
 				// PVO2: [*] ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil ∧ ∃r′′′∈[r′,r−1],#(Mr′′′,PV|V) ≥ 2f+ 1
 
 				// If pi previously precommitted for V and between this precommit and
@@ -317,21 +307,16 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 
 				precommits := i.msgStore(height, func(m *message) bool {
 					m.Type() == Precommit && prevote.Sender() == m.Sender() &&
-					m.Round() < prevote.Round() && m.Value != nilValue
+						m.Round() < prevote.Round() && m.Value != nilValue
 				})
 				//check most recent precommit if == V -> pass else --> fail
 
-				
 				// 2f+1 PV(V) round 2
 
 				// round 4 p_i receiveds 2f+1 PV(V') Sends PC(V') and it sets its locked value and locked round=4
 
 				// round 5 proposer proposes P(V, VR=2), so this would mean that p_i prevote nil even though there are 2f+1 prevotes for V in round 2
 
-
-
-				
-				
 				// Aneeque's initials thoughts on PVO
 				if len(precommits) > 0 {
 					// PVO1a
@@ -341,7 +326,7 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 
 					// Proof of misbehaviour:
 
-					// Get the lastest precommit 
+					// Get the lastest precommit
 					// Check the precommit value
 					// if it precommit.Value() != prevote.Value
 					// 		check all round from precommit to current round for 2f+1 prevotes
@@ -357,9 +342,8 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 					// PVO2
 
 					// We don't have a precommit from the p_i
-					// check that in valid round we have 2f+1 prevotes for V rule passes, otherwise raise an accustion 
+					// check that in valid round we have 2f+1 prevotes for V rule passes, otherwise raise an accustion
 				}
-				
 
 				// PVO1B: [∗] ∧ [∗] ∧ [V:r′′=r−1] ∧ [V] <--- [V] -- not needed as it is a special case of PVO1A
 
@@ -368,11 +352,7 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 				// 2f+1 prevotes for the V in round vr, then pi could have also
 				// seen them and hence be able to prevote for the old proposal.
 
-				
-
-
 			}
-			
 
 			// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 
@@ -388,37 +368,37 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 				})
 
 				if len(proposals) == 0 {
-					// raise an accusation 
+					// raise an accusation
 					&Accusation{
-						Rule:     C,
-						Message:  msg,
+						Rule:    C,
+						Message: msg,
 					}
-					continue					
+					continue
 				}
 
-			
 				prevotesForNotV := i.msgStore(height, func(m *message) bool {
-					m.Type() == Prevote  && m.Value != precommit.Value() && m.Round() == precommit.Round()
+					m.Type() == Prevote && m.Value != precommit.Value() && m.Round() == precommit.Round()
 				})
 				prevotesForV := i.msgStore(height, func(m *message) bool {
-					m.Type() == Prevote  && m.Value == precommit.Value() && m.Round() == precommit.Round()
+					m.Type() == Prevote && m.Value == precommit.Value() && m.Round() == precommit.Round()
 				})
 				if len(prevotesForNotV) >= threshold {
 					// proof of misbehaviour
 					&Proof{
-						Rule:     C ,
+						Rule:     C,
 						Evidence: []message{prevotesForNotV},
 						Message:  msg,
 					}
-					
-				} else if len(prevotesForV) < threshold {                                                                                        
+
+				} else if len(prevotesForV) < threshold {
 					//raise an accusation
 					&Accusation{
-						Rule:     C,
-						Message:  msg,
+						Rule:    C,
+						Message: msg,
 					}
-					
+
 				}
+			}
 		}
 	}
 }
@@ -455,5 +435,5 @@ func (i *interceptor) Intercept(msg *message) proofOfMisBehavior {
 	if proof := i.checkImmediateFault(msg); proof != nil {
 		return proof
 	}
-	return 
+	return
 }
