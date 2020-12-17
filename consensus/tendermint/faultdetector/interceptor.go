@@ -28,20 +28,6 @@ type Verifier interface {
 	Verify(m *message, s Store) error
 }
 
-// Rules read right to left (find  the right and look for the left)
-//
-// Rules should be evealuated such that we check all paossible instances and if
-// we can't find a single instance that passes then we consider the rule
-// failed.
-//
-// There are 2 types of provable misbehaviors.
-// 1. Conflicting messages from a single participant
-// 2. A message that conflicts with a quorum of prevotes.
-// (precommit for differing value in same round as the prevotes or proposal for an
-// old value where in each prior round we can see a quorum of precommits for a distinct value.)
-//
-// We can ignore rules that have nil on the right hand side.
-
 type message interface {
 	Round() uint
 	Height() uint
@@ -93,6 +79,18 @@ func (i *interceptor) Intercept(msg *message) proofOfMisBehavior {
 }
 
 func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation) {
+	// Rules read right to left (find  the right and look for the left)
+	//
+	// Rules should be evealuated such that we check all paossible instances and if
+	// we can't find a single instance that passes then we consider the rule
+	// failed.
+	//
+	// There are 2 types of provable misbehaviors.
+	// 1. Conflicting messages from a single participant
+	// 2. A message that conflicts with a quorum of prevotes.
+	// (precommit for differing value in same round as the prevotes or proposal for an
+	// old value where in each prior round we can see a quorum of precommits for a distinct value.)
+
 	// We should be here at time t = timestamp(h+1) + delta
 
 	var proofs []*proofOfMisBehavior
