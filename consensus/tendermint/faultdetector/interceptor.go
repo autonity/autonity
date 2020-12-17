@@ -20,6 +20,11 @@ type Proof struct {
 	Message  message
 }
 
+type Accusation struct {
+	Rule    Rule
+	Message message
+}
+
 type Store interface {
 	Save(message *message)
 	Get(height uint64, query func(m *message) bool) []*message
@@ -38,7 +43,7 @@ type message interface {
 	ValidRound() uint
 }
 
-func (i *interceptor) Intercept(msg *message) proofOfMisBehavior {
+func (i *interceptor) Intercept(msg *message) *Proof {
 	// Prerequisite: msg has a valid signature and comes from validator.
 
 	// Validation steps
@@ -70,10 +75,11 @@ func (i *interceptor) Intercept(msg *message) proofOfMisBehavior {
 	if proof := i.checkImmediateFault(msg); proof != nil {
 		return proof
 	}
-	return
+
+	return nil
 }
 
-func (i *interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation) {
+func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 	// Rules read right to left (find  the right and look for the left)
 	//
 	// Rules should be evealuated such that we check all paossible instances and if
@@ -88,7 +94,7 @@ func (i *interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusati
 
 	// We should be here at time t = timestamp(h+1) + delta
 
-	var proofs []*proofOfMisBehavior
+	var proofs []*Proof
 	var accusations []*Accusation
 
 	// PN1 not defendable
