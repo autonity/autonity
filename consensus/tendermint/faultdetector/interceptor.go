@@ -305,110 +305,122 @@ func (*interceptor) Process(height uint64) ([]*proofOfMisBehavior, []*Accusation
 				}
 
 			} else {
-				// Old Proposal, apply PVO rules
-				// requires 2f+1 PV for V ( but it doesn't exist)	
-				// So raise accusation
-
 				// PVO:   (Mr′<r,PC|pi) ∧ (Mr′≤r′′′<r,PV) ∧ (Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
 
-				// PVO1A: [V] ∧ [∗] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil
-
-			
-
-
-				// PVO1A: [V] ∧ [#(nil) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil
-				// PVO1A: [V] ∧ [⊥] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil
-
+				// PVO1A: [V] ∧ [∗] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil <-- broken we need to see the prevotes for valid round
 				
-				// PVO1A2: [nil] ∧ [#2f+1] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil
+				// PVO2: [*] ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil ∧ ∃r′′′∈[r′,r−1],#(Mr′′′,PV|V) ≥ 2f+ 1
+
 				// If pi previously precommitted for V and between this precommit and
 				// the proposal precommitted for a different value V', then the prevote
 				// is considered invalid.
 
+				precommits := i.msgStore(height, func(m *message) bool {
+					m.Type() == Precommit && prevote.Sender() == m.Sender() &&
+					m.Round() < prevote.Round() && m.Value != nilValue
+				})
+				//check most recent precommit if == V -> pass else --> fail
+
+				
+				// 2f+1 PV(V) round 2
+
+				// round 4 p_i receiveds 2f+1 PV(V') Sends PC(V') and it sets its locked value and locked round=4
+
+				// round 5 proposer proposes P(V, VR=2), so this would mean that p_i prevote nil even though there are 2f+1 prevotes for V in round 2
+
+
+
+				
+				
+				// Aneeque's initials thoughts on PVO
+				if len(precommits) > 0 {
+					// PVO1a
+
+					// sort according to round
+					Sort(precommits)
+
+					// Proof of misbehaviour:
+
+					// Get the lastest precommit 
+					// Check the precommit value
+					// if it precommit.Value() != prevote.Value
+					// 		check all round from precommit to current round for 2f+1 prevotes
+					// 		if even a single round doesn't have 2f+1 prevotes, raise an accusation
+					//		else we have proof of misbehaviour if non of the 2f+1 prevotes are for precommit.Value()
+
+					// if it precommit.Value() == prevote.Value
+					// 		Check that if we 2f+1 prevotes for all rounds since precommit.Round() till current round,
+					//      if yes, than non of them can be for value other than prevote.Value, otherwise we have proof of misbehaviour
+					// 		if there are gaps then the condition passes
+
+				} else {
+					// PVO2
+
+					// We don't have a precommit from the p_i
+					// check that in valid round we have 2f+1 prevotes for V rule passes, otherwise raise an accustion 
+				}
+				
+
 				// PVO1B: [∗] ∧ [∗] ∧ [V:r′′=r−1] ∧ [V] <--- [V] -- not needed as it is a special case of PVO1A
 
-				// PVO2: [V'] ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil ∧ ∃r′′′∈[r′,r−1],#(Mr′′′,PV|V) ≥ 2f+ 1
-
-				// Imagine in round 1 we see 2f+1 prevotes for V then in round 2
-				// we see an old proposal for V with valid round 1.
-				// And we then see a prevote in round 2 for the old value from pi.
-
-
-
-
-
-				// PVO2: [V']  ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
-
-
-				// PVO2: [V] ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
+				// PVO2: [*] ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil ∧ ∃r′′′∈[r′,r−1],#(Mr′′′,PV|V) ≥ 2f+ 1
+				// If we can see an old proposal for V with valid round vr and
+				// 2f+1 prevotes for the V in round vr, then pi could have also
+				// seen them and hence be able to prevote for the old proposal.
 
 				
-			
-
-
-				// PVO2: [*]  ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
-
-				
-				// PVO2: [V']  ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
-				// PVO2: [V]   ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
-				// PVO2: [nil] ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
-				// PVO2: [⊥]   ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]
-
-				// If pi previously precommitted for a value V' distinct from
-				// the old proposed value V and has not subsequently
-				// precommitted for V, we must see a quorum of prevotes for V
-				// for the validRound specified in the proposal which must be
-				// more recent than the round in which pi precommitted for V'.
 
 
 			}
+			
+
+			// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
+
+			// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
+
+			precommits := i.msgStore(height, func(m *message) bool {
+				m.Type() == Precommit && m.Value != nilValue
+			})
+
+			for _, precommit := range precommits {
+				proposals := i.msgStore(height, func(m *message) bool {
+					m.Type() == Proposal && m.Value == precommit.Value && m.Round() == precommit.Round()
+				})
+
+				if len(proposals) == 0 {
+					// raise an accusation 
+					&Accusation{
+						Rule:     C,
+						Message:  msg,
+					}
+					continue					
+				}
+
+			
+				prevotesForNotV := i.msgStore(height, func(m *message) bool {
+					m.Type() == Prevote  && m.Value != precommit.Value() && m.Round() == precommit.Round()
+				})
+				prevotesForV := i.msgStore(height, func(m *message) bool {
+					m.Type() == Prevote  && m.Value == precommit.Value() && m.Round() == precommit.Round()
+				})
+				if len(prevotesForNotV) >= threshold {
+					// proof of misbehaviour
+					&Proof{
+						Rule:     C ,
+						Evidence: []message{prevotesForNotV},
+						Message:  msg,
+					}
+					
+				} else if len(prevotesForV) < threshold {                                                                                        
+					//raise an accusation
+					&Accusation{
+						Rule:     C,
+						Message:  msg,
+					}
+					
+				}
 		}
-
-
 	}
-
-	prevoteMap := make(map[common.Hash][]*message)
-	for i := range prevotes {
-		prevoteMap[prevotes[i].Value()]
-	}
-
-	for _, propNew := range proposalsNew {
-	}
-
-	for _, propOld := range proposalsOld {
-		newPrevotes := i.msgStore(height, func(m *message) bool{
-			return m.Type() == Prevote && m.Round == propNew.Round && m.Value() == propNew.Value()
-		})
-
-		>>
-	}
-
-
-
-	if len(proposal) != 1 {
-		return nil, nil
-	}
-
-	// Check if pi never ever locked a value before.
-	precommits := i.msgStore(msg.Height(), func(m *message) bool {
-		return m.Type() == precommit && m.Round < msg.Round() && m.Value() != nilValue && m.Sender() == msg.Sender()
-	})
-
-	if len(precommits) != 0 {
-		return nil, nil
-	}
-
-	// If pi never precommit a value before, then it should prevote for nil or V, otherwise generate the proof of
-	// violation of PVN2.
-	if !(msg.Value() == proposal.Value() || msg.Value() == nilValue) {
-		return &Proof{
-			Rule:     PVN2,
-			Evidence: []message{proposal, precommits},
-			Message:  msg,
-		}
-	}
-
-
 }
 
 func (i *interceptor) Intercept(msg *message) proofOfMisBehavior {
@@ -423,6 +435,10 @@ func (i *interceptor) Intercept(msg *message) proofOfMisBehavior {
 	//  - Check that the valid round in the old proposal (VR > -1) is not equal to or greater than the current round.
 	//  - Check the validity of the proposal and if it is invalid it is an auto incrimination message
 	//
+	// We currently don't include auto-incriminating messages in the message
+	// store for simplicity, but there are some cases in which we would be able
+	// to prove bad behaviour by including auto-incriminating messages, such as
+	// participants precommiting or prevoting for an invalid proposal.
 
 	// proover.Send(interceptor.Intercept(msg))
 	//
@@ -441,324 +457,3 @@ func (i *interceptor) Intercept(msg *message) proofOfMisBehavior {
 	}
 	return 
 }
-
-
-
-
-	// PO1
-	//
-	if msg.Type == Propose && msg.ValidRound() > -1 {
-		//check all precommits for previous rounds from this sender are not nil or V
-
-		// We need to find the latest round where this participant precommitted a non nil value (assuming there are no gaps between the precommits)?  Was that value
-		precommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.sender() == msg.Sender() && m.Type() == precommit && m.Round == msg.Round-1 && m.Value != nilValue && m.Value != msg.Value
-		})
-
-		if len(precommits) > 0 {
-			// Bad behaviour
-		}
-
-		sort.Slice(precommits, func(a, b int) {
-			precommits[a].Round > precommits[b].Round()
-		})
-
-		latest := precommits[0]
-
-		if latest.Value() != msg.Value() {
-
-		}
-
-		// if !i.hasQuorum(msg.Height(), prevotes){
-		// 	// We have bad behaviour
-		// 	// do we need apply a state: pending for this case, and it will be re-process latter. - No we cant ever check this case, we may also see the qui
-		// }
-
-		if len(precommits) != 0 {
-			// construct proof of bad behaviour
-			precommits = append(precommits, msg)
-			return &Proof{
-				Rule:     PN1,
-				Evidence: []message{precommits[0]},
-				Message:  msg,
-			}
-		}
-
-	}
-
-	// PVT1, timeout case, cannot to proof.
-
-
-	// PVN, rules for prevote for a new value.
-	// PVN1, if there existed An invalid proposal at this round, then node should prevote for nil at the same round.
-	// todo: assume the equivocation of proposer is address by other rules.
-	if msg.Type == prevote && msg.Value() == nilValue {
-		proposal := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == propose && m.Round == msg.Round() && notValid(m.Value)
-		})
-
-		if len(proposal) != 0 {
-			return &Proof{
-				Rule:     PVN1,
-				Evidence: []message{proposal},
-				Message:  msg,
-			}
-		}
-	}
-
-	// PVN2, If there is a valid proposal V at round r, and pi never ever precommit(locked a value) before, then pi should prevote
-	// for V or a nil in case of timeout at this round.
-	if msg.Type == prevote {
-		// Check if we have valid proposal on the round r.
-		proposal := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == propose && m.Round == msg.Round() && Valid(m.Value)
-		})
-
-		// Check if pi never ever locked a value before.
-		precommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == precommit && m.Round < msg.Round() && m.Value() != nilValue && m.Sender() == msg.Sender()
-		})
-
-		// If pi never precommit a value before, then it should prevote for nil or V, otherwis generate the proof of
-		// violation of PVN2.
-		if proposal != nil && len(precommits) == 0 && !(msg.Value() == proposal.Value() || msg.Value() == nilValue) {
-			return &Proof{
-				Rule:     PVN2,
-				Evidence: []message{proposal, precommits},
-				Message:  msg,
-			}
-		}
-	}
-
-	// PVN3, if V is a valid proposed value, and pi locked it in the previous round, the pi should prevote for V or Nil in case of timeout.
-	if msg.Type == prevote {
-		proposal := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == propose && m.Round == msg.Round() && Valid(m.Value)
-		})
-
-		// pi locked the same value before.
-		precommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == precommit && m.Round < msg.Round() && m.Value() == proposal.Value() && m.Sender() == msg.Sender()
-		})
-
-		// the prevote of pi should be nil or same as the value proposed.
-		if proposal != nil && len(precommits) > 0 && !(msg.Value() == proposal.Value() || msg.Value() == nilValue) {
-			return Proof{
-				Rule:     PVN3,
-				Evidence: []message{proposal, precommits},
-				Message:  msg,
-			}
-		}
-	}
-
-	// PVN4, if V is a newly proposed value, and pi last locked on a distinct value, then pi should only prevote for nil.
-	if msg.Type == prevote {
-		proposal := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == propose && m.Round == msg.Round() && Valid(m.Value)
-		})
-
-		// pi last locked at a distinct value before.
-		precommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == precommit && m.Round < msg.Round() && m.Value() != proposal.Value() && m.Sender() == msg.Sender()
-		})
-
-		// the prevote of pi should be nil, otherwise it break the rule
-		if proposal != nil && len(precommits) > 0 && msg.Value() != nilValue {
-			return Proof{
-				Rule:     PVN4,
-				Evidence: []message{proposal, precommits},
-				Message:  msg,
-			}
-		}
-	}
-
-	// PVO, rules for prevote for an old value.
-	// PVO1a. if V is valid proposal at round r, and pi did already locked on V at round r' < r, and pi never precommit for other Values
-	// in any round between r' and r, then in round r, pi should prevote for V or nil in case of timeout.
-	if msg.Type == prevote {
-		// Valid V proposed at round r.
-		proposal := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == propose && m.Round == msg.Round() && Valid(m.Value)
-		})
-
-		// todo: assume that no equivocation msg on msg store.
-		// pi locked at the same value before round r at r'
-		precommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == precommit && m.Round < msg.Round() && m.Value() == proposal.Value() && m.Sender() == msg.Sender()
-		})
-
-		// pi never locked for other values between round r' and r.
-		otherPrecommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == precommit && (precommits[0].Round < m.Round() || m.Round() < msg.Round()) && m.Value() != proposal.Value() && m.Sender() == msg.Sender()
-		})
-
-		// the prevote of pi should be nil or V, otherwise it break the rule
-		if proposal != nil && len(precommits) == 1 && len(otherPrecommits) == 0 && !(msg.Value() == proposal.Value() || msg.Value() == nilValue) {
-			return Proof{
-				Rule:     PVO1a,
-				Evidence: []message{proposal, precommits, otherPrecommits},
-				Message:  msg,
-			}
-		}
-	}
-
-	// PVO1b. if V is the proposed value at round r and Pi did already precommit on V at the previous round then either Pi prevotes for nil or V .
-	if msg.Type == prevote {
-		// Valid V proposed at round r.
-		proposal := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == propose && m.Round == msg.Round() && Valid(m.Value)
-		})
-
-		// todo: assume that no equivocation msg on msg store.
-		// pi locked at the same value before round r at previous round
-		precommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == precommit && m.Round < msg.Round() && m.Value() == proposal.Value() && m.Sender() == msg.Sender()
-		})
-
-		// the prevote of pi should be nil or V, otherwise it break the rule
-		if proposal != nil && len(precommits) == 1 && !(msg.Value() == proposal.Value() || msg.Value() == nilValue) {
-			return Proof{
-				Rule:     PVO1b,
-				Evidence: []message{proposal, precommits},
-				Message:  msg,
-			}
-		}
-	}
-
-	// PVO2, if V is the proposed value at round r and Pi did already precommit on V' in the past, at round r' < r (it locked on it)
-	// but there were 2f + 1 prevotes for V for a round r''' between r' and r − 1 then in round r either pi prevotes for V or nil (in case of a timeout)
-	if msg.Type == prevote {
-		// Valid V proposed at round r.
-		proposal := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == propose && m.Round == msg.Round() && Valid(m.Value)
-		})
-
-		// todo: assume that no equivocation msg on msg store.
-		// pi locked at a distinct value V' before round r at r'
-		precommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == precommit && m.Round < msg.Round() && m.Value() != proposal.Value() && m.Sender() == msg.Sender()
-		})
-
-		// there exist quorum prevote for V for a round r''' between r' and r-1.
-		r1 := precommits[0].Round()
-		var prevotes = nil
-
-		for round range (r1, msg.Round()-1) {
-			results := i.msgStore(msg.Height(), func(m *message) bool {
-				return m.Type() == prevote && m.Round() == round  && m.Value() == proposal.Value()
-			})
-			if len(results) >= bft.Quorum() {
-				prevotes := results
-			}
-		}
-
-		// the prevote of pi at round r should be nil or V, otherwise it break the rule
-		if proposal != nil && len(precommits) == 1 && len(prevotes) >= bft.Quorum() && !(msg.Value() == proposal.Value() || msg.Value() == nilValue) {
-			return Proof{
-				Rule:     PVO2,
-				Evidence: []message{proposal, precommits, prevotes},
-				Message:  msg,
-			}
-		}
-	}
-
-	// PVO3. if V is the proposed value at round r and pi did already precommit on V' in the past, at round r' < r (it locked on it)
-	// and r' is greater than the valid round associated with the proposal then pi prevotes for nil.
-	if msg.Type == prevote {
-		// Valid V proposed at round r.
-		proposal := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == propose && m.Round == msg.Round() && Valid(m.Value)
-		})
-
-		// todo: assume that no equivocation msg on msg store.
-		// pi locked at a distinct value V' before round r at r'
-		precommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == precommit && m.Round < msg.Round() && m.Value() != proposal.Value() && m.Sender() == msg.Sender()
-		})
-
-		// pi should propose nil at round r if r' > validRound of the proposal
-		if proposal != nil && len(precommits) == 1 && precommits[0].Round() > proposal.ValidRound() && msg.Value() != nilValue {
-			return Proof{
-				Rule:     PVO3,
-				Evidence: []message{proposal, precommits},
-				Message:  msg,
-			}
-		}
-	}
-
-	// PVO4. if V is the proposed value at round r and pi did already precommit on V' at the previous round then pi prevotes for nil.
-	if msg.Type == prevote {
-		// Valid V proposed at round r.
-		proposal := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == propose && m.Round == msg.Round() && Valid(m.Value)
-		})
-
-		// todo: assume that no equivocation msg on msg store.
-		// pi locked at a distinct value V' before round r
-		precommits := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == precommit && m.Round < msg.Round() && m.Value() != proposal.Value() && m.Sender() == msg.Sender()
-		})
-
-		// the prevote of pi should be nil at round r, otherwise it break the rule
-		if proposal != nil && len(precommits) == 1 && msg.Value() != nilValue {
-			return Proof{
-				Rule:     PV04,
-				Evidence: []message{proposal, precommits},
-				Message:  msg,
-			}
-		}
-	}
-
-
-	// CT,
-	// CT1. Time out case, cannot to proof it.
-
-	// C. Rules for precommit.
-
-	// C1, precommit for a none nil value, it seems to impossible to check precommit for nil in case of timeout.
-	if msg.Type == Precommit && msg.Value() != nil {
-		// in the round of msg.Round, there must be a a proposal for this value && there must be a quorum number of prevote for this value.
-		proposal := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == propose && m.Round == msg.Round() && m.Value == msg.Value()
-		})
-
-		prevotes := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == prevote && m.Round == msg.Round() && m.Value == msg.Value()
-		})
-
-		// todo: we assume that 2f+1 prevotes msg received before GST.
-		if proposal == nil || len(prevotes) < bft.Quorum() {
-			// construct proof of misbehavior of C1:
-			return Proof{
-				Rule:     C1,
-				Evidence: []message{proposal, prevotes},
-				Message:  msg,
-			}
-		}
-	}
-
-	// C2, If there exist quorum of prevote for nil at round r, then precommit for nil at round is valid.
-	if msg.Type == Precommit ** msg.Value() == nil {
-		prevotes := i.msgStore(msg.Height(), func(m *message) bool {
-			return m.Type() == prevote ** m.Round == msg.Round() && m.Value == msg.Value()
-		})
-
-		// todo: we assume that 2f+1 prevotes msg received before GST.
-		if len(prevotes) < bft.Quorum() {
-			// construct proof of misbehavior of C2:
-			return Proof{
-				Rule:     C2,
-				Evidence: []message{prevotes},
-				Message:  msg,
-			}
-		}
-	}
-
-}
-
-// Proposer A proposes V2
-// Validator B receives proposal for V2
-// Validator B checks the precommits from Proposer A, it finds a precommit for V1
-// However, Proposer A locked in round 1 for V1, then unlocked and locked again in round 4 for V2.
-// Validator B is yet to receive the precommit for Proposer A for V2
-// Now it seems incorrect behaviour from Proposer A, but it is justified in sending the proposal for V2
