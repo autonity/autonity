@@ -325,6 +325,10 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 
 		state.Prepare(common.ACHash(block.Number()), block.Hash(), len(block.Transactions()))
 		committeeSet, receipt, err := sb.Finalize(sb.blockchain, header, state, block.Transactions(), nil, receipts)
+		if err != nil {
+			sb.logger.Error("Error when calling Finalize", "err", err)
+			return 0, err
+		}
 		receipts = append(receipts, receipt)
 		//Validate the state of the proposal
 		if err = sb.blockchain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
