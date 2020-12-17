@@ -79,6 +79,13 @@ func (i *interceptor) Intercept(msg *message) *Proof {
 	return nil
 }
 
+func (i *interceptor) checkImmediateFault(m *message) *Proof {
+	// Check for auto-incriminating message and equivocation.
+	// The Proof struct as it is defined now may not be sufficient to represent proofs for auto-incriminating and
+	// equivocation messages.
+	return nil
+}
+
 func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 	// Rules read right to left (find  the right and look for the left)
 	//
