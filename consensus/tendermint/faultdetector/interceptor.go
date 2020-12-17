@@ -7,9 +7,11 @@ import (
 type Rule uint8
 
 const (
-	PN1 Rule = iota
-	PO1
-	PVN2
+	PN Rule = iota
+	PO
+	PVN
+	PVO
+	C
 )
 
 type Proof struct {
@@ -25,8 +27,6 @@ type interceptor struct {
 type Verifier interface {
 	Verify(m *message, s Store) error
 }
-
-type Rule byte
 
 const (
 	pv byte = iota
