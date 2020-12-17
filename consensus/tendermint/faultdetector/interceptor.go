@@ -28,17 +28,6 @@ type Verifier interface {
 	Verify(m *message, s Store) error
 }
 
-const (
-	pv byte = iota
-	pc
-	p
-)
-
-type rule interface {
-	// Run this whenever we receive a message
-	Run(height uint64, store Store) (proofOfMisBehavior, Accusation)
-}
-
 // Rules read right to left (find  the right and look for the left)
 //
 // Rules should be evealuated such that we check all paossible instances and if
