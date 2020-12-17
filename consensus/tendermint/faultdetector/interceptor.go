@@ -1,11 +1,6 @@
 package faultdetector
 
 import (
-	"sort"
-
-	"github.com/clearmatics/autonity/consensus/tendermint/bft"
-	"github.com/graph-gophers/graphql-go/internal/validation"
-
 	"github.com/clearmatics/autonity/common"
 )
 
