@@ -29,10 +29,6 @@ type interceptor struct {
 	msgStore Store
 }
 
-type Verifier interface {
-	Verify(m *message, s Store) error
-}
-
 type message interface {
 	Round() uint
 	Height() uint
@@ -40,12 +36,6 @@ type message interface {
 	Type() byte
 	Value() common.Hash // Block hash for a proposal,
 	ValidRound() uint
-}
-
-func deferProcessing(msg *message) {
-	timer.executeAfter(msg, delta, func() {
-
-	})
 }
 
 func (i *interceptor) Intercept(msg *message) proofOfMisBehavior {
