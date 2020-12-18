@@ -66,11 +66,8 @@ func (i *interceptor) Intercept(msg message) *Proof {
 	// We currently don't include auto-incriminating messages in the message
 	// store for simplicity, but there are some cases in which we would be able
 	// to prove bad behaviour by including auto-incriminating messages, such as
-	// participants precommiting or prevoting for an invalid proposal.
-
-	// proover.Send(interceptor.Intercept(msg))
-	//
-	// interceptor.Intercept(msg)
+	// participants precommiting or prevoting for an invalid proposal or
+	// prevotes for a proposal that is not from the current proposer.
 
 	// Saving messages in the store MUST happen before checking for equivocation.
 
@@ -355,8 +352,10 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 				prevotesForV := i.msgStore.Get(height, func(m message) bool {
 					return m.Type() == pv && m.Value() == precommit.Value() && m.Round() == precommit.Round()
 				})
-				if len(prevotesForNotV) >= int(threshold(height)) {
 
+				if len(prevotesForNotV) >= int(threshold(height)) {
+					// In this case there cannot be enough remaining prevotes
+					// to justify a precommit for V.
 					proof := &Proof{
 						Rule:     C,
 						Evidence: prevotesForNotV,
@@ -365,6 +364,8 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 					proofs = append(proofs, proof)
 
 				} else if len(prevotesForV) < int(threshold(height)) {
+					// In this case we simply don't see enough prevotes to
+					// justify the precommit.
 					accusation := &Accusation{
 						Rule:    C,
 						Message: precommit,
