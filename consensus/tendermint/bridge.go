@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -24,6 +25,7 @@ import (
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -59,6 +61,7 @@ func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcas
 		latestBlockRetreiver: latestBlockRetreiver,
 		statedb:              statedb,
 		verifier:             verifier,
+		eventMux:             event.NewTypeMuxSilent(logger),
 	}
 	return c
 }
@@ -97,15 +100,79 @@ type bridge struct {
 	verifier *Verifier
 
 	blockchain *core.BlockChain // TODO need to set this on start
+
+	eventMux         *event.TypeMuxSilent
+	blockBroadcaster consensus.Broadcaster
+
+	// 1 means started 0 means stopped.
+	started int32
+	// 1 means set 0 means not set.
+	broadcasterSet int32
 }
 
-func (c *bridge) SetValue(b *types.Block) {
-	c.currentBlockAwaiter.setValue(b)
+// readyForMessages returns true if the bridge is in a state to handle a
+// message from a peer.
+func (b *bridge) readyForMessages() bool {
+	return atomic.LoadInt32(&b.broadcasterSet) == 1 && atomic.LoadInt32(&b.started) == 1
 }
 
-func (c *bridge) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
-	committedSeals := c.msgStore.signatures(proposal.Value, proposal.Round, proposal.Height)
-	message := c.msgStore.matchingProposal(proposal)
+// Methods for consensus.Handler: This interface was introduced by the istanbul
+// BFT fork, so we don't need to keep it to maintain some level of parity
+// between Autonity and go-ethereum.
+
+// Protocol implements consensus.Handler.Protocol
+func (b *bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
+	return "tendermint", 2 //nolint
+}
+
+// HandleMsg implements consensus.Handler.HandleMsg, this returns a bool to
+// indicate whether the message was handled, if we return false then the
+// message will be passed on by the caller to be handled by the default eth
+// handler.
+func (b *bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
+	switch msg.Code {
+	case tendermintMsg:
+		if !b.readyForMessages() {
+			return true, nil
+		}
+		var data []byte
+		if err := msg.Decode(&data); err != nil {
+			return true, fmt.Errorf("failed to decode tendermint message: %v", err)
+		}
+		go b.eventMux.Post(events.MessageEvent{
+			Payload: data,
+		})
+	case tendermintSyncMsg:
+		if !b.readyForMessages() {
+			return true, nil
+		}
+		go b.eventMux.Post(events.SyncEvent{Addr: addr})
+	default:
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// SetBroadcaster implements consensus.Handler.SetBroadcaster
+func (b *bridge) SetBroadcaster(broadcaster consensus.Broadcaster) {
+	atomic.StoreInt32(&b.broadcasterSet, 1)
+	b.blockBroadcaster = broadcaster
+}
+
+// NewChainHead implements consensus.Handler.NewChainHead
+func (b *bridge) NewChainHead() error {
+	go b.eventMux.Post(events.CommitEvent{})
+	return nil
+}
+
+func (b *bridge) SetValue(block *types.Block) {
+	b.currentBlockAwaiter.setValue(block)
+}
+
+func (b *bridge) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
+	committedSeals := b.msgStore.signatures(proposal.Value, proposal.Round, proposal.Height)
+	message := b.msgStore.matchingProposal(proposal)
 	// Sanity checks
 	if message == nil || message.value == nil {
 		return nil, fmt.Errorf("attempted to commit nil block")
@@ -132,18 +199,18 @@ func (c *bridge) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, err
 	h.Coinbase = message.address
 	h.Round = uint64(proposal.Round)
 	block := message.value.WithSeal(h)
-	c.backend.Commit(block, c.committee.GetProposer(proposal.Round).Address)
+	b.backend.Commit(block, b.committee.GetProposer(proposal.Round).Address)
 
-	c.logger.Info("commit a block", "hash", block.Hash())
+	b.logger.Info("commit a block", "hash", block.Hash())
 	return block, nil
 }
 
-func (c *bridge) createCommittee(block *types.Block) committee {
+func (b *bridge) createCommittee(block *types.Block) committee {
 	var committeeSet committee
 	var err error
 	var lastProposer common.Address
 	header := block.Header()
-	switch c.proposerPolicy {
+	switch b.proposerPolicy {
 	case config.RoundRobin:
 		if !header.IsGenesis() {
 			lastProposer, err = types.Ecrecover(header)
@@ -156,9 +223,9 @@ func (c *bridge) createCommittee(block *types.Block) committee {
 			panic(fmt.Sprintf("failed to construct committee %v", err))
 		}
 	case config.WeightedRandomSampling:
-		committeeSet = newWeightedRandomSamplingCommittee(block, c.autonityContract, c.statedb)
+		committeeSet = newWeightedRandomSamplingCommittee(block, b.autonityContract, b.statedb)
 	default:
-		panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
+		panic(fmt.Sprintf("unrecognised proposer policy %q", b.proposerPolicy))
 	}
 	return committeeSet
 }
@@ -166,72 +233,74 @@ func (c *bridge) createCommittee(block *types.Block) committee {
 var errStopped = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
-func (c *bridge) Start(ctx context.Context, contract *autonity.Contract, blockchain *core.BlockChain) {
+func (b *bridge) Start(ctx context.Context, contract *autonity.Contract, blockchain *core.BlockChain) {
+	atomic.StoreInt32(&b.started, 1)
 	//println("starting")
 	// Set the autonity contract and blockchain
-	c.autonityContract = contract
-	c.blockchain = blockchain
-	ctx, c.cancel = context.WithCancel(ctx)
+	b.autonityContract = contract
+	b.blockchain = blockchain
+	ctx, b.cancel = context.WithCancel(ctx)
 
 	// Subscribe
-	c.eventsSub = c.backend.Subscribe(events.MessageEvent{}, &algorithm.Timeout{}, events.CommitEvent{})
-	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
+	b.eventsSub = b.eventMux.Subscribe(events.MessageEvent{}, &algorithm.Timeout{}, events.CommitEvent{})
+	b.syncEventSub = b.eventMux.Subscribe(events.SyncEvent{})
 
-	c.wg = &sync.WaitGroup{}
+	b.wg = &sync.WaitGroup{}
 
 	// Tendermint Finite State Machine discrete event loop
-	c.wg.Add(1)
-	go c.mainEventLoop(ctx)
+	b.wg.Add(1)
+	go b.mainEventLoop(ctx)
 }
 
-func (c *bridge) Stop() {
+func (b *bridge) Stop() {
+	atomic.StoreInt32(&b.started, 0)
 	//println(addr(c.address), c.height, "stopping")
 
-	c.logger.Info("stopping tendermint.core", "addr", addr(c.address))
+	b.logger.Info("stopping tendermint.core", "addr", addr(b.address))
 
-	c.cancel()
+	b.cancel()
 
 	// stop the block awaiter if it is waiting
-	c.currentBlockAwaiter.stop()
+	b.currentBlockAwaiter.stop()
 
 	// Unsubscribe
-	c.eventsSub.Unsubscribe()
-	c.syncEventSub.Unsubscribe()
+	b.eventsSub.Unsubscribe()
+	b.syncEventSub.Unsubscribe()
 
 	//println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
-	c.wg.Wait()
+	b.wg.Wait()
 }
 
-func (c *bridge) newHeight(prevBlock *types.Block) error {
-	c.syncTimer = time.NewTimer(20 * time.Second)
-	c.lastHeader = prevBlock.Header()
-	c.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
-	c.committee = c.createCommittee(prevBlock)
+func (b *bridge) newHeight(prevBlock *types.Block) error {
+	b.syncTimer = time.NewTimer(20 * time.Second)
+	b.lastHeader = prevBlock.Header()
+	b.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
+	b.committee = b.createCommittee(prevBlock)
 
 	// Create new oracle and algorithm
-	c.algo = algorithm.New(algorithm.NodeID(c.address), newOracle(c.lastHeader, c.msgStore, c.committee, c.currentBlockAwaiter))
+	b.algo = algorithm.New(algorithm.NodeID(b.address), newOracle(b.lastHeader, b.msgStore, b.committee, b.currentBlockAwaiter))
 
 	// Handle messages for the new height
-	msg, timeout, err := c.algo.StartRound(0)
+	msg, timeout, err := b.algo.StartRound(0)
 	if err != nil {
 		return err
 	}
 
 	// Note that we don't risk entering an infinite loop here since
 	// start round can only return results with broadcasts or timeouts.
-	err = c.handleResult(nil, msg, timeout)
+	err = b.handleResult(nil, msg, timeout)
 	if err != nil {
 		return err
 	}
-	for _, msg := range c.msgStore.heightMessages(c.height.Uint64()) {
-		err := c.handleCurrentHeightMessage(msg)
-		c.logger.Error("failed to handle current height message", "message", msg.String(), "err", err)
+	for _, msg := range b.msgStore.heightMessages(b.height.Uint64()) {
+		err := b.handleCurrentHeightMessage(msg)
+		b.logger.Error("failed to handle current height message", "message", msg.String(), "err", err)
 	}
 	return nil
 }
 
-func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout) error {
+func (b *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout) error {
 
 	switch {
 	case rc == nil && cm == nil && to == nil:
@@ -246,18 +315,18 @@ func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 
 			// This will ultimately lead to a commit event, which we will pick up on in the mainEventLoop and start a
 			// move to the new height by calling newHeight().
-			_, err := c.Commit(rc.Decision)
+			_, err := b.Commit(rc.Decision)
 			if err != nil {
-				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(c.address).String(), spew.Sdump(rc.Decision), err))
+				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(b.address).String(), spew.Sdump(rc.Decision), err))
 			}
 		} else {
-			cm, to, err := c.algo.StartRound(rc.Round) // nolint
+			cm, to, err := b.algo.StartRound(rc.Round) // nolint
 			if err != nil {
 				return err
 			}
 			// Note that we don't risk entering an infinite loop here since
 			// start round can only return results with broadcasts or timeouts.
-			err = c.handleResult(nil, cm, to)
+			err = b.handleResult(nil, cm, to)
 			if err != nil {
 				return err
 			}
@@ -269,11 +338,11 @@ func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		// We must build message here since buildMessage relies on accessing
 		// the msg store, and since the message store is not syncronised we
 		// need to do it from the handler routine.
-		msg, err := encodeSignedMessage(cm, c.key, c.msgStore)
+		msg, err := encodeSignedMessage(cm, b.key, b.msgStore)
 		if err != nil {
 			panic(fmt.Sprintf(
 				"%s We were unable to build a message, this indicates a programming error: %v",
-				addr(c.address),
+				addr(b.address),
 				err,
 			))
 		}
@@ -284,51 +353,51 @@ func (c *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			messageEvent := events.MessageEvent{
 				Payload: msg,
 			}
-			c.backend.Post(messageEvent)
+			b.eventMux.Post(messageEvent)
 			// Broadcast to peers
-			c.broadcaster.Broadcast(msg)
+			b.broadcaster.Broadcast(msg)
 		}()
 
 	case to != nil:
 		time.AfterFunc(time.Duration(to.Delay)*time.Second, func() {
-			c.backend.Post(to)
+			b.eventMux.Post(to)
 		})
 
 	}
 	return nil
 }
 
-func (c *bridge) mainEventLoop(ctx context.Context) {
-	defer c.wg.Done()
+func (b *bridge) mainEventLoop(ctx context.Context) {
+	defer b.wg.Done()
 
-	lastBlockMined, err := c.latestBlockRetreiver.RetrieveLatestBlock()
+	lastBlockMined, err := b.latestBlockRetreiver.RetrieveLatestBlock()
 	if err != nil {
 		panic(err)
 	}
-	err = c.newHeight(lastBlockMined)
+	err = b.newHeight(lastBlockMined)
 	if err != nil {
 		//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 		return
 	}
 
 	// Ask for sync when the engine starts
-	c.syncer.AskSync(c.lastHeader)
+	b.syncer.AskSync(b.lastHeader)
 
 eventLoop:
 	for {
 		select {
-		case <-c.syncTimer.C:
-			c.syncer.AskSync(c.lastHeader)
-			c.syncTimer = time.NewTimer(20 * time.Second)
+		case <-b.syncTimer.C:
+			b.syncer.AskSync(b.lastHeader)
+			b.syncTimer = time.NewTimer(20 * time.Second)
 
-		case ev, ok := <-c.syncEventSub.Chan():
+		case ev, ok := <-b.syncEventSub.Chan():
 			if !ok {
 				break eventLoop
 			}
 			syncEvent := ev.Data.(events.SyncEvent)
-			c.logger.Info("Processing sync message", "from", syncEvent.Addr)
-			c.syncer.SyncPeer(syncEvent.Addr, c.msgStore.rawHeightMessages(c.height.Uint64()))
-		case ev, ok := <-c.eventsSub.Chan():
+			b.logger.Info("Processing sync message", "from", syncEvent.Addr)
+			b.syncer.SyncPeer(syncEvent.Addr, b.msgStore.rawHeightMessages(b.height.Uint64()))
+		case ev, ok := <-b.eventsSub.Chan():
 			if !ok {
 				break eventLoop
 			}
@@ -346,17 +415,17 @@ eventLoop:
 					continue
 				}
 				// Check we haven't already processed this message
-				if c.msgStore.Message(m.hash) != nil {
+				if b.msgStore.Message(m.hash) != nil {
 					// Message was already processed
 					continue
 				}
-				err = c.msgStore.addMessage(m, e.Payload)
+				err = b.msgStore.addMessage(m, e.Payload)
 				if err != nil {
 					// could be multiple proposal messages from the same proposer
 					continue
 				}
 				if m.consensusMessage.MsgType == algorithm.Propose {
-					c.msgStore.addValue(m.value.Hash(), m.value)
+					b.msgStore.addValue(m.value.Hash(), m.value)
 				}
 
 				// If this message is for a future height then we cannot validate it
@@ -364,51 +433,51 @@ eventLoop:
 				// that height. If it is for a previous height then we are not intersted in
 				// it. But it has been added to the message store in case other peers would
 				// like to sync it.
-				if m.consensusMessage.Height != c.height.Uint64() {
+				if m.consensusMessage.Height != b.height.Uint64() {
 					// Nothing to do here
 					continue
 				}
 
-				err = c.handleCurrentHeightMessage(m)
+				err = b.handleCurrentHeightMessage(m)
 				if err == errStopped {
 					return
 				}
 				if err != nil {
-					c.logger.Debug("core.mainEventLoop problem processing message", "err", err)
+					b.logger.Debug("core.mainEventLoop problem processing message", "err", err)
 					continue
 				}
-				c.broadcaster.Broadcast(e.Payload)
+				b.broadcaster.Broadcast(e.Payload)
 			case *algorithm.Timeout:
 				var cm *algorithm.ConsensusMessage
 				var rc *algorithm.RoundChange
 				switch e.TimeoutType {
 				case algorithm.Propose:
 					//println(addr(c.address), "on timeout propose", e.Height, "round", e.Round)
-					cm = c.algo.OnTimeoutPropose(e.Height, e.Round)
+					cm = b.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
 					//println(addr(c.address), "on timeout prevote", e.Height, "round", e.Round)
-					cm = c.algo.OnTimeoutPrevote(e.Height, e.Round)
+					cm = b.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
 					//println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
-					rc = c.algo.OnTimeoutPrecommit(e.Height, e.Round)
+					rc = b.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
 				// if cm != nil {
 				// 	println("nonnil timeout")
 				// }
-				err := c.handleResult(rc, cm, nil)
+				err := b.handleResult(rc, cm, nil)
 				if err != nil {
 					//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 					return
 				}
 			case events.CommitEvent:
-				println(addr(c.address), "commit event")
-				c.logger.Debug("Received a final committed proposal")
+				println(addr(b.address), "commit event")
+				b.logger.Debug("Received a final committed proposal")
 
-				lastBlock, err := c.latestBlockRetreiver.RetrieveLatestBlock()
+				lastBlock, err := b.latestBlockRetreiver.RetrieveLatestBlock()
 				if err != nil {
 					panic(err)
 				}
-				err = c.newHeight(lastBlock)
+				err = b.newHeight(lastBlock)
 				if err != nil {
 					//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 					return
@@ -416,14 +485,14 @@ eventLoop:
 			}
 
 		case <-ctx.Done():
-			c.logger.Info("mainEventLoop is stopped", "event", ctx.Err())
+			b.logger.Info("mainEventLoop is stopped", "event", ctx.Err())
 			break eventLoop
 		}
 	}
 
 }
 
-func (c *bridge) handleCurrentHeightMessage(m *message) error {
+func (b *bridge) handleCurrentHeightMessage(m *message) error {
 	//println(addr(c.address), c.height.String(), m.String(), "received")
 	cm := m.consensusMessage
 	/*
@@ -432,7 +501,7 @@ func (c *bridge) handleCurrentHeightMessage(m *message) error {
 	*/
 
 	// Check that the message came from a committee member, if not we ignore it.
-	if c.lastHeader.CommitteeMember(m.address) == nil {
+	if b.lastHeader.CommitteeMember(m.address) == nil {
 		// TODO turn this into an error type that can be checked for at a
 		// higher level to close the connection to this peer.
 		return fmt.Errorf("received message from non committee member: %v", m)
@@ -441,8 +510,8 @@ func (c *bridge) handleCurrentHeightMessage(m *message) error {
 	switch cm.MsgType {
 	case algorithm.Propose:
 		// We ignore proposals from non proposers
-		if c.committee.GetProposer(cm.Round).Address != m.address {
-			c.logger.Warn("Ignore proposal messages from non-proposer")
+		if b.committee.GetProposer(cm.Round).Address != m.address {
+			b.logger.Warn("Ignore proposal messages from non-proposer")
 			return errNotFromProposer
 
 			// TODO verify proposal here.
@@ -463,19 +532,19 @@ func (c *bridge) handleCurrentHeightMessage(m *message) error {
 
 		}
 		// Proposals values are allowed to be invalid.
-		if _, err := c.verifier.VerifyProposal(*c.msgStore.value(common.Hash(cm.Value)), c.blockchain, c.address.String()); err == nil {
+		if _, err := b.verifier.VerifyProposal(*b.msgStore.value(common.Hash(cm.Value)), b.blockchain, b.address.String()); err == nil {
 			//println(addr(c.address), "valid", cm.Value.String())
-			c.msgStore.setValid(common.Hash(cm.Value))
+			b.msgStore.setValid(common.Hash(cm.Value))
 		}
 	default:
 		// All other messages that have reached this point are valid, but we
 		// are not marking the value valid here, we are marking the message
 		// valid.
-		c.msgStore.setValid(m.hash)
+		b.msgStore.setValid(m.hash)
 	}
 
-	rc, cm, to := c.algo.ReceiveMessage(cm)
-	err := c.handleResult(rc, cm, to)
+	rc, cm, to := b.algo.ReceiveMessage(cm)
+	err := b.handleResult(rc, cm, to)
 	if err != nil {
 		return err
 	}
@@ -487,12 +556,15 @@ const (
 	tendermintSyncMsg = 0x12
 )
 
+// TODO need to clear this out, ideally when a peer disconnects and when we stop
+// caring about the tracked messages. So really we need a notion of height to
+// be worked in here.
 type peerMessageMap interface {
 	// knowsMessage returns true if the peer knows the current message
 	knowsMessage(addr common.Address, hash common.Hash) bool
 }
 
-// TODO actually implement thit
+// TODO actually implement this
 type degeneratePeerMessageMap struct {
 }
 

@@ -26,8 +26,6 @@ import (
 	"strings"
 	"testing"
 
-	lru "github.com/hashicorp/golang-lru"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
@@ -39,30 +37,6 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
 )
-
-func TestResetPeerCache(t *testing.T) {
-	addr := common.HexToAddress("0x01234567890")
-	msgCache, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
-	msgCache.Add(addr, addr)
-
-	recentMessages, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
-	recentMessages.Add(addr, msgCache)
-
-	b := &Backend{
-		recentMessages: recentMessages,
-	}
-
-	b.ResetPeerCache(addr)
-	if msgCache.Contains(addr) {
-		t.Fatalf("expected empty cache")
-	}
-}
 
 // Test get contract ABI, it should have the default abi before contract upgrade.
 func TestBackendGetContractABI(t *testing.T) {

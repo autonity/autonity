@@ -17,97 +17,26 @@
 package backend
 
 import (
-	"errors"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/p2p"
-	lru "github.com/hashicorp/golang-lru"
-)
-
-const (
-	tendermintMsg     = 0x11
-	tendermintSyncMsg = 0x12
-)
-
-type UnhandledMsg struct {
-	addr common.Address
-	msg  p2p.Msg
-}
-
-var (
-	// errDecodeFailed is returned when decode message fails
-	errDecodeFailed = errors.New("fail to decode tendermint message")
 )
 
 // Protocol implements consensus.Handler.Protocol
 func (sb *Backend) Protocol() (protocolName string, extraMsgCodes uint64) {
-	return "tendermint", 2 //nolint
+	return sb.core.Protocol()
 }
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
-	if msg.Code != tendermintMsg && msg.Code != tendermintSyncMsg {
-		return false, nil
-	}
-
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
-	switch msg.Code {
-	case tendermintMsg:
-		if !sb.coreStarted {
-			return true, nil
-		}
-
-		var data []byte
-		if err := msg.Decode(&data); err != nil {
-			return true, errDecodeFailed
-		}
-
-		hash := types.RLPHash(data)
-
-		// Mark peer's message
-		ms, ok := sb.recentMessages.Get(addr)
-		var m *lru.ARCCache
-		if ok {
-			m, _ = ms.(*lru.ARCCache)
-		} else {
-			m, _ = lru.NewARC(inmemoryMessages)
-			sb.recentMessages.Add(addr, m)
-		}
-		m.Add(hash, true)
-
-		go sb.Post(events.MessageEvent{
-			Payload: data,
-		})
-	case tendermintSyncMsg:
-		if !sb.coreStarted {
-			sb.logger.Info("Sync message received but core not running")
-			return true, nil // we return nil as we don't want to shutdown the connection if core is stopped
-		}
-		sb.logger.Info("Received sync message", "from", addr)
-		go sb.Post(events.SyncEvent{Addr: addr})
-	default:
-		return false, nil
-	}
-
-	return true, nil
+	return sb.core.HandleMsg(addr, msg)
 }
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster
 func (sb *Backend) SetBroadcaster(broadcaster consensus.Broadcaster) {
-	sb.broadcaster = broadcaster
+	sb.core.SetBroadcaster(broadcaster)
 }
 
 func (sb *Backend) NewChainHead() error {
-	sb.coreMu.RLock()
-	defer sb.coreMu.RUnlock()
-	if !sb.coreStarted {
-		return ErrStoppedEngine
-	}
-	go sb.Post(events.CommitEvent{})
-	return nil
+	return sb.core.NewChainHead()
 }

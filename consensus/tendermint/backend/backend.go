@@ -32,10 +32,8 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -59,9 +57,6 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
 
-	recents, _ := lru.NewARC(inmemorySnapshots)
-	recentMessages, _ := lru.NewARC(inmemoryPeers)
-
 	pub := crypto.PubkeyToAddress(privateKey.PublicKey).String()
 	logger := log.New("addr", pub)
 
@@ -70,14 +65,11 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	backend := &Backend{
 		config:               config,
-		eventMux:             event.NewTypeMuxSilent(logger),
 		privateKey:           privateKey,
 		address:              address,
 		logger:               logger,
 		db:                   db,
-		recents:              recents,
 		coreStarted:          false,
-		recentMessages:       recentMessages,
 		vmConfig:             vmConfig,
 		peers:                peers,
 		statedb:              statedb,
@@ -97,7 +89,6 @@ type Backend struct {
 	*tendermint.DefaultFinalizer
 	*tendermint.Verifier
 	config     *tendermintConfig.Config
-	eventMux   *event.TypeMuxSilent
 	privateKey *ecdsa.PrivateKey
 	address    common.Address
 	logger     log.Logger
@@ -112,14 +103,8 @@ type Backend struct {
 	stopped           chan struct{}
 	coreMu            sync.RWMutex
 
-	// Snapshots for recent block to speed up reorgs
-	recents *lru.ARCCache
-
 	// event subscription for ChainHeadEvent event
 	broadcaster consensus.Broadcaster
-
-	//TODO: ARCChace is patented by IBM, so probably need to stop using it
-	recentMessages *lru.ARCCache // the cache of peer's messages
 
 	contractsMu sync.RWMutex
 	vmConfig    *vm.Config
@@ -150,14 +135,6 @@ func (sb *Backend) Commit(block *types.Block, proposer common.Address) {
 	}
 }
 
-func (sb *Backend) Post(ev interface{}) {
-	sb.eventMux.Post(ev)
-}
-
-func (sb *Backend) Subscribe(types ...interface{}) *event.TypeMuxSubscription {
-	return sb.eventMux.Subscribe(types...)
-}
-
 func (sb *Backend) GetContractABI() string {
 	// after the contract is upgradable, call it from contract object rather than from conf.
 	return sb.autonityContract.GetContractABI()
@@ -183,13 +160,4 @@ func (sb *Backend) WhiteList() []string {
 	}
 
 	return enodes.StrList
-}
-
-func (sb *Backend) ResetPeerCache(address common.Address) {
-	ms, ok := sb.recentMessages.Get(address)
-	var m *lru.ARCCache
-	if ok {
-		m, _ = ms.(*lru.ARCCache)
-		m.Purge()
-	}
 }
