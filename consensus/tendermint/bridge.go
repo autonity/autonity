@@ -135,7 +135,7 @@ func (b *bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	// commitChannel if we are the proposer.
 	//
 	// TODO I think there is a problem here that if we are the proposer and we
-	// recieve a future block from a peer before we have committed the block,
+	// receive a future block from a peer before we have committed the block,
 	// then we may end this goroutine because stop is closed before we read the
 	// committed block from the commitChannel. The result of this would be that
 	// we receive a committed block from the previous sealing operation on the
