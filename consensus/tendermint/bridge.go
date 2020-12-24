@@ -46,14 +46,13 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever, statedb state.Database, verifier *Verifier) *bridge {
+func New(config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever, statedb state.Database, verifier *Verifier) *bridge {
 	logger := log.New("addr", address.String())
 	c := &bridge{
 		key:                  key,
 		proposerPolicy:       config.ProposerPolicy,
 		address:              address,
 		logger:               logger,
-		backend:              backend,
 		currentBlockAwaiter:  newBlockAwaiter(),
 		msgStore:             newMessageStore(),
 		broadcaster:          broadcaster,
@@ -72,8 +71,7 @@ type bridge struct {
 	address        common.Address
 	logger         log.Logger
 
-	backend Backend
-	cancel  context.CancelFunc
+	cancel context.CancelFunc
 
 	eventsSub    *event.TypeMuxSubscription
 	syncEventSub *event.TypeMuxSubscription
@@ -104,10 +102,72 @@ type bridge struct {
 	eventMux         *event.TypeMuxSilent
 	blockBroadcaster consensus.Broadcaster
 
-	// 1 means started 0 means stopped.
+	// 1 means started, 0 means stopped.
 	started int32
-	// 1 means set 0 means not set.
+	// 1 means set, 0 means not set.
 	broadcasterSet int32
+
+	// 1 means set, 0 means not set.
+	resultsChannelHandled int32
+	commitChannel         chan *types.Block
+}
+
+// So this method is meant to allow interrupting of mining a block to start on
+// a new block, it doesn't make sense for autonity though because if we are not
+// the proposer then we don't need this unsigned block, and if we are the
+// proposer we only want the one unsigned block per round since we can't send
+// multiple differing proposals.
+//
+// So we want to have just the latest block available to be taken from here when this node becomes the proposer.
+//
+// The miner only has one results channel for its lifetime and we will only
+// have one miner so we can capture the results channel on the first call and
+// then not worry about it after that.
+//
+// We can't build the bridge with the results chan since the worker will need
+// the bridge to be constructed. We could create the results chan before
+// building either and pass it to both. But lets save that for later.
+func (b *bridge) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+
+	// Check if we are handling the results and if not set up a goroutine to
+	// pass results back to the miner.
+	if atomic.CompareAndSwapInt32(&b.resultsChannelHandled, 0, 1) {
+		go func() {
+			for {
+				select {
+				case <-stop:
+					return
+				case committedBlock := <-b.commitChannel:
+					results <- committedBlock
+				}
+			}
+		}()
+	}
+	// update the block header and signature and propose the block to core engine
+	header := block.Header()
+
+	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	if parent == nil {
+		b.logger.Error("Error ancestor")
+		return consensus.ErrUnknownAncestor
+	}
+	nodeAddress := b.address
+	if parent.CommitteeMember(nodeAddress) == nil {
+		b.logger.Error("error validator errUnauthorized", "addr", b.address)
+		return errUnauthorized
+	}
+
+	// wait for the timestamp of header, use this to adjust the block period
+	delay := time.Until(time.Unix(int64(block.Header().Time), 0))
+	select {
+	case <-time.After(delay):
+		// nothing to do
+	case <-stop:
+		return nil
+	}
+
+	b.currentBlockAwaiter.setValue(block)
+	return nil
 }
 
 // readyForMessages returns true if the bridge is in a state to handle a
@@ -166,30 +226,26 @@ func (b *bridge) NewChainHead() error {
 	return nil
 }
 
-func (b *bridge) SetValue(block *types.Block) {
-	b.currentBlockAwaiter.setValue(block)
-}
-
-func (b *bridge) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, error) {
+func (b *bridge) Commit(proposal *algorithm.ConsensusMessage) error {
 	committedSeals := b.msgStore.signatures(proposal.Value, proposal.Round, proposal.Height)
 	message := b.msgStore.matchingProposal(proposal)
 	// Sanity checks
 	if message == nil || message.value == nil {
-		return nil, fmt.Errorf("attempted to commit nil block")
+		return fmt.Errorf("attempted to commit nil block")
 	}
 	if message.proposerSeal == nil {
-		return nil, fmt.Errorf("attempted to commit block without proposer seal")
+		return fmt.Errorf("attempted to commit block without proposer seal")
 	}
 	if proposal.Round < 0 {
-		return nil, fmt.Errorf("attempted to commit a block in a negative round: %d", proposal.Round)
+		return fmt.Errorf("attempted to commit a block in a negative round: %d", proposal.Round)
 	}
 	if len(committedSeals) == 0 {
-		return nil, fmt.Errorf("attempted to commit block without any committed seals")
+		return fmt.Errorf("attempted to commit block without any committed seals")
 	}
 
 	for _, seal := range committedSeals {
 		if len(seal) != types.BFTExtraSeal {
-			return nil, fmt.Errorf("attempted to commit block with a committed seal of invalid length: %s", hex.EncodeToString(seal))
+			return fmt.Errorf("attempted to commit block with a committed seal of invalid length: %s", hex.EncodeToString(seal))
 		}
 	}
 	// Add the proposer seal coinbase and committed seals into the block.
@@ -199,10 +255,16 @@ func (b *bridge) Commit(proposal *algorithm.ConsensusMessage) (*types.Block, err
 	h.Coinbase = message.address
 	h.Round = uint64(proposal.Round)
 	block := message.value.WithSeal(h)
-	b.backend.Commit(block, b.committee.GetProposer(proposal.Round).Address)
 
-	b.logger.Info("commit a block", "hash", block.Hash())
-	return block, nil
+	// If we are the proposer, send the block to the  commit channel
+	if b.address == b.committee.GetProposer(proposal.Round).Address {
+		b.commitChannel <- block
+	} else {
+		b.blockBroadcaster.Enqueue("tendermint", block)
+	}
+
+	b.logger.Info("committed a block", "hash", block.Hash())
+	return nil
 }
 
 func (b *bridge) createCommittee(block *types.Block) committee {
@@ -315,7 +377,7 @@ func (b *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 
 			// This will ultimately lead to a commit event, which we will pick up on in the mainEventLoop and start a
 			// move to the new height by calling newHeight().
-			_, err := b.Commit(rc.Decision)
+			err := b.Commit(rc.Decision)
 			if err != nil {
 				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(b.address).String(), spew.Sdump(rc.Decision), err))
 			}

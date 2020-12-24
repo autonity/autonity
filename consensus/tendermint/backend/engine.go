@@ -94,47 +94,7 @@ func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) er
 //
 // So we want to have just the latest block available to be taken from here when this node becomes the proposer.
 func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
-	sb.coreMu.RLock()
-	isStarted := sb.coreStarted
-	sb.coreMu.RUnlock()
-	if !isStarted {
-		return ErrStoppedEngine
-	}
-
-	// update the block header and signature and propose the block to core engine
-	header := block.Header()
-
-	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if parent == nil {
-		sb.logger.Error("Error ancestor")
-		return consensus.ErrUnknownAncestor
-	}
-	nodeAddress := sb.address
-	if parent.CommitteeMember(nodeAddress) == nil {
-		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
-		return errUnauthorized
-	}
-
-	// block, err := sb.AddSeal(block)
-	// if err != nil {
-	// 	sb.logger.Error("seal error updateBlock", "err", err.Error())
-	// 	return err
-	// }
-
-	// wait for the timestamp of header, use this to adjust the block period
-	delay := time.Unix(int64(block.Header().Time), 0).Sub(now())
-	select {
-	case <-time.After(delay):
-		// nothing to do
-	case <-sb.stopped:
-		return nil
-	case <-stop:
-		return nil
-	}
-
-	sb.setResultChan(results)
-	sb.core.SetValue(block)
-	return nil
+	return sb.core.Seal(chain, block, results, stop)
 }
 
 func (sb *Backend) setResultChan(results chan<- *types.Block) {
