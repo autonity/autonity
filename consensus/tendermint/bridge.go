@@ -139,8 +139,8 @@ func (b *bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	// then we may end this goroutine because stop is closed before we read the
 	// committed block from the commitChannel. The result of this would be that
 	// we receive a committed block from the previous sealing operation on the
-	// commitChannel in the current seal operation.   For now I will put in
-	// place a sanity check.
+	// commitChannel in the current seal operation. For we will skip blocks
+	// that do not match.
 	go func() {
 		for {
 			select {
@@ -149,13 +149,10 @@ func (b *bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 			case committedBlock := <-b.commitChannel:
 				// Check that we are committing the block we were asked to seal.
 				if committedBlock.Hash() != block.Hash() {
-					panic(
-						fmt.Sprintf("committed block does not match seal request block, commitBlockHash: %v, sealRequestBlockHash: %v\n",
-							committedBlock.Hash().String(),
-							block.Hash().String()),
-					)
+					continue
 				}
 				results <- committedBlock
+				return
 			}
 		}
 	}()
