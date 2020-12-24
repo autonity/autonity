@@ -131,13 +131,30 @@ type bridge struct {
 func (b *bridge) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 
 	// Check if we are handling the results and if not set up a goroutine to
-	// pass results back to the miner.
+	// pass results back to the miner. We will only send a block on the
+	// commitChannel if we are the proposer.
+	//
+	// TODO I think there is a problem here that if we are the proposer and we
+	// recieve a future block from a peer before we have committed the block,
+	// then we may end this goroutine because stop is closed before we read the
+	// committed block from the commitChannel. The result of this would be that
+	// we receive a committed block from the previous sealing operation on the
+	// commitChannel in the current seal operation.   For now I will put in
+	// place a sanity check.
 	go func() {
 		for {
 			select {
 			case <-stop:
 				return
 			case committedBlock := <-b.commitChannel:
+				// Check that we are committing the block we were asked to seal.
+				if committedBlock.Hash() != block.Hash() {
+					panic(
+						fmt.Sprintf("committed block does not match seal request block, commitBlockHash: %v, sealRequestBlockHash: %v\n",
+							committedBlock.Hash().String(),
+							block.Hash().String()),
+					)
+				}
 				results <- committedBlock
 			}
 		}
