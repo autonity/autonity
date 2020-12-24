@@ -108,9 +108,9 @@ type bridge struct {
 	// 1 means set, 0 means not set.
 	broadcasterSet int32
 
-	// 1 means set, 0 means not set.
-	resultsChannelHandled int32
-	commitChannel         chan *types.Block
+	// Used to propagate blocks to the results channel provided by the miner on
+	// calls to Seal.
+	commitChannel chan *types.Block
 }
 
 // So this method is meant to allow interrupting of mining a block to start on
