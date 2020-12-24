@@ -61,6 +61,7 @@ func New(config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster,
 		statedb:              statedb,
 		verifier:             verifier,
 		eventMux:             event.NewTypeMuxSilent(logger),
+		commitChannel:        make(chan *types.Block),
 	}
 	return c
 }
@@ -131,18 +132,16 @@ func (b *bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 
 	// Check if we are handling the results and if not set up a goroutine to
 	// pass results back to the miner.
-	if atomic.CompareAndSwapInt32(&b.resultsChannelHandled, 0, 1) {
-		go func() {
-			for {
-				select {
-				case <-stop:
-					return
-				case committedBlock := <-b.commitChannel:
-					results <- committedBlock
-				}
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			case committedBlock := <-b.commitChannel:
+				results <- committedBlock
 			}
-		}()
-	}
+		}
+	}()
 	// update the block header and signature and propose the block to core engine
 	header := block.Header()
 
