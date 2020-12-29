@@ -1,0 +1,11 @@
+#!/bin/bash
+
+readonly IMAGE='autonity-rpc-test-runner'
+
+cd "$(dirname "$0")" &&
+docker build --tag "${IMAGE}" . &&
+docker run --rm \
+    --volume "${PWD}/../build:/build" \
+    --volume "${PWD}:/rpc_tests" \
+    --workdir "/rpc_tests" \
+    "${IMAGE}" pytest -n"$(nproc)"
