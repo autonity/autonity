@@ -24,11 +24,28 @@ import (
 	"github.com/clearmatics/autonity/rpc"
 )
 
+// getCommittee retrieves the committee for the given header.
+func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
+	parent := chain.GetHeaderByHash(header.ParentHash)
+	if parent == nil {
+		return nil, errUnknownBlock
+	}
+	return parent.Committee, nil
+}
+
 // API is a user facing RPC API to dump BFT state
 type API struct {
 	chain        consensus.ChainReader
 	tendermint   *Backend
 	getCommittee func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
+}
+
+func NewApi(chain consensus.ChainReader, tendermint *Backend) *API {
+	return &API{
+		chain:        chain,
+		tendermint:   tendermint,
+		getCommittee: getCommittee,
+	}
 }
 
 // GetCommittee retrieves the list of authorized committee at the specified block.
