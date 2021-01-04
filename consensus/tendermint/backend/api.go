@@ -19,8 +19,10 @@ package backend
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rpc"
 )
 
@@ -35,16 +37,18 @@ func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Comm
 
 // API is a user facing RPC API to dump BFT state
 type API struct {
-	chain        consensus.ChainReader
-	tendermint   *Backend
-	getCommittee func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
+	chain                consensus.ChainReader
+	autonityContract     *autonity.Contract
+	latestBlockRetriever *tendermint.LatestBlockRetriever
+	getCommittee         func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
 }
 
-func NewApi(chain consensus.ChainReader, tendermint *Backend) *API {
+func NewApi(chain consensus.ChainReader, ac *autonity.Contract, lbr *tendermint.LatestBlockRetriever) *API {
 	return &API{
-		chain:        chain,
-		tendermint:   tendermint,
-		getCommittee: getCommittee,
+		chain:                chain,
+		autonityContract:     ac,
+		latestBlockRetriever: lbr,
+		getCommittee:         getCommittee,
 	}
 }
 
@@ -79,12 +83,31 @@ func (api *API) GetContractAddress() common.Address {
 	return autonity.ContractAddress
 }
 
-// Get Autonity contract ABI
 func (api *API) GetContractABI() string {
-	return api.tendermint.GetContractABI()
+	// after the contract is upgradable, call it from contract object rather than from conf.
+	return api.autonityContract.GetContractABI()
 }
 
-// Get current white list
+// Whitelist for the current block
 func (api *API) GetWhitelist() []string {
-	return api.tendermint.WhiteList()
+	// TODO this should really return errors
+	b, err := api.latestBlockRetriever.RetrieveLatestBlock()
+	if err != nil {
+		panic(err)
+	}
+	state, err := api.latestBlockRetriever.RetrieveBlockState(b)
+	if err != nil {
+		// TODO: Decide how to log errors correctly
+		log.Error("Failed to get block white list", "err", err)
+		return nil
+	}
+
+	enodes, err := api.autonityContract.GetWhitelist(b, state)
+	if err != nil {
+		// TODO: Decide how to log errors correctly
+		log.Error("Failed to get block white list", "err", err)
+		return nil
+	}
+
+	return enodes.StrList
 }
