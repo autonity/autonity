@@ -6,7 +6,7 @@
 
 Autonity is a generalization of the Ethereum protocol based on a fork of go-ethereum.
 
-More about the Autonity context at <https://autonity.io>
+More about the Autonity context at <https://www.autonity.io>
 
 More detailed documentation coming soon at <https://docs.autonity.io>
 
