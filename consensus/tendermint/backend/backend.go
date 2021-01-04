@@ -78,7 +78,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		DefaultFinalizer: finalizer,
 	}
 
-	backend.core = tendermint.New(config, backend.privateKey, broadcaster, syncer, address, tendermint.NewLatestBlockRetriever(db, statedb), statedb, verifier)
+	backend.core = tendermint.New(config, backend.privateKey, broadcaster, syncer, address, tendermint.NewLatestBlockRetriever(db, statedb), statedb, verifier, autonityContract)
 	return backend
 }
 

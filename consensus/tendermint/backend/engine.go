@@ -162,7 +162,7 @@ func (sb *Backend) Start(ctx context.Context, blockchain *core.BlockChain) error
 	sb.proposedBlockHash = common.Hash{}
 
 	// Start Tendermint
-	sb.core.Start(ctx, sb.autonityContract, sb.blockchain)
+	sb.core.Start(ctx, sb.blockchain)
 	sb.coreStarted = true
 
 	return nil

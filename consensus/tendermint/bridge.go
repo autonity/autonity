@@ -46,7 +46,7 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever, statedb state.Database, verifier *Verifier) *bridge {
+func New(config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever, statedb state.Database, verifier *Verifier, ac *autonity.Contract) *bridge {
 	logger := log.New("addr", address.String())
 	c := &bridge{
 		key:                  key,
@@ -62,6 +62,7 @@ func New(config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster,
 		verifier:             verifier,
 		eventMux:             event.NewTypeMuxSilent(logger),
 		commitChannel:        make(chan *types.Block),
+		autonityContract:     ac,
 	}
 	return c
 }
@@ -308,11 +309,9 @@ func (b *bridge) createCommittee(block *types.Block) committee {
 var errStopped = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
-func (b *bridge) Start(ctx context.Context, contract *autonity.Contract, blockchain *core.BlockChain) {
+func (b *bridge) Start(ctx context.Context, blockchain *core.BlockChain) {
 	atomic.StoreInt32(&b.started, 1)
 	//println("starting")
-	// Set the autonity contract and blockchain
-	b.autonityContract = contract
 	b.blockchain = blockchain
 	ctx, b.cancel = context.WithCancel(ctx)
 
