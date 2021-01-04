@@ -19,6 +19,7 @@ package backend
 import (
 	"context"
 	"errors"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"math/big"
 	"time"
 
@@ -100,7 +101,7 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "tendermint",
 		Version:   "1.0",
-		Service:   NewApi(chain, sb),
+		Service:   NewApi(chain, sb.autonityContract, tendermint.NewLatestBlockRetriever(sb.db, sb.statedb)),
 		Public:    true,
 	}}
 }

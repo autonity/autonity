@@ -754,3 +754,7 @@ func (l *LatestBlockRetriever) RetrieveLatestBlock() (*types.Block, error) {
 	}
 	return block, nil
 }
+
+func (l *LatestBlockRetriever) RetrieveBlockState(block *types.Block) (*state.StateDB, error) {
+	return state.New(block.Root(), l.statedb, nil)
+}

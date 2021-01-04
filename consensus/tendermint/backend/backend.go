@@ -63,19 +63,18 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	backend := &Backend{
-		config:               config,
-		privateKey:           privateKey,
-		address:              address,
-		logger:               logger,
-		db:                   db,
-		coreStarted:          false,
-		vmConfig:             vmConfig,
-		peers:                peers,
-		statedb:              statedb,
-		latestBlockRetreiver: tendermint.NewLatestBlockRetriever(db, statedb),
-		autonityContract:     autonityContract,
-		Verifier:             verifier,
-		DefaultFinalizer:     finalizer,
+		config:           config,
+		privateKey:       privateKey,
+		address:          address,
+		logger:           logger,
+		db:               db,
+		coreStarted:      false,
+		vmConfig:         vmConfig,
+		peers:            peers,
+		statedb:          statedb,
+		autonityContract: autonityContract,
+		Verifier:         verifier,
+		DefaultFinalizer: finalizer,
 	}
 
 	backend.core = tendermint.New(config, backend.privateKey, broadcaster, syncer, address, tendermint.NewLatestBlockRetriever(db, statedb), statedb, verifier)
@@ -105,34 +104,6 @@ type Backend struct {
 	vmConfig    *vm.Config
 	peers       consensus.Peers
 
-	autonityContract     *autonity.Contract
-	statedb              state.Database
-	latestBlockRetreiver *tendermint.LatestBlockRetriever
-}
-
-func (sb *Backend) GetContractABI() string {
-	// after the contract is upgradable, call it from contract object rather than from conf.
-	return sb.autonityContract.GetContractABI()
-}
-
-// Whitelist for the current block
-func (sb *Backend) WhiteList() []string {
-	// TODO this should really return errors
-	b, err := sb.latestBlockRetreiver.RetrieveLatestBlock()
-	if err != nil {
-		panic(err)
-	}
-	state, err := state.New(b.Root(), sb.statedb, nil)
-	if err != nil {
-		sb.logger.Error("Failed to get block white list", "err", err)
-		return nil
-	}
-
-	enodes, err := sb.autonityContract.GetWhitelist(b, state)
-	if err != nil {
-		sb.logger.Error("Failed to get block white list", "err", err)
-		return nil
-	}
-
-	return enodes.StrList
+	autonityContract *autonity.Contract
+	statedb          state.Database
 }

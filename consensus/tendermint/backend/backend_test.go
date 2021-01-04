@@ -24,7 +24,6 @@ import (
 	"math"
 	"math/big"
 	"strings"
-	"testing"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint"
@@ -37,45 +36,6 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
 )
-
-// Test get contract ABI, it should have the default abi before contract upgrade.
-func TestBackendGetContractABI(t *testing.T) {
-	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = chain.InsertChain(types.Blocks{block})
-	if err != nil {
-		t.Fatal(err)
-	}
-	contractABI := engine.GetContractABI()
-	expectedABI := chain.Config().AutonityContractConfig.ABI
-	if contractABI != expectedABI {
-		t.Fatalf("unexpected returned ABI")
-	}
-}
-
-func TestBackendWhiteList(t *testing.T) {
-	//Very shallow test for the time being, running only with 1 validator
-	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = chain.InsertChain(types.Blocks{block})
-	if err != nil {
-		t.Fatal(err)
-	}
-	whitelist := engine.WhiteList()
-	if len(whitelist) != 1 {
-		t.Fatalf("unexpected returned whitelist")
-	}
-	expectedWhitelist := chain.Config().AutonityContractConfig.Users[0].Enode
-	if strings.Compare(whitelist[0], expectedWhitelist) != 0 {
-		t.Fatalf("unexpected returned whitelist")
-	}
-}
 
 /**
  * SimpleBackend
