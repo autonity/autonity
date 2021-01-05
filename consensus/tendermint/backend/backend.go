@@ -61,24 +61,23 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	logger := log.New("addr", pub)
 
 	logger.Warn("new backend with public key")
-
+	latestBlockRetriever := tendermint.NewLatestBlockRetriever(db, statedb)
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	backend := &Backend{
-		config:           config,
-		privateKey:       privateKey,
-		address:          address,
-		logger:           logger,
-		db:               db,
-		coreStarted:      false,
-		vmConfig:         vmConfig,
-		peers:            peers,
-		statedb:          statedb,
-		autonityContract: autonityContract,
-		Verifier:         verifier,
-		DefaultFinalizer: finalizer,
+		config:               config,
+		privateKey:           privateKey,
+		address:              address,
+		logger:               logger,
+		latestBlockRetriever: latestBlockRetriever,
+		coreStarted:          false,
+		vmConfig:             vmConfig,
+		peers:                peers,
+		autonityContract:     autonityContract,
+		Verifier:             verifier,
+		DefaultFinalizer:     finalizer,
 	}
 
-	backend.core = tendermint.New(config, backend.privateKey, broadcaster, syncer, address, tendermint.NewLatestBlockRetriever(db, statedb), statedb, verifier, autonityContract)
+	backend.core = tendermint.New(config, backend.privateKey, broadcaster, syncer, address, latestBlockRetriever, statedb, verifier, autonityContract)
 	return backend
 }
 
@@ -91,7 +90,6 @@ type Backend struct {
 	privateKey *ecdsa.PrivateKey
 	address    common.Address
 	logger     log.Logger
-	db         ethdb.Database
 	blockchain *core.BlockChain
 
 	// the channels for tendermint engine notifications
@@ -109,6 +107,6 @@ type Backend struct {
 	vmConfig    *vm.Config
 	peers       consensus.Peers
 
-	autonityContract *autonity.Contract
-	statedb          state.Database
+	autonityContract     *autonity.Contract
+	latestBlockRetriever *tendermint.LatestBlockRetriever
 }
