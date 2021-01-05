@@ -43,7 +43,7 @@ type API struct {
 	getCommittee         func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
 }
 
-func NewApi(chain consensus.ChainReader, ac *autonity.Contract, lbr *tendermint.LatestBlockRetriever) *API {
+func NewAPI(chain consensus.ChainReader, ac *autonity.Contract, lbr *tendermint.LatestBlockRetriever) *API {
 	return &API{
 		chain:                chain,
 		autonityContract:     ac,
