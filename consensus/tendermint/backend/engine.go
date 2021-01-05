@@ -30,27 +30,18 @@ import (
 	"github.com/clearmatics/autonity/rpc"
 )
 
-const (
-	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
-	inmemoryPeers     = 40
-	inmemoryMessages  = 1024
-)
-
-// ErrStartedEngine is returned if the engine is already started
-var ErrStartedEngine = errors.New("started engine")
-
 var (
+	// ErrStartedEngine is returned if the engine is already started
+	ErrStartedEngine = errors.New("started engine")
+
 	// errUnknownBlock is returned when the list of committee is requested for a block
 	// that is not part of the local blockchain.
 	errUnknownBlock = errors.New("unknown block")
-	// errUnauthorized is returned if a header is signed by a non authorized entity.
-	errUnauthorized = errors.New("unauthorized")
 )
+
 var (
 	defaultDifficulty = big.NewInt(1)
-	nilUncleHash      = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	emptyNonce        = types.BlockNonce{}
-	now               = time.Now
 )
 
 // Author retrieves the Ethereum address of the account that minted the given
@@ -104,10 +95,6 @@ func (sb *Backend) CalcDifficulty(chain consensus.ChainReader, time uint64, pare
 	return defaultDifficulty
 }
 
-func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
-	sb.proposedBlockHash = hash
-}
-
 // APIs returns the RPC APIs this consensus engine provides.
 func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
@@ -140,9 +127,6 @@ func (sb *Backend) Start(ctx context.Context, blockchain *core.BlockChain) error
 	sb.blockchain = blockchain
 
 	sb.stopped = make(chan struct{})
-
-	// clear previous data
-	sb.proposedBlockHash = common.Hash{}
 
 	// Start Tendermint
 	sb.core.Start(ctx, sb.autonityContract, sb.blockchain)

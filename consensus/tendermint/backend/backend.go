@@ -94,14 +94,11 @@ type Backend struct {
 	db         ethdb.Database
 	blockchain *core.BlockChain
 
-	// the channels for tendermint engine notifications
-	proposedBlockHash common.Hash
-	coreStarted       bool
-	core              tendermint.Tendermint
-	stopped           chan struct{}
-	coreMu            sync.RWMutex
+	coreStarted bool
+	core        tendermint.Tendermint
+	stopped     chan struct{}
+	coreMu      sync.RWMutex
 
-	// event subscription for ChainHeadEvent event
 	broadcaster consensus.Broadcaster
 
 	contractsMu sync.RWMutex
