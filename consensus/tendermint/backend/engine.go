@@ -97,31 +97,6 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	return sb.core.Seal(chain, block, results, stop)
 }
 
-func (sb *Backend) setResultChan(results chan<- *types.Block) {
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
-	if sb.commitCh != nil && sb.commitCh != results {
-		panic("setting result channel to different channel")
-	}
-
-	sb.commitCh = results
-}
-
-func (sb *Backend) sendResultChan(block *types.Block) {
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
-	sb.commitCh <- block
-}
-
-func (sb *Backend) isResultChanNil() bool {
-	sb.coreMu.RLock()
-	defer sb.coreMu.RUnlock()
-
-	return sb.commitCh == nil
-}
-
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have based on the previous blocks in the blockchain and the
 // current signer.

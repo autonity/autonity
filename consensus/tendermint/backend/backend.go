@@ -28,7 +28,6 @@ import (
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethdb"
@@ -96,7 +95,6 @@ type Backend struct {
 	blockchain *core.BlockChain
 
 	// the channels for tendermint engine notifications
-	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
 	core              tendermint.Tendermint
