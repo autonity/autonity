@@ -14,12 +14,11 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package backend
+package tendermint
 
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
@@ -39,11 +38,11 @@ func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Comm
 type API struct {
 	chain                consensus.ChainReader
 	autonityContract     *autonity.Contract
-	latestBlockRetriever *tendermint.LatestBlockRetriever
+	latestBlockRetriever *LatestBlockRetriever
 	getCommittee         func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
 }
 
-func NewAPI(chain consensus.ChainReader, ac *autonity.Contract, lbr *tendermint.LatestBlockRetriever) *API {
+func NewAPI(chain consensus.ChainReader, ac *autonity.Contract, lbr *LatestBlockRetriever) *API {
 	return &API{
 		chain:                chain,
 		autonityContract:     ac,

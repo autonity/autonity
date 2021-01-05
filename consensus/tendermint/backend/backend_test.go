@@ -18,21 +18,14 @@ package backend
 
 import (
 	"bytes"
-	"context"
 	"crypto/ecdsa"
-	"fmt"
-	"math"
 	"math/big"
 	"strings"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
 )
@@ -86,84 +79,6 @@ func (slice Keys) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
-// in this test, we can set n to 1, and it means we can process Istanbul and commit a
-// block by one node. Otherwise, if n is larger than 1, we have to generate
-// other fake events to process Istanbul.
-func newBlockChain(n int) (*core.BlockChain, *Backend) {
-	genesis, nodeKeys := getGenesisAndKeys(n)
-	memDB := rawdb.NewMemoryDatabase()
-
-	peers := &mockPeers{}
-	bc := tendermint.NewBroadcaster(common.Address{}, peers)
-	syncer := tendermint.NewSyncer(peers)
-	statedb := state.NewDatabase(memDB)
-
-	hg, err := core.NewHeaderGetter(memDB)
-	if err != nil {
-		panic(err)
-	}
-	vmConfig := vm.Config{}
-	autonityContract, err := core.NewAutonityContractFromConfig(
-		memDB,
-		hg,
-		core.NewDefaultEVMProvider(hg, vmConfig, genesis.Config),
-		genesis.Config.AutonityContractConfig,
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	finalizer := tendermint.NewFinalizer(autonityContract)
-	verifier := tendermint.NewVerifier(&vmConfig, finalizer, genesis.Config.Tendermint.BlockPeriod)
-	// Use the first key as private key
-	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, statedb, genesis.Config, &vm.Config{}, bc, peers, syncer, autonityContract, verifier, finalizer)
-
-	genesis.MustCommit(memDB)
-
-	blockchain, err := core.NewBlockChainWithState(memDB, statedb, nil, genesis.Config, b, vmConfig, nil, core.NewTxSenderCacher(), nil, hg, autonityContract)
-	if err != nil {
-		panic(err)
-	}
-
-	err = b.Start(context.Background(), blockchain)
-	if err != nil {
-		panic(err)
-	}
-
-	return blockchain, b
-}
-
-func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
-	genesis := core.DefaultGenesisBlock()
-	// Setup committee
-	var nodeKeys = make([]*ecdsa.PrivateKey, n)
-	var addrs = make([]common.Address, n)
-	for i := 0; i < n; i++ {
-		nodeKeys[i], _ = crypto.GenerateKey()
-		addrs[i] = crypto.PubkeyToAddress(nodeKeys[i].PublicKey)
-		genesis.Alloc[addrs[i]] = core.GenesisAccount{Balance: new(big.Int).SetUint64(uint64(math.Pow10(18)))}
-	}
-
-	// generate genesis block
-
-	genesis.Config = params.TestChainConfig
-	genesis.GasLimit = 10000000
-	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
-	// force enable Tendermint engine
-	genesis.Config.Tendermint = config.DefaultConfig()
-	genesis.Difficulty = defaultDifficulty
-	genesis.Nonce = emptyNonce.Uint64()
-	genesis.Mixhash = types.BFTDigest
-
-	AppendValidators(genesis, addrs)
-	err := genesis.Config.AutonityContractConfig.Prepare()
-	if err != nil {
-		panic(err)
-	}
-
-	return genesis, nodeKeys
-}
-
 const EnodeStub = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
 
 func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
@@ -199,68 +114,6 @@ func makeHeader(parent *types.Block, config *config.Config) *types.Header {
 		Round:      0,
 	}
 	return header
-}
-
-func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
-	block, err := makeBlockWithoutSeal(chain, engine, parent)
-	if err != nil {
-		return nil, err
-	}
-
-	resultCh := make(chan *types.Block)
-	err = engine.Seal(chain, block, resultCh, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return <-resultCh, nil
-}
-
-func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
-	header := makeHeader(parent, engine.config)
-	_ = engine.Prepare(chain, header)
-
-	state, errS := chain.StateAt(parent.Root())
-	if errS != nil {
-		return nil, errS
-	}
-
-	//add a few txs
-	txs := make(types.Transactions, 5)
-	nonce := state.GetNonce(engine.address)
-	gasPrice := new(big.Int).SetUint64(1000000)
-	gasPool := new(core.GasPool).AddGas(header.GasLimit)
-	var receipts []*types.Receipt
-	for i := range txs {
-		amount := new(big.Int).SetUint64((nonce + 1) * 1000000000)
-		tx := types.NewTransaction(nonce, common.Address{}, amount, params.TxGas, gasPrice, []byte{})
-		tx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1)), engine.privateKey)
-		if err != nil {
-			return nil, err
-		}
-		txs[i] = tx
-		receipt, err := core.ApplyTransaction(chain.Config(), chain, nil, gasPool, state, header, txs[i], &header.GasUsed, *engine.vmConfig)
-		if err != nil {
-			return nil, err
-		}
-		nonce++
-		receipts = append(receipts, receipt)
-	}
-	block, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, &receipts)
-	if err != nil {
-		return nil, err
-	}
-
-	// Write state changes to db
-	root, err := state.Commit(chain.Config().IsEIP158(block.Header().Number))
-	if err != nil {
-		return nil, fmt.Errorf("state write error: %v", err)
-	}
-	if err := state.Database().TrieDB().Commit(root, false); err != nil {
-		return nil, fmt.Errorf("trie write error: %v", err)
-	}
-
-	return block, nil
 }
 
 // PrepareCommittedSeal returns a committed seal for the given hash

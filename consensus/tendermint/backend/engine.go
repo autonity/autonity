@@ -97,12 +97,7 @@ func (sb *Backend) CalcDifficulty(chain consensus.ChainReader, time uint64, pare
 
 // APIs returns the RPC APIs this consensus engine provides.
 func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
-	return []rpc.API{{
-		Namespace: "tendermint",
-		Version:   "1.0",
-		Service:   NewAPI(chain, sb.autonityContract, sb.latestBlockRetriever),
-		Public:    true,
-	}}
+	return sb.core.APIs(chain)
 }
 
 // Start implements consensus.Start

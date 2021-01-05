@@ -26,6 +26,7 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/rpc"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -57,7 +58,7 @@ func New(config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster,
 		msgStore:             newMessageStore(),
 		broadcaster:          broadcaster,
 		syncer:               syncer,
-		latestBlockRetreiver: latestBlockRetreiver,
+		latestBlockRetriever: latestBlockRetreiver,
 		statedb:              statedb,
 		verifier:             verifier,
 		eventMux:             event.NewTypeMuxSilent(logger),
@@ -94,7 +95,7 @@ type bridge struct {
 
 	broadcaster          *Broadcaster
 	syncer               *Syncer
-	latestBlockRetreiver *LatestBlockRetriever
+	latestBlockRetriever *LatestBlockRetriever
 	statedb              state.Database
 
 	verifier *Verifier
@@ -112,6 +113,16 @@ type bridge struct {
 	// Used to propagate blocks to the results channel provided by the miner on
 	// calls to Seal.
 	commitChannel chan *types.Block
+}
+
+// APIs returns the RPC APIs this consensus engine provides.
+func (b *bridge) APIs(chain consensus.ChainReader) []rpc.API {
+	return []rpc.API{{
+		Namespace: "tendermint",
+		Version:   "1.0",
+		Service:   NewAPI(chain, b.autonityContract, b.latestBlockRetriever),
+		Public:    true,
+	}}
 }
 
 // So this method is meant to allow interrupting of mining a block to start on
@@ -444,7 +455,7 @@ func (b *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 func (b *bridge) mainEventLoop(ctx context.Context) {
 	defer b.wg.Done()
 
-	lastBlockMined, err := b.latestBlockRetreiver.RetrieveLatestBlock()
+	lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
 	if err != nil {
 		panic(err)
 	}
@@ -547,7 +558,7 @@ eventLoop:
 				println(addr(b.address), "commit event")
 				b.logger.Debug("Received a final committed proposal")
 
-				lastBlock, err := b.latestBlockRetreiver.RetrieveLatestBlock()
+				lastBlock, err := b.latestBlockRetriever.RetrieveLatestBlock()
 				if err != nil {
 					panic(err)
 				}
