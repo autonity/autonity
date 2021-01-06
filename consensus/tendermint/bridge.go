@@ -121,7 +121,7 @@ type Bridge struct {
 
 	blockBroadcaster consensus.Broadcaster
 
-	startStopMu    sync.Mutex
+	mutex          sync.RWMutex
 	started        bool
 	broadcasterSet bool
 
@@ -253,14 +253,6 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	return nil
 }
 
-// readyForMessages returns true if the bridge is in a state to handle a
-// message from a peer.
-func (b *Bridge) readyForMessages() bool {
-	b.startStopMu.Lock()
-	defer b.startStopMu.Unlock()
-	return b.broadcasterSet && b.started
-}
-
 // Methods for consensus.Handler: This interface was introduced by the istanbul
 // BFT fork, so we don't need to keep it to maintain some level of parity
 // between Autonity and go-ethereum.
@@ -278,49 +270,46 @@ func (b *Bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
 func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	switch msg.Code {
 	case tendermintMsg:
-		if !b.readyForMessages() {
-			return true, nil
-		}
 		var data []byte
 		if err := msg.Decode(&data); err != nil {
 			return true, fmt.Errorf("failed to decode tendermint message: %v", err)
 		}
-
-		go func() {
-			b.eventChannel <- events.MessageEvent{
-				Payload: data,
-			}
-		}()
+		b.postEvent(events.MessageEvent{Payload: data})
+		return true, nil
 	case tendermintSyncMsg:
-		if !b.readyForMessages() {
-			return true, nil
-		}
-
-		go func() {
-			b.eventChannel <- events.SyncEvent{Addr: addr}
-		}()
+		b.postEvent(events.SyncEvent{Addr: addr})
+		return true, nil
 	default:
 		return false, nil
 	}
+}
 
-	return true, nil
+// postEvent posts an event to the main handler if Bridge is started and has a
+// broadcaster, otherwise the event is dropped. This is to prevent an event
+// buildup when Bridge is stopped, since the ethereum code that passes messages
+// to the Bridge seems to be unaware of whether the Bridge is in a position to
+// handle them.
+func (b *Bridge) postEvent(e interface{}) {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	if b.broadcasterSet && b.started {
+		go func() {
+			b.eventChannel <- e
+		}()
+	}
 }
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster
 func (b *Bridge) SetBroadcaster(broadcaster consensus.Broadcaster) {
-	b.startStopMu.Lock()
-	defer b.startStopMu.Unlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.broadcasterSet = true
 	b.blockBroadcaster = broadcaster
 }
 
 // NewChainHead implements consensus.Handler.NewChainHead
 func (b *Bridge) NewChainHead() error {
-	if b.readyForMessages() {
-		go func() {
-			b.eventChannel <- events.CommitEvent{}
-		}()
-	}
+	b.postEvent(events.CommitEvent{})
 	return nil
 }
 
@@ -400,8 +389,8 @@ var errStopped = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
 func (b *Bridge) Start(ctx context.Context, blockchain *core.BlockChain) error {
-	b.startStopMu.Lock()
-	defer b.startStopMu.Unlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	if b.started {
 		panic("Bridge started twice")
 	}
@@ -419,18 +408,17 @@ func (b *Bridge) Start(ctx context.Context, blockchain *core.BlockChain) error {
 }
 
 func (b *Bridge) Close() error {
-	b.startStopMu.Lock()
-	defer b.startStopMu.Unlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	if !b.started {
-		panic("Bridge stopped twice")
+		panic("Bridge closed twice")
 	}
 	b.started = false
 	//println(addr(c.address), c.height, "stopping")
 
-	b.logger.Info("stopping tendermint.core", "addr", addr(b.address))
+	b.logger.Info("closing tendermint.Bridge", "addr", addr(b.address))
 
 	b.cancel()
-	close(b.eventChannel)
 
 	// stop the block awaiter if it is waiting
 	b.currentBlockAwaiter.stop()
@@ -519,14 +507,14 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		// Broadcast in a new goroutine
 		go func() {
 			// send to self
-			b.eventChannel <- events.MessageEvent{Payload: msg}
+			b.postEvent(events.MessageEvent{Payload: msg})
 			// Broadcast to peers
 			b.broadcaster.Broadcast(msg)
 		}()
 
 	case to != nil:
 		time.AfterFunc(time.Duration(to.Delay)*time.Second, func() {
-			b.eventChannel <- to
+			b.postEvent(to)
 		})
 
 	}
