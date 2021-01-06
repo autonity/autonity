@@ -14,21 +14,41 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package backend
+package tendermint
 
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rpc"
 )
 
+// getCommittee retrieves the committee for the given header.
+func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
+	parent := chain.GetHeaderByHash(header.ParentHash)
+	if parent == nil {
+		return nil, errUnknownBlock
+	}
+	return parent.Committee, nil
+}
+
 // API is a user facing RPC API to dump BFT state
 type API struct {
-	chain        consensus.ChainReader
-	tendermint   *Backend
-	getCommittee func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
+	chain                consensus.ChainReader
+	autonityContract     *autonity.Contract
+	latestBlockRetriever *LatestBlockRetriever
+	getCommittee         func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
+}
+
+func NewAPI(chain consensus.ChainReader, ac *autonity.Contract, lbr *LatestBlockRetriever) *API {
+	return &API{
+		chain:                chain,
+		autonityContract:     ac,
+		latestBlockRetriever: lbr,
+		getCommittee:         getCommittee,
+	}
 }
 
 // GetCommittee retrieves the list of authorized committee at the specified block.
@@ -62,12 +82,31 @@ func (api *API) GetContractAddress() common.Address {
 	return autonity.ContractAddress
 }
 
-// Get Autonity contract ABI
 func (api *API) GetContractABI() string {
-	return api.tendermint.GetContractABI()
+	// after the contract is upgradable, call it from contract object rather than from conf.
+	return api.autonityContract.GetContractABI()
 }
 
-// Get current white list
+// Whitelist for the current block
 func (api *API) GetWhitelist() []string {
-	return api.tendermint.WhiteList()
+	// TODO this should really return errors
+	b, err := api.latestBlockRetriever.RetrieveLatestBlock()
+	if err != nil {
+		panic(err)
+	}
+	state, err := api.latestBlockRetriever.RetrieveBlockState(b)
+	if err != nil {
+		// TODO: Decide how to log errors correctly
+		log.Error("Failed to get block white list", "err", err)
+		return nil
+	}
+
+	enodes, err := api.autonityContract.GetWhitelist(b, state)
+	if err != nil {
+		// TODO: Decide how to log errors correctly
+		log.Error("Failed to get block white list", "err", err)
+		return nil
+	}
+
+	return enodes.StrList
 }

@@ -97,21 +97,7 @@ func (sb *Backend) CalcDifficulty(chain consensus.ChainReader, time uint64, pare
 
 // APIs returns the RPC APIs this consensus engine provides.
 func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
-	return []rpc.API{{
-		Namespace: "tendermint",
-		Version:   "1.0",
-		Service:   &API{chain: chain, tendermint: sb, getCommittee: getCommittee},
-		Public:    true,
-	}}
-}
-
-// getCommittee retrieves the committee for the given header.
-func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
-	parent := chain.GetHeaderByHash(header.ParentHash)
-	if parent == nil {
-		return nil, errUnknownBlock
-	}
-	return parent.Committee, nil
+	return sb.core.APIs(chain)
 }
 
 // Start implements consensus.Start
@@ -129,7 +115,7 @@ func (sb *Backend) Start(ctx context.Context, blockchain *core.BlockChain) error
 	sb.stopped = make(chan struct{})
 
 	// Start Tendermint
-	sb.core.Start(ctx, sb.autonityContract, sb.blockchain)
+	sb.core.Start(ctx, sb.blockchain)
 	sb.coreStarted = true
 
 	return nil
