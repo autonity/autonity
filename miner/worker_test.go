@@ -24,8 +24,6 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/consensus/tendermint"
-	"github.com/clearmatics/autonity/consensus/tendermint/backend"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	"github.com/stretchr/testify/require"
 
 	"github.com/clearmatics/autonity/common"
@@ -115,7 +113,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	}
 
 	switch engine.(type) {
-	case *tendermintBackend.Backend:
+	case *tendermint.Bridge:
 		gspec.Mixhash = types.BFTDigest
 	case *ethash.Ethash:
 	default:
@@ -550,9 +548,9 @@ func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine co
 	}
 }
 
-func newBackend(config *params.ChainConfig) (*backend.Backend, ethdb.Database, error) {
+func newBackend(config *params.ChainConfig) (*tendermint.Bridge, ethdb.Database, error) {
 	peers := &mockPeers{}
-	bc := tendermint.NewBroadcaster(common.Address{}, peers)
+	broadcaster := tendermint.NewBroadcaster(common.Address{}, peers)
 	syncer := tendermint.NewSyncer(peers)
 
 	db := rawdb.NewMemoryDatabase()
@@ -586,6 +584,18 @@ func newBackend(config *params.ChainConfig) (*backend.Backend, ethdb.Database, e
 
 	finalizer := tendermint.NewFinalizer(autonityContract)
 	verifier := tendermint.NewVerifier(&vmConfig, finalizer, tendermintChainConfig.Tendermint.BlockPeriod)
-	engine := tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, db, statedb, tendermintChainConfig, &vmConfig, bc, peers, syncer, autonityContract, verifier, finalizer)
+	latestBlockRetriever := tendermint.NewLatestBlockRetriever(db, statedb)
+	engine := tendermint.New(
+		tendermintChainConfig.Tendermint,
+		testUserKey,
+		broadcaster,
+		syncer,
+		verifier,
+		finalizer,
+		latestBlockRetriever,
+		autonityContract,
+		statedb,
+	)
+
 	return engine, db, nil
 }

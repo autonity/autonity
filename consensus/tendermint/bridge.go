@@ -21,6 +21,7 @@ import (
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -46,9 +47,22 @@ func addr(a common.Address) string {
 }
 
 // New creates an Tendermint consensus core
-func New(config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster, syncer *Syncer, address common.Address, latestBlockRetreiver *LatestBlockRetriever, statedb state.Database, verifier *Verifier, ac *autonity.Contract) *bridge {
+func New(
+	config *config.Config,
+	key *ecdsa.PrivateKey,
+	broadcaster *Broadcaster,
+	syncer *Syncer,
+	verifier *Verifier,
+	finalizer *DefaultFinalizer,
+	latestBlockRetreiver *LatestBlockRetriever,
+	ac *autonity.Contract,
+	statedb state.Database,
+) *Bridge {
+	address := crypto.PubkeyToAddress(key.PublicKey)
 	logger := log.New("addr", address.String())
-	c := &bridge{
+	c := &Bridge{
+		Verifier:             verifier,
+		DefaultFinalizer:     finalizer,
 		key:                  key,
 		proposerPolicy:       config.ProposerPolicy,
 		blockPeriod:          config.BlockPeriod,
@@ -68,7 +82,10 @@ func New(config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster,
 	return c
 }
 
-type bridge struct {
+type Bridge struct {
+	*DefaultFinalizer
+	*Verifier
+
 	key            *ecdsa.PrivateKey
 	proposerPolicy config.ProposerPolicy
 	blockPeriod    uint64
@@ -101,7 +118,7 @@ type bridge struct {
 
 	verifier *Verifier
 
-	blockchain *core.BlockChain // TODO need to set this on start
+	blockchain *core.BlockChain
 
 	eventMux         *event.TypeMuxSilent
 	blockBroadcaster consensus.Broadcaster
@@ -115,23 +132,27 @@ type bridge struct {
 	commitChannel chan *types.Block
 }
 
+func (b *Bridge) SealHash(header *types.Header) common.Hash {
+	return types.SigHash(header)
+}
+
 // Author retrieves the Ethereum address of the account that minted the given
 // block, which may be different from the header's coinbase if a consensus
 // engine is based on signatures.
-func (b *bridge) Author(header *types.Header) (common.Address, error) {
+func (b *Bridge) Author(header *types.Header) (common.Address, error) {
 	return types.Ecrecover(header)
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have based on the previous blocks in the blockchain and the
 // current signer.
-func (b *bridge) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+func (b *Bridge) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
 	return big.NewInt(1)
 }
 
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
-func (b *bridge) Prepare(chain consensus.ChainReader, header *types.Header) error {
+func (b *Bridge) Prepare(chain consensus.ChainReader, header *types.Header) error {
 	// unused fields, force to set to empty
 	header.Coinbase = b.address
 	header.Nonce = emptyNonce
@@ -155,7 +176,7 @@ func (b *bridge) Prepare(chain consensus.ChainReader, header *types.Header) erro
 }
 
 // APIs returns the RPC APIs this consensus engine provides.
-func (b *bridge) APIs(chain consensus.ChainReader) []rpc.API {
+func (b *Bridge) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "tendermint",
 		Version:   "1.0",
@@ -179,7 +200,7 @@ func (b *bridge) APIs(chain consensus.ChainReader) []rpc.API {
 // We can't build the bridge with the results chan since the worker will need
 // the bridge to be constructed. We could create the results chan before
 // building either and pass it to both. But lets save that for later.
-func (b *bridge) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 
 	// Check if we are handling the results and if not set up a goroutine to
 	// pass results back to the miner. We will only send a block on the
@@ -236,7 +257,7 @@ func (b *bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 
 // readyForMessages returns true if the bridge is in a state to handle a
 // message from a peer.
-func (b *bridge) readyForMessages() bool {
+func (b *Bridge) readyForMessages() bool {
 	b.startStopMu.Lock()
 	defer b.startStopMu.Unlock()
 	return b.broadcasterSet && b.started
@@ -247,7 +268,7 @@ func (b *bridge) readyForMessages() bool {
 // between Autonity and go-ethereum.
 
 // Protocol implements consensus.Handler.Protocol
-func (b *bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
+func (b *Bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
 	return "tendermint", 2 //nolint
 }
 
@@ -255,7 +276,7 @@ func (b *bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
 // indicate whether the message was handled, if we return false then the
 // message will be passed on by the caller to be handled by the default eth
 // handler.
-func (b *bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
+func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	switch msg.Code {
 	case tendermintMsg:
 		if !b.readyForMessages() {
@@ -281,7 +302,7 @@ func (b *bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 }
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster
-func (b *bridge) SetBroadcaster(broadcaster consensus.Broadcaster) {
+func (b *Bridge) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	b.startStopMu.Lock()
 	defer b.startStopMu.Unlock()
 	b.broadcasterSet = true
@@ -289,12 +310,12 @@ func (b *bridge) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 // NewChainHead implements consensus.Handler.NewChainHead
-func (b *bridge) NewChainHead() error {
+func (b *Bridge) NewChainHead() error {
 	go b.eventMux.Post(events.CommitEvent{})
 	return nil
 }
 
-func (b *bridge) Commit(proposal *algorithm.ConsensusMessage) error {
+func (b *Bridge) Commit(proposal *algorithm.ConsensusMessage) error {
 	committedSeals := b.msgStore.signatures(proposal.Value, proposal.Round, proposal.Height)
 	message := b.msgStore.matchingProposal(proposal)
 	// Sanity checks
@@ -335,7 +356,7 @@ func (b *bridge) Commit(proposal *algorithm.ConsensusMessage) error {
 	return nil
 }
 
-func (b *bridge) createCommittee(block *types.Block) committee {
+func (b *Bridge) createCommittee(block *types.Block) committee {
 	var committeeSet committee
 	var err error
 	var lastProposer common.Address
@@ -353,6 +374,12 @@ func (b *bridge) createCommittee(block *types.Block) committee {
 			panic(fmt.Sprintf("failed to construct committee %v", err))
 		}
 	case config.WeightedRandomSampling:
+		// TODO instead of building a committee set here with the state db and
+		// contract we should separate an object that calculates the committee
+		// and it can be passed to the bridge, this will allow us to remove
+		// both the autonityContract (we would also need to build an api
+		// provider as well which would encapsulate the autonity contract) and
+		// the statedb from the bridge.
 		committeeSet = newWeightedRandomSamplingCommittee(block, b.autonityContract, b.statedb)
 	default:
 		panic(fmt.Sprintf("unrecognised proposer policy %q", b.proposerPolicy))
@@ -363,7 +390,7 @@ func (b *bridge) createCommittee(block *types.Block) committee {
 var errStopped = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
-func (b *bridge) Start(ctx context.Context, blockchain *core.BlockChain) error {
+func (b *Bridge) Start(ctx context.Context, blockchain *core.BlockChain) error {
 	b.startStopMu.Lock()
 	defer b.startStopMu.Unlock()
 	if b.started {
@@ -386,7 +413,7 @@ func (b *bridge) Start(ctx context.Context, blockchain *core.BlockChain) error {
 	return nil
 }
 
-func (b *bridge) Close() error {
+func (b *Bridge) Close() error {
 	b.startStopMu.Lock()
 	defer b.startStopMu.Unlock()
 	if !b.started {
@@ -412,7 +439,7 @@ func (b *bridge) Close() error {
 	return nil
 }
 
-func (b *bridge) newHeight(prevBlock *types.Block) error {
+func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.syncTimer = time.NewTimer(20 * time.Second)
 	b.lastHeader = prevBlock.Header()
 	b.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
@@ -440,7 +467,7 @@ func (b *bridge) newHeight(prevBlock *types.Block) error {
 	return nil
 }
 
-func (b *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout) error {
+func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout) error {
 
 	switch {
 	case rc == nil && cm == nil && to == nil:
@@ -507,7 +534,7 @@ func (b *bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 	return nil
 }
 
-func (b *bridge) mainEventLoop(ctx context.Context) {
+func (b *Bridge) mainEventLoop(ctx context.Context) {
 	defer b.wg.Done()
 
 	lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
@@ -632,7 +659,7 @@ eventLoop:
 
 }
 
-func (b *bridge) handleCurrentHeightMessage(m *message) error {
+func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 	//println(addr(c.address), c.height.String(), m.String(), "received")
 	cm := m.consensusMessage
 	/*

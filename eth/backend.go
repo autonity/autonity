@@ -26,7 +26,6 @@ import (
 	"sync/atomic"
 
 	"github.com/clearmatics/autonity/consensus/tendermint"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/p2p/enode"
@@ -292,8 +291,19 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 		finalizer := tendermint.NewFinalizer(autonityContract)
 		verifier := tendermint.NewVerifier(vmConfig, finalizer, chainConfig.Tendermint.BlockPeriod)
 		syncer := tendermint.NewSyncer(peers)
-		bc := tendermint.NewBroadcaster(crypto.PubkeyToAddress(ctx.NodeKey().PublicKey), peers)
-		return tendermintBackend.New(chainConfig.Tendermint, ctx.NodeKey(), db, state, chainConfig, vmConfig, bc, peers, syncer, autonityContract, verifier, finalizer)
+		broadcaster := tendermint.NewBroadcaster(crypto.PubkeyToAddress(ctx.NodeKey().PublicKey), peers)
+		latestBlockRetriever := tendermint.NewLatestBlockRetriever(db, state)
+		return tendermint.New(
+			chainConfig.Tendermint,
+			ctx.NodeKey(),
+			broadcaster,
+			syncer,
+			verifier,
+			finalizer,
+			latestBlockRetriever,
+			autonityContract,
+			state,
+		)
 	}
 
 	// Otherwise assume proof-of-work
