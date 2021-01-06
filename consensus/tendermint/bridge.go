@@ -318,7 +318,7 @@ func (b *Bridge) NewChainHead() error {
 	return nil
 }
 
-func (b *Bridge) Commit(proposal *algorithm.ConsensusMessage) error {
+func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 	committedSeals := b.msgStore.signatures(proposal.Value, proposal.Round, proposal.Height)
 	message := b.msgStore.matchingProposal(proposal)
 	// Sanity checks
@@ -350,7 +350,12 @@ func (b *Bridge) Commit(proposal *algorithm.ConsensusMessage) error {
 
 	// If we are the proposer, send the block to the  commit channel
 	if b.address == b.committee.GetProposer(proposal.Round).Address {
-		b.commitChannel <- block
+		select {
+		case b.commitChannel <- block:
+			// Close channel must exist at this point (there is no way to reach
+			// this without calling Start) no need for mutex.
+		case <-b.closeChannel:
+		}
 	} else {
 		b.blockBroadcaster.Enqueue("tendermint", block)
 	}
@@ -477,7 +482,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 
 			// This will ultimately lead to a commit event, which we will pick up on in the mainEventLoop and start a
 			// move to the new height by calling newHeight().
-			err := b.Commit(rc.Decision)
+			err := b.commit(rc.Decision)
 			if err != nil {
 				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(b.address).String(), spew.Sdump(rc.Decision), err))
 			}
