@@ -316,9 +316,11 @@ func (b *Bridge) SetBroadcaster(broadcaster consensus.Broadcaster) {
 
 // NewChainHead implements consensus.Handler.NewChainHead
 func (b *Bridge) NewChainHead() error {
-	go func() {
-		b.eventChannel <- events.CommitEvent{}
-	}()
+	if b.readyForMessages() {
+		go func() {
+			b.eventChannel <- events.CommitEvent{}
+		}()
+	}
 	return nil
 }
 
