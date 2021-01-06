@@ -26,7 +26,6 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/contracts/autonity"
-	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
@@ -89,12 +88,9 @@ type Backend struct {
 	privateKey *ecdsa.PrivateKey
 	address    common.Address
 	logger     log.Logger
-	blockchain *core.BlockChain
 
 	coreStarted bool
 	core        tendermint.Tendermint
-	stopped     chan struct{}
-	coreMu      sync.RWMutex
 
 	broadcaster consensus.Broadcaster
 

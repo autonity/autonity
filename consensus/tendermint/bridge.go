@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -52,6 +51,7 @@ func New(config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster,
 	c := &bridge{
 		key:                  key,
 		proposerPolicy:       config.ProposerPolicy,
+		blockPeriod:          config.BlockPeriod,
 		address:              address,
 		logger:               logger,
 		currentBlockAwaiter:  newBlockAwaiter(),
@@ -71,6 +71,7 @@ func New(config *config.Config, key *ecdsa.PrivateKey, broadcaster *Broadcaster,
 type bridge struct {
 	key            *ecdsa.PrivateKey
 	proposerPolicy config.ProposerPolicy
+	blockPeriod    uint64
 	address        common.Address
 	logger         log.Logger
 
@@ -105,14 +106,52 @@ type bridge struct {
 	eventMux         *event.TypeMuxSilent
 	blockBroadcaster consensus.Broadcaster
 
-	// 1 means started, 0 means stopped.
-	started int32
-	// 1 means set, 0 means not set.
-	broadcasterSet int32
+	startStopMu    sync.Mutex
+	started        bool
+	broadcasterSet bool
 
 	// Used to propagate blocks to the results channel provided by the miner on
 	// calls to Seal.
 	commitChannel chan *types.Block
+}
+
+// Author retrieves the Ethereum address of the account that minted the given
+// block, which may be different from the header's coinbase if a consensus
+// engine is based on signatures.
+func (b *bridge) Author(header *types.Header) (common.Address, error) {
+	return types.Ecrecover(header)
+}
+
+// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
+// that a new block should have based on the previous blocks in the blockchain and the
+// current signer.
+func (b *bridge) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+	return big.NewInt(1)
+}
+
+// Prepare initializes the consensus fields of a block header according to the
+// rules of a particular engine. The changes are executed inline.
+func (b *bridge) Prepare(chain consensus.ChainReader, header *types.Header) error {
+	// unused fields, force to set to empty
+	header.Coinbase = b.address
+	header.Nonce = emptyNonce
+	header.MixDigest = types.BFTDigest
+
+	// copy the parent extra data as the header extra data
+	number := header.Number.Uint64()
+	parent := chain.GetHeader(header.ParentHash, number-1)
+	if parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
+	// use the same difficulty for all blocks
+	header.Difficulty = defaultDifficulty
+
+	// set header's timestamp
+	header.Time = new(big.Int).Add(big.NewInt(int64(parent.Time)), new(big.Int).SetUint64(b.blockPeriod)).Uint64()
+	if int64(header.Time) < time.Now().Unix() {
+		header.Time = uint64(time.Now().Unix())
+	}
+	return nil
 }
 
 // APIs returns the RPC APIs this consensus engine provides.
@@ -198,7 +237,9 @@ func (b *bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 // readyForMessages returns true if the bridge is in a state to handle a
 // message from a peer.
 func (b *bridge) readyForMessages() bool {
-	return atomic.LoadInt32(&b.broadcasterSet) == 1 && atomic.LoadInt32(&b.started) == 1
+	b.startStopMu.Lock()
+	defer b.startStopMu.Unlock()
+	return b.broadcasterSet && b.started
 }
 
 // Methods for consensus.Handler: This interface was introduced by the istanbul
@@ -241,7 +282,9 @@ func (b *bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster
 func (b *bridge) SetBroadcaster(broadcaster consensus.Broadcaster) {
-	atomic.StoreInt32(&b.broadcasterSet, 1)
+	b.startStopMu.Lock()
+	defer b.startStopMu.Unlock()
+	b.broadcasterSet = true
 	b.blockBroadcaster = broadcaster
 }
 
@@ -320,9 +363,14 @@ func (b *bridge) createCommittee(block *types.Block) committee {
 var errStopped = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
-func (b *bridge) Start(ctx context.Context, blockchain *core.BlockChain) {
-	atomic.StoreInt32(&b.started, 1)
-	//println("starting")
+func (b *bridge) Start(ctx context.Context, blockchain *core.BlockChain) error {
+	b.startStopMu.Lock()
+	defer b.startStopMu.Unlock()
+	if b.started {
+		panic("Bridge started twice")
+	}
+	b.started = true
+
 	b.blockchain = blockchain
 	ctx, b.cancel = context.WithCancel(ctx)
 
@@ -335,10 +383,16 @@ func (b *bridge) Start(ctx context.Context, blockchain *core.BlockChain) {
 	// Tendermint Finite State Machine discrete event loop
 	b.wg.Add(1)
 	go b.mainEventLoop(ctx)
+	return nil
 }
 
-func (b *bridge) Stop() {
-	atomic.StoreInt32(&b.started, 0)
+func (b *bridge) Close() error {
+	b.startStopMu.Lock()
+	defer b.startStopMu.Unlock()
+	if !b.started {
+		panic("Bridge stopped twice")
+	}
+	b.started = false
 	//println(addr(c.address), c.height, "stopping")
 
 	b.logger.Info("stopping tendermint.core", "addr", addr(b.address))
@@ -355,6 +409,7 @@ func (b *bridge) Stop() {
 	//println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	b.wg.Wait()
+	return nil
 }
 
 func (b *bridge) newHeight(prevBlock *types.Block) error {

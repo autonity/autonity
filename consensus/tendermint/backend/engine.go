@@ -18,9 +18,7 @@ package backend
 
 import (
 	"context"
-	"errors"
 	"math/big"
-	"time"
 
 	"github.com/clearmatics/autonity/core"
 
@@ -30,50 +28,17 @@ import (
 	"github.com/clearmatics/autonity/rpc"
 )
 
-var (
-	// ErrStartedEngine is returned if the engine is already started
-	ErrStartedEngine = errors.New("started engine")
-
-	// errUnknownBlock is returned when the list of committee is requested for a block
-	// that is not part of the local blockchain.
-	errUnknownBlock = errors.New("unknown block")
-)
-
-var (
-	defaultDifficulty = big.NewInt(1)
-	emptyNonce        = types.BlockNonce{}
-)
-
 // Author retrieves the Ethereum address of the account that minted the given
 // block, which may be different from the header's coinbase if a consensus
 // engine is based on signatures.
 func (sb *Backend) Author(header *types.Header) (common.Address, error) {
-	return types.Ecrecover(header)
+	return sb.core.Author(header)
 }
 
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
 func (sb *Backend) Prepare(chain consensus.ChainReader, header *types.Header) error {
-	// unused fields, force to set to empty
-	header.Coinbase = sb.address
-	header.Nonce = emptyNonce
-	header.MixDigest = types.BFTDigest
-
-	// copy the parent extra data as the header extra data
-	number := header.Number.Uint64()
-	parent := chain.GetHeader(header.ParentHash, number-1)
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
-	// use the same difficulty for all blocks
-	header.Difficulty = defaultDifficulty
-
-	// set header's timestamp
-	header.Time = new(big.Int).Add(big.NewInt(int64(parent.Time)), new(big.Int).SetUint64(sb.config.BlockPeriod)).Uint64()
-	if int64(header.Time) < time.Now().Unix() {
-		header.Time = uint64(time.Now().Unix())
-	}
-	return nil
+	return sb.core.Prepare(chain, header)
 }
 
 //
@@ -92,7 +57,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 // that a new block should have based on the previous blocks in the blockchain and the
 // current signer.
 func (sb *Backend) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
-	return defaultDifficulty
+	return sb.core.CalcDifficulty(chain, time, parent)
 }
 
 // APIs returns the RPC APIs this consensus engine provides.
@@ -102,41 +67,12 @@ func (sb *Backend) APIs(chain consensus.ChainReader) []rpc.API {
 
 // Start implements consensus.Start
 func (sb *Backend) Start(ctx context.Context, blockchain *core.BlockChain) error {
-	// the mutex along with coreStarted should prevent double start
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-	if sb.coreStarted {
-		return ErrStartedEngine
-	}
-
-	// Set blockchain fields
-	sb.blockchain = blockchain
-
-	sb.stopped = make(chan struct{})
-
-	// Start Tendermint
-	sb.core.Start(ctx, sb.blockchain)
-	sb.coreStarted = true
-
-	return nil
+	return sb.core.Start(ctx, blockchain)
 }
 
 // Stop implements consensus.Stop
 func (sb *Backend) Close() error {
-	// the mutex along with coreStarted should prevent double stop
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
-	if !sb.coreStarted {
-		return ErrStoppedEngine
-	}
-
-	// Stop Tendermint
-	sb.core.Stop()
-	sb.coreStarted = false
-	close(sb.stopped)
-
-	return nil
+	return sb.core.Close()
 }
 
 func (sb *Backend) SealHash(header *types.Header) common.Hash {
