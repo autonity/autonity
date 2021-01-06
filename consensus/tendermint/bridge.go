@@ -418,21 +418,22 @@ func (b *Bridge) Start(blockchain *core.BlockChain) error {
 }
 
 func (b *Bridge) Close() error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	if !b.started {
-		panic("Bridge closed twice")
-	}
-	b.started = false
+	func() {
+		b.mutex.Lock()
+		defer b.mutex.Unlock()
+		if !b.started {
+			panic("Bridge closed twice")
+		}
+		b.started = false
 
-	close(b.closeChannel)
-	//println(addr(c.address), c.height, "stopping")
+		close(b.closeChannel)
+		//println(addr(c.address), c.height, "stopping")
 
-	b.logger.Info("closing tendermint.Bridge", "addr", addr(b.address))
+		b.logger.Info("closing tendermint.Bridge", "addr", addr(b.address))
 
-	// stop the block awaiter if it is waiting
-	b.currentBlockAwaiter.stop()
-
+		// stop the block awaiter if it is waiting
+		b.currentBlockAwaiter.stop()
+	}()
 	//println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	b.wg.Wait()
