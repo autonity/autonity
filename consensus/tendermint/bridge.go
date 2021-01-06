@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
@@ -92,8 +91,6 @@ type Bridge struct {
 	address        common.Address
 	logger         log.Logger
 
-	cancel context.CancelFunc
-
 	eventChannel chan interface{}
 	wg           *sync.WaitGroup
 
@@ -128,6 +125,7 @@ type Bridge struct {
 	// Used to propagate blocks to the results channel provided by the miner on
 	// calls to Seal.
 	commitChannel chan *types.Block
+	closeChannel  chan struct{}
 }
 
 func (b *Bridge) SealHash(header *types.Header) common.Hash {
@@ -211,19 +209,21 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	// we receive a committed block from the previous sealing operation on the
 	// commitChannel in the current seal operation. For now we will skip blocks
 	// that do not match.
+	b.wg.Add(1)
 	go func() {
+		defer b.wg.Done()
 		for {
 			select {
-			case <-stop:
-				return
 			case committedBlock := <-b.commitChannel:
 				// Check that we are committing the block we were asked to seal.
 				if committedBlock.Hash() != block.Hash() {
 					continue
 				}
 				results <- committedBlock
-				return
+			case <-stop:
+			case <-b.closeChannel:
 			}
+			return
 		}
 	}()
 	// update the block header and signature and propose the block to core engine
@@ -293,8 +293,13 @@ func (b *Bridge) postEvent(e interface{}) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 	if b.broadcasterSet && b.started {
+		b.wg.Add(1)
 		go func() {
-			b.eventChannel <- e
+			defer b.wg.Done()
+			select {
+			case b.eventChannel <- e:
+			case <-b.closeChannel:
+			}
 		}()
 	}
 }
@@ -388,22 +393,22 @@ func (b *Bridge) createCommittee(block *types.Block) committee {
 var errStopped = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
-func (b *Bridge) Start(ctx context.Context, blockchain *core.BlockChain) error {
+func (b *Bridge) Start(blockchain *core.BlockChain) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	if b.started {
 		panic("Bridge started twice")
 	}
 	b.started = true
+	b.closeChannel = make(chan struct{})
 
 	b.blockchain = blockchain
-	ctx, b.cancel = context.WithCancel(ctx)
 
 	b.wg = &sync.WaitGroup{}
 
 	// Tendermint Finite State Machine discrete event loop
 	b.wg.Add(1)
-	go b.mainEventLoop(ctx)
+	go b.mainEventLoop()
 	return nil
 }
 
@@ -414,11 +419,11 @@ func (b *Bridge) Close() error {
 		panic("Bridge closed twice")
 	}
 	b.started = false
+
+	close(b.closeChannel)
 	//println(addr(c.address), c.height, "stopping")
 
 	b.logger.Info("closing tendermint.Bridge", "addr", addr(b.address))
-
-	b.cancel()
 
 	// stop the block awaiter if it is waiting
 	b.currentBlockAwaiter.stop()
@@ -505,7 +510,9 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		}
 
 		// Broadcast in a new goroutine
+		b.wg.Add(1)
 		go func() {
+			defer b.wg.Done()
 			// send to self
 			b.postEvent(events.MessageEvent{Payload: msg})
 			// Broadcast to peers
@@ -521,7 +528,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 	return nil
 }
 
-func (b *Bridge) mainEventLoop(ctx context.Context) {
+func (b *Bridge) mainEventLoop() {
 	defer b.wg.Done()
 
 	lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
@@ -632,8 +639,8 @@ eventLoop:
 					return
 				}
 			}
-		case <-ctx.Done():
-			b.logger.Info("mainEventLoop is stopped", "event", ctx.Err())
+		case <-b.closeChannel:
+			b.logger.Info("Bridge closed, exiting mainEventLoop")
 			break eventLoop
 		}
 	}
