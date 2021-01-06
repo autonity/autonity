@@ -23,7 +23,6 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rpc"
@@ -75,9 +74,10 @@ func New(
 		latestBlockRetriever: latestBlockRetreiver,
 		statedb:              statedb,
 		verifier:             verifier,
-		eventMux:             event.NewTypeMuxSilent(logger),
-		commitChannel:        make(chan *types.Block),
-		autonityContract:     ac,
+
+		eventChannel:     make(chan interface{}),
+		commitChannel:    make(chan *types.Block),
+		autonityContract: ac,
 	}
 	return c
 }
@@ -94,8 +94,7 @@ type Bridge struct {
 
 	cancel context.CancelFunc
 
-	eventsSub    *event.TypeMuxSubscription
-	syncEventSub *event.TypeMuxSubscription
+	eventChannel chan interface{}
 	wg           *sync.WaitGroup
 
 	msgStore  *messageStore
@@ -120,7 +119,6 @@ type Bridge struct {
 
 	blockchain *core.BlockChain
 
-	eventMux         *event.TypeMuxSilent
 	blockBroadcaster consensus.Broadcaster
 
 	startStopMu    sync.Mutex
@@ -275,7 +273,8 @@ func (b *Bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
 // HandleMsg implements consensus.Handler.HandleMsg, this returns a bool to
 // indicate whether the message was handled, if we return false then the
 // message will be passed on by the caller to be handled by the default eth
-// handler.
+// handler. If this function returns an error then the connection to the peer
+// sending the message will be dropped.
 func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	switch msg.Code {
 	case tendermintMsg:
@@ -286,14 +285,20 @@ func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		if err := msg.Decode(&data); err != nil {
 			return true, fmt.Errorf("failed to decode tendermint message: %v", err)
 		}
-		go b.eventMux.Post(events.MessageEvent{
-			Payload: data,
-		})
+
+		go func() {
+			b.eventChannel <- events.MessageEvent{
+				Payload: data,
+			}
+		}()
 	case tendermintSyncMsg:
 		if !b.readyForMessages() {
 			return true, nil
 		}
-		go b.eventMux.Post(events.SyncEvent{Addr: addr})
+
+		go func() {
+			b.eventChannel <- events.SyncEvent{Addr: addr}
+		}()
 	default:
 		return false, nil
 	}
@@ -311,7 +316,9 @@ func (b *Bridge) SetBroadcaster(broadcaster consensus.Broadcaster) {
 
 // NewChainHead implements consensus.Handler.NewChainHead
 func (b *Bridge) NewChainHead() error {
-	go b.eventMux.Post(events.CommitEvent{})
+	go func() {
+		b.eventChannel <- events.CommitEvent{}
+	}()
 	return nil
 }
 
@@ -401,10 +408,6 @@ func (b *Bridge) Start(ctx context.Context, blockchain *core.BlockChain) error {
 	b.blockchain = blockchain
 	ctx, b.cancel = context.WithCancel(ctx)
 
-	// Subscribe
-	b.eventsSub = b.eventMux.Subscribe(events.MessageEvent{}, &algorithm.Timeout{}, events.CommitEvent{})
-	b.syncEventSub = b.eventMux.Subscribe(events.SyncEvent{})
-
 	b.wg = &sync.WaitGroup{}
 
 	// Tendermint Finite State Machine discrete event loop
@@ -425,13 +428,10 @@ func (b *Bridge) Close() error {
 	b.logger.Info("stopping tendermint.core", "addr", addr(b.address))
 
 	b.cancel()
+	close(b.eventChannel)
 
 	// stop the block awaiter if it is waiting
 	b.currentBlockAwaiter.stop()
-
-	// Unsubscribe
-	b.eventsSub.Unsubscribe()
-	b.syncEventSub.Unsubscribe()
 
 	//println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
@@ -517,17 +517,14 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		// Broadcast in a new goroutine
 		go func() {
 			// send to self
-			messageEvent := events.MessageEvent{
-				Payload: msg,
-			}
-			b.eventMux.Post(messageEvent)
+			b.eventChannel <- events.MessageEvent{Payload: msg}
 			// Broadcast to peers
 			b.broadcaster.Broadcast(msg)
 		}()
 
 	case to != nil:
 		time.AfterFunc(time.Duration(to.Delay)*time.Second, func() {
-			b.eventMux.Post(to)
+			b.eventChannel <- to
 		})
 
 	}
@@ -557,19 +554,14 @@ eventLoop:
 			b.syncer.AskSync(b.lastHeader)
 			b.syncTimer = time.NewTimer(20 * time.Second)
 
-		case ev, ok := <-b.syncEventSub.Chan():
+		case ev, ok := <-b.eventChannel:
 			if !ok {
 				break eventLoop
 			}
-			syncEvent := ev.Data.(events.SyncEvent)
-			b.logger.Info("Processing sync message", "from", syncEvent.Addr)
-			b.syncer.SyncPeer(syncEvent.Addr, b.msgStore.rawHeightMessages(b.height.Uint64()))
-		case ev, ok := <-b.eventsSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			// A real ev arrived, process interesting content
-			switch e := ev.Data.(type) {
+			switch e := ev.(type) {
+			case events.SyncEvent:
+				b.logger.Info("Processing sync message", "from", e.Addr)
+				b.syncer.SyncPeer(e.Addr, b.msgStore.rawHeightMessages(b.height.Uint64()))
 			case events.MessageEvent:
 				//println("got a message")
 				/*
@@ -650,7 +642,6 @@ eventLoop:
 					return
 				}
 			}
-
 		case <-ctx.Done():
 			b.logger.Info("mainEventLoop is stopped", "event", ctx.Err())
 			break eventLoop
