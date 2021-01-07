@@ -408,6 +408,7 @@ var errStopped = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
 func (b *Bridge) Start(blockchain *core.BlockChain) error {
+	println("address", b.address.String()[:5], "starting")
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	if b.started {
@@ -423,10 +424,12 @@ func (b *Bridge) Start(blockchain *core.BlockChain) error {
 	// Tendermint Finite State Machine discrete event loop
 	b.wg.Add(1)
 	go b.mainEventLoop()
+	println("address", b.address.String()[:5], "started")
 	return nil
 }
 
 func (b *Bridge) Close() error {
+	println("address", b.address.String()[:5], "stopping")
 	func() {
 		b.mutex.Lock()
 		defer b.mutex.Unlock()
@@ -436,16 +439,18 @@ func (b *Bridge) Close() error {
 		b.started = false
 
 		close(b.closeChannel)
-		println(addr(b.address), b.height, "stopping")
+		// println(addr(b.address), b.height, "stopping")
 
-		b.logger.Info("closing tendermint.Bridge", "addr", addr(b.address))
+		// b.logger.Info("closing tendermint.Bridge", "addr", addr(b.address))
 
 		// stop the block awaiter if it is waiting
 		b.currentBlockAwaiter.stop()
 	}()
-	//println(addr(c.address), c.height, "almost stopped")
+	println("address", b.address.String()[:5], "almost stopped")
+	// println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	b.wg.Wait()
+	println("address", b.address.String()[:5], "stopped")
 	return nil
 }
 
@@ -657,7 +662,8 @@ eventLoop:
 					return
 				}
 			case events.CommitEvent:
-				println(addr(b.address), "commit event")
+				// println(addr(b.address), "commit event")
+				println("address", b.address.String()[:5], "commit event")
 				b.logger.Debug("Received a final committed proposal")
 
 				lastBlock, err := b.latestBlockRetriever.RetrieveLatestBlock()
