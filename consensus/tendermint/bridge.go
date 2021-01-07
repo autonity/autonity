@@ -209,25 +209,26 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	// we receive a committed block from the previous sealing operation on the
 	// commitChannel in the current seal operation. For now we will skip blocks
 	// that do not match.
-	b.wg.Add(1)
-	go func() {
-		defer b.wg.Done()
-		for {
-			select {
-			case committedBlock := <-b.commitChannel:
-				// Check that we are committing the block we were asked to seal.
-				if committedBlock.Hash() != block.Hash() {
-					continue
-				}
-				results <- committedBlock
-				return
-				// stop will be closed whenever eth is shutdouwn or a new
-				// sealing task is provided.
-			case <-stop:
-				return
-			}
-		}
-	}()
+	// b.wg.Add(1)
+	// go func() {
+	// 	defer b.wg.Done()
+	// 	for {
+	// 		select {
+	// 		case committedBlock := <-b.commitChannel:
+	// 			// Check that we are committing the block we were asked to seal.
+	// 			if committedBlock.Hash() != block.Hash() {
+	// 				continue
+	// 			}
+	// 			results <- committedBlock
+	// 			return
+	// 			// stop will be closed whenever eth is shutdouwn or a new
+	// 			// sealing task is provided.
+	// 		case <-stop:
+	// 			return
+	// 		}
+	// 	}
+	// }()
+
 	// update the block header and signature and propose the block to core engine
 	header := block.Header()
 
@@ -351,15 +352,15 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 	block := message.value.WithSeal(h)
 
 	// If we are the proposer, send the block to the  commit channel
-	if b.address == b.committee.GetProposer(proposal.Round).Address {
-		b.commitChannel <- block
-		// select {
-		// case b.commitChannel <- block:
-		// Close channel must exist at this point (there is no way to reach
-		// this without calling Start) no need for mutex.
-		// case <-b.closeChannel:
-		// }
-	}
+	// if b.address == b.committee.GetProposer(proposal.Round).Address {
+	// 	b.commitChannel <- block
+	// 	// select {
+	// 	// case b.commitChannel <- block:
+	// 	// Close channel must exist at this point (there is no way to reach
+	// 	// this without calling Start) no need for mutex.
+	// 	// case <-b.closeChannel:
+	// 	// }
+	// }
 	b.blockBroadcaster.Enqueue("tendermint", block)
 
 	b.logger.Info("committed a block", "hash", block.Hash())
