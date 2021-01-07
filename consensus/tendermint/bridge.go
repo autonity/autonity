@@ -209,9 +209,7 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	// we receive a committed block from the previous sealing operation on the
 	// commitChannel in the current seal operation. For now we will skip blocks
 	// that do not match.
-	b.wg.Add(1)
 	go func() {
-		defer b.wg.Done()
 		for {
 			select {
 			case committedBlock := <-b.commitChannel:
