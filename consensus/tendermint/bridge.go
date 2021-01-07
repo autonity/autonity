@@ -358,9 +358,8 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 		// this without calling Start) no need for mutex.
 		// case <-b.closeChannel:
 		// }
-	} else {
-		b.blockBroadcaster.Enqueue("tendermint", block)
 	}
+	b.blockBroadcaster.Enqueue("tendermint", block)
 
 	b.logger.Info("committed a block", "hash", block.Hash())
 	return nil
