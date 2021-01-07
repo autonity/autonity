@@ -304,7 +304,7 @@ func (b *Bridge) postEvent(e interface{}) {
 			defer b.wg.Done()
 			// I'm seeing a buildup of events here, I guess because the main
 			// routine is blocked waiting for a value and so its not
-			// proccessing these message events.
+			// processing these message events.
 			select {
 			case b.eventChannel <- e:
 			case <-b.closeChannel:
