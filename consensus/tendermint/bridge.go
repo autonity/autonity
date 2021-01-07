@@ -221,7 +221,7 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 				}
 				results <- committedBlock
 			case <-stop:
-			case <-b.closeChannel:
+				// case <-b.closeChannel:
 			}
 			return
 		}
@@ -350,12 +350,13 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 
 	// If we are the proposer, send the block to the  commit channel
 	if b.address == b.committee.GetProposer(proposal.Round).Address {
-		select {
-		case b.commitChannel <- block:
-			// Close channel must exist at this point (there is no way to reach
-			// this without calling Start) no need for mutex.
-		case <-b.closeChannel:
-		}
+		b.commitChannel <- block
+		// select {
+		// case b.commitChannel <- block:
+		// Close channel must exist at this point (there is no way to reach
+		// this without calling Start) no need for mutex.
+		// case <-b.closeChannel:
+		// }
 	} else {
 		b.blockBroadcaster.Enqueue("tendermint", block)
 	}
@@ -427,7 +428,7 @@ func (b *Bridge) Close() error {
 		b.started = false
 
 		close(b.closeChannel)
-		//println(addr(c.address), c.height, "stopping")
+		println(addr(b.address), b.height, "stopping")
 
 		b.logger.Info("closing tendermint.Bridge", "addr", addr(b.address))
 
