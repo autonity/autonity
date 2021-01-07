@@ -597,5 +597,8 @@ func newBackend(config *params.ChainConfig) (*tendermint.Bridge, ethdb.Database,
 		statedb,
 	)
 
+	// We need to set the broadcaster so that the engine will process messages, it should really be set to a real value but that would require a massive rewrite of these tests TODO
+	engine.SetBroadcaster(nil)
+
 	return engine, db, nil
 }
