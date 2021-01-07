@@ -220,6 +220,7 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 					continue
 				}
 				results <- committedBlock
+				return
 				// stop will be closed whenever eth is shutdouwn or a new
 				// sealing task is provided.
 			case <-stop:
