@@ -896,6 +896,5 @@ func newDebugLog(prefix ...interface{}) *debugLog {
 
 func (d *debugLog) print(info ...interface{}) {
 	log := append(d.prefix, info...)
-	fmt.Printf("%v ", time.Now())
-	fmt.Println(log...)
+	fmt.Printf("%v %v", time.Now().Format(time.RFC3339Nano), fmt.Sprintln(log...))
 }
