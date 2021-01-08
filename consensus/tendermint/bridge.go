@@ -58,6 +58,7 @@ func New(
 ) *Bridge {
 	address := crypto.PubkeyToAddress(key.PublicKey)
 	logger := log.New("addr", address.String())
+	dlog := newDebugLog("address", address.String()[2:6])
 	c := &Bridge{
 		Verifier:             verifier,
 		DefaultFinalizer:     finalizer,
@@ -66,7 +67,8 @@ func New(
 		blockPeriod:          config.BlockPeriod,
 		address:              address,
 		logger:               logger,
-		currentBlockAwaiter:  newBlockAwaiter(address.String()[:5]),
+		dlog:                 dlog,
+		currentBlockAwaiter:  newBlockAwaiter(dlog),
 		msgStore:             newMessageStore(),
 		broadcaster:          broadcaster,
 		syncer:               syncer,
@@ -126,6 +128,8 @@ type Bridge struct {
 	// calls to Seal.
 	commitChannel chan *types.Block
 	closeChannel  chan struct{}
+
+	dlog *debugLog
 }
 
 func (b *Bridge) SealHash(header *types.Header) common.Hash {
@@ -255,7 +259,7 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	case <-b.closeChannel:
 	}
 
-	println("address", b.address.String()[:5], "setting value", block.Hash().String()[2:8], "value height", block.Number().String(), "current height", b.height.String())
+	b.dlog.print("setting value", block.Hash().String()[2:8], "value height", block.Number().String(), "current height", b.height.String())
 	b.currentBlockAwaiter.setValue(block)
 	return nil
 }
@@ -412,7 +416,7 @@ var errStopped = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
 func (b *Bridge) Start(blockchain *core.BlockChain) error {
-	println("address", b.address.String()[:5], "starting")
+	b.dlog.print("starting")
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	if b.started {
@@ -428,12 +432,12 @@ func (b *Bridge) Start(blockchain *core.BlockChain) error {
 	// Tendermint Finite State Machine discrete event loop
 	b.wg.Add(1)
 	go b.mainEventLoop()
-	println("address", b.address.String()[:5], "started")
+	b.dlog.print("started")
 	return nil
 }
 
 func (b *Bridge) Close() error {
-	println("address", b.address.String()[:5], "stopping")
+	b.dlog.print("stopping")
 	func() {
 		b.mutex.Lock()
 		defer b.mutex.Unlock()
@@ -450,11 +454,11 @@ func (b *Bridge) Close() error {
 		// stop the block awaiter if it is waiting
 		b.currentBlockAwaiter.stop()
 	}()
-	println("address", b.address.String()[:5], "almost stopped")
+	b.dlog.print("almost stopped")
 	// println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	b.wg.Wait()
-	println("address", b.address.String()[:5], "stopped")
+	b.dlog.print("stopped")
 	return nil
 }
 
@@ -469,7 +473,7 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 
 	// Debugging
 	if b.address == b.committee.GetProposer(0).Address {
-		println("address", b.address.String()[:5], "awaiting block at height", b.height.String(), "at round", 0)
+		b.dlog.print("awaiting block at height", b.height.String(), "at round", 0)
 	}
 	// Handle messages for the new height
 	msg, timeout, err := b.algo.StartRound(0)
@@ -478,7 +482,7 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	}
 	// Debugging
 	if msg != nil {
-		println("address", b.address.String()[:5], "proposing block", msg.Value.String(), "at height", msg.Height, "at round", msg.Round)
+		b.dlog.print("proposing block", msg.Value.String(), "at height", msg.Height, "at round", msg.Round)
 	}
 
 	// Note that we don't risk entering an infinite loop here since
@@ -516,7 +520,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		} else {
 			// Debugging
 			if b.address == b.committee.GetProposer(rc.Round).Address {
-				println("address", b.address.String()[:5], "awaiting block at height", b.height.String(), "at round", rc.Round)
+				b.dlog.print("awaiting block at height", b.height.String(), "at round", rc.Round)
 			}
 			cm, to, err := b.algo.StartRound(rc.Round) // nolint
 			if err != nil {
@@ -524,7 +528,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			}
 			// Debugging
 			if cm != nil {
-				println("address", b.address.String()[:5], "proposing block", cm.Value.String(), "at height", cm.Height, "at round", cm.Round)
+				b.dlog.print("proposing block", cm.Value.String(), "at height", cm.Height, "at round", cm.Round)
 			}
 			// Note that we don't risk entering an infinite loop here since
 			// start round can only return results with broadcasts or timeouts.
@@ -667,13 +671,13 @@ eventLoop:
 				}
 			case events.CommitEvent:
 				// println(addr(b.address), "commit event")
-				println("address", b.address.String()[:5], "commit event")
 				b.logger.Debug("Received a final committed proposal")
 
 				lastBlock, err := b.latestBlockRetriever.RetrieveLatestBlock()
 				if err != nil {
 					panic(err)
 				}
+				b.dlog.print("commit event, block", lastBlock.Hash().String()[2:8], "number", lastBlock.Number().String())
 				err = b.newHeight(lastBlock)
 				if err != nil {
 					//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
@@ -878,4 +882,20 @@ func (l *LatestBlockRetriever) RetrieveLatestBlock() (*types.Block, error) {
 
 func (l *LatestBlockRetriever) RetrieveBlockState(block *types.Block) (*state.StateDB, error) {
 	return state.New(block.Root(), l.statedb, nil)
+}
+
+type debugLog struct {
+	prefix []interface{}
+}
+
+func newDebugLog(prefix ...interface{}) *debugLog {
+	return &debugLog{
+		prefix: prefix,
+	}
+}
+
+func (d *debugLog) print(info ...interface{}) {
+	log := append(d.prefix, info...)
+	fmt.Printf("%v ", time.Now())
+	fmt.Println(log...)
 }

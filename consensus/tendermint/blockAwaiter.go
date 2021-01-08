@@ -10,14 +10,14 @@ type blockAwaiter struct {
 	valueCond *sync.Cond
 	lastValue *types.Block
 	quit      chan struct{}
-	id        string // for debug
+	dlog      *debugLog // for debug
 }
 
-func newBlockAwaiter(id string) *blockAwaiter {
+func newBlockAwaiter(dlog *debugLog) *blockAwaiter {
 	return &blockAwaiter{
 		valueCond: sync.NewCond(&sync.Mutex{}),
 		quit:      make(chan struct{}, 1),
-		id:        id,
+		dlog:      dlog,
 	}
 }
 
@@ -28,7 +28,7 @@ func (a *blockAwaiter) setValue(b *types.Block) {
 	a.lastValue = b
 	// Wake a go routine, if any, waiting on valueCond
 	a.valueCond.Signal()
-	println("address", a.id, "setting value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String())
+	a.dlog.print("setting value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String())
 }
 
 // value will return the lastValue set by setValue for the current height. If lastValue is nil or is of a previous
@@ -37,7 +37,7 @@ func (a *blockAwaiter) value(height uint64) (*types.Block, error) {
 	a.valueCond.L.Lock()
 	defer a.valueCond.L.Unlock()
 
-	println("address", a.id, "beginning awaiting value", height)
+	a.dlog.print("beginning awaiting value", height)
 	for {
 		select {
 		case <-a.quit:
@@ -45,14 +45,14 @@ func (a *blockAwaiter) value(height uint64) (*types.Block, error) {
 		default:
 			if a.lastValue == nil || a.lastValue.Number().Uint64() != height {
 				if a.lastValue == nil {
-					println("address", a.id, "awaiting value", "valueIsNil", "awaited height", height)
+					a.dlog.print("awaiting value", "valueIsNil", "awaited height", height)
 				} else {
-					println("address", a.id, "awaiting value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
+					a.dlog.print("awaiting value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
 				}
 				a.lastValue = nil
 				a.valueCond.Wait()
 			} else {
-				println("address", a.id, "received awaited value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
+				a.dlog.print("received awaited value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
 				return a.lastValue, nil
 			}
 		}
