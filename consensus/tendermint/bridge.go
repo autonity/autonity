@@ -456,7 +456,6 @@ func (b *Bridge) Close() error {
 		// stop the block awaiter if it is waiting
 		b.currentBlockAwaiter.stop()
 	}()
-	b.dlog.print("almost stopped")
 	// println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	b.wg.Wait()
