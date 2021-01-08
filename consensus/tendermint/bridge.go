@@ -429,6 +429,7 @@ func (b *Bridge) Start(blockchain *core.BlockChain) error {
 
 	b.wg = &sync.WaitGroup{}
 
+	b.currentBlockAwaiter.start()
 	// Tendermint Finite State Machine discrete event loop
 	b.wg.Add(1)
 	go b.mainEventLoop()

@@ -9,14 +9,13 @@ import (
 type blockAwaiter struct {
 	valueCond *sync.Cond
 	lastValue *types.Block
-	quit      chan struct{}
 	dlog      *debugLog // for debug
+	stopped   bool
 }
 
 func newBlockAwaiter(dlog *debugLog) *blockAwaiter {
 	return &blockAwaiter{
 		valueCond: sync.NewCond(&sync.Mutex{}),
-		quit:      make(chan struct{}, 1),
 		dlog:      dlog,
 	}
 }
@@ -39,29 +38,33 @@ func (a *blockAwaiter) value(height uint64) (*types.Block, error) {
 
 	a.dlog.print("beginning awaiting value", height)
 	for {
-		select {
-		case <-a.quit:
+		if a.stopped {
 			return nil, errStopped
-		default:
-			if a.lastValue == nil || a.lastValue.Number().Uint64() != height {
-				if a.lastValue == nil {
-					a.dlog.print("awaiting value", "valueIsNil", "awaited height", height)
-				} else {
-					a.dlog.print("awaiting value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
-				}
-				a.lastValue = nil
-				a.valueCond.Wait()
+		}
+		if a.lastValue == nil || a.lastValue.Number().Uint64() != height {
+			if a.lastValue == nil {
+				a.dlog.print("awaiting value", "valueIsNil", "awaited height", height)
 			} else {
-				a.dlog.print("received awaited value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
-				return a.lastValue, nil
+				a.dlog.print("awaiting value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
 			}
+			a.lastValue = nil
+			a.valueCond.Wait()
+		} else {
+			a.dlog.print("received awaited value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
+			return a.lastValue, nil
 		}
 	}
 }
 
 func (a *blockAwaiter) stop() {
-	a.quit <- struct{}{}
 	a.valueCond.L.Lock()
+	defer a.valueCond.L.Unlock()
+	a.stopped = true
 	a.valueCond.Signal()
-	a.valueCond.L.Unlock()
+}
+
+func (a *blockAwaiter) start() {
+	a.valueCond.L.Lock()
+	defer a.valueCond.L.Unlock()
+	a.stopped = false
 }
