@@ -44,12 +44,12 @@ func (a *blockAwaiter) value(height uint64) (*types.Block, error) {
 			return nil, errStopped
 		default:
 			if a.lastValue == nil || a.lastValue.Number().Uint64() != height {
-				a.lastValue = nil
 				if a.lastValue == nil {
-					println("address", a.id, "awaiting value", "valueIsNil")
+					println("address", a.id, "awaiting value", "valueIsNil", "awaited height", height)
 				} else {
-					println("address", a.id, "awaiting value", "value height", a.lastValue.Number().String(), "awaited height", height)
+					println("address", a.id, "awaiting value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
 				}
+				a.lastValue = nil
 				a.valueCond.Wait()
 			} else {
 				println("address", a.id, "received awaited value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
