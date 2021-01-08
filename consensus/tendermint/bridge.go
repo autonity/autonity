@@ -299,20 +299,23 @@ func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 // handle them.
 func (b *Bridge) postEvent(e interface{}) {
 	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-	if b.broadcasterSet && b.started {
-		b.wg.Add(1)
-		go func() {
-			defer b.wg.Done()
-			// I'm seeing a buildup of events here, I guess because the main
-			// routine is blocked waiting for a value and so its not
-			// processing these message events.
-			select {
-			case b.eventChannel <- e:
-			case <-b.closeChannel:
-			}
-		}()
+	if !(b.broadcasterSet && b.started) {
+		b.mutex.RUnlock()
+		return // Drop event if not ready
 	}
+	b.mutex.RUnlock()
+
+	b.wg.Add(1)
+	go func() {
+		defer b.wg.Done()
+		// I'm seeing a buildup of events here, I guess because the main
+		// routine is blocked waiting for a value and so its not
+		// processing these message events.
+		select {
+		case b.eventChannel <- e:
+		case <-b.closeChannel:
+		}
+	}()
 }
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster
