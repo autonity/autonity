@@ -10,12 +10,14 @@ type blockAwaiter struct {
 	valueCond *sync.Cond
 	lastValue *types.Block
 	quit      chan struct{}
+	id        string // for debug
 }
 
-func newBlockAwaiter() *blockAwaiter {
+func newBlockAwaiter(id string) *blockAwaiter {
 	return &blockAwaiter{
 		valueCond: sync.NewCond(&sync.Mutex{}),
 		quit:      make(chan struct{}, 1),
+		id:        id,
 	}
 }
 
@@ -26,7 +28,7 @@ func (a *blockAwaiter) setValue(b *types.Block) {
 	a.lastValue = b
 	// Wake a go routine, if any, waiting on valueCond
 	a.valueCond.Signal()
-	println("setting value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String())
+	println("address", a.id, "setting value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String())
 }
 
 // value will return the lastValue set by setValue for the current height. If lastValue is nil or is of a previous
@@ -35,7 +37,7 @@ func (a *blockAwaiter) value(height uint64) (*types.Block, error) {
 	a.valueCond.L.Lock()
 	defer a.valueCond.L.Unlock()
 
-	println("beginning awaiting value", height)
+	println("address", a.id, "beginning awaiting value", height)
 	for {
 		select {
 		case <-a.quit:
@@ -44,13 +46,13 @@ func (a *blockAwaiter) value(height uint64) (*types.Block, error) {
 			if a.lastValue == nil || a.lastValue.Number().Uint64() != height {
 				a.lastValue = nil
 				if a.lastValue == nil {
-					println("awaiting value", "valueIsNil")
+					println("address", a.id, "awaiting value", "valueIsNil")
 				} else {
-					println("awaiting value", "value height", a.lastValue.Number().String(), "awaited height", height)
+					println("address", a.id, "awaiting value", "value height", a.lastValue.Number().String(), "awaited height", height)
 				}
 				a.valueCond.Wait()
 			} else {
-				println("received awaited value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
+				println("address", a.id, "received awaited value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height)
 				return a.lastValue, nil
 			}
 		}

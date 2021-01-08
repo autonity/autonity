@@ -66,7 +66,7 @@ func New(
 		blockPeriod:          config.BlockPeriod,
 		address:              address,
 		logger:               logger,
-		currentBlockAwaiter:  newBlockAwaiter(),
+		currentBlockAwaiter:  newBlockAwaiter(address.String()[:5]),
 		msgStore:             newMessageStore(),
 		broadcaster:          broadcaster,
 		syncer:               syncer,
