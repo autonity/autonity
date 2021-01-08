@@ -257,6 +257,7 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	case <-stop:
 		return nil
 	case <-b.closeChannel:
+		return nil
 	}
 
 	b.dlog.print("setting value", block.Hash().String()[2:8], "value height", block.Number().String(), "current height", b.height.String())
