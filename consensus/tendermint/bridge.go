@@ -217,26 +217,26 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	go func() {
 		defer b.wg.Done()
 		for {
-			b.dlog.print("receiving from commit ch, block", block)
+			b.dlog.print("commitCh receive start, block", bid(block))
 			select {
 			case committedBlock := <-b.commitChannel:
-				b.dlog.print("received block from commit ch", bid(committedBlock))
+				b.dlog.print("commitCh receive done", bid(committedBlock))
 				// Check that we are committing the block we were asked to seal.
 				if committedBlock.Hash() != block.Hash() {
-					b.dlog.print("received block does not match expected continuing to wait. Received:", bid(committedBlock), "expected:", bid(block))
+					b.dlog.print("commitCh receive block mismatch. Received:", bid(committedBlock), "expected:", bid(block))
 					continue
 				}
-				b.dlog.print("sending block received from commit channel on results channel", bid(committedBlock))
+				b.dlog.print("resultsCh send start", bid(committedBlock))
 				results <- committedBlock
-				b.dlog.print("sent block received from commit channel on results channel", bid(committedBlock))
+				b.dlog.print("resultsCh send done", bid(committedBlock))
 				return
 				// stop will be closed whenever eth is shutdouwn or a new
 				// sealing task is provided.
 			case <-stop:
-				b.dlog.print("stopping receiving from commit ch, stopped by miner", bid(block))
+				b.dlog.print("commitCh receive, stopped by miner", bid(block))
 				return
 			case <-b.closeChannel:
-				b.dlog.print("stopping receiving from commit ch, stopped by close ch", bid(block))
+				b.dlog.print("commitCh receive, stopped by closeCh", bid(block))
 				return
 			}
 		}
@@ -316,6 +316,8 @@ func (b *Bridge) postEvent(e interface{}) {
 	}
 	b.mutex.RUnlock()
 
+	start := time.Now()
+	// b.dlog.print("posting event", fmt.Sprintf("%T", e))
 	b.wg.Add(1)
 	go func() {
 		defer b.wg.Done()
@@ -324,7 +326,13 @@ func (b *Bridge) postEvent(e interface{}) {
 		// processing these message events.
 		select {
 		case b.eventChannel <- e:
+			since := time.Since(start)
+			if since > time.Second {
+				b.dlog.print("eventCh send took", since/time.Second, "seconds", "event", fmt.Sprintf("%T", e))
+			}
 		case <-b.closeChannel:
+			since := time.Since(start)
+			b.dlog.print("eventCh send, stopped by closeCh, took", since/time.Second, "seconds", "event", fmt.Sprintf("%T", e))
 		}
 	}()
 }
@@ -375,14 +383,14 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 
 	// If we are the proposer, send the block to the  commit channel
 	if b.address == b.committee.GetProposer(proposal.Round).Address {
-		b.dlog.print("sending block on commit ch", bid(block))
+		b.dlog.print("commitCh send start", bid(block))
 		select {
 		case b.commitChannel <- block:
-			b.dlog.print("sent block on commit ch", bid(block))
+			b.dlog.print("commitCh send done", bid(block))
 		// Close channel must exist at this point (there is no way to reach
 		// this without calling Start) no need for mutex.
 		case <-b.closeChannel:
-			b.dlog.print("closed before sending on commit ch", bid(block))
+			b.dlog.print("commitCh send, stopped by closeCh", bid(block))
 		}
 	} else {
 		b.blockBroadcaster.Enqueue("tendermint", block)
@@ -608,7 +616,7 @@ eventLoop:
 			b.syncTimer = time.NewTimer(20 * time.Second)
 
 		case ev := <-b.eventChannel:
-			b.dlog.print("received event", fmt.Sprintf("%T", ev))
+			// b.dlog.print("received event", fmt.Sprintf("%T", ev))
 			switch e := ev.(type) {
 			case events.SyncEvent:
 				b.logger.Info("Processing sync message", "from", e.Addr)
@@ -695,7 +703,7 @@ eventLoop:
 				}
 			}
 		case <-b.closeChannel:
-			b.dlog.print("exiting main event loop, current height", b.height)
+			b.dlog.print("mainEventLoop, stopped by closeCh, current height", b.height)
 			b.logger.Info("Bridge closed, exiting mainEventLoop")
 			break eventLoop
 		}
