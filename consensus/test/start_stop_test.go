@@ -482,102 +482,121 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 	}
 }
 
-func TestTendermintStartStopAllNodes(t *testing.T) {
+func TestTendermintStartStopAllNodesDifferentBlocks221(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
 
-	cases := []*testCase{
-		{
-			name:          "all nodes stop for 60 seconds at different blocks(2+2+1)",
-			numValidators: 5,
-			numBlocks:     50,
-			txPerPeer:     1,
-			beforeHooks: map[string]hook{
-				"VA": hookStopNode("VA", 3),
-				"VB": hookStopNode("VB", 3),
-				"VC": hookStopNode("VC", 5),
-				"VD": hookStopNode("VD", 5),
-				"VE": hookStopNode("VE", 7),
-			},
-			afterHooks: map[string]hook{
-				"VA": hookStartNode("VA", 60),
-				"VB": hookStartNode("VB", 60),
-				"VC": hookStartNode("VC", 60),
-				"VD": hookStartNode("VD", 60),
-				"VE": hookStartNode("VE", 60),
-			},
-			stopTime: make(map[string]time.Time),
+	tc := &testCase{
+		name:          "all nodes stop for 60 seconds at different blocks(2+2+1)",
+		numValidators: 5,
+		numBlocks:     50,
+		txPerPeer:     1,
+		beforeHooks: map[string]hook{
+			"VA": hookStopNode("VA", 3),
+			"VB": hookStopNode("VB", 3),
+			"VC": hookStopNode("VC", 5),
+			"VD": hookStopNode("VD", 5),
+			"VE": hookStopNode("VE", 7),
 		},
-		{
-			name:          "all nodes stop for 60 seconds at different blocks (2+3)",
-			numValidators: 5,
-			numBlocks:     50,
-			txPerPeer:     1,
-			beforeHooks: map[string]hook{
-				"VA": hookStopNode("VA", 3),
-				"VB": hookStopNode("VB", 3),
-				"VC": hookStopNode("VC", 5),
-				"VD": hookStopNode("VD", 5),
-				"VE": hookStopNode("VE", 5),
-			},
-			afterHooks: map[string]hook{
-				"VA": hookStartNode("VA", 60),
-				"VB": hookStartNode("VB", 60),
-				"VC": hookStartNode("VC", 60),
-				"VD": hookStartNode("VD", 60),
-				"VE": hookStartNode("VE", 60),
-			},
-			stopTime: make(map[string]time.Time),
+		afterHooks: map[string]hook{
+			"VA": hookStartNode("VA", 60),
+			"VB": hookStartNode("VB", 60),
+			"VC": hookStartNode("VC", 60),
+			"VD": hookStartNode("VD", 60),
+			"VE": hookStartNode("VE", 60),
 		},
-		{
-			name:          "all nodes stop for 30 seconds at the same block",
-			numValidators: 5,
-			numBlocks:     50,
-			txPerPeer:     1,
-			beforeHooks: map[string]hook{
-				"VA": hookStopNode("VA", 3),
-				"VB": hookStopNode("VB", 3),
-				"VC": hookStopNode("VC", 3),
-				"VD": hookStopNode("VD", 3),
-				"VE": hookStopNode("VE", 3),
-			},
-			afterHooks: map[string]hook{
-				"VA": hookStartNode("VA", 30),
-				"VB": hookStartNode("VB", 30),
-				"VC": hookStartNode("VC", 30),
-				"VD": hookStartNode("VD", 30),
-				"VE": hookStartNode("VE", 30),
-			},
-			stopTime: make(map[string]time.Time),
-		},
-		{
-			name:          "all nodes stop for 60 seconds at the same block",
-			numValidators: 5,
-			numBlocks:     50,
-			txPerPeer:     1,
-			beforeHooks: map[string]hook{
-				"VA": hookStopNode("VA", 3),
-				"VB": hookStopNode("VB", 3),
-				"VC": hookStopNode("VC", 3),
-				"VD": hookStopNode("VD", 3),
-				"VE": hookStopNode("VE", 3),
-			},
-			afterHooks: map[string]hook{
-				"VA": hookStartNode("VA", 60),
-				"VB": hookStartNode("VB", 60),
-				"VC": hookStartNode("VC", 60),
-				"VD": hookStartNode("VD", 60),
-				"VE": hookStartNode("VE", 60),
-			},
-			stopTime: make(map[string]time.Time),
-		},
+		stopTime: make(map[string]time.Time),
 	}
 
-	for _, testCase := range cases {
-		testCase := testCase
-		t.Run(fmt.Sprintf("test case %s", testCase.name), func(t *testing.T) {
-			runTest(t, testCase)
-		})
+	runTest(t, tc)
+}
+
+func TestTendermintStartStopAllNodesDifferentBlocks23(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
 	}
+
+	tc := &testCase{
+		name:          "all nodes stop for 60 seconds at different blocks (2+3)",
+		numValidators: 5,
+		numBlocks:     50,
+		txPerPeer:     1,
+		beforeHooks: map[string]hook{
+			"VA": hookStopNode("VA", 3),
+			"VB": hookStopNode("VB", 3),
+			"VC": hookStopNode("VC", 5),
+			"VD": hookStopNode("VD", 5),
+			"VE": hookStopNode("VE", 5),
+		},
+		afterHooks: map[string]hook{
+			"VA": hookStartNode("VA", 60),
+			"VB": hookStartNode("VB", 60),
+			"VC": hookStartNode("VC", 60),
+			"VD": hookStartNode("VD", 60),
+			"VE": hookStartNode("VE", 60),
+		},
+		stopTime: make(map[string]time.Time),
+	}
+
+	runTest(t, tc)
+}
+
+func TestTendermintStartStopAllNodesSameBlock30s(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	tc := &testCase{
+		name:          "all nodes stop for 30 seconds at the same block",
+		numValidators: 5,
+		numBlocks:     50,
+		txPerPeer:     1,
+		beforeHooks: map[string]hook{
+			"VA": hookStopNode("VA", 3),
+			"VB": hookStopNode("VB", 3),
+			"VC": hookStopNode("VC", 3),
+			"VD": hookStopNode("VD", 3),
+			"VE": hookStopNode("VE", 3),
+		},
+		afterHooks: map[string]hook{
+			"VA": hookStartNode("VA", 30),
+			"VB": hookStartNode("VB", 30),
+			"VC": hookStartNode("VC", 30),
+			"VD": hookStartNode("VD", 30),
+			"VE": hookStartNode("VE", 30),
+		},
+		stopTime: make(map[string]time.Time),
+	}
+	runTest(t, tc)
+}
+
+func TestTendermintStartStopAllNodesSameBlock60s(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	tc := &testCase{
+		name:          "all nodes stop for 60 seconds at the same block",
+		numValidators: 5,
+		numBlocks:     50,
+		txPerPeer:     1,
+		beforeHooks: map[string]hook{
+			"VA": hookStopNode("VA", 3),
+			"VB": hookStopNode("VB", 3),
+			"VC": hookStopNode("VC", 3),
+			"VD": hookStopNode("VD", 3),
+			"VE": hookStopNode("VE", 3),
+		},
+		afterHooks: map[string]hook{
+			"VA": hookStartNode("VA", 60),
+			"VB": hookStartNode("VB", 60),
+			"VC": hookStartNode("VC", 60),
+			"VD": hookStartNode("VD", 60),
+			"VE": hookStartNode("VE", 60),
+		},
+		stopTime: make(map[string]time.Time),
+	}
+
+	runTest(t, tc)
 }
