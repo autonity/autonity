@@ -40,7 +40,7 @@ func (a *blockAwaiter) value(height uint64) (*types.Block, error) {
 
 	a.dlog.print("beginning awaiting value", height)
 	for {
-		secondsWaited := time.Now().Sub(start) / time.Second
+		secondsWaited := time.Since(start) / time.Second
 		if a.stopped {
 			return nil, errStopped
 		}
