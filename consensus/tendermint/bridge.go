@@ -571,7 +571,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 				err,
 			))
 		}
-
+		b.dlog.print("sending message", cm.String())
 		// Broadcast in a new goroutine
 		b.wg.Add(1)
 		go func() {
@@ -670,12 +670,15 @@ eventLoop:
 				var rc *algorithm.RoundChange
 				switch e.TimeoutType {
 				case algorithm.Propose:
+					b.dlog.print("timout propose", "height", e.Height, "round", e.Round)
 					//println(addr(c.address), "on timeout propose", e.Height, "round", e.Round)
 					cm = b.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
+					b.dlog.print("timout prevote", "height", e.Height, "round", e.Round)
 					//println(addr(c.address), "on timeout prevote", e.Height, "round", e.Round)
 					cm = b.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
+					b.dlog.print("timout precommit", "height", e.Height, "round", e.Round)
 					//println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
 					rc = b.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
