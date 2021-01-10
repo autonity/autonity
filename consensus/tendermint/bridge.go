@@ -217,18 +217,18 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	go func() {
 		defer b.wg.Done()
 		for {
-			b.dlog.print("commitCh receive start, block", bid(block))
+			// b.dlog.print("commitCh receive start, block", bid(block))
 			select {
 			case committedBlock := <-b.commitChannel:
-				b.dlog.print("commitCh receive done", bid(committedBlock))
+				// b.dlog.print("commitCh receive done", bid(committedBlock))
 				// Check that we are committing the block we were asked to seal.
 				if committedBlock.Hash() != block.Hash() {
 					b.dlog.print("commitCh receive block mismatch. Received:", bid(committedBlock), "expected:", bid(block))
 					continue
 				}
-				b.dlog.print("resultsCh send start", bid(committedBlock))
+				// b.dlog.print("resultsCh send start", bid(committedBlock))
 				results <- committedBlock
-				b.dlog.print("resultsCh send done", bid(committedBlock))
+				// b.dlog.print("resultsCh send done", bid(committedBlock))
 				return
 				// stop will be closed whenever eth is shutdouwn or a new
 				// sealing task is provided.
@@ -267,7 +267,7 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 		return nil
 	}
 
-	b.dlog.print("setting value", block.Hash().String()[2:8], "value height", block.Number().String(), "current height", b.height.String())
+	// b.dlog.print("setting value", bid(block), "current height", b.height.String())
 	b.currentBlockAwaiter.setValue(block)
 	return nil
 }
@@ -383,10 +383,10 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 
 	// If we are the proposer, send the block to the  commit channel
 	if b.address == b.committee.GetProposer(proposal.Round).Address {
-		b.dlog.print("commitCh send start", bid(block))
+		// b.dlog.print("commitCh send start", bid(block))
 		select {
 		case b.commitChannel <- block:
-			b.dlog.print("commitCh send done", bid(block))
+			// b.dlog.print("commitCh send done", bid(block))
 		// Close channel must exist at this point (there is no way to reach
 		// this without calling Start) no need for mutex.
 		case <-b.closeChannel:
@@ -491,18 +491,18 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.algo = algorithm.New(algorithm.NodeID(b.address), newOracle(b.lastHeader, b.msgStore, b.committee, b.currentBlockAwaiter))
 
 	// Debugging
-	if b.address == b.committee.GetProposer(0).Address {
-		b.dlog.print("awaiting block at height", b.height.String(), "at round", 0)
-	}
+	// if b.address == b.committee.GetProposer(0).Address {
+	// 	b.dlog.print("awaiting block at height", b.height.String(), "at round", 0)
+	// }
 	// Handle messages for the new height
 	msg, timeout, err := b.algo.StartRound(0)
 	if err != nil {
 		return err
 	}
 	// Debugging
-	if msg != nil {
-		b.dlog.print("proposing block", msg.Value.String(), "at height", msg.Height, "at round", msg.Round)
-	}
+	// if msg != nil {
+	// 	b.dlog.print("proposing block", msg.Value.String(), "at height", msg.Height, "at round", msg.Round)
+	// }
 
 	// Note that we don't risk entering an infinite loop here since
 	// start round can only return results with broadcasts or timeouts.
@@ -538,17 +538,17 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			}
 		} else {
 			// Debugging
-			if b.address == b.committee.GetProposer(rc.Round).Address {
-				b.dlog.print("awaiting block at height", b.height.String(), "at round", rc.Round)
-			}
+			// if b.address == b.committee.GetProposer(rc.Round).Address {
+			// 	b.dlog.print("awaiting block at height", b.height.String(), "at round", rc.Round)
+			// }
 			cm, to, err := b.algo.StartRound(rc.Round) // nolint
 			if err != nil {
 				return err
 			}
 			// Debugging
-			if cm != nil {
-				b.dlog.print("proposing block", cm.Value.String(), "at height", cm.Height, "at round", cm.Round)
-			}
+			// if cm != nil {
+			// 	b.dlog.print("proposing block", cm.Value.String(), "at height", cm.Height, "at round", cm.Round)
+			// }
 			// Note that we don't risk entering an infinite loop here since
 			// start round can only return results with broadcasts or timeouts.
 			err = b.handleResult(nil, cm, to)
