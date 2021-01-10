@@ -677,15 +677,15 @@ eventLoop:
 				var rc *algorithm.RoundChange
 				switch e.TimeoutType {
 				case algorithm.Propose:
-					b.dlog.print("timout propose", "height", e.Height, "round", e.Round)
+					b.dlog.print("timeout propose", "height", e.Height, "round", e.Round)
 					//println(addr(c.address), "on timeout propose", e.Height, "round", e.Round)
 					cm = b.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
-					b.dlog.print("timout prevote", "height", e.Height, "round", e.Round)
+					b.dlog.print("timeout prevote", "height", e.Height, "round", e.Round)
 					//println(addr(c.address), "on timeout prevote", e.Height, "round", e.Round)
 					cm = b.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
-					b.dlog.print("timout precommit", "height", e.Height, "round", e.Round)
+					b.dlog.print("timeout precommit", "height", e.Height, "round", e.Round)
 					//println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
 					rc = b.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
