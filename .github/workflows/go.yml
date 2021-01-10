@@ -242,8 +242,7 @@ jobs:
         run: make embed-autonity-contract
 
       - name: Test
-        run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 25m
-
+        run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}'
   race_tests:
     needs: bootstrap-checkout
     runs-on: ubuntu-latest
