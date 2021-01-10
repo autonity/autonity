@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -130,6 +131,8 @@ type Bridge struct {
 	closeChannel  chan struct{}
 
 	dlog *debugLog
+
+	unhandledEventCount int32
 }
 
 func (b *Bridge) SealHash(header *types.Header) common.Hash {
@@ -317,6 +320,7 @@ func (b *Bridge) postEvent(e interface{}) {
 	b.mutex.RUnlock()
 
 	start := time.Now()
+	atomic.AddInt32(&b.unhandledEventCount, 1)
 	// b.dlog.print("posting event", fmt.Sprintf("%T", e))
 	b.wg.Add(1)
 	go func() {
@@ -452,7 +456,8 @@ func (b *Bridge) Start(blockchain *core.BlockChain) error {
 	// Tendermint Finite State Machine discrete event loop
 	b.wg.Add(1)
 	go b.mainEventLoop()
-	b.dlog.print("started")
+	b.dlog.print("started unhandledEvents", atomic.LoadInt32(&b.unhandledEventCount))
+	atomic.StoreInt32(&b.unhandledEventCount, 0)
 	return nil
 }
 
@@ -477,7 +482,7 @@ func (b *Bridge) Close() error {
 	// println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	b.wg.Wait()
-	b.dlog.print("stopped")
+	b.dlog.print("stopped, unhandledEvents", atomic.LoadInt32(&b.unhandledEventCount))
 	return nil
 }
 
@@ -616,6 +621,8 @@ eventLoop:
 			b.syncTimer = time.NewTimer(20 * time.Second)
 
 		case ev := <-b.eventChannel:
+
+			atomic.AddInt32(&b.unhandledEventCount, -1)
 			// b.dlog.print("received event", fmt.Sprintf("%T", ev))
 			switch e := ev.(type) {
 			case events.SyncEvent:
