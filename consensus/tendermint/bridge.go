@@ -678,15 +678,12 @@ eventLoop:
 				switch e.TimeoutType {
 				case algorithm.Propose:
 					b.dlog.print("timeout propose", "height", e.Height, "round", e.Round)
-					//println(addr(c.address), "on timeout propose", e.Height, "round", e.Round)
 					cm = b.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
 					b.dlog.print("timeout prevote", "height", e.Height, "round", e.Round)
-					//println(addr(c.address), "on timeout prevote", e.Height, "round", e.Round)
 					cm = b.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
 					b.dlog.print("timeout precommit", "height", e.Height, "round", e.Round)
-					//println(addr(c.address), "on timeout precommit", e.Height, "round", e.Round)
 					rc = b.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
 				// if cm != nil {
@@ -694,7 +691,7 @@ eventLoop:
 				// }
 				err := b.handleResult(rc, cm, nil)
 				if err != nil {
-					//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
+					b.dlog.print("exiting main event loop", "height", e.Height, "round", e.Round, "err", err.Error())
 					return
 				}
 			case events.CommitEvent:
