@@ -168,6 +168,47 @@ func TestOnTimeoutPrecommit(t *testing.T) {
 	assert.Nil(t, cm)
 }
 
+// Handling a proposal message for a new value
+func TestReceiveMessageLine22(t *testing.T) {
+	// proposer := newNodeID(t)
+	var height uint64 = 1
+	var round int64 = 1
+	newValueProposal := &ConsensusMessage{
+		MsgType:    Propose,
+		Height:     height,
+		Round:      round,
+		Value:      newValue(t),
+		ValidRound: -1,
+	}
+	o := &mockOracle{
+		height: height,
+		matchingProposal: func(cm *ConsensusMessage) *ConsensusMessage {
+			return newValueProposal
+		},
+		valid: func(v ValueID) bool {
+			return v == newValueProposal.Value
+		},
+	}
+
+	algo := New(newNodeID(t), o)
+	algo.round = round
+	// We haven't locked a round or a value, so we expect to prevote for the
+	// proposal.
+	rc, cm, to := algo.ReceiveMessage(newValueProposal)
+	assert.Nil(t, rc)
+	assert.Nil(t, to)
+
+	expected := &ConsensusMessage{
+		MsgType:    Prevote,
+		Height:     height,
+		Round:      round,
+		Value:      newValueProposal.Value,
+		ValidRound: 0,
+	}
+
+	assert.Equal(t, expected, cm)
+}
+
 type mockOracle struct {
 	valid            func(v ValueID) bool
 	matchingProposal func(cm *ConsensusMessage) *ConsensusMessage
