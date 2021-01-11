@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newNodeId(t *testing.T) NodeID {
+func newNodeID(t *testing.T) NodeID {
 	var nodeID NodeID
 	_, err := rand.Read(nodeID[:])
 	require.NoError(t, err)
@@ -24,7 +24,7 @@ func newValue(t *testing.T) ValueID {
 }
 
 func TestStartRound(t *testing.T) {
-	proposer := newNodeId(t)
+	proposer := newNodeID(t)
 	var round int64 = 0
 
 	o := &mockOracle{
@@ -72,7 +72,7 @@ func TestStartRound(t *testing.T) {
 	assert.Error(t, err)
 
 	// We are not the proposer, expect timeout message
-	algo = New(newNodeId(t), o)
+	algo = New(newNodeID(t), o)
 	cm, to, err = algo.StartRound(round)
 	assert.Nil(t, err)
 	assert.Nil(t, cm)
