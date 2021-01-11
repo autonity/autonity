@@ -122,9 +122,8 @@ type Bridge struct {
 
 	blockBroadcaster consensus.Broadcaster
 
-	mutex          sync.RWMutex
-	started        bool
-	broadcasterSet bool
+	mutex   sync.RWMutex
+	started bool
 
 	// Used to propagate blocks to the results channel provided by the miner on
 	// calls to Seal.
@@ -314,7 +313,7 @@ func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 // handle them.
 func (b *Bridge) postEvent(e interface{}) {
 	b.mutex.RLock()
-	if !(b.broadcasterSet && b.started) {
+	if !b.started {
 		b.mutex.RUnlock()
 		return // Drop event if not ready
 	}
@@ -342,12 +341,15 @@ func (b *Bridge) postEvent(e interface{}) {
 	}()
 }
 
-// SetBroadcaster implements consensus.Handler.SetBroadcaster
-func (b *Bridge) SetBroadcaster(broadcaster consensus.Broadcaster) {
+// SetExtraComponents must be called before Start, this is not ideal but is the best I think
+// we can do without re-writing the core of go-ethereum. We end up having to do
+// this because go-etherum itself is quite tangled and there is no easy way to
+// access just the functionality we need.
+func (b *Bridge) SetExtraComponents(blockchain *core.BlockChain, broadcaster consensus.Broadcaster) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.broadcasterSet = true
 	b.blockBroadcaster = broadcaster
+	b.blockchain = blockchain
 }
 
 // NewChainHead implements consensus.Handler.NewChainHead
@@ -439,7 +441,7 @@ func (b *Bridge) createCommittee(block *types.Block) committee {
 var errStopped = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
-func (b *Bridge) Start(blockchain *core.BlockChain) error {
+func (b *Bridge) Start() error {
 	b.dlog.print("starting")
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -448,8 +450,6 @@ func (b *Bridge) Start(blockchain *core.BlockChain) error {
 	}
 	b.started = true
 	b.closeChannel = make(chan struct{})
-
-	b.blockchain = blockchain
 
 	b.wg = &sync.WaitGroup{}
 

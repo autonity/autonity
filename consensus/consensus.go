@@ -129,9 +129,6 @@ type Handler interface {
 	// HandleMsg handles a message from peer
 	HandleMsg(address common.Address, data p2p.Msg) (bool, error)
 
-	// SetBroadcaster sets the broadcaster to send message to peers
-	SetBroadcaster(Broadcaster)
-
 	//msgCodes returns the number of extra implemented msgCodes by this consensus algorithm
 	Protocol() (protocolName string, extraMsgCodes uint64)
 }

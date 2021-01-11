@@ -129,9 +129,6 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		quitSync:    make(chan struct{}),
 		pub:         pub,
 	}
-	if handler, ok := manager.engine.(consensus.Handler); ok {
-		handler.SetBroadcaster(manager)
-	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
 		// block is ahead, so fast sync was enabled for this node at a certain point.
