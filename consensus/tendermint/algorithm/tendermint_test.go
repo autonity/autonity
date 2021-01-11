@@ -35,9 +35,6 @@ func TestStartRound(t *testing.T) {
 
 	// We are proposer, expect propose message
 	algo := New(proposer, o)
-	cm, to, err := algo.StartRound(round)
-	assert.Nil(t, err)
-	assert.Nil(t, to)
 	expected := &ConsensusMessage{
 		MsgType:    Propose,
 		Height:     o.Height(),
@@ -45,15 +42,15 @@ func TestStartRound(t *testing.T) {
 		Value:      o.value,
 		ValidRound: -1,
 	}
+	cm, to, err := algo.StartRound(round)
+	assert.Nil(t, err)
+	assert.Nil(t, to)
 	assert.Equal(t, expected, cm)
 
 	// We are proposer, and validValue has been set, expect propose with
 	// validValue.
 	algo = New(proposer, o)
 	algo.validValue = newValue(t)
-	cm, to, err = algo.StartRound(round)
-	assert.Nil(t, err)
-	assert.Nil(t, to)
 	expected = &ConsensusMessage{
 		MsgType:    Propose,
 		Height:     o.Height(),
@@ -61,6 +58,9 @@ func TestStartRound(t *testing.T) {
 		Value:      algo.validValue,
 		ValidRound: -1,
 	}
+	cm, to, err = algo.StartRound(round)
+	assert.Nil(t, err)
+	assert.Nil(t, to)
 	assert.Equal(t, expected, cm)
 
 	// We are proposer but oracle value returns an error, expect the error
@@ -73,15 +73,15 @@ func TestStartRound(t *testing.T) {
 
 	// We are not the proposer, expect timeout message
 	algo = New(newNodeID(t), o)
-	cm, to, err = algo.StartRound(round)
-	assert.Nil(t, err)
-	assert.Nil(t, cm)
 	expectedTimeout := &Timeout{
 		TimeoutType: Propose,
 		Delay:       1,
 		Height:      o.Height(),
 		Round:       round,
 	}
+	cm, to, err = algo.StartRound(round)
+	assert.Nil(t, err)
+	assert.Nil(t, cm)
 	assert.Equal(t, expectedTimeout, to)
 
 }
@@ -92,10 +92,6 @@ func TestOnTimeoutPropose(t *testing.T) {
 	}
 	algo := New(newNodeID(t), o)
 	algo.round = 1
-
-	// The timeout round and height match the current round and height, expect
-	// prevote for nilValue and algorithm step set to Prevote
-	cm := algo.OnTimeoutPropose(o.Height(), algo.round)
 	expected := &ConsensusMessage{
 		MsgType:    Prevote,
 		Height:     o.Height(),
@@ -103,6 +99,9 @@ func TestOnTimeoutPropose(t *testing.T) {
 		Value:      NilValue,
 		ValidRound: 0,
 	}
+	// The timeout round and height match the current round and height, expect
+	// prevote for nilValue and algorithm step set to Prevote
+	cm := algo.OnTimeoutPropose(o.Height(), algo.round)
 	assert.Equal(t, expected, cm)
 	assert.Equal(t, Prevote, algo.step)
 
@@ -122,10 +121,6 @@ func TestOnTimeoutPrevote(t *testing.T) {
 	algo := New(newNodeID(t), o)
 	algo.round = 1
 	algo.step = Prevote
-
-	// The timeout round and height match the current round and height, expect
-	// precommit for nilValue and algorithm step set to Precommit
-	cm := algo.OnTimeoutPrevote(o.Height(), algo.round)
 	expected := &ConsensusMessage{
 		MsgType:    Precommit,
 		Height:     o.Height(),
@@ -133,6 +128,10 @@ func TestOnTimeoutPrevote(t *testing.T) {
 		Value:      NilValue,
 		ValidRound: 0,
 	}
+
+	// The timeout round and height match the current round and height, expect
+	// precommit for nilValue and algorithm step set to Precommit
+	cm := algo.OnTimeoutPrevote(o.Height(), algo.round)
 	assert.Equal(t, expected, cm)
 	assert.Equal(t, Precommit, algo.step)
 
@@ -151,13 +150,13 @@ func TestOnTimeoutPrecommit(t *testing.T) {
 	}
 	algo := New(newNodeID(t), o)
 	algo.round = 1
+	expected := &RoundChange{
+		Round: algo.round + 1,
+	}
 
 	// The timeout round and height match the current round and height, expect
 	// round change message for next round with nil decision.
 	cm := algo.OnTimeoutPrecommit(o.Height(), algo.round)
-	expected := &RoundChange{
-		Round: algo.round + 1,
-	}
 	assert.Equal(t, expected, cm)
 
 	// The timeout height does not match, expect nil
