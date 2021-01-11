@@ -490,7 +490,9 @@ func (b *Bridge) Close() error {
 func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.syncTimer = time.NewTimer(20 * time.Second)
 	b.lastHeader = prevBlock.Header()
+	b.mutex.Lock()
 	b.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
+	b.mutex.Unlock()
 	b.committee = b.createCommittee(prevBlock)
 
 	// Create new oracle and algorithm
