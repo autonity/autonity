@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -496,9 +497,10 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.algo = algorithm.New(algorithm.NodeID(b.address), newOracle(b.lastHeader, b.msgStore, b.committee, b.currentBlockAwaiter))
 
 	// Debugging
-	// if b.address == b.committee.GetProposer(0).Address {
-	// 	b.dlog.print("awaiting block at height", b.height.String(), "at round", 0)
-	// }
+	if b.address == b.committee.GetProposer(0).Address {
+		// b.dlog.print("awaiting block at height", b.height.String(), "at round", 0)
+		b.dlog.print("proposer new height", string(debug.Stack()))
+	}
 	// Handle messages for the new height
 	msg, timeout, err := b.algo.StartRound(0)
 	if err != nil {
