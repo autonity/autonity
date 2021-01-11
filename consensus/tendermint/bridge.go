@@ -618,6 +618,7 @@ func (b *Bridge) mainEventLoop() {
 	// round 2 exits and then starts again, newHeight will setup the
 	// tendermint algorithm to start at height 5 round 0 and we may then
 	// send duplicate messages.
+	b.dlog.print("mainEventLoop height", b.height)
 	if b.height == nil {
 		lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
 		if err != nil {
@@ -633,12 +634,17 @@ func (b *Bridge) mainEventLoop() {
 	// Ask for sync when the engine starts
 	b.syncer.AskSync(b.lastHeader)
 
+	lastHeight := b.height
+
 eventLoop:
 	for {
 		select {
 		case <-b.syncTimer.C:
-			b.dlog.print("syncing")
-			b.syncer.AskSync(b.lastHeader)
+			if lastHeight == b.height {
+				b.dlog.print("syncing")
+				b.syncer.AskSync(b.lastHeader)
+			}
+			lastHeight = b.height
 			b.syncTimer = time.NewTimer(20 * time.Second)
 
 		case ev := <-b.eventChannel:
