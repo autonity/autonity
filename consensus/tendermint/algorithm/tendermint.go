@@ -87,8 +87,14 @@ func (cm *ConsensusMessage) String() string {
 type Oracle interface {
 	Valid(ValueID) bool
 	MatchingProposal(*ConsensusMessage) *ConsensusMessage
-	// TODO: merge the functions into QThresh since the calculation is always the same for both, instead define private
-	// functions for readability.
+	// TODO: merge the functions into QThresh since the calculation is always
+	// the same for both, instead define private functions for readability.
+	// (Piers, I disagree here, since we would then need to pass to this
+	// function an indication of what step we are checking the threshold for,
+	// the obvious input there would be Step, but then we have to deal with the
+	// possiblity of someone passing, propose, so then we would need to handle
+	// errors or make another type that can only take precommit or prevote as
+	// values, either way its more complicated than just having 2 functions)
 	PrevoteQThresh(round int64, value *ValueID) bool
 	PrecommitQThresh(round int64, value *ValueID) bool
 	// FThresh indicates whether we have messages whose voting power exceeds
