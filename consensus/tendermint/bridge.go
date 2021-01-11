@@ -16,7 +16,6 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -296,10 +295,10 @@ func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		if err := msg.Decode(&data); err != nil {
 			return true, fmt.Errorf("failed to decode tendermint message: %v", err)
 		}
-		b.postEvent(events.MessageEvent{Payload: data})
+		b.postEvent(data)
 		return true, nil
 	case tendermintSyncMsg:
-		b.postEvent(events.SyncEvent{Addr: addr})
+		b.postEvent(addr)
 		return true, nil
 	default:
 		return false, nil
@@ -352,9 +351,11 @@ func (b *Bridge) SetExtraComponents(blockchain *core.BlockChain, broadcaster con
 	b.blockchain = blockchain
 }
 
+type commitEvent struct{}
+
 // NewChainHead implements consensus.Handler.NewChainHead
 func (b *Bridge) NewChainHead() error {
-	b.postEvent(events.CommitEvent{})
+	b.postEvent(commitEvent{})
 	return nil
 }
 
@@ -586,7 +587,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		go func() {
 			defer b.wg.Done()
 			// send to self
-			b.postEvent(events.MessageEvent{Payload: msg})
+			b.postEvent(msg)
 			// Broadcast to peers
 			b.broadcaster.Broadcast(msg)
 		}()
@@ -670,16 +671,16 @@ eventLoop:
 			atomic.AddInt32(&b.unhandledEventCount, -1)
 			// b.dlog.print("received event", fmt.Sprintf("%T", ev))
 			switch e := ev.(type) {
-			case events.SyncEvent:
-				b.logger.Info("Processing sync message", "from", e.Addr)
-				b.syncer.SyncPeer(e.Addr, b.msgStore.rawHeightMessages(b.height.Uint64()))
-			case events.MessageEvent:
+			case common.Address:
+				b.logger.Info("Processing sync message", "from", e)
+				b.syncer.SyncPeer(e, b.msgStore.rawHeightMessages(b.height.Uint64()))
+			case []byte:
 				//println("got a message")
 				/*
 					Basic validity checks
 				*/
 
-				m, err := decodeSignedMessage(e.Payload)
+				m, err := decodeSignedMessage(e)
 				if err != nil {
 					fmt.Printf("some error: %v\n", err)
 					continue
@@ -689,7 +690,7 @@ eventLoop:
 					// Message was already processed
 					continue
 				}
-				err = b.msgStore.addMessage(m, e.Payload)
+				err = b.msgStore.addMessage(m, e)
 				if err != nil {
 					// could be multiple proposal messages from the same proposer
 					continue
@@ -716,7 +717,7 @@ eventLoop:
 					b.logger.Debug("core.mainEventLoop problem processing message", "err", err)
 					continue
 				}
-				b.broadcaster.Broadcast(e.Payload)
+				b.broadcaster.Broadcast(e)
 			case *algorithm.Timeout:
 				var cm *algorithm.ConsensusMessage
 				var rc *algorithm.RoundChange
@@ -739,7 +740,7 @@ eventLoop:
 					b.dlog.print("exiting main event loop", "height", e.Height, "round", e.Round, "err", err.Error())
 					return
 				}
-			case events.CommitEvent:
+			case commitEvent:
 				// println(addr(b.address), "commit event")
 				b.logger.Debug("Received a final committed proposal")
 
