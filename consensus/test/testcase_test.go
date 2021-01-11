@@ -16,7 +16,6 @@ import (
 	"github.com/clearmatics/autonity/common/fdlimit"
 	"github.com/clearmatics/autonity/common/graph"
 	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -44,7 +43,7 @@ type testCase struct {
 	txPerPeer              int
 	validatorsCanBeStopped *int64
 
-	maliciousPeers          map[string]injectors
+	maliciousPeers          map[string]struct{}
 	removedPeers            map[common.Address]uint64
 	addedValidatorsBlocks   map[common.Hash]uint64
 	removedValidatorsBlocks map[common.Hash]uint64 //nolint: unused, structcheck
@@ -61,10 +60,6 @@ type testCase struct {
 	noQuorumTimeout      time.Duration
 	topology             *Topology
 	skipNoLeakCheck      bool
-}
-
-type injectors struct {
-	cons func(basic consensus.Engine) consensus.Engine
 }
 
 func (test *testCase) getBeforeHook(index string) hook {
@@ -198,16 +193,12 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	for i, peer := range nodes {
-		var engineConstructor func(basic consensus.Engine) consensus.Engine
-		if test.maliciousPeers != nil {
-			engineConstructor = test.maliciousPeers[i].cons
-		}
 
 		peer.listener[0].Close()
 		peer.listener[1].Close()
 
 		rates := test.networkRates[i]
-		peer.node, err = makePeer(genesis, peer.privateKey, fmt.Sprintf("127.0.0.1:%d", peer.port), peer.rpcPort, rates.in, rates.out, engineConstructor)
+		peer.node, err = makePeer(genesis, peer.privateKey, fmt.Sprintf("127.0.0.1:%d", peer.port), peer.rpcPort, rates.in, rates.out)
 		if err != nil {
 			t.Fatal("cant make a node", i, err)
 		}

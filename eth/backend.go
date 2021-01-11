@@ -119,7 +119,7 @@ func (s *Ethereum) SetContractBackend(backend bind.ContractBackend) {
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Engine) consensus.Engine) (*Ethereum, error) {
+func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
@@ -187,9 +187,6 @@ func New(ctx *node.ServiceContext, config *Config, cons func(basic consensus.Eng
 	statedb := state.NewDatabaseWithCache(chainDb, cacheConfig.TrieCleanLimit)
 	peers := NewPeerSet()
 	consEngine := CreateConsensusEngine(ctx, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig, peers, statedb, autonityContract)
-	if cons != nil {
-		consEngine = cons(consEngine)
-	}
 
 	eth := &Ethereum{
 		config:            config,

@@ -21,7 +21,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 1),
 			},
 			stopTime: make(map[string]time.Time),
-			maliciousPeers: map[string]injectors{
+			maliciousPeers: map[string]struct{}{
 				"VE": {},
 			},
 		},
@@ -34,7 +34,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 5),
 			},
 			stopTime: make(map[string]time.Time),
-			maliciousPeers: map[string]injectors{
+			maliciousPeers: map[string]struct{}{
 				"VE": {},
 			},
 		},
@@ -48,7 +48,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 1),
 			},
 			stopTime: make(map[string]time.Time),
-			maliciousPeers: map[string]injectors{
+			maliciousPeers: map[string]struct{}{
 				"VD": {},
 				"VE": {},
 			},
@@ -63,7 +63,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 5),
 			},
 			stopTime: make(map[string]time.Time),
-			maliciousPeers: map[string]injectors{
+			maliciousPeers: map[string]struct{}{
 				"VD": {},
 				"VE": {},
 			},
@@ -78,7 +78,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 5),
 			},
 			stopTime: make(map[string]time.Time),
-			maliciousPeers: map[string]injectors{
+			maliciousPeers: map[string]struct{}{
 				"VD": {},
 				"VE": {},
 			},
