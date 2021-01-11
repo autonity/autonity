@@ -33,8 +33,6 @@ var (
 	// errNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
-	// errInvalidMessage is returned when the message is malformed.
-	errInvalidMessage = errors.New("invalid message")
 )
 
 const (
