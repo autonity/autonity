@@ -619,7 +619,22 @@ func (b *Bridge) mainEventLoop() {
 	// tendermint algorithm to start at height 5 round 0 and we may then
 	// send duplicate messages.
 	b.dlog.print("mainEventLoop height", b.height)
+
+	// This is strange, reading b.height without this syncronisation here
+	// always results in nil, even if we have stopped and started a node, in
+	// which case b.height should be set. I think changes to b.height should be
+	// visible when restarting a node since when closing a node we wait for the
+	// wg before completing. So a subsequent call to Start should result in the
+	// updates to b.height being visible. I suspect that this is due to the way
+	// in which Start and Close are called by the e2e test framework. For now I
+	// lock over it to read it which seems to work.
+	var firstRun bool
+	b.mutex.RLock()
 	if b.height == nil {
+		firstRun = true
+	}
+	b.mutex.RUnlock()
+	if firstRun {
 		lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
 		if err != nil {
 			panic(err)
@@ -630,6 +645,7 @@ func (b *Bridge) mainEventLoop() {
 			return
 		}
 	}
+	b.dlog.print("mainEventLoop height", b.height)
 
 	// Ask for sync when the engine starts
 	b.syncer.AskSync(b.lastHeader)
