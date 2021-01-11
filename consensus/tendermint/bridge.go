@@ -332,7 +332,7 @@ func (b *Bridge) postEvent(e interface{}) {
 		case b.eventChannel <- e:
 			since := time.Since(start)
 			if since > time.Second {
-				b.dlog.print("eventCh send took", since/time.Second, "seconds", "event", fmt.Sprintf("%T", e))
+				b.dlog.print("eventCh send took", since, "event", fmt.Sprintf("%T", e))
 			}
 		case <-b.closeChannel:
 			since := time.Since(start)
