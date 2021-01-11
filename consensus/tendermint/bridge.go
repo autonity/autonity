@@ -599,14 +599,33 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 func (b *Bridge) mainEventLoop() {
 	defer b.wg.Done()
 
-	lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
-	if err != nil {
-		panic(err)
-	}
-	err = b.newHeight(lastBlockMined)
-	if err != nil {
-		//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
-		return
+	// Set the height only if not set (meaning this is the first execution),
+	// this ensures that stopping and starting does not overwrite the
+	// tendermint algorithm state, such as current step and round.
+	//
+	// TODO although this approach works for an instance stopped and started
+	// using Close and Start, it will not work for the case of a re-started
+	// instance, what we really need to do here is store the state of the
+	// tendermint algorithm in the databse and restore that state when we start
+	// a node.
+	//
+	// If we did overwrite the tendermint algorithm state we could end up
+	// sending duplicate messgaes.
+	//
+	// E.G: imagine a node at height 5
+	// round 2 exits and then starts again, newHeight will setup the
+	// tendermint algorithm to start at height 5 round 0 and we may then
+	// send duplicate messages.
+	if b.height == nil {
+		lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
+		if err != nil {
+			panic(err)
+		}
+		err = b.newHeight(lastBlockMined)
+		if err != nil {
+			//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
+			return
+		}
 	}
 
 	// Ask for sync when the engine starts
