@@ -489,9 +489,7 @@ func (b *Bridge) Close() error {
 func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.syncTimer = time.NewTimer(20 * time.Second)
 	b.lastHeader = prevBlock.Header()
-	b.mutex.Lock()
-	b.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
-	b.mutex.Unlock()
+	b.setHeight(new(big.Int).SetUint64(prevBlock.NumberU64() + 1))
 	b.committee = b.createCommittee(prevBlock)
 
 	// Create new oracle and algorithm
@@ -599,6 +597,18 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 	return nil
 }
 
+func (b *Bridge) heightSet() bool {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	return b.height != nil
+}
+
+func (b *Bridge) setHeight(h *big.Int) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	b.height = h
+}
+
 func (b *Bridge) mainEventLoop() {
 	defer b.wg.Done()
 
@@ -629,13 +639,7 @@ func (b *Bridge) mainEventLoop() {
 	// updates to b.height being visible. I suspect that this is due to the way
 	// in which Start and Close are called by the e2e test framework. For now I
 	// lock over it to read it which seems to work.
-	var firstRun bool
-	b.mutex.RLock()
-	if b.height == nil {
-		firstRun = true
-	}
-	b.mutex.RUnlock()
-	if firstRun {
+	if b.heightSet() {
 		lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
 		if err != nil {
 			panic(err)
