@@ -94,6 +94,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 }
 
 func TestTendermintStartStopSingleNode(t *testing.T) {
+	t.Skip("We need to store state for for this test to be reliable, https://github.com/clearmatics/autonity/issues/84")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -149,6 +150,7 @@ func TestTendermintStartStopSingleNode(t *testing.T) {
 }
 
 func TestTendermintStartStopFNodes(t *testing.T) {
+	t.Skip("We need to store state for for this test to be reliable, https://github.com/clearmatics/autonity/issues/84")
 	// to be tracked by https://github.com/clearmatics/autonity/issues/604
 	t.Skip("skipping test since the upstream update cause local e2e test framework go routine leak.")
 	if testing.Short() {
@@ -257,7 +259,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 }
 
 func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
-	t.Skip("This test is failing intermittently")
+	t.Skip("We need to store state for for this test to be reliable, https://github.com/clearmatics/autonity/issues/84")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -364,6 +366,7 @@ func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
 }
 
 func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
+	t.Skip("We need to store state for for this test to be reliable, https://github.com/clearmatics/autonity/issues/84")
 	t.Skip("This test fails intermittently see https://github.com/clearmatics/autonity/issues/624")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -483,6 +486,7 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 }
 
 func TestTendermintStartStopAllNodesDifferentBlocks221(t *testing.T) {
+	t.Skip("We need to store state for for this test to be reliable, https://github.com/clearmatics/autonity/issues/84")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -513,6 +517,7 @@ func TestTendermintStartStopAllNodesDifferentBlocks221(t *testing.T) {
 }
 
 func TestTendermintStartStopAllNodesDifferentBlocks23(t *testing.T) {
+	t.Skip("We need to store state for for this test to be reliable, https://github.com/clearmatics/autonity/issues/84")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -543,6 +548,7 @@ func TestTendermintStartStopAllNodesDifferentBlocks23(t *testing.T) {
 }
 
 func TestTendermintStartStopAllNodesSameBlock30s(t *testing.T) {
+	t.Skip("We need to store state for for this test to be reliable, https://github.com/clearmatics/autonity/issues/84")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -572,6 +578,7 @@ func TestTendermintStartStopAllNodesSameBlock30s(t *testing.T) {
 }
 
 func TestTendermintStartStopAllNodesSameBlock60s(t *testing.T) {
+	t.Skip("We need to store state for for this test to be reliable, https://github.com/clearmatics/autonity/issues/84")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
