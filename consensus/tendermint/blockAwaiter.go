@@ -45,11 +45,11 @@ func (a *blockAwaiter) value(height uint64) (*types.Block, error) {
 			return nil, errStopped
 		}
 		if a.lastValue == nil || a.lastValue.Number().Uint64() != height {
-			if a.lastValue == nil {
-				// a.dlog.print("awaiting value", "valueIsNil", "awaited height", height, "waiting for", secondsWaited)
-			} else {
-				// a.dlog.print("awaiting value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height, "waiting for", secondsWaited)
-			}
+			// if a.lastValue == nil {
+			// 	// a.dlog.print("awaiting value", "valueIsNil", "awaited height", height, "waiting for", secondsWaited)
+			// } else {
+			// 	// a.dlog.print("awaiting value", a.lastValue.Hash().String()[2:8], "value height", a.lastValue.Number().String(), "awaited height", height, "waiting for", secondsWaited)
+			// }
 			a.lastValue = nil
 			a.valueCond.Wait()
 		} else {

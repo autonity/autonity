@@ -503,20 +503,11 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	// Create new oracle and algorithm
 	b.algo = algorithm.New(algorithm.NodeID(b.address), newOracle(b.lastHeader, b.msgStore, b.committee, b.currentBlockAwaiter))
 
-	// Debugging
-	if b.address == b.committee.GetProposer(0).Address {
-		// b.dlog.print("awaiting block at height", b.height.String(), "at round", 0)
-		// b.dlog.print("proposer new height", string(debug.Stack()))
-	}
 	// Handle messages for the new height
 	msg, timeout, err := b.algo.StartRound(0)
 	if err != nil {
 		return err
 	}
-	// Debugging
-	// if msg != nil {
-	// 	b.dlog.print("proposing block", msg.Value.String(), "at height", msg.Height, "at round", msg.Round)
-	// }
 
 	// Note that we don't risk entering an infinite loop here since
 	// start round can only return results with broadcasts or timeouts.
@@ -551,18 +542,10 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(b.address).String(), spew.Sdump(rc.Decision), err))
 			}
 		} else {
-			// Debugging
-			// if b.address == b.committee.GetProposer(rc.Round).Address {
-			// 	b.dlog.print("awaiting block at height", b.height.String(), "at round", rc.Round)
-			// }
 			cm, to, err := b.algo.StartRound(rc.Round) // nolint
 			if err != nil {
 				return err
 			}
-			// Debugging
-			// if cm != nil {
-			// 	b.dlog.print("proposing block", cm.Value.String(), "at height", cm.Height, "at round", cm.Round)
-			// }
 			// Note that we don't risk entering an infinite loop here since
 			// start round can only return results with broadcasts or timeouts.
 			err = b.handleResult(nil, cm, to)
