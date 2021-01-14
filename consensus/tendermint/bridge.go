@@ -497,7 +497,7 @@ func (b *Bridge) Close() error {
 func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.syncTimer = time.NewTimer(20 * time.Second)
 	b.lastHeader = prevBlock.Header()
-	b.setHeight(new(big.Int).SetUint64(prevBlock.NumberU64() + 1))
+	b.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
 	b.committee = b.createCommittee(prevBlock)
 
 	// Create new oracle and algorithm
@@ -605,18 +605,6 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 	return nil
 }
 
-func (b *Bridge) heightSet() bool {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-	return b.height != nil
-}
-
-func (b *Bridge) setHeight(h *big.Int) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	b.height = h
-}
-
 func (b *Bridge) mainEventLoop() {
 	defer b.wg.Done()
 
@@ -628,26 +616,18 @@ func (b *Bridge) mainEventLoop() {
 	// using Close and Start, it will not work for the case of a re-started
 	// instance, what we really need to do here is store the state of the
 	// tendermint algorithm in the databse and restore that state when we start
-	// a node.
+	// a node. Note the TestTendermintStartStop... tests recreate the bridge
+	// instance on each start, this explains why they are so flaky, because
+	// sometimes nodes lose important tendermint state which breaks the
+	// network.
 	//
-	// If we did overwrite the tendermint algorithm state we could end up
-	// sending duplicate messgaes.
-	//
-	// E.G: imagine a node at height 5
-	// round 2 exits and then starts again, newHeight will setup the
-	// tendermint algorithm to start at height 5 round 0 and we may then
-	// send duplicate messages.
-	b.dlog.print("mainEventLoop height", b.height)
-
-	// This is strange, reading b.height without this syncronisation here
-	// always results in nil, even if we have stopped and started a node, in
-	// which case b.height should be set. I think changes to b.height should be
-	// visible when restarting a node since when closing a node we wait for the
-	// wg before completing. So a subsequent call to Start should result in the
-	// updates to b.height being visible. I suspect that this is due to the way
-	// in which Start and Close are called by the e2e test framework. For now I
-	// lock over it to read it which seems to work.
-	if !b.heightSet() {
+	// Consider this scenario in a nework of size 4, all nodes prevote for a
+	// value, then 2 nodes lock a value and two restart and lose their state
+	// (that they were in the prevote step). When they come back they will
+	// propose new values and the locked nodes will propose the locked value,
+	// niether value can ever be committed because each can garner at most 2
+	// votes.
+	if b.height == nil {
 		lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
 		if err != nil {
 			panic(err)
