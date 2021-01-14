@@ -639,7 +639,7 @@ func (b *Bridge) mainEventLoop() {
 	// updates to b.height being visible. I suspect that this is due to the way
 	// in which Start and Close are called by the e2e test framework. For now I
 	// lock over it to read it which seems to work.
-	if b.heightSet() {
+	if !b.heightSet() {
 		lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
 		if err != nil {
 			panic(err)
