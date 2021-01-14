@@ -17,9 +17,9 @@
 package tendermint
 
 import (
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rpc"
@@ -84,7 +84,7 @@ func (api *API) GetContractAddress() common.Address {
 
 func (api *API) GetContractABI() string {
 	// after the contract is upgradable, call it from contract object rather than from conf.
-	return api.autonityContract.GetContractABI()
+	return api.autonityContract.StringABI()
 }
 
 // Whitelist for the current block
@@ -110,3 +110,8 @@ func (api *API) GetWhitelist() []string {
 
 	return enodes.StrList
 }
+
+// Get current tendermint's core state
+// func (api *API) GetCoreState() TendermintState {
+// 	return api.tendermint.CoreState()
+// }

@@ -6,7 +6,9 @@
 
 Autonity is a generalization of the Ethereum protocol based on a fork of go-ethereum.
 
-[Autonity Documentation](https://docs.autonity.io)
+More about the Autonity context at <https://www.autonity.io>
+
+More detailed documentation coming soon at <https://docs.autonity.io>
 
 ## Prerequisites
 
@@ -24,13 +26,13 @@ make embed-autonity-contract
 
 This generates go source from the autonity contract.
 
-## Building Autonity
+## Building Autonity Go Client (AGC)
 
 ```
 make autonity
 ```
 
-## Build Autonity docker image
+## Build Autonity Go Client docker image
 
 ```
 make build-docker-image
@@ -40,7 +42,7 @@ make build-docker-image
 The address must be a websocket enabled rpc address.
 
 ```
-./nodeconsole/console localhost:8546
+./nodeconsole/console ws://localhost:8546
 ```
 
 The console is run with the `--experimental-repl-await` flag which means that

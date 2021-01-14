@@ -1,11 +1,12 @@
 package tendermint
 
 import (
-	common "github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/autonity"
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	autonity "github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/state"
-	types "github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/trie"
 )
 
 type Finalizer interface {
@@ -64,5 +65,5 @@ func (f *DefaultFinalizer) FinalizeAndAssemble(chain consensus.ChainReader, head
 
 	// add committee to extraData's committee section
 	header.Committee = committeeSet
-	return types.NewBlock(header, txs, nil, *receipts), nil
+	return types.NewBlock(header, txs, nil, *receipts, new(trie.Trie)), nil
 }

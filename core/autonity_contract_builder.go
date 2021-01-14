@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/contracts/autonity"
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/params"

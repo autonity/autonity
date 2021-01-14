@@ -22,16 +22,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/trie"
 	"math/big"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/clearmatics/autonity/accounts/abi"
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
@@ -126,6 +127,7 @@ func (h *storageJSON) UnmarshalText(text []byte) error {
 	}
 	offset := len(h) - len(text)/2 // pad on the left
 	if _, err := hex.Decode(h[offset:], text); err != nil {
+		fmt.Println(err)
 		return fmt.Errorf("invalid hex storage key/value %q", text)
 	}
 	return nil
@@ -146,12 +148,12 @@ func (e *GenesisMismatchError) Error() string {
 }
 
 // SetupGenesisBlock writes or updates the genesis block in db.
-// The block that will be used is:
+// The behavior of it is:
 //
-//                          genesis == nil       genesis != nil
+//                            genesis == nil         genesis != nil
 //                       +------------------------------------------
-//     db has no genesis |  main-net default  |  genesis
-//     db has genesis    |  from DB           |  genesis (if compatible)
+//     db has no genesis |  Return An Error      |  apply genesis to db
+//     db has genesis    |  Use genesis from DB  |  apply genesis (if compatible)
 //
 // The stored chain configuration will be updated if it is compatible (i.e. does not
 // specify a fork block below the local head block). In case of a conflict, the
@@ -162,21 +164,18 @@ func (e *GenesisMismatchError) Error() string {
 // is not updated in the call to this function, so after calling this function only the
 // returned ChainConfig should be used.
 func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
-	if genesis != nil && genesis.Config == nil {
-		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
-	}
 	// Just commit the new block if there is no stored genesis block.
 	stored := rawdb.ReadCanonicalHash(db, 0)
 	if (stored == common.Hash{}) {
 		if genesis == nil {
-			log.Info("Writing default main-net genesis block")
-			genesis = DefaultGenesisBlock()
+			// No genesis from DB and configuration, don't start node with GETH main-net genesis block.
+			return nil, common.Hash{}, fmt.Errorf("DB has no genesis block and there is no genesis file set by user")
 		} else {
 			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.Commit(db)
 		if err != nil {
-			return params.AllEthashProtocolChanges, common.Hash{}, err
+			return genesis.Config, common.Hash{}, err
 		}
 		return genesis.Config, block.Hash(), nil
 	}
@@ -184,7 +183,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	// We have the genesis block in database(perhaps in ancient database)
 	// but the corresponding state is missing.
 	header := rawdb.ReadHeader(db, stored, 0)
-	if _, err := state.New(header.Root, state.NewDatabaseWithCache(db, 0), nil); err != nil {
+	if _, err := state.New(header.Root, state.NewDatabaseWithCache(db, 0, ""), nil); err != nil {
 		if genesis == nil {
 			genesis = DefaultGenesisBlock()
 		}
@@ -343,9 +342,9 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		head.GasLimit = params.GenesisGasLimit
 	}
 	statedb.Commit(false)
-	statedb.Database().TrieDB().Commit(root, true)
+	statedb.Database().TrieDB().Commit(root, true, nil)
 
-	return types.NewBlock(head, nil, nil, nil), nil
+	return types.NewBlock(head, nil, nil, nil, new(trie.Trie)), nil
 }
 
 func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
@@ -420,7 +419,7 @@ func extractCommittee(users []params.User) (types.Committee, error) {
 	}
 
 	sort.Sort(committee)
-	log.Info("starting BFT consensus", "validators", committee)
+	log.Info("Starting PoS-BFT consensus protocol", "validators", committee)
 	return committee, nil
 }
 

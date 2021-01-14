@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/common/graph"
 	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 
@@ -618,7 +618,7 @@ func upgradeHook(upgradeBlocks map[uint64]struct{}, operatorAddress common.Addre
 			return err
 		}
 
-		_, err = instance.UpgradeContract(auth, acdefault.Bytecode(), acdefault.ABI())
+		_, err = instance.UpgradeContract(auth, acdefault.Bytecode(), acdefault.ABI(), "v2.0.0")
 		if err != nil {
 			return err
 		}
@@ -669,7 +669,7 @@ func addStakeholder(en string, stakeholderKey, operatorKey *ecdsa.PrivateKey) se
 				errOuter = err
 				return
 			}
-			_, err = instance.AddParticipant(auth, crypto.PubkeyToAddress(stakeholderKey.PublicKey), en)
+			_, err = instance.AddUser(auth, crypto.PubkeyToAddress(stakeholderKey.PublicKey), new(big.Int), en, uint8(1))
 			if err != nil {
 				errOuter = err
 				return

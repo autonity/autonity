@@ -1,5 +1,7 @@
 name: Go
-on: [push]
+on:
+  workflow_dispatch:
+  pull_request:
 jobs:
   bootstrap-checkout:
     runs-on: ubuntu-latest
@@ -97,7 +99,44 @@ jobs:
   tests-conformance:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "We don't run the conformance tests any more"
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
+      - uses: actions/checkout@v2
+        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+        with:
+          clean: 'false'
+
+      - name: Embed Autonity contract
+        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
+        run: make embed-autonity-contract
+
+      - name: Cache git modules
+        uses: actions/cache@v1
+        id: cache-git-modules
+        env:
+          cache-name: cache-git-modules
+        with:
+          path: /home/runner/work/autonity/autonity/tests/testdata
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
+
+      - name: get conformance tests
+        if: steps.cache-git-modules.outputs.cache-hit != 'true'
+        run: git submodule update --init --recursive
+
+      - name: unit tests
+        run: go test -timeout 30m ./tests/...
 
   build:
     needs: bootstrap-checkout
@@ -170,6 +209,9 @@ jobs:
       matrix:
         e2e: [TestCheckFeeRedirectionAndRedistribution,
               TestCheckBlockWithSmallFee,
+              TestRewardDistribution,
+              TestStakeManagement,
+              TestMemberManagement,
               TestRemoveFromValidatorsList,
               TestContractUpgrade_Success,
               TestContractUpgradeSeveralUpgrades,
@@ -308,6 +350,10 @@ jobs:
         with:
           path: /home/runner/work/autonity/autonity/build/bin
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
+      - name: Build Autonity
+        if:  steps.cache-autonity-bin.outputs.cache-hit != 'true'
+        run: make autonity
 
       - name: test contract
         run: make test-contracts

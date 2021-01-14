@@ -73,7 +73,6 @@ class NetworkPlanner(object):
                 # sync template data to client instance.
                 client.p2p_port = node_template["p2pPort"]
                 client.rpc_port = node_template["rpcPort"]
-                client.graphql_port = node_template["graphqlPort"]
                 client.ws_port = node_template["wsPort"]
                 client.net_interface = node_template["ethernetInterfaceID"]
                 client.ssh_key = node_template["sshCredential"]["sshKey"]
@@ -89,7 +88,6 @@ class NetworkPlanner(object):
                 node["coinBase"] = "0x{}".format(client.coin_base)
                 node["p2pPort"] = client.p2p_port
                 node["rpcPort"] = client.rpc_port
-                node["graphqlPort"] = client.graphql_port
                 node["wsPort"] = client.ws_port
                 node["ethernetInterfaceID"] = client.net_interface
                 node["sshCredential"]["sshKey"] = client.ssh_key
@@ -177,16 +175,6 @@ class NetworkPlanner(object):
         with open("./network-data/genesis.json", 'w') as out:
             out.write(json.dumps(genesis, indent=4) + '\n')
 
-    def init_chains(self):
-        self.logger.info("===== CHAIN INITIALIZATION =====")
-        for client in self.clients:
-            client.init_chain()
-
-    def re_init_chains(self):
-        self.logger.info("===== CHAIN RE_INITIALIZATION =====")
-        for client in self.clients:
-            client.re_init_chain()
-
     def generate_systemd_service_file(self):
         self.logger.info("===== SYSTEMD SERVICE FILE GENERATION =====")
         for client in self.clients:
@@ -205,7 +193,6 @@ class NetworkPlanner(object):
         self.generate_testbed_conf()
         self.generate_enodes()
         self.generate_genesis()
-        self.init_chains()
         self.generate_systemd_service_file()
         self.generate_package()
         self.logger.info("===== SETUP FINISHED =====")

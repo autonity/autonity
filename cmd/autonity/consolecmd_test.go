@@ -18,6 +18,8 @@ package main
 
 import (
 	"crypto/rand"
+	"github.com/clearmatics/autonity/crypto"
+	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -31,23 +33,88 @@ import (
 )
 
 const (
-	ipcAPIs  = "admin:1.0 debug:1.0 eth:1.0 ethash:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 txpool:1.0 web3:1.0"
+	ipcAPIs  = "admin:1.0 aut:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 tendermint:1.0 txpool:1.0 web3:1.0"
 	httpAPIs = "eth:1.0 net:1.0 rpc:1.0 web3:1.0"
 )
 
-// Tests that a node embedded within a console can be started up properly and
+var genesis = `{
+			"alloc"      : {},
+			"coinbase"   : "0x0000000000000000000000000000000000000000",
+			"difficulty" : "0x1",
+			"extraData"  : "",
+			"gasLimit"   : "0x2fefd8",
+			"nonce"      : "0x0000000000001339",
+			"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"timestamp"  : "0x00",
+			"config"     : {
+				"homesteadBlock" : 0,
+				"daoForkBlock"   : 0,
+				"daoForkSupport" : true,
+				"homesteadBlock": 0,
+				"eip150Block": 0,
+				"eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"eip155Block": 0,
+				"eip158Block": 0,
+				"byzantiumBlock": 0,
+				"constantinopleBlock": 0,
+				"petersburgBlock": 0,
+				"autonityContract"    : {
+					"users" : [
+						{
+							"enode" : "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
+							"type" : "validator",
+							"stake" : 1
+						}
+					]
+				},
+				"tendermint" : {"block-period" : 1}
+			}
+		}`
+
+func tmpGenesisFile(t *testing.T, dir string) string {
+	genesisFile := filepath.Join(dir, "genesis.json")
+	if err := ioutil.WriteFile(genesisFile, []byte(genesis), 0600); err != nil {
+		t.Fatalf("failed to write genesis file: %v", err)
+	}
+	return genesisFile
+}
+
+func tmpDataDirWithGenesisFile(t *testing.T) (dir string, genesisFile string) {
+	dir = tmpdir(t)
+	genesisFile = tmpGenesisFile(t, dir)
+	return dir, genesisFile
+}
+
+func getCoinBase(t *testing.T, datadir string) string {
+	keyfile := filepath.Join(datadir, "autonity", "nodekey")
+	key, err := crypto.LoadECDSA(keyfile)
+	if err != nil {
+		t.Fatalf("cannot get node key with error: %v", err)
+	}
+	return strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).String())
+}
+
+// Tests that, with a genesis configuration, a node embedded within a console can be started up properly and
 // then terminated by closing the input stream.
 func TestConsoleWelcome(t *testing.T) {
-	coinbase := "0x8605cdbbdb6d264aa742e77020dcbc58fcdce182"
-
-	// Start a autonity console, make sure it's cleaned up and terminate the console
+	dir, jsonFile := tmpDataDirWithGenesisFile(t)
+	defer os.RemoveAll(dir)
+	ws := tmpdir(t)
+	defer os.RemoveAll(ws)
+	ipc := filepath.Join(ws, "autonity.ipc")
+	// Start a autonity client via console sub command.
 	autonity := runAutonity(t,
-		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--etherbase", coinbase, "console")
+		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none", "--ipcpath", ipc,
+		"--datadir", dir, "--genesis", jsonFile, "console")
 
+	// Wait for autonity.
+	waitForEndpoint(t, ipc, 3*time.Second)
+	coinbase := getCoinBase(t, dir)
 	// Gather all the infos the welcome message needs to contain
 	autonity.SetTemplateFunc("goos", func() string { return runtime.GOOS })
 	autonity.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
+	autonity.SetTemplateFunc("coinbase", func() string { return coinbase })
 	autonity.SetTemplateFunc("gover", runtime.Version)
 	autonity.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
 	autonity.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)") })
@@ -59,7 +126,7 @@ The embedded Autonity Console is no longer supported, use it a your own risk.
 Consider the Autonity Node.js Console as replacement.
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
-coinbase: {{.Etherbase}}
+coinbase: {{coinbase}}
 at block: 0 ({{niltime}})
  datadir: {{.Datadir}}
  modules: {{apis}}
@@ -71,8 +138,6 @@ at block: 0 ({{niltime}})
 
 // Tests that a console can be attached to a running node via various means.
 func TestIPCAttachWelcome(t *testing.T) {
-	// Configure the instance for IPC attachment
-	coinbase := "0x8605cdbbdb6d264aa742e77020dcbc58fcdce182"
 	var ipc string
 	if runtime.GOOS == "windows" {
 		ipc = `\\.\pipe\autonity` + strconv.Itoa(trulyRandInt(100000, 999999))
@@ -81,10 +146,11 @@ func TestIPCAttachWelcome(t *testing.T) {
 		defer os.RemoveAll(ws)
 		ipc = filepath.Join(ws, "autonity.ipc")
 	}
-
+	dir, jsonFile := tmpDataDirWithGenesisFile(t)
+	defer os.RemoveAll(dir)
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--etherbase", coinbase, "--ipcpath", ipc)
+		"--ipcpath", ipc, "--datadir", dir, "--genesis", jsonFile)
 
 	defer func() {
 		autonity.Interrupt()
@@ -92,16 +158,18 @@ func TestIPCAttachWelcome(t *testing.T) {
 	}()
 
 	waitForEndpoint(t, ipc, 3*time.Second)
-	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs)
+	testAttachWelcome(t, autonity, "ipc:"+ipc, ipcAPIs, dir)
 
 }
 
 func TestHTTPAttachWelcome(t *testing.T) {
-	coinbase := "0x8605cdbbdb6d264aa742e77020dcbc58fcdce182"
+	dir, jsonFile := tmpDataDirWithGenesisFile(t)
+	defer os.RemoveAll(dir)
 	port := strconv.Itoa(trulyRandInt(1024, 65536)) // Yeah, sometimes this will fail, sorry :P
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--etherbase", coinbase, "--rpc", "--rpcport", port)
+		"--http", "--http.port", port, "--datadir", dir, "--genesis", jsonFile)
+
 	defer func() {
 		autonity.Interrupt()
 		autonity.ExpectExit()
@@ -109,16 +177,17 @@ func TestHTTPAttachWelcome(t *testing.T) {
 
 	endpoint := "http://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
-	testAttachWelcome(t, autonity, endpoint, httpAPIs)
+	testAttachWelcome(t, autonity, endpoint, httpAPIs, dir)
 }
 
 func TestWSAttachWelcome(t *testing.T) {
-	coinbase := "0x8605cdbbdb6d264aa742e77020dcbc58fcdce182"
 	port := strconv.Itoa(trulyRandInt(1024, 65536)) // Yeah, sometimes this will fail, sorry :P
-
+	dir, jsonFile := tmpDataDirWithGenesisFile(t)
+	defer os.RemoveAll(dir)
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--etherbase", coinbase, "--ws", "--wsport", port)
+		"--ws", "--wsport", port, "--datadir", dir, "--genesis", jsonFile)
+
 	defer func() {
 		autonity.Interrupt()
 		autonity.ExpectExit()
@@ -126,19 +195,21 @@ func TestWSAttachWelcome(t *testing.T) {
 
 	endpoint := "ws://127.0.0.1:" + port
 	waitForEndpoint(t, endpoint, 3*time.Second)
-	testAttachWelcome(t, autonity, endpoint, httpAPIs)
+	testAttachWelcome(t, autonity, endpoint, httpAPIs, dir)
 }
 
-func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis string) {
+func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis string, datadir string) {
 	// Attach to a running autonity note and terminate immediately
 	attach := runAutonity(t, "attach", endpoint)
 	defer attach.ExpectExit()
 	attach.CloseStdin()
+	coinbase := getCoinBase(t, datadir)
 
 	// Gather all the infos the welcome message needs to contain
 	attach.SetTemplateFunc("goos", func() string { return runtime.GOOS })
 	attach.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	attach.SetTemplateFunc("gover", runtime.Version)
+	attach.SetTemplateFunc("coinbase", func() string { return coinbase })
 	attach.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
 	attach.SetTemplateFunc("etherbase", func() string { return autonity.Etherbase })
 	attach.SetTemplateFunc("niltime", func() string {
@@ -154,7 +225,7 @@ The embedded Autonity Console is no longer supported, use it a your own risk.
 Consider the Autonity Node.js Console as replacement.
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
-coinbase: {{etherbase}}
+coinbase: {{coinbase}}
 at block: 0 ({{niltime}}){{if ipc}}
  datadir: {{datadir}}{{end}}
  modules: {{apis}}

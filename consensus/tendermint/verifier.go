@@ -170,7 +170,7 @@ func (v *Verifier) VerifyProposal(proposal types.Block, blockchain *core.BlockCh
 // VerifyHeader checks whether a header conforms to the consensus rules of a
 // given engine. Verifying the seal may be done optionally here, or explicitly
 // via the VerifySeal method.
-func (v *Verifier) VerifyHeader(chain consensus.ChainReader, header *types.Header, checkSeals bool) error {
+func (v *Verifier) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, checkSeals bool) error {
 	return v.verifyHeader(header, chain.GetHeaderByHash(header.ParentHash), checkSeals)
 }
 
@@ -242,7 +242,7 @@ func (v *Verifier) verifyHeaderAgainstParent(header, parent *types.Header, check
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications (the order is that of
 // the input slice).
-func (v *Verifier) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (v *Verifier) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{}, 1)
 	results := make(chan error, len(headers))
 	go func() {
@@ -354,7 +354,7 @@ func (v *Verifier) verifyCommittedSeals(header, parent *types.Header) error {
 
 // VerifySeal checks whether the crypto seal on a header is valid according to
 // the consensus rules of the given engine.
-func (v *Verifier) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
+func (v *Verifier) VerifySeal(chain consensus.ChainHeaderReader, header *types.Header) error {
 	// Ensure the signer is part of the committee
 
 	// The genesis block is not signed.
