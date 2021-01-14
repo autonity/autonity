@@ -332,13 +332,13 @@ func (v *Verifier) verifyCommittedSeals(header, parent *types.Header) error {
 
 		member := parent.CommitteeMember(addr)
 		if member == nil {
-			v.logger.Error(fmt.Sprintf("block had seal from non committee member %q", addr))
+			v.logger.Error(fmt.Sprintf("block %d had seal from non committee member %q", header.Number.Uint64(), addr.String()))
 			return types.ErrInvalidCommittedSeals
 		}
 
 		votes[member.Address]++
 		if votes[member.Address] > 1 {
-			v.logger.Error(fmt.Sprintf("committee member %q had multiple seals on block", addr))
+			v.logger.Error(fmt.Sprintf("committee member %q had multiple seals on block %d", addr.String(), header.Number.Uint64()))
 			return types.ErrInvalidCommittedSeals
 		}
 		power += member.VotingPower.Uint64()

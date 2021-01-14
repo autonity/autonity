@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -470,7 +471,7 @@ func (b *Bridge) Start() error {
 }
 
 func (b *Bridge) Close() error {
-	b.dlog.print("stopping")
+	b.dlog.print("stopping", string(debug.Stack()))
 	func() {
 		b.mutex.Lock()
 		defer b.mutex.Unlock()
