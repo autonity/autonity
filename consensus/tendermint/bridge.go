@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -206,13 +205,30 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	// pass results back to the miner. We will only send a block on the
 	// commitChannel if we are the proposer.
 	//
-	// TODO I think there is a problem here that if we are the proposer and we
-	// receive a future block from a peer before we have committed the block,
-	// then we may end this goroutine because stop is closed before we read the
-	// committed block from the commitChannel. The result of this would be that
-	// we receive a committed block from the previous sealing operation on the
-	// commitChannel in the current seal operation. For now we will skip blocks
-	// that do not match.
+	// Ok I think I'm understanding the problem here better now. We can be in a
+	// situation where the provided block has been proposed and is undergoing
+	// agreement,and the miner can interrupt mining of that block to provide
+	// another block at the same height, we may never propose that block if the
+	// currently proposed block achieves agreement. And then when the currently
+	// proposed block does reach agreement we will receive it on the commit
+	// channel and it will not match the block most recently passed to Seal.
+	//
+	// In fact the interrupting block does not even need to be at the same
+	// height, because some other network participant may have agreed the
+	// currently proposed block before us and as such the miner may have
+	// received a NewChainHead event and called Seal with a block for the next
+	// Height. In this scenario we will want to pass the currently proposed
+	// block back to the miner when it is committed even though the last
+	// request to seal was for the next height. If we happen to also be
+	// proposer for the next height we will also want to pass that block back
+	// to the proposer when it is committed.
+	//
+	// The result of this will be that we can receive a block on the
+	// commitChannel that does not match the block most recently passed to Seal
+	// and also that we may pass multiple blocks back to the miner in the
+	// lifetime of the goroutine that reads the commitChannel. So we must not
+	// exit the commitChannel when sending a block, instead we must wait for
+	// the miner's signal to stop or exit when we close the bridge.
 	b.wg.Add(1)
 	go func() {
 		defer b.wg.Done()
@@ -221,15 +237,7 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 			select {
 			case committedBlock := <-b.commitChannel:
 				// b.dlog.print("commitCh receive done", bid(committedBlock))
-				// Check that we are committing the block we were asked to seal.
-				if committedBlock.Hash() != block.Hash() {
-					b.dlog.print("commitCh receive block mismatch. Received:", bid(committedBlock), "expected:", bid(block))
-					continue
-				}
-				// b.dlog.print("resultsCh send start", bid(committedBlock))
 				results <- committedBlock
-				// b.dlog.print("resultsCh send done", bid(committedBlock))
-				return
 				// stop will be closed whenever eth is shutdouwn or a new
 				// sealing task is provided.
 			case <-stop:
@@ -498,7 +506,7 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	// Debugging
 	if b.address == b.committee.GetProposer(0).Address {
 		// b.dlog.print("awaiting block at height", b.height.String(), "at round", 0)
-		b.dlog.print("proposer new height", string(debug.Stack()))
+		// b.dlog.print("proposer new height", string(debug.Stack()))
 	}
 	// Handle messages for the new height
 	msg, timeout, err := b.algo.StartRound(0)
