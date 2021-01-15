@@ -748,6 +748,10 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 
 	// Check that the message came from a committee member, if not we ignore it.
 	if b.lastHeader.CommitteeMember(m.address) == nil {
+		// We remove the message from the store since it came from a non
+		// validator.
+		b.msgStore.removeMessage(m)
+
 		// TODO turn this into an error type that can be checked for at a
 		// higher level to close the connection to this peer.
 		return fmt.Errorf("received message from non committee member: %v", m)

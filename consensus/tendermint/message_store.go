@@ -189,6 +189,28 @@ func (m *messageStore) addMessage(msg *message, rawMsg []byte) error {
 
 	return nil
 }
+
+// removeMessage removes a single message, it does not handle deleting empty
+// maps after message removal, that will be handled when deleting whole heights
+// due to height changes.
+func (m *messageStore) removeMessage(msg *message) {
+	// Delete entry in hashes
+	delete(m.msgHashes[msg.consensusMessage.Height][msg.consensusMessage.Round][msg.consensusMessage.MsgType], msg.address)
+	// Delete entry in messages
+	delete(m.messages, msg.hash)
+	// Delete entry in rawMessages
+	delete(m.rawMessages, msg.hash)
+	delete(m.valid, msg.hash)
+
+	if msg.consensusMessage.MsgType == algorithm.Propose {
+		valueHash := msg.value.Hash()
+		delete(m.values, valueHash)
+		delete(m.valid, valueHash)
+	} else {
+		delete(m.valid, msg.hash)
+	}
+}
+
 func (m *messageStore) addValue(valueHash common.Hash, value *types.Block) {
 	m.values[valueHash] = value
 }
