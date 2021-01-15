@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -450,7 +449,6 @@ var errStopped = errors.New("stopped")
 
 // Start implements core.Tendermint.Start
 func (b *Bridge) Start() error {
-	b.dlog.print("starting")
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	if b.started {
@@ -471,23 +469,20 @@ func (b *Bridge) Start() error {
 }
 
 func (b *Bridge) Close() error {
-	b.dlog.print("stopping", string(debug.Stack()))
-	func() {
-		b.mutex.Lock()
-		defer b.mutex.Unlock()
-		if !b.started {
-			panic("Bridge closed twice")
-		}
-		b.started = false
+	b.mutex.Lock()
+	b.mutex.Unlock()
+	if !b.started {
+		return errors.New("Bridge closed twice")
+	}
+	b.started = false
 
-		close(b.closeChannel)
-		// println(addr(b.address), b.height, "stopping")
+	close(b.closeChannel)
+	// println(addr(b.address), b.height, "stopping")
 
-		// b.logger.Info("closing tendermint.Bridge", "addr", addr(b.address))
+	// b.logger.Info("closing tendermint.Bridge", "addr", addr(b.address))
 
-		// stop the block awaiter if it is waiting
-		b.currentBlockAwaiter.stop()
-	}()
+	// stop the block awaiter if it is waiting
+	b.currentBlockAwaiter.stop()
 	// println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	b.wg.Wait()
