@@ -11,7 +11,7 @@ type TXSender struct {
 	key crypto.PrivateKey // private key of etherbase
 }
 
-func (s *TXSender) SendSuspicion(proof *Proof) common.Hash {
+func (s *TXSender) SendSuspicion(suspicion *Suspicion) common.Hash {
 	// todo send suspicoin and return a TX hash.
 	return common.Hash{}
 }
