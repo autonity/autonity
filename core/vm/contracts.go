@@ -53,7 +53,8 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 
-	common.BytesToAddress([]byte{254}): &checkInnocent{},
+	common.BytesToAddress([]byte{253}): &checkProof{},
+	common.BytesToAddress([]byte{254}): &takeChallenge{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -69,7 +70,8 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{7}): &bn256ScalarMulByzantium{},
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
 
-	common.BytesToAddress([]byte{254}): &checkInnocent{},
+	common.BytesToAddress([]byte{253}): &checkProof{},
+	common.BytesToAddress([]byte{254}): &takeChallenge{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -86,7 +88,8 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
-	common.BytesToAddress([]byte{254}): &checkInnocent{},
+	common.BytesToAddress([]byte{253}): &checkProof{},
+	common.BytesToAddress([]byte{254}): &takeChallenge{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -112,7 +115,8 @@ var PrecompiledContractsYoloV1 = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{17}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 
-	common.BytesToAddress([]byte{254}): &checkInnocent{},
+	common.BytesToAddress([]byte{253}): &checkProof{},
+	common.BytesToAddress([]byte{254}): &takeChallenge{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -997,18 +1001,34 @@ func (c checkEnode) Run(input []byte) ([]byte, error) {
 	return true32Byte, nil
 }
 
-// checkInnocent implemented as a native contract.
-type checkInnocent struct{}
+// takeChallenge implemented as a native contract to take an on-chain challenge.
+type takeChallenge struct{}
 
-func (c checkInnocent) RequiredGas(_ []byte) uint64 {
-	return params.InnocentCheckGas
+func (c takeChallenge) RequiredGas(_ []byte) uint64 {
+	return params.TakeChallengeGas
 }
-func (c checkInnocent) Run(input []byte) ([]byte, error) {
-	// Implement the proof of innocent when a node is suspected for misbehavior.
+func (c takeChallenge) Run(input []byte) ([]byte, error) {
+	// take an on-chain challenge, to provide the innocent proof.
 	if len(input) == 0 {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
-	// Todo: decode proofs from the byte array.
+	// Todo: decode challenge from the byte array.
+	return true32Byte, nil
+}
+
+// checkProof implemented as a native contract to validate an on-chain innocent proof.
+type checkProof struct{}
+
+func (c checkProof) RequiredGas(_ []byte) uint64 {
+	return params.CheckInnocentGas
+}
+func (c checkProof) Run(input []byte) ([]byte, error) {
+	// take an on-chain innocent proof, tell the results of the checking
+	if len(input) == 0 {
+		panic(fmt.Errorf("invalid proof of innocent - empty"))
+	}
+
+	// Todo: decode innocent proof from the byte array.
 	return true32Byte, nil
 }
