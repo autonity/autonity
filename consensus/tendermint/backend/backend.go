@@ -154,7 +154,7 @@ func (sb *Backend) postEvent(event interface{}) {
 }
 
 func (sb *Backend) AskSync(header *types.Header) {
-	sb.logger.Info("Broadcasting consensus sync-me")
+	sb.logger.Info("Broadcasting consensus synchronization request")
 
 	targets := make(map[common.Address]struct{})
 	for _, val := range header.Committee {
@@ -217,6 +217,15 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 			go p.Send(tendermintMsg, payload) //nolint
 		}
 	}
+}
+
+// KnownMsgHash dumps the known messages in case of gossiping.
+func (sb *Backend) KnownMsgHash() []common.Hash {
+	m := make([]common.Hash, 0, sb.knownMessages.Len())
+	for _, v := range sb.knownMessages.Keys() {
+		m = append(m, v.(common.Hash))
+	}
+	return m
 }
 
 // Commit implements tendermint.Backend.Commit
@@ -404,7 +413,11 @@ func (sb *Backend) HasBadProposal(hash common.Hash) bool {
 
 func (sb *Backend) GetContractABI() string {
 	// after the contract is upgradable, call it from contract object rather than from conf.
-	return sb.blockchain.GetAutonityContract().GetContractABI()
+	return sb.blockchain.GetAutonityContract().StringABI()
+}
+
+func (sb *Backend) CoreState() tendermintCore.TendermintState {
+	return sb.core.CoreState()
 }
 
 // Whitelist for the current block
@@ -439,13 +452,8 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	}
 	messages := sb.core.GetCurrentHeightMessages()
 	for _, msg := range messages {
-		payload, err := msg.Payload()
-		if err != nil {
-			sb.logger.Debug("Sending", "code", msg.GetCode(), "sig", msg.GetSignature(), "err", err)
-			continue
-		}
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.Send(tendermintMsg, payload) //nolint
+		go p.Send(tendermintMsg, msg.Payload()) //nolint
 	}
 }
 
@@ -456,4 +464,10 @@ func (sb *Backend) ResetPeerCache(address common.Address) {
 		m, _ = ms.(*lru.ARCCache)
 		m.Purge()
 	}
+}
+
+func (sb *Backend) RemoveMessageFromLocalCache(payload []byte) {
+	// Note: ARC is thread-safe
+	hash := types.RLPHash(payload)
+	sb.knownMessages.Remove(hash)
 }

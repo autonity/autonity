@@ -61,9 +61,11 @@ func (s *messagesMap) GetMessages() []*Message {
 
 	msgs := make([][]*Message, len(s.internal))
 	var totalLen int
-	for i, state := range s.internal {
+	i := 0
+	for _, state := range s.internal {
 		msgs[i] = state.GetMessages()
 		totalLen += len(msgs[i])
+		i++
 	}
 
 	result := make([]*Message, 0, totalLen)
@@ -72,6 +74,18 @@ func (s *messagesMap) GetMessages() []*Message {
 	}
 
 	return result
+}
+
+func (s *messagesMap) getRounds() []int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	rounds := make([]int64, 0, len(s.internal))
+	for r := range s.internal {
+		rounds = append(rounds, r)
+	}
+
+	return rounds
 }
 
 // roundMessages stores all message received for a specific round.
@@ -94,6 +108,7 @@ func NewRoundMessages() *roundMessages {
 		verifiedProposal: false,
 	}
 }
+
 func (s *roundMessages) SetProposal(proposal *Proposal, msg *Message, verified bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

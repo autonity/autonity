@@ -194,4 +194,9 @@ func TestTendermintTC7(t *testing.T) {
 	t.Run(fmt.Sprintf("test case %s", test.name), func(t *testing.T) {
 		runTest(t, test)
 	})
+	for i := 0; i < 2; i++ {
+		t.Run(fmt.Sprintf("test case %s - %d", test.name, i), func(t *testing.T) {
+			runTest(t, test)
+		})
+	}
 }

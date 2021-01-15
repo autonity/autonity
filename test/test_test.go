@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/eth"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,11 +28,7 @@ func TestStuff(t *testing.T) {
 	}
 
 	for _, n := range network {
-		var ethereum *eth.Ethereum
-		if err := n.Service(&ethereum); err != nil {
-			require.NoError(t, err)
-		}
-		err = ethereum.StartMining(1)
+		err := n.Eth.StartMining(1)
 		require.NoError(t, err)
 	}
 	// There is a race condition in miner.worker its field snapshotBlock is set
@@ -76,11 +71,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	}
 
 	for _, n := range network {
-		var ethereum *eth.Ethereum
-		if err := n.Service(&ethereum); err != nil {
-			require.NoError(t, err)
-		}
-		err = ethereum.StartMining(1)
+		err := n.Eth.StartMining(1)
 		require.NoError(t, err)
 	}
 	// There is a race condition in miner.worker its field snapshotBlock is set
@@ -98,7 +89,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Stop a node
-	err = network[1].Stop()
+	err = network[1].Close()
 	require.NoError(t, err)
 
 	println("----------------------------------2")
@@ -107,7 +98,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Stop a node
-	err = network[2].Stop()
+	err = network[2].Close()
 	require.NoError(t, err)
 
 	// time.Sleep(time.Second * 5)
@@ -132,14 +123,12 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	// waiting for the transaction tracked here and the transaction just sent.
 	tr, err := TrackTransactions(n.WsClient)
 	require.NoError(t, err)
+
 	err = network[2].Start()
 	require.NoError(t, err)
-	var ethereum *eth.Ethereum
-	if err := network[2].Service(&ethereum); err != nil {
-		require.NoError(t, err)
-	}
-	err = ethereum.StartMining(1)
+	err = network[2].Eth.StartMining(1)
 	require.NoError(t, err)
+
 	_, err = tr.AwaitTransactions(context.Background(), []common.Hash{n.SentTxs[len(n.SentTxs)-1]})
 	require.NoError(t, err)
 	println("previously unmined tx now mined")
@@ -153,10 +142,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	// Start the last stopped node
 	err = network[1].Start()
 	require.NoError(t, err)
-	if err := network[1].Service(&ethereum); err != nil {
-		require.NoError(t, err)
-	}
-	err = ethereum.StartMining(1)
+	err = network[1].Eth.StartMining(1)
 	require.NoError(t, err)
 
 	// Send a tx to see that the network is working

@@ -24,10 +24,12 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"reflect"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/core"
@@ -354,7 +356,7 @@ func (api *PrivateDebugAPI) GetBadBlocks(ctx context.Context) ([]*BadBlockArgs, 
 // AccountRangeMaxResults is the maximum number of results to be returned per call
 const AccountRangeMaxResults = 256
 
-// AccountRangeAt enumerates all accounts in the given block and start point in paging request
+// AccountRange enumerates all accounts in the given block and start point in paging request
 func (api *PublicDebugAPI) AccountRange(blockNrOrHash rpc.BlockNumberOrHash, start []byte, maxResults int, nocode, nostorage, incompletes bool) (state.IteratorDump, error) {
 	var stateDb *state.StateDB
 	var err error
@@ -412,7 +414,12 @@ type storageEntry struct {
 
 // StorageRangeAt returns the storage at the given block height and transaction index.
 func (api *PrivateDebugAPI) StorageRangeAt(blockHash common.Hash, txIndex int, contractAddress common.Address, keyStart hexutil.Bytes, maxResult int) (StorageRangeResult, error) {
-	_, _, statedb, err := api.computeTxEnv(blockHash, txIndex, 0)
+	// Retrieve the block
+	block := api.eth.blockchain.GetBlockByHash(blockHash)
+	if block == nil {
+		return StorageRangeResult{}, fmt.Errorf("block %#x not found", blockHash)
+	}
+	_, _, statedb, err := api.computeTxEnv(block, txIndex, 0)
 	if err != nil {
 		return StorageRangeResult{}, err
 	}
@@ -527,4 +534,86 @@ func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Bloc
 		dirty = append(dirty, common.BytesToAddress(key))
 	}
 	return dirty, nil
+}
+
+// AutonityContractAPI implements rpc.Methods to expose view functions of the
+// autonity contract through the rpc api. Note, although it looks like this
+// struct would be better defined in the rpc package or in the autonity
+// package, circular dependencies make it infeasible.
+type AutonityContractAPI struct {
+	calls map[string]reflect.Value
+}
+
+// NewAutonityContractAPI builds a map of function name to method representing
+// the view functions of the autonity contract, the map is then used as the
+// return value for AllMethods. The methods are dynamically generated from the
+// autonity contract ABI and assume that they are called with an instance of
+// AutonityContractAPI as their method receiver, even though the functions
+// themselves make no use of the method receiver. This design is required to be
+// able to fit into the current approach taken for registering rpc services.
+// See rpc.Server.RegisterName().
+func NewAutonityContractAPI(bc *core.BlockChain, ac *autonity.Contract) *AutonityContractAPI {
+	var viewMethodStr = "view"
+	var contractABI = ac.ABI()
+	var contractViewMethods = make(map[string]reflect.Value)
+
+	for n, m := range contractABI.Methods {
+		functionName := n
+		// Only expose read-only functions.
+		if m.StateMutability == viewMethodStr {
+			// The RPC service expect the first argument of an API method to be the receiver object.
+			inArgs := []reflect.Type{reflect.TypeOf(&AutonityContractAPI{})}
+			inArgs = append(inArgs, m.Inputs.Types()...)
+			sig := reflect.FuncOf(inArgs, []reflect.Type{
+				reflect.TypeOf((*interface{})(nil)).Elem(),
+				reflect.TypeOf((*error)(nil)).Elem(),
+			}, false)
+
+			contractViewMethods[functionName] = reflect.MakeFunc(sig,
+				func(args []reflect.Value) []reflect.Value {
+					// makereturn converts the return types to reflect.Value
+					makereturn := func(res interface{}, err error) []reflect.Value {
+						return []reflect.Value{reflect.ValueOf(&res).Elem(), reflect.ValueOf(&err).Elem()}
+					}
+					stateDB, err := bc.State()
+					if err != nil {
+						return makereturn(nil, err)
+					}
+					var iargs []interface{}
+					// args[0] is the reflect.Value of *AutonityContractAPI.
+					for i, arg := range args[1:] {
+						// If the argument is a pointer it is then an optional parameter for the RPC handler. The
+						// json unmarshalling function set it to nil if the argument isn't set in the RPC call.
+						// There are no optional parameters for the Autonity contract methods. Solidity doesn't
+						// even support them and the packing function will crash if nil is passed.
+						if arg.Kind() == reflect.Ptr && arg.IsNil() {
+							return makereturn(nil, fmt.Errorf("missing value for required argument %d", i))
+						}
+						iargs = append(iargs, arg.Interface())
+					}
+
+					// Pack the arguments call the function and then unpack the result and return it.
+					packedArgs, err := contractABI.Pack(functionName, iargs...)
+					if err != nil {
+						return makereturn(nil, err)
+					}
+					packedResult, err := ac.CallContractFunc(stateDB, bc.CurrentHeader(), functionName, packedArgs)
+					if err != nil {
+						return makereturn(nil, err)
+					}
+					result, err := contractABI.Unpack(functionName, packedResult)
+
+					// If the result slice contains only one element then just return the element.
+					if len(result) == 1 {
+						return makereturn(result[0], err)
+					}
+					return makereturn(result, err)
+				})
+		}
+	}
+	return &AutonityContractAPI{calls: contractViewMethods}
+}
+
+func (a *AutonityContractAPI) AllMethods() map[string]reflect.Value {
+	return a.calls
 }

@@ -20,7 +20,6 @@ package miner
 import (
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -55,27 +54,25 @@ type Config struct {
 
 // Miner creates blocks and searches for proof-of-work values.
 type Miner struct {
-	mux        *event.TypeMux
-	worker     *worker
-	coinbase   common.Address
-	coinbaseMu sync.RWMutex
-	eth        Backend
-	engine     consensus.Engine
-	exitCh     chan struct{}
-
-	startStopMutex sync.Mutex
-	canStart       bool // can start indicates whether we can start the mining operation
-	shouldStart    bool // should start indicates whether we should start after sync
+	mux      *event.TypeMux
+	worker   *worker
+	coinbase common.Address
+	eth      Backend
+	engine   consensus.Engine
+	exitCh   chan struct{}
+	startCh  chan common.Address
+	stopCh   chan struct{}
 }
 
 func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(block *types.Block) bool) *Miner {
 	miner := &Miner{
-		eth:      eth,
-		mux:      mux,
-		engine:   engine,
-		exitCh:   make(chan struct{}),
-		worker:   newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, false),
-		canStart: true,
+		eth:     eth,
+		mux:     mux,
+		engine:  engine,
+		exitCh:  make(chan struct{}),
+		startCh: make(chan common.Address),
+		stopCh:  make(chan struct{}),
+		worker:  newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, true),
 	}
 	go miner.update()
 
@@ -88,53 +85,59 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 // and halt your mining operation for as long as the DOS continues.
 func (miner *Miner) update() {
 	events := miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{})
-	defer events.Unsubscribe()
+	defer func() {
+		if !events.Closed() {
+			events.Unsubscribe()
+		}
+	}()
 
+	shouldStart := false
+	canStart := true
+	dlEventCh := events.Chan()
 	for {
 		select {
-		case ev := <-events.Chan():
+		case ev := <-dlEventCh:
 			if ev == nil {
-				return
+				// Unsubscription done, stop listening
+				dlEventCh = nil
+				continue
 			}
 			switch ev.Data.(type) {
 			case downloader.StartEvent:
-				// When syncing begins we pause the miner and set a flag to
-				// ensure calls to Start do not start the miner before sync is
-				// finished.
-
-				// We need to lock over setting canStart, checking Mining and
-				// the call to stop, to prevent the race condition where a
-				// prior concurrent call to Start which has passed all its
-				// checks then calls start after stop is called here. Resulting
-				// in the miner starting immediately after this call to stop
-				// whilst canstart is set to false.
-				miner.startStopMutex.Lock()
-				miner.canStart = false
-				if miner.Mining() {
-					miner.stop()
+				wasMining := miner.Mining()
+				miner.worker.stop()
+				canStart = false
+				if wasMining {
+					// Resume mining after sync was finished
+					shouldStart = true
 					log.Info("Mining aborted due to sync")
 				}
-				miner.startStopMutex.Unlock()
-			case downloader.DoneEvent, downloader.FailedEvent:
-				// When syncing completes, we start the miner if it is expected
-				// to start, we also unset the flag preventing calls to Start
-				// from starting the miner.
-
-				// We need to lock over both the check on shouldStart and the
-				// call to start, to prevent the race condition where a
-				// concurrent call to Stop occurs between the check of
-				// shouldStart and the call to start resulting in the miner
-				// being started after Stop has been called.
-				miner.startStopMutex.Lock()
-				miner.canStart = true
-				if miner.shouldStart {
-					miner.start(miner.Coinbase())
+			case downloader.FailedEvent:
+				canStart = true
+				if shouldStart {
+					miner.SetEtherbase(miner.coinbase)
+					miner.worker.start()
 				}
-				miner.startStopMutex.Unlock()
-				// stop immediately and ignore all further pending events
-				return
+			case downloader.DoneEvent:
+				canStart = true
+				if shouldStart {
+					miner.SetEtherbase(miner.coinbase)
+					miner.worker.start()
+				}
+				// Stop reacting to downloader events
+				events.Unsubscribe()
 			}
+		case addr := <-miner.startCh:
+			miner.SetEtherbase(addr)
+			if canStart {
+				miner.worker.start()
+			}
+			shouldStart = true
+		case <-miner.stopCh:
+			shouldStart = false
+			miner.worker.stop()
 		case <-miner.exitCh:
+			miner.worker.close()
 			return
 		}
 	}
@@ -143,52 +146,21 @@ func (miner *Miner) update() {
 // Start starts the miner mining, unless it has been paused by the downloader
 // during sync, in which case it will start mining once the sync has completed.
 func (miner *Miner) Start(coinbase common.Address) {
-	miner.startStopMutex.Lock()
-	defer miner.startStopMutex.Unlock()
-	miner.shouldStart = true
-	if !miner.canStart {
-		log.Info("Network syncing, will start miner afterwards")
-		return
-	}
-	miner.start(coinbase)
-}
-
-// start performs the action of starting without managing mutexes or state
-// flags.
-func (miner *Miner) start(coinbase common.Address) {
-	miner.SetEtherbase(coinbase)
-	miner.worker.start()
+	miner.startCh <- coinbase
 }
 
 // Stop stops the miner from mining.
 func (miner *Miner) Stop() {
-	miner.startStopMutex.Lock()
-	defer miner.startStopMutex.Unlock()
-	miner.shouldStart = false
-	miner.stop()
-}
-
-// stop performs the action of stopping without managing mutexes or state
-// flags.
-func (miner *Miner) stop() {
-	miner.worker.stop()
+	miner.stopCh <- struct{}{}
 }
 
 // Close stops the miner and releases any resources associated with it.
 func (miner *Miner) Close() {
-	miner.Stop()
-	miner.worker.close()
-	close(miner.exitCh)
+	miner.exitCh <- struct{}{}
 }
 
 func (miner *Miner) Mining() bool {
 	return miner.worker.isRunning()
-}
-
-func (miner *Miner) IsMining() bool {
-	miner.startStopMutex.Lock()
-	defer miner.startStopMutex.Unlock()
-	return miner.shouldStart
 }
 
 func (miner *Miner) HashRate() uint64 {
@@ -251,16 +223,4 @@ func (miner *Miner) DisablePreseal() {
 // to the given channel.
 func (miner *Miner) SubscribePendingLogs(ch chan<- []*types.Log) event.Subscription {
 	return miner.worker.pendingLogsFeed.Subscribe(ch)
-}
-
-func (miner *Miner) Coinbase() common.Address {
-	miner.coinbaseMu.RLock()
-	defer miner.coinbaseMu.RUnlock()
-	return miner.coinbase
-}
-
-func (miner *Miner) SetCoinbase(addr common.Address) {
-	miner.coinbaseMu.Lock()
-	miner.coinbase = addr
-	miner.coinbaseMu.Unlock()
 }

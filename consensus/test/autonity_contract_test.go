@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common/acdefault"
 	"github.com/clearmatics/autonity/common/graph"
 	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 
@@ -136,7 +136,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 			st, _ := validator.service.BlockChain().State()
 			if block.NumberU64() == 1 && st.GetBalance(autonity.ContractAddress).Uint64() != 0 {
-				t.Fatal("incorrect balance on the first block")
+				return fmt.Errorf("incorrect balance on the first block")
 			}
 			return nil
 		}
@@ -144,7 +144,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 			st, _ := validator.service.BlockChain().State()
 
 			if block.NumberU64() == 1 && prevBlockBalance != 0 {
-				t.Fatal("incorrect balance on the first block")
+				return fmt.Errorf("incorrect balance on the first block")
 			}
 			contractBalance := st.GetBalance(autonity.ContractAddress)
 
@@ -161,7 +161,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 			numValidators: 5,
 			numBlocks:     5,
 			txPerPeer:     3,
-			sendTransactionHooks: map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error){
+			sendTransactionHooks: map[string]sendTransactionHook{
 				"VD": func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error) { //nolint
 					nonce := validator.service.TxPool().Nonce(fromAddr)
 
@@ -244,7 +244,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 		numBlocks:            10,
 		txPerPeer:            1,
 		removedPeers:         make(map[common.Address]uint64),
-		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		sendTransactionHooks: make(map[string]sendTransactionHook),
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = operatorAddress
 			g.Alloc[operatorAddress] = core.GenesisAccount{
@@ -285,21 +285,26 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 			return true, nil, nil
 		}
 		skip := true
+		var errOuter error
 		once.Do(func() {
+			skip = false
 			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
 			if err != nil {
-				t.Fatal(err)
+				errOuter = err
+				return
 			}
 			defer conn.Close()
 
 			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 			if err != nil {
-				t.Fatal(err)
+				errOuter = err
+				return
 			}
 
 			gasPrice, err := conn.SuggestGasPrice(context.Background())
 			if err != nil {
-				t.Fatal(err)
+				errOuter = err
+				return
 			}
 
 			auth := bind.NewKeyedTransactor(operatorKey)
@@ -310,18 +315,19 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 
 			instance, err := NewAutonity(autonity.ContractAddress, conn)
 			if err != nil {
-				t.Fatal(err)
+				errOuter = err
+				return
 			}
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
 			_, err = instance.RemoveUser(auth, *validatorsList[0].Address)
 			if err != nil {
-				t.Fatal(err)
+				errOuter = err
+				return
 			}
-			skip = false
 			testCase.removedPeers[*validatorsList[0].Address] = validator.lastBlock
 		})
 
-		return skip, nil, nil
+		return skip, nil, errOuter
 	}
 	runTest(t, testCase)
 }
@@ -340,7 +346,6 @@ func TestAddIncorrectStakeholdersToList(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	once := sync.Once{}
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
 	testCase := &testCase{
 		name:                 "no malicious - 1 tx per second",
@@ -348,7 +353,7 @@ func TestAddIncorrectStakeholdersToList(t *testing.T) {
 		numBlocks:            10,
 		txPerPeer:            1,
 		removedPeers:         make(map[common.Address]uint64),
-		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		sendTransactionHooks: make(map[string]sendTransactionHook),
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = operatorAddress
 			g.Alloc[operatorAddress] = core.GenesisAccount{
@@ -357,48 +362,8 @@ func TestAddIncorrectStakeholdersToList(t *testing.T) {
 			return g
 		},
 	}
-	testCase.sendTransactionHooks["VD"] = func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-		skip := true
-		once.Do(func() {
-			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer conn.Close()
-
-			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			gasPrice, err := conn.SuggestGasPrice(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			auth := bind.NewKeyedTransactor(operatorKey)
-			auth.From = operatorAddress
-			auth.Nonce = big.NewInt(int64(nonce))
-			auth.GasLimit = uint64(300000) // in units
-			auth.GasPrice = gasPrice
-
-			instance, err := NewAutonity(autonity.ContractAddress, conn)
-			if err != nil {
-				t.Fatal(err)
-			}
-			pEnode := enode.NewV4(&participantKey.PublicKey, net.ParseIP("127.0.0.1"), 8527, 8527)
-			_, err = instance.AddParticipant(auth, crypto.PubkeyToAddress(participantKey.PublicKey), pEnode.String())
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			skip = false
-		})
-		return skip, nil, nil
-	}
+	pEnode := enode.NewV4(&participantKey.PublicKey, net.ParseIP("127.0.0.1"), 8527, 8527)
+	testCase.sendTransactionHooks["VD"] = addStakeholder(pEnode.String(), participantKey, operatorKey)
 	runTest(t, testCase)
 }
 
@@ -415,16 +380,15 @@ func TestAddStakeholderWithCorruptedEnodeToList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	once := sync.Once{}
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
+
 	testCase := &testCase{
 		name:                 "no malicious - 1 tx per second",
 		numValidators:        5,
 		numBlocks:            10,
 		txPerPeer:            1,
 		removedPeers:         make(map[common.Address]uint64),
-		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		sendTransactionHooks: make(map[string]sendTransactionHook),
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = operatorAddress
 			g.Alloc[operatorAddress] = core.GenesisAccount{
@@ -433,47 +397,7 @@ func TestAddStakeholderWithCorruptedEnodeToList(t *testing.T) {
 			return g
 		},
 	}
-	testCase.sendTransactionHooks["VD"] = func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		if validator.lastBlock <= 3 {
-			return true, nil, nil
-		}
-		skip := true
-		once.Do(func() {
-			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer conn.Close()
-
-			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			gasPrice, err := conn.SuggestGasPrice(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			auth := bind.NewKeyedTransactor(operatorKey)
-			auth.From = operatorAddress
-			auth.Nonce = big.NewInt(int64(nonce))
-			auth.GasLimit = uint64(300000) // in units
-			auth.GasPrice = gasPrice
-
-			instance, err := NewAutonity(autonity.ContractAddress, conn)
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, err = instance.AddParticipant(auth, crypto.PubkeyToAddress(participantKey.PublicKey), "enode://some_bad_enode@127.0.0.1:8527")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			skip = false
-		})
-		return skip, nil, nil
-	}
+	testCase.sendTransactionHooks["VD"] = addStakeholder("enode://some_bad_enode@127.0.0.1:8527", participantKey, operatorKey)
 	runTest(t, testCase)
 }
 
@@ -494,7 +418,7 @@ func TestContractUpgrade_Success(t *testing.T) {
 		numBlocks:            10,
 		txPerPeer:            1,
 		removedPeers:         make(map[common.Address]uint64),
-		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		sendTransactionHooks: make(map[string]sendTransactionHook),
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = operatorAddress
 			g.Alloc[operatorAddress] = core.GenesisAccount{
@@ -503,7 +427,7 @@ func TestContractUpgrade_Success(t *testing.T) {
 			return g
 		},
 		afterHooks: map[string]hook{
-			"VD": upgradeHook(t, map[uint64]struct{}{
+			"VD": upgradeHook(map[uint64]struct{}{
 				5: {},
 			},
 				operatorAddress,
@@ -530,7 +454,7 @@ func TestContractUpgradeSeveralUpgrades(t *testing.T) {
 		numBlocks:            20,
 		txPerPeer:            10,
 		removedPeers:         make(map[common.Address]uint64),
-		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		sendTransactionHooks: make(map[string]sendTransactionHook),
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = operatorAddress
 			g.Alloc[operatorAddress] = core.GenesisAccount{
@@ -539,7 +463,7 @@ func TestContractUpgradeSeveralUpgrades(t *testing.T) {
 			return g
 		},
 		afterHooks: map[string]hook{
-			"VD": upgradeHook(t, map[uint64]struct{}{
+			"VD": upgradeHook(map[uint64]struct{}{
 				5:  {},
 				7:  {},
 				15: {},
@@ -580,7 +504,7 @@ func TestContractUpgradeSeveralUpgradesOnBusTopology(t *testing.T) {
 		numBlocks:            20,
 		txPerPeer:            10,
 		removedPeers:         make(map[common.Address]uint64),
-		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		sendTransactionHooks: make(map[string]sendTransactionHook),
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = operatorAddress
 			g.Alloc[operatorAddress] = core.GenesisAccount{
@@ -589,7 +513,7 @@ func TestContractUpgradeSeveralUpgradesOnBusTopology(t *testing.T) {
 			return g
 		},
 		afterHooks: map[string]hook{
-			"VD": upgradeHook(t, map[uint64]struct{}{
+			"VD": upgradeHook(map[uint64]struct{}{
 				5:  {},
 				7:  {},
 				15: {},
@@ -633,7 +557,7 @@ func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
 		numBlocks:            20,
 		txPerPeer:            10,
 		removedPeers:         make(map[common.Address]uint64),
-		sendTransactionHooks: make(map[string]func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)),
+		sendTransactionHooks: make(map[string]sendTransactionHook),
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = operatorAddress
 			g.Alloc[operatorAddress] = core.GenesisAccount{
@@ -642,7 +566,7 @@ func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
 			return g
 		},
 		afterHooks: map[string]hook{
-			"VD": upgradeHook(t, map[uint64]struct{}{
+			"VD": upgradeHook(map[uint64]struct{}{
 				5:  {},
 				7:  {},
 				15: {},
@@ -657,7 +581,7 @@ func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
 	runTest(t, testCase)
 }
 
-func upgradeHook(t *testing.T, upgradeBlocks map[uint64]struct{}, operatorAddress common.Address, operatorKey *ecdsa.PrivateKey) hook {
+func upgradeHook(upgradeBlocks map[uint64]struct{}, operatorAddress common.Address, operatorKey *ecdsa.PrivateKey) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		log.Error("Upgrade hook")
 		if _, ok := upgradeBlocks[block.Number().Uint64()]; !ok {
@@ -665,18 +589,18 @@ func upgradeHook(t *testing.T, upgradeBlocks map[uint64]struct{}, operatorAddres
 		}
 		conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		defer conn.Close()
 
 		nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		gasPrice, err := conn.SuggestGasPrice(context.Background())
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		auth := bind.NewKeyedTransactor(operatorKey)
@@ -687,13 +611,68 @@ func upgradeHook(t *testing.T, upgradeBlocks map[uint64]struct{}, operatorAddres
 
 		instance, err := NewAutonity(autonity.ContractAddress, conn)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
-		_, err = instance.UpgradeContract(auth, acdefault.Bytecode(), acdefault.ABI())
+		_, err = instance.UpgradeContract(auth, acdefault.Bytecode(), acdefault.ABI(), "v2.0.0")
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		return nil
 	}
+}
+
+func addStakeholder(en string, stakeholderKey, operatorKey *ecdsa.PrivateKey) sendTransactionHook {
+	once := sync.Once{}
+
+	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
+
+	return func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
+		if validator.lastBlock <= 3 {
+			return true, nil, nil
+		}
+		skip := true
+		var errOuter error
+		once.Do(func() {
+			skip = false
+			conn, err := ethclient.Dial("http://127.0.0.1:" + strconv.Itoa(validator.rpcPort))
+			if err != nil {
+				errOuter = err
+				return
+			}
+			defer conn.Close()
+
+			nonce, err := conn.PendingNonceAt(context.Background(), operatorAddress)
+			if err != nil {
+				errOuter = err
+				return
+			}
+
+			gasPrice, err := conn.SuggestGasPrice(context.Background())
+			if err != nil {
+				errOuter = err
+				return
+			}
+
+			auth := bind.NewKeyedTransactor(operatorKey)
+			auth.From = operatorAddress
+			auth.Nonce = big.NewInt(int64(nonce))
+			auth.GasLimit = uint64(300000) // in units
+			auth.GasPrice = gasPrice
+
+			instance, err := NewAutonity(autonity.ContractAddress, conn)
+			if err != nil {
+				errOuter = err
+				return
+			}
+			_, err = instance.AddUser(auth, crypto.PubkeyToAddress(stakeholderKey.PublicKey), new(big.Int), en, uint8(1))
+			if err != nil {
+				errOuter = err
+				return
+			}
+
+		})
+		return skip, nil, errOuter
+	}
+
 }

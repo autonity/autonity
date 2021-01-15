@@ -406,10 +406,7 @@ func TestSyncPeer(t *testing.T) {
 		peersAddrMap := make(map[common.Address]struct{})
 		peersAddrMap[peerAddr1] = struct{}{}
 
-		payload, err := messages[0].Payload()
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
+		payload := messages[0].Payload()
 
 		peer1Mock := consensus.NewMockPeer(ctrl)
 		peer1Mock.EXPECT().Send(uint64(tendermintMsg), payload)
@@ -714,7 +711,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	if err != nil {
 		return nil, fmt.Errorf("state write error: %v", err)
 	}
-	if err := state.Database().TrieDB().Commit(root, false); err != nil {
+	if err := state.Database().TrieDB().Commit(root, false, nil); err != nil {
 		return nil, fmt.Errorf("trie write error: %v", err)
 	}
 

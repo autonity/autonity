@@ -26,9 +26,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -88,6 +88,7 @@ func New(backend Backend, config *config.Config) *core {
 		logger:                logger,
 		backend:               backend,
 		backlogs:              make(map[common.Address][]*Message),
+		backlogUnchecked:      make(map[uint64][]*Message),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
@@ -120,8 +121,9 @@ type core struct {
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
 
-	backlogs   map[common.Address][]*Message
-	backlogsMu sync.Mutex
+	backlogs            map[common.Address][]*Message
+	backlogUnchecked    map[uint64][]*Message
+	backlogUncheckedLen int
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
 	pendingUnminedBlocksMu   sync.Mutex
@@ -132,13 +134,13 @@ type core struct {
 	// Tendermint FSM state fields
 	//
 
-	height     *big.Int
-	round      int64
-	committee  committee
-	lastHeader *types.Header
+	stateMu   sync.RWMutex
+	height    *big.Int
+	round     int64
+	committee committee
 	// height, round and committeeSet are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
-	stateMu               sync.RWMutex
+	lastHeader            *types.Header
 	step                  Step
 	curRoundMessages      *roundMessages
 	messages              messagesMap
@@ -183,13 +185,7 @@ func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 		return nil, err
 	}
 
-	// Convert to payload
-	payload, err := msg.Payload()
-	if err != nil {
-		return nil, err
-	}
-
-	return payload, nil
+	return msg.Payload(), nil
 }
 
 func (c *core) broadcast(ctx context.Context, msg *Message) {
@@ -404,6 +400,7 @@ func (c *core) Height() *big.Int {
 	defer c.stateMu.RUnlock()
 	return c.height
 }
+
 func (c *core) committeeSet() committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()

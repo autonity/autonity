@@ -1,5 +1,7 @@
 name: Go
-on: [push]
+on:
+  workflow_dispatch:
+  pull_request:
 env:
   # We don't have access to the HOME environemnt variable here since we are not
   # inside a runner at this point, so we just have to hardcode '/home/runner',
@@ -18,7 +20,6 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.15
-
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
@@ -50,41 +51,6 @@ jobs:
         #if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make autonity
 
-  # build:
-  #   needs: bootstrap
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Set up Go
-  #       uses: actions/setup-go@v1
-  #       with:
-  #         go-version: 1.15
-
-  #     - name: Cache code
-  #       uses: actions/cache@v1
-  #       id: cache-autonity-code
-  #       with:
-  #         path: ${{ env.AUTONITY_REPO_ROOT }}
-  #         key: ${{ runner.os }}-autonity-code-${{ github.sha }}
-
-  #     - uses: actions/checkout@v2
-  #       if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-
-  #     - name: Cache modules
-  #       uses: actions/cache@v1
-  #       id: cache-autonity-go-modules
-  #       with:
-  #         path: ${{ env.GO_MODULES_CACHE }}
-  #         key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
-
-  #     - name: Build
-  #       run: make autonity
-
-  #     - name: Upload Autonity bin
-  #       uses: actions/upload-artifact@v2
-  #       with:
-  #         name: autonity
-  #         path: ${{ env.AUTONITY_REPO_ROOT }}build/bin/autonity
-
   tests:
     needs: bootstrap
     runs-on: ubuntu-latest
@@ -109,7 +75,6 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.13
-
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
@@ -141,7 +106,6 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.15
-
       - name: Cache code
         uses: actions/cache@v1
         id: cache-autonity-code
@@ -213,7 +177,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v1
         with:
-          node-version: '9.x'
+          node-version: '10.x'
 
       - name: Cache code
         uses: actions/cache@v1
@@ -229,12 +193,48 @@ jobs:
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make autonity
 
+      - name: Build Autonity
+        if:  steps.cache-autonity-bin.outputs.cache-hit != 'true'
+        run: make autonity
+
       - name: test contract
         run: make test-contracts
 
-  # Tests the helloworld example, this indirectly ensures that the autonity
-  # docker image can be built since the helloworld example uses it. We don't
-  # want to use any cache here since we want a clean checkout before any code
+  docker_e2e_test:
+    needs: bootstrap
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - name: Cache code
+        uses: actions/cache@v1
+        env:
+          cache-name: cache-autonity-code
+        with:
+          path: /home/runner/work/autonity/autonity/
+          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+
+      - uses: actions/checkout@v2
+        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+        with:
+          clean: 'false'
+
+
+      - name: Build
+        run: make all
+
+
+      - name: docker_e2e_test
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests
+
+  # Tests the hello-world example, this indirectly ensures that the autonity
+  # docker image can be built since the hello-world example uses it.  We don't want to
+  # use any cache here since we want a clean checkout before any code
   # generation has taken place.
   helloworld_tests:
     runs-on: ubuntu-latest

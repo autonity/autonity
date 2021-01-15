@@ -1,0 +1,672 @@
+# Autonity e2e test framework 
+It automatically bootstrap an autonity network with 6 validators by default. And run those test cases on the playbook to 
+simulate those disasters like: node crash, redeployment, network traffic control, delay and network partitioning ..., 
+on each test case, after the disaster event are scheduled, framework will check if autontiy consensus's state is 
+expected otherwise it would collect the test report and system logs per test case from all clients for a debugging 
+purpose.
+
+# Dependencies
+Run install_dep.sh to install all the dependencies. Or you can install them manually as below steps tells:
+In most linux distribution, python3 and pip3 are included, follow below guide in case your linux need them:
+## update repo source
+`sudo apt-get update`
+## Python3
+`sudo apt-get install python3`
+## pip3
+`sudo apt-get install python3-pip`
+
+## [required] 3rd party python libs
+`pip3 install -r requirements_docker_test.txt`
+
+## [required] docker
+If your linux is on ubuntu-18.04, the script will auto install it for you.
+`sudo apt-get install --yes docker.io`
+
+# How to use it
+## block chain genesis configuration
+In the docker_e2e_test/planner/networkplanner.py + line: 122, there are default genesis configuration, update it on your demand.
+
+## run it
+Run test cases of the playbook: ./etc/testcase.conf.yml by:
+
+`make docker-e2e-test`
+
+or run the script with 1 parameter, the path of autonity work dir.
+For example:
+`sudo python3 test_via_docker.py  ~/your_path_to/autonity`
+
+# Outputs and reports.
+The console will collect test report and it collects system logs of each autontiy client for per failed testcase.
+The log will be compress in local dir name with: JOB_<job_id>.tar
+
+# Node IP list.
+You can config validator IP address in ./etc/validator.ip or ./etc/participant.ip for participant node if you run it 
+without docker as the infrastructure. In docker base test, those IP will be auto-generated.
+
+# PlayBook example and explains
+Test case will be scheduled one by one by the test framework, each test case contains sub-events to be scheduled as to 
+trigger some disaster behaviors like: connect peer, disconnect peer, stop or start node, traffic control by delay or 
+un-delay a node's traffic stream. Those IP are represented by alias ID which refer to a auto-generated testbed file under
+ ./etc/, each event will be scheduled on a specific time point align to the start of its test case.
+
+```yaml
+engineVersion: 3.0.1
+playbook:
+  name: "Example playbook of E2E testing of Autonity consensus."
+  stop: false  # true to stop this playbook, false to keep this playbook be run by test engine.
+  testcases:
+    - name: "TC-1: Happy case, send 10 token per TX last for 1 minutes."
+      condition:
+        crashNodes: [] # contain the node IP alilas name we want to crash.
+        scenario: [] # leave it empty for no disaster happens.
+      input:
+        duration: 60 # num of seconds the transaction sending duration.
+        senderNode: 0  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address will be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-2: 1 node crashed, and recover it again, not on-holding."
+      condition:
+        crashNodes: [2] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 5 # seconds, stop the node after the test case running for 5 seconds.
+            action: "stop"
+            target: [2] # select candidates from crashNodes.
+          - delay: 30 # seconds, start the node after the test case running for 60 seconds.
+            action: "start"
+            target: [2] # select candidates from crashNodes.
+      input:
+        duration: 60 # num of seconds the transaction sending duration.
+        senderNode: 1  # node coin_base address will be used as default sender address.
+        receiverNode: 0  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-3: With 2 node crashed, N = 6, Q = ceil(2xN/3) = 4, not on-holding."
+      condition:
+        crashNodes: [0, 1] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 5 # stop the node after test running for 5 seconds.
+            action: "stop"
+            target: [0, 1] # select candidates from crashNodes.
+      input:
+        duration: 60 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-4: With 2 node crashed, 1 node back, after the back, consensus should not on-holding."
+      condition:
+        crashNodes: [0, 1] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 5 # stop the node after test running for 5 seconds.
+            action: "stop"
+            target: [0, 1] # select candidates from crashNodes.
+          - delay: 30 # start the node after test running for 60 seconds.
+            action: "start"
+            target: [0] # select candidates from crashNodes.
+      input:
+        duration: 60 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-5: With 2 node crashed, 2 node back, after the back, consensus should not on-holding."
+      condition:
+        crashNodes: [0, 1] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 5 # stop the node after test running for 5 seconds.
+            action: "stop"
+            target: [0, 1] # select candidates from crashNodes.
+          - delay: 30 # start the node after test running for 60 seconds.
+            action: "start"
+            target: [0, 1] # select candidates from crashNodes.
+      input:
+        duration: 60 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-6: With 3 node crashed, 3 of 6 crashed, system on-hold."
+      condition:
+        crashNodes: [0, 1, 4] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 1 # stop the node after test running for 5 seconds.
+            action: "stop"
+            target: [0, 1, 4] # select candidates from crashNodes.
+      input:
+        duration: 45 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: false # false means consensus engine should on-hold.
+
+    - name: "TC-7: With 3 node crashed, 1 node recover, consensus engine should not on-hold."
+      condition:
+        crashNodes: [0, 1, 4] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 2 # stop the node after test running for 2 seconds.
+            action: "stop"
+            target: [0, 1, 4] # select candidates from crashNodes.
+          - delay: 30 # start the node after test running for 45 seconds.
+            action: "start"
+            target: [0] # select candidates from crashNodes.
+      input:
+        startAt: 30
+        duration: 90 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-8: With 3 node crashed, 2 node recover, consensus engine should not on-hold."
+      condition:
+        crashNodes: [0, 1, 4] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 2 # stop the node after test running for 2 seconds.
+            action: "stop"
+            target: [0, 1, 4] # select candidates from crashNodes.
+          - delay: 30 # start the node after test running for 30 seconds.
+            action: "start"
+            target: [0, 1] # select candidates from crashNodes.
+      input:
+        startAt: 30
+        duration: 60 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-9: With 3 node crashed, 3 node recover again, consensus engine should not on-hold."
+      condition:
+        crashNodes: [0, 1, 4] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 2 # stop the node after test running for 5 seconds.
+            action: "stop"
+            target: [0, 1, 4] # select candidates from crashNodes.
+          - delay: 30 # seconds
+            action: "start"
+            target: [0, 1, 4] # stop the specific node within 40s after test case start.
+      input:
+        startAt: 30
+        duration: 90 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-10: Bootstrap from scratch, 2 by 2 on 5 seconds interval"
+      re-deploy: true
+      condition:
+        crashNodes: [] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
+          - delay: 60 # seconds
+            action: "start"
+            target: [0, 1] # start the specific node within 30s after test case start.
+          - delay: 65 # seconds
+            action: "start"
+            target: [2, 3] # start the specific node within 30s after test case start.
+          - delay: 70 # seconds
+            action: "start"
+            target: [4, 5] # start the specific node within 30s after test case start.
+      input:
+        startAt: 70  # start the TX issuing from 180th seconds.
+        duration: 90 # num of seconds the transaction sending duration.
+        senderNode: 0  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-11: Network partition. 6 break into 2 slices with 3 node each slice, engine should on-hold."
+      condition:
+        crashNodes: [] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 2 # on the 5th second, disconnect peers.
+            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2]]
+      input:
+        duration: 60 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: false # false means consensus engine should on-hold.
+
+    - name: "TC-12: Network partition. 6 break into 3 and 3, then the two slices recovers, engine recovers too."
+      condition:
+        crashNodes: [] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 2 # on the 10th second, disconnect peers.
+            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2]]
+          - delay: 45 # on the 30th second, connect peers.
+            action: "connect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2]]
+      input:
+        duration: 120 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-13: Network partition. 6 break into 4 and 2, main party(4 validator) should not on-hold."
+      condition:
+        crashNodes: [1, 2] # contain the nodes which leave the main party.
+        scenario:
+          - delay: 2 # on the 5th second, disconnect peers.
+            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[1, 0], [1, 4], [1, 5], [1,3], [2, 0], [2, 4], [2, 5], [2,3]]
+      input:
+        duration: 180 # num of seconds the transaction sending duration.
+        senderNode: 0  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-14: 6 nodes in Ring network topology, should not on-hold."
+      condition:
+        crashNodes: [] # contain the nodes which leave the main party.
+        scenario:
+          - delay: 2 # on the 5th second, disconnect peers.
+            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[2, 0], [2, 4], [2, 5], [1, 4], [1, 5], [1, 3], [0, 5], [0, 3], [4,3]]
+      input:
+        duration: 60 # num of seconds the transaction sending duration.
+        senderNode: 0  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-15: 6 nodes in bus line network topology, should not on-hold."
+      condition:
+        crashNodes: [] # contain the nodes which leave the main party.
+        scenario:
+          - delay: 2 # on the 5th second, disconnect peers.
+            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[2, 0], [2, 4], [2, 5], [1, 4], [1, 5], [1,3], [0, 5], [0,3], [4,3], [4, 0]]
+      input:
+        duration: 90 # num of seconds the transaction sending duration.
+        senderNode: 0  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-16: 6 nodes in star network topology, should not on-hold."
+      condition:
+        crashNodes: [] # contain the nodes which leave the main party.
+        scenario:
+          - delay: 2 # on the 5th second, disconnect peers.
+            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[4,3], [4, 5], [4,2], [4,1], [5, 1], [5, 2], [5,3], [3, 1], [3,2], [2, 1]]
+      input:
+        duration: 90 # num of seconds the transaction sending duration.
+        senderNode: 0  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-17: network traffic control with package delay, loss, duplication, reordering, corruption."
+      condition:
+        crashNodes: [] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 2 # on the 5th second, the step will be executed.
+            action: "delay" # apply network delay on ethernet interface for host, both up-link and down-link
+            target: [0, 1]
+            latency:
+              - host: 0
+                uplink:  # out-coming message
+                  delay: 200 # apply 500s delay to host's p-link
+                  lossRate: 1 # 1% loss rate of up-link package
+                  duplicateRate: 1 # 1% duplicate rate of up-link package
+                  reorderRate: 1 # 1% reorder rate of up-link.
+                  corruptRate: 1 # 1% corrupt rate of up-link.
+                downlink:  # in-coming message
+                  delay: 200 # apply 1000ms delay to host's down-link
+                  lossRate: 1 # 1% loss rate of down-link package
+                  duplicateRate: 1 # 1% duplicate rate of down-link package
+                  reorderRate: 1 # 1% reorder rate of down-link.
+                  corruptRate: 1 # 1% corrupt rate of down-link.
+              - host: 1
+                uplink:  # out-coming message
+                  delay: 300 # apply 1000s delay to host's p-link
+                  lossRate: 1 # 1% loss rate of up-link package
+                  duplicateRate: 1 # 1% duplicate rate of up-link package
+                  reorderRate: 1 # 1% reorder rate of up-link.
+                  corruptRate: 1 # 1% corrupt rate of up-link.
+                downlink:  # in-coming message
+                  delay: 300 # apply 600ms delay to host's down-link
+                  lossRate: 1 # 1% loss rate of down-link package
+                  duplicateRate: 1 # 1% duplicate rate of down-link package
+                  reorderRate: 1 # 1% reorder rate of down-link.
+                  corruptRate: 1 # 1% corrupt rate of down-link.
+          - delay: 30 # on the 10th second, the step will be executed.
+            action: "un-delay" # recover the traffic delay applied for target nodes.
+            target: [0, 1]
+      input:
+        duration: 90 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 4  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-18: Bootstrap from scratch, with all node start in the same time."
+      re-deploy: true
+      condition:
+        crashNodes: [] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
+          - delay: 60 # start all node in 120s later than start time.
+            action: "start"
+            target: [0, 1, 2, 3, 5, 4]
+      input:
+        startAt: 90  # start the TX issuing from 180th seconds.
+        duration: 90 # num of seconds the transaction sending duration.
+        senderNode: 0  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-19: Bootstrap from scratch with 1 node crashed and recover later during the bootstrap."
+      re-deploy: true
+      condition:
+        crashNodes: [0] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
+          - delay: 30 # seconds
+            action: "start"
+            target: [0] # start the specific node within 30s after test case start.
+          - delay: 90 # seconds
+            action: "start"
+            target: [1, 2] # start the specific node within 90s after test case start.
+          - delay: 95 # seconds
+            action: "stop"
+            target: [0] # start the specific node within 120s after test case start.
+          - delay: 100 # seconds
+            action: "start"
+            target: [3] # start the specific node within 150s after test case start.
+          - delay: 130 # seconds
+            action: "start"
+            target: [0, 5, 4] # start the specific node within 30s after test case start.
+      input:
+        startAt: 130  # start the TX issuing from 180th seconds.
+        duration: 200 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-20: Bootstrap from scratch with 2 nodes crashed and 2 nodes recover later during the bootstrap."
+      re-deploy: true
+      condition:
+        crashNodes: [0, 1] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
+          - delay: 60 # seconds
+            action: "start"
+            target: [0, 1, 2] # start the specific node within 30s after test case start.
+          - delay: 90 # seconds
+            action: "stop"
+            target: [0, 1] # start the specific node within 120s after test case start.
+          - delay: 120 # seconds
+            action: "start"
+            target: [3, 0, 5] # start the specific node within 150s after test case start.
+          - delay: 150 # seconds
+            action: "start"
+            target: [4, 1] # start the specific node within 210s after test case start. action: "start"
+      input:
+        startAt: 150  # start the TX issuing from 180th seconds.
+        duration:  120 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-21: Bootstrap from scratch with 3 node crashed and 1 node recover later during the bootstrap. Consensus should not no-hold."
+      re-deploy: true
+      condition:
+        crashNodes: [0, 1, 2] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
+          - delay: 30 # seconds
+            action: "start"
+            target: [0, 1, 2, 3, 5, 4] # start the specific node within 30s after test case start.
+          - delay: 60 # seconds
+            action: "stop"
+            target: [0, 1, 2] # start the specific node within 90s after test case start.
+          - delay: 120 # seconds
+            action: "start"
+            target: [2] # start the specific node within 120s after test case start.
+      input:
+        startAt: 120 # start the TX issuing from 180th seconds.
+        duration: 90 # num of seconds the transaction sending duration.
+        senderNode: 5  # node coin_base address will be used as default sender address.
+        receiverNode: 4  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-22: Bootstrap from scratch, start n1 to n4 for mining, shutdown all then to start n3,n4,n5,n6. Overlapped n3, n4 like: <<n1, n2, {{n3, n4>> , n5, n6}}"
+      re-deploy: true
+      condition:
+        crashNodes: [0, 1, 2, 3] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
+          - delay: 30 # seconds
+            action: "start"
+            target: [0, 1, 2, 3] # start the specific nodes within 30s after test case start.
+          - delay: 150 # seconds
+            action: "stop"
+            target: [0, 1, 2, 3] # start the specific node within 90s after test case start.
+          - delay: 180 # seconds
+            action: "start"
+            target: [2, 3, 5, 4] # start the specific node within 120s after test case start.
+      input:
+        startAt: 200  # start the TX issuing from 180th seconds.
+        duration: 120 # num of seconds the transaction sending duration.
+        senderNode: 4  # node coin_base address will be used as default sender address.
+        receiverNode: 5  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-23: 6 nodes in star network topology, restart the central node, should not on-hold."
+      condition:
+        crashNodes: [0] # contain the nodes which leave the main party.
+        scenario:
+          - delay: 5 # on the 10th second, disconnect peers.
+            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[4,3], [4, 5], [4,2], [4,1], [5, 1], [5, 2], [5,3], [3, 1], [3,2], [2, 1]]
+          - delay: 30 # on the 30th second, stop central node.
+            action: "stop" # it apply p2p connection by managing ip-tables in linux kernel.
+            target: [0]
+          - delay: 40 # on the 150th second, start central node.
+            action: "start" # it apply p2p connection by managing ip-tables in linux kernel.
+            target: [0]
+      input:
+        duration: 180 # num of seconds the transaction sending duration.
+        senderNode: 1  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-24: 6 nodes in star network topology, restart the central node with 1s traffic control should not on-hold."
+      condition:
+        crashNodes: [0] # contain the nodes which leave the main party.
+        scenario:
+          - delay: 5 # on the 10th second, disconnect peers.
+            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[4,3], [4, 5], [4,2], [4,1], [5, 1], [5, 2], [5,3], [3, 1], [3,2], [2, 1]]
+          - delay: 30 # on the 30th second, stop central node.
+            action: "stop" # it apply p2p connection by managing ip-tables in linux kernel.
+            target: [0]
+          - delay: 40 # on the 150th second, start central node.
+            action: "start" # it apply p2p connection by managing ip-tables in linux kernel.
+            target: [0]
+          - delay: 60 # on the 60th second, apply traffic control to central node.
+            action: "delay" # apply network delay on ethernet interface for host, both up-link and down-link
+            target: [0]
+            latency:
+              - host: 0
+                uplink:  # out-coming message
+                  delay: 1000 # apply 1000ms delay to host's p-link
+                  lossRate: 1 # 1% loss rate of up-link package
+                  duplicateRate: 1 # 1% duplicate rate of up-link package
+                  reorderRate: 1 # 1% reorder rate of up-link.
+                  corruptRate: 1 # 1% corrupt rate of up-link.
+                downlink:  # in-coming message
+                  delay: 1000 # apply 1000ms delay to host's down-link
+                  lossRate: 1 # 1% loss rate of down-link package
+                  duplicateRate: 1 # 1% duplicate rate of down-link package
+                  reorderRate: 1 # 1% reorder rate of down-link.
+                  corruptRate: 1 # 1% corrupt rate of down-link.
+          - delay: 90 # on the 360h second, the step will be executed.
+            action: "un-delay" # recover the traffic delay applied for target nodes.
+            target: [0]
+      input:
+        duration: 180 # num of seconds the transaction sending duration.
+        senderNode: 1  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-25: N = 6, Q = 4, let only 4 validators running with one of them be applied with heavy traffic control."
+      condition:
+        crashNodes: [5, 4] # contain the nodes which leave the main party.
+        scenario:
+          - delay: 5
+            action: "stop"
+            target: [5, 4]
+          - delay: 45 # on the 45th second, apply traffic control to central node.
+            action: "delay" # apply network delay on ethernet interface for host, both up-link and down-link
+            target: [0]
+            latency:
+              - host: 0
+                uplink:  # out-coming message
+                  delay: 1000 # apply 1000ms delay to host's p-link
+                  lossRate: 1 # 1% loss rate of up-link package
+                  duplicateRate: 1 # 1% duplicate rate of up-link package
+                  reorderRate: 1 # 1% reorder rate of up-link.
+                  corruptRate: 1 # 1% corrupt rate of up-link.
+                downlink:  # in-coming message
+                  delay: 1000 # apply 1000ms delay to host's down-link
+                  lossRate: 1 # 1% loss rate of down-link package
+                  duplicateRate: 1 # 1% duplicate rate of down-link package
+                  reorderRate: 1 # 1% reorder rate of down-link.
+                  corruptRate: 1 # 1% corrupt rate of down-link.
+          - delay: 90 # on the 360h second, the step will be executed.
+            action: "un-delay" # recover the traffic delay applied for target nodes.
+            target: [0]
+      input:
+        duration: 180 # num of seconds the transaction sending duration.
+        senderNode: 1  # node coin_base address will be used as default sender address.
+        receiverNode: 3  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-28: Network partition. 6 break into 3 and 3, then the two slices connected by bridge, engine recovers too."
+      condition:
+        crashNodes: [] # contain the node IP alilas name we want to crash.
+        scenario:
+          - delay: 5 # on the 10th second, disconnect peers.
+            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2]]
+          - delay: 90 # on the 90th second, connect peers.
+            action: "connect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[4, 0]]
+      input:
+        duration: 200 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-29: Network partition. 6 break to 3 full mesh plus 1 node, and 2 nodes of bus line, recover with 3 nodes of full mesh plus a 3 nodes of bus line."
+      condition:
+        crashNodes: [] # contain the node IP alilas name we want to crash.
+        scenario:
+          # 6 break to 3 + 3 in full mesh, then break one of the 3 into 1 + 2.
+          - delay: 2 # on the 10th second, disconnect peers.
+            action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2], [0, 1], [0, 2]]
+          # 3 + 1 alone, producing blocks.
+          - delay: 25 # on the 25th second, connect peers. 3 + 1, start producing block.
+            action: "connect" # it apply p2p disconnection by managing ip-tables in linux kernel.
+            peers: [[4, 0]]
+          # break the alone node from 3 full mesh,
+          - delay: 65 # on the 65th second, disconnect peers, on-hold.
+            action: "disconnect" # turn to 3 + 1 + 2
+            peers: [[4, 0]]
+          # connect the left node in bus line 65.198-----79.95-----85.250
+          - delay: 125 # on the 125th second, turn to 6 with 3 node in full mesh + 3 node in bus line.
+            action: "connect" # it apply p2p connection by managing ip-tables in linux kernel.
+            peers: [[0, 1], [4, 0]]
+      input:
+        duration: 300 # num of seconds the transaction sending duration.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+```

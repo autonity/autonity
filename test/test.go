@@ -39,7 +39,6 @@ var (
 		HTTPHost: "0.0.0.0",
 		WSHost:   "0.0.0.0",
 	}
-	genesis *core.Genesis = &core.Genesis{}
 
 	baseEthConfig = &eth.Config{
 		SyncMode:        downloader.FullSync,
@@ -78,6 +77,10 @@ func Users(count int, formatString string, startingPort int) ([]*gengen.User, er
 // *node.Node is embedded so that its api is available through Node.
 type Node struct {
 	*node.Node
+	Config       *node.Config
+	noderef      *node.Node // For cleanup
+	Eth          *eth.Ethereum
+	EthConfig    *eth.Config
 	WsClient     *ethclient.Client
 	Nonce        uint64
 	Key          *ecdsa.PrivateKey
@@ -123,16 +126,6 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, func(), error) {
 	// trace single node execution in the logs.
 	c.Logger = log.New("node", address.String()[2:7])
 
-	n, err := node.New(&c)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-	cleanup = func() {
-		os.RemoveAll(datadir)
-		n.Close()
-	}
-
 	// copy the base eth config
 	ec := *baseEthConfig
 	// Set the min gas price on the mining pool config, otherwise the miner
@@ -143,43 +136,53 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, func(), error) {
 	ec.NetworkId = genesis.Config.ChainID.Uint64()
 	ec.Tendermint = *genesis.Config.Tendermint
 
-	// Register an injector on the node to provide the ethereum service.
-	err = n.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		return eth.New(ctx, &ec, nil)
-	})
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-
-	// Now we need to initialise the db with the genesis
-	chaindb, err := n.OpenDatabase("chaindata", 0, 0, "")
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-	defer chaindb.Close()
-
-	_, _, err = core.SetupGenesisBlock(chaindb, genesis)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-
 	node := &Node{
-		Node:    n,
-		Key:     k,
-		Address: address,
+		Config:    &c,
+		EthConfig: &ec,
+		Key:       k,
+		Address:   address,
 	}
+
+	cleanup = func() {
+		os.RemoveAll(node.Config.DataDir)
+		if node.Node != nil {
+			node.Node.Close()
+		}
+	}
+
+	// err = node.Start()
+	// if err != nil {
+	// 	cleanup()
+	// 	return nil, nil, err
+	// }
+
 	return node, cleanup, nil
 }
 
+// This creates the node.Node and eth.Ethereum and starts them.
 func (n *Node) Start() error {
-	err := n.Node.Start()
+	var err error
+	n.Node, err = node.New(n.Config)
 	if err != nil {
 		return err
 	}
-	n.WsClient, err = ethclient.Dial("ws://" + n.WSEndpoint())
+
+	// This registers the ethereum service on the n.Node, so that calling
+	// n.Node.Stop will also close the eth service.
+	n.Eth, err = eth.New(n.Node, n.EthConfig, nil)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = core.SetupGenesisBlock(n.Eth.ChainDb(), n.EthConfig.Genesis)
+	if err != nil {
+		return err
+	}
+	err = n.Node.Start()
+	if err != nil {
+		return err
+	}
+	n.WsClient, err = ethclient.Dial(n.WSEndpoint())
 	if err != nil {
 		return err
 	}

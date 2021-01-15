@@ -18,8 +18,12 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/log"
+	"github.com/davecgh/go-spew/spew"
 	"os"
 	"reflect"
 	"unicode"
@@ -28,6 +32,7 @@ import (
 
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/eth"
+	"github.com/clearmatics/autonity/internal/ethapi"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/params"
 	"github.com/naoina/toml"
@@ -130,19 +135,96 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 	return stack, cfg
 }
 
-func makeFullNode(ctx *cli.Context) *node.Node {
+// loadGenesisFile will load and validate the given JSON format genesis file.
+func loadGenesisFile(genesisPath string) (*core.Genesis, error) {
+	file, err := os.Open(genesisPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	genesis := new(core.Genesis)
+	if err := json.NewDecoder(file).Decode(genesis); err != nil {
+		return nil, err
+	}
+	// Make AutonityContract and Tendermint consensus mandatory for the time being.
+	if genesis.Config == nil {
+		return nil, fmt.Errorf("no Autonity Contract and Tendermint configs section in genesis")
+	}
+	if genesis.Config.AutonityContractConfig == nil {
+		return nil, fmt.Errorf("no Autonity Contract config section in genesis")
+	}
+	if genesis.Config.Tendermint == nil {
+		return nil, fmt.Errorf("no Tendermint config section in genesis")
+	}
+
+	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
+		spew.Dump(genesis.Config.AutonityContractConfig)
+		return nil, err
+	}
+
+	if genesis.Config.Tendermint.BlockPeriod == 0 {
+		return nil, fmt.Errorf("invalid block period configured for tendermint")
+	}
+
+	return genesis, nil
+}
+
+// applyGenesis attempts to apply the given genesis to the node database, the
+// first time this is run for a node it initializes the genesis block in the
+// database.
+func applyGenesis(genesis *core.Genesis, node *node.Node) error {
+	for _, name := range []string{"chaindata", "lightchaindata"} {
+		chaindb, err := node.OpenDatabase(name, 0, 0, "")
+		if err != nil {
+			return fmt.Errorf("failed to open database: %v", err)
+		}
+		defer chaindb.Close()
+		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
+		if err != nil {
+			return fmt.Errorf("failed to write genesis block: %v", err)
+		}
+		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
+	}
+	return nil
+}
+
+// If genesis flag is not set, node will load chain-data from data-dir. If the flat is set, node will load the
+// genesis file, check if genesis file is match with genesis block, and check if chain configuration of the genesis
+// file is compatible with current chain-data, apply new compatible chain configuration into chain db.
+// Otherwise client will end up with a mis-match genesis error or an incompatible chain configuration error.
+func initGenesisBlockOnStart(ctx *cli.Context, stack *node.Node) {
+	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
+	if genesisPath != "" {
+		log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
+		genesis, err := loadGenesisFile(genesisPath)
+		if err != nil {
+			utils.Fatalf("failed to validate genesis file: %v", err)
+		}
+		err = applyGenesis(genesis, stack)
+		if err != nil {
+			utils.Fatalf("failed to apply genesis file: %v", err)
+		}
+	}
+}
+
+func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	stack, cfg := makeConfigNode(ctx)
-	utils.RegisterEthService(stack, &cfg.Eth)
+
+	// Combine init genesis on node start up.
+	initGenesisBlockOnStart(ctx, stack)
+
+	backend := utils.RegisterEthService(stack, &cfg.Eth)
 
 	// Configure GraphQL if requested
 	if ctx.GlobalIsSet(utils.GraphQLEnabledFlag.Name) {
-		utils.RegisterGraphQLService(stack, cfg.Node.GraphQLEndpoint(), cfg.Node.GraphQLCors, cfg.Node.GraphQLVirtualHosts, cfg.Node.HTTPTimeouts)
+		utils.RegisterGraphQLService(stack, backend, cfg.Node)
 	}
 	// Add the Ethereum Stats daemon if requested.
 	if cfg.Ethstats.URL != "" {
-		utils.RegisterEthStatsService(stack, cfg.Ethstats.URL)
+		utils.RegisterEthStatsService(stack, backend, cfg.Ethstats.URL)
 	}
-	return stack
+	return stack, backend
 }
 
 // dumpConfig is the dumpconfig command.

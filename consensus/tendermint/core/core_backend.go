@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/contracts/autonity"
 	ethcore "github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
@@ -30,6 +30,8 @@ type Backend interface {
 
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(ctx context.Context, committee types.Committee, payload []byte)
+
+	KnownMsgHash() []common.Hash
 
 	HandleUnhandledMsgs(ctx context.Context)
 
@@ -58,10 +60,15 @@ type Backend interface {
 
 	//Used to set the blockchain on this
 	SetBlockchain(bc *ethcore.BlockChain)
+
+	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
+	// It is called by core when some unprocessed messages are removed from the untrusted backlog buffer.
+	RemoveMessageFromLocalCache(payload []byte)
 }
 
 type Tendermint interface {
 	Start(ctx context.Context, contract *autonity.Contract)
 	Stop()
 	GetCurrentHeightMessages() []*Message
+	CoreState() TendermintState
 }

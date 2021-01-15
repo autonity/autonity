@@ -40,7 +40,8 @@ import (
 )
 
 var (
-	passwordRegexp = regexp.MustCompile(`personal.[nus]`)
+	// u: unlock, s: signXX, sendXX, n: newAccount, i: importXX
+	passwordRegexp = regexp.MustCompile(`personal.[nusi]`)
 	onlyWhitespace = regexp.MustCompile(`^\s*$`)
 	exit           = regexp.MustCompile(`^\s*exit\s*;*\s*$`)
 )
@@ -314,7 +315,8 @@ func (c *Console) AutoCompleteInput(line string, pos int) (string, []string, str
 // Welcome show summary of current Autonity instance and some metadata about the
 // console's available modules.
 func (c *Console) Welcome() {
-	message := "Welcome to the Autonity JavaScript console!\n\n"
+	message := "The embedded Autonity Console is no longer supported, use it a your own risk.\n" +
+		"Consider the Autonity Node.js Console as replacement.\n\n"
 
 	// Print some generic Geth metadata
 	if res, err := c.jsre.Run(`

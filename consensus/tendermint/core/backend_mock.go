@@ -6,8 +6,8 @@ package core
 
 import (
 	context "context"
+	autonity "github.com/clearmatics/autonity/autonity"
 	common "github.com/clearmatics/autonity/common"
-	autonity "github.com/clearmatics/autonity/contracts/autonity"
 	ethcore "github.com/clearmatics/autonity/core"
 	types "github.com/clearmatics/autonity/core/types"
 	event "github.com/clearmatics/autonity/event"
@@ -120,6 +120,34 @@ func (m *MockBackend) GetContractABI() string {
 func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
+}
+
+// KnownMsgHash mocks base method
+func (m *MockBackend) KnownMsgHash() []common.Hash {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KnownMsgHash")
+	ret0, _ := ret[0].([]common.Hash)
+	return ret0
+}
+
+// KnownMsgHash indicates an expected call of KnownMsgHash
+func (mr *MockBackendMockRecorder) KnownMsgHash() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KnownMsgHash", reflect.TypeOf((*MockBackend)(nil).KnownMsgHash))
+}
+
+// CoreState mocks base method
+func (m *MockTendermint) CoreState() TendermintState {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CoreState")
+	ret0, _ := ret[0].(TendermintState)
+	return ret0
+}
+
+// CoreState indicates an expected call of CoreState
+func (mr *MockTendermintMockRecorder) CoreState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CoreState", reflect.TypeOf((*MockTendermint)(nil).CoreState))
 }
 
 // Gossip mocks base method
@@ -283,6 +311,18 @@ func (m *MockBackend) SetBlockchain(bc *ethcore.BlockChain) {
 func (mr *MockBackendMockRecorder) SetBlockchain(bc interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBlockchain", reflect.TypeOf((*MockBackend)(nil).SetBlockchain), bc)
+}
+
+// RemoveMessageFromLocalCache mocks base method
+func (m *MockBackend) RemoveMessageFromLocalCache(payload []byte) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RemoveMessageFromLocalCache", payload)
+}
+
+// RemoveMessageFromLocalCache indicates an expected call of RemoveMessageFromLocalCache
+func (mr *MockBackendMockRecorder) RemoveMessageFromLocalCache(payload interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveMessageFromLocalCache", reflect.TypeOf((*MockBackend)(nil).RemoveMessageFromLocalCache), payload)
 }
 
 // MockTendermint is a mock of Tendermint interface

@@ -109,7 +109,8 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 	if confOverride != nil {
 		confOverride(ethConf)
 	}
-	if err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { return eth.New(ctx, ethConf, nil) }); err != nil {
+	ethBackend, err := eth.New(stack, ethConf, nil)
+	if err != nil {
 		t.Fatalf("failed to register Ethereum protocol: %v", err)
 	}
 	// Start the node and assemble the JavaScript console around it
@@ -135,13 +136,10 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 		t.Fatalf("failed to create JavaScript console: %v", err)
 	}
 	// Create the final tester and return
-	var ethereum *eth.Ethereum
-	stack.Service(&ethereum)
-
 	return &tester{
 		workspace: workspace,
 		stack:     stack,
-		ethereum:  ethereum,
+		ethereum:  ethBackend,
 		console:   console,
 		input:     prompter,
 		output:    printer,
@@ -169,7 +167,7 @@ func TestWelcome(t *testing.T) {
 	tester.console.Welcome()
 
 	output := tester.output.String()
-	if want := "Welcome"; !strings.Contains(output, want) {
+	if want := "Console"; !strings.Contains(output, want) {
 		t.Fatalf("console output missing welcome message: have\n%s\nwant also %s", output, want)
 	}
 	if want := fmt.Sprintf("instance: %s", testInstance); !strings.Contains(output, want) {
