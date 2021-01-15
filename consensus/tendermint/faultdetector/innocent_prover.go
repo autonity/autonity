@@ -7,25 +7,36 @@ type InnocentProver struct {
 	txSender TXSender
 }
 
+type Suspicion struct {
+	Rule Rule
+	Message message
+	Proof [][]byte
+}
+
 type InnocentProof struct {
 	Rule Rule
 	Message message
-	RawMessages [][]byte // use raw msg payload as proofs to be verified on precompile contract
+	RawMessages [][]byte
 }
 
-func (p *InnocentProver) proveInnocent(suspicion Proof) (innocentProof *InnocentProof, err error) {
+func (p *InnocentProver) resolveChallenge(suspicion *Suspicion) (innocentProof *InnocentProof, err error) {
 	// todo: get innocent proof from msg store. Would need to distinguish the different rules.
 	return nil, nil
 }
 
+// Check the on-chain proof of innocent.
+func (p *InnocentProver) CheckProof(proof *InnocentProof) bool {
+	return true
+}
+
 // prepare innocent proof for node's challenge, and send proof via transaction.
-func (p *InnocentProver) ResolveSuspicion(suspicion Proof) error {
+func (p *InnocentProver) TakeChallenge(suspicion *Suspicion) error {
 	if suspicion.Message.Sender() != p.node {
 		return nil
 	}
 
 	// the suspicion to current node, try to resolve it.
-	proof, err := p.proveInnocent(suspicion)
+	proof, err := p.resolveChallenge(suspicion)
 	if err != nil {
 		return err
 	}
