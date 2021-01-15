@@ -11,6 +11,21 @@ contract Autonity is IERC20 {
     using SafeMath for uint256;
 
     enum UserType { Participant, Stakeholder, Validator}
+
+    struct Suspect {
+        int rule;          // The rule which is suspected to be broke.
+        uint length;       // The byte length for message to be decoded for precompiled contract.
+        bytes message;     // The raw message which broke the rule
+        uint[] lengths;    // The byte length for each msg stored at the proof for decoding in precompiled contract.
+        bytes[] proofs;    // The raw messages to proof that the rule is broken by message.
+    }
+
+    struct Proof {
+        int rule;
+        uint[] lengths;
+        bytes[] proofs;
+    }
+
     struct User {
         address payable addr;
         UserType userType;
