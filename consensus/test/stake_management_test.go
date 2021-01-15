@@ -32,8 +32,8 @@ func TestStakeManagement(t *testing.T) {
 
 	initHeight := uint64(0)
 	startHeight := uint64(1)
-	// mintStake := new(big.Int).SetUint64(50)
-	redeemStake := new(big.Int).SetUint64(50)
+	mintStake := new(big.Int).SetUint64(50)
+	redeemStake := new(big.Int).SetUint64(100)
 	sendStake := new(big.Int).SetUint64(2)
 	// prepare chain operator
 	operatorKey, err := crypto.GenerateKey()
@@ -52,12 +52,12 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	// mint stake hook
-	// mintStakeHook := func(validator *testNode, address common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-	// 	if validator.lastBlock == startHeight {
-	// 		return true, nil, interact(validator.rpcPort).tx(operatorKey).mintStake(address, mintStake)
-	// 	}
-	// 	return false, nil, nil
-	// }
+	mintStakeHook := func(validator *testNode, address common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
+		if validator.lastBlock == startHeight {
+			return true, nil, interact(validator.rpcPort).tx(operatorKey).mintStake(address, mintStake)
+		}
+		return false, nil, nil
+	}
 
 	stakeChecker := func(t *testing.T, validators map[string]*testNode, stake *big.Int) {
 		address := crypto.PubkeyToAddress(validators["VA"].privateKey.PublicKey)
@@ -83,16 +83,11 @@ func TestStakeManagement(t *testing.T) {
 	}
 
 	// mint stake checker hook
-	// mintStakeCheckerHook := func(t *testing.T, validators map[string]*testNode) {
-	// 	stakeChecker(t, validators, mintStake)
-	// }
+	mintStakeCheckerHook := func(t *testing.T, validators map[string]*testNode) {
+		stakeChecker(t, validators, mintStake)
+	}
 
 	redeemStakeHook := func(validator *testNode, address common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		val, err := interact(validator.rpcPort).call(validator.lastBlock).getAccountStake(address)
-		if err != nil {
-			return false, nil, err
-		}
-		println("current stake", val.Uint64(), validator.lastBlock)
 		if validator.lastBlock == startHeight {
 			return true, nil, interact(validator.rpcPort).tx(operatorKey).redeemStake(address, redeemStake)
 		}
@@ -153,17 +148,17 @@ func TestStakeManagement(t *testing.T) {
 	// numBlocks are used to stop the test on current test framework, to let stake management TX to be mined before the test end,
 	// bigger numBlocks in below test cases are set.
 	testCases := []*testCase{
-		// {
-		// 	name:          "stake management test mint stake",
-		// 	numValidators: 6,
-		// 	numBlocks:     20,
-		// 	txPerPeer:     1,
-		// 	sendTransactionHooks: map[string]sendTransactionHook{
-		// 		"VA": mintStakeHook,
-		// 	},
-		// 	genesisHook: genesisHook,
-		// 	finalAssert: mintStakeCheckerHook,
-		// },
+		{
+			name:          "stake management test mint stake",
+			numValidators: 6,
+			numBlocks:     20,
+			txPerPeer:     1,
+			sendTransactionHooks: map[string]sendTransactionHook{
+				"VA": mintStakeHook,
+			},
+			genesisHook: genesisHook,
+			finalAssert: mintStakeCheckerHook,
+		},
 		{
 			name:          "stake management test redeem stake",
 			numValidators: 6,
