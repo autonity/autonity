@@ -272,6 +272,7 @@ func TrackTransactions(client *ethclient.Client) (*TransactionTracker, error) {
 }
 
 func (tr *TransactionTracker) AwaitTransactions(ctx context.Context, hashes []common.Hash) (processed []common.Hash, err error) {
+	println("awaiting", len(hashes), "transactions")
 	hashmap := make(map[common.Hash]struct{}, len(hashes))
 	for i := range hashes {
 		hashmap[hashes[i]] = struct{}{}

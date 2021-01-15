@@ -143,6 +143,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	_, err = tr.AwaitTransactions(context.Background(), []common.Hash{n.SentTxs[len(n.SentTxs)-1]})
 	require.NoError(t, err)
 	println("previously unmined tx now mined")
+	n.SentTxs = n.SentTxs[:len(n.SentTxs)-1]
 
 	// Send a tx to see that the network is working
 	err = n.SendETracked(context.Background(), network[1].Address, 10)
