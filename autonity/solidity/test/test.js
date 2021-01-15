@@ -444,7 +444,7 @@ contract('Autonity', function (accounts) {
                 committeeValidators.push(committeeResult[i][0])
             }
 
-            assert.deepEqual(committeeValidators.slice().sort(), validators.slice().sort(), "Committee should be equal than validator set");
+            assert.deepEqual(committeeValidators.sort(), validators.slice().sort(), "Committee should be equal than validator set");
 
         });
 
@@ -470,7 +470,7 @@ contract('Autonity', function (accounts) {
                 committeeValidators.push(committeeResult[i][0])
             }
 
-            assert.deepEqual(committeeValidators.slice().sort(), validators.slice().sort(), "Committee should be equal than validator set");
+            assert.deepEqual(committeeValidators.sort(), validators.slice().sort(), "Committee should be equal than validator set");
 
         });
 
@@ -500,7 +500,7 @@ contract('Autonity', function (accounts) {
                 while(indexesToBeRemoved.length) {
                     validators.splice(indexesToBeRemoved.pop(), 1);
                 }
-                assert.deepEqual(committeeValidators.slice().sort(), validators.slice().sort(), "Error while creating new committee");
+                assert.deepEqual(committeeValidators.sort(), validators.slice().sort(), "Error while creating new committee");
             }catch (e) {
 
             }
