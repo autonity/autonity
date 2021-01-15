@@ -18,7 +18,6 @@
 package consensus
 
 import (
-	"context"
 	"math/big"
 
 	"github.com/clearmatics/autonity/p2p"
@@ -154,5 +153,5 @@ type BFT interface {
 	Handler
 
 	// Start starts the engine
-	Start(ctx context.Context) error
+	Start() error
 }
