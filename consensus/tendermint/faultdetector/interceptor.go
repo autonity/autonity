@@ -16,8 +16,8 @@ const (
 
 type Proof struct {
 	Rule     Rule
-	Evidence []message
 	Message  message
+	Evidence []message
 }
 
 type Accusation struct {
