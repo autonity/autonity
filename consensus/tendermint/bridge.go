@@ -470,7 +470,7 @@ func (b *Bridge) Start() error {
 
 func (b *Bridge) Close() error {
 	b.mutex.Lock()
-	b.mutex.Unlock()
+	defer b.mutex.Unlock()
 	if !b.started {
 		return errors.New("bridge closed twice")
 	}
