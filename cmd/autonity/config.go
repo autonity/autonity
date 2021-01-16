@@ -21,12 +21,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/log"
-	"github.com/davecgh/go-spew/spew"
 	"os"
 	"reflect"
 	"unicode"
+
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/log"
+	"github.com/davecgh/go-spew/spew"
 
 	cli "gopkg.in/urfave/cli.v1"
 
@@ -161,10 +162,6 @@ func loadGenesisFile(genesisPath string) (*core.Genesis, error) {
 	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
 		spew.Dump(genesis.Config.AutonityContractConfig)
 		return nil, err
-	}
-
-	if genesis.Config.Tendermint.BlockPeriod == 0 {
-		return nil, fmt.Errorf("invalid block period configured for tendermint")
 	}
 
 	return genesis, nil
