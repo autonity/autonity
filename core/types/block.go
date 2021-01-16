@@ -157,7 +157,7 @@ type headerExtra struct {
 
 // headerMarshaling is used by gencodec (which can be invoked bu running go
 // generate in this package) and defines marshalling types for fields that
-// would not marshal correctly to hex of thier own accord. When modifying the
+// would not marshal correctly to hex of their own accord. When modifying the
 // structure of Header, this will likely need to be updated before running go
 // generate to regenerate the json marshalling code.
 type headerMarshaling struct {

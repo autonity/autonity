@@ -1132,12 +1132,12 @@ func FormatLogs(logs []vm.StructLog) []StructLogRes {
 func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 	data, err := head.MarshalJSON()
 	if err != nil {
-		panic(fmt.Errorf("Failed to marshal header: %v", err))
+		panic(fmt.Errorf("failed to marshal header: %v", err))
 	}
 	result := make(map[string]interface{})
 	err = json.Unmarshal(data, &result)
 	if err != nil {
-		panic(fmt.Errorf("Failed to marshal header: %v", err))
+		panic(fmt.Errorf("failed to marshal header: %v", err))
 	}
 	return result
 }

@@ -78,7 +78,6 @@ func Users(count int, formatString string, startingPort int) ([]*gengen.User, er
 type Node struct {
 	*node.Node
 	Config       *node.Config
-	noderef      *node.Node // For cleanup
 	Eth          *eth.Ethereum
 	EthConfig    *eth.Config
 	WsClient     *ethclient.Client
@@ -116,10 +115,6 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	cleanup := func() {
-		os.RemoveAll(datadir)
-	}
-
 	c.DataDir = datadir
 
 	// Give this logger context based on the node address so that we can easily
@@ -143,7 +138,7 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, func(), error) {
 		Address:   address,
 	}
 
-	cleanup = func() {
+	cleanup := func() {
 		os.RemoveAll(node.Config.DataDir)
 		if node.Node != nil {
 			node.Node.Close()

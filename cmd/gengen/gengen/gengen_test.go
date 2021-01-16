@@ -227,6 +227,7 @@ func TestKeyRandomGeneration(t *testing.T) {
 	require.True(t, ok, "expecting key of type *ecdsa.PrivateKey")
 
 	u, err = ParseUser(user)
+	require.NoError(t, err)
 	key2, ok := u.Key.(*ecdsa.PrivateKey)
 	require.True(t, ok, "expecting key of type *ecdsa.PrivateKey")
 
@@ -251,11 +252,11 @@ func TestKeysLoadedFromFile(t *testing.T) {
 	require.NoError(t, err)
 
 	// Store private key in key1File
-	err = ioutil.WriteFile(keyFile1, []byte(crypto.PrivECDSAToHex(key1)), os.ModePerm)
+	err = ioutil.WriteFile(keyFile1, crypto.PrivECDSAToHex(key1), os.ModePerm)
 	require.NoError(t, err)
 
 	// Store public key in key2File
-	err = ioutil.WriteFile(keyFile2, []byte(crypto.PubECDSAToHex(&key2.PublicKey)), os.ModePerm)
+	err = ioutil.WriteFile(keyFile2, crypto.PubECDSAToHex(&key2.PublicKey), os.ModePerm)
 	require.NoError(t, err)
 
 	// Check private key loaded from file
@@ -267,6 +268,7 @@ func TestKeysLoadedFromFile(t *testing.T) {
 	// Check public key loaded from file
 	user = "1e12,v,1,:6789," + keyFile2
 	u, err = ParseUser(user)
+	assert.NoError(t, err)
 	assert.Equal(t, &key2.PublicKey, u.Key)
 }
 

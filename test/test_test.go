@@ -16,15 +16,14 @@ func TestStuff(t *testing.T) {
 	require.NoError(t, err)
 	g, err := Genesis(users)
 	require.NoError(t, err)
-	var network []*Node
-	for _, u := range users {
+	network := make([]*Node, len(users))
+	for i, u := range users {
 		n, cleanup, err := NewNode(u, g)
 		defer cleanup()
 		require.NoError(t, err)
 		err = n.Start()
 		require.NoError(t, err)
-
-		network = append(network, n)
+		network[i] = n
 	}
 
 	for _, n := range network {
@@ -59,15 +58,14 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 	g, err := Genesis(users)
 	require.NoError(t, err)
-	var network []*Node
-	for _, u := range users {
+	network := make([]*Node, len(users))
+	for i, u := range users {
 		n, cleanup, err := NewNode(u, g)
 		defer cleanup()
 		require.NoError(t, err)
 		err = n.Start()
 		require.NoError(t, err)
-
-		network = append(network, n)
+		network[i] = n
 	}
 
 	for _, n := range network {

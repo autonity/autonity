@@ -231,13 +231,13 @@ func writeGenesis(path string, genesis *core.Genesis) error {
 }
 
 func parseUsers(users []string) ([]*User, error) {
-	var parsed []*User
-	for _, u := range users {
+	parsed := make([]*User, len(users))
+	for i, u := range users {
 		p, err := ParseUser(u)
 		if err != nil {
 			return nil, err
 		}
-		parsed = append(parsed, p)
+		parsed[i] = p
 	}
 	return parsed, nil
 }
