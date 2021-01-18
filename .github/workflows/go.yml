@@ -80,7 +80,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v1
         with:
-          go-version: 1.13
+          go-version: 1.15
 
       - uses: actions/checkout@v2
 
@@ -197,7 +197,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v1
         with:
-          go-version: 1.13
+          go-version: 1.15
         id: go
 
       - uses: actions/checkout@v2
