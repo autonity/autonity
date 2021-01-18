@@ -70,7 +70,7 @@ jobs:
         id: cache-autonity-code
         with:
           path: rpc
-          key: Linux-autonity-code-86c16b53b9622f57cebcf27e480ad6e9e9b24a44
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - name: show parent
         run: find /home/runner/work/autonity
