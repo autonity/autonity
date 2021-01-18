@@ -49,7 +49,8 @@ build-docker-image:
 	@$(DOCKER_SUDO) docker run --rm autonity -h > /dev/null
 
 autonity: embed-autonity-contract
-	 go run build/ci.go install ./cmd/autonity
+	mkdir -p $(BINDIR)
+	go build ./cmd/autonity -o $(BINDIR)/autonity
 	@echo "Done building."
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
