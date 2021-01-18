@@ -73,6 +73,8 @@ contract Autonity is IERC20 {
     event MintedStake(address _address, uint256 _amount);
     event BurnedStake(address _address, uint256 _amount);
     event Rewarded(address _address, uint256 _amount);
+    event ChallengeAdded(Accountability.Proof proof);
+    event ChallengeRemoved(Accountability.Proof proof);
 
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
@@ -139,6 +141,28 @@ contract Autonity is IERC20 {
     */
     function symbol() external pure returns (string memory) {
         return "NEW";
+    }
+
+    /**
+    * @notice Create an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
+    */
+    function addChallenge(Accountability.Proof memory challenge) public onlyProtocol(msg.sender) {
+        // todo: check challenge is already presented.
+        // todo: call precompiled contract if challenge is valid.
+        // todo: save challenge if it is valid.
+
+        emit ChallengeAdded(challenge);
+    }
+
+    /**
+    * @notice Resolve an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
+    */
+    function resolveChallenge(Accountability.Proof memory proof) public onlyProtocol(msg.sender) {
+        // todo: check challenge is presented.
+        // todo: call precompiled contract if the proof of innocent is valid.
+        // todo: remove challenge from contract if the proof of innocent is valid.
+
+        emit ChallengeRemoved(proof);
     }
 
     /**
