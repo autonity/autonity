@@ -47,6 +47,15 @@ jobs:
           path: ${{ env.GO_CACHE }}
           key: ${{ runner.os }}-autonity-go-cache-${{ hashFiles('go.mod', 'go.sum') }}
 
+      - name: show parent
+        run: find /home/runner/work/autonity
+
+      - name: pwd
+        run: pwd
+
+      - name: show
+        run: find .
+
       - name: Build
         #if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make autonity
