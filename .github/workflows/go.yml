@@ -13,7 +13,7 @@ env:
   GO_MODULES_CACHE: /home/runner/go/pkg
 
 jobs:
-  bootstrap:
+  prepare-cache:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v1
@@ -45,7 +45,7 @@ jobs:
           go test -c ./eth
 
   tests:
-    needs: bootstrap
+    needs: prepare-cache
     runs-on: ubuntu-latest
     env:
       # helps prevent '[failed to restore the stack]' messages when race detected.
@@ -56,10 +56,10 @@ jobs:
         # negative grep to get most of the test packages for the main tests
         # excluding packages of particular interest. The excluded package are
         # those that are slow to test, our e2e tests and tendermint core.
-        tests: [[Main tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test")],
-                [Slow tests, ./les/... ./p2p/... ./eth/...],
-                [Tendermint core tests, ./consensus/tendermint/... -timeout 5m -race],
-                [E2E tests, ./consensus/test/... -v]]
+        tests: [[main, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test")],
+                [slow, ./les/... ./p2p/... ./eth/...],
+                [tendermint, ./consensus/tendermint/... -timeout 5m -race],
+                [e2e, ./consensus/test/... -v]]
 
     name: ${{ matrix.tests[0] }}
 
@@ -85,7 +85,7 @@ jobs:
         run: go test ${{ matrix.tests[1] }}
 
   tendermint-coverage:
-    needs: bootstrap
+    needs: prepare-cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v1
@@ -114,8 +114,8 @@ jobs:
           file: coverage_tendermint.out
           yml: codecov.yml
 
-  linters:
-    needs: bootstrap
+  lint:
+    needs: prepare-cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v1
@@ -141,9 +141,9 @@ jobs:
           make lint-ci
         shell: bash
 
-  contract_tests:
+  contract-tests:
     runs-on: ubuntu-latest
-    needs: bootstrap
+    needs: prepare-cache
     steps:
       - uses: actions/setup-node@v1
         with:
@@ -165,8 +165,8 @@ jobs:
       - name: test contract
         run: make test-contracts
 
-  docker_e2e_test:
-    needs: bootstrap
+  docker-e2e-test:
+    needs: prepare-cache
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/develop'
     steps:
@@ -195,7 +195,7 @@ jobs:
   # docker image can be built since the hello-world example uses it.  We don't want to
   # use any cache here since we want a clean checkout before any code
   # generation has taken place.
-  helloworld_tests:
+  helloworld-tests:
     runs-on: ubuntu-latest
     defaults:
       run:
