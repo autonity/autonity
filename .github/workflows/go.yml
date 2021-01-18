@@ -10,7 +10,7 @@ env:
   # purpose of defining them here.
   GO_CACHE: /home/runner/.cache/go-build
   GO_MODULES_CACHE: /home/runner/go/pkg
-  AUTONITY_REPO_ROOT: /home/runner/work/autonity/autonity/
+  AUTONITY_REPO_ROOT: /home/runner/work/autonity/autonity
 
 jobs:
   bootstrap:
