@@ -25,7 +25,7 @@ jobs:
         uses: actions/cache@v2
         id: cache-autonity-code
         with:
-          path: rpc
+          path: ./*
           key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
@@ -69,7 +69,7 @@ jobs:
         uses: actions/cache@v2
         id: cache-autonity-code
         with:
-          path: rpc
+          path: .
           key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - name: show parent
