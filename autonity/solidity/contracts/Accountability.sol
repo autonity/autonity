@@ -29,6 +29,9 @@ library Accountability {
         bytes messages;       // bytes array for all the msgs, the 1st slot is the one to be suspicious.
     }
 
+    // call precompiled contract to check if challenge is valid, for the node who is on the challenge
+    // need to issue a proof of innocent via transaction to get the challenge to be removed on a reasonable
+    // time window which is a system configuration.
     function takeChallenge(Proof memory challenge) internal view returns (uint[2] memory p) {
         // todo: assemble static structure and calculate the byte array to be copied into EVM context.
         StaticProof memory cProof;
@@ -44,6 +47,8 @@ library Accountability {
         return p;
     }
 
+    // call precompiled contract to check if proof of innocent is valid or not, the caller will remove
+    // the challenge if the proof is valid.
     function innocentCheck(Proof memory innocent) internal view returns (uint[2] memory p) {
         // todo: assemble static structure and calculate the byte array to be copied into EVM context.
         StaticProof memory iProof;
