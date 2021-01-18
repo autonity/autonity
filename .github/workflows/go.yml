@@ -51,6 +51,23 @@ jobs:
         #if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make autonity
 
+  ls-work-dir:
+    needs: bootstrap
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache code
+        uses: actions/cache@v2
+        id: cache-autonity-code
+        with:
+          path: ${{ env.AUTONITY_REPO_ROOT }}
+          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
+
+      - name: pwd
+        run: pwd
+
+      - name: show
+        run: find .
+
   tests:
     needs: bootstrap
     runs-on: ubuntu-latest
