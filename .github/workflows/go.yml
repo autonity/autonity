@@ -11,8 +11,6 @@ env:
   # purpose of defining them here.
   GO_CACHE: /home/runner/.cache/go-build
   GO_MODULES_CACHE: /home/runner/go/pkg
-  # This is relative to the workspace dir
-  GENERATED_AUTONITY_CONTRACT_DIR: common/acdefault/generated
 
 jobs:
   bootstrap:
@@ -27,25 +25,25 @@ jobs:
 
       - name: Build cache
         uses: actions/cache@v2
-        id: build-cache
+        id: autonity-go-cache
         with:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-            ${{ env.GENERATED_AUTONITY_CONTRACT_DIR }}
-          key: ${{ runner.os }}-build-cache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-cache-${{ hashFiles('go.mod', 'go.sum') }}
 
           # We want to make sure that we download all the modules and compile
           # everything that may be needed so that they fill the go modules
-          # cache and go-build dir. We also generate the autonity contract and
-          # cache that too.
+          # cache and go-build dir.
       - name: Fill cache
-        if:  steps.build-cache.outputs.cache-hit != 'true'
+        if:  steps.autonity-go-cache.outputs.cache-hit != 'true'
         run: |
           go mod download -x
           make embed-autonity-contract
           go build ./...
+          make autonity
           go test -c ./consensus/test
+          go test -c ./eth
 
   tests:
     needs: bootstrap
@@ -83,8 +81,7 @@ jobs:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-            ${{ env.GENERATED_AUTONITY_CONTRACT_DIR }}
-          key: ${{ runner.os }}-build-cache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-cache-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Run tests
         run: go test ${{ matrix.tests[1] }}
@@ -109,8 +106,7 @@ jobs:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-            ${{ env.GENERATED_AUTONITY_CONTRACT_DIR }}
-          key: ${{ runner.os }}-build-cache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-cache-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Run coverage
         run: go test ./consensus/tendermint/... -timeout 5m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
@@ -141,8 +137,7 @@ jobs:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-            ${{ env.GENERATED_AUTONITY_CONTRACT_DIR }}
-          key: ${{ runner.os }}-build-cache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-cache-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Linters
         run: |
@@ -167,8 +162,7 @@ jobs:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-            ${{ env.GENERATED_AUTONITY_CONTRACT_DIR }}
-          key: ${{ runner.os }}-build-cache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-cache-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
         run: make autonity
@@ -195,8 +189,7 @@ jobs:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-            ${{ env.GENERATED_AUTONITY_CONTRACT_DIR }}
-          key: ${{ runner.os }}-build-cache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-autonity-go-cache-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
         run: make all
