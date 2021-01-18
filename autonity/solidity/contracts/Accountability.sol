@@ -5,32 +5,38 @@ pragma solidity ^0.7.1;
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Accountability {
 
-    // use for contract I/O
-    struct Suspicion {
-
+    // a proof is used to prove a suspicious or an innocent behavior.
+    struct Proof {
+        // <rule, height, round, msgType, sender> form the identity for the on-chain management of proof.
+        uint rule;          // rule id of accountability patterns.
+        uint height;
+        uint round;
+        uint msgType;
+        address sender;
+        bytes message;      // raw bytes of the message to be proved.
+        bytes[][] evidence; // raw bytes of the messages as evidence of a behavior.
     }
 
     // use for bytes decoding in EVM when calls precompiled contract
-    struct StaticSuspicion {
-
-    }
-
-    struct Proof {
-
-    }
-
     struct StaticProof {
-
+        uint rule;
+        uint height;
+        uint round;
+        uint msgType;
+        address sender;
+        uint numOfMessages;   // save number of messages in the byte array.
+        uint[] lengthOfEach; // save number of bytes for each message.
+        bytes messages;       // bytes array for all the msgs, the 1st slot is the one to be suspicious.
     }
 
-    function takeChallenge(Suspicion memory suspicion) internal view returns (uint[2] memory p) {
+    function takeChallenge(Proof memory challenge) internal view returns (uint[2] memory p) {
         // todo: assemble static structure and calculate the byte array to be copied into EVM context.
-        StaticSuspicion memory suspicion = StaticSuspicion();
+        StaticProof memory cProof;
         uint len = 0;
 
         assembly {
         //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xfd, suspicion , len, p, 0x40)) {
+            if iszero(staticcall(gas(), 0xfd, cProof, len, p, 0x40)) {
                 revert(0, 0)
             }
         }
@@ -38,14 +44,14 @@ library Accountability {
         return p;
     }
 
-    function innocentCheck(StaticProof memory proof) internal view returns (uint[2] memory p) {
+    function innocentCheck(Proof memory innocent) internal view returns (uint[2] memory p) {
         // todo: assemble static structure and calculate the byte array to be copied into EVM context.
-        StaticProof memory sProof = StaticProof();
+        StaticProof memory iProof;
         uint len = 0;
 
         assembly {
         //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xfe, sProof , len, p, 0x40)) {
+            if iszero(staticcall(gas(), 0xfe, iProof, len, p, 0x40)) {
                 revert(0, 0)
             }
         }
