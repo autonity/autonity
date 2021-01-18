@@ -21,15 +21,8 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.15
-      - name: Cache code
-        uses: actions/cache@v2
-        id: cache-autonity-code
-        with:
-          path: ./**
-          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
 
       - name: Cache modules
         uses: actions/cache@v2
@@ -49,7 +42,6 @@ jobs:
           key: ${{ runner.os }}-autonity-go-cache-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make autonity
 
   tests:
@@ -76,18 +68,10 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.13
-      - name: Cache code
-        uses: actions/cache@v2
-        id: cache-autonity-code
-        with:
-          path: ./**
-          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
 
       - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
 
       - name: Cache modules
@@ -107,18 +91,10 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.15
-      - name: Cache code
-        uses: actions/cache@v2
-        id: cache-autonity-code
-        with:
-          path: ./**
-          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
 
       - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
 
       - name: Cache modules
@@ -145,18 +121,9 @@ jobs:
         with:
           go-version: 1.15
 
-      - name: Cache code
-        uses: actions/cache@v2
-        id: cache-autonity-code
-        with:
-          path: ./**
-          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
-
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
 
       - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make embed-autonity-contract
 
       - name: Cache modules
@@ -180,18 +147,9 @@ jobs:
         with:
           node-version: '10.19.0'
 
-      - name: Cache code
-        uses: actions/cache@v2
-        id: cache-autonity-code
-        with:
-          path: ./**
-          key: ${{ runner.os }}-autonity-code-${{ github.sha }}
-
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
 
       - name: Build
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make autonity
 
       - name: test contract
@@ -208,19 +166,10 @@ jobs:
           go-version: 1.13
         id: go
 
-      - name: Cache code
-        uses: actions/cache@v2
-        id: cache-autonity-code
-        with:
-          path: ./**
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
 
       - name: Build
         run: make all
-
 
       - name: docker_e2e_test
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests
