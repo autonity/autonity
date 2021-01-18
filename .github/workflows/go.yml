@@ -49,7 +49,7 @@ jobs:
           key: ${{ runner.os }}-autonity-go-cache-${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        #if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
+        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make autonity
 
   tests:
@@ -194,10 +194,6 @@ jobs:
         if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
         run: make autonity
 
-      - name: Build Autonity
-        if:  steps.cache-autonity-bin.outputs.cache-hit != 'true'
-        run: make autonity
-
       - name: test contract
         run: make test-contracts
 
@@ -214,17 +210,13 @@ jobs:
 
       - name: Cache code
         uses: actions/cache@v2
-        env:
-          cache-name: cache-autonity-code
+        id: cache-autonity-code
         with:
-          path: /home/runner/work/autonity/autonity/
+          path: ./**
           key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
 
       - uses: actions/checkout@v2
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-        with:
-          clean: 'false'
-
 
       - name: Build
         run: make all
