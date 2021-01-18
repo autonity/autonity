@@ -50,7 +50,7 @@ build-docker-image:
 
 autonity: embed-autonity-contract
 	mkdir -p $(BINDIR)
-	go build ./cmd/autonity -o $(BINDIR)/autonity
+	go build -o $(BINDIR)/autonity ./cmd/autonity
 	@echo "Done building."
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
