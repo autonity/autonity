@@ -12,21 +12,58 @@ library Accountability {
         uint height;
         uint round;
         uint msgType;
-        address sender;
+        address sender;     // the one who is sending a suspicious message.
+
         bytes message;      // raw bytes of the message to be proved.
         bytes[][] evidence; // raw bytes of the messages as evidence of a behavior.
     }
 
     // use for bytes decoding in EVM when calls precompiled contract
-    struct StaticProof {
-        uint rule;
-        uint height;
-        uint round;
-        uint msgType;
-        address sender;
-        uint numOfMessages;   // save number of messages in the byte array.
-        uint[] lengthOfEach; // save number of bytes for each message.
-        bytes messages;       // bytes array for all the msgs, the 1st slot is the one to be suspicious.
+    struct ParsableProof {
+        uint rule;            // 4 bytes
+        uint height;          // 4 bytes
+        uint round;           // 4 bytes
+        uint msgType;         // 4 bytes
+        address sender;       // 20 bytes
+        uint numOfMessages;   // 4 bytes, save number of messages in the byte array.
+
+        uint[] lengthOfEach;  // lengthOfEach.length * 4 bytes, save number of bytes for each message.
+        bytes[] messages;     // Sum(lengthOfEach[i]) bytes, array for all the msgs, the 1st slot is the one to be suspicious.
+    }
+
+    function toParsableProof(Proof memory proof) internal returns (ParsableProof memory, uint) {
+        ParsableProof memory p;
+        uint totalBytes;
+
+        p.rule = proof.rule;
+        totalBytes += 4;
+        p.height = proof.height;
+        totalBytes += 4;
+        p.round = proof.round;
+        totalBytes += 4;
+        p.msgType = proof.msgType;
+        totalBytes += 4;
+        p.sender = proof.sender;
+        totalBytes += 20;
+        p.numOfMessages = 1 + proof.evidence.length;
+        totalBytes += 4;
+
+        // copy the messages
+        uint msgBytes = 0;
+        for (uint256 i = 0; i < proof.evidence.length; i++) {
+            msgBytes += proof.evidence[i].length;
+            p.lengthOfEach[i] = proof.evidence[i].length;
+            p.messages.push(proof.evidence[i]); // solidity does not support this operation, try packing in client side with golang.
+        }
+
+        // save the msg which is suspicious into the last slot of message set for easier decoding.
+        p.lengthOfEach.push(proof.message.length);
+        p.messages.push(proof.message);
+        msgBytes += proof.message.length;
+
+        totalBytes += p.lengthOfEach.length * 4;
+        totalBytes +=  msgBytes;
+        return (p, totalBytes);
     }
 
     // call precompiled contract to check if challenge is valid, for the node who is on the challenge
@@ -34,8 +71,9 @@ library Accountability {
     // time window which is a system configuration.
     function takeChallenge(Proof memory challenge) internal view returns (uint[2] memory p) {
         // todo: assemble static structure and calculate the byte array to be copied into EVM context.
-        StaticProof memory cProof;
+        ParsableProof memory cProof;
         uint len = 0;
+        (cProof, len) = toParsableProof(challenge);
 
         assembly {
         //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
@@ -51,8 +89,9 @@ library Accountability {
     // the challenge if the proof is valid.
     function innocentCheck(Proof memory innocent) internal view returns (uint[2] memory p) {
         // todo: assemble static structure and calculate the byte array to be copied into EVM context.
-        StaticProof memory iProof;
+        ParsableProof memory iProof;
         uint len = 0;
+        (iProof, len) = toParsableProof(innocent);
 
         assembly {
         //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
