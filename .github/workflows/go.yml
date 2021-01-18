@@ -20,8 +20,9 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.15
+
       - name: Cache code
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         id: cache-autonity-code
         with:
           path: ${{ env.AUTONITY_REPO_ROOT }}
@@ -31,7 +32,7 @@ jobs:
         if: steps.cache-autonity-code.outputs.cache-hit != 'true'
 
       - name: Cache modules
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         id: cache-autonity-go-modules
         with:
           path: ${{ env.GO_MODULES_CACHE }}
@@ -42,7 +43,7 @@ jobs:
         run: go mod download -x
 
       - name: Go cache
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         with:
           path: ${{ env.GO_CACHE }}
           key: ${{ runner.os }}-autonity-go-cache-${{ hashFiles('go.mod', 'go.sum') }}
@@ -65,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cache code
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         id: cache-autonity-code
         with:
           path: ${{ env.AUTONITY_REPO_ROOT }}
@@ -105,7 +106,7 @@ jobs:
         with:
           go-version: 1.13
       - name: Cache code
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         id: cache-autonity-code
         with:
           path: ${{ env.AUTONITY_REPO_ROOT }}
@@ -119,7 +120,7 @@ jobs:
         run: make embed-autonity-contract
 
       - name: Cache modules
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         with:
           path: ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
@@ -136,7 +137,7 @@ jobs:
         with:
           go-version: 1.15
       - name: Cache code
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         id: cache-autonity-code
         with:
           path: ${{ env.AUTONITY_REPO_ROOT }}
@@ -150,7 +151,7 @@ jobs:
         run: make embed-autonity-contract
 
       - name: Cache modules
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         with:
           path: ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
@@ -174,7 +175,7 @@ jobs:
           go-version: 1.15
 
       - name: Cache code
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         id: cache-autonity-code
         with:
           path: ${{ env.AUTONITY_REPO_ROOT }}
@@ -188,7 +189,7 @@ jobs:
         run: make embed-autonity-contract
 
       - name: Cache modules
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         with:
           path: ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-autonity-go-modules-${{ hashFiles('go.mod', 'go.sum') }}
@@ -209,7 +210,7 @@ jobs:
           node-version: '10.19.0'
 
       - name: Cache code
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         id: cache-autonity-code
         with:
           path: ${{ env.AUTONITY_REPO_ROOT }}
@@ -241,7 +242,7 @@ jobs:
         id: go
 
       - name: Cache code
-        uses: actions/cache@v2
+        uses: pat-s/always-upload-cache@v2.1.3
         env:
           cache-name: cache-autonity-code
         with:
