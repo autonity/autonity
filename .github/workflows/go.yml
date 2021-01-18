@@ -62,6 +62,9 @@ jobs:
           path: ${{ env.AUTONITY_REPO_ROOT }}
           key: ${{ runner.os }}-autonity-code-${{ github.sha }}
 
+      - name: show parent
+        run: find /home/runner/work/autonity
+
       - name: pwd
         run: pwd
 
