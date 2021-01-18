@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   pull_request:
 env:
-  # We don't have access to the HOME environemnt variable here since we are not
+  # We don't have access to the HOME environment variable here since we are not
   # inside a runner at this point, so we just have to hardcode '/home/runner',
   # if we instead defined these environment variables when we did have access
   # to HOME we would need to define them for each job, which would defeat the
