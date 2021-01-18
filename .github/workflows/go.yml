@@ -149,6 +149,12 @@ jobs:
 
       - uses: actions/checkout@v2
 
+      - name: Go cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ env.GO_CACHE }}
+          key: ${{ runner.os }}-autonity-go-cache-${{ hashFiles('go.mod', 'go.sum') }}
+
       - name: Build
         run: make autonity
 
