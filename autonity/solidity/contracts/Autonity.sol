@@ -147,10 +147,10 @@ contract Autonity is IERC20 {
     * @notice Create an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
     */
     function addChallenge(Accountability.Proof memory challenge) public onlyProtocol(msg.sender) {
-        // todo: check challenge is already presented.
-        // todo: call precompiled contract if challenge is valid.
-        // todo: save challenge if it is valid.
+        require(_isChallengeExists(challenge) == false, "Duplicated Challenge");
+        require(Accountability.takeChallenge(challenge)[0] != 0, "Not a valid challenge");
 
+        challenges.push(challenge);
         emit ChallengeAdded(challenge);
     }
 
@@ -158,10 +158,10 @@ contract Autonity is IERC20 {
     * @notice Resolve an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
     */
     function resolveChallenge(Accountability.Proof memory proof) public onlyProtocol(msg.sender) {
-        // todo: check challenge is presented.
-        // todo: call precompiled contract if the proof of innocent is valid.
-        // todo: remove challenge from contract if the proof of innocent is valid.
+        require(_isChallengeExists(proof) == true, "Not visible challenge to be resolved");
+        require(Accountability.innocentCheck(proof)[0] != 0, "Not a valid proof of innocent");
 
+        _removeChallenge(proof);
         emit ChallengeRemoved(proof);
     }
 
@@ -645,6 +645,33 @@ contract Autonity is IERC20 {
         _createUser(u.addr, u.enode, newUserType, u.stake);
 
         emit ChangedUserType(u.addr , u.userType , newUserType);
+    }
+
+    function _isChallengeExists(Accountability.Proof memory proof) internal returns (bool) {
+        for (uint256 i = 0; i < challenges.length; i++) {
+            if (challenges[i].rule == proof.rule && challenges[i].height == proof.height
+            && challenges[i].round == proof.round && challenges[i].msgType == proof.msgType
+            && challenges[i].sender == proof.sender) {
+
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function _removeChallenge(Accountability.Proof memory proof) internal {
+        require(challenges.length > 0);
+
+        for (uint256 i = 0; i < challenges.length; i++) {
+            if (challenges[i].rule == proof.rule && challenges[i].height == proof.height
+                && challenges[i].round == proof.round && challenges[i].msgType == proof.msgType
+                && challenges[i].sender == proof.sender) {
+
+                challenges[i] = challenges[challenges.length - 1];
+                challenges.pop();
+                break;
+            }
+        }
     }
 
     function _removeUser(address _address) internal {
