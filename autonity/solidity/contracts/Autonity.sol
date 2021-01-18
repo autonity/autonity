@@ -5,6 +5,7 @@ pragma experimental ABIEncoderV2;
 import "./interfaces/IERC20.sol";
 import "./SafeMath.sol";
 import "./Precompiled.sol";
+import "./Accountability.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
 contract Autonity is IERC20 {
@@ -32,6 +33,7 @@ contract Autonity is IERC20 {
     }
 
     /* State data that needs to be dumped in-case of a contract upgrade. */
+    Accountability.Proof[] public challenges;
     address[] private usersList;
     string[] private enodesWhitelist;
     mapping (address => User) private users;
