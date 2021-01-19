@@ -34,14 +34,14 @@ func (c *Config) String() string {
 
 func DefaultConfig() *Config {
 	return &Config{
-		BlockPeriod:    1,
+		BlockPeriod:    0,
 		ProposerPolicy: WeightedRandomSampling,
 	}
 }
 
 func RoundRobinConfig() *Config {
 	return &Config{
-		BlockPeriod:    1,
+		BlockPeriod:    0,
 		ProposerPolicy: RoundRobin,
 	}
 }
