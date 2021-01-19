@@ -2304,7 +2304,12 @@ func (bc *BlockChain) maintainTxIndex(ancients uint64) {
 	}
 	// indexBlocks reindexes or unindexes transactions depending on user configuration
 	indexBlocks := func(tail *uint64, head uint64, done chan struct{}) {
-		defer func() { done <- struct{}{} }()
+		defer func() {
+			select {
+			case done <- struct{}{}:
+			case <-bc.quit:
+			}
+		}()
 
 		// If the user just upgraded Geth to a new version which supports transaction
 		// index pruning, write the new tail and remove anything older.
