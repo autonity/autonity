@@ -73,7 +73,7 @@ jobs:
         tests: [[main-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test")],
                 [slow-tests, ./les/... ./p2p/... ./eth/...],
                 [tendermint-tests, ./consensus/tendermint/... -timeout 5m -race],
-                [e2e-tests, ./consensus/test/... -v -timeout 2h]]
+                [e2e-tests, ./consensus/test/... -v]]
 
     name: ${{ matrix.tests[0] }}
 
