@@ -49,6 +49,7 @@ type message interface {
 	Type() byte
 	Value() common.Hash // Block hash for a proposal,
 	ValidRound() int
+	Payload() []byte    // raw bytes of message
 }
 
 func (i *interceptor) Intercept(msg message) *Proof {

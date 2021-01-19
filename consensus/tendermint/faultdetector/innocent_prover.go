@@ -7,36 +7,47 @@ type InnocentProver struct {
 	txSender TXSender
 }
 
-type Suspicion struct {
-	Rule Rule
-	Message message
-	Proof [][]byte
+// validate the proof is a valid challenge.
+func (p *InnocentProver) validateChallenge(c *Proof) error {
+	return nil
 }
 
-type InnocentProof struct {
-	Rule Rule
-	Message message
-	RawMessages [][]byte
+// validate the innocent proof is valid.
+func (p *InnocentProver) validateInnocentProof(i *Proof) error {
+	return nil
 }
 
-func (p *InnocentProver) resolveChallenge(suspicion *Suspicion) (innocentProof *InnocentProof, err error) {
+func (p *InnocentProver) resolveChallenge(c *Proof) (innocentProof *Proof, err error) {
 	// todo: get innocent proof from msg store. Would need to distinguish the different rules.
 	return nil, nil
 }
 
-// Check the on-chain proof of innocent.
-func (p *InnocentProver) CheckProof(proof *InnocentProof) bool {
-	return true
+// Check the proof of innocent, it is called from precompiled contracts of EVM package.
+func (p *InnocentProver) CheckProof(packedProof []byte) error {
+	innocentProof := unpackProof(packedProof)
+	err := p.validateInnocentProof(innocentProof)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// prepare innocent proof for node's challenge, and send proof via transaction.
-func (p *InnocentProver) TakeChallenge(suspicion *Suspicion) error {
-	if suspicion.Message.Sender() != p.node {
+// validate challenge, and send proof via transaction if current client is on challenge, call from EVM package.
+func (p *InnocentProver) TakeChallenge(packedProof []byte) error {
+	challenge := unpackProof(packedProof)
+
+	err := p.validateChallenge(challenge)
+	if err != nil {
+		return err
+	}
+
+	if challenge.Message.Sender() != p.node {
 		return nil
 	}
 
 	// the suspicion to current node, try to resolve it.
-	proof, err := p.resolveChallenge(suspicion)
+	proof, err := p.resolveChallenge(challenge)
 	if err != nil {
 		return err
 	}
