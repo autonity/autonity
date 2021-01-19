@@ -15,9 +15,9 @@ env:
   # if we instead defined these environment variables when we did have access
   # to HOME we would need to define them for each job, which would defeat the
   # purpose of defining them here.
-  GO_VERSION: 1.13 # 1.15 seems to cause tests to fail
   GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
   GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
+  GO_VERSION: 1.14 # 1.15 seems to cause tests to fail
 
 jobs:
 
@@ -43,7 +43,7 @@ jobs:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
         # We want to make sure that we download all the modules and compile
         # everything that may be needed so that they fill the go modules cache
@@ -95,7 +95,7 @@ jobs:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Run tests
         run: go test ${{ matrix.tests[1] }}
@@ -123,7 +123,7 @@ jobs:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Run coverage
         run: go test ./consensus/tendermint/... -timeout 5m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
@@ -154,7 +154,7 @@ jobs:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Linters
         run: |
@@ -180,7 +180,7 @@ jobs:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
         run: make autonity
@@ -209,7 +209,7 @@ jobs:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ hashFiles('go.mod', 'go.sum') }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
         run: make all
