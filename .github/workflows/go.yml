@@ -15,6 +15,7 @@ env:
   # if we instead defined these environment variables when we did have access
   # to HOME we would need to define them for each job, which would defeat the
   # purpose of defining them here.
+  GO_VERSION: 1.13 # 1.15 seems to cause tests to fail
   GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
   GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
 
@@ -31,7 +32,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v1
         with:
-          go-version: 1.15
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/checkout@v2
 
@@ -80,7 +81,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v1
         with:
-          go-version: 1.15
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/checkout@v2
 
@@ -108,7 +109,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v1
         with:
-          go-version: 1.15
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/checkout@v2
 
@@ -140,7 +141,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v1
         with:
-          go-version: 1.15
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/checkout@v2
 
@@ -197,7 +198,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v1
         with:
-          go-version: 1.15
+          go-version: ${{ env.GO_VERSION }}
         id: go
 
       - uses: actions/checkout@v2
