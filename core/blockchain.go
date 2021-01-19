@@ -381,11 +381,19 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if bc.cacheConfig.SnapshotLimit > 0 {
 		bc.snaps = snapshot.New(bc.db, bc.stateCache.TrieDB(), bc.cacheConfig.SnapshotLimit, bc.CurrentBlock().Root(), !bc.cacheConfig.SnapshotWait)
 	}
-	// Take ownership of this particular state
-	go bc.update()
+	bc.wg.Add(1)
+	go func() {
+		defer bc.wg.Done()
+		// Take ownership of this particular state
+		bc.update()
+	}()
 	if txLookupLimit != nil {
 		bc.txLookupLimit = *txLookupLimit
-		go bc.maintainTxIndex(txIndexBlock)
+		bc.wg.Add(1)
+		go func() {
+			defer bc.wg.Done()
+			bc.maintainTxIndex(txIndexBlock)
+		}()
 	}
 	// If periodic cache journal is required, spin it up.
 	if bc.cacheConfig.TrieCleanRejournal > 0 {
@@ -1852,7 +1860,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		if !bc.cacheConfig.TrieCleanNoPrefetch {
 			if followup, err := it.peek(); followup != nil && err == nil {
 				throwaway, _ := state.New(parent.Root, bc.stateCache, bc.snaps)
+				bc.wg.Add(1)
 				go func(start time.Time, followup *types.Block, throwaway *state.StateDB, interrupt *uint32) {
+					defer bc.wg.Done()
 					bc.prefetcher.Prefetch(followup, throwaway, bc.vmConfig, &followupInterrupt)
 
 					blockPrefetchExecuteTimer.Update(time.Since(start))
@@ -2294,7 +2304,12 @@ func (bc *BlockChain) maintainTxIndex(ancients uint64) {
 	}
 	// indexBlocks reindexes or unindexes transactions depending on user configuration
 	indexBlocks := func(tail *uint64, head uint64, done chan struct{}) {
-		defer func() { done <- struct{}{} }()
+		defer func() {
+			select {
+			case done <- struct{}{}:
+			case <-bc.quit:
+			}
+		}()
 
 		// If the user just upgraded Geth to a new version which supports transaction
 		// index pruning, write the new tail and remove anything older.
@@ -2340,7 +2355,11 @@ func (bc *BlockChain) maintainTxIndex(ancients uint64) {
 		case head := <-headCh:
 			if done == nil {
 				done = make(chan struct{})
-				go indexBlocks(rawdb.ReadTxIndexTail(bc.db), head.Block.NumberU64(), done)
+				bc.wg.Add(1)
+				go func() {
+					defer bc.wg.Done()
+					indexBlocks(rawdb.ReadTxIndexTail(bc.db), head.Block.NumberU64(), done)
+				}()
 			}
 		case <-done:
 			done = nil
