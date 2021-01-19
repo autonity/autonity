@@ -84,7 +84,8 @@ jobs:
 
       - uses: actions/checkout@v2
 
-        # Required for compilation
+        # Required for compilation since the test commands are not make
+        # targets that depend on embed-autonity-contract.
       - run: make embed-autonity-contract
 
       - name: Go cache
@@ -111,7 +112,8 @@ jobs:
 
       - uses: actions/checkout@v2
 
-        # Required for compilation
+        # Required for compilation since the test command is not a make target
+        # that depends on embed-autonity-contract.
       - run: make embed-autonity-contract
 
       - name: Go cache
