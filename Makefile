@@ -49,7 +49,8 @@ build-docker-image:
 	@$(DOCKER_SUDO) docker run --rm autonity -h > /dev/null
 
 autonity: embed-autonity-contract
-	build/env.sh go run build/ci.go install ./cmd/autonity
+	mkdir -p $(BINDIR)
+	go build -o $(BINDIR)/autonity ./cmd/autonity
 	@echo "Done building."
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
@@ -106,10 +107,10 @@ test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 	go test -race -v ./consensus/test/... -timeout 30m
 
-# This runs the contract tests using truffle against an autonity node instance.
-test-contracts:
+# This runs the contract tests using truffle against an Autonity node instance.
+test-contracts: autonity
 	@# npm list returns 0 only if the package is not installed and the shell only
-	@# executes the second part of an or statment if the first fails.
+	@# executes the second part of an or statement if the first fails.
 	@npm list truffle > /dev/null || npm install truffle
 	@npm list web3 > /dev/null || npm install web3
 	@cd $(AUTONITY_CONTRACT_TEST_DIR)/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
@@ -138,7 +139,7 @@ lint-dead:
 	@./build/bin/golangci-lint run \
 		--config ./.golangci/step_dead.yml
 
-lint:
+lint: embed-autonity-contract
 	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
 	@./build/bin/golangci-lint run \
 	    --new-from-rev=$(LATEST_COMMIT) \
