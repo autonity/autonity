@@ -171,7 +171,7 @@ func TestVerifyHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 	header = block.Header()
-	header.Time = new(big.Int).Add(big.NewInt(int64(chain.Genesis().Time())), new(big.Int).SetUint64(engine.config.BlockPeriod-1)).Uint64()
+	header.Time = 0
 	err = engine.VerifyHeader(chain, header, false)
 	if err != errInvalidTimestamp {
 		t.Errorf("error mismatch: have %v, want %v", err, errInvalidTimestamp)
