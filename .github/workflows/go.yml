@@ -71,7 +71,8 @@ jobs:
         # excluding packages of particular interest. The excluded package are
         # those that are slow to test, our e2e tests and tendermint core.
         tests: [[main-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test")],
-                [slow-tests, ./les/... ./p2p/... ./eth/...],
+                [slow-tests, $(go list ./les/... ./p2p/... ./eth/... | grep -E -v "/p2p/simulations")],
+                [problematic-tests, ./p2p/simulations/...],
                 [tendermint-tests, ./consensus/tendermint/... -timeout 5m -race],
                 [e2e-tests, ./consensus/test/... -v]]
 
