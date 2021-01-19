@@ -125,7 +125,7 @@ lint-dead:
 	@./build/bin/golangci-lint run \
 		--config ./.golangci/step_dead.yml
 
-lint:
+lint: embed-autonity-contract
 	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
 	@./build/bin/golangci-lint run \
 	    --new-from-rev=$(LATEST_COMMIT) \
@@ -144,7 +144,7 @@ lint:
 	    --new-from-rev=$(LATEST_COMMIT) \
 	    --config ./.golangci/step4.yml
 
-lint-ci: lint-deps lint embed-autonity-contract
+lint-ci: lint-deps lint
 
 test-deps:
 	go get golang.org/x/tools/cmd/cover
