@@ -71,10 +71,10 @@ jobs:
         # negative grep to get most of the test packages for the main tests
         # excluding packages of particular interest. The excluded package are
         # those that are slow to test, our e2e tests and tendermint core.
-        tests: [[main, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test")],
-                [slow, ./les/... ./p2p/... ./eth/...],
-                [tendermint, ./consensus/tendermint/... -timeout 5m -race],
-                [e2e, ./consensus/test/... -v]]
+        tests: [[main-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test")],
+                [slow-tests, ./les/... ./p2p/... ./eth/...],
+                [tendermint-tests, ./consensus/tendermint/... -timeout 5m -race],
+                [e2e-tests, ./consensus/test/... -v]]
 
     name: ${{ matrix.tests[0] }}
 
@@ -103,7 +103,7 @@ jobs:
   # tendermint-coverage runs the tendermint tests and collects the coverage, it
   # can't be part of the matrix tests since we need to use the codecov action,
   # which we do not want to use for the rest of the codebase.
-  tendermint-coverage:
+  tendermint-tests-coverage:
     needs: prepare-cache
     runs-on: ubuntu-latest
     steps:
