@@ -1007,13 +1007,16 @@ type takeChallenge struct{}
 func (c takeChallenge) RequiredGas(_ []byte) uint64 {
 	return params.TakeChallengeGas
 }
+
+// takeChallenge, take challenge from AC by copy the packed byte array, decode and
+// validate it, the on challenge client should send the proof of innocent via a transaction.
 func (c takeChallenge) Run(input []byte) ([]byte, error) {
-	// take an on-chain challenge, to provide the innocent proof.
 	if len(input) == 0 {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
-	// Todo: decode challenge from the byte array.
+	// Todo: decode and validate challenge from the byte array.
+
 	return true32Byte, nil
 }
 
@@ -1023,12 +1026,14 @@ type checkProof struct{}
 func (c checkProof) RequiredGas(_ []byte) uint64 {
 	return params.CheckInnocentGas
 }
+
+// checkProof, take proof from AC by copy the packed byte array, decode and validate it.
 func (c checkProof) Run(input []byte) ([]byte, error) {
 	// take an on-chain innocent proof, tell the results of the checking
 	if len(input) == 0 {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
-	// Todo: decode innocent proof from the byte array.
+	// Todo: decode and validate innocent proof from the byte array.
 	return true32Byte, nil
 }
