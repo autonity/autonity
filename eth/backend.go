@@ -603,7 +603,6 @@ func (s *Ethereum) Stop() error {
 	s.txPool.Stop()
 	s.miner.Close()
 	s.blockchain.Stop()
-	s.engine.Close()
 	s.chainDb.Close()
 	s.eventMux.Stop()
 	return nil
