@@ -1,13 +1,15 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
+	context "context"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
 )
 
 func TestStoreUnminedBlockMsg(t *testing.T) {
@@ -24,7 +26,7 @@ func TestStoreUnminedBlockMsg(t *testing.T) {
 		}
 
 		unminedBlock := types.NewBlockWithHeader(&types.Header{})
-		c.storeUnminedBlockMsg(unminedBlock)
+		c.storeUnminedBlockMsg(context.Background(), unminedBlock)
 
 		if s := len(c.pendingUnminedBlocks); s > 0 {
 			t.Fatalf("Unmined blocks size must be 0, got %d", s)
@@ -44,7 +46,7 @@ func TestStoreUnminedBlockMsg(t *testing.T) {
 		}
 
 		unminedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(4)})
-		c.storeUnminedBlockMsg(unminedBlock)
+		c.storeUnminedBlockMsg(context.Background(), unminedBlock)
 
 		if s := len(c.pendingUnminedBlocks); s != 1 {
 			t.Fatalf("Unmined blocks size must be 1, got %d", s)
@@ -66,7 +68,7 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 			pendingUnminedBlocks: unminedBlocks,
 		}
 		unminedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
-		c.updatePendingUnminedBlocks(unminedBlock)
+		c.updatePendingUnminedBlocks(context.Background(), unminedBlock)
 
 		if s := len(c.pendingUnminedBlocks); s != 1 {
 			t.Fatalf("Unmined blocks size must be 1, got %d", s)
@@ -88,7 +90,7 @@ func TestUpdatePendingUnminedBlocks(t *testing.T) {
 		}
 		unminedBlock := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)})
 
-		c.updatePendingUnminedBlocks(unminedBlock)
+		c.updatePendingUnminedBlocks(context.Background(), unminedBlock)
 
 		timeout := time.NewTimer(2 * time.Second)
 		select {

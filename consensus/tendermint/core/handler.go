@@ -104,7 +104,7 @@ eventLoop:
 			}
 			newUnminedBlockEvent := e.Data.(events.NewUnminedBlockEvent)
 			pb := &newUnminedBlockEvent.NewUnminedBlock
-			c.storeUnminedBlockMsg(pb)
+			c.storeUnminedBlockMsg(ctx, pb)
 		case <-ctx.Done():
 			c.logger.Info("handleNewUnminedBlockEvent is stopped", "event", ctx.Err())
 			break eventLoop
