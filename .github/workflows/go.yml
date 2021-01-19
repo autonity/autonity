@@ -1,94 +1,132 @@
 name: Go
 on:
+  # workflow_dispatch adds a manual trigger button in the github UI that allows
+  # you to trigger builds on specific branches when you are in the page for
+  # this workflow.
   workflow_dispatch:
+  # pull_request triggers this workflow on both internal and forked pull
+  # requests.
   pull_request:
+
+env:
+  # We don't have access to the HOME environment variable here since we are not
+  # inside a runner at this point, so we just have to hardcode '/home/runner',
+  # if we instead defined these environment variables when we did have access
+  # to HOME we would need to define them for each job, which would defeat the
+  # purpose of defining them here.
+  GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
+  GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
+  GO_VERSION: 1.14 # 1.15 seems to cause tests to fail
+
 jobs:
-  bootstrap-checkout:
+
+  # prepare-cache fills the gocache with the source code for all modules and
+  # attempts to fill the build cache with as much as possible intermediately
+  # compiled source. Most other jobs depend on this job and so this serves to
+  # speed up all other jobs. Since the cache only changes when the go modules
+  # change, actually filling the cache happens quite infrequently. So most runs
+  # should not be impacted by the time taken to fill the cache.
+  prepare-cache:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
+      - uses: actions/setup-go@v1
         with:
-          go-version: 1.13
-        id: go
-
-      - name: Cache code
-        uses: actions/cache@v1
-        id: cache-autonity-code
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+
+      - name: Go cache
+        uses: actions/cache@v2
+        id: gocache
         with:
-          clean: 'false'
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
+        # We want to make sure that we download all the modules and compile
+        # everything that may be needed so that they fill the go modules cache
+        # and go-build dir.
+      - name: Fill cache
+        if:  steps.gocache.outputs.cache-hit != 'true'
+        run: |
+          go mod download -x
+          make autonity
+          go build ./...
+          go test -c ./consensus/test
+          go test -c ./eth
 
+  # tests runs most of the tests for the project, we use a matrix to run multiple configurations.
   tests:
-    needs: bootstrap-checkout
+    needs: prepare-cache
     runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
+    env:
+      # helps prevent '[failed to restore the stack]' messages when race detected.
+      GORACE: "history_size=7"
+    strategy:
+      matrix:
+        # Here we set up a matrix to control our tests, we use go list and
+        # negative grep to get most of the test packages for the main tests
+        # excluding packages of particular interest. The excluded package are
+        # those that are slow to test, our e2e tests and tendermint core.
+        tests: [[main-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test|/core$")],
+                [slow-tests, $(go list ./les/... ./p2p/... ./eth/... | grep -E -v "/p2p/simulations")],
+                # These tests do not seem to work when run with other tests.
+                [problematic-tests, -p 1 ./p2p/simulations/... ./core], 
+                [tendermint-tests, ./consensus/tendermint/... -timeout 5m -race],
+                [e2e-tests, ./consensus/test/... -v]]
 
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
+    name: ${{ matrix.tests[0] }}
+
+    steps:
+      - uses: actions/setup-go@v1
         with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+
+        # Required for compilation since the test commands are not make
+        # targets that depend on embed-autonity-contract.
+      - run: make embed-autonity-contract
+
+      - name: Go cache
+        uses: actions/cache@v2
         with:
-          clean: 'false'
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
+      - name: Run tests
+        run: go test ${{ matrix.tests[1] }}
 
-      - name: unit tests
-        run: go test -p 1 -timeout 30m -short $(go list ./... | grep -v /consensus/tendermint)
-
-  tests-tendermint:
-    needs: bootstrap-checkout
+  # tendermint-coverage runs the tendermint tests and collects the coverage, it
+  # can't be part of the matrix tests since we need to use the codecov action,
+  # which we do not want to use for the rest of the codebase.
+  tendermint-tests-coverage:
+    needs: prepare-cache
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
+      - uses: actions/setup-go@v1
         with:
-          go-version: 1.13
-        id: go
-
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+
+        # Required for compilation since the test command is not a make target
+        # that depends on embed-autonity-contract.
+      - run: make embed-autonity-contract
+
+      - name: Go cache
+        uses: actions/cache@v2
         with:
-          clean: 'false'
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
-
-      - name: tendermint_tests
-        run: go test -v ./consensus/tendermint/... -timeout 30m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
+      - name: Run coverage
+        run: go test ./consensus/tendermint/... -timeout 5m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
 
       - uses: codecov/codecov-action@v1
         with:
@@ -96,313 +134,88 @@ jobs:
           file: coverage_tendermint.out
           yml: codecov.yml
 
-  tests-conformance:
-    needs: bootstrap-checkout
+  # lint does linting.
+  lint:
+    needs: prepare-cache
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
+      - uses: actions/setup-go@v1
         with:
-          go-version: 1.13
-        id: go
-
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+
+      - name: Go cache
+        uses: actions/cache@v2
         with:
-          clean: 'false'
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
-
-      - name: Cache git modules
-        uses: actions/cache@v1
-        id: cache-git-modules
-        env:
-          cache-name: cache-git-modules
-        with:
-          path: /home/runner/work/autonity/autonity/tests/testdata
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ hashFiles('**/.gitmodules') }}
-
-      - name: get conformance tests
-        if: steps.cache-git-modules.outputs.cache-hit != 'true'
-        run: git submodule update --init --recursive
-
-      - name: unit tests
-        run: go test -timeout 30m ./tests/...
-
-  build:
-    needs: bootstrap-checkout
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-
-      - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-        with:
-          clean: 'false'
-
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
-
-      - name: Build
-        run: make autonity
-
-      - name: Cache binary
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-bin
-        with:
-          path: /home/runner/work/autonity/autonity/build/bin
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-
-      - name: Install
-        run: go run build/ci.go install
-
-  linters:
-    needs: bootstrap-checkout
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-
-      - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-        with:
-          clean: 'false'
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
-
-      - name: Linters
+      - name: Run lninting
         run: |
           git fetch -fu --no-tags --depth=2 origin develop:develop
           make lint-ci
         shell: bash
 
-  tendermint_e2e_tests:
-    needs: bootstrap-checkout
+  # contract-tests runs our suite of truffle tests against the autonity
+  # contract.
+  contract-tests:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        e2e: [TestCheckFeeRedirectionAndRedistribution,
-              TestCheckBlockWithSmallFee,
-              TestRewardDistribution,
-              TestStakeManagement,
-              TestMemberManagement,
-              TestRemoveFromValidatorsList,
-              TestContractUpgrade_Success,
-              TestContractUpgradeSeveralUpgrades,
-              TestContractUpgradeSeveralUpgradesOnBusTopology,
-              TestContractUpgradeSeveralUpgradesOnStarTopology,
-              TestTendermintSuccess,
-              TestTendermintSlowConnections,
-              TestTendermintMemoryLeak,
-              TestTendermintLongRun,
-              TestTendermintOneMalicious,
-              TestTendermintNoQuorum,
-              TestTendermintStopUpToFNodes,
-              TestTendermintStartStopSingleNode,
-              TestTendermintStartStopFNodes,
-              TestTendermintStartStopFPlusOneNodes,
-              TestTendermintStartStopFPlusTwoNodes,
-              TestTendermintStartStopAllNodes,
-              TestResolve,
-              TestTendermintStarSuccess,
-              TestTendermintStarOverParticipantSuccess,
-              TestTendermintBusSuccess,
-              TestTendermintChangeTopologyFromBusToStarSuccess,
-              TestTendermintChangeTopologyFromStarToBusSuccess,
-              TestTendermintAddConnectionToTopologySuccess,
-              TestTendermintAddValidatorsToTopologySuccess,
-              TestTendermintAddParticipantsToTopologySuccess,
-              TestTendermintAddStakeholdersToTopologySuccess,
-              TestTendermintExternalUser,
-              TestTendermintStarOverParticipantSuccessWithExternalUser,
-              TestTendermintBusSuccessWithExternalUser,
-              TestTendermintChangeTopologyFromBusToStarSuccessWithExternalUser,
-              TestTendermintChangeTopologyFromStarToBusSuccessWithExternalUser,
-              TestTendermintAddConnectionToTopologySuccessWithExternalUser,
-              TestTendermintAddValidatorsToTopologySuccessWithExternalUser,
-              TestTendermintAddParticipantsToTopologySuccessWithExternalUser,
-              TestTendermintAddStakeholdersToTopologySuccessWithExternalUser,
-              TestTendermintMajorityExternalUsers,
-              TestTendermintMajorityExternalUsersFullyConnected,
-              TestAddStakeholderWithCorruptedEnodeToList,
-              TestAddIncorrectStakeholdersToList
-        ]
-
-    name: Tendermint ${{ matrix.e2e }} test
-
+    needs: prepare-cache
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
+      - uses: actions/setup-node@v1
         with:
-          go-version: 1.13
-        id: go
-
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
+          node-version: '10.19.0'
 
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
+
+      - name: Go cache
+        uses: actions/cache@v2
         with:
-          clean: 'false'
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
-
-      - name: Test
-        run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
-
-  race_tests:
-    needs: bootstrap-checkout
-    runs-on: ubuntu-latest
-    env:
-      GORACE: "history_size=7"
-    steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.13
-        id: go
-
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-
-      - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-        with:
-          clean: 'false'
-
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
-
-      - name: unit
-        run: go test -race -v ./consensus/tendermint/... -timeout 30m
-
-  contract_tests:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Setup Node
-        uses: actions/setup-node@v1
-        with:
-          node-version: '10.x'
-
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-
-      - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-        with:
-          clean: 'false'
-
-      - name: Embed Autonity contract
-        if:  steps.cache-autonity-code.outputs.cache-hit != 'true'
-        run: make embed-autonity-contract
-
-      - name: Cache binary
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-bin
-        with:
-          path: /home/runner/work/autonity/autonity/build/bin
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-
-      - name: Build Autonity
-        if:  steps.cache-autonity-bin.outputs.cache-hit != 'true'
-        run: make autonity
-
-      - name: test contract
+      - name: Run contract tests
         run: make test-contracts
 
-  docker_e2e_test:
-    needs: bootstrap-checkout
+  # docker-e2e-test runs the docker e2e test, it only runs on merges to the
+  # develop branch because it takes hours to complete and so is not feasible to
+  # run during normal development.
+  docker-e2e-tests:
+    needs: prepare-cache
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/develop'
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v1
+      - uses: actions/setup-go@v1
         with:
-          go-version: 1.13
+          go-version: ${{ env.GO_VERSION }}
         id: go
 
-      - name: Cache code
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-autonity-code
-        with:
-          path: /home/runner/work/autonity/autonity/
-          key: ${{ runner.os }}-aut-${{ env.cache-name }}-${{ github.sha }}
-
       - uses: actions/checkout@v2
-        if: steps.cache-autonity-code.outputs.cache-hit != 'true'
-        with:
-          clean: 'false'
 
+      - name: Go cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
         run: make all
 
-
-      - name: docker_e2e_test
+      - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests
 
-  # Tests the hello-world example, this indirectly ensures that the autonity
-  # docker image can be built since the hello-world example uses it.  We don't want to
-  # use any cache here since we want a clean checkout before any code
-  # generation has taken place.
-  helloworld_tests:
+  # helloworld-tests tests the hello-world example, this indirectly ensures
+  # that the autonity docker image can be built since the hello-world example
+  # uses it. We don't want to use any cache here since we want a clean checkout
+  # before any code generation has taken place.
+  helloworld-tests:
     runs-on: ubuntu-latest
     defaults:
       run:
