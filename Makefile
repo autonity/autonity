@@ -108,7 +108,7 @@ test-race:
 	go test -race -v ./consensus/test/... -timeout 30m
 
 # This runs the contract tests using truffle against an Autonity node instance.
-test-contracts:
+test-contracts: autonity
 	@# npm list returns 0 only if the package is not installed and the shell only
 	@# executes the second part of an or statement if the first fails.
 	@npm list truffle > /dev/null || npm install truffle
@@ -144,7 +144,7 @@ lint:
 	    --new-from-rev=$(LATEST_COMMIT) \
 	    --config ./.golangci/step4.yml
 
-lint-ci: lint-deps lint
+lint-ci: lint-deps lint embed-autonity-contract
 
 test-deps:
 	go get golang.org/x/tools/cmd/cover

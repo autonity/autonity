@@ -52,9 +52,8 @@ jobs:
         if:  steps.gocache.outputs.cache-hit != 'true'
         run: |
           go mod download -x
-          make embed-autonity-contract
-          go build ./...
           make autonity
+          go build ./...
           go test -c ./consensus/test
           go test -c ./eth
 
@@ -86,8 +85,7 @@ jobs:
       - uses: actions/checkout@v2
 
         # Required for compilation
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
+      - run: make embed-autonity-contract
 
       - name: Go cache
         uses: actions/cache@v2
@@ -114,8 +112,7 @@ jobs:
       - uses: actions/checkout@v2
 
         # Required for compilation
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
+      - run: make embed-autonity-contract
 
       - name: Go cache
         uses: actions/cache@v2
@@ -145,9 +142,6 @@ jobs:
 
       - uses: actions/checkout@v2
 
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
-
       - name: Go cache
         uses: actions/cache@v2
         with:
@@ -156,7 +150,7 @@ jobs:
             ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: Linters
+      - name: Run lninting
         run: |
           git fetch -fu --no-tags --depth=2 origin develop:develop
           make lint-ci
@@ -182,16 +176,13 @@ jobs:
             ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: Build
-        run: make autonity
-
-      - name: test contract
+      - name: Run contract tests
         run: make test-contracts
 
   # docker-e2e-test runs the docker e2e test, it only runs on merges to the
   # develop branch because it takes hours to complete and so is not feasible to
   # run during normal development.
-  docker-e2e-test:
+  docker-e2e-tests:
     needs: prepare-cache
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/develop'
@@ -214,7 +205,7 @@ jobs:
       - name: Build
         run: make all
 
-      - name: docker_e2e_test
+      - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests
 
   # helloworld-tests tests the hello-world example, this indirectly ensures
