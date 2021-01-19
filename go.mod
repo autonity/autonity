@@ -4,8 +4,10 @@ go 1.13
 
 require (
 	github.com/Azure/azure-storage-blob-go v0.7.0
+	github.com/Azure/go-autorest/autorest/adal v0.9.10 // indirect
 	github.com/JekaMas/notify v0.9.4
 	github.com/JekaMas/pretty v0.0.0-20161213095928-bfc6f9ec9574
+	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/alecthomas/participle v0.5.0
 	github.com/aristanetworks/goarista v0.0.0-20170210015632-ea17b1a17847
@@ -39,6 +41,7 @@ require (
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/karalabe/usb v0.0.0-20190919080040-51dc0efba356
 	github.com/kr/pretty v0.2.0 // indirect
+	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.0
 	github.com/mattn/go-isatty v0.0.5-0.20180830101745-3fb116b82035
 	github.com/naoina/go-stringutil v0.1.0 // indirect
@@ -63,7 +66,7 @@ require (
 	github.com/zfjagann/golang-ring v0.0.0-20190304061218-d34796e0a6c2
 	github.com/zimmski/go-leak v0.0.0-20151016212241-a11b0b936d24
 	go.uber.org/goleak v1.0.0
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20200824131525-c12d262b63d8
 	golang.org/x/text v0.3.3
