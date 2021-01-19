@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -15,6 +14,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"golang.org/x/sync/errgroup"
 
@@ -214,8 +215,7 @@ func maliciousTest(t *testing.T, test *testCase, validators map[string]*testNode
 }
 
 func sendTransactions(t *testing.T, test *testCase, peers map[string]*testNode, txPerPeer int, errorOnTx bool, names []string) {
-	// extend the blockToWait to get pending TX be mined.
-	const blocksToWait = 60
+	const blocksToWait = 100
 
 	txs := make(map[uint64]int) // blockNumber to count
 	txsMu := &sync.Mutex{}
@@ -414,10 +414,6 @@ wgLoop:
 
 			peer.blocks[ev.Block.NumberU64()] = block{ev.Block.Hash(), len(ev.Block.Transactions())}
 			peer.lastBlock = ev.Block.NumberU64()
-
-			logger.Error("last mined block", "peer", index,
-				"num", peer.lastBlock, "hash", peer.blocks[ev.Block.NumberU64()].hash,
-				"txCount", peer.blocks[ev.Block.NumberU64()].txs)
 
 			if atomic.LoadUint32(testCanBeStopped) == 1 {
 				if atomic.LoadInt64(test.validatorsCanBeStopped) == int64(len(peers)) {
