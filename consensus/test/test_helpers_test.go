@@ -307,7 +307,7 @@ func runHook(validatorHook hook, test *testCase, block *types.Block, validator *
 
 	err := validatorHook(block, validator, test, time.Now())
 	if err != nil {
-		return fmt.Errorf("error while executing before hook for validator index %s and block %v, err %v",
+		return fmt.Errorf("error while executing hook for validator index %s and block %v, err %v",
 			index, block.NumberU64(), err)
 	}
 
