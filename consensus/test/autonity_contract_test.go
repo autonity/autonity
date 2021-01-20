@@ -41,14 +41,20 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 		prevSTBalance := new(big.Int)
 
 		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-			st, _ := validator.service.BlockChain().State()
+			st, err := validator.service.BlockChain().StateAt(block.Root())
+			if err != nil {
+				return fmt.Errorf("failed to retrieve state for block %v", block.NumberU64())
+			}
 			if block.NumberU64() == 1 && st.GetBalance(autonity.ContractAddress).Uint64() != 0 {
 				return fmt.Errorf("incorrect balance on the first block")
 			}
 			return nil
 		}
 		fAfter := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-			st, _ := validator.service.BlockChain().State()
+			st, err := validator.service.BlockChain().StateAt(block.Root())
+			if err != nil {
+				return fmt.Errorf("failed to retrieve state for block %v", block.NumberU64())
+			}
 
 			if block.NumberU64() == 1 && prevBlockBalance != 0 {
 				return fmt.Errorf("incorrect balance on the first block")
@@ -56,7 +62,7 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 			contractBalance := st.GetBalance(autonity.ContractAddress)
 			if block.NumberU64() > 1 && len(block.Transactions()) > 0 && block.NumberU64() <= uint64(tCase.numBlocks) {
 				if contractBalance.Uint64() < prevBlockBalance {
-					return fmt.Errorf("balance must be increased")
+					return fmt.Errorf("contract balance must be increased, current %v previous %v block %v", contractBalance.Uint64(), prevBlockBalance, block.NumberU64())
 				}
 			}
 			prevBlockBalance = contractBalance.Uint64()
@@ -65,7 +71,7 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 				sh := validator.service.BlockChain().Config().AutonityContractConfig.GetStakeHolderUsers()[0]
 				stakeHolderBalance := st.GetBalance(*sh.Address)
 				if stakeHolderBalance.Cmp(prevSTBalance) != 1 {
-					return fmt.Errorf("balance must be increased")
+					return fmt.Errorf("stakeholder balance must be increased, current %v previous %v block %v", stakeHolderBalance.Uint64(), prevSTBalance.Uint64(), block.NumberU64())
 				}
 				prevSTBalance = stakeHolderBalance
 			}
