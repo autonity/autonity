@@ -32,7 +32,7 @@ func decodeMessage(payload []byte) (*message, error) {
 		return nil, err
 	}
 
-	// todo: signature verification.
+	// check if message is signed correctly.
 	var noSigPayload []byte
 	noSigPayload, err = msg.PayloadNoSig()
 	if err != nil {
@@ -48,7 +48,6 @@ func decodeMessage(payload []byte) (*message, error) {
 		return nil, fmt.Errorf("message is not signed by valid sender")
 	}
 
-	// todo check if message is signed by committee.
 	m := new(message)
 	return m, nil
 }
