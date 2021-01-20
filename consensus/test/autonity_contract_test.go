@@ -71,9 +71,9 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 			if block.NumberU64() > 1 && len(block.Transactions()) > 0 && block.NumberU64() <= uint64(tCase.numBlocks) {
 				sh := validator.service.BlockChain().Config().AutonityContractConfig.GetStakeHolderUsers()[0]
 				stakeHolderBalance := st.GetBalance(*sh.Address)
-				println("block", block.NumberU64(), "stakehoder balance", stakeHolderBalance, "previousBalance", prevSTBalance)
+				println("block", block.NumberU64(), "stakehoder balance", stakeHolderBalance.Uint64(), "previousBalance", prevSTBalance.Uint64())
 				if stakeHolderBalance.Cmp(prevSTBalance) != 1 {
-					return fmt.Errorf("stakeholder balance must be increased, current %v previous %v block %v", stakeHolderBalance.Uint64(), prevSTBalance, block.NumberU64())
+					return fmt.Errorf("stakeholder balance must be increased, current %v previous %v block %v", stakeHolderBalance.Uint64(), prevSTBalance.Uint64(), block.NumberU64())
 				}
 				prevSTBalance = stakeHolderBalance
 			}
