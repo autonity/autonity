@@ -9,11 +9,15 @@ type InnocentProver struct {
 
 // validate the proof is a valid challenge.
 func (p *InnocentProver) validateChallenge(c *Proof) error {
+	// todo: check if messages are signed by correct committee member of its round.
+	// todo: check if the suspicious message is proved by given evidence as a valid suspicion.
 	return nil
 }
 
 // validate the innocent proof is valid.
 func (p *InnocentProver) validateInnocentProof(i *Proof) error {
+	// todo: check if messages are signed by correct committee member of its round.
+	// todo: check if the suspicious message is proved by given evidence as an innocent behavior.
 	return nil
 }
 
