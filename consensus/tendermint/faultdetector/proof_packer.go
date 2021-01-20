@@ -1,8 +1,11 @@
 package faultdetector
 
 import (
+	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/core/types"
 )
 
 /*
@@ -21,14 +24,31 @@ import (
 	MessagePayloads []bytes; // take the left bytes as payload of each message tightly packed, slotted by own lengths.
 */
 
-func decodeMessage(payload []byte) (*message,error) {
+func decodeMessage(payload []byte) (*message, error) {
 	// decode message with rlp.
 	msg := new(core.Message)
-	if err := msg.FromPayload(payload); err != nil {
+	err := msg.FromPayload(payload)
+	if err != nil {
 		return nil, err
 	}
 
 	// todo: signature verification.
+	var noSigPayload []byte
+	noSigPayload, err = msg.PayloadNoSig()
+	if err != nil {
+		return nil, err
+	}
+
+	signer, err := types.GetSignatureAddress(noSigPayload, msg.Signature)
+	if err != nil {
+		return nil, err
+	}
+
+	if !bytes.Equal(msg.Address.Bytes(), signer.Bytes()) {
+		return nil, fmt.Errorf("message is not signed by valid sender")
+	}
+
+	// todo check if message is signed by committee.
 	m := new(message)
 	return m, nil
 }
