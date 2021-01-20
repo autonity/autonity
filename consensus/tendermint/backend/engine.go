@@ -21,9 +21,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/trie"
 	"math/big"
 	"time"
+
+	"github.com/clearmatics/autonity/trie"
 
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
@@ -501,15 +502,17 @@ func (sb *Backend) Start(ctx context.Context) error {
 func (sb *Backend) Close() error {
 	// the mutex along with coreStarted should prevent double stop
 	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
 
 	if !sb.coreStarted {
 		return ErrStoppedEngine
 	}
 
+	sb.coreStarted = false
+	sb.coreMu.Unlock()
+
 	// Stop Tendermint
 	sb.core.Stop()
-	sb.coreStarted = false
+	// Stop backend sealing
 	close(sb.stopped)
 
 	return nil
