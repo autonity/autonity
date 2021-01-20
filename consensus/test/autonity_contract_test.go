@@ -41,14 +41,20 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 		prevSTBalance := new(big.Int)
 
 		fBefore := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-			st, _ := validator.service.BlockChain().State()
+			st, err := validator.service.BlockChain().StateAt(block.Root())
+			if err != nil {
+				return fmt.Errorf("failed to retrieve state for block %v", block.NumberU64())
+			}
 			if block.NumberU64() == 1 && st.GetBalance(autonity.ContractAddress).Uint64() != 0 {
 				return fmt.Errorf("incorrect balance on the first block")
 			}
 			return nil
 		}
 		fAfter := func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
-			st, _ := validator.service.BlockChain().State()
+			st, err := validator.service.BlockChain().StateAt(block.Root())
+			if err != nil {
+				return fmt.Errorf("failed to retrieve state for block %v", block.NumberU64())
+			}
 
 			if block.NumberU64() == 1 && prevBlockBalance != 0 {
 				return fmt.Errorf("incorrect balance on the first block")
