@@ -24,8 +24,11 @@ func (p *InnocentProver) resolveChallenge(c *Proof) (innocentProof *Proof, err e
 
 // Check the proof of innocent, it is called from precompiled contracts of EVM package.
 func (p *InnocentProver) CheckProof(packedProof []byte) error {
-	innocentProof := unpackProof(packedProof)
-	err := p.validateInnocentProof(innocentProof)
+	innocentProof, err := unpackProof(packedProof)
+	if err != nil {
+		return err
+	}
+	err = p.validateInnocentProof(innocentProof)
 	if err != nil {
 		return err
 	}
@@ -35,9 +38,12 @@ func (p *InnocentProver) CheckProof(packedProof []byte) error {
 
 // validate challenge, and send proof via transaction if current client is on challenge, call from EVM package.
 func (p *InnocentProver) TakeChallenge(packedProof []byte) error {
-	challenge := unpackProof(packedProof)
+	challenge, err := unpackProof(packedProof)
+	if err != nil {
+		return err
+	}
 
-	err := p.validateChallenge(challenge)
+	err = p.validateChallenge(challenge)
 	if err != nil {
 		return err
 	}
