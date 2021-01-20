@@ -502,11 +502,10 @@ func (sb *Backend) Start(ctx context.Context) error {
 func (sb *Backend) Close() error {
 	// the mutex along with coreStarted should prevent double stop
 	sb.coreMu.Lock()
-
 	if !sb.coreStarted {
+		sb.coreMu.Unlock()
 		return ErrStoppedEngine
 	}
-
 	sb.coreStarted = false
 	sb.coreMu.Unlock()
 
