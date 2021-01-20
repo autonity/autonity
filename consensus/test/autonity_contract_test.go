@@ -54,9 +54,11 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 				return fmt.Errorf("incorrect balance on the first block")
 			}
 			contractBalance := st.GetBalance(autonity.ContractAddress)
+			println("block", block.NumberU64(), "contract balance", contractBalance.Uint64(), "previousBalance", prevBlockBalance)
+			println("block", block.NumberU64(), "stakehoder balance", contractBalance.Uint64(), "previousBalance", prevBlockBalance)
 			if block.NumberU64() > 1 && len(block.Transactions()) > 0 && block.NumberU64() <= uint64(tCase.numBlocks) {
 				if contractBalance.Uint64() < prevBlockBalance {
-					return fmt.Errorf("balance must be increased")
+					return fmt.Errorf("contract balance must be increased, current %v previous %v block %v", contractBalance.Uint64(), prevBlockBalance, block.NumberU64())
 				}
 			}
 			prevBlockBalance = contractBalance.Uint64()
@@ -65,7 +67,7 @@ func TestCheckFeeRedirectionAndRedistribution(t *testing.T) {
 				sh := validator.service.BlockChain().Config().AutonityContractConfig.GetStakeHolderUsers()[0]
 				stakeHolderBalance := st.GetBalance(*sh.Address)
 				if stakeHolderBalance.Cmp(prevSTBalance) != 1 {
-					return fmt.Errorf("balance must be increased")
+					return fmt.Errorf("stakeholder balance must be increased, current %v previous %v block %v", stakeHolderBalance.Uint64(), prevSTBalance, block.NumberU64())
 				}
 				prevSTBalance = stakeHolderBalance
 			}
