@@ -2,6 +2,7 @@ package faultdetector
 
 import (
 	"encoding/binary"
+	"github.com/clearmatics/autonity/consensus/tendermint/core"
 )
 
 /*
@@ -21,7 +22,13 @@ import (
 */
 
 func decodeMessage(payload []byte) (*message,error) {
-	// todo: rlp decode msgs.
+	// decode message with rlp.
+	msg := new(core.Message)
+	if err := msg.FromPayload(payload); err != nil {
+		return nil, err
+	}
+
+	// todo: signature verification.
 	m := new(message)
 	return m, nil
 }
