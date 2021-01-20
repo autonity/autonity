@@ -1016,7 +1016,7 @@ func (c takeChallenge) Run(input []byte) ([]byte, error) {
 	}
 
 	// Todo: decode and validate challenge from the byte array.
-
+	// Todo: to find a proper way in this execution context to call tendermint package's functions.
 	return true32Byte, nil
 }
 
@@ -1035,5 +1035,6 @@ func (c checkProof) Run(input []byte) ([]byte, error) {
 	}
 
 	// Todo: decode and validate innocent proof from the byte array.
+	// Todo: to find a proper way in this execution context to call tendermint package's functions.
 	return true32Byte, nil
 }
