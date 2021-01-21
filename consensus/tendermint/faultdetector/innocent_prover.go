@@ -1,38 +1,34 @@
 package faultdetector
 
-import "github.com/clearmatics/autonity/common"
-
-type InnocentProver struct {
-	node common.Address // node address of this client
-	txSender TXSender
-}
-
 // validate the proof is a valid challenge.
-func (p *InnocentProver) validateChallenge(c *Proof) error {
-	// todo: check if messages are signed by correct committee member of its round.
+func validateChallenge(c *Proof) error {
+	// todo: check if messages are signed by correct committee member of its round. AFD should buffer N block headers at package level,
+	// otherwise static precompiled contract cannot validate whether messages are from correct committee member.
 	// todo: check if the suspicious message is proved by given evidence as a valid suspicion.
 	return nil
 }
 
 // validate the innocent proof is valid.
-func (p *InnocentProver) validateInnocentProof(i *Proof) error {
-	// todo: check if messages are signed by correct committee member of its round.
+func validateInnocentProof(i *Proof) error {
+	// todo: check if messages are signed by correct committee member of its round. AFD should buffer N block headers at package level,
+	// otherwise static precompiled contract cannot validate whether messages are from correct committee member.
 	// todo: check if the suspicious message is proved by given evidence as an innocent behavior.
 	return nil
 }
 
-func (p *InnocentProver) resolveChallenge(c *Proof) (innocentProof *Proof, err error) {
+// used by those who is on-challenge, to get innocent proof from msg store.
+func resolveChallenge(c *Proof) (innocentProof *Proof, err error) {
 	// todo: get innocent proof from msg store. Would need to distinguish the different rules.
 	return nil, nil
 }
 
 // Check the proof of innocent, it is called from precompiled contracts of EVM package.
-func (p *InnocentProver) CheckProof(packedProof []byte) error {
-	innocentProof, err := unpackProof(packedProof)
+func CheckProof(packedProof []byte) error {
+	innocentProof, err := UnpackProof(packedProof)
 	if err != nil {
 		return err
 	}
-	err = p.validateInnocentProof(innocentProof)
+	err = validateInnocentProof(innocentProof)
 	if err != nil {
 		return err
 	}
@@ -40,32 +36,16 @@ func (p *InnocentProver) CheckProof(packedProof []byte) error {
 	return nil
 }
 
-// validate challenge, and send proof via transaction if current client is on challenge, call from EVM package.
-func (p *InnocentProver) TakeChallenge(packedProof []byte) error {
-	challenge, err := unpackProof(packedProof)
+// validate challenge, call from EVM package.
+func CheckChallenge(packedProof []byte) error {
+	challenge, err := UnpackProof(packedProof)
 	if err != nil {
 		return err
 	}
 
-	err = p.validateChallenge(challenge)
+	err = validateChallenge(challenge)
 	if err != nil {
 		return err
 	}
-
-	if challenge.Message.Sender() != p.node {
-		return nil
-	}
-
-	// the suspicion to current node, try to resolve it.
-	proof, err := p.resolveChallenge(challenge)
-	if err != nil {
-		return err
-	}
-
-	// send proof via transaction.
-	if proof != nil {
-		p.txSender.SendInnocentProof(proof)
-	}
-
 	return nil
 }
