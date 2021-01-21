@@ -55,7 +55,7 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 
 	common.BytesToAddress([]byte{253}): &checkProof{},
-	common.BytesToAddress([]byte{254}): &takeChallenge{},
+	common.BytesToAddress([]byte{254}): &checkChallenge{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -72,7 +72,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
 
 	common.BytesToAddress([]byte{253}): &checkProof{},
-	common.BytesToAddress([]byte{254}): &takeChallenge{},
+	common.BytesToAddress([]byte{254}): &checkChallenge{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -90,7 +90,7 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{253}): &checkProof{},
-	common.BytesToAddress([]byte{254}): &takeChallenge{},
+	common.BytesToAddress([]byte{254}): &checkChallenge{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -117,7 +117,7 @@ var PrecompiledContractsYoloV1 = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 
 	common.BytesToAddress([]byte{253}): &checkProof{},
-	common.BytesToAddress([]byte{254}): &takeChallenge{},
+	common.BytesToAddress([]byte{254}): &checkChallenge{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -982,10 +982,10 @@ func (c *bls12381MapG2) Run(input []byte) ([]byte, error) {
 // checkEnode implemented as a native contract.
 type checkEnode struct{}
 
-func (c checkEnode) RequiredGas(_ []byte) uint64 {
+func (c *checkEnode) RequiredGas(_ []byte) uint64 {
 	return params.EnodeCheckGas
 }
-func (c checkEnode) Run(input []byte) ([]byte, error) {
+func (c *checkEnode) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
 		panic(fmt.Errorf("invalid enode - empty"))
 	}
@@ -1002,16 +1002,16 @@ func (c checkEnode) Run(input []byte) ([]byte, error) {
 	return true32Byte, nil
 }
 
-// takeChallenge implemented as a native contract to take an on-chain challenge.
-type takeChallenge struct{}
+// checkChallenge implemented as a native contract to take an on-chain challenge.
+type checkChallenge struct{}
 
-func (c takeChallenge) RequiredGas(_ []byte) uint64 {
+func (c *checkChallenge) RequiredGas(_ []byte) uint64 {
 	return params.TakeChallengeGas
 }
 
-// takeChallenge, take challenge from AC by copy the packed byte array, decode and
+// checkChallenge, take challenge from AC by copy the packed byte array, decode and
 // validate it, the on challenge client should send the proof of innocent via a transaction.
-func (c takeChallenge) Run(input []byte) ([]byte, error) {
+func (c *checkChallenge) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
@@ -1027,12 +1027,12 @@ func (c takeChallenge) Run(input []byte) ([]byte, error) {
 // checkProof implemented as a native contract to validate an on-chain innocent proof.
 type checkProof struct{}
 
-func (c checkProof) RequiredGas(_ []byte) uint64 {
+func (c *checkProof) RequiredGas(_ []byte) uint64 {
 	return params.CheckInnocentGas
 }
 
 // checkProof, take proof from AC by copy the packed byte array, decode and validate it.
-func (c checkProof) Run(input []byte) ([]byte, error) {
+func (c *checkProof) Run(input []byte) ([]byte, error) {
 	// take an on-chain innocent proof, tell the results of the checking
 	if len(input) == 0 {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
