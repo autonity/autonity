@@ -9,7 +9,7 @@ library Accountability {
     // just bypass the data to precompiled contracts.
     // https://docs.soliditylang.org/en/v0.8.0/internals/layout_in_storage.html
     // https://docs.soliditylang.org/en/v0.8.0/internals/layout_in_memory.html
-    struct ParsableProof {
+    struct Proof {
         uint256 height;       // 32 bytes
         address sender;       // 20 bytes
         uint64 round;         // 8 bytes
@@ -24,12 +24,12 @@ library Accountability {
     // call precompiled contract to check if challenge is valid, for the node who is on the challenge
     // need to issue a proof of innocent via transaction to get the challenge to be removed on a reasonable
     // time window which is a system configuration.
-    function takeChallenge(ParsableProof memory challenge) internal view returns (uint[2] memory p) {
-        uint length = challenge.packedProof.length;
+    function takeChallenge(bytes memory proof) internal view returns (uint[2] memory p) {
+        uint length = proof.length;
 
         assembly {
         //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xfd, challenge.packedProof, length, p, 0x40)) {
+            if iszero(staticcall(gas(), 0xfd, proof, length, p, 0x40)) {
                 revert(0, 0)
             }
         }
@@ -39,12 +39,12 @@ library Accountability {
 
     // call precompiled contract to check if proof of innocent is valid or not, the caller will remove
     // the challenge if the proof is valid.
-    function innocentCheck(ParsableProof memory innocent) internal view returns (uint[2] memory p) {
-        uint length = innocent.packedProof.length;
+    function innocentCheck(bytes memory proof) internal view returns (uint[2] memory p) {
+        uint length = proof.length;
 
         assembly {
         //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xfe, innocent.packedProof, length, p, 0x40)) {
+            if iszero(staticcall(gas(), 0xfe, proof, length, p, 0x40)) {
                 revert(0, 0)
             }
         }
