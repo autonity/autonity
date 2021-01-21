@@ -33,7 +33,7 @@ contract Autonity is IERC20 {
     }
 
     /* State data that needs to be dumped in-case of a contract upgrade. */
-    Accountability.ParsableProof[] public challenges;
+    Accountability.Proof[] public challenges;
     address[] private usersList;
     string[] private enodesWhitelist;
     mapping (address => User) private users;
@@ -73,8 +73,8 @@ contract Autonity is IERC20 {
     event MintedStake(address _address, uint256 _amount);
     event BurnedStake(address _address, uint256 _amount);
     event Rewarded(address _address, uint256 _amount);
-    event ChallengeAdded(Accountability.ParsableProof proof);
-    event ChallengeRemoved(Accountability.ParsableProof proof);
+    event ChallengeAdded(Accountability.Proof proof);
+    event ChallengeRemoved(Accountability.Proof proof);
 
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
@@ -146,9 +146,10 @@ contract Autonity is IERC20 {
     /**
     * @notice Create an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
     */
-    function addChallenge(Accountability.ParsableProof memory challenge) public onlyProtocol(msg.sender) {
+    function addChallenge(uint256 h, uint64 r, address sender, uint8 rule, uint8 msgType, bytes memory packedProof) public onlyProtocol(msg.sender) {
+        Accountability.Proof memory challenge = Accountability.Proof(h, sender, r, rule, msgType, packedProof);
         require(_isChallengeExists(challenge) == false, "Duplicated Challenge");
-        require(Accountability.takeChallenge(challenge)[0] != 0, "Not a valid challenge");
+        require(Accountability.takeChallenge(packedProof)[0] != 0, "Not a valid challenge");
 
         challenges.push(challenge);
         emit ChallengeAdded(challenge);
@@ -157,9 +158,10 @@ contract Autonity is IERC20 {
     /**
     * @notice Resolve an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
     */
-    function resolveChallenge(Accountability.ParsableProof memory proof) public onlyProtocol(msg.sender) {
+    function resolveChallenge(uint256 h, uint64 r, address sender, uint8 rule, uint8 msgType, bytes memory packedProof) public onlyProtocol(msg.sender) {
+        Accountability.Proof memory proof = Accountability.Proof(h, sender, r, rule, msgType, packedProof);
         require(_isChallengeExists(proof) == true, "Not visible challenge to be resolved");
-        require(Accountability.innocentCheck(proof)[0] != 0, "Not a valid proof of innocent");
+        require(Accountability.innocentCheck(packedProof)[0] != 0, "Not a valid proof of innocent");
 
         _removeChallenge(proof);
         emit ChallengeRemoved(proof);
@@ -647,7 +649,7 @@ contract Autonity is IERC20 {
         emit ChangedUserType(u.addr , u.userType , newUserType);
     }
 
-    function _isChallengeExists(Accountability.ParsableProof memory proof) internal view returns (bool) {
+    function _isChallengeExists(Accountability.Proof memory proof) internal view returns (bool) {
         for (uint256 i = 0; i < challenges.length; i++) {
             if (challenges[i].rule == proof.rule && challenges[i].height == proof.height
             && challenges[i].round == proof.round && challenges[i].msgType == proof.msgType
@@ -659,7 +661,7 @@ contract Autonity is IERC20 {
         return false;
     }
 
-    function _removeChallenge(Accountability.ParsableProof memory proof) internal {
+    function _removeChallenge(Accountability.Proof memory proof) internal {
         require(challenges.length > 0);
 
         for (uint256 i = 0; i < challenges.length; i++) {
