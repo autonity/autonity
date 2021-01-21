@@ -19,6 +19,7 @@ package ethapi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -1129,30 +1130,18 @@ func FormatLogs(logs []vm.StructLog) []StructLogRes {
 
 // RPCMarshalHeader converts the given header to the RPC output .
 func RPCMarshalHeader(head *types.Header) map[string]interface{} {
-	return map[string]interface{}{
-		"number":             (*hexutil.Big)(head.Number),
-		"hash":               head.Hash(),
-		"parentHash":         head.ParentHash,
-		"nonce":              head.Nonce,
-		"mixHash":            head.MixDigest,
-		"sha3Uncles":         head.UncleHash,
-		"logsBloom":          head.Bloom,
-		"stateRoot":          head.Root,
-		"miner":              head.Coinbase,
-		"difficulty":         (*hexutil.Big)(head.Difficulty),
-		"extraData":          hexutil.Bytes(head.Extra),
-		"size":               hexutil.Uint64(head.Size()),
-		"gasLimit":           hexutil.Uint64(head.GasLimit),
-		"gasUsed":            hexutil.Uint64(head.GasUsed),
-		"timestamp":          hexutil.Uint64(head.Time),
-		"transactionsRoot":   head.TxHash,
-		"receiptsRoot":       head.ReceiptHash,
-		"committee":          head.Committee,
-		"pastCommittedSeals": head.PastCommittedSeals,
-		"committedSeals":     head.CommittedSeals,
-		"round":              head.Round,
-		"proposerSeal":       head.ProposerSeal,
+	// We can easily get all the fields into a map by marshalling to JSON and
+	// then unmarshaling back into a map.
+	data, err := head.MarshalJSON()
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal header: %v", err))
 	}
+	result := make(map[string]interface{})
+	err = json.Unmarshal(data, &result)
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal header: %v", err))
+	}
+	return result
 }
 
 // RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
