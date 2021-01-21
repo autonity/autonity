@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/rand"
 	mrand "math/rand"
 	"net"
 	"sync"
@@ -165,6 +166,7 @@ func (cfg dialConfig) withDefaults() dialConfig {
 }
 
 func newDialScheduler(config dialConfig, it enode.Iterator, setupFunc dialSetupFunc) *dialScheduler {
+	config.log = log.New("self", config.self)
 	d := &dialScheduler{
 		dialConfig:  config.withDefaults(),
 		setupFunc:   setupFunc,
@@ -281,7 +283,7 @@ loop:
 		case node := <-d.addStaticCh:
 			id := node.ID()
 			_, exists := d.static[id]
-			d.log.Trace("Adding static node", "id", id, "ip", node.IP(), "added", !exists)
+			d.log.Trace("Adding static node", "id", id, "ip", node.IP(), "port", node.TCP(), "added", !exists)
 			if exists {
 				continue loop
 			}
@@ -419,6 +421,16 @@ func (d *dialScheduler) startStaticDials(n int) (started int) {
 	for started = 0; started < n && len(d.staticPool) > 0; started++ {
 		idx := d.rand.Intn(len(d.staticPool))
 		task := d.staticPool[idx]
+
+		// Add this task to the history so we don't go crazy trying to redial it
+		//
+		// The task history is consuled before dialing and if an entry found it
+		// is not dialled. Entries expire and when they do they send an event
+		// on the expiry channel that kicks off another round of dialing.
+		hkey := string(task.dest.ID().Bytes())
+		// We add a bit of randomness to the expiration to try and interleave crossidals.
+		d.history.add(hkey, d.clock.Now().Add(time.Millisecond*time.Duration(10+rand.Intn(10))))
+
 		d.startDial(task)
 		d.removeFromStaticPool(idx)
 	}
