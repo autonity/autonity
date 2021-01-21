@@ -149,7 +149,7 @@ contract Autonity is IERC20 {
     function addChallenge(uint256 h, uint64 r, address sender, uint8 rule, uint8 msgType, bytes memory packedProof) public onlyProtocol(msg.sender) {
         Accountability.Proof memory challenge = Accountability.Proof(h, sender, r, rule, msgType, packedProof);
         require(_isChallengeExists(challenge) == false, "Duplicated Challenge");
-        require(Accountability.takeChallenge(packedProof)[0] != 0, "Not a valid challenge");
+        require(Accountability.checkChallenge(packedProof)[0] != 0, "Not a valid challenge");
 
         challenges.push(challenge);
         emit ChallengeAdded(challenge);
@@ -161,7 +161,7 @@ contract Autonity is IERC20 {
     function resolveChallenge(uint256 h, uint64 r, address sender, uint8 rule, uint8 msgType, bytes memory packedProof) public onlyProtocol(msg.sender) {
         Accountability.Proof memory proof = Accountability.Proof(h, sender, r, rule, msgType, packedProof);
         require(_isChallengeExists(proof) == true, "Not visible challenge to be resolved");
-        require(Accountability.innocentCheck(packedProof)[0] != 0, "Not a valid proof of innocent");
+        require(Accountability.checkInnocent(packedProof)[0] != 0, "Not a valid proof of innocent");
 
         _removeChallenge(proof);
         emit ChallengeRemoved(proof);
@@ -786,6 +786,4 @@ contract Autonity is IERC20 {
             }
         }
     }
-
-
 }
