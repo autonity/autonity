@@ -4,7 +4,7 @@ pragma solidity ^0.7.1;
 
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Accountability {
-    // ParsableProof is used for precompiled contract, since solidity's limitation and
+    // Proof is used for precompiled contract, since solidity's limitation and
     // the performance concern, data packing was done by golang in client side, then AC
     // just bypass the data to precompiled contracts.
     // https://docs.soliditylang.org/en/v0.8.0/internals/layout_in_storage.html
@@ -21,10 +21,8 @@ library Accountability {
         bytes packedProof;
     }
 
-    // call precompiled contract to check if challenge is valid, for the node who is on the challenge
-    // need to issue a proof of innocent via transaction to get the challenge to be removed on a reasonable
-    // time window which is a system configuration.
-    function takeChallenge(bytes memory proof) internal view returns (uint[2] memory p) {
+    // call precompiled contract to check if challenge is valid
+    function checkChallenge(bytes memory proof) internal view returns (uint[2] memory p) {
         uint length = proof.length;
 
         assembly {
@@ -39,7 +37,7 @@ library Accountability {
 
     // call precompiled contract to check if proof of innocent is valid or not, the caller will remove
     // the challenge if the proof is valid.
-    function innocentCheck(bytes memory proof) internal view returns (uint[2] memory p) {
+    function checkInnocent(bytes memory proof) internal view returns (uint[2] memory p) {
         uint length = proof.length;
 
         assembly {
