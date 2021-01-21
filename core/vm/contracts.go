@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint/faultdetector"
 	"math/big"
 	"net"
 
@@ -1015,8 +1016,11 @@ func (c takeChallenge) Run(input []byte) ([]byte, error) {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
-	// Todo: decode and validate challenge from the byte array.
-	// Todo: to find a proper way in this execution context to call tendermint package's functions.
+	err := faultdetector.CheckChallenge(input)
+	if err != nil {
+		return false32Byte, fmt.Errorf("invalid proof of challenge %v", err)
+	}
+
 	return true32Byte, nil
 }
 
@@ -1034,7 +1038,10 @@ func (c checkProof) Run(input []byte) ([]byte, error) {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
-	// Todo: decode and validate innocent proof from the byte array.
-	// Todo: to find a proper way in this execution context to call tendermint package's functions.
+	err := faultdetector.CheckProof(input)
+	if err != nil {
+		return false32Byte, fmt.Errorf("invalid proof of innocent %v", err)
+	}
+
 	return true32Byte, nil
 }

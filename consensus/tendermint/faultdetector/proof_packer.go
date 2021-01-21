@@ -8,7 +8,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
-/*
+/* proof_packer.go provide pack/unpack functions for precompiled contract to decode proof from and to byte array.
 	Pack
 	type Proof struct {
 		Rule     Rule
@@ -70,7 +70,8 @@ func lengthOfBuffer(proof *Proof) int {
 	return length + payloads
 }
 
-func packProof(proof *Proof) []byte {
+// should be used by node who want to provide proof of a challenge or an innocent.
+func PackProof(proof *Proof) []byte {
 	length := lengthOfBuffer(proof)
 	output := make([]byte, length)
 
@@ -102,7 +103,7 @@ func packProof(proof *Proof) []byte {
 	return output
 }
 
-func unpackProof(packedProof []byte) (*Proof, error) {
+func UnpackProof(packedProof []byte) (*Proof, error) {
 	proof := new(Proof)
 
 	// unpack rule id.
