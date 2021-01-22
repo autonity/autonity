@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint/faultdetector"
 	"github.com/clearmatics/autonity/core"
 	"math/big"
 	"net"
@@ -1090,11 +1091,10 @@ func (c *checkChallenge) Run(input []byte) ([]byte, error) {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
-	/*
-	err := faultdetector.CheckChallenge(input)
+	err := faultdetector.CheckChallenge(input, c.chainContext)
 	if err != nil {
 		return false32Byte, fmt.Errorf("invalid proof of challenge %v", err)
-	}*/
+	}
 
 	return true32Byte, nil
 }
@@ -1118,11 +1118,10 @@ func (c *checkProof) Run(input []byte) ([]byte, error) {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
-	/*
-	err := faultdetector.CheckProof(input)
+	err := faultdetector.CheckProof(input, c.chainContext)
 	if err != nil {
 		return false32Byte, fmt.Errorf("invalid proof of innocent %v", err)
-	}*/
+	}
 
 	return true32Byte, nil
 }
