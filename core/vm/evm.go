@@ -18,6 +18,7 @@ package vm
 
 import (
 	"errors"
+	"github.com/clearmatics/autonity/core"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -55,6 +56,9 @@ func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
 		precompiles = PrecompiledContractsHomestead
 	}
 	p, ok := precompiles[addr]
+
+	// init chain context for precompiled contracts.
+	p.InitChainContext(evm.Chain)
 	return p, ok
 }
 
@@ -92,11 +96,12 @@ type Context struct {
 	GasPrice *big.Int       // Provides information for GASPRICE
 
 	// Block information
-	Coinbase    common.Address // Provides information for COINBASE
-	GasLimit    uint64         // Provides information for GASLIMIT
-	BlockNumber *big.Int       // Provides information for NUMBER
-	Time        *big.Int       // Provides information for TIME
-	Difficulty  *big.Int       // Provides information for DIFFICULTY
+	Coinbase    common.Address    // Provides information for COINBASE
+	GasLimit    uint64            // Provides information for GASLIMIT
+	BlockNumber *big.Int          // Provides information for NUMBER
+	Time        *big.Int          // Provides information for TIME
+	Difficulty  *big.Int          // Provides information for DIFFICULTY
+	Chain       core.ChainContext // Provides committee information for precompiled contracts.
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides
