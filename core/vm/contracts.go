@@ -21,7 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint/faultdetector"
+	"github.com/clearmatics/autonity/core"
 	"math/big"
 	"net"
 
@@ -42,8 +42,9 @@ import (
 // requires a deterministic gas count based on the input size of the Run method of the
 // contract.
 type PrecompiledContract interface {
-	RequiredGas(input []byte) uint64  // RequiredPrice calculates the contract gas use
-	Run(input []byte) ([]byte, error) // Run runs the precompiled contract
+	RequiredGas(input []byte) uint64          // RequiredPrice calculates the contract gas use
+	Run(input []byte) ([]byte, error)         // Run runs the precompiled contract
+	InitChainContext(chain core.ChainContext) // set chain context for precompiled contracts.
 }
 
 // PrecompiledContractsHomestead contains the default set of pre-compiled Ethereum
@@ -139,6 +140,11 @@ func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uin
 // ECRECOVER implemented as a native contract.
 type ecrecover struct{}
 
+func (c *ecrecover) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
+
 func (c *ecrecover) RequiredGas(input []byte) uint64 {
 	return params.EcrecoverGas
 }
@@ -176,7 +182,10 @@ func (c *ecrecover) Run(input []byte) ([]byte, error) {
 
 // SHA256 implemented as a native contract.
 type sha256hash struct{}
-
+func (c *sha256hash) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 //
 // This method does not require any overflow checking as the input size gas costs
@@ -191,7 +200,10 @@ func (c *sha256hash) Run(input []byte) ([]byte, error) {
 
 // RIPEMD160 implemented as a native contract.
 type ripemd160hash struct{}
-
+func (c *ripemd160hash) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 //
 // This method does not require any overflow checking as the input size gas costs
@@ -207,7 +219,10 @@ func (c *ripemd160hash) Run(input []byte) ([]byte, error) {
 
 // data copy implemented as a native contract.
 type dataCopy struct{}
-
+func (c *dataCopy) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 //
 // This method does not require any overflow checking as the input size gas costs
@@ -221,7 +236,10 @@ func (c *dataCopy) Run(in []byte) ([]byte, error) {
 
 // bigModExp implements a native big integer exponential modular operation.
 type bigModExp struct{}
-
+func (c *bigModExp) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 var (
 	big0      = big.NewInt(0)
 	big1      = big.NewInt(1)
@@ -364,7 +382,10 @@ func runBn256Add(input []byte) ([]byte, error) {
 // bn256Add implements a native elliptic curve point addition conforming to
 // Istanbul consensus rules.
 type bn256AddIstanbul struct{}
-
+func (c *bn256AddIstanbul) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256AddIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256AddGasIstanbul
@@ -377,7 +398,10 @@ func (c *bn256AddIstanbul) Run(input []byte) ([]byte, error) {
 // bn256AddByzantium implements a native elliptic curve point addition
 // conforming to Byzantium consensus rules.
 type bn256AddByzantium struct{}
-
+func (c *bn256AddByzantium) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256AddByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256AddGasByzantium
@@ -402,7 +426,10 @@ func runBn256ScalarMul(input []byte) ([]byte, error) {
 // bn256ScalarMulIstanbul implements a native elliptic curve scalar
 // multiplication conforming to Istanbul consensus rules.
 type bn256ScalarMulIstanbul struct{}
-
+func (c *bn256ScalarMulIstanbul) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256ScalarMulIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256ScalarMulGasIstanbul
@@ -415,7 +442,10 @@ func (c *bn256ScalarMulIstanbul) Run(input []byte) ([]byte, error) {
 // bn256ScalarMulByzantium implements a native elliptic curve scalar
 // multiplication conforming to Byzantium consensus rules.
 type bn256ScalarMulByzantium struct{}
-
+func (c *bn256ScalarMulByzantium) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256ScalarMulByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256ScalarMulGasByzantium
@@ -470,7 +500,10 @@ func runBn256Pairing(input []byte) ([]byte, error) {
 // bn256PairingIstanbul implements a pairing pre-compile for the bn256 curve
 // conforming to Istanbul consensus rules.
 type bn256PairingIstanbul struct{}
-
+func (c *bn256PairingIstanbul) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256PairingIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256PairingBaseGasIstanbul + uint64(len(input)/192)*params.Bn256PairingPerPointGasIstanbul
@@ -483,7 +516,10 @@ func (c *bn256PairingIstanbul) Run(input []byte) ([]byte, error) {
 // bn256PairingByzantium implements a pairing pre-compile for the bn256 curve
 // conforming to Byzantium consensus rules.
 type bn256PairingByzantium struct{}
-
+func (c *bn256PairingByzantium) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256PairingByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256PairingBaseGasByzantium + uint64(len(input)/192)*params.Bn256PairingPerPointGasByzantium
@@ -494,7 +530,10 @@ func (c *bn256PairingByzantium) Run(input []byte) ([]byte, error) {
 }
 
 type blake2F struct{}
-
+func (c *blake2F) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 func (c *blake2F) RequiredGas(input []byte) uint64 {
 	// If the input is malformed, we can't calculate the gas, return 0 and let the
 	// actual call choke and fault.
@@ -563,7 +602,10 @@ var (
 
 // bls12381G1Add implements EIP-2537 G1Add precompile.
 type bls12381G1Add struct{}
-
+func (c *bls12381G1Add) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G1Add) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G1AddGas
@@ -601,7 +643,10 @@ func (c *bls12381G1Add) Run(input []byte) ([]byte, error) {
 
 // bls12381G1Mul implements EIP-2537 G1Mul precompile.
 type bls12381G1Mul struct{}
-
+func (c *bls12381G1Mul) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G1Mul) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G1MulGas
@@ -637,7 +682,10 @@ func (c *bls12381G1Mul) Run(input []byte) ([]byte, error) {
 
 // bls12381G1MultiExp implements EIP-2537 G1MultiExp precompile.
 type bls12381G1MultiExp struct{}
-
+func (c *bls12381G1MultiExp) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G1MultiExp) RequiredGas(input []byte) uint64 {
 	// Calculate G1 point, scalar value pair length
@@ -694,7 +742,10 @@ func (c *bls12381G1MultiExp) Run(input []byte) ([]byte, error) {
 
 // bls12381G2Add implements EIP-2537 G2Add precompile.
 type bls12381G2Add struct{}
-
+func (c *bls12381G2Add) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G2Add) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G2AddGas
@@ -732,7 +783,10 @@ func (c *bls12381G2Add) Run(input []byte) ([]byte, error) {
 
 // bls12381G2Mul implements EIP-2537 G2Mul precompile.
 type bls12381G2Mul struct{}
-
+func (c *bls12381G2Mul) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G2Mul) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G2MulGas
@@ -768,7 +822,10 @@ func (c *bls12381G2Mul) Run(input []byte) ([]byte, error) {
 
 // bls12381G2MultiExp implements EIP-2537 G2MultiExp precompile.
 type bls12381G2MultiExp struct{}
-
+func (c *bls12381G2MultiExp) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G2MultiExp) RequiredGas(input []byte) uint64 {
 	// Calculate G2 point, scalar value pair length
@@ -825,7 +882,10 @@ func (c *bls12381G2MultiExp) Run(input []byte) ([]byte, error) {
 
 // bls12381Pairing implements EIP-2537 Pairing precompile.
 type bls12381Pairing struct{}
-
+func (c *bls12381Pairing) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381Pairing) RequiredGas(input []byte) uint64 {
 	return params.Bls12381PairingBaseGas + uint64(len(input)/384)*params.Bls12381PairingPerPairGas
@@ -904,7 +964,10 @@ func decodeBLS12381FieldElement(in []byte) ([]byte, error) {
 
 // bls12381MapG1 implements EIP-2537 MapG1 precompile.
 type bls12381MapG1 struct{}
-
+func (c *bls12381MapG1) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381MapG1) RequiredGas(input []byte) uint64 {
 	return params.Bls12381MapG1Gas
@@ -939,7 +1002,10 @@ func (c *bls12381MapG1) Run(input []byte) ([]byte, error) {
 
 // bls12381MapG2 implements EIP-2537 MapG2 precompile.
 type bls12381MapG2 struct{}
-
+func (c *bls12381MapG2) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381MapG2) RequiredGas(input []byte) uint64 {
 	return params.Bls12381MapG2Gas
@@ -981,7 +1047,10 @@ func (c *bls12381MapG2) Run(input []byte) ([]byte, error) {
 
 // checkEnode implemented as a native contract.
 type checkEnode struct{}
-
+func (c *checkEnode) InitChainContext(chain core.ChainContext) {
+	// not need for GETH's native precompiled contract
+	return
+}
 func (c *checkEnode) RequiredGas(_ []byte) uint64 {
 	return params.EnodeCheckGas
 }
@@ -1003,8 +1072,13 @@ func (c *checkEnode) Run(input []byte) ([]byte, error) {
 }
 
 // checkChallenge implemented as a native contract to take an on-chain challenge.
-type checkChallenge struct{}
-
+type checkChallenge struct{
+	chainContext core.ChainContext
+}
+func (c *checkChallenge) InitChainContext(chain core.ChainContext) {
+	c.chainContext = chain
+	return
+}
 func (c *checkChallenge) RequiredGas(_ []byte) uint64 {
 	return params.TakeChallengeGas
 }
@@ -1016,17 +1090,23 @@ func (c *checkChallenge) Run(input []byte) ([]byte, error) {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
+	/*
 	err := faultdetector.CheckChallenge(input)
 	if err != nil {
 		return false32Byte, fmt.Errorf("invalid proof of challenge %v", err)
-	}
+	}*/
 
 	return true32Byte, nil
 }
 
 // checkProof implemented as a native contract to validate an on-chain innocent proof.
-type checkProof struct{}
-
+type checkProof struct{
+	chainContext core.ChainContext
+}
+func (c *checkProof) InitChainContext(chain core.ChainContext) {
+	c.chainContext = chain
+	return
+}
 func (c *checkProof) RequiredGas(_ []byte) uint64 {
 	return params.CheckInnocentGas
 }
@@ -1038,10 +1118,11 @@ func (c *checkProof) Run(input []byte) ([]byte, error) {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
+	/*
 	err := faultdetector.CheckProof(input)
 	if err != nil {
 		return false32Byte, fmt.Errorf("invalid proof of innocent %v", err)
-	}
+	}*/
 
 	return true32Byte, nil
 }
