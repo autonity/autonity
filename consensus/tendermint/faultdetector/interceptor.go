@@ -15,9 +15,10 @@ const (
 )
 
 type Proof struct {
-	Rule     Rule
-	Message  message
-	Evidence []message
+	parentHash common.Hash  // use by precompiled contract to get committee from chain db.
+	Rule       Rule
+	Message    message
+	Evidence   []message
 }
 
 type Accusation struct {
