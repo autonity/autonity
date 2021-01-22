@@ -8,6 +8,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
+// todo: this packing / unpacking logic can be replaced by native RLP encode/decode, going to remove it..
 /* proof_packer.go provide pack/unpack functions for precompiled contract to decode proof from and to byte array.
 	Pack
 	type Proof struct {
