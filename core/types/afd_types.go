@@ -35,6 +35,7 @@ func (p *RawProof) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
+// RawProof to be decode into Proof for processing.
 type Proof struct {
 	ParentHash common.Hash
 	Rule       uint8
