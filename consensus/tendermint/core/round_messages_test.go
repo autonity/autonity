@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
 	"gotest.tools/assert"
 	"testing"
 )
@@ -44,36 +45,36 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 	prevoteHash := common.HexToHash("prevoteHash")
 	precommitHash := common.HexToHash("precommitHash")
 
-	proposalMsg := &Message{
-		Code:          msgProposal,
+	proposalMsg := &types.ConsensusMessage{
+		Code:          types.msgProposal,
 		Msg:           []byte("proposal"),
 		Address:       common.HexToAddress("val1"),
 		CommittedSeal: []byte{},
 	}
 
-	prevoteMsg := &Message{
-		Code:          msgPrevote,
+	prevoteMsg := &types.ConsensusMessage{
+		Code:          types.msgPrevote,
 		Msg:           []byte("prevote"),
 		Address:       common.HexToAddress("val1"),
 		CommittedSeal: []byte{},
 	}
 
-	precommitMsg := &Message{
-		Code:          msgPrecommit,
+	precommitMsg := &types.ConsensusMessage{
+		Code:          types.msgPrecommit,
 		Msg:           []byte("precommit"),
 		Address:       common.HexToAddress("val1"),
 		CommittedSeal: []byte("committed seal"),
 	}
 
-	rm0.SetProposal(&Proposal{}, proposalMsg, false)
+	rm0.SetProposal(&types.Proposal{}, proposalMsg, false)
 	rm0.AddPrevote(prevoteHash, *prevoteMsg)
 	rm0.AddPrecommit(precommitHash, *precommitMsg)
 
-	rm1.SetProposal(&Proposal{}, proposalMsg, false)
+	rm1.SetProposal(&types.Proposal{}, proposalMsg, false)
 	rm1.AddPrevote(prevoteHash, *prevoteMsg)
 	rm1.AddPrecommit(precommitHash, *precommitMsg)
 
-	rm2.SetProposal(&Proposal{}, proposalMsg, false)
+	rm2.SetProposal(&types.Proposal{}, proposalMsg, false)
 	rm2.AddPrevote(prevoteHash, *prevoteMsg)
 	rm2.AddPrecommit(precommitHash, *precommitMsg)
 
@@ -82,7 +83,7 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 
 	for _, m := range allMessages {
 		switch m.Code {
-		case msgProposal:
+		case types.msgProposal:
 			assert.Equal(t, proposalMsg.Code, m.Code)
 
 			r := bytes.Compare(proposalMsg.Msg, m.Msg)
@@ -93,7 +94,7 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 
 			r = bytes.Compare(proposalMsg.CommittedSeal, m.CommittedSeal)
 			assert.Equal(t, 0, r)
-		case msgPrevote:
+		case types.msgPrevote:
 			assert.Equal(t, prevoteMsg.Code, m.Code)
 
 			r := bytes.Compare(prevoteMsg.Msg, m.Msg)
@@ -104,7 +105,7 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 
 			r = bytes.Compare(prevoteMsg.CommittedSeal, m.CommittedSeal)
 			assert.Equal(t, 0, r)
-		case msgPrecommit:
+		case types.msgPrecommit:
 			assert.Equal(t, precommitMsg.Code, m.Code)
 
 			r := bytes.Compare(precommitMsg.Msg, m.Msg)

@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/metrics"
 	"math/big"
@@ -53,7 +54,7 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			round:            0,
 			height:           big.NewInt(1),
 		}
-		c.measureMetricsOnTimeOut(msgProposal, 2)
+		c.measureMetricsOnTimeOut(types.msgProposal, 2)
 		if m := metrics.Get("tendermint/timer/propose"); m == nil {
 			t.Fatalf("test case failed.")
 		}
@@ -69,7 +70,7 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			round:            0,
 			height:           big.NewInt(1),
 		}
-		c.measureMetricsOnTimeOut(msgPrevote, 2)
+		c.measureMetricsOnTimeOut(types.msgPrevote, 2)
 		if m := metrics.Get("tendermint/timer/prevote"); m == nil {
 			t.Fatalf("test case failed.")
 		}
@@ -85,7 +86,7 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			round:            0,
 			height:           big.NewInt(1),
 		}
-		c.measureMetricsOnTimeOut(msgPrecommit, 2)
+		c.measureMetricsOnTimeOut(types.msgPrecommit, 2)
 		if m := metrics.Get("tendermint/timer/precommit"); m == nil {
 			t.Fatalf("test case failed.")
 		}

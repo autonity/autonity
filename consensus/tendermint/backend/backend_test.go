@@ -397,7 +397,7 @@ func TestSyncPeer(t *testing.T) {
 		defer ctrl.Finish()
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
-		messages := []*tendermintCore.Message{
+		messages := []*types.ConsensusMessage{
 			{
 				Address: peerAddr1,
 			},

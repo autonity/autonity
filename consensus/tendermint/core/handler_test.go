@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
 	"math/big"
@@ -23,8 +24,8 @@ func TestHandleCheckedMessage(t *testing.T) {
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
 
-	createPrevote := func(round int64, height int64) *Message {
-		vote := &Vote{
+	createPrevote := func(round int64, height int64) *types.ConsensusMessage {
+		vote := &types.Vote{
 			Round:             round,
 			Height:            big.NewInt(height),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
@@ -33,15 +34,15 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not encode vote")
 		}
-		return &Message{
-			Code:    msgPrevote,
+		return &types.ConsensusMessage{
+			Code:    types.msgPrevote,
 			Msg:     encoded,
 			Address: sender.Address,
 		}
 	}
 
-	createPrecommit := func(round int64, height int64) *Message {
-		vote := &Vote{
+	createPrecommit := func(round int64, height int64) *types.ConsensusMessage {
+		vote := &types.Vote{
 			Round:             round,
 			Height:            big.NewInt(height),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
@@ -56,8 +57,8 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error signing")
 		}
-		return &Message{
-			Code:          msgPrecommit,
+		return &types.ConsensusMessage{
+			Code:          types.msgPrecommit,
 			Msg:           encoded,
 			Address:       sender.Address,
 			CommittedSeal: commitSign,
@@ -68,7 +69,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		round   int64
 		height  *big.Int
 		step    Step
-		message *Message
+		message *types.ConsensusMessage
 		outcome error
 		panic   bool
 	}{
@@ -136,7 +137,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		engine := core{
 			logger:            logger,
 			address:           currentValidator.Address,
-			backlogs:          make(map[common.Address][]*Message),
+			backlogs:          make(map[common.Address][]*types.ConsensusMessage),
 			round:             testCase.round,
 			height:            testCase.height,
 			step:              testCase.step,
@@ -186,20 +187,20 @@ func TestHandleMsg(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*Message),
+			backlogs: make(map[common.Address][]*types.ConsensusMessage),
 			step:     propose,
 			round:    1,
 			height:   big.NewInt(2),
 		}
-		vote := &Vote{
+		vote := &types.Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
-		msg := &Message{
-			Code:       msgPrevote,
+		msg := &types.ConsensusMessage{
+			Code:       types.msgPrevote,
 			Msg:        payload,
 			decodedMsg: vote,
 			Address:    common.Address{},
@@ -218,21 +219,21 @@ func TestHandleMsg(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*Message),
-			backlogUnchecked: map[uint64][]*Message{},
+			backlogs:         make(map[common.Address][]*types.ConsensusMessage),
+			backlogUnchecked: map[uint64][]*types.ConsensusMessage{},
 			step:             propose,
 			round:            1,
 			height:           big.NewInt(2),
 		}
-		vote := &Vote{
+		vote := &types.Vote{
 			Round:             2,
 			Height:            big.NewInt(3),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
-		msg := &Message{
-			Code:       msgPrevote,
+		msg := &types.ConsensusMessage{
+			Code:       types.msgPrevote,
 			Msg:        payload,
 			decodedMsg: vote,
 			Address:    common.Address{},
