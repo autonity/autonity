@@ -63,19 +63,18 @@ func (c *checkProof) Run(input []byte) ([]byte, error) {
 
 // validate the proof is a valid challenge.
 func validateChallenge(c *types.Proof, chain ChainContext) error {
-	// get committee from block header
+	// check if evidence msgs are from committee members of that height.
 	h, err := c.Message.Height()
 	if err != nil {
-		return nil
+		return err
 	}
 
 	header := chain.GetHeader(c.ParentHash, h.Uint64())
 
-	// check if evidences senders are presented in committee.
 	for i:=0; i < len(c.Evidence); i++ {
-		member := header.CommitteeMember(c.Evidence[i].Address)
-		if member == nil {
-			return fmt.Errorf("invalid evidence for proof of susipicous message")
+		m := header.CommitteeMember(c.Evidence[i].Address)
+		if m == nil {
+			return fmt.Errorf("evidence msg was not sent by committee member")
 		}
 	}
 
@@ -85,28 +84,57 @@ func validateChallenge(c *types.Proof, chain ChainContext) error {
 
 // validate the innocent proof is valid.
 func validateInnocentProof(in *types.Proof, chain ChainContext) error {
-	// get committee from block header
+	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
-		return nil
+		return err
 	}
+
 	header := chain.GetHeader(in.ParentHash, h.Uint64())
 
-	// check if evidences senders are presented in committee.
 	for i:=0; i < len(in.Evidence); i++ {
-		member := header.CommitteeMember(in.Evidence[i].Address)
-		if member == nil {
-			return fmt.Errorf("invalid evidence for proof of susipicous message")
+		m := header.CommitteeMember(in.Evidence[i].Address)
+		if m == nil {
+			return fmt.Errorf("evidence msg was not sent by committee member")
 		}
 	}
+
 	// todo: check if the proof is an innocent behavior.
 	return nil
 }
 
+func decodeProof(proof []byte) (*types.Proof, error) {
+	p := new(types.RawProof)
+	err := rlp.DecodeBytes(proof, p)
+	if err != nil {
+		return nil, err
+	}
+
+	decodedP := new(types.Proof)
+	decodedP.ParentHash = p.ParentHash
+	decodedP.Rule = p.Rule
+
+	// decode consensus message which is rlp encoded.
+	msg := new(types.ConsensusMessage)
+	if err := msg.FromPayload(p.Message); err != nil {
+		return nil, err
+	}
+	decodedP.Message = *msg
+
+	for i:= 0; i < len(p.Evidence); i++ {
+		m := new(types.ConsensusMessage)
+		if err := m.FromPayload(p.Evidence[i]); err != nil {
+			return nil, fmt.Errorf("msg cannot be decoded")
+		}
+		decodedP.Evidence = append(decodedP.Evidence, *m)
+	}
+	return decodedP, nil
+}
+
 // Check the proof of innocent, it is called from precompiled contracts of EVM package.
 func CheckProof(packedProof []byte, chain ChainContext) error {
-	p := new(types.Proof)
-	err := rlp.DecodeBytes(packedProof, p)
+
+	p, err := decodeProof(packedProof)
 	if err != nil {
 		return err
 	}
@@ -121,8 +149,7 @@ func CheckProof(packedProof []byte, chain ChainContext) error {
 
 // validate challenge, call from EVM package.
 func CheckChallenge(packedProof []byte, chain ChainContext) error {
-	p := new(types.Proof)
-	err := rlp.DecodeBytes(packedProof, p)
+	p, err := decodeProof(packedProof)
 	if err != nil {
 		return err
 	}
