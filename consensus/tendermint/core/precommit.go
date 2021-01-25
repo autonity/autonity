@@ -28,7 +28,7 @@ import (
 func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.step)
 
-	var precommit = Vote{
+	var precommit = types.Vote{
 		Round:  c.Round(),
 		Height: c.Height(),
 	}
@@ -43,7 +43,7 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 		precommit.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
 	}
 
-	encodedVote, err := Encode(&precommit)
+	encodedVote, err := types.Encode(&precommit)
 	if err != nil {
 		logger.Error("Failed to encode", "subject", precommit)
 		return
@@ -51,8 +51,8 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
-	msg := &Message{
-		Code:          msgPrecommit,
+	msg := &types.ConsensusMessage{
+		Code:          types.MsgPrecommit,
 		Msg:           encodedVote,
 		Address:       c.address,
 		CommittedSeal: []byte{},
@@ -69,8 +69,8 @@ func (c *core) sendPrecommit(ctx context.Context, isNil bool) {
 	c.broadcast(ctx, msg)
 }
 
-func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
-	var preCommit Vote
+func (c *core) handlePrecommit(ctx context.Context, msg *types.ConsensusMessage) error {
+	var preCommit types.Vote
 	err := msg.Decode(&preCommit)
 	if err != nil {
 		return errFailedDecodePrecommit
@@ -165,7 +165,7 @@ func (c *core) handleCommit(ctx context.Context) {
 	}
 }
 
-func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to string) {
+func (c *core) logPrecommitMessageEvent(message string, precommit types.Vote, from, to string) {
 	currentProposalHash := c.curRoundMessages.GetProposalHash()
 	c.logger.Debug(message,
 		"from", from,

@@ -2,11 +2,12 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/log"
 )
 
 const (
@@ -108,15 +109,15 @@ func (t *timeout) reset(s Step) {
 /////////////// On Timeout Functions ///////////////
 func (c *core) measureMetricsOnTimeOut(step uint64, r int64) {
 	switch step {
-	case msgProposal:
+	case types.MsgProposal:
 		duration := c.timeoutPropose(r)
 		tendermintProposeTimer.Update(duration)
 		return
-	case msgPrevote:
+	case types.MsgPrevote:
 		duration := c.timeoutPrevote(r)
 		tendermintPrevoteTimer.Update(duration)
 		return
-	case msgPrecommit:
+	case types.MsgPrecommit:
 		duration := c.timeoutPrecommit(r)
 		tendermintPrecommitTimer.Update(duration)
 		return
@@ -127,7 +128,7 @@ func (c *core) onTimeoutPropose(r int64, h *big.Int) {
 	msg := TimeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
-		step:             msgProposal,
+		step:             types.MsgProposal,
 	}
 	// It's unsafe to call logTimeoutEvent here !
 	c.logger.Debug("TimeoutEvent(Propose): Sent", "round", r, "height", h)
@@ -139,7 +140,7 @@ func (c *core) onTimeoutPrevote(r int64, h *big.Int) {
 	msg := TimeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
-		step:             msgPrevote,
+		step:             types.MsgPrevote,
 	}
 	c.logger.Debug("TimeoutEvent(Prevote): Sent", "round", r, "height", h)
 	c.measureMetricsOnTimeOut(msg.step, r)
@@ -150,7 +151,7 @@ func (c *core) onTimeoutPrecommit(r int64, h *big.Int) {
 	msg := TimeoutEvent{
 		roundWhenCalled:  r,
 		heightWhenCalled: h,
-		step:             msgPrecommit,
+		step:             types.MsgPrecommit,
 	}
 	c.logger.Debug("TimeoutEvent(Precommit): Sent", "round", r, "height", h)
 	c.measureMetricsOnTimeOut(msg.step, r)

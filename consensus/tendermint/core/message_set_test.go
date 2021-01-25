@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/core/types"
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
@@ -8,7 +9,7 @@ import (
 
 func TestMessageSetAddVote(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
-	msg := Message{Address: common.BytesToAddress([]byte("987654321")), power: 1}
+	msg := types.ConsensusMessage{Address: common.BytesToAddress([]byte("987654321")), power: 1}
 
 	ms := newMessageSet()
 	ms.AddVote(blockHash, msg)
@@ -29,7 +30,7 @@ func TestMessageSetVotesSize(t *testing.T) {
 }
 
 func TestMessageSetAddNilVote(t *testing.T) {
-	msg := Message{Address: common.BytesToAddress([]byte("987654321")), power: 1}
+	msg := types.ConsensusMessage{Address: common.BytesToAddress([]byte("987654321")), power: 1}
 
 	ms := newMessageSet()
 	ms.AddVote(common.Hash{}, msg)
@@ -44,7 +45,7 @@ func TestMessageSetTotalSize(t *testing.T) {
 	blockHash2 := common.BytesToHash([]byte("7890"))
 	nilHash := common.Hash{}
 	type vote struct {
-		msg  Message
+		msg  types.ConsensusMessage
 		hash common.Hash
 	}
 	testCases := []struct {
@@ -52,40 +53,40 @@ func TestMessageSetTotalSize(t *testing.T) {
 		expectedPower uint64
 	}{{
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("2")), power: 1}, blockHash},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("2")), power: 1}, blockHash},
 		},
 		2,
 	}, {
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("2")), power: 3}, blockHash2},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("2")), power: 3}, blockHash2},
 		},
 		4,
 	}, {
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("2")), power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("3")), power: 5}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("4")), power: 1}, nilHash},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("2")), power: 1}, blockHash},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("3")), power: 5}, blockHash},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("4")), power: 1}, nilHash},
 		},
 		8,
 	}, {
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("2")), power: 0}, blockHash},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("2")), power: 0}, blockHash},
 		},
 		1,
 	}, {
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("2")), power: 1}, blockHash2},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("1")), power: 1}, blockHash},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("2")), power: 1}, blockHash2},
 		},
 		2,
 	}, {
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), power: 3}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("1")), power: 5}, blockHash2}, // should be discarded
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("1")), power: 3}, blockHash},
+			{types.ConsensusMessage{Address: common.BytesToAddress([]byte("1")), power: 5}, blockHash2}, // should be discarded
 		},
 		3,
 	}}
@@ -114,7 +115,7 @@ func TestMessageSetValues(t *testing.T) {
 
 	t.Run("known hash given, message returned", func(t *testing.T) {
 		blockHash := common.BytesToHash([]byte("123456789"))
-		msg := Message{Address: common.BytesToAddress([]byte("987654321"))}
+		msg := types.ConsensusMessage{Address: common.BytesToAddress([]byte("987654321"))}
 
 		ms := newMessageSet()
 		ms.AddVote(blockHash, msg)

@@ -14,14 +14,13 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package types
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rlp"
 	"io"
 	"math/big"
@@ -29,9 +28,9 @@ import (
 )
 
 const (
-	msgProposal uint64 = iota
-	msgPrevote
-	msgPrecommit
+	MsgProposal uint64 = iota
+	MsgPrevote
+	MsgPrecommit
 )
 
 var (
@@ -39,7 +38,7 @@ var (
 	ErrUnauthorizedAddress  = errors.New("unauthorized address")
 )
 
-type Message struct {
+type ConsensusMessage struct {
 	Code          uint64
 	Msg           []byte
 	Address       common.Address
@@ -48,7 +47,7 @@ type Message struct {
 
 	power      uint64
 	decodedMsg ConsensusMsg // cached decoded Msg
-	payload    []byte       // rlp encoded Message
+	payload    []byte       // rlp encoded ConsensusMessage
 }
 
 // ==============================================
@@ -56,20 +55,20 @@ type Message struct {
 // define the functions that needs to be provided for rlp Encoder/Decoder.
 
 // EncodeRLP serializes m into the Ethereum RLP format.
-func (m *Message) EncodeRLP(w io.Writer) error {
+func (m *ConsensusMessage) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{m.Code, m.Msg, m.Address, m.Signature, m.CommittedSeal})
 }
 
-func (m *Message) GetCode() uint64 {
+func (m *ConsensusMessage) GetCode() uint64 {
 	return m.Code
 }
 
-func (m *Message) GetSignature() []byte {
+func (m *ConsensusMessage) GetSignature() []byte {
 	return m.Signature
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (m *Message) DecodeRLP(s *rlp.Stream) error {
+func (m *ConsensusMessage) DecodeRLP(s *rlp.Stream) error {
 	var msg struct {
 		Code          uint64
 		Msg           []byte
@@ -89,7 +88,7 @@ func (m *Message) DecodeRLP(s *rlp.Stream) error {
 //
 // define the functions that needs to be provided for core.
 
-func (m *Message) FromPayload(b []byte) error {
+func (m *ConsensusMessage) FromPayload(b []byte) error {
 	m.payload = b
 	// Decode message
 	err := rlp.DecodeBytes(b, m)
@@ -98,10 +97,10 @@ func (m *Message) FromPayload(b []byte) error {
 	}
 	// Decode the payload, this will cache the decoded msg payload.
 	switch m.Code {
-	case msgProposal:
+	case MsgProposal:
 		var proposal Proposal
 		return m.Decode(&proposal)
-	case msgPrevote, msgPrecommit:
+	case MsgPrevote, MsgPrecommit:
 		var vote Vote
 		return m.Decode(&vote)
 	default:
@@ -109,7 +108,7 @@ func (m *Message) FromPayload(b []byte) error {
 	}
 }
 
-func (m *Message) Validate(validateFn func(*types.Header, []byte, []byte) (common.Address, error), previousHeader *types.Header) (*types.CommitteeMember, error) {
+func (m *ConsensusMessage) Validate(validateFn func(*Header, []byte, []byte) (common.Address, error), previousHeader *Header) (*CommitteeMember, error) {
 	// Validate message (on a message without Signature)
 	msgHeight, err := m.Height()
 	if err != nil {
@@ -145,7 +144,7 @@ func (m *Message) Validate(validateFn func(*types.Header, []byte, []byte) (commo
 	return v, nil
 }
 
-func (m *Message) Payload() []byte {
+func (m *ConsensusMessage) Payload() []byte {
 	if m.payload == nil {
 		payload, err := rlp.EncodeToBytes(m)
 		if err != nil {
@@ -159,12 +158,12 @@ func (m *Message) Payload() []byte {
 	return m.payload
 }
 
-func (m *Message) GetPower() uint64 {
+func (m *ConsensusMessage) GetPower() uint64 {
 	return m.power
 }
 
-func (m *Message) PayloadNoSig() ([]byte, error) {
-	return rlp.EncodeToBytes(&Message{
+func (m *ConsensusMessage) PayloadNoSig() ([]byte, error) {
+	return rlp.EncodeToBytes(&ConsensusMessage{
 		Code:          m.Code,
 		Msg:           m.Msg,
 		Address:       m.Address,
@@ -173,7 +172,7 @@ func (m *Message) PayloadNoSig() ([]byte, error) {
 	})
 }
 
-func (m *Message) Decode(val interface{}) error {
+func (m *ConsensusMessage) Decode(val interface{}) error {
 	//Decode is responsible to rlp-decode m.Msg. It is meant to only perform the actual decoding once,
 	//saving a cached value in m.decodedMsg.
 
@@ -203,9 +202,9 @@ func (m *Message) Decode(val interface{}) error {
 	return nil
 }
 
-func (m *Message) String() string {
+func (m *ConsensusMessage) String() string {
 	var msg string
-	if m.Code == msgProposal {
+	if m.Code == MsgProposal {
 		var proposal Proposal
 		err := m.Decode(&proposal)
 		if err != nil {
@@ -214,7 +213,7 @@ func (m *Message) String() string {
 		msg = proposal.String()
 	}
 
-	if m.Code == msgPrevote || m.Code == msgPrecommit {
+	if m.Code == MsgPrevote || m.Code == MsgPrecommit {
 		var vote Vote
 		err := m.Decode(&vote)
 		if err != nil {
@@ -225,14 +224,14 @@ func (m *Message) String() string {
 	return fmt.Sprintf("{sender: %v, power: %v, msgCode: %v, msg: %v}", m.Address.String(), m.power, m.Code, msg)
 }
 
-func (m *Message) Round() (int64, error) {
+func (m *ConsensusMessage) Round() (int64, error) {
 	if m.decodedMsg == nil {
 		return 0, errMsgPayloadNotDecoded
 	}
 	return m.decodedMsg.GetRound(), nil
 }
 
-func (m *Message) Height() (*big.Int, error) {
+func (m *ConsensusMessage) Height() (*big.Int, error) {
 	if m.decodedMsg == nil {
 		return nil, errMsgPayloadNotDecoded
 	}
