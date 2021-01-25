@@ -4,20 +4,15 @@ pragma solidity ^0.7.1;
 
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Accountability {
-    // Proof is used for precompiled contract, since solidity's limitation and
-    // the performance concern, data packing was done by golang in client side, then AC
-    // just bypass the data to precompiled contracts.
-    // https://docs.soliditylang.org/en/v0.8.0/internals/layout_in_storage.html
-    // https://docs.soliditylang.org/en/v0.8.0/internals/layout_in_memory.html
     struct Proof {
-        uint256 height;       // 32 bytes
-        address sender;       // 20 bytes
-        uint64 round;         // 8 bytes
-        uint8 rule;           // 1 bytes
-        uint8 msgType;        // 1 bytes
+        // identities to address an unique proof.
+        uint256 height;
+        uint64 round;
+        uint64 msgType;
+        address sender;
+        uint8 rule;
 
-        // A dynamic byte array which contains formatted meta data for precompiled contract to unpack proof, the pack
-        // and unpack is done is golang client side since concern on performance and Solidity's limitations on data packing.
+        // the rlp encoded Proof. Please check afd_types.go type Proof struct.
         bytes packedProof;
     }
 
