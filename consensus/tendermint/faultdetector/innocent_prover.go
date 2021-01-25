@@ -2,11 +2,11 @@ package faultdetector
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/vm"
 )
 
 // validate the proof is a valid challenge.
-func validateChallenge(c *Proof, chain core.ChainContext) error {
+func validateChallenge(c *Proof, chain vm.ChainContext) error {
 	// get committee from block header
 	header := chain.GetHeader(c.parentHash, uint64(c.Message.Height()-1))
 
@@ -23,7 +23,7 @@ func validateChallenge(c *Proof, chain core.ChainContext) error {
 }
 
 // validate the innocent proof is valid.
-func validateInnocentProof(in *Proof, chain core.ChainContext) error {
+func validateInnocentProof(in *Proof, chain vm.ChainContext) error {
 	// get committee from block header
 	header := chain.GetHeader(in.parentHash, uint64(in.Message.Height()-1))
 
@@ -45,7 +45,7 @@ func resolveChallenge(c *Proof) (innocentProof *Proof, err error) {
 }
 
 // Check the proof of innocent, it is called from precompiled contracts of EVM package.
-func CheckProof(packedProof []byte, chain core.ChainContext) error {
+func CheckProof(packedProof []byte, chain vm.ChainContext) error {
 	innocentProof, err := UnpackProof(packedProof)
 	if err != nil {
 		return err
@@ -59,7 +59,7 @@ func CheckProof(packedProof []byte, chain core.ChainContext) error {
 }
 
 // validate challenge, call from EVM package.
-func CheckChallenge(packedProof []byte, chain core.ChainContext) error {
+func CheckChallenge(packedProof []byte, chain vm.ChainContext) error {
 	challenge, err := UnpackProof(packedProof)
 	if err != nil {
 		return err
