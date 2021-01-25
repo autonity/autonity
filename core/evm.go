@@ -20,22 +20,12 @@ import (
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 )
 
-// ChainContext supports retrieving headers and consensus parameters from the
-// current blockchain to be used during transaction processing.
-type ChainContext interface {
-	// GetHeader returns the hash corresponding to their hash.
-	GetHeader(common.Hash, uint64) *types.Header
-	// Engine retrieves the chain's consensus engine.
-	Engine() consensus.Engine
-}
-
 // NewEVMContext creates a new context for use in the EVM.
-func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author *common.Address) vm.Context {
+func NewEVMContext(msg Message, header *types.Header, chain vm.ChainContext, author *common.Address) vm.Context {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	var beneficiary common.Address
 	if author == nil {
@@ -59,7 +49,7 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 }
 
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
-func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash {
+func GetHashFn(ref *types.Header, chain vm.ChainContext) func(n uint64) common.Hash {
 	// Cache will initially contain [refHash.parent],
 	// Then fill up with [refHash.p, refHash.pp, refHash.ppp, ...]
 	var cache []common.Hash
