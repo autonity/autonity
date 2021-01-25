@@ -88,20 +88,20 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		timeoutEvent := TimeoutEvent{
 			roundWhenCalled:  1,
 			heightWhenCalled: big.NewInt(2),
-			step:             msgPrevote,
+			step:             types.msgPrevote,
 		}
 		// should send precommit nil
 		mockBackend.EXPECT().Sign(gomock.Any()).Times(2)
 		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Do(
 			func(ctx context.Context, c types.Committee, payload []byte) {
-				message := new(Message)
+				message := new(types.ConsensusMessage)
 				if err := rlp.DecodeBytes(payload, message); err != nil {
 					t.Fatalf("could not decode payload")
 				}
-				if message.Code != msgPrecommit {
+				if message.Code != types.msgPrecommit {
 					t.Fatalf("unexpected message code, should be precommit")
 				}
-				precommit := new(Vote)
+				precommit := new(types.Vote)
 				if err := rlp.DecodeBytes(message.Msg, precommit); err != nil {
 					t.Fatalf("could not decode precommit")
 				}
@@ -149,7 +149,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		timeoutEvent := TimeoutEvent{
 			roundWhenCalled:  1,
 			heightWhenCalled: big.NewInt(2),
-			step:             msgPrecommit,
+			step:             types.msgPrecommit,
 		}
 
 		engine.handleTimeoutPrecommit(context.Background(), timeoutEvent)
@@ -188,7 +188,7 @@ func TestOnTimeoutPrevote(t *testing.T) {
 		if timeoutEvent.roundWhenCalled != 2 || timeoutEvent.heightWhenCalled.Uint64() != 4 {
 			t.Fatalf("bad view")
 		}
-		if timeoutEvent.step != msgPrevote {
+		if timeoutEvent.step != types.msgPrevote {
 			t.Fatalf("bad step")
 		}
 	})
@@ -218,7 +218,7 @@ func TestOnTimeoutPrecommit(t *testing.T) {
 		if timeoutEvent.roundWhenCalled != 2 || timeoutEvent.heightWhenCalled.Uint64() != 4 {
 			t.Fatalf("bad view")
 		}
-		if timeoutEvent.step != msgPrecommit {
+		if timeoutEvent.step != types.msgPrecommit {
 			t.Fatalf("bad step")
 		}
 	})

@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"time"
 
@@ -130,7 +131,7 @@ eventLoop:
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				msg := new(Message)
+				msg := new(types.ConsensusMessage)
 				if err := msg.FromPayload(e.Payload); err != nil {
 					c.logger.Error("consensus message invalid payload", "err", err)
 					continue
@@ -166,11 +167,11 @@ eventLoop:
 			}
 			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
 				switch timeoutE.step {
-				case msgProposal:
+				case types.MsgProposal:
 					c.handleTimeoutPropose(ctx, timeoutE)
-				case msgPrevote:
+				case types.MsgPrevote:
 					c.handleTimeoutPrevote(ctx, timeoutE)
-				case msgPrecommit:
+				case types.MsgPrecommit:
 					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
 			}
@@ -240,7 +241,7 @@ func (c *core) sendEvent(ev interface{}) {
 	c.backend.Post(ev)
 }
 
-func (c *core) handleMsg(ctx context.Context, msg *Message) error {
+func (c *core) handleMsg(ctx context.Context, msg *types.ConsensusMessage) error {
 
 	msgHeight, err := msg.Height()
 	if err != nil {
@@ -266,7 +267,7 @@ func (c *core) handleMsg(ctx context.Context, msg *Message) error {
 	return c.handleCheckedMsg(ctx, msg)
 }
 
-func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender common.Address) {
+func (c *core) handleFutureRoundMsg(ctx context.Context, msg *types.ConsensusMessage, sender common.Address) {
 	// Decoding functions can't fail here
 	msgRound, err := msg.Round()
 	if err != nil {
@@ -276,7 +277,7 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender co
 	if _, ok := c.futureRoundChange[msgRound]; !ok {
 		c.futureRoundChange[msgRound] = make(map[common.Address]uint64)
 	}
-	c.futureRoundChange[msgRound][sender] = msg.power
+	c.futureRoundChange[msgRound][sender] = msg.GetPower()
 
 	var totalFutureRoundMessagesPower uint64
 	for _, power := range c.futureRoundChange[msgRound] {
@@ -289,7 +290,7 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender co
 	}
 }
 
-func (c *core) handleCheckedMsg(ctx context.Context, msg *Message) error {
+func (c *core) handleCheckedMsg(ctx context.Context, msg *types.ConsensusMessage) error {
 	logger := c.logger.New("address", c.address, "from", msg.Address)
 
 	// Store the message if it's a future message
@@ -312,13 +313,13 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *Message) error {
 	}
 
 	switch msg.Code {
-	case msgProposal:
+	case types.MsgProposal:
 		logger.Debug("tendermint.MessageEvent: PROPOSAL")
 		return testBacklog(c.handleProposal(ctx, msg))
-	case msgPrevote:
+	case types.MsgPrevote:
 		logger.Debug("tendermint.MessageEvent: PREVOTE")
 		return testBacklog(c.handlePrevote(ctx, msg))
-	case msgPrecommit:
+	case types.MsgPrecommit:
 		logger.Debug("tendermint.MessageEvent: PRECOMMIT")
 		return testBacklog(c.handlePrecommit(ctx, msg))
 	default:

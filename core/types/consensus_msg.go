@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package types
 
 import (
 	"fmt"
@@ -23,8 +23,11 @@ import (
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rlp"
+)
+
+const (
+	MaxRound = 99 // consequence of backlog priority
 )
 
 type ConsensusMsg interface {
@@ -36,7 +39,7 @@ type Proposal struct {
 	Round         int64
 	Height        *big.Int
 	ValidRound    int64
-	ProposalBlock *types.Block
+	ProposalBlock *Block
 }
 
 func (p *Proposal) String() string {
@@ -52,7 +55,7 @@ func (p *Proposal) GetHeight() *big.Int {
 	return p.Height
 }
 
-func NewProposal(r int64, h *big.Int, vr int64, p *types.Block) *Proposal {
+func NewProposal(r int64, h *big.Int, vr int64, p *Block) *Proposal {
 	return &Proposal{
 		Round:         r,
 		Height:        h,
@@ -94,7 +97,7 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 		Height          *big.Int
 		ValidRound      uint64
 		IsValidRoundNil bool
-		ProposalBlock   *types.Block
+		ProposalBlock   *Block
 	}
 
 	if err := s.Decode(&proposal); err != nil {
@@ -158,7 +161,7 @@ func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
 	}
 	sub.Round = int64(vote.Round)
 	if sub.Round > MaxRound {
-		return errInvalidMessage
+		return errors.New("invalid message")
 	}
 	sub.Height = vote.Height
 	sub.ProposedBlockHash = vote.ProposedBlockHash
