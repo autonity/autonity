@@ -18,7 +18,8 @@ package vm
 
 import (
 	"errors"
-	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -56,9 +57,9 @@ func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
 		precompiles = PrecompiledContractsHomestead
 	}
 	p, ok := precompiles[addr]
-
-	// init chain context for precompiled contracts.
-	p.InitChainContext(evm.Chain)
+	if ok {
+		p.InitChainContext(evm.Chain)
+	}
 	return p, ok
 }
 
@@ -96,12 +97,12 @@ type Context struct {
 	GasPrice *big.Int       // Provides information for GASPRICE
 
 	// Block information
-	Coinbase    common.Address    // Provides information for COINBASE
-	GasLimit    uint64            // Provides information for GASLIMIT
-	BlockNumber *big.Int          // Provides information for NUMBER
-	Time        *big.Int          // Provides information for TIME
-	Difficulty  *big.Int          // Provides information for DIFFICULTY
-	Chain       core.ChainContext // Provides committee information for precompiled contracts.
+	Coinbase    common.Address // Provides information for COINBASE
+	GasLimit    uint64         // Provides information for GASLIMIT
+	BlockNumber *big.Int       // Provides information for NUMBER
+	Time        *big.Int       // Provides information for TIME
+	Difficulty  *big.Int       // Provides information for DIFFICULTY
+	Chain       ChainContext   // Provides committee information for precompiled contracts.
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides
@@ -509,3 +510,13 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 
 // ChainConfig returns the environment's chain configuration
 func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
+
+// ChainContext supports retrieving headers and consensus parameters from the
+// current blockchain to be used during transaction processing.
+type ChainContext interface {
+	// GetHeader returns the hash corresponding to their hash.
+	GetHeader(common.Hash, uint64) *types.Header
+	// Engine retrieves the chain's consensus engine.
+	Engine() consensus.Engine
+}
+
