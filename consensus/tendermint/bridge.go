@@ -57,6 +57,11 @@ func New(
 	address := crypto.PubkeyToAddress(key.PublicKey)
 	logger := log.New("addr", address.String())
 	dlog := newDebugLog("address", address.String()[2:6])
+	messageBounds := &bounds{
+		centre: 0,
+		high:   5,
+		low:    5,
+	}
 	c := &Bridge{
 		Verifier:             verifier,
 		DefaultFinalizer:     finalizer,
@@ -67,7 +72,7 @@ func New(
 		logger:               logger,
 		dlog:                 dlog,
 		currentBlockAwaiter:  newBlockAwaiter(dlog),
-		msgStore:             newMessageStore(),
+		msgStore:             newMessageStore(messageBounds),
 		broadcaster:          broadcaster,
 		syncer:               syncer,
 		latestBlockRetriever: latestBlockRetreiver,
@@ -496,6 +501,9 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
 	b.committee = b.createCommittee(prevBlock)
 
+	// Update the height in the message store, this will clean out old messages.
+	b.msgStore.setHeight(b.height.Uint64())
+
 	// Create new oracle and algorithm
 	b.algo = algorithm.New(algorithm.NodeID(b.address), newOracle(b.lastHeader, b.msgStore, b.committee, b.currentBlockAwaiter))
 
@@ -652,11 +660,6 @@ eventLoop:
 				m, err := decodeSignedMessage(e)
 				if err != nil {
 					fmt.Printf("some error: %v\n", err)
-					continue
-				}
-				// Check we haven't already processed this message
-				if b.msgStore.Message(m.hash) != nil {
-					// Message was already processed
 					continue
 				}
 				err = b.msgStore.addMessage(m, e)

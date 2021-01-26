@@ -14,7 +14,11 @@ import (
 )
 
 func TestGetMatchingProposal(t *testing.T) {
-	m := newMessageStore()
+	m := newMessageStore(&bounds{
+		centre: 0,
+		high:   5,
+		low:    5,
+	})
 
 	k, err := crypto.GenerateKey()
 	require.NoError(t, err)

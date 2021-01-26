@@ -20,6 +20,8 @@ type messageStore struct {
 	rawMessages map[common.Hash][]byte
 	// values maps value hash to value.
 	values map[common.Hash]*types.Block
+	// messageBounds keeps track of the heights for which the messageStore retains messages.
+	messageBounds *bounds
 }
 
 func (m *messageStore) heightMessages(height uint64) []*message {
@@ -45,13 +47,15 @@ func (m *messageStore) rawHeightMessages(height uint64) [][]byte {
 	}
 	return messages
 }
-func newMessageStore() *messageStore {
+
+func newMessageStore(messageBounds *bounds) *messageStore {
 	return &messageStore{
-		msgHashes:   make(map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash),
-		rawMessages: make(map[common.Hash][]byte),
-		messages:    make(map[common.Hash]*message),
-		valid:       make(map[common.Hash]struct{}),
-		values:      make(map[common.Hash]*types.Block),
+		msgHashes:     make(map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash),
+		rawMessages:   make(map[common.Hash][]byte),
+		messages:      make(map[common.Hash]*message),
+		valid:         make(map[common.Hash]struct{}),
+		values:        make(map[common.Hash]*types.Block),
+		messageBounds: messageBounds,
 	}
 
 }
@@ -179,6 +183,15 @@ func addMsgHash(
 }
 
 func (m *messageStore) addMessage(msg *message, rawMsg []byte) error {
+	// Check message is in bounds
+	if !m.messageBounds.in(msg.consensusMessage.Height) {
+		return fmt.Errorf("message %v out of bounds", msg.String())
+	}
+	// Check we haven't already processed this message
+	if m.Message(msg.hash) != nil {
+		// Message was already processed
+		return fmt.Errorf("message %v already processed", msg.String())
+	}
 	err := addMsgHash(m.msgHashes, msg.consensusMessage.Height, msg.consensusMessage.Round, msg.consensusMessage.MsgType, msg.address, msg.hash)
 	if err != nil {
 		return err
@@ -186,7 +199,6 @@ func (m *messageStore) addMessage(msg *message, rawMsg []byte) error {
 	// // println(id, "hashes len", len(m.msgHashes))
 	m.messages[msg.hash] = msg
 	m.rawMessages[msg.hash] = rawMsg
-
 	return nil
 }
 
@@ -209,6 +221,27 @@ func (m *messageStore) removeMessage(msg *message) {
 	} else {
 		delete(m.valid, msg.hash)
 	}
+}
+
+// setHeight updates the height in the bounds and removes messages that are now out of bounds.
+func (m *messageStore) setHeight(height uint64) {
+	low, high := m.messageBounds.setCentre(height)
+	for i := low; i < high; i++ {
+		m.removeMessagesAtHeight(i)
+	}
+}
+
+func (m *messageStore) removeMessagesAtHeight(height uint64) {
+	// Remove all messgages at this height
+	for _, msgTypeMap := range m.msgHashes[height] {
+		for _, addressMap := range msgTypeMap {
+			for _, hash := range addressMap {
+				m.removeMessage(m.messages[hash])
+			}
+		}
+	}
+	// Delete map entry for this height
+	delete(m.msgHashes, height)
 }
 
 func (m *messageStore) addValue(valueHash common.Hash, value *types.Block) {
@@ -239,4 +272,49 @@ func (m *messageStore) matchingProposal(cm *algorithm.ConsensusMessage) *message
 	return nil
 }
 
-// TODO cover the case where we receive multiple proposals for future heights and we don't know who the propose is?
+type bounds struct {
+	centre uint64
+	high   uint64
+	low    uint64
+}
+
+// setCentre sets the centre value for the bounds, it retruns a range of all
+// values that were in the range and are now not in the range [a,b) with a
+// inclusive and b exclusive.
+func (b *bounds) setCentre(v uint64) (uint64, uint64) {
+	l := b.lower()
+	h := b.upper()
+
+	b.centre = v
+
+	newl := b.lower()
+	newh := b.upper()
+
+	switch {
+	case h < newl:
+		return l, h + 1
+	case l > newh:
+		return l, h + 1
+	case h < newh:
+		return l, newl
+	case h > newh:
+		return newh, h
+	default: // The bounds have not changed
+		return 0, 0
+	}
+}
+
+func (b *bounds) in(v uint64) bool {
+	return v >= b.lower() && v <= b.upper()
+}
+
+func (b *bounds) upper() uint64 {
+	return b.centre + b.high
+}
+
+func (b *bounds) lower() uint64 {
+	if b.low >= b.centre {
+		return 0
+	}
+	return b.centre - b.low
+}
