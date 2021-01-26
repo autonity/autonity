@@ -755,48 +755,20 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 		return fmt.Errorf("received message from non committee member: %v", m)
 	}
 
-	switch cm.MsgType {
-	case algorithm.Propose:
+	if cm.MsgType == algorithm.Propose {
 		// We ignore proposals from non proposers
 		if b.committee.GetProposer(cm.Round).Address != m.address {
 			b.logger.Warn("Ignore proposal messages from non-proposer")
 			return errNotFromProposer
-
-			// TODO verify proposal here.
-			//
-			// If we are introducing time into the mix then what we are saying
-			// is that we don't expect different participants' clocks to drift
-			// out of sync more than some delta. And if they do then we don't
-			// expect consensus to work.
-			//
-			// So in the case that clocks drift too far out of sync and say a
-			// node considers a proposal invalid that 2f+1 other nodes
-			// precommit for that node becomes stuck and can only continue in
-			// consensus by re-syncing the blocks.
-			//
-			// So in verifying the proposal wrt time we should verify once
-			// within reasonable clock sync bounds and then set the validity
-			// based on that and never re-process the message again.
-
 		}
 		// Proposals values are allowed to be invalid.
 		if _, err := b.verifier.VerifyProposal(*b.msgStore.value(common.Hash(cm.Value)), b.blockchain, b.address.String()); err == nil {
-			//println(addr(c.address), "valid", cm.Value.String())
 			b.msgStore.setValid(common.Hash(cm.Value))
 		}
-	default:
-		// All other messages that have reached this point are valid, but we
-		// are not marking the value valid here, we are marking the message
-		// valid.
-		b.msgStore.setValid(m.hash)
 	}
 
 	rc, cm, to := b.algo.ReceiveMessage(cm)
-	err := b.handleResult(rc, cm, to)
-	if err != nil {
-		return err
-	}
-	return nil
+	return b.handleResult(rc, cm, to)
 }
 
 const (
