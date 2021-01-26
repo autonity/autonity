@@ -19,7 +19,6 @@ import (
 )
 
 var (
-
 	// errUnknownBlock is returned when the list of committee is requested for a block
 	// that is not part of the local blockchain.
 	errUnknownBlock = errors.New("unknown block")
@@ -37,8 +36,6 @@ var (
 	errInvalidUncleHash = errors.New("non empty uncle hash")
 	// errInvalidTimestamp is returned if the timestamp of a block is lower than the previous block's timestamp + the minimum block period.
 	errInvalidTimestamp = errors.New("invalid timestamp")
-	// errInvalidRound is returned if the round exceed maximum round number.
-	errInvalidRound = errors.New("invalid round")
 )
 
 var (
@@ -180,9 +177,6 @@ func (v *Verifier) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 func (v *Verifier) verifyHeader(header, parent *types.Header, checkSeals bool) error {
 	if header.Number == nil {
 		return errUnknownBlock
-	}
-	if header.Round > MaxRound {
-		return errInvalidRound
 	}
 	// Don't waste time checking blocks from the future
 	if big.NewInt(int64(header.Time)).Cmp(big.NewInt(time.Now().Unix())) > 0 {

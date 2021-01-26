@@ -239,12 +239,14 @@ func (m *messageStore) value(valueHash common.Hash) *types.Block {
 	return m.values[valueHash]
 }
 
-// Mark the hash of something valid, it could be a message hash or a value hash
-func (m *messageStore) setValid(itemHash common.Hash) {
-	m.valid[itemHash] = struct{}{}
+// Mark the hash of a value valid.
+func (m *messageStore) setValid(valueHash common.Hash) {
+	m.valid[valueHash] = struct{}{}
 }
-func (m *messageStore) isValid(itemHash common.Hash) bool {
-	_, ok := m.valid[itemHash]
+
+// Check if a value is considered valid
+func (m *messageStore) isValid(valueHash common.Hash) bool {
+	_, ok := m.valid[valueHash]
 	return ok
 }
 

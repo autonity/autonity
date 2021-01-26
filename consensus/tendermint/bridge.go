@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/clearmatics/autonity/autonity"
@@ -32,10 +31,6 @@ var (
 	// errNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	errNotFromProposer = errors.New("message does not come from proposer")
-)
-
-const (
-	MaxRound = 99 // consequence of backlog priority
 )
 
 func addr(a common.Address) string {
@@ -107,7 +102,7 @@ type Bridge struct {
 
 	autonityContract *autonity.Contract
 
-	height *big.Int
+	height uint64
 	algo   *algorithm.Algorithm
 
 	currentBlockAwaiter *blockAwaiter
@@ -132,8 +127,6 @@ type Bridge struct {
 	closeChannel  chan struct{}
 
 	dlog *debugLog
-
-	unhandledEventCount int32
 }
 
 func (b *Bridge) SealHash(header *types.Header) common.Hash {
@@ -330,7 +323,6 @@ func (b *Bridge) postEvent(e interface{}) {
 	b.mutex.RUnlock()
 
 	start := time.Now()
-	atomic.AddInt32(&b.unhandledEventCount, 1)
 	// b.dlog.print("posting event", fmt.Sprintf("%T", e))
 	b.wg.Add(1)
 	go func() {
@@ -468,8 +460,6 @@ func (b *Bridge) Start() error {
 	// Tendermint Finite State Machine discrete event loop
 	b.wg.Add(1)
 	go b.mainEventLoop()
-	b.dlog.print("started unhandledEvents", atomic.LoadInt32(&b.unhandledEventCount))
-	atomic.StoreInt32(&b.unhandledEventCount, 0)
 	return nil
 }
 
@@ -491,18 +481,17 @@ func (b *Bridge) Close() error {
 	// println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	b.wg.Wait()
-	b.dlog.print("stopped, unhandledEvents", atomic.LoadInt32(&b.unhandledEventCount))
 	return nil
 }
 
 func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.syncTimer = time.NewTimer(20 * time.Second)
 	b.lastHeader = prevBlock.Header()
-	b.height = new(big.Int).SetUint64(prevBlock.NumberU64() + 1)
+	b.height = prevBlock.NumberU64() + 1
 	b.committee = b.createCommittee(prevBlock)
 
 	// Update the height in the message store, this will clean out old messages.
-	b.msgStore.setHeight(b.height.Uint64())
+	b.msgStore.setHeight(b.height)
 
 	// Create new oracle and algorithm
 	b.algo = algorithm.New(algorithm.NodeID(b.address), newOracle(b.lastHeader, b.msgStore, b.committee, b.currentBlockAwaiter))
@@ -519,7 +508,7 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	if err != nil {
 		return err
 	}
-	for _, msg := range b.msgStore.heightMessages(b.height.Uint64()) {
+	for _, msg := range b.msgStore.heightMessages(b.height) {
 		err := b.handleCurrentHeightMessage(msg)
 		b.logger.Error("failed to handle current height message", "message", msg.String(), "err", err)
 	}
@@ -595,37 +584,14 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 func (b *Bridge) mainEventLoop() {
 	defer b.wg.Done()
 
-	// Set the height only if not set (meaning this is the first execution),
-	// this ensures that stopping and starting does not overwrite the
-	// tendermint algorithm state, such as current step and round.
-	//
-	// TODO although this approach works for an instance stopped and started
-	// using Close and Start, it will not work for the case of a re-started
-	// instance, what we really need to do here is store the state of the
-	// tendermint algorithm in the databse and restore that state when we start
-	// a node. Note the TestTendermintStartStop... tests recreate the bridge
-	// instance on each start, this explains why they are so flaky, because
-	// sometimes nodes lose important tendermint state which breaks the
-	// network.
-	//
-	// Consider this scenario in a nework of size 4, all nodes prevote for a
-	// value, then 2 nodes lock a value and two restart and lose their state
-	// (that they were in the prevote step). When they come back they will
-	// propose new values and the locked nodes will propose the locked value,
-	// niether value can ever be committed because each can garner at most 2
-	// votes.
-	if b.height == nil {
-		lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
-		if err != nil {
-			panic(err)
-		}
-		err = b.newHeight(lastBlockMined)
-		if err != nil {
-			//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
-			return
-		}
+	lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
+	if err != nil {
+		panic(err)
 	}
-	b.dlog.print("mainEventLoop height", b.height)
+	err = b.newHeight(lastBlockMined)
+	if err != nil {
+		return
+	}
 
 	// Ask for sync when the engine starts
 	b.syncer.AskSync(b.lastHeader)
@@ -644,15 +610,11 @@ eventLoop:
 			b.syncTimer = time.NewTimer(20 * time.Second)
 
 		case ev := <-b.eventChannel:
-
-			atomic.AddInt32(&b.unhandledEventCount, -1)
-			// b.dlog.print("received event", fmt.Sprintf("%T", ev))
 			switch e := ev.(type) {
 			case common.Address:
 				b.logger.Info("Processing sync message", "from", e)
-				b.syncer.SyncPeer(e, b.msgStore.rawHeightMessages(b.height.Uint64()))
+				b.syncer.SyncPeer(e, b.msgStore.rawHeightMessages(b.height))
 			case []byte:
-				//println("got a message")
 				/*
 					Basic validity checks
 				*/
@@ -676,7 +638,7 @@ eventLoop:
 				// that height. If it is for a previous height then we are not intersted in
 				// it. But it has been added to the message store in case other peers would
 				// like to sync it.
-				if m.consensusMessage.Height != b.height.Uint64() {
+				if m.consensusMessage.Height != b.height {
 					// Nothing to do here
 					continue
 				}
@@ -704,16 +666,12 @@ eventLoop:
 					b.dlog.print("timeout precommit", "height", e.Height, "round", e.Round)
 					rc = b.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
-				// if cm != nil {
-				// 	println("nonnil timeout")
-				// }
 				err := b.handleResult(rc, cm, nil)
 				if err != nil {
 					b.dlog.print("exiting main event loop", "height", e.Height, "round", e.Round, "err", err.Error())
 					return
 				}
 			case commitEvent:
-				// println(addr(b.address), "commit event")
 				b.logger.Debug("Received a final committed proposal")
 
 				lastBlock, err := b.latestBlockRetriever.RetrieveLatestBlock()
@@ -723,7 +681,6 @@ eventLoop:
 				b.dlog.print("commit event for block", bid(lastBlock))
 				err = b.newHeight(lastBlock)
 				if err != nil {
-					//println(addr(c.address), c.height.Uint64(), "exiting main event loop", "err", err)
 					return
 				}
 			}
@@ -737,7 +694,6 @@ eventLoop:
 }
 
 func (b *Bridge) handleCurrentHeightMessage(m *message) error {
-	//println(addr(c.address), c.height.String(), m.String(), "received")
 	cm := m.consensusMessage
 	/*
 		Domain specific validity checks, now we know that we are at the same
@@ -853,7 +809,6 @@ func (s *Syncer) SyncPeer(address common.Address, messages [][]byte) {
 	for _, p := range s.peers.Peers() {
 		if address == p.Address() {
 			for _, msg := range messages {
-				//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
 				go p.Send(tendermintMsg, msg) //nolint
 			}
 			break
