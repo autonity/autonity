@@ -154,7 +154,7 @@ contract Autonity is IERC20 {
             }
 
             if (Accountability.checkChallenge(Proofs[i].rawProof)[0] != 0) {
-                // todo: take governance action that some one rise invalid challenge.
+                // todo: take governance action that msg.sender sent invalid challenge.
                 continue;
             }
 
@@ -173,7 +173,7 @@ contract Autonity is IERC20 {
             }
 
             if (Accountability.checkInnocent(Proofs[i].rawProof)[0] != 0) {
-                // todo: node provides an invalid proof of innocent. should take governance action.
+                // todo: node provides an invalid proof of innocent. should take governance action to msg.sender.
                 continue;
             }
 
