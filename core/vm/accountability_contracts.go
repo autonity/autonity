@@ -26,13 +26,50 @@ func (c *checkChallenge) Run(input []byte) ([]byte, error) {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
-	err := CheckChallenge(input, c.chainContext)
+	err := c.CheckChallenge(input)
 	if err != nil {
 		return false32Byte, fmt.Errorf("invalid proof of challenge %v", err)
 	}
 
 	return true32Byte, nil
 }
+
+// validate the proof is a valid challenge.
+func (c *checkChallenge) validateChallenge(p *types.Proof) error {
+	// check if evidence msgs are from committee members of that height.
+	h, err := p.Message.Height()
+	if err != nil {
+		return err
+	}
+
+	header := c.chainContext.GetHeader(p.ParentHash, h.Uint64())
+
+	for i:=0; i < len(p.Evidence); i++ {
+		m := header.CommitteeMember(p.Evidence[i].Address)
+		if m == nil {
+			return fmt.Errorf("evidence msg was not sent by committee member")
+		}
+	}
+
+	// todo: check if the proof is a valid suspicion.
+	return nil
+}
+
+// validate challenge, call from EVM package.
+func (c *checkChallenge) CheckChallenge(packedProof []byte) error {
+	p, err := decodeProof(packedProof)
+	if err != nil {
+		return err
+	}
+
+	err = c.validateChallenge(p)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+
 
 // checkProof implemented as a native contract to validate an on-chain innocent proof.
 type checkProof struct{
@@ -53,7 +90,7 @@ func (c *checkProof) Run(input []byte) ([]byte, error) {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
-	err := CheckProof(input, c.chainContext)
+	err := c.CheckProof(input)
 	if err != nil {
 		return false32Byte, fmt.Errorf("invalid proof of innocent %v", err)
 	}
@@ -61,36 +98,31 @@ func (c *checkProof) Run(input []byte) ([]byte, error) {
 	return true32Byte, nil
 }
 
-// validate the proof is a valid challenge.
-func validateChallenge(c *types.Proof, chain ChainContext) error {
-	// check if evidence msgs are from committee members of that height.
-	h, err := c.Message.Height()
+// Check the proof of innocent, it is called from precompiled contracts of EVM package.
+func (c *checkProof) CheckProof(packedProof []byte) error {
+
+	p, err := decodeProof(packedProof)
 	if err != nil {
 		return err
 	}
 
-	header := chain.GetHeader(c.ParentHash, h.Uint64())
-
-	for i:=0; i < len(c.Evidence); i++ {
-		m := header.CommitteeMember(c.Evidence[i].Address)
-		if m == nil {
-			return fmt.Errorf("evidence msg was not sent by committee member")
-		}
+	err = c.validateInnocentProof(p)
+	if err != nil {
+		return err
 	}
 
-	// todo: check if the proof is a valid suspicion.
 	return nil
 }
 
 // validate the innocent proof is valid.
-func validateInnocentProof(in *types.Proof, chain ChainContext) error {
+func (c *checkProof) validateInnocentProof(in *types.Proof) error {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
 		return err
 	}
 
-	header := chain.GetHeader(in.ParentHash, h.Uint64())
+	header := c.chainContext.GetHeader(in.ParentHash, h.Uint64())
 
 	for i:=0; i < len(in.Evidence); i++ {
 		m := header.CommitteeMember(in.Evidence[i].Address)
@@ -129,34 +161,4 @@ func decodeProof(proof []byte) (*types.Proof, error) {
 		decodedP.Evidence = append(decodedP.Evidence, *m)
 	}
 	return decodedP, nil
-}
-
-// Check the proof of innocent, it is called from precompiled contracts of EVM package.
-func CheckProof(packedProof []byte, chain ChainContext) error {
-
-	p, err := decodeProof(packedProof)
-	if err != nil {
-		return err
-	}
-
-	err = validateInnocentProof(p, chain)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// validate challenge, call from EVM package.
-func CheckChallenge(packedProof []byte, chain ChainContext) error {
-	p, err := decodeProof(packedProof)
-	if err != nil {
-		return err
-	}
-
-	err = validateChallenge(p, chain)
-	if err != nil {
-		return err
-	}
-	return nil
 }
