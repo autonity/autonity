@@ -47,9 +47,7 @@ func (fd *FaultDetector) Run() {
 func (fd *FaultDetector) takeMyChallenge(block *types.Block, hash common.Hash) error {
 	//todo: get challenges from blockchain via blockchain.autonityContract go wrappers.
 
-	//todo: get those challenges should take by myself.
-
-	//todo: get proof for each challenge
+	//todo: get proof for each challenge that is to me.
 
 	//todo: send proofs via SendOnChainProofs() function.
 	return nil
