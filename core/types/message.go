@@ -45,7 +45,7 @@ type ConsensusMessage struct {
 	Signature     []byte
 	CommittedSeal []byte
 
-	power      uint64
+	Power      uint64
 	decodedMsg ConsensusMsg // cached decoded Msg
 	payload    []byte       // rlp encoded ConsensusMessage
 }
@@ -140,7 +140,7 @@ func (m *ConsensusMessage) Validate(validateFn func(*Header, []byte, []byte) (co
 		return nil, fmt.Errorf("message received is not from a committee member: %x", addr)
 	}
 
-	m.power = v.VotingPower.Uint64()
+	m.Power = v.VotingPower.Uint64()
 	return v, nil
 }
 
@@ -159,7 +159,7 @@ func (m *ConsensusMessage) Payload() []byte {
 }
 
 func (m *ConsensusMessage) GetPower() uint64 {
-	return m.power
+	return m.Power
 }
 
 func (m *ConsensusMessage) PayloadNoSig() ([]byte, error) {
@@ -221,7 +221,7 @@ func (m *ConsensusMessage) String() string {
 		}
 		msg = vote.String()
 	}
-	return fmt.Sprintf("{sender: %v, power: %v, msgCode: %v, msg: %v}", m.Address.String(), m.power, m.Code, msg)
+	return fmt.Sprintf("{sender: %v, Power: %v, msgCode: %v, msg: %v}", m.Address.String(), m.Power, m.Code, msg)
 }
 
 func (m *ConsensusMessage) Round() (int64, error) {
