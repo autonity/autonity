@@ -12,8 +12,8 @@ library Accountability {
         address sender;
         uint8 rule;
 
-        // the rlp encoded Proof. Please check afd_types.go type Proof struct.
-        bytes packedProof;
+        // the rlp encoded Proof. Please check afd_types.go type RaWProof struct.
+        bytes rawProof;
     }
 
     // call precompiled contract to check if challenge is valid

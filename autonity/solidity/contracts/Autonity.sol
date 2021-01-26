@@ -146,25 +146,40 @@ contract Autonity is IERC20 {
     /**
     * @notice Create an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
     */
-    function addChallenge(uint256 h, uint64 r, address sender, uint8 rule, uint8 msgType, bytes memory packedProof) public onlyProtocol(msg.sender) {
-        Accountability.Proof memory challenge = Accountability.Proof(h, sender, r, rule, msgType, packedProof);
-        require(_isChallengeExists(challenge) == false, "Duplicated Challenge");
-        require(Accountability.checkChallenge(packedProof)[0] != 0, "Not a valid challenge");
+    function addChallenge(Accountability.Proof[] memory Proofs) public onlyProtocol(msg.sender) {
+        for (uint256 i = 0; i < Proofs.length; i++) {
 
-        challenges.push(challenge);
-        emit ChallengeAdded(challenge);
+            if (_isChallengeExists(Proofs[i]) == true) {
+                continue;
+            }
+
+            if (Accountability.checkChallenge(Proofs[i].rawProof)[0] != 0) {
+                // todo: take governance action that some one rise invalid challenge.
+                continue;
+            }
+
+            challenges.push(Proofs[i]);
+            emit ChallengeAdded(Proofs[i]);
+        }
     }
 
     /**
     * @notice Resolve an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
     */
-    function resolveChallenge(uint256 h, uint64 r, address sender, uint8 rule, uint8 msgType, bytes memory packedProof) public onlyProtocol(msg.sender) {
-        Accountability.Proof memory proof = Accountability.Proof(h, sender, r, rule, msgType, packedProof);
-        require(_isChallengeExists(proof) == true, "Not visible challenge to be resolved");
-        require(Accountability.checkInnocent(packedProof)[0] != 0, "Not a valid proof of innocent");
+    function resolveChallenge(Accountability.Proof[] memory Proofs) public onlyProtocol(msg.sender) {
+        for (uint256 i = 0; i < Proofs.length; i++) {
+            if (_isChallengeExists(Proofs[i]) == false) {
+                continue;
+            }
 
-        _removeChallenge(proof);
-        emit ChallengeRemoved(proof);
+            if (Accountability.checkInnocent(Proofs[i].rawProof)[0] != 0) {
+                // todo: node provides an invalid proof of innocent. should take governance action.
+                continue;
+            }
+
+            _removeChallenge(Proofs[i]);
+            emit ChallengeRemoved(Proofs[i]);
+        }
     }
 
     /**
