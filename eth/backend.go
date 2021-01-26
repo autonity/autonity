@@ -93,9 +93,9 @@ type Ethereum struct {
 	glienickeCh  chan core.WhitelistEvent
 	glienickeSub event.Subscription
 
-	afdCh chan types.SubmitProofEvent
-	afdSub event.Subscription
-	afd *afd.FaultDetector
+	afdCh         chan types.SubmitProofEvent
+	afdSub        event.Subscription
+	faultDetector *afd.FaultDetector
 }
 
 // New creates a new Ethereum object (including the
@@ -237,8 +237,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	eth.netRPCService = ethapi.NewPublicNetAPI(eth.p2pServer, eth.NetVersion())
 
 	// Start AFD
-	eth.afd = afd.NewFaultDetector(eth.blockchain, eth.etherbase)
-	eth.afd.Run()
+	eth.faultDetector = afd.NewFaultDetector(eth.blockchain, eth.etherbase)
 
 	// Register the backend on the node
 	stack.RegisterAPIs(eth.APIs())
@@ -542,8 +541,10 @@ func (s *Ethereum) Start() error {
 	s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
 	go s.glienickeEventLoop(s.p2pServer)
 
-	s.afdSub = s.afd.SubscribeAFDEvents(s.afdCh)
+	s.afdSub = s.faultDetector.SubscribeAFDEvents(s.afdCh)
 	go s.afdEventLoop()
+
+	go s.faultDetector.Run()
 
 	s.startEthEntryUpdate(s.p2pServer.LocalNode())
 
@@ -610,7 +611,7 @@ func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
 	s.protocolManager.Stop()
 	s.glienickeSub.Unsubscribe()
-	// Stop afd event loop
+	// Stop faultDetector event loop
 	s.afdSub.Unsubscribe()
 	// Then stop everything else.
 	s.bloomIndexer.Close()
