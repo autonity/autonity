@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
@@ -43,11 +44,14 @@ func (c *checkChallenge) validateChallenge(p *types.Proof) error {
 	}
 
 	header := c.chainContext.GetHeader(p.ParentHash, h.Uint64())
+	// validate message.
+	if _, err = p.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
+		return err
+	}
 
 	for i:=0; i < len(p.Evidence); i++ {
-		m := header.CommitteeMember(p.Evidence[i].Address)
-		if m == nil {
-			return fmt.Errorf("evidence msg was not sent by committee member")
+		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
+			return err
 		}
 	}
 
@@ -123,11 +127,14 @@ func (c *checkProof) validateInnocentProof(in *types.Proof) error {
 	}
 
 	header := c.chainContext.GetHeader(in.ParentHash, h.Uint64())
+	// validate message.
+	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
+		return err
+	}
 
 	for i:=0; i < len(in.Evidence); i++ {
-		m := header.CommitteeMember(in.Evidence[i].Address)
-		if m == nil {
-			return fmt.Errorf("evidence msg was not sent by committee member")
+		if _, err = in.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
+			return err
 		}
 	}
 
