@@ -127,25 +127,16 @@ func (m *messageStore) votePower(
 	var power uint64
 	// For all messages at the given height in the given round ...
 	for mType, addressMap := range m.msgHashes[header.Number.Uint64()+1][round] {
-		// spew.Dump(addressMap)
-		// Skip in the case that this is not a message type we are considering.
-		if msgType != nil && *msgType != mType {
+		// Skip proposal messages or message types we are not considerding.
+		if mType == algorithm.Propose || msgType != nil && *msgType != mType {
 			continue
 		}
 		for address, msgHash := range addressMap {
-			// Skip messages not considered valid
-			_, ok := m.valid[msgHash]
-			if !ok {
-				// println("skippng not valid")
-				continue
-			}
-
 			// Skip messages with differing values
 			if valueHash != nil && *valueHash != common.Hash(m.messages[msgHash].consensusMessage.Value) {
 				// // println("skipping mismatch value")
 				continue
 			}
-			// spew.Dump(m.consensusMsgs[msgHash])
 			// Now either value hash is nil (matches everything) or it actually matches the msg's value.
 			power += header.CommitteeMember(address).VotingPower.Uint64()
 		}
@@ -212,14 +203,11 @@ func (m *messageStore) removeMessage(msg *message) {
 	delete(m.messages, msg.hash)
 	// Delete entry in rawMessages
 	delete(m.rawMessages, msg.hash)
-	delete(m.valid, msg.hash)
 
 	if msg.consensusMessage.MsgType == algorithm.Propose {
 		valueHash := msg.value.Hash()
 		delete(m.values, valueHash)
 		delete(m.valid, valueHash)
-	} else {
-		delete(m.valid, msg.hash)
 	}
 }
 
