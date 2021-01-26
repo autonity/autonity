@@ -4,6 +4,13 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/rlp"
 	"io"
+	"math/big"
+)
+
+type ProofType uint64
+const (
+	InnocentProof ProofType = iota
+	ChallengeProof
 )
 
 // The proof used by accountability precompiled contract to validate the proof of innocent or misbehavior.
@@ -41,4 +48,23 @@ type Proof struct {
 	Rule       uint8
 	Message    ConsensusMessage   // the msg to be considered as suspicious one
 	Evidence   []ConsensusMessage // the msgs as proof of innocent or misbehavior.
+}
+
+// OnChainProof to be stored by autonity contract for on-chain proof management.
+type OnChainProof struct {
+	// identities to address an unique proof on contract.
+	Height *big.Int
+	Round uint64
+	MsgType uint64
+	Sender common.Address
+	Rule uint8
+
+	// rlp enoded bytes for struct RawProof object.
+	RawProofBytes []byte
+}
+
+// event to submit proofs via standard transaction.
+type SubmitProofEvent struct {
+	Proofs []OnChainProof
+	Type ProofType
 }

@@ -20,6 +20,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/afd"
 	"math/big"
 	"runtime"
 	"sync"
@@ -91,6 +92,10 @@ type Ethereum struct {
 
 	glienickeCh  chan core.WhitelistEvent
 	glienickeSub event.Subscription
+
+	afdCh chan types.SubmitProofEvent
+	afdSub event.Subscription
+	afd *afd.FaultDetector
 }
 
 // New creates a new Ethereum object (including the
@@ -164,6 +169,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		glienickeCh:       make(chan core.WhitelistEvent),
+		afdCh:             make(chan types.SubmitProofEvent),
 		p2pServer:         stack.Server(),
 	}
 
@@ -532,6 +538,9 @@ func (s *Ethereum) Start() error {
 	s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
 	go s.glienickeEventLoop(s.p2pServer)
 
+	s.afdSub = s.afd.SubscribeAFDEvents(s.afdCh)
+	go s.afdEventLoop()
+
 	s.startEthEntryUpdate(s.p2pServer.LocalNode())
 
 	// Start the bloom bits servicing goroutines
@@ -548,6 +557,29 @@ func (s *Ethereum) Start() error {
 	// Start the networking layer and the light server if requested
 	s.protocolManager.Start(maxPeers)
 	return nil
+}
+
+func (s *Ethereum) sendAccountabilityTransaction(e types.SubmitProofEvent) {
+	if e.Type == types.InnocentProof {
+		//todo: pack innocent proof transaction with abi and send it.
+	}
+
+	if e.Type == types.ChallengeProof {
+		//todo: pack challenge proof transaction with abi and send it.
+	}
+}
+
+func (s *Ethereum) afdEventLoop() {
+	for {
+		select {
+		case event := <-s.afdCh:
+			//todo: send accountability proofs.
+			s.sendAccountabilityTransaction(event)
+		// Err() channel will be closed when unsubscribing.
+		case <-s.afdSub.Err():
+			return
+		}
+	}
 }
 
 // Whitelist updating loop. Act as a relay between state processing logic and DevP2P
@@ -597,6 +629,8 @@ func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
 	s.protocolManager.Stop()
 	s.glienickeSub.Unsubscribe()
+	// Stop afd event loop
+	s.afdSub.Unsubscribe()
 	// Then stop everything else.
 	s.bloomIndexer.Close()
 	close(s.closeBloomHandler)
