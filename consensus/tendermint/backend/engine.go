@@ -508,12 +508,14 @@ func (sb *Backend) Close() error {
 	}
 	sb.coreStarted = false
 	sb.coreMu.Unlock()
+	// We need to make sure we close sb.stopped before calling sb.core.Stop
+	// otherwise we can end up with a deadlock where sb.core.Stop is waiting
+	// for a routine to return from calling sb.AskSync but sb.AskSync will
+	// never return because we did not close sb.stopped.
+	close(sb.stopped)
 
 	// Stop Tendermint
 	sb.core.Stop()
-	// Stop backend sealing
-	close(sb.stopped)
-
 	return nil
 }
 
