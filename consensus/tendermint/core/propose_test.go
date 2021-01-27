@@ -3,12 +3,13 @@ package core
 import (
 	"context"
 	"errors"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/mock/gomock"
 
@@ -432,6 +433,8 @@ func TestHandleProposal(t *testing.T) {
 			committee:        committeeSet,
 			step:             precommit,
 		}
+		defer c.proposeTimeout.stopTimer()   // nolint: errcheck
+		defer c.precommitTimeout.stopTimer() // nolint: errcheck
 
 		// Handle a quorum of precommits for this proposal
 		for i := 0; i < 3; i++ {
