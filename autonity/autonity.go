@@ -282,3 +282,8 @@ func (ac *Contract) StringABI() string {
 func (ac *Contract) ABI() *abi.ABI {
 	return ac.contractABI
 }
+
+// Address return the current autonity contract address
+func (ac *Contract) Address() common.Address {
+	return ContractAddress
+}
