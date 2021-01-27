@@ -28,17 +28,19 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 	return fd
 }
 
-// listen for external events like new block be committed on the chain, to get latest view of on-chain challenges, if
-// there are challenges rise to current validator, then take the challenge and provide the proof of innocent if possible.
-func (fd *FaultDetector) Run() {
+// listen for new block events from block-chain, do the tasks like take challenge and provide proof for innocent, the
+// AFD rule engine could also triggered from here to scan those msgs of msg store by applying rules.
+func (fd *FaultDetector) FaultDetectorEventLoop() {
 	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockChan)
 	for {
 		select {
 		case ev := <-fd.blockChan:
+			// take my challenge from latest state DB, and provide innocent proof if there are any.
 			err := fd.takeMyChallenge(ev.Block, ev.Hash)
 			if err != nil {
 				// prints something.
 			}
+			// todo: trigger the rule engine to run patterns over msg store.
 		case <-fd.blockSub.Err():
 			return
 		}

@@ -12,7 +12,7 @@ func (s *Ethereum) sendAccountabilityTransaction(e types.SubmitProofEvent) {
 	}
 }
 
-func (s *Ethereum) afdEventLoop() {
+func (s *Ethereum) afdTXEventLoop() {
 	for {
 		select {
 		case event := <-s.afdCh:
