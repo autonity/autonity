@@ -542,9 +542,9 @@ func (s *Ethereum) Start() error {
 	go s.glienickeEventLoop(s.p2pServer)
 
 	s.afdSub = s.faultDetector.SubscribeAFDEvents(s.afdCh)
-	go s.afdEventLoop()
+	go s.afdTXEventLoop()
 
-	go s.faultDetector.Run()
+	go s.faultDetector.FaultDetectorEventLoop()
 
 	s.startEthEntryUpdate(s.p2pServer.LocalNode())
 
