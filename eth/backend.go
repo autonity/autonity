@@ -18,6 +18,7 @@
 package eth
 
 import (
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/afd"
@@ -96,6 +97,7 @@ type Ethereum struct {
 	afdCh         chan types.SubmitProofEvent
 	afdSub        event.Subscription
 	faultDetector *afd.FaultDetector
+	defaultKey    *ecdsa.PrivateKey   // the private key of etherbase address to sign accountability TXs.
 }
 
 // New creates a new Ethereum object (including the
@@ -236,8 +238,9 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	// Start the RPC service
 	eth.netRPCService = ethapi.NewPublicNetAPI(eth.p2pServer, eth.NetVersion())
 
-	// Start AFD
+	// Create AFD
 	eth.faultDetector = afd.NewFaultDetector(eth.blockchain, eth.etherbase)
+	eth.defaultKey = stack.Config().NodeKey()
 
 	// Register the backend on the node
 	stack.RegisterAPIs(eth.APIs())
