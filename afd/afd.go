@@ -39,6 +39,8 @@ func (fd *FaultDetector) Run() {
 			if err != nil {
 				// prints something.
 			}
+		case <-fd.blockSub.Err():
+			return
 		}
 	}
 }
