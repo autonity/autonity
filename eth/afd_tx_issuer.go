@@ -35,7 +35,7 @@ func (s *Ethereum) generateAccountabilityTX(method string, params ...interface{}
 		return nil, err
 	}
 
-	// todo: resolve a reasonable gasLimit.
+	// might to resolve a reasonable gas limit by weighting the bytes of TX.
 	return types.SignTx(
 		types.NewTransaction(nonce,	to,	common.Big0,210000000, s.gasPrice, packedData),
 		types.HomesteadSigner{},
@@ -46,7 +46,6 @@ func (s *Ethereum) afdTXEventLoop() {
 	for {
 		select {
 		case event := <-s.afdCh:
-			//todo: send accountability proofs.
 			s.sendAccountabilityTransaction(&event)
 		// Err() channel will be closed when unsubscribing.
 		case <-s.afdSub.Err():
