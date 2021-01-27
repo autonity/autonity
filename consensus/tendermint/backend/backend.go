@@ -164,22 +164,29 @@ func (sb *Backend) AskSync(header *types.Header) {
 	}
 
 	if sb.broadcaster != nil && len(targets) > 0 {
-		ps := sb.broadcaster.FindPeers(targets)
-		var count uint64
-		for addr, p := range ps {
-			//ask to a quorum nodes to sync, 1 must then be honest and updated
-			if count >= bft.Quorum(header.TotalVotingPower()) {
-				break
-			}
-			sb.logger.Info("Asking sync to", "addr", addr)
-			go p.Send(tendermintSyncMsg, []byte{}) //nolint
-
-			member := header.CommitteeMember(addr)
-			if member == nil {
-				sb.logger.Error("could not retrieve member from address")
+		for {
+			ps := sb.broadcaster.FindPeers(targets)
+			if len(ps) == 0 {
+				time.Sleep(10 * time.Millisecond)
 				continue
 			}
-			count += member.VotingPower.Uint64()
+			var count uint64
+			for addr, p := range ps {
+				//ask to a quorum nodes to sync, 1 must then be honest and updated
+				if count >= bft.Quorum(header.TotalVotingPower()) {
+					break
+				}
+				sb.logger.Info("Asking sync to", "addr", addr)
+				go p.Send(tendermintSyncMsg, []byte{}) //nolint
+
+				member := header.CommitteeMember(addr)
+				if member == nil {
+					sb.logger.Error("could not retrieve member from address")
+					continue
+				}
+				count += member.VotingPower.Uint64()
+			}
+			break
 		}
 	}
 }
@@ -439,6 +446,7 @@ func (sb *Backend) WhiteList() []string {
 
 // Synchronize new connected peer with current height state
 func (sb *Backend) SyncPeer(address common.Address) {
+
 	if sb.broadcaster == nil {
 		return
 	}
