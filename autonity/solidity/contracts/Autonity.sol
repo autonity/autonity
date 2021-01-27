@@ -333,6 +333,13 @@ contract Autonity is IERC20 {
     }
 
     /**
+    * @dev Dump the on-chain challenges. Called by the afd fault detector to get latest on-chain challenge.
+    */
+    function getChallenges() external view returns (Accountability.Proof[] memory) {
+        return challenges;
+    }
+
+    /**
     * @dev Dump the current internal state key elements. Called by the protocol during a contract upgrade.
     * The returned data will be passed directly to the constructor of the new contract at deployment.
     */
