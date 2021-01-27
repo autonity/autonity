@@ -32,6 +32,12 @@ func TestFastSyncDisabling65(t *testing.T) { testFastSyncDisabling(t, 65) }
 // Tests that fast sync gets disabled as soon as a real block is successfully
 // imported into the blockchain.
 func testFastSyncDisabling(t *testing.T, protocol int) {
+	// These tests rely on 2 peers not sycing with each other, so we set the
+	// min sync peers to be 2 and then restore the default later.
+	originalDefaultMinSyncPeers := defaultMinSyncPeers
+	defaultMinSyncPeers = 2
+	defer func() { defaultMinSyncPeers = originalDefaultMinSyncPeers }()
+
 	//t.Parallel() (Parrallelisation is unsafe due to the enode package)
 	emptyNode := newTestP2PPeer("empty")
 	fullNode := newTestP2PPeer("full")
