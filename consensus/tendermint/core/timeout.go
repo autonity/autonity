@@ -2,19 +2,20 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/clearmatics/autonity/log"
 )
 
 const (
-	initialProposeTimeout   = 2000 * time.Millisecond
-	proposeTimeoutDelta     = 500 * time.Millisecond
-	initialPrevoteTimeout   = 1000 * time.Millisecond
-	prevoteTimeoutDelta     = 500 * time.Millisecond
-	initialPrecommitTimeout = 1000 * time.Millisecond
-	precommitTimeoutDelta   = 500 * time.Millisecond
+	initialProposeTimeout   = 500 * time.Millisecond
+	proposeTimeoutDelta     = 200 * time.Millisecond
+	initialPrevoteTimeout   = 500 * time.Millisecond
+	prevoteTimeoutDelta     = 200 * time.Millisecond
+	initialPrecommitTimeout = 500 * time.Millisecond
+	precommitTimeoutDelta   = 200 * time.Millisecond
 )
 
 type TimeoutEvent struct {
