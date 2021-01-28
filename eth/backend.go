@@ -624,6 +624,7 @@ func (s *Ethereum) Stop() error {
 	s.blockchain.Stop()
 	s.engine.Close()
 	s.chainDb.Close()
+	s.faultDetector.Stop()
 	s.eventMux.Stop()
 	return nil
 }
