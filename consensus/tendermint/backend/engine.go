@@ -21,9 +21,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/trie"
 	"math/big"
 	"time"
+
+	"github.com/clearmatics/autonity/trie"
 
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
@@ -508,9 +509,9 @@ func (sb *Backend) Close() error {
 	}
 
 	// Stop Tendermint
+	close(sb.stopped)
 	sb.core.Stop()
 	sb.coreStarted = false
-	close(sb.stopped)
 
 	return nil
 }
