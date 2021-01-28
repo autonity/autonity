@@ -589,7 +589,7 @@ func newBackend(config *params.ChainConfig) (*tendermint.Bridge, ethdb.Database,
 
 	finalizer := tendermint.NewFinalizer(autonityContract)
 	verifier := tendermint.NewVerifier(&vmConfig, finalizer, tendermintChainConfig.Tendermint.BlockPeriod)
-	latestBlockRetriever := tendermint.NewLatestBlockRetriever(db, statedb)
+	latestBlockRetriever := tendermint.NewBlockReader(db, statedb)
 	engine := tendermint.New(
 		tendermintChainConfig.Tendermint,
 		testUserKey,

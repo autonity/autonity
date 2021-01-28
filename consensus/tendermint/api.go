@@ -36,18 +36,18 @@ func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Comm
 
 // API is a user facing RPC API to dump BFT state
 type API struct {
-	chain                consensus.ChainReader
-	autonityContract     *autonity.Contract
-	latestBlockRetriever *LatestBlockRetriever
-	getCommittee         func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
+	chain            consensus.ChainReader
+	autonityContract *autonity.Contract
+	blockRetriever   *BlockReader
+	getCommittee     func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
 }
 
-func NewAPI(chain consensus.ChainReader, ac *autonity.Contract, lbr *LatestBlockRetriever) *API {
+func NewAPI(chain consensus.ChainReader, ac *autonity.Contract, lbr *BlockReader) *API {
 	return &API{
-		chain:                chain,
-		autonityContract:     ac,
-		latestBlockRetriever: lbr,
-		getCommittee:         getCommittee,
+		chain:            chain,
+		autonityContract: ac,
+		blockRetriever:   lbr,
+		getCommittee:     getCommittee,
 	}
 }
 
@@ -90,11 +90,11 @@ func (api *API) GetContractABI() string {
 // Whitelist for the current block
 func (api *API) GetWhitelist() []string {
 	// TODO this should really return errors
-	b, err := api.latestBlockRetriever.RetrieveLatestBlock()
+	b, err := api.blockRetriever.LatestBlock()
 	if err != nil {
 		panic(err)
 	}
-	state, err := api.latestBlockRetriever.RetrieveBlockState(b)
+	state, err := api.blockRetriever.BlockState(b)
 	if err != nil {
 		// TODO: Decide how to log errors correctly
 		log.Error("Failed to get block white list", "err", err)

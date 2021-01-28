@@ -16,11 +16,9 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rpc"
@@ -45,7 +43,7 @@ func New(
 	syncer *Syncer,
 	verifier *Verifier,
 	finalizer *DefaultFinalizer,
-	latestBlockRetreiver *LatestBlockRetriever,
+	blockRetreiver *BlockReader,
 	ac *autonity.Contract,
 	statedb state.Database,
 ) *Bridge {
@@ -70,7 +68,7 @@ func New(
 		msgStore:             newMessageStore(messageBounds),
 		broadcaster:          broadcaster,
 		syncer:               syncer,
-		latestBlockRetriever: latestBlockRetreiver,
+		latestBlockRetriever: blockRetreiver,
 		statedb:              statedb,
 		verifier:             verifier,
 
@@ -109,7 +107,7 @@ type Bridge struct {
 
 	broadcaster          *Broadcaster
 	syncer               *Syncer
-	latestBlockRetriever *LatestBlockRetriever
+	latestBlockRetriever *BlockReader
 	statedb              state.Database
 
 	verifier *Verifier
@@ -584,7 +582,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 func (b *Bridge) mainEventLoop() {
 	defer b.wg.Done()
 
-	lastBlockMined, err := b.latestBlockRetriever.RetrieveLatestBlock()
+	lastBlockMined, err := b.latestBlockRetriever.LatestBlock()
 	if err != nil {
 		panic(err)
 	}
@@ -674,7 +672,7 @@ eventLoop:
 			case commitEvent:
 				b.logger.Debug("Received a final committed proposal")
 
-				lastBlock, err := b.latestBlockRetriever.RetrieveLatestBlock()
+				lastBlock, err := b.latestBlockRetriever.LatestBlock()
 				if err != nil {
 					panic(err)
 				}
@@ -814,49 +812,6 @@ func (s *Syncer) SyncPeer(address common.Address, messages [][]byte) {
 			break
 		}
 	}
-}
-
-type LatestBlockRetriever struct {
-	db      ethdb.Database
-	statedb state.Database
-}
-
-func NewLatestBlockRetriever(db ethdb.Database, state state.Database) *LatestBlockRetriever {
-	return &LatestBlockRetriever{
-		db:      db,
-		statedb: state,
-		// Here we use the value of 256 which is the
-		// eth.DefaultConfig.TrieCleanCache value which is value assigned to
-		// cacheConfig.TrieCleanLimit which is what is then used in
-		// eth.BlockChain to initialise the state database.
-		// statedb: state.NewDatabase(db),
-	}
-}
-func (l *LatestBlockRetriever) RetrieveLatestBlock() (*types.Block, error) {
-	hash := rawdb.ReadHeadBlockHash(l.db)
-	if hash == (common.Hash{}) {
-		return nil, fmt.Errorf("empty database")
-	}
-
-	number := rawdb.ReadHeaderNumber(l.db, hash)
-	if number == nil {
-		return nil, fmt.Errorf("failed to find number for block hash %s", hash.String())
-	}
-
-	block := rawdb.ReadBlock(l.db, hash, *number)
-	if block == nil {
-		return nil, fmt.Errorf("failed to read block content for block number %d with hash %s", *number, hash.String())
-	}
-
-	_, err := l.statedb.OpenTrie(block.Root())
-	if err != nil {
-		return nil, fmt.Errorf("missing state for block number %d with hash %s err: %v", *number, hash.String(), err)
-	}
-	return block, nil
-}
-
-func (l *LatestBlockRetriever) RetrieveBlockState(block *types.Block) (*state.StateDB, error) {
-	return state.New(block.Root(), l.statedb, nil)
 }
 
 type debugLog struct {
