@@ -167,8 +167,13 @@ func (sb *Backend) AskSync(header *types.Header) {
 		for {
 			ps := sb.broadcaster.FindPeers(targets)
 			if len(ps) == 0 {
-				time.Sleep(10 * time.Millisecond)
-				continue
+				t := time.NewTimer(10 * time.Millisecond)
+				select {
+				case <-t.C:
+					continue
+				case <-sb.stopped:
+					return
+				}
 			}
 			var count uint64
 			for addr, p := range ps {
