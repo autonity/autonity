@@ -122,14 +122,20 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, error) {
 // starts eth.Ethereum mining.
 func (n *Node) Start() error {
 	var err error
-	n.Node, err = node.New(n.Config)
+	// Provide a copy of the config to node.New, so that we can rely on
+	// Node.Config field not being manipulated by node and hence use our copy
+	// for black box testing.
+	nodeConfigCopy := *n.Config
+	n.Node, err = node.New(&nodeConfigCopy)
 	if err != nil {
 		return err
 	}
 
 	// This registers the ethereum service on the n.Node, so that calling
-	// n.Node.Stop will also close the eth service.
-	n.Eth, err = eth.New(n.Node, n.EthConfig, nil)
+	// n.Node.Stop will also close the eth service. Again we provide a copy of
+	// the EthConfig so that we can use our copy for black box testing.
+	ethConfigCopy := *n.EthConfig
+	n.Eth, err = eth.New(n.Node, &ethConfigCopy, nil)
 	if err != nil {
 		return err
 	}
