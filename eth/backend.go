@@ -623,6 +623,7 @@ func (s *Ethereum) Stop() error {
 	s.miner.Close()
 	s.blockchain.Stop()
 	s.chainDb.Close()
+	s.faultDetector.Stop()
 	s.eventMux.Stop()
 	return nil
 }
