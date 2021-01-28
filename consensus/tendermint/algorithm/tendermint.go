@@ -1,3 +1,8 @@
+// Package algorithm implements the tendremint consensus protocol.
+//
+// This package only contains the core state transition logic for tendermint as
+// described by the pseudocode in the whitepaper here -
+// https://arxiv.org/pdf/1807.04938.pdf
 package algorithm
 
 import (
@@ -5,20 +10,29 @@ import (
 	"fmt"
 )
 
+// ValueID is an identifier that represents a value, a ValueID could in some
+// cases literally be the value, but more likely it will be the hash (or some
+// other transformation) of some value.
 type ValueID [32]byte
 
 func (v ValueID) String() string {
 	return hex.EncodeToString(v[:3])
 }
 
+// NilValue  represents 'nil' in the tendermint whitepaper.
 var NilValue ValueID
 
+// NodeID represents the ID of a node, although not explicitly mentioned in the
+// whitepaper, we need a way to identify ourselves if we are to ask if we are
+// the proposer and it is also useful for logging puroposes.
 type NodeID [20]byte
 
 func (n NodeID) String() string {
 	return hex.EncodeToString(n[:3])
 }
 
+// Step represents the different algorithm steps as described in the
+// whitepaper.
 type Step uint8
 
 const (
@@ -40,6 +54,7 @@ func (s Step) String() string {
 	}
 }
 
+// ShortString is useful for printing compact messages.
 func (s Step) ShortString() string {
 	switch s {
 	case Propose:
@@ -53,6 +68,7 @@ func (s Step) ShortString() string {
 	}
 }
 
+// In returns true if s is one of the provided steps.
 func (s Step) In(steps ...Step) bool {
 	for _, step := range steps {
 		if s == step {
@@ -62,6 +78,11 @@ func (s Step) In(steps ...Step) bool {
 	return false
 }
 
+// Timeout is returned to the caller to indicate that they should schedule a
+// timeout with the given delay, the Height, Round and Step are used by the
+// algorithm to check whether the timout is still valid, timeouts are only
+// valid if they trigger in the same height, round and step as when they were
+// scheduled.
 type Timeout struct {
 	TimeoutType Step
 	Delay       uint
@@ -69,6 +90,8 @@ type Timeout struct {
 	Round       int64
 }
 
+// ConsensusMessage is returned to the caller to indicate that this message
+// should be broadcast to the network.
 type ConsensusMessage struct {
 	MsgType    Step
 	Height     uint64
@@ -85,26 +108,33 @@ func (cm *ConsensusMessage) String() string {
 // state, such as 'Am I the proposer' or 'Have i reached prevote quorum
 // threshold for value with id v?'
 type Oracle interface {
+	// Valid returns true if the value associated with the given ValueID is
+	// valid.
 	Valid(ValueID) bool
+	// MatchingProposal finds the Proposal message having the same ValueID as
+	// the given message. If a proposal message is provided, the same message
+	// will be returned.
 	MatchingProposal(*ConsensusMessage) *ConsensusMessage
-	// TODO: merge the functions into QThresh since the calculation is always
-	// the same for both, instead define private functions for readability.
-	// (Piers, I disagree here, since we would then need to pass to this
-	// function an indication of what step we are checking the threshold for,
-	// the obvious input there would be Step, but then we have to deal with the
-	// possiblity of someone passing, propose, so then we would need to handle
-	// errors or make another type that can only take precommit or prevote as
-	// values, either way its more complicated than just having 2 functions)
-	PrevoteQThresh(round int64, value *ValueID) bool
-	PrecommitQThresh(round int64, value *ValueID) bool
+	// PrevoteQThresh returns true if a there is a quorum of prevotes for valueID.
+	PrevoteQThresh(round int64, valueID *ValueID) bool
+	// PrevoteQThresh returns true if a there is a quorum of precommits for valueID.
+	PrecommitQThresh(round int64, valueID *ValueID) bool
 	// FThresh indicates whether we have messages whose voting power exceeds
 	// the failure threshold for the given round.
 	FThresh(round int64) bool
+	// Proposer returns true if the node identified by nodeID is the proposer
+	// for the given round.
 	Proposer(round int64, nodeID NodeID) bool
+	// Height returns the current height.
 	Height() uint64
+	// Value returns the ValueID of the value to be proposed.
 	Value() (ValueID, error)
 }
 
+// Algorithm implements the state transitions defined by the tendermint
+// whitepaper. There are 2 main functions, StartRound which is called at the
+// beginning of each round, and then ReceiveMessage which is called with each
+// message received from the network drives subsequent state changes.
 type Algorithm struct {
 	nodeID         NodeID
 	round          int64
@@ -119,6 +149,7 @@ type Algorithm struct {
 	oracle         Oracle
 }
 
+// New creates a new instance of Algorithm.
 func New(nodeID NodeID, oracle Oracle) *Algorithm {
 	return &Algorithm{
 		nodeID: nodeID,
