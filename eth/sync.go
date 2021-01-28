@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	defaultMinSyncPeers = 1 // Amount of peers desired to start syncing
+	defaultMinSyncPeers = 5 // Amount of peers desired to start syncing
 )
 
 type txsync struct {
