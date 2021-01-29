@@ -452,10 +452,9 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.syncTimer = time.NewTimer(20 * time.Second)
 	b.lastHeader = prevBlock.Header()
 	b.height = prevBlock.NumberU64() + 1
-	var err error
-	b.proposer, err = b.Proposer(b.lastHeader, 0)
+	proposeValue, err := b.UpdateProposer(b.lastHeader, 0)
 	if err != nil {
-		return fmt.Errorf("failed to get proposer: %v", err)
+		return fmt.Errorf("failed to update proposer: %v", err)
 	}
 
 	// Update the height in the message store, this will clean out old messages.
@@ -465,10 +464,7 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.algo = algorithm.New(algorithm.NodeID(b.address), newOracle(b.lastHeader, b.msgStore, b.currentBlockAwaiter))
 
 	// Handle messages for the new height
-	msg, timeout, err := b.algo.StartRound(algorithm.NodeID(b.proposer), 0)
-	if err != nil {
-		return err
-	}
+	msg, timeout := b.algo.StartRound(proposeValue, 0)
 
 	// Note that we don't risk entering an infinite loop here since
 	// start round can only return results with broadcasts or timeouts.
@@ -506,14 +502,11 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			// We are just changing round
 			var err error
 			// Update the proposer
-			b.proposer, err = b.Proposer(b.lastHeader, rc.Round)
+			proposalValue, err := b.UpdateProposer(b.lastHeader, rc.Round)
 			if err != nil {
-				return fmt.Errorf("failed to get proposer: %v", err)
+				return fmt.Errorf("failed to update proposer: %v", err)
 			}
-			cm, to, err := b.algo.StartRound(algorithm.NodeID(b.proposer), rc.Round)
-			if err != nil {
-				return err
-			}
+			cm, to := b.algo.StartRound(proposalValue, rc.Round)
 			// Note that we don't risk entering an infinite loop here since
 			// start round can only return results with broadcasts or timeouts.
 			err = b.handleResult(nil, cm, to)
@@ -702,12 +695,30 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 	return b.handleResult(rc, cm, to)
 }
 
-func (b *Bridge) Proposer(previousHeader *types.Header, round int64) (common.Address, error) {
+// UpdateProposer updates b.proposer and if we are the proposer waits for a
+// proposal value and returns an algorithm.ValueID representing the proposal
+// value. If we are not the proposer then it returns algorithm.NilValue.
+func (b *Bridge) UpdateProposer(previousHeader *types.Header, round int64) (algorithm.ValueID, error) {
 	state, err := b.latestBlockRetriever.BlockState(previousHeader.Root)
 	if err != nil {
-		return common.Address{}, fmt.Errorf("cannot load state from block chain: %v", err)
+		return algorithm.NilValue, fmt.Errorf("cannot load state from block chain: %v", err)
 	}
-	return b.autonityContract.GetProposerFromAC(previousHeader, state, previousHeader.Number.Uint64(), round)
+	b.proposer, err = b.autonityContract.GetProposerFromAC(previousHeader, state, previousHeader.Number.Uint64(), round)
+	if err != nil {
+		return algorithm.NilValue, fmt.Errorf("cannot load state from block chain: %v", err)
+	}
+	// If we are not the proposer then return nil value.
+	if b.address != b.proposer {
+		return algorithm.NilValue, nil
+	}
+	v, err := b.currentBlockAwaiter.value(b.height)
+	if err != nil {
+		return algorithm.NilValue, fmt.Errorf("failed to get value: %v", err)
+	}
+	// Add the value to the store, we do not mark it valid here since we
+	// will validate it when whe process our own proposal.
+	b.msgStore.addValue(v.Hash(), v)
+	return algorithm.ValueID(v.Hash()), nil
 }
 
 const (

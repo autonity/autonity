@@ -2,7 +2,6 @@ package algorithm
 
 import (
 	"crypto/rand"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,28 +23,27 @@ func newValue(t *testing.T) ValueID {
 }
 
 func TestStartRound(t *testing.T) {
-	proposer := newNodeID(t)
 	var round int64 = 0
+	value := newValue(t)
 
 	o := &mockOracle{}
 
 	// We are proposer, expect propose message
-	algo := New(proposer, o)
+	algo := New(newNodeID(t), o)
 	expected := &ConsensusMessage{
 		MsgType:    Propose,
 		Height:     o.Height(),
 		Round:      round,
-		Value:      o.value,
+		Value:      value,
 		ValidRound: -1,
 	}
-	cm, to, err := algo.StartRound(proposer, round)
-	assert.Nil(t, err)
+	cm, to := algo.StartRound(value, round)
 	assert.Nil(t, to)
 	assert.Equal(t, expected, cm)
 
 	// We are proposer, and validValue has been set, expect propose with
 	// validValue.
-	algo = New(proposer, o)
+	algo = New(newNodeID(t), o)
 	algo.validValue = newValue(t)
 	expected = &ConsensusMessage{
 		MsgType:    Propose,
@@ -54,18 +52,9 @@ func TestStartRound(t *testing.T) {
 		Value:      algo.validValue,
 		ValidRound: -1,
 	}
-	cm, to, err = algo.StartRound(proposer, round)
-	assert.Nil(t, err)
+	cm, to = algo.StartRound(value, round)
 	assert.Nil(t, to)
 	assert.Equal(t, expected, cm)
-
-	// We are proposer but oracle value returns an error, expect the error
-	o.valueError = errors.New("")
-	algo = New(proposer, o)
-	cm, to, err = algo.StartRound(proposer, round)
-	assert.Nil(t, cm)
-	assert.Nil(t, to)
-	assert.Error(t, err)
 
 	// We are not the proposer, expect timeout message
 	algo = New(newNodeID(t), o)
@@ -75,8 +64,7 @@ func TestStartRound(t *testing.T) {
 		Height:      o.Height(),
 		Round:       round,
 	}
-	cm, to, err = algo.StartRound(proposer, round)
-	assert.Nil(t, err)
+	cm, to = algo.StartRound(value, round)
 	assert.Nil(t, cm)
 	assert.Equal(t, expectedTimeout, to)
 
@@ -211,10 +199,7 @@ type mockOracle struct {
 	prevoteQThresh   func(round int64, value *ValueID) bool
 	precommitQThresh func(round int64, value *ValueID) bool
 	fThresh          func(round int64) bool
-	proposer         func(round int64, nodeID NodeID) bool
 	height           uint64
-	value            ValueID
-	valueError       error
 }
 
 func (m *mockOracle) Valid(value ValueID) bool {
@@ -237,14 +222,6 @@ func (m *mockOracle) FThresh(round int64) bool {
 	return m.fThresh(round)
 }
 
-func (m *mockOracle) Proposer(round int64, nodeID NodeID) bool {
-	return m.proposer(round, nodeID)
-}
-
 func (m *mockOracle) Height() uint64 {
 	return m.height
-}
-
-func (m *mockOracle) Value() (ValueID, error) {
-	return m.value, m.valueError
 }

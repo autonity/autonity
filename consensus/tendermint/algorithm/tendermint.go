@@ -124,8 +124,6 @@ type Oracle interface {
 	FThresh(round int64) bool
 	// Height returns the current height.
 	Height() uint64
-	// Value returns the ValueID of the value to be proposed.
-	Value() (ValueID, error)
 }
 
 // Algorithm implements the state transitions defined by the tendermint
@@ -189,7 +187,7 @@ func (a *Algorithm) timeout(timeoutType Step) *Timeout {
 
 // Start round takes a round to start. It then clears the first time flags and either returns a proposal
 // ConsensusMessage to be broadcast, if this node is the proposer or if not, a Timeout to be scheduled.
-func (a *Algorithm) StartRound(proposer NodeID, round int64) (*ConsensusMessage, *Timeout, error) {
+func (a *Algorithm) StartRound(proposalValue ValueID, round int64) (*ConsensusMessage, *Timeout) {
 	//println(a.nodeID.String(), height, "isproposer", a.oracle.Proposer(round, a.nodeID))
 
 	// sanity check
@@ -204,22 +202,14 @@ func (a *Algorithm) StartRound(proposer NodeID, round int64) (*ConsensusMessage,
 
 	a.round = round
 	a.step = Propose
-	if a.nodeID == proposer {
-		var value ValueID
-		var err error
-
+	if proposalValue != NilValue {
 		if a.validValue != NilValue {
-			value = a.validValue
-		} else {
-			value, err = a.oracle.Value()
-			if err != nil {
-				return nil, nil, err
-			}
+			proposalValue = a.validValue
 		}
 		//println(a.nodeID.String(), a.height(), "returning message", value.String())
-		return a.msg(Propose, value), nil, nil
+		return a.msg(Propose, proposalValue), nil
 	} else { //nolint
-		return nil, a.timeout(Propose), nil
+		return nil, a.timeout(Propose)
 	}
 }
 
