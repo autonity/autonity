@@ -257,6 +257,7 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 }
 
 func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
+	t.Skip("Times out intermittently https://github.com/clearmatics/autonity/issues/749")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
