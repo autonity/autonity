@@ -94,7 +94,7 @@ func (api *API) GetWhitelist() []string {
 	if err != nil {
 		panic(err)
 	}
-	state, err := api.blockRetriever.BlockState(b)
+	state, err := api.blockRetriever.BlockState(b.Root())
 	if err != nil {
 		// TODO: Decide how to log errors correctly
 		log.Error("Failed to get block white list", "err", err)

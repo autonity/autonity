@@ -59,7 +59,6 @@ func New(
 		Verifier:             verifier,
 		DefaultFinalizer:     finalizer,
 		key:                  key,
-		proposerPolicy:       config.ProposerPolicy,
 		blockPeriod:          config.BlockPeriod,
 		address:              address,
 		logger:               logger,
@@ -83,11 +82,10 @@ type Bridge struct {
 	*DefaultFinalizer
 	*Verifier
 
-	key            *ecdsa.PrivateKey
-	proposerPolicy config.ProposerPolicy
-	blockPeriod    uint64
-	address        common.Address
-	logger         log.Logger
+	key         *ecdsa.PrivateKey
+	blockPeriod uint64
+	address     common.Address
+	logger      log.Logger
 
 	eventChannel chan interface{}
 	wg           *sync.WaitGroup
@@ -95,8 +93,8 @@ type Bridge struct {
 	msgStore  *messageStore
 	syncTimer *time.Timer
 
-	committee  committee
 	lastHeader *types.Header
+	proposer   common.Address
 
 	autonityContract *autonity.Contract
 
@@ -390,8 +388,7 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 	h.Round = uint64(proposal.Round)
 	block := message.value.WithSeal(h)
 
-	// If we are the proposer, send the block to the  commit channel
-	if b.address == b.committee.GetProposer(proposal.Round).Address {
+	if b.address == b.proposer {
 		// b.dlog.print("commitCh send start", bid(block))
 		select {
 		case b.commitChannel <- block:
@@ -407,37 +404,6 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 
 	b.logger.Info("committed a block", "hash", block.Hash())
 	return nil
-}
-
-func (b *Bridge) createCommittee(block *types.Block) committee {
-	var committeeSet committee
-	var err error
-	var lastProposer common.Address
-	header := block.Header()
-	switch b.proposerPolicy {
-	case config.RoundRobin:
-		if !header.IsGenesis() {
-			lastProposer, err = types.Ecrecover(header)
-			if err != nil {
-				panic(fmt.Sprintf("unable to recover proposer address from header %q: %v", header, err))
-			}
-		}
-		committeeSet, err = newRoundRobinSet(header.Committee, lastProposer)
-		if err != nil {
-			panic(fmt.Sprintf("failed to construct committee %v", err))
-		}
-	case config.WeightedRandomSampling:
-		// TODO instead of building a committee set here with the state db and
-		// contract we should separate an object that calculates the committee
-		// and it can be passed to the bridge, this will allow us to remove
-		// both the autonityContract (we would also need to build an api
-		// provider as well which would encapsulate the autonity contract) and
-		// the statedb from the bridge.
-		committeeSet = newWeightedRandomSamplingCommittee(block, b.autonityContract, b.statedb)
-	default:
-		panic(fmt.Sprintf("unrecognised proposer policy %q", b.proposerPolicy))
-	}
-	return committeeSet
 }
 
 var errStopped = errors.New("stopped")
@@ -486,16 +452,20 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.syncTimer = time.NewTimer(20 * time.Second)
 	b.lastHeader = prevBlock.Header()
 	b.height = prevBlock.NumberU64() + 1
-	b.committee = b.createCommittee(prevBlock)
+	var err error
+	b.proposer, err = b.Proposer(b.lastHeader, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get proposer: %v", err)
+	}
 
 	// Update the height in the message store, this will clean out old messages.
 	b.msgStore.setHeight(b.height)
 
 	// Create new oracle and algorithm
-	b.algo = algorithm.New(algorithm.NodeID(b.address), newOracle(b.lastHeader, b.msgStore, b.committee, b.currentBlockAwaiter))
+	b.algo = algorithm.New(algorithm.NodeID(b.address), newOracle(b.lastHeader, b.msgStore, b.currentBlockAwaiter))
 
 	// Handle messages for the new height
-	msg, timeout, err := b.algo.StartRound(0)
+	msg, timeout, err := b.algo.StartRound(algorithm.NodeID(b.proposer), 0)
 	if err != nil {
 		return err
 	}
@@ -533,7 +503,14 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 				panic(fmt.Sprintf("%s Failed to commit sr.Decision: %s err: %v", algorithm.NodeID(b.address).String(), spew.Sdump(rc.Decision), err))
 			}
 		} else {
-			cm, to, err := b.algo.StartRound(rc.Round) // nolint
+			// We are just changing round
+			var err error
+			// Update the proposer
+			b.proposer, err = b.Proposer(b.lastHeader, rc.Round)
+			if err != nil {
+				return fmt.Errorf("failed to get proposer: %v", err)
+			}
+			cm, to, err := b.algo.StartRound(algorithm.NodeID(b.proposer), rc.Round)
 			if err != nil {
 				return err
 			}
@@ -711,11 +688,11 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 
 	if cm.MsgType == algorithm.Propose {
 		// We ignore proposals from non proposers
-		if b.committee.GetProposer(cm.Round).Address != m.address {
+		if b.proposer != m.address {
 			b.logger.Warn("Ignore proposal messages from non-proposer")
 			return errNotFromProposer
 		}
-		// Proposals values are allowed to be invalid.
+		// Proposal values are allowed to be invalid.
 		if _, err := b.verifier.VerifyProposal(*b.msgStore.value(common.Hash(cm.Value)), b.blockchain, b.address.String()); err == nil {
 			b.msgStore.setValid(common.Hash(cm.Value))
 		}
@@ -723,6 +700,14 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 
 	rc, cm, to := b.algo.ReceiveMessage(cm)
 	return b.handleResult(rc, cm, to)
+}
+
+func (b *Bridge) Proposer(previousHeader *types.Header, round int64) (common.Address, error) {
+	state, err := b.latestBlockRetriever.BlockState(previousHeader.Root)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("cannot load state from block chain: %v", err)
+	}
+	return b.autonityContract.GetProposerFromAC(previousHeader, state, previousHeader.Number.Uint64(), round)
 }
 
 const (

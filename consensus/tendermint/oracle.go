@@ -7,20 +7,18 @@ import (
 )
 
 type oracle struct {
-	height       uint64
-	lastHeader   *types.Header
-	store        *messageStore
-	committeeSet committee
-	ba           *blockAwaiter
+	height     uint64
+	lastHeader *types.Header
+	store      *messageStore
+	ba         *blockAwaiter
 }
 
-func newOracle(lh *types.Header, s *messageStore, cs committee, ba *blockAwaiter) *oracle {
+func newOracle(lh *types.Header, s *messageStore, ba *blockAwaiter) *oracle {
 	return &oracle{
-		height:       lh.Number.Uint64() + 1,
-		lastHeader:   lh,
-		store:        s,
-		committeeSet: cs,
-		ba:           ba,
+		height:     lh.Number.Uint64() + 1,
+		lastHeader: lh,
+		store:      s,
+		ba:         ba,
 	}
 }
 
@@ -42,10 +40,6 @@ func (o *oracle) PrecommitQThresh(round int64, value *algorithm.ValueID) bool {
 
 func (o *oracle) PrevoteQThresh(round int64, value *algorithm.ValueID) bool {
 	return o.store.prevoteQuorum((*common.Hash)(value), round, o.lastHeader)
-}
-
-func (o *oracle) Proposer(round int64, nodeID algorithm.NodeID) bool {
-	return o.committeeSet.GetProposer(round).Address == common.Address(nodeID)
 }
 
 func (o *oracle) Valid(value algorithm.ValueID) bool {

@@ -27,11 +27,7 @@ func TestStartRound(t *testing.T) {
 	proposer := newNodeID(t)
 	var round int64 = 0
 
-	o := &mockOracle{
-		proposer: func(round int64, nodeID NodeID) bool {
-			return nodeID == proposer
-		},
-	}
+	o := &mockOracle{}
 
 	// We are proposer, expect propose message
 	algo := New(proposer, o)
@@ -42,7 +38,7 @@ func TestStartRound(t *testing.T) {
 		Value:      o.value,
 		ValidRound: -1,
 	}
-	cm, to, err := algo.StartRound(round)
+	cm, to, err := algo.StartRound(proposer, round)
 	assert.Nil(t, err)
 	assert.Nil(t, to)
 	assert.Equal(t, expected, cm)
@@ -58,7 +54,7 @@ func TestStartRound(t *testing.T) {
 		Value:      algo.validValue,
 		ValidRound: -1,
 	}
-	cm, to, err = algo.StartRound(round)
+	cm, to, err = algo.StartRound(proposer, round)
 	assert.Nil(t, err)
 	assert.Nil(t, to)
 	assert.Equal(t, expected, cm)
@@ -66,7 +62,7 @@ func TestStartRound(t *testing.T) {
 	// We are proposer but oracle value returns an error, expect the error
 	o.valueError = errors.New("")
 	algo = New(proposer, o)
-	cm, to, err = algo.StartRound(round)
+	cm, to, err = algo.StartRound(proposer, round)
 	assert.Nil(t, cm)
 	assert.Nil(t, to)
 	assert.Error(t, err)
@@ -79,7 +75,7 @@ func TestStartRound(t *testing.T) {
 		Height:      o.Height(),
 		Round:       round,
 	}
-	cm, to, err = algo.StartRound(round)
+	cm, to, err = algo.StartRound(proposer, round)
 	assert.Nil(t, err)
 	assert.Nil(t, cm)
 	assert.Equal(t, expectedTimeout, to)

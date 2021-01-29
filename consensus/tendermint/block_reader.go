@@ -65,6 +65,8 @@ func (l *BlockReader) BlockByHeight(height uint64) (*types.Block, error) {
 	return block, nil
 }
 
-func (l *BlockReader) BlockState(block *types.Block) (*state.StateDB, error) {
-	return state.New(block.Root(), l.statedb, nil)
+func (l *BlockReader) BlockState(stateRoot common.Hash) (*state.StateDB, error) {
+	// state.New has started takig a snapshot.Tree but it seems to be only for
+	// performance, see - https://github.com/ethereum/go-ethereum/pull/20152
+	return state.New(stateRoot, l.statedb, nil)
 }

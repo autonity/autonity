@@ -122,9 +122,6 @@ type Oracle interface {
 	// FThresh indicates whether we have messages whose voting power exceeds
 	// the failure threshold for the given round.
 	FThresh(round int64) bool
-	// Proposer returns true if the node identified by nodeID is the proposer
-	// for the given round.
-	Proposer(round int64, nodeID NodeID) bool
 	// Height returns the current height.
 	Height() uint64
 	// Value returns the ValueID of the value to be proposed.
@@ -192,7 +189,7 @@ func (a *Algorithm) timeout(timeoutType Step) *Timeout {
 
 // Start round takes a round to start. It then clears the first time flags and either returns a proposal
 // ConsensusMessage to be broadcast, if this node is the proposer or if not, a Timeout to be scheduled.
-func (a *Algorithm) StartRound(round int64) (*ConsensusMessage, *Timeout, error) {
+func (a *Algorithm) StartRound(proposer NodeID, round int64) (*ConsensusMessage, *Timeout, error) {
 	//println(a.nodeID.String(), height, "isproposer", a.oracle.Proposer(round, a.nodeID))
 
 	// sanity check
@@ -207,7 +204,7 @@ func (a *Algorithm) StartRound(round int64) (*ConsensusMessage, *Timeout, error)
 
 	a.round = round
 	a.step = Propose
-	if a.oracle.Proposer(round, a.nodeID) {
+	if a.nodeID == proposer {
 		var value ValueID
 		var err error
 
