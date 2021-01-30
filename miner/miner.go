@@ -136,23 +136,32 @@ func (miner *Miner) update() {
 		case <-miner.stopCh:
 			shouldStart = false
 			miner.worker.stop()
+			miner.stopCh <- struct{}{}
 		case <-miner.exitCh:
+			miner.worker.stop()
 			miner.worker.close()
+			miner.exitCh <- struct{}{}
 			return
 		}
 	}
 }
 
+// Start starts the miner mining, unless it has been paused by the downloader
+// during sync, in which case it will start mining once the sync has completed.
 func (miner *Miner) Start(coinbase common.Address) {
 	miner.startCh <- coinbase
 }
 
+// Stop stops the miner from mining.
 func (miner *Miner) Stop() {
 	miner.stopCh <- struct{}{}
+	<-miner.stopCh
 }
 
+// Close stops the miner and releases any resources associated with it.
 func (miner *Miner) Close() {
 	miner.exitCh <- struct{}{}
+	<-miner.exitCh
 }
 
 func (miner *Miner) Mining() bool {

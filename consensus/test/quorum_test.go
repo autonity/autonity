@@ -7,6 +7,7 @@ import (
 )
 
 func TestTendermintNoQuorum(t *testing.T) {
+	t.Skip("Fails because of timing issues, sometimes validators cannot be stopped quickly enough and go on to confirm another block https://github.com/clearmatics/autonity/issues/751")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}

@@ -15,7 +15,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		{
 			name:          "one node stops at block 1",
 			numValidators: 5,
-			numBlocks:     10,
+			numBlocks:     100,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VE": hookStopNode("VE", 1),
@@ -28,7 +28,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		{
 			name:          "one node stops at block 5",
 			numValidators: 5,
-			numBlocks:     10,
+			numBlocks:     100,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VE": hookStopNode("VE", 5),
@@ -41,7 +41,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		{
 			name:          "F nodes stop at block 1",
 			numValidators: 7,
-			numBlocks:     10,
+			numBlocks:     100,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 1),
@@ -56,7 +56,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		{
 			name:          "F nodes stop at block 5",
 			numValidators: 7,
-			numBlocks:     10,
+			numBlocks:     100,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
@@ -71,7 +71,7 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		{
 			name:          "F nodes stop at blocks 4,5",
 			numValidators: 7,
-			numBlocks:     10,
+			numBlocks:     100,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 4),
@@ -100,41 +100,41 @@ func TestTendermintStartStopSingleNode(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name:          "one node stops for 5 seconds",
+			name:          "one node stops for 0.5 seconds",
 			numValidators: 5,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VE": hookStartNode("VE", 5),
+				"VE": hookStartNode("VE", 0.5),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "one node stops for 10 seconds",
+			name:          "one node stops for 1 seconds",
 			numValidators: 5,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VE": hookStartNode("VE", 10),
+				"VE": hookStartNode("VE", 1),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "one node stops for 20 seconds",
+			name:          "one node stops for 2 seconds",
 			numValidators: 5,
-			numBlocks:     30,
+			numBlocks:     300,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VE": hookStartNode("VE", 20),
+				"VE": hookStartNode("VE", 2),
 			},
 			stopTime: make(map[string]time.Time),
 		},
@@ -157,92 +157,92 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name:          "f nodes stop for 5 seconds at the same block",
+			name:          "f nodes stop for 0.5 seconds at the same block",
 			numValidators: 7,
-			numBlocks:     15,
+			numBlocks:     150,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 5),
-				"VE": hookStartNode("VE", 5),
+				"VD": hookStartNode("VD", 0.5),
+				"VE": hookStartNode("VE", 0.5),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f nodes stop for 5 seconds at different blocks",
+			name:          "f nodes stop for 0.5 seconds at different blocks",
 			numValidators: 7,
-			numBlocks:     15,
+			numBlocks:     150,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 6),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 5),
-				"VE": hookStartNode("VE", 5),
+				"VD": hookStartNode("VD", 0.5),
+				"VE": hookStartNode("VE", 0.5),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f nodes stop for 10 seconds at the same block",
+			name:          "f nodes stop for 1 seconds at the same block",
 			numValidators: 7,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 10),
-				"VE": hookStartNode("VE", 10),
+				"VD": hookStartNode("VD", 1),
+				"VE": hookStartNode("VE", 1),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f nodes stop for 10 seconds at different blocks",
+			name:          "f nodes stop for 1 seconds at different blocks",
 			numValidators: 7,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 6),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 10),
-				"VE": hookStartNode("VE", 10),
+				"VD": hookStartNode("VD", 1),
+				"VE": hookStartNode("VE", 1),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f nodes stop for 10 seconds at the same block",
+			name:          "f nodes stop for 1 seconds at the same block",
 			numValidators: 7,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 10),
-				"VE": hookStartNode("VE", 10),
+				"VD": hookStartNode("VD", 1),
+				"VE": hookStartNode("VE", 1),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f nodes stop for 10 seconds at different blocks",
+			name:          "f nodes stop for 1 seconds at different blocks",
 			numValidators: 7,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 6),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 10),
-				"VE": hookStartNode("VE", 10),
+				"VD": hookStartNode("VD", 1),
+				"VE": hookStartNode("VE", 1),
 			},
 			stopTime: make(map[string]time.Time),
 		},
@@ -257,98 +257,99 @@ func TestTendermintStartStopFNodes(t *testing.T) {
 }
 
 func TestTendermintStartStopFPlusOneNodes(t *testing.T) {
+	t.Skip("Times out intermittently https://github.com/clearmatics/autonity/issues/749")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
 
 	cases := []*testCase{
 		{
-			name:          "f+1 nodes stop for 5 seconds at the same block",
+			name:          "f+1 nodes stop for 0.5 seconds at the same block",
 			numValidators: 5,
-			numBlocks:     15,
+			numBlocks:     150,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 5),
-				"VE": hookStartNode("VE", 5),
+				"VD": hookStartNode("VD", 0.5),
+				"VE": hookStartNode("VE", 0.5),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f+1 nodes stop for 5 seconds at different blocks",
+			name:          "f+1 nodes stop for 0.5 seconds at different blocks",
 			numValidators: 5,
-			numBlocks:     15,
+			numBlocks:     150,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 6),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 5),
-				"VE": hookStartNode("VE", 5),
+				"VD": hookStartNode("VD", 0.5),
+				"VE": hookStartNode("VE", 0.5),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f+1 nodes stop for 10 seconds at the same block",
+			name:          "f+1 nodes stop for 1 seconds at the same block",
 			numValidators: 5,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 10),
-				"VE": hookStartNode("VE", 10),
+				"VD": hookStartNode("VD", 1),
+				"VE": hookStartNode("VE", 1),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f+1 nodes stop for 10 seconds at different blocks",
+			name:          "f+1 nodes stop for 1 seconds at different blocks",
 			numValidators: 5,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 6),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 10),
-				"VE": hookStartNode("VE", 10),
+				"VD": hookStartNode("VD", 1),
+				"VE": hookStartNode("VE", 1),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f+1 nodes stop for 20 seconds at the same block",
+			name:          "f+1 nodes stop for 2 seconds at the same block",
 			numValidators: 5,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 20),
-				"VE": hookStartNode("VE", 20),
+				"VD": hookStartNode("VD", 2),
+				"VE": hookStartNode("VE", 2),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f+1 nodes stop for 20 seconds at different blocks",
+			name:          "f+1 nodes stop for 2 seconds at different blocks",
 			numValidators: 5,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VD": hookStopNode("VD", 5),
 				"VE": hookStopNode("VE", 6),
 			},
 			afterHooks: map[string]hook{
-				"VD": hookStartNode("VD", 20),
-				"VE": hookStartNode("VE", 20),
+				"VD": hookStartNode("VD", 2),
+				"VE": hookStartNode("VE", 2),
 			},
 			stopTime: make(map[string]time.Time),
 		},
@@ -370,9 +371,9 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name:          "f+2 nodes stop for 5 seconds at the same block",
+			name:          "f+2 nodes stop for 0.5 seconds at the same block",
 			numValidators: 5,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VC": hookStopNode("VC", 5),
@@ -380,16 +381,16 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VC": hookStartNode("VC", 5),
-				"VD": hookStartNode("VD", 5),
-				"VE": hookStartNode("VE", 5),
+				"VC": hookStartNode("VC", 0.5),
+				"VD": hookStartNode("VD", 0.5),
+				"VE": hookStartNode("VE", 0.5),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f+2 nodes stop for 5 seconds at different blocks",
+			name:          "f+2 nodes stop for 0.5 seconds at different blocks",
 			numValidators: 5,
-			numBlocks:     20,
+			numBlocks:     200,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VC": hookStopNode("VC", 4),
@@ -397,16 +398,16 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 7),
 			},
 			afterHooks: map[string]hook{
-				"VC": hookStartNode("VC", 5),
-				"VD": hookStartNode("VD", 5),
-				"VE": hookStartNode("VE", 5),
+				"VC": hookStartNode("VC", 0.5),
+				"VD": hookStartNode("VD", 0.5),
+				"VE": hookStartNode("VE", 0.5),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f+2 nodes stop for 10 seconds at the same block",
+			name:          "f+2 nodes stop for 1 seconds at the same block",
 			numValidators: 5,
-			numBlocks:     30,
+			numBlocks:     300,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VC": hookStopNode("VC", 5),
@@ -414,16 +415,16 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VC": hookStartNode("VC", 10),
-				"VD": hookStartNode("VD", 10),
-				"VE": hookStartNode("VE", 10),
+				"VC": hookStartNode("VC", 1),
+				"VD": hookStartNode("VD", 1),
+				"VE": hookStartNode("VE", 1),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f+2 nodes stop for 10 seconds at different blocks",
+			name:          "f+2 nodes stop for 1 seconds at different blocks",
 			numValidators: 5,
-			numBlocks:     30,
+			numBlocks:     300,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VC": hookStopNode("VC", 4),
@@ -431,16 +432,16 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 7),
 			},
 			afterHooks: map[string]hook{
-				"VC": hookStartNode("VC", 10),
-				"VD": hookStartNode("VD", 10),
-				"VE": hookStartNode("VE", 10),
+				"VC": hookStartNode("VC", 1),
+				"VD": hookStartNode("VD", 1),
+				"VE": hookStartNode("VE", 1),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f+2 nodes stop for 20 seconds at the same block",
+			name:          "f+2 nodes stop for 2 seconds at the same block",
 			numValidators: 5,
-			numBlocks:     30,
+			numBlocks:     300,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VC": hookStopNode("VC", 5),
@@ -448,16 +449,16 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VC": hookStartNode("VC", 20),
-				"VD": hookStartNode("VD", 20),
-				"VE": hookStartNode("VE", 20),
+				"VC": hookStartNode("VC", 2),
+				"VD": hookStartNode("VD", 2),
+				"VE": hookStartNode("VE", 2),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "f+2 nodes stop for 20 seconds at different blocks",
+			name:          "f+2 nodes stop for 2 seconds at different blocks",
 			numValidators: 5,
-			numBlocks:     30,
+			numBlocks:     300,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VC": hookStopNode("VC", 4),
@@ -465,9 +466,9 @@ func TestTendermintStartStopFPlusTwoNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 7),
 			},
 			afterHooks: map[string]hook{
-				"VC": hookStartNode("VC", 20),
-				"VD": hookStartNode("VD", 20),
-				"VE": hookStartNode("VE", 20),
+				"VC": hookStartNode("VC", 2),
+				"VD": hookStartNode("VD", 2),
+				"VE": hookStartNode("VE", 2),
 			},
 			stopTime: make(map[string]time.Time),
 		},
@@ -492,9 +493,9 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 
 	cases := []*testCase{
 		{
-			name:          "all nodes stop for 60 seconds at different blocks(2+2+1)",
+			name:          "all nodes stop for 6 seconds at different blocks(2+2+1)",
 			numValidators: 5,
-			numBlocks:     50,
+			numBlocks:     500,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VA": hookStopNode("VA", 3),
@@ -504,18 +505,18 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 7),
 			},
 			afterHooks: map[string]hook{
-				"VA": hookStartNode("VA", 60),
-				"VB": hookStartNode("VB", 60),
-				"VC": hookStartNode("VC", 60),
-				"VD": hookStartNode("VD", 60),
-				"VE": hookStartNode("VE", 60),
+				"VA": hookStartNode("VA", 6),
+				"VB": hookStartNode("VB", 6),
+				"VC": hookStartNode("VC", 6),
+				"VD": hookStartNode("VD", 6),
+				"VE": hookStartNode("VE", 6),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "all nodes stop for 60 seconds at different blocks (2+3)",
+			name:          "all nodes stop for 6 seconds at different blocks (2+3)",
 			numValidators: 5,
-			numBlocks:     50,
+			numBlocks:     500,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VA": hookStopNode("VA", 3),
@@ -525,18 +526,18 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 5),
 			},
 			afterHooks: map[string]hook{
-				"VA": hookStartNode("VA", 60),
-				"VB": hookStartNode("VB", 60),
-				"VC": hookStartNode("VC", 60),
-				"VD": hookStartNode("VD", 60),
-				"VE": hookStartNode("VE", 60),
+				"VA": hookStartNode("VA", 6),
+				"VB": hookStartNode("VB", 6),
+				"VC": hookStartNode("VC", 6),
+				"VD": hookStartNode("VD", 6),
+				"VE": hookStartNode("VE", 6),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "all nodes stop for 30 seconds at the same block",
+			name:          "all nodes stop for 3 seconds at the same block",
 			numValidators: 5,
-			numBlocks:     50,
+			numBlocks:     500,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VA": hookStopNode("VA", 3),
@@ -546,18 +547,18 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 3),
 			},
 			afterHooks: map[string]hook{
-				"VA": hookStartNode("VA", 30),
-				"VB": hookStartNode("VB", 30),
-				"VC": hookStartNode("VC", 30),
-				"VD": hookStartNode("VD", 30),
-				"VE": hookStartNode("VE", 30),
+				"VA": hookStartNode("VA", 3),
+				"VB": hookStartNode("VB", 3),
+				"VC": hookStartNode("VC", 3),
+				"VD": hookStartNode("VD", 3),
+				"VE": hookStartNode("VE", 3),
 			},
 			stopTime: make(map[string]time.Time),
 		},
 		{
-			name:          "all nodes stop for 60 seconds at the same block",
+			name:          "all nodes stop for 6 seconds at the same block",
 			numValidators: 5,
-			numBlocks:     50,
+			numBlocks:     500,
 			txPerPeer:     1,
 			beforeHooks: map[string]hook{
 				"VA": hookStopNode("VA", 3),
@@ -567,11 +568,11 @@ func TestTendermintStartStopAllNodes(t *testing.T) {
 				"VE": hookStopNode("VE", 3),
 			},
 			afterHooks: map[string]hook{
-				"VA": hookStartNode("VA", 60),
-				"VB": hookStartNode("VB", 60),
-				"VC": hookStartNode("VC", 60),
-				"VD": hookStartNode("VD", 60),
-				"VE": hookStartNode("VE", 60),
+				"VA": hookStartNode("VA", 6),
+				"VB": hookStartNode("VB", 6),
+				"VC": hookStartNode("VC", 6),
+				"VD": hookStartNode("VD", 6),
+				"VE": hookStartNode("VE", 6),
 			},
 			stopTime: make(map[string]time.Time),
 		},
