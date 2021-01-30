@@ -187,7 +187,6 @@ jobs:
   slow-e2e-tests:
     needs: prepare-cache
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
     steps:
       - uses: actions/setup-go@v1
         with:
@@ -195,6 +194,10 @@ jobs:
         id: go
 
       - uses: actions/checkout@v2
+
+        # Required for compilation since the test commands are not make
+        # targets that depend on embed-autonity-contract.
+      - run: make embed-autonity-contract
 
       - name: Go cache
         uses: actions/cache@v2
