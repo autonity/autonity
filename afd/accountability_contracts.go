@@ -1,21 +1,48 @@
-package vm
+package afd
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
+	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
 
+var (
+	checkProofAddress = common.BytesToAddress([]byte{253})
+	checkChallengeAddress = common.BytesToAddress([]byte{254})
+	// true32Byte is returned if the bn256 pairing check succeeds.
+	true32Byte = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+	// false32Byte is returned if the bn256 pairing check fails.
+	false32Byte = make([]byte, 32)
+)
+
+func initAccountabilityContracts(chain *core.BlockChain) {
+
+	proofChecker := checkProof{blockchain: chain}
+	challengeChecker := checkChallenge{blockchain: chain}
+
+	vm.PrecompiledContractsByzantium[checkProofAddress] = &proofChecker
+	vm.PrecompiledContractsByzantium[checkChallengeAddress] = &challengeChecker
+
+	vm.PrecompiledContractsHomestead[checkProofAddress] = &proofChecker
+	vm.PrecompiledContractsHomestead[checkChallengeAddress] = &challengeChecker
+
+	vm.PrecompiledContractsIstanbul[checkProofAddress] = &proofChecker
+	vm.PrecompiledContractsIstanbul[checkChallengeAddress] = &challengeChecker
+
+	vm.PrecompiledContractsYoloV1[checkProofAddress] = &proofChecker
+	vm.PrecompiledContractsYoloV1[checkChallengeAddress] = &challengeChecker
+}
+
 // checkChallenge implemented as a native contract to take an on-chain challenge.
 type checkChallenge struct{
-	chainContext ChainContext
+	blockchain *core.BlockChain
 }
-func (c *checkChallenge) InitChainContext(chain ChainContext) {
-	c.chainContext = chain
-	return
-}
+
 func (c *checkChallenge) RequiredGas(_ []byte) uint64 {
 	return params.TakeChallengeGas
 }
@@ -43,7 +70,7 @@ func (c *checkChallenge) validateChallenge(p *types.Proof) error {
 		return err
 	}
 
-	header := c.chainContext.GetHeader(p.ParentHash, h.Uint64())
+	header := c.blockchain.GetHeaderByNumber(h.Uint64())
 	// validate message.
 	if _, err = p.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
 		return err
@@ -73,16 +100,11 @@ func (c *checkChallenge) CheckChallenge(packedProof []byte) error {
 	return nil
 }
 
-
-
 // checkProof implemented as a native contract to validate an on-chain innocent proof.
 type checkProof struct{
-	chainContext ChainContext
+	blockchain *core.BlockChain
 }
-func (c *checkProof) InitChainContext(chain ChainContext) {
-	c.chainContext = chain
-	return
-}
+
 func (c *checkProof) RequiredGas(_ []byte) uint64 {
 	return params.CheckInnocentGas
 }
@@ -126,7 +148,7 @@ func (c *checkProof) validateInnocentProof(in *types.Proof) error {
 		return err
 	}
 
-	header := c.chainContext.GetHeader(in.ParentHash, h.Uint64())
+	header := c.blockchain.GetHeaderByNumber(h.Uint64())
 	// validate message.
 	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
 		return err
@@ -150,7 +172,6 @@ func decodeProof(proof []byte) (*types.Proof, error) {
 	}
 
 	decodedP := new(types.Proof)
-	decodedP.ParentHash = p.ParentHash
 	decodedP.Rule = p.Rule
 
 	// decode consensus message which is rlp encoded.
