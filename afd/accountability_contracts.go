@@ -38,6 +38,20 @@ func initAccountabilityContracts(chain *core.BlockChain) {
 	vm.PrecompiledContractsYoloV1[checkChallengeAddress] = &challengeChecker
 }
 
+func cleanContracts() {
+	delete(vm.PrecompiledContractsByzantium, checkProofAddress)
+	delete(vm.PrecompiledContractsByzantium, checkChallengeAddress)
+
+	delete(vm.PrecompiledContractsYoloV1, checkProofAddress)
+	delete(vm.PrecompiledContractsYoloV1, checkChallengeAddress)
+
+	delete(vm.PrecompiledContractsIstanbul, checkProofAddress)
+	delete(vm.PrecompiledContractsIstanbul, checkChallengeAddress)
+
+	delete(vm.PrecompiledContractsHomestead, checkProofAddress)
+	delete(vm.PrecompiledContractsHomestead, checkChallengeAddress)
+}
+
 // checkChallenge implemented as a native contract to take an on-chain challenge.
 type checkChallenge struct{
 	blockchain *core.BlockChain

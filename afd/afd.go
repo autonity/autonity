@@ -91,6 +91,7 @@ func (fd *FaultDetector) Stop() {
 	fd.scope.Close()
 	fd.blockSub.Unsubscribe()
 	fd.wg.Wait()
+	cleanContracts()
 }
 
 // call by ethereum object to subscribe proofs Events.
