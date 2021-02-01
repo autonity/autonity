@@ -57,9 +57,6 @@ func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
 		precompiles = PrecompiledContractsHomestead
 	}
 	p, ok := precompiles[addr]
-	if ok {
-		p.InitChainContext(evm.Chain)
-	}
 	return p, ok
 }
 
@@ -102,7 +99,6 @@ type Context struct {
 	BlockNumber *big.Int       // Provides information for NUMBER
 	Time        *big.Int       // Provides information for TIME
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
-	Chain       ChainContext   // Provides committee information for precompiled contracts.
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides

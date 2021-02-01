@@ -30,6 +30,9 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		blockChan:  make(chan core.ChainEvent, 300),
 		blockchain: chain,
 	}
+
+	// init accountability precompiled contracts.
+	initAccountabilityContracts(chain)
 	return fd
 }
 
