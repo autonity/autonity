@@ -3,6 +3,8 @@ package test
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -75,8 +77,13 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, error) {
 	k := u.Key.(*ecdsa.PrivateKey)
 	address := crypto.PubkeyToAddress(k.PublicKey)
 
-	// Copy the base node config
-	c := *baseNodeConfig
+	// Copy the base node config, so we can modify it without damaging the
+	// original.
+	c := &node.Config{}
+	err := copyObject(baseNodeConfig, c)
+	if err != nil {
+		return nil, err
+	}
 
 	// p2p key and address
 	c.P2P.PrivateKey = u.Key.(*ecdsa.PrivateKey)
@@ -93,12 +100,13 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, error) {
 	}
 	c.DataDir = datadir
 
-	// Give this logger context based on the node address so that we can easily
-	// trace single node execution in the logs.
-	c.Logger = log.New("node", address.String()[2:7])
-
-	// copy the base eth config
-	ec := *baseEthConfig
+	// copy the base eth config, so we can modify it without damaging the
+	// original.
+	ec := &eth.Config{}
+	err = copyObject(baseEthConfig, ec)
+	if err != nil {
+		return nil, err
+	}
 	// Set the min gas price on the mining pool config, otherwise the miner
 	// starts with a default min gas price. Which causes transactions to be
 	// dropped.
@@ -108,8 +116,8 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, error) {
 	ec.Tendermint = *genesis.Config.Tendermint
 
 	node := &Node{
-		Config:    &c,
-		EthConfig: &ec,
+		Config:    c,
+		EthConfig: ec,
 		Key:       k,
 		Address:   address,
 		Tracker:   NewTransactionTracker(),
@@ -121,12 +129,22 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, error) {
 // This creates the node.Node and eth.Ethereum and starts the node.Node and
 // starts eth.Ethereum mining.
 func (n *Node) Start() error {
-	var err error
 	// Provide a copy of the config to node.New, so that we can rely on
 	// Node.Config field not being manipulated by node and hence use our copy
 	// for black box testing.
-	nodeConfigCopy := *n.Config
-	n.Node, err = node.New(&nodeConfigCopy)
+	nodeConfigCopy := &node.Config{}
+	err := copyNodeConfig(n.Config, nodeConfigCopy)
+	if err != nil {
+		return err
+	}
+
+	// Give this logger context based on the node address so that we can easily
+	// trace single node execution in the logs. We set the logger only on the
+	// copy, since it is not useful for black box testing and it is also not
+	// marshalable since the implementation contains unexported fields.
+	nodeConfigCopy.Logger = log.New("node", n.Address.String()[2:7])
+	// n.Config.P2P.PrivateKey = n.ConfigCopy.P2P.PrivateKey
+	n.Node, err = node.New(nodeConfigCopy)
 	if err != nil {
 		return err
 	}
@@ -134,8 +152,12 @@ func (n *Node) Start() error {
 	// This registers the ethereum service on the n.Node, so that calling
 	// n.Node.Stop will also close the eth service. Again we provide a copy of
 	// the EthConfig so that we can use our copy for black box testing.
-	ethConfigCopy := *n.EthConfig
-	n.Eth, err = eth.New(n.Node, &ethConfigCopy, nil)
+	ethConfigCopy := &eth.Config{}
+	err = copyObject(n.EthConfig, ethConfigCopy)
+	if err != nil {
+		return err
+	}
+	n.Eth, err = eth.New(n.Node, ethConfigCopy, nil)
 	if err != nil {
 		return err
 	}
@@ -250,7 +272,7 @@ func NewNetworkFromUsers(users []*gengen.User) (Network, error) {
 	for i, u := range users {
 		n, err := NewNode(u, g)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to build node for network: %v", err)
 		}
 		network[i] = n
 	}
@@ -269,7 +291,7 @@ func NewNetworkFromUsers(users []*gengen.User) (Network, error) {
 func NewNetwork(count int, formatString string, startingPort int) (Network, error) {
 	users, err := Users(count, formatString, startingPort)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build users: %v", err)
 	}
 	return NewNetworkFromUsers(users)
 }
@@ -354,4 +376,67 @@ func Genesis(users []*gengen.User) (*core.Genesis, error) {
 	// Make the tests fast
 	g.Config.Tendermint.BlockPeriod = 0
 	return g, nil
+}
+
+// Since the node config is not marshalable by default we construct a
+// marshalable struct which we marshal and unmarshal and then unpack into the
+// original struct type.
+func copyNodeConfig(source, dest *node.Config) error {
+	s := &MarshalableNodeConfig{}
+	s.Config = *source
+	p := MarshalableP2PConfig{}
+	p.Config = source.P2P
+
+	crypto.FromECDSA(source.P2P.PrivateKey)
+
+	p.PrivateKey = (*MarshalableECDSAPrivateKey)(source.P2P.PrivateKey)
+	s.P2P = p
+	data, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	u := new(MarshalableNodeConfig)
+	err = json.Unmarshal(data, u)
+	if err != nil {
+		return err
+	}
+	*dest = u.Config
+	dest.P2P = u.P2P.Config
+	dest.P2P.PrivateKey = (*ecdsa.PrivateKey)(u.P2P.PrivateKey)
+	return nil
+}
+
+type MarshalableNodeConfig struct {
+	node.Config
+	P2P MarshalableP2PConfig
+}
+
+type MarshalableP2PConfig struct {
+	p2p.Config
+	PrivateKey *MarshalableECDSAPrivateKey
+}
+
+type MarshalableECDSAPrivateKey ecdsa.PrivateKey
+
+func (k *MarshalableECDSAPrivateKey) UnmarshalJSON(b []byte) error {
+	key, err := crypto.PrivECDSAFromHex(b[1 : len(b)-1])
+	if err != nil {
+		return err
+	}
+	*k = MarshalableECDSAPrivateKey(*key)
+	return nil
+}
+
+func (k *MarshalableECDSAPrivateKey) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + hex.EncodeToString(crypto.FromECDSA((*ecdsa.PrivateKey)(k))) + `"`), nil
+}
+
+// copyObject copies an object so that the copy shares no memory with the
+// original.
+func copyObject(source, dest interface{}) error {
+	data, err := json.Marshal(source)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, dest)
 }
