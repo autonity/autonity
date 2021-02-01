@@ -146,7 +146,7 @@ contract Autonity is IERC20 {
     /**
     * @notice Create an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
     */
-    function addChallenge(Accountability.Proof[] memory Proofs) public onlyProtocol(msg.sender) {
+    function addChallenge(Accountability.Proof[] memory Proofs) public onlyValidator(msg.sender) {
         for (uint256 i = 0; i < Proofs.length; i++) {
 
             if (_isChallengeExists(Proofs[i]) == true) {
@@ -166,7 +166,7 @@ contract Autonity is IERC20 {
     /**
     * @notice Resolve an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
     */
-    function resolveChallenge(Accountability.Proof[] memory Proofs) public onlyProtocol(msg.sender) {
+    function resolveChallenge(Accountability.Proof[] memory Proofs) public onlyValidator(msg.sender) {
         for (uint256 i = 0; i < Proofs.length; i++) {
             if (_isChallengeExists(Proofs[i]) == false) {
                 continue;
@@ -573,6 +573,16 @@ contract Autonity is IERC20 {
         require(deployer == _caller, "function restricted to the protocol");
         _;
     }
+
+    /**
+    * @dev Modifier that checks if the caller is a validator.
+    * Only the validator can invoke such API.
+    */
+    modifier onlyValidator(address _caller) {
+        require(users[_caller].userType == UserType.Validator);
+        _;
+    }
+
 
     /**
     * @dev Modifier that checks if the adress is authorized to own stake.
