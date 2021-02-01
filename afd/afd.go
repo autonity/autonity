@@ -31,6 +31,7 @@ type FaultDetector struct {
 	consensusEngine *consensus.Engine
 	address common.Address
 	msgStore *MsgStore
+	ruleEngine *RuleEngine
 }
 
 var(
@@ -47,6 +48,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address, engine
 		blockchain: chain,
 		consensusEngine: engine,
 		msgStore: new(MsgStore),
+		ruleEngine: new(RuleEngine),
 	}
 
 	// init accountability precompiled contracts.
@@ -66,7 +68,6 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 	for {
 		select {
 		case ev := <-fd.msgChan:
-			//todo: save consensus msg into msg store.
 			err := fd.msgStore.StoreMsg(ev)
 			if err != nil {
 				// print something.
@@ -78,7 +79,10 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			if err != nil {
 				// prints something.
 			}
+
 			// todo: tell rule engine to run patterns over msg store on each new height.
+			fd.ruleEngine.run()
+
 		case <-fd.msgSub.Err():
 			return
 		case <-fd.blockSub.Err():
