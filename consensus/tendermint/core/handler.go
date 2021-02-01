@@ -56,6 +56,9 @@ func (c *core) Stop() {
 	_ = c.prevoteTimeout.stopTimer()
 	_ = c.precommitTimeout.stopTimer()
 
+	c.scope.Close()
+	c.wg.Wait()
+
 	c.cancel()
 
 	c.stopFutureProposalTimer()
