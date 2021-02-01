@@ -486,3 +486,7 @@ func (sb *Backend) RemoveMessageFromLocalCache(payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Remove(hash)
 }
+
+func (sb *Backend) SubscribeConsensusEvent(ch chan<- types.ConsensusMessage) event.Subscription {
+	return sb.core.SubscribeConsensusEvent(ch)
+}
