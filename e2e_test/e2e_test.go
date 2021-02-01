@@ -19,7 +19,6 @@ func TestSendingValue(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 
-	// Send a tx to see that the network is working
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err = network[0].SendETracked(ctx, network[1].Address, 10)
