@@ -5,7 +5,9 @@ import (
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
+	"math/rand"
 	"sync"
+	"time"
 )
 
 // Fault detector, it subscribe chain event to trigger rule engine to apply patterns over
@@ -22,6 +24,11 @@ type FaultDetector struct {
 	blockchain *core.BlockChain
 	address common.Address
 }
+
+var(
+	// todo: to be configured at genesis.
+	randomDelayWindow = 10000
+)
 
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *FaultDetector {
@@ -80,6 +87,8 @@ func (fd *FaultDetector) handleMyChallenges(block *types.Block, hash common.Hash
 	return nil
 }
 
+
+
 // get proof of innocent over msg store.
 func (fd *FaultDetector) proveInnocent(challenge types.OnChainProof) (types.OnChainProof, error) {
 	// todo: get proof from msg store over the rule.
@@ -104,6 +113,47 @@ func (fd *FaultDetector) SendProofs(t types.ProofType,  proofs[]types.OnChainPro
 	fd.wg.Add(1)
 	go func() {
 		defer fd.wg.Done()
-		fd.afdFeed.Send(types.SubmitProofEvent{Proofs:proofs, Type:t})
+		if t == types.InnocentProof {
+			fd.afdFeed.Send(types.SubmitProofEvent{Proofs:proofs, Type:t})
+		}
+
+		if t == types.ChallengeProof {
+			// wait for random milliseconds (under the range of 10 seconds) to check if need to rise challenge.
+			rand.Seed(time.Now().UnixNano())
+			n := rand.Intn(randomDelayWindow)
+			time.Sleep(time.Duration(n)*time.Millisecond)
+			unPresented := fd.filterUnPresentedChallenges(&proofs)
+			if len(unPresented) != 0 {
+				fd.afdFeed.Send(types.SubmitProofEvent{Proofs:unPresented, Type:t})
+			}
+		}
 	}()
+}
+
+func (fd *FaultDetector) filterUnPresentedChallenges(proofs *[]types.OnChainProof) []types.OnChainProof {
+	// get latest chain state.
+	var result []types.OnChainProof
+	state, err := fd.blockchain.State()
+	if err != nil {
+		return nil
+	}
+
+	header := fd.blockchain.CurrentBlock().Header()
+	challenges := fd.blockchain.GetAutonityContract().GetChallenges(header, state)
+
+	for i:=0; i < len(*proofs); i++ {
+		present := false
+		for i:=0; i < len(challenges); i++ {
+			if (*proofs)[i].Sender == challenges[i].Sender && (*proofs)[i].Height == challenges[i].Height &&
+				(*proofs)[i].Round == challenges[i].Round && (*proofs)[i].Rule == challenges[i].Rule &&
+				(*proofs)[i].MsgType == challenges[i].MsgType {
+				present = true
+			}
+		}
+		if !present {
+			result = append(result, (*proofs)[i])
+		}
+	}
+
+	return result
 }
