@@ -446,51 +446,82 @@ func NewBlockWithHeader(header *Header) *Block {
 // CopyHeader creates a deep copy of a block header to prevent side effects from
 // modifying a header variable.
 func CopyHeader(h *Header) *Header {
-	cpy := *h
-	if cpy.Difficulty = new(big.Int); h.Difficulty != nil {
-		cpy.Difficulty.Set(h.Difficulty)
+
+	difficulty := big.NewInt(0)
+	if h.Difficulty != nil {
+		difficulty.Set(h.Difficulty)
 	}
-	if cpy.Number = new(big.Int); h.Number != nil {
-		cpy.Number.Set(h.Number)
+
+	number := big.NewInt(0)
+	if h.Number != nil {
+		number.Set(h.Number)
 	}
+
+	extra := make([]byte, 0)
 	if len(h.Extra) > 0 {
-		cpy.Extra = make([]byte, len(h.Extra))
-		copy(cpy.Extra, h.Extra)
+		extra = make([]byte, len(h.Extra))
+		copy(extra, h.Extra)
 	}
 
 	/* PoS fields deep copy section*/
+	committee := make([]CommitteeMember, 0)
 	if len(h.Committee) > 0 {
-		cpy.Committee = make([]CommitteeMember, len(h.Committee))
+		committee = make([]CommitteeMember, len(h.Committee))
 		for i, val := range h.Committee {
-			cpy.Committee[i] = CommitteeMember{
+			committee[i] = CommitteeMember{
 				Address:     val.Address,
 				VotingPower: new(big.Int).Set(val.VotingPower),
 			}
 		}
 	}
 
+	proposerSeal := make([]byte, 0)
 	if len(h.ProposerSeal) > 0 {
-		cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
-		copy(cpy.ProposerSeal, h.ProposerSeal)
+		proposerSeal = make([]byte, len(h.ProposerSeal))
+		copy(proposerSeal, h.ProposerSeal)
 	}
 
+	committedSeals := make([][]byte, 0)
 	if len(h.CommittedSeals) > 0 {
-		cpy.CommittedSeals = make([][]byte, len(h.CommittedSeals))
+		committedSeals = make([][]byte, len(h.CommittedSeals))
 		for i, val := range h.CommittedSeals {
-			cpy.CommittedSeals[i] = make([]byte, len(val))
-			copy(cpy.CommittedSeals[i], val)
+			committedSeals[i] = make([]byte, len(val))
+			copy(committedSeals[i], val)
 		}
 	}
 
+	pastCommittedSeals := make([][]byte, 0)
 	if len(h.PastCommittedSeals) > 0 {
-		cpy.PastCommittedSeals = make([][]byte, len(h.PastCommittedSeals))
+		pastCommittedSeals = make([][]byte, len(h.PastCommittedSeals))
 		for i, val := range h.PastCommittedSeals {
-			cpy.PastCommittedSeals[i] = make([]byte, len(val))
-			copy(cpy.PastCommittedSeals[i], val)
+			pastCommittedSeals[i] = make([]byte, len(val))
+			copy(pastCommittedSeals[i], val)
 		}
 	}
 
-	return &cpy
+	cpy := &Header{
+		ParentHash:         h.ParentHash,
+		UncleHash:          h.UncleHash,
+		Coinbase:           h.Coinbase,
+		Root:               h.Root,
+		TxHash:             h.TxHash,
+		ReceiptHash:        h.ReceiptHash,
+		Bloom:              h.Bloom,
+		Difficulty:         difficulty,
+		Number:             number,
+		GasLimit:           h.GasLimit,
+		GasUsed:            h.GasUsed,
+		Time:               h.Time,
+		Extra:              extra,
+		MixDigest:          h.MixDigest,
+		Nonce:              h.Nonce,
+		Committee:          committee,
+		ProposerSeal:       proposerSeal,
+		Round:              h.Round,
+		CommittedSeals:     committedSeals,
+		PastCommittedSeals: pastCommittedSeals,
+	}
+	return cpy
 }
 
 // DecodeRLP decodes the Ethereum
