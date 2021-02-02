@@ -25,6 +25,7 @@ import (
 	"math/bits"
 	"net"
 	"strings"
+	"sync"
 
 	"github.com/clearmatics/autonity/p2p/enr"
 	"github.com/clearmatics/autonity/rlp"
@@ -38,6 +39,8 @@ type Node struct {
 	id ID
 	// Only required to be set for Nodes that have a host entry
 	resolveFunc func(host string) ([]net.IP, error)
+
+	mu sync.RWMutex
 }
 
 // New wraps a node record. The record must be valid according to the given
@@ -98,7 +101,16 @@ func (n *Node) Incomplete() bool {
 
 // Load retrieves an entry from the underlying record.
 func (n *Node) Load(k enr.Entry) error {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
 	return n.r.Load(k)
+}
+
+// Set adds or updates an entry in the underlying record.
+func (n *Node) Set(k enr.Entry) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.r.Set(k)
 }
 
 // IP returns the IP address of the node. This prefers IPv4 addresses.
@@ -176,7 +188,7 @@ func (n *Node) ResolveHost() error {
 	if ipv4 := ip.To4(); ipv4 != nil {
 		ip = ipv4
 	}
-	n.r.Set(enr.IP(ip))
+	n.Set(enr.IP(ip))
 	return nil
 }
 
