@@ -143,6 +143,9 @@ eventLoop:
 					c.logger.Debug("MessageEvent payload failed", "err", err)
 					continue
 				}
+				// Msg applied over BFT state machine successfully,
+				// forward to afd for accountability.
+				c.forwardConsensusMsg(msg)
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.Payload)
 			case backlogEvent:
 				// No need to check signature for internal messages
@@ -151,6 +154,9 @@ eventLoop:
 					c.logger.Debug("backlogEvent message handling failed", "err", err)
 					continue
 				}
+				// Msg applied over BFT state machine successfully,
+				// forward to afd for accountability.
+				c.forwardConsensusMsg(e.msg)
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.msg.Payload())
 
 			case backlogUncheckedEvent:
@@ -159,6 +165,9 @@ eventLoop:
 					c.logger.Debug("backlogUncheckedEvent message failed", "err", err)
 					continue
 				}
+				// Msg applied over BFT state machine successfully,
+				// forward to afd for accountability.
+				c.forwardConsensusMsg(e.msg)
 				c.backend.Gossip(ctx, c.committeeSet().Committee(), e.msg.Payload())
 			case coreStateRequestEvent:
 				// Process Tendermint state dump request.
