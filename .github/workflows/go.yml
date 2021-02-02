@@ -74,7 +74,8 @@ jobs:
                 # These tests do not seem to work when run with other tests.
                 [problematic-tests, -p 1 ./p2p/simulations/... ./core], 
                 [tendermint-tests, ./consensus/tendermint/... -timeout 5m -race],
-                [e2e-tests, ./consensus/test/... -v]]
+                [e2e-tests, ./consensus/test/... -v],
+                [e2e-tests-race, ./consensus/test/... -v -race -timeout 30m]]
 
     name: ${{ matrix.tests[0] }}
 
