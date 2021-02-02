@@ -420,6 +420,7 @@ func (b *Bridge) Start() error {
 
 	b.wg = &sync.WaitGroup{}
 
+	b.syncer.Start()
 	b.currentBlockAwaiter.start()
 	// Tendermint Finite State Machine discrete event loop
 	b.wg.Add(1)
@@ -429,8 +430,8 @@ func (b *Bridge) Start() error {
 
 func (b *Bridge) Close() error {
 	b.mutex.Lock()
-	defer b.mutex.Unlock()
 	if !b.started {
+		b.mutex.Unlock()
 		return errors.New("bridge closed twice")
 	}
 	b.started = false
@@ -440,10 +441,12 @@ func (b *Bridge) Close() error {
 
 	// b.logger.Info("closing tendermint.Bridge", "addr", addr(b.address))
 
+	b.syncer.Stop()
 	// stop the block awaiter if it is waiting
 	b.currentBlockAwaiter.stop()
 	// println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
+	b.mutex.Unlock()
 	b.wg.Wait()
 	return nil
 }
@@ -772,7 +775,9 @@ func (b *Broadcaster) Broadcast(payload []byte) {
 }
 
 type Syncer struct {
-	peers consensus.Peers
+	peers   consensus.Peers
+	stopped chan struct{}
+	mu      sync.Mutex
 }
 
 func NewSyncer(peers consensus.Peers) *Syncer {
@@ -781,15 +786,40 @@ func NewSyncer(peers consensus.Peers) *Syncer {
 	}
 }
 
+func (s *Syncer) Start() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.stopped = make(chan struct{})
+}
+func (s *Syncer) Stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	close(s.stopped)
+}
+
 func (s *Syncer) AskSync(header *types.Header) {
 	var count uint64
-	for _, p := range s.peers.Peers() {
+
+	peers := s.peers.Peers()
+	// Wait for there to be peers
+	for len(peers) == 0 {
+		t := time.NewTimer(10 * time.Millisecond)
+		select {
+		case <-t.C:
+			peers = s.peers.Peers()
+			continue
+		case <-s.stopped:
+			return
+		}
+	}
+
+	// Ask for sync to peers
+	for _, p := range peers {
 		//ask to a quorum nodes to sync, 1 must then be honest and updated
 		if count >= bft.Quorum(header.TotalVotingPower()) {
 			break
 		}
 		go p.Send(tendermintSyncMsg, []byte{}) //nolint
-
 		member := header.CommitteeMember(p.Address())
 		if member == nil {
 			continue

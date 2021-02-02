@@ -215,8 +215,7 @@ func maliciousTest(t *testing.T, test *testCase, validators map[string]*testNode
 }
 
 func sendTransactions(t *testing.T, test *testCase, peers map[string]*testNode, txPerPeer int, errorOnTx bool, names []string) {
-	// extend the blockToWait to get pending TX be mined.
-	const blocksToWait = 60
+	const blocksToWait = 100
 
 	txs := make(map[uint64]int) // blockNumber to count
 	txsMu := &sync.Mutex{}
@@ -308,7 +307,7 @@ func runHook(validatorHook hook, test *testCase, block *types.Block, validator *
 
 	err := validatorHook(block, validator, test, time.Now())
 	if err != nil {
-		return fmt.Errorf("error while executing before hook for validator index %s and block %v, err %v",
+		return fmt.Errorf("error while executing hook for validator index %s and block %v, err %v",
 			index, block.NumberU64(), err)
 	}
 
