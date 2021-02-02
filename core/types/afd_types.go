@@ -22,7 +22,7 @@ const (
 	C
 	GarbageMessage		// message was signed by valid member, but it cannot be decoded.
 	Equivocation        // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
-	InvalidProposal     // The value proposed by proposal cannot pass the blockchain's validation.
+	InvalidProposal     // The value proposed by proposer cannot pass the blockchain's validation.
 	InvalidMsgSender    // Msg is not from committee member of the height.
 )
 
