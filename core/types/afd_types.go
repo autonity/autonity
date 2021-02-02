@@ -13,6 +13,19 @@ const (
 	ChallengeProof
 )
 
+type Rule uint8
+const (
+	PN Rule = iota
+	PO
+	PVN
+	PVO
+	C
+	GarbageMessage		// message was signed by valid member, but it cannot be decoded.
+	Equivocation        // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
+	InvalidProposal     // The value proposed by proposal cannot pass the blockchain's validation.
+	InvalidMsgSender    // Msg is not from committee member of the height.
+)
+
 // The proof used by accountability precompiled contract to validate the proof of innocent or misbehavior.
 // Since precompiled contract take raw bytes as input, so it should be rlp encoded into bytes before client send the
 // proof into autonity contract.

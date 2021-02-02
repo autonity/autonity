@@ -131,12 +131,12 @@ func (s *roundMessages) PrecommitsTotalPower() uint64 {
 	return s.precommits.TotalVotePower()
 }
 
-func (s *roundMessages) AddPrevote(hash common.Hash, msg types.ConsensusMessage) {
-	s.prevotes.AddVote(hash, msg)
+func (s *roundMessages) AddPrevote(hash common.Hash, msg types.ConsensusMessage) error {
+	return s.prevotes.AddVote(hash, msg)
 }
 
-func (s *roundMessages) AddPrecommit(hash common.Hash, msg types.ConsensusMessage) {
-	s.precommits.AddVote(hash, msg)
+func (s *roundMessages) AddPrecommit(hash common.Hash, msg types.ConsensusMessage) error {
+	return s.precommits.AddVote(hash, msg)
 }
 
 func (s *roundMessages) CommitedSeals(hash common.Hash) []types.ConsensusMessage {

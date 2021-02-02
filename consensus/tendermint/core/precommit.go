@@ -73,6 +73,8 @@ func (c *core) handlePrecommit(ctx context.Context, msg *types.ConsensusMessage)
 	var preCommit types.Vote
 	err := msg.Decode(&preCommit)
 	if err != nil {
+		// since msg sender are checked before, so to do accountability.
+		// todo: accountability over garbage msg sent by committee member.
 		return errFailedDecodePrecommit
 	}
 	precommitHash := preCommit.ProposedBlockHash

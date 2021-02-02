@@ -36,6 +36,7 @@ const (
 var (
 	errMsgPayloadNotDecoded = errors.New("message not decoded")
 	ErrUnauthorizedAddress  = errors.New("unauthorized address")
+	ErrNotFromCommittee = errors.New("message does not come from committee member")
 )
 
 type ConsensusMessage struct {
@@ -137,7 +138,7 @@ func (m *ConsensusMessage) Validate(validateFn func(*Header, []byte, []byte) (co
 
 	v := previousHeader.CommitteeMember(addr)
 	if v == nil {
-		return nil, fmt.Errorf("message received is not from a committee member: %x", addr)
+		return nil, ErrNotFromCommittee
 	}
 
 	m.Power = v.VotingPower.Uint64()

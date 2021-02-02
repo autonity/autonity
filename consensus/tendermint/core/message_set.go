@@ -38,14 +38,13 @@ type messageSet struct {
 	messagesMu *sync.RWMutex
 }
 
-func (ms *messageSet) AddVote(blockHash common.Hash, msg types.ConsensusMessage) {
+func (ms *messageSet) AddVote(blockHash common.Hash, msg types.ConsensusMessage) error {
 	ms.messagesMu.Lock()
 	defer ms.messagesMu.Unlock()
 
 	// Check first if we already received a message from this pal.
 	if _, ok := ms.messages[msg.Address]; ok {
-		// TODO : double signing fault ! Accountability
-		return
+		return errEquivocation
 	}
 
 	var addressesMap map[common.Address]types.ConsensusMessage
@@ -57,6 +56,7 @@ func (ms *messageSet) AddVote(blockHash common.Hash, msg types.ConsensusMessage)
 	addressesMap = ms.votes[blockHash]
 	addressesMap[msg.Address] = msg
 	ms.messages[msg.Address] = &msg
+	return nil
 }
 
 func (ms *messageSet) GetMessages() []*types.ConsensusMessage {
