@@ -32,6 +32,7 @@ import (
 const DefaultTestGasPrice = 100000000000
 
 func TestCheckBlockWithSmallFee(t *testing.T) {
+	t.Skip("This test is unreliable - https://github.com/clearmatics/autonity/issues/750")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}

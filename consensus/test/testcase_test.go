@@ -225,8 +225,8 @@ func runTest(t *testing.T, test *testCase) {
 		t.Fatal(err)
 	}
 
-	for i, p := range nodes {
-		fmt.Printf("%s === %s  -- %s\n", i, p.enode.URLv4(), crypto.PubkeyToAddress(p.privateKey.PublicKey).String())
+	for nodeName, node := range nodes {
+		fmt.Printf("%s === %s  -- %s\n", nodeName, node.enode.URLv4(), crypto.PubkeyToAddress(node.privateKey.PublicKey).String())
 	}
 
 	if test.topology != nil && !test.topology.WithChanges() {

@@ -502,11 +502,12 @@ func (sb *Backend) Start(ctx context.Context) error {
 func (sb *Backend) Close() error {
 	// the mutex along with coreStarted should prevent double stop
 	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
 	if !sb.coreStarted {
+		sb.coreMu.Unlock()
 		return ErrStoppedEngine
 	}
+	sb.coreStarted = false
+	sb.coreMu.Unlock()
 	// We need to make sure we close sb.stopped before calling sb.core.Stop
 	// otherwise we can end up with a deadlock where sb.core.Stop is waiting
 	// for a routine to return from calling sb.AskSync but sb.AskSync will
@@ -515,8 +516,6 @@ func (sb *Backend) Close() error {
 
 	// Stop Tendermint
 	sb.core.Stop()
-	sb.coreStarted = false
-
 	return nil
 }
 

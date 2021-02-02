@@ -184,7 +184,7 @@ func TestTendermintTC7(t *testing.T) {
 			"VF": hookStopNode("VF", 20),
 		},
 		afterHooks: map[string]hook{
-			"VD": hookStartNode("VD", 40),
+			"VD": hookStartNode("VD", 4),
 		},
 		maliciousPeers: map[string]injectors{
 			"VE": {},

@@ -16,6 +16,10 @@
 
 package config
 
+import "flag"
+
+var blockPeriod = flag.Uint64("blockperiod", 0, "The minimum time between blocks in seconds")
+
 type ProposerPolicy uint64
 
 const (
@@ -34,14 +38,14 @@ func (c *Config) String() string {
 
 func DefaultConfig() *Config {
 	return &Config{
-		BlockPeriod:    1,
+		BlockPeriod:    *blockPeriod,
 		ProposerPolicy: WeightedRandomSampling,
 	}
 }
 
 func RoundRobinConfig() *Config {
 	return &Config{
-		BlockPeriod:    1,
+		BlockPeriod:    *blockPeriod,
 		ProposerPolicy: RoundRobin,
 	}
 }

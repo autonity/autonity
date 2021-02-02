@@ -17,11 +17,13 @@
 package core
 
 import (
+	context "context"
+
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core/types"
 )
 
-func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
+func (c *core) storeUnminedBlockMsg(ctx context.Context, unminedBlock *types.Block) {
 	// c.logNewUnminedBlockEvent(unminedBlock) NOT SAFE !
 	if err := c.checkUnminedBlockMsg(unminedBlock); err != nil {
 		if err == errInvalidMessage {
@@ -35,10 +37,10 @@ func (c *core) storeUnminedBlockMsg(unminedBlock *types.Block) {
 		}
 	}
 	c.logger.Debug("NewUnminedBlockEvent: Storing unmined block", "number", unminedBlock.NumberU64(), "hash", unminedBlock.Hash())
-	c.updatePendingUnminedBlocks(unminedBlock)
+	c.updatePendingUnminedBlocks(ctx, unminedBlock)
 }
 
-func (c *core) updatePendingUnminedBlocks(unminedBlock *types.Block) {
+func (c *core) updatePendingUnminedBlocks(ctx context.Context, unminedBlock *types.Block) {
 	c.pendingUnminedBlocksMu.Lock()
 	defer c.pendingUnminedBlocksMu.Unlock()
 
@@ -54,7 +56,10 @@ func (c *core) updatePendingUnminedBlocks(unminedBlock *types.Block) {
 	}
 
 	if c.isWaitingForUnminedBlock {
-		c.pendingUnminedBlockCh <- unminedBlock
+		select {
+		case c.pendingUnminedBlockCh <- unminedBlock:
+		case <-ctx.Done():
+		}
 		c.isWaitingForUnminedBlock = false
 	}
 	c.pendingUnminedBlocks[unminedBlock.NumberU64()] = unminedBlock
