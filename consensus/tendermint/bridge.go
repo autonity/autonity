@@ -16,7 +16,6 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
@@ -39,13 +38,12 @@ func addr(a common.Address) string {
 func New(
 	config *config.Config,
 	key *ecdsa.PrivateKey,
-	broadcaster *Broadcaster,
-	syncer *Syncer,
+	broadcaster Broadcaster,
+	syncer Syncer,
 	verifier *Verifier,
 	finalizer *DefaultFinalizer,
 	blockRetreiver *BlockReader,
 	ac *autonity.Contract,
-	statedb state.Database,
 ) *Bridge {
 	address := crypto.PubkeyToAddress(key.PublicKey)
 	logger := log.New("addr", address.String())
@@ -68,7 +66,6 @@ func New(
 		broadcaster:          broadcaster,
 		syncer:               syncer,
 		latestBlockRetriever: blockRetreiver,
-		statedb:              statedb,
 		verifier:             verifier,
 
 		eventChannel:     make(chan interface{}),
@@ -103,10 +100,9 @@ type Bridge struct {
 
 	currentBlockAwaiter *blockAwaiter
 
-	broadcaster          *Broadcaster
-	syncer               *Syncer
+	broadcaster          Broadcaster
+	syncer               Syncer
 	latestBlockRetriever *BlockReader
-	statedb              state.Database
 
 	verifier *Verifier
 
@@ -413,7 +409,7 @@ func (b *Bridge) Start() error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	if b.started {
-		panic("Bridge started twice")
+		return fmt.Errorf("bridge %s started twice", b.address.String())
 	}
 	b.started = true
 	b.closeChannel = make(chan struct{})
@@ -432,7 +428,7 @@ func (b *Bridge) Close() error {
 	b.mutex.Lock()
 	if !b.started {
 		b.mutex.Unlock()
-		return errors.New("bridge closed twice")
+		return fmt.Errorf("bridge %s closed twice", b.address.String())
 	}
 	b.started = false
 
@@ -614,6 +610,7 @@ eventLoop:
 					continue
 				}
 
+				println("handling current height message", m.consensusMessage.String())
 				err = b.handleCurrentHeightMessage(m)
 				if err == errStopped {
 					return
@@ -689,8 +686,11 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 			return errNotFromProposer
 		}
 		// Proposal values are allowed to be invalid.
-		if _, err := b.verifier.VerifyProposal(*b.msgStore.value(common.Hash(cm.Value)), b.blockchain, b.address.String()); err == nil {
+		_, err := b.verifier.VerifyProposal(*b.msgStore.value(common.Hash(cm.Value)), b.blockchain, b.address.String())
+		if err == nil {
 			b.msgStore.setValid(common.Hash(cm.Value))
+		} else {
+			println("not valid", err.Error())
 		}
 	}
 
@@ -745,14 +745,18 @@ func (p *degeneratePeerMessageMap) knowsMessage(_ common.Address, _ common.Hash)
 	return false
 }
 
-type Broadcaster struct {
+type Broadcaster interface {
+	Broadcast(payload []byte)
+}
+
+type DefaultBroadcaster struct {
 	address common.Address
 	pmm     peerMessageMap
 	peers   consensus.Peers
 }
 
-func NewBroadcaster(address common.Address, peers consensus.Peers) *Broadcaster {
-	return &Broadcaster{
+func NewBroadcaster(address common.Address, peers consensus.Peers) *DefaultBroadcaster {
+	return &DefaultBroadcaster{
 		address: address,
 		peers:   peers,
 		pmm:     &degeneratePeerMessageMap{},
@@ -760,7 +764,7 @@ func NewBroadcaster(address common.Address, peers consensus.Peers) *Broadcaster 
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (b *Broadcaster) Broadcast(payload []byte) {
+func (b *DefaultBroadcaster) Broadcast(payload []byte) {
 	hash := types.RLPHash(payload)
 
 	for _, p := range b.peers.Peers() {
@@ -774,30 +778,37 @@ func (b *Broadcaster) Broadcast(payload []byte) {
 	}
 }
 
-type Syncer struct {
+type Syncer interface {
+	Start()
+	Stop()
+	AskSync(lastestHeader *types.Header)
+	SyncPeer(peerAddr common.Address, messages [][]byte)
+}
+
+type DefaultSyncer struct {
 	peers   consensus.Peers
 	stopped chan struct{}
 	mu      sync.Mutex
 }
 
-func NewSyncer(peers consensus.Peers) *Syncer {
-	return &Syncer{
+func NewSyncer(peers consensus.Peers) *DefaultSyncer {
+	return &DefaultSyncer{
 		peers: peers,
 	}
 }
 
-func (s *Syncer) Start() {
+func (s *DefaultSyncer) Start() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.stopped = make(chan struct{})
 }
-func (s *Syncer) Stop() {
+func (s *DefaultSyncer) Stop() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	close(s.stopped)
 }
 
-func (s *Syncer) AskSync(header *types.Header) {
+func (s *DefaultSyncer) AskSync(latestHeader *types.Header) {
 	var count uint64
 
 	peers := s.peers.Peers()
@@ -816,11 +827,11 @@ func (s *Syncer) AskSync(header *types.Header) {
 	// Ask for sync to peers
 	for _, p := range peers {
 		//ask to a quorum nodes to sync, 1 must then be honest and updated
-		if count >= bft.Quorum(header.TotalVotingPower()) {
+		if count >= bft.Quorum(latestHeader.TotalVotingPower()) {
 			break
 		}
 		go p.Send(tendermintSyncMsg, []byte{}) //nolint
-		member := header.CommitteeMember(p.Address())
+		member := latestHeader.CommitteeMember(p.Address())
 		if member == nil {
 			continue
 		}
@@ -829,7 +840,7 @@ func (s *Syncer) AskSync(header *types.Header) {
 }
 
 // Synchronize new connected peer with current height state
-func (s *Syncer) SyncPeer(address common.Address, messages [][]byte) {
+func (s *DefaultSyncer) SyncPeer(address common.Address, messages [][]byte) {
 	for _, p := range s.peers.Peers() {
 		if address == p.Address() {
 			for _, msg := range messages {

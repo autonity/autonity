@@ -10,9 +10,9 @@ import (
 	"github.com/clearmatics/autonity/params"
 )
 
-func NewDefaultEVMProvider(headerGetter HeaderGetter, vmConfig vm.Config, chainConfig *params.ChainConfig) *defaultEVMProvider {
+func NewDefaultEVMProvider(hg *headerGetter, vmConfig vm.Config, chainConfig *params.ChainConfig) *defaultEVMProvider {
 	return &defaultEVMProvider{
-		hg:          headerGetter,
+		hg:          hg,
 		vmConfig:    vmConfig,
 		chainConfig: chainConfig,
 	}
@@ -20,7 +20,7 @@ func NewDefaultEVMProvider(headerGetter HeaderGetter, vmConfig vm.Config, chainC
 
 // defaultEVMProvider implements autonity.EVMProvider
 type defaultEVMProvider struct {
-	hg          HeaderGetter
+	hg          *headerGetter
 	vmConfig    vm.Config
 	chainConfig *params.ChainConfig
 }

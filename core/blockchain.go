@@ -240,7 +240,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 
 	var autonityContract *autonity.Contract
 	if chainConfig.Tendermint != nil {
-		autonityContract, err = NewAutonityContractFromConfig(
+		autonityContract, err = autonity.NewAutonityContractFromConfig(
 			db,
 			headerGetter,
 			NewDefaultEVMProvider(headerGetter, vmConfig, chainConfig),

@@ -17,6 +17,7 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/params"
 )
 
 var ErrAutonityContract = errors.New("could not call Autonity contract")
@@ -45,6 +46,29 @@ type Contract struct {
 	metrics            EconomicMetrics
 
 	sync.RWMutex
+}
+
+type HeaderGetter interface {
+	GetHeader(hash common.Hash, number uint64) *types.Header
+}
+
+func NewAutonityContractFromConfig(db ethdb.Database, hg HeaderGetter, evmP EVMProvider, autonityConfig *params.AutonityContractGenesis) (*Contract, error) {
+	var JSONString = autonityConfig.ABI
+	bytes, err := rawdb.GetKeyValue(db, []byte(ABISPEC))
+
+	if err != nil && JSONString == "" {
+		return nil, err
+	}
+	if bytes != nil {
+		JSONString = string(bytes)
+	}
+	return NewAutonityContract(
+		db,
+		autonityConfig.Operator,
+		autonityConfig.MinGasPrice,
+		JSONString,
+		evmP,
+	)
 }
 
 func NewAutonityContract(

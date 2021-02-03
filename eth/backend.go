@@ -152,7 +152,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	}
 	var autonityContract *autonity.Contract
 	if chainConfig.Tendermint != nil {
-		autonityContract, err = core.NewAutonityContractFromConfig(
+		autonityContract, err = autonity.NewAutonityContractFromConfig(
 			chainDb,
 			hg,
 			core.NewDefaultEVMProvider(hg, vmConfig, chainConfig),

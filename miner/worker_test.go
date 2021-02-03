@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/stretchr/testify/require"
 
@@ -576,7 +577,7 @@ func newBackend(config *params.ChainConfig) (*tendermint.Bridge, ethdb.Database,
 	}
 
 	vmConfig := vm.Config{}
-	autonityContract, err := core.NewAutonityContractFromConfig(
+	autonityContract, err := autonity.NewAutonityContractFromConfig(
 		db,
 		hg,
 		core.NewDefaultEVMProvider(hg, vmConfig, config),
