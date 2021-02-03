@@ -64,7 +64,7 @@ func TestStartRound(t *testing.T) {
 		Height:      o.Height(),
 		Round:       round,
 	}
-	cm, to = algo.StartRound(value, round)
+	cm, to = algo.StartRound(NilValue, round)
 	assert.Nil(t, cm)
 	assert.Equal(t, expectedTimeout, to)
 
