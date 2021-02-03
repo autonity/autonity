@@ -509,10 +509,10 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			if err != nil {
 				return fmt.Errorf("failed to update proposer: %v", err)
 			}
-			cm, to := b.algo.StartRound(proposalValue, rc.Round)
+			startCM, startTO := b.algo.StartRound(proposalValue, rc.Round)
 			// Note that we don't risk entering an infinite loop here since
 			// start round can only return results with broadcasts or timeouts.
-			err = b.handleResult(nil, cm, to)
+			err = b.handleResult(nil, startCM, startTO)
 			if err != nil {
 				return err
 			}
