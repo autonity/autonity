@@ -600,7 +600,6 @@ func newBackend(config *params.ChainConfig) (*tendermint.Bridge, ethdb.Database,
 		finalizer,
 		latestBlockRetriever,
 		autonityContract,
-		statedb,
 	)
 
 	return engine, db, nil

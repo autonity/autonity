@@ -288,7 +288,6 @@ func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, conf
 			finalizer,
 			latestBlockRetriever,
 			autonityContract,
-			state,
 		)
 	}
 
