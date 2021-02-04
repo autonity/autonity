@@ -140,6 +140,32 @@ func createBridge(
 	return b, nil
 }
 
+func getNextProposalBlock(b *Bridge) (*types.Block, error) {
+	block, err := b.latestBlockRetriever.LatestBlock()
+	if err != nil {
+		return nil, err
+	}
+	state, err := b.blockchain.State()
+	if err != nil {
+		return nil, err
+	}
+	var receipts []*types.Receipt
+	header := &types.Header{
+		ParentHash: block.Hash(),
+		Number:     new(big.Int).Add(block.Number(), common.Big1),
+		GasLimit:   math.MaxUint64,
+	}
+	err = b.Prepare(b.blockchain, header)
+	if err != nil {
+		return nil, err
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return b.FinalizeAndAssemble(b.blockchain, header, state, nil, nil, &receipts)
+}
+
 func TestStartingAndStoppingBridge(t *testing.T) {
 	b, err := createBridge(config.DefaultConfig(), &syncerMock{}, &broadcasterMock{}, &blockBroadcasterMock{})
 	require.NoError(t, err)
@@ -159,30 +185,23 @@ func TestBlockGivenToSealIsComitted(t *testing.T) {
 	err = b.Start()
 	require.NoError(t, err)
 
-	block, err := b.latestBlockRetriever.LatestBlock()
-	require.NoError(t, err)
-	state, err := b.blockchain.State()
-	require.NoError(t, err)
-	var receipts []*types.Receipt
-
-	header := &types.Header{
-		ParentHash: block.Hash(),
-		Number:     new(big.Int).Add(block.Number(), common.Big1),
-		GasLimit:   math.MaxUint64,
-	}
-	err = b.Prepare(b.blockchain, header)
-	require.NoError(t, err)
-	newBlock, err := b.FinalizeAndAssemble(b.blockchain, header, state, nil, nil, &receipts)
+	proposal, err := getNextProposalBlock(b)
 	require.NoError(t, err)
 	result := make(chan *types.Block)
 	stop := make(chan struct{})
-	err = b.Seal(b.blockchain, newBlock, result, stop)
+	err = b.Seal(b.blockchain, proposal, result, stop)
 	require.NoError(t, err)
 	tm := time.NewTimer(time.Millisecond * 100)
 	select {
 	case <-tm.C:
 		t.Fatalf("Expecting block to have been committed")
 	case r := <-result:
-		assert.Equal(t, newBlock.Hash(), r.Hash())
+		// Check it is the correct block
+		assert.Equal(t, proposal.Hash(), r.Hash())
+		// Check it has the right number of committed seals
+		assert.Len(t, r.Header().CommittedSeals, 1)
+		// Verify the header
+		err := b.VerifyHeader(b.blockchain, r.Header(), true)
+		assert.NoError(t, err)
 	}
 }
