@@ -223,7 +223,13 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, &stack.Config().NodeKey().PublicKey); err != nil {
+	// Create AFD
+	eth.faultDetector = afd.NewFaultDetector(eth.blockchain, eth.etherbase)
+	eth.defaultKey = stack.Config().NodeKey()
+
+	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId,
+		eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist,
+		&stack.Config().NodeKey().PublicKey, eth.faultDetector); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
@@ -237,10 +243,6 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
 	// Start the RPC service
 	eth.netRPCService = ethapi.NewPublicNetAPI(eth.p2pServer, eth.NetVersion())
-
-	// Create AFD
-	eth.faultDetector = afd.NewFaultDetector(eth.blockchain, eth.etherbase)
-	eth.defaultKey = stack.Config().NodeKey()
 
 	// Register the backend on the node
 	stack.RegisterAPIs(eth.APIs())
