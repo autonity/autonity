@@ -69,8 +69,6 @@ var (
 	errNilPrecommitSent = errors.New("timer expired and nil precommit sent")
 	// errMovedToNewRound is returned when timer could be stopped in time
 	errMovedToNewRound = errors.New("timer expired and new round started")
-	// errEquivocation is returned when committee member send distinguish votes over the same round
-	errEquivocation = errors.New("committee member send different votes over the same round")
 )
 
 const (
@@ -351,13 +349,9 @@ func (c *core) setInitialState(r int64) {
 func (c *core) acceptVote(roundMsgs *roundMessages, step Step, hash common.Hash, msg types.ConsensusMessage) {
 	switch step {
 	case prevote:
-		 if err := roundMsgs.AddPrevote(hash, msg); err != nil {
-		 	// todo: accountability over equivocation
-		 }
+		roundMsgs.AddPrevote(hash, msg)
 	case precommit:
-		if err := roundMsgs.AddPrecommit(hash, msg); err != nil {
-			// todo: accountability over equivocation
-		}
+		roundMsgs.AddPrecommit(hash, msg)
 	}
 }
 
