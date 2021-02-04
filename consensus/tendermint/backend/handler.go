@@ -29,11 +29,6 @@ import (
 	"io"
 )
 
-const (
-	tendermintMsg     = 0x11
-	tendermintSyncMsg = 0x12
-)
-
 type UnhandledMsg struct {
 	addr common.Address
 	msg  p2p.Msg
@@ -68,7 +63,7 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
-	if msg.Code != tendermintMsg && msg.Code != tendermintSyncMsg {
+	if msg.Code != types.TendermintMsg && msg.Code != types.TendermintSyncMsg {
 		return false, nil
 	}
 
@@ -76,7 +71,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	defer sb.coreMu.Unlock()
 
 	switch msg.Code {
-	case tendermintMsg:
+	case types.TendermintMsg:
 		if !sb.coreStarted {
 			buffer := new(bytes.Buffer)
 			if _, err := io.Copy(buffer, msg.Payload); err != nil {
@@ -115,7 +110,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		sb.postEvent(events.MessageEvent{
 			Payload: data,
 		})
-	case tendermintSyncMsg:
+	case types.TendermintSyncMsg:
 		if !sb.coreStarted {
 			sb.logger.Info("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shutdown the connection if core is stopped
