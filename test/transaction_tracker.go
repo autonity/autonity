@@ -59,6 +59,9 @@ func (tr *TransactionTracker) GetProcessedBlock(hash common.Hash) *types.Block {
 }
 
 func (tr *TransactionTracker) StartTracking(client *ethclient.Client) error {
+	if tr.sub != nil {
+		return errors.New("attempted to start already started tracker")
+	}
 	// The subscription client will buffer 20000 notifications before closing
 	// the subscription, if that happens the Err() chan will return
 	// ErrSubscriptionQueueOverflow
@@ -173,7 +176,10 @@ func (tr *TransactionTracker) AwaitTransactions(ctx context.Context, hashes []co
 }
 
 // StopTracking shuts down all the goroutines in the tracker.
-func (tr *TransactionTracker) StopTracking() {
+func (tr *TransactionTracker) StopTracking() error {
+	if tr.sub == nil {
+		return errors.New("attempted to stop already stopped tracker")
+	}
 	tr.sub.Unsubscribe()
 	close(tr.stopCh)
 	tr.wg.Wait()
@@ -183,4 +189,5 @@ func (tr *TransactionTracker) StopTracking() {
 	tr.client = nil
 	tr.sub = nil
 	tr.stopCh = nil
+	return nil
 }
