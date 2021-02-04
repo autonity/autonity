@@ -21,29 +21,27 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/params"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	baseNodeConfig *node.Config = &node.Config{
-		Name:    "autonity",
-		Version: params.Version,
-		P2P: p2p.Config{
-			MaxPeers:              100,
-			DialHistoryExpiration: time.Millisecond,
-		},
-		NoUSB:    true,
-		HTTPHost: "0.0.0.0",
-		WSHost:   "0.0.0.0",
-	}
+// baseNodeConfig *node.Config = &node.Config{
+// 	Name:    "autonity",
+// 	Version: params.Version,
+// 	P2P: p2p.Config{
+// 		MaxPeers:              100,
+// 		DialHistoryExpiration: time.Millisecond,
+// 	},
+// 	NoUSB:    true,
+// 	HTTPHost: "0.0.0.0",
+// 	WSHost:   "0.0.0.0",
+// }
 
-	baseTendermintConfig = config.Config{
-		BlockPeriod: 0,
-	}
+// baseTendermintConfig = config.Config{
+// 	BlockPeriod: 0,
+// }
 )
 
 func Genesis(key *ecdsa.PrivateKey) (*core.Genesis, error) {
@@ -172,9 +170,9 @@ func TestBlockGivenToSealIsComitted(t *testing.T) {
 		Number:     new(big.Int).Add(block.Number(), common.Big1),
 		GasLimit:   math.MaxUint64,
 	}
-	b.Prepare(b.blockchain, header)
+	err = b.Prepare(b.blockchain, header)
+	require.NoError(t, err)
 	newBlock, err := b.FinalizeAndAssemble(b.blockchain, header, state, nil, nil, &receipts)
-
 	require.NoError(t, err)
 	result := make(chan *types.Block)
 	stop := make(chan struct{})
