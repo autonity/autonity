@@ -55,8 +55,6 @@ func (c *core) handleProposal(ctx context.Context, msg *types.ConsensusMessage) 
 	var proposal types.Proposal
 	err := msg.Decode(&proposal)
 	if err != nil {
-		// since msg sender are checked before, so to do accountability.
-		// todo: accountability over garbage msg sent by committee member.
 		return errFailedDecodeProposal
 	}
 
@@ -70,26 +68,21 @@ func (c *core) handleProposal(ctx context.Context, msg *types.ConsensusMessage) 
 
 			roundMsgs := c.messages.getOrCreate(proposal.Round)
 
-			// check sender first.
+			// if we already have a proposal then it must be different than the current one
+			// it can't happen unless someone's byzantine.
+			if roundMsgs.proposal != nil {
+				return err // do not gossip, TODO: accountability
+			}
+
 			if !c.isProposerMsg(proposal.Round, msg.Address) {
 				c.logger.Warn("Ignore proposal messages from non-proposer")
-				// todo: accountability over wrong proposer.
 				return errNotFromProposer
 			}
-
-			// if we already have a proposal then it must be different than the current one
-			// it can't happen unless proposer is equivocation.
-			if roundMsgs.proposal != nil {
-				// todo: accountability over the equivocation proposal.
-				return err // do not gossip
-			}
-
 			// We do not verify the proposal in this case.
 			roundMsgs.SetProposal(&proposal, msg, false)
 
 			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= c.committeeSet().Quorum() {
 				if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
-					// todo: accountability over invalid proposal value.
 					return error
 				}
 				c.logger.Debug("Committing old round proposal")
@@ -103,7 +96,6 @@ func (c *core) handleProposal(ctx context.Context, msg *types.ConsensusMessage) 
 	// Check if the message comes from curRoundMessages proposer
 	if !c.isProposerMsg(c.Round(), msg.Address) {
 		c.logger.Warn("Ignore proposal messages from non-proposer")
-		// todo: accountability over wrong proposer.
 		return errNotFromProposer
 	}
 
@@ -124,9 +116,6 @@ func (c *core) handleProposal(ctx context.Context, msg *types.ConsensusMessage) 
 			})
 			return err
 		}
-
-		// todo: accountability over invalid proposal value.
-
 		c.sendPrevote(ctx, true)
 		// do not to accept another proposal in current round
 		c.setStep(prevote)

@@ -62,8 +62,6 @@ func (c *core) handlePrevote(ctx context.Context, msg *types.ConsensusMessage) e
 	var preVote types.Vote
 	err := msg.Decode(&preVote)
 	if err != nil {
-		// since msg sender are checked before, so to do accountability.
-		// todo: accountability over garbage msg sent by committee member.
 		return errFailedDecodePrevote
 	}
 

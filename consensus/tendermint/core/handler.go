@@ -259,10 +259,6 @@ func (c *core) handleMsg(ctx context.Context, msg *types.ConsensusMessage) error
 	// benchmark signature verification w/r validator count
 	if _, err = msg.Validate(crypto.CheckValidatorSignature, c.lastHeader); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
-		if err == types.ErrNotFromCommittee {
-			// todo: accountability over consensus msg
-			//  (proposal, prevote, precommit) from wrong sender.
-		}
 		return err
 	}
 
