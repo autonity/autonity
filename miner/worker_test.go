@@ -556,8 +556,8 @@ func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine co
 
 func newBackend(config *params.ChainConfig) (*tendermint.Bridge, ethdb.Database, error) {
 	peers := &mockPeers{}
-	broadcaster := tendermint.NewBroadcaster(common.Address{}, peers)
-	syncer := tendermint.NewSyncer(peers, common.Address{})
+	broadcaster := tendermint.NewBroadcaster(*config.AutonityContractConfig.Users[0].Address, peers)
+	syncer := tendermint.NewSyncer(peers, *config.AutonityContractConfig.Users[0].Address)
 
 	db := rawdb.NewMemoryDatabase()
 
