@@ -442,13 +442,13 @@ func (pm *ProtocolManager) IsInWhitelist(id enode.ID, td uint64, logger log.Logg
 	// If the whitelist is nil it means that we did not set it in the
 	// constructor which means we are not operating in Tendermint mode and
 	// therefore all peers are whitelisted.
+	pm.enodesWhitelistLock.RLock()
 	if pm.enodesWhitelist == nil {
 		return nil
 	}
 	head := pm.blockchain.CurrentHeader()
 
 	whitelisted := false
-	pm.enodesWhitelistLock.RLock()
 	for _, enode := range pm.enodesWhitelist {
 		if id == enode.ID() {
 			whitelisted = true
