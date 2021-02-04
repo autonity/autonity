@@ -471,9 +471,9 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	if err != nil {
 		return err
 	}
-	// First we need to filter out messages from non comittee members. This is
+	// First we need to filter out messages from non committee members. This is
 	// so that they do not interfere with voting calculations.
-	// checkFromCommittee will remove non committee member messges from the
+	// checkFromCommittee will remove non committee member messages from the
 	// store.
 	for _, msg := range b.msgStore.heightMessages(b.height) {
 		err := b.checkFromCommittee(msg)
