@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/afd"
 	"math"
 	"math/big"
 	"sync"
@@ -109,11 +110,14 @@ type ProtocolManager struct {
 
 	engine consensus.Engine
 	pub    *ecdsa.PublicKey
+	afd *afd.FaultDetector
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode,
+	networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain,
+	chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey, afd *afd.FaultDetector) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
@@ -125,6 +129,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		peers:       newPeerSet(),
 		engine:      engine,
 		whitelist:   whitelist,
+		afd: afd,
 		whitelistCh: make(chan core.WhitelistEvent, 64),
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
@@ -490,6 +495,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
 		}
 		addr := crypto.PubkeyToAddress(*pubKey)
+
+		// forward msg to afd for tendermint BFT accountability.
+		pm.afd.HandleConsensusMsg(addr, msg)
+
+		// forward msg to tendermint BFT engine.
 		handled, err := handler.HandleMsg(addr, msg)
 		if handled {
 			return err
