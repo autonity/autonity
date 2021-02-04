@@ -184,11 +184,14 @@ func (n *Node) Start() error {
 	return n.Eth.StartMining(1)
 }
 
-// Close shuts down the node and releases all resources and removes the
-// datadir.
+// Close shuts down the node and releases all resources and removes the datadir
+// unless an error is returned, in which case there is no guarantee that all
+// resources are released.
 func (n *Node) Close() error {
-	var err error
-	n.Tracker.StopTracking()
+	err := n.Tracker.StopTracking()
+	if err != nil {
+		return err
+	}
 	n.WsClient.Close()
 	if n.Node != nil {
 		err = n.Node.Close() // This also shuts down the Eth service
