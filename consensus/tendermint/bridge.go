@@ -786,14 +786,16 @@ type Syncer interface {
 }
 
 type DefaultSyncer struct {
+	address common.Address
 	peers   consensus.Peers
 	stopped chan struct{}
 	mu      sync.Mutex
 }
 
-func NewSyncer(peers consensus.Peers) *DefaultSyncer {
+func NewSyncer(peers consensus.Peers, address common.Address) *DefaultSyncer {
 	return &DefaultSyncer{
-		peers: peers,
+		peers:   peers,
+		address: address,
 	}
 }
 
@@ -811,6 +813,16 @@ func (s *DefaultSyncer) Stop() {
 func (s *DefaultSyncer) AskSync(latestHeader *types.Header) {
 	var count uint64
 
+	// Determine if there should be any other peers
+	potentialPeerCount := len(latestHeader.Committee)
+	if latestHeader.CommitteeMember(s.address) != nil {
+		// Remove ourselves from the other potential peers
+		potentialPeerCount--
+	}
+	// Exit if there are no other peers
+	if potentialPeerCount == 0 {
+		return
+	}
 	peers := s.peers.Peers()
 	// Wait for there to be peers
 	for len(peers) == 0 {

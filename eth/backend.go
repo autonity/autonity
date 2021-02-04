@@ -276,8 +276,9 @@ func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, conf
 	if chainConfig.Tendermint != nil {
 		finalizer := tendermint.NewFinalizer(autonityContract)
 		verifier := tendermint.NewVerifier(vmConfig, finalizer, chainConfig.Tendermint.BlockPeriod)
-		syncer := tendermint.NewSyncer(peers)
-		broadcaster := tendermint.NewBroadcaster(crypto.PubkeyToAddress(ctx.Config().NodeKey().PublicKey), peers)
+		address := crypto.PubkeyToAddress(ctx.Config().NodeKey().PublicKey)
+		syncer := tendermint.NewSyncer(peers, address)
+		broadcaster := tendermint.NewBroadcaster(address, peers)
 		latestBlockRetriever := tendermint.NewBlockReader(db, state)
 		return tendermint.New(
 			chainConfig.Tendermint,
