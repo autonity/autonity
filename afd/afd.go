@@ -7,6 +7,7 @@ import (
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/p2p"
 	"math/rand"
 	"sync"
 	"time"
@@ -183,4 +184,14 @@ func (fd *FaultDetector) filterUnPresentedChallenges(proofs *[]types.OnChainProo
 	}
 
 	return result
+}
+
+// HandleConsensusMsg is called by p2p protocol manager to deliver the consensus msg to afd.
+func (fd *FaultDetector) HandleConsensusMsg(addr common.Address, msg p2p.Msg) error {
+	if msg.Code != types.TendermintMsg {
+		return nil
+	}
+
+	// post msg to afd event loop at once.
+	return nil
 }
