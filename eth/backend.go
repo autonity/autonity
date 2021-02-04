@@ -239,7 +239,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	eth.netRPCService = ethapi.NewPublicNetAPI(eth.p2pServer, eth.NetVersion())
 
 	// Create AFD
-	eth.faultDetector = afd.NewFaultDetector(eth.blockchain, eth.etherbase, &consEngine)
+	eth.faultDetector = afd.NewFaultDetector(eth.blockchain, eth.etherbase)
 	eth.defaultKey = stack.Config().NodeKey()
 
 	// Register the backend on the node

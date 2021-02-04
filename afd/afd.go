@@ -2,8 +2,6 @@ package afd
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	tendermintcore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
@@ -24,12 +22,7 @@ type FaultDetector struct {
 
 	blockChan chan core.ChainEvent
 	blockSub event.Subscription
-
-	msgChan chan types.ConsensusMessage
-	msgSub event.Subscription
-
 	blockchain *core.BlockChain
-	consensusEngine *consensus.Engine
 	address common.Address
 	msgStore *MsgStore
 	ruleEngine *RuleEngine
@@ -41,13 +34,11 @@ var(
 )
 
 // call by ethereum object to create fd instance.
-func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address, engine *consensus.Engine) *FaultDetector {
+func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *FaultDetector {
 	fd := &FaultDetector{
 		address: nodeAddress,
 		blockChan:  make(chan core.ChainEvent, 300),
-		msgChan: make(chan types.ConsensusMessage, 300),
 		blockchain: chain,
-		consensusEngine: engine,
 		msgStore: new(MsgStore),
 		ruleEngine: new(RuleEngine),
 	}
@@ -60,20 +51,9 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address, engine
 // listen for new block events from block-chain, do the tasks like take challenge and provide proof for innocent, the
 // AFD rule engine could also triggered from here to scan those msgs of msg store by applying rules.
 func (fd *FaultDetector) FaultDetectorEventLoop() {
-
 	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockChan)
-	if be, ok := (*fd.consensusEngine).(tendermintcore.Backend); ok {
-		be.SubscribeConsensusEvent(fd.msgChan)
-	}
-
 	for {
 		select {
-		case ev := <-fd.msgChan:
-			err := fd.msgStore.StoreMsg(ev)
-			if err != nil {
-				// print something.
-			}
-
 		case ev := <-fd.blockChan:
 			// take my challenge from latest state DB, and provide innocent proof if there are any.
 			err := fd.handleMyChallenges(ev.Block, ev.Hash)
@@ -84,8 +64,6 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			// todo: tell rule engine to run patterns over msg store on each new height.
 			fd.ruleEngine.run()
 
-		case <-fd.msgSub.Err():
-			return
 		case <-fd.blockSub.Err():
 			return
 		}
@@ -126,7 +104,6 @@ func (fd *FaultDetector) proveInnocent(challenge types.OnChainProof) (types.OnCh
 func (fd *FaultDetector) Stop() {
 	fd.scope.Close()
 	fd.blockSub.Unsubscribe()
-	fd.msgSub.Unsubscribe()
 	fd.wg.Wait()
 	cleanContracts()
 }

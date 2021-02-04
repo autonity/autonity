@@ -64,8 +64,6 @@ type Backend interface {
 	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
 	// It is called by core when some unprocessed messages are removed from the untrusted backlog buffer.
 	RemoveMessageFromLocalCache(payload []byte)
-
-	SubscribeConsensusEvent(ch chan<- types.ConsensusMessage) event.Subscription
 }
 
 type Tendermint interface {
@@ -73,5 +71,4 @@ type Tendermint interface {
 	Stop()
 	GetCurrentHeightMessages() []*types.ConsensusMessage
 	CoreState() TendermintState
-	SubscribeConsensusEvent(ch chan<- types.ConsensusMessage) event.Subscription
 }

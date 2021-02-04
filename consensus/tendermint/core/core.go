@@ -115,11 +115,6 @@ type core struct {
 	backend Backend
 	cancel  context.CancelFunc
 
-	// to forward consensus message to afd msg store.
-	wg sync.WaitGroup
-	consensusEventFeed event.Feed
-	scope event.SubscriptionScope
-
 	messageEventSub         *event.TypeMuxSubscription
 	newUnminedBlockEventSub *event.TypeMuxSubscription
 	committedSub            *event.TypeMuxSubscription
@@ -172,18 +167,6 @@ type core struct {
 
 func (c *core) GetCurrentHeightMessages() []*types.ConsensusMessage {
 	return c.messages.GetMessages()
-}
-
-func (sb *core) SubscribeConsensusEvent(ch chan<- types.ConsensusMessage) event.Subscription {
-	return sb.scope.Track(sb.consensusEventFeed.Subscribe(ch))
-}
-
-func (sb *core) forwardConsensusMsg(msg *types.ConsensusMessage) {
-	sb.wg.Add(1)
-	go func() {
-		defer sb.wg.Done()
-		sb.consensusEventFeed.Send(*msg)
-	}()
 }
 
 func (c *core) IsMember(address common.Address) bool {
