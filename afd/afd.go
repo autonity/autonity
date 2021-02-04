@@ -164,11 +164,10 @@ func (fd *FaultDetector) filterUnPresentedChallenges(proofs *[]types.OnChainProo
 }
 
 // HandleConsensusMsg is called by p2p protocol manager to deliver the consensus msg to afd.
-func (fd *FaultDetector) HandleConsensusMsg(addr common.Address, msg p2p.Msg) error {
+func (fd *FaultDetector) HandleConsensusMsg(addr common.Address, msg p2p.Msg) {
 	if msg.Code != types.TendermintMsg {
-		return nil
+		return
 	}
-
-	// post msg to afd event loop at once.
-	return nil
+	//todo: post msg into msg store event loop
+	return
 }
