@@ -471,9 +471,22 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	if err != nil {
 		return err
 	}
+	// First we need to filter out messages from non comittee members. This is
+	// so that they do not interfere with voting calculations.
+	// checkFromCommittee will remove non committee member messges from the
+	// store.
+	for _, msg := range b.msgStore.heightMessages(b.height) {
+		err := b.checkFromCommittee(msg)
+		if err != nil {
+			b.logger.Error(err.Error())
+		}
+	}
+	// Now we process the remaining messages
 	for _, msg := range b.msgStore.heightMessages(b.height) {
 		err := b.handleCurrentHeightMessage(msg)
-		b.logger.Error("failed to handle current height message", "message", msg.String(), "err", err)
+		if err != nil {
+			b.logger.Error("failed to handle current height message", "message", msg.String(), "err", err)
+		}
 	}
 	return nil
 }
@@ -661,14 +674,8 @@ eventLoop:
 
 }
 
-func (b *Bridge) handleCurrentHeightMessage(m *message) error {
-	cm := m.consensusMessage
-	/*
-		Domain specific validity checks, now we know that we are at the same
-		height as this message we can rely on lastHeader.
-	*/
-
-	// Check that the message came from a committee member, if not we ignore it.
+func (b *Bridge) checkFromCommittee(m *message) error {
+	// Check that the message came from a committee member, if not remove it from the store and return an error.
 	if b.lastHeader.CommitteeMember(m.address) == nil {
 		// We remove the message from the store since it came from a non
 		// validator.
@@ -678,7 +685,20 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 		// higher level to close the connection to this peer.
 		return fmt.Errorf("received message from non committee member: %v", m)
 	}
+	return nil
+}
 
+func (b *Bridge) handleCurrentHeightMessage(m *message) error {
+	cm := m.consensusMessage
+	/*
+		Domain specific validity checks, now we know that we are at the same
+		height as this message we can rely on lastHeader.
+	*/
+
+	err := b.checkFromCommittee(m)
+	if err != nil {
+		return err
+	}
 	if cm.MsgType == algorithm.Propose {
 		// We ignore proposals from non proposers
 		if b.proposer != m.address {
