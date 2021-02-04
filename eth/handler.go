@@ -108,9 +108,9 @@ type ProtocolManager struct {
 	enodesWhitelist     []*enode.Node
 	enodesWhitelistLock sync.RWMutex
 
-	engine consensus.Engine
-	pub    *ecdsa.PublicKey
-	afd *afd.FaultDetector
+	engine        consensus.Engine
+	pub           *ecdsa.PublicKey
+	faultDetector *afd.FaultDetector
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -120,20 +120,20 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey, afd *afd.FaultDetector) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:   networkID,
-		forkFilter:  forkid.NewFilter(blockchain),
-		eventMux:    mux,
-		txpool:      txpool,
-		blockchain:  blockchain,
-		chaindb:     chaindb,
-		peers:       newPeerSet(),
-		engine:      engine,
-		whitelist:   whitelist,
-		afd: afd,
-		whitelistCh: make(chan core.WhitelistEvent, 64),
-		txsyncCh:    make(chan *txsync),
-		quitSync:    make(chan struct{}),
-		pub:         pub,
+		networkID:     networkID,
+		forkFilter:    forkid.NewFilter(blockchain),
+		eventMux:      mux,
+		txpool:        txpool,
+		blockchain:    blockchain,
+		chaindb:       chaindb,
+		peers:         newPeerSet(),
+		engine:        engine,
+		whitelist:     whitelist,
+		faultDetector: afd,
+		whitelistCh:   make(chan core.WhitelistEvent, 64),
+		txsyncCh:      make(chan *txsync),
+		quitSync:      make(chan struct{}),
+		pub:           pub,
 	}
 	if handler, ok := manager.engine.(consensus.Handler); ok {
 		handler.SetBroadcaster(manager)
@@ -496,8 +496,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		addr := crypto.PubkeyToAddress(*pubKey)
 
-		// forward msg to afd for tendermint BFT accountability.
-		pm.afd.HandleConsensusMsg(addr, msg)
+		// forward msg to faultDetector for tendermint BFT accountability.
+		pm.faultDetector.HandleMsg(addr, msg)
 
 		// forward msg to tendermint BFT engine.
 		handled, err := handler.HandleMsg(addr, msg)
