@@ -718,15 +718,20 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 	return b.handleResult(rc, cm, to)
 }
 
+func (b *Bridge) proposerAddr(previousHeader *types.Header, round int64) (common.Address, error) {
+	state, err := b.latestBlockRetriever.BlockState(previousHeader.Root)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("cannot load state from block chain: %v", err)
+	}
+	return b.autonityContract.GetProposerFromAC(previousHeader, state, round)
+}
+
 // UpdateProposer updates b.proposer and if we are the proposer waits for a
 // proposal value and returns an algorithm.ValueID representing the proposal
 // value. If we are not the proposer then it returns algorithm.NilValue.
 func (b *Bridge) UpdateProposer(previousHeader *types.Header, round int64) (algorithm.ValueID, error) {
-	state, err := b.latestBlockRetriever.BlockState(previousHeader.Root)
-	if err != nil {
-		return algorithm.NilValue, fmt.Errorf("cannot load state from block chain: %v", err)
-	}
-	b.proposer, err = b.autonityContract.GetProposerFromAC(previousHeader, state, previousHeader.Number.Uint64(), round)
+	var err error
+	b.proposer, err = b.proposerAddr(previousHeader, round)
 	if err != nil {
 		return algorithm.NilValue, fmt.Errorf("cannot load state from block chain: %v", err)
 	}

@@ -165,8 +165,8 @@ func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (u
 	return ac.callGetMinimumGasPrice(db, block.Header())
 }
 
-func (ac *Contract) GetProposerFromAC(header *types.Header, db *state.StateDB, height uint64, round int64) (common.Address, error) {
-	return ac.callGetProposer(db, header, height, round)
+func (ac *Contract) GetProposerFromAC(header *types.Header, db *state.StateDB, round int64) (common.Address, error) {
+	return ac.callGetProposer(db, header, round)
 }
 
 func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, price *big.Int) error {

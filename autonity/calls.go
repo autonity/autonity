@@ -156,11 +156,10 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 	return minGasPrice.Uint64(), nil
 }
 
-func (ac *Contract) callGetProposer(state *state.StateDB, header *types.Header, height uint64, round int64) (common.Address, error) {
+func (ac *Contract) callGetProposer(state *state.StateDB, header *types.Header, round int64) (common.Address, error) {
 	var proposer common.Address
-	h := new(big.Int).SetUint64(height)
 	r := new(big.Int).SetInt64(round)
-	err := ac.AutonityContractCall(state, header, "getProposer", &proposer, h, r)
+	err := ac.AutonityContractCall(state, header, "getProposer", &proposer, header.Number, r)
 	return proposer, err
 }
 
