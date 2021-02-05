@@ -3,11 +3,9 @@ package tendermint
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"math/big"
 	"net"
-	"os"
 	"testing"
 	time "time"
 
@@ -68,27 +66,6 @@ func Users(count int, e, stake uint64, usertype params.UserType) ([]*gengen.User
 		}
 	}
 	return users, nil
-}
-
-func Genesis(key *ecdsa.PrivateKey) (*core.Genesis, error) {
-	f, err := ioutil.TempFile("", "")
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		f.Close()
-		os.Remove(f.Name())
-	}()
-	u := &gengen.User{
-		InitialEth: big.NewInt(10 ^ 18), // 1 E
-		Key:        key,
-		KeyPath:    f.Name(),
-		NodeIP:     net.ParseIP("0.0.0.0"),
-		NodePort:   0,
-		Stake:      1,
-		UserType:   params.UserValidator,
-	}
-	return gengen.NewGenesis(1, []*gengen.User{u})
 }
 
 type syncerMock struct{}
@@ -154,6 +131,9 @@ func createBridge(
 	}
 	// Get initial proposer
 	proposer, err := autonityContract.GetProposerFromAC(genesisBlock.Header(), state, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get initial proposer: %v", err)
+	}
 	var proposerKey *ecdsa.PrivateKey
 	for _, u := range users {
 		k := u.Key.(*ecdsa.PrivateKey)
@@ -369,6 +349,7 @@ func TestSignAndVerify(t *testing.T) {
 	k, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	sig, err := crypto.Sign(h[:], k)
+	require.NoError(t, err)
 	sig[0] = 1
 	addr, err := types.GetSignatureAddressHash(h[:], sig)
 	fmt.Printf("addr: %v error: %v\n", addr.String(), err)
