@@ -15,6 +15,7 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"math/rand"
+	"sort"
 	"sync"
 	"time"
 )
@@ -59,6 +60,9 @@ type FaultDetector struct {
 	// rule engine
 	ruleEngine *RuleEngine
 
+	// buffer for proposer of rounds rather to get it by lifting evm again and again.
+	// map[height]map[round]common.address
+	proposersMap map[uint64]map[int64]common.Address
 	logger log.Logger
 }
 
@@ -78,6 +82,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		ruleEngine: new(RuleEngine),
 		logger:logger,
 		tendermintMsgMux:  event.NewTypeMuxSilent(logger),
+		proposersMap: map[uint64]map[int64]common.Address{},
 	}
 
 	// init accountability precompiled contracts.
@@ -248,7 +253,7 @@ func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 		return err
 	}
 
-	// store msg, if there is equivocation, then rise errEquivocation and return proofs.
+	// store msg, if there is equivocation then rise errEquivocation and return proofs.
 	equivocationProof, err := fd.msgStore.StoreMsg(m)
 	if err == errEquivocation {
 		fd.processMisbehavior(m, equivocationProof, err)
@@ -257,9 +262,37 @@ func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 	return nil
 }
 
+func (fd *FaultDetector) getProposer(h uint64, r int64) (common.Address, error) {
+	// todo: before lifting evm again and again, let's buffer proposers in afd.
+	parentHeader := fd.blockchain.GetHeaderByNumber(h-1)
+	if parentHeader.IsGenesis() {
+		sort.Sort(parentHeader.Committee)
+		return parentHeader.Committee[r%int64(len(parentHeader.Committee))].Address, nil
+	}
+
+	statedb, err := fd.blockchain.StateAt(parentHeader.Hash())
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	proposer := fd.blockchain.GetAutonityContract().GetProposerFromAC(parentHeader, statedb, parentHeader.Number.Uint64(), r)
+	member := parentHeader.CommitteeMember(proposer)
+	if member == nil {
+		return common.Address{}, fmt.Errorf("cannot find correct proposer")
+	}
+	return proposer, nil
+}
+
 func (fd *FaultDetector) isProposerMsg(m *types.ConsensusMessage) bool {
-	// todo: get proposer from chain context.
-	return true
+	h, _ := m.Height()
+	r, _ := m.Round()
+
+	proposer, err := fd.getProposer(h.Uint64(), r)
+	if err != nil {
+		return false
+	}
+
+	return m.Address == proposer
 }
 
 func (fd *FaultDetector) verifyProposal(proposal types.Block) error {
