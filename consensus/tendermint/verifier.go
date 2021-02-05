@@ -15,7 +15,9 @@ import (
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 var (
@@ -308,12 +310,12 @@ func (v *Verifier) verifyCommittedSeals(header, parent *types.Header) error {
 
 	// Total Voting power for this block
 	var power uint64
-	// The data that was signed over for this block
-	proposerSeal := header.ProposerSeal
-	commitment, err := BuildCommitment(proposerSeal, header.Number.Uint64(), int64(header.Round), algorithm.ValueID(header.Hash()))
+	// The commitment is the hash of the precommit message, which we reconstruct here.
+	encodedPrecommit, err := encodeConsensusMessage(header.Number.Uint64(), int64(header.Round), 0, algorithm.Precommit, algorithm.ValueID(header.Hash()))
 	if err != nil {
 		return err
 	}
+	commitment := crypto.Keccak256(encodedPrecommit)
 
 	// 1. Get committed seals from current header
 	for _, signedSeal := range header.CommittedSeals {
@@ -344,6 +346,16 @@ func (v *Verifier) verifyCommittedSeals(header, parent *types.Header) error {
 	}
 
 	return nil
+}
+
+func buildCommitment(height uint64, round int64, value algorithm.ValueID) ([]byte, error) {
+	rlpM := &rlpConsensusMesage{
+		MsgType: algorithm.Precommit,
+		Height:  height,
+		Round:   uint64(round),
+		Value:   value,
+	}
+	return rlp.EncodeToBytes(rlpM)
 }
 
 // VerifySeal checks whether the crypto seal on a header is valid according to

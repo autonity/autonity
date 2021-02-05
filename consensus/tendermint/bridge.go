@@ -533,7 +533,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		// We must build message here since buildMessage relies on accessing
 		// the msg store, and since the message store is not syncronised we
 		// need to do it from the handler routine.
-		msg, err := encodeSignedMessage(cm, b.key, b.msgStore)
+		msg, err := encodeSignedMessage(cm, b.key, b.msgStore.value(common.Hash(cm.Value)))
 		if err != nil {
 			panic(fmt.Sprintf(
 				"%s We were unable to build a message, this indicates a programming error: %v",
