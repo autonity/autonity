@@ -209,6 +209,7 @@ func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs 
 	challenge.Round = uint64(r)
 	challenge.MsgType = m.Code
 	challenge.Sender = m.Address
+	challenge.MsgHash = types.RLPHash(m.Payload())
 
 	// generate raw bytes encoded in rlp, it is by passed into precompiled contracts.
 	var rawProof types.RawProof

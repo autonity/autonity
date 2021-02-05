@@ -69,6 +69,7 @@ type OnChainProof struct {
 	MsgType uint64
 	Sender common.Address
 	Rule uint8
+	MsgHash common.Hash
 
 	// rlp enoded bytes for struct RawProof object.
 	RawProofBytes []byte
