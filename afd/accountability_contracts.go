@@ -68,50 +68,47 @@ func (c *checkChallenge) Run(input []byte) ([]byte, error) {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
-	err := c.CheckChallenge(input)
+	hash, err := c.CheckChallenge(input)
 	if err != nil {
-		return false32Byte, fmt.Errorf("invalid proof of challenge %v", err)
+		return common.Hash{}.Bytes(), err
 	}
 
-	return true32Byte, nil
+	return hash, nil
 }
 
 // validate the proof is a valid challenge.
-func (c *checkChallenge) validateChallenge(p *types.Proof) error {
+func (c *checkChallenge) validateChallenge(p *types.Proof) ([]byte, error) {
 	// check if evidence msgs are from committee members of that height.
 	h, err := p.Message.Height()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	header := c.blockchain.GetHeaderByNumber(h.Uint64())
 	// validate message.
 	if _, err = p.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
-		return err
+		return nil, err
 	}
 
 	for i:=0; i < len(p.Evidence); i++ {
 		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	// todo: check if the proof is a valid suspicion.
-	return nil
+	// if valid, then return msgHash, nil
+	return types.RLPHash(p.Message.Payload()).Bytes(), nil
 }
 
 // validate challenge, call from EVM package.
-func (c *checkChallenge) CheckChallenge(packedProof []byte) error {
+func (c *checkChallenge) CheckChallenge(packedProof []byte) ([]byte, error) {
 	p, err := decodeProof(packedProof)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = c.validateChallenge(p)
-	if err != nil {
-		return err
-	}
-	return nil
+	return c.validateChallenge(p)
 }
 
 // checkProof implemented as a native contract to validate an on-chain innocent proof.
@@ -130,52 +127,48 @@ func (c *checkProof) Run(input []byte) ([]byte, error) {
 		panic(fmt.Errorf("invalid proof of innocent - empty"))
 	}
 
-	err := c.CheckProof(input)
+	hash, err := c.CheckProof(input)
 	if err != nil {
-		return false32Byte, fmt.Errorf("invalid proof of innocent %v", err)
+		return common.Hash{}.Bytes(), err
 	}
 
-	return true32Byte, nil
+	return hash, nil
 }
 
 // Check the proof of innocent, it is called from precompiled contracts of EVM package.
-func (c *checkProof) CheckProof(packedProof []byte) error {
+func (c *checkProof) CheckProof(packedProof []byte) ([]byte, error) {
 
 	p, err := decodeProof(packedProof)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = c.validateInnocentProof(p)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return c.validateInnocentProof(p)
 }
 
 // validate the innocent proof is valid.
-func (c *checkProof) validateInnocentProof(in *types.Proof) error {
+func (c *checkProof) validateInnocentProof(in *types.Proof) ([]byte, error) {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	header := c.blockchain.GetHeaderByNumber(h.Uint64())
 	// validate message.
 	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
-		return err
+		return nil, err
 	}
 
 	for i:=0; i < len(in.Evidence); i++ {
 		if _, err = in.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	// todo: check if the proof is an innocent behavior.
-	return nil
+	// return msg hash and nil when its proved as valid.
+	return types.RLPHash(in.Message.Payload()).Bytes(), nil
 }
 
 func decodeProof(proof []byte) (*types.Proof, error) {
