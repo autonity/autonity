@@ -14,10 +14,6 @@ import (
 var (
 	checkProofAddress = common.BytesToAddress([]byte{253})
 	checkChallengeAddress = common.BytesToAddress([]byte{254})
-	// true32Byte is returned if the bn256 pairing check succeeds.
-	true32Byte = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
-	// false32Byte is returned if the bn256 pairing check fails.
-	false32Byte = make([]byte, 32)
 )
 
 func initAccountabilityContracts(chain *core.BlockChain) {
