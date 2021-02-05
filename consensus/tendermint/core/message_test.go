@@ -15,7 +15,7 @@ import (
 
 func TestMessageEncodeDecode(t *testing.T) {
 	msg := &types.ConsensusMessage{
-		Code:          types.msgProposal,
+		Code:          types.MsgProposal,
 		Msg:           []byte{0x1},
 		Address:       common.HexToAddress("0x1234567890"),
 		Signature:     []byte{0x2},
@@ -172,7 +172,7 @@ func TestMessageDecode(t *testing.T) {
 	}
 
 	msg := &types.ConsensusMessage{
-		Code:    types.msgProposal,
+		Code:    types.MsgProposal,
 		Msg:     payload,
 		Address: common.HexToAddress("0x1234567890"),
 	}
