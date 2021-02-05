@@ -108,8 +108,8 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 				fd.logger.Warn("handle challenge","afd", err)
 			}
 
-			// todo: tell rule engine to run patterns over msg store on each new height.
-			fd.ruleEngine.run()
+			// run rule engine over msg store on each height update.
+			fd.runRuleEngine()
 		case ev, ok := <-fd.tendermintMsgSub.Chan():
 			// take consensus msg from p2p protocol manager.
 			if !ok {
@@ -163,6 +163,14 @@ func (fd *FaultDetector) Stop() {
 // call by ethereum object to subscribe proofs Events.
 func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- types.SubmitProofEvent) event.Subscription {
 	return fd.scope.Track(fd.afdFeed.Subscribe(ch))
+}
+
+// run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
+func (fd *FaultDetector) runRuleEngine() {
+	proofs := fd.ruleEngine.run(fd.msgStore)
+	if len(proofs) > 0 {
+		fd.sendProofs(types.ChallengeProof, proofs)
+	}
 }
 
 func (fd *FaultDetector) processAutoIncriminatingMsg(m *types.ConsensusMessage) error {
