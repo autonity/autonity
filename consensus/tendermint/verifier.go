@@ -17,7 +17,6 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/rlp"
 )
 
 var (
@@ -346,16 +345,6 @@ func (v *Verifier) verifyCommittedSeals(header, parent *types.Header) error {
 	}
 
 	return nil
-}
-
-func buildCommitment(height uint64, round int64, value algorithm.ValueID) ([]byte, error) {
-	rlpM := &rlpConsensusMesage{
-		MsgType: algorithm.Precommit,
-		Height:  height,
-		Round:   uint64(round),
-		Value:   value,
-	}
-	return rlp.EncodeToBytes(rlpM)
 }
 
 // VerifySeal checks whether the crypto seal on a header is valid according to
