@@ -3,19 +3,15 @@ package afd
 import (
 	"fmt"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"math/rand"
-	"sort"
 	"sync"
 	"time"
 )
@@ -27,6 +23,7 @@ var (
 	errProposer = errors.New("proposal is not from proposer")
 	errProposal = errors.New("proposal have invalid values")
 	errEquivocation = errors.New("equivocation happens")
+	errUnknownMsg = errors.New("unknown consensus msg")
 )
 
 // Fault detector, it subscribe chain event to trigger rule engine to apply patterns over
@@ -101,6 +98,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 
 	for {
 		select {
+		// chain event update, provide proof of innocent if one is on challenge, rule engine scanning is triggered also.
 		case ev := <-fd.blockChan:
 			// take my challenge from latest state DB, and provide innocent proof if there are any.
 			err := fd.handleMyChallenges(ev.Block, ev.Hash)
@@ -110,8 +108,8 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 
 			// run rule engine over msg store on each height update.
 			fd.runRuleEngine()
+		// to handle consensus msg from p2p layer.	
 		case ev, ok := <-fd.tendermintMsgSub.Chan():
-			// take consensus msg from p2p protocol manager.
 			if !ok {
 				return
 			}
@@ -122,7 +120,6 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 					fd.logger.Error("invalid payload", "afd", err)
 					continue
 				}
-
 				if err := fd.processMsg(msg); err != nil {
 					fd.logger.Error("process consensus msg", "afd", err)
 					continue
@@ -173,22 +170,6 @@ func (fd *FaultDetector) runRuleEngine() {
 	}
 }
 
-func (fd *FaultDetector) processAutoIncriminatingMsg(m *types.ConsensusMessage) error {
-	// msg is checked, then do auto-incriminating checking
-	switch m.Code {
-	case types.MsgProposal:
-		return fd.processProposal(m)
-	case types.MsgPrevote:
-		return fd.processPrevote(m)
-	case types.MsgPrecommit:
-		return fd.processPrecommit(m)
-	default:
-		fd.logger.Error("Invalid message", "afd", m)
-	}
-
-	return nil
-}
-
 func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs []types.ConsensusMessage, err error) (types.OnChainProof, error) {
 	var challenge types.OnChainProof
 	switch err {
@@ -229,9 +210,9 @@ func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs 
 	return challenge, nil
 }
 
-// processMisbehavior takes proofs of misbehavior msg, and error id to form the on-chain proof, and
+// submitMisbehavior takes proofs of misbehavior msg, and error id to form the on-chain proof, and
 // send the proof of misbehavior to TX pool.
-func (fd *FaultDetector) processMisbehavior(m *types.ConsensusMessage, proofs []types.ConsensusMessage, err error) {
+func (fd *FaultDetector) submitMisbehavior(m *types.ConsensusMessage, proofs []types.ConsensusMessage, err error) {
 
 	proof, err := fd.generateOnChainProof(m, proofs, err)
 	if err != nil {
@@ -246,7 +227,7 @@ func (fd *FaultDetector) processMisbehavior(m *types.ConsensusMessage, proofs []
 // and store it to msg store.
 func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 	// pre-check if msg is from valid committee member
-	err := fd.preProcessMsg(m)
+	err := checkMsgSignature(fd.blockchain, m)
 	if err != nil {
 		if err == errFutureMsg {
 			fd.bufferMsg(m)
@@ -255,210 +236,29 @@ func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 	}
 
 	// test auto incriminating msg.
-	err = fd.processAutoIncriminatingMsg(m)
+	err = checkAutoIncriminatingMsg(fd.blockchain, m)
 	if err != nil {
-		proofs := []types.ConsensusMessage{*m}
-		fd.processMisbehavior(m, proofs, err)
-		return err
+		if err == errFutureMsg {
+			fd.bufferMsg(m)
+		} else {
+			proofs := []types.ConsensusMessage{*m}
+			fd.submitMisbehavior(m, proofs, err)
+			return err
+		}
 	}
 
 	// store msg, if there is equivocation then rise errEquivocation and return proofs.
 	equivocationProof, err := fd.msgStore.StoreMsg(m)
 	if err == errEquivocation {
-		fd.processMisbehavior(m, equivocationProof, err)
+		fd.submitMisbehavior(m, equivocationProof, err)
 		return err
 	}
 	return nil
-}
-
-func (fd *FaultDetector) getProposer(h uint64, r int64) (common.Address, error) {
-	// todo: before lifting evm again and again, let's buffer proposers in afd.
-	parentHeader := fd.blockchain.GetHeaderByNumber(h-1)
-	if parentHeader.IsGenesis() {
-		sort.Sort(parentHeader.Committee)
-		return parentHeader.Committee[r%int64(len(parentHeader.Committee))].Address, nil
-	}
-
-	statedb, err := fd.blockchain.StateAt(parentHeader.Hash())
-	if err != nil {
-		return common.Address{}, err
-	}
-
-	proposer := fd.blockchain.GetAutonityContract().GetProposerFromAC(parentHeader, statedb, parentHeader.Number.Uint64(), r)
-	member := parentHeader.CommitteeMember(proposer)
-	if member == nil {
-		return common.Address{}, fmt.Errorf("cannot find correct proposer")
-	}
-	return proposer, nil
-}
-
-func (fd *FaultDetector) isProposerMsg(m *types.ConsensusMessage) bool {
-	h, _ := m.Height()
-	r, _ := m.Round()
-
-	proposer, err := fd.getProposer(h.Uint64(), r)
-	if err != nil {
-		return false
-	}
-
-	return m.Address == proposer
-}
-
-func (fd *FaultDetector) verifyProposal(proposal types.Block) error {
-	block := &proposal
-	if fd.blockchain.HasBadBlock(block.Hash()) {
-		return core.ErrBlacklistedHash
-	}
-
-	err := fd.blockchain.Engine().VerifyHeader(fd.blockchain, block.Header(), false)
-	if err == nil || err == types.ErrEmptyCommittedSeals {
-		var (
-			receipts types.Receipts
-			usedGas        = new(uint64)
-			gp             = new(core.GasPool).AddGas(block.GasLimit())
-			header         = block.Header()
-			proposalNumber = header.Number.Uint64()
-			parent         = fd.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
-		)
-
-		// We need to process all of the transaction to get the latest state to get the latest committee
-		state, stateErr := fd.blockchain.StateAt(parent.Root())
-		if stateErr != nil {
-			return stateErr
-		}
-
-		// Validate the body of the proposal
-		if err = fd.blockchain.Validator().ValidateBody(block); err != nil {
-			return err
-		}
-
-		// sb.blockchain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
-		// Instead only the transactions are applied to the copied state
-		for i, tx := range block.Transactions() {
-			state.Prepare(tx.Hash(), block.Hash(), i)
-			// Might be vulnerable to DoS Attack depending on gaslimit
-			// Todo : Double check
-			// use default values for vmConfig.
-			vmConfig := vm.Config{
-				EnablePreimageRecording: true,
-				EWASMInterpreter: "",
-				EVMInterpreter: "",
-			}
-			receipt, receiptErr := core.ApplyTransaction(fd.blockchain.Config(), fd.blockchain, nil, gp, state, header, tx, usedGas, vmConfig)
-			if receiptErr != nil {
-				return receiptErr
-			}
-			receipts = append(receipts, receipt)
-		}
-
-		state.Prepare(common.ACHash(block.Number()), block.Hash(), len(block.Transactions()))
-		committeeSet, receipt, err := fd.blockchain.Engine().Finalize(fd.blockchain, header, state, block.Transactions(), nil, receipts)
-		receipts = append(receipts, receipt)
-		//Validate the state of the proposal
-		if err = fd.blockchain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
-			return err
-		}
-
-		//Perform the actual comparison
-		if len(header.Committee) != len(committeeSet) {
-			fd.logger.Error("wrong committee set",
-				"proposalNumber", proposalNumber,
-				"extraLen", len(header.Committee),
-				"currentLen", len(committeeSet),
-				"committee", header.Committee,
-				"current", committeeSet,
-			)
-			return consensus.ErrInconsistentCommitteeSet
-		}
-
-		for i := range committeeSet {
-			if header.Committee[i].Address != committeeSet[i].Address ||
-				header.Committee[i].VotingPower.Cmp(committeeSet[i].VotingPower) != 0 {
-				fd.logger.Error("wrong committee member in the set",
-					"index", i,
-					"currentVerifier", fd.address.String(),
-					"proposalNumber", proposalNumber,
-					"headerCommittee", header.Committee[i],
-					"computedCommittee", committeeSet[i],
-					"fullHeader", header.Committee,
-					"fullComputed", committeeSet,
-				)
-				return consensus.ErrInconsistentCommitteeSet
-			}
-		}
-
-		return nil
-	}
-	return err
 }
 
 // buffer Msg since node are not synced to verify it.
 func (fd *FaultDetector) bufferMsg(m *types.ConsensusMessage) {
 	// todo: buffer the msg.
-}
-
-// processProposal, checks if proposal is valid (no garbage msg, no invalid tx ),
-// it's from correct proposer.
-func (fd *FaultDetector) processProposal(m *types.ConsensusMessage) error {
-	var proposal types.Proposal
-	err := m.Decode(&proposal)
-	if err != nil {
-		return errGarbageMsg
-	}
-
-	if !fd.isProposerMsg(m) {
-		return errProposer
-	}
-
-	err = fd.verifyProposal(*proposal.ProposalBlock)
-	if err != nil {
-		if err == consensus.ErrFutureBlock {
-			fd.bufferMsg(m)
-		} else {
-			return errProposal
-		}
-	}
-
-	return nil
-}
-
-func (fd *FaultDetector) processPrevote(m *types.ConsensusMessage) error {
-	var preVote types.Vote
-	err := m.Decode(&preVote)
-	if err != nil {
-		return errGarbageMsg
-	}
-	return nil
-}
-
-func (fd *FaultDetector) processPrecommit(m *types.ConsensusMessage) error {
-	var preCommit types.Vote
-	err := m.Decode(&preCommit)
-	if err != nil {
-		return errGarbageMsg
-	}
-	return nil
-}
-
-//pre-process msg, it check if msg is from valid member of the committee, it return
-func (fd *FaultDetector) preProcessMsg(m *types.ConsensusMessage) error {
-	msgHeight, err := m.Height()
-	if err != nil {
-		return err
-	}
-
-	header := fd.blockchain.CurrentHeader()
-	if msgHeight.Cmp(header.Number) > 1 {
-		return errFutureMsg
-	}
-
-	lastHeader := fd.blockchain.GetHeaderByNumber(msgHeight.Uint64() - 1)
-
-	if _, err = m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
-		fd.logger.Error("Msg is not from committee member", "err", err)
-		return errNotCommitteeMsg
-	}
-	return nil
 }
 
 // get challenges from blockchain via autonityContract calls.
