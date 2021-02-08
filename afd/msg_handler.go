@@ -11,7 +11,8 @@ import (
 	"sort"
 )
 
-func checkAutoIncriminatingMsg(chain *core.BlockChain, m *types.ConsensusMessage) error {
+// decode consensus msgs, address garbage msg and invalid proposal by returning error.
+func preProcessConsensusMsg(chain *core.BlockChain, m *types.ConsensusMessage) error {
 	if m.Code == types.MsgProposal {
 		return processProposal(chain, m)
 	}
@@ -21,6 +22,40 @@ func checkAutoIncriminatingMsg(chain *core.BlockChain, m *types.ConsensusMessage
 	}
 
 	return errUnknownMsg
+}
+
+func checkEquivocation(chain *core.BlockChain, m *types.ConsensusMessage, proof[]types.ConsensusMessage) error {
+	// decode msgs
+	err := preProcessConsensusMsg(chain, m)
+	if err != nil {
+		return err
+	}
+
+	for i:= 0; i < len(proof); i++ {
+		err := preProcessConsensusMsg(chain, &proof[i])
+		if err != nil {
+			return err
+		}
+	}
+	// check equivocations.
+	if !sameVote(m, &proof[0]) {
+		return errEquivocation
+	}
+	return nil
+}
+
+func sameVote(a *types.ConsensusMessage, b *types.ConsensusMessage) bool {
+	ah, _ := a.Height()
+	ar, _ := a.Round()
+	bh, _ := b.Height()
+	br, _ := b.Round()
+	aHash := types.RLPHash(a.Payload())
+	bHash := types.RLPHash(b.Payload())
+
+	if ah == bh && ar == br && a.Code == b.Code && a.Address == b.Address && aHash == bHash {
+		return true
+	}
+	return false
 }
 
 // processProposal, checks if proposal is valid (no garbage msg, no invalid tx ),

@@ -74,17 +74,22 @@ func (c *checkChallenge) Run(input []byte) ([]byte, error) {
 
 // validate the proof is a valid challenge.
 func (c *checkChallenge) validateChallenge(p *types.Proof) ([]byte, error) {
+	if len(p.Evidence) == 0 {
+		return nil, errNoEvidence
+	}
+
+	// check if suspicious message is from correct committee member.
+	err := checkMsgSignature(c.blockchain, &p.Message)
+	if err != nil {
+		return nil, err
+	}
+
 	// check if evidence msgs are from committee members of that height.
 	h, err := p.Message.Height()
 	if err != nil {
 		return nil, err
 	}
-
 	header := c.blockchain.GetHeaderByNumber(h.Uint64())
-	// validate message.
-	if _, err = p.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
-		return nil, err
-	}
 
 	for i:=0; i < len(p.Evidence); i++ {
 		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
@@ -92,9 +97,36 @@ func (c *checkChallenge) validateChallenge(p *types.Proof) ([]byte, error) {
 		}
 	}
 
-	// todo: check if the proof is a valid suspicion.
-	// if valid, then return msgHash, nil
-	return types.RLPHash(p.Message.Payload()).Bytes(), nil
+	if c.validEvidence(p) {
+		return types.RLPHash(p.Message.Payload()).Bytes(), nil
+	}
+	return nil, errInvalidChallenge
+}
+
+func (c *checkChallenge) validEvidence(p *types.Proof) bool {
+	switch types.Rule(p.Rule) {
+	case types.PN:
+		//todo Validate evidence of PN rule.
+	case types.PO:
+		//todo Validate evidence of PO rule.
+	case types.PVN:
+		//todo Validate evidence of PVN rule.
+	case types.PVO:
+		//todo Validate evidence of PVO rule.
+	case types.C:
+		//todo Validate evidence of C rule.
+	case types.GarbageMessage:
+		return preProcessConsensusMsg(c.blockchain, &p.Message) == errGarbageMsg
+	case types.InvalidProposal:
+		return preProcessConsensusMsg(c.blockchain, &p.Message) == errProposal
+	case types.InvalidProposer:
+		return preProcessConsensusMsg(c.blockchain, &p.Message) == errProposer
+	case types.Equivocation:
+		return checkEquivocation(c.blockchain, &p.Message, p.Evidence) == errEquivocation
+	default:
+		return false
+	}
+	return false
 }
 
 // validate challenge, call from EVM package.
@@ -167,6 +199,7 @@ func (c *checkProof) validateInnocentProof(in *types.Proof) ([]byte, error) {
 	return types.RLPHash(in.Message.Payload()).Bytes(), nil
 }
 
+// decode proof convert proof from rlp encoded bytes into object Proof.
 func decodeProof(proof []byte) (*types.Proof, error) {
 	p := new(types.RawProof)
 	err := rlp.DecodeBytes(proof, p)

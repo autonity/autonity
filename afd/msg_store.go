@@ -13,7 +13,7 @@ type MsgStore struct {
 	messages map[uint64]map[int64]map[uint64]map[common.Address][]types.ConsensusMessage
 }
 
-// store msg into msg store, it returns proofs of equivocation, and errEquivocation
+// store msg into msg store, it returns msgs that is equivocation than the input msg, and errEquivocation
 func(ms *MsgStore) StoreMsg(m *types.ConsensusMessage) ([]types.ConsensusMessage, error) {
 	return nil, nil
 }
