@@ -71,6 +71,7 @@ func New(
 		eventChannel:     make(chan interface{}),
 		commitChannel:    make(chan *types.Block),
 		autonityContract: ac,
+		wg:               &sync.WaitGroup{},
 	}
 	return c
 }
@@ -413,8 +414,6 @@ func (b *Bridge) Start() error {
 	}
 	b.started = true
 	b.closeChannel = make(chan struct{})
-
-	b.wg = &sync.WaitGroup{}
 
 	b.syncer.Start()
 	b.currentBlockAwaiter.start()
