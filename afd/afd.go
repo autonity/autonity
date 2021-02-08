@@ -24,6 +24,9 @@ var (
 	errProposal = errors.New("proposal have invalid values")
 	errEquivocation = errors.New("equivocation happens")
 	errUnknownMsg = errors.New("unknown consensus msg")
+	errUnknownRule = errors.New("unknown afd rule")
+	errInvalidChallenge = errors.New("invalid challenge")
+	errNoEvidence = errors.New("no evidence")
 )
 
 // Fault detector, it subscribe chain event to trigger rule engine to apply patterns over
@@ -235,8 +238,8 @@ func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 		return err
 	}
 
-	// test auto incriminating msg.
-	err = checkAutoIncriminatingMsg(fd.blockchain, m)
+	// decode consensus msg, and auto-incriminating msg is addressed here.
+	err = preProcessConsensusMsg(fd.blockchain, m)
 	if err != nil {
 		if err == errFutureMsg {
 			fd.bufferMsg(m)
