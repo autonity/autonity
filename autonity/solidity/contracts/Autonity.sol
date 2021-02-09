@@ -153,7 +153,8 @@ contract Autonity is IERC20 {
                 continue;
             }
 
-            if (Accountability.checkChallenge(Proofs[i].rawProof)[0] != Proofs[i].msgHash) {
+            uint256[2] memory ret = Accountability.checkChallenge(Proofs[i].rawProof);
+            if (ret[0] != Proofs[i].msgHash && ret[1] != Proofs[i].senderHash) {
                 // todo: take governance action that msg.sender sent invalid challenge.
                 continue;
             }
@@ -172,7 +173,8 @@ contract Autonity is IERC20 {
                 continue;
             }
 
-            if (Accountability.checkInnocent(Proofs[i].rawProof)[0] != Proofs[i].msgHash) {
+            uint256[2] memory ret = Accountability.checkInnocent(Proofs[i].rawProof);
+            if (ret[0] != Proofs[i].msgHash && ret[1] != Proofs[i].senderHash) {
                 // todo: node provides an invalid proof of innocent. should take governance action to msg.sender.
                 continue;
             }
@@ -683,10 +685,7 @@ contract Autonity is IERC20 {
 
     function _isChallengeExists(Accountability.Proof memory proof) internal view returns (bool) {
         for (uint256 i = 0; i < challenges.length; i++) {
-            if (challenges[i].rule == proof.rule && challenges[i].height == proof.height
-            && challenges[i].round == proof.round && challenges[i].msgType == proof.msgType
-            && challenges[i].sender == proof.sender && challenges[i].msgHash == proof.msgHash) {
-
+            if (challenges[i].msgHash == proof.msgHash) {
                 return true;
             }
         }
@@ -697,10 +696,7 @@ contract Autonity is IERC20 {
         require(challenges.length > 0);
 
         for (uint256 i = 0; i < challenges.length; i++) {
-            if (challenges[i].rule == proof.rule && challenges[i].height == proof.height
-                && challenges[i].round == proof.round && challenges[i].msgType == proof.msgType
-                && challenges[i].sender == proof.sender && challenges[i].msgHash == proof.msgHash) {
-
+            if (challenges[i].msgHash == proof.msgHash) {
                 challenges[i] = challenges[challenges.length - 1];
                 challenges.pop();
                 break;
