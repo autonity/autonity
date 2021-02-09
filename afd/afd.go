@@ -182,29 +182,23 @@ func (fd *FaultDetector) runRuleEngine(headHeight uint64) {
 
 func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs []types.ConsensusMessage, err error) (types.OnChainProof, error) {
 	var challenge types.OnChainProof
+	challenge.SenderHash = types.RLPHash(m.Address)
+	challenge.MsgHash = types.RLPHash(m.Payload())
+
+	var rawProof types.RawProof
 	switch err {
 	case errEquivocation:
-		challenge.Rule = uint8(types.Equivocation)
+		rawProof.Rule = uint8(types.Equivocation)
 	case errProposer:
-		challenge.Rule = uint8(types.InvalidProposer)
+		rawProof.Rule = uint8(types.InvalidProposer)
 	case errProposal:
-		challenge.Rule = uint8(types.InvalidProposal)
+		rawProof.Rule = uint8(types.InvalidProposal)
 	case errGarbageMsg:
-		challenge.Rule = uint8(types.GarbageMessage)
+		rawProof.Rule = uint8(types.GarbageMessage)
 	default:
 		return challenge, fmt.Errorf("errors of not provable")
 	}
-	h, _ := m.Height()
-	r, _ := m.Round()
-	challenge.Height = h
-	challenge.Round = uint64(r)
-	challenge.MsgType = m.Code
-	challenge.Sender = m.Address
-	challenge.MsgHash = types.RLPHash(m.Payload())
-
 	// generate raw bytes encoded in rlp, it is by passed into precompiled contracts.
-	var rawProof types.RawProof
-	rawProof.Rule = challenge.Rule
 	rawProof.Message = m.Payload()
 	for i:= 0; i < len(proofs); i++ {
 		rawProof.Evidence = append(rawProof.Evidence, proofs[i].Payload())
@@ -300,7 +294,7 @@ func (fd *FaultDetector) handleMyChallenges(block *types.Block, hash common.Hash
 
 	challenges := fd.blockchain.GetAutonityContract().GetChallenges(block.Header(), state)
 	for i:=0; i < len(challenges); i++ {
-		if challenges[i].Sender == fd.address {
+		if challenges[i].SenderHash == types.RLPHash(fd.address) {
 			p, err := fd.proveInnocent(challenges[i])
 			if err != nil {
 				continue
@@ -335,7 +329,7 @@ func (fd *FaultDetector) sendProofs(t types.ProofType,  proofs[]types.OnChainPro
 			rand.Seed(time.Now().UnixNano())
 			n := rand.Intn(randomDelayWindow)
 			time.Sleep(time.Duration(n)*time.Millisecond)
-			unPresented := fd.filterUnPresentedChallenges(&proofs)
+			unPresented := fd.filterMissingChallenges(&proofs)
 			if len(unPresented) != 0 {
 				fd.afdFeed.Send(types.SubmitProofEvent{Proofs:unPresented, Type:t})
 			}
@@ -343,7 +337,7 @@ func (fd *FaultDetector) sendProofs(t types.ProofType,  proofs[]types.OnChainPro
 	}()
 }
 
-func (fd *FaultDetector) filterUnPresentedChallenges(proofs *[]types.OnChainProof) []types.OnChainProof {
+func (fd *FaultDetector) filterMissingChallenges(proofs *[]types.OnChainProof) []types.OnChainProof {
 	// get latest chain state.
 	var result []types.OnChainProof
 	state, err := fd.blockchain.State()
@@ -357,9 +351,7 @@ func (fd *FaultDetector) filterUnPresentedChallenges(proofs *[]types.OnChainProo
 	for i:=0; i < len(*proofs); i++ {
 		present := false
 		for i:=0; i < len(challenges); i++ {
-			if (*proofs)[i].Sender == challenges[i].Sender && (*proofs)[i].Height == challenges[i].Height &&
-				(*proofs)[i].Round == challenges[i].Round && (*proofs)[i].Rule == challenges[i].Rule &&
-				(*proofs)[i].MsgType == challenges[i].MsgType {
+			if (*proofs)[i].MsgHash == challenges[i].MsgHash {
 				present = true
 			}
 		}

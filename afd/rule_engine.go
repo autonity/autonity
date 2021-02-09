@@ -2,6 +2,7 @@ package afd
 
 import "github.com/clearmatics/autonity/core/types"
 
+// todo: integrate interpreter into this file.
 type RuleEngine struct {
 
 }

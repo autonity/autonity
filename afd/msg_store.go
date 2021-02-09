@@ -5,6 +5,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
+// todo: integrate msg store in this file.
 type MsgStore struct {
 	//map[Height]map[Round]map[MsgType]map[common.address][]ConsensusMessage
 	/*
