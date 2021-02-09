@@ -98,7 +98,9 @@ func (c *checkChallenge) validateChallenge(p *types.Proof) ([]byte, error) {
 	}
 
 	if c.validEvidence(p) {
-		return types.RLPHash(p.Message.Payload()).Bytes(), nil
+		msgHash := types.RLPHash(p.Message.Payload()).Bytes()
+		senderHash := types.RLPHash(p.Message.Address).Bytes()
+		return append(msgHash, senderHash...), nil
 	}
 	return nil, errInvalidChallenge
 }
@@ -196,7 +198,9 @@ func (c *checkProof) validateInnocentProof(in *types.Proof) ([]byte, error) {
 
 	// todo: check if the proof is an innocent behavior.
 	// return msg hash and nil when its proved as valid.
-	return types.RLPHash(in.Message.Payload()).Bytes(), nil
+	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
+	senderHash := types.RLPHash(in.Message.Address).Bytes()
+	return append(msgHash, senderHash...), nil
 }
 
 // decode proof convert proof from rlp encoded bytes into object Proof.
