@@ -81,7 +81,6 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		ruleEngine: new(RuleEngine),
 		logger:logger,
 		tendermintMsgMux:  event.NewTypeMuxSilent(logger),
-		proposersMap: map[uint64]map[int64]common.Address{},
 		futureMsgs: make(map[uint64][]*types.ConsensusMessage),
 	}
 
