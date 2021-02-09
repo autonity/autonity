@@ -59,10 +59,6 @@ type FaultDetector struct {
 	// rule engine
 	ruleEngine *RuleEngine
 
-	// buffer for proposer of rounds rather to get it by lifting evm again and again.
-	// map[height]map[round]common.address
-	proposersMap map[uint64]map[int64]common.Address
-
 	// future height msg buffer
 	futureMsgs map[uint64][]*types.ConsensusMessage
 
