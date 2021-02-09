@@ -4,7 +4,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/rlp"
 	"io"
-	"math/big"
 )
 
 type ProofType uint64
@@ -63,12 +62,7 @@ type Proof struct {
 
 // OnChainProof to be stored by autonity contract for on-chain proof management.
 type OnChainProof struct {
-	// identities to address an unique proof on contract.
-	Height *big.Int
-	Round uint64
-	MsgType uint64
-	Sender common.Address
-	Rule uint8
+	SenderHash common.Hash
 	MsgHash common.Hash
 
 	// rlp enoded bytes for struct RawProof object.
