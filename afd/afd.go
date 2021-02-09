@@ -24,7 +24,6 @@ var (
 	errProposal = errors.New("proposal have invalid values")
 	errEquivocation = errors.New("equivocation happens")
 	errUnknownMsg = errors.New("unknown consensus msg")
-	errUnknownRule = errors.New("unknown afd rule")
 	errInvalidChallenge = errors.New("invalid challenge")
 	errNoEvidence = errors.New("no evidence")
 )
@@ -63,6 +62,10 @@ type FaultDetector struct {
 	// buffer for proposer of rounds rather to get it by lifting evm again and again.
 	// map[height]map[round]common.address
 	proposersMap map[uint64]map[int64]common.Address
+
+	// future height msg buffer
+	futureMsgs map[uint64][]*types.ConsensusMessage
+
 	logger log.Logger
 }
 
@@ -83,6 +86,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		logger:logger,
 		tendermintMsgMux:  event.NewTypeMuxSilent(logger),
 		proposersMap: map[uint64]map[int64]common.Address{},
+		futureMsgs: make(map[uint64][]*types.ConsensusMessage),
 	}
 
 	// init accountability precompiled contracts.
@@ -109,8 +113,11 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 				fd.logger.Warn("handle challenge","afd", err)
 			}
 
+			// before run rule engine over msg store, check to process any buffered msg.
+			fd.processBufferedMsgs(ev.Block.NumberU64())
+
 			// run rule engine over msg store on each height update.
-			fd.runRuleEngine()
+			fd.runRuleEngine(ev.Block.NumberU64())
 		// to handle consensus msg from p2p layer.	
 		case ev, ok := <-fd.tendermintMsgSub.Chan():
 			if !ok {
@@ -166,8 +173,8 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- types.SubmitProofEvent) ev
 }
 
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
-func (fd *FaultDetector) runRuleEngine() {
-	proofs := fd.ruleEngine.run(fd.msgStore)
+func (fd *FaultDetector) runRuleEngine(headHeight uint64) {
+	proofs := fd.ruleEngine.run(fd.msgStore, headHeight)
 	if len(proofs) > 0 {
 		fd.sendProofs(types.ChallengeProof, proofs)
 	}
@@ -259,9 +266,28 @@ func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 	return nil
 }
 
+// processBufferedMsgs, called on chain event update, it take msgs from the buffered future height msgs, process them.
+func (fd *FaultDetector) processBufferedMsgs(headHeight uint64) {
+	for height, msgs := range fd.futureMsgs {
+		if height <= headHeight {
+			for i:= 0; i < len(msgs); i++ {
+				if err := fd.processMsg(msgs[i]); err != nil {
+					fd.logger.Error("process consensus msg", "afd", err)
+					continue
+				}
+			}
+		}
+	}
+}
+
 // buffer Msg since node are not synced to verify it.
 func (fd *FaultDetector) bufferMsg(m *types.ConsensusMessage) {
-	// todo: buffer the msg.
+	h, err := m.Height()
+	if err != nil {
+		return
+	}
+
+	fd.futureMsgs[h.Uint64()] = append(fd.futureMsgs[h.Uint64()], m)
 }
 
 // get challenges from blockchain via autonityContract calls.
