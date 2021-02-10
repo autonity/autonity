@@ -309,7 +309,8 @@ func (fd *FaultDetector) handleMyChallenges(block *types.Block, hash common.Hash
 
 // get proof of innocent over msg store.
 func (fd *FaultDetector) proveInnocent(challenge types.OnChainProof) (types.OnChainProof, error) {
-	// todo: get proof from msg store over the rule.
+	// todo: get proof from msg store over the rules.
+	//  , no need to provide proofs for auto-incriminating and equivocation challenge.
 	var proof types.OnChainProof
 	return proof, nil
 }
