@@ -229,7 +229,15 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 			select {
 			case committedBlock := <-b.commitChannel:
 				// b.dlog.print("commitCh receive done", bid(committedBlock))
-				results <- committedBlock
+				select {
+				case results <- committedBlock:
+				case <-stop:
+					b.dlog.print("commitCh receive, stopped by miner", bid(block))
+					return
+				case <-b.closeChannel:
+					b.dlog.print("commitCh receive, stopped by closeCh", bid(block))
+					return
+				}
 				// stop will be closed whenever eth is shutdouwn or a new
 				// sealing task is provided.
 			case <-stop:

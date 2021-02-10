@@ -61,6 +61,8 @@ type broadcasterMock struct{}
 func (b *broadcasterMock) Broadcast(message []byte) {
 }
 
+// notifyingBlockBroadcaster simply passes broadcast messages to a channel which
+// we read from in the test.
 type notifyingBroadcaster struct {
 	messages chan []byte
 	closeCh  chan struct{}
@@ -78,6 +80,8 @@ type blockBroadcasterMock struct{}
 
 func (b *blockBroadcasterMock) Enqueue(id string, block *types.Block) {}
 
+// notifyingBlockBroadcaster simply passes broadcast blocks to a channel which
+// we read from in the test.
 type notifyingBlockBroadcaster struct {
 	blocks  chan *types.Block
 	closeCh chan struct{}
@@ -90,11 +94,52 @@ func (b *notifyingBlockBroadcaster) Enqueue(id string, block *types.Block) {
 	}
 }
 
+// newTestBridge createas a test bridge instance that wraps a bridge and
+// provides methods to wait and intercept broadcast messages and broadcast
+// blocks as well as utility methods to generate proposal blocks and dtermine
+// if the test bridge is currently the proposer.
 func newTestBridge(
 	g *core.Genesis,
 	user *gengen.User,
 	syncer Syncer) (*testBridge, error) {
 
+	messageChan := make(chan []byte)
+	closeChan := make(chan struct{})
+	blockChan := make(chan *types.Block)
+	b, err := createBridge(
+		g,
+		user,
+		syncer,
+		&notifyingBroadcaster{messageChan, closeChan},
+		&notifyingBlockBroadcaster{blockChan, closeChan},
+	)
+	if err != nil {
+		return nil, err
+	}
+	genesisBlock, err := b.latestBlockRetriever.LatestBlock()
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve genesis block: %v", err)
+	}
+	return &testBridge{
+		Bridge:             b,
+		messageChan:        messageChan,
+		blockChan:          blockChan,
+		lastCommittedBlock: genesisBlock,
+		closeCh:            closeChan,
+	}, nil
+}
+
+// createBridge creates a a fully running bridge with the exception of the
+// syncer, broadcaster and blockBroadcaster provided. For these three
+// components we provide test implementations that allow us to intercept the
+// sync messages, broadcast messages and brodacast blocks.
+func createBridge(
+	g *core.Genesis,
+	user *gengen.User,
+	syncer Syncer,
+	broadcaster Broadcaster,
+	blockBroadcaster consensus.Broadcaster,
+) (*Bridge, error) {
 	db := rawdb.NewMemoryDatabase()
 	chainConfig, _, err := core.SetupGenesisBlock(db, g)
 	if err != nil {
@@ -115,18 +160,18 @@ func newTestBridge(
 	verifier := NewVerifier(vmConfig, finalizer, config.BlockPeriod)
 	statedb := state.NewDatabase(db)
 	latestBlockRetriever := NewBlockReader(db, statedb)
-	messageChan := make(chan []byte)
-	closeChan := make(chan struct{})
+
 	b := New(
 		g.Config.Tendermint,
 		user.Key.(*ecdsa.PrivateKey),
-		&notifyingBroadcaster{messageChan, closeChan},
+		broadcaster,
 		syncer,
 		verifier,
 		finalizer,
 		latestBlockRetriever,
 		autonityContract,
 	)
+
 	isLocalBlock := func(block *types.Block) bool {
 		return true
 	}
@@ -135,21 +180,8 @@ func newTestBridge(
 	if err != nil {
 		return nil, err
 	}
-
-	blockChan := make(chan *types.Block)
-	b.SetExtraComponents(bc, &notifyingBlockBroadcaster{blockChan, closeChan})
-
-	genesisBlock, err := latestBlockRetriever.LatestBlock()
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve genesis block: %v", err)
-	}
-	return &testBridge{
-		Bridge:             b,
-		messageChan:        messageChan,
-		blockChan:          blockChan,
-		lastCommittedBlock: genesisBlock,
-		closeCh:            closeChan,
-	}, nil
+	b.SetExtraComponents(bc, blockBroadcaster)
+	return b, nil
 }
 
 func createBridges(users []*gengen.User) (*testBridges, error) {
@@ -170,6 +202,8 @@ func createBridges(users []*gengen.User) (*testBridges, error) {
 	return &testBridges{bridges, bridgeMap}, nil
 }
 
+// testBridges provides a way to manage a group of bridges and provides
+// convenience, functions to manipulate the group.
 type testBridges struct {
 	bridges   []*testBridge
 	bridgeMap map[common.Address]*testBridge
@@ -306,6 +340,7 @@ func (b *testBridges) broadcastPendingMessages(timeout time.Duration) error {
 	return nil
 }
 
+// testBridge wraps a Bridge instance and provides
 type testBridge struct {
 	*Bridge
 	messageChan        chan []byte
@@ -417,85 +452,4 @@ func validateProposeMessage(t *testing.T, proposeMsg *message, expectedConsensus
 	expectedProposerSeal, err := crypto.Sign(proposal.Hash().Bytes(), proposer.key)
 	require.NoError(t, err)
 	require.Equal(t, expectedProposerSeal, proposeMsg.proposerSeal)
-}
-
-// createBridge creates a fully working bridge, the instance has no missing
-// fields or fake fields, except for the syncer, brodcaster and
-// blockBroadcaster parameters which are under the caller's control. The
-// returned bridge will be the bridge for the user from users who will be the
-// proposer for the next block.
-func createBridge(
-	users []*gengen.User,
-	syncer Syncer,
-	broadcaster Broadcaster,
-	blockBroadcaster consensus.Broadcaster,
-) (*Bridge, error) {
-	g, err := gengen.NewGenesis(1, users)
-	if err != nil {
-		return nil, err
-	}
-	db := rawdb.NewMemoryDatabase()
-	if err != nil {
-		return nil, err
-	}
-	chainConfig, _, err := core.SetupGenesisBlock(db, g)
-	if err != nil {
-		return nil, err
-	}
-	hg, err := core.NewHeaderGetter(db)
-	if err != nil {
-		return nil, err
-	}
-	vmConfig := &vm.Config{}
-	evmP := core.NewDefaultEVMProvider(hg, *vmConfig, chainConfig)
-	autonityContract, err := autonity.NewAutonityContractFromConfig(db, hg, evmP, chainConfig.AutonityContractConfig)
-	if err != nil {
-		return nil, err
-	}
-	config := g.Config.Tendermint
-	finalizer := NewFinalizer(autonityContract)
-	verifier := NewVerifier(vmConfig, finalizer, config.BlockPeriod)
-	statedb := state.NewDatabase(db)
-	latestBlockRetriever := NewBlockReader(db, statedb)
-	genesisBlock, err := latestBlockRetriever.LatestBlock()
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve genesis block: %v", err)
-	}
-	state, err := latestBlockRetriever.BlockState(genesisBlock.Root())
-	if err != nil {
-		return nil, fmt.Errorf("cannot load state from block chain: %v", err)
-	}
-	// Get initial proposer
-	proposer, err := autonityContract.GetProposerFromAC(genesisBlock.Header(), state, 0)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get initial proposer: %v", err)
-	}
-	var proposerKey *ecdsa.PrivateKey
-	for _, u := range users {
-		k := u.Key.(*ecdsa.PrivateKey)
-		if crypto.PubkeyToAddress(k.PublicKey) == proposer {
-			proposerKey = k
-		}
-	}
-	// Construct bridge with initial proposer
-	b := New(
-		g.Config.Tendermint,
-		proposerKey,
-		broadcaster,
-		syncer,
-		verifier,
-		finalizer,
-		latestBlockRetriever,
-		autonityContract,
-	)
-	isLocalBlock := func(block *types.Block) bool {
-		return true
-	}
-	var txLookupLimit uint64 = 0
-	bc, err := core.NewBlockChainWithState(db, statedb, nil, chainConfig, b, *vmConfig, isLocalBlock, core.NewTxSenderCacher(1), &txLookupLimit, hg, autonityContract)
-	if err != nil {
-		return nil, err
-	}
-	b.SetExtraComponents(bc, blockBroadcaster)
-	return b, nil
 }

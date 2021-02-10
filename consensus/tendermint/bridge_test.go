@@ -1,13 +1,12 @@
 package tendermint
 
 import (
-	"fmt"
 	"testing"
 	time "time"
 
+	"github.com/clearmatics/autonity/cmd/gengen/gengen"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +15,9 @@ import (
 func TestStartingAndStoppingBridge(t *testing.T) {
 	users, err := Users(1, 1e18, 1, params.UserValidator)
 	require.NoError(t, err)
-	b, err := createBridge(users, &syncerMock{}, &broadcasterMock{}, &blockBroadcasterMock{})
+	g, err := gengen.NewGenesis(1, users)
+	require.NoError(t, err)
+	b, err := createBridge(g, users[0], &syncerMock{}, &broadcasterMock{}, &blockBroadcasterMock{})
 	require.NoError(t, err)
 	err = b.Start()
 	require.NoError(t, err)
@@ -59,6 +60,58 @@ func TestBlockGivenToSealIsComitted(t *testing.T) {
 	// Verify the header
 	err = b.VerifyHeader(b.blockchain, block.Header(), true)
 	assert.NoError(t, err)
+}
+
+func TestNewChainHead(t *testing.T) {
+	users, err := Users(1, 1e18, 1, params.UserValidator)
+	require.NoError(t, err)
+	bridges, err := createBridges(users)
+	require.NoError(t, err)
+	b := bridges.bridges[0] // Only one bridge
+	err = b.Start()
+	require.NoError(t, err)
+	defer bridges.stop()
+
+	to := time.Millisecond * 50
+
+	proposal, err := b.proposalBlock()
+	require.NoError(t, err)
+	result := make(chan *types.Block)
+	stop := make(chan struct{})
+	err = b.Seal(b.blockchain, proposal, result, stop)
+	require.NoError(t, err)
+	b.pendingMessage(to) // proposal
+	b.pendingMessage(to) // prevote
+	b.pendingMessage(to) // precommit
+
+	block := b.committedBlock(to, result)
+
+	// Check it is the correct block
+	assert.Equal(t, proposal.Hash(), block.Hash())
+
+	// Now we will pass another block to seal, but we don't expect to see a
+	// proposal message until NewChainHead is called.
+	proposal, err = b.proposalBlock()
+	require.NoError(t, err)
+	err = b.Seal(b.blockchain, proposal, result, stop)
+
+	// Expect nil message
+	proposeMessage := b.pendingMessage(to)
+	require.Nil(t, proposeMessage)
+
+	// Now expect the new propose mesage
+	b.NewChainHead()
+	expectedConsensusMessage := &algorithm.ConsensusMessage{
+		MsgType:    algorithm.Propose,
+		Height:     proposal.NumberU64(),
+		Round:      int64(0),
+		ValidRound: int64(-1),
+		Value:      algorithm.ValueID(proposal.Hash()),
+	}
+	// Expect new propose message.
+	proposeMessage = b.pendingMessage(to)
+	require.Equal(t, expectedConsensusMessage, proposeMessage.consensusMessage)
+
 }
 
 func TestReachingConsensus(t *testing.T) {
@@ -161,19 +214,4 @@ func TestReachingConsensus(t *testing.T) {
 	// Verify the header
 	err = b.VerifyHeader(b.blockchain, committedBlock.Header(), true)
 	assert.NoError(t, err)
-}
-
-// This test shows that GetSignatureAddressHash does not verify the signature.
-func TestSignAndVerify(t *testing.T) {
-	t.Skip("Skipped because this sometimes fails")
-	h := crypto.Keccak256Hash([]byte{})
-	k, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	sig, err := crypto.Sign(h[:], k)
-	require.NoError(t, err)
-	sig[0] = 1
-	addr, err := types.GetSignatureAddressHash(h[:], sig)
-	fmt.Printf("addr: %v error: %v\n", addr.String(), err)
-	fmt.Printf("orig: %v\n", crypto.PubkeyToAddress(k.PublicKey).String())
-	require.Error(t, err)
 }
