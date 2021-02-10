@@ -23,7 +23,6 @@ import (
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 )
 
@@ -225,14 +224,14 @@ func (b *testBridges) awaitBlock(sealChan chan *types.Block) error {
 	}
 	p := proposers[0]
 	to := time.Millisecond * 100
-	m := p.pendingMessages(to) // get the proposal message
-	err = b.broadcast(m)       // send it to everyone else
+	m := p.pendingMessage(to) // get the proposal message
+	err = b.broadcast(m)      // send it to everyone else
 	if err != nil {
 		return err
 	}
 	// Now send the prevotes
 	for _, bridge := range b.bridges {
-		m := bridge.pendingMessages(to)
+		m := bridge.pendingMessage(to)
 		err := b.broadcast(m)
 		if err != nil {
 			return err
@@ -240,7 +239,7 @@ func (b *testBridges) awaitBlock(sealChan chan *types.Block) error {
 	}
 	// Now send the precommits
 	for _, bridge := range b.bridges {
-		m := bridge.pendingMessages(to)
+		m := bridge.pendingMessage(to)
 		err := b.broadcast(m)
 		if err != nil {
 			return err
@@ -291,13 +290,13 @@ func (b *testBridges) broadcast(m *message) error {
 	return nil
 }
 
-// broadcastPendingMessages calls sentMessage for each bridge and forwards the
-// returned message to all other bridges. The given timeout is the time to wait
-// per bridge for the result from sendMessage.
+// broadcastPendingMessages calls pendingMessage for each bridge and forwards
+// the returned message to all other bridges. The given timeout is the time to
+// wait per bridge for the result from pendingMessage.
 func (b *testBridges) broadcastPendingMessages(timeout time.Duration) error {
 	// Now send the prevotes
 	for _, bridge := range b.bridges {
-		m := bridge.pendingMessages(timeout)
+		m := bridge.pendingMessage(timeout)
 		println("broadcasting", m.consensusMessage.String())
 		err := b.broadcast(m)
 		if err != nil {
@@ -327,11 +326,10 @@ func (b *testBridge) stop() error {
 	return b.Close()
 }
 
-// Retrieves the messages from this bridge (bridges also rebroadcast messages
-// from other bridges, these are discarded) that have been broadcast by the
-// this bridge one at a time and in the order they were broadcast. If no
-// message is broadcast before the timeout expires then nil is returned.
-func (b *testBridge) pendingMessages(timeout time.Duration) *message {
+// Retrieves the messages from this bridge that have been broadcast by this
+// bridge one at a time and in the order they were broadcast. If no message is
+// broadcast before the timeout expires then nil is returned.
+func (b *testBridge) pendingMessage(timeout time.Duration) *message {
 	t := time.NewTimer(timeout)
 	for {
 		select {
@@ -339,9 +337,6 @@ func (b *testBridge) pendingMessages(timeout time.Duration) *message {
 			message, err := decodeSignedMessage(m)
 			if err != nil {
 				panic(fmt.Sprintf("failed to decode signed message: %v", err))
-			}
-			if message.address != b.address {
-				continue // ignore rebroadcast messages
 			}
 			b.lastSentMessage = message
 			println("gotmessage", message.consensusMessage.String())
@@ -351,18 +346,6 @@ func (b *testBridge) pendingMessages(timeout time.Duration) *message {
 			return nil
 		}
 	}
-}
-
-// keeps requesting messages from the pending messages untill none are
-// returned. This is required to free up the routine from the bridge that might
-// be stuck trying to send on the messageChan, so that we can close the bridge.
-func (b *testBridge) drainPendingMessages(timeout time.Duration) {
-	msg := &message{}
-	for msg != nil {
-		msg = b.pendingMessages(timeout)
-		println("drained", spew.Sdump(msg), msg == nil)
-	}
-	println("leaving")
 }
 
 func (b *testBridge) proposer() (common.Address, error) {
@@ -435,9 +418,6 @@ func validateProposeMessage(t *testing.T, proposeMsg *message, expectedConsensus
 	require.NoError(t, err)
 	require.Equal(t, expectedProposerSeal, proposeMsg.proposerSeal)
 }
-
-// type bridges struct {
-// }
 
 // createBridge creates a fully working bridge, the instance has no missing
 // fields or fake fields, except for the syncer, brodcaster and
@@ -518,22 +498,4 @@ func createBridge(
 	}
 	b.SetExtraComponents(bc, blockBroadcaster)
 	return b, nil
-}
-
-func sendMessage(m *algorithm.ConsensusMessage, u *gengen.User, b *Bridge) (bool, error) {
-	k := u.Key.(*ecdsa.PrivateKey)
-	encoded, err := encodeSignedMessage(m, k, nil)
-	if err != nil {
-		return false, err
-	}
-	size, reader, err := rlp.EncodeToReader(encoded)
-	if err != nil {
-		return false, err
-	}
-	msg := p2p.Msg{
-		Code:    tendermintMsg,
-		Payload: reader,
-		Size:    uint32(size),
-	}
-	return b.HandleMsg(crypto.PubkeyToAddress(k.PublicKey), msg)
 }

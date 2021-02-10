@@ -633,12 +633,6 @@ eventLoop:
 					b.logger.Debug("core.mainEventLoop problem processing message", "err", err)
 					continue
 				}
-				// Re-broadcast the message if it is not a message from ourselves,
-				// if it is a message from ourselves we will have already
-				// broadcast it.
-				// if m.address != b.address {
-				// 	b.broadcaster.Broadcast(e)
-				// }
 			case *algorithm.Timeout:
 				var cm *algorithm.ConsensusMessage
 				var rc *algorithm.RoundChange

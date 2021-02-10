@@ -13,24 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-// baseNodeConfig *node.Config = &node.Config{
-// 	Name:    "autonity",
-// 	Version: params.Version,
-// 	P2P: p2p.Config{
-// 		MaxPeers:              100,
-// 		DialHistoryExpiration: time.Millisecond,
-// 	},
-// 	NoUSB:    true,
-// 	HTTPHost: "0.0.0.0",
-// 	WSHost:   "0.0.0.0",
-// }
-
-// baseTendermintConfig = config.Config{
-// 	BlockPeriod: 0,
-// }
-)
-
 func TestStartingAndStoppingBridge(t *testing.T) {
 	users, err := Users(1, 1e18, 1, params.UserValidator)
 	require.NoError(t, err)
@@ -64,9 +46,9 @@ func TestBlockGivenToSealIsComitted(t *testing.T) {
 	stop := make(chan struct{})
 	err = b.Seal(b.blockchain, proposal, result, stop)
 	require.NoError(t, err)
-	b.pendingMessages(to) // proposal
-	b.pendingMessages(to) // prevote
-	b.pendingMessages(to) // precommit
+	b.pendingMessage(to) // proposal
+	b.pendingMessage(to) // prevote
+	b.pendingMessage(to) // precommit
 
 	block := b.committedBlock(to, result)
 
@@ -91,7 +73,7 @@ func TestReachingConsensus(t *testing.T) {
 	proposers, err := bridges.proposer()
 	require.NoError(t, err)
 
-	proposer := proposers[0] // only one bridge
+	proposer := proposers[0]
 	proposal, err := proposer.proposalBlock()
 	require.NoError(t, err)
 
@@ -114,7 +96,7 @@ func TestReachingConsensus(t *testing.T) {
 		ValidRound: int64(-1),
 		Value:      algorithm.ValueID(proposal.Hash()),
 	}
-	proposeMsg := proposer.pendingMessages(to)
+	proposeMsg := proposer.pendingMessage(to)
 	validateProposeMessage(t, proposeMsg, expectedConsensusMessage, proposer, proposal)
 
 	// broadcst the propose message
@@ -155,7 +137,7 @@ func TestReachingConsensus(t *testing.T) {
 		Value:   algorithm.ValueID(proposal.Hash()),
 	}
 	b := bridges.bridges[0]
-	msg := b.pendingMessages(to)
+	msg := b.pendingMessage(to)
 	validateMessage(t, msg, expectedConsensusMessage, b)
 	bridges.broadcast(msg)
 
@@ -164,7 +146,7 @@ func TestReachingConsensus(t *testing.T) {
 	require.Nil(t, block)
 
 	b = bridges.bridges[1]
-	msg = b.pendingMessages(to)
+	msg = b.pendingMessage(to)
 	validateMessage(t, msg, expectedConsensusMessage, b)
 	bridges.broadcast(msg)
 
