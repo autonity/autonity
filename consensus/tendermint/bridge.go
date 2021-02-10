@@ -97,7 +97,6 @@ type Bridge struct {
 	autonityContract *autonity.Contract
 
 	height uint64
-	round  uint64
 	algo   *algorithm.Algorithm
 
 	currentBlockAwaiter *blockAwaiter

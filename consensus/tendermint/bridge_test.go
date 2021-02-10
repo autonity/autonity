@@ -43,7 +43,7 @@ func TestBlockGivenToSealIsComitted(t *testing.T) {
 	b := bridges.bridges[0] // Only one bridge
 	err = b.Start()
 	require.NoError(t, err)
-	defer bridges.stop()
+	defer bridges.stop() // nolint
 
 	to := time.Millisecond * 100
 
@@ -80,7 +80,7 @@ func TestNewChainHead(t *testing.T) {
 	b := bridges.bridges[0] // Only one bridge
 	err = b.Start()
 	require.NoError(t, err)
-	defer bridges.stop()
+	defer bridges.stop() // nolint
 
 	to := time.Millisecond * 50
 
@@ -104,13 +104,16 @@ func TestNewChainHead(t *testing.T) {
 	proposal, err = b.proposalBlock()
 	require.NoError(t, err)
 	err = b.Seal(b.blockchain, proposal, result, stop)
+	require.NoError(t, err)
 
 	// Expect nil message
 	proposeMessage := b.pendingMessage(to)
 	require.Nil(t, proposeMessage)
 
 	// Now expect the new propose mesage
-	b.NewChainHead()
+	err = b.NewChainHead()
+	require.NoError(t, err)
+
 	expectedConsensusMessage := &algorithm.ConsensusMessage{
 		MsgType:    algorithm.Propose,
 		Height:     proposal.NumberU64(),
@@ -136,7 +139,7 @@ func TestReachingConsensus(t *testing.T) {
 	require.NoError(t, err)
 	err = bridges.start()
 	require.NoError(t, err)
-	defer bridges.stop()
+	defer bridges.stop() // nolint
 
 	proposers, err := bridges.proposer()
 	require.NoError(t, err)
@@ -207,7 +210,8 @@ func TestReachingConsensus(t *testing.T) {
 	b := bridges.bridges[0]
 	msg := b.pendingMessage(to)
 	validateMessage(t, msg, expectedConsensusMessage, b)
-	bridges.broadcast(msg)
+	err = bridges.broadcast(msg)
+	require.NoError(t, err)
 
 	// check block not yet committed
 	block = proposer.committedBlock(to, result)
@@ -216,7 +220,8 @@ func TestReachingConsensus(t *testing.T) {
 	b = bridges.bridges[1]
 	msg = b.pendingMessage(to)
 	validateMessage(t, msg, expectedConsensusMessage, b)
-	bridges.broadcast(msg)
+	err = bridges.broadcast(msg)
+	require.NoError(t, err)
 
 	// Now we expect the block to be committed, since 2 of 4 nodes has
 	// broadcast their precommit messages and each node will have processed

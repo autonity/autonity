@@ -81,7 +81,7 @@ type blockBroadcasterMock struct{}
 func (b *blockBroadcasterMock) Enqueue(id string, block *types.Block) {}
 
 // notifyingBlockBroadcaster simply passes broadcast blocks to a channel which
-// we read from in the test.
+// we read from within the test.
 type notifyingBlockBroadcaster struct {
 	blocks  chan *types.Block
 	closeCh chan struct{}
@@ -94,9 +94,9 @@ func (b *notifyingBlockBroadcaster) Enqueue(id string, block *types.Block) {
 	}
 }
 
-// newTestBridge createas a test bridge instance that wraps a bridge and
+// newTestBridge creates a test bridge instance that wraps a bridge and
 // provides methods to wait and intercept broadcast messages and broadcast
-// blocks as well as utility methods to generate proposal blocks and dtermine
+// blocks as well as utility methods to generate proposal blocks and determine
 // if the test bridge is currently the proposer.
 func newTestBridge(
 	g *core.Genesis,
@@ -129,10 +129,10 @@ func newTestBridge(
 	}, nil
 }
 
-// createBridge creates a a fully running bridge with the exception of the
+// createBridge creates a fully running bridge with the exception of the
 // syncer, broadcaster and blockBroadcaster provided. For these three
 // components we provide test implementations that allow us to intercept the
-// sync messages, broadcast messages and brodacast blocks.
+// sync messages, broadcast messages and broadcast blocks.
 func createBridge(
 	g *core.Genesis,
 	user *gengen.User,
@@ -213,7 +213,7 @@ func (b *testBridges) byAddress(addr common.Address) *testBridge {
 	return b.bridgeMap[addr]
 }
 
-// proposer gets the propser for each bridge, they may not be the same if the
+// proposer gets the proposer for each bridge, they may not be the same if the
 // bridges are not synced. The first error to be encountered is returned.
 func (b *testBridges) proposer() ([]*testBridge, error) {
 	proposers := make([]*testBridge, len(b.bridges))
@@ -247,54 +247,54 @@ func (b *testBridges) stop() error {
 	return nil
 }
 
-// This assumes that b.sentMessage has not been called on any bridges and that
-// a proposal block has been passed to the Seal function of the proposer for
-// this height and round. No block is returned but the blocks should be
-// avalable in lastCommittedBlock on each bridge.
-func (b *testBridges) awaitBlock(sealChan chan *types.Block) error {
-	proposers, err := b.proposer()
-	if err != nil {
-		return err
-	}
-	p := proposers[0]
-	to := time.Millisecond * 100
-	m := p.pendingMessage(to) // get the proposal message
-	err = b.broadcast(m)      // send it to everyone else
-	if err != nil {
-		return err
-	}
-	// Now send the prevotes
-	for _, bridge := range b.bridges {
-		m := bridge.pendingMessage(to)
-		err := b.broadcast(m)
-		if err != nil {
-			return err
-		}
-	}
-	// Now send the precommits
-	for _, bridge := range b.bridges {
-		m := bridge.pendingMessage(to)
-		err := b.broadcast(m)
-		if err != nil {
-			return err
-		}
-	}
-	// now get the blocks
-	for _, bridge := range b.bridges {
-		var sc chan *types.Block
-		if bridge.address == p.address {
-			sc = sealChan
-		}
-		block := bridge.committedBlock(to, sc)
-		if err != nil {
-			return err
-		}
-		if block.Hash() != m.value.Hash() {
-			return fmt.Errorf("unexpected block, expecting: %v, got: %v", m.value.Hash().String(), block.Hash().String())
-		}
-	}
-	return nil
-}
+// // This assumes that b.sentMessage has not been called on any bridges and that
+// // a proposal block has been passed to the Seal function of the proposer for
+// // this height and round. No block is returned but the blocks should be
+// // available in lastCommittedBlock on each bridge.
+// func (b *testBridges) awaitBlock(sealChan chan *types.Block) error {
+// 	proposers, err := b.proposer()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	p := proposers[0]
+// 	to := time.Millisecond * 100
+// 	m := p.pendingMessage(to) // get the proposal message
+// 	err = b.broadcast(m)      // send it to everyone else
+// 	if err != nil {
+// 		return err
+// 	}
+// 	// Now send the prevotes
+// 	for _, bridge := range b.bridges {
+// 		m = bridge.pendingMessage(to)
+// 		err := b.broadcast(m)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	// Now send the precommits
+// 	for _, bridge := range b.bridges {
+// 		m = bridge.pendingMessage(to)
+// 		err := b.broadcast(m)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	// now get the blocks
+// 	for _, bridge := range b.bridges {
+// 		var sc chan *types.Block
+// 		if bridge.address == p.address {
+// 			sc = sealChan
+// 		}
+// 		block := bridge.committedBlock(to, sc)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		if block.Hash() != m.value.Hash() {
+// 			return fmt.Errorf("unexpected block, expecting: %v, got: %v", m.value.Hash().String(), block.Hash().String())
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (b *testBridges) broadcast(m *message) error {
 	println("broadcasting", m.consensusMessage.String())
