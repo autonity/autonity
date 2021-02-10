@@ -97,6 +97,7 @@ type Bridge struct {
 	autonityContract *autonity.Contract
 
 	height uint64
+	round  uint64
 	algo   *algorithm.Algorithm
 
 	currentBlockAwaiter *blockAwaiter
@@ -541,6 +542,8 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			))
 		}
 		b.dlog.print("sending message", cm.String())
+		println("msghash", common.BytesToHash(crypto.Keccak256(msg)).String()[2:6])
+
 		// Broadcast in a new goroutine
 		b.wg.Add(1)
 		go func() {
@@ -550,7 +553,6 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			// Broadcast to peers
 			b.broadcaster.Broadcast(msg)
 		}()
-
 	case to != nil:
 		time.AfterFunc(time.Duration(to.Delay)*time.Second, func() {
 			b.postEvent(to)
@@ -631,7 +633,12 @@ eventLoop:
 					b.logger.Debug("core.mainEventLoop problem processing message", "err", err)
 					continue
 				}
-				b.broadcaster.Broadcast(e)
+				// Re-broadcast the message if it is not a message from ourselves,
+				// if it is a message from ourselves we will have already
+				// broadcast it.
+				if m.address != b.address {
+					b.broadcaster.Broadcast(e)
+				}
 			case *algorithm.Timeout:
 				var cm *algorithm.ConsensusMessage
 				var rc *algorithm.RoundChange

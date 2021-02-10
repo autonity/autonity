@@ -101,7 +101,11 @@ type ConsensusMessage struct {
 }
 
 func (cm *ConsensusMessage) String() string {
-	return fmt.Sprintf("s:%-3s h:%-3d r:%-3d v:%-6s", cm.MsgType.ShortString(), cm.Height, cm.Round, cm.Value.String())
+	var vr string
+	if cm.MsgType == Propose {
+		vr = fmt.Sprintf(" vr:%-3d", cm.ValidRound)
+	}
+	return fmt.Sprintf("s:%-3s h:%-3d r:%-3d v:%-6s%s", cm.MsgType.ShortString(), cm.Height, cm.Round, cm.Value.String(), vr)
 }
 
 // Oracle is used to answer questions the algorithm may have about its
@@ -181,7 +185,7 @@ func (a *Algorithm) timeout(timeoutType Step) *Timeout {
 		TimeoutType: timeoutType,
 		Height:      a.height(),
 		Round:       a.round,
-		Delay:       1, // TODO
+		Delay:       5, // TODO
 	}
 }
 
