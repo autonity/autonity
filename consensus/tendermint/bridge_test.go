@@ -207,6 +207,7 @@ func TestReachingConsensus(t *testing.T) {
 		Round:   int64(0),
 		Value:   algorithm.ValueID(proposal.Hash()),
 	}
+
 	b := bridges.bridges[0]
 	msg := b.pendingMessage(to)
 	validateMessage(t, msg, expectedConsensusMessage, b)
@@ -223,10 +224,28 @@ func TestReachingConsensus(t *testing.T) {
 	err = bridges.broadcast(msg)
 	require.NoError(t, err)
 
-	// Now we expect the block to be committed, since 2 of 4 nodes has
-	// broadcast their precommit messages and each node will have processed
-	// their own precommit message giving us 3 of 4 commit messages.
-	committedBlock := proposer.committedBlock(to, result)
+	// check block not yet committed
+	block = proposer.committedBlock(to, result)
+	require.Nil(t, block)
+
+	b = bridges.bridges[2]
+	msg = b.pendingMessage(to)
+	validateMessage(t, msg, expectedConsensusMessage, b)
+	err = bridges.broadcast(msg)
+	require.NoError(t, err)
+
+	// Now we expect the block to be committed, since 3 of 4 nodes has
+	// broadcast their precommit messages and each of those nodes will have
+	// processed their own precommit message giving us 3 of 4 commit messages
+	// in the nodes that have broadcast their message.
+
+	// We need to check if b is the proposer so that we can correctly pass
+	// sealChan to committedBlock.
+	var sealChan chan *types.Block
+	if b.address == proposer.address {
+		sealChan = result
+	}
+	committedBlock := b.committedBlock(to, sealChan)
 	// Check it is the correct block
 	assert.Equal(t, proposal.Hash(), committedBlock.Hash())
 	// Check it has the right number of committed seals

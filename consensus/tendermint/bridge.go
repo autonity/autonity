@@ -555,15 +555,10 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		b.dlog.print("sending message", cm.String())
 		println("msghash", common.BytesToHash(crypto.Keccak256(msg)).String()[2:6])
 
-		// Broadcast in a new goroutine
-		b.wg.Add(1)
-		go func() {
-			defer b.wg.Done()
-			// send to self
-			b.postEvent(msg)
-			// Broadcast to peers
-			b.broadcaster.Broadcast(msg)
-		}()
+		// send to self
+		b.postEvent(msg)
+		// Broadcast to peers
+		b.broadcaster.Broadcast(msg)
 	case to != nil:
 		b.timeoutScheduler.ScheduleTimeout(to.Delay, func() {
 			b.postEvent(to)

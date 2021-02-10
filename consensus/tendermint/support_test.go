@@ -401,6 +401,9 @@ func (b *testBridge) proposer() (common.Address, error) {
 	return b.proposerAddr(b.lastCommittedBlock.Header(), round)
 }
 
+// Waits for the committed block,if sealChan is provided assumes that this
+// bridge is the proposer and will wait on that channel, if not it will wait on
+// the blockChan.
 func (b *testBridge) committedBlock(timeout time.Duration, sealChan chan *types.Block) *types.Block {
 	t := time.NewTimer(timeout)
 	if sealChan != nil {
