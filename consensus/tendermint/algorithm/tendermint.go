@@ -185,7 +185,7 @@ func (a *Algorithm) timeout(timeoutType Step) *Timeout {
 		TimeoutType: timeoutType,
 		Height:      a.height(),
 		Round:       a.round,
-		Delay:       5, // TODO
+		Delay:       1, // TODO
 	}
 }
 
