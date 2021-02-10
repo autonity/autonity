@@ -12,6 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// This test just stats and stops a bridge instance, making sure an error is
+// returned if the bridge is started or stopped twice, and no error is returned
+// otherwise.
 func TestStartingAndStoppingBridge(t *testing.T) {
 	users, err := Users(1, 1e18, 1, params.UserValidator)
 	require.NoError(t, err)
@@ -29,6 +32,9 @@ func TestStartingAndStoppingBridge(t *testing.T) {
 	require.Error(t, err)
 }
 
+// This test checks that if a freshly started bridge instance, who holds all
+// the stake in the system is provided with a block to seal, it will progress
+// to commit that block.
 func TestBlockGivenToSealIsComitted(t *testing.T) {
 	users, err := Users(1, 1e18, 1, params.UserValidator)
 	require.NoError(t, err)
@@ -62,6 +68,10 @@ func TestBlockGivenToSealIsComitted(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// This test checks that a call to NewChainHead is required to progress to the
+// next block.  It uses a single bridge that has all the stake and lets it
+// commit one block, and shows that the bridge instance will then wait for a
+// call to NewChainHead before beginning work on the next block.
 func TestNewChainHead(t *testing.T) {
 	users, err := Users(1, 1e18, 1, params.UserValidator)
 	require.NoError(t, err)
@@ -114,6 +124,11 @@ func TestNewChainHead(t *testing.T) {
 
 }
 
+// This test constructs a group of 4 bridges, calls Seal with a proposal block
+// on the proposer and validates the progression of the bridges through the
+// stages of the tendermint algorithm to the point where the block is
+// committed. Note that since bridge instances are not connected we are free to
+// control when messages are sent in the test.
 func TestReachingConsensus(t *testing.T) {
 	users, err := Users(4, 1e18, 1, params.UserValidator)
 	require.NoError(t, err)
