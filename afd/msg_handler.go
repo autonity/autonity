@@ -130,7 +130,7 @@ func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
 			return err
 		}
 
-		// sb.blockchain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
+		// sb.chain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
 		// Instead only the transactions are applied to the copied state
 		for i, tx := range block.Transactions() {
 			state.Prepare(tx.Hash(), block.Hash(), i)

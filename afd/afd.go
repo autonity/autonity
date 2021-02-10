@@ -84,8 +84,8 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		futureMsgs: make(map[uint64][]*types.ConsensusMessage),
 	}
 
-	// init accountability precompiled contracts.
-	initAccountabilityContracts(chain)
+	// register afd contracts on evm's precompiled contract set.
+	registerAFDContracts(chain)
 
 	// subscribe tendermint msg
 	s := fd.tendermintMsgMux.Subscribe(events.MessageEvent{})
@@ -159,7 +159,7 @@ func (fd *FaultDetector) Stop() {
 	fd.blockSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
 	fd.wg.Wait()
-	cleanContracts()
+	unRegisterAFDContracts()
 }
 
 // call by ethereum object to subscribe proofs Events.
@@ -279,7 +279,7 @@ func (fd *FaultDetector) bufferMsg(m *types.ConsensusMessage) {
 	fd.futureMsgs[h.Uint64()] = append(fd.futureMsgs[h.Uint64()], m)
 }
 
-// get challenges from blockchain via autonityContract calls.
+// get challenges from chain via autonityContract calls.
 func (fd *FaultDetector) handleMyChallenges(block *types.Block, hash common.Hash) error {
 	var innocentProofs []types.OnChainProof
 	state, err := fd.blockchain.StateAt(hash)

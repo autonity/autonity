@@ -14,27 +14,29 @@ import (
 var (
 	checkProofAddress = common.BytesToAddress([]byte{253})
 	checkChallengeAddress = common.BytesToAddress([]byte{254})
+	failure64Byte = make([]byte, 64)
 )
 
-func initAccountabilityContracts(chain *core.BlockChain) {
+// init the instances of AFD contracts, and register thems into evm's context
+func registerAFDContracts(chain *core.BlockChain) {
+	pv := ProofValidator{chain: chain}
+	cv := ChallengeValidator{chain: chain}
 
-	proofChecker := checkProof{blockchain: chain}
-	challengeChecker := checkChallenge{blockchain: chain}
+	vm.PrecompiledContractsByzantium[checkProofAddress] = &pv
+	vm.PrecompiledContractsByzantium[checkChallengeAddress] = &cv
 
-	vm.PrecompiledContractsByzantium[checkProofAddress] = &proofChecker
-	vm.PrecompiledContractsByzantium[checkChallengeAddress] = &challengeChecker
+	vm.PrecompiledContractsHomestead[checkProofAddress] = &pv
+	vm.PrecompiledContractsHomestead[checkChallengeAddress] = &cv
 
-	vm.PrecompiledContractsHomestead[checkProofAddress] = &proofChecker
-	vm.PrecompiledContractsHomestead[checkChallengeAddress] = &challengeChecker
+	vm.PrecompiledContractsIstanbul[checkProofAddress] = &pv
+	vm.PrecompiledContractsIstanbul[checkChallengeAddress] = &cv
 
-	vm.PrecompiledContractsIstanbul[checkProofAddress] = &proofChecker
-	vm.PrecompiledContractsIstanbul[checkChallengeAddress] = &challengeChecker
-
-	vm.PrecompiledContractsYoloV1[checkProofAddress] = &proofChecker
-	vm.PrecompiledContractsYoloV1[checkChallengeAddress] = &challengeChecker
+	vm.PrecompiledContractsYoloV1[checkProofAddress] = &pv
+	vm.PrecompiledContractsYoloV1[checkChallengeAddress] = &cv
 }
 
-func cleanContracts() {
+// un register AFD contracts from evm's context.
+func unRegisterAFDContracts() {
 	delete(vm.PrecompiledContractsByzantium, checkProofAddress)
 	delete(vm.PrecompiledContractsByzantium, checkChallengeAddress)
 
@@ -48,52 +50,54 @@ func cleanContracts() {
 	delete(vm.PrecompiledContractsHomestead, checkChallengeAddress)
 }
 
-// checkChallenge implemented as a native contract to take an on-chain challenge.
-type checkChallenge struct{
-	blockchain *core.BlockChain
+// ChallengeValidator implemented as a native contract to validate if challenge is valid
+type ChallengeValidator struct{
+	chain *core.BlockChain
 }
 
-func (c *checkChallenge) RequiredGas(_ []byte) uint64 {
+// the gas cost to execute ChallengeValidator contract.
+func (c *ChallengeValidator) RequiredGas(_ []byte) uint64 {
 	return params.TakeChallengeGas
 }
 
-// checkChallenge, take challenge from AC by copy the packed byte array, decode and
-// validate it, the on challenge client should send the proof of innocent via a transaction.
-func (c *checkChallenge) Run(input []byte) ([]byte, error) {
+// take the rlp encoded proof of challenge in byte array, decode it and validate it, if the proof is validate, then
+// the rlp hash of the msg payload and rlp hash of msg sender is returned as the valid identity for proof management.
+func (c *ChallengeValidator) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
-		panic(fmt.Errorf("invalid proof of innocent - empty"))
+		return failure64Byte, fmt.Errorf("invalid input")
 	}
 
-	hash, err := c.CheckChallenge(input)
+	p, err := decodeProof(input)
 	if err != nil {
-		return common.Hash{}.Bytes(), err
+		return failure64Byte, err
 	}
 
-	return hash, nil
+	return c.validateChallenge(p)
 }
 
-// validate the proof is a valid challenge.
-func (c *checkChallenge) validateChallenge(p *types.Proof) ([]byte, error) {
+// validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
+// returned as the valid identity for proof management.
+func (c *ChallengeValidator) validateChallenge(p *types.Proof) ([]byte, error) {
 	if len(p.Evidence) == 0 {
-		return nil, errNoEvidence
+		return failure64Byte, errNoEvidence
 	}
 
 	// check if suspicious message is from correct committee member.
-	err := checkMsgSignature(c.blockchain, &p.Message)
+	err := checkMsgSignature(c.chain, &p.Message)
 	if err != nil {
-		return nil, err
+		return failure64Byte, err
 	}
 
 	// check if evidence msgs are from committee members of that height.
 	h, err := p.Message.Height()
 	if err != nil {
-		return nil, err
+		return failure64Byte, err
 	}
-	header := c.blockchain.GetHeaderByNumber(h.Uint64())
+	header := c.chain.GetHeaderByNumber(h.Uint64())
 
 	for i:=0; i < len(p.Evidence); i++ {
 		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
-			return nil, err
+			return failure64Byte, err
 		}
 	}
 
@@ -102,10 +106,11 @@ func (c *checkChallenge) validateChallenge(p *types.Proof) ([]byte, error) {
 		senderHash := types.RLPHash(p.Message.Address).Bytes()
 		return append(msgHash, senderHash...), nil
 	}
-	return nil, errInvalidChallenge
+	return failure64Byte, errInvalidChallenge
 }
 
-func (c *checkChallenge) validEvidence(p *types.Proof) bool {
+// check if the evidence of the challenge is valid or not.
+func (c *ChallengeValidator) validEvidence(p *types.Proof) bool {
 	switch types.Rule(p.Rule) {
 	case types.PN:
 		//todo Validate evidence of PN rule.
@@ -118,86 +123,68 @@ func (c *checkChallenge) validEvidence(p *types.Proof) bool {
 	case types.C:
 		//todo Validate evidence of C rule.
 	case types.GarbageMessage:
-		return preProcessConsensusMsg(c.blockchain, &p.Message) == errGarbageMsg
+		return preProcessConsensusMsg(c.chain, &p.Message) == errGarbageMsg
 	case types.InvalidProposal:
-		return preProcessConsensusMsg(c.blockchain, &p.Message) == errProposal
+		return preProcessConsensusMsg(c.chain, &p.Message) == errProposal
 	case types.InvalidProposer:
-		return preProcessConsensusMsg(c.blockchain, &p.Message) == errProposer
+		return preProcessConsensusMsg(c.chain, &p.Message) == errProposer
 	case types.Equivocation:
-		return checkEquivocation(c.blockchain, &p.Message, p.Evidence) == errEquivocation
+		return checkEquivocation(c.chain, &p.Message, p.Evidence) == errEquivocation
 	default:
 		return false
 	}
 	return false
 }
 
-// validate challenge, call from EVM package.
-func (c *checkChallenge) CheckChallenge(packedProof []byte) ([]byte, error) {
-	p, err := decodeProof(packedProof)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.validateChallenge(p)
+// ProofValidator implemented as a native contract to validate an on-chain innocent proof.
+type ProofValidator struct{
+	chain *core.BlockChain
 }
 
-// checkProof implemented as a native contract to validate an on-chain innocent proof.
-type checkProof struct{
-	blockchain *core.BlockChain
-}
-
-func (c *checkProof) RequiredGas(_ []byte) uint64 {
+// the gas cost to execute this proof validator contract.
+func (c *ProofValidator) RequiredGas(_ []byte) uint64 {
 	return params.CheckInnocentGas
 }
 
-// checkProof, take proof from AC by copy the packed byte array, decode and validate it.
-func (c *checkProof) Run(input []byte) ([]byte, error) {
+// ProofValidator, take the rlp encoded proof of innocent, decode it and validate it, if the proof is valid, then
+// return the rlp hash of msg and the rlp hash of msg sender as the valid identity for on-chain management of proofs,
+// AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
+func (c *ProofValidator) Run(input []byte) ([]byte, error) {
 	// take an on-chain innocent proof, tell the results of the checking
 	if len(input) == 0 {
-		panic(fmt.Errorf("invalid proof of innocent - empty"))
+		return failure64Byte, fmt.Errorf("invalid input")
 	}
 
-	hash, err := c.CheckProof(input)
+	p, err := decodeProof(input)
 	if err != nil {
-		return common.Hash{}.Bytes(), err
-	}
-
-	return hash, nil
-}
-
-// Check the proof of innocent, it is called from precompiled contracts of EVM package.
-func (c *checkProof) CheckProof(packedProof []byte) ([]byte, error) {
-
-	p, err := decodeProof(packedProof)
-	if err != nil {
-		return nil, err
+		return failure64Byte, err
 	}
 
 	return c.validateInnocentProof(p)
 }
 
 // validate the innocent proof is valid.
-func (c *checkProof) validateInnocentProof(in *types.Proof) ([]byte, error) {
+func (c *ProofValidator) validateInnocentProof(in *types.Proof) ([]byte, error) {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
-		return nil, err
+		return failure64Byte, err
 	}
 
-	header := c.blockchain.GetHeaderByNumber(h.Uint64())
+	header := c.chain.GetHeaderByNumber(h.Uint64())
 	// validate message.
 	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
-		return nil, err
+		return failure64Byte, err
 	}
 
 	for i:=0; i < len(in.Evidence); i++ {
 		if _, err = in.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
-			return nil, err
+			return failure64Byte, err
 		}
 	}
 
 	// todo: check if the proof is an innocent behavior.
-	// return msg hash and nil when its proved as valid.
+
 	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
 	senderHash := types.RLPHash(in.Message.Address).Bytes()
 	return append(msgHash, senderHash...), nil
