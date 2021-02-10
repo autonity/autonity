@@ -246,10 +246,11 @@ func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 		}
 	}
 
-	// store msg, if there is equivocation then rise errEquivocation and return proofs.
-	equivocationProof, err := fd.msgStore.StoreMsg(m)
-	if err == errEquivocation {
-		fd.submitMisbehavior(m, equivocationProof, err)
+	// store msg, if there is equivocation then rise errEquivocation and proofs.
+	p, err := fd.msgStore.StoreMsg(m)
+	if err == errEquivocation && p != nil {
+		proof := []types.ConsensusMessage{*p}
+		fd.submitMisbehavior(m, proof, err)
 		return err
 	}
 	return nil
