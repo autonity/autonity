@@ -30,7 +30,7 @@ const (
 // Since precompiled contract take raw bytes as input, so it should be rlp encoded into bytes before client send the
 // proof into autonity contract.
 type RawProof struct {
-	Rule       uint8       // rule id.
+	Rule       Rule       // rule id.
 	Message    []byte      // the raw rlp encoded msg to be considered as suspicious one
 	Evidence   [][]byte    // the raw rlp encoded msgs as proof of innocent or misbehavior.
 }
@@ -41,7 +41,7 @@ func (p *RawProof) EncodeRLP(w io.Writer) error {
 
 func (p *RawProof) DecodeRLP(s *rlp.Stream) error {
 	var proof struct {
-		Rule uint8
+		Rule Rule
 		Message []byte
 		Evidence [][]byte
 	}
@@ -53,9 +53,15 @@ func (p *RawProof) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
+// Accusation
+type Accusation struct {
+	Rule    Rule
+	Message ConsensusMessage
+}
+
 // RawProof to be decode into Proof for processing.
 type Proof struct {
-	Rule       uint8
+	Rule       Rule
 	Message    ConsensusMessage   // the msg to be considered as suspicious one
 	Evidence   []ConsensusMessage // the msgs as proof of innocent or misbehavior.
 }

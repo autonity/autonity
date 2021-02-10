@@ -59,9 +59,6 @@ type FaultDetector struct {
 	// msg store
 	msgStore *MsgStore
 
-	// rule engine
-	ruleEngine *RuleEngine
-
 	// future height msg buffer
 	futureMsgs map[uint64][]*types.ConsensusMessage
 
@@ -77,7 +74,6 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		blockChan:  make(chan core.ChainEvent, 300),
 		blockchain: chain,
 		msgStore: new(MsgStore),
-		ruleEngine: new(RuleEngine),
 		logger:logger,
 		tendermintMsgMux:  event.NewTypeMuxSilent(logger),
 		futureMsgs: make(map[uint64][]*types.ConsensusMessage),
@@ -172,7 +168,8 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- types.SubmitProofEvent) ev
 
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
 func (fd *FaultDetector) runRuleEngine(headHeight uint64) {
-	proofs := fd.ruleEngine.run(fd.msgStore, headHeight)
+	// todo: process accusation
+	proofs, _ := fd.runRules(headHeight)
 	if len(proofs) > 0 {
 		fd.sendProofs(types.ChallengeProof, proofs)
 	}
@@ -186,13 +183,13 @@ func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs 
 	var rawProof types.RawProof
 	switch err {
 	case errEquivocation:
-		rawProof.Rule = uint8(types.Equivocation)
+		rawProof.Rule = types.Equivocation
 	case errProposer:
-		rawProof.Rule = uint8(types.InvalidProposer)
+		rawProof.Rule = types.InvalidProposer
 	case errProposal:
-		rawProof.Rule = uint8(types.InvalidProposal)
+		rawProof.Rule = types.InvalidProposal
 	case errGarbageMsg:
-		rawProof.Rule = uint8(types.GarbageMessage)
+		rawProof.Rule = types.GarbageMessage
 	default:
 		return challenge, fmt.Errorf("errors of not provable")
 	}

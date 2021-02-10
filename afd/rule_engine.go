@@ -5,54 +5,6 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 )
 
-// todo: integrate interpreter into this file.
-type RuleEngine struct {
-
-}
-
-// run apply rule pattern over current msg store, it returns a set of proofs of challenge, or
-// accusation to be sent for on-chain management.
-func (r *RuleEngine) run(ms *MsgStore, height uint64) []types.OnChainProof {
-	return nil
-}
-
-type Rule uint8
-
-const (
-	PN Rule = iota
-	PO
-	PVN
-	PVO
-	C
-)
-
-type Proof struct {
-	parentHash common.Hash  // use by precompiled contract to get committee from chain db.
-	Rule       Rule
-	Message    message
-	Evidence   []message
-}
-
-type Accusation struct {
-	Rule    Rule
-	Message message
-}
-
-type Store interface {
-	Save(message message)
-	Get(height uint64, query func(m message) bool) []message
-}
-
-type interceptor struct {
-	msgStore Store
-}
-
-const (
-	p byte = iota
-	pv
-	pc
-)
-
 var nilValue = common.Hash{}
 
 type message interface {
@@ -62,47 +14,6 @@ type message interface {
 	Type() byte
 	Value() common.Hash // Block hash for a proposal,
 	ValidRound() int
-	Payload() []byte    // raw bytes of message
-}
-
-func (i *interceptor) Intercept(msg message) *Proof {
-	// Prerequisite: msg has a valid signature and comes from validator.
-
-	// Validation steps
-	//
-	// Auto incriminating
-	//  - Need to check for proposals if they are coming from the right proposer.
-	//  - Is Type valid ? one of (propose, prevote, precommit)
-	//  - Check for correctness of old proposals (VR = -1)
-	//  - Check that the valid round in the old proposal (VR > -1) is not equal to or greater than the current round.
-	//  - Check the validity of the proposal and if it is invalid it is an auto incrimination message
-	//
-	// We currently don't include auto-incriminating messages in the message
-	// store for simplicity, but there are some cases in which we would be able
-	// to prove bad behaviour by including auto-incriminating messages, such as
-	// participants precommiting or prevoting for an invalid proposal or
-	// prevotes for a proposal that is not from the current proposer.
-
-	// Saving messages in the store MUST happen before checking for equivocation.
-
-	i.msgStore.Save(msg)
-
-	// if proof := i.checkEquivocation(msg) ; proof != nil {
-	// 	return proof
-	// }
-
-	if proof := i.checkImmediateFault(msg); proof != nil {
-		return proof
-	}
-
-	return nil
-}
-
-func (i *interceptor) checkImmediateFault(m message) *Proof {
-	// Check for auto-incriminating message and equivocation.
-	// The Proof struct as it is defined now may not be sufficient to represent proofs for auto-incriminating and
-	// equivocation messages.
-	return nil
 }
 
 func threshold(height uint64) uint {
@@ -110,7 +21,7 @@ func threshold(height uint64) uint {
 	return 0
 }
 
-func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
+func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accusation) {
 	// Rules read right to left (find  the right and look for the left)
 	//
 	// Rules should be evealuated such that we check all paossible instances and if
@@ -125,25 +36,25 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 
 	// We should be here at time t = timestamp(h+1) + delta
 
-	var proofs []*Proof
-	var accusations []*Accusation
+	var proofs []*types.Proof
+	var accusations []*types.Accusation
 
 	// ------------New Proposal------------
 	// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PN1: [nil ∨ ⊥] <--- [V]
 
-	proposalsNew := i.msgStore.Get(height, func(m message) bool {
+	proposalsNew := fd.msgStore.Get(height, func(m message) bool {
 		return m.Type() == p && m.ValidRound() == -1
 	})
 
 	for _, proposal := range proposalsNew {
 		//check all precommits for previous rounds from this sender are nil
-		precommits := i.msgStore.Get(height, func(m message) bool {
+		precommits := fd.msgStore.Get(height, func(m message) bool {
 			return m.Sender() == proposal.Sender() && m.Type() == pc && m.Round() < proposal.Round() && m.Value() != nilValue
 		})
 		if len(precommits) != 0 {
-			proof := &Proof{
-				Rule:     PN,
+			proof := &types.Proof{
+				Rule:     types.PN,
 				Evidence: precommits,
 				Message:  proposal,
 			}
@@ -155,7 +66,7 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 	// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
 
-	proposalsOld := i.msgStore.Get(height, func(m message) bool {
+	proposalsOld := fd.msgStore.Get(height, func(m message) bool {
 		return m.Type() == p && m.ValidRound() > -1
 	})
 
@@ -169,14 +80,14 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 		// by the current proposer in the valid round? If there is the proposer
 		// has proposed a value for which it is not locked on, thus a proof of
 		// misbehaviour can be generated.
-		precommits := i.msgStore.Get(height, func(m message) bool {
+		precommits := fd.msgStore.Get(height, func(m message) bool {
 			return m.Type() == pc && m.Round() == validRound &&
 				m.Sender() == proposal.Sender() && m.Value() != nilValue &&
 				m.Value() != proposal.Value()
 		})
 		if len(precommits) > 0 {
-			proof := &Proof{
-				Rule:     PO,
+			proof := &types.Proof{
+				Rule:     types.PO,
 				Evidence: precommits,
 				Message:  proposal,
 			}
@@ -187,15 +98,15 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 		// between the valid round and the round of the proposal? If there is
 		// then that implies the proposer saw 2f+1 prevotes in that round and
 		// hence it should have set that round as the valid round.
-		precommits = i.msgStore.Get(height, func(m message) bool {
+		precommits = fd.msgStore.Get(height, func(m message) bool {
 			return m.Type() == pc &&
 				m.Round() > validRound && m.Round() < proposal.Round() &&
 				m.Sender() == proposal.Sender() &&
 				m.Value() != nilValue
 		})
 		if len(precommits) > 0 {
-			proof := &Proof{
-				Rule:     PO,
+			proof := &types.Proof{
+				Rule:     types.PO,
 				Evidence: precommits,
 				Message:  proposal,
 			}
@@ -205,12 +116,12 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 		// Do we see a quorum of prevotes in the valid round, if not we can
 		// raise an accusation, since we cannot be sure that these prevotes
 		// don't exist
-		prevotes := i.msgStore.Get(height, func(m message) bool {
+		prevotes := fd.msgStore.Get(height, func(m message) bool {
 			return m.Type() == pv && m.Round() == validRound
 		})
 		if len(prevotes) < int(threshold(height)) {
-			accusation := &Accusation{
-				Rule:    PO,
+			accusation := &types.Accusation{
+				Rule:    types.PO,
 				Message: proposal,
 			}
 			accusations = append(accusations, accusation)
@@ -219,18 +130,18 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 
 	// ------------New and Old Prevotes------------
 
-	prevotes := i.msgStore.Get(height, func(m message) bool {
+	prevotes := fd.msgStore.Get(height, func(m message) bool {
 		return m.Type() == pv && m.Value() != nilValue
 	})
 
 	for _, prevote := range prevotes {
-		correspondingProposals := i.msgStore.Get(height, func(m message) bool {
+		correspondingProposals := fd.msgStore.Get(height, func(m message) bool {
 			return m.Type() == p && m.Value() == prevote.Value() && m.Round() == prevote.Round()
 		})
 
 		if len(correspondingProposals) == 0 {
-			accusation := &Accusation{
-				Rule: PVN, //This could be PVO as well, however, we can't decide since there are no corresponding
+			accusation := &types.Accusation{
+				Rule: types.PVN, //This could be PVO as well, however, we can't decide since there are no corresponding
 				// proposal
 				Message: prevote,
 			}
@@ -262,15 +173,15 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 				// these rules since the only message in PVN that is not sent by
 				// pi is the proposal and you require the proposal before you
 				// can even attempt to apply the rule.
-				precommits := i.msgStore.Get(height, func(m message) bool {
+				precommits := fd.msgStore.Get(height, func(m message) bool {
 					return m.Type() == pc && m.Value() != nilValue &&
 						m.Value() != prevote.Value() && prevote.Sender() == m.Sender() &&
 						m.Round() < prevote.Round()
 				})
 
 				if len(precommits) > 0 {
-					proof := &Proof{
-						Rule:     PVN,
+					proof := &types.Proof{
+						Rule:     types.PVN,
 						Evidence: precommits,
 						Message:  prevote,
 					}
@@ -289,7 +200,7 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 				// the proposal precommitted for a different value V', then the prevote
 				// is considered invalid.
 
-				precommits := i.msgStore.Get(height, func(m message) bool {
+				precommits := fd.msgStore.Get(height, func(m message) bool {
 					return m.Type() == pc && prevote.Sender() == m.Sender() &&
 						m.Round() < prevote.Round() && m.Value() != nilValue
 				})
@@ -342,36 +253,36 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 			// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 			// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 
-			precommits := i.msgStore.Get(height, func(m message) bool {
+			precommits := fd.msgStore.Get(height, func(m message) bool {
 				return m.Type() == pc && m.Value() != nilValue
 			})
 
 			for _, precommit := range precommits {
-				proposals := i.msgStore.Get(height, func(m message) bool {
+				proposals := fd.msgStore.Get(height, func(m message) bool {
 					return m.Type() == p && m.Value() == precommit.Value() && m.Round() == precommit.Round()
 				})
 
 				if len(proposals) == 0 {
-					accusation := &Accusation{
-						Rule:    C,
+					accusation := &types.Accusation{
+						Rule:    types.C,
 						Message: precommit,
 					}
 					accusations = append(accusations, accusation)
 					continue
 				}
 
-				prevotesForNotV := i.msgStore.Get(height, func(m message) bool {
+				prevotesForNotV := fd.msgStore.Get(height, func(m message) bool {
 					return m.Type() == pv && m.Value() != precommit.Value() && m.Round() == precommit.Round()
 				})
-				prevotesForV := i.msgStore.Get(height, func(m message) bool {
+				prevotesForV := fd.msgStore.Get(height, func(m message) bool {
 					return m.Type() == pv && m.Value() == precommit.Value() && m.Round() == precommit.Round()
 				})
 
 				if len(prevotesForNotV) >= int(threshold(height)) {
 					// In this case there cannot be enough remaining prevotes
 					// to justify a precommit for V.
-					proof := &Proof{
-						Rule:     C,
+					proof := &types.Proof{
+						Rule:     types.C,
 						Evidence: prevotesForNotV,
 						Message:  precommit,
 					}
@@ -380,8 +291,8 @@ func (i *interceptor) Process(height uint64) ([]*Proof, []*Accusation) {
 				} else if len(prevotesForV) < int(threshold(height)) {
 					// In this case we simply don't see enough prevotes to
 					// justify the precommit.
-					accusation := &Accusation{
-						Rule:    C,
+					accusation := &types.Accusation{
+						Rule:    types.C,
 						Message: precommit,
 					}
 					accusations = append(accusations, accusation)
