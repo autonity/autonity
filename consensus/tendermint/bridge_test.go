@@ -20,7 +20,7 @@ func TestStartingAndStoppingBridge(t *testing.T) {
 	require.NoError(t, err)
 	g, err := gengen.NewGenesis(1, users)
 	require.NoError(t, err)
-	b, err := createBridge(g, users[0], &syncerMock{}, &broadcasterMock{}, &blockBroadcasterMock{})
+	b, err := createBridge(g, users[0], &syncerMock{}, &broadcasterMock{}, &blockBroadcasterMock{}, &noActionScheduler{})
 	require.NoError(t, err)
 	err = b.Start()
 	require.NoError(t, err)

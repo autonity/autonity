@@ -44,6 +44,7 @@ func New(
 	finalizer *DefaultFinalizer,
 	blockRetreiver *BlockReader,
 	ac *autonity.Contract,
+	timeoutScheduler TimeoutScheduler,
 ) *Bridge {
 	address := crypto.PubkeyToAddress(key.PublicKey)
 	logger := log.New("addr", address.String())
@@ -67,6 +68,7 @@ func New(
 		syncer:               syncer,
 		latestBlockRetriever: blockRetreiver,
 		verifier:             verifier,
+		timeoutScheduler:     timeoutScheduler,
 
 		eventChannel:     make(chan interface{}),
 		commitChannel:    make(chan *types.Block),
@@ -120,6 +122,8 @@ type Bridge struct {
 	closeChannel  chan struct{}
 
 	dlog *debugLog
+
+	timeoutScheduler TimeoutScheduler
 }
 
 func (b *Bridge) SealHash(header *types.Header) common.Hash {
@@ -561,7 +565,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			b.broadcaster.Broadcast(msg)
 		}()
 	case to != nil:
-		time.AfterFunc(time.Duration(to.Delay)*time.Second, func() {
+		b.timeoutScheduler.ScheduleTimeout(to.Delay, func() {
 			b.postEvent(to)
 		})
 
@@ -912,4 +916,15 @@ func (d *debugLog) print(info ...interface{}) {
 
 func bid(b *types.Block) string {
 	return fmt.Sprintf("hash: %v, number: %v", b.Hash().String()[2:8], b.Number().String())
+}
+
+// TimeoutScheduler is an interface that can be used to schedule actions after some delay.
+type TimeoutScheduler interface {
+	ScheduleTimeout(delay uint, f func())
+}
+
+type DefaultTimeoutScheduler struct{}
+
+func (s *DefaultTimeoutScheduler) ScheduleTimeout(delay uint, f func()) {
+	time.AfterFunc(time.Duration(delay)*time.Second, f)
 }

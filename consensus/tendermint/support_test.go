@@ -94,6 +94,13 @@ func (b *notifyingBlockBroadcaster) Enqueue(id string, block *types.Block) {
 	}
 }
 
+type noActionScheduler struct {
+}
+
+func (s *noActionScheduler) ScheduleTimeout(delay uint, f func()) {
+	// do nothing
+}
+
 // newTestBridge creates a test bridge instance that wraps a bridge and
 // provides methods to wait and intercept broadcast messages and broadcast
 // blocks as well as utility methods to generate proposal blocks and determine
@@ -112,6 +119,7 @@ func newTestBridge(
 		syncer,
 		&notifyingBroadcaster{messageChan, closeChan},
 		&notifyingBlockBroadcaster{blockChan, closeChan},
+		&noActionScheduler{},
 	)
 	if err != nil {
 		return nil, err
@@ -139,6 +147,7 @@ func createBridge(
 	syncer Syncer,
 	broadcaster Broadcaster,
 	blockBroadcaster consensus.Broadcaster,
+	timeoutScheduler TimeoutScheduler,
 ) (*Bridge, error) {
 	db := rawdb.NewMemoryDatabase()
 	chainConfig, _, err := core.SetupGenesisBlock(db, g)
@@ -170,6 +179,7 @@ func createBridge(
 		finalizer,
 		latestBlockRetriever,
 		autonityContract,
+		timeoutScheduler,
 	)
 
 	isLocalBlock := func(block *types.Block) bool {
