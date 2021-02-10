@@ -18,8 +18,8 @@ import (
 
 var (
 	// todo: config the window and buffer height in genesis.
-	randomDelayWindow = 10000
-	msgBufferInHeight = 30 // msg store buffer such range of msgs in height.
+	randomDelayWindow = 10000 // (0, 10] seconds random time window
+	msgBufferInHeight = 30    // msg store buffer such range of msgs in height, almost equals to 30 seconds.
 	errFutureMsg = errors.New("future height msg")
 	errGarbageMsg = errors.New("garbage msg")
 	errNotCommitteeMsg = errors.New("msg from none committee member")
