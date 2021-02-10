@@ -17,6 +17,9 @@ import (
 )
 
 var (
+	// todo: config the window and buffer height in genesis.
+	randomDelayWindow = 10000
+	msgBufferInHeight = 30 // msg store buffer such range of msgs in height.
 	errFutureMsg = errors.New("future height msg")
 	errGarbageMsg = errors.New("garbage msg")
 	errNotCommitteeMsg = errors.New("msg from none committee member")
@@ -65,10 +68,6 @@ type FaultDetector struct {
 	logger log.Logger
 }
 
-var(
-	// todo: to be configured at genesis.
-	randomDelayWindow = 10000
-)
 
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *FaultDetector {
@@ -113,6 +112,10 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 
 			// run rule engine over msg store on each height update.
 			fd.runRuleEngine(ev.Block.NumberU64())
+
+			// msg store delete msgs out of buffering window.
+			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - uint64(msgBufferInHeight))
+
 		// to handle consensus msg from p2p layer.	
 		case ev, ok := <-fd.tendermintMsgSub.Chan():
 			if !ok {

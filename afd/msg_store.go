@@ -57,7 +57,7 @@ func(ms *MsgStore) removeMsg(m *types.ConsensusMessage) {
 }
 
 // clean those ancient msgs.
-func(ms *MsgStore) deleteMsgFromHeight(height uint64) {
+func(ms *MsgStore) DeleteMsgsAtHeight(height uint64) {
 	// Remove all messgages at this height
 	for _, msgTypeMap := range ms.messages[height] {
 		for _, addressMap := range msgTypeMap {
