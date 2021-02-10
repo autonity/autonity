@@ -168,8 +168,8 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- types.SubmitProofEvent) ev
 
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
 func (fd *FaultDetector) runRuleEngine(headHeight uint64) {
-	// todo: process accusation
-	proofs, _ := fd.runRules(headHeight)
+	// todo: process accusation too.
+	proofs, accusations := fd.runRules(headHeight)
 	if len(proofs) > 0 {
 		fd.sendProofs(types.ChallengeProof, proofs)
 	}
