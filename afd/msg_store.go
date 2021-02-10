@@ -7,19 +7,65 @@ import (
 
 // todo: integrate msg store in this file.
 type MsgStore struct {
-	//map[Height]map[Round]map[MsgType]map[common.address][]ConsensusMessage
+	// map[Height]map[Round]map[MsgType]map[common.address]*ConsensusMessage
 	/*
-	  height->round->MsgCode->MsgSender-> [msg, msg,,,]
+	  height->round->MsgCode->MsgSender->msg
 	 */
-	messages map[uint64]map[int64]map[uint64]map[common.Address][]types.ConsensusMessage
+	messages map[uint64]map[int64]map[uint64]map[common.Address]*types.ConsensusMessage
 }
 
-// store msg into msg store, it returns msgs that is equivocation than the input msg, and errEquivocation
-func(ms *MsgStore) StoreMsg(m *types.ConsensusMessage) ([]types.ConsensusMessage, error) {
+// store msg into msg store, it returns msg that is equivocation than the input msg, and an errEquivocation.
+// otherwise it return nil, nil
+func(ms *MsgStore) StoreMsg(m *types.ConsensusMessage) (*types.ConsensusMessage, error) {
+	height, _ := m.Height()
+	roundMap, ok := ms.messages[height.Uint64()]
+	if !ok {
+		roundMap = make(map[int64]map[uint64]map[common.Address]*types.ConsensusMessage)
+		ms.messages[height.Uint64()] = roundMap
+	}
+
+	round, _ := m.Round()
+	msgTypeMap, ok := roundMap[round]
+	if !ok {
+		msgTypeMap = make(map[uint64]map[common.Address]*types.ConsensusMessage)
+		roundMap[round] = msgTypeMap
+	}
+
+	addressMap, ok := msgTypeMap[m.Code]
+	if !ok {
+		addressMap = make(map[common.Address]*types.ConsensusMessage)
+		msgTypeMap[m.Code] = addressMap
+	}
+
+	msg, ok := addressMap[m.Address]
+	if !ok {
+		addressMap[m.Address] = m
+		return nil, nil
+	}
+
+	// check equivocation here.
+	if types.RLPHash(msg.Payload()) != types.RLPHash(m.Payload()) {
+		return msg, errEquivocation
+	}
 	return nil, nil
 }
 
+func(ms *MsgStore) removeMsg(m *types.ConsensusMessage) {
+	height, _ := m.Height()
+	round, _ := m.Round()
+	delete(ms.messages[height.Uint64()][round][m.Code], m.Address)
+}
+
 // clean those ancient msgs.
-func(ms *MsgStore) cleanAncientMsg(fromHeight uint64) {
-	//todo: clean up ancient msgs by block height.
+func(ms *MsgStore) deleteMsgFromHeight(height uint64) {
+	// Remove all messgages at this height
+	for _, msgTypeMap := range ms.messages[height] {
+		for _, addressMap := range msgTypeMap {
+			for _, m := range addressMap {
+				ms.removeMsg(m)
+			}
+		}
+	}
+	// Delete map entry for this height
+	delete(ms.messages, height)
 }
