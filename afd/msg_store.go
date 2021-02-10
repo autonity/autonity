@@ -66,7 +66,24 @@ func(ms *MsgStore) DeleteMsgsAtHeight(height uint64) {
 	delete(ms.messages, height)
 }
 
-// todo: msg store query engine, take query conditions as input, and return the result set.
+// get take height and query conditions to query those msgs from msg store, it returns those msgs satisfied the condition.
 func (ms *MsgStore) Get(height uint64, query func(m types.ConsensusMessage) bool) []types.ConsensusMessage {
-	return nil
+
+	var result []types.ConsensusMessage
+	roundMap, ok := ms.messages[height]
+	if !ok {
+		return result
+	}
+
+	for _, msgTypeMap := range roundMap {
+		for _, addressMap := range msgTypeMap {
+			for _, m := range addressMap {
+				if query(*m) {
+					result = append(result, *m)
+				}
+			}
+		}
+	}
+
+	return result
 }
