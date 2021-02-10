@@ -9,7 +9,6 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -121,7 +120,6 @@ func TestReachingConsensus(t *testing.T) {
 	// broadcst the propose message
 	err = bridges.broadcast(proposeMsg)
 	require.NoError(t, err)
-	// time.Sleep(5 * time.Second)
 
 	// check block not yet committed
 	block = proposer.committedBlock(to, result)
@@ -130,7 +128,6 @@ func TestReachingConsensus(t *testing.T) {
 	// broadcast all prevote messages
 	err = bridges.broadcastPendingMessages(to)
 	require.NoError(t, err)
-	// time.Sleep(5 * time.Second)
 
 	// Validate that the prevotes are as expected
 	expectedConsensusMessage = &algorithm.ConsensusMessage{
@@ -148,8 +145,9 @@ func TestReachingConsensus(t *testing.T) {
 	block = proposer.committedBlock(to, result)
 	require.Nil(t, block)
 
-	println("precommitsssss")
-	// Start brodacsting precommit messages one by one
+	// Start brodacsting precommit messages one by one, at this point all the
+	// bridges will have handled their own precommit message, so it will only
+	// take 2 more to bring the network to agreement on the block.
 	expectedConsensusMessage = &algorithm.ConsensusMessage{
 		MsgType: algorithm.Precommit,
 		Height:  proposal.NumberU64(),
@@ -159,7 +157,6 @@ func TestReachingConsensus(t *testing.T) {
 	b := bridges.bridges[0]
 	msg := b.pendingMessages(to)
 	validateMessage(t, msg, expectedConsensusMessage, b)
-	println("precommit 1")
 	bridges.broadcast(msg)
 
 	// check block not yet committed
@@ -170,23 +167,11 @@ func TestReachingConsensus(t *testing.T) {
 	msg = b.pendingMessages(to)
 	validateMessage(t, msg, expectedConsensusMessage, b)
 	bridges.broadcast(msg)
-	println("precommit 2")
 
-	// check block not yet committed
-	block = proposer.committedBlock(to, result)
-	require.Nil(t, block)
-
-	b = bridges.bridges[2]
-	msg = b.pendingMessages(to)
-	validateMessage(t, msg, expectedConsensusMessage, b)
-	bridges.broadcast(msg)
-	println("precommit 3")
-	time.Sleep(10 * time.Second)
-
-	// Now we expect the block to be committed, since now a quorum of nodes has
-	// broadcast their precommit messages.
+	// Now we expect the block to be committed, since 2 of 4 nodes has
+	// broadcast their precommit messages and each node will have processed
+	// their own precommit message giving us 3 of 4 commit messages.
 	committedBlock := proposer.committedBlock(to, result)
-	spew.Dump(committedBlock)
 	// Check it is the correct block
 	assert.Equal(t, proposal.Hash(), committedBlock.Hash())
 	// Check it has the right number of committed seals
@@ -194,7 +179,6 @@ func TestReachingConsensus(t *testing.T) {
 	// Verify the header
 	err = b.VerifyHeader(b.blockchain, committedBlock.Header(), true)
 	assert.NoError(t, err)
-
 }
 
 // This test shows that GetSignatureAddressHash does not verify the signature.

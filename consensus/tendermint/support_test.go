@@ -298,6 +298,7 @@ func (b *testBridges) broadcastPendingMessages(timeout time.Duration) error {
 	// Now send the prevotes
 	for _, bridge := range b.bridges {
 		m := bridge.pendingMessages(timeout)
+		println("broadcasting", m.consensusMessage.String())
 		err := b.broadcast(m)
 		if err != nil {
 			return err
