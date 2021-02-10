@@ -181,11 +181,14 @@ func (a *Algorithm) msg(msgType Step, value ValueID) *ConsensusMessage {
 }
 
 func (a *Algorithm) timeout(timeoutType Step) *Timeout {
+	if a.round < 0 {
+		panic(fmt.Sprintf("at this point round should be greater than or eaqual to zero instead got: %d", a.round))
+	}
 	return &Timeout{
 		TimeoutType: timeoutType,
 		Height:      a.height(),
 		Round:       a.round,
-		Delay:       1, // TODO
+		Delay:       1 + uint(a.round),
 	}
 }
 
