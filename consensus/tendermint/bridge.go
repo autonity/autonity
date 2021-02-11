@@ -302,8 +302,8 @@ func (b *Bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
 // sending the message will be dropped.
 func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	b.mutex.RLock()
+	defer b.mutex.Unlock()
 	if !b.started {
-		b.mutex.RUnlock()
 		// Drop event if not ready
 		switch msg.Code {
 		case tendermintMsg, tendermintSyncMsg:
@@ -311,10 +311,7 @@ func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		default:
 			return false, nil
 		}
-
 	}
-	b.mutex.RUnlock()
-
 	switch msg.Code {
 	case tendermintMsg:
 		var data []byte
