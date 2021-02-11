@@ -383,6 +383,10 @@ func (b *testBridge) pendingMessage(timeout time.Duration) *message {
 			if err != nil {
 				panic(fmt.Sprintf("failed to decode signed message: %v", err))
 			}
+			if message.address != b.address {
+				// ignore rebroadcast messages
+				continue
+			}
 			b.lastSentMessage = message
 			println("gotmessage", message.consensusMessage.String())
 			return message
