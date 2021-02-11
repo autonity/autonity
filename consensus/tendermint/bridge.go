@@ -235,16 +235,16 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 				select {
 				case results <- committedBlock:
 				case <-b.closeChannel:
-					b.dlog.print("commitCh receive, stopped by closeCh", bid(block))
+					// b.dlog.print("commitCh receive, stopped by closeCh", bid(block))
 					return
 				}
 				// stop will be closed whenever eth is shutdouwn or a new
 				// sealing task is provided.
 			case <-stop:
-				b.dlog.print("commitCh receive, stopped by miner", bid(block))
+				// b.dlog.print("commitCh receive, stopped by miner", bid(block))
 				return
 			case <-b.closeChannel:
-				b.dlog.print("commitCh receive, stopped by closeCh", bid(block))
+				// b.dlog.print("commitCh receive, stopped by closeCh", bid(block))
 				return
 			}
 		}
@@ -323,7 +323,7 @@ func (b *Bridge) postEvent(e interface{}) {
 		return // Drop event if not ready
 	}
 
-	start := time.Now()
+	// start := time.Now()
 	// b.dlog.print("posting event", fmt.Sprintf("%T", e))
 	b.wg.Add(1)
 	go func() {
@@ -333,13 +333,13 @@ func (b *Bridge) postEvent(e interface{}) {
 		// processing these message events.
 		select {
 		case b.eventChannel <- e:
-			since := time.Since(start)
-			if since > time.Second {
-				b.dlog.print("eventCh send took", since, "event", fmt.Sprintf("%T", e))
-			}
+			// since := time.Since(start)
+			// if since > time.Second {
+			// 	// b.dlog.print("eventCh send took", since, "event", fmt.Sprintf("%T", e))
+			// }
 		case <-b.closeChannel:
-			since := time.Since(start)
-			b.dlog.print("eventCh send, stopped by closeCh, took", since/time.Second, "seconds", "event", fmt.Sprintf("%T", e))
+			// since := time.Since(start)
+			// b.dlog.print("eventCh send, stopped by closeCh, took", since/time.Second, "seconds", "event", fmt.Sprintf("%T", e))
 		}
 	}()
 }
@@ -401,7 +401,7 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 		// Close channel must exist at this point (there is no way to reach
 		// this without calling Start) no need for mutex.
 		case <-b.closeChannel:
-			b.dlog.print("commitCh send, stopped by closeCh", bid(block))
+			// b.dlog.print("commitCh send, stopped by closeCh", bid(block))
 		}
 	} else {
 		b.blockBroadcaster.Enqueue("tendermint", block)
@@ -548,7 +548,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			))
 		}
 		b.dlog.print("sending message", cm.String())
-		println("msghash", common.BytesToHash(crypto.Keccak256(msg)).String()[2:6])
+		// println("msghash", common.BytesToHash(crypto.Keccak256(msg)).String()[2:6])
 
 		// send to self
 		go b.postEvent(msg)
@@ -625,7 +625,7 @@ eventLoop:
 					continue
 				}
 
-				println("handling current height message", m.consensusMessage.String())
+				// println("handling current height message", m.consensusMessage.String())
 				err = b.handleCurrentHeightMessage(m)
 				if err == errStopped {
 					return
@@ -639,13 +639,13 @@ eventLoop:
 				var rc *algorithm.RoundChange
 				switch e.TimeoutType {
 				case algorithm.Propose:
-					b.dlog.print("timeout propose", "height", e.Height, "round", e.Round)
+					// b.dlog.print("timeout propose", "height", e.Height, "round", e.Round)
 					cm = b.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
-					b.dlog.print("timeout prevote", "height", e.Height, "round", e.Round)
+					// b.dlog.print("timeout prevote", "height", e.Height, "round", e.Round)
 					cm = b.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
-					b.dlog.print("timeout precommit", "height", e.Height, "round", e.Round)
+					// b.dlog.print("timeout precommit", "height", e.Height, "round", e.Round)
 					rc = b.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
 				err := b.handleResult(rc, cm, nil)
@@ -654,7 +654,6 @@ eventLoop:
 					return
 				}
 			case commitEvent:
-				b.logger.Debug("Received a final committed proposal")
 
 				lastBlock, err := b.latestBlockRetriever.LatestBlock()
 				if err != nil {
