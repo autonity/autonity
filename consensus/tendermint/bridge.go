@@ -224,7 +224,13 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	// lifetime of the goroutine that reads the commitChannel. So we must not
 	// exit the commitChannel when sending a block, instead we must wait for
 	// the miner's signal to stop or exit when we close the bridge.
+
+	// We need to ensure that we don't call b.wg.Add while we are waiting on
+	// the wg. Since we are not in control of when Seal is called we need this
+	// protection.
+	b.mutex.Lock()
 	b.wg.Add(1)
+	b.mutex.Unlock()
 	go func() {
 		defer b.wg.Done()
 		for {
@@ -295,6 +301,20 @@ func (b *Bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
 // handler. If this function returns an error then the connection to the peer
 // sending the message will be dropped.
 func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
+	b.mutex.RLock()
+	if !b.started {
+		b.mutex.RUnlock()
+		// Drop event if not ready
+		switch msg.Code {
+		case tendermintMsg, tendermintSyncMsg:
+			return true, nil
+		default:
+			return false, nil
+		}
+
+	}
+	b.mutex.RUnlock()
+
 	switch msg.Code {
 	case tendermintMsg:
 		var data []byte
@@ -317,13 +337,6 @@ func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 // to the Bridge seems to be unaware of whether the Bridge is in a position to
 // handle them.
 func (b *Bridge) postEvent(e interface{}) {
-	b.mutex.RLock()
-	if !b.started {
-		b.mutex.RUnlock()
-		return // Drop event if not ready
-	}
-	b.mutex.RUnlock()
-
 	start := time.Now()
 	// b.dlog.print("posting event", fmt.Sprintf("%T", e))
 	b.wg.Add(1)
@@ -434,8 +447,8 @@ func (b *Bridge) Start() error {
 
 func (b *Bridge) Close() error {
 	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	if !b.started {
-		b.mutex.Unlock()
 		return fmt.Errorf("bridge %s closed twice", b.address.String())
 	}
 	b.started = false
@@ -450,7 +463,6 @@ func (b *Bridge) Close() error {
 	b.currentBlockAwaiter.stop()
 	// println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
-	b.mutex.Unlock()
 	b.wg.Wait()
 	return nil
 }
