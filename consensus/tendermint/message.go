@@ -53,7 +53,7 @@ type message struct {
 }
 
 func (m *message) String() string {
-	return "bla"
+	return fmt.Sprintf("%s %v", addr(m.address), m.consensusMessage)
 }
 
 // func (cm *algorithm.ConsensusMessage, )

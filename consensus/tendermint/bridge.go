@@ -24,17 +24,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-var (
-	// errNotFromProposer is returned when received message is supposed to be from
-	// proposer.
-	errNotFromProposer = errors.New("message does not come from proposer")
-)
-
-func addr(a common.Address) string {
-	return hex.EncodeToString(a[:3])
-}
-
-// New creates an Tendermint consensus core
+// New creates a new Bridge instance.
 func New(
 	config *config.Config,
 	key *ecdsa.PrivateKey,
@@ -78,6 +68,51 @@ func New(
 	return c
 }
 
+// Bridge acts as a intermediary between the tendermint algorithm and the go
+// ethereum system.
+//
+// The ethereum system interacts with the Bridge instance
+// primarily through the following methods. Start, Stop, Seal, NewChainHead,
+// HandleMsg. Start and Stop are self explanatory, Seal, NewChainHead and
+// HandleMsg are how inputs arrive in the bridge.
+//
+// Seal -> provides blocks to come to agreement on. These are provided
+// continuously by the miner, irrespective of whether we are mining or this
+// instance is the proposer.
+//
+// NewChainHead -> is called by the miner when the miner has received a new
+// block. This is what signals to the bridge that it should start a new height.
+// Note, even though at the level of the bridge we know when we have committed
+// a block, we are not in control of moving to the next height, we need to wait
+// for the committed block to make its way back to the miner and for the miner
+// to call us.
+//
+// HandleMsg -> is called by the ethereum protocol manager, when messages are
+// received from other peers, we process these eventually passing them to the
+// tendermint algorithm and potentially emitting a message of our own if our
+// state changed.
+//
+// The bridge interacts with the ethereum system through the Broadcaster,
+// Syncer, consensus.Broadcaster, BlockReader and BlockChain. BlockReader and
+// BlockChain are used to read information about the state of the ethereum
+// system, Broadcaster, Syncer and consensus.Broadcaster are how the Bridge
+// sends information to the ethereum system.
+//
+// BlockReader -> used to read blocks and block state.
+//
+// BlockChain -> only used for verification of headers.
+//
+// Broadcaster -> broadcasts consensus messages to the rest of the system.
+//
+// Syncer -> initiates and fulfills sync requests. Note sync in this sense is
+// concerned with syncing the tendermint protocol messages, not blocks from the
+// chain, that is handled in the 'eth/downloader' package. Note also that this
+// sync is fairly basic. The sync request message contains no information, and
+// the sync response is always to send all the messages that a node has for the
+// current height, unless nodes happen to be at the same height, the sync will
+// be of no use and simply clog up the network.
+//
+// consensus.Broadcaster -> broadcasts committed blocks to the rest of the system.
 type Bridge struct {
 	*DefaultFinalizer
 	*Verifier
@@ -88,7 +123,6 @@ type Bridge struct {
 	logger      log.Logger
 
 	eventChannel chan interface{}
-	wg           *sync.WaitGroup
 
 	msgStore  *messageStore
 	syncTimer *time.Timer
@@ -113,17 +147,19 @@ type Bridge struct {
 
 	blockBroadcaster consensus.Broadcaster
 
-	mutex   sync.RWMutex
-	started bool
-
 	// Used to propagate blocks to the results channel provided by the miner on
 	// calls to Seal.
 	commitChannel chan *types.Block
-	closeChannel  chan struct{}
 
 	dlog *debugLog
 
 	timeoutScheduler TimeoutScheduler
+
+	// mutext protects the fields below, this complicates things by having start stop.
+	mutex        sync.RWMutex
+	started      bool
+	closeChannel chan struct{}
+	wg           *sync.WaitGroup
 }
 
 func (b *Bridge) SealHash(header *types.Header) common.Hash {
@@ -344,13 +380,13 @@ func (b *Bridge) postEvent(e interface{}) {
 	}()
 }
 
-// SetExtraComponents must be called before Start, this is not ideal but is the best I think
-// we can do without re-writing the core of go-ethereum. We end up having to do
-// this because go-etherum itself is quite tangled and there is no easy way to
-// access just the functionality we need.
+// SetExtraComponents must be called before Start, this is not ideal but is the
+// best I think we can do without re-writing the core of go-ethereum. We end up
+// having to do this because go-etherum itself is quite tangled and there is no
+// easy way to access just the functionality we need. In this case the
+// blockchain and broadcaster both need to be constructed with a reference to
+// the bridge.
 func (b *Bridge) SetExtraComponents(blockchain *core.BlockChain, broadcaster consensus.Broadcaster) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
 	b.blockBroadcaster = broadcaster
 	b.blockchain = blockchain
 }
@@ -413,7 +449,6 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 
 var errStopped = errors.New("stopped")
 
-// Start implements core.Tendermint.Start
 func (b *Bridge) Start() error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -425,7 +460,6 @@ func (b *Bridge) Start() error {
 
 	b.syncer.Start()
 	b.currentBlockAwaiter.start()
-	// Tendermint Finite State Machine discrete event loop
 	b.wg.Add(1)
 	go b.mainEventLoop()
 	return nil
@@ -440,14 +474,8 @@ func (b *Bridge) Close() error {
 	b.started = false
 
 	close(b.closeChannel)
-	// println(addr(b.address), b.height, "stopping")
-
-	// b.logger.Info("closing tendermint.Bridge", "addr", addr(b.address))
-
 	b.syncer.Stop()
-	// stop the block awaiter if it is waiting
 	b.currentBlockAwaiter.stop()
-	// println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
 	b.wg.Wait()
 	return nil
@@ -708,8 +736,7 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 	if cm.MsgType == algorithm.Propose {
 		// We ignore proposals from non proposers
 		if b.proposer != m.address {
-			b.logger.Warn("Ignore proposal messages from non-proposer")
-			return errNotFromProposer
+			return fmt.Errorf("received message from non proposer: %v", m)
 		}
 		// Proposal values are allowed to be invalid.
 		_, err := b.verifier.VerifyProposal(*b.msgStore.value(common.Hash(cm.Value)), b.blockchain, b.address.String())
