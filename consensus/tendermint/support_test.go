@@ -306,6 +306,9 @@ func (b *testBridges) stop() error {
 // 	return nil
 // }
 
+// broadcast takes the message encodes it and calls HandleMsg with the result
+// on all bridges in the group, except the bridge from which the message
+// originates.
 func (b *testBridges) broadcast(m *message) error {
 	println("broadcasting", m.consensusMessage.String())
 	encoded, err := encodeSignedMessage(m.consensusMessage, b.byAddress(m.address).key, m.value)
@@ -371,9 +374,14 @@ func (b *testBridge) stop() error {
 	return b.Close()
 }
 
-// Retrieves the messages from this bridge that have been broadcast by this
-// bridge one at a time and in the order they were broadcast. If no message is
-// broadcast before the timeout expires then nil is returned.
+// pendintMessage retrieves the messages from this bridge that have been
+// broadcast by this bridge one at a time and in the order they were broadcast.
+// If no message is broadcast before the timeout expires then nil is returned.
+// It is important to note that we can only rely on the order of messages sent
+// because the bridge always calls Broadcast from its main goroutine. If we
+// called Broadcast from multiple goroutines within the bridge then we would
+// not be able to rely on the order of messages and this would break the tests
+// of the bridge.
 func (b *testBridge) pendingMessage(timeout time.Duration) *message {
 	t := time.NewTimer(timeout)
 	for {
@@ -397,7 +405,7 @@ func (b *testBridge) pendingMessage(timeout time.Duration) *message {
 	}
 }
 
-// keeps requesting messages from the pending messages untill none are
+// keeps requesting messages from the pending messages until none are
 // returned. This is required to free up the routine from the bridge that might
 // be stuck trying to send on the messageChan, so that we can close the bridge.
 func (b *testBridge) drainPendingMessages(timeout time.Duration) {
