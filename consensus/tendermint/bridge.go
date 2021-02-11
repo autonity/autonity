@@ -318,11 +318,10 @@ func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 // handle them.
 func (b *Bridge) postEvent(e interface{}) {
 	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 	if !b.started {
-		b.mutex.RUnlock()
 		return // Drop event if not ready
 	}
-	b.mutex.RUnlock()
 
 	start := time.Now()
 	// b.dlog.print("posting event", fmt.Sprintf("%T", e))
@@ -434,8 +433,8 @@ func (b *Bridge) Start() error {
 
 func (b *Bridge) Close() error {
 	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	if !b.started {
-		b.mutex.Unlock()
 		return fmt.Errorf("bridge %s closed twice", b.address.String())
 	}
 	b.started = false
@@ -450,7 +449,6 @@ func (b *Bridge) Close() error {
 	b.currentBlockAwaiter.stop()
 	// println(addr(c.address), c.height, "almost stopped")
 	// Ensure all event handling go routines exit
-	b.mutex.Unlock()
 	b.wg.Wait()
 	return nil
 }
@@ -553,7 +551,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		println("msghash", common.BytesToHash(crypto.Keccak256(msg)).String()[2:6])
 
 		// send to self
-		b.postEvent(msg)
+		go b.postEvent(msg)
 		// Broadcast to peers
 		b.broadcaster.Broadcast(msg)
 	case to != nil:
