@@ -228,9 +228,9 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	// We need to ensure that we don't call b.wg.Add while we are waiting on
 	// the wg. Since we are not in control of when Seal is called we need this
 	// protection.
-	b.mutex.Lock()
+	b.mutex.RLock()
 	b.wg.Add(1)
-	b.mutex.Unlock()
+	b.mutex.RUnlock()
 	go func() {
 		defer b.wg.Done()
 		for {
@@ -302,7 +302,7 @@ func (b *Bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
 // sending the message will be dropped.
 func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	b.mutex.RLock()
-	defer b.mutex.Unlock()
+	defer b.mutex.RUnlock()
 	if !b.started {
 		// Drop event if not ready
 		switch msg.Code {
