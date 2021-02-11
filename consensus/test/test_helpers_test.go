@@ -415,9 +415,9 @@ wgLoop:
 			peer.blocks[ev.Block.NumberU64()] = block{ev.Block.Hash(), len(ev.Block.Transactions())}
 			peer.lastBlock = ev.Block.NumberU64()
 
-			logger.Error("last mined block", "peer", index,
-				"num", peer.lastBlock, "hash", peer.blocks[ev.Block.NumberU64()].hash,
-				"txCount", peer.blocks[ev.Block.NumberU64()].txs)
+			// logger.Error("last mined block", "peer", index,
+			// 	"num", peer.lastBlock, "hash", peer.blocks[ev.Block.NumberU64()].hash,
+			// 	"txCount", peer.blocks[ev.Block.NumberU64()].txs)
 
 			if atomic.LoadUint32(testCanBeStopped) == 1 {
 				if atomic.LoadInt64(test.validatorsCanBeStopped) == int64(len(peers)) {

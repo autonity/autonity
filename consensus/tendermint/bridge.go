@@ -559,7 +559,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			))
 		}
 		b.dlog.print("sending message", cm.String())
-		println("msghash", common.BytesToHash(crypto.Keccak256(msg)).String()[2:6])
+		// println("msghash", common.BytesToHash(crypto.Keccak256(msg)).String()[2:6])
 
 		// send to self
 		b.postEvent(msg)
@@ -636,7 +636,7 @@ eventLoop:
 					continue
 				}
 
-				println("handling current height message", m.consensusMessage.String())
+				// println("handling current height message", m.consensusMessage.String())
 				err = b.handleCurrentHeightMessage(m)
 				if err == errStopped {
 					return
@@ -911,8 +911,9 @@ func newDebugLog(prefix ...interface{}) *debugLog {
 }
 
 func (d *debugLog) print(info ...interface{}) {
-	log := append(d.prefix, info...)
-	fmt.Printf("%v %v", time.Now().Format(time.RFC3339Nano), fmt.Sprintln(log...))
+
+	// log := append(d.prefix, info...)
+	// fmt.Printf("%v %v", time.Now().Format(time.RFC3339Nano), fmt.Sprintln(log...))
 }
 
 func bid(b *types.Block) string {
