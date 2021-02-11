@@ -237,15 +237,15 @@ func (b *testBridges) proposer() ([]*testBridge, error) {
 	return proposers, nil
 }
 
-func (b *testBridges) start() error {
-	for _, bridge := range b.bridges {
-		err := bridge.Start()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// func (b *testBridges) start() error {
+// 	for _, bridge := range b.bridges {
+// 		err := bridge.Start()
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (b *testBridges) stop() error {
 	for _, bridge := range b.bridges {

@@ -44,7 +44,7 @@ func New(
 		high:   5,
 		low:    5,
 	}
-	c := &Bridge{
+	b := &Bridge{
 		Verifier:             verifier,
 		DefaultFinalizer:     finalizer,
 		key:                  key,
@@ -62,10 +62,15 @@ func New(
 
 		eventChannel:     make(chan interface{}),
 		commitChannel:    make(chan *types.Block),
+		closeChannel:     make(chan struct{}),
 		autonityContract: ac,
 		wg:               &sync.WaitGroup{},
 	}
-	return c
+	b.syncer.Start()
+	b.currentBlockAwaiter.start()
+	b.wg.Add(1)
+	go b.mainEventLoop()
+	return b
 }
 
 // Bridge acts as a intermediary between the tendermint algorithm and the go
@@ -157,7 +162,7 @@ type Bridge struct {
 
 	// mutext protects the fields below, this complicates things by having start stop.
 	mutex        sync.RWMutex
-	started      bool
+	stopped      bool
 	closeChannel chan struct{}
 	wg           *sync.WaitGroup
 }
@@ -260,7 +265,14 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	// lifetime of the goroutine that reads the commitChannel. So we must not
 	// exit the commitChannel when sending a block, instead we must wait for
 	// the miner's signal to stop or exit when we close the bridge.
+	b.mutex.RLock()
+	if b.stopped {
+		b.mutex.RUnlock()
+		return nil
+	}
 	b.wg.Add(1)
+	b.mutex.RUnlock()
+
 	go func() {
 		defer b.wg.Done()
 		for {
@@ -355,8 +367,8 @@ func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 func (b *Bridge) postEvent(e interface{}) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
-	if !b.started {
-		return // Drop event if not ready
+	if b.stopped {
+		return // Drop event if stopped
 	}
 
 	// start := time.Now()
@@ -449,29 +461,13 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 
 var errStopped = errors.New("stopped")
 
-func (b *Bridge) Start() error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	if b.started {
-		return fmt.Errorf("bridge %s started twice", b.address.String())
-	}
-	b.started = true
-	b.closeChannel = make(chan struct{})
-
-	b.syncer.Start()
-	b.currentBlockAwaiter.start()
-	b.wg.Add(1)
-	go b.mainEventLoop()
-	return nil
-}
-
 func (b *Bridge) Close() error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	if !b.started {
+	if b.stopped {
 		return fmt.Errorf("bridge %s closed twice", b.address.String())
 	}
-	b.started = false
+	b.stopped = true
 
 	close(b.closeChannel)
 	b.syncer.Stop()

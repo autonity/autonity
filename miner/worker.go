@@ -289,25 +289,8 @@ func (w *worker) pendingBlock() *types.Block {
 	return w.snapshotBlock
 }
 
-// This is an interface for the Start method defined on
-// consensus/tendermint/backend.Backend. It allows the miner package to not
-// have any compile dependencies on the tendermint packages, but it is very
-// hacky and it would be nice if we could avoid doing this. It is very easy to
-// change the start method and not realise that this needs to be modified, not
-// updating this to match the start method breaks a lot of stuff since the
-// tendermint consensus engine is never started.
-type starter interface {
-	Start() error
-}
-
 // start sets the running status as 1 and triggers new work submitting.
 func (w *worker) start() {
-	if pos, ok := w.engine.(starter); ok {
-		err := pos.Start()
-		if err != nil {
-			log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)
-		}
-	}
 	atomic.StoreInt32(&w.running, 1)
 	w.startCh <- struct{}{}
 }
@@ -315,10 +298,6 @@ func (w *worker) start() {
 // stop sets the running status as 0.
 func (w *worker) stop() {
 	atomic.StoreInt32(&w.running, 0)
-	err := w.engine.Close()
-	if err != nil {
-		log.Error("Error stopping Consensus Engine", "error", err)
-	}
 }
 
 // isRunning returns an indicator whether worker is running or not.

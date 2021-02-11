@@ -151,7 +151,4 @@ type PoW interface {
 type BFT interface {
 	Engine
 	Handler
-
-	// Start starts the engine
-	Start() error
 }
