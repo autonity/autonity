@@ -234,9 +234,6 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 				// b.dlog.print("commitCh receive done", bid(committedBlock))
 				select {
 				case results <- committedBlock:
-				case <-stop:
-					b.dlog.print("commitCh receive, stopped by miner", bid(block))
-					return
 				case <-b.closeChannel:
 					b.dlog.print("commitCh receive, stopped by closeCh", bid(block))
 					return
