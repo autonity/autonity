@@ -397,6 +397,16 @@ func (b *testBridge) pendingMessage(timeout time.Duration) *message {
 	}
 }
 
+// keeps requesting messages from the pending messages untill none are
+// returned. This is required to free up the routine from the bridge that might
+// be stuck trying to send on the messageChan, so that we can close the bridge.
+func (b *testBridge) drainPendingMessages(timeout time.Duration) {
+	msg := &message{}
+	for msg != nil {
+		msg = b.pendingMessage(timeout)
+	}
+}
+
 func (b *testBridge) proposer() (common.Address, error) {
 	var round int64
 	if b.lastSentMessage != nil {

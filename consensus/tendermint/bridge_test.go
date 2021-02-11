@@ -198,6 +198,10 @@ func TestReachingConsensus(t *testing.T) {
 	block = proposer.committedBlock(to, result)
 	require.Nil(t, block)
 
+	// broadcast all precommit messages
+	err = bridges.broadcastPendingMessages(to)
+	require.NoError(t, err)
+
 	// Start brodacsting precommit messages one by one, at this point all the
 	// bridges will have handled their own precommit message, so it will only
 	// take 2 more to bring the network to agreement on the block.
@@ -208,49 +212,26 @@ func TestReachingConsensus(t *testing.T) {
 		Value:   algorithm.ValueID(proposal.Hash()),
 	}
 
-	b := bridges.bridges[0]
-	msg := b.pendingMessage(to)
-	validateMessage(t, msg, expectedConsensusMessage, b)
-	err = bridges.broadcast(msg)
-	require.NoError(t, err)
-
-	// check block not yet committed
-	block = proposer.committedBlock(to, result)
-	require.Nil(t, block)
-
-	b = bridges.bridges[1]
-	msg = b.pendingMessage(to)
-	validateMessage(t, msg, expectedConsensusMessage, b)
-	err = bridges.broadcast(msg)
-	require.NoError(t, err)
-
-	// check block not yet committed
-	block = proposer.committedBlock(to, result)
-	require.Nil(t, block)
-
-	b = bridges.bridges[2]
-	msg = b.pendingMessage(to)
-	validateMessage(t, msg, expectedConsensusMessage, b)
-	err = bridges.broadcast(msg)
-	require.NoError(t, err)
-
-	// Now we expect the block to be committed, since 3 of 4 nodes has
-	// broadcast their precommit messages and each of those nodes will have
-	// processed their own precommit message giving us 3 of 4 commit messages
-	// in the nodes that have broadcast their message.
-
-	// We need to check if b is the proposer so that we can correctly pass
-	// sealChan to committedBlock.
-	var sealChan chan *types.Block
-	if b.address == proposer.address {
-		sealChan = result
+	for _, b := range bridges.bridges {
+		msg := b.lastSentMessage
+		validateMessage(t, msg, expectedConsensusMessage, b)
 	}
-	committedBlock := b.committedBlock(to, sealChan)
+
+	for _, b := range bridges.bridges {
+		// drain pending messages to unblock goroutines that could be stuck at
+		// broadcast. This allows the nodes to process the just sent precommit
+		// messages.
+		b.drainPendingMessages(to)
+	}
+	// Now we expect the block to be committed
+	committedBlock := proposer.committedBlock(to, result)
 	// Check it is the correct block
 	assert.Equal(t, proposal.Hash(), committedBlock.Hash())
-	// Check it has the right number of committed seals
+	// Check it has the right number of committed seals, since the algorithm is
+	// always run in a single goroutine, we can be sure that the block will be
+	// committed with the minimum required committed seals, in this case 3/4.
 	assert.Len(t, committedBlock.Header().CommittedSeals, 3)
 	// Verify the header
-	err = b.VerifyHeader(b.blockchain, committedBlock.Header(), true)
+	err = proposer.VerifyHeader(proposer.blockchain, committedBlock.Header(), true)
 	assert.NoError(t, err)
 }
