@@ -370,6 +370,11 @@ type commitEvent struct{}
 
 // NewChainHead implements consensus.Handler.NewChainHead
 func (b *Bridge) NewChainHead() error {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	if !b.started {
+		return nil
+	}
 	b.postEvent(commitEvent{})
 	return nil
 }
@@ -445,6 +450,7 @@ func (b *Bridge) Start() error {
 func (b *Bridge) Close() error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
+
 	if !b.started {
 		return fmt.Errorf("bridge %s closed twice", b.address.String())
 	}
