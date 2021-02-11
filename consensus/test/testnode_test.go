@@ -163,10 +163,6 @@ func (validator *testNode) startService() error {
 		return fmt.Errorf("cant start mining %s", err)
 	}
 
-	for !validator.service.IsMining() {
-		time.Sleep(50 * time.Millisecond)
-	}
-
 	validator.isRunning = true
 
 	return nil
