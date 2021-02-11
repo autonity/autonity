@@ -738,8 +738,6 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 		_, err := b.verifier.VerifyProposal(*b.msgStore.value(common.Hash(cm.Value)), b.blockchain, b.address.String())
 		if err == nil {
 			b.msgStore.setValid(common.Hash(cm.Value))
-		} else {
-			println("not valid", err.Error())
 		}
 	}
 
@@ -928,8 +926,8 @@ func newDebugLog(prefix ...interface{}) *debugLog {
 }
 
 func (d *debugLog) print(info ...interface{}) {
-	log := append(d.prefix, info...)
-	fmt.Printf("%v %v", time.Now().Format(time.RFC3339Nano), fmt.Sprintln(log...))
+	// log := append(d.prefix, info...)
+	// fmt.Printf("%v %v", time.Now().Format(time.RFC3339Nano), fmt.Sprintln(log...))
 }
 
 func bid(b *types.Block) string {
