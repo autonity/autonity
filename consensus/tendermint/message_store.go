@@ -168,7 +168,11 @@ func addMsgHash(
 		addressMap = make(map[common.Address]common.Hash)
 		msgTypeMap[msgType] = addressMap
 	}
-	addressMap[address] = hash // TODO check for duplicates here, accountablitiy
+	existingHash, ok := addressMap[address]
+	if ok && existingHash != hash {
+		return fmt.Errorf("received conflicting messages from %s", addr(address))
+	}
+	addressMap[address] = hash
 
 	return nil
 }
