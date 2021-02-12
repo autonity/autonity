@@ -80,7 +80,6 @@ func TestTendermintStarOverParticipantSuccess(t *testing.T) {
 }
 
 func TestTendermintBusSuccess(t *testing.T) {
-	t.Skip("This test is failing intermittently")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
