@@ -76,6 +76,8 @@ func SigHash(header *Header) (hash common.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
 
 	// Clean seal is required for calculating proposer seal.
+	// TODO I changed the bool to false, this actually means
+	// that proposer seal is not protected in a chain.
 	err := rlp.Encode(hasher, BFTFilteredHeader(header, false))
 	if err != nil {
 		log.Error("can't hash the header", "err", err, "header", header)
@@ -92,7 +94,7 @@ func Ecrecover(header *Header) (common.Address, error) {
 		return addr.(common.Address), nil
 	}
 
-	addr, err := GetSignatureAddress(SigHash(header).Bytes(), header.ProposerSeal)
+	addr, err := GetSignatureAddressHash(hash.Bytes(), header.ProposerSeal)
 	if err != nil {
 		return addr, err
 	}
@@ -148,12 +150,8 @@ func RLPHash(v interface{}) (h common.Hash) {
 	return h
 }
 
-// GetSignatureAddress gets the signer address from the signature
-func GetSignatureAddress(data []byte, sig []byte) (common.Address, error) {
-	// 1. Keccak data
-	hashData := crypto.Keccak256(data)
-	// 2. Recover public key
-	pubkey, err := crypto.SigToPub(hashData, sig)
+func GetSignatureAddressHash(hash []byte, sig []byte) (common.Address, error) {
+	pubkey, err := crypto.SigToPub(hash, sig)
 	if err != nil {
 		return common.Address{}, err
 	}

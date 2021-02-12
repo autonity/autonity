@@ -16,8 +16,6 @@ import (
 	"github.com/clearmatics/autonity/common/fdlimit"
 	"github.com/clearmatics/autonity/common/graph"
 	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/consensus"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -45,11 +43,10 @@ type testCase struct {
 	txPerPeer              int
 	validatorsCanBeStopped *int64
 
-	maliciousPeers          map[string]injectors
+	maliciousPeers          map[string]struct{}
 	removedPeers            map[common.Address]uint64
 	addedValidatorsBlocks   map[common.Hash]uint64
-	removedValidatorsBlocks map[common.Hash]uint64    //nolint: unused, structcheck
-	changedValidators       tendermintBackend.Changes //nolint: unused,structcheck
+	removedValidatorsBlocks map[common.Hash]uint64 //nolint: unused, structcheck
 
 	networkRates         map[string]networkRate //map[validatorIndex]networkRate
 	beforeHooks          map[string]hook        //map[validatorIndex]beforeHook
@@ -63,10 +60,6 @@ type testCase struct {
 	noQuorumTimeout      time.Duration
 	topology             *Topology
 	skipNoLeakCheck      bool
-}
-
-type injectors struct {
-	cons func(basic consensus.Engine) consensus.Engine
 }
 
 func (test *testCase) getBeforeHook(index string) hook {
@@ -201,9 +194,6 @@ func runTest(t *testing.T, test *testCase) {
 	wg := &errgroup.Group{}
 	for i, peer := range nodes {
 		peer := peer
-		if test.maliciousPeers != nil {
-			peer.engineConstructor = test.maliciousPeers[i].cons
-		}
 		peer.listener[0].Close()
 		peer.listener[1].Close()
 

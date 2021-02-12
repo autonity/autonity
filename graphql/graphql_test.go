@@ -18,11 +18,12 @@ package graphql
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/core"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/clearmatics/autonity/core"
 
 	"github.com/clearmatics/autonity/eth"
 	"github.com/clearmatics/autonity/node"
@@ -114,7 +115,7 @@ func createGQLService(t *testing.T, stack *node.Node) {
 	// create backend
 	chainConf := eth.DefaultConfig
 	chainConf.Genesis = new(core.Genesis)
-	ethBackend, err := eth.New(stack, &chainConf, nil)
+	ethBackend, err := eth.New(stack, &chainConf)
 	if err != nil {
 		t.Fatalf("could not create eth backend: %v", err)
 	}

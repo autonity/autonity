@@ -20,9 +20,6 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/clearmatics/autonity/internal/ethapi"
-	"github.com/clearmatics/autonity/internal/flags"
-	"github.com/clearmatics/autonity/metrics/exp"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -32,6 +29,10 @@ import (
 	"text/tabwriter"
 	"text/template"
 	"time"
+
+	"github.com/clearmatics/autonity/internal/ethapi"
+	"github.com/clearmatics/autonity/internal/flags"
+	"github.com/clearmatics/autonity/metrics/exp"
 
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/accounts/keystore"
@@ -1481,7 +1482,7 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) ethapi.Backend {
 		}
 		return backend.ApiBackend
 	} else {
-		backend, err := eth.New(stack, cfg, nil)
+		backend, err := eth.New(stack, cfg)
 		if err != nil {
 			Fatalf("Failed to register the Ethereum service: %v", err)
 		}
