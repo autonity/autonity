@@ -244,6 +244,19 @@ func (b *Bridge) APIs(chain consensus.ChainReader) []rpc.API {
 // Seal implements consensus.Engine.Seal.
 func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 
+	// Verify that the block looks correct and that we are part of the committee
+	header := block.Header()
+	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	if parent == nil {
+		b.logger.Error("Error ancestor")
+		return consensus.ErrUnknownAncestor
+	}
+	nodeAddress := b.address
+	if parent.CommitteeMember(nodeAddress) == nil {
+		b.logger.Error("error validator errUnauthorized", "addr", b.address)
+		return errUnauthorized
+	}
+
 	// Set up a goroutine to pass results back to the miner. We will only send
 	// a block on the commitChannel if we are the proposer.
 	//
@@ -289,20 +302,6 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 			}
 		}
 	}()
-
-	// update the block header and signature and propose the block to core engine
-	header := block.Header()
-
-	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if parent == nil {
-		b.logger.Error("Error ancestor")
-		return consensus.ErrUnknownAncestor
-	}
-	nodeAddress := b.address
-	if parent.CommitteeMember(nodeAddress) == nil {
-		b.logger.Error("error validator errUnauthorized", "addr", b.address)
-		return errUnauthorized
-	}
 
 	// wait for the timestamp of header, use this to adjust the block period
 	delay := time.Until(time.Unix(int64(block.Header().Time), 0))
