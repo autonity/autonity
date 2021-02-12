@@ -7,6 +7,7 @@ on:
   # pull_request triggers this workflow on both internal and forked pull
   # requests.
   pull_request:
+  push: # the manual trigger seems broken for now (triggers only develop)
 
 env:
   # We don't have access to the HOME environment variable here since we are not

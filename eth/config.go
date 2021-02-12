@@ -17,13 +17,14 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math/big"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	lpc "github.com/clearmatics/autonity/les/lespay/client"
+
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
@@ -36,7 +38,6 @@ import (
 	"github.com/clearmatics/autonity/eth/gasprice"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/internal/ethapi"
-	lpc "github.com/clearmatics/autonity/les/lespay/client"
 	"github.com/clearmatics/autonity/light"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/node"
@@ -104,11 +105,14 @@ func New(stack *node.Node, config *eth.Config) (*LightEthereum, error) {
 		eventMux:       stack.EventMux(),
 		reqDist:        newRequestDistributor(peers, &mclock.System{}),
 		accountManager: stack.AccountManager(),
-		engine:         eth.CreateConsensusEngine(stack, chainConfig, config, nil, false, chainDb, nil),
-		bloomRequests:  make(chan chan *bloombits.Retrieval),
-		bloomIndexer:   eth.NewBloomIndexer(chainDb, params.BloomBitsBlocksClient, params.HelperTrieConfirmations),
-		valueTracker:   lpc.NewValueTracker(lespayDb, &mclock.System{}, requestList, time.Minute, 1/float64(time.Hour), 1/float64(time.Hour*100), 1/float64(time.Hour*1000)),
-		p2pServer:      stack.Server(),
+		// In a light client context the engine will never be started, so many
+		// components can be left as nil, since they will not be accessed.
+		// This is soooo unbeleviably hacky 0_o, hopefully this is a transitional phase.
+		engine:        eth.CreateConsensusEngine(stack, chainConfig, config, nil, false, chainDb, nil, nil, nil, nil),
+		bloomRequests: make(chan chan *bloombits.Retrieval),
+		bloomIndexer:  eth.NewBloomIndexer(chainDb, params.BloomBitsBlocksClient, params.HelperTrieConfirmations),
+		valueTracker:  lpc.NewValueTracker(lespayDb, &mclock.System{}, requestList, time.Minute, 1/float64(time.Hour), 1/float64(time.Hour*100), 1/float64(time.Hour*1000)),
+		p2pServer:     stack.Server(),
 	}
 	peers.subscribe((*vtSubscription)(leth.valueTracker))
 

@@ -7,9 +7,47 @@ package consensus
 import (
 	common "github.com/clearmatics/autonity/common"
 	types "github.com/clearmatics/autonity/core/types"
+	enode "github.com/clearmatics/autonity/p2p/enode"
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 )
+
+// MockPeers is a mock of Peers interface
+type MockPeers struct {
+	ctrl     *gomock.Controller
+	recorder *MockPeersMockRecorder
+}
+
+// MockPeersMockRecorder is the mock recorder for MockPeers
+type MockPeersMockRecorder struct {
+	mock *MockPeers
+}
+
+// NewMockPeers creates a new mock instance
+func NewMockPeers(ctrl *gomock.Controller) *MockPeers {
+	mock := &MockPeers{ctrl: ctrl}
+	mock.recorder = &MockPeersMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockPeers) EXPECT() *MockPeersMockRecorder {
+	return m.recorder
+}
+
+// Peers mocks base method
+func (m *MockPeers) Peers() []Peer {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Peers")
+	ret0, _ := ret[0].([]Peer)
+	return ret0
+}
+
+// Peers indicates an expected call of Peers
+func (mr *MockPeersMockRecorder) Peers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Peers", reflect.TypeOf((*MockPeers)(nil).Peers))
+}
 
 // MockBroadcaster is a mock of Broadcaster interface
 type MockBroadcaster struct {
@@ -44,20 +82,6 @@ func (m *MockBroadcaster) Enqueue(id string, block *types.Block) {
 func (mr *MockBroadcasterMockRecorder) Enqueue(id, block interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockBroadcaster)(nil).Enqueue), id, block)
-}
-
-// FindPeers mocks base method
-func (m *MockBroadcaster) FindPeers(arg0 map[common.Address]struct{}) map[common.Address]Peer {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindPeers", arg0)
-	ret0, _ := ret[0].(map[common.Address]Peer)
-	return ret0
-}
-
-// FindPeers indicates an expected call of FindPeers
-func (mr *MockBroadcasterMockRecorder) FindPeers(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindPeers", reflect.TypeOf((*MockBroadcaster)(nil).FindPeers), arg0)
 }
 
 // MockPeer is a mock of Peer interface
@@ -95,4 +119,32 @@ func (m *MockPeer) Send(msgcode uint64, data interface{}) error {
 func (mr *MockPeerMockRecorder) Send(msgcode, data interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockPeer)(nil).Send), msgcode, data)
+}
+
+// Address mocks base method
+func (m *MockPeer) Address() common.Address {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Address")
+	ret0, _ := ret[0].(common.Address)
+	return ret0
+}
+
+// Address indicates an expected call of Address
+func (mr *MockPeerMockRecorder) Address() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockPeer)(nil).Address))
+}
+
+// Node mocks base method
+func (m *MockPeer) Node() *enode.Node {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Node")
+	ret0, _ := ret[0].(*enode.Node)
+	return ret0
+}
+
+// Node indicates an expected call of Node
+func (mr *MockPeerMockRecorder) Node() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Node", reflect.TypeOf((*MockPeer)(nil).Node))
 }
