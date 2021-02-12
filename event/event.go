@@ -20,10 +20,11 @@ package event
 import (
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/log"
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/clearmatics/autonity/log"
 )
 
 // TypeMuxEvent is a time-tagged notification pushed to subscribers.

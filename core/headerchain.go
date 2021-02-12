@@ -56,6 +56,7 @@ const (
 // It is not thread safe either, the encapsulating chain structures should do
 // the necessary mutex locking/unlocking.
 type HeaderChain struct {
+	*headerGetter
 	config *params.ChainConfig
 
 	chainDb       ethdb.Database
@@ -64,9 +65,7 @@ type HeaderChain struct {
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
 	currentHeaderHash common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
 
-	headerCache *lru.Cache // Cache for the most recent block headers
-	tdCache     *lru.Cache // Cache for the most recent block total difficulties
-	numberCache *lru.Cache // Cache for the most recent block numbers
+	tdCache *lru.Cache // Cache for the most recent block total difficulties
 
 	procInterrupt func() bool
 
@@ -76,10 +75,8 @@ type HeaderChain struct {
 
 // NewHeaderChain creates a new HeaderChain structure. ProcInterrupt points
 // to the parent's interrupt semaphore.
-func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
-	headerCache, _ := lru.New(headerCacheLimit)
+func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool, hg *headerGetter) (*HeaderChain, error) {
 	tdCache, _ := lru.New(tdCacheLimit)
-	numberCache, _ := lru.New(numberCacheLimit)
 
 	// Seed a fast but crypto originating random generator
 	seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
@@ -88,11 +85,10 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 	}
 
 	hc := &HeaderChain{
+		headerGetter:  hg,
 		config:        config,
 		chainDb:       chainDb,
-		headerCache:   headerCache,
 		tdCache:       tdCache,
-		numberCache:   numberCache,
 		procInterrupt: procInterrupt,
 		rand:          mrand.New(mrand.NewSource(seed.Int64())),
 		engine:        engine,
@@ -113,20 +109,6 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 	headHeaderGauge.Update(hc.CurrentHeader().Number.Int64())
 
 	return hc, nil
-}
-
-// GetBlockNumber retrieves the block number belonging to the given hash
-// from the cache or database
-func (hc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
-	if cached, ok := hc.numberCache.Get(hash); ok {
-		number := cached.(uint64)
-		return &number
-	}
-	number := rawdb.ReadHeaderNumber(hc.chainDb, hash)
-	if number != nil {
-		hc.numberCache.Add(hash, *number)
-	}
-	return number
 }
 
 // WriteHeader writes a header into the local chain, given that its parent is
@@ -219,8 +201,7 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 		status = SideStatTy
 	}
 	hc.tdCache.Add(hash, externTd)
-	hc.headerCache.Add(hash, header)
-	hc.numberCache.Add(hash, number)
+	hc.AddToCache(hash, number, header)
 	return
 }
 
@@ -420,52 +401,6 @@ func (hc *HeaderChain) GetTdByHash(hash common.Hash) *big.Int {
 		return nil
 	}
 	return hc.GetTd(hash, *number)
-}
-
-// GetHeader retrieves a block header from the database by hash and number,
-// caching it if found.
-func (hc *HeaderChain) GetHeader(hash common.Hash, number uint64) *types.Header {
-	// Short circuit if the header's already in the cache, retrieve otherwise
-	if header, ok := hc.headerCache.Get(hash); ok {
-		return header.(*types.Header)
-	}
-	header := rawdb.ReadHeader(hc.chainDb, hash, number)
-	if header == nil {
-		return nil
-	}
-	// Cache the found header for next time and return
-	hc.headerCache.Add(hash, header)
-	return header
-}
-
-// GetHeaderByHash retrieves a block header from the database by hash, caching it if
-// found.
-func (hc *HeaderChain) GetHeaderByHash(hash common.Hash) *types.Header {
-	number := hc.GetBlockNumber(hash)
-	if number == nil {
-		return nil
-	}
-	return hc.GetHeader(hash, *number)
-}
-
-// HasHeader checks if a block header is present in the database or not.
-// In theory, if header is present in the database, all relative components
-// like td and hash->number should be present too.
-func (hc *HeaderChain) HasHeader(hash common.Hash, number uint64) bool {
-	if hc.numberCache.Contains(hash) || hc.headerCache.Contains(hash) {
-		return true
-	}
-	return rawdb.HasHeader(hc.chainDb, hash, number)
-}
-
-// GetHeaderByNumber retrieves a block header from the database by number,
-// caching it (associated with its hash) if found.
-func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
-	hash := rawdb.ReadCanonicalHash(hc.chainDb, number)
-	if hash == (common.Hash{}) {
-		return nil
-	}
-	return hc.GetHeader(hash, number)
 }
 
 func (hc *HeaderChain) GetCanonicalHash(number uint64) common.Hash {

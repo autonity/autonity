@@ -2,14 +2,15 @@ package test
 
 import (
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
 )
 
 /*

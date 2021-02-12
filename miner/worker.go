@@ -18,7 +18,6 @@ package miner
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"math/big"
 	"sync"
@@ -292,12 +291,6 @@ func (w *worker) pendingBlock() *types.Block {
 
 // start sets the running status as 1 and triggers new work submitting.
 func (w *worker) start() {
-	if pos, ok := w.engine.(consensus.BFT); ok {
-		err := pos.Start(context.Background())
-		if err != nil {
-			log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)
-		}
-	}
 	atomic.StoreInt32(&w.running, 1)
 	w.startCh <- struct{}{}
 }
@@ -305,10 +298,6 @@ func (w *worker) start() {
 // stop sets the running status as 0.
 func (w *worker) stop() {
 	atomic.StoreInt32(&w.running, 0)
-	err := w.engine.Close()
-	if err != nil {
-		log.Error("Error stopping Consensus Engine", "error", err)
-	}
 }
 
 // isRunning returns an indicator whether worker is running or not.

@@ -25,21 +25,20 @@ import (
 	"sync"
 	"sync/atomic"
 
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
-
 	"github.com/clearmatics/autonity/accounts"
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/ethash"
-	tendermintcore "github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/consensus/tendermint"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/bloombits"
 	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/eth/filters"
 	"github.com/clearmatics/autonity/eth/gasprice"
@@ -50,6 +49,7 @@ import (
 	"github.com/clearmatics/autonity/miner"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/p2p/enr"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
@@ -95,7 +95,7 @@ type Ethereum struct {
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) consensus.Engine) (*Ethereum, error) {
+func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
@@ -146,10 +146,25 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	)
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
-	consEngine := CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig)
-	if cons != nil {
-		consEngine = cons(consEngine)
+	hg, err := core.NewHeaderGetter(chainDb)
+	if err != nil {
+		return nil, err
 	}
+	var autonityContract *autonity.Contract
+	if chainConfig.Tendermint != nil {
+		autonityContract, err = autonity.NewAutonityContractFromConfig(
+			chainDb,
+			hg,
+			core.NewDefaultEVMProvider(hg, vmConfig, chainConfig),
+			chainConfig.AutonityContractConfig,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	statedb := state.NewDatabaseWithCache(chainDb, cacheConfig.TrieCleanLimit, cacheConfig.TrieCleanJournal)
+	peers := NewPeerSet()
+	consEngine := CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig, peers, statedb, autonityContract)
 
 	eth := &Ethereum{
 		config:            config,
@@ -188,14 +203,11 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		}
 	}
 	senderCacher := core.NewTxSenderCacher()
-	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, senderCacher, &config.TxLookupLimit)
+	eth.blockchain, err = core.NewBlockChainWithState(chainDb, statedb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, senderCacher, &config.TxLookupLimit, hg, autonityContract)
 	if err != nil {
 		return nil, err
 	}
 
-	if be, ok := consEngine.(tendermintcore.Backend); ok {
-		be.SetBlockchain(eth.blockchain)
-	}
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
@@ -215,11 +227,15 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, &stack.Config().NodeKey().PublicKey); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, &stack.Config().NodeKey().PublicKey, peers); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
+
+	if bridge, ok := consEngine.(*tendermint.Bridge); ok {
+		bridge.SetExtraComponents(eth.blockchain, eth.protocolManager)
+	}
 
 	eth.APIBackend = &EthAPIBackend{stack.Config().ExtRPCEnabled(), eth, nil}
 	gpoParams := config.GPO
@@ -255,10 +271,26 @@ func makeExtraData(extra []byte) []byte {
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
+func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config, peers consensus.Peers, state state.Database, autonityContract *autonity.Contract) consensus.Engine {
 
 	if chainConfig.Tendermint != nil {
-		return tendermintBackend.New(&config.Tendermint, ctx.Config().NodeKey(), db, chainConfig, vmConfig)
+		finalizer := tendermint.NewFinalizer(autonityContract)
+		address := crypto.PubkeyToAddress(ctx.Config().NodeKey().PublicKey)
+		verifier := tendermint.NewVerifier(vmConfig, finalizer, address, chainConfig.Tendermint.BlockPeriod)
+		syncer := tendermint.NewSyncer(peers, address)
+		broadcaster := tendermint.NewBroadcaster(address, peers)
+		latestBlockRetriever := tendermint.NewBlockReader(db, state)
+		return tendermint.New(
+			chainConfig.Tendermint,
+			ctx.Config().NodeKey(),
+			broadcaster,
+			syncer,
+			verifier,
+			finalizer,
+			latestBlockRetriever,
+			autonityContract,
+			&tendermint.DefaultTimeoutScheduler{},
+		)
 	}
 
 	// Otherwise assume proof-of-work
@@ -529,8 +561,11 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Lifecycle, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start() error {
-	s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
-	go s.glienickeEventLoop(s.p2pServer)
+	if s.config.Genesis != nil && s.config.Genesis.Config.AutonityContractConfig != nil {
+		// Subscribe to Autonity updates events
+		s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
+		go s.glienickeEventLoop(s.p2pServer)
+	}
 
 	s.startEthEntryUpdate(s.p2pServer.LocalNode())
 
@@ -554,9 +589,16 @@ func (s *Ethereum) Start() error {
 // for updating the list of authorized enodes
 func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 
-	savedList := rawdb.ReadEnodeWhitelist(s.chainDb)
-	log.Info("Reading Whitelist", "list", savedList.StrList)
-	server.UpdateWhitelist(savedList.List)
+	state, err := s.blockchain.State()
+	if err != nil {
+		panic(err)
+	}
+	list, err := s.APIBackend.AutonityContract().GetWhitelist(s.blockchain.CurrentBlock(), state)
+	if err != nil {
+		panic(err)
+	}
+	log.Info("Reading Whitelist", "list", list.StrList)
+	server.UpdateWhitelist(list.List)
 
 	for {
 		select {
@@ -596,12 +638,16 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
 	s.protocolManager.Stop()
-	s.glienickeSub.Unsubscribe()
+	if s.config.Genesis != nil && s.config.Genesis.Config.AutonityContractConfig != nil {
+		s.glienickeSub.Unsubscribe()
+	}
+
 	// Then stop everything else.
 	s.bloomIndexer.Close()
 	close(s.closeBloomHandler)
 	s.txPool.Stop()
 	s.miner.Close()
+	s.engine.Close()
 	s.blockchain.Stop()
 	s.chainDb.Close()
 	s.eventMux.Stop()

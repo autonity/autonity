@@ -31,7 +31,6 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth/downloader"
@@ -113,7 +112,7 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey, peerset *peerSet) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
@@ -122,16 +121,13 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		txpool:      txpool,
 		blockchain:  blockchain,
 		chaindb:     chaindb,
-		peers:       newPeerSet(),
+		peers:       peerset,
 		engine:      engine,
 		whitelist:   whitelist,
 		whitelistCh: make(chan core.WhitelistEvent, 64),
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
 		pub:         pub,
-	}
-	if handler, ok := manager.engine.(consensus.Handler); ok {
-		handler.SetBroadcaster(manager)
 	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
@@ -217,7 +213,17 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	manager.txFetcher = fetcher.NewTxFetcher(txpool.Has, txpool.AddRemotes, fetchTx)
 
 	manager.chainSync = newChainSyncer(manager)
-	manager.enodesWhitelist = rawdb.ReadEnodeWhitelist(chaindb).List
+	s, err := blockchain.State()
+	if err != nil {
+		return nil, err
+	}
+	if config.Tendermint != nil {
+		list, err := blockchain.GetAutonityContract().GetWhitelist(blockchain.CurrentBlock(), s)
+		if err != nil {
+			return nil, err
+		}
+		manager.enodesWhitelist = list.List
+	}
 	return manager, nil
 }
 
@@ -397,12 +403,6 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// after this will be sent via broadcasts.
 	pm.syncTransactions(p)
 
-	if pm.blockchain.Config().Tendermint != nil {
-		syncer := pm.blockchain.Engine().(consensus.Syncer)
-		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
-		syncer.ResetPeerCache(address)
-	}
-
 	// If we have a trusted CHT, reject all peers below that (avoid fast sync eclipse)
 	if pm.checkpointHash != (common.Hash{}) {
 		// Request the peer's checkpoint header for chain height/weight validation
@@ -438,10 +438,17 @@ func (pm *ProtocolManager) handle(p *peer) error {
 }
 
 func (pm *ProtocolManager) IsInWhitelist(id enode.ID, td uint64, logger log.Logger) error {
+
+	// If the whitelist is nil it means that we did not set it in the
+	// constructor which means we are not operating in Tendermint mode and
+	// therefore all peers are whitelisted.
+	pm.enodesWhitelistLock.RLock()
+	if pm.enodesWhitelist == nil {
+		return nil
+	}
 	head := pm.blockchain.CurrentHeader()
 
 	whitelisted := false
-	pm.enodesWhitelistLock.RLock()
 	for _, enode := range pm.enodesWhitelist {
 		if id == enode.ID() {
 			whitelisted = true
@@ -1033,23 +1040,6 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 			return
 		}
 	}
-}
-
-func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) map[common.Address]consensus.Peer {
-	m := make(map[common.Address]consensus.Peer)
-
-	for _, p := range pm.peers.Peers() {
-		pubKey := p.Node().Pubkey()
-		if pubKey == nil {
-			continue
-		}
-		addr := crypto.PubkeyToAddress(*pubKey)
-		if _, ok := targets[addr]; ok {
-			m[addr] = p
-		}
-	}
-
-	return m
 }
 
 // NodeInfo represents a short summary of the Ethereum sub-protocol metadata

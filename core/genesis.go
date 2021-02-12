@@ -160,6 +160,9 @@ func (e *GenesisMismatchError) Error() string {
 // error is a *params.ConfigCompatError and the new, unwritten config is returned.
 //
 // The returned chain configuration is never nil.
+// Note the Config field of the provided genesis (which is of type *params.ChainConfig)
+// is not updated in the call to this function, so after calling this function only the
+// returned ChainConfig should be used.
 func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
 	// Just commit the new block if there is no stored genesis block.
 	stored := rawdb.ReadCanonicalHash(db, 0)
@@ -392,16 +395,6 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadFastBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	if g.Config.AutonityContractConfig != nil {
-		enodes := make([]string, 0, len(g.Config.AutonityContractConfig.Users))
-		for _, v := range g.Config.AutonityContractConfig.Users {
-			if v.Enode != "" {
-				enodes = append(enodes, v.Enode)
-			}
-		}
-
-		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodes))
-	}
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }
