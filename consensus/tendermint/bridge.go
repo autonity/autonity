@@ -131,7 +131,6 @@ func New(
 //
 // consensus.Broadcaster -> broadcasts committed blocks to the rest of the system.
 type Bridge struct {
-
 	// These embedded fields provide utility functions for the ethereum system.
 	*DefaultFinalizer
 	*Verifier
@@ -186,6 +185,42 @@ type Bridge struct {
 	stopped      bool
 	closeChannel chan struct{}
 	wg           *sync.WaitGroup
+}
+
+// Protocol implements consensus.Handler.Protocol
+func (b *Bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
+	return "tendermint", 2 //nolint
+}
+
+// HandleMsg implements consensus.Handler.HandleMsg, this returns a bool to
+// indicate whether the message was handled, if we return false then the
+// message will be passed on by the caller to be handled by the default eth
+// handler. If this function returns an error then the connection to the peer
+// sending the message will be dropped.
+func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
+	switch msg.Code {
+	case tendermintMsg:
+		var data []byte
+		if err := msg.Decode(&data); err != nil {
+			return true, fmt.Errorf("failed to decode tendermint message: %v", err)
+		}
+		b.postEvent(data)
+		return true, nil
+	case tendermintSyncMsg:
+		b.postEvent(addr)
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
+// a sentinal type to indicate that we have a new chain head
+type newChainHead struct{}
+
+// NewChainHead implements consensus.Handler.NewChainHead
+func (b *Bridge) NewChainHead() error {
+	b.postEvent(newChainHead{})
+	return nil
 }
 
 func (b *Bridge) SealHash(header *types.Header) common.Hash {
@@ -303,7 +338,7 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 		}
 	}()
 
-	// wait for the timestamp of header, use this to adjust the block period
+	// wait for the timestamp of header before passing on the block
 	delay := time.Until(time.Unix(int64(block.Header().Time), 0))
 	select {
 	case <-time.After(delay):
@@ -314,44 +349,9 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 		return nil
 	}
 
-	// b.dlog.print("setting value", bid(block), "current height", b.height.String())
+	// Pass the block to the awaiter, the block will be available to to us when
+	// we next need to propose.
 	b.currentBlockAwaiter.setValue(block)
-	return nil
-}
-
-// Protocol implements consensus.Handler.Protocol
-func (b *Bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
-	return "tendermint", 2 //nolint
-}
-
-// HandleMsg implements consensus.Handler.HandleMsg, this returns a bool to
-// indicate whether the message was handled, if we return false then the
-// message will be passed on by the caller to be handled by the default eth
-// handler. If this function returns an error then the connection to the peer
-// sending the message will be dropped.
-func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
-	switch msg.Code {
-	case tendermintMsg:
-		var data []byte
-		if err := msg.Decode(&data); err != nil {
-			return true, fmt.Errorf("failed to decode tendermint message: %v", err)
-		}
-		b.postEvent(data)
-		return true, nil
-	case tendermintSyncMsg:
-		b.postEvent(addr)
-		return true, nil
-	default:
-		return false, nil
-	}
-}
-
-// a sentinal type to indicate that we have a new chain head
-type newChainHead struct{}
-
-// NewChainHead implements consensus.Handler.NewChainHead
-func (b *Bridge) NewChainHead() error {
-	b.postEvent(newChainHead{})
 	return nil
 }
 
